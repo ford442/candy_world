@@ -3,6 +3,7 @@
 // Migrated 10 additional animation types from JS to WASM (Phase 1)
 
 import { getWasmInstance } from '../../utils/wasm-loader.ts';
+import { log } from '../../utils/log.ts';
 import * as THREE from 'three';
 import {
     BATCH_SIZE,
@@ -228,8 +229,8 @@ export class FoliageBatcher {
         currentOffset += BATCH_ARRAY_SIZE * 5;
 
         this.initialized = true;
-        console.log('[FoliageBatcher] WASM memory allocated using fixed offsets for batching');
-        console.log(`[FoliageBatcher] Total memory used: ${currentOffset - BATCH_MEMORY_START} bytes`);
+        log.info('FoliageBatcher', 'WASM memory allocated using fixed offsets for batching');
+        log.info('FoliageBatcher', `Total memory used: ${currentOffset - BATCH_MEMORY_START} bytes`);
     }
 
     private initExtended() {
@@ -237,7 +238,7 @@ export class FoliageBatcher {
         if (this.extendedInitialized || !instance) return;
 
         if (isCIorHeadless()) {
-            console.log('[FoliageBatcher] Skipping extended WASM allocation in CI to prevent crash');
+            log.info('FoliageBatcher', 'Skipping extended WASM allocation in CI to prevent crash');
             this.extendedInitialized = true;
             return;
         }
@@ -274,8 +275,8 @@ export class FoliageBatcher {
         currentOffset += batchSize;
 
         this.extendedInitialized = true;
-        console.log('[FoliageBatcher] Extended WASM memory allocated for new animation types');
-        console.log(`[FoliageBatcher] Extended memory used: ${currentOffset - EXTENDED_BATCH_START} bytes`);
+        log.info('FoliageBatcher', 'Extended WASM memory allocated for new animation types');
+        log.info('FoliageBatcher', `Extended memory used: ${currentOffset - EXTENDED_BATCH_START} bytes`);
     }
 
     private initSimpleBatches() {
@@ -283,7 +284,7 @@ export class FoliageBatcher {
         if (this.simpleBatchesInitialized || !instance) return;
 
         if (isCIorHeadless()) {
-            console.log('[FoliageBatcher] Skipping simple WASM allocation in CI to prevent crash');
+            log.info('FoliageBatcher', 'Skipping simple WASM allocation in CI to prevent crash');
             this.simpleBatchesInitialized = true;
             return;
         }

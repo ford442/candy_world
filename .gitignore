@@ -4,23 +4,32 @@ node_modules/
 dist/
 build/
 emsdk
+# Emscripten intermediates (libomp.a is intentionally tracked — see emscripten/REFACTORING_README.md)
+emscripten/*.o
+emscripten/penmp
+emscripten/penmp.wasm
+*.o
+*.bak
+# AssemblyScript physics WASM binaries (built via npm run build:wasm).
+# Tracked glue: src/wasm/candy_physics.js + candy_physics.d.ts (asc --bindings esm).
+*.wasm
+*.wat
+*.map
+# Emscripten / Vite production WASM (built via npm run build:emcc)
+public/candy_native*
+public/candy_physics*
 # Logs
 *.log
 npm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
-public/candy_native*
-public/candy_physics*
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-*.wasm
-*.map
-*.wat
 # Vite
 .vite/
 verify_mod_player.md

@@ -41,6 +41,7 @@ import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { updateFallingClouds } from '../foliage/clouds.ts';
 import { updateAllIntegratedSystems, type ParticleAudioData } from '../particles/index.ts';
 import { initGroundDebug, updateGroundDebug, isGroundDebugEnabled } from '../debug/ground-debug.ts';
+import { log } from '../utils/log.ts';
 
 const _scratchParticleAudioData: ParticleAudioData = {
     low: 0,
@@ -58,7 +59,7 @@ function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher') {
         try {
             batcher.update(delta);
         } catch (err) {
-            console.warn(`[GameLoop] Skipped update on ${label} (likely empty or incomplete in Core mode)`, err);
+            log.warn('GameLoop', `Skipped update on ${label} (likely empty or incomplete in Core mode)`, err);
         }
     }
 }
@@ -68,7 +69,7 @@ function safeSystemUpdate(updateFn: any, label: string, ...args: any[]) {
     try {
         updateFn(...args);
     } catch (err) {
-        console.warn(`[GameLoop] Skipped ${label} update in Core mode`, err);
+        log.warn('GameLoop', `Skipped ${label} update in Core mode`, err);
     }
 }
 
@@ -484,8 +485,9 @@ export function animate() {
     if (!_loggedWebGPULimits) {
         const limits = (rendererRef as WebGPURendererWithDeviceLimits).backend?.device?.limits;
         if (limits) {
-            console.log(
-                `[WebGPU] Buffer limits: maxUniformBufferBindingSize=${limits.maxUniformBufferBindingSize}, maxStorageBufferBindingSize=${limits.maxStorageBufferBindingSize}, maxBufferSize=${limits.maxBufferSize}`
+            log.info(
+                'WebGPU',
+                `Buffer limits: maxUniformBufferBindingSize=${limits.maxUniformBufferBindingSize}, maxStorageBufferBindingSize=${limits.maxStorageBufferBindingSize}, maxBufferSize=${limits.maxBufferSize}`
             );
             _loggedWebGPULimits = true;
         }
@@ -910,8 +912,8 @@ export function animate() {
                 }
             }
         } catch (err) {
-            console.error('[Compute] Runtime dispatch failed:', err);
-            console.warn('[Compute] Disabling compute passes for remainder of session');
+            log.error('Compute', 'Runtime dispatch failed:', err);
+            log.warn('Compute', 'Disabling compute passes for remainder of session');
             (window as any).__computeDisabled = true;
         }
     }
@@ -947,7 +949,7 @@ export function animate() {
                 sceneRef!.add(playerShieldMesh);
                 (player as any).hasShield = true;
                 setPlayerShieldMesh(playerShieldMesh);
-                console.log('[Shield] Activated Arpeggio Shield');
+                log.info('Shield', 'Activated Arpeggio Shield');
             }
             if (playerShieldMesh) {
                 playerShieldMesh.position.copy(player.position);

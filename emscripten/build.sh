@@ -107,6 +107,19 @@ fi
 
 echo "[INFO] Found em++ at: $(which em++)"
 
+if [ ! -f "$SCRIPT_DIR/libomp.a" ]; then
+    echo ""
+    echo "[ERROR] Missing vendored OpenMP archive: $SCRIPT_DIR/libomp.a"
+    echo "        Required for threaded builds (-fopenmp -lomp)."
+    echo "        See emscripten/REFACTORING_README.md (Vendored OpenMP archive)."
+    echo "        The app will use JavaScript fallbacks if native WASM is unavailable."
+    echo ""
+    rm -f "$REPO_ROOT/public/candy_native.js" \
+          "$REPO_ROOT/public/candy_native.wasm" \
+          "$REPO_ROOT/public/candy_native.worker.js" 2>/dev/null || true
+    exit 0
+fi
+
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 OUTPUT_WASM="$REPO_ROOT/public/candy_native.wasm"
 

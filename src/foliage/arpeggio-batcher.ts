@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { log } from '../utils/log.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     createCandyMaterial,
@@ -173,7 +174,7 @@ export class ArpeggioFernBatcher {
 
         // Lightweight debug indicator for biome tagging / music reactivity system
         if (!ArpeggioFernBatcher._debugLogged && CONFIG.debugNoteReactivity) {
-            console.log('[Biome] ArpeggioFernBatcher using biome=', ARPEGGIO_BIOME, 'via getBiomeUniforms()');
+            log.info('Biome', 'ArpeggioFernBatcher using biome=', ARPEGGIO_BIOME, 'via getBiomeUniforms()');
             ArpeggioFernBatcher._debugLogged = true;
         }
 
@@ -335,7 +336,7 @@ export class ArpeggioFernBatcher {
         foliageGroup.add(this.mesh);
 
         this.initialized = true;
-        console.log(`[ArpeggioBatcher] Initialized unified mesh system (Cap: ${MAX_FERNS})`);
+        log.info('ArpeggioBatcher', `Initialized unified mesh system (Cap: ${MAX_FERNS})`);
     }
 
     dispose() {
@@ -355,7 +356,7 @@ export class ArpeggioFernBatcher {
     register(dummy, options: any = {}) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_FERNS) {
-            console.warn('[ArpeggioBatcher] Max limit reached');
+            log.warn('ArpeggioBatcher', 'Max limit reached');
             return;
         }
 

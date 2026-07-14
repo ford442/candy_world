@@ -130,14 +130,17 @@ export function isObjectVisible(
     }
 
     // Frustum culling
-    // Handle Groups or objects without geometry using a bounding sphere (reuse scratch sphere)
-    if (object.geometry && object.geometry.boundingSphere) {
-        return frustum.intersectsObject(object);
-    } else {
-        _scratchSphere.center.copy(object.position);
-        _scratchSphere.radius = object.userData.radius || 5.0;
-        return frustum.intersectsSphere(_scratchSphere);
+    // Handle Meshes with geometry; Groups use a scratch bounding sphere
+    if ('geometry' in object) {
+        const mesh = object as THREE.Mesh;
+        if (mesh.geometry?.boundingSphere) {
+            return frustum.intersectsObject(object);
+        }
     }
+
+    _scratchSphere.center.copy(object.position);
+    _scratchSphere.radius = object.userData.radius || 5.0;
+    return frustum.intersectsSphere(_scratchSphere);
 }
 
 /**

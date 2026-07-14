@@ -15,11 +15,13 @@
  */
 
 import type {
+  BatchGroundHeightRequest,
+  CollisionCheckRequest,
+  GroundHeightRequest,
   PhysicsRequest,
   PhysicsResponse,
   WorldGenRequest,
   WorldGenResponse,
-  WorkerMessage,
   WorkerStats
 } from './worker-types';
 
@@ -38,6 +40,14 @@ const isOffscreenCanvasSupported = typeof OffscreenCanvas !== 'undefined';
 const PHYSICS_WORKER_URL = new URL('./physics-worker.ts', import.meta.url).href;
 const WORLDGEN_WORKER_URL = new URL('./worldgen-worker.ts', import.meta.url).href;
 
+/** Pending promise handlers for an in-flight worker request */
+type PendingRequest = {
+  resolve: (value: any) => void;
+  reject: (reason: any) => void;
+  retries: number;
+  requestId: string;
+};
+
 /**
  * Represents a pooled worker instance
  */
@@ -48,12 +58,7 @@ interface PooledWorker {
   isBusy: boolean;
   isReady: boolean;
   lastUsed: number;
-  pendingRequests: Map<string, {
-    resolve: (value: any) => void;
-    reject: (reason: any) => void;
-    retries: number;
-    requestId: string;
-  }>;
+  pendingRequests: Map<string, PendingRequest>;
 }
 
 /**
@@ -309,8 +314,8 @@ export class WorkerPool {
    * Retry a failed request
    */
   private async retryRequest(
-    failedWorker: PooledWorker, 
-    pending: { requestId: string; resolve: Function; reject: Function; retries: number }
+    failedWorker: PooledWorker,
+    pending: PendingRequest
   ): Promise<void> {
     pending.retries++;
     
@@ -358,9 +363,19 @@ export class WorkerPool {
   /**
    * Send request to worker with promise-based API
    */
-  private sendRequest<T extends WorkerMessage>(
-    type: 'physics' | 'worldgen',
+  private sendRequest<T extends PhysicsRequest>(
+    type: 'physics',
     request: Omit<T, 'requestId'>,
+    timeout?: number
+  ): Promise<any>;
+  private sendRequest<T extends WorldGenRequest>(
+    type: 'worldgen',
+    request: Omit<T, 'requestId'>,
+    timeout?: number
+  ): Promise<any>;
+  private sendRequest(
+    type: 'physics' | 'worldgen',
+    request: Omit<PhysicsRequest, 'requestId'> | Omit<WorldGenRequest, 'requestId'>,
     timeout: number = 30000
   ): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -407,7 +422,7 @@ export class WorkerPool {
       return this.fallbackGetGroundHeight(x, z);
     }
     
-    const response = await this.sendRequest<PhysicsRequest>('physics', {
+    const response = await this.sendRequest<GroundHeightRequest>('physics', {
       type: 'getGroundHeight',
       x,
       z
@@ -425,7 +440,7 @@ export class WorkerPool {
       return Promise.all(positions.map(pos => this.fallbackGetGroundHeight(pos.x, pos.z)));
     }
     
-    const response = await this.sendRequest<PhysicsRequest>('physics', {
+    const response = await this.sendRequest<BatchGroundHeightRequest>('physics', {
       type: 'batchGroundHeight',
       positions
     }, 60000);
@@ -441,7 +456,7 @@ export class WorkerPool {
       return this.fallbackCheckPositionValidity(x, z, radius);
     }
     
-    const response = await this.sendRequest<PhysicsRequest>('physics', {
+    const response = await this.sendRequest<CollisionCheckRequest>('physics', {
       type: 'checkPositionValidity',
       x,
       z,

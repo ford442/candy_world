@@ -64,9 +64,19 @@ animation_batch.cpp (27 lines - wrapper/master file)
    - Code metrics and quality checks
    - Compilation and validation details
 
-3. **animation_batch.cpp.bak** (76 KB)
-   - Original file backup for reference
-   - Available for comparison if needed
+3. **animation_batch.cpp.bak** (removed from repo)
+   - Was a pre-refactor backup of the monolithic `animation_batch.cpp`
+   - Recover from git history if needed: `git log -- emscripten/animation_batch.cpp.bak`
+
+## Vendored OpenMP archive (`libomp.a`)
+
+`emscripten/libomp.a` (~850 KB) is **intentionally tracked** in git.
+
+**Why:** The threaded Emscripten build links OpenMP batch paths (`-fopenmp -pthread -L$SCRIPT_DIR -lomp` in `build.sh`). Emscripten's SDK does not ship a ready-made `libomp.a` for this project layout; rebuilding LLVM's `libomp` with `em++` is toolchain-specific and slow. The archive is a prebuilt LLVM OpenMP static library paired with the local `omp.h` header.
+
+**Do not commit:** `*.o` object files or other link intermediates — `build.sh` compiles from `*.cpp` sources directly.
+
+**If `libomp.a` is missing:** `npm run build:emcc` will fail at link time. Restore from git or see `docs/archive/libomp.md` for OpenMP usage notes.
 
 ## 📈 Metrics
 
@@ -390,7 +400,7 @@ emscripten/
 ├── animation_batch_foliage.cpp      (396 lines)
 ├── animation_batch_simd.cpp         (473 lines)
 ├── animation_batch_utils.h          (98 lines - shared)
-├── animation_batch.cpp.bak          (1891 lines - original backup)
+├── libomp.a                         (vendored OpenMP static lib — see "Vendored OpenMP" above)
 ├── REFACTORING_SUMMARY.md           (documentation)
 └── REFACTORING_VERIFICATION.md      (verification report)
 ```

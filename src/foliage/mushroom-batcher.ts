@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { log } from '../utils/log.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { instanceIndex, color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
@@ -125,12 +126,12 @@ export class MushroomBatcher {
         if (foliageGroup) {
             foliageGroup.add(this.mesh);
         } else {
-            console.warn('[MushroomBatcher] foliageGroup not found, mushrooms might not be visible.');
+            log.warn('MushroomBatcher', 'foliageGroup not found, mushrooms might not be visible.');
         }
 
         this.initialized = true;
         registerFoliageBatcherLod({ id: 'mushroom', getMeshes: () => this.mesh ? [this.mesh] : [] });
-        console.log('[MushroomBatcher] Initialized with capacity ' + MAX_MUSHROOMS);
+        log.info('MushroomBatcher', 'Initialized with capacity ' + MAX_MUSHROOMS);
     }
 
     getLODMeshes(): THREE.InstancedMesh[] {

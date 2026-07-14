@@ -1,4 +1,5 @@
 import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
+import { log } from '../utils/log.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 // src/foliage/tree-batcher.ts
 // Lazy dynamic buffer growth: Starts with INITIAL_INSTANCES=100, doubles capacity as needed.
@@ -357,7 +358,7 @@ export class TreeBatcher {
 
         this.initialized = true;
         registerFoliageBatcherLod({ id: 'tree', getMeshes: () => this.getLODMeshes() });
-        console.log('[TreeBatcher] Initialized tree batching system with Juicy Materials');
+        log.info('TreeBatcher', 'Initialized tree batching system with Juicy Materials');
     }
 
     getLODMeshes(): THREE.InstancedMesh[] {
@@ -435,7 +436,7 @@ export class TreeBatcher {
         
         this.trunks = newMesh;
         refreshFoliageLodMesh(newMesh);
-        console.log(`[TreeBatcher] Grew trunk buffer to ${this.trunkCapacity}`);
+        log.info('TreeBatcher', `Grew trunk buffer to ${this.trunkCapacity}`);
     }
 
     private growSphereBuffer() {
@@ -484,7 +485,7 @@ export class TreeBatcher {
         
         this.spheres = newMesh;
         refreshFoliageLodMesh(newMesh);
-        console.log(`[TreeBatcher] Grew sphere buffer to ${this.sphereCapacity}`);
+        log.info('TreeBatcher', `Grew sphere buffer to ${this.sphereCapacity}`);
     }
 
     private growCapsuleBuffer() {
@@ -533,7 +534,7 @@ export class TreeBatcher {
         
         this.capsules = newMesh;
         refreshFoliageLodMesh(newMesh);
-        console.log(`[TreeBatcher] Grew capsule buffer to ${this.capsuleCapacity}`);
+        log.info('TreeBatcher', `Grew capsule buffer to ${this.capsuleCapacity}`);
     }
 
     private growHelixBuffer() {
@@ -582,7 +583,7 @@ export class TreeBatcher {
         
         this.helices = newMesh;
         refreshFoliageLodMesh(newMesh);
-        console.log(`[TreeBatcher] Grew helix buffer to ${this.helixCapacity}`);
+        log.info('TreeBatcher', `Grew helix buffer to ${this.helixCapacity}`);
     }
 
     private growRoseBuffer() {
@@ -631,7 +632,7 @@ export class TreeBatcher {
         
         this.roses = newMesh;
         refreshFoliageLodMesh(newMesh);
-        console.log(`[TreeBatcher] Grew rose buffer to ${this.roseCapacity}`);
+        log.info('TreeBatcher', `Grew rose buffer to ${this.roseCapacity}`);
     }
 
     register(group: THREE.Group, type: string) {

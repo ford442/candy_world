@@ -1,0 +1,45 @@
+name: Lint
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    # Report-only for now — ratchet gate can replace continue-on-error once baseline stabilizes.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint (human-readable)
+        run: pnpm run lint 2>&1 | tee eslint-report.txt || true
+
+      - name: ESLint ratchet (report only)
+        run: node scripts/eslint-ratchet.mjs --report-only | tee eslint-ratchet.txt
+
+      - name: Upload lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-report-${{ github.event.pull_request.number || github.run_id }}
+          path: |
+            eslint-report.txt
+            eslint-ratchet.txt
+          retention-days: 14
+          if-no-files-found: warn

@@ -283,7 +283,9 @@ npm run budget:check  # Verify chunk size constraints
 - **Module resolution**: `bundler` (Vite-compatible)
 - **No comments on config options**: Trust TypeScript's strict checking
 
-**Type checking is not run in CI**; tests are behavioral (boot sequence, physics bounds). Rely on pre-commit hooks or IDE integrations for TS errors.
+**Type checking is enforced in CI** via an error-count ratchet (`.github/workflows/typecheck.yml`). Run `npm run typecheck` locally; `npm run typecheck:ratchet` compares against `scripts/tsc-baseline.json` and fails if errors exceed the baseline.
+
+**Linting** uses ESLint 9 flat config (`eslint.config.js`) with a warn-heavy ruleset. Run `npm run lint` locally; `npm run lint:ratchet` compares against `scripts/eslint-baseline.json` (CI is report-only for now via `.github/workflows/lint.yml`). Hot-path logging should use `src/utils/log.ts` (`log.debug/info/warn/error`) — `debug`/`info` are stripped from production builds via `import.meta.env.DEV`.
 
 ## Git & Branching
 

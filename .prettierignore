@@ -1,0 +1,9 @@
+dist/
+node_modules/
+public/
+src/wasm/
+pnpm-lock.yaml
+package-lock.json
+*.wasm
+*.wat
+.git/

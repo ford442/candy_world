@@ -47,7 +47,15 @@
     "release:tag": "node scripts/make-release.mjs",
     "release": "npm run build && node scripts/make-release.mjs",
     "typecheck": "tsc --noEmit",
-    "typecheck:ratchet": "node scripts/tsc-ratchet.mjs"
+    "typecheck:ratchet": "node scripts/tsc-ratchet.mjs",
+    "lint": "eslint src",
+    "lint:ratchet": "node scripts/eslint-ratchet.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "node scripts/prettier-staged.mjs"
   },
   "keywords": [],
   "author": "",
@@ -56,12 +64,19 @@
     "three": "^0.171.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.60.0",
     "@types/three": "^0.171.0",
     "assemblyscript": "^0.27.37",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
     "playwright": "^1.60.0",
+    "prettier": "^3.9.5",
+    "simple-git-hooks": "^2.13.1",
     "tsx": "^4.7.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.64.0",
     "vite": "^5.0.0",
     "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.5.0"
