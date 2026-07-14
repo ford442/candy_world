@@ -154,8 +154,8 @@ export class LoadingScreen {
         this.isVisible = true;
         this.isComplete = false;
 
-        // Set aria-busy on the document body to indicate loading is in progress
-        document.body.setAttribute('aria-busy', 'true');
+        // Set aria-busy on the loading container to indicate loading is in progress
+        this.container?.setAttribute('aria-busy', 'true');
 
         this.lastFocusedElement = document.activeElement as HTMLElement;
 
@@ -692,7 +692,7 @@ export class LoadingScreen {
         this.spinner = null;
 
         // Clear aria-busy once loading is complete
-        document.body.setAttribute('aria-busy', 'false');
+        this.container?.setAttribute('aria-busy', 'false');
     }
 }
 

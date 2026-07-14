@@ -509,7 +509,7 @@ const statusEl = document.getElementById('world-status');
 if (startButton) {
     startButton.disabled = false;
     startButton.setAttribute('aria-disabled', 'false');
-    startButton.setAttribute('aria-busy', 'false');
+    startButton.removeAttribute('aria-busy');
     startButton.removeAttribute('title');
     startButton.innerHTML = 'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
 
@@ -684,7 +684,6 @@ if (startButton) {
         // Immediate UI feedback
         startButton.disabled = true;
         startButton.setAttribute('aria-disabled', 'true');
-        startButton.setAttribute('aria-busy', 'true');
         startButton.setAttribute('title', 'Generating world...');
         startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
@@ -916,7 +915,7 @@ if (startButton) {
             isGenerating = false;
             startButton.disabled = false;
             startButton.setAttribute('aria-disabled', 'false');
-            startButton.setAttribute('aria-busy', 'false');
+            startButton.removeAttribute('aria-busy');
             startButton.removeAttribute('title');
 
             // ♿ Aria: Announce if they somehow return back or if it completes
