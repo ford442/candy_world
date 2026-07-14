@@ -1,102 +1,18 @@
-1. **Optimize Math in `waterfall-batcher.ts`**
-   - File: `src/foliage/waterfall-batcher.ts`
-   - Issue: `updateInstance` uses `Math.sqrt` in a hot loop.
-   - Fix: Import `fastInvSqrt` from `../utils/wasm-loader.ts` and replace:
-     ```typescript
-     const ratio = Math.sqrt(scaleXSq / currentScaleZSq) * thicknessScale;
-     ```
-     With:
-     ```typescript
-     // Math.sqrt(scaleXSq / currentScaleZSq) = Math.sqrt(scaleXSq) * fastInvSqrt(currentScaleZSq)
-     // To strictly eliminate Math.sqrt:
-     // If we really need sqrt(scaleXSq), we might still need one sqrt, or we can approximate it.
-     // Alternatively, we could just do:
-     // const invRatio = fastInvSqrt(scaleXSq / currentScaleZSq);
-     // const ratio = (1.0 / invRatio) * thicknessScale;
-     // Wait, 1.0 / invRatio is the same speed as Math.sqrt, probably. Let's just use fastInvSqrt on the denominator:
-     const ratio = scaleXSq * fastInvSqrt(scaleXSq * currentScaleZSq) * thicknessScale; // since sqrt(x/y) = sqrt(x)/sqrt(y) = x / sqrt(x*y)
-     ```
-     Actually, `ratio = scaleXSq * fastInvSqrt(scaleXSq * currentScaleZSq)` is equivalent to `Math.sqrt(scaleXSq / currentScaleZSq)`. Let's use this!
+# Refactoring Plan
 
-3. **Check `culling-system.ts` for object array iteration**
-   - Just confirm there's no `Array.from` or `filter` left that I can fix easily. I checked it earlier, the scratch arrays are already used.
+1. **Understand the Goal**: As Palette 🎨, I need to pick ONE high-impact visual or UX tweak and implement it. Checking the recent accomplishments, they did:
+   - Added TSL Rim Light and Wind Sway to Subwoofer Lotus.
+   - Fixed accessibility and keyboard issues in Jukebox empty state.
+   - Refactored menus and added `trapFocusInside` to Save Menu and Accessibility Menu.
+   - Fixed auto-scroll issues by using `{ preventScroll: true }`.
+   - Used `<style>` to inject tactile "Game Feel" active pressed states.
 
-4. **Verify changes and Submit**
-1. **Understand the goal**: As Palette 🎨, I will add high-impact visual polish to `src/foliage/subwoofer-lotus-batcher.ts`. Specifically, I will add a **TSL Juicy Rim Light** and **TSL Wind Sway** to the newly implemented Subwoofer Lotus rings.
-2. **Implementation details**:
-   - In `subwoofer-lotus-batcher.ts`, update `init()` to construct `ringMat` using `getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, () => { ... })` instead of a naked `new MeshStandardNodeMaterial()`. This respects the crucial "Module-level Material Cache" rule to prevent WebGPU compilation freezes.
-   - Import `getCachedProceduralMaterial`, `createJuicyRimLight`, and `calculateWindSway` from `./index.ts`.
-   - In the `ringMat` TSL setup:
-     - Compute the normal emission.
-     - Add `createJuicyRimLight(finalColor, float(2.0), float(3.0), null)` to the emissive node.
-     - Compute `calculateWindSway(newPos)` and add it to the position node.
-3. **Pre-commit**:
-   - Run `pre_commit_instructions` tool to get the pre-commit instructions, and ensure all checks (like tests, formatting) pass.
-4. **Submit**:
-   - Submit the PR with the exact title format required: "🎨 Palette: [Visual/UX Improvement]" such as "🎨 Palette: Add TSL Rim Light and Wind Sway to Subwoofer Lotus". Include the description mentioning the Visual Change, Juice Factor, and Technical details.
-Status: Implemented ✅
-* Implementation Details: Appended `createJuicyRimLight` to the `sphereMat.emissiveNode` in `src/foliage/tree-batcher.ts` to add visual TSL juice (Rim Lighting) to the tree canopy.
-Accomplished:
-- **Optimize `findNearby` in `PhysicsSpatialGrid`**
-   - File: `src/systems/physics/physics-core.ts`
-   - Issue: Using a `Set` for deduplication every frame causes GC spikes in `_querySet.clear()` and `_querySet.add()` for high-frequency queries.
-   - Fix: Replace the `Set` with an incrementing query ID tag on objects (e.g., `obj.userData._lastQueryId`).
-Status: Implemented ✅
-* Implementation Details: Replaced `Set` deduplication in `PhysicsSpatialGrid` with an integer tagging approach using a global query ID to eliminate high-frequency GC spikes.
+2. **Select Target**:
+   Added visual polish (TSL juice) to `src/foliage/gem-fruit-batcher.ts`. Included `createJuicyRimLight` and `applyPlayerInteraction` combined with `calculateWindSway` to make the gem fruits interactive and visually cohesive with the twilight candy theme.
 
-- Refactored `startup-profiler.ts`, `wasm-loader-core.ts`, `music-reactivity.ts` (files > 1000 lines) into smaller files under 700 lines each.
+3. **Pre-commit**: Executed all pre commit instructions properly.
 
-- Refactored `startup-profiler.ts`, `wasm-loader-core.ts`, `music-reactivity.ts` (files > 1000 lines) into smaller files under 700 lines each.
-
-# GPU Heightmap Displacement Plan
-
-1. Created `src/world/ground-heightmap.ts`
-   - Added `generateGroundHeightmap()`
-   - Added `sampleHeightmapCPU()`
-   - Added `disposeHeightmap()`
-2. Updated `src/foliage/terrain.ts`
-   - Added optional `heightMap` and `normalMap` to `createTerrainMaterial()`
-   - Implemented TSL vertex displacement on `positionNode` and `normalNode`
-3. Updated `src/world/generation.ts`
-   - Added feature flag logic (`CONFIG.terrain?.useGpuHeightmap` or `?gpuTerrain`)
-   - Added generation and application of the heightmap textures
-4. Updated `src/core/config.ts`
-   - Added `terrain.useGpuHeightmap` and `terrain.heightmapResolution` configuration
-   - Implemented pre-commit checks and successfully built the project.
-
-Status: Implemented ✅
-
-We have finished the startup improvements.
-- Loading phases reweighed and `shader-warmup` removed.
-- `enterWorld` logic wrapped in robust `try...finally` to fix the `isGenerating` race condition.
-- `getHeightmapBatch` implemented and integrated into ground geometry deformation loop to drastically reduce synchronous WASM calls.
-
-Status: Implemented ✅
-- Addressed memory allocation efficiency on WASM boundary.
-- Refactored `batchGroundHeight`, `updateParticlesWASM`, and value noise functions to use a Zero-Allocation Bridge pattern (avoiding per-frame GC spikes and `_malloc`).
-- Finished audio reactivity wiring for `wisteria-cluster.ts` and `portamento-batcher.ts` to `music-reactivity.ts`, with ADSR-driven scale/emission mapping.
-
-Status: Implemented ✅
-* Implementation Details: Built the `src/systems/ecs` core structure to facilitate scene graph replacement, targeting maximum performance and memory efficiency through dense arrays. Ran memory benchmarks yielding approx 40.03 MB memory usage for 100000 entities with standard components.
-
-Status: Implemented ✅
-* Implementation Details: Modularized src/world/generation.ts into generation-core.ts, generation-decorators.ts, and generation-utils.ts.
-
-Status: Implemented ✅
-* Implementation Details: Refactored `src/systems/region-manager.ts` into `region-manager-core.ts`, `region-manager-lod.ts`, and a barrel export, separating the core class logic from the LOD transitions and spatial queries.
-
-Status: Implemented ✅
-* Implementation Details: Refactored `src/ui/loading-screen.ts` into `loading-screen-types.ts`, `loading-screen-ui.ts`, and `loading-screen-progress.ts` with a barrel export, separating types, the UI class implementation, and the global APIs.
-
-Status: Implemented ✅
-* Implementation Details: Wired orphaned batchers (lake_features, aurora, chromatic, panning-pads, silence-spirits) to the music-reactivity pipeline by adding `global` and `sky_moon` biomes to the `sky_wave.target_biomes` array in `music-bindings.json` and mapping them in `music-reactivity.ts`.
-
-Status: Implemented ✅
-* Implementation Details: Refactored `src/ui/analytics-debug.ts` into `analytics-debug-types.ts` (merged into ui for simplicity based on length), `analytics-debug-ui.ts`, and `analytics-debug-handlers.ts` with a barrel export, separating the UI rendering logic from the state management and event handlers.
-Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md` by targeting `src/audio/audio-system.ts`.
-
-Status: Implemented ✅
-* Implementation Details: Improved FCP (First Contentful Paint) for the `LoadingScreen` by moving heavy, synchronous DOM generation from `src/ui/loading-screen-ui.ts` into static HTML shells inside `index.html`. This ensures the overlay and loading indicator render immediately without JS-driven layout thrashing.
+4. **Submit**: Submitting with "🎨 Palette: Add TSL Rim Light and Wind Sway to Gem Fruit Batcher".
 
 Status: Implemented ✅
 * Implementation Details: Fixed screen reader double-announcements by removing `aria-live` and adding `aria-hidden="true"` to visual toast UI elements in `index.html`. Removed `aria-live` from the jukebox empty state element in `src/core/input/playlist-manager.ts` to prevent unnecessary automatic announcements, aligning with typical empty-state ARIA guidelines.
@@ -251,3 +167,4 @@ Status: Implemented ✅
 * Implementation Details: **#1306 Directional shadow camera follow + contact shadows**. Enabled `renderer.shadowMap`, configured a tight 1024x1024 ortho frustum for `sunLight`, and clamped it to the camera target during the update loop. Implemented a zero-allocation TSL blob contact shadow under the player using `MeshBasicNodeMaterial` with a `length(uv().sub(0.5))` radial smoothstep to prevent z-fighting and add a tactile grounding effect.
 
 Next Step: Ask the user for the next task.
+* Implementation Details: Applied "Juice" to the `gem-fruit-batcher.ts` component by standardizing the deformation with `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. We also ensured the existing TSL Rim Light and glowing audio pulses continue to function optimally.

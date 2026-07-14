@@ -162,6 +162,8 @@ export function updateEnergyBar(
     hudEnergyFill.style.width = `${energyPct * 100}%`;
     hudEnergyContainer.setAttribute('aria-valuenow', playerEnergy.toFixed(1));
     hudEnergyContainer.setAttribute('aria-valuemax', playerMaxEnergy.toFixed(1));
+    // ♿ Aria: Add contextual text for screen readers (e.g. "8 out of 10 Energy")
+    hudEnergyContainer.setAttribute('aria-valuetext', `${Math.round(playerEnergy)} out of ${Math.round(playerMaxEnergy)} Energy`);
 
     // Pulse to the beat when health/energy is low (< 30%)
     if (energyPct < 0.3) {

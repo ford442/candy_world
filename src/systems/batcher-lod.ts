@@ -211,89 +211,6 @@ function ensureImpostorMesh(): THREE.InstancedMesh {
     return _impostorMesh;
 }
 
-function updateImpostors(
-    camera: THREE.Camera,
-    cfg: FoliageLodConfig,
-    smoothed: Map<THREE.InstancedMesh, Float32Array>
-): number {
-    if (!cfg.useImpostors) {
-        if (_impostorMesh) _impostorMesh.count = 0;
-        return 0;
-    }
-
-    const impostor = ensureImpostorMesh();
-    const alphaAttr = impostor.geometry.getAttribute(IMPOSTOR_ALPHA_ATTR) as THREE.InstancedBufferAttribute;
-    const alphaArray = alphaAttr.array as Float32Array;
-    let impostorCount = 0;
-    camera.getWorldPosition(_cameraPos);
-
-    const farCullSq = cfg.farCull * cfg.farCull;
-    const fogR = uAerialFogColor.value.r;
-    const fogG = uAerialFogColor.value.g;
-    const fogB = uAerialFogColor.value.b;
-    const aerialMix = 0.55;
-
-    for (const [mesh, factors] of smoothed) {
-        const count = mesh.count;
-        if (count === 0) continue;
-
-        const matrixArray = mesh.instanceMatrix.array as Float32Array;
-        const colorArray = mesh.instanceColor?.array as Float32Array | undefined;
-
-        for (let i = 0; i < count; i++) {
-            const factor = factors[i];
-            const alpha = impostorAlphaFromFactor(factor, cfg);
-            if (alpha <= 0.001 || factor >= 3) continue;
-            if (impostorCount >= _impostorCapacity) break;
-
-            const offset = i * 16;
-            const px = matrixArray[offset + 12];
-            const py = matrixArray[offset + 13];
-            const pz = matrixArray[offset + 14];
-
-            const dx = px - _cameraPos.x;
-            const dy = py - _cameraPos.y;
-            const dz = pz - _cameraPos.z;
-            const distSq = dx * dx + dy * dy + dz * dz;
-            if (distSq >= farCullSq) continue;
-
-            const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
-            const m10 = matrixArray[offset + 4], m11 = matrixArray[offset + 5], m12 = matrixArray[offset + 6];
-            const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
-
-            const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
-            const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
-            const scaleZSq = m20 * m20 + m21 * m21 + m22 * m22;
-            const maxScaleSq = Math.max(scaleXSq, scaleYSq, scaleZSq);
-            const size = Math.sqrt(maxScaleSq) * cfg.impostorScaleMul;
-
-            _billboardMatrixFromCamera(camera, px, py, pz, size, size * cfg.impostorAspect);
-            _billboardMatrix.toArray(impostor.instanceMatrix.array, impostorCount * 16);
-
-            if (impostor.instanceColor && colorArray) {
-                const dst = impostor.instanceColor.array as Float32Array;
-                const srcOff = i * 3;
-                const dstOff = impostorCount * 3;
-                const sr = colorArray[srcOff];
-                const sg = colorArray[srcOff + 1];
-                const sb = colorArray[srcOff + 2];
-                dst[dstOff] = sr * (1 - aerialMix) + fogR * aerialMix;
-                dst[dstOff + 1] = sg * (1 - aerialMix) + fogG * aerialMix;
-                dst[dstOff + 2] = sb * (1 - aerialMix) + fogB * aerialMix;
-            }
-
-            alphaArray[impostorCount] = alpha;
-            impostorCount++;
-        }
-    }
-
-    impostor.count = impostorCount;
-    impostor.instanceMatrix.needsUpdate = true;
-    if (impostor.instanceColor) impostor.instanceColor.needsUpdate = true;
-    alphaAttr.needsUpdate = true;
-    return impostorCount;
-}
-
 function _billboardMatrixFromCamera(
     camera: THREE.Camera,
     px: number,
@@ -339,6 +256,20 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
     _stats.blendBand = 0;
     _stats.total = 0;
 
+
+    const impostor = cfg.useImpostors ? ensureImpostorMesh() : null;
+    let alphaAttr: THREE.InstancedBufferAttribute | undefined, alphaArray: Float32Array | undefined, impostorCount = 0;
+    const farCullSq = cfg.farCull * cfg.farCull;
+    const fogR = uAerialFogColor.value.r;
+    const fogG = uAerialFogColor.value.g;
+    const fogB = uAerialFogColor.value.b;
+    const aerialMix = 0.55;
+
+    if (impostor) {
+        alphaAttr = impostor.geometry.getAttribute(IMPOSTOR_ALPHA_ATTR) as THREE.InstancedBufferAttribute;
+        alphaArray = alphaAttr.array as Float32Array;
+    }
+
     camera.getWorldPosition(_cameraPos);
     const blendT = cfg.blendSeconds > 0 ? Math.min(1, delta / cfg.blendSeconds) : 1;
 
@@ -354,6 +285,7 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
         const attr = ensureInstanceLodAttribute(mesh);
         const attrArray = attr.array as Float32Array;
         const matrixArray = mesh.instanceMatrix.array as Float32Array;
+        const colorArray = mesh.instanceColor?.array as Float32Array | undefined;
 
         for (let i = 0; i < count; i++) {
             const offset = i * 16;
@@ -366,18 +298,61 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
             const dz = pz - _cameraPos.z;
             const distSq = dx * dx + dy * dy + dz * dz;
 
+            // ⚡ OPTIMIZATION: Bypassed redundant second loop and double distance calculations by updating impostors inline.
             const target = computeTargetLodFactorSq(distSq, cfg);
             const current = smoothed[i];
             const next = current + (target - current) * blendT;
             smoothed[i] = next;
             attrArray[i] = next;
             accumulateStats(next, cfg);
+
+            if (impostor) {
+                const factor = next;
+                const alpha = impostorAlphaFromFactor(factor, cfg);
+                if (alpha > 0.001 && factor < 3 && impostorCount < _impostorCapacity && distSq < farCullSq) {
+                    const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
+                    const m10 = matrixArray[offset + 4], m11 = matrixArray[offset + 5], m12 = matrixArray[offset + 6];
+                    const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
+
+                    const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
+                    const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
+                    const scaleZSq = m20 * m20 + m21 * m21 + m22 * m22;
+                    const maxScaleSq = Math.max(scaleXSq, scaleYSq, scaleZSq);
+                    const size = Math.sqrt(maxScaleSq) * cfg.impostorScaleMul;
+
+                    _billboardMatrixFromCamera(camera, px, py, pz, size, size * cfg.impostorAspect);
+                    _billboardMatrix.toArray(impostor.instanceMatrix.array, impostorCount * 16);
+
+                    if (impostor.instanceColor && colorArray) {
+                        const dst = impostor.instanceColor.array as Float32Array;
+                        const srcOff = i * 3;
+                        const dstOff = impostorCount * 3;
+                        const sr = colorArray[srcOff];
+                        const sg = colorArray[srcOff + 1];
+                        const sb = colorArray[srcOff + 2];
+                        dst[dstOff] = sr * (1 - aerialMix) + fogR * aerialMix;
+                        dst[dstOff + 1] = sg * (1 - aerialMix) + fogG * aerialMix;
+                        dst[dstOff + 2] = sb * (1 - aerialMix) + fogB * aerialMix;
+                    }
+
+                    alphaArray![impostorCount] = alpha;
+                    impostorCount++;
+                }
+            }
         }
 
         attr.needsUpdate = true;
     }
 
-    _stats.impostors = updateImpostors(camera, cfg, _meshTracks);
+    if (impostor) {
+        impostor.count = impostorCount;
+        impostor.instanceMatrix.needsUpdate = true;
+        if (impostor.instanceColor) impostor.instanceColor.needsUpdate = true;
+        alphaAttr!.needsUpdate = true;
+    } else if (_impostorMesh) {
+        _impostorMesh.count = 0;
+    }
+    _stats.impostors = impostorCount;
 }
 
 export function refreshFoliageLodMesh(mesh: THREE.InstancedMesh): void {

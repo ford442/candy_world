@@ -1,13 +1,22 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-07-06 — Hygiene pass + foundation continuation + spatial coherence tests — DONE.**
-#1265/#1266 are landed, the build/PLAN hygiene pass is complete, #1303 (per-entity base offsets) is landed, and #1311
-(spatial-coherence visual regression) is landed. The four new viewpoints (`slope_foot`, `lake_edge`, `horizon_lod`,
-`gem_corridor_scale`) are added to `tools/visual-regression`, the CI workflow now runs on the WebGL path, and local
-baselines are captured. Test baseline remains green.
-**Scope of the swarm:** close out the approved three-phase plan and leave the repo ready for the next vertical-exploration
-feature or a further bug/hygiene pass.
+**2026-07-14 — Foundation cluster: TypeScript typecheck gate + error-count ratchet (#1347), burning down the two
+highest-value clusters — the half-migrated `music-reactivity.ts` barrel (#1350, ~31 errors) and the stale
+`createSubwooferLotus` import (#1357), plus `game-loop.ts` sun/moon null-safety.**
+
+Rationale: On 2026-07-12 Noah filed a 19-issue in-context batch that reorganizes the whole roadmap. The issues
+themselves declare a dependency order — **foundation (#1347 typecheck ratchet, #1350 barrel fix) must land before**
+the migration slices (#1351/#1358/#1359/#1364) and the content arc (#1352/#1353/#1354/#1355/#1356/#1362/#1363/#1365).
+A clean `tsc --noEmit` currently reports ~587 errors; nothing gates them, so every refactor risks adding more
+invisibly. Establishing the gate + ratchet and knocking down the two concrete bug clusters is the single
+highest-leverage move that unblocks the rest of Noah's fresh backlog.
+
+**Not Fix First:** last week's grounding cluster landed green (`build:ci`, `test:wasm`, WebGL smoke all pass per
+`.swarm-state.md`); the tsc errors are pre-existing debt, not a last-week regression. This is User Idea mode.
+
+**Scope of the swarm:** land the typecheck gate + ratchet infra, drive the baseline down by fixing #1350 and #1357
+and the game-loop null-safety, and leave `tsc --noEmit` at a strictly lower committed baseline with CI enforcing it.
 
 ## Ideas
 <!--
@@ -45,13 +54,38 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **#1175 Candy Material Cookbook + grok.md onboarding upgrade** — docs-only; canonical material/music-binding quick-start. Fully decoupled from code work.
 - [x] **#1176 / #1182 Awakened Flora Persistence** — world that "remembers" you; #1182 is the narrow v1 slice (scope-guarded away from atmosphere/render files). LANDED 2026-06-23 (#1232).
 
+**User idea pool — GitHub issues filed 2026-07-12 (Noah's FRESHEST in-context batch, 19 issues — primary source this phase). The issues self-sequence: land Foundation before Migration before Content.**
+
+*Foundation / tech-debt (prerequisites — land first):*
+- [ ] **#1347 Enforce TS typecheck in CI + error-count ratchet** — `tsc --noEmit` (~587 errors today) never gates anything; add `typecheck` script, CI job, `scripts/tsc-ratchet.mjs` baseline that can only lower. `[in progress — 2026-07-14]` ← today's focus
+- [ ] **#1350 Fix music-reactivity.ts barrel** — half-migrated split; line-1 import conflicts with local re-declarations (`ActiveWave`, `applyMapMusicContext`, `syncMapMusicContext`, `toChannels`, `_frustum`) + missing `-core` exports → ~31 tsc errors. `[in progress — 2026-07-14]` ← bundled into today's focus
+- [ ] **#1357 Remove stale `createSubwooferLotus` import from `foliage-registry.ts`** — dead symbol (replaced by `SubwooferLotusBatcher`) → TS2305. `[in progress — 2026-07-14]` ← bundled into today's focus
+- [ ] **#1348 ESLint + build-stripped logger** — no lint tooling; ~658 raw `console.*`, ~623 `any`. Warn-heavy config + `src/utils/log.ts`.
+- [ ] **#1349 Untrack build artifacts** (`libomp.a`, `math.o`, `*.cpp.bak`) + gitignore. ← Copilot prep target today (folded into #1359).
+- [ ] **#1360 Split `game-loop.ts`** (1,028 lines) into tick-phase modules. Sequence after #1350/#1347.
+- [ ] **#1361 Break up 796 KB `app` chunk** — lazy-load gameplay/save-UI/world-content; break foliage↔music-reactivity circular imports.
+
+*Migration slices (15%-rule, after foundation):*
+- [ ] **#1351 Cross-tier parity harness** (JS↔AS↔C++ golden vectors) — recommended before widening batcher ports.
+- [ ] **#1358 Batcher instance matrix/color → C++ SIMD** (arpeggio-batcher first). Depends on #1351.
+- [ ] **#1359 Emscripten build + export-manifest verification CI.** ← Copilot prep target today (decoupled from kimi-cli TS work).
+- [ ] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice). Depends on #1350 split.
+
+*Content / world-building (capstones, after foundation):*
+- [ ] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path.
+- [ ] **#1363 Vertical Sky Islands biome** — layered exploration arc after #1265/#1266.
+- [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
+- [ ] **#1352 Living candy fauna** (WASM boids + ECS). **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
+
 ## Backlog
 <!--
 Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
 - [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable. `[landed — 2026-07-14]`
-- [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. `[landed — 2026-07-14]`
+- [ ] **TS-error baseline (feeds #1347)** — `tsc --noEmit` ≈ 587 errors as of 2026-07-12 (per #1347). Top offenders: `asset-streaming-core.ts` (59), `wasm-batch-math.ts` (54), `material-core.ts` (48), `accessibility-menu-rendering.ts` (40), `music-reactivity.ts` (31). No `typecheck`/`lint` script and no typecheck CI job confirmed present in repo (only `budget-check.yml` + `visual-regression.yml`). Today's swarm establishes the gate + ratchet and lowers this.
+- [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable.
+- [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks.
 - [ ] **#1136 — Consolidate duplicated `LoadingScreen` class** (`loading-screen.ts` vs `loading-screen-ui.ts`) — leftover from loading cluster; .swarm-state noted a duplicate-declaration build blocker was patched, not consolidated. Small decoupled refactor — good future Copilot candidate.
 - [ ] **#1249 — Candy Material Cookbook v2 (docs de-drift + enrich)** — docs-only, fully decoupled from runtime/foliage work; fixes verified broken `uTwilight` import path, reconciles 3 contradictory position-node orderings, documents all 7 `CandyPresets`, adds LUT/r32float/circadian gotchas, + one preset-coverage guard script. Open since 2026-06-24.
 - [x] **#1303 — Calibrate per-entity base offsets** — landed 2026-07-06. `ENTITY_BASE_OFFSETS` populated in `src/world/placement-utils.ts`; `plantOnSurface()` centralizes ground placement; `src/debug/ground-debug.ts` draws green base-contact rings when `?debugHeights=1`.
@@ -69,6 +103,7 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-07-07** ⛰️ GROUNDING CLUSTER — SLOPE ALIGNMENT + FOOTPRINT SAMPLING (#1302 / #1310) — per `.swarm-state.md` iteration 2: added `registerGroundNormalData` / `sampleGroundNormal` (baked-normal + finite-diff fallback) / `sampleGroundFootprint` to `ground-system.ts`; `SLOPE_ALIGN_TYPES`, `getGroundAlignedQuaternion`, footprint/slope-aware `plantOnSurface()` in `placement-utils.ts`; tree/arpeggio/luminous/portamento batchers compose the aligned quaternion; `?debugHeights=1` overlay now draws footprint ring + normal arrow. Slope capped at 45°; footprint uses lowest contact point. Build/WASM/smoke (WebGPU + WebGL) all green.
 - [x] **2026-07-06** 📸 SPATIAL-COHERENCE VISUAL REGRESSION VIEWPOINTS (#1311) — Added `slope_foot`, `lake_edge`, `horizon_lod`, and `gem_corridor_scale` viewpoints to `tools/visual-regression`; updated workflow to WebGL path; fixed ESM `require('crypto')` in `baseline-manager.ts`; captured 8 local baselines. Build/test green: `npm run build:ci`, `npm run test:wasm`, visual-regression `--update` run succeeds.
 - [x] **2026-07-06** 🌱 PER-ENTITY BASE OFFSETS (#1303) — Populated `ENTITY_BASE_OFFSETS` in `src/world/placement-utils.ts` with all major ground-placed entity types; refactored `src/world/generation-decorators.ts` standalone placement loops to use `plantOnSurface()`; extended `src/debug/ground-debug.ts` with `registerPlantedInstance()` and green base-contact rings for `?debugHeights=1`. Build/test green: `npm run build:ci`, `npm run test:wasm`, `npm run test`, `RENDERER=webgl npm run test`.
 - [x] **2026-06-24** 📚 CANDY MATERIAL COOKBOOK + GROK.MD ONBOARDING (#1175) — Added Foliage-Specific Patterns, Common Gotchas, and Performance Notes to the material cookbook; updated grok.md references.
@@ -110,6 +145,12 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
+Date: 2026-07-14
+Mode: USER IDEA — no Fix First trigger (last week's grounding cluster landed green per `.swarm-state.md`; the ~587 tsc errors are pre-existing debt, not a last-week regression). Noah filed a 19-issue in-context batch on 2026-07-12 that reorganizes the roadmap and self-sequences Foundation → Migration → Content. Picked the freshest, highest-leverage foundation item that unblocks everything else.
+Focus: **#1347 TS typecheck gate + error-count ratchet**, bundling the two concrete bug clusters it names — **#1350** (half-migrated `music-reactivity.ts` barrel, ~31 errors) and **#1357** (stale `createSubwooferLotus` import) — plus `game-loop.ts` sun/moon null-safety. kimi-cli main event = build the gate/ratchet infra + burn down the baseline. Copilot prep (decoupled from all TS-typecheck/music-reactivity/game-loop files): **#1359 Emscripten build + export-manifest verification CI**, folding in **#1349** artifact untracking. Claude Code whole-stack: full `npm run build` → `deploy.py` dry-run → cut the first known-good release tag (#1134 tooling exists).
+Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Context gap: No access to `recent_chats` / `conversation_search` in this environment (confirmed — ToolSearch surfaces no such tools). Prior-session reconstruction is from git history, the 19 open GitHub issues, `weekly_plan.md`, and `.swarm-state.md` only. Could not confirm live-site behaviour or the exact current `tsc --noEmit` count (using #1347's stated ~587 baseline). Branch `claude/amazing-ptolemy-klmx5n` is 16 commits ahead of a stale `origin/main`; no open PRs.
+
 Date: 2026-07-06
 Mode: USER IDEA continuation — all four approved phases complete.
 Focus:
@@ -135,3 +176,21 @@ Date: 2026-06-24
 Mode: USER IDEA — #1170 Gem Canopy finish & ship.
 Focus: Finalize the Gem Canopy biome: verify existing `GemFruitBatcher`/`createGemCanopyTree`/decorator wiring, fix pre-existing duplicate-export build blockers, tune `MAX_GEMS_PER_TYPE` to eliminate CI overflow warnings, run build + WASM + smoke (CORE and FAST_FULL) + WebGL fallback, and update `.swarm-state.md`, `weekly_plan.md`, and `docs/MUSIC_MAP_BINDING.md`.
 Outcome: #1170 LANDED. `npm run build:ci`, `npm run test:wasm`, `npm run test`, `FULL_BOOT=fast npm run test`, and `RENDERER=webgl npm run test` all pass. FAST_FULL reports 24 gem_canopy_trees spawned, 2322/2322 objects, no GemFruitBatcher capacity warnings. Docs updated with Gem Canopy binding reference.
+# Refactoring Plan
+
+1. **Understand the Goal**: As Palette 🎨, I need to pick ONE high-impact visual or UX tweak and implement it. Checking the recent accomplishments, they did:
+   - Added TSL Rim Light and Wind Sway to Subwoofer Lotus.
+   - Fixed accessibility and keyboard issues in Jukebox empty state.
+   - Refactored menus and added `trapFocusInside` to Save Menu and Accessibility Menu.
+   - Fixed auto-scroll issues by using `{ preventScroll: true }`.
+   - Used `<style>` to inject tactile "Game Feel" active pressed states.
+
+2. **Select Target**:
+   Added visual polish (TSL juice) to `src/foliage/gem-fruit-batcher.ts`. Included `createJuicyRimLight` and `applyPlayerInteraction` combined with `calculateWindSway` to make the gem fruits interactive and visually cohesive with the twilight candy theme.
+
+3. **Pre-commit**: Executed all pre commit instructions properly.
+
+4. **Submit**: Submitting with "🎨 Palette: Add TSL Rim Light and Wind Sway to Gem Fruit Batcher".
+
+Status: Implemented ✅
+* Implementation Details: Applied "Juice" to the `gem-fruit-batcher.ts` component by standardizing the deformation with `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. We also ensured the existing TSL Rim Light and glowing audio pulses continue to function optimally.
