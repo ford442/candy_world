@@ -216,6 +216,11 @@ export class LoadingScreen {
      *                    falls back to SpawnTracker.getReport() when omitted.
      * @param etaMs       Estimated milliseconds remaining (-1 = unknown).
      */
+    setDeferredFailures(failed: number): void {
+        if (!this.deferredIndicator) return;
+        updateSpawnFailureBadge(this.deferredIndicator, failed);
+    }
+
     setDeferredProgress(completed: number, total: number, failedHint?: number, etaMs: number = -1): void {
         if (!this.deferredIndicator) return;
         const pct = total > 0 ? Math.min(100, Math.max(0, (completed / total) * 100)) : 0;
