@@ -216,8 +216,9 @@ export class LoadingScreen {
      *                    falls back to SpawnTracker.getReport() when omitted.
      * @param etaMs       Estimated milliseconds remaining (-1 = unknown).
      */
-    setDeferredFailures(failed: number) {
-        // stub
+    setDeferredFailures(failed: number): void {
+        if (!this.deferredIndicator) return;
+        updateSpawnFailureBadge(this.deferredIndicator, failed);
     }
 
     setDeferredProgress(completed: number, total: number, failedHint?: number, etaMs: number = -1): void {
