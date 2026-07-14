@@ -135,3 +135,21 @@ Date: 2026-06-24
 Mode: USER IDEA — #1170 Gem Canopy finish & ship.
 Focus: Finalize the Gem Canopy biome: verify existing `GemFruitBatcher`/`createGemCanopyTree`/decorator wiring, fix pre-existing duplicate-export build blockers, tune `MAX_GEMS_PER_TYPE` to eliminate CI overflow warnings, run build + WASM + smoke (CORE and FAST_FULL) + WebGL fallback, and update `.swarm-state.md`, `weekly_plan.md`, and `docs/MUSIC_MAP_BINDING.md`.
 Outcome: #1170 LANDED. `npm run build:ci`, `npm run test:wasm`, `npm run test`, `FULL_BOOT=fast npm run test`, and `RENDERER=webgl npm run test` all pass. FAST_FULL reports 24 gem_canopy_trees spawned, 2322/2322 objects, no GemFruitBatcher capacity warnings. Docs updated with Gem Canopy binding reference.
+# Refactoring Plan
+
+1. **Understand the Goal**: As Palette 🎨, I need to pick ONE high-impact visual or UX tweak and implement it. Checking the recent accomplishments, they did:
+   - Added TSL Rim Light and Wind Sway to Subwoofer Lotus.
+   - Fixed accessibility and keyboard issues in Jukebox empty state.
+   - Refactored menus and added `trapFocusInside` to Save Menu and Accessibility Menu.
+   - Fixed auto-scroll issues by using `{ preventScroll: true }`.
+   - Used `<style>` to inject tactile "Game Feel" active pressed states.
+
+2. **Select Target**:
+   Added visual polish (TSL juice) to `src/foliage/gem-fruit-batcher.ts`. Included `createJuicyRimLight` and `applyPlayerInteraction` combined with `calculateWindSway` to make the gem fruits interactive and visually cohesive with the twilight candy theme.
+
+3. **Pre-commit**: Executed all pre commit instructions properly.
+
+4. **Submit**: Submitting with "🎨 Palette: Add TSL Rim Light and Wind Sway to Gem Fruit Batcher".
+
+Status: Implemented ✅
+* Implementation Details: Applied "Juice" to the `gem-fruit-batcher.ts` component by standardizing the deformation with `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. We also ensured the existing TSL Rim Light and glowing audio pulses continue to function optimally.
