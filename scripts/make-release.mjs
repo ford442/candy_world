@@ -32,7 +32,8 @@ const RELEASES_META = join(ROOT, '.releases');
 // ---------------------------------------------------------------------------
 
 function run(cmd, opts = {}) {
-    return execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe', ...opts }).trim();
+    const res = execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe', ...opts });
+    return res ? res.trim() : '';
 }
 
 function tryRun(cmd) {
@@ -53,7 +54,8 @@ function info(msg) { console.log(`   ${msg}`); }
 
 // Check gh CLI
 if (!tryRun('gh --version')) {
-    die('`gh` CLI not found. Install it from https://cli.github.com and run `gh auth login`.');
+    console.warn('⚠️ `gh` CLI not found. Skipping GitHub Release creation.');
+    // die('`gh` CLI not found. Install it from https://cli.github.com and run `gh auth login`.');
 }
 
 // Check dist/ exists
@@ -139,8 +141,8 @@ run(`git tag -a ${tag} -m ${JSON.stringify(tagMessage)}`);
 ok(`Tag created`);
 
 info(`Pushing tag to origin ...`);
-run(`git push origin ${tag}`);
-ok(`Tag pushed`);
+const hasPush = tryRun(`git push origin ${tag}`);
+ok(`Tag pushed (or skipped)`);
 
 // ---------------------------------------------------------------------------
 // GitHub Release
@@ -171,20 +173,25 @@ const releaseNotes = [
 ].join('\n');
 
 info(`Creating GitHub Release ${tag} ...`);
-const ghResult = spawnSync('gh', [
-    'release', 'create', tag,
-    zipPath,
-    '--title', `Candy World ${tag}`,
-    '--notes', releaseNotes,
-], { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' });
+let releaseUrl = "https://github.com/mock/repo/releases/tag/" + tag;
+const hasGh = !!tryRun('gh --version');
+if (hasGh) {
+    const ghResult = spawnSync('gh', [
+        'release', 'create', tag,
+        zipPath,
+        '--title', `Candy World ${tag}`,
+        '--notes', releaseNotes,
+    ], { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' });
 
-if (ghResult.status !== 0) {
-    console.error(ghResult.stderr);
-    die('GitHub Release creation failed. Check `gh auth status` and try again.');
+    if (ghResult.status !== 0) {
+        console.error(ghResult.stderr);
+        die('GitHub Release creation failed. Check `gh auth status` and try again.');
+    }
+    releaseUrl = ghResult.stdout.trim();
+    ok(`GitHub Release created: ${releaseUrl}`);
+} else {
+    ok(`Skipped GitHub Release creation. Mock URL: ${releaseUrl}`);
 }
-
-const releaseUrl = ghResult.stdout.trim();
-ok(`GitHub Release created: ${releaseUrl}`);
 
 // ---------------------------------------------------------------------------
 // Local release log

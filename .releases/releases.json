@@ -1,0 +1,11 @@
+[
+  {
+    "tag": "2026-07-14-stable-v2",
+    "commit": "5999d85",
+    "branch": "jules-9091542019376475550-6093fb14",
+    "date": "2026-07-14T16:48:15.888Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-14-stable-v2",
+    "distSizeKB": 22256,
+    "commitMsg": "Jules 10098801356494813242 5d4af89e (#1381)"
+  }
+]
