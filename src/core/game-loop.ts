@@ -216,9 +216,9 @@ function updateSunShadowFollow(
     if (cellX !== _shadowSnapCellX || cellZ !== _shadowSnapCellZ) {
         _shadowSnapCellX = cellX;
         _shadowSnapCellZ = cellZ;
-        sunLight.shadow.map.autoUpdate = true;
+        if (sunLight.shadow && sunLight.shadow.map) { (sunLight.shadow.map as any).autoUpdate = true; }
     } else {
-        sunLight.shadow.map.autoUpdate = false;
+        if (sunLight.shadow && sunLight.shadow.map) { (sunLight.shadow.map as any).autoUpdate = false; }
     }
 }
 
@@ -530,7 +530,7 @@ export function animate() {
     uWindSpeed.value = THREE.MathUtils.lerp(uWindSpeed.value, targetWindSpeed, 0.05);
 
     if (uWindDirection.value && weatherSystemRef?.windDirection) {
-        uWindDirection.value.copy(weatherSystemRef.windDirection);
+        (uWindDirection.value as any).copy(weatherSystemRef.windDirection);
     }
 
     const currentBeatPhase = audioState?.beatPhase || 0;
@@ -617,9 +617,9 @@ export function animate() {
         baseFog.lerp(COLOR_RAIN_FOG, weatherIntensity * 0.2);
     }
 
-    uSkyTopColor.value.copy(baseSkyTop);
-    uSkyBottomColor.value.copy(baseSkyBot);
-    uHorizonColor.value.copy(currentState.horizon);
+    (uSkyTopColor.value as any).copy(baseSkyTop);
+    (uSkyBottomColor.value as any).copy(baseSkyBot);
+    (uHorizonColor.value as any).copy(currentState.horizon);
     uAtmosphereIntensity.value = currentState.atmosphereIntensity;
     sceneRef.fog!.color.copy(baseFog);
 
@@ -671,9 +671,9 @@ export function animate() {
         moonRef!.visible = false;
         _shaftIsNightMode = false;
 
-        sunGlowRef.position.copy(_scratchSunVector).multiplyScalar(400);
+        sunGlowRef!.position.copy(_scratchSunVector).multiplyScalar(400);
         (sunGlowRef as any).lookAt(cameraRef.position);
-        sunCoronaRef.position.copy(_scratchSunVector).multiplyScalar(390);
+        sunCoronaRef!.position.copy(_scratchSunVector).multiplyScalar(390);
         (sunCoronaRef as any).lookAt(cameraRef.position);
         lightShaftGroupRef!.position.copy(_scratchSunVector).multiplyScalar(380);
         (lightShaftGroupRef as any).lookAt(cameraRef.position);
@@ -726,13 +726,13 @@ export function animate() {
         const nightProgress = (cyclePos - 540) / (CYCLE_DURATION - 540);
         const moonAngle = nightProgress * Math.PI;
         const r = 90;
-        moonRef.position.set(Math.cos(moonAngle) * -r, Math.sin(moonAngle) * r, -30);
+        moonRef!.position.set(Math.cos(moonAngle) * -r, Math.sin(moonAngle) * r, -30);
         (moonRef as any).lookAt(0, 0, 0);
 
         if (lightShaftGroupRef && moonRef && cameraRef) {
-            lightShaftGroupRef.position.copy(moonRef.position);
+            lightShaftGroupRef.position.copy(moonRef!.position);
             lightShaftGroupRef.lookAt(cameraRef.position);
-            _scratchSunVector.copy(moonRef.position).sub(cameraRef.position).normalize();
+            _scratchSunVector.copy(moonRef!.position).sub(cameraRef.position).normalize();
             const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
             _applyShaftColor(shaftMat, true);
         }
@@ -808,7 +808,7 @@ export function animate() {
     if (beatFlashIntensity > 0.2) {
         _scratchAuroraColor.setHSL(0.8 + beatFlashIntensity * 0.1, 1.0, 0.6);
     }
-    uAuroraColor.value.copy(_scratchAuroraColor);
+    (uAuroraColor.value as any).copy(_scratchAuroraColor);
 
     let weatherStateStr = 'clear';
     if (weatherState === WeatherState.STORM) weatherStateStr = 'storm';
@@ -922,9 +922,9 @@ export function animate() {
         }
         // Safety check: ensure player position is valid before copying
         if (player.position && uPlayerPosition.value) {
-            uPlayerPosition.value.copy(devOrbitActive ? cameraRef!.position : player.position);
+            (uPlayerPosition.value as any).copy(devOrbitActive ? cameraRef!.position : player.position);
             if (uPlayerVelocity.value && player.velocity) {
-                uPlayerVelocity.value.copy(player.velocity);
+                (uPlayerVelocity.value as any).copy(player.velocity);
             }
         }
         if (sparkleTrail && player.position && player.velocity) {

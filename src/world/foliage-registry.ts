@@ -3,7 +3,6 @@ import {
     createMushroom,
     createGlowingFlower,
     createFlower,
-    createSubwooferLotus,
     createAccordionPalm,
     createFiberOpticWillow,
     createFloatingOrb,

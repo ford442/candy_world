@@ -351,3 +351,11 @@ export interface IWeatherSystem {
 
 // Caches to prevent repeated lookups (migrated from core idea)
 const _noteNameCache: Record<string | number, string> = {};
+
+export interface WeatherReactivityBinding {
+    channel: number;
+    smoothing: number;
+    scale: number;
+}
+
+export const WeatherMusicTargets = { rainIntensity: 0, thunderPulse: 0, fogDensity: 0 };
