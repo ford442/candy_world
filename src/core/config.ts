@@ -253,6 +253,7 @@ export interface ConfigType {
     flashScale: number;
     debugNoteReactivity: boolean;
     moon: {
+        blinkOnBeat: boolean;
         blinkDuration: number;
         blinkInterval: number;
         danceAmplitude: number;
@@ -735,6 +736,7 @@ export const CONFIG: ConfigType = {
 
     // Moon animation settings
     moon: {
+        blinkOnBeat: true,
         blinkDuration: 200, // ms
         blinkInterval: 5000, // ms (average)
         danceAmplitude: 0.2,

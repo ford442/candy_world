@@ -75,10 +75,6 @@ let _nebulaNoteVal = 0.0;
 let _globalNoteVal = 0.0;
 
 // ⚡ OPTIMIZATION: Module-scoped colors for zero-allocation note lerping
-const _targetMoonColor = new THREE.Color(0xffffff);
-const _targetArpeggioColor = new THREE.Color(0xffffff);
-const _targetNebulaColor = new THREE.Color(0xffffff);
-const _targetGlobalColor = new THREE.Color(0xffffff);
 
 // ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
 // melody_channel from assets/music-bindings.json sky_moon block.
@@ -95,26 +91,18 @@ let _smoothedSkyIntensity = 0.0;
 let _lastSkyNoteIndex = 0.0;
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
-const _frustum = new THREE.Frustum();
-const _projScreenMatrix = new THREE.Matrix4();
-const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling checks
 
 // ⚡ OPTIMIZATION: Reusable scratch array for species list
 const _scratchSpeciesList: string[] = [];
 
 // --- Weather Music Reactivity ---
 // Parsed once at module init from assets/music-bindings.json weatherReactivity block.
-export interface WeatherReactivityBinding {
-    channel: number;
-    smoothing: number;
-    scale: number;
-}
+
 
 /** Normalized target values (0–1) written each frame by MusicReactivitySystem.update().
  *  Consumed by WeatherSystem to blend music-driven weather intensity.
  *  Decays to zero when disabled or when no audio is playing.
  */
-export const WeatherMusicTargets = { rainIntensity: 0, thunderPulse: 0, fogDensity: 0 };
 
 // Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
 const WEATHER_TARGET_DECAY_RATE = 5.0;
@@ -159,10 +147,8 @@ const _skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
 };
 
 // ⚡ SKY WAVE state — pre-allocated, zero per-frame allocations in hot path
-export interface ActiveWave { color: THREE.Color; timestamp: number; origin?: THREE.Vector3; speed?: number; }
 let _activeWave: ActiveWave | null = null;
 
-const _zeroVec = new THREE.Vector3();
 // Return squared distance instead of time (avoids sqrt entirely)
 export function computeWaveDistSq(plantWorldPos: THREE.Vector3, activeWave: ActiveWave | null, cameraPosition?: THREE.Vector3): number {
     if (!activeWave) return -1;
@@ -175,156 +161,13 @@ export function computeWaveDistSq(plantWorldPos: THREE.Vector3, activeWave: Acti
 
     return dx * dx + dy * dy + dz * dz;  // ⚡ no sqrt
 }
-const _waveColor = new THREE.Color(); // scratch for beat capture
-const _whiteColor = new THREE.Color(0xffffff);
 // Pre-allocated static fallback to prevent per-frame object allocation when audio is inactive
-const _emptyAudioState: AudioData = { low: 0, mid: 0, high: 0, channels: [], isPlaying: false, timestamp: 0 };
+const _emptyAudioState: AudioData = { channelData: [], kickTrigger: 0, grooveAmount: 0, beatPhase: 0, patternIndex: 0 };
 let _waveDecayStartTime = 0;
 
 // One-time validation flag for channel range checks against music-bindings.json
 let _channelValidationDone = false;
 let _appliedMapMusicVersion = -1;
-
-function toChannels(value: unknown): readonly number[] | undefined {
-    if (!Array.isArray(value) || value.length === 0) return undefined;
-    const sanitized: number[] = [];
-    for (let i = 0; i < value.length; i++) {
-        const channel = value[i];
-        if (Number.isInteger(channel) && channel >= 0 && channel <= 255) sanitized.push(channel as number);
-    }
-    return sanitized.length > 0 ? sanitized : undefined;
-}
-
-function applyMapMusicContext(overrides: MapMusicOverrides | undefined): void {
-    _arpeggioShimmerCh = _defaultArpeggioShimmerCh;
-    _arpeggioHueShiftCh = _defaultArpeggioHueShiftCh;
-    _arpeggioNoteColorCh = _defaultArpeggioNoteColorCh;
-    _nebulaShimmerCh = _defaultNebulaShimmerCh;
-    _nebulaAmplitudeCh = _defaultNebulaAmplitudeCh;
-    _nebulaNoteColorCh = _defaultNebulaNoteColorCh;
-    _skyMoonNoteColorCh = _defaultSkyMoonNoteColorCh;
-    _skyMoonIntensityCh = _defaultSkyMoonIntensityCh;
-    _globalShimmerCh = _defaultGlobalShimmerCh;
-    _globalHueShiftCh = _defaultGlobalHueShiftCh;
-    _globalNoteColorCh = _defaultGlobalNoteColorCh;
-
-    _arpeggioIntensityScale = 1.0;
-    _nebulaIntensityScale = 1.0;
-    _globalIntensityScale = 1.0;
-    _skyMoonIntensityScale = 1.0;
-    _luminousIntensityScale = 1.0;
-
-    _skyMoonCh = _defaultSkyMoonMelodyCh;
-    _luminousPlantTrackerChannel = _defaultLuminousPlantTrackerChannel;
-
-    _weatherBindings = {
-        rainIntensity: _defaultWeatherBindings.rainIntensity ? { ..._defaultWeatherBindings.rainIntensity } : undefined,
-        thunderPulse: _defaultWeatherBindings.thunderPulse ? { ..._defaultWeatherBindings.thunderPulse } : undefined,
-        fogDensity: _defaultWeatherBindings.fogDensity ? { ..._defaultWeatherBindings.fogDensity } : undefined,
-    };
-    _skyWavePropagationMs = _defaultSkyWavePropagationMs;
-    _skyWaveDecayMs = _defaultSkyWaveDecayMs;
-    _skyWaveTargets.length = 0;
-    for (let i = 0; i < _defaultSkyWaveTargets.length; i++) {
-        _skyWaveTargets.push(_defaultSkyWaveTargets[i]);
-    }
-
-    const biomeOverrides = overrides?.biomes;
-    if (biomeOverrides && typeof biomeOverrides === 'object') {
-        const arpeggio = biomeOverrides.arpeggio_grove;
-        const nebula = biomeOverrides.crystalline_nebula;
-        const skyMoon = biomeOverrides.sky_moon;
-        const global = biomeOverrides.global;
-        if (arpeggio) {
-            _arpeggioShimmerCh = toChannels(arpeggio.shimmer) ?? _arpeggioShimmerCh;
-            _arpeggioHueShiftCh = toChannels(arpeggio.hueShift) ?? _arpeggioHueShiftCh;
-            _arpeggioNoteColorCh = toChannels(arpeggio.noteColor) ?? _arpeggioNoteColorCh;
-            if (typeof arpeggio.intensityScale === 'number' && Number.isFinite(arpeggio.intensityScale)) {
-                _arpeggioIntensityScale = arpeggio.intensityScale;
-            }
-        }
-        if (nebula) {
-            _nebulaShimmerCh = toChannels(nebula.shimmer) ?? _nebulaShimmerCh;
-            _nebulaAmplitudeCh = toChannels(nebula.amplitudeScale) ?? _nebulaAmplitudeCh;
-            _nebulaNoteColorCh = toChannels(nebula.noteColor) ?? _nebulaNoteColorCh;
-            if (typeof nebula.intensityScale === 'number' && Number.isFinite(nebula.intensityScale)) {
-                _nebulaIntensityScale = nebula.intensityScale;
-            }
-        }
-        if (skyMoon) {
-            _skyMoonNoteColorCh = toChannels(skyMoon.noteColor) ?? _skyMoonNoteColorCh;
-            _skyMoonIntensityCh = toChannels(skyMoon.intensity) ?? _skyMoonIntensityCh;
-            if (typeof skyMoon.intensityScale === 'number' && Number.isFinite(skyMoon.intensityScale)) {
-                _skyMoonIntensityScale = skyMoon.intensityScale;
-            }
-        }
-        if (global) {
-            _globalShimmerCh = toChannels(global.shimmer) ?? _globalShimmerCh;
-            _globalHueShiftCh = toChannels(global.hueShift) ?? _globalHueShiftCh;
-            _globalNoteColorCh = toChannels(global.noteColor) ?? _globalNoteColorCh;
-            if (typeof global.intensityScale === 'number' && Number.isFinite(global.intensityScale)) {
-                _globalIntensityScale = global.intensityScale;
-            }
-        }
-    }
-
-    if (typeof overrides?.skyMoon?.melodyChannel === 'number' && Number.isInteger(overrides.skyMoon.melodyChannel)) {
-        _skyMoonCh = overrides.skyMoon.melodyChannel;
-    }
-    if (typeof overrides?.luminousPlants?.trackerChannel === 'number' && Number.isInteger(overrides.luminousPlants.trackerChannel)) {
-        _luminousPlantTrackerChannel = overrides.luminousPlants.trackerChannel;
-    }
-    if (typeof overrides?.luminousPlants?.baseIntensity === 'number' && Number.isFinite(overrides.luminousPlants.baseIntensity)) {
-        _luminousIntensityScale = overrides.luminousPlants.baseIntensity;
-    }
-    if (typeof overrides?.skyWave?.propagationMs === 'number' && Number.isFinite(overrides.skyWave.propagationMs)) {
-        _skyWavePropagationMs = Math.max(100, overrides.skyWave.propagationMs);
-    }
-    if (typeof overrides?.skyWave?.decayMs === 'number' && Number.isFinite(overrides.skyWave.decayMs)) {
-        _skyWaveDecayMs = Math.max(100, overrides.skyWave.decayMs);
-    }
-    if (Array.isArray(overrides?.skyWave?.targetBiomes) && overrides.skyWave.targetBiomes.length > 0) {
-        // ⚡ OPTIMIZATION: Replaced .filter() with manual loop + in-place mutation to eliminate array allocation in context syncs.
-        _skyWaveTargets.length = 0;
-        for (let i = 0; i < overrides.skyWave.targetBiomes.length; i++) {
-            const name = overrides.skyWave.targetBiomes[i];
-            if (typeof name === 'string') {
-                _skyWaveTargets.push(name);
-            }
-        }
-        // Fallback to default if empty
-        if (_skyWaveTargets.length === 0) {
-            for (let i = 0; i < _defaultSkyWaveTargets.length; i++) {
-                _skyWaveTargets.push(_defaultSkyWaveTargets[i]);
-            }
-        }
-    }
-    if (overrides?.weatherReactivity && typeof overrides.weatherReactivity === 'object') {
-        for (let i = 0; i < _WEATHER_KEYS.length; i++) {
-            const key = _WEATHER_KEYS[i];
-            const current = _weatherBindings[key];
-            const override = overrides.weatherReactivity[key];
-            if (!override || typeof override !== 'object') continue;
-            const merged: WeatherReactivityBinding = {
-                channel: typeof override.channel === 'number' ? override.channel : current?.channel ?? 0,
-                smoothing: typeof override.smoothing === 'number' ? override.smoothing : current?.smoothing ?? 0.15,
-                scale: typeof override.scale === 'number' ? override.scale : current?.scale ?? 1.0,
-            };
-            _weatherBindings[key] = merged;
-        }
-    }
-
-    applyAtmosphereMapOverrides(overrides as { atmosphere?: Record<string, unknown> } | undefined);
-
-    _channelValidationDone = false;
-}
-
-function syncMapMusicContext(): void {
-    const context = getMapMusicContext();
-    if (context.version === _appliedMapMusicVersion) return;
-    _appliedMapMusicVersion = context.version;
-    applyMapMusicContext(context.overrides);
-}
 
 // --- Type Definitions ---
 
@@ -428,7 +271,7 @@ export class MusicReactivitySystem {
                 if (object.material && !Array.isArray(object.material) && (object.material as THREE.MeshStandardMaterial).emissive) {
                     // Smooth flash via animateFoliage
                     // ⚡ OPTIMIZATION: Only update values, never allocate using new THREE.Color or .clone() in the hot path
-                    object.userData.flashColor.setHex(color);
+                    if (object.userData.flashColor) object.userData.flashColor.setHex(color);
                     object.userData.flashIntensity = velocity / 127.0;
                 }
             };
@@ -591,8 +434,8 @@ export class MusicReactivitySystem {
 
         // Frustum Culling
         let isVisible = false;
-        if (obj.geometry && obj.geometry.boundingSphere) {
-            isVisible = _frustum.intersectsObject(obj);
+        if ((obj as THREE.Mesh).geometry && (obj as THREE.Mesh).geometry.boundingSphere) {
+            isVisible = _frustum.intersectsObject(obj as THREE.Mesh);
         } else {
             _scratchSphere.center.x = ox;
             _scratchSphere.center.y = oy;
@@ -605,7 +448,7 @@ export class MusicReactivitySystem {
             rendered++;
             // Using animateFoliage (assumed typed correctly in animation.ts)
             // ⚡ OPTIMIZATION: Use static _emptyAudioState instead of allocating {} per frame
-            animateFoliage(obj, time, audioState || _emptyAudioState, isDay, isDeepNight);
+            animateFoliage(obj, time, audioState || _emptyAudioState, isDay);
         } else {
             culledByFrustum++;
         }
@@ -634,7 +477,7 @@ export class MusicReactivitySystem {
 
         // Update Flower Batchers (aPoseState driven by audio)
         flowerBatcher.update(time, deltaTime, audioState, dayNightBias);
-        simpleFlowerBatcher.update(audioState);
+        simpleFlowerBatcher.update(time, deltaTime, audioState, dayNightBias);
 
         // Update Kick Drum Geysers
         kickDrumGeyserBatcher.update(time, deltaTime, audioState, MRState.activeWave);
@@ -743,7 +586,7 @@ export class MusicReactivitySystem {
         for (let i = 0; i < MRState.skyMoonNoteColorCh.length; i++) {
             const idx = MRState.skyMoonNoteColorCh[i];
             if (idx < channels.length && channels[idx].volume > 0.05) {
-            MRState.skyMoonNoteVal = channels[idx].note; // Assume .note exists on the channel data
+            MRState.skyMoonNoteVal = parseInt(channels[idx].note) || 0; // Assume .note exists on the channel data
             break;
             }
         }
@@ -751,7 +594,7 @@ export class MusicReactivitySystem {
         for (let i = 0; i < MRState.arpeggioNoteColorCh.length; i++) {
             const idx = MRState.arpeggioNoteColorCh[i];
             if (idx < channels.length && channels[idx].volume > 0.05) {
-            MRState.arpeggioNoteVal = channels[idx].note;
+            MRState.arpeggioNoteVal = parseInt(channels[idx].note) || 0;
             break;
             }
         }
@@ -759,7 +602,7 @@ export class MusicReactivitySystem {
         for (let i = 0; i < MRState.nebulaNoteColorCh.length; i++) {
             const idx = MRState.nebulaNoteColorCh[i];
             if (idx < channels.length && channels[idx].volume > 0.05) {
-            MRState.nebulaNoteVal = channels[idx].note;
+            MRState.nebulaNoteVal = parseInt(channels[idx].note) || 0;
             break;
             }
         }
@@ -768,7 +611,7 @@ export class MusicReactivitySystem {
         for (let i = 0; i < MRState.globalNoteColorCh.length; i++) {
             const idx = MRState.globalNoteColorCh[i];
             if (idx < channels.length && channels[idx].volume > 0.05) {
-            MRState.globalNoteVal = channels[idx].note;
+            MRState.globalNoteVal = parseInt(channels[idx].note) || 0;
             break;
             }
         }
@@ -777,7 +620,7 @@ export class MusicReactivitySystem {
         for (let i = 0; i < MRState.gemCanopyNoteColorCh.length; i++) {
             const idx = MRState.gemCanopyNoteColorCh[i];
             if (idx < channels.length && channels[idx].volume > 0.05) {
-            MRState.gemCanopyNoteVal = channels[idx].note;
+            MRState.gemCanopyNoteVal = parseInt(channels[idx].note) || 0;
             break;
             }
         }
@@ -902,8 +745,8 @@ export class MusicReactivitySystem {
             let maxAmp = 0.0;
 
             for (let i = 0; i < 12; i++) {
-            if (lpData.notes[i] > maxAmp) {
-                maxAmp = lpData.notes[i];
+            if (lpData.notes && lpData.notes[i] > maxAmp) {
+                maxAmp = lpData.notes[i] || 0;
                 dominantNote = i;
             }
             }
