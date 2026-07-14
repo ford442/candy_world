@@ -666,17 +666,21 @@ export function animate() {
         }
 
         sunLightRef!.visible = true;
-        sunGlowRef!.visible = true;
-        sunCoronaRef!.visible = true;
-        moonRef!.visible = false;
         _shaftIsNightMode = false;
 
-        sunGlowRef.position.copy(_scratchSunVector).multiplyScalar(400);
-        (sunGlowRef as any).lookAt(cameraRef.position);
-        sunCoronaRef.position.copy(_scratchSunVector).multiplyScalar(390);
-        (sunCoronaRef as any).lookAt(cameraRef.position);
-        lightShaftGroupRef!.position.copy(_scratchSunVector).multiplyScalar(380);
-        (lightShaftGroupRef as any).lookAt(cameraRef.position);
+        if (sunGlowRef && sunCoronaRef && moonRef) {
+            sunGlowRef.visible = true;
+            sunCoronaRef.visible = true;
+            moonRef.visible = false;
+            sunGlowRef.position.copy(_scratchSunVector).multiplyScalar(400);
+            (sunGlowRef as any).lookAt(cameraRef.position);
+            sunCoronaRef.position.copy(_scratchSunVector).multiplyScalar(390);
+            (sunCoronaRef as any).lookAt(cameraRef.position);
+        }
+        if (lightShaftGroupRef) {
+            lightShaftGroupRef.position.copy(_scratchSunVector).multiplyScalar(380);
+            (lightShaftGroupRef as any).lookAt(cameraRef.position);
+        }
 
         let glowIntensity = 0.25;
         let coronaIntensity = 0.15;
@@ -715,9 +719,8 @@ export function animate() {
     } else {
         sunLightRef!.visible = false;
         sunLightRef!.castShadow = false;
-        sunGlowRef!.visible = false;
-        sunCoronaRef!.visible = false;
-        moonRef!.visible = true;
+        if (sunGlowRef) sunGlowRef.visible = false;
+        if (sunCoronaRef) sunCoronaRef.visible = false;
 
         _shaftIsGoldenHour = false;
         _shaftGoldenHourBase = 0;
@@ -726,8 +729,11 @@ export function animate() {
         const nightProgress = (cyclePos - 540) / (CYCLE_DURATION - 540);
         const moonAngle = nightProgress * Math.PI;
         const r = 90;
-        moonRef.position.set(Math.cos(moonAngle) * -r, Math.sin(moonAngle) * r, -30);
-        (moonRef as any).lookAt(0, 0, 0);
+        if (moonRef) {
+            moonRef.visible = true;
+            moonRef.position.set(Math.cos(moonAngle) * -r, Math.sin(moonAngle) * r, -30);
+            (moonRef as any).lookAt(0, 0, 0);
+        }
 
         if (lightShaftGroupRef && moonRef && cameraRef) {
             lightShaftGroupRef.position.copy(moonRef.position);

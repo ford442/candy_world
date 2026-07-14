@@ -45,7 +45,9 @@
     "generate:map": "tsx tools/map-generator/cli.ts",
     "export:map": "tsx tools/map-generator/export-current-world.ts",
     "release:tag": "node scripts/make-release.mjs",
-    "release": "npm run build && node scripts/make-release.mjs"
+    "release": "npm run build && node scripts/make-release.mjs",
+    "typecheck": "tsc --noEmit",
+    "typecheck:ratchet": "node scripts/tsc-ratchet.mjs"
   },
   "keywords": [],
   "author": "",
