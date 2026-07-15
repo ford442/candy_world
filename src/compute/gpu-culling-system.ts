@@ -82,24 +82,24 @@ export interface CullingResult {
 
 /**
  * High-performance GPU-accelerated culling system.
- * 
+ *
  * Uses compute shaders for parallel frustum testing and LOD selection.
  * Falls back to CPU implementation when WebGPU is unavailable.
- * 
+ *
  * @example
  * ```ts
  * const gpu = new GPUComputeLibrary();
  * await gpu.initDevice();
- * 
+ *
  * const culling = new GPUCullingSystem(gpu, {
  *     maxObjects: 10000,
  *     lodDistances: [50, 100, 200]
  * });
  * await culling.initialize();
- * 
+ *
  * culling.uploadBoundingSpheres(objectSpheres);
  * const result = culling.cull(cameraFrustum, camera.position);
- * 
+ *
  * // Use results for rendering
  * for (let i = 0; i < result.visibleCount; i++) {
  *     const objectIndex = result.visibleIndices[i];
@@ -130,6 +130,7 @@ export class GPUCullingSystem {
     private spheres: Float32Array;
     private sphereCount: number = 0;
     private isInitialized: boolean = false;
+    private _cachedGpuResult: CullingResult | null = null;
 
     /**
      * Creates a new GPU culling system.
@@ -208,7 +209,11 @@ export class GPUCullingSystem {
             shader: FRUSTUM_CULL_WGSL,
             workgroupSize: 64,
             bindingLayout: [
-                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'read-only-storage' },
+                },
                 { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
                 { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
             ],
@@ -220,7 +225,11 @@ export class GPUCullingSystem {
             shader: LOD_SELECT_WGSL,
             workgroupSize: 256,
             bindingLayout: [
-                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'read-only-storage' },
+                },
                 { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
                 { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
             ],
@@ -259,7 +268,7 @@ export class GPUCullingSystem {
     /**
      * Uploads bounding spheres to GPU.
      * Call this when objects move or are added/removed.
-     * 
+     *
      * @param spheres - Array of bounding spheres
      */
     uploadBoundingSpheres(spheres: BoundingSphere[]): void {
@@ -275,17 +284,15 @@ export class GPUCullingSystem {
         }
 
         if (this.gpu.isReady() && this.sphereBuffer) {
-            this.gpu.getDevice()?.queue.writeBuffer(
-                this.sphereBuffer,
-                0,
-                this.spheres.subarray(0, count * 4)
-            );
+            this.gpu
+                .getDevice()
+                ?.queue.writeBuffer(this.sphereBuffer, 0, this.spheres.subarray(0, count * 4));
         }
     }
 
     /**
      * Performs frustum culling and LOD selection.
-     * 
+     *
      * @param frustum - View frustum planes
      * @param cameraPosition - Camera position in world space
      * @returns Culling results with visible object indices and LOD levels
@@ -300,6 +307,25 @@ export class GPUCullingSystem {
         }
 
         return this.gpuCull(frustum, cameraPosition);
+    }
+
+    /**
+     * Async cull — waits for GPU readback (authoritative when WebGPU is ready).
+     */
+    async cullAsync(
+        frustum: Frustum,
+        cameraPosition: [number, number, number]
+    ): Promise<CullingResult> {
+        if (!this.isInitialized) {
+            throw new Error('[GPUCullingSystem] Not initialized. Call initialize() first.');
+        }
+        if (!this.gpu.isReady() || !this.frustumPipeline || !this.lodPipeline) {
+            return this.cpuCull(frustum, cameraPosition);
+        }
+        this.gpuCull(frustum, cameraPosition);
+        const result = await this.readbackResults();
+        this._cachedGpuResult = result;
+        return result;
     }
 
     /**
@@ -330,7 +356,10 @@ export class GPUCullingSystem {
         // Note: LOD_SELECT_WGSL expects vec3 positions, but we use spheres (vec4)
         // The shader will read .xyz from the vec4
         const cameraData = new Float32Array([
-            cameraPosition[0], cameraPosition[1], cameraPosition[2], 0,
+            cameraPosition[0],
+            cameraPosition[1],
+            cameraPosition[2],
+            0,
             this.config.lodDistances[0],
             this.config.lodDistances[1],
             this.config.lodDistances[2],
@@ -341,7 +370,10 @@ export class GPUCullingSystem {
         // Create uniform buffer for frustum pass instance count
         const frustumUniformData = new Float32Array([
             ...planeData,
-            this.sphereCount, 0, 0, 0, // instanceCount + padding
+            this.sphereCount,
+            0,
+            0,
+            0, // instanceCount + padding
         ]);
         const frustumUniformBuffer = device.createBuffer({
             size: 112, // 6*16 + 16 bytes
@@ -376,10 +408,14 @@ export class GPUCullingSystem {
 
         // LOD select pass - reuse camera buffer with proper uniform layout
         const lodUniformData = new Float32Array([
-            cameraPosition[0], cameraPosition[1], cameraPosition[2], 0,
+            cameraPosition[0],
+            cameraPosition[1],
+            cameraPosition[2],
+            0,
             this.config.lodDistances[0],
             this.config.lodDistances[1],
-            this.sphereCount, 0,
+            this.sphereCount,
+            0,
         ]);
         device.queue.writeBuffer(this.cameraBuffer!, 0, lodUniformData);
 
@@ -394,9 +430,12 @@ export class GPUCullingSystem {
         // Clean up temporary buffer
         frustumUniformBuffer.destroy();
 
-        // Read back results (async - for now return CPU-calculated)
-        // In a real implementation, you'd use GPU readback with proper fencing
-        return this.cpuCull(frustum, cameraPosition);
+        // GPU dispatch complete — readback populates cache for sync callers.
+        void this.readbackResults().then((result) => {
+            this._cachedGpuResult = result;
+        });
+
+        return this._cachedGpuResult ?? this.cpuCull(frustum, cameraPosition);
     }
 
     /**
@@ -416,7 +455,8 @@ export class GPUCullingSystem {
             // Frustum test against all 6 planes
             let isVisible = true;
             for (const plane of frustum.planes) {
-                const dist = sx * plane.normal[0] +
+                const dist =
+                    sx * plane.normal[0] +
                     sy * plane.normal[1] +
                     sz * plane.normal[2] +
                     plane.distance;
@@ -436,8 +476,10 @@ export class GPUCullingSystem {
 
                 let lod = 3;
                 if (distSq < this.config.lodDistances[0] * this.config.lodDistances[0]) lod = 0;
-                else if (distSq < this.config.lodDistances[1] * this.config.lodDistances[1]) lod = 1;
-                else if (distSq < this.config.lodDistances[2] * this.config.lodDistances[2]) lod = 2;
+                else if (distSq < this.config.lodDistances[1] * this.config.lodDistances[1])
+                    lod = 1;
+                else if (distSq < this.config.lodDistances[2] * this.config.lodDistances[2])
+                    lod = 2;
 
                 visible.push(i);
                 lods.push(lod);
@@ -454,7 +496,7 @@ export class GPUCullingSystem {
     /**
      * Asynchronously reads back culling results from GPU.
      * Use this for GPU-driven rendering workflows.
-     * 
+     *
      * @returns Promise resolving to culling results
      */
     async readbackResults(): Promise<CullingResult> {
@@ -488,7 +530,7 @@ export class GPUCullingSystem {
     /**
      * Gets the indirect buffer for GPU-driven rendering.
      * Can be used with drawIndexedIndirect for render pass optimization.
-     * 
+     *
      * @returns GPU buffer containing indirect draw arguments
      */
     getIndirectBuffer(): GPUBuffer | null {
@@ -498,7 +540,7 @@ export class GPUCullingSystem {
     /**
      * Sets up the indirect draw buffer for GPU-driven rendering.
      * The GPU compute shader can write draw arguments directly to this buffer.
-     * 
+     *
      * @param maxDraws - Maximum number of draw calls
      */
     setupIndirectBuffer(maxDraws: number = 1): void {
@@ -569,7 +611,7 @@ export class GPUCullingSystem {
 /**
  * Creates a frustum from view and projection matrices.
  * Extracts the 6 clip planes in world space.
- * 
+ *
  * @param viewMatrix - 4x4 view matrix
  * @param projectionMatrix - 4x4 projection matrix
  * @returns Frustum with 6 planes
@@ -627,7 +669,7 @@ function extractPlane(vp: Float32Array, row: number, negate: boolean): Plane {
 
 /**
  * Creates a simple frustum from camera parameters.
- * 
+ *
  * @param position - Camera position
  * @param forward - Forward direction (normalized)
  * @param up - Up direction (normalized)
@@ -662,13 +704,19 @@ export function createFrustumFromCamera(
     // Near
     planes.push({
         normal: [-forward[0], -forward[1], -forward[2]],
-        distance: -(position[0] * forward[0] + position[1] * forward[1] + position[2] * forward[2] + near),
+        distance: -(
+            position[0] * forward[0] +
+            position[1] * forward[1] +
+            position[2] * forward[2] +
+            near
+        ),
     });
 
     // Far
     planes.push({
         normal: [forward[0], forward[1], forward[2]],
-        distance: position[0] * forward[0] + position[1] * forward[1] + position[2] * forward[2] + far,
+        distance:
+            position[0] * forward[0] + position[1] * forward[1] + position[2] * forward[2] + far,
     });
 
     // Left
@@ -680,7 +728,12 @@ export function createFrustumFromCamera(
     const leftLen = Math.sqrt(leftNormal[0] ** 2 + leftNormal[1] ** 2 + leftNormal[2] ** 2);
     planes.push({
         normal: [leftNormal[0] / leftLen, leftNormal[1] / leftLen, leftNormal[2] / leftLen],
-        distance: -(position[0] * leftNormal[0] + position[1] * leftNormal[1] + position[2] * leftNormal[2]) / leftLen,
+        distance:
+            -(
+                position[0] * leftNormal[0] +
+                position[1] * leftNormal[1] +
+                position[2] * leftNormal[2]
+            ) / leftLen,
     });
 
     // Right
@@ -692,7 +745,12 @@ export function createFrustumFromCamera(
     const rightLen = Math.sqrt(rightNormal[0] ** 2 + rightNormal[1] ** 2 + rightNormal[2] ** 2);
     planes.push({
         normal: [rightNormal[0] / rightLen, rightNormal[1] / rightLen, rightNormal[2] / rightLen],
-        distance: -(position[0] * rightNormal[0] + position[1] * rightNormal[1] + position[2] * rightNormal[2]) / rightLen,
+        distance:
+            -(
+                position[0] * rightNormal[0] +
+                position[1] * rightNormal[1] +
+                position[2] * rightNormal[2]
+            ) / rightLen,
     });
 
     // Top
@@ -704,7 +762,12 @@ export function createFrustumFromCamera(
     const topLen = Math.sqrt(topNormal[0] ** 2 + topNormal[1] ** 2 + topNormal[2] ** 2);
     planes.push({
         normal: [topNormal[0] / topLen, topNormal[1] / topLen, topNormal[2] / topLen],
-        distance: -(position[0] * topNormal[0] + position[1] * topNormal[1] + position[2] * topNormal[2]) / topLen,
+        distance:
+            -(
+                position[0] * topNormal[0] +
+                position[1] * topNormal[1] +
+                position[2] * topNormal[2]
+            ) / topLen,
     });
 
     // Bottom
@@ -715,8 +778,17 @@ export function createFrustumFromCamera(
     ];
     const bottomLen = Math.sqrt(bottomNormal[0] ** 2 + bottomNormal[1] ** 2 + bottomNormal[2] ** 2);
     planes.push({
-        normal: [bottomNormal[0] / bottomLen, bottomNormal[1] / bottomLen, bottomNormal[2] / bottomLen],
-        distance: -(position[0] * bottomNormal[0] + position[1] * bottomNormal[1] + position[2] * bottomNormal[2]) / bottomLen,
+        normal: [
+            bottomNormal[0] / bottomLen,
+            bottomNormal[1] / bottomLen,
+            bottomNormal[2] / bottomLen,
+        ],
+        distance:
+            -(
+                position[0] * bottomNormal[0] +
+                position[1] * bottomNormal[1] +
+                position[2] * bottomNormal[2]
+            ) / bottomLen,
     });
 
     return { planes: planes as [Plane, Plane, Plane, Plane, Plane, Plane] };

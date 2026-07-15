@@ -1159,3 +1159,19 @@ export declare function ecs_getComponent(entity: number, componentName: string):
  * @returns `bool`
  */
 export declare function ecs_hasComponent(entity: number, componentName: string): boolean;
+/**
+ * assembly/boids/updateBoids
+ * @param boidsPtr `usize`
+ * @param count `i32`
+ * @param dt `f32`
+ * @param playerX `f32`
+ * @param playerZ `f32`
+ * @param time `f32`
+ */
+export declare function updateBoids(boidsPtr: number, count: number, dt: number, playerX: number, playerZ: number, time: number): void;
+/**
+ * assembly/boids/boidsBufferBytes
+ * @param count `i32`
+ * @returns `i32`
+ */
+export declare function boidsBufferBytes(count: number): number;

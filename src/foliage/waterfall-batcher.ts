@@ -1,11 +1,34 @@
 import * as THREE from 'three';
+import { log } from '../utils/log.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import {
-    color, float, vec3, vec2, attribute, positionLocal,
-    sin, cos, mix, smoothstep, uniform, If, time, uv,
-    varying, dot, normalize, normalLocal, step, Fn, positionWorld,
-    instanceIndex, storage, mx_noise_float, normalWorld, floor
+    color,
+    float,
+    vec3,
+    vec2,
+    attribute,
+    positionLocal,
+    sin,
+    cos,
+    mix,
+    smoothstep,
+    uniform,
+    If,
+    time,
+    uv,
+    varying,
+    dot,
+    normalize,
+    normalLocal,
+    step,
+    Fn,
+    positionWorld,
+    instanceIndex,
+    storage,
+    mx_noise_float,
+    normalWorld,
+    floor,
 } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
@@ -16,8 +39,14 @@ const modFloat = (x: any, y: any) => {
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
 import {
-    sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight
+    sharedGeometries,
+    foliageMaterials,
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    CandyPresets,
+    registerReactiveMaterial,
+    createJuicyRimLight,
 } from './index.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
@@ -71,16 +100,16 @@ export class WaterfallBatcher {
         // Note: CandyPresets.SeaJelly returns a MeshPhysicalNodeMaterial usually.
         // We need to modify it for InstancedMesh if needed.
         // But since we are using standard TSL nodes, it should work fine.
-        const colMat = CandyPresets.SeaJelly(0x00FFFF, {
+        const colMat = CandyPresets.SeaJelly(0x00ffff, {
             transmission: 0.9,
             thickness: 1.2,
             roughness: 0.1,
             ior: 1.33,
             subsurfaceStrength: 0.5,
-            subsurfaceColor: 0xCCFFFF,
+            subsurfaceColor: 0xccffff,
             animateMoisture: true,
             thicknessDistortion: 0.6,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
         });
 
         // Custom TSL Logic for Column (Juicy Upgrade)
@@ -88,8 +117,12 @@ export class WaterfallBatcher {
         const speed = float(2.0).add(uAudioHigh.mul(2.0));
         const flowUV = uv().add(vec2(0, uTime.mul(speed).negate()));
 
-        const ripple1 = sin(flowUV.y.mul(15.0).add(flowUV.x.mul(5.0))).mul(0.5).add(0.5);
-        const ripple2 = sin(flowUV.y.mul(25.0).sub(flowUV.x.mul(10.0)).add(uTime)).mul(0.5).add(0.5);
+        const ripple1 = sin(flowUV.y.mul(15.0).add(flowUV.x.mul(5.0)))
+            .mul(0.5)
+            .add(0.5);
+        const ripple2 = sin(flowUV.y.mul(25.0).sub(flowUV.x.mul(10.0)).add(uTime))
+            .mul(0.5)
+            .add(0.5);
         const foamNoise = ripple1.mul(ripple2);
 
         // 2. Bottom Foam Gradient (Pivot is center Y=0, Height=1, so range -0.5 to 0.5)
@@ -118,19 +151,19 @@ export class WaterfallBatcher {
 
         // Gradient: Cyan (Top) to Purple (Bottom)
         // UV.y 0 (Bottom) -> 1 (Top)
-        const gradient = mix(color(0xFF00FF), color(0x00FFFF), uv().y);
+        const gradient = mix(color(0xff00ff), color(0x00ffff), uv().y);
 
         // Mix gradient into base color (Base is Cyan from SeaJelly)
         colMat.colorNode = mix(colMat.colorNode, gradient, 0.5);
 
         // Juicy Rim Light (The "Palette" Polish)
         // Makes the edges glow with energy
-        const rimColor = color(0x00FFFF);
+        const rimColor = color(0x00ffff);
         const rim = createJuicyRimLight(rimColor, float(2.0), float(3.0), normalWorld);
 
         // Total Emission = Gradient + Foam + Rim + Pulse
         // Foam makes it white/bright
-        const foamEmission = color(0xFFFFFF).mul(totalFoam.mul(uBaseEmission.add(uPulseIntensity)));
+        const foamEmission = color(0xffffff).mul(totalFoam.mul(uBaseEmission.add(uPulseIntensity)));
 
         // Combine: Base Emission + Foam + Rim
         // Music Impact: crystalline nebula shimmer/noteColor adds bioluminescent tint to waterfall
@@ -150,11 +183,17 @@ export class WaterfallBatcher {
 
         // 2. Splash Mesh
         const splashGeo = new THREE.SphereGeometry(1, 8, 8); // Base radius 1, scaled down later
-        const splashMat = CandyPresets.Sugar(0xFFFFFF, { roughness: 0.4, bumpStrength: 0.2 });
+        const splashMat = CandyPresets.Sugar(0xffffff, { roughness: 0.4, bumpStrength: 0.2 });
 
         // Splash TSL Animation
-        this.splashOrigin = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLASHES * 3), 3);
-        this.splashVelocity = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLASHES * 3), 3); // x, y, z (randoms)
+        this.splashOrigin = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_SPLASHES * 3),
+            3
+        );
+        this.splashVelocity = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_SPLASHES * 3),
+            3
+        ); // x, y, z (randoms)
 
         splashGeo.setAttribute('aOrigin', this.splashOrigin);
         splashGeo.setAttribute('aVelocity', this.splashVelocity);
@@ -201,11 +240,15 @@ export class WaterfallBatcher {
         // Color Logic (Juicy Upgrade)
         // Mix from White (Foam) to Cyan/Magenta based on life or randomness
         // Use aVelocity.y (phase seed) to randomize color
-        const randomColor = mix(color(0x00FFFF), color(0xFF00FF), sin(aVelocity.y.mul(10.0)).mul(0.5).add(0.5));
+        const randomColor = mix(
+            color(0x00ffff),
+            color(0xff00ff),
+            sin(aVelocity.y.mul(10.0)).mul(0.5).add(0.5)
+        );
 
         // Flash white at birth (t < 0.2)
         const flash = float(1.0).sub(smoothstep(0.0, 0.2, t));
-        const finalColor = mix(randomColor, color(0xFFFFFF), flash);
+        const finalColor = mix(randomColor, color(0xffffff), flash);
 
         splashMat.colorNode = finalColor;
 
@@ -223,13 +266,13 @@ export class WaterfallBatcher {
         }
 
         this.initialized = true;
-        console.log('WaterfallBatcher initialized');
+        log.info('WaterfallBatcher', 'initialized');
     }
 
     dispose() {
         if (!this.initialized) return;
 
-        [this.mesh, this.splashMesh].forEach(mesh => {
+        [this.mesh, this.splashMesh].forEach((mesh) => {
             if (!mesh) return;
             safeRemoveAndDispose(foliageGroup, mesh);
         });
@@ -269,7 +312,7 @@ export class WaterfallBatcher {
 
         _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (index) * 16);
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, index * 16);
         this.mesh!.instanceMatrix.needsUpdate = true;
 
         // 2. Setup Splashes (8 per waterfall)
@@ -283,23 +326,20 @@ export class WaterfallBatcher {
             const offsetX = (Math.random() - 0.5) * width;
             const offsetZ = (Math.random() - 0.5) * width;
 
-            this.splashOrigin!.setXYZ(si,
-                position.x + offsetX,
-                bottomY,
-                position.z + offsetZ
-            );
+            this.splashOrigin!.setXYZ(si, position.x + offsetX, bottomY, position.z + offsetZ);
 
             // Velocity Params: X/Z direction, Y seed
-            this.splashVelocity!.setXYZ(si,
-                (Math.random() - 0.5), // X dir
-                Math.random(),         // Y seed (phase)
-                (Math.random() - 0.5)  // Z dir
+            this.splashVelocity!.setXYZ(
+                si,
+                Math.random() - 0.5, // X dir
+                Math.random(), // Y seed (phase)
+                Math.random() - 0.5 // Z dir
             );
 
             // Initialize matrix to identity (needed for rendering, even if positionNode overrides)
             _scratchMatrix.identity();
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.splashMesh!.instanceMatrix.array, (si) * 16);
+            _scratchMatrix.toArray(this.splashMesh!.instanceMatrix.array, si * 16);
         }
 
         this.splashOrigin!.needsUpdate = true;
@@ -337,15 +377,27 @@ export class WaterfallBatcher {
             const splashDestOffset = destStart * 3;
             const splashLength = SPLASHES_PER_WATERFALL * 3;
 
-            (this.splashOrigin!.array as Float32Array).copyWithin(splashDestOffset, splashSrcOffset, splashSrcOffset + splashLength);
-            (this.splashVelocity!.array as Float32Array).copyWithin(splashDestOffset, splashSrcOffset, splashSrcOffset + splashLength);
+            (this.splashOrigin!.array as Float32Array).copyWithin(
+                splashDestOffset,
+                splashSrcOffset,
+                splashSrcOffset + splashLength
+            );
+            (this.splashVelocity!.array as Float32Array).copyWithin(
+                splashDestOffset,
+                splashSrcOffset,
+                splashSrcOffset + splashLength
+            );
 
             // Swap Splash Matrix
             const splashMatArray = this.splashMesh!.instanceMatrix.array as Float32Array;
             const splashMatSrcOffset = srcStart * 16;
             const splashMatDestOffset = destStart * 16;
             const splashMatLength = SPLASHES_PER_WATERFALL * 16;
-            splashMatArray.copyWithin(splashMatDestOffset, splashMatSrcOffset, splashMatSrcOffset + splashMatLength);
+            splashMatArray.copyWithin(
+                splashMatDestOffset,
+                splashMatSrcOffset,
+                splashMatSrcOffset + splashMatLength
+            );
 
             // Update Map
             this.idToIndex.set(lastId, indexToRemove);
@@ -382,11 +434,15 @@ export class WaterfallBatcher {
         // Assuming X and Z were equal initially (circular).
         // Current X scale is the magnitude of the 1st column.
         // ⚡ OPTIMIZATION: Use squared scale magnitudes and fast inverse square root to avoid Math.sqrt() in hot loops.
-        const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
+        const m00 = matrixArray[offset + 0],
+            m01 = matrixArray[offset + 1],
+            m02 = matrixArray[offset + 2];
         const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
 
         // Current Z scale is the magnitude of the 3rd column.
-        const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
+        const m20 = matrixArray[offset + 8],
+            m21 = matrixArray[offset + 9],
+            m22 = matrixArray[offset + 10];
         const currentScaleZSq = m20 * m20 + m21 * m21 + m22 * m22;
 
         // Apply scaling factor to the 3rd column

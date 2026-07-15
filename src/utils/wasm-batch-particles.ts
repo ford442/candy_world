@@ -3,8 +3,9 @@ import {
     wasmSpawnBurst,
     cppBatchGroundHeightSimd,
     getEmscriptenInstance,
-    emscriptenMemory
+    emscriptenMemory,
 } from './wasm-loader-core.ts';
+import { log } from './log.ts';
 
 // =============================================================================
 // PARTICLE FUNCTIONS FROM ASSEMBLY/PARTICLES.TS
@@ -27,7 +28,7 @@ export function updateParticles(
         wasmUpdateParticles(positions, count, dt, gravity);
         return;
     }
-    
+
     // JS fallback: Simple gravity update
     if (positions instanceof Float32Array) {
         for (let i = 0; i < count; i++) {
@@ -60,7 +61,7 @@ export function spawnBurst(
         wasmSpawnBurst(output, count, centerX, centerY, centerZ, speed, time);
         return;
     }
-    
+
     // JS fallback: Random burst pattern
     if (output instanceof Float32Array) {
         for (let i = 0; i < count; i++) {
@@ -71,7 +72,7 @@ export function spawnBurst(
             const vx = Math.sin(phi) * Math.cos(theta) * speed;
             const vy = Math.sin(phi) * Math.sin(theta) * speed;
             const vz = Math.cos(phi) * speed;
-            
+
             output[idx] = centerX;
             output[idx + 1] = centerY;
             output[idx + 2] = centerZ;
@@ -91,14 +92,17 @@ export function spawnBurst(
 export function getHeightmapBatch(coordinates: Float32Array): Float32Array {
     if (!cppBatchGroundHeightSimd || !emscriptenMemory) {
         // Fallback if WASM function isn't ready
-        console.warn("[WASM Batch] cppBatchGroundHeightSimd not found, using JS fallback");
+        log.warn('WASM Batch', 'cppBatchGroundHeightSimd not found, using JS fallback');
         const count = coordinates.length / 2;
         const result = new Float32Array(count);
         for (let i = 0; i < count; i++) {
             const x = coordinates[i * 2];
             const z = coordinates[i * 2 + 1];
-            result[i] = Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
-                        Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+            result[i] =
+                Math.sin(x * 0.05) * 2 +
+                Math.cos(z * 0.05) * 2 +
+                Math.sin(x * 0.2) * 0.3 +
+                Math.cos(z * 0.15) * 0.3;
         }
         return result;
     }
@@ -132,13 +136,19 @@ export function getHeightmapBatch(coordinates: Float32Array): Float32Array {
                 hasNan = true;
                 const x = coordinates[i * 2];
                 const z = coordinates[i * 2 + 1];
-                result[i] = Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
-                            Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+                result[i] =
+                    Math.sin(x * 0.05) * 2 +
+                    Math.cos(z * 0.05) * 2 +
+                    Math.sin(x * 0.2) * 0.3 +
+                    Math.cos(z * 0.15) * 0.3;
             }
         }
 
         if (hasNan) {
-             console.warn("[WASM Batch] NaN or Out of Bounds detected in batch output, repaired with JS fallback");
+            log.warn(
+                'WASM Batch',
+                'NaN or Out of Bounds detected in batch output, repaired with JS fallback'
+            );
         }
 
         return result;

@@ -1,13 +1,37 @@
 import * as THREE from 'three';
+import { log } from '../utils/log.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float,
-    float, normalize, positionWorld, normalWorld, cameraPosition, dot, abs, sin, pow,
-    uv, smoothstep
+    color,
+    uniform,
+    mix,
+    vec3,
+    positionLocal,
+    normalLocal,
+    mx_noise_float,
+    float,
+    normalize,
+    positionWorld,
+    normalWorld,
+    cameraPosition,
+    dot,
+    abs,
+    sin,
+    pow,
+    uv,
+    smoothstep,
 } from 'three/tsl';
 import {
-    uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
-    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, applyPlayerInteraction, uPlayerVelocity
+    uTime,
+    createJuicyRimLight,
+    uAudioLow,
+    uAudioHigh,
+    uWindSpeed,
+    uWindDirection,
+    triplanarNoise,
+    uPlayerPosition,
+    applyPlayerInteraction,
+    uPlayerVelocity,
 } from './index.ts';
 import { attribute } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
@@ -19,13 +43,13 @@ import { CONFIG } from '../core/config.ts';
 // --- Global Uniforms (Moved from clouds.js) ---
 export const uCloudRainbowIntensity = uniform(0.0);
 export const uCloudLightningStrength = uniform(0.0);
-export const uCloudLightningColor = uniform(color(0xFFFFFF));
+export const uCloudLightningColor = uniform(color(0xffffff));
 
 // --- Material Creation ---
 function createCloudMaterial() {
     const material = new MeshStandardNodeMaterial({
-        color: 0xffffff,     // Pure cotton white base
-        roughness: 0.9,      // Mostly matte but allows some sheen
+        color: 0xffffff, // Pure cotton white base
+        roughness: 0.9, // Mostly matte but allows some sheen
         metalness: 0.0,
         flatShading: false,
     });
@@ -50,7 +74,11 @@ function createCloudMaterial() {
     // Enhanced Squash Y down, Bulge XZ out + Velocity impact (Juicy jump through)
     const baseSquash = playerStrength.mul(0.6);
     // If player is moving fast vertically (jumping), add extra vertical squash
-    const verticalVelSquash = uPlayerVelocity.y.abs().mul(0.015).mul(playerStrength).clamp(0.0, 0.4);
+    const verticalVelSquash = uPlayerVelocity.y
+        .abs()
+        .mul(0.015)
+        .mul(playerStrength)
+        .clamp(0.0, 0.4);
     const totalSquashY = baseSquash.add(verticalVelSquash);
     // Expand radially to preserve volume (ish)
     const expandXZ = totalSquashY.mul(0.5);
@@ -58,7 +86,7 @@ function createCloudMaterial() {
     const playerSquishScale = vec3(
         float(1.0).add(expandXZ), // Expand X
         float(1.0).sub(totalSquashY).max(0.4), // Compress Y, clamp at 0.4
-        float(1.0).add(expandXZ)  // Expand Z
+        float(1.0).add(expandXZ) // Expand Z
     );
 
     // 2. Wind Shearing (Clouds drift faster at the top)
@@ -129,7 +157,7 @@ function createCloudMaterial() {
 
     // Apply player interaction
     material.positionNode = applyPlayerInteraction(animatedPos);
-  
+
     // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)
     // Adds high-frequency noise to Roughness and slightly to Color
     // Scale 10.0 for micro-detail
@@ -144,7 +172,7 @@ function createCloudMaterial() {
 
     // Juicy Rim Light (Replaces standard rim)
     // Reacts to Melody (AudioHigh)
-    const rimColor = color(0xFFF8E7); // Warm white
+    const rimColor = color(0xfff8e7); // Warm white
     const rimIntensity = float(0.5);
     const rimPower = float(2.0);
     // Note: createJuicyRimLight adds its own audio pulse and color shift
@@ -183,11 +211,15 @@ function createCloudMaterial() {
     // 2. Tint during Twilight/Night (uTwilight -> 1.0)
     // Shift towards deep blue-grey at night
     const nightTint = color(0x223355);
-    const dayTint = color(0xFFFFFF);
+    const dayTint = color(0xffffff);
     const ambientTint = mix(dayTint, nightTint, uTwilight.mul(0.7)); // 0.7 intensity
 
     // Final Color Composition
-    const lakeTint = mix(color(0xFFFFFF), BiomeUniforms.lakeFeatures.noteColor, BiomeUniforms.lakeFeatures.hueShift.mul(0.35));
+    const lakeTint = mix(
+        color(0xffffff),
+        BiomeUniforms.lakeFeatures.noteColor,
+        BiomeUniforms.lakeFeatures.hueShift.mul(0.35)
+    );
     const finalColor = texturedColor.mul(ambientTint).mul(stormDarkness).mul(lakeTint);
 
     material.colorNode = finalColor;
@@ -195,8 +227,10 @@ function createCloudMaterial() {
     // --- VERTICAL ECOSYSTEM: Crystallized Rim for Walkable Clouds ---
     // Walkable clouds (tier 1) get a subtle cyan ice-crystal edge glow
     const walkableFlag = attribute('aIsWalkable', 'float');
-    const crystalColor = color(0xE0FFFF);
-    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag);
+    const crystalColor = color(0xe0ffff);
+    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(
+        walkableFlag
+    );
 
     // Dim emissive effects during storms too, except lightning
     material.emissiveNode = lightningGlow
@@ -267,7 +301,10 @@ export class CloudBatcher {
 
         // ⚡ VERTEX BUFFER BUDGET: position(1) + normal(2) + uv(3) + instanceMatrix(4-7) + aIsWalkable(8)
         // Staying exactly at the 8-buffer WebGPU limit for GTX 1060 compatibility
-        this.isWalkableAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PUFFS), 1);
+        this.isWalkableAttribute = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_PUFFS),
+            1
+        );
         puffGeometry.setAttribute('aIsWalkable', this.isWalkableAttribute);
 
         this.mesh = new THREE.InstancedMesh(puffGeometry, getSharedCloudMaterial(), MAX_PUFFS);
@@ -280,7 +317,7 @@ export class CloudBatcher {
         foliageGroup.add(this.mesh);
 
         this.initialized = true;
-        console.log(`[CloudBatcher] Initialized with capacity ${MAX_PUFFS}`);
+        log.info('CloudBatcher', `Initialized with capacity ${MAX_PUFFS}`);
     }
 
     register(cloudGroup: any, options: any = {}) {
@@ -290,7 +327,7 @@ export class CloudBatcher {
         const { scale = 1.0, puffCount = 12 + Math.floor(Math.random() * 8) } = options;
 
         if (this.count + puffCount > MAX_PUFFS) {
-            console.warn(`[CloudBatcher] Max capacity reached (${this.count} / ${MAX_PUFFS})`);
+            log.warn('CloudBatcher', `Max capacity reached (${this.count} / ${MAX_PUFFS})`);
             return;
         }
 
@@ -319,8 +356,16 @@ export class CloudBatcher {
             const finalPuffScale = Math.max(0.2, sizeBase * puffScaleRandom * scale);
 
             _scratchObject3D.scale.setScalar(finalPuffScale);
-            _scratchObject3D.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            _scratchMat.compose(_scratchObject3D.position, _scratchObject3D.quaternion, _scratchObject3D.scale);
+            _scratchObject3D.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            _scratchMat.compose(
+                _scratchObject3D.position,
+                _scratchObject3D.quaternion,
+                _scratchObject3D.scale
+            );
             puffs.push(_scratchMat.clone());
         }
 
@@ -389,17 +434,21 @@ export class CloudBatcher {
             // Only update matrix buffer if cloud actually moved (physics/drag)
             // Floating animation is handled by TSL Vertex Shader
             if (cloud.userData.lastPos) {
-                 const dx = cloud.position.x - cloud.userData.lastPos.x; const dy = cloud.position.y - cloud.userData.lastPos.y; const dz = cloud.position.z - cloud.userData.lastPos.z; const moved = (dx*dx + dy*dy + dz*dz) > 0.0001;
-                 const rotated = Math.abs(cloud.rotation.x - cloud.userData.lastRot.x) > 0.001 ||
-                                 Math.abs(cloud.rotation.y - cloud.userData.lastRot.y) > 0.001 ||
-                                 Math.abs(cloud.rotation.z - cloud.userData.lastRot.z) > 0.001;
+                const dx = cloud.position.x - cloud.userData.lastPos.x;
+                const dy = cloud.position.y - cloud.userData.lastPos.y;
+                const dz = cloud.position.z - cloud.userData.lastPos.z;
+                const moved = dx * dx + dy * dy + dz * dz > 0.0001;
+                const rotated =
+                    Math.abs(cloud.rotation.x - cloud.userData.lastRot.x) > 0.001 ||
+                    Math.abs(cloud.rotation.y - cloud.userData.lastRot.y) > 0.001 ||
+                    Math.abs(cloud.rotation.z - cloud.userData.lastRot.z) > 0.001;
 
-                 if (moved || rotated) {
-                     cloud.userData.lastPos.copy(cloud.position);
-                     cloud.userData.lastRot.copy(cloud.rotation);
-                     this.updateCloudInstance(cloud);
-                     needsUpdate = true;
-                 }
+                if (moved || rotated) {
+                    cloud.userData.lastPos.copy(cloud.position);
+                    cloud.userData.lastRot.copy(cloud.rotation);
+                    this.updateCloudInstance(cloud);
+                    needsUpdate = true;
+                }
             }
         }
 

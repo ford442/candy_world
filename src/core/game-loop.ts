@@ -38,6 +38,9 @@ import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { updateFallingClouds } from '../foliage/clouds.ts';
 import { updateAllIntegratedSystems, type ParticleAudioData } from '../particles/index.ts';
 import { initGroundDebug, updateGroundDebug, isGroundDebugEnabled } from '../debug/ground-debug.ts';
+import { updateFaunaSystem } from '../systems/fauna/index.ts';
+import { updatePresenceSystem } from '../systems/net/index.ts';
+import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
 import { log } from '../utils/log.ts';
 
 const _scratchParticleAudioData: ParticleAudioData = {
@@ -495,6 +498,8 @@ export function animate() {
 
     profiler.startFrame();
 
+    tickComputeOrchestrator();
+
     if (!_loggedWebGPULimits) {
         const limits = (rendererRef as WebGPURendererWithDeviceLimits).backend?.device?.limits;
         if (limits) {
@@ -847,6 +852,12 @@ export function animate() {
     if (cameraRef) {
         updateFoliageBatcherLOD(cameraRef, delta);
     }
+
+    updateFaunaSystem(delta, t);
+
+    profiler.measure('Presence', () => {
+        updatePresenceSystem(delta, cameraRef!, player.position);
+    });
 
     const deepNightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT;
     const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;

@@ -2,10 +2,15 @@ import * as THREE from 'three';
 import { createIntegratedFireflies } from '../particles/index.ts';
 import { initCollisionSystem } from '../utils/wasm-loader.ts';
 import {
-    createSky, createStars, createMoon, createWaveformWater, initFallingBerries,
+    createSky,
+    createStars,
+    createMoon,
+    createWaveformWater,
+    initFallingBerries,
     initGrassSystem,
     createIsland,
-    createTerrainMaterial, luminousPlantBatcher
+    createTerrainMaterial,
+    luminousPlantBatcher,
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
@@ -17,15 +22,37 @@ import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { updateProgress } from '../ui/index.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
-import { populateProceduralExtras, populateGemCanopyCorridor, populateMyceliumGrove } from './generation-decorators.ts';
+import {
+    populateProceduralExtras,
+    populateGemCanopyCorridor,
+    populateMyceliumGrove,
+} from './generation-decorators.ts';
 import { safeAddFoliage, processMapEntity } from './generation-entities.ts';
 import {
-    DEFAULT_MAP_CHUNK_SIZE, ENTITY_BUDGET_MS, PROCEDURAL_ENTITY_COUNT,
-    WeatherSystem, WorldObjects, WorldMode, MapEntity, WorldProgressCallback,
-    isPositionValid, yieldControl
+    DEFAULT_MAP_CHUNK_SIZE,
+    ENTITY_BUDGET_MS,
+    PROCEDURAL_ENTITY_COUNT,
+    WeatherSystem,
+    WorldObjects,
+    WorldMode,
+    MapEntity,
+    WorldProgressCallback,
+    isPositionValid,
+    yieldControl,
 } from './generation-utils.ts';
-import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } from './map-loader.ts';
-import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';
+import {
+    getMapSourceFromUrl,
+    loadMap,
+    setupMapHotReload,
+    type LoadedCandyMap,
+} from './map-loader.ts';
+import { setMapMetadataSeed } from './world-seed.ts';
+import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
+import {
+    clearMapMusicContext,
+    deriveMapMusicContext,
+    setMapMusicContext,
+} from './map-music-context.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
@@ -46,7 +73,7 @@ const STREAMING_PRIORITY_TYPES = [
     'bubble_willow',
     'mushroom',
     'cloud',
-    'flower'
+    'flower',
 ] as const;
 
 const VISIBLE_BUBBLE_RADIUS = 80;
@@ -79,12 +106,17 @@ async function getLoadedMap(): Promise<LoadedCandyMap> {
         const defaultSource = new URL('../../assets/map.json', import.meta.url).href;
         const source = getMapSourceFromUrl(defaultSource);
         loadedMapPromise = loadMap(source)
-            .catch(async error => {
+            .catch(async (error) => {
                 if (source === defaultSource) throw error;
-                console.warn(`[MapLoader] Failed to load "${source}", falling back to default map.`, error);
+                console.warn(
+                    `[MapLoader] Failed to load "${source}", falling back to default map.`,
+                    error
+                );
                 return loadMap(defaultSource);
             })
-            .then(loaded => {
+            .then((loaded) => {
+                setMapMetadataSeed(loaded.data.metadata?.seed);
+                setBiomeRegions(loaded.data.regions);
                 setMapMusicContext(deriveMapMusicContext(loaded.data));
                 return loaded;
             });
@@ -100,7 +132,11 @@ if (typeof window !== 'undefined') {
 }
 
 // --- Scene Setup ---
-export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): Promise<WorldObjects> {
+export async function initWorld(
+    scene: THREE.Scene,
+    weatherSystem: WeatherSystem,
+    loadContent: boolean = true
+): Promise<WorldObjects> {
     // 0. Pre-flight Check
     validateFoliageMaterials(foliageMaterials);
 
@@ -127,7 +163,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
     await yieldControl();
 
     if (CONFIG.terrain?.useGpuHeightmap || forceGpuTerrain) {
-        console.log("[World] Using GPU Heightmap Displacement");
+        console.log('[World] Using GPU Heightmap Displacement');
 
         const resolution = CONFIG.terrain?.heightmapResolution || 256;
         groundGeo = new THREE.PlaneGeometry(400, 400, resolution, resolution);
@@ -135,16 +171,22 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
         // generateGroundHeightmap is now async and yields internally every 32 rows
         const startParams = performance.now();
         const { heightTexture, normalTexture } = await generateGroundHeightmap(400, resolution);
-        console.log(`[World] Generated heightmap in ${(performance.now() - startParams).toFixed(2)}ms`);
+        console.log(
+            `[World] Generated heightmap in ${(performance.now() - startParams).toFixed(2)}ms`
+        );
 
-        groundMat = createTerrainMaterial(CONFIG.colors.ground, {
-            roughness: 0.9,
-            bumpStrength: 0.15,
-            noiseScale: 20.0
-        }, heightTexture, normalTexture);
-
+        groundMat = createTerrainMaterial(
+            CONFIG.colors.ground,
+            {
+                roughness: 0.9,
+                bumpStrength: 0.15,
+                noiseScale: 20.0,
+            },
+            heightTexture,
+            normalTexture
+        );
     } else {
-        console.log("[World] Using CPU Vertex Displacement");
+        console.log('[World] Using CPU Vertex Displacement');
 
         groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
         const posAttribute = groundGeo.attributes.position;
@@ -171,7 +213,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
         groundMat = createTerrainMaterial(CONFIG.colors.ground, {
             roughness: 0.9,
             bumpStrength: 0.15,
-            noiseScale: 20.0
+            noiseScale: 20.0,
         });
     }
 
@@ -184,7 +226,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
     // scene.fogNode (set in init.ts) drives actual WebGPU rendering via TSL rangeFog.
     // Keep scene.fog as THREE.Fog (not FogExp2) so WeatherSystem's stale reference
     // stays valid and renderer code never has to read FogExp2.density.
-    const fogColor = new THREE.Color(CONFIG.colors.fog || 0xFFC5D3);
+    const fogColor = new THREE.Color(CONFIG.colors.fog || 0xffc5d3);
     if (scene.fog instanceof THREE.Fog) {
         scene.fog.color.set(fogColor);
     }
@@ -199,7 +241,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
     // Use CPU fallback for fireflies during startup. GPU compute init is async but can hang
     // on systems with partial WebGPU support; the CPU path is safe and fast enough for 150 particles.
     if (FEATURE_FLAGS.fireflies) {
-        scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: false }));
+        scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
     }
 
     // Procedural Cloud Layer (Background)
@@ -233,7 +275,9 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
 
             if (lx > -10) continue;
             if (ly > 2.0 && ly < 8.0) {
-                const plant = create('luminous_plant', { scale: sampleEntityScale('luminous_plant') });
+                const plant = create('luminous_plant', {
+                    scale: sampleEntityScale('luminous_plant'),
+                });
                 if (!plant) continue;
                 plantOnSurface(plant, lx, lz, { groundY: ly });
                 plant.rotation.y = Math.random() * Math.PI * 2;
@@ -255,7 +299,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
 
     // Generate Content if requested (triggered by start button in main.ts)
     if (loadContent) {
-        generateMap(weatherSystem).catch(err => {
+        generateMap(weatherSystem).catch((err) => {
             console.error('[World] Failed to generate map:', err);
         });
     }
@@ -276,7 +320,9 @@ export async function generateMap(
     console.time('[World] generateMap total');
     const loadedMap = await getLoadedMap();
     applyMapPreallocationHints(loadedMap);
-    console.log(`[World] Loading map (${loadedMap.source}) with ${loadedMap.entities.length} entities...`);
+    console.log(
+        `[World] Loading map (${loadedMap.source}) with ${loadedMap.entities.length} entities...`
+    );
 
     // Reset WASM Collision System for Generation Phase
     initCollisionSystem();
@@ -290,7 +336,9 @@ export async function generateMap(
     });
     const phase1Total = phase1Entities.length;
     const phase1YieldAt = Math.ceil(phase1Total / 2);
-    console.log(`[World] Streaming phase 1: spawning ${phase1Total} entities within ${VISIBLE_BUBBLE_RADIUS}m.`);
+    console.log(
+        `[World] Streaming phase 1: spawning ${phase1Total} entities within ${VISIBLE_BUBBLE_RADIUS}m.`
+    );
 
     startPhase('Map Streaming Phase 1 (Visible)');
     console.time('[World] phase1-visible');
@@ -301,7 +349,11 @@ export async function generateMap(
 
         if ((i + 1) % 50 === 0) {
             const percentage = Math.floor(((i + 1) / Math.max(1, phase1Total)) * 100);
-            updateProgress('map-generation', percentage, `Spawning visible bubble: ${i + 1}/${phase1Total}`);
+            updateProgress(
+                'map-generation',
+                percentage,
+                `Spawning visible bubble: ${i + 1}/${phase1Total}`
+            );
         }
         if (onProgress) {
             onProgress(
@@ -321,7 +373,10 @@ export async function generateMap(
     {
         const r = getReport();
         if (r.failed > 0) {
-            console.warn(`[World] Phase 1 spawn report: ${r.succeeded} ok, ${r.failed} failed`, r.failuresByType);
+            console.warn(
+                `[World] Phase 1 spawn report: ${r.succeeded} ok, ${r.failed} failed`,
+                r.failuresByType
+            );
         } else if (r.attempted > 0) {
             console.log(`[World] Phase 1 spawn report: ${r.succeeded}/${r.attempted} ok`);
         }
@@ -358,12 +413,18 @@ export async function generateMap(
                 priority: streamPriority,
                 execute: () => {
                     const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
-                    if (taskToken !== -1 && taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
-                        console.warn(`[Generation] Map task obsoleted (token ${taskToken} !== ${currentToken})`);
+                    if (
+                        taskToken !== -1 &&
+                        taskToken !== currentToken &&
+                        !(window as any).__IS_FULL_BOOT_TEST
+                    ) {
+                        console.warn(
+                            `[Generation] Map task obsoleted (token ${taskToken} !== ${currentToken})`
+                        );
                         return;
                     }
                     processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
-                }
+                },
             });
             queuedDeferred++;
         }
@@ -399,26 +460,40 @@ export async function generateMap(
             priority: 1,
             execute: () => {
                 const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
-                if (taskToken !== -1 && taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
-                    console.warn(`[Generation] Map fallback task obsoleted (token ${taskToken} !== ${currentToken})`);
+                if (
+                    taskToken !== -1 &&
+                    taskToken !== currentToken &&
+                    !(window as any).__IS_FULL_BOOT_TEST
+                ) {
+                    console.warn(
+                        `[Generation] Map fallback task obsoleted (token ${taskToken} !== ${currentToken})`
+                    );
                     return;
                 }
                 processMapEntity(item as MapEntity, weatherSystem, { streamed: true });
-            }
+            },
         });
         fallbackQueued++;
     }
     if (fallbackQueued > 0) {
-        console.warn(`[World] Fallback queued ${fallbackQueued} entities not covered by streaming rings.`);
+        console.warn(
+            `[World] Fallback queued ${fallbackQueued} entities not covered by streaming rings.`
+        );
     }
 
     performance.mark('candy:map-generation-end');
     try {
-        performance.measure('candy:Map Generation', 'candy:map-generation-start', 'candy:map-generation-end');
-    } catch (_e) { /* ignore if marks were cleared */ }
+        performance.measure(
+            'candy:Map Generation',
+            'candy:map-generation-start',
+            'candy:map-generation-end'
+        );
+    } catch (_e) {
+        /* ignore if marks were cleared */
+    }
 
     console.timeEnd('[World] generateMap total');
-    console.log("[World] Map streaming bootstrap complete. Horizon tasks queued.");
+    console.log('[World] Map streaming bootstrap complete. Horizon tasks queued.');
 }
 
 export async function generateCoreWorld(
@@ -510,7 +585,12 @@ export async function generateCoreWorld(
     for (let i = 0; i < 24; i++) {
         const pos = getRandomGroundPosition(0.5);
         if (pos) {
-            const obj = create('mushroom', { size: 'regular', scale: sampleEntityScale('mushroom'), hasFace: true, isBouncy: true });
+            const obj = create('mushroom', {
+                size: 'regular',
+                scale: sampleEntityScale('mushroom'),
+                hasFace: true,
+                isBouncy: true,
+            });
             if (!obj) continue;
             plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
             obj.rotation.y = Math.random() * Math.PI * 2;
@@ -544,9 +624,10 @@ export async function generateCoreWorld(
 
     // Low flowers and luminous accents (lightweight — single yield at end is sufficient).
     for (let i = 0; i < 16; i++) {
-        const factory = Math.random() < 0.5
-            ? () => create('flower')
-            : () => create('flower', { variant: 'glowing' });
+        const factory =
+            Math.random() < 0.5
+                ? () => create('flower')
+                : () => create('flower', { variant: 'glowing' });
         const pos = getRandomGroundPosition(0.4);
         if (pos) {
             const obj = factory();
@@ -576,7 +657,9 @@ export async function generateCoreWorld(
 
     initDiscoveryForFoliage(animatedFoliage);
     if (onProgress) onProgress(4, 4, '[World] Core world population complete', 'flower');
-    console.log(`[World] Core Only world generation complete. Spawned ${animatedFoliage.length} objects.`);
+    console.log(
+        `[World] Core Only world generation complete. Spawned ${animatedFoliage.length} objects.`
+    );
 }
 
 export async function populateWorld(
@@ -593,12 +676,20 @@ export async function populateWorld(
     // Fast Full Mode: apply aggressive population reduction on top of user config
     if (options?.fastPopulation) {
         (window as any).__fastPopulationOverride = true;
-        console.log('%c[World] FAST FULL Mode — using heavily reduced object population for quick loads', 'color:#81c784');
+        console.log(
+            '%c[World] FAST FULL Mode — using heavily reduced object population for quick loads',
+            'color:#81c784'
+        );
     }
 
     if (mode === 'CORE') {
-        console.log('%c[World] CORE Mode active — spawning minimal classic candy set', 'color:#ff9ecd');
-        console.log('[World] Core mode skips: map entities, arpeggio grove, procedural extras, WASM physics upload');
+        console.log(
+            '%c[World] CORE Mode active — spawning minimal classic candy set',
+            'color:#ff9ecd'
+        );
+        console.log(
+            '[World] Core mode skips: map entities, arpeggio grove, procedural extras, WASM physics upload'
+        );
         await generateCoreWorld(weatherSystem, onProgress);
         console.log('[World] Core mode ready. Heavy foliage systems skipped.');
         console.log('[World] populateWorld() complete in CORE mode');
@@ -608,11 +699,13 @@ export async function populateWorld(
     console.log('%c[World] FULL Mode — attempting complete musical ecosystem', 'color:#7dd3fc');
     try {
         const loadedMap = await getLoadedMap();
-        console.log(`[World] Full mode: ${loadedMap.entities.length} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process (population scaled via CONFIG.world.population${options?.fastPopulation ? ' + fast mode multiplier' : ''})`);
+        console.log(
+            `[World] Full mode: ${loadedMap.entities.length} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process (population scaled via CONFIG.world.population${options?.fastPopulation ? ' + fast mode multiplier' : ''})`
+        );
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
         console.log('[World] populateWorld() complete in FULL mode');
-    return 'FULL';
+        return 'FULL';
     } catch (error) {
         console.error('[World] Full population failed. Falling back from FULL to CORE.', error);
         delete (window as any).__fastPopulationOverride;
@@ -623,12 +716,18 @@ export async function populateWorld(
 }
 
 // Compatibility wrappers for refactored startup flow
-export async function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSystem): Promise<WorldObjects> {
+export async function initCriticalWorld(
+    scene: THREE.Scene,
+    weatherSystem?: WeatherSystem
+): Promise<WorldObjects> {
     if (!weatherSystem) throw new Error('[World] initCriticalWorld: weatherSystem is required');
     return initWorld(scene, weatherSystem, false);
 }
 
-export async function initWorldCritical(scene: THREE.Scene, weatherSystem?: WeatherSystem): Promise<WorldObjects> {
+export async function initWorldCritical(
+    scene: THREE.Scene,
+    weatherSystem?: WeatherSystem
+): Promise<WorldObjects> {
     if (!weatherSystem) throw new Error('[World] initWorldCritical: weatherSystem is required');
     return initWorld(scene, weatherSystem, false);
 }

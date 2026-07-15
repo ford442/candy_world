@@ -22,30 +22,20 @@ export {
     createFireworkSystem,
     createSparkleSystem,
     createRainSystem,
-    createParticleSystemWithFallback
+    createParticleSystemWithFallback,
 } from './gpu-particle-system.ts';
-export type {
-    vec3,
-    GPUParticleConfig,
-    GPUParticleAudioState
-} from './gpu-particle-system.ts';
+export type { vec3, GPUParticleConfig, GPUParticleAudioState } from './gpu-particle-system.ts';
 
 // ============================================================================
 // Procedural noise generation (CPU)
 // ============================================================================
-export {
-    ProceduralNoiseCompute,
-    createCandySwirlTexture
-} from './noise_generator.ts';
+export { ProceduralNoiseCompute, createCandySwirlTexture } from './noise_generator.ts';
 export type { NoiseConfig } from './noise_generator.ts';
 
 // ============================================================================
 // Procedural noise generation (GPU)
 // ============================================================================
-export {
-    NoiseGeneratorGPU,
-    createGPUCandySwirlTexture
-} from './noise-generator-gpu.ts';
+export { NoiseGeneratorGPU, createGPUCandySwirlTexture } from './noise-generator-gpu.ts';
 export type { NoiseGeneratorGPUConfig } from './noise-generator-gpu.ts';
 
 // ============================================================================
@@ -56,12 +46,12 @@ export {
     DeformationType,
     createWaveDeformation,
     createJiggleDeformation,
-    createWobbleDeformation
+    createWobbleDeformation,
 } from './mesh_deformation.ts';
 export type {
     DeformationTypeValue,
     DeformationConfig,
-    DeformationAudioState
+    DeformationAudioState,
 } from './mesh_deformation.ts';
 
 // ============================================================================
@@ -71,7 +61,7 @@ export {
     MeshDeformationGPU,
     createGPUWaveDeformation,
     createGPUJiggleDeformation,
-    createGPUWobbleDeformation
+    createGPUWobbleDeformation,
 } from './mesh-deformation-gpu.ts';
 export type { MeshDeformationGPUConfig } from './mesh-deformation-gpu.ts';
 
@@ -83,17 +73,14 @@ export {
     BatchMeshDeformation,
     createWasmWaveDeformation,
     createWasmJiggleDeformation,
-    createWasmWobbleDeformation
+    createWasmWobbleDeformation,
 } from './mesh_deformation_wasm.ts';
 export type { WasmDeformationConfig } from './mesh_deformation_wasm.ts';
 
 // ============================================================================
 // GPU Compute Library (shared infrastructure)
 // ============================================================================
-export {
-    GPUComputeLibrary,
-    getSharedGPUCompute
-} from './gpu-compute-library.ts';
+export { GPUComputeLibrary, getSharedGPUCompute } from './gpu-compute-library.ts';
 export type { PipelineConfig, ComputeMetrics } from './gpu-compute-library.ts';
 
 // ============================================================================
@@ -110,7 +97,7 @@ export {
     FRUSTUM_CULL_WGSL,
     DISTANCE_CULL_WGSL,
     COMBINED_CULL_WGSL,
-    PARTICLE_PHYSICS_WGSL
+    PARTICLE_PHYSICS_WGSL,
 } from './gpu-compute-shaders.ts';
 
 // ============================================================================
@@ -120,14 +107,14 @@ export {
     GPUCullingSystem,
     createFrustumFromMatrices,
     createFrustumFromCamera,
-    LOD_PRESETS
+    LOD_PRESETS,
 } from './gpu-culling-system.ts';
 export type {
     BoundingSphere,
     Plane,
     Frustum,
     CullingConfig,
-    CullingResult
+    CullingResult,
 } from './gpu-culling-system.ts';
 
 // ============================================================================
@@ -140,16 +127,26 @@ export {
     createGPUFoliageAnimator,
     createFoliageInstanceData,
     updateInstancedMeshFromAnimator,
-    detectFoliageCapabilities
+    detectFoliageCapabilities,
 } from './gpu-foliage-animator.ts';
 export type {
     FoliageInstanceData,
     FoliageAudioState,
     FoliageAnimationOutput,
-    FoliageAnimatorCapabilities
+    FoliageAnimatorCapabilities,
 } from './gpu-foliage-animator.ts';
 
 // ============================================================================
 // GPU Compute initialisation (call once from deferred-init / post-boot)
 // ============================================================================
 export { initGPUCompute, getGPUComputeStatus } from './compute-init.ts';
+export {
+    preferGpuCompute,
+    isGpuComputeReady,
+    ensureGpuComputeReady,
+    tickComputeOrchestrator,
+    getComputeOrchestratorStatus,
+    trackGpuBufferBytes,
+} from './compute-orchestrator.ts';
+export { dispatchGpuBatcherLod, applyGpuBatcherLodIfReady } from './batcher-gpu-lod.ts';
+export { shouldUseFoliageGpuBatch } from './foliage-gpu-batch.ts';

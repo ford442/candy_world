@@ -11,6 +11,8 @@ import { INSTANCE_LOD_ATTR, ensureInstanceLodAttribute } from '../foliage/batche
 import { syncFoliageLodUniforms, uLodDebugHighlight } from '../foliage/lod-nodes.ts';
 import { uAerialFogColor } from '../foliage/aerial-perspective.ts';
 import { foliageGroup } from '../world/state.ts';
+import { applyGpuBatcherLodIfReady, dispatchGpuBatcherLod } from '../compute/batcher-gpu-lod.ts';
+import { preferGpuCompute, getComputeOrchestratorStatus } from '../compute/compute-orchestrator.ts';
 
 export interface FoliageLodConfig {
     enabled: boolean;
@@ -55,7 +57,7 @@ const _stats: FoliageLodStats = {
     culled: 0,
     impostors: 0,
     blendBand: 0,
-    total: 0
+    total: 0,
 };
 
 const _targets: BatcherLodTarget[] = [];
@@ -85,7 +87,10 @@ export function getFoliageLodConfig(): FoliageLodConfig {
 /** Pure distance → target LOD factor (0 hero, 1 mid, 2 far, 3 culled). Exported for tests. */
 export function computeTargetLodFactor(
     distance: number,
-    cfg: Pick<FoliageLodConfig, 'heroMax' | 'midMax' | 'blendWidth' | 'farCull'> = getFoliageLodConfig()
+    cfg: Pick<
+        FoliageLodConfig,
+        'heroMax' | 'midMax' | 'blendWidth' | 'farCull'
+    > = getFoliageLodConfig()
 ): number {
     if (distance >= cfg.farCull) return 3;
 
@@ -112,7 +117,10 @@ export function computeTargetLodFactor(
  */
 export function computeTargetLodFactorSq(
     distSq: number,
-    cfg: Pick<FoliageLodConfig, 'heroMax' | 'midMax' | 'blendWidth' | 'farCull'> = getFoliageLodConfig()
+    cfg: Pick<
+        FoliageLodConfig,
+        'heroMax' | 'midMax' | 'blendWidth' | 'farCull'
+    > = getFoliageLodConfig()
 ): number {
     if (distSq >= cfg.farCull * cfg.farCull) return 3;
 
@@ -148,7 +156,10 @@ function smoothstep01(t: number): number {
 }
 
 /** True when instance is in a tier cross-fade band (for stats / debug). */
-export function isInLodBlendBand(factor: number, cfg: FoliageLodConfig = getFoliageLodConfig()): boolean {
+export function isInLodBlendBand(
+    factor: number,
+    cfg: FoliageLodConfig = getFoliageLodConfig()
+): boolean {
     if (factor >= 3) return false;
     if (factor > 0.75 && factor < 1.15) return true;
     if (factor > 1.45 && factor < 2.15) return true;
@@ -198,7 +209,10 @@ function ensureImpostorMesh(): THREE.InstancedMesh {
     mat.opacityNode = aImpostorAlpha.mul(float(0.92));
 
     _impostorMesh = new THREE.InstancedMesh(geo, mat, _impostorCapacity);
-    _impostorMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(_impostorCapacity * 3), 3);
+    _impostorMesh.instanceColor = new THREE.InstancedBufferAttribute(
+        new Float32Array(_impostorCapacity * 3),
+        3
+    );
     geo.setAttribute(
         IMPOSTOR_ALPHA_ATTR,
         new THREE.InstancedBufferAttribute(new Float32Array(_impostorCapacity), 1)
@@ -222,7 +236,9 @@ function updateImpostors(
     }
 
     const impostor = ensureImpostorMesh();
-    const alphaAttr = impostor.geometry.getAttribute(IMPOSTOR_ALPHA_ATTR) as THREE.InstancedBufferAttribute;
+    const alphaAttr = impostor.geometry.getAttribute(
+        IMPOSTOR_ALPHA_ATTR
+    ) as THREE.InstancedBufferAttribute;
     const alphaArray = alphaAttr.array as Float32Array;
     let impostorCount = 0;
     camera.getWorldPosition(_cameraPos);
@@ -257,9 +273,15 @@ function updateImpostors(
             const distSq = dx * dx + dy * dy + dz * dz;
             if (distSq >= farCullSq) continue;
 
-            const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
-            const m10 = matrixArray[offset + 4], m11 = matrixArray[offset + 5], m12 = matrixArray[offset + 6];
-            const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
+            const m00 = matrixArray[offset + 0],
+                m01 = matrixArray[offset + 1],
+                m02 = matrixArray[offset + 2];
+            const m10 = matrixArray[offset + 4],
+                m11 = matrixArray[offset + 5],
+                m12 = matrixArray[offset + 6];
+            const m20 = matrixArray[offset + 8],
+                m21 = matrixArray[offset + 9],
+                m22 = matrixArray[offset + 10];
 
             const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
             const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
@@ -339,6 +361,18 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
     _stats.blendBand = 0;
     _stats.total = 0;
 
+    const onFactor = (factor: number) => accumulateStats(factor, cfg);
+
+    // GPU path: pipelined readback (frame N-1) + dispatch (frame N).
+    if (preferGpuCompute()) {
+        void applyGpuBatcherLodIfReady(_meshTracks, cfg, delta, onFactor);
+        void dispatchGpuBatcherLod(camera, _meshTracks, cfg);
+        if (getComputeOrchestratorStatus().lastFrameGpuLod) {
+            _stats.impostors = updateImpostors(camera, cfg, _meshTracks);
+            return;
+        }
+    }
+
     camera.getWorldPosition(_cameraPos);
     const blendT = cfg.blendSeconds > 0 ? Math.min(1, delta / cfg.blendSeconds) : 1;
 
@@ -371,7 +405,7 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
             const next = current + (target - current) * blendT;
             smoothed[i] = next;
             attrArray[i] = next;
-            accumulateStats(next, cfg);
+            onFactor(next);
         }
 
         attr.needsUpdate = true;

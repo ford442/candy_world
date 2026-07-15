@@ -3,6 +3,8 @@
  * @brief Utilities for WASM path resolution and checking
  */
 
+import { log } from './log.ts';
+
 // Extend Window interface for NativeWebAssembly
 declare global {
     interface Window {
@@ -59,7 +61,9 @@ export async function checkWasmFileExists(filename: string): Promise<WasmFileChe
         const prodCheck = await fetch(prodPath, { method: 'HEAD' });
         if (prodCheck.ok) {
             // Return the prefix detected
-            const foundPrefix = PRODUCTION_PATH_PREFIX.endsWith('/') ? PRODUCTION_PATH_PREFIX : `${PRODUCTION_PATH_PREFIX}/`;
+            const foundPrefix = PRODUCTION_PATH_PREFIX.endsWith('/')
+                ? PRODUCTION_PATH_PREFIX
+                : `${PRODUCTION_PATH_PREFIX}/`;
             return { exists: true, path: foundPrefix };
         }
     } catch (prodError) {
@@ -92,7 +96,7 @@ export async function inspectWasmExports(filename: string): Promise<string[] | n
     if (!wasmCheck.exists) return null;
 
     const prefix = wasmCheck.path || '';
-    const cleanPrefix = prefix.endsWith('/') ? prefix : (prefix ? `${prefix}/` : '');
+    const cleanPrefix = prefix.endsWith('/') ? prefix : prefix ? `${prefix}/` : '';
     const url = `${cleanPrefix}${filename}`;
 
     try {
@@ -112,9 +116,9 @@ export async function inspectWasmExports(filename: string): Promise<string[] | n
         }
 
         if (!module && typeof WA.compile === 'function') {
-            try { 
-                module = await WA.compile(bytes); 
-            } catch(e) {
+            try {
+                module = await WA.compile(bytes);
+            } catch (e) {
                 // Compile failed
             }
         }
@@ -122,7 +126,11 @@ export async function inspectWasmExports(filename: string): Promise<string[] | n
         if (!module) {
             try {
                 const inst = await WA.instantiate(bytes, {});
-                module = inst.module || (inst.instance && (inst.instance as any).constructor && (inst.instance as any).constructor.module);
+                module =
+                    inst.module ||
+                    (inst.instance &&
+                        (inst.instance as any).constructor &&
+                        (inst.instance as any).constructor.module);
             } catch (e) {
                 // Instantiate failed
             }
@@ -130,12 +138,13 @@ export async function inspectWasmExports(filename: string): Promise<string[] | n
 
         if (!module) return null;
 
-        const exporter = (WA as any).Module && (WA as any).Module.exports 
-            ? (WA as any).Module.exports 
-            : WebAssembly.Module.exports;
+        const exporter =
+            (WA as any).Module && (WA as any).Module.exports
+                ? (WA as any).Module.exports
+                : WebAssembly.Module.exports;
         return exporter(module).map((e: WasmExport) => e.name);
     } catch (e) {
-        console.warn('[WASM Utils] Failed to inspect wasm exports', e);
+        log.warn('WASM Utils', 'Failed to inspect wasm exports', e);
         return null;
     }
 }
@@ -157,11 +166,14 @@ export function patchWasmInstantiateAliases(): () => void {
     const origInstantiate = WA.instantiate;
     const origInstantiateStreaming = WA.instantiateStreaming;
 
-    function aliasExports(result: WasmInstantiateResult | WebAssembly.Instance): WasmInstantiateResult | WebAssembly.Instance {
+    function aliasExports(
+        result: WasmInstantiateResult | WebAssembly.Instance
+    ): WasmInstantiateResult | WebAssembly.Instance {
         try {
-            const inst = result && (result as WasmInstantiateResult).instance 
-                ? (result as WasmInstantiateResult).instance 
-                : result as WebAssembly.Instance;
+            const inst =
+                result && (result as WasmInstantiateResult).instance
+                    ? (result as WasmInstantiateResult).instance
+                    : (result as WebAssembly.Instance);
             const exports = inst && inst.exports;
             if (!exports) return result;
             const keys = Object.keys(exports);
@@ -170,8 +182,8 @@ export function patchWasmInstantiateAliases(): () => void {
                 if (k && k.startsWith('_')) {
                     const short = k.slice(1);
                     if (!(short in exports)) {
-                        try { 
-                            (exports as Record<string, unknown>)[short] = exports[k]; 
+                        try {
+                            (exports as Record<string, unknown>)[short] = exports[k];
                         } catch (e) {
                             // Ignore assignment errors
                         }
@@ -185,21 +197,29 @@ export function patchWasmInstantiateAliases(): () => void {
     }
 
     if (typeof WA.instantiate === 'function') {
-        (WA as any).instantiate = async function(...args: Parameters<typeof WebAssembly.instantiate>): Promise<WebAssembly.WebAssemblyInstantiatedSource> {
+        (WA as any).instantiate = async function (
+            ...args: Parameters<typeof WebAssembly.instantiate>
+        ): Promise<WebAssembly.WebAssemblyInstantiatedSource> {
             const res = await origInstantiate.apply(this, args);
             return aliasExports(res) as WebAssembly.WebAssemblyInstantiatedSource;
         };
     }
 
     if (typeof WA.instantiateStreaming === 'function') {
-        (WA as any).instantiateStreaming = async function(...args: Parameters<typeof WebAssembly.instantiateStreaming>): Promise<WebAssembly.WebAssemblyInstantiatedSource> {
+        (WA as any).instantiateStreaming = async function (
+            ...args: Parameters<typeof WebAssembly.instantiateStreaming>
+        ): Promise<WebAssembly.WebAssemblyInstantiatedSource> {
             const res = await origInstantiateStreaming.apply(this, args);
             return aliasExports(res) as WebAssembly.WebAssemblyInstantiatedSource;
         };
     }
 
     return function restore(): void {
-        try { WA.instantiate = origInstantiate; } catch (e) {}
-        try { WA.instantiateStreaming = origInstantiateStreaming; } catch (e) {}
+        try {
+            WA.instantiate = origInstantiate;
+        } catch (e) {}
+        try {
+            WA.instantiateStreaming = origInstantiateStreaming;
+        } catch (e) {}
     };
 }

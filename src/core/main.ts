@@ -18,7 +18,12 @@ import { WeatherSystem } from '../systems/weather.ts';
 import { initWasm } from '../utils/wasm-loader.ts';
 import { getGroundHeight } from '../systems/ground-system.ts';
 import { profiler } from '../utils/profiler.ts';
-import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, toggleOverlay } from '../utils/startup-profiler.ts';
+import {
+    enableStartupProfiler,
+    finalizeStartupProfile,
+    recordWASMInit,
+    toggleOverlay,
+} from '../utils/startup-profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 
@@ -35,18 +40,35 @@ import {
 import { initWebGLDebug, isWebGLLiteMode } from '../rendering/webgl-debug.ts';
 
 // World & System imports
-import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, populateWorld, WorldMode, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
+import {
+    initCriticalWorld,
+    initDeferredWorldContent,
+    initWorld,
+    initWorldCritical,
+    initWorldContent,
+    generateMap,
+    populateWorld,
+    WorldMode,
+    DEFAULT_MAP_CHUNK_SIZE,
+} from '../world/generation.ts';
 import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { installWorldExportTools } from '../world/map-exporter.ts';
 import { initCloudPlacer } from '../world/cloud-placer.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
+import { initFaunaSystem } from '../systems/fauna/index.ts';
+import { initFaunaDebug, setFaunaDebugScene } from '../debug/fauna-debug.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 // Refactored module imports
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
-import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup, applyAwakenedPersistenceAfterWorldLoad } from './deferred-init.ts';
+import {
+    initDeferredVisuals,
+    initDeferredVisualsDependencies,
+    runDeferredWarmup,
+    applyAwakenedPersistenceAfterWorldLoad,
+} from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
@@ -56,6 +78,8 @@ import { showModeBadge, showRendererBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 import { installBatcherTelemetry } from '../foliage/batcher-telemetry.ts';
+import { installPresenceStartScreenUI } from '../ui/presence-panel.ts';
+import { initPresenceFromOptIn, teardownPresence } from '../systems/net/index.ts';
 
 // Debug staging system
 import { StageLoader, showDebugError, initDebugPanel } from '../debug/index.ts';
@@ -93,15 +117,14 @@ window.addEventListener('unhandledrejection', (event) => {
     const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');
     console.error('[Bootstrap] Unhandled rejection during startup:', err);
     try {
-        loadingScreen.showFatalError(
-            `Startup failed: ${msg}\n\nRefresh the page to try again.`
-        );
+        loadingScreen.showFatalError(`Startup failed: ${msg}\n\nRefresh the page to try again.`);
     } catch (_) {
         // Loading screen may not be initialized yet — surface in the DOM directly.
         // We attempt 'loading-overlay' first (the outermost wrapper defined in
         // index.html), then fall back to 'loading-container' (the inner card).
         // Use textContent to avoid XSS when inserting the error message.
-        const fallback = document.getElementById('loading-overlay') ??
+        const fallback =
+            document.getElementById('loading-overlay') ??
             document.getElementById('loading-container');
         if (fallback) {
             const p = document.createElement('p');
@@ -157,7 +180,19 @@ if (!sceneInitResult) {
     throw new Error(msg);
 }
 
-const { mode, requested, fallbackReason, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
+const {
+    mode,
+    requested,
+    fallbackReason,
+    ambientLight,
+    sunLight,
+    sunGlow,
+    sunCorona,
+    lightShaftGroup,
+    sunGlowMat,
+    coronaMat,
+    uShaftOpacity,
+} = sceneInitResult;
 scene = sceneInitResult.scene;
 camera = sceneInitResult.camera;
 import { setCameraRef } from './camera-ref.ts';
@@ -189,7 +224,7 @@ await StageLoader.loadStage('postProcessing', () => {
 const _postfxTier = resolvePostfxQuality();
 console.log(
     `[PostFX] tier=${_postfxTier} godRays=${areGodRaysEnabled()} dof=${isDofEnabled()} renderer=${mode}` +
-    ' (override: ?postfx=off|low|high, ?dof, ?no_dof)'
+        ' (override: ?postfx=off|low|high, ?dof, ?no_dof)'
 );
 
 console.timeEnd('Core Scene Setup');
@@ -278,7 +313,9 @@ const timeOffset = { value: 0 };
 let inputSystem: any;
 let controls: any;
 await StageLoader.loadStage('input', () => {
-    inputSystem = initInput(camera, audioSystem!,
+    inputSystem = initInput(
+        camera,
+        audioSystem!,
         () => toggleDayNight(timeOffset),
         () => (player as any).isDancing
     );
@@ -345,7 +382,7 @@ await StageLoader.loadStage('gameLoop', () => {
         sunGlowMat,
         coronaMat,
         uShaftOpacity,
-        timeOffset
+        timeOffset,
     });
 });
 
@@ -464,17 +501,22 @@ loadingScreen.completePhase('wasm-init');
                     const mat = target.create();
                     try {
                         await warmup.warmupSingle(mat, renderer, target.name);
-                    } catch (_e) { /* skip non-critical failures */ }
+                    } catch (_e) {
+                        /* skip non-critical failures */
+                    }
                 }
 
                 batchCount++;
                 const batchMs = performance.now() - batchStart;
                 const pct = 5 + Math.round((i / targets.length) * 85);
-                loadingScreen.updateProgress(pct, `Warming shaders (${i + batch.length}/${targets.length})...`);
+                loadingScreen.updateProgress(
+                    pct,
+                    `Warming shaders (${i + batch.length}/${targets.length})...`
+                );
 
                 // Yield after every batch to stay within the long-task budget.
                 if (batchMs > BUDGET_MS || i + batch.length < targets.length) {
-                    await new Promise<void>(resolve => setTimeout(resolve, 0));
+                    await new Promise<void>((resolve) => setTimeout(resolve, 0));
                 }
             }
             warmup.dispose();
@@ -491,7 +533,9 @@ loadingScreen.completePhase('wasm-init');
 
     // Start game loop NOW — player can move immediately
     renderer.setAnimationLoop(animate);
-    try { (window as any).__sceneReady = true; } catch (e) { }
+    try {
+        (window as any).__sceneReady = true;
+    } catch (e) {}
 
     // Issue #5: Only hide the initial loading screen if world generation has not
     // yet started. If the user clicked "Start" during shader warmup, enterWorld()
@@ -506,16 +550,21 @@ const startButton = document.getElementById('startButton') as HTMLButtonElement 
 const statusEl = document.getElementById('world-status');
 
 if (startButton) {
+    installPresenceStartScreenUI();
+
     startButton.disabled = false;
     startButton.setAttribute('aria-disabled', 'false');
     startButton.setAttribute('aria-busy', 'false');
     startButton.removeAttribute('title');
-    startButton.innerHTML = 'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+    startButton.innerHTML =
+        'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
 
     // ♿ Aria: Announce to screen readers that the world is ready
-    import('../ui/announcer.ts').then(({ announce }) => {
-        announce('World loaded. Press Enter to enter the world.', 'assertive');
-    }).catch(err => console.warn('Failed to load announcer:', err));
+    import('../ui/announcer.ts')
+        .then(({ announce }) => {
+            announce('World loaded. Press Enter to enter the world.', 'assertive');
+        })
+        .catch((err) => console.warn('Failed to load announcer:', err));
 
     // Three-state startup mode: CORE (fastest), FULL (complete), FAST_FULL (full map but heavily reduced population for quicker loads)
     let coreOnlyMode = true;
@@ -550,20 +599,22 @@ if (startButton) {
             modeDescription.textContent = isCore
                 ? 'Fast startup with classic candy terrain, trees, mushrooms, and clouds.'
                 : isFast
-                    ? 'Full musical map with greatly reduced object count for much faster loading.'
-                    : 'Full game with the complete musical foliage map.';
+                  ? 'Full musical map with greatly reduced object count for much faster loading.'
+                  : 'Full game with the complete musical foliage map.';
         }
 
         startButton.innerHTML = isCore
             ? 'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>'
             : isFast
-                ? 'Enter Fast Dream <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>'
-                : 'Enter Full Dream <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+              ? 'Enter Fast Dream <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>'
+              : 'Enter Full Dream <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
     };
 
     const getGenerationLabel = (mode: WorldMode) => {
         if (mode === 'CORE') return 'Generating core world...';
-        return fastFullMode ? 'Generating light full world (reduced objects)...' : 'Generating world map...';
+        return fastFullMode
+            ? 'Generating light full world (reduced objects)...'
+            : 'Generating world map...';
     };
 
     updateStartupMode('CORE');
@@ -575,17 +626,21 @@ if (startButton) {
     let isGenerating = false;
 
     function yieldFrame(): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, 50));
+        return new Promise((resolve) => setTimeout(resolve, 50));
     }
 
     if (btnCoreOnly && btnFullGame && btnFastFull) {
         const modeButtons = [
             { btn: btnCoreOnly, mode: 'CORE' as const },
             { btn: btnFullGame, mode: 'FULL' as const },
-            { btn: btnFastFull, mode: 'FAST_FULL' as const }
+            { btn: btnFastFull, mode: 'FAST_FULL' as const },
         ];
 
-        const setupModeButton = (btn: HTMLButtonElement, mode: 'CORE' | 'FULL' | 'FAST_FULL', index: number) => {
+        const setupModeButton = (
+            btn: HTMLButtonElement,
+            mode: 'CORE' | 'FULL' | 'FAST_FULL',
+            index: number
+        ) => {
             btn.addEventListener('click', async () => {
                 btn.setAttribute('aria-busy', 'true');
                 btn.setAttribute('aria-disabled', 'true');
@@ -617,7 +672,7 @@ if (startButton) {
 
             // ♿ Aria: Roving tabindex management
             btn.addEventListener('focus', () => {
-                modeButtons.forEach(mb => mb.btn.setAttribute('tabindex', '-1'));
+                modeButtons.forEach((mb) => mb.btn.setAttribute('tabindex', '-1'));
                 btn.setAttribute('tabindex', '0');
                 // Ensure selection follows focus (Arrow key navigation updates selection)
                 if (btn.getAttribute('aria-checked') !== 'true') {
@@ -628,13 +683,18 @@ if (startButton) {
 
         modeButtons.forEach((mb, index) => {
             // Initialize roving tabindex: checked item is 0, others -1
-            mb.btn.setAttribute('tabindex', mb.btn.getAttribute('aria-checked') === 'true' ? '0' : '-1');
+            mb.btn.setAttribute(
+                'tabindex',
+                mb.btn.getAttribute('aria-checked') === 'true' ? '0' : '-1'
+            );
             setupModeButton(mb.btn, mb.mode, index);
         });
     }
 
     // Wire the wait-for-full checkbox
-    const waitFullCheckbox = document.getElementById('wait-full-checkbox') as HTMLInputElement | null;
+    const waitFullCheckbox = document.getElementById(
+        'wait-full-checkbox'
+    ) as HTMLInputElement | null;
     if (waitFullCheckbox) {
         waitFullCheckbox.checked = waitForFullPopulation;
         waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
@@ -671,11 +731,12 @@ if (startButton) {
         startButton.setAttribute('aria-disabled', 'true');
         startButton.setAttribute('aria-busy', 'true');
         startButton.setAttribute('title', 'Generating world...');
-        startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
+        startButton.innerHTML =
+            '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
         await yieldFrame(); // Let the spinner paint
         const requestedMode: WorldMode = coreOnlyMode ? 'CORE' : 'FULL';
-        const useFastPopulation = fastFullMode;   // "Fast Full" = Full map but with aggressive population reduction
+        const useFastPopulation = fastFullMode; // "Fast Full" = Full map but with aggressive population reduction
         let activeWorldMode: WorldMode = requestedMode;
 
         const worldGenResult = await StageLoader.loadStage('worldGeneration', async () => {
@@ -705,28 +766,37 @@ if (startButton) {
             let lastAnnounced = -1;
             startPhase('Map Generation');
 
-            activeWorldMode = await populateWorld(scene, weatherSystem!, requestedMode, (current: number, total: number, label?: string, entityType?: string) => {
-                const percent = Math.floor((current / total) * 100);
-                const baseLabel = label ?? getGenerationLabel(requestedMode);
-                const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
-                loadingScreen.updateProgress(percent, progressLabel);
+            activeWorldMode = await populateWorld(
+                scene,
+                weatherSystem!,
+                requestedMode,
+                (current: number, total: number, label?: string, entityType?: string) => {
+                    const percent = Math.floor((current / total) * 100);
+                    const baseLabel = label ?? getGenerationLabel(requestedMode);
+                    const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
+                    loadingScreen.updateProgress(percent, progressLabel);
 
-                if (statusEl) {
-                    statusEl.textContent = progressLabel;
-                }
+                    if (statusEl) {
+                        statusEl.textContent = progressLabel;
+                    }
 
-                startButton.style.background = requestedMode === 'CORE'
-                    ? `linear-gradient(90deg, #FF9ECD ${percent}%, #FFD4E3 ${percent}%)`
-                    : `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
+                    startButton.style.background =
+                        requestedMode === 'CORE'
+                            ? `linear-gradient(90deg, #FF9ECD ${percent}%, #FFD4E3 ${percent}%)`
+                            : `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
 
-                if (percent - lastAnnounced >= 10 || percent === 100) {
-                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">${requestedMode === 'CORE' ? '🍭' : '🍭'}</span>`;
-                    lastAnnounced = percent;
-                }
-            }, useFastPopulation ? { fastPopulation: true } : undefined);
+                    if (percent - lastAnnounced >= 10 || percent === 100) {
+                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">${requestedMode === 'CORE' ? '🍭' : '🍭'}</span>`;
+                        lastAnnounced = percent;
+                    }
+                },
+                useFastPopulation ? { fastPopulation: true } : undefined
+            );
 
             if (activeWorldMode !== requestedMode) {
-                console.warn(`[Startup] Full mode fallback engaged: booted in ${activeWorldMode} mode instead of ${requestedMode}`);
+                console.warn(
+                    `[Startup] Full mode fallback engaged: booted in ${activeWorldMode} mode instead of ${requestedMode}`
+                );
                 showModeBadge(activeWorldMode);
             }
 
@@ -737,6 +807,9 @@ if (startButton) {
 
             // ⚡ Critical: Populate physics grids right after map generation
             populatePhysicsGrids();
+
+            initFaunaSystem();
+            setFaunaDebugScene(scene);
 
             initCloudPlacer({ scene, camera, weatherSystem: weatherSystem ?? null });
 
@@ -764,8 +837,10 @@ if (startButton) {
             const instructions = document.getElementById('instructions');
             if (instructions) instructions.style.display = 'none';
 
+            initPresenceFromOptIn(scene, camera, renderer);
+
             import('../utils/toast.ts').then(({ showToast }) => {
-                showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
+                showToast('Click to explore! Press [ESC] for Controls', '🎮', 4000);
             });
 
             // Start background processor for deferred work.
@@ -817,15 +892,25 @@ if (startButton) {
                     const report = { ...r, backgroundFailed: bgFailed };
                     (window as any).__worldPopulationReport = report;
                     if (r.failed > 0) {
-                        console.warn(`[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`);
+                        console.warn(
+                            `[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`
+                        );
                         if (!waitForFullPopulation) {
                             // Badge already visible; toast as last-resort hint if missed
-                            import('../utils/toast.ts').then(({ showToast }) => {
-                                showToast(`Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`, '⚠️', 5000);
-                            }).catch(() => {});
+                            import('../utils/toast.ts')
+                                .then(({ showToast }) => {
+                                    showToast(
+                                        `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
+                                        '⚠️',
+                                        5000
+                                    );
+                                })
+                                .catch(() => {});
                         }
                     } else if (r.attempted > 0) {
-                        console.log(`[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`);
+                        console.log(
+                            `[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`
+                        );
                     }
                 } catch {}
 
@@ -835,12 +920,15 @@ if (startButton) {
                 try {
                     const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
                     if (!health.healthy) {
-                        import('../utils/toast.ts').then(({ showToast }) => {
-                            const summary = health.warnings.length === 1
-                                ? health.warnings[0]
-                                : `${health.warnings.length} world health warnings — see console`;
-                            showToast(summary, '⚠️', 7000);
-                        }).catch(() => {});
+                        import('../utils/toast.ts')
+                            .then(({ showToast }) => {
+                                const summary =
+                                    health.warnings.length === 1
+                                        ? health.warnings[0]
+                                        : `${health.warnings.length} world health warnings — see console`;
+                                showToast(summary, '⚠️', 7000);
+                            })
+                            .catch(() => {});
                     }
                 } catch (e) {
                     console.warn('[WorldHealth] Validation threw:', e);
@@ -858,7 +946,7 @@ if (startButton) {
                         initDeferredVisuals();
                         endPhase('Deferred Visuals Init');
                     });
-                }
+                },
             });
 
             // Queue any remaining deferred warmup
@@ -867,7 +955,7 @@ if (startButton) {
                 priority: 90,
                 execute: () => {
                     runDeferredWarmup(scene, camera, renderer);
-                }
+                },
             });
 
             await globalBackgroundProcessor.start();
@@ -876,13 +964,15 @@ if (startButton) {
             startButton.style.background = '';
             const wasFast = !!(window as any).__fastPopulationOverride || fastFullMode;
             if (activeWorldMode === 'CORE') {
-                startButton.innerHTML = 'Regenerate Core Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+                startButton.innerHTML =
+                    'Regenerate Core Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
             } else if (wasFast) {
-                startButton.innerHTML = 'Regenerate Fast Dream <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+                startButton.innerHTML =
+                    'Regenerate Fast Dream <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>';
             } else {
-                startButton.innerHTML = 'Regenerate Full Dream <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+                startButton.innerHTML =
+                    'Regenerate Full Dream <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
             }
-
         } catch (err) {
             console.error('[Init] World generation failed:', err);
             loadingScreen.hide();
@@ -900,9 +990,11 @@ if (startButton) {
             startButton.removeAttribute('title');
 
             // ♿ Aria: Announce if they somehow return back or if it completes
-            import('../ui/announcer.ts').then(({ announce }) => {
-                announce('World loaded. Press Enter to enter the world.', 'assertive');
-            }).catch(err => console.warn('Failed to load announcer:', err));
+            import('../ui/announcer.ts')
+                .then(({ announce }) => {
+                    announce('World loaded. Press Enter to enter the world.', 'assertive');
+                })
+                .catch((err) => console.warn('Failed to load announcer:', err));
         }
     }
 
@@ -922,7 +1014,7 @@ function startDeferredWorldLoading() {
                 console.log(`[Deferred World] ${pct}%: ${label}`);
             }
         });
-    }).catch(err => {
+    }).catch((err) => {
         console.error('[World] Deferred content failed:', err);
     });
 }
@@ -931,7 +1023,11 @@ function startDeferredWorldLoading() {
 setTimeout(startDeferredWorldLoading, 150);
 
 // --- DEFERRED VISUAL LOADER (kept for now, but consider consolidating) ---
-const deferredVisualLoader = new DeferredLoader({ batchSize: 1, useIdleCallback: true, idleTimeout: 100 });
+const deferredVisualLoader = new DeferredLoader({
+    batchSize: 1,
+    useIdleCallback: true,
+    idleTimeout: 100,
+});
 
 deferredVisualLoader.add(LoadPriority.HIGH, 'deferredVisuals', () => {
     console.log('[Deferred] Loading celestial bodies and aurora (via DeferredLoader)...');
@@ -952,3 +1048,7 @@ deferredVisualLoader.on('complete', ({ loaded }) => {
 setTimeout(() => {
     deferredVisualLoader.start();
 }, 400);
+
+window.addEventListener('pagehide', () => {
+    teardownPresence();
+});

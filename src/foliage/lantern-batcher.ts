@@ -1,16 +1,44 @@
 import * as THREE from 'three';
+import { log } from '../utils/log.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    color, float, vec3, vec4, attribute, positionLocal, positionWorld,
-    sin, cos, mix, smoothstep, uniform, If, time,
-    varying, dot, normalize, normalLocal, step, uv,
-    mx_noise_float, varyingProperty
+    color,
+    float,
+    vec3,
+    vec4,
+    attribute,
+    positionLocal,
+    positionWorld,
+    sin,
+    cos,
+    mix,
+    smoothstep,
+    uniform,
+    If,
+    time,
+    varying,
+    dot,
+    normalize,
+    normalLocal,
+    step,
+    uv,
+    mx_noise_float,
+    varyingProperty,
 } from 'three/tsl';
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 import {
-    sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation,
-    createStandardNodeMaterial, createUnifiedMaterial
+    sharedGeometries,
+    foliageMaterials,
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    createRimLight,
+    createJuicyRimLight,
+    calculateWindSway,
+    applyPlayerInteraction,
+    applyStandardDeformation,
+    createStandardNodeMaterial,
+    createUnifiedMaterial,
 } from './index.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
@@ -39,7 +67,7 @@ export class LanternBatcher {
 
     // Attributes
     private stemParams: THREE.InstancedBufferAttribute | null = null; // [height, unused, unused, spawnTime]
-    private topParams: THREE.InstancedBufferAttribute | null = null;  // [height, randomPhase, unused, spawnTime]
+    private topParams: THREE.InstancedBufferAttribute | null = null; // [height, randomPhase, unused, spawnTime]
 
     private constructor() {}
 
@@ -63,7 +91,7 @@ export class LanternBatcher {
         }
 
         this.initialized = true;
-        console.log('[LanternBatcher] Initialized with capacity ' + MAX_LANTERNS);
+        log.info('LanternBatcher', 'Initialized with capacity ' + MAX_LANTERNS);
     }
 
     private initStem() {
@@ -125,11 +153,11 @@ export class LanternBatcher {
         // 1: Emissive Glass (Bulb)
 
         // Mat 0
-        const darkMat = createUnifiedMaterial(0x2F4F4F, { roughness: 0.7, metalness: 0.5 });
+        const darkMat = createUnifiedMaterial(0x2f4f4f, { roughness: 0.7, metalness: 0.5 });
 
         // Mat 1 (Bulb)
         const bulbMat = createStandardNodeMaterial({
-            roughness: 0.2
+            roughness: 0.2,
         });
 
         // TSL for Top
@@ -175,7 +203,9 @@ export class LanternBatcher {
         // Plasma Effect
         const noiseScale = float(5.0);
         const noiseSpeed = uTime.mul(2.0);
-        const plasmaNoise = mx_noise_float(positionLocal.add(vec3(0, noiseSpeed, 0)).mul(noiseScale));
+        const plasmaNoise = mx_noise_float(
+            positionLocal.add(vec3(0, noiseSpeed, 0)).mul(noiseScale)
+        );
 
         // Mix Colors
         // Base is instanceColor. Hot is slightly yellow/white.
@@ -195,22 +225,35 @@ export class LanternBatcher {
 
         // 🎨 PALETTE: Twilight Glow for lantern bulbs
         const glowPhaseOffset = params.y; // reuse randomPhase
-        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset))
+            .mul(float(CONFIG.glow.glowPulseAmplitude))
+            .add(1.0)
+            .mul(float(0.5))
+            .mul(uAudioLow.mul(0.3).add(0.7));
         const targetGlowColor = color(CONFIG.glow.glowColorMap['lantern']);
         const twilightGlowTint = targetGlowColor
             .mul(uTwilight)
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.4).add(idlePulse));
-        const biomeTint = BiomeUniforms.global.noteColor.mul(BiomeUniforms.global.shimmer.mul(0.35));
+        const biomeTint = BiomeUniforms.global.noteColor.mul(
+            BiomeUniforms.global.shimmer.mul(0.35)
+        );
 
-        bulbMat.emissiveNode = finalColor.mul(totalIntensity).add(rim).add(twilightGlowTint).add(biomeTint);
+        bulbMat.emissiveNode = finalColor
+            .mul(totalIntensity)
+            .add(rim)
+            .add(twilightGlowTint)
+            .add(biomeTint);
         bulbMat.colorNode = finalColor; // Also set base color
 
         // Create Mesh
         this.topMesh = new THREE.InstancedMesh(geometry, [darkMat, bulbMat], MAX_LANTERNS);
         this.topMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         // Explicitly create instanceColor buffer for use with setColorAt
-        this.topMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_LANTERNS * 3), 3);
+        this.topMesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_LANTERNS * 3),
+            3
+        );
         this.topMesh.geometry.setAttribute('instanceColor', this.topMesh.instanceColor);
         this.topMesh.count = 0;
         this.topMesh.castShadow = true;
@@ -227,36 +270,36 @@ export class LanternBatcher {
         const uvs: number[] = [];
 
         let vertexOffset = 0;
-        const groups: { start: number, count: number, materialIndex: number }[] = [];
+        const groups: { start: number; count: number; materialIndex: number }[] = [];
 
         const addPart = (geo: THREE.BufferGeometry, matIndex: number, transform: THREE.Matrix4) => {
-             const posAttr = geo.attributes.position;
-             const normAttr = geo.attributes.normal;
-             // uv ignored for now
+            const posAttr = geo.attributes.position;
+            const normAttr = geo.attributes.normal;
+            // uv ignored for now
 
-             for(let i=0; i<posAttr.count; i++){
-                 _scratchV.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
-                 _scratchV.applyMatrix4(transform);
-                 positions.push(_scratchV.x, _scratchV.y, _scratchV.z);
+            for (let i = 0; i < posAttr.count; i++) {
+                _scratchV.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+                _scratchV.applyMatrix4(transform);
+                positions.push(_scratchV.x, _scratchV.y, _scratchV.z);
 
-                 _scratchN.set(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
-                 _scratchN.transformDirection(transform);
-                 normals.push(_scratchN.x, _scratchN.y, _scratchN.z);
-                 uvs.push(0,0);
-             }
+                _scratchN.set(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
+                _scratchN.transformDirection(transform);
+                normals.push(_scratchN.x, _scratchN.y, _scratchN.z);
+                uvs.push(0, 0);
+            }
 
-             // Indices
-             if (geo.index) {
-                 for(let i=0; i<geo.index.count; i++){
-                     indices.push(geo.index.getX(i) + vertexOffset);
-                 }
-             } else {
-                 for(let i=0; i<posAttr.count; i++){
-                     indices.push(i + vertexOffset);
-                 }
-             }
+            // Indices
+            if (geo.index) {
+                for (let i = 0; i < geo.index.count; i++) {
+                    indices.push(geo.index.getX(i) + vertexOffset);
+                }
+            } else {
+                for (let i = 0; i < posAttr.count; i++) {
+                    indices.push(i + vertexOffset);
+                }
+            }
 
-             vertexOffset += posAttr.count;
+            vertexOffset += posAttr.count;
         };
 
         // ⚡ OPTIMIZATION: Module scoped scratch matrix to avoid GC spikes
@@ -268,7 +311,7 @@ export class LanternBatcher {
         // Hook Geometry: Torus segment
         // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
         const hookGeo = getTorusGeometry(0.5, 0.08, 6, 8, Math.PI);
-        m.makeRotationZ(-Math.PI/2);
+        m.makeRotationZ(-Math.PI / 2);
         m.setPosition(0.5, 0, 0);
         addPart(hookGeo, 0, m);
 
@@ -302,7 +345,9 @@ export class LanternBatcher {
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geo.setIndex(indices);
 
-        for (let i = 0; i < groups.length; i++) { geo.addGroup(groups[i].start, groups[i].count, groups[i].materialIndex); }
+        for (let i = 0; i < groups.length; i++) {
+            geo.addGroup(groups[i].start, groups[i].count, groups[i].materialIndex);
+        }
 
         return geo;
     }
@@ -321,15 +366,15 @@ export class LanternBatcher {
         _scratchMatrixBatch.compose(dummy.position, dummy.quaternion, dummy.scale);
         // Stem
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrixBatch.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
+        _scratchMatrixBatch.toArray(this.stemMesh!.instanceMatrix.array, i * 16);
 
         // Top
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrixBatch.toArray(this.topMesh!.instanceMatrix.array, (i) * 16);
+        _scratchMatrixBatch.toArray(this.topMesh!.instanceMatrix.array, i * 16);
 
         // Params
         const height = options.height || 2.5;
-        const colorHex = options.color || 0xFFA500;
+        const colorHex = options.color || 0xffa500;
         const spawnTime = options.spawnTime !== undefined ? options.spawnTime : -100.0;
         // ⚡ OPTIMIZATION: Reuse module-scoped scratch color to avoid GC
         const c = _scratchColor.set(colorHex);
@@ -339,7 +384,7 @@ export class LanternBatcher {
 
         this.stemParams!.setXYZW(i, height, 0, 0, spawnTime);
         this.topParams!.setXYZW(i, height, randomPhase, 0, spawnTime);
-        
+
         // Use setColorAt
         // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
         if (this.topMesh!.instanceColor) {

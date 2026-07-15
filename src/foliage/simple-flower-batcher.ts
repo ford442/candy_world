@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { log } from '../utils/log.ts';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PointsNodeMaterial } from 'three/webgpu';
 import {
@@ -14,9 +15,26 @@ import {
     uTime,
     uAudioHigh,
     uAudioLow,
-    uPlayerPosition
+    uPlayerPosition,
 } from './index.ts';
-import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld, uv, distance, vec2, varyingProperty } from 'three/tsl';
+import {
+    attribute,
+    color as tslColor,
+    positionLocal,
+    vec3,
+    float,
+    mx_noise_float,
+    mix,
+    sin,
+    smoothstep,
+    normalize,
+    length,
+    positionWorld,
+    uv,
+    distance,
+    vec2,
+    varyingProperty,
+} from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
@@ -136,9 +154,9 @@ export class SimpleFlowerBatcher {
         const posFinal = applyStandardDeformation(posBloom);
 
         // PALETTE: Enhance Petal Material with "Juice"
-        const petalMat = CandyPresets.Velvet(0xFFFFFF, {
+        const petalMat = CandyPresets.Velvet(0xffffff, {
             deformationNode: posFinal,
-            audioReactStrength: 1.0 // Adds subtle vibration/pulse
+            audioReactStrength: 1.0, // Adds subtle vibration/pulse
         });
 
         petalMat.colorNode = instanceColor;
@@ -161,45 +179,99 @@ export class SimpleFlowerBatcher {
         // Combine Emissive: Base Emissive (if any) + Rim + Glitter + TouchGlow
         // 🎨 PALETTE: Twilight Glow for simple flowers
         const glowPhaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
-        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset))
+            .mul(float(CONFIG.glow.glowPulseAmplitude))
+            .add(1.0)
+            .mul(float(0.5))
+            .mul(uAudioLow.mul(0.3).add(0.7));
         const targetGlowColor = tslColor(CONFIG.glow.glowColorMap['flower']);
         const twilightGlowTint = targetGlowColor
             .mul(uTwilight)
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.3).add(idlePulse));
-        const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.35));
-        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000)).add(rim).add(glitter).add(touchColor).add(twilightGlowTint).add(biomeTint);
+        const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(
+            BiomeUniforms.musicalFlora.shimmer.mul(0.35)
+        );
+        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000))
+            .add(rim)
+            .add(glitter)
+            .add(touchColor)
+            .add(twilightGlowTint)
+            .add(biomeTint);
 
         // Center: Velvet (Brown) + Chain
         const centerMat = (foliageMaterials as any).flowerCenter.clone();
         (centerMat as any).positionNode = posFinal;
 
         // Stamens: Clay (Yellow) + Chain
-        const stamenMat = createClayMaterial(0xFFFF00, { deformationNode: posFinal });
+        const stamenMat = createClayMaterial(0xffff00, { deformationNode: posFinal });
 
         // Beam: Enhanced LightBeam
         const beamMat = (foliageMaterials as any).lightBeam.clone();
-        beamMat.colorNode = mix(tslColor(0xFFFFFF), instanceColor, float(0.3));
+        beamMat.colorNode = mix(tslColor(0xffffff), instanceColor, float(0.3));
         const bassPulse = float(0.8).add(uAudioLow);
         beamMat.opacityNode = beamMat.opacityNode.mul(bassPulse);
 
         // 3. Create InstancedMeshes
 
-        this.stemMesh = this.createInstancedMesh(stemGeo, stemMat, MAX_FLOWERS, 'SimpleFlower_Stem');
-        this.petalMesh = this.createInstancedMesh(mergedPetals, petalMat, MAX_FLOWERS, 'SimpleFlower_Petal');
-        this.centerMesh = this.createInstancedMesh(centerGeo, centerMat, MAX_FLOWERS, 'SimpleFlower_Center');
-        this.stamenMesh = this.createInstancedMesh(mergedStamens, stamenMat, MAX_FLOWERS, 'SimpleFlower_Stamen');
-        this.beamMesh = this.createInstancedMesh(beamGeo, beamMat, MAX_FLOWERS, 'SimpleFlower_Beam');
-        this.petalMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
-        this.beamMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.stemMesh = this.createInstancedMesh(
+            stemGeo,
+            stemMat,
+            MAX_FLOWERS,
+            'SimpleFlower_Stem'
+        );
+        this.petalMesh = this.createInstancedMesh(
+            mergedPetals,
+            petalMat,
+            MAX_FLOWERS,
+            'SimpleFlower_Petal'
+        );
+        this.centerMesh = this.createInstancedMesh(
+            centerGeo,
+            centerMat,
+            MAX_FLOWERS,
+            'SimpleFlower_Center'
+        );
+        this.stamenMesh = this.createInstancedMesh(
+            mergedStamens,
+            stamenMat,
+            MAX_FLOWERS,
+            'SimpleFlower_Stamen'
+        );
+        this.beamMesh = this.createInstancedMesh(
+            beamGeo,
+            beamMat,
+            MAX_FLOWERS,
+            'SimpleFlower_Beam'
+        );
+        this.petalMesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_FLOWERS * 3),
+            3
+        );
+        this.beamMesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_FLOWERS * 3),
+            3
+        );
         // Provide aPoseState so TSL attribute('aPoseState') resolves
-        const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
+        const meshes = [
+            this.stemMesh,
+            this.petalMesh,
+            this.centerMesh,
+            this.stamenMesh,
+            this.beamMesh,
+        ];
         for (let i = 0; i < meshes.length; i++) {
-            meshes[i].geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
+            meshes[i].geometry.setAttribute(
+                'aPoseState',
+                new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1)
+            );
         }
 
         // Add to Scene
-        this.petalMesh.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS).fill(0), 1));
+        this.petalMesh.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS).fill(0), 1)
+        );
 
         foliageGroup.add(this.stemMesh);
         foliageGroup.add(this.petalMesh);
@@ -212,7 +284,7 @@ export class SimpleFlowerBatcher {
 
         this._poseMachine = new PlantPoseMachine(MAX_FLOWERS);
         this.initialized = true;
-        console.log(`[SimpleFlowerBatcher] Initialized with capacity ${MAX_FLOWERS}`);
+        log.info('SimpleFlowerBatcher', `Initialized with capacity ${MAX_FLOWERS}`);
     }
 
     private initPollenSystem() {
@@ -229,7 +301,7 @@ export class SimpleFlowerBatcher {
             size: 0.1, // Base Size (overridden by sizeNode)
             transparent: true,
             depthWrite: false,
-            blending: THREE.AdditiveBlending
+            blending: THREE.AdditiveBlending,
         });
 
         // TSL Logic for Pollen
@@ -261,9 +333,9 @@ export class SimpleFlowerBatcher {
         const pushDir = normalize(basePos.sub(uPlayerPosition));
         // Turbulence: Swirl based on position + time
         const turb = vec3(
-             sin(basePos.y.mul(10.0).add(uTime.mul(10.0))),
-             sin(basePos.x.mul(10.0).add(uTime.mul(10.0))),
-             sin(basePos.z.mul(10.0).add(uTime.mul(10.0)))
+            sin(basePos.y.mul(10.0).add(uTime.mul(10.0))),
+            sin(basePos.x.mul(10.0).add(uTime.mul(10.0))),
+            sin(basePos.z.mul(10.0).add(uTime.mul(10.0)))
         ).mul(0.2);
 
         const expansion = pushDir.mul(push).mul(1.5).add(turb.mul(push));
@@ -291,7 +363,12 @@ export class SimpleFlowerBatcher {
         foliageGroup.add(this.pollenPoints);
     }
 
-    private createInstancedMesh(geo: THREE.BufferGeometry, mat: THREE.Material, count: number, name: string): THREE.InstancedMesh {
+    private createInstancedMesh(
+        geo: THREE.BufferGeometry,
+        mat: THREE.Material,
+        count: number,
+        name: string
+    ): THREE.InstancedMesh {
         const mesh = new THREE.InstancedMesh(geo, mat, count);
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         mesh.castShadow = true;
@@ -311,7 +388,13 @@ export class SimpleFlowerBatcher {
         if (!this.initialized || this.count === 0 || !this._poseMachine) return;
         const kick = audioState?.kickTrigger || 0;
         const bloom = Math.min(kick * 0.3, 0.5);
-        const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
+        const meshes = [
+            this.stemMesh,
+            this.petalMesh,
+            this.centerMesh,
+            this.stamenMesh,
+            this.beamMesh,
+        ];
         for (const mesh of meshes) {
             if (!mesh) continue;
             const attr = mesh.geometry.getAttribute('aPoseState') as THREE.InstancedBufferAttribute;
@@ -326,12 +409,12 @@ export class SimpleFlowerBatcher {
     register(logicObject: THREE.Object3D, options: any = {}) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_FLOWERS) {
-            console.warn('[SimpleFlowerBatcher] Capacity full');
+            log.warn('SimpleFlowerBatcher', 'Capacity full');
             return;
         }
 
         const i = this.count;
-        const { color = 0xFFFFFF } = options;
+        const { color = 0xffffff } = options;
 
         // 1. Calculate Transforms
         _scratchMat.compose(logicObject.position, logicObject.quaternion, logicObject.scale);
@@ -343,7 +426,7 @@ export class SimpleFlowerBatcher {
         _scratchMat.makeScale(_scratchScale.x, _scratchScale.y, _scratchScale.z);
         _scratchMat.premultiply(baseMatrix); // Apply World Transform
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
+        _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, i * 16);
 
         // Head Transform (At top of stem)
         // Translation(0, stemHeight, 0) relative to Base.
@@ -354,7 +437,7 @@ export class SimpleFlowerBatcher {
 
         // Petals
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        headWorld.toArray(this.petalMesh!.instanceMatrix.array, (i) * 16);
+        headWorld.toArray(this.petalMesh!.instanceMatrix.array, i * 16);
 
         // Color
         if (typeof color === 'number') _scratchColor.setHex(color);
@@ -373,11 +456,11 @@ export class SimpleFlowerBatcher {
         _scratchMat.makeScale(0.1, 0.1, 0.1);
         _scratchMat.premultiply(headWorld);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMat.toArray(this.centerMesh!.instanceMatrix.array, (i) * 16);
+        _scratchMat.toArray(this.centerMesh!.instanceMatrix.array, i * 16);
 
         // Stamens: No extra scale needed (baked in geometry), just head transform
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        headWorld.toArray(this.stamenMesh!.instanceMatrix.array, (i) * 16);
+        headWorld.toArray(this.stamenMesh!.instanceMatrix.array, i * 16);
 
         // Beam: force for glowing variants, otherwise random chance for visual variety.
         const forceBeam = options.forceBeam === true;
@@ -385,12 +468,12 @@ export class SimpleFlowerBatcher {
             _scratchMat.makeScale(0.1, 1.0, 0.1);
             _scratchMat.premultiply(headWorld);
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMat.toArray(this.beamMesh!.instanceMatrix.array, (i) * 16);
+            _scratchMat.toArray(this.beamMesh!.instanceMatrix.array, i * 16);
         } else {
             _scratchMat.makeScale(0, 0, 0);
             _scratchMat.premultiply(headWorld);
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMat.toArray(this.beamMesh!.instanceMatrix.array, (i) * 16);
+            _scratchMat.toArray(this.beamMesh!.instanceMatrix.array, i * 16);
         }
         // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
         if (this.beamMesh!.instanceColor) {

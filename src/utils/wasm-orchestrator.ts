@@ -1,7 +1,12 @@
 // WASM-First GPU Pipeline Orchestrator
 // Updated for Emscripten Pthreads Support
 
-import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.ts';
+import {
+    checkWasmFileExists,
+    inspectWasmExports,
+    patchWasmInstantiateAliases,
+} from './wasm-utils.ts';
+import { log } from './log.ts';
 
 /**
  * Loading phase constants
@@ -11,7 +16,7 @@ export const LOADING_PHASES = {
     ASSET_DECODE: 1,
     GPU_UPLOAD: 2,
     PIPELINE_WARMUP: 3,
-    READY: 4
+    READY: 4,
 } as const;
 
 /**
@@ -21,18 +26,18 @@ export const PHASE_STATUS = {
     PENDING: 0,
     IN_PROGRESS: 1,
     COMPLETE: 2,
-    ERROR: -1
+    ERROR: -1,
 } as const;
 
 /**
  * Type for loading phases
  */
-export type LoadingPhase = typeof LOADING_PHASES[keyof typeof LOADING_PHASES];
+export type LoadingPhase = (typeof LOADING_PHASES)[keyof typeof LOADING_PHASES];
 
 /**
  * Type for phase status
  */
-export type PhaseStatus = typeof PHASE_STATUS[keyof typeof PHASE_STATUS];
+export type PhaseStatus = (typeof PHASE_STATUS)[keyof typeof PHASE_STATUS];
 
 // --- Shared Memory Utilities (Keep your existing code here) ---
 let syncBuffer: SharedArrayBuffer | null = null;
@@ -73,7 +78,7 @@ export function initSharedBuffer(): boolean {
         syncBuffer = new SharedArrayBuffer(5 * Int32Array.BYTES_PER_ELEMENT);
         syncView = new Int32Array(syncBuffer);
         for (let i = 0; i < 5; i++) Atomics.store(syncView, i, PHASE_STATUS.PENDING);
-        console.log('[WASMOrchestrator] Shared coordination buffer initialized');
+        log.info('WASMOrchestrator', 'Shared coordination buffer initialized');
         return true;
     } catch (e) {
         return false;
@@ -88,7 +93,7 @@ export function signalPhaseComplete(phase: number): void {
     if (!syncView) return;
     Atomics.store(syncView, phase, PHASE_STATUS.COMPLETE);
     Atomics.notify(syncView, phase);
-    console.log(`[WASMOrchestrator] Phase ${phase} complete`);
+    log.info('WASMOrchestrator', `Phase ${phase} complete`);
 }
 
 /**
@@ -163,17 +168,20 @@ export interface ParallelWasmLoadResult {
  * - ASC: Loaded Manually (Standalone)
  * - EMCC: Loaded via Generated Loader (Pthreads)
  */
-export async function parallelWasmLoad(options: ParallelWasmLoadOptions = {}): Promise<ParallelWasmLoadResult> {
+export async function parallelWasmLoad(
+    options: ParallelWasmLoadOptions = {}
+): Promise<ParallelWasmLoadResult> {
     const {
         onProgress = () => {},
         ascWasmUrl = './candy_physics.wasm',
-        cacheVersion = ''
+        cacheVersion = '',
     } = options;
 
-    const buildUrl = (baseUrl: string): string => cacheVersion ? `${baseUrl}?v=${cacheVersion}` : baseUrl;
+    const buildUrl = (baseUrl: string): string =>
+        cacheVersion ? `${baseUrl}?v=${cacheVersion}` : baseUrl;
 
     initSharedBuffer();
-    
+
     onProgress(LOADING_PHASES.WASM_INIT, 'Initializing WASM modules...');
     signalPhaseStart(LOADING_PHASES.WASM_INIT);
 
@@ -188,15 +196,15 @@ export async function parallelWasmLoad(options: ParallelWasmLoadOptions = {}): P
             const wasiStubs: WasiStubs = {
                 fd_write: () => 0,
                 abort: () => {},
-                clock_time_get: () => performance.now()
+                clock_time_get: () => performance.now(),
             };
 
             const importObject: WasmImportObject = {
                 env: {
-                    abort: () => console.error("ASC Abort"),
-                    seed: () => Math.random()
+                    abort: () => log.error('WASMOrchestrator', 'ASC Abort'),
+                    seed: () => Math.random(),
                 },
-                wasi_snapshot_preview1: wasiStubs
+                wasi_snapshot_preview1: wasiStubs,
             };
 
             // Try streaming instantiation first for faster compilation
@@ -207,21 +215,24 @@ export async function parallelWasmLoad(options: ParallelWasmLoadOptions = {}): P
                     importObject as unknown as WebAssembly.Imports
                 );
                 instance = result.instance as WasmInstance;
-                console.log('[WASMOrchestrator] ASC module compiled (streaming)');
+                log.info('WASMOrchestrator', 'ASC module compiled (streaming)');
             } catch (streamError) {
-                console.log('[WASMOrchestrator] Streaming failed, using fallback:', streamError);
+                log.info('WASMOrchestrator', 'Streaming failed, using fallback:', streamError);
                 // Fallback to traditional method
                 const response = await fetch(buildUrl(ascWasmUrl));
                 if (!response.ok) return null;
                 const bytes = await response.arrayBuffer();
-                const result = await WebAssembly.instantiate(bytes, importObject as unknown as WebAssembly.Imports);
+                const result = await WebAssembly.instantiate(
+                    bytes,
+                    importObject as unknown as WebAssembly.Imports
+                );
                 instance = result.instance as WasmInstance;
-                console.log('[WASMOrchestrator] ASC module compiled (buffer)');
+                log.info('WASMOrchestrator', 'ASC module compiled (buffer)');
             }
-            
+
             return instance;
         } catch (e) {
-            console.warn('[WASMOrchestrator] ASC load error:', e);
+            log.warn('WASMOrchestrator', 'ASC load error:', e);
             return null;
         }
     })();
@@ -234,46 +245,50 @@ export async function parallelWasmLoad(options: ParallelWasmLoadOptions = {}): P
             // Check if WASM file exists first
             const wasmCheck = await checkWasmFileExists('candy_native.wasm');
             if (!wasmCheck.exists) {
-                console.log('[WASMOrchestrator] candy_native.wasm not found, skipping EMCC module');
+                log.info('WASMOrchestrator', 'candy_native.wasm not found, skipping EMCC module');
                 return null;
             }
 
             const locatePrefix = '/';
 
             // Import the generated JS loader
-            let createCandyNative: ((config: Record<string, unknown>) => Promise<EmscriptenModule>) | undefined;
+            let createCandyNative:
+                ((config: Record<string, unknown>) => Promise<EmscriptenModule>) | undefined;
             try {
-                const { default: creator } = await import(/* @vite-ignore */ `${locatePrefix}/candy_native.js?v=${Date.now()}`);
+                const { default: creator } = await import(
+                    /* @vite-ignore */ `${locatePrefix}/candy_native.js?v=${Date.now()}`
+                );
                 createCandyNative = creator;
             } catch (jsError) {
-                console.log('[WASMOrchestrator] candy_native.js not found, skipping EMCC module');
+                log.info('WASMOrchestrator', 'candy_native.js not found, skipping EMCC module');
                 return null;
             }
-            
+
             if (!createCandyNative) return null;
-            
+
             // Patch instantiate() so Emscripten's assignWasmExports won't abort when only underscore names exist
             const restore = patchWasmInstantiateAliases();
             try {
                 const instance = await createCandyNative({
                     locateFile: (path: string, prefix: string) => {
                         if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
-                        if (path.endsWith('.worker.js')) return `${locatePrefix}/candy_native.worker.js`;
+                        if (path.endsWith('.worker.js'))
+                            return `${locatePrefix}/candy_native.worker.js`;
                         return prefix + path;
                     },
-                    print: (text: string) => console.log('[Native]', text),
-                    printErr: (text: string) => console.warn('[Native Err]', text),
+                    print: (text: string) => log.info('Native', text),
+                    printErr: (text: string) => log.warn('Native', text),
                     // IMPORTANT: Pass our coordination buffer to C++ if needed
-                    // orchestratorBuffer: syncBuffer 
+                    // orchestratorBuffer: syncBuffer
                 });
 
-                console.log('[WASMOrchestrator] EMCC Pthreads module ready');
+                log.info('WASMOrchestrator', 'EMCC Pthreads module ready');
                 return instance;
             } finally {
                 restore();
             }
         } catch (e) {
-            console.warn('[WASMOrchestrator] EMCC unavailable, using JS fallback:', e);
+            log.warn('WASMOrchestrator', 'EMCC unavailable, using JS fallback:', e);
             return null;
         }
     })();
@@ -287,7 +302,7 @@ export async function parallelWasmLoad(options: ParallelWasmLoadOptions = {}): P
     results.emcc = emccInstance; // This is the Module object, not just the instance
 
     signalPhaseComplete(LOADING_PHASES.WASM_INIT);
-    
+
     // ... Continue with your pipeline phases ...
     onProgress(LOADING_PHASES.READY, 'Ready');
     signalPhaseComplete(LOADING_PHASES.READY);
@@ -296,5 +311,5 @@ export async function parallelWasmLoad(options: ParallelWasmLoadOptions = {}): P
 }
 
 // Stub exports for compatibility (required by wasm-loader.js imports)
-export function createPlaceholderScene(): void { }
-export function removePlaceholderScene(): void { }
+export function createPlaceholderScene(): void {}
+export function removePlaceholderScene(): void {}

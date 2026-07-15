@@ -128,6 +128,8 @@ export interface SettingsSaveData {
     keyBindings: KeyBindings;
     fov: number;
     sensitivity: number;
+    /** When true, awakened flora glow may be shared with peers (future presence hook). */
+    shareDiscoveryGlowWithPeers?: boolean;
 }
 
 /**

@@ -26,6 +26,12 @@ import {
 } from './foliage-batcher-audio.ts';
 import { isCIorHeadless } from '../../core/config.ts';
 import {
+    shouldUseFoliageGpuBatch,
+    takeFoliageGpuScalarResult,
+    submitFoliageGpuScalarBatch,
+    type FoliageGpuBatchMode,
+} from '../../compute/foliage-gpu-batch.ts';
+import {
     applySnareSnap,
     applyAccordion,
     applyFiberWhip,
@@ -517,24 +523,50 @@ export class FoliageBatcher {
         if (!this.initialized) return;
 
         // Process Sway
-        this.processSimpleBatch(this.batches.sway, 'computeSway', time, (obj, val) => {
-            obj.rotation.z = val;
-        });
+        this.processSimpleBatch(
+            this.batches.sway,
+            'computeSway',
+            time,
+            (obj, val) => {
+                obj.rotation.z = val;
+            },
+            'sway'
+        );
 
         // Process Gentle Sway
-        this.processSimpleBatch(this.batches.gentleSway, 'computeGentleSway', time, (obj, val) => {
-            obj.rotation.z = val;
-        });
+        this.processSimpleBatch(
+            this.batches.gentleSway,
+            'computeGentleSway',
+            time,
+            (obj, val) => {
+                obj.rotation.z = val;
+            },
+            'gentleSway'
+        );
 
         // Process Bounce
-        this.processPhysicsBatch(this.batches.bounce, 'computeBounce', time, kick, (obj, val) => {
-            obj.position.y = val;
-        });
+        this.processPhysicsBatch(
+            this.batches.bounce,
+            'computeBounce',
+            time,
+            kick,
+            (obj, val) => {
+                obj.position.y = val;
+            },
+            'bounce'
+        );
 
         // Process Hop
-        this.processPhysicsBatch(this.batches.hop, 'computeHop', time, kick, (obj, val) => {
-            obj.position.y = val;
-        });
+        this.processPhysicsBatch(
+            this.batches.hop,
+            'computeHop',
+            time,
+            kick,
+            (obj, val) => {
+                obj.position.y = val;
+            },
+            'hop'
+        );
 
         // Process Wobble
         this.processWobbleBatch(this.batches.wobble, time);
@@ -552,9 +584,32 @@ export class FoliageBatcher {
         batch: BatchState,
         funcName: string,
         time: number,
-        apply: (o: FoliageObject, v: number) => void
+        apply: (o: FoliageObject, v: number) => void,
+        gpuKey?: FoliageGpuBatchMode
     ) {
         if (batch.count === 0) return;
+
+        if (gpuKey && shouldUseFoliageGpuBatch(batch.count)) {
+            const gpuRes = takeFoliageGpuScalarResult(gpuKey);
+            if (gpuRes && gpuRes.length >= batch.count) {
+                for (let i = 0; i < batch.count; i++) {
+                    apply(batch.objects[i], gpuRes[i]);
+                    batch.objects[i] = undefined as any;
+                }
+                submitFoliageGpuScalarBatch(
+                    gpuKey,
+                    gpuKey,
+                    batch.count,
+                    time,
+                    0,
+                    batch.offsets.subarray(0, batch.count),
+                    batch.intensities.subarray(0, batch.count),
+                    batch.originalYs?.subarray(0, batch.count) ?? new Float32Array(batch.count)
+                );
+                batch.count = 0;
+                return;
+            }
+        }
 
         const instance = getWasmInstance();
         if (!instance) return;
@@ -585,6 +640,20 @@ export class FoliageBatcher {
                 batch.objects[i] = undefined as any;
             }
         }
+
+        if (gpuKey && shouldUseFoliageGpuBatch(batch.count)) {
+            submitFoliageGpuScalarBatch(
+                gpuKey,
+                gpuKey,
+                batch.count,
+                time,
+                0,
+                batch.offsets.subarray(0, batch.count),
+                batch.intensities.subarray(0, batch.count),
+                batch.originalYs?.subarray(0, batch.count) ?? new Float32Array(batch.count)
+            );
+        }
+
         batch.count = 0;
     }
 
@@ -593,9 +662,32 @@ export class FoliageBatcher {
         funcName: string,
         time: number,
         kick: number,
-        apply: (o: FoliageObject, v: number) => void
+        apply: (o: FoliageObject, v: number) => void,
+        gpuKey?: FoliageGpuBatchMode
     ) {
         if (batch.count === 0) return;
+
+        if (gpuKey && shouldUseFoliageGpuBatch(batch.count) && batch.originalYs) {
+            const gpuRes = takeFoliageGpuScalarResult(gpuKey);
+            if (gpuRes && gpuRes.length >= batch.count) {
+                for (let i = 0; i < batch.count; i++) {
+                    apply(batch.objects[i], gpuRes[i]);
+                    batch.objects[i] = undefined as any;
+                }
+                submitFoliageGpuScalarBatch(
+                    gpuKey,
+                    gpuKey,
+                    batch.count,
+                    time,
+                    kick,
+                    batch.offsets.subarray(0, batch.count),
+                    batch.intensities.subarray(0, batch.count),
+                    batch.originalYs.subarray(0, batch.count)
+                );
+                batch.count = 0;
+                return;
+            }
+        }
 
         const instance = getWasmInstance();
         if (!instance) return;
@@ -636,6 +728,20 @@ export class FoliageBatcher {
                 batch.objects[i] = undefined as any;
             }
         }
+
+        if (gpuKey && shouldUseFoliageGpuBatch(batch.count) && batch.originalYs) {
+            submitFoliageGpuScalarBatch(
+                gpuKey,
+                gpuKey,
+                batch.count,
+                time,
+                kick,
+                batch.offsets.subarray(0, batch.count),
+                batch.intensities.subarray(0, batch.count),
+                batch.originalYs.subarray(0, batch.count)
+            );
+        }
+
         batch.count = 0;
     }
 

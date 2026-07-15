@@ -8,11 +8,24 @@
 // One InstancedMesh, one glass material => a single draw call for the whole grove.
 
 import * as THREE from 'three';
+import { log } from '../utils/log.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-    color, float, vec3, attribute, positionLocal, normalLocal,
-    sin, mix, smoothstep, normalWorld, positionWorld, cameraPosition, normalize, dot,
+    color,
+    float,
+    vec3,
+    attribute,
+    positionLocal,
+    normalLocal,
+    sin,
+    mix,
+    smoothstep,
+    normalWorld,
+    positionWorld,
+    cameraPosition,
+    normalize,
+    dot,
 } from 'three/tsl';
 import {
     CandyPresets,
@@ -34,7 +47,7 @@ import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 /** Visual Impact: cyan candy-glass base tint (cool bioluminescent fungus). */
-const GLASS_BASE_COLOR = 0x4DE2FF;
+const GLASS_BASE_COLOR = 0x4de2ff;
 const MAX_GLASS_MUSHROOMS = getCIAdjustedCount(600, 0.1, 50);
 
 // Baked proportions: wider cap, shorter stem (the brief's biomorphic silhouette).
@@ -84,8 +97,12 @@ function createGlassMushroomMaterial(): MeshStandardNodeMaterial {
     const radial = positionLocal.xz.length();
 
     // --- Music + circadian energy ---
-    const musicEnergy = LuminousPlantUniforms.intensity;            // 0–1, beat-driven
-    const musicColor = mix(color(GLASS_BASE_COLOR), luminousPlantsNoteColorNode, musicEnergy.mul(0.8));
+    const musicEnergy = LuminousPlantUniforms.intensity; // 0–1, beat-driven
+    const musicColor = mix(
+        color(GLASS_BASE_COLOR),
+        luminousPlantsNoteColorNode,
+        musicEnergy.mul(0.8)
+    );
     mat.colorNode = musicColor;
 
     // --- Phase B reactivity: bass cap ripple ---------------------------------
@@ -128,7 +145,12 @@ function createGlassMushroomMaterial(): MeshStandardNodeMaterial {
     const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
     const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
 
-    const rim = createJuicyRimLight(musicColor, float(1.0).add(musicEnergy.mul(2.0)), float(3.0), null);
+    const rim = createJuicyRimLight(
+        musicColor,
+        float(1.0).add(musicEnergy.mul(2.0)),
+        float(3.0),
+        null
+    );
 
     mat.emissiveNode = musicColor
         .mul(veinGlow.add(innerGlow))
@@ -168,19 +190,25 @@ export class GlassMushroomBatcher {
         this.mesh.userData.type = 'glass_mushroom';
 
         const phaseArray = new Float32Array(maxInstances);
-        this.mesh.geometry.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phaseArray, 1));
+        this.mesh.geometry.setAttribute(
+            'aPhase',
+            new THREE.InstancedBufferAttribute(phaseArray, 1)
+        );
 
         if (foliageGroup) {
             foliageGroup.add(this.mesh);
         } else {
-            console.warn('[GlassMushroomBatcher] foliageGroup not found, glass mushrooms may not be visible.');
+            log.warn(
+                'GlassMushroomBatcher',
+                'foliageGroup not found, glass mushrooms may not be visible.'
+            );
         }
     }
 
     /** Register a placed glass-mushroom group; returns its instance index or -1 if full. */
     register(group: THREE.Object3D): number {
         if (this.count >= this.maxInstances) {
-            console.warn('[GlassMushroomBatcher] Max capacity reached');
+            log.warn('GlassMushroomBatcher', 'Max capacity reached');
             return -1;
         }
         const id = this.count;
@@ -189,7 +217,9 @@ export class GlassMushroomBatcher {
         _scratchMatrix.compose(group.position, group.quaternion, group.scale);
         _scratchMatrix.toArray(this.mesh.instanceMatrix.array, id * 16);
 
-        const phaseAttr = this.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
+        const phaseAttr = this.mesh.geometry.getAttribute(
+            'aPhase'
+        ) as THREE.InstancedBufferAttribute;
         phaseAttr.array[id] = Math.random() * Math.PI * 2;
 
         this.count++;
@@ -215,7 +245,11 @@ export class GlassMushroomBatcher {
         if (this.mesh) {
             const phaseAttr = this.mesh.geometry?.getAttribute('aPhase');
             if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
-                try { (phaseAttr as any).dispose(); } catch { /* noop */ }
+                try {
+                    (phaseAttr as any).dispose();
+                } catch {
+                    /* noop */
+                }
             }
             if (this.mesh.geometry && this.mesh.geometry !== _sharedGlassGeo) {
                 this.mesh.geometry.dispose();
@@ -227,8 +261,15 @@ export class GlassMushroomBatcher {
                     (this.mesh.material as THREE.Material).dispose();
                 }
             }
-            if (this.mesh.instanceMatrix && typeof (this.mesh.instanceMatrix as any).dispose === 'function') {
-                try { (this.mesh.instanceMatrix as any).dispose(); } catch { /* noop */ }
+            if (
+                this.mesh.instanceMatrix &&
+                typeof (this.mesh.instanceMatrix as any).dispose === 'function'
+            ) {
+                try {
+                    (this.mesh.instanceMatrix as any).dispose();
+                } catch {
+                    /* noop */
+                }
             }
             if (foliageGroup) {
                 safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.mesh);

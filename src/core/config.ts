@@ -12,7 +12,10 @@ import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 //   ?no_audio_react       — skip beat-sync and music-reactivity hooks
 //   ?no_fireflies         — skip firefly particle system
 //   ?no_grass             — skip GPU grass instancing
+//   ?no_fauna             — skip ambient fauna boids + batchers
 //   ?awakened             — enable durable glow for music-awakened flora (default off)
+//   ?presence=1           — show shared-presence opt-in UI (still requires explicit join)
+//   ?no_gpu_compute       — force WASM/JS fallback for batch LOD + foliage scalar batches
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).
@@ -40,30 +43,33 @@ function _getFlag(key: string): string | null {
  * Uses full count in normal browsers, reduced count in CI.
  */
 export function getCIAdjustedCount(fullCount: number, ciMultiplier = 0.15, minCount = 5): number {
-  if (isCIorHeadless()) {
-    const adjusted = Math.max(minCount, Math.floor(fullCount * ciMultiplier));
-    console.log(`[CI Adjusted] ${fullCount} → ${adjusted} (multiplier: ${ciMultiplier})`);
-    return adjusted;
-  }
-  return fullCount;
+    if (isCIorHeadless()) {
+        const adjusted = Math.max(minCount, Math.floor(fullCount * ciMultiplier));
+        console.log(`[CI Adjusted] ${fullCount} → ${adjusted} (multiplier: ${ciMultiplier})`);
+        return adjusted;
+    }
+    return fullCount;
 }
 
 export const FEATURE_FLAGS = {
-    luminousPlants:   !_hasFlag('no_luminous'),
-    myceliumRealm:    !_hasFlag('no_mycelium'),
-    musicalFlora:     !_hasFlag('no_musical'),
+    luminousPlants: !_hasFlag('no_luminous'),
+    myceliumRealm: !_hasFlag('no_mycelium'),
+    musicalFlora: !_hasFlag('no_musical'),
     proceduralExtras: !_hasFlag('no_procedural'),
-    batchers:         !_hasFlag('no_batchers'),
-    audioReactivity:  !_hasFlag('no_audio_react'),
-    fireflies:        !_hasFlag('no_fireflies'),
-    grass:            !_hasFlag('no_grass'),
-    reliableBoot:     !_hasFlag('no_reliable_boot'),
+    batchers: !_hasFlag('no_batchers'),
+    audioReactivity: !_hasFlag('no_audio_react'),
+    fireflies: !_hasFlag('no_fireflies'),
+    grass: !_hasFlag('no_grass'),
+    fauna: !_hasFlag('no_fauna'),
+    reliableBoot: !_hasFlag('no_reliable_boot'),
     /**
      * Persist soft glow for music-awakened flora across reloads.
      * Runtime URL flag (?awakened) — default off for safe rollout.
      * Rollup cannot prune this branch; use import.meta.env for zero bundle cost later.
      */
     awakenedPersistence: _hasFlag('awakened'),
+    /** Shared multiplayer presence UI + networking (opt-in join; no traffic until joined). */
+    presence: _hasFlag('presence') || _getFlag('presence') === '1',
 } as const;
 
 // Log active overrides once at startup so the console makes the state obvious.
@@ -82,8 +88,14 @@ export const DURATION_DAY = 420;
 export const DURATION_SUNSET = 60;
 export const DURATION_DUSK_NIGHT = 180; // 3 min
 export const DURATION_DEEP_NIGHT = 120; // 2 min
-export const DURATION_PRE_DAWN = 120;   // 2 min
-export const CYCLE_DURATION = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT + DURATION_DEEP_NIGHT + DURATION_PRE_DAWN; // 960s
+export const DURATION_PRE_DAWN = 120; // 2 min
+export const CYCLE_DURATION =
+    DURATION_SUNRISE +
+    DURATION_DAY +
+    DURATION_SUNSET +
+    DURATION_DUSK_NIGHT +
+    DURATION_DEEP_NIGHT +
+    DURATION_PRE_DAWN; // 960s
 
 export interface PaletteEntry {
     skyTop: THREE.Color;
@@ -118,73 +130,73 @@ export interface EntityScaleEntry extends EntityScaleRange {
 export const PALETTE: Record<string, PaletteEntry> = {
     // Standard Season (Spring/Default)
     day: {
-        skyTop: new THREE.Color(0x87CEEB),   // Brighter sky blue for day
-        skyBot: new THREE.Color(0xB8E6F0),   // Softer transition to horizon
-        horizon: new THREE.Color(0xFFE5CC),  // Warm peachy horizon glow
-        fog: new THREE.Color(0xFFC5D3),      // Warmer pastel pink fog
-        sun: new THREE.Color(0xFFFAF0),      // Warm white sunlight
-        amb: new THREE.Color(0xFFF5EE),      // Soft seashell ambient
+        skyTop: new THREE.Color(0x87ceeb), // Brighter sky blue for day
+        skyBot: new THREE.Color(0xb8e6f0), // Softer transition to horizon
+        horizon: new THREE.Color(0xffe5cc), // Warm peachy horizon glow
+        fog: new THREE.Color(0xffc5d3), // Warmer pastel pink fog
+        sun: new THREE.Color(0xfffaf0), // Warm white sunlight
+        amb: new THREE.Color(0xfff5ee), // Soft seashell ambient
         sunInt: 0.9,
         ambInt: 0.65,
-        atmosphereIntensity: 0.3
+        atmosphereIntensity: 0.3,
     },
     // Pattern 1: Neon Synthwave (D01-D20 range)
     neon: {
-        skyTop: new THREE.Color(0x220044),   // Deep purple
-        skyBot: new THREE.Color(0xFF00FF),   // Neon magenta
-        horizon: new THREE.Color(0x00FFFF),  // Cyan horizon
-        fog: new THREE.Color(0x5500AA),      // Purple fog
-        sun: new THREE.Color(0xFF00AA),      // Pink sun
-        amb: new THREE.Color(0x440088),      // Purple ambient
+        skyTop: new THREE.Color(0x220044), // Deep purple
+        skyBot: new THREE.Color(0xff00ff), // Neon magenta
+        horizon: new THREE.Color(0x00ffff), // Cyan horizon
+        fog: new THREE.Color(0x5500aa), // Purple fog
+        sun: new THREE.Color(0xff00aa), // Pink sun
+        amb: new THREE.Color(0x440088), // Purple ambient
         sunInt: 0.8,
         ambInt: 0.7,
-        atmosphereIntensity: 0.9
+        atmosphereIntensity: 0.9,
     },
     // Pattern 2: Glitch/Monochrome (D21+ range)
     glitch: {
-        skyTop: new THREE.Color(0x000000),   // Black
-        skyBot: new THREE.Color(0x888888),   // Grey
-        horizon: new THREE.Color(0xFFFFFF),  // White
-        fog: new THREE.Color(0xAAAAAA),      // Grey fog
-        sun: new THREE.Color(0xFFFFFF),      // White sun
-        amb: new THREE.Color(0x444444),      // Grey ambient
+        skyTop: new THREE.Color(0x000000), // Black
+        skyBot: new THREE.Color(0x888888), // Grey
+        horizon: new THREE.Color(0xffffff), // White
+        fog: new THREE.Color(0xaaaaaa), // Grey fog
+        sun: new THREE.Color(0xffffff), // White sun
+        amb: new THREE.Color(0x444444), // Grey ambient
         sunInt: 1.0,
         ambInt: 0.5,
-        atmosphereIntensity: 0.0
+        atmosphereIntensity: 0.0,
     },
     sunset: {
-        skyTop: new THREE.Color(0x4B3D8F),   // Rich purple-blue
-        skyBot: new THREE.Color(0xFF6B4A),   // Warm coral-orange glow
-        horizon: new THREE.Color(0xFFB347),  // Vibrant orange-gold horizon
-        fog: new THREE.Color(0xE87B9F),      // Candy pink-coral fog
-        sun: new THREE.Color(0xFFA040),      // Golden-orange sun
-        amb: new THREE.Color(0x9B5050),      // Warm reddish ambient
+        skyTop: new THREE.Color(0x4b3d8f), // Rich purple-blue
+        skyBot: new THREE.Color(0xff6b4a), // Warm coral-orange glow
+        horizon: new THREE.Color(0xffb347), // Vibrant orange-gold horizon
+        fog: new THREE.Color(0xe87b9f), // Candy pink-coral fog
+        sun: new THREE.Color(0xffa040), // Golden-orange sun
+        amb: new THREE.Color(0x9b5050), // Warm reddish ambient
         sunInt: 0.55,
         ambInt: 0.45,
-        atmosphereIntensity: 0.7            // Strong atmospheric effect at sunset
+        atmosphereIntensity: 0.7, // Strong atmospheric effect at sunset
     },
     night: {
-        skyTop: new THREE.Color(0x0A0A2E),   // Deeper night blue with slight color
-        skyBot: new THREE.Color(0x1A1A35),   // Slightly lighter horizon at night
-        horizon: new THREE.Color(0x2A2A4A),  // Subtle purple-blue horizon glow
-        fog: new THREE.Color(0x0A0A18),      // Dark blue-tinted fog
-        sun: new THREE.Color(0x334466),      // Moonlight blue tint
-        amb: new THREE.Color(0x080815),      // Very dim ambient
+        skyTop: new THREE.Color(0x0a0a2e), // Deeper night blue with slight color
+        skyBot: new THREE.Color(0x1a1a35), // Slightly lighter horizon at night
+        horizon: new THREE.Color(0x2a2a4a), // Subtle purple-blue horizon glow
+        fog: new THREE.Color(0x0a0a18), // Dark blue-tinted fog
+        sun: new THREE.Color(0x334466), // Moonlight blue tint
+        amb: new THREE.Color(0x080815), // Very dim ambient
         sunInt: 0.12,
         ambInt: 0.08,
-        atmosphereIntensity: 0.15           // Subtle night atmosphere
+        atmosphereIntensity: 0.15, // Subtle night atmosphere
     },
     sunrise: {
-        skyTop: new THREE.Color(0x48D8E8),   // Bright turquoise dawn sky
-        skyBot: new THREE.Color(0xFF9BAC),   // Warm rosy pink
-        horizon: new THREE.Color(0xFFD4A3),  // Golden peachy horizon
-        fog: new THREE.Color(0xFFE4CA),      // Peachy-warm fog
-        sun: new THREE.Color(0xFFE066),      // Golden morning light
-        amb: new THREE.Color(0xFFC8D8),      // Soft pink ambient
+        skyTop: new THREE.Color(0x48d8e8), // Bright turquoise dawn sky
+        skyBot: new THREE.Color(0xff9bac), // Warm rosy pink
+        horizon: new THREE.Color(0xffd4a3), // Golden peachy horizon
+        fog: new THREE.Color(0xffe4ca), // Peachy-warm fog
+        sun: new THREE.Color(0xffe066), // Golden morning light
+        amb: new THREE.Color(0xffc8d8), // Soft pink ambient
         sunInt: 0.65,
         ambInt: 0.55,
-        atmosphereIntensity: 0.6            // Strong morning atmosphere
-    }
+        atmosphereIntensity: 0.6, // Strong morning atmosphere
+    },
 };
 
 export interface ConfigType {
@@ -273,12 +285,15 @@ export interface ConfigType {
         dayPoseOffset: number;
         nightPoseOffset: number;
         nightGlowMultiplier: number;
-        biomeOverrides: Record<string, Partial<{
-            transitionSeconds: number;
-            dayPoseOffset: number;
-            nightPoseOffset: number;
-            nightGlowMultiplier: number;
-        }>>;
+        biomeOverrides: Record<
+            string,
+            Partial<{
+                transitionSeconds: number;
+                dayPoseOffset: number;
+                nightPoseOffset: number;
+                nightGlowMultiplier: number;
+            }>
+        >;
     };
 
     lighting: {
@@ -387,6 +402,8 @@ export interface ConfigType {
     };
 
     world: {
+        /** Shareable procedural seed — matches map.json metadata when unset in URL. */
+        seed: number;
         population: {
             proceduralExtras: number;
             arpeggioGroveFerns: number;
@@ -446,6 +463,30 @@ export interface ConfigType {
         };
     };
 
+    fauna: {
+        enabled: boolean;
+        maxInstances: number;
+        maxPerSpecies: number;
+        seed: number;
+        areaScale: number;
+        biomeDensity: Record<string, { beetle: number; hopper: number; moth: number }>;
+    };
+
+    presence: {
+        /** Master enable — also requires FEATURE_FLAGS.presence and Supabase env vars. */
+        enabled: boolean;
+        maxPeers: number;
+        tickHz: number;
+        cullDistance: number;
+    };
+
+    compute: {
+        /** Prefer GPU compute over WASM/JS when WebGPU is ready (Tier 4 default). */
+        preferGpu: boolean;
+        /** Minimum batch size before foliage scalar work moves to GPU. */
+        foliageGpuBatchMin: number;
+    };
+
     postfx: {
         quality: 'off' | 'low' | 'high';
         godRays: boolean;
@@ -467,48 +508,55 @@ export interface ConfigType {
 // Runtime detection (runs early)
 export const isCIorHeadless = (): boolean => {
     const isFullBoot =
-      (window as any).__IS_FULL_BOOT_TEST === true ||
-      localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true';
+        (window as any).__IS_FULL_BOOT_TEST === true ||
+        localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true';
 
     const checks = {
-      __IS_FULL_BOOT_TEST: isFullBoot,
-      __IS_CI_TEST: (window as any).__IS_CI_TEST === true,
-      __IS_HEADLESS: (window as any).__IS_HEADLESS === true,
-      uaHeadless: navigator.userAgent.includes('Headless'),
-      uaPlaywright: navigator.userAgent.includes('Playwright'),
-      innerWidthZero: window.innerWidth === 0,
-      testModeClass: document.documentElement.classList.contains('test-mode'),
-      ciParam: new URLSearchParams(window.location.search).get('ci') === 'true',
+        __IS_FULL_BOOT_TEST: isFullBoot,
+        __IS_CI_TEST: (window as any).__IS_CI_TEST === true,
+        __IS_HEADLESS: (window as any).__IS_HEADLESS === true,
+        uaHeadless: navigator.userAgent.includes('Headless'),
+        uaPlaywright: navigator.userAgent.includes('Playwright'),
+        innerWidthZero: window.innerWidth === 0,
+        testModeClass: document.documentElement.classList.contains('test-mode'),
+        ciParam: new URLSearchParams(window.location.search).get('ci') === 'true',
     };
 
     const result = Object.values(checks).some(Boolean);
 
-    console.log('[DEBUG] isCIorHeadless →', result ? 'TRUE ✓' : 'FALSE ✗', checks, 'URL=', window.location.href);
+    console.log(
+        '[DEBUG] isCIorHeadless →',
+        result ? 'TRUE ✓' : 'FALSE ✗',
+        checks,
+        'URL=',
+        window.location.href
+    );
 
     return result;
-  };
+};
 
 export const CONFIG: ConfigType = {
-    safeMode: typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('safe'),
+    safeMode:
+        typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('safe'),
     terrain: {
         useGpuHeightmap: true, // Default to true as it is the goal
-        heightmapResolution: 256
+        heightmapResolution: 256,
     },
 
     // --- PLAYER / CAMERA HEIGHT ---
     // Issue #1265: centralised eye height and ground-follow tuning so the
     // first-person camera no longer snaps over small terrain bumps.
     player: {
-        eyeHeight: 1.8,        // Height of the camera above the ground surface
-        spawnEyeHeightY: 5.0,  // Transient camera Y before the first authoritative ground snap
+        eyeHeight: 1.8, // Height of the camera above the ground surface
+        spawnEyeHeightY: 5.0, // Transient camera Y before the first authoritative ground snap
     },
     ground: {
         followLerpSpeed: 12.0, // Units/sec for smoothing eye height over terrain bumps
-        followMaxStep: 2.5,    // Max vertical change per frame to prevent huge jumps
+        followMaxStep: 2.5, // Max vertical change per frame to prevent huge jumps
         platformElevationThreshold: 1.25, // Above terrain eye Y → trust physics (clouds, pads)
-        cacheCellSize: 2.0,    // GroundSystem height-cache cell size (0.01-unit quantised)
-        cacheTTL: 1.0,         // Seconds before a cached height sample expires
-        footprintSamples: 4,   // Perimeter ring samples (+ center) for wide-prop grounding
+        cacheCellSize: 2.0, // GroundSystem height-cache cell size (0.01-unit quantised)
+        cacheTTL: 1.0, // Seconds before a cached height sample expires
+        footprintSamples: 4, // Perimeter ring samples (+ center) for wide-prop grounding
         maxSlopeAngle: (25 * Math.PI) / 180,
         footprintRadius: {
             tree: 0.4,
@@ -545,44 +593,44 @@ export const CONFIG: ConfigType = {
         surfaceYOffset: 0.15,
         walkableTier: 1,
         // Visual Impact: dreamy candy cloud pastels (lavender / pink / cream)
-        pastelTint: 0xFFD1DC,
-        creamHighlight: 0xFFF8E7,
-        lavenderShadow: 0xE6E6FA,
+        pastelTint: 0xffd1dc,
+        creamHighlight: 0xfff8e7,
+        lavenderShadow: 0xe6e6fa,
         emissivePulse: 0.35,
     },
 
     colors: {
         ground: 0x222222,
-        fog: 0x1A1A2E
+        fog: 0x1a1a2e,
     },
 
     // --- NEW INTERACTION SETTINGS ---
     interaction: {
-        maxDistance: 60,         // Raycast max range
-        proximityRadius: 12.0,   // Object "wakes up"
-        interactionDistance: 8.0 // Object becomes clickable
+        maxDistance: 60, // Raycast max range
+        proximityRadius: 12.0, // Object "wakes up"
+        interactionDistance: 8.0, // Object becomes clickable
     },
 
     // --- TWILIGHT GLOW SETTINGS ---
     glow: {
         startOffsetMinutes: 30, // Start glowing 30 min before sunset
-        endOffsetMinutes: 30,   // Stop glowing 30 min after sunrise (or before? usually before dawn, but let's stick to plan)
+        endOffsetMinutes: 30, // Stop glowing 30 min after sunrise (or before? usually before dawn, but let's stick to plan)
         glowPulseFrequency: 1.0,
         glowPulseAmplitude: 0.5,
         glowIntensityMax: 2.0,
         awakenedGlowMultiplier: 0.5,
         glowColorMap: {
-            'mushroom': 0xFFDDDD,
-            'tree': 0xAAFFCC,
-            'flower': 0xFFCCEE,
-            'dandelion': 0xFFFFAA,
-            'wisteria': 0xDDAAFF,
-            'lotus': 0xFFBBCC,
-            'lantern': 0xFFEEAA,
-            'portamento': 0xAAEEFF,
-            'global': 0xFFFFFF,
-            'luminous_plants': 0x66CCFF
-        }
+            mushroom: 0xffdddd,
+            tree: 0xaaffcc,
+            flower: 0xffccee,
+            dandelion: 0xffffaa,
+            wisteria: 0xddaaff,
+            lotus: 0xffbbcc,
+            lantern: 0xffeeaa,
+            portamento: 0xaaeeff,
+            global: 0xffffff,
+            luminous_plants: 0x66ccff,
+        },
     },
 
     // --- LUMINOUS PLANTS SETTINGS ---
@@ -593,7 +641,7 @@ export const CONFIG: ConfigType = {
         pulseSpeed: 1.5,
         pulseDepth: 0.3,
         subsurfaceStrength: 0.8,
-        glowIntensity: 2.0
+        glowIntensity: 2.0,
     },
 
     // --- WORLD POPULATION (Full Mode) ---
@@ -607,21 +655,22 @@ export const CONFIG: ConfigType = {
     //   - Lower proceduralExtras first (biggest object count).
     //   - Then reduce arpeggioGrove* numbers (expensive reactive batchers + TSL materials).
     world: {
+        seed: 12345,
         population: {
             // Scattered procedural objects across the world (mushrooms, flowers, trees, clouds, etc.)
-            proceduralExtras: 220,          // Reduced from 400 for faster Full mode loads
+            proceduralExtras: 220, // Reduced from 400 for faster Full mode loads
 
             // Main Arpeggio Grove setpiece (near -60,60)
-            arpeggioGroveFerns: 7,          // Reduced from 12
-            arpeggioGroveOuter: 4,          // Reduced from 8 (geysers + violets)
+            arpeggioGroveFerns: 7, // Reduced from 12
+            arpeggioGroveOuter: 4, // Reduced from 8 (geysers + violets)
 
             // Secondary Arpeggio-style foliage on the lake island
-            lakeArpeggioFerns: 3,           // Reduced from 5
-            lakeDandelions: 6,              // Reduced from 10
+            lakeArpeggioFerns: 3, // Reduced from 5
+            lakeDandelions: 6, // Reduced from 10
 
             // Global multiplier for quick experimentation (1.0 = use the numbers above)
             // Set to 0.5 for a very light Full mode, or 1.5 if you have a powerful machine.
-            scale: 1.0
+            scale: 1.0,
         },
         // Procedural scale table — reference heights at `base` (world units):
         //   tree trunk 4–6u | mushroom cap 1–2u | fern 1.2–1.6u | dandelion ~0.9u | gem fruit ~0.25u
@@ -631,7 +680,10 @@ export const CONFIG: ConfigType = {
 
             mushroom: { base: 1.0, min: 0.85, max: 1.15, refHeight: 1.2 },
             glass_mushroom: {
-                base: 1.0, min: 0.85, max: 1.15, refHeight: 1.4,
+                base: 1.0,
+                min: 0.85,
+                max: 1.15,
+                refHeight: 1.4,
                 biomeOverrides: { mycelium_grove: { min: 0.9, max: 1.1 } },
             },
             retrigger_mushroom: { base: 1.0, min: 0.85, max: 1.15, refHeight: 1.3 },
@@ -641,24 +693,36 @@ export const CONFIG: ConfigType = {
             balloon_bush: { base: 1.0, min: 0.9, max: 1.1, refHeight: 4.5 },
             helix_plant: { base: 1.0, min: 0.9, max: 1.1, refHeight: 4.0 },
             portamento_pine: {
-                base: 1.0, min: 0.9, max: 1.1, refHeight: 5.0,
+                base: 1.0,
+                min: 0.9,
+                max: 1.1,
+                refHeight: 5.0,
                 height: { base: 5.0, min: 4.2, max: 5.8 },
             },
             gem_canopy_tree: {
-                base: 1.0, min: 0.9, max: 1.1, refHeight: 5.0,
+                base: 1.0,
+                min: 0.9,
+                max: 1.1,
+                refHeight: 5.0,
                 height: { base: 5.0, min: 4.5, max: 5.5 },
                 biomeOverrides: { gem_canopy: { height: { base: 5.2, min: 4.8, max: 5.8 } } },
             },
 
             arpeggio_fern: {
-                base: 1.0, min: 0.9, max: 1.1, refHeight: 1.5,
+                base: 1.0,
+                min: 0.9,
+                max: 1.1,
+                refHeight: 1.5,
                 biomeOverrides: { arpeggio_grove: { min: 0.95, max: 1.1 } },
             },
             cymbal_dandelion: { base: 0.9, min: 0.8, max: 1.0, refHeight: 0.9 },
             snare_trap: { base: 0.9, min: 0.8, max: 1.0, refHeight: 0.8 },
             luminous_plant: { base: 1.0, min: 0.85, max: 1.15, refHeight: 1.8 },
             gem_fruit: {
-                base: 1.0, min: 0.85, max: 1.15, refHeight: 0.25,
+                base: 1.0,
+                min: 0.85,
+                max: 1.15,
+                refHeight: 0.25,
                 biomeOverrides: { gem_canopy: { min: 0.9, max: 1.1 } },
             },
 
@@ -667,7 +731,10 @@ export const CONFIG: ConfigType = {
             tremolo_tulip: { base: 1.0, min: 0.85, max: 1.15, refHeight: 1.0 },
             vibrato_violet: { base: 1.0, min: 0.85, max: 1.15, refHeight: 0.8 },
             kick_drum_geyser: {
-                base: 1.0, min: 0.9, max: 1.1, refHeight: 6.0,
+                base: 1.0,
+                min: 0.9,
+                max: 1.1,
+                refHeight: 6.0,
                 height: { base: 6.0, min: 5.0, max: 7.5 },
             },
 
@@ -687,59 +754,143 @@ export const CONFIG: ConfigType = {
     // --- NOTE COLOR MAPPING ---
     noteColorMap: {
         // Standard Global Palette (Fallback) - matching assets/colorcode.json
-        'global': {
-            'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
-            'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
-            'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
+        global: {
+            C: 0xff0000,
+            'C#': 0xff7f00,
+            D: 0xffff00,
+            'D#': 0x7fff00,
+            E: 0x00ff00,
+            F: 0x00ff7f,
+            'F#': 0x00ffff,
+            G: 0x007fff,
+            'G#': 0x0000ff,
+            A: 0x7f00ff,
+            'A#': 0xff00ff,
+            B: 0xff007f,
         },
         // Species: Mushroom (Shader-matched palette)
-        'mushroom': {
-            'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
-            'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
-            'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
+        mushroom: {
+            C: 0xff0000,
+            'C#': 0xff7f00,
+            D: 0xffff00,
+            'D#': 0x7fff00,
+            E: 0x00ff00,
+            F: 0x00ff7f,
+            'F#': 0x00ffff,
+            G: 0x007fff,
+            'G#': 0x0000ff,
+            A: 0x7f00ff,
+            'A#': 0xff00ff,
+            B: 0xff007f,
         },
         // Species: Flower (Vibrant Pastels)
-        'flower': {
-            'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
-            'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
-            'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
+        flower: {
+            C: 0xff0000,
+            'C#': 0xff7f00,
+            D: 0xffff00,
+            'D#': 0x7fff00,
+            E: 0x00ff00,
+            F: 0x00ff7f,
+            'F#': 0x00ffff,
+            G: 0x007fff,
+            'G#': 0x0000ff,
+            A: 0x7f00ff,
+            'A#': 0xff00ff,
+            B: 0xff007f,
         },
         // Species: Tree (Nature + Biolum)
-        'tree': {
-            'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
-            'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
-            'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
+        tree: {
+            C: 0xff0000,
+            'C#': 0xff7f00,
+            D: 0xffff00,
+            'D#': 0x7fff00,
+            E: 0x00ff00,
+            F: 0x00ff7f,
+            'F#': 0x00ffff,
+            G: 0x007fff,
+            'G#': 0x0000ff,
+            A: 0x7f00ff,
+            'A#': 0xff00ff,
+            B: 0xff007f,
         },
         // Species: Cloud (Ethereal candy pastels — lavender / pink / cream)
-        'cloud': {
-            'C': 0xFFD1DC, 'C#': 0xFFE4E1, 'D': 0xFFF0F5, 'D#': 0xE6E6FA,
-            'E': 0xDDA0DD, 'F': 0xF0E6FF, 'F#': 0xFFF8E7, 'G': 0xFFE4C4,
-            'G#': 0xFFB6C1, 'A': 0xFFC0CB, 'A#': 0xE0B0FF, 'B': 0xC8A2C8
+        cloud: {
+            C: 0xffd1dc,
+            'C#': 0xffe4e1,
+            D: 0xfff0f5,
+            'D#': 0xe6e6fa,
+            E: 0xdda0dd,
+            F: 0xf0e6ff,
+            'F#': 0xfff8e7,
+            G: 0xffe4c4,
+            'G#': 0xffb6c1,
+            A: 0xffc0cb,
+            'A#': 0xe0b0ff,
+            B: 0xc8a2c8,
         },
         // Species: Sky & Moon (Note-Color Reactivity)
-        'sky': {
-            'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
-            'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
-            'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
+        sky: {
+            C: 0xff0000,
+            'C#': 0xff7f00,
+            D: 0xffff00,
+            'D#': 0x7fff00,
+            E: 0x00ff00,
+            F: 0x00ff7f,
+            'F#': 0x00ffff,
+            G: 0x007fff,
+            'G#': 0x0000ff,
+            A: 0x7f00ff,
+            'A#': 0xff00ff,
+            B: 0xff007f,
         },
         // Species: Luminous Plants (Deep sea / Bioluminescence)
-        'luminous_plants': {
-            'C': 0x00FF88, 'C#': 0x00FFCC, 'D': 0x00FFFF, 'D#': 0x00CCFF,
-            'E': 0x0088FF, 'F': 0x0044FF, 'F#': 0x4400FF, 'G': 0x8800FF,
-            'G#': 0xCC00FF, 'A': 0xFF00FF, 'A#': 0xFF00CC, 'B': 0xFF0088
+        luminous_plants: {
+            C: 0x00ff88,
+            'C#': 0x00ffcc,
+            D: 0x00ffff,
+            'D#': 0x00ccff,
+            E: 0x0088ff,
+            F: 0x0044ff,
+            'F#': 0x4400ff,
+            G: 0x8800ff,
+            'G#': 0xcc00ff,
+            A: 0xff00ff,
+            'A#': 0xff00cc,
+            B: 0xff0088,
         },
         // Species: Gem Canopy — jewel tones (ruby, sapphire, amethyst, emerald…)
-        'gem_canopy': {
-            'C': 0xE0115F, 'C#': 0xFF4D6D, 'D': 0xFF6B9D, 'D#': 0x9966CC,
-            'E': 0x7B68EE, 'F': 0x0F52BA, 'F#': 0x4169E1, 'G': 0x00CED1,
-            'G#': 0x2E8B57, 'A': 0x50C878, 'A#': 0xFFD700, 'B': 0xFF69B4
-        }
+        gem_canopy: {
+            C: 0xe0115f,
+            'C#': 0xff4d6d,
+            D: 0xff6b9d,
+            'D#': 0x9966cc,
+            E: 0x7b68ee,
+            F: 0x0f52ba,
+            'F#': 0x4169e1,
+            G: 0x00ced1,
+            'G#': 0x2e8b57,
+            A: 0x50c878,
+            'A#': 0xffd700,
+            B: 0xff69b4,
+        },
     },
 
     // Per-species reaction tuning
     reactivity: {
-        mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 },
-        cloud: { medianWindow: 4, smoothingRate: 10, scale: 0.45, maxAmplitude: 0.8, minThreshold: 0.015 },
+        mushroom: {
+            medianWindow: 5,
+            smoothingRate: 8,
+            scale: 0.6,
+            maxAmplitude: 1.0,
+            minThreshold: 0.02,
+        },
+        cloud: {
+            medianWindow: 4,
+            smoothingRate: 10,
+            scale: 0.45,
+            maxAmplitude: 0.8,
+            minThreshold: 0.015,
+        },
     },
     // Global flash strength scaler
     flashScale: 2.0,
@@ -751,7 +902,7 @@ export const CONFIG: ConfigType = {
         blinkDuration: 200, // ms
         blinkInterval: 5000, // ms (average)
         danceAmplitude: 0.2,
-        danceFrequency: 1.0 // Hz
+        danceFrequency: 1.0, // Hz
     },
 
     // Audio processing settings
@@ -760,15 +911,15 @@ export const CONFIG: ConfigType = {
         // Set to true if experiencing AudioWorkletNode performance issues or slow loading
         // Default: false (uses modern AudioWorkletNode)
         // See AUDIO_COMPATIBILITY_MODE.md for more information
-        useScriptProcessorNode: false
+        useScriptProcessorNode: false,
     },
 
     // Weather music reactivity settings
     weather: {
         musicReactivity: {
             enabled: false,
-            blendWeight: 0.6  // 0.0 = no music influence, 1.0 = full override
-        }
+            blendWeight: 0.6, // 0.0 = no music influence, 1.0 = full override
+        },
     },
 
     // --- PLANT POSE ADSR ENVELOPES ---
@@ -776,30 +927,30 @@ export const CONFIG: ConfigType = {
     // All values are data-driven so tuning never touches shader or batcher code.
     plantPose: {
         arpeggioFern: {
-            attackRate: 3.0,        // unfurl speed per second (fast: responds promptly to arpeggio)
-            releaseRate: 0.4,       // fold-back speed per second (slow: sustains open during quiet)
-            sustainLevel: 1.0,      // envelope peak = 100 % of dayTarget
-            dayTarget: 1.0,         // fully open fronds at mid-day
-            nightTarget: 0.0,       // curled closed at night
-            triggerThreshold: 0.05  // minimum arpeggio channel volume to trigger attack
+            attackRate: 3.0, // unfurl speed per second (fast: responds promptly to arpeggio)
+            releaseRate: 0.4, // fold-back speed per second (slow: sustains open during quiet)
+            sustainLevel: 1.0, // envelope peak = 100 % of dayTarget
+            dayTarget: 1.0, // fully open fronds at mid-day
+            nightTarget: 0.0, // curled closed at night
+            triggerThreshold: 0.05, // minimum arpeggio channel volume to trigger attack
         },
         portamentoPine: {
-            attackRate: 5.0,        // spring-rest shift speed per second (fast kick with note)
-            releaseRate: 0.8,       // settle speed per second (medium: ~1 s to fully release)
-            sustainLevel: 0.8,      // envelope peak = 80 % of dayTarget bend
-            dayTarget: 0.15,        // slight forward lean when active at day
-            nightTarget: -0.05,     // subtle droop at night rest
+            attackRate: 5.0, // spring-rest shift speed per second (fast kick with note)
+            releaseRate: 0.8, // settle speed per second (medium: ~1 s to fully release)
+            sustainLevel: 0.8, // envelope peak = 80 % of dayTarget bend
+            dayTarget: 0.15, // slight forward lean when active at day
+            nightTarget: -0.05, // subtle droop at night rest
             triggerThreshold: 0.08, // minimum melody channel volume to trigger bend
-            channelIndex: 2         // melody channel (tracker channel 2)
+            channelIndex: 2, // melody channel (tracker channel 2)
         },
         flower: {
-            attackRate: 4.0,        // bloom response to kick
-            releaseRate: 1.0,       // settle back down
-            sustainLevel: 1.0,      // envelope peak
-            dayTarget: 1.0,         // fully blooming during day
-            nightTarget: 0.0,       // closed during night
-            triggerThreshold: 0.05  // minimum kick channel volume to trigger bloom
-        }
+            attackRate: 4.0, // bloom response to kick
+            releaseRate: 1.0, // settle back down
+            sustainLevel: 1.0, // envelope peak
+            dayTarget: 1.0, // fully blooming during day
+            nightTarget: 0.0, // closed during night
+            triggerThreshold: 0.05, // minimum kick channel volume to trigger bloom
+        },
     },
 
     // --- FOLIAGE LOD (three-tier batcher system) ---
@@ -851,6 +1002,37 @@ export const CONFIG: ConfigType = {
         },
     },
 
+    // --- AMBIENT FAUNA (boids + instanced critters) ---
+    fauna: {
+        enabled: true,
+        /** Total instance cap across all species (documented perf budget). */
+        maxInstances: 96,
+        /** Per-species cap (beetle / hopper / moth). */
+        maxPerSpecies: 40,
+        seed: 42,
+        areaScale: 1.0,
+        biomeDensity: {
+            arpeggio_grove: { beetle: 8, hopper: 6, moth: 4 },
+            crystalline_nebula: { beetle: 4, hopper: 3, moth: 10 },
+            luminous_plants: { beetle: 5, hopper: 4, moth: 8 },
+            gem_canopy: { beetle: 6, hopper: 5, moth: 3 },
+            lake_features: { beetle: 3, hopper: 2, moth: 5 },
+            global: { beetle: 5, hopper: 4, moth: 4 },
+        },
+    },
+
+    presence: {
+        enabled: true,
+        maxPeers: 16,
+        tickHz: 10,
+        cullDistance: 120,
+    },
+
+    compute: {
+        preferGpu: true,
+        foliageGpuBatchMin: 8,
+    },
+
     // --- CIRCADIAN SYSTEM ---
     // Controls smooth day/night plant behaviour (pose + bioluminescence).
     // Separate from music-bindings.json — circadian is a time-domain signal, not audio.
@@ -865,8 +1047,8 @@ export const CONFIG: ConfigType = {
         // Per-biome overrides: any key matching a BiomeId can override the above.
         biomeOverrides: {
             crystalline_nebula: { nightGlowMultiplier: 5.0 },
-            arpeggio_grove:     { nightPoseOffset: 0.1 }
-        }
+            arpeggio_grove: { nightPoseOffset: 0.1 },
+        },
     },
 
     // -----------------------------------------------------------------------

@@ -1,30 +1,31 @@
 import * as THREE from 'three';
+import { log } from '../utils/log.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
 import {
-  createUnifiedMaterial,
-  registerReactiveMaterial,
-  calculateWindSway,
-  calculatePlayerPush,
-  createJuicyRimLight,
-  uAudioHigh,
-  uAudioLow,
-  uTime
+    createUnifiedMaterial,
+    registerReactiveMaterial,
+    calculateWindSway,
+    calculatePlayerPush,
+    createJuicyRimLight,
+    uAudioHigh,
+    uAudioLow,
+    uTime,
 } from './index.ts';
 import { _skyMoonNoteVal } from '../systems/music-reactivity.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import {
-  vec3,
-  positionLocal,
-  attribute,
-  uv,
-  mix,
-  color,
-  float,
-  sin,
-  instanceIndex
+    vec3,
+    positionLocal,
+    attribute,
+    uv,
+    mix,
+    color,
+    float,
+    sin,
+    instanceIndex,
 } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
@@ -39,274 +40,307 @@ const _scratchMatrix = new THREE.Matrix4();
 const _scratchQuaternion = new THREE.Quaternion();
 
 export class PortamentoPineBatcher {
-  initialized = false;
-  count = 0;
-  logicPines: Array<THREE.Object3D> = [];
+    initialized = false;
+    count = 0;
+    logicPines: Array<THREE.Object3D> = [];
 
-  // Instanced meshes
-  trunkMesh: THREE.InstancedMesh | null = null;
-  needleMesh: THREE.InstancedMesh | null = null;
-  bendAttribute: THREE.InstancedBufferAttribute | null = null;
+    // Instanced meshes
+    trunkMesh: THREE.InstancedMesh | null = null;
+    needleMesh: THREE.InstancedMesh | null = null;
+    bendAttribute: THREE.InstancedBufferAttribute | null = null;
 
-  // scratch
-  _color = new THREE.Color();
+    // scratch
+    _color = new THREE.Color();
 
-  /**
-   * Per-instance ADSR pose machine — drives the spring rest position for each pine.
-   * Allocated once with MAX_PINES capacity; no per-frame allocations.
-   */
-  private _poseMachine!: PlantPoseMachine;
+    /**
+     * Per-instance ADSR pose machine — drives the spring rest position for each pine.
+     * Allocated once with MAX_PINES capacity; no per-frame allocations.
+     */
+    private _poseMachine!: PlantPoseMachine;
 
-  init() {
-    if (this.initialized) return;
-    this._poseMachine = new PlantPoseMachine(MAX_PINES);
+    init() {
+        if (this.initialized) return;
+        this._poseMachine = new PlantPoseMachine(MAX_PINES);
 
-    // Geometry: merged trunk + needles (pr-281 approach)
-    const height = 4.0;
-    const segments = 6;
-    const segHeight = height / segments;
+        // Geometry: merged trunk + needles (pr-281 approach)
+        const height = 4.0;
+        const segments = 6;
+        const segHeight = height / segments;
 
-    const trunkGeometries: THREE.BufferGeometry[] = [];
-    const needleGeometries: THREE.BufferGeometry[] = [];
+        const trunkGeometries: THREE.BufferGeometry[] = [];
+        const needleGeometries: THREE.BufferGeometry[] = [];
 
-    for (let i = 0; i < segments; i++) {
-      const yBase = i * segHeight;
-      const rBot = 0.4 * (1 - i / segments) + 0.1;
-      const rTop = 0.4 * (1 - (i + 1) / segments) + 0.1;
+        for (let i = 0; i < segments; i++) {
+            const yBase = i * segHeight;
+            const rBot = 0.4 * (1 - i / segments) + 0.1;
+            const rTop = 0.4 * (1 - (i + 1) / segments) + 0.1;
 
-      const tGeo = new THREE.CylinderGeometry(rTop, rBot, segHeight, 8);
-      tGeo.translate(0, yBase + segHeight / 2, 0);
-      trunkGeometries.push(tGeo);
+            const tGeo = new THREE.CylinderGeometry(rTop, rBot, segHeight, 8);
+            tGeo.translate(0, yBase + segHeight / 2, 0);
+            trunkGeometries.push(tGeo);
 
-      if (i > 1) {
-        const needleCount = 8;
-        for (let n = 0; n < needleCount; n++) {
-          const nGeo = new THREE.ConeGeometry(0.1, 0.6, 4);
-          nGeo.rotateZ(1.5);
-          nGeo.rotateY((n / needleCount) * Math.PI * 2);
-          const px = Math.cos((n / needleCount) * Math.PI * 2) * rBot;
-          const pz = Math.sin((n / needleCount) * Math.PI * 2) * rBot;
-          nGeo.translate(px, segHeight * 0.5, pz);
-          nGeo.translate(0, yBase, 0);
-          needleGeometries.push(nGeo);
+            if (i > 1) {
+                const needleCount = 8;
+                for (let n = 0; n < needleCount; n++) {
+                    const nGeo = new THREE.ConeGeometry(0.1, 0.6, 4);
+                    nGeo.rotateZ(1.5);
+                    nGeo.rotateY((n / needleCount) * Math.PI * 2);
+                    const px = Math.cos((n / needleCount) * Math.PI * 2) * rBot;
+                    const pz = Math.sin((n / needleCount) * Math.PI * 2) * rBot;
+                    nGeo.translate(px, segHeight * 0.5, pz);
+                    nGeo.translate(0, yBase, 0);
+                    needleGeometries.push(nGeo);
+                }
+            }
         }
-      }
+
+        const trunkGeo = mergeGeometries(trunkGeometries) as THREE.BufferGeometry;
+        const needleGeo = mergeGeometries(needleGeometries) as THREE.BufferGeometry;
+        if (!trunkGeo || !needleGeo) {
+            log.error('PortamentoPineBatcher', 'Geometry merge failed');
+            return;
+        }
+
+        // --- TSL ANIMATION LOGIC ---
+        // Combined deformation: Note Bend + Wind Sway + Player Push
+        const animatedPosition = (basePos) => {
+            // 1. Instance Bend (Note Play)
+            const instanceBend = attribute('instanceBend', 'float');
+            // Quadratic bend: more at top
+            const bendDisplace = vec3(instanceBend.mul(basePos.y.pow(2.0)), float(0.0), float(0.0));
+
+            // 2. Wind Sway (Ambient)
+            const windDisplace = calculateWindSway(basePos);
+
+            // 3. Player Push (Interaction)
+            const pushDisplace = calculatePlayerPush(basePos);
+
+            return basePos.add(bendDisplace).add(windDisplace).add(pushDisplace);
+        };
+
+        const animPos = animatedPosition(positionLocal);
+
+        // --- MATERIALS ---
+
+        // 1. Trunk: Magic Copper with Patina
+        const trunkMat = createUnifiedMaterial(0xb87333, {
+            metalness: 0.8,
+            roughness: 0.4,
+            bumpStrength: 0.2, // Oxidation texture
+            noiseScale: 4.0,
+            triplanar: true,
+            iridescenceStrength: 0.3, // Oil slick look
+            colorNode: mix(color(0xb87333), color(0x2e8b57), positionLocal.y.mul(0.25).min(1.0)), // Green at bottom
+            deformationNode: animPos,
+        });
+
+        // 2. Needles: Glowing Emerald Glass
+        const needleMat = createUnifiedMaterial(0x2e8b57, {
+            transmission: 0.4,
+            roughness: 0.2,
+            sheen: 1.0,
+            sheenColor: 0x00ff00,
+            audioReactStrength: 1.0, // Pulse with music
+            deformationNode: animPos,
+        });
+
+        // 🎨 Palette: TSL Audio-Reactive Juice & Neon Rim Light
+        const baseGlowColor = color(0x00ff00);
+        const audioGlow = uAudioHigh.mul(1.5).add(uAudioLow.mul(0.5));
+        const rimLight = createJuicyRimLight(baseGlowColor, float(1.5), float(3.0), null);
+
+        // 🎨 PALETTE: Twilight Glow for portamento pines
+        const glowPhaseOffset = float(instanceIndex).mul(0.1);
+        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset))
+            .mul(float(CONFIG.glow.glowPulseAmplitude))
+            .add(1.0)
+            .mul(float(0.5))
+            .mul(uAudioHigh.mul(0.3).add(0.7));
+        const targetGlowColor = color(CONFIG.glow.glowColorMap['portamento']);
+
+        // Music Impact / Twilight fix: uTwilight is now explicitly multiplied into the glow tint
+        // (matching the exact pattern from simple-flower-batcher.ts:161).
+        // Previously this was a stub (imported but not wired into the final emissive graph in some paths).
+        const twilightGlowTint = targetGlowColor
+            .mul(uTwilight)
+            .mul(float(CONFIG.glow.glowIntensityMax))
+            .mul(float(0.3).add(idlePulse));
+
+        needleMat.emissiveNode = baseGlowColor
+            .mul(BiomeUniforms.arpeggioGrove.noteColor)
+            .mul(audioGlow)
+            .add(rimLight)
+            .add(twilightGlowTint);
+        registerReactiveMaterial(needleMat);
+
+        this.bendAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1);
+        trunkGeo.setAttribute(
+            'instanceAnimType',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1)
+        );
+        trunkGeo.setAttribute(
+            'instanceAnimOffset',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1)
+        );
+        needleGeo.setAttribute(
+            'instanceAnimType',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1)
+        );
+        needleGeo.setAttribute(
+            'instanceAnimOffset',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1)
+        );
+        trunkGeo.setAttribute('instanceBend', this.bendAttribute);
+        needleGeo.setAttribute('instanceBend', this.bendAttribute);
+
+        this.trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, MAX_PINES);
+        this.needleMesh = new THREE.InstancedMesh(needleGeo, needleMat, MAX_PINES);
+        this.trunkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.needleMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.trunkMesh.castShadow = this.needleMesh.castShadow = true;
+        this.trunkMesh.receiveShadow = this.needleMesh.receiveShadow = true;
+
+        foliageGroup.add(this.trunkMesh);
+        foliageGroup.add(this.needleMesh);
+
+        this.initialized = true;
+        log.info('PortamentoPineBatcher', 'Initialized (Magic Copper Edition)');
     }
 
-    const trunkGeo = mergeGeometries(trunkGeometries) as THREE.BufferGeometry;
-    const needleGeo = mergeGeometries(needleGeometries) as THREE.BufferGeometry;
-    if (!trunkGeo || !needleGeo) {
-      console.error('[PortamentoPineBatcher] Geometry merge failed');
-      return;
+    register(dummy: THREE.Object3D, options = {}) {
+        if (!this.initialized) this.init();
+        if (this.count >= MAX_PINES) {
+            log.warn('PortamentoBatcher', 'Max limit reached');
+            return;
+        }
+
+        // Safety: Ensure physics state exists if not initialized by logic object factory
+        if (!dummy.userData.reactivityState) {
+            dummy.userData.reactivityState = { currentBend: 0, velocity: 0 };
+        }
+
+        const i = this.count++;
+        dummy.userData.batchIndex = i;
+        dummy.userData.bendFactor = 0;
+        this.logicPines[i] = dummy;
+
+        // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
+        // Compose directly from the logic object's properties without using a proxy THREE.Object3D
+        _scratchMatrix.compose(
+            dummy.position,
+            getGroundAlignedQuaternion(dummy, _scratchQuaternion),
+            dummy.scale
+        );
+        _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, i * 16);
+        _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, i * 16);
+
+        this.bendAttribute!.setX(i, 0);
+
+        this.trunkMesh!.instanceMatrix.needsUpdate = true;
+        this.needleMesh!.instanceMatrix.needsUpdate = true;
+
+        this.trunkMesh!.count = this.count;
+        this.needleMesh!.count = this.count;
+
+        return i;
     }
 
-    // --- TSL ANIMATION LOGIC ---
-    // Combined deformation: Note Bend + Wind Sway + Player Push
-    const animatedPosition = (basePos) => {
-        // 1. Instance Bend (Note Play)
-        const instanceBend = attribute('instanceBend', 'float');
-        // Quadratic bend: more at top
-        const bendDisplace = vec3(instanceBend.mul(basePos.y.pow(2.0)), float(0.0), float(0.0));
+    updateInstance(idx: number, dummy: THREE.Object3D) {
+        if (!this.initialized) return;
 
-        // 2. Wind Sway (Ambient)
-        const windDisplace = calculateWindSway(basePos);
+        // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
+        // Compose directly from the logic object's properties without using a proxy THREE.Object3D
+        _scratchMatrix.compose(
+            dummy.position,
+            getGroundAlignedQuaternion(dummy, _scratchQuaternion),
+            dummy.scale
+        );
+        _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, idx * 16);
+        _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, idx * 16);
 
-        // 3. Player Push (Interaction)
-        const pushDisplace = calculatePlayerPush(basePos);
-
-        return basePos.add(bendDisplace).add(windDisplace).add(pushDisplace);
-    };
-
-    const animPos = animatedPosition(positionLocal);
-
-    // --- MATERIALS ---
-
-    // 1. Trunk: Magic Copper with Patina
-    const trunkMat = createUnifiedMaterial(0xB87333, {
-        metalness: 0.8,
-        roughness: 0.4,
-        bumpStrength: 0.2, // Oxidation texture
-        noiseScale: 4.0,
-        triplanar: true,
-        iridescenceStrength: 0.3, // Oil slick look
-        colorNode: mix(color(0xB87333), color(0x2E8B57), positionLocal.y.mul(0.25).min(1.0)), // Green at bottom
-        deformationNode: animPos
-    });
-
-    // 2. Needles: Glowing Emerald Glass
-    const needleMat = createUnifiedMaterial(0x2E8B57, {
-        transmission: 0.4,
-        roughness: 0.2,
-        sheen: 1.0,
-        sheenColor: 0x00FF00,
-        audioReactStrength: 1.0, // Pulse with music
-        deformationNode: animPos
-    });
-
-    // 🎨 Palette: TSL Audio-Reactive Juice & Neon Rim Light
-    const baseGlowColor = color(0x00FF00);
-    const audioGlow = uAudioHigh.mul(1.5).add(uAudioLow.mul(0.5));
-    const rimLight = createJuicyRimLight(baseGlowColor, float(1.5), float(3.0), null);
-
-    // 🎨 PALETTE: Twilight Glow for portamento pines
-    const glowPhaseOffset = float(instanceIndex).mul(0.1);
-    const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioHigh.mul(0.3).add(0.7));
-    const targetGlowColor = color(CONFIG.glow.glowColorMap['portamento']);
-
-    // Music Impact / Twilight fix: uTwilight is now explicitly multiplied into the glow tint
-    // (matching the exact pattern from simple-flower-batcher.ts:161).
-    // Previously this was a stub (imported but not wired into the final emissive graph in some paths).
-    const twilightGlowTint = targetGlowColor
-        .mul(uTwilight)
-        .mul(float(CONFIG.glow.glowIntensityMax))
-        .mul(float(0.3).add(idlePulse));
-
-    needleMat.emissiveNode = baseGlowColor
-        .mul(BiomeUniforms.arpeggioGrove.noteColor)
-        .mul(audioGlow)
-        .add(rimLight)
-        .add(twilightGlowTint);
-    registerReactiveMaterial(needleMat);
-
-    this.bendAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1);
-    trunkGeo.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
-    trunkGeo.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
-    needleGeo.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
-    needleGeo.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
-    trunkGeo.setAttribute('instanceBend', this.bendAttribute);
-    needleGeo.setAttribute('instanceBend', this.bendAttribute);
-
-    this.trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, MAX_PINES);
-    this.needleMesh = new THREE.InstancedMesh(needleGeo, needleMat, MAX_PINES);
-    this.trunkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.needleMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.trunkMesh.castShadow = this.needleMesh.castShadow = true;
-    this.trunkMesh.receiveShadow = this.needleMesh.receiveShadow = true;
-
-    foliageGroup.add(this.trunkMesh);
-    foliageGroup.add(this.needleMesh);
-
-    this.initialized = true;
-    console.log('[PortamentoPineBatcher] Initialized (Magic Copper Edition)');
-  }
-
-  register(dummy: THREE.Object3D, options = {}) {
-    if (!this.initialized) this.init();
-    if (this.count >= MAX_PINES) {
-      console.warn('[PortamentoBatcher] Max limit reached');
-      return;
+        this.trunkMesh!.instanceMatrix.needsUpdate = true;
+        this.needleMesh!.instanceMatrix.needsUpdate = true;
     }
 
-    // Safety: Ensure physics state exists if not initialized by logic object factory
-    if (!dummy.userData.reactivityState) {
-        dummy.userData.reactivityState = { currentBend: 0, velocity: 0 };
+    setBendForIndex(idx: number, value: number) {
+        // Legacy support for musical_flora.js:
+        // This function is called with 'velocity' by the logic object logic.
+        // However, the logic object updates its own shared state (dummy.userData.reactivityState).
+        // The physics loop in update() below reads that state directly.
+        // So we don't need to manually update the attribute here; the loop handles it
+        // including the spring physics integration.
     }
 
-    const i = this.count++;
-    dummy.userData.batchIndex = i;
-    dummy.userData.bendFactor = 0;
-    this.logicPines[i] = dummy;
+    update(time: number, audioState: any, dayNightBias: number = 1.0) {
+        if (!this.initialized || this.count === 0) return;
 
-    // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-    // Compose directly from the logic object's properties without using a proxy THREE.Object3D
-    _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
-    _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, i * 16);
-    _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, i * 16);
+        let needsUpdate = false;
+        const dt = 0.016; // Fixed physics step
 
-    this.bendAttribute!.setX(i, 0);
+        // --- Pose machine: advance per-instance ADSR envelopes ---
+        // Use melody channel (index from config) volume as shared channel intensity.
+        const poseConfig = CONFIG.plantPose.portamentoPine;
+        const channelIdx = poseConfig.channelIndex ?? DEFAULT_MELODY_CHANNEL_INDEX;
+        let channelIntensity = 0.0;
+        if (audioState && audioState.channelData && audioState.channelData[channelIdx]) {
+            channelIntensity = audioState.channelData[channelIdx].volume || 0;
+        }
+        const activeWave = musicReactivitySystem.getActiveWave();
+        const cameraPos = camera ? camera.position : undefined;
 
-    this.trunkMesh!.instanceMatrix.needsUpdate = true;
-    this.needleMesh!.instanceMatrix.needsUpdate = true;
+        const getPlantPos = (index: number, out: THREE.Vector3) => {
+            if (!this.trunkMesh) return;
+            const array = this.trunkMesh.instanceMatrix.array as Float32Array;
+            const offset = index * 16;
+            out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
+        };
 
-    this.trunkMesh!.count = this.count;
-    this.needleMesh!.count = this.count;
+        this._poseMachine.update(
+            this.count,
+            dt,
+            channelIntensity,
+            dayNightBias,
+            poseConfig,
+            activeWave,
+            getPlantPos,
+            cameraPos
+        );
 
-    return i;
-  }
+        for (let i = 0; i < this.count; i++) {
+            const pine = this.logicPines[i];
+            if (!pine || !pine.userData.reactivityState) continue;
 
-  updateInstance(idx: number, dummy: THREE.Object3D) {
-    if (!this.initialized) return;
+            const state = pine.userData.reactivityState; // { currentBend, velocity }
 
-    // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-    // Compose directly from the logic object's properties without using a proxy THREE.Object3D
-    _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
-    _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, idx * 16);
-    _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, idx * 16);
+            // --- Spring rest position driven by ADSR pose ---
+            // At day with no music: pose ≈ 0   (straight)
+            // At night:             pose ≈ -0.05 (gentle droop)
+            // Music active:         pose ramps toward dayTarget * sustainLevel (visible forward lean)
+            const poseTarget = this._poseMachine.getPose(i);
 
-    this.trunkMesh!.instanceMatrix.needsUpdate = true;
-    this.needleMesh!.instanceMatrix.needsUpdate = true;
-  }
+            // Spring Physics (Hooke's Law + Damping) toward ADSR target
+            const k = 10.0; // Stiffness
+            const damp = 0.92; // Friction
 
-  setBendForIndex(idx: number, value: number) {
-    // Legacy support for musical_flora.js:
-    // This function is called with 'velocity' by the logic object logic.
-    // However, the logic object updates its own shared state (dummy.userData.reactivityState).
-    // The physics loop in update() below reads that state directly.
-    // So we don't need to manually update the attribute here; the loop handles it
-    // including the spring physics integration.
-  }
+            const force = -k * (state.currentBend - poseTarget);
+            state.velocity += force * dt;
+            state.velocity *= damp;
+            state.currentBend += state.velocity * dt;
 
-  update(time: number, audioState: any, dayNightBias: number = 1.0) {
-    if (!this.initialized || this.count === 0) return;
+            // If significant change, update attribute
+            const last = pine.userData._lastUploadedBend || 0;
+            if (Math.abs(state.currentBend - last) > 0.001) {
+                // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setX overhead by writing directly to typed array
+                this.bendAttribute!.array[i] = state.currentBend;
+                pine.userData._lastUploadedBend = state.currentBend;
+                needsUpdate = true;
+            }
+        }
 
-    let needsUpdate = false;
-    const dt = 0.016; // Fixed physics step
-
-    // --- Pose machine: advance per-instance ADSR envelopes ---
-    // Use melody channel (index from config) volume as shared channel intensity.
-    const poseConfig = CONFIG.plantPose.portamentoPine;
-    const channelIdx = poseConfig.channelIndex ?? DEFAULT_MELODY_CHANNEL_INDEX;
-    let channelIntensity = 0.0;
-    if (audioState && audioState.channelData && audioState.channelData[channelIdx]) {
-        channelIntensity = audioState.channelData[channelIdx].volume || 0;
-    }
-    const activeWave = musicReactivitySystem.getActiveWave();
-    const cameraPos = camera ? camera.position : undefined;
-
-    const getPlantPos = (index: number, out: THREE.Vector3) => {
-        if (!this.trunkMesh) return;
-        const array = this.trunkMesh.instanceMatrix.array as Float32Array;
-        const offset = index * 16;
-        out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
-    };
-
-    this._poseMachine.update(this.count, dt, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
-
-    for (let i = 0; i < this.count; i++) {
-        const pine = this.logicPines[i];
-        if (!pine || !pine.userData.reactivityState) continue;
-
-        const state = pine.userData.reactivityState; // { currentBend, velocity }
-
-        // --- Spring rest position driven by ADSR pose ---
-        // At day with no music: pose ≈ 0   (straight)
-        // At night:             pose ≈ -0.05 (gentle droop)
-        // Music active:         pose ramps toward dayTarget * sustainLevel (visible forward lean)
-        const poseTarget = this._poseMachine.getPose(i);
-
-        // Spring Physics (Hooke's Law + Damping) toward ADSR target
-        const k = 10.0;     // Stiffness
-        const damp = 0.92;  // Friction
-
-        const force = -k * (state.currentBend - poseTarget);
-        state.velocity += force * dt;
-        state.velocity *= damp;
-        state.currentBend += state.velocity * dt;
-
-        // If significant change, update attribute
-        const last = pine.userData._lastUploadedBend || 0;
-        if (Math.abs(state.currentBend - last) > 0.001) {
-             // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setX overhead by writing directly to typed array
-             this.bendAttribute!.array[i] = state.currentBend;
-             pine.userData._lastUploadedBend = state.currentBend;
-             needsUpdate = true;
+        if (needsUpdate) {
+            this.bendAttribute!.needsUpdate = true;
         }
     }
-
-    if (needsUpdate) {
-        this.bendAttribute!.needsUpdate = true;
-    }
-  }
 }
 
 export const portamentoPineBatcher = new PortamentoPineBatcher();

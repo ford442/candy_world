@@ -1,7 +1,7 @@
 /**
  * @file wasm-physics.ts
  * @brief Physics Functions with WASM and JavaScript Fallbacks
- * 
+ *
  * This module contains:
  * - Collision system: uploadCollisionObjects, resolveGameCollisionsWASM
  * - Physics helpers: initCollisionSystem, addCollisionObject, checkPositionValidity
@@ -11,6 +11,7 @@
  */
 
 import * as THREE from 'three';
+import { log } from './log.ts';
 import {
     cppBatchGroundHeightSimd,
     wasmInstance,
@@ -34,14 +35,13 @@ import {
     type Mushroom,
     type Cloud,
     type Trampoline,
-    type PlayerState
+    type PlayerState,
 } from './wasm-loader-core.ts';
 
 // Zero-allocation persistent buffers for batchGroundHeight
 let _batchGroundHeightInPtr: number | null = null;
 let _batchGroundHeightOutPtr: number | null = null;
 let _batchGroundHeightCapacity = 0;
-
 
 const _scratchGatePos = new THREE.Vector3();
 const DYNAMIC_FERN_COLLIDER_RADIUS = 1.35;
@@ -86,7 +86,7 @@ export function initObstacleUploadBridge(maxCount: number): boolean {
 
     // Create Float32Array view directly into WASM memory over the returned offset
     _obstacleUploadView = new Float32Array(emscriptenMemory, ptr, maxCount * 9);
-    console.log(`[WASM Physics Bridge] Initialized obstacle upload view (Cap: ${maxCount}, Offset: ${ptr})`);
+    log.info('WASM Physics', `Initialized obstacle upload view (Cap: ${maxCount}, Offset: ${ptr})`);
     return true;
 }
 
@@ -100,7 +100,10 @@ export function initDynamicFoliageBridge(maxPlants: number): boolean {
     const offsetBytes = wasmInitDynamicFoliageMemory(maxPlants);
     // Create Float32Array view directly into WASM memory over the returned offset
     dynamicRadiiView = new Float32Array(wasmMemory.buffer, offsetBytes, maxPlants);
-    console.log(`[WASM Physics Bridge] Initialized dynamic radii view (Cap: ${maxPlants}, Offset: ${offsetBytes})`);
+    log.info(
+        'WASM Physics',
+        `Initialized dynamic radii view (Cap: ${maxPlants}, Offset: ${offsetBytes})`
+    );
     return true;
 }
 
@@ -114,18 +117,18 @@ export function initDynamicFoliageBridge(maxPlants: number): boolean {
  */
 /**
  * Uploads static collision geometry to the WASM physics engine.
- * 
+ *
  * TASK 1: Guards against uninitialized batchers (null/undefined)
  *  - Validates each batcher exists and contains objects before processing
  *  - Prevents null-pointer dereferences in WASM memory heap
  *  - Early returns on WASM unavailability
- * 
+ *
  * TASK 2: Filters registration array & safely bypasses WASM in CORE mode
  *  - Counts only active collision objects (caves.isBlocked, clouds.tier===1, etc.)
  *  - Returns early if totalCount === 0, skipping WASM initialization
  *  - Prevents wasteful allocation and computation in CORE mode
  *  - Guarantees no 0-byte buffer allocation or null-pointer errors
- * 
+ *
  * @param caves Cave obstacles (filtered by isBlocked)
  * @param mushrooms Mushroom colliders (always counted if array exists)
  * @param clouds Cloud colliders (filtered by tier === 1)
@@ -134,16 +137,16 @@ export function initDynamicFoliageBridge(maxPlants: number): boolean {
  * @returns true if successful or safely bypassed, false on WASM unavailability
  */
 export function uploadCollisionObjects(
-    caves: Cave[] | undefined, 
-    mushrooms: Mushroom[] | undefined, 
-    clouds: Cloud[] | undefined, 
+    caves: Cave[] | undefined,
+    mushrooms: Mushroom[] | undefined,
+    clouds: Cloud[] | undefined,
     trampolines: Trampoline[] | undefined,
     arpeggioFerns: any[] | undefined = undefined
 ): boolean {
     // ========== TASK 1: Guard Against Uninitialized Batchers ==========
     // Validate WASM availability before proceeding
     if (!wasmInitCollisionSystem || !wasmAddCollisionObject) {
-        console.warn('[WASM Physics] Collision system unavailable (WASM not initialized).');
+        log.warn('WASM Physics', 'Collision system unavailable (WASM not initialized).');
         return false;
     }
 
@@ -151,7 +154,7 @@ export function uploadCollisionObjects(
     // Calculate total count first (filtering out inactive objects)
     // ⚡ OPTIMIZATION: Eliminated array allocations (.filter) in hot update path to prevent GC spikes
     let totalCount = 0;
-    
+
     // Caves: Count only those with isBlocked flag (guards against undefined userData)
     if (caves && caves.length > 0) {
         for (let i = 0; i < caves.length; i++) {
@@ -162,7 +165,7 @@ export function uploadCollisionObjects(
             }
         }
     }
-    
+
     // Mushrooms: Count all valid objects (guards against null array)
     if (mushrooms && mushrooms.length > 0) {
         for (let i = 0; i < mushrooms.length; i++) {
@@ -172,7 +175,7 @@ export function uploadCollisionObjects(
             }
         }
     }
-    
+
     // Clouds: Count only tier === 1 (guards against undefined/malformed cloud)
     if (clouds && clouds.length > 0) {
         for (let i = 0; i < clouds.length; i++) {
@@ -183,7 +186,7 @@ export function uploadCollisionObjects(
             }
         }
     }
-    
+
     // Arpeggio Ferns: Count all valid objects (optional, FULL mode only)
     if (arpeggioFerns && arpeggioFerns.length > 0) {
         for (let i = 0; i < arpeggioFerns.length; i++) {
@@ -196,7 +199,10 @@ export function uploadCollisionObjects(
 
     // TASK 2: Safe bypass if no static structures in CORE mode
     if (totalCount === 0) {
-        console.log('[WASM Physics] CORE mode detected: No collision objects to upload. Skipping WASM initialization.');
+        log.info(
+            'WASM Physics',
+            'CORE mode detected: No collision objects to upload. Skipping WASM initialization.'
+        );
         return true; // Return success (not an error to have zero collisions)
     }
 
@@ -207,7 +213,7 @@ export function uploadCollisionObjects(
     // TYPE_MUSHROOM = 1, TYPE_CLOUD = 2, TYPE_GATE = 3, TYPE_TRAMPOLINE = 4
 
     const exports = wasmInstance!.exports as WasmExports;
-    
+
     // Check if batch function exists
     const hasBatchFunction = exports.addCollisionObjectsBatch;
 
@@ -222,15 +228,17 @@ export function uploadCollisionObjects(
             for (const cave of caves) {
                 if (cave && cave.userData && cave.userData.isBlocked) {
                     // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
-                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
+                    const gatePos = _scratchGatePos
+                        .copy(cave.userData.gatePosition)
+                        .applyMatrix4(cave.matrixWorld);
                     batchData[ptr++] = 3; // type
                     batchData[ptr++] = gatePos.x;
                     batchData[ptr++] = gatePos.y;
                     batchData[ptr++] = gatePos.z;
                     batchData[ptr++] = 2.5; // r
                     batchData[ptr++] = 5.0; // h
-                    batchData[ptr++] = 0;   // p1
-                    batchData[ptr++] = 0;   // p2
+                    batchData[ptr++] = 0; // p1
+                    batchData[ptr++] = 0; // p2
                 }
             }
         }
@@ -292,7 +300,11 @@ export function uploadCollisionObjects(
             const wasmMalloc = exports.malloc || exports.__new;
             if (wasmMalloc) {
                 const dataPtr = wasmMalloc(batchData.length * 4); // 4 bytes per float
-                const wasmFloatView = new Float32Array(wasmMemory!.buffer, dataPtr, batchData.length);
+                const wasmFloatView = new Float32Array(
+                    wasmMemory!.buffer,
+                    dataPtr,
+                    batchData.length
+                );
                 wasmFloatView.set(batchData);
 
                 wasmBatchUpload(dataPtr, totalCount);
@@ -306,10 +318,13 @@ export function uploadCollisionObjects(
         // Fallback: Sequential upload (for backwards compatibility)
         // 1. Gates (TASK 1: Guard against undefined cave/userData)
         if (caves && caves.length > 0) {
-            for (let i = 0; i < caves.length; i++) { const cave = caves[i];
+            for (let i = 0; i < caves.length; i++) {
+                const cave = caves[i];
                 if (cave && cave.userData && cave.userData.isBlocked) {
                     // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
-                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
+                    const gatePos = _scratchGatePos
+                        .copy(cave.userData.gatePosition)
+                        .applyMatrix4(cave.matrixWorld);
                     wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0, 0);
                 }
             }
@@ -317,14 +332,33 @@ export function uploadCollisionObjects(
 
         // 2. Mushrooms (TASK 1: Guard against undefined mushroom/userData/position)
         if (mushrooms && mushrooms.length > 0) {
-            for (let i = 0; i < mushrooms.length; i++) { const m = mushrooms[i];
+            for (let i = 0; i < mushrooms.length; i++) {
+                const m = mushrooms[i];
                 if (m && m.userData && m.position) {
                     if (m.userData.isTrampoline) {
-                         wasmAddCollisionObject!(4, m.position.x, m.position.y, m.position.z,
-                            m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0, 0);
+                        wasmAddCollisionObject!(
+                            4,
+                            m.position.x,
+                            m.position.y,
+                            m.position.z,
+                            m.userData.capRadius || 2.0,
+                            m.userData.capHeight || 3.0,
+                            0,
+                            0,
+                            0
+                        );
                     } else {
-                         wasmAddCollisionObject!(1, m.position.x, m.position.y, m.position.z,
-                            m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0, 0);
+                        wasmAddCollisionObject!(
+                            1,
+                            m.position.x,
+                            m.position.y,
+                            m.position.z,
+                            m.userData.capRadius || 2.0,
+                            m.userData.capHeight || 3.0,
+                            0,
+                            0,
+                            0
+                        );
                     }
                 }
             }
@@ -332,11 +366,21 @@ export function uploadCollisionObjects(
 
         // 3. Clouds (TASK 1: Guard against undefined cloud/userData/position/scale)
         if (clouds && clouds.length > 0) {
-            for (let i = 0; i < clouds.length; i++) { const c = clouds[i];
-                 if (c && c.userData && c.userData.tier === 1 && c.position && c.scale) {
-                     wasmAddCollisionObject!(2, c.position.x, c.position.y, c.position.z,
-                        c.scale.x || 1.0, c.scale.y || 1.0, 0, 0, 0);
-                 }
+            for (let i = 0; i < clouds.length; i++) {
+                const c = clouds[i];
+                if (c && c.userData && c.userData.tier === 1 && c.position && c.scale) {
+                    wasmAddCollisionObject!(
+                        2,
+                        c.position.x,
+                        c.position.y,
+                        c.position.z,
+                        c.scale.x || 1.0,
+                        c.scale.y || 1.0,
+                        0,
+                        0,
+                        0
+                    );
+                }
             }
         }
 
@@ -345,14 +389,26 @@ export function uploadCollisionObjects(
             for (let i = 0; i < arpeggioFerns.length; i++) {
                 const f = arpeggioFerns[i];
                 if (f && f.userData && f.position && f.scale) {
-                    wasmAddCollisionObject!(5, f.position.x, f.position.y, f.position.z,
-                        DYNAMIC_FERN_COLLIDER_RADIUS, (f.userData.height || 4.5) * (f.scale.y || 1.0), i, 0, 0);
+                    wasmAddCollisionObject!(
+                        5,
+                        f.position.x,
+                        f.position.y,
+                        f.position.z,
+                        DYNAMIC_FERN_COLLIDER_RADIUS,
+                        (f.userData.height || 4.5) * (f.scale.y || 1.0),
+                        i,
+                        0,
+                        0
+                    );
                 }
             }
         }
     }
 
-    console.log(`[WASM Physics] Uploaded ${totalCount} collision objects to ASC.${hasBatchFunction ? ' (batched)' : ' (sequential)'}`);
+    log.info(
+        'WASM Physics',
+        `Uploaded ${totalCount} collision objects to ASC.${hasBatchFunction ? ' (batched)' : ' (sequential)'}`
+    );
     return true;
 }
 
@@ -413,7 +469,17 @@ export function initCollisionSystem(): void {
  * @param p2 - Parameter 2
  * @param p3 - Parameter 3 (boolean)
  */
-export function addCollisionObject(type: number, x: number, y: number, z: number, r: number, h: number, p1: number, p2: number, p3?: boolean): void {
+export function addCollisionObject(
+    type: number,
+    x: number,
+    y: number,
+    z: number,
+    r: number,
+    h: number,
+    p1: number,
+    p2: number,
+    p3?: boolean
+): void {
     if (wasmAddCollisionObject) {
         wasmAddCollisionObject(type, x, y, z, r, h, p1, p2, p3 ? 1.0 : 0.0);
     }
@@ -441,7 +507,12 @@ export function checkPositionValidity(x: number, z: number, radius: number): num
  * @param objectCount - Number of objects
  * @returns True if collision detected
  */
-export function checkCollision(playerX: number, playerZ: number, playerRadius: number, objectCount: number): boolean {
+export function checkCollision(
+    playerX: number,
+    playerZ: number,
+    playerRadius: number,
+    objectCount: number
+): boolean {
     if (!wasmInstance) return false;
     const exports = wasmInstance.exports as WasmExports;
     return exports.checkCollision!(playerX, playerZ, playerRadius, objectCount) === 1;
@@ -463,9 +534,28 @@ export function checkCollision(playerX: number, playerZ: number, playerRadius: n
  * @param grooveGravity - Groove gravity
  * @returns Physics result code
  */
-export function updatePhysicsCPP(delta: number, inputX: number, inputZ: number, speed: number, jump: boolean, sprint: boolean, sneak: boolean, grooveGravity: number): number {
+export function updatePhysicsCPP(
+    delta: number,
+    inputX: number,
+    inputZ: number,
+    speed: number,
+    jump: boolean,
+    sprint: boolean,
+    sneak: boolean,
+    grooveGravity: number
+): number {
     const f = getNativeFunc('updatePhysicsCPP');
-    if (f) return f(delta, inputX, inputZ, speed, jump ? 1 : 0, sprint ? 1 : 0, sneak ? 1 : 0, grooveGravity);
+    if (f)
+        return f(
+            delta,
+            inputX,
+            inputZ,
+            speed,
+            jump ? 1 : 0,
+            sprint ? 1 : 0,
+            sneak ? 1 : 0,
+            grooveGravity
+        );
     return -1;
 }
 
@@ -519,7 +609,14 @@ export function uploadObstaclesBatch(objectsData: Float32Array, count: number): 
  * @param vy - Y velocity
  * @param vz - Z velocity
  */
-export function setPlayerState(x: number, y: number, z: number, vx: number, vy: number, vz: number): void {
+export function setPlayerState(
+    x: number,
+    y: number,
+    z: number,
+    vx: number,
+    vy: number,
+    vz: number
+): void {
     const f = getNativeFunc('setPlayerState');
     if (f) f(x, y, z, vx, vy, vz);
 }
@@ -536,7 +633,7 @@ export function getPlayerState(out: Partial<PlayerStateResult> = {}): PlayerStat
         z: getNativeFunc('getPlayerZ')?.() ?? 0,
         vx: getNativeFunc('getPlayerVX')?.() ?? 0,
         vy: getNativeFunc('getPlayerVY')?.() ?? 0,
-        vz: getNativeFunc('getPlayerVZ')?.() ?? 0
+        vz: getNativeFunc('getPlayerVZ')?.() ?? 0,
     };
     Object.assign(out, result);
     return result;
@@ -569,7 +666,9 @@ export function valueNoise2D(x: number, y: number): number {
 export function fbm(x: number, y: number, octaves = 4): number {
     const f = getNativeFunc('fbm');
     if (f) return f(x, y, octaves);
-    let value = 0, amp = 0.5, freq = 1;
+    let value = 0,
+        amp = 0.5,
+        freq = 1;
     for (let i = 0; i < octaves; i++) {
         value += amp * valueNoise2D(x * freq, y * freq);
         amp *= 0.5;
@@ -599,10 +698,19 @@ export function fastInvSqrt(x: number): number {
  * @param z2 - Point 2 Z
  * @returns Distance
  */
-export function fastDistance(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number {
+export function fastDistance(
+    x1: number,
+    y1: number,
+    z1: number,
+    x2: number,
+    y2: number,
+    z2: number
+): number {
     const f = getNativeFunc('fastDistance');
     if (f) return f(x1, y1, z1, x2, y2, z2);
-    const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+    const dx = x2 - x1,
+        dy = y2 - y1,
+        dz = z2 - z1;
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
@@ -659,7 +767,7 @@ export function getGroundHeightBatch(positions: Float32Array): Float32Array {
     if (!posPtr || !outPtr) {
         if (posPtr) free(posPtr);
         if (outPtr) free(outPtr);
-        console.warn('Failed to allocate WASM memory for batched ground height');
+        log.warn('WASM Physics', 'Failed to allocate WASM memory for batched ground height');
 
         // Fallback
         const result = new Float32Array(count);
@@ -691,8 +799,12 @@ export function getGroundHeightBatch(positions: Float32Array): Float32Array {
 export function getGroundHeight(x: number, z: number): number {
     if (wasmGetGroundHeight) return wasmGetGroundHeight(x, z);
     if (isNaN(x) || isNaN(z)) return 0;
-    return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
-        Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+    return (
+        Math.sin(x * 0.05) * 2 +
+        Math.cos(z * 0.05) * 2 +
+        Math.sin(x * 0.2) * 0.3 +
+        Math.cos(z * 0.15) * 0.3
+    );
 }
 
 /**
@@ -706,7 +818,12 @@ export function batchGroundHeight(positions: Float32Array): Float32Array {
     const output = new Float32Array(count);
 
     // 1. C++ SIMD (fastest, but optional)
-    if (cppBatchGroundHeightSimd && getEmscriptenInstance() && getEmscriptenInstance()._malloc && getEmscriptenInstance()._free) {
+    if (
+        cppBatchGroundHeightSimd &&
+        getEmscriptenInstance() &&
+        getEmscriptenInstance()._malloc &&
+        getEmscriptenInstance()._free
+    ) {
         if (_batchGroundHeightCapacity < count) {
             if (_batchGroundHeightInPtr) getEmscriptenInstance()._free(_batchGroundHeightInPtr);
             if (_batchGroundHeightOutPtr) getEmscriptenInstance()._free(_batchGroundHeightOutPtr);
@@ -719,7 +836,12 @@ export function batchGroundHeight(positions: Float32Array): Float32Array {
         if (_batchGroundHeightInPtr && _batchGroundHeightOutPtr) {
             getEmscriptenInstance().HEAPF32!.set(positions, _batchGroundHeightInPtr >> 2);
             cppBatchGroundHeightSimd(_batchGroundHeightInPtr, count, _batchGroundHeightOutPtr);
-            output.set(getEmscriptenInstance().HEAPF32!.subarray(_batchGroundHeightOutPtr >> 2, (_batchGroundHeightOutPtr >> 2) + count));
+            output.set(
+                getEmscriptenInstance().HEAPF32!.subarray(
+                    _batchGroundHeightOutPtr >> 2,
+                    (_batchGroundHeightOutPtr >> 2) + count
+                )
+            );
             return output;
         }
     }
@@ -752,8 +874,11 @@ export function batchGroundHeight(positions: Float32Array): Float32Array {
             output[i] = 0;
             continue;
         }
-        output[i] = Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
-                    Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+        output[i] =
+            Math.sin(x * 0.05) * 2 +
+            Math.cos(z * 0.05) * 2 +
+            Math.sin(x * 0.2) * 0.3 +
+            Math.cos(z * 0.15) * 0.3;
     }
     return output;
 }
@@ -794,7 +919,7 @@ import {
     wasmDistSq2D,
     wasmDistSq3D,
     wasmSmoothstep,
-    wasmInverseLerp
+    wasmInverseLerp,
 } from './wasm-loader-core.ts';
 
 /**
@@ -806,14 +931,14 @@ import {
  */
 export function hslToRgb(h: number, s: number, l: number): number {
     if (wasmHslToRgb) return wasmHslToRgb(h, s, l);
-    
+
     // JS fallback: Standard HSL to RGB conversion
     const hue2rgb = (p: number, q: number, t: number): number => {
         if (t < 0) t += 1;
         if (t > 1) t -= 1;
-        if (t < 1/6) return p + (q - p) * 6 * t;
-        if (t < 1/2) return q;
-        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
         return p;
     };
 
@@ -824,9 +949,9 @@ export function hslToRgb(h: number, s: number, l: number): number {
     } else {
         const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
         const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
+        r = hue2rgb(p, q, h + 1 / 3);
         g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
+        b = hue2rgb(p, q, h - 1 / 3);
     }
 
     return (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
@@ -858,15 +983,15 @@ export function ascValueNoise2D(x: number, y: number): number {
     const j = Math.floor(y);
     const u = x - i;
     const v = y - j;
-    
+
     const a = hash2D(i, j);
     const b = hash2D(i + 1, j);
     const c = hash2D(i, j + 1);
     const d = hash2D(i + 1, j + 1);
-    
+
     const su = u * u * (3 - 2 * u);
     const sv = v * v * (3 - 2 * v);
-    
+
     return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
 }
 
@@ -884,14 +1009,14 @@ export function fbm2D(x: number, y: number, octaves: number): number {
     let amplitude = 0.5;
     let frequency = 1;
     let maxValue = 0;
-    
+
     for (let i = 0; i < octaves; i++) {
         value += amplitude * ascValueNoise2D(x * frequency, y * frequency);
         maxValue += amplitude;
         amplitude *= 0.5;
         frequency *= 2;
     }
-    
+
     return value / maxValue;
 }
 
@@ -920,7 +1045,14 @@ export function distSq2D(ax: number, ay: number, bx: number, by: number): number
  * @param bz - Point B Z
  * @returns Squared distance
  */
-export function distSq3D(ax: number, ay: number, az: number, bx: number, by: number, bz: number): number {
+export function distSq3D(
+    ax: number,
+    ay: number,
+    az: number,
+    bx: number,
+    by: number,
+    bz: number
+): number {
     if (wasmDistSq3D) return wasmDistSq3D(ax, ay, az, bx, by, bz);
     const dx = bx - ax;
     const dy = by - ay;

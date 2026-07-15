@@ -5,6 +5,7 @@
 **Candy World** (also known as "Siphon Part I") is a 3D nature exploration experience featuring a pastel candy-colored landscape with smooth, glossy graphics. It is a WebGPU-based interactive world with procedurally generated terrain, animated foliage (trees, mushrooms, flowers, clouds), dynamic weather systems, day/night cycles, music reactivity, and first-person physics-based movement.
 
 ### Key Features
+
 - **WebGPU Rendering**: Modern GPU API for high-performance 3D graphics using Three.js
 - **Hybrid WASM Architecture**: Dual WebAssembly modules for physics and compute
 - **Procedural Generation**: Dynamic terrain, foliage placement, and environmental effects
@@ -16,17 +17,17 @@
 
 ## Technology Stack
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| Rendering | Three.js ^0.171.0 + WebGPU | 3D graphics with `MeshPhysicalMaterial` for candy gloss |
-| Build System | Vite ^5.0.0 | Module bundling, dev server, and production builds |
-| Language | TypeScript ^5.9.3 (ES2020 target, ES2022 modules) | Application source code |
-| Physics (Required) | AssemblyScript ^0.27.37 → WASM | Stateful physics, collision detection, spatial grid |
-| Compute (Optional) | C++17 + Emscripten → WASM | SIMD-optimized math, animations, particle physics, mesh deformation |
-| Audio | libopenmpt.js | Module music playback (.mod, .xm, .it, .s3m) |
-| Styling | CSS3 | UI themes, animations, responsive design |
-| Testing | Playwright + custom Node.js test runners | Smoke tests, WASM bounds tests, visual regression |
-| Package Manager | pnpm (primary) / npm | Dependency management (`pnpm-lock.yaml` present) |
+| Component          | Technology                                        | Purpose                                                             |
+| ------------------ | ------------------------------------------------- | ------------------------------------------------------------------- |
+| Rendering          | Three.js ^0.171.0 + WebGPU                        | 3D graphics with `MeshPhysicalMaterial` for candy gloss             |
+| Build System       | Vite ^5.0.0                                       | Module bundling, dev server, and production builds                  |
+| Language           | TypeScript ^5.9.3 (ES2020 target, ES2022 modules) | Application source code                                             |
+| Physics (Required) | AssemblyScript ^0.27.37 → WASM                    | Stateful physics, collision detection, spatial grid                 |
+| Compute (Optional) | C++17 + Emscripten → WASM                         | SIMD-optimized math, animations, particle physics, mesh deformation |
+| Audio              | libopenmpt.js                                     | Module music playback (.mod, .xm, .it, .s3m)                        |
+| Styling            | CSS3                                              | UI themes, animations, responsive design                            |
+| Testing            | Playwright + custom Node.js test runners          | Smoke tests, WASM bounds tests, visual regression                   |
+| Package Manager    | pnpm (primary) / npm                              | Dependency management (`pnpm-lock.yaml` present)                    |
 
 ---
 
@@ -115,6 +116,7 @@
 ## Build Commands
 
 ### Development
+
 ```bash
 # Standard development (runs dev.sh; attempts Emscripten build, then Vite)
 npm run dev
@@ -123,6 +125,7 @@ npm run dev
 ```
 
 ### Production Build
+
 ```bash
 # Full production build (AssemblyScript WASM + Emscripten C++ WASM + Vite)
 npm run build
@@ -132,6 +135,7 @@ npm run build:optimized
 ```
 
 ### Specific Build Steps
+
 ```bash
 # Build AssemblyScript physics module only
 # Output: src/wasm/candy_physics.wasm + .wat + source map
@@ -158,6 +162,7 @@ npm run budget:check
 ```
 
 ### Map Generation
+
 ```bash
 # Run the procedural map generator CLI
 npx tsx tools/map-generator/cli.ts
@@ -166,6 +171,7 @@ npm run generate:map
 ```
 
 ### Testing
+
 ```bash
 # Smoke test: starts Vite preview, launches Chromium with WebGPU flags,
 # waits for window.__sceneReady, and verifies no console errors
@@ -186,6 +192,7 @@ npm run verify:emcc
 ```
 
 ### Preview & Deploy
+
 ```bash
 # Preview production build locally
 npm run preview
@@ -199,6 +206,7 @@ python3 deploy.py
 ## WASM Architecture
 
 ### Module 1: AssemblyScript (`candy_physics.wasm`)
+
 - **Purpose**: Stateful physics engine and collision detection
 - **Language**: AssemblyScript (TypeScript-like, compiles to WASM)
 - **Location**: `assembly/*.ts`
@@ -206,6 +214,7 @@ python3 deploy.py
 - **Required**: **Yes** — physics will not work without this module
 
 Key capabilities:
+
 - Spatial grid collision system (16×16 cells, 16-unit cells, origin at -128, -128)
 - Player physics state management
 - Position/animation data batching
@@ -214,15 +223,17 @@ Key capabilities:
 - Particle physics updates and spawn bursts
 
 ### Module 2: Emscripten/C++ (`candy_native.wasm`)
+
 - **Purpose**: Stateless compute functions, SIMD-optimized math
 - **Language**: C++17 with OpenMP pragmas and SIMD (`-msimd128`, `-mrelaxed-simd`)
 - **Location**: `emscripten/*.cpp`
 - **Output**:
-  - `public/candy_native.js` + `public/candy_native.wasm` (multi-threaded, with pthread)
-  - `public/candy_native_st.js` + `public/candy_native_st.wasm` (single-threaded fallback)
+    - `public/candy_native.js` + `public/candy_native.wasm` (multi-threaded, with pthread)
+    - `public/candy_native_st.js` + `public/candy_native_st.wasm` (single-threaded fallback)
 - **Required**: **No** — has JavaScript fallbacks for all functions
 
 Key capabilities:
+
 - Animation calculations (bounce, sway, wobble, hop, fiber whip, spiral wave, etc.)
 - Math utilities (fast inverse sqrt, noise, hash, SIMD batches)
 - Batch distance and frustum culling
@@ -232,7 +243,9 @@ Key capabilities:
 - Bootstrap loader / shader warmup progress tracking
 
 ### Build Behavior
+
 The build system gracefully handles missing Emscripten:
+
 - If `em++` is not found, the build skips C++ compilation and removes stale artifacts
 - JavaScript fallbacks are used for all native functions
 - The application runs in "JavaScript fallback mode"
@@ -242,6 +255,7 @@ The build system gracefully handles missing Emscripten:
 ## Critical Technical Directives
 
 ### Emscripten Build Safety
+
 ```bash
 # Optimization level in emscripten/build.sh is -O3 for speed.
 # NOTE: Earlier versions warned against -O3 due to aggressive renaming;
@@ -255,20 +269,22 @@ The build system gracefully handles missing Emscripten:
 ```
 
 ### WebGPU Requirements
+
 - Chrome 113+, Edge 113+, or WebGPU-enabled browser
 - SharedArrayBuffer requires COOP/COEP headers (configured in Vite dev server)
 - Uses Three.js WebGPU renderer with TSL (Three.js Shading Language)
 - Top-level await in dependencies is preserved by targeting `es2022` / `esnext`
 
 ### WebGL2 Fallback Renderer
+
 Opt-in reference renderer for debugging, CI, and agent visual inspection (same pattern as Watershed, power_gen, BespokeSynth_WASM):
 
-| Toggle | Value |
-|--------|-------|
-| URL | `?renderer=webgl` or `?renderer=webgpu` |
-| localStorage | `candy.renderer` |
-| Console | `window.setRenderer('webgl')` |
-| Debug panel | `?debug=1` → WebGPU / WebGL2 buttons |
+| Toggle       | Value                                   |
+| ------------ | --------------------------------------- |
+| URL          | `?renderer=webgl` or `?renderer=webgpu` |
+| localStorage | `candy.renderer`                        |
+| Console      | `window.setRenderer('webgl')`           |
+| Debug panel  | `?debug=1` → WebGPU / WebGL2 buttons    |
 
 WebGL debug helpers (`?renderer=webgl`): `?wireframe=1` / **G**, `?matDebug=1` / **M**, `?webglLite=1` (disable compute, CORE world).
 
@@ -279,7 +295,9 @@ Key files: `src/rendering/renderer-mode.ts`, `src/rendering/webgl-debug.ts`, `sr
 Window breadcrumbs for Playwright: `window.rendererType`, `window.usingWebGL`, `window.rendererFallbackReason`, `#glCanvas.dataset.renderer`
 
 ### Memory Layout (AssemblyScript)
+
 The physics module uses a fixed memory layout:
+
 - `POSITION_OFFSET` (0): Object positions array
 - `ANIMATION_OFFSET` (4096): Animation state
 - `OUTPUT_OFFSET` (8192): Output buffer for batch operations
@@ -291,7 +309,9 @@ The physics module uses a fixed memory layout:
 - `DYNAMIC_RADII_OFFSET`: Dynamic foliage radii (max 512 plants)
 
 ### Security / Runtime Headers
+
 Vite is configured to emit the following headers (required for `SharedArrayBuffer` / pthreads):
+
 ```
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
@@ -302,66 +322,70 @@ Cross-Origin-Embedder-Policy: require-corp
 ## Code Style Guidelines
 
 ### TypeScript / JavaScript
+
 - **TypeScript-first**: Almost all application code is in `.ts` files under `src/`
 - Use ES2020+ features (top-level await, optional chaining, `const` / `let`)
 - Module imports **must** use `.ts` extensions (Vite + `allowImportingTsExtensions` handles resolution)
 - Three.js imports via importmap in `index.html` (e.g., `three`, `three/webgpu`, `three/tsl`)
 - Target module system is `ES2022` with `bundler` resolution; compilation target is `ES2020`
-- No ESLint, Prettier, or Biome configuration is present in the repo; follow existing conventions
+- **Linting**: ESLint 9 flat config (`eslint.config.js`) with warn-heavy rules; run `pnpm run lint` / `pnpm run lint:ratchet`. Prettier + `simple-git-hooks` pre-commit for staged formatting.
+- **Logging**: Use `src/utils/log.ts` (`log.debug/info/warn/error`) in hot paths — `debug`/`info` are stripped from production builds via `import.meta.env.DEV`.
 
 ### AssemblyScript
+
 - Explicit type annotations required (`f32`, `i32`)
 - Use `load<T>()` and `store<T>()` for memory access
 - Export functions with proper type signatures
 - Constants defined in `constants.ts`
 
 ### C++
+
 - C++17 standard
 - Use `EMSCRIPTEN_KEEPALIVE` for exported functions
 - SIMD enabled with `-msimd128 -mrelaxed-simd`
 - OpenMP pragmas for parallelization (`#pragma omp parallel for`)
 
 ### Visual / Aesthetic Conventions
+
 - **Palette**: Pastel candy colors (e.g., `#FF69B4`, `#87CEFA`, `#98FB98`, `#FFD1DC`)
 - **Materials**: Prefer `MeshPhysicalMaterial` with `clearcoat` for glossy surfaces; `MeshStandardMaterial` for matte/ground
 - **Roughness**: Low (0.2–0.4) for shiny candy, high (~0.8) for clay-like matte
 - **Comment tags for tunable aesthetics** (pick the tag that matches the file):
-  - `// PALETTE:` or `// 🎨 PALETTE:` — **primary in `src/foliage/*`** for material/color tuning
-  - `// Visual Impact:` — systems, config, and cross-cutting render knobs (`grep -rn "Visual Impact:" src/`)
-  - `// Music Impact:` — channel / uniform strength in batchers and `music-reactivity.ts`
+    - `// PALETTE:` or `// 🎨 PALETTE:` — **primary in `src/foliage/*`** for material/color tuning
+    - `// Visual Impact:` — systems, config, and cross-cutting render knobs (`grep -rn "Visual Impact:" src/`)
+    - `// Music Impact:` — channel / uniform strength in batchers and `music-reactivity.ts`
 - **Geometry**: Anchor objects at their base by translating geometry after creation; call `computeVertexNormals()` after modification
 
 ### Music Reactivity & Biome / Channel-to-Shader Binding Conventions
+
 - **Single source of truth for channel bindings**: `assets/music-bindings.json`. Defines per-biome channel lists (`biomes.arpeggio_grove.shimmer: [3,4]`, `hueShift`, `noteColor`; same for `crystalline_nebula`, `sky_moon`), `sky_moon.melody_channel`, `sky_wave` propagation timing, per-object `tracker_channel` (portamento_pine, wisteria_cluster, luminous_plants), and `weatherReactivity`. Pre-parse these into `readonly number[]` consts at module load (zero per-frame cost).
 - **TSL uniforms (the binding surface)**: `src/systems/biome-uniforms.ts`. `BiomeUniforms.arpeggioGrove.{shimmer, hueShift, noteColor}`, `crystallineNebula.{shimmer, amplitudeScale, noteColor}`, `skyMoon.{moonNoteColor, moonIntensity}`, plus `SkyUniforms` and `LuminousPlantUniforms`. All created once with `uniform()`. **Never reassign the node** — only mutate `.value` in place (use `.lerp(target, 0.1)` for colors). 128-slot note→color LUT DataTextures (HalfFloat) + sampling nodes (`skyNoteColorNode`) live here too.
-- **Binding & update logic**: Centralized in `MusicReactivitySystem.update()` (`src/systems/music-reactivity.ts:301+`). 
-  - Accumulate volumes (or first active `.note`) from the pre-parsed channel lists.
-  - Apply `nightGate = 0.2 + (1.0 - dayNightBias) * 0.8`.
-  - Smooth/decay toward rest values when silent.
-  - Also owns BeatSync-driven "Sky Wave" (capture moonNoteColor on beat → timed lerp into foliage noteColors over `propagation_ms`).
-  - Calls batcher `.update(audioState, dayNightBias)` for pose/ADSR work.
+- **Binding & update logic**: Centralized in `MusicReactivitySystem.update()` (`src/systems/music-reactivity.ts:301+`).
+    - Accumulate volumes (or first active `.note`) from the pre-parsed channel lists.
+    - Apply `nightGate = 0.2 + (1.0 - dayNightBias) * 0.8`.
+    - Smooth/decay toward rest values when silent.
+    - Also owns BeatSync-driven "Sky Wave" (capture moonNoteColor on beat → timed lerp into foliage noteColors over `propagation_ms`).
+    - Calls batcher `.update(audioState, dayNightBias)` for pose/ADSR work.
 - **Shader consumption pattern** (in foliage batchers at material graph construction time):
-  ```ts
-  import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-  const biome: BiomeId = 'arpeggio_grove';
-  const u = getBiomeUniforms(biome);
-  // ...
-  const dynamicFrond = mix(base, accent, u.hueShift);
-  emissiveNode = rim.add(base.mul(audioEmissive)).add(
-    u.shimmer.mul(shimmerColor).mul(3.0)
-  );
-  // Often combined with uTwilight (from foliage/sky.ts) and CONFIG noteColorMap
-  ```
-  Mark tunable values with `// Music Impact:` (bindings), `// PALETTE:` (foliage aesthetics), or `// Visual Impact:` (systems-level). See **docs/CANDY_MATERIAL_COOKBOOK.md** → Comment tags.
-  Prefer `getBiomeUniforms(biomeTag)` + `userData.biome` on objects over direct `BiomeUniforms.xxx` access when possible.
+    ```ts
+    import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+    const biome: BiomeId = 'arpeggio_grove';
+    const u = getBiomeUniforms(biome);
+    // ...
+    const dynamicFrond = mix(base, accent, u.hueShift);
+    emissiveNode = rim.add(base.mul(audioEmissive)).add(u.shimmer.mul(shimmerColor).mul(3.0));
+    // Often combined with uTwilight (from foliage/sky.ts) and CONFIG noteColorMap
+    ```
+    Mark tunable values with `// Music Impact:` (bindings), `// PALETTE:` (foliage aesthetics), or `// Visual Impact:` (systems-level). See **docs/CANDY_MATERIAL_COOKBOOK.md** → Comment tags.
+    Prefer `getBiomeUniforms(biomeTag)` + `userData.biome` on objects over direct `BiomeUniforms.xxx` access when possible.
 - **Batcher responsibilities**: `arpeggio-batcher.ts`, `mushroom-batcher.ts`, `tree-batcher.ts`, `portamento-batcher.ts` (and flower/wisteria/luminous variants) each own their TSL graphs + per-instance state machines (PlantPoseMachine). They consume the shared uniforms; MusicReactivitySystem owns the values.
 - **Adding or extending a binding** (follow exactly):
-  1. Extend `music-bindings.json` (new biome block or top-level config).
-  2. Add pre-parsed channel consts + accumulators + uniform fields (biome-uniforms.ts + music-reactivity.ts binding block).
-  3. Wire the new uniforms into 1+ batcher TSL graphs (small node expressions).
-  4. Add representative objects (generation-decorators.ts or map.json).
-  5. Extend `CONFIG.noteColorMap` if a new species palette is required.
-  6. Test isolation with a tracker that exercises only the target channel(s).
+    1. Extend `music-bindings.json` (new biome block or top-level config).
+    2. Add pre-parsed channel consts + accumulators + uniform fields (biome-uniforms.ts + music-reactivity.ts binding block).
+    3. Wire the new uniforms into 1+ batcher TSL graphs (small node expressions).
+    4. Add representative objects (generation-decorators.ts or map.json).
+    5. Extend `CONFIG.noteColorMap` if a new species palette is required.
+    6. Test isolation with a tracker that exercises only the target channel(s).
 - **Performance & style invariants** (hot path): Zero allocations in `update()` / TSL eval (module-scope scratch Colors, accumulators, `_scratch*` arrays only). Small fixed loops over binding lists. Night/twilight gating is the norm (`getDayNightBias`, `uTwilight`, `isNight`/`isDeepNight` from core/cycle and game-loop).
 - **Note handling**: Notes arrive as strings ("C", "F#") or MIDI numbers. Use `CONFIG.noteColorMap.<species|global|sky|luminous_plants>` + helpers like `mapNoteToColor`. Chromatic index (0-11) → 0-127 LUT slot for index-driven uniforms.
 - **Legacy vs. preferred**: `registerObject` + per-mesh `userData.flashColor` / `reactToNote` still exists for non-batched objects — prefer batcher + TSL for all new reactive content.
@@ -369,6 +393,7 @@ Cross-Origin-Embedder-Policy: require-corp
 - **Documentation & change discipline**: When touching bindings, batchers, or wave behavior, update `weekly_plan.md` + create/append a focused doc (e.g. `MUSIC_WAVE_PROPAGATION.md` or `BIOME_BINDING.md`) and reference affected files in the summary. Follow the large-visual-change standard (technical summary + update IMPLEMENTATION_SUMMARY.md).
 
 **Also update these existing sections (minor deltas applied in this edit):**
+
 - Code Style / TypeScript: Note that `src/foliage/types.ts:ChannelData` must be kept in sync with the richer shape actually produced by `audio-system.ts` (or centralize the authoritative type).
 - Adding New Features / New Game System: Music reactivity is the canonical example of "data-driven JSON bindings + TSL uniform groups + zero-alloc update + batcher TSL consumers".
 - Documentation Standards: For music/biome/shader reactivity work, always reference `music-bindings.json` deltas + the specific batchers that consume the new uniforms.
@@ -379,42 +404,50 @@ Cross-Origin-Embedder-Policy: require-corp
 ## Testing Strategy
 
 ### Active Tests
+
 1. **Smoke Test** (`npm run test` → `tests/smoke-runner.mjs`)
-   - Starts Vite preview server on port 4173
-   - Launches Chromium with WebGPU/Vulkan flags
-   - Navigates to `http://localhost:4173`
-   - Waits for `window.__sceneReady === true` (up to 25s)
-   - Checks for console errors and canvas initialization
-   - Ignores expected 404s for missing Emscripten fallbacks
+    - Starts Vite preview server on port 4173
+    - Launches Chromium with WebGPU/Vulkan flags
+    - Navigates to `http://localhost:4173`
+    - Waits for `window.__sceneReady === true` (up to 25s)
+    - Checks for console errors and canvas initialization
+    - Ignores expected 404s for missing Emscripten fallbacks
 
 2. **WASM Bounds Test** (`npm run test:wasm` → `tests/wasm.mjs`)
-   - Loads `src/wasm/candy_physics.wasm` directly in Node.js
-   - Tests particle update, spawn burst, and extreme velocity scenarios
-   - Verifies particles stay within documented world bounds for 100+ frames
-   - Validates AssemblyScript memory layout and export signatures
+    - Loads `src/wasm/candy_physics.wasm` directly in Node.js
+    - Tests particle update, spawn burst, and extreme velocity scenarios
+    - Verifies particles stay within documented world bounds for 100+ frames
+    - Validates AssemblyScript memory layout and export signatures
 
-3. **Visual Regression** (`tools/visual-regression/`)
-   - Playwright-based screenshot comparison
-   - Run via `pnpm run test:visual` inside `tools/visual-regression/`
-   - GitHub Actions workflow (`.github/workflows/visual-regression.yml`) runs on pushes to `main`/`develop` and PRs to `main`
-   - Supports viewpoints (`spawn`, `lake`, `forest`) and quality tiers (`medium`, `high`)
+3. **Tier Parity** (`npm run test:tier-parity` → `tests/tier-parity.mjs`)
+    - Golden-vector comparison of JS fallbacks vs AssemblyScript vs optional C++
+    - Covers `getGroundHeight`, `valueNoise2D`/`fbm2D`, `updateParticles`, batch foliage animations
+    - C++ tier skipped without Emscripten build (expected in CI); see `docs/TIER_PARITY.md`
+    - Wired into `npm run test:integration` after `test:wasm`
 
-4. **Accessibility Tests** (`tests/accessibility-test.ts`)
-   - TypeScript compilation and logic verification for the accessibility system
-   - Tests color-blind modes, motion reduction, and announcer utilities
+4. **Visual Regression** (`tools/visual-regression/`)
+    - Playwright-based screenshot comparison
+    - Run via `pnpm run test:visual` inside `tools/visual-regression/`
+    - GitHub Actions workflow (`.github/workflows/visual-regression.yml`) runs on pushes to `main`/`develop` and PRs to `main`
+    - Supports viewpoints (`spawn`, `lake`, `forest`) and quality tiers (`medium`, `high`)
 
-5. **Focus Trap Tests** (`tests/focus-trap.test.ts`)
-   - Tests keyboard focus trapping for modal dialogs (playlist, accessibility settings)
+5. **Accessibility Tests** (`tests/accessibility-test.ts`)
+    - TypeScript compilation and logic verification for the accessibility system
+    - Tests color-blind modes, motion reduction, and announcer utilities
 
-6. **Ability HUD Accessibility** (`tests/ability-hud-accessibility.test.ts`)
-   - Verifies ARIA attributes, keyboard shortcuts, and screen-reader labels on the ability HUD
+6. **Focus Trap Tests** (`tests/focus-trap.test.ts`)
+    - Tests keyboard focus trapping for modal dialogs (playlist, accessibility settings)
 
-7. **Manual Compilation Tests** (`test/`)
-   - `test/culling-system.test.ts` — verifies culling system exports and constants
-   - `test/analytics-integration-test.ts` — verifies analytics event types
-   - `test/plant-pose-machine.test.ts` — plant pose machine logic verification
+7. **Ability HUD Accessibility** (`tests/ability-hud-accessibility.test.ts`)
+    - Verifies ARIA attributes, keyboard shortcuts, and screen-reader labels on the ability HUD
+
+8. **Manual Compilation Tests** (`test/`)
+    - `test/culling-system.test.ts` — verifies culling system exports and constants
+    - `test/analytics-integration-test.ts` — verifies analytics event types
+    - `test/plant-pose-machine.test.ts` — plant pose machine logic verification
 
 ### CI / GitHub Actions
+
 - **Visual Regression**: Triggered on `src/**`, `assets/**`, or workflow changes. Uploads diffs/reports as artifacts. Baselines are updated manually via PRs.
 - pnpm is used in CI for dependency installation.
 
@@ -427,6 +460,7 @@ Cross-Origin-Embedder-Policy: require-corp
 3. **Deploy**: `python3 deploy.py` uploads via SFTP
 
 ### Deployment Configuration (deploy.py)
+
 - Target: `test.1ink.us/candy-world`
 - Method: SFTP via paramiko
 - Local source: `dist/`
@@ -436,20 +470,22 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ## Environment Variables
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `CANDY_DEBUG` | Enable Emscripten assertions | `0` |
-| `SKIP_VERIFY` | Skip post-build verification | `0` |
+| Variable      | Purpose                      | Default |
+| ------------- | ---------------------------- | ------- |
+| `CANDY_DEBUG` | Enable Emscripten assertions | `0`     |
+| `SKIP_VERIFY` | Skip post-build verification | `0`     |
 
 ---
 
 ## Key Dependencies
 
 ### Runtime
+
 - `three` (^0.171.0) — 3D rendering engine (WebGPU + TSL)
 - `libopenmpt.js` — Module music player (loaded via script tag in `index.html`)
 
 ### Build
+
 - `assemblyscript` (^0.27.37) — AssemblyScript compiler
 - `vite` (^5.0.0) — Build tool and dev server
 - `typescript` (^5.9.3) — Type checking
@@ -457,6 +493,7 @@ Cross-Origin-Embedder-Policy: require-corp
 - `vite-plugin-top-level-await` — Top-level await support
 
 ### Development / Testing
+
 - `@playwright/test` — E2E and visual regression testing
 - `playwright` — Browser automation
 - `tsx` — TypeScript execution for CLI tools and tests
@@ -466,11 +503,13 @@ Cross-Origin-Embedder-Policy: require-corp
 ## Documentation Standards
 
 When implementing large visual changes:
+
 1. Create a technical summary (e.g., `SKY_ENHANCEMENTS.md`)
 2. Update `IMPLEMENTATION_SUMMARY.md`
 3. Comment code with "Visual Impact" notes where uniform values define aesthetics
 
 ### Existing Documentation Files
+
 - `README.md` — Human-facing project overview and quick start
 - `docs/CANDY_MATERIAL_COOKBOOK.md` — Material presets, TSL patterns, music-reactivity gotchas (deep-links to source)
 - `docs/MUSIC_MAP_BINDING.md` — Map/entity music override precedence and atmosphere bindings
@@ -493,16 +532,21 @@ For music/biome/shader reactivity changes, also create or append a focused note 
 ## Troubleshooting
 
 ### "em++ not found"
+
 Install Emscripten or work in JavaScript fallback mode. See `SETUP_GUIDE.md` for installation steps. The build will not fail; it simply skips the native module.
 
 ### WebGPU not available
+
 Requires Chrome/Edge 113+ with WebGPU enabled. Check `chrome://flags`.
 
 ### SharedArrayBuffer errors
+
 Ensure COOP/COEP headers are set (handled by Vite dev server in `vite.config.js`).
 
 ### WASM build failures
+
 Clean and rebuild:
+
 ```bash
 rm -rf public/*.wasm public/candy_native*.js
 cd src/wasm && rm -f candy_physics.wasm candy_physics.wat
@@ -511,9 +555,11 @@ npm run build
 ```
 
 ### TypeScript import errors
+
 Imports must use `.ts` extensions (e.g., `import { foo } from './bar.ts'`). Vite's bundler resolution handles this; do not omit the extension.
 
 ### Smoke test fails with timeout
+
 The smoke test waits up to 25 seconds for `window.__sceneReady`. If it times out, check the browser console for shader compilation errors or WASM initialization failures.
 
 ---
@@ -523,19 +569,24 @@ The smoke test waits up to 25 seconds for `window.__sceneReady`. If it times out
 These notes are for agents running in the Cursor Cloud VM. The startup update script already runs `pnpm install`, `pnpm run build:wasm`, and `npx playwright install chromium`, so dependencies, the required physics WASM, and the Playwright browser are already in place when a session starts.
 
 ### Package manager
+
 - Use **pnpm** at the repo root (a `pnpm-lock.yaml` is present and the root is a pnpm workspace that also includes `tools/visual-regression`). The `npm run <script>` aliases still work because they just invoke the same `package.json` scripts.
 
 ### Required physics WASM is not committed
+
 - `src/wasm/candy_physics.wasm` is **gitignored** and is NOT produced by `npm run dev` / `dev.sh`. It must be generated with `pnpm run build:wasm` (the update script does this on startup). If physics/ground-height behaves oddly, rebuild it with `pnpm run build:wasm`.
 
 ### Emscripten is intentionally absent
+
 - `em++` is not installed, so `dev.sh` / `build:emcc` print a warning and skip the optional C++ native module — the app runs in JavaScript fallback mode. This is expected, not an error. `candy_native*` 404s in the browser console are also expected.
 
 ### Headless GPU limitation (important)
+
 - This VM has **no real GPU**. The app's logic fully boots headless (`window.__sceneReady === true`), physics/WASM run, and all DOM/HUD UI (start screen, jukebox, accessibility) is interactive — but actual 3D geometry often does **not** rasterize: WebGL falls back to software (blank/clear-color canvas) and WebGPU via SwiftShader is unstable (frequent "WebGPU Device Lost: Device was destroyed" during draw).
 - Do not expect pixel-perfect 3D screenshots from the cloud VM. Treat `npm run test` (the smoke runner) as the canonical end-to-end check — it boots the full app, verifies scene readiness, and asserts the jukebox UI, and it **passes headless**.
 
 ### Running the app and tests
+
 - Dev server: `npm run dev` → http://localhost:5173 (Vite default; emits required COOP/COEP headers).
 - Smoke test: `npm run test` builds nothing itself but runs `vite preview` on port 4173, so it needs a `dist/` first — run `npm run build:ci` (WASM + Vite, no Emscripten) before the first smoke run. `dist/` is gitignored.
 - Fast checks that need no browser/GPU: `npm run test:wasm` (physics bounds, ~1s).

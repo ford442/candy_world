@@ -175,6 +175,18 @@ export let wasmSpawnBurst:
       ) => void)
     | null = null;
 
+/** Fauna boids from assembly/boids.ts */
+export let wasmUpdateBoids:
+    | ((
+          boidsPtr: number,
+          count: number,
+          dt: number,
+          playerX: number,
+          playerZ: number,
+          time: number
+      ) => void)
+    | null = null;
+
 export * from './wasm-loader-cpp.ts';
 import {
     initCppFunctions,
@@ -340,6 +352,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
 
     wasmUpdateParticles = exports.updateParticles || null;
     wasmSpawnBurst = exports.spawnBurst || null;
+    wasmUpdateBoids = exports.updateBoids || null;
 }
 
 // Immediately initialize the AssemblyScript WASM module with retry logic.

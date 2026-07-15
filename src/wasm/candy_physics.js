@@ -261,6 +261,8 @@ export const {
   ecs_removeComponent,
   ecs_getComponent,
   ecs_hasComponent,
+  updateBoids,
+  boidsBufferBytes,
 } = await (async url => instantiate(
   await (async () => {
     const isNodeOrBun = typeof process != "undefined" && process.versions != null && (process.versions.node != null || process.versions.bun != null);

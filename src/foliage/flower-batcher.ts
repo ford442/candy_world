@@ -1,13 +1,24 @@
 import * as THREE from 'three';
+import { log } from '../utils/log.ts';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
-import {
-    foliageMaterials,
-    sharedGeometries,
-} from './index.ts';
+import { foliageMaterials, sharedGeometries } from './index.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom } from './material-core.ts';
-import { foliageMotionPosition, scaleEmissiveByLod, applyFoliageLodMaterialFade } from './lod-nodes.ts';
+import {
+    CandyPresets,
+    uAudioHigh,
+    uAudioLow,
+    uTime,
+    createJuicyRimLight,
+    getCachedProceduralMaterial,
+    createStandardNodeMaterial,
+    calculateFlowerBloom,
+} from './material-core.ts';
+import {
+    foliageMotionPosition,
+    scaleEmissiveByLod,
+    applyFoliageLodMaterialFade,
+} from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { CONFIG } from '../core/config.ts';
@@ -44,7 +55,7 @@ export class FlowerBatcher {
 
     // Petal Batches (by shape)
     private petalsSimple!: THREE.InstancedMesh; // Icosahedron
-    private petalsMulti!: THREE.InstancedMesh;  // Sphere
+    private petalsMulti!: THREE.InstancedMesh; // Sphere
     private petalsSpiral!: THREE.InstancedMesh; // Cone
 
     // Counts
@@ -98,7 +109,7 @@ export class FlowerBatcher {
         const posFinal = foliageMotionPosition(calculateFlowerBloom(positionLocal));
 
         // --- 1. Stems (Cylinder) ---
-        const stemMat = getCachedProceduralMaterial('flower_batch_stem', 0xFFFFFF, () => {
+        const stemMat = getCachedProceduralMaterial('flower_batch_stem', 0xffffff, () => {
             return (foliageMaterials.flowerStem as THREE.Material).clone();
         });
 
@@ -109,12 +120,15 @@ export class FlowerBatcher {
         this.stems.frustumCulled = false;
         this.stems.count = 0;
         // Provide aPoseState so TSL attribute('aPoseState') resolves during warmup and runtime
-        this.stems.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
+        this.stems.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1)
+        );
         this.ensureInstanceColor(this.stems);
         foliageGroup.add(this.stems);
 
         // --- 2. Centers (Sphere) ---
-        const centerMat = getCachedProceduralMaterial('flower_batch_center', 0xFFFFFF, () => {
+        const centerMat = getCachedProceduralMaterial('flower_batch_center', 0xffffff, () => {
             const mat = (foliageMaterials.flowerCenter as THREE.Material).clone();
             (mat as any).positionNode = posFinal; // Apply full deformation chain
             applyFoliageLodMaterialFade(mat as import('three/webgpu').MeshStandardNodeMaterial);
@@ -127,13 +141,16 @@ export class FlowerBatcher {
         this.centers.receiveShadow = true;
         this.centers.frustumCulled = false;
         this.centers.count = 0;
-        this.centers.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
+        this.centers.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1)
+        );
         this.ensureInstanceColor(this.centers);
         foliageGroup.add(this.centers);
 
         // --- 3. Stamens (Cylinder) ---
-        const stamenMat = getCachedProceduralMaterial('flower_batch_stamen', 0xFFFF00, () => {
-            const mat = CandyPresets.Clay(0xFFFF00, { deformationNode: posFinal });
+        const stamenMat = getCachedProceduralMaterial('flower_batch_stamen', 0xffff00, () => {
+            const mat = CandyPresets.Clay(0xffff00, { deformationNode: posFinal });
             applyFoliageLodMaterialFade(mat);
             return mat;
         });
@@ -144,7 +161,10 @@ export class FlowerBatcher {
         this.stamens.receiveShadow = true;
         this.stamens.frustumCulled = false;
         this.stamens.count = 0;
-        this.stamens.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 1));
+        this.stamens.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 1)
+        );
         this.ensureInstanceColor(this.stamens);
         foliageGroup.add(this.stamens);
 
@@ -152,40 +172,58 @@ export class FlowerBatcher {
         // Use Velvet preset for petals, supporting instanceColor
         const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
-        const petalMat = getCachedProceduralMaterial('flower_batch_petal', 0xFFFFFF, () => {
+        const petalMat = getCachedProceduralMaterial('flower_batch_petal', 0xffffff, () => {
             // --- PALETTE: Petal Breathing Animation ---
             // Add subtle procedural life to petals, slightly offsetting based on local coordinates
             const phaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
             const petalBreath = sin(uTime.mul(2.0).add(phaseOffset)).mul(0.05).add(1.0);
             const petalDeformation = posFinal.mul(petalBreath);
 
-            const mat = CandyPresets.Velvet(0xFFFFFF, {
+            const mat = CandyPresets.Velvet(0xffffff, {
                 colorNode: instanceColor, // Use instance color
                 deformationNode: petalDeformation, // Apply deformation with breathing
                 side: THREE.DoubleSide,
                 audioReactStrength: 1.0,
-                rimStrength: 0.5
+                rimStrength: 0.5,
             });
 
-        // Add Audio-Reactive Rim Light to petals
-        // 🎨 PALETTE: Boosted Rim Light for more pop in twilight
-        const audioRim = createJuicyRimLight(instanceColor, float(2.0).add(uAudioHigh.mul(4.0)), float(2.0), null);
+            // Add Audio-Reactive Rim Light to petals
+            // 🎨 PALETTE: Boosted Rim Light for more pop in twilight
+            const audioRim = createJuicyRimLight(
+                instanceColor,
+                float(2.0).add(uAudioHigh.mul(4.0)),
+                float(2.0),
+                null
+            );
 
             // --- PALETTE: Audio Reactive Inner Glow ---
             // Give petals a deep soft glow when the melody hits (increased intensity)
             const innerGlow = instanceColor.mul(uAudioHigh).mul(1.2);
 
             // 🎨 PALETTE: Twilight Glow for petals
-            const glowPhaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
-            const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+            const glowPhaseOffset = positionLocal.x
+                .add(positionLocal.y)
+                .add(positionLocal.z)
+                .mul(5.0);
+            const idlePulse = sin(
+                uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)
+            )
+                .mul(float(CONFIG.glow.glowPulseAmplitude))
+                .add(1.0)
+                .mul(float(0.5))
+                .mul(uAudioLow.mul(0.3).add(0.7));
             const targetGlowColor = color(CONFIG.glow.glowColorMap['flower']);
             const twilightGlowTint = targetGlowColor
                 .mul(uTwilight)
                 .mul(float(CONFIG.glow.glowIntensityMax))
                 .mul(float(0.3).add(idlePulse));
-            const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.35));
+            const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(
+                BiomeUniforms.musicalFlora.shimmer.mul(0.35)
+            );
 
-            mat.emissiveNode = scaleEmissiveByLod(audioRim.add(innerGlow).add(twilightGlowTint).add(biomeTint));
+            mat.emissiveNode = scaleEmissiveByLod(
+                audioRim.add(innerGlow).add(twilightGlowTint).add(biomeTint)
+            );
 
             applyFoliageLodMaterialFade(mat);
 
@@ -198,54 +236,95 @@ export class FlowerBatcher {
         simpleGeo.scale(1, 0.5, 1);
 
         this.petalsSimple = new THREE.InstancedMesh(simpleGeo, petalMat, MAX_PETALS);
-        this.petalsSimple.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
+        this.petalsSimple.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_PETALS * 3),
+            3
+        );
         this.petalsSimple.geometry.setAttribute('instanceColor', this.petalsSimple.instanceColor);
-        this.petalsSimple.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1));
+        this.petalsSimple.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1)
+        );
         this.petalsSimple.castShadow = true;
         this.petalsSimple.receiveShadow = true;
         this.petalsSimple.frustumCulled = false;
         this.petalsSimple.count = 0;
-        this.petalsSimple.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
+        this.petalsSimple.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1)
+        );
         foliageGroup.add(this.petalsSimple);
 
         // Multi Petals (Sphere)
         const multiGeo = sharedGeometries.unitSphere.clone();
         this.petalsMulti = new THREE.InstancedMesh(multiGeo, petalMat, MAX_PETALS);
-        this.petalsMulti.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
+        this.petalsMulti.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_PETALS * 3),
+            3
+        );
         this.petalsMulti.geometry.setAttribute('instanceColor', this.petalsMulti.instanceColor);
-        this.petalsMulti.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1));
+        this.petalsMulti.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1)
+        );
         this.petalsMulti.castShadow = true;
         this.petalsMulti.receiveShadow = true;
         this.petalsMulti.frustumCulled = false;
         this.petalsMulti.count = 0;
-        this.petalsMulti.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
+        this.petalsMulti.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1)
+        );
         foliageGroup.add(this.petalsMulti);
 
         // Spiral Petals (Cone)
         const spiralGeo = sharedGeometries.unitCone.clone();
         this.petalsSpiral = new THREE.InstancedMesh(spiralGeo, petalMat, MAX_PETALS);
-        this.petalsSpiral.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
+        this.petalsSpiral.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_PETALS * 3),
+            3
+        );
         this.petalsSpiral.geometry.setAttribute('instanceColor', this.petalsSpiral.instanceColor);
-        this.petalsSpiral.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1));
+        this.petalsSpiral.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1)
+        );
         this.petalsSpiral.castShadow = true;
         this.petalsSpiral.receiveShadow = true;
         this.petalsSpiral.frustumCulled = false;
         this.petalsSpiral.count = 0;
-        this.petalsSpiral.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
+        this.petalsSpiral.geometry.setAttribute(
+            'aPoseState',
+            new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1)
+        );
         foliageGroup.add(this.petalsSpiral);
 
-        for (const mesh of [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral]) {
+        for (const mesh of [
+            this.stems,
+            this.centers,
+            this.stamens,
+            this.petalsSimple,
+            this.petalsMulti,
+            this.petalsSpiral,
+        ]) {
             initInstanceLodAttribute(mesh, mesh.instanceMatrix.count);
         }
 
         this.initialized = true;
         registerFoliageBatcherLod({ id: 'flower', getMeshes: () => this.getLODMeshes() });
-        console.log('[FlowerBatcher] Initialized');
+        log.info('FlowerBatcher', 'Initialized');
     }
 
     getLODMeshes(): THREE.InstancedMesh[] {
         if (!this.initialized) return [];
-        return [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];
+        return [
+            this.stems,
+            this.centers,
+            this.stamens,
+            this.petalsSimple,
+            this.petalsMulti,
+            this.petalsSpiral,
+        ];
     }
 
     register(group: THREE.Group, type: string, options: any = {}) {
@@ -262,7 +341,7 @@ export class FlowerBatcher {
         // Parse options
         const colorHex = options.color !== undefined ? options.color : null;
         let color = _scratchColor;
-        color.set(0xFF69B4); // Default pink
+        color.set(0xff69b4); // Default pink
         if (colorHex !== null) {
             if (colorHex.isColor) color.copy(colorHex);
             else color.set(colorHex);
@@ -345,7 +424,11 @@ export class FlowerBatcher {
                 const angle = (i / petalCount) * Math.PI * 4;
                 const radius = 0.05 + (i / petalCount) * 0.15;
 
-                _scratchPos.set(Math.cos(angle) * radius, (i / petalCount) * 0.1, Math.sin(angle) * radius);
+                _scratchPos.set(
+                    Math.cos(angle) * radius,
+                    (i / petalCount) * 0.1,
+                    Math.sin(angle) * radius
+                );
                 _scratchEuler.set(0, 0, angle);
                 _scratchQuat.setFromEuler(_scratchEuler);
                 _scratchScale.set(0.1, 0.2, 0.1);
@@ -366,7 +449,7 @@ export class FlowerBatcher {
                 }
 
                 for (let i = 0; i < petalCount; i++) {
-                    const angle = (i / petalCount) * Math.PI * 2 + (layer * Math.PI / petalCount);
+                    const angle = (i / petalCount) * Math.PI * 2 + (layer * Math.PI) / petalCount;
                     const r = 0.15 + layer * 0.05;
 
                     _scratchPos.set(Math.cos(angle) * r, layer * 0.05, Math.sin(angle) * r);
@@ -382,23 +465,46 @@ export class FlowerBatcher {
         }
     }
 
-    private addInstance(mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color | null, countProp: string) {
+    private addInstance(
+        mesh: THREE.InstancedMesh,
+        matrix: THREE.Matrix4,
+        color: THREE.Color | null,
+        countProp: string
+    ) {
         let index = 0;
         let max = 0;
 
         switch (countProp) {
-            case 'stemCount': index = this.stemCount; max = MAX_FLOWERS; break;
-            case 'centerCount': index = this.centerCount; max = MAX_FLOWERS; break;
-            case 'stamenCount': index = this.stamenCount; max = MAX_FLOWERS * 3; break;
-            case 'simpleCount': index = this.simpleCount; max = MAX_PETALS; break;
-            case 'multiCount': index = this.multiCount; max = MAX_PETALS; break;
-            case 'spiralCount': index = this.spiralCount; max = MAX_PETALS; break;
+            case 'stemCount':
+                index = this.stemCount;
+                max = MAX_FLOWERS;
+                break;
+            case 'centerCount':
+                index = this.centerCount;
+                max = MAX_FLOWERS;
+                break;
+            case 'stamenCount':
+                index = this.stamenCount;
+                max = MAX_FLOWERS * 3;
+                break;
+            case 'simpleCount':
+                index = this.simpleCount;
+                max = MAX_PETALS;
+                break;
+            case 'multiCount':
+                index = this.multiCount;
+                max = MAX_PETALS;
+                break;
+            case 'spiralCount':
+                index = this.spiralCount;
+                max = MAX_PETALS;
+                break;
         }
 
         if (index >= max) return;
 
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        matrix.toArray(mesh.instanceMatrix.array, (index) * 16);
+        matrix.toArray(mesh.instanceMatrix.array, index * 16);
         if (color && mesh.instanceColor) {
             // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
             const colorArray = mesh.instanceColor.array as Float32Array;
@@ -410,12 +516,30 @@ export class FlowerBatcher {
 
         // Update count
         switch (countProp) {
-            case 'stemCount': this.stemCount++; mesh.count = this.stemCount; break;
-            case 'centerCount': this.centerCount++; mesh.count = this.centerCount; break;
-            case 'stamenCount': this.stamenCount++; mesh.count = this.stamenCount; break;
-            case 'simpleCount': this.simpleCount++; mesh.count = this.simpleCount; break;
-            case 'multiCount': this.multiCount++; mesh.count = this.multiCount; break;
-            case 'spiralCount': this.spiralCount++; mesh.count = this.spiralCount; break;
+            case 'stemCount':
+                this.stemCount++;
+                mesh.count = this.stemCount;
+                break;
+            case 'centerCount':
+                this.centerCount++;
+                mesh.count = this.centerCount;
+                break;
+            case 'stamenCount':
+                this.stamenCount++;
+                mesh.count = this.stamenCount;
+                break;
+            case 'simpleCount':
+                this.simpleCount++;
+                mesh.count = this.simpleCount;
+                break;
+            case 'multiCount':
+                this.multiCount++;
+                mesh.count = this.multiCount;
+                break;
+            case 'spiralCount':
+                this.spiralCount++;
+                mesh.count = this.spiralCount;
+                break;
         }
 
         mesh.instanceMatrix.needsUpdate = true;
@@ -424,12 +548,12 @@ export class FlowerBatcher {
 
     update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {
         if (!this.initialized || !this._poseMachine) return;
-        
+
         const config = CONFIG.plantPose.flower;
         if (!config) return;
 
         const kick = audioState?.kick || 0;
-        
+
         // Step the state machine
         const activeWave = musicReactivitySystem.getActiveWave();
         const cameraPos = camera ? camera.position : undefined;
@@ -451,17 +575,33 @@ export class FlowerBatcher {
         };
 
         // Step the state machine
-        this._poseMachine.update(MAX_PETALS, deltaTime, kick, dayNightBias, config, activeWave, getPlantPos, cameraPos);
+        this._poseMachine.update(
+            MAX_PETALS,
+            deltaTime,
+            kick,
+            dayNightBias,
+            config,
+            activeWave,
+            getPlantPos,
+            cameraPos
+        );
 
         // Update aPoseState for all active instances across all meshes
-        const meshes = [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];
+        const meshes = [
+            this.stems,
+            this.centers,
+            this.stamens,
+            this.petalsSimple,
+            this.petalsMulti,
+            this.petalsSpiral,
+        ];
         // ⚡ OPTIMIZATION: Get reference to the entire pose array once instead of calling getPose(i) in the inner loop
         const poses = this._poseMachine.currentPoses;
         for (const mesh of meshes) {
             if (!mesh || mesh.count === 0) continue;
             const attr = mesh.geometry.attributes.aPoseState as THREE.InstancedBufferAttribute;
             if (!attr) continue;
-            
+
             // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setX overhead by writing directly to typed array
             const array = attr.array as Float32Array;
             const count = mesh.count;

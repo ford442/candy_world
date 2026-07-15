@@ -1,11 +1,13 @@
 /**
  * @file src/utils/seeded-random.ts
- * @brief Deterministic random seed override for reproducible screenshots/tests.
+ * @brief Deterministic random seed override for reproducible screenshots/tests/multiplayer.
  *
- * Enabled via URL param `?seed=<number|string>`. When active, `Math.random()`
- * is replaced with a seeded PRNG so world generation, particles, and other
- * stochastic visuals are deterministic across runs.
+ * Enabled via URL param `?seed=<number|string>` or `applyWorldSeed()` before world gen.
+ * When active, `Math.random()` is replaced with a seeded PRNG so world generation,
+ * particles, and other stochastic visuals are deterministic across runs.
  */
+
+import { readSeedFromURL } from '../world/world-seed.ts';
 
 let _seed: number | null = null;
 let _rng: (() => number) | null = null;
@@ -18,25 +20,6 @@ function mulberry32(a: number): () => number {
         t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
-}
-
-function hashString(s: string): number {
-    let h = 0;
-    for (let i = 0; i < s.length; i++) {
-        h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-    }
-    return h >>> 0;
-}
-
-function readSeedFromURL(): number | null {
-    try {
-        const raw = new URLSearchParams(window.location.search).get('seed');
-        if (raw === null) return null;
-        const n = Number(raw);
-        return Number.isFinite(n) ? n : hashString(raw);
-    } catch {
-        return null;
-    }
 }
 
 /** Current deterministic seed, or null when not seeded. */
@@ -54,12 +37,23 @@ export function getSeededRandom(): number {
     return _rng ? _rng() : Math.random();
 }
 
+/** Apply (or re-apply) a world seed before generation. Safe to call from opt-in UI. */
+export function applyWorldSeed(seed: number): void {
+    const normalized = Math.floor(seed) >>> 0;
+    if (_seed === normalized && _rng) return;
+
+    _seed = normalized;
+    _rng = mulberry32(normalized);
+
+    const mathObj = Math as typeof Math & { __originalRandom?: () => number };
+    if (!mathObj.__originalRandom) {
+        mathObj.__originalRandom = Math.random;
+    }
+    Math.random = () => _rng!();
+    console.log(`[SeededRandom] Deterministic mode enabled with seed ${normalized}`);
+}
+
 const _seedValue = readSeedFromURL();
 if (_seedValue !== null) {
-    _seed = _seedValue;
-    _rng = mulberry32(_seedValue);
-    const originalRandom = Math.random;
-    Math.random = () => _rng!();
-    (Math as any).__originalRandom = originalRandom;
-    console.log(`[SeededRandom] Deterministic mode enabled with seed ${_seedValue}`);
+    applyWorldSeed(_seedValue);
 }
