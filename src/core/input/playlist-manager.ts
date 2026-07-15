@@ -325,7 +325,7 @@ export function renderPlaylist(): void {
 
     songs.forEach((file: File, index: number) => {
         const li = document.createElement('li');
-        li.className = `playlist-item ${index === currentIdx ? 'active' : ''}`;
+        li.className = 'playlist-item';
 
         // UX: Use a button for keyboard accessibility
         const displayName = formatSongTitle(file.name);
