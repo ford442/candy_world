@@ -16,8 +16,22 @@ import {
     getBaseContactHeight,
 } from './index.ts';
 import {
-    color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
-    smoothstep, attribute, positionWorld, If, vec4, varyingProperty
+    color,
+    float,
+    uniform,
+    vec3,
+    positionLocal,
+    sin,
+    cos,
+    mix,
+    uv,
+    varying,
+    smoothstep,
+    attribute,
+    positionWorld,
+    If,
+    vec4,
+    varyingProperty,
 } from 'three/tsl';
 import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 
@@ -155,9 +169,9 @@ export class ArpeggioFernBatcher {
         // Base: 0x2E8B57, Rough 0.8, Metal 0.0
         // Frond: 0x00FF88, Rough 0.6, Metal 0.1
         // Frond accent (hue-shifted purple-violet — blended in by uHueShift)
-        const baseColor = color(0x2E8B57);
-        const frondColor = color(0x00FF88);
-        const frondAccentColor = color(0x8844FF); // Purple-violet accent for hue shift
+        const baseColor = color(0x2e8b57);
+        const frondColor = color(0x00ff88);
+        const frondAccentColor = color(0x8844ff); // Purple-violet accent for hue shift
         // Arpeggio Grove hue shift: mix frond colour towards accent based on uHueShift channel
         const dynamicFrondColor = mix(frondColor, frondAccentColor, arpeggioUniforms.hueShift);
         const mixedColor = mix(baseColor, dynamicFrondColor, isFrondAttr);
@@ -166,15 +180,20 @@ export class ArpeggioFernBatcher {
         const mixedMetal = mix(float(0.0), float(0.1), isFrondAttr);
 
         const material = createStandardNodeMaterial({
-            color: 0xFFFFFF, // Overridden by node
+            color: 0xffffff, // Overridden by node
             roughness: 1.0,
-            metalness: 0.0
+            metalness: 0.0,
         });
         registerReactiveMaterial(material);
 
         // Lightweight debug indicator for biome tagging / music reactivity system
         if (!ArpeggioFernBatcher._debugLogged && CONFIG.debugNoteReactivity) {
-            log.info('Biome', 'ArpeggioFernBatcher using biome=', ARPEGGIO_BIOME, 'via getBiomeUniforms()');
+            log.info(
+                'Biome',
+                'ArpeggioFernBatcher using biome=',
+                ARPEGGIO_BIOME,
+                'via getBiomeUniforms()'
+            );
             ArpeggioFernBatcher._debugLogged = true;
         }
 
@@ -206,22 +225,14 @@ export class ArpeggioFernBatcher {
         // z' = x*sin(-a) + z*cos(-a)
         const cY = cos(frondAngle.negate());
         const sY = sin(frondAngle.negate());
-        const p2 = vec3(
-            p1.x.mul(cY).sub(p1.z.mul(sY)),
-            p1.y,
-            p1.x.mul(sY).add(p1.z.mul(cY))
-        );
+        const p2 = vec3(p1.x.mul(cY).sub(p1.z.mul(sY)), p1.y, p1.x.mul(sY).add(p1.z.mul(cY)));
 
         // Step 3: Unrotate X (tilt)
         // y' = y*cos(-t) - z*sin(-t)
         // z' = y*sin(-t) + z*cos(-t)
         const cX = cos(frondTilt.negate());
         const sX = sin(frondTilt.negate());
-        const p3 = vec3(
-            p2.x,
-            p2.y.mul(cX).sub(p2.z.mul(sX)),
-            p2.y.mul(sX).add(p2.z.mul(cX))
-        );
+        const p3 = vec3(p2.x, p2.y.mul(cX).sub(p2.z.mul(sX)), p2.y.mul(sX).add(p2.z.mul(cX)));
 
         // p3 is now in "Canonical Frond Space" (Vertical along Y, facing Z?)
         // Frond geometry was: Box(..., height=2.3). Translated(0, 1.15, 0).
@@ -269,11 +280,7 @@ export class ArpeggioFernBatcher {
         // Inverse of Step 2 (Rotate Y)
         const cY2 = cos(frondAngle);
         const sY2 = sin(frondAngle);
-        const p5 = vec3(
-            p4.x.mul(cY2).sub(p4.z.mul(sY2)),
-            p4.y,
-            p4.x.mul(sY2).add(p4.z.mul(cY2))
-        );
+        const p5 = vec3(p4.x.mul(cY2).sub(p4.z.mul(sY2)), p4.y, p4.x.mul(sY2).add(p4.z.mul(cY2)));
 
         // Inverse of Step 1 (Translate Y)
         const pFinalFrond = vec3(p5.x, p5.y.add(float(frondYOffset)), p5.z);
@@ -307,25 +314,25 @@ export class ArpeggioFernBatcher {
         const baseInstanceColor = varyingProperty('vec3', 'vInstanceColor');
         // Mix instance color into base color, then apply distance-driven aerial perspective
         material.colorNode = applyBaseContactAO(
-            applyAerialPerspective(
-                mixedColor.mul(baseInstanceColor),
-                positionWorld,
-            ),
+            applyAerialPerspective(mixedColor.mul(baseInstanceColor), positionWorld),
             positionLocal.y,
-            float(getBaseContactHeight('arpeggio_fern')),
+            float(getBaseContactHeight('arpeggio_fern'))
         );
 
         // Juicy Rim Light
         const rim = createJuicyRimLight(baseInstanceColor, float(2.0), float(3.0), null);
         const audioEmissive = uAudioHigh.mul(0.5);
         // Arpeggio Grove shimmer: soft teal sparkle driven by melody channels
-        const shimmerColor = color(0x88FFCC);
+        const shimmerColor = color(0x88ffcc);
         const shimmerGlow = arpeggioUniforms.shimmer.mul(shimmerColor).mul(3.0);
         material.emissiveNode = rim.add(baseInstanceColor.mul(audioEmissive)).add(shimmerGlow);
 
         // --- INSTANCED MESH ---
         this.mesh = new THREE.InstancedMesh(mergedGeo, material, MAX_FERNS);
-        this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FERNS * 3), 3);
+        this.mesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_FERNS * 3),
+            3
+        );
         this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
@@ -360,7 +367,7 @@ export class ArpeggioFernBatcher {
             return;
         }
 
-        const { color = 0x00FF88, scale = 1.0 } = options;
+        const { color = 0x00ff88, scale = 1.0 } = options;
         const i = this.count;
         this.count++;
 
@@ -391,7 +398,11 @@ export class ArpeggioFernBatcher {
         // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
         // Compose directly from the logic object's properties without using a proxy THREE.Object3D
         dummy.scale.setScalar(scale);
-        _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
+        _scratchMatrix.compose(
+            dummy.position,
+            getGroundAlignedQuaternion(dummy, _scratchQuaternion),
+            dummy.scale
+        );
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, i * 16);
 
         // Color
@@ -416,7 +427,11 @@ export class ArpeggioFernBatcher {
 
         // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
         // Compose directly from the logic object's properties without using a proxy THREE.Object3D
-        _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
+        _scratchMatrix.compose(
+            dummy.position,
+            getGroundAlignedQuaternion(dummy, _scratchQuaternion),
+            dummy.scale
+        );
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, index * 16);
 
         this.mesh!.instanceMatrix.needsUpdate = true;
@@ -430,7 +445,10 @@ export class ArpeggioFernBatcher {
         let noteTrigger = false;
         if (audioState && audioState.channelData) {
             for (const ch of audioState.channelData) {
-                if (ch.activeEffect === 4 || (ch.activeEffect === 0 && ch.effectValue && ch.effectValue > 0)) {
+                if (
+                    ch.activeEffect === 4 ||
+                    (ch.activeEffect === 0 && ch.effectValue && ch.effectValue > 0)
+                ) {
                     arpeggioActive = true;
                 }
                 if (ch.trigger > 0.1) {
@@ -454,7 +472,7 @@ export class ArpeggioFernBatcher {
         this.currentTargetStep = nextTarget;
         this.lastTrigger = noteTrigger;
 
-        const speed = (nextTarget > this.currentUnfurlValue) ? 0.3 : 0.05;
+        const speed = nextTarget > this.currentUnfurlValue ? 0.3 : 0.05;
         this.currentUnfurlValue += (nextTarget - this.currentUnfurlValue) * speed;
 
         // --- Day/night ADSR envelope (pose machine) ---
@@ -473,7 +491,16 @@ export class ArpeggioFernBatcher {
             out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
         };
 
-        this._poseMachine.update(1, 0.016, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
+        this._poseMachine.update(
+            1,
+            0.016,
+            channelIntensity,
+            dayNightBias,
+            poseConfig,
+            activeWave,
+            getPlantPos,
+            cameraPos
+        );
 
         // Day/night baseline from pose machine (0 = night-closed, up to nightTarget/dayTarget).
         // Blends a gentle partial-open bias from daylight into the step-driven unfurl.
@@ -490,7 +517,7 @@ export class ArpeggioFernBatcher {
         // Write the expanded radius directly into the WASM memory view
         if (dynamicRadiiView) {
             // Base radius is ~2.0 when closed, expands to ~8.0 when unfurled
-            const activeRadius = 2.0 + (unfurl * 6.0);
+            const activeRadius = 2.0 + unfurl * 6.0;
             for (let i = 0; i < this.count; i++) {
                 // scale.x applies uniformly, so multiply by scale
                 dynamicRadiiView[i] = activeRadius * this.logicFerns[i].scale.x;

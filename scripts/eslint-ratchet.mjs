@@ -41,7 +41,10 @@ try {
     }
 }
 
-const count = results.reduce((sum, file) => sum + (file.errorCount ?? 0) + (file.warningCount ?? 0), 0);
+const count = results.reduce(
+    (sum, file) => sum + (file.errorCount ?? 0) + (file.warningCount ?? 0),
+    0
+);
 const errors = results.reduce((sum, file) => sum + (file.errorCount ?? 0), 0);
 const warnings = results.reduce((sum, file) => sum + (file.warningCount ?? 0), 0);
 const delta = count - maxProblems;
@@ -78,7 +81,11 @@ if (process.argv.includes('--set-baseline')) {
     }
     writeFileSync(
         baselinePath,
-        JSON.stringify({ maxProblems: newCount, updatedAt: new Date().toISOString().slice(0, 10) }, null, 2) + '\n'
+        JSON.stringify(
+            { maxProblems: newCount, updatedAt: new Date().toISOString().slice(0, 10) },
+            null,
+            2
+        ) + '\n'
     );
     console.log(`Baseline updated to ${newCount}.`);
     process.exit(0);

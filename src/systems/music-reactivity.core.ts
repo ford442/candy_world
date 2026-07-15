@@ -46,25 +46,19 @@ export function calculateLightFactor(
     foliageObject: FoliageObject,
     globalLight: number
 ): LightLevelCheck {
-    const min = foliageObject.userData.minLight !== undefined 
-        ? foliageObject.userData.minLight 
-        : 0.0;
-    const max = foliageObject.userData.maxLight !== undefined 
-        ? foliageObject.userData.maxLight 
-        : 1.0;
+    const min =
+        foliageObject.userData.minLight !== undefined ? foliageObject.userData.minLight : 0.0;
+    const max =
+        foliageObject.userData.maxLight !== undefined ? foliageObject.userData.maxLight : 1.0;
     const feather = 0.1;
-    
-    const lowerEdge = (globalLight - min) / feather; 
-    const upperEdge = (max - globalLight) / feather; 
-    const lightFactor = Math.min(
-        Math.max(lowerEdge, 0), 
-        Math.max(upperEdge, 0), 
-        1.0
-    );
+
+    const lowerEdge = (globalLight - min) / feather;
+    const upperEdge = (max - globalLight) / feather;
+    const lightFactor = Math.min(Math.max(lowerEdge, 0), Math.max(upperEdge, 0), 1.0);
 
     return {
         lightFactor,
-        shouldReact: lightFactor > 0
+        shouldReact: lightFactor > 0,
     };
 }
 
@@ -81,24 +75,18 @@ export function calculateChannelIndex(
     let targetChannelIndex = foliageObject.userData._cacheIdx;
 
     // Recompute if cache is missing or channel configuration changed
-    if (targetChannelIndex === undefined || 
-        foliageObject.userData._cacheTotal !== totalChannels) {
-        
+    if (targetChannelIndex === undefined || foliageObject.userData._cacheTotal !== totalChannels) {
         const type = foliageObject.userData.reactivityType || 'flora';
         const id = foliageObject.userData.reactivityId || 0;
 
         if (type === 'sky') {
             // Upper half (Drums/Percussion)
             const skyCount = totalChannels - splitIndex;
-            targetChannelIndex = (skyCount > 0)
-                ? splitIndex + (id % skyCount)
-                : totalChannels - 1;
+            targetChannelIndex = skyCount > 0 ? splitIndex + (id % skyCount) : totalChannels - 1;
         } else {
             // Lower half (Melody/Bass)
             const floraCount = splitIndex;
-            targetChannelIndex = (floraCount > 0)
-                ? id % floraCount
-                : 0;
+            targetChannelIndex = floraCount > 0 ? id % floraCount : 0;
         }
 
         // Store in cache
@@ -156,19 +144,19 @@ export function resolveNoteName(note: number | string): string {
         if (_noteNameCache[note]) {
             return _noteNameCache[note];
         }
-        
+
         // Handle "C4", "F#3" etc.
         const noteName = note.replace(/[0-9-]/g, '');
-        
+
         // ⚡ OPTIMIZATION: Use integer counter instead of Object.keys() to prevent GC spikes
         if (_noteNameCacheSize < 200) {
             _noteNameCache[note] = noteName;
             _noteNameCacheSize++;
         }
-        
+
         return noteName;
     }
-    
+
     return '';
 }
 
@@ -193,20 +181,28 @@ export function getNoteColorTyped(
         } else {
             // Heuristic mapping to known palettes
             const s = (species || '').toLowerCase();
-            if (s.includes('flower') || s.includes('tulip') || 
-                s.includes('violet') || s.includes('rose') || 
-                s.includes('bloom') || s.includes('lotus') || 
-                s.includes('puff')) {
+            if (
+                s.includes('flower') ||
+                s.includes('tulip') ||
+                s.includes('violet') ||
+                s.includes('rose') ||
+                s.includes('bloom') ||
+                s.includes('lotus') ||
+                s.includes('puff')
+            ) {
                 map = noteColorMap['flower'];
             } else if (s.includes('mushroom') || s.includes('mush')) {
                 map = noteColorMap['mushroom'];
-            } else if (s.includes('tree') || s.includes('willow') || 
-                       s.includes('palm') || s.includes('bush')) {
+            } else if (
+                s.includes('tree') ||
+                s.includes('willow') ||
+                s.includes('palm') ||
+                s.includes('bush')
+            ) {
                 map = noteColorMap['tree'];
             } else if (s.includes('moon') || s.includes('sky')) {
                 map = noteColorMap['sky'] || noteColorMap['global'];
-            } else if (s.includes('cloud') || s.includes('orb') || 
-                       s.includes('geyser')) {
+            } else if (s.includes('cloud') || s.includes('orb') || s.includes('geyser')) {
                 map = noteColorMap['cloud'] || noteColorMap['global'];
             } else {
                 map = noteColorMap['global'];
@@ -216,7 +212,7 @@ export function getNoteColorTyped(
     }
 
     // Return color or fallback to White
-    return map[noteName] || 0xFFFFFF;
+    return map[noteName] || 0xffffff;
 }
 
 /**
@@ -235,7 +231,7 @@ export function shouldCheckTimeBudget(
     processedCount: number,
     budgetCheckInterval: number
 ): boolean {
-    return (processedCount % budgetCheckInterval === 0);
+    return processedCount % budgetCheckInterval === 0;
 }
 
 /**

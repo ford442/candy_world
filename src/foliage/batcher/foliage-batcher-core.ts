@@ -15,14 +15,14 @@ import {
     RESULT_STRIDE,
     BatchState,
     ExtendedBatchState,
-    FoliageObject
+    FoliageObject,
 } from './foliage-batcher-types.ts';
 import {
     getVibratoAmount,
     getTremoloAmount,
     getHighFreqAmount,
     getAverageVolume,
-    getPanActivity
+    getPanActivity,
 } from './foliage-batcher-audio.ts';
 import { isCIorHeadless } from '../../core/config.ts';
 import {
@@ -34,7 +34,7 @@ import {
     applyTremoloPulse,
     applyCymbalShake,
     applyPanningBob,
-    applySpiritFade
+    applySpiritFade,
 } from './foliage-batcher-effects.ts';
 import { FoliageEcsBridge, type SimpleAnimType } from '../../systems/ecs/foliage-ecs-bridge.ts';
 
@@ -93,7 +93,7 @@ export class FoliageBatcher {
             bounce: this.createBatch(true), // needs originalY
             hop: this.createBatch(true),
             gentleSway: this.createBatch(),
-            wobble: this.createBatch(false, true, true) // needs wobbleBoosts, 2 outputs
+            wobble: this.createBatch(false, true, true), // needs wobbleBoosts, 2 outputs
         };
 
         // Create extended batches for new animation types
@@ -106,14 +106,14 @@ export class FoliageBatcher {
             tremoloPulse: this.createExtendedBatch(),
             cymbalShake: this.createExtendedBatch(),
             panningBob: this.createExtendedBatch(),
-            spiritFade: this.createExtendedBatch()
+            spiritFade: this.createExtendedBatch(),
         };
 
         this.simpleBatches = {
             shiver: this.createExtendedBatch(),
             spring: this.createExtendedBatch(),
             float: this.createExtendedBatch(),
-            cloudBob: this.createExtendedBatch()
+            cloudBob: this.createExtendedBatch(),
         };
     }
 
@@ -124,7 +124,11 @@ export class FoliageBatcher {
         return FoliageBatcher.instance;
     }
 
-    private createBatch(needsOriginalY = false, needsWobble = false, twoOutputs = false): BatchState {
+    private createBatch(
+        needsOriginalY = false,
+        needsWobble = false,
+        twoOutputs = false
+    ): BatchState {
         // Memory will be allocated from fixed offsets in WASM linear memory
         return {
             count: 0,
@@ -140,7 +144,7 @@ export class FoliageBatcher {
             ptrOriginalYs: 0,
             ptrWobbleBoosts: 0,
             ptrOutScalars: 0,
-            ptrOutScalars2: 0
+            ptrOutScalars2: 0,
         };
     }
 
@@ -151,7 +155,7 @@ export class FoliageBatcher {
             output: new Float32Array(BATCH_SIZE * RESULT_STRIDE),
             objects: new Array(BATCH_SIZE),
             ptrInput: 0,
-            ptrOutput: 0
+            ptrOutput: 0,
         };
     }
 
@@ -197,7 +201,7 @@ export class FoliageBatcher {
         if (!instance) return;
 
         batch.ptrInput = memoryOffset;
-        batch.ptrOutput = memoryOffset + (BATCH_SIZE * ENTRY_SIZE);
+        batch.ptrOutput = memoryOffset + BATCH_SIZE * ENTRY_SIZE;
     }
 
     init() {
@@ -230,7 +234,10 @@ export class FoliageBatcher {
 
         this.initialized = true;
         log.info('FoliageBatcher', 'WASM memory allocated using fixed offsets for batching');
-        log.info('FoliageBatcher', `Total memory used: ${currentOffset - BATCH_MEMORY_START} bytes`);
+        log.info(
+            'FoliageBatcher',
+            `Total memory used: ${currentOffset - BATCH_MEMORY_START} bytes`
+        );
     }
 
     private initExtended() {
@@ -244,7 +251,7 @@ export class FoliageBatcher {
         }
 
         let currentOffset = EXTENDED_BATCH_START;
-        const batchSize = (BATCH_SIZE * ENTRY_SIZE) + (BATCH_SIZE * RESULT_STRIDE * 4);
+        const batchSize = BATCH_SIZE * ENTRY_SIZE + BATCH_SIZE * RESULT_STRIDE * 4;
 
         // Initialize each extended batch
         this.initExtendedBatchMemory(this.extendedBatches.snareSnap, currentOffset);
@@ -276,7 +283,10 @@ export class FoliageBatcher {
 
         this.extendedInitialized = true;
         log.info('FoliageBatcher', 'Extended WASM memory allocated for new animation types');
-        log.info('FoliageBatcher', `Extended memory used: ${currentOffset - EXTENDED_BATCH_START} bytes`);
+        log.info(
+            'FoliageBatcher',
+            `Extended memory used: ${currentOffset - EXTENDED_BATCH_START} bytes`
+        );
     }
 
     private initSimpleBatches() {
@@ -289,8 +299,9 @@ export class FoliageBatcher {
             return;
         }
 
-        let currentOffset = EXTENDED_BATCH_START + (BATCH_SIZE * (ENTRY_SIZE + RESULT_STRIDE * 4) * 9); // After existing batches
-        const batchSize = (BATCH_SIZE * ENTRY_SIZE) + (BATCH_SIZE * RESULT_STRIDE * 4);
+        let currentOffset =
+            EXTENDED_BATCH_START + BATCH_SIZE * (ENTRY_SIZE + RESULT_STRIDE * 4) * 9; // After existing batches
+        const batchSize = BATCH_SIZE * ENTRY_SIZE + BATCH_SIZE * RESULT_STRIDE * 4;
 
         this.initExtendedBatchMemory(this.simpleBatches.shiver, currentOffset);
         currentOffset += batchSize;
@@ -303,7 +314,13 @@ export class FoliageBatcher {
         this.simpleBatchesInitialized = true;
     }
 
-    queue(obj: FoliageObject, type: string, intensity: number, time: number, kick: number = 0): boolean {
+    queue(
+        obj: FoliageObject,
+        type: string,
+        intensity: number,
+        time: number,
+        kick: number = 0
+    ): boolean {
         // Return true if handled, false if caller should use fallback
         if (!this.initialized) this.init();
         if (!this.initialized) return false;
@@ -356,7 +373,12 @@ export class FoliageBatcher {
         return this.queueExtended(obj, type, intensity, time, kick);
     }
 
-    private queueSimpleBatch(obj: FoliageObject, type: 'shiver' | 'spring' | 'float' | 'cloudBob', intensity: number, time: number): boolean {
+    private queueSimpleBatch(
+        obj: FoliageObject,
+        type: 'shiver' | 'spring' | 'float' | 'cloudBob',
+        intensity: number,
+        time: number
+    ): boolean {
         // If the ECS bridge is active it owns the entity; skip legacy queue path.
         const bridge = FoliageEcsBridge.getInstance();
         if (bridge.isReady()) {
@@ -389,7 +411,13 @@ export class FoliageBatcher {
         return true;
     }
 
-    private queueExtended(obj: FoliageObject, type: string, intensity: number, time: number, kick: number): boolean {
+    private queueExtended(
+        obj: FoliageObject,
+        type: string,
+        intensity: number,
+        time: number,
+        kick: number
+    ): boolean {
         if (!this.extendedInitialized) this.initExtended();
         if (!this.extendedInitialized) return false;
 
@@ -520,7 +548,12 @@ export class FoliageBatcher {
         this.flushSimpleBatches(time, audioIntensity);
     }
 
-    private processSimpleBatch(batch: BatchState, funcName: string, time: number, apply: (o: FoliageObject, v: number) => void) {
+    private processSimpleBatch(
+        batch: BatchState,
+        funcName: string,
+        time: number,
+        apply: (o: FoliageObject, v: number) => void
+    ) {
         if (batch.count === 0) return;
 
         const instance = getWasmInstance();
@@ -555,7 +588,13 @@ export class FoliageBatcher {
         batch.count = 0;
     }
 
-    private processPhysicsBatch(batch: BatchState, funcName: string, time: number, kick: number, apply: (o: FoliageObject, v: number) => void) {
+    private processPhysicsBatch(
+        batch: BatchState,
+        funcName: string,
+        time: number,
+        kick: number,
+        apply: (o: FoliageObject, v: number) => void
+    ) {
         if (batch.count === 0) return;
 
         const instance = getWasmInstance();
@@ -566,7 +605,7 @@ export class FoliageBatcher {
 
         const offPtr = batch.ptrOffsets >>> 2;
         const intPtr = batch.ptrIntensities >>> 2;
-        const orgPtr = (batch.ptrOriginalYs!) >>> 2;
+        const orgPtr = batch.ptrOriginalYs! >>> 2;
 
         let validCount = batch.count;
         if (offPtr + validCount > F32.length) validCount = Math.max(0, F32.length - offPtr);
@@ -579,7 +618,15 @@ export class FoliageBatcher {
 
         const func = (instance.exports as any)[funcName];
         if (func) {
-            func(batch.count, time, batch.ptrOriginalYs, batch.ptrOffsets, batch.ptrIntensities, kick, batch.ptrOutScalars);
+            func(
+                batch.count,
+                time,
+                batch.ptrOriginalYs,
+                batch.ptrOffsets,
+                batch.ptrIntensities,
+                kick,
+                batch.ptrOutScalars
+            );
 
             const outPtr = batch.ptrOutScalars >>> 2;
             const res = F32.subarray(outPtr, outPtr + batch.count);
@@ -603,7 +650,7 @@ export class FoliageBatcher {
 
         const offPtr = batch.ptrOffsets >>> 2;
         const intPtr = batch.ptrIntensities >>> 2;
-        const boostPtr = (batch.ptrWobbleBoosts!) >>> 2;
+        const boostPtr = batch.ptrWobbleBoosts! >>> 2;
 
         let validCount = batch.count;
         if (offPtr + validCount > F32.length) validCount = Math.max(0, F32.length - offPtr);
@@ -616,10 +663,18 @@ export class FoliageBatcher {
 
         const func = (instance.exports as any)['computeWobble'];
         if (func) {
-            func(batch.count, time, batch.ptrOffsets, batch.ptrIntensities, batch.ptrWobbleBoosts, batch.ptrOutScalars, batch.ptrOutScalars2);
+            func(
+                batch.count,
+                time,
+                batch.ptrOffsets,
+                batch.ptrIntensities,
+                batch.ptrWobbleBoosts,
+                batch.ptrOutScalars,
+                batch.ptrOutScalars2
+            );
 
             const outPtr1 = batch.ptrOutScalars >>> 2;
-            const outPtr2 = (batch.ptrOutScalars2!) >>> 2;
+            const outPtr2 = batch.ptrOutScalars2! >>> 2;
 
             for (let i = 0; i < batch.count; i++) {
                 const obj = batch.objects[i];
@@ -663,9 +718,10 @@ export class FoliageBatcher {
         }
 
         // Call the universal batch processor (C++ or AssemblyScript)
-        const func = (instance.exports as any)['processBatchUniversal_c'] || 
-                     (instance.exports as any)['processBatchUniversal'];
-        
+        const func =
+            (instance.exports as any)['processBatchUniversal_c'] ||
+            (instance.exports as any)['processBatchUniversal'];
+
         if (func) {
             func(
                 animType,
@@ -714,63 +770,99 @@ export class FoliageBatcher {
         // Process snare snap
         this.processExtendedBatch(
             this.extendedBatches.snareSnap,
-            13, time, kick, groove, snareTrigger,
+            13,
+            time,
+            kick,
+            groove,
+            snareTrigger,
             applySnareSnap
         );
 
         // Process accordion
         this.processExtendedBatch(
             this.extendedBatches.accordion,
-            14, time, kick, groove, 0,
+            14,
+            time,
+            kick,
+            groove,
+            0,
             applyAccordion
         );
 
         // Process fiber whip
         this.processExtendedBatch(
             this.extendedBatches.fiberWhip,
-            15, time, kick, groove, leadVol,
+            15,
+            time,
+            kick,
+            groove,
+            leadVol,
             applyFiberWhip
         );
 
         // Process spiral wave
         this.processExtendedBatch(
             this.extendedBatches.spiralWave,
-            16, time, kick, groove, 0,
+            16,
+            time,
+            kick,
+            groove,
+            0,
             applySpiralWave
         );
 
         // Process vibrato shake
         this.processExtendedBatch(
             this.extendedBatches.vibratoShake,
-            17, time, kick, groove, vibrato,
+            17,
+            time,
+            kick,
+            groove,
+            vibrato,
             applyVibratoShake
         );
 
         // Process tremolo pulse
         this.processExtendedBatch(
             this.extendedBatches.tremoloPulse,
-            18, time, kick, groove, tremolo,
+            18,
+            time,
+            kick,
+            groove,
+            tremolo,
             applyTremoloPulse
         );
 
         // Process cymbal shake
         this.processExtendedBatch(
             this.extendedBatches.cymbalShake,
-            19, time, kick, groove, highFreq,
+            19,
+            time,
+            kick,
+            groove,
+            highFreq,
             applyCymbalShake
         );
 
         // Process panning bob
         this.processExtendedBatch(
             this.extendedBatches.panningBob,
-            20, time, kick, groove, getPanActivity(audioData),
+            20,
+            time,
+            kick,
+            groove,
+            getPanActivity(audioData),
             applyPanningBob
         );
 
         // Process spirit fade
         this.processExtendedBatch(
             this.extendedBatches.spiritFade,
-            21, time, kick, groove, volume,
+            21,
+            time,
+            kick,
+            groove,
+            volume,
             applySpiritFade
         );
     }
@@ -789,44 +881,49 @@ export class FoliageBatcher {
         const instance = getWasmInstance();
         if (!instance) return;
 
-        const func = (instance.exports as any)['processBatchUniversal_c'] || 
-                     (instance.exports as any)['processBatchUniversal'];
+        const func =
+            (instance.exports as any)['processBatchUniversal_c'] ||
+            (instance.exports as any)['processBatchUniversal'];
         if (!func) return;
 
         // Animation type codes for simple batches (22-25)
-        const batchConfigs: { type: 'shiver' | 'spring' | 'float' | 'cloudBob', code: number, apply: (obj: FoliageObject, data: Float32Array, offset: number) => void }[] = [
+        const batchConfigs: {
+            type: 'shiver' | 'spring' | 'float' | 'cloudBob';
+            code: number;
+            apply: (obj: FoliageObject, data: Float32Array, offset: number) => void;
+        }[] = [
             {
                 type: 'shiver',
                 code: 22,
                 apply: (obj, data, offset) => {
-                    obj.rotation.z = data[offset];      // rotZ
-                    obj.rotation.x = data[offset + 1];  // rotX
-                }
+                    obj.rotation.z = data[offset]; // rotZ
+                    obj.rotation.x = data[offset + 1]; // rotX
+                },
             },
             {
                 type: 'spring',
                 code: 23,
                 apply: (obj, data, offset) => {
-                    obj.scale.y = data[offset];      // scaleY
-                    obj.scale.x = data[offset + 1];  // scaleX
-                    obj.scale.z = data[offset + 2];  // scaleZ
-                }
+                    obj.scale.y = data[offset]; // scaleY
+                    obj.scale.x = data[offset + 1]; // scaleX
+                    obj.scale.z = data[offset + 2]; // scaleZ
+                },
             },
             {
                 type: 'float',
                 code: 24,
                 apply: (obj, data, offset) => {
-                    obj.position.y = data[offset];  // posY
-                }
+                    obj.position.y = data[offset]; // posY
+                },
             },
             {
                 type: 'cloudBob',
                 code: 25,
                 apply: (obj, data, offset) => {
-                    obj.position.y = data[offset];   // posY
+                    obj.position.y = data[offset]; // posY
                     obj.rotation.y = data[offset + 1]; // rotY
-                }
-            }
+                },
+            },
         ];
 
         // OPTIMIZATION: Cached Float32Array view to prevent GC spikes in hot loops
@@ -838,16 +935,18 @@ export class FoliageBatcher {
 
             // Copy input data
             const inPtr = batch.ptrInput >>> 2;
-        let countToCopy = batch.count * ENTRY_STRIDE;
-        if (inPtr + countToCopy > F32.length) {
-            countToCopy = F32.length - inPtr;
-        }
-        if (countToCopy > 0) {
-            F32.set(batch.input.subarray(0, countToCopy), inPtr);
-        }
+            let countToCopy = batch.count * ENTRY_STRIDE;
+            if (inPtr + countToCopy > F32.length) {
+                countToCopy = F32.length - inPtr;
+            }
+            if (countToCopy > 0) {
+                F32.set(batch.input.subarray(0, countToCopy), inPtr);
+            }
 
             // Call native function
-            const nativeFunc = (instance.exports as any)[`batch${config.type.charAt(0).toUpperCase() + config.type.slice(1)}_c`];
+            const nativeFunc = (instance.exports as any)[
+                `batch${config.type.charAt(0).toUpperCase() + config.type.slice(1)}_c`
+            ];
             if (nativeFunc) {
                 nativeFunc(batch.ptrInput, batch.count, time, intensity, batch.ptrOutput);
             } else {

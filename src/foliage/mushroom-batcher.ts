@@ -1,10 +1,37 @@
 import * as THREE from 'three';
 import { log } from '../utils/log.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { instanceIndex, color, float, vec3, vec4, attribute, positionLocal,
-    sin, cos, mix, smoothstep, uniform, If, time,
-    varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
-    max, pow, min, cameraPosition, uv, floor, instanceIndex, varyingProperty
+import {
+    instanceIndex,
+    color,
+    float,
+    vec3,
+    vec4,
+    attribute,
+    positionLocal,
+    sin,
+    cos,
+    mix,
+    smoothstep,
+    uniform,
+    If,
+    time,
+    varying,
+    dot,
+    normalize,
+    normalLocal,
+    step,
+    Fn,
+    positionWorld,
+    normalWorld,
+    max,
+    pow,
+    min,
+    cameraPosition,
+    uv,
+    floor,
+    instanceIndex,
+    varyingProperty,
 } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
@@ -15,10 +42,19 @@ const modFloat = (x: any, y: any) => {
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
 import {
-    sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
-    createSugarSparkle, getCachedProceduralMaterial,
-    applyBaseContactAO, getBaseContactHeight,
+    sharedGeometries,
+    foliageMaterials,
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    createRimLight,
+    createJuicyRimLight,
+    uPlayerPosition,
+    colorFromNote,
+    createSugarSparkle,
+    getCachedProceduralMaterial,
+    applyBaseContactAO,
+    getBaseContactHeight,
 } from './index.ts';
 import {
     applyPlayerInteractionWithLod,
@@ -101,7 +137,10 @@ export class MushroomBatcher {
         const geometry = this.createMergedGeometry();
 
         // 2. Attributes - SINGLE packed attribute to stay within WebGPU 8 buffer limit
-        this.instanceData = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 4), 4);
+        this.instanceData = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_MUSHROOMS * 4),
+            4
+        );
         geometry.setAttribute('instanceData', this.instanceData);
 
         // 3. Materials with TSL
@@ -130,7 +169,10 @@ export class MushroomBatcher {
         }
 
         this.initialized = true;
-        registerFoliageBatcherLod({ id: 'mushroom', getMeshes: () => this.mesh ? [this.mesh] : [] });
+        registerFoliageBatcherLod({
+            id: 'mushroom',
+            getMeshes: () => (this.mesh ? [this.mesh] : []),
+        });
         log.info('MushroomBatcher', 'Initialized with capacity ' + MAX_MUSHROOMS);
     }
 
@@ -145,7 +187,11 @@ export class MushroomBatcher {
         const indices: number[] = [];
 
         let vertexOffset = 0;
-        const addPart = (geo: THREE.BufferGeometry, matIndex: number, transform?: THREE.Matrix4) => {
+        const addPart = (
+            geo: THREE.BufferGeometry,
+            matIndex: number,
+            transform?: THREE.Matrix4
+        ) => {
             const posAttr = geo.attributes.position;
             const normAttr = geo.attributes.normal;
             const uvAttr = geo.attributes.uv;
@@ -191,7 +237,7 @@ export class MushroomBatcher {
             // Since we add parts in order of material index, we can just track start/end.
         };
 
-        const groups: { start: number, count: number, materialIndex: number }[] = [];
+        const groups: { start: number; count: number; materialIndex: number }[] = [];
         const matIndices = [0, 1, 2, 3, 4, 5, 6, 7];
         // 0: Stem, 1: Cap, 2: Gills, 3: Spots, 4: Eye, 5: Pupil, 6: Mouth, 7: Cheek
 
@@ -235,8 +281,11 @@ export class MushroomBatcher {
         startIndex = indices.length;
         const spotGeo = sharedGeometries.unitSphere;
         const spots = [
-            { u: 0.1, v: 0.2 }, { u: 0.4, v: 0.3 }, { u: 0.7, v: 0.25 },
-            { u: 0.2, v: 0.6 }, { u: 0.8, v: 0.5 }
+            { u: 0.1, v: 0.2 },
+            { u: 0.4, v: 0.3 },
+            { u: 0.7, v: 0.25 },
+            { u: 0.2, v: 0.6 },
+            { u: 0.8, v: 0.5 },
         ];
 
         for (const spot of spots) {
@@ -271,12 +320,17 @@ export class MushroomBatcher {
         // We will scale the parts here.
 
         // RESET ARRAYS
-        positions.length = 0; normals.length = 0; uvs.length = 0; indices.length = 0; groups.length = 0; vertexOffset = 0;
+        positions.length = 0;
+        normals.length = 0;
+        uvs.length = 0;
+        indices.length = 0;
+        groups.length = 0;
+        vertexOffset = 0;
 
         const STEM_R = 0.15;
         const STEM_H = 1.0;
         const CAP_R = 0.4;
-        const CAP_Y = STEM_H - (CAP_R * 0.2);
+        const CAP_Y = STEM_H - CAP_R * 0.2;
 
         // 1. Stem
         startIndex = indices.length;
@@ -340,7 +394,11 @@ export class MushroomBatcher {
             _scratchPos.add(p);
             _scratchDummyObj.lookAt(_scratchPos); // Look away
             _scratchDummyObj.scale.set(spotScale, spotScale, spotScale * 0.2); // Flatten Z
-            _scratchMatrix.compose(_scratchDummyObj.position, _scratchDummyObj.quaternion, _scratchDummyObj.scale);
+            _scratchMatrix.compose(
+                _scratchDummyObj.position,
+                _scratchDummyObj.quaternion,
+                _scratchDummyObj.scale
+            );
             addPart(sharedGeometries.unitSphere, 3, _scratchMatrix);
         }
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 3 });
@@ -375,7 +433,7 @@ export class MushroomBatcher {
         // 6. Pupils (Material 5)
         startIndex = indices.length;
         const pupilScale = 0.05 * FACE_SCALE;
-        const pupilZ = eyeZ + (eyeScale * 0.8); // Protrude
+        const pupilZ = eyeZ + eyeScale * 0.8; // Protrude
         m.makeTranslation(-eyeOffset, eyeY, pupilZ);
         _scratchScale.set(pupilScale, pupilScale, pupilScale);
         m.scale(_scratchScale);
@@ -423,7 +481,9 @@ export class MushroomBatcher {
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geo.setIndex(indices);
 
-        for (let i = 0; i < groups.length; i++) { geo.addGroup(groups[i].start, groups[i].count, groups[i].materialIndex); }
+        for (let i = 0; i < groups.length; i++) {
+            geo.addGroup(groups[i].start, groups[i].count, groups[i].materialIndex);
+        }
 
         return geo;
     }
@@ -456,7 +516,10 @@ export class MushroomBatcher {
         const noteAge = uTime.sub(triggerTime);
         const isBouncing = step(0.0, noteAge).mul(step(noteAge, 0.5)); // 0.5s bounce duration
         const bouncePhase = noteAge.mul(Math.PI * 4.0); // 2 cycles
-        const bounceAmount = sin(bouncePhase).mul(velocity).mul(float(1.0).sub(noteAge.mul(2.0))).max(0.0);
+        const bounceAmount = sin(bouncePhase)
+            .mul(velocity)
+            .mul(float(1.0).sub(noteAge.mul(2.0)))
+            .max(0.0);
 
         // Squash/Stretch logic
         // Y Scale: 1 - bounce
@@ -541,24 +604,20 @@ export class MushroomBatcher {
             const finalScaleY = totalScaleY.mul(squashScale.y).mul(breathScale.y);
             const finalScaleXZ = totalScaleXZ.mul(squashScale.x).mul(breathScale.x).add(wobble);
 
-            return vec3(
-                pos.x.mul(finalScaleXZ),
-                pos.y.mul(finalScaleY),
-                pos.z.mul(finalScaleXZ)
-            );
+            return vec3(pos.x.mul(finalScaleXZ), pos.y.mul(finalScaleY), pos.z.mul(finalScaleXZ));
         };
 
         // --- Material Definitions ---
 
         // 0. Stem
-        const stemMat = getCachedProceduralMaterial('mushroom_stem_wind', 0xFFFFFF, () => {
+        const stemMat = getCachedProceduralMaterial('mushroom_stem_wind', 0xffffff, () => {
             const m = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
             m.colorNode = applyBaseContactAO(
-                color(0xF5F5DC),
+                color(0xf5f5dc),
                 positionLocal.y,
-                float(getBaseContactHeight('mushroom')),
+                float(getBaseContactHeight('mushroom'))
             );
             applyFoliageLodMaterialFade(m);
             return m;
@@ -568,7 +627,7 @@ export class MushroomBatcher {
         // PALETTE: Upgraded to use instanceColor + Juicy Rim Light
         // mushroomCap is an array of materials in common.ts
         const capList = foliageMaterials.mushroomCap as MeshStandardNodeMaterial[];
-        const capMat = getCachedProceduralMaterial('mushroom_cap_wind', 0xFFFFFF, () => {
+        const capMat = getCachedProceduralMaterial('mushroom_cap_wind', 0xffffff, () => {
             const m = capList[0].clone();
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
@@ -601,11 +660,15 @@ export class MushroomBatcher {
         const innerGlowFactor = NdotV.pow(2.0).mul(sssIntensity);
 
         // Warm/Pink tint for the inner light
-        const innerGlowColor = mix(baseColor, color(0xFFDDDD), 0.5).mul(innerGlowFactor);
+        const innerGlowColor = mix(baseColor, color(0xffdddd), 0.5).mul(innerGlowFactor);
 
         // Final Color: Base + Rim + Inner Glow, then aerial recession
         const capDiffuse = baseColor.add(rimLight).add(innerGlowColor);
-        capMat.colorNode = applyAerialPerspective(capDiffuse, positionWorld, aerialPerspectiveLodBoost());
+        capMat.colorNode = applyAerialPerspective(
+            capDiffuse,
+            positionWorld,
+            aerialPerspectiveLodBoost()
+        );
 
         // Emissive Logic for Cap (Bioluminescence + Flash)
         const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
@@ -617,11 +680,17 @@ export class MushroomBatcher {
         const glowPulseAmp = float(CONFIG.glow.glowPulseAmplitude);
 
         // Use a base idle pulse that responds to audio and time with the phase offset
-        const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset)).mul(glowPulseAmp).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.5));
+        const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset))
+            .mul(glowPulseAmp)
+            .add(1.0)
+            .mul(float(0.5))
+            .mul(uAudioLow.mul(0.5));
 
         // Get the specific twilight glow color from config and multiply by twilight window
         const targetGlowColor = color(CONFIG.glow.glowColorMap['mushroom']);
-        const twilightGlowTint = targetGlowColor.mul(uTwilight).mul(float(CONFIG.glow.glowIntensityMax));
+        const twilightGlowTint = targetGlowColor
+            .mul(uTwilight)
+            .mul(float(CONFIG.glow.glowIntensityMax));
         const baseGlow = uTwilight.mul(float(0.5).add(idlePulse));
 
         // Combine Glow + Flash + Sparkle
@@ -629,18 +698,28 @@ export class MushroomBatcher {
         // Actually, adding to colorNode makes it appear as surface color.
         // To make it truly glow in dark, we should add some of it to emissive too?
         // Yes, let's add a fraction of inner glow to emissive for night visibility.
-        const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
+        const totalGlow = baseGlow
+            .add(flashIntensity)
+            .add(sugarSparkle)
+            .add(innerGlowFactor.mul(0.3));
 
         // Add twilight glow directly to emissive node output
         // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
-        const circadianGlowMult = mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);
+        const circadianGlowMult = mix(
+            float(CONFIG.circadian.nightGlowMultiplier),
+            float(1.0),
+            uCircadianPhase
+        );
         capMat.emissiveNode = scaleEmissiveByLod(
-            twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult)
+            twilightGlowTint
+                .mul(BiomeUniforms.crystallineNebula.noteColor)
+                .mul(totalGlow)
+                .mul(circadianGlowMult)
         );
         capMat.emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills
-        const gillMat = getCachedProceduralMaterial('mushroom_gill_wind', 0xFFFFFF, () => {
+        const gillMat = getCachedProceduralMaterial('mushroom_gill_wind', 0xffffff, () => {
             const m = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
@@ -650,7 +729,7 @@ export class MushroomBatcher {
         }) as MeshStandardNodeMaterial;
 
         // 3. Spots
-        const spotMat = getCachedProceduralMaterial('mushroom_spot_wind', 0xFFFFFF, () => {
+        const spotMat = getCachedProceduralMaterial('mushroom_spot_wind', 0xffffff, () => {
             const m = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
@@ -704,11 +783,11 @@ export class MushroomBatcher {
         // 1. Set Matrix
         _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, i * 16);
 
         // PALETTE: Set Color
         // Default to Red (0xFF6B6B) if no note color provided
-        const colorHex = options.noteColor !== undefined ? options.noteColor : 0xFF6B6B;
+        const colorHex = options.noteColor !== undefined ? options.noteColor : 0xff6b6b;
         _scratchColor.setHex(colorHex);
         // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
         if (this.mesh!.instanceColor) {
@@ -725,8 +804,8 @@ export class MushroomBatcher {
         const noteIndex = options.noteIndex !== undefined ? options.noteIndex : -1;
         const isGiant = options.size === 'giant' ? 1.0 : 0.0;
         const spawnTime = options.spawnTime || -100.0;
-        const packedFlags = (noteIndex + 1) + hasFace * 20 + isGiant * 40;
-        
+        const packedFlags = noteIndex + 1 + hasFace * 20 + isGiant * 40;
+
         // instanceData: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
         // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setXYZW overhead by writing directly to typed array
         const instanceDataArray = this.instanceData!.array as Float32Array;
@@ -784,7 +863,7 @@ export class MushroomBatcher {
             const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
             const destOffset = indexToRemove * 16;
             const srcOffset = lastIndex * 16;
-            for(let k = 0; k < 16; k++) {
+            for (let k = 0; k < 16; k++) {
                 matrixArray[destOffset + k] = matrixArray[srcOffset + k];
             }
 
@@ -840,7 +919,10 @@ export class MushroomBatcher {
         if (indices) {
             // PALETTE FIX: Use uTime.value for sync with TSL shader
             // Cast to any to access .value on UniformNode
-            const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000.0;
+            const now =
+                (uTime as any).value !== undefined
+                    ? (uTime as any).value
+                    : performance.now() / 1000.0;
             const normalizedVelocity = velocity / 127.0;
 
             const instanceDataArray = this.instanceData!.array as Float32Array;
@@ -858,18 +940,28 @@ export class MushroomBatcher {
                     const matOffset = i * 16;
 
                     // Extract position
-                    _scratchPos.set(matrixArray[matOffset + 12], matrixArray[matOffset + 13], matrixArray[matOffset + 14]);
+                    _scratchPos.set(
+                        matrixArray[matOffset + 12],
+                        matrixArray[matOffset + 13],
+                        matrixArray[matOffset + 14]
+                    );
 
                     // Extract scale Y (magnitude of the second column)
-                    const m10 = matrixArray[matOffset + 4], m11 = matrixArray[matOffset + 5], m12 = matrixArray[matOffset + 6];
+                    const m10 = matrixArray[matOffset + 4],
+                        m11 = matrixArray[matOffset + 5],
+                        m12 = matrixArray[matOffset + 6];
                     const scaleY = Math.sqrt(m10 * m10 + m11 * m11 + m12 * m12);
 
                     if (this.mesh.instanceColor) {
                         const colorArray = this.mesh.instanceColor.array as Float32Array;
                         const colOffset = i * 3;
-                        _scratchColor.setRGB(colorArray[colOffset], colorArray[colOffset + 1], colorArray[colOffset + 2]);
+                        _scratchColor.setRGB(
+                            colorArray[colOffset],
+                            colorArray[colOffset + 1],
+                            colorArray[colOffset + 2]
+                        );
                     } else {
-                        _scratchColor.setHex(0xFFFFFF);
+                        _scratchColor.setHex(0xffffff);
                     }
 
                     // Offset slightly up (cap height approx 1.0 * scale.y)
@@ -886,7 +978,10 @@ export class MushroomBatcher {
 
             // 🎨 Palette: "Juice" Factor - Add screen bump on high velocity
             if (typeof uChromaticIntensity !== 'undefined' && normalizedVelocity > 0.5) {
-                uChromaticIntensity.value = Math.max(uChromaticIntensity.value, normalizedVelocity * 0.3);
+                uChromaticIntensity.value = Math.max(
+                    uChromaticIntensity.value,
+                    normalizedVelocity * 0.3
+                );
             }
         }
     }

@@ -1,4 +1,4 @@
-import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { log } from '../utils/log.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 // src/foliage/tree-batcher.ts
@@ -22,8 +22,21 @@ import {
     getBaseContactHeight,
 } from './index.ts';
 import {
-    color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
-    mx_noise_float, normalWorld, varyingProperty, instanceIndex as tslInstanceIndex
+    color,
+    float,
+    vec3,
+    positionLocal,
+    mix,
+    attribute,
+    uv,
+    sin,
+    cos,
+    positionWorld,
+    smoothstep,
+    mx_noise_float,
+    normalWorld,
+    varyingProperty,
+    instanceIndex as tslInstanceIndex,
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
@@ -49,9 +62,9 @@ const _scratchTreeMatrix = new THREE.Matrix4();
 const _scratchTreeOriginalQuaternion = new THREE.Quaternion();
 const _scratchTreeFinalQuaternion = new THREE.Quaternion();
 
-const _defaultColorWhite = new THREE.Color(0xFFFFFF);
-const _defaultColorOrange = new THREE.Color(0xFF4500);
-const _defaultColorGreen = new THREE.Color(0x00FA9A);
+const _defaultColorWhite = new THREE.Color(0xffffff);
+const _defaultColorOrange = new THREE.Color(0xff4500);
+const _defaultColorGreen = new THREE.Color(0x00fa9a);
 
 // Initial capacity - grows dynamically as needed (doubles each time, capped at MAX)
 const INITIAL_INSTANCES = getCIAdjustedCount(100, 0.5, 50);
@@ -119,9 +132,13 @@ export class TreeBatcher {
         const trunkColorGrounded = applyBaseContactAO(
             trunkColorRaw,
             positionLocal.y,
-            float(getBaseContactHeight('tree')),
+            float(getBaseContactHeight('tree'))
         );
-        const trunkColor = applyAerialPerspective(trunkColorGrounded, positionWorld, aerialPerspectiveLodBoost());
+        const trunkColor = applyAerialPerspective(
+            trunkColorGrounded,
+            positionWorld,
+            aerialPerspectiveLodBoost()
+        );
 
         // Combined Deformation: Interaction + Wind
         const animOffsetTrunk = applyInstanceAnimation();
@@ -129,22 +146,35 @@ export class TreeBatcher {
         const trunkDeform = foliageDeformationOffset(baseTrunkPos);
 
         // Create Material using CandyPresets.Clay for nice bump/rim
-        const trunkMat = CandyPresets.Clay(0x8B4513, {
+        const trunkMat = CandyPresets.Clay(0x8b4513, {
             colorNode: trunkColor,
             roughness: 0.8,
             bumpStrength: 0.2, // Bark texture
-            rimStrength: 0.3,  // Subtle separation
+            rimStrength: 0.3, // Subtle separation
             deformationNode: trunkDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
-            triplanar: true    // Avoid UV seams on cylinder
+            triplanar: true, // Avoid UV seams on cylinder
         });
 
         applyFoliageLodMaterialFade(trunkMat);
 
-        this.trunks = new THREE.InstancedMesh(sharedGeometries.unitCylinder, trunkMat, this.trunkCapacity);
-        this.trunks.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity * 3), 3);
+        this.trunks = new THREE.InstancedMesh(
+            sharedGeometries.unitCylinder,
+            trunkMat,
+            this.trunkCapacity
+        );
+        this.trunks.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(this.trunkCapacity * 3),
+            3
+        );
         this.trunks.geometry.setAttribute('instanceColor', this.trunks.instanceColor);
-        this.trunks.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1));
-        this.trunks.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1));
+        this.trunks.geometry.setAttribute(
+            'instanceAnimType',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1)
+        );
+        this.trunks.geometry.setAttribute(
+            'instanceAnimOffset',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1)
+        );
         initInstanceLodAttribute(this.trunks, this.trunkCapacity);
         this.trunks.castShadow = true;
         this.trunks.receiveShadow = true;
@@ -157,7 +187,7 @@ export class TreeBatcher {
         const sphereColor = applyAerialPerspective(
             sphereInstanceColor,
             positionWorld,
-            aerialPerspectiveLodBoost(),
+            aerialPerspectiveLodBoost()
         );
 
         // Flutter: High frequency vertex displacement driven by wind
@@ -174,8 +204,8 @@ export class TreeBatcher {
         // Squash Y, Bulge XZ (Volume preservation approximation)
         const squashScale = vec3(
             float(1.0).add(kickSquash.mul(0.5)), // X bulge
-            float(1.0).sub(kickSquash),          // Y squash
-            float(1.0).add(kickSquash.mul(0.5))  // Z bulge
+            float(1.0).sub(kickSquash), // Y squash
+            float(1.0).add(kickSquash.mul(0.5)) // Z bulge
         );
 
         const animOffsetSphere = applyInstanceAnimation();
@@ -196,38 +226,62 @@ export class TreeBatcher {
         const glowPulseAmp = float(CONFIG.glow.glowPulseAmplitude);
 
         // Idle pulse responding to audio and time, with phase offset
-        const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset)).mul(glowPulseAmp).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.5));
+        const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset))
+            .mul(glowPulseAmp)
+            .add(1.0)
+            .mul(float(0.5))
+            .mul(uAudioLow.mul(0.5));
 
         // Target glow color from config mapped to twilight
         const targetGlowColor = color(CONFIG.glow.glowColorMap['tree']);
-        const twilightGlowTint = targetGlowColor.mul(uTwilight).mul(float(CONFIG.glow.glowIntensityMax)).mul(float(0.5).add(idlePulse));
+        const twilightGlowTint = targetGlowColor
+            .mul(uTwilight)
+            .mul(float(CONFIG.glow.glowIntensityMax))
+            .mul(float(0.5).add(idlePulse));
 
         // Add Sugar Sparkle! (Palette Polish)
         // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
         const sugarSparkle = createSugarSparkle(normalWorld, float(15.0), float(0.3), float(2.0));
 
         // Material: Gummy for slight translucency/juice
-        const sphereMat = CandyPresets.Gummy(0x228B22, {
+        const sphereMat = CandyPresets.Gummy(0x228b22, {
             colorNode: sphereColor,
             roughness: 0.4,
             transmission: 0.3, // Semi-opaque
             thickness: 1.0,
             deformationNode: sphereFinalDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
             rimStrength: 0.6, // Strong rim for pop
-            audioReactStrength: 0.5 // Inner glow pulse
+            audioReactStrength: 0.5, // Inner glow pulse
         });
 
         // 🎨 PALETTE: Make tree leaves pop with sparkly glow, base audio emissive, and twilight glow
         sphereMat.emissiveNode = scaleEmissiveByLod(
-            sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null))
+            sphereEmissive
+                .mul(BiomeUniforms.arpeggioGrove.noteColor)
+                .add(sugarSparkle)
+                .add(twilightGlowTint)
+                .add(createJuicyRimLight(color(0xffffff), float(1.5), float(3.0), null))
         );
         applyFoliageLodMaterialFade(sphereMat);
 
-        this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
-        this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
+        this.spheres = new THREE.InstancedMesh(
+            sharedGeometries.unitSphere,
+            sphereMat,
+            this.sphereCapacity
+        );
+        this.spheres.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(this.sphereCapacity * 3),
+            3
+        );
         this.spheres.geometry.setAttribute('instanceColor', this.spheres.instanceColor);
-        this.spheres.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1));
-        this.spheres.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1));
+        this.spheres.geometry.setAttribute(
+            'instanceAnimType',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1)
+        );
+        this.spheres.geometry.setAttribute(
+            'instanceAnimOffset',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1)
+        );
         initInstanceLodAttribute(this.spheres, this.sphereCapacity);
         this.spheres.castShadow = true;
         this.spheres.receiveShadow = true;
@@ -239,31 +293,44 @@ export class TreeBatcher {
         const capsuleColorGrounded = applyBaseContactAO(
             capsuleColorRaw,
             positionLocal.y,
-            float(getBaseContactHeight('tree')),
+            float(getBaseContactHeight('tree'))
         );
         const capsuleColor = applyAerialPerspective(
             capsuleColorGrounded,
             positionWorld,
-            aerialPerspectiveLodBoost(),
+            aerialPerspectiveLodBoost()
         );
         const animOffsetCapsule = applyInstanceAnimation();
         const baseCapsulePos = positionLocal.add(animOffsetCapsule);
         const capsuleDeform = foliageDeformationOffset(baseCapsulePos);
 
-        const capsuleMat = CandyPresets.Clay(0x8B4513, {
+        const capsuleMat = CandyPresets.Clay(0x8b4513, {
             colorNode: capsuleColor,
             roughness: 0.7,
             deformationNode: capsuleDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
-            rimStrength: 0.4
+            rimStrength: 0.4,
         });
 
         applyFoliageLodMaterialFade(capsuleMat);
 
-        this.capsules = new THREE.InstancedMesh(sharedGeometries.capsule, capsuleMat, this.capsuleCapacity);
-        this.capsules.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity * 3), 3);
+        this.capsules = new THREE.InstancedMesh(
+            sharedGeometries.capsule,
+            capsuleMat,
+            this.capsuleCapacity
+        );
+        this.capsules.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(this.capsuleCapacity * 3),
+            3
+        );
         this.capsules.geometry.setAttribute('instanceColor', this.capsules.instanceColor);
-        this.capsules.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1));
-        this.capsules.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1));
+        this.capsules.geometry.setAttribute(
+            'instanceAnimType',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1)
+        );
+        this.capsules.geometry.setAttribute(
+            'instanceAnimOffset',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1)
+        );
         initInstanceLodAttribute(this.capsules, this.capsuleCapacity);
         this.capsules.castShadow = true;
         this.capsules.receiveShadow = true;
@@ -275,7 +342,7 @@ export class TreeBatcher {
         const helixColor = applyAerialPerspective(
             varyingProperty('vec3', 'vInstanceColor'),
             positionWorld,
-            aerialPerspectiveLodBoost(),
+            aerialPerspectiveLodBoost()
         );
 
         // Spiral Math for Geometry (applied in vertex shader)
@@ -294,13 +361,13 @@ export class TreeBatcher {
         const pulse = sin(pulsePhase).mul(0.5).add(0.5); // 0..1
         const audioBoost = uAudioHigh.mul(1.5);
 
-        const helixMat = CandyPresets.Gummy(0x00FA9A, {
+        const helixMat = CandyPresets.Gummy(0x00fa9a, {
             colorNode: helixColor,
             roughness: 0.2,
             deformationNode: helixDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
-            emissive: 0xFFFFFF,
+            emissive: 0xffffff,
             emissiveIntensity: pulse.mul(0.5).add(audioBoost), // Dynamic glow
-            rimStrength: 0.8
+            rimStrength: 0.8,
         });
 
         applyFoliageLodMaterialFade(helixMat);
@@ -311,10 +378,19 @@ export class TreeBatcher {
         helixGeo.translate(0, 0.5, 0);
 
         this.helices = new THREE.InstancedMesh(helixGeo, helixMat, this.helixCapacity);
-        this.helices.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity * 3), 3);
+        this.helices.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(this.helixCapacity * 3),
+            3
+        );
         this.helices.geometry.setAttribute('instanceColor', this.helices.instanceColor);
-        this.helices.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1));
-        this.helices.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1));
+        this.helices.geometry.setAttribute(
+            'instanceAnimType',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1)
+        );
+        this.helices.geometry.setAttribute(
+            'instanceAnimOffset',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1)
+        );
         initInstanceLodAttribute(this.helices, this.helixCapacity);
         this.helices.castShadow = true;
         this.helices.receiveShadow = true;
@@ -326,19 +402,19 @@ export class TreeBatcher {
         const roseColor = applyAerialPerspective(
             varyingProperty('vec3', 'vInstanceColor'),
             positionWorld,
-            aerialPerspectiveLodBoost(),
+            aerialPerspectiveLodBoost()
         );
         const animOffsetRose = applyInstanceAnimation();
         const baseRosePos = positionLocal.add(animOffsetRose);
         const roseDeform = foliageDeformationOffset(baseRosePos);
 
         // Use Sugar preset for crystalline/sparkly look
-        const roseMat = CandyPresets.Sugar(0xFF69B4, {
+        const roseMat = CandyPresets.Sugar(0xff69b4, {
             colorNode: roseColor,
             roughness: 0.4,
             deformationNode: roseDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
             sheen: 1.0,
-            audioReactStrength: 0.8 // Strong glow response
+            audioReactStrength: 0.8, // Strong glow response
         });
 
         applyFoliageLodMaterialFade(roseMat);
@@ -346,10 +422,19 @@ export class TreeBatcher {
         // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
         const roseGeo = getTorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
         this.roses = new THREE.InstancedMesh(roseGeo, roseMat, this.roseCapacity);
-        this.roses.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity * 3), 3);
+        this.roses.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(this.roseCapacity * 3),
+            3
+        );
         this.roses.geometry.setAttribute('instanceColor', this.roses.instanceColor);
-        this.roses.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1));
-        this.roses.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1));
+        this.roses.geometry.setAttribute(
+            'instanceAnimType',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1)
+        );
+        this.roses.geometry.setAttribute(
+            'instanceAnimOffset',
+            new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1)
+        );
         initInstanceLodAttribute(this.roses, this.roseCapacity);
         this.roses.castShadow = true;
         this.roses.receiveShadow = true;
@@ -375,7 +460,7 @@ export class TreeBatcher {
         if (mesh.geometry) mesh.geometry.dispose();
         if (mesh.material) {
             if (Array.isArray(mesh.material)) {
-                mesh.material.forEach(m => m.dispose());
+                mesh.material.forEach((m) => m.dispose());
             } else {
                 mesh.material.dispose();
             }
@@ -383,7 +468,9 @@ export class TreeBatcher {
 
         // Ensure custom instance attributes are disposed if supported
         if (mesh.instanceColor && typeof (mesh.instanceColor as any).dispose === 'function') {
-            try { (mesh.instanceColor as any).dispose(); } catch (e) {}
+            try {
+                (mesh.instanceColor as any).dispose();
+            } catch (e) {}
         }
     }
 
@@ -391,15 +478,19 @@ export class TreeBatcher {
         if (this.trunkCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.trunks;
         this.trunkCapacity = Math.min(this.trunkCapacity * 2, MAX_INSTANCES);
-        
-        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.trunkCapacity);
-        
+
+        const newMesh = new THREE.InstancedMesh(
+            oldMesh.geometry,
+            oldMesh.material,
+            this.trunkCapacity
+        );
+
         // Copy existing matrix data
         const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
         const newMatrixArray = new Float32Array(this.trunkCapacity * 16);
         newMatrixArray.set(oldMatrixArray);
         newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
-        
+
         // Copy existing color data
         if (oldMesh.instanceColor) {
             const oldColorArray = oldMesh.instanceColor.array as Float32Array;
@@ -408,19 +499,27 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
             newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
-        
+
         if (oldMesh.geometry.attributes.instanceAnimType) {
-            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType
+                .array as Float32Array;
             const newAnimTypeArray = new Float32Array(this.trunkCapacity);
             newAnimTypeArray.set(oldAnimTypeArray);
-            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimType',
+                new THREE.InstancedBufferAttribute(newAnimTypeArray, 1)
+            );
         }
 
         if (oldMesh.geometry.attributes.instanceAnimOffset) {
-            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset
+                .array as Float32Array;
             const newAnimOffsetArray = new Float32Array(this.trunkCapacity);
             newAnimOffsetArray.set(oldAnimOffsetArray);
-            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimOffset',
+                new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1)
+            );
         }
 
         copyInstanceLodOnGrow(oldMesh, newMesh, this.trunkCapacity);
@@ -428,12 +527,11 @@ export class TreeBatcher {
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
-        
+
         // Replace in scene
         safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
 
-        
         this.trunks = newMesh;
         refreshFoliageLodMesh(newMesh);
         log.info('TreeBatcher', `Grew trunk buffer to ${this.trunkCapacity}`);
@@ -443,14 +541,18 @@ export class TreeBatcher {
         if (this.sphereCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.spheres;
         this.sphereCapacity = Math.min(this.sphereCapacity * 2, MAX_INSTANCES);
-        
-        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.sphereCapacity);
-        
+
+        const newMesh = new THREE.InstancedMesh(
+            oldMesh.geometry,
+            oldMesh.material,
+            this.sphereCapacity
+        );
+
         const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
         const newMatrixArray = new Float32Array(this.sphereCapacity * 16);
         newMatrixArray.set(oldMatrixArray);
         newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
-        
+
         if (oldMesh.instanceColor) {
             const oldColorArray = oldMesh.instanceColor.array as Float32Array;
             const newColorArray = new Float32Array(this.sphereCapacity * 3);
@@ -458,19 +560,27 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
             newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
-        
+
         if (oldMesh.geometry.attributes.instanceAnimType) {
-            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType
+                .array as Float32Array;
             const newAnimTypeArray = new Float32Array(this.sphereCapacity);
             newAnimTypeArray.set(oldAnimTypeArray);
-            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimType',
+                new THREE.InstancedBufferAttribute(newAnimTypeArray, 1)
+            );
         }
 
         if (oldMesh.geometry.attributes.instanceAnimOffset) {
-            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset
+                .array as Float32Array;
             const newAnimOffsetArray = new Float32Array(this.sphereCapacity);
             newAnimOffsetArray.set(oldAnimOffsetArray);
-            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimOffset',
+                new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1)
+            );
         }
 
         copyInstanceLodOnGrow(oldMesh, newMesh, this.sphereCapacity);
@@ -478,11 +588,10 @@ export class TreeBatcher {
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
-        
+
         safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
 
-        
         this.spheres = newMesh;
         refreshFoliageLodMesh(newMesh);
         log.info('TreeBatcher', `Grew sphere buffer to ${this.sphereCapacity}`);
@@ -492,14 +601,18 @@ export class TreeBatcher {
         if (this.capsuleCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.capsules;
         this.capsuleCapacity = Math.min(this.capsuleCapacity * 2, MAX_INSTANCES);
-        
-        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.capsuleCapacity);
-        
+
+        const newMesh = new THREE.InstancedMesh(
+            oldMesh.geometry,
+            oldMesh.material,
+            this.capsuleCapacity
+        );
+
         const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
         const newMatrixArray = new Float32Array(this.capsuleCapacity * 16);
         newMatrixArray.set(oldMatrixArray);
         newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
-        
+
         if (oldMesh.instanceColor) {
             const oldColorArray = oldMesh.instanceColor.array as Float32Array;
             const newColorArray = new Float32Array(this.capsuleCapacity * 3);
@@ -507,19 +620,27 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
             newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
-        
+
         if (oldMesh.geometry.attributes.instanceAnimType) {
-            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType
+                .array as Float32Array;
             const newAnimTypeArray = new Float32Array(this.capsuleCapacity);
             newAnimTypeArray.set(oldAnimTypeArray);
-            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimType',
+                new THREE.InstancedBufferAttribute(newAnimTypeArray, 1)
+            );
         }
 
         if (oldMesh.geometry.attributes.instanceAnimOffset) {
-            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset
+                .array as Float32Array;
             const newAnimOffsetArray = new Float32Array(this.capsuleCapacity);
             newAnimOffsetArray.set(oldAnimOffsetArray);
-            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimOffset',
+                new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1)
+            );
         }
 
         copyInstanceLodOnGrow(oldMesh, newMesh, this.capsuleCapacity);
@@ -527,11 +648,10 @@ export class TreeBatcher {
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
-        
+
         safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
 
-        
         this.capsules = newMesh;
         refreshFoliageLodMesh(newMesh);
         log.info('TreeBatcher', `Grew capsule buffer to ${this.capsuleCapacity}`);
@@ -541,14 +661,18 @@ export class TreeBatcher {
         if (this.helixCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.helices;
         this.helixCapacity = Math.min(this.helixCapacity * 2, MAX_INSTANCES);
-        
-        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.helixCapacity);
-        
+
+        const newMesh = new THREE.InstancedMesh(
+            oldMesh.geometry,
+            oldMesh.material,
+            this.helixCapacity
+        );
+
         const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
         const newMatrixArray = new Float32Array(this.helixCapacity * 16);
         newMatrixArray.set(oldMatrixArray);
         newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
-        
+
         if (oldMesh.instanceColor) {
             const oldColorArray = oldMesh.instanceColor.array as Float32Array;
             const newColorArray = new Float32Array(this.helixCapacity * 3);
@@ -556,19 +680,27 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
             newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
-        
+
         if (oldMesh.geometry.attributes.instanceAnimType) {
-            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType
+                .array as Float32Array;
             const newAnimTypeArray = new Float32Array(this.helixCapacity);
             newAnimTypeArray.set(oldAnimTypeArray);
-            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimType',
+                new THREE.InstancedBufferAttribute(newAnimTypeArray, 1)
+            );
         }
 
         if (oldMesh.geometry.attributes.instanceAnimOffset) {
-            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset
+                .array as Float32Array;
             const newAnimOffsetArray = new Float32Array(this.helixCapacity);
             newAnimOffsetArray.set(oldAnimOffsetArray);
-            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimOffset',
+                new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1)
+            );
         }
 
         copyInstanceLodOnGrow(oldMesh, newMesh, this.helixCapacity);
@@ -576,11 +708,10 @@ export class TreeBatcher {
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
-        
+
         safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
 
-        
         this.helices = newMesh;
         refreshFoliageLodMesh(newMesh);
         log.info('TreeBatcher', `Grew helix buffer to ${this.helixCapacity}`);
@@ -590,14 +721,18 @@ export class TreeBatcher {
         if (this.roseCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.roses;
         this.roseCapacity = Math.min(this.roseCapacity * 2, MAX_INSTANCES);
-        
-        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.roseCapacity);
-        
+
+        const newMesh = new THREE.InstancedMesh(
+            oldMesh.geometry,
+            oldMesh.material,
+            this.roseCapacity
+        );
+
         const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
         const newMatrixArray = new Float32Array(this.roseCapacity * 16);
         newMatrixArray.set(oldMatrixArray);
         newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
-        
+
         if (oldMesh.instanceColor) {
             const oldColorArray = oldMesh.instanceColor.array as Float32Array;
             const newColorArray = new Float32Array(this.roseCapacity * 3);
@@ -605,19 +740,27 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
             newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
-        
+
         if (oldMesh.geometry.attributes.instanceAnimType) {
-            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType
+                .array as Float32Array;
             const newAnimTypeArray = new Float32Array(this.roseCapacity);
             newAnimTypeArray.set(oldAnimTypeArray);
-            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimType',
+                new THREE.InstancedBufferAttribute(newAnimTypeArray, 1)
+            );
         }
 
         if (oldMesh.geometry.attributes.instanceAnimOffset) {
-            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset
+                .array as Float32Array;
             const newAnimOffsetArray = new Float32Array(this.roseCapacity);
             newAnimOffsetArray.set(oldAnimOffsetArray);
-            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+            newMesh.geometry.setAttribute(
+                'instanceAnimOffset',
+                new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1)
+            );
         }
 
         copyInstanceLodOnGrow(oldMesh, newMesh, this.roseCapacity);
@@ -625,11 +768,10 @@ export class TreeBatcher {
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
-        
+
         safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
 
-        
         this.roses = newMesh;
         refreshFoliageLodMesh(newMesh);
         log.info('TreeBatcher', `Grew rose buffer to ${this.roseCapacity}`);
@@ -653,40 +795,102 @@ export class TreeBatcher {
         let animTypeEnum = ANIMATION_TYPES.STATIC;
         const typeStr = group.userData.animationType;
         if (typeStr === 'gentleSway') animTypeEnum = ANIMATION_TYPES.GENTLE_SWAY;
-        else if (typeStr === 'bounce' || (Array.isArray(typeStr) && typeStr.indexOf('bounce') !== -1)) animTypeEnum = ANIMATION_TYPES.BOUNCE;
-        else if (typeStr === 'shiver' || (Array.isArray(typeStr) && typeStr.indexOf('shiver') !== -1)) animTypeEnum = ANIMATION_TYPES.SHIVER;
-        else if (typeStr === 'spring' || (Array.isArray(typeStr) && typeStr.indexOf('spring') !== -1)) animTypeEnum = ANIMATION_TYPES.SPRING;
-        else if (typeStr === 'vineSway' || (Array.isArray(typeStr) && typeStr.indexOf('vineSway') !== -1)) animTypeEnum = ANIMATION_TYPES.VINE_SWAY;
-        else if (typeStr === 'hop' || (Array.isArray(typeStr) && typeStr.indexOf('hop') !== -1)) animTypeEnum = ANIMATION_TYPES.HOP;
-        else if (typeStr === 'wobble' || (Array.isArray(typeStr) && typeStr.indexOf('wobble') !== -1)) animTypeEnum = ANIMATION_TYPES.WOBBLE;
-        else if (typeStr === 'accordion' || (Array.isArray(typeStr) && typeStr.indexOf('accordion') !== -1)) animTypeEnum = ANIMATION_TYPES.ACCORDION;
+        else if (
+            typeStr === 'bounce' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('bounce') !== -1)
+        )
+            animTypeEnum = ANIMATION_TYPES.BOUNCE;
+        else if (
+            typeStr === 'shiver' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('shiver') !== -1)
+        )
+            animTypeEnum = ANIMATION_TYPES.SHIVER;
+        else if (
+            typeStr === 'spring' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('spring') !== -1)
+        )
+            animTypeEnum = ANIMATION_TYPES.SPRING;
+        else if (
+            typeStr === 'vineSway' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('vineSway') !== -1)
+        )
+            animTypeEnum = ANIMATION_TYPES.VINE_SWAY;
+        else if (typeStr === 'hop' || (Array.isArray(typeStr) && typeStr.indexOf('hop') !== -1))
+            animTypeEnum = ANIMATION_TYPES.HOP;
+        else if (
+            typeStr === 'wobble' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('wobble') !== -1)
+        )
+            animTypeEnum = ANIMATION_TYPES.WOBBLE;
+        else if (
+            typeStr === 'accordion' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('accordion') !== -1)
+        )
+            animTypeEnum = ANIMATION_TYPES.ACCORDION;
         else if (typeStr === 'accordionStretch') animTypeEnum = ANIMATION_TYPES.ACCORDION_STRETCH;
-        else if (typeStr === 'spiralWave' || (Array.isArray(typeStr) && typeStr.indexOf('spiralWave') !== -1)) animTypeEnum = ANIMATION_TYPES.SPIRAL_WAVE;
+        else if (
+            typeStr === 'spiralWave' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('spiralWave') !== -1)
+        )
+            animTypeEnum = ANIMATION_TYPES.SPIRAL_WAVE;
         else if (typeStr === 'fiberWhip') animTypeEnum = ANIMATION_TYPES.FIBER_WHIP;
 
         group.userData._animTypeEnum = animTypeEnum;
         group.userData._animOffset = group.userData.animationOffset || 0;
 
         if (type === 'bubbleWillow' || type === 'willow') {
-            this.registerBubbleWillow(group, group.userData._animTypeEnum, group.userData._animOffset);
+            this.registerBubbleWillow(
+                group,
+                group.userData._animTypeEnum,
+                group.userData._animOffset
+            );
         } else if (type === 'balloonBush' || type === 'shrub') {
-            this.registerBalloonBush(group, group.userData._animTypeEnum, group.userData._animOffset);
+            this.registerBalloonBush(
+                group,
+                group.userData._animTypeEnum,
+                group.userData._animOffset
+            );
         } else if (type === 'helixPlant' || type === 'helix') {
-            this.registerHelixPlant(group, group.userData._animTypeEnum, group.userData._animOffset);
+            this.registerHelixPlant(
+                group,
+                group.userData._animTypeEnum,
+                group.userData._animOffset
+            );
         } else if (type === 'tree' || type === 'floweringTree' || type === 'prismRoseBush') {
-            this.registerFloweringTree(group, group.userData._animTypeEnum, group.userData._animOffset);
+            this.registerFloweringTree(
+                group,
+                group.userData._animTypeEnum,
+                group.userData._animOffset
+            );
         }
     }
 
-    private addInstance(mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color, countProp: 'trunkCount' | 'sphereCount' | 'capsuleCount' | 'helixCount' | 'roseCount', animType: number = 0, animOffset: number = 0) {
+    private addInstance(
+        mesh: THREE.InstancedMesh,
+        matrix: THREE.Matrix4,
+        color: THREE.Color,
+        countProp: 'trunkCount' | 'sphereCount' | 'capsuleCount' | 'helixCount' | 'roseCount',
+        animType: number = 0,
+        animOffset: number = 0
+    ) {
         let index = 0;
 
         switch (countProp) {
-            case 'trunkCount': index = this.trunkCount; break;
-            case 'sphereCount': index = this.sphereCount; break;
-            case 'capsuleCount': index = this.capsuleCount; break;
-            case 'helixCount': index = this.helixCount; break;
-            case 'roseCount': index = this.roseCount; break;
+            case 'trunkCount':
+                index = this.trunkCount;
+                break;
+            case 'sphereCount':
+                index = this.sphereCount;
+                break;
+            case 'capsuleCount':
+                index = this.capsuleCount;
+                break;
+            case 'helixCount':
+                index = this.helixCount;
+                break;
+            case 'roseCount':
+                index = this.roseCount;
+                break;
         }
 
         // Check if we need to grow the buffer
@@ -727,8 +931,10 @@ export class TreeBatcher {
         colorArray[colorOffset + 1] = color.g;
         colorArray[colorOffset + 2] = color.b;
 
-        const typeAttr = mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
-        const offsetAttr = mesh.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute;
+        const typeAttr = mesh.geometry.attributes
+            .instanceAnimType as THREE.InstancedBufferAttribute;
+        const offsetAttr = mesh.geometry.attributes
+            .instanceAnimOffset as THREE.InstancedBufferAttribute;
 
         // ⚡ OPTIMIZATION: Direct array write bypasses setX() overhead
         if (typeAttr?.array) {
@@ -742,11 +948,26 @@ export class TreeBatcher {
 
         // Update count
         switch (countProp) {
-            case 'trunkCount': this.trunkCount++; mesh.count = this.trunkCount; break;
-            case 'sphereCount': this.sphereCount++; mesh.count = this.sphereCount; break;
-            case 'capsuleCount': this.capsuleCount++; mesh.count = this.capsuleCount; break;
-            case 'helixCount': this.helixCount++; mesh.count = this.helixCount; break;
-            case 'roseCount': this.roseCount++; mesh.count = this.roseCount; break;
+            case 'trunkCount':
+                this.trunkCount++;
+                mesh.count = this.trunkCount;
+                break;
+            case 'sphereCount':
+                this.sphereCount++;
+                mesh.count = this.sphereCount;
+                break;
+            case 'capsuleCount':
+                this.capsuleCount++;
+                mesh.count = this.capsuleCount;
+                break;
+            case 'helixCount':
+                this.helixCount++;
+                mesh.count = this.helixCount;
+                break;
+            case 'roseCount':
+                this.roseCount++;
+                mesh.count = this.roseCount;
+                break;
         }
 
         mesh.instanceMatrix.needsUpdate = true;
@@ -758,7 +979,9 @@ export class TreeBatcher {
             const child = group.children[i];
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
-                const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
+                const mat = (
+                    Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
+                ) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorWhite;
 
@@ -767,11 +990,25 @@ export class TreeBatcher {
                 _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
-                     this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
-                     if (mesh) if (mesh) mesh.visible = false;
+                    this.addInstance(
+                        this.trunks,
+                        _scratchTreeMatrix,
+                        col,
+                        'trunkCount',
+                        animType,
+                        animOffset
+                    );
+                    if (mesh) if (mesh) mesh.visible = false;
                 } else if (mesh.geometry.type === 'CapsuleGeometry') {
-                     this.addInstance(this.capsules, _scratchTreeMatrix, col, 'capsuleCount', animType, animOffset);
-                     if (mesh) if (mesh) mesh.visible = false;
+                    this.addInstance(
+                        this.capsules,
+                        _scratchTreeMatrix,
+                        col,
+                        'capsuleCount',
+                        animType,
+                        animOffset
+                    );
+                    if (mesh) if (mesh) mesh.visible = false;
                 }
             }
         }
@@ -782,14 +1019,23 @@ export class TreeBatcher {
             const child = group.children[i];
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
-                const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
+                const mat = (
+                    Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
+                ) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorOrange;
 
                 _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
 
                 if (mesh.geometry.type === 'SphereGeometry') {
-                    this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
+                    this.addInstance(
+                        this.spheres,
+                        _scratchTreeMatrix,
+                        col,
+                        'sphereCount',
+                        animType,
+                        animOffset
+                    );
                     if (mesh) if (mesh) mesh.visible = false;
                 }
             }
@@ -801,17 +1047,33 @@ export class TreeBatcher {
             const child = group.children[i];
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
-                const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
+                const mat = (
+                    Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
+                ) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorGreen;
 
                 _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
 
                 if (mesh.geometry.type === 'TubeGeometry') {
-                    this.addInstance(this.helices, _scratchTreeMatrix, col, 'helixCount', animType, animOffset);
+                    this.addInstance(
+                        this.helices,
+                        _scratchTreeMatrix,
+                        col,
+                        'helixCount',
+                        animType,
+                        animOffset
+                    );
                     if (mesh) if (mesh) mesh.visible = false;
                 } else if (mesh.geometry.type === 'SphereGeometry') {
-                    this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
+                    this.addInstance(
+                        this.spheres,
+                        _scratchTreeMatrix,
+                        col,
+                        'sphereCount',
+                        animType,
+                        animOffset
+                    );
                     if (mesh) if (mesh) mesh.visible = false;
                 }
             }
@@ -823,18 +1085,41 @@ export class TreeBatcher {
             const child = group.children[i];
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
-                const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
+                const mat = (
+                    Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
+                ) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorWhite;
 
                 _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
-                    this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
+                    this.addInstance(
+                        this.trunks,
+                        _scratchTreeMatrix,
+                        col,
+                        'trunkCount',
+                        animType,
+                        animOffset
+                    );
                 } else if (mesh.geometry.type === 'SphereGeometry') {
-                    this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
+                    this.addInstance(
+                        this.spheres,
+                        _scratchTreeMatrix,
+                        col,
+                        'sphereCount',
+                        animType,
+                        animOffset
+                    );
                 } else if (mesh.geometry.type === 'TorusKnotGeometry') {
-                    this.addInstance(this.roses, _scratchTreeMatrix, col, 'roseCount', animType, animOffset);
+                    this.addInstance(
+                        this.roses,
+                        _scratchTreeMatrix,
+                        col,
+                        'roseCount',
+                        animType,
+                        animOffset
+                    );
                 }
                 if (mesh) if (mesh) mesh.visible = false;
             }
@@ -847,7 +1132,7 @@ export class TreeBatcher {
             spheres: { count: this.sphereCount, capacity: this.sphereCapacity },
             capsules: { count: this.capsuleCount, capacity: this.capsuleCapacity },
             helices: { count: this.helixCount, capacity: this.helixCapacity },
-            roses: { count: this.roseCount, capacity: this.roseCapacity }
+            roses: { count: this.roseCount, capacity: this.roseCapacity },
         };
     }
 }

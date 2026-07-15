@@ -17,16 +17,13 @@ import {
     uSkyTopColor,
     uSkyBottomColor,
     uHorizonColor,
-    uAtmosphereIntensity
+    uAtmosphereIntensity,
 } from '../foliage/sky.ts';
 import { uStarOpacity } from '../foliage/stars.ts';
 import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { harmonyOrbSystem } from '../foliage/aurora.ts';
-import {
-    updateFallingBerries,
-    collectFallingBerries
-} from '../foliage/berries.ts';
+import { updateFallingBerries, collectFallingBerries } from '../foliage/berries.ts';
 import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
@@ -51,7 +48,7 @@ const _scratchParticleAudioData: ParticleAudioData = {
     groove: 0,
     windX: 0,
     windZ: 0,
-    windSpeed: 0
+    windSpeed: 0,
 };
 
 function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher') {
@@ -59,7 +56,11 @@ function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher') {
         try {
             batcher.update(delta);
         } catch (err) {
-            log.warn('GameLoop', `Skipped update on ${label} (likely empty or incomplete in Core mode)`, err);
+            log.warn(
+                'GameLoop',
+                `Skipped update on ${label} (likely empty or incomplete in Core mode)`,
+                err
+            );
         }
     }
 }
@@ -89,7 +90,12 @@ import { WeatherSystem } from '../systems/weather.ts';
 import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { animatedFoliage, cpuAnimatedFoliage, foliageClouds, foliageMushrooms } from '../world/state.ts';
+import {
+    animatedFoliage,
+    cpuAnimatedFoliage,
+    foliageClouds,
+    foliageMushrooms,
+} from '../world/state.ts';
 import { getCycleState, getDayNightBias } from './cycle.ts';
 import {
     CYCLE_DURATION,
@@ -112,13 +118,12 @@ import { keyStates } from './input/index.ts';
 import {
     updateHUD,
     getLastIsNight,
-
     setLastIsNight,
     getIsNight,
     setIsNight,
     updateTheme,
     setLastStrikeState,
-    getLastStrikeState
+    getLastStrikeState,
 } from './hud.ts';
 import {
     getMelodyRibbon,
@@ -129,7 +134,7 @@ import {
     getDiscoveryEffect,
     getHarpoonLine,
     getPlayerShieldMesh,
-    setPlayerShieldMesh
+    setPlayerShieldMesh,
 } from './deferred-init.ts';
 
 // --- Animation Loop State ---
@@ -146,11 +151,11 @@ let currentShakeOffsetY = 0;
 const baseFOV = 75;
 
 // Optimization: Hoist reusable objects to module scope
-const COLOR_STORM_SKY_TOP = new THREE.Color(0x1A1A2E);
-const COLOR_STORM_SKY_BOT = new THREE.Color(0x2E3A59);
-const COLOR_STORM_FOG = new THREE.Color(0x4A5568);
-const COLOR_RAIN = new THREE.Color(0xA0B5C8);
-const COLOR_RAIN_FOG = new THREE.Color(0xC0D0E0);
+const COLOR_STORM_SKY_TOP = new THREE.Color(0x1a1a2e);
+const COLOR_STORM_SKY_BOT = new THREE.Color(0x2e3a59);
+const COLOR_STORM_FOG = new THREE.Color(0x4a5568);
+const COLOR_RAIN = new THREE.Color(0xa0b5c8);
+const COLOR_RAIN_FOG = new THREE.Color(0xc0d0e0);
 
 const _scratchBaseSkyTop = new THREE.Color();
 const _scratchBaseSkyBot = new THREE.Color();
@@ -179,7 +184,7 @@ const _SHAFT_OPACITY_CAP = CONFIG.postfx.shaftOpacityCap;
 function updateSunShadowFollow(
     sunLight: THREE.DirectionalLight,
     playerPos: THREE.Vector3,
-    normalizedSunDir: THREE.Vector3,
+    normalizedSunDir: THREE.Vector3
 ): void {
     if (!sunLight.castShadow) return;
 
@@ -202,11 +207,7 @@ function updateSunShadowFollow(
 
     const snappedX = Math.floor(_shadowLightView.x / texelWorld) * texelWorld;
     const snappedY = Math.floor(_shadowLightView.y / texelWorld) * texelWorld;
-    _shadowSnap.set(
-        snappedX - _shadowLightView.x,
-        snappedY - _shadowLightView.y,
-        0,
-    );
+    _shadowSnap.set(snappedX - _shadowLightView.x, snappedY - _shadowLightView.y, 0);
     _shadowSnap.applyQuaternion(cam.quaternion);
     cam.position.add(_shadowSnap);
     cam.updateMatrixWorld();
@@ -233,8 +234,8 @@ const _dofManual = _dofEnabled && isDofManual();
 // Kept in sync with generation-core luminous placement (~-40,40),
 // generation-utils MYCELIUM_GROVE (-78,78), and GEM_CANOPY corridor midpoint (~100,-80).
 const _DOF_FLORA_ZONES: ReadonlyArray<readonly [number, number]> = [
-    [-40, 40],  // Melody Lake luminous plants
-    [-78, 78],  // Luminous Mycelium grove (glass mushrooms)
+    [-40, 40], // Melody Lake luminous plants
+    [-78, 78], // Luminous Mycelium grove (glass mushrooms)
     [100, -80], // Gem Canopy jewel corridor
 ];
 
@@ -341,20 +342,21 @@ function _celestialInView(direction: THREE.Vector3): boolean {
 function _applyShaftColor(shaftMat: THREE.MeshBasicMaterial | undefined, isNight: boolean): void {
     if (!shaftMat?.color) return;
     if (!isNight) {
-        shaftMat.color.setHex(0xFFE5A0);
+        shaftMat.color.setHex(0xffe5a0);
         return;
     }
     const nebulaShimmer = BiomeUniforms.crystallineNebula.shimmer.value as number;
     const nebulaAmp = BiomeUniforms.crystallineNebula.amplitudeScale.value as number;
     // Music Impact: purple moonbeams during crystalline_nebula tracker passages
     const nebulaPassage = nebulaShimmer > 0.12 || nebulaAmp > 1.15;
-    shaftMat.color.setHex(nebulaPassage ? 0xB388FF : 0xC8E0FF);
+    shaftMat.color.setHex(nebulaPassage ? 0xb388ff : 0xc8e0ff);
 }
 
 function _setShaftOpacity(opacity: number): void {
     if (!uShaftOpacityRef) return;
     uShaftOpacityRef.value = opacity;
-    const shaftMat = lightShaftGroupRef?.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+    const shaftMat = lightShaftGroupRef?.userData?.shaftMaterial as
+        THREE.MeshBasicMaterial | undefined;
     if (shaftMat && typeof shaftMat.opacity === 'number') {
         shaftMat.opacity = opacity;
     }
@@ -383,13 +385,24 @@ function applyMusicReactiveLightShafts(delta: number): void {
         shaftVisible = _celestialInView(_scratchSunVector) && shaftOpacity > 0.01;
     } else if (_shaftIsNightMode) {
         // Visual Impact: moonbeam cap — soft silver/purple rays, not blinding
-        shaftOpacity = Math.min(_SHAFT_OPACITY_CAP * 0.875, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
+        shaftOpacity = Math.min(
+            _SHAFT_OPACITY_CAP * 0.875,
+            AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer
+        );
         const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
-        shaftVisible = (strongMelody || _celestialInView(_scratchSunVector) || AtmosphereShaftState.nightMoonbeam) && shaftOpacity > 0.01;
-        const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+        shaftVisible =
+            (strongMelody ||
+                _celestialInView(_scratchSunVector) ||
+                AtmosphereShaftState.nightMoonbeam) &&
+            shaftOpacity > 0.01;
+        const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as
+            THREE.MeshBasicMaterial | undefined;
         _applyShaftColor(shaftMat, true);
     } else if (AtmosphereShaftState.musicOpacity > 0.01) {
-        shaftOpacity = Math.min(_SHAFT_OPACITY_CAP * 0.875, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
+        shaftOpacity = Math.min(
+            _SHAFT_OPACITY_CAP * 0.875,
+            AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer
+        );
         const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
         shaftVisible = strongMelody && shaftOpacity > 0.01;
     }
@@ -445,7 +458,7 @@ function _updateDepthOfField(delta: number): void {
     const proxMix = 1.0 - THREE.MathUtils.smoothstep(nearest, prox - 2.0, prox + 6.0);
 
     // TSL Volumetric God Rays: boost DoF when shafts are highly visible
-    const shaftBoost = uShaftOpacityRef ? (uShaftOpacityRef.value * 2.0) : 0.0;
+    const shaftBoost = uShaftOpacityRef ? uShaftOpacityRef.value * 2.0 : 0.0;
     const combinedMix = THREE.MathUtils.clamp(proxMix + shaftBoost, 0.0, 1.0);
 
     const targetMix = _dofManual ? 1.0 : combinedMix;
@@ -588,10 +601,13 @@ export function animate() {
         currentShakeOffsetY = 0;
     }
 
-    const currentState = getCycleState(effectiveTime, weatherSystemRef!.targetPaletteMode || 'standard');
+    const currentState = getCycleState(
+        effectiveTime,
+        weatherSystemRef!.targetPaletteMode || 'standard'
+    );
 
     const nightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET;
-    const isNightNow = (cyclePos > nightStart - 30) || (cyclePos < DURATION_SUNRISE);
+    const isNightNow = cyclePos > nightStart - 30 || cyclePos < DURATION_SUNRISE;
 
     // Reactive Theme Update
     if (isNightNow !== getLastIsNight()) {
@@ -629,7 +645,7 @@ export function animate() {
         baseFog,
         getDayNightBias(cyclePos),
         (sceneRef.fog as THREE.Fog).near,
-        (sceneRef.fog as THREE.Fog).far,
+        (sceneRef.fog as THREE.Fog).far
     );
     updateBaseContactAOUniforms(getDayNightBias(cyclePos));
 
@@ -637,11 +653,11 @@ export function animate() {
     let ambIntensity = currentState.ambInt;
 
     if (weatherState === WeatherState.STORM) {
-        sunIntensity *= (1 - weatherIntensity * 0.7);
-        ambIntensity *= (1 - weatherIntensity * 0.5);
+        sunIntensity *= 1 - weatherIntensity * 0.7;
+        ambIntensity *= 1 - weatherIntensity * 0.5;
     } else if (weatherState === WeatherState.RAIN) {
-        sunIntensity *= (1 - weatherIntensity * 0.3);
-        ambIntensity *= (1 - weatherIntensity * 0.2);
+        sunIntensity *= 1 - weatherIntensity * 0.3;
+        ambIntensity *= 1 - weatherIntensity * 0.2;
     }
 
     sunLightRef!.color.copy(currentState.sun);
@@ -691,14 +707,14 @@ export function animate() {
         _shaftGoldenHourBase = 0;
 
         if (sunProgress < 0.15) {
-            const factor = 1.0 - (sunProgress / 0.15);
+            const factor = 1.0 - sunProgress / 0.15;
             glowIntensity = 0.25 + factor * 0.35;
             coronaIntensity = 0.15 + factor * 0.25;
             shaftIntensity = factor * 0.12;
             _shaftGoldenHourBase = shaftIntensity;
             _shaftIsGoldenHour = true;
-            (sunGlowMatRef as any).color.setHex(0xFFB366);
-            (coronaMatRef as any).color.setHex(0xFFD6A3);
+            (sunGlowMatRef as any).color.setHex(0xffb366);
+            (coronaMatRef as any).color.setHex(0xffd6a3);
         } else if (sunProgress > 0.85) {
             const factor = (sunProgress - 0.85) / 0.15;
             glowIntensity = 0.25 + factor * 0.45;
@@ -706,15 +722,16 @@ export function animate() {
             shaftIntensity = factor * 0.18;
             _shaftGoldenHourBase = shaftIntensity;
             _shaftIsGoldenHour = true;
-            (sunGlowMatRef as any).color.setHex(0xFF9966);
-            (coronaMatRef as any).color.setHex(0xFFCC99);
+            (sunGlowMatRef as any).color.setHex(0xff9966);
+            (coronaMatRef as any).color.setHex(0xffcc99);
         } else {
-            (sunGlowMatRef as any).color.setHex(0xFFE599);
-            (coronaMatRef as any).color.setHex(0xFFF4D6);
+            (sunGlowMatRef as any).color.setHex(0xffe599);
+            (coronaMatRef as any).color.setHex(0xfff4d6);
         }
 
-        const shaftMat = lightShaftGroupRef!.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
-        if (shaftMat?.color) shaftMat.color.setHex(0xFFE5A0);
+        const shaftMat = lightShaftGroupRef!.userData?.shaftMaterial as
+            THREE.MeshBasicMaterial | undefined;
+        if (shaftMat?.color) shaftMat.color.setHex(0xffe5a0);
 
         (sunGlowMatRef as any).opacity = glowIntensity;
         (coronaMatRef as any).opacity = coronaIntensity;
@@ -741,16 +758,17 @@ export function animate() {
             lightShaftGroupRef.position.copy(moonRef.position);
             lightShaftGroupRef.lookAt(cameraRef.position);
             _scratchSunVector.copy(moonRef.position).sub(cameraRef.position).normalize();
-            const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+            const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as
+                THREE.MeshBasicMaterial | undefined;
             _applyShaftColor(shaftMat, true);
         }
     }
 
     const progress = cyclePos / CYCLE_DURATION;
     let starOp = 0;
-    const starDuskStart = 0.50;
-    const starNightStart = 0.60;
-    const starNightEnd = 0.90;
+    const starDuskStart = 0.5;
+    const starNightStart = 0.6;
+    const starNightEnd = 0.9;
     const starDawnEnd = 0.98;
 
     if (progress >= starNightStart && progress <= starNightEnd) {
@@ -758,7 +776,7 @@ export function animate() {
     } else if (progress > starDuskStart && progress < starNightStart) {
         starOp = (progress - starDuskStart) / (starNightStart - starDuskStart);
     } else if (progress > starNightEnd && progress < starDawnEnd) {
-        starOp = 1.0 - ((progress - starNightEnd) / (starDawnEnd - starNightEnd));
+        starOp = 1.0 - (progress - starNightEnd) / (starDawnEnd - starNightEnd);
     }
     uStarOpacity.value = THREE.MathUtils.lerp(uStarOpacity.value, starOp * 0.95, delta * 2);
 
@@ -774,7 +792,7 @@ export function animate() {
         if (audioState.channelData) {
             if (audioState.channelData.length > 5) {
                 const ch5 = audioState.channelData[5].trigger || 0;
-                const ch6 = audioState.channelData[6] ? (audioState.channelData[6].trigger || 0) : 0;
+                const ch6 = audioState.channelData[6] ? audioState.channelData[6].trigger || 0 : 0;
                 high = Math.max(ch5, ch6);
             }
 
@@ -809,7 +827,11 @@ export function animate() {
     }
 
     const targetAuroraInt = baseAuroraVis * (0.3 + auroraAudioBoost * 0.7);
-    uAuroraIntensity.value = THREE.MathUtils.lerp(uAuroraIntensity.value, targetAuroraInt, delta * 2);
+    uAuroraIntensity.value = THREE.MathUtils.lerp(
+        uAuroraIntensity.value,
+        targetAuroraInt,
+        delta * 2
+    );
 
     const hue = (t * 0.05) % 1.0;
     _scratchAuroraColor.setHSL(hue, 1.0, 0.5);
@@ -828,32 +850,49 @@ export function animate() {
 
     const deepNightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT;
     const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;
-    const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
+    const isDeepNight = cyclePos >= deepNightStart && cyclePos < deepNightEnd;
 
     const melodyRibbon = getMelodyRibbon();
     const fluidFog = getFluidFog();
 
     profiler.measure('MusicReact', () => {
-            safeSystemUpdate(
-                () => musicReactivitySystem.update(t, delta, audioState, weatherSystemRef!, cpuAnimatedFoliage, cameraRef!, isNightNow, isDeepNight),
-                'musicReactivitySystem'
-            );
-            if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
-            profiler.measure('Particles', () => {
-                _scratchParticleAudioData.low = audioState?.kickTrigger || 0;
-                _scratchParticleAudioData.mid = 0.3;
-                _scratchParticleAudioData.high = audioState?.energy || 0;
-                _scratchParticleAudioData.beat = (audioState?.beatPhase || 0) < 0.1;
-                _scratchParticleAudioData.groove = audioState?.grooveAmount || 0;
-                _scratchParticleAudioData.windX = weatherSystemRef!.windDirection.x;
-                _scratchParticleAudioData.windZ = weatherSystemRef!.windDirection.z;
-                _scratchParticleAudioData.windSpeed = weatherSystemRef!.state === WeatherState.STORM ? 0.8 : 0.2;
+        safeSystemUpdate(
+            () =>
+                musicReactivitySystem.update(
+                    t,
+                    delta,
+                    audioState,
+                    weatherSystemRef!,
+                    cpuAnimatedFoliage,
+                    cameraRef!,
+                    isNightNow,
+                    isDeepNight
+                ),
+            'musicReactivitySystem'
+        );
+        if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
+        profiler.measure('Particles', () => {
+            _scratchParticleAudioData.low = audioState?.kickTrigger || 0;
+            _scratchParticleAudioData.mid = 0.3;
+            _scratchParticleAudioData.high = audioState?.energy || 0;
+            _scratchParticleAudioData.beat = (audioState?.beatPhase || 0) < 0.1;
+            _scratchParticleAudioData.groove = audioState?.grooveAmount || 0;
+            _scratchParticleAudioData.windX = weatherSystemRef!.windDirection.x;
+            _scratchParticleAudioData.windZ = weatherSystemRef!.windDirection.z;
+            _scratchParticleAudioData.windSpeed =
+                weatherSystemRef!.state === WeatherState.STORM ? 0.8 : 0.2;
 
-                safeSystemUpdate(
-                    () => updateAllIntegratedSystems(rendererRef, delta, player.position, _scratchParticleAudioData),
-                    'updateAllIntegratedSystems'
-                );
-            });
+            safeSystemUpdate(
+                () =>
+                    updateAllIntegratedSystems(
+                        rendererRef,
+                        delta,
+                        player.position,
+                        _scratchParticleAudioData
+                    ),
+                'updateAllIntegratedSystems'
+            );
+        });
 
         if (fluidFog && audioState) {
             fluidSystem.update(delta, audioState);
@@ -865,8 +904,13 @@ export function animate() {
                 const speed = player.velocity.lengthSq();
                 if (speed > 1.0) {
                     // ⚡ OPTIMIZATION: Linear approximation of velocity response avoids expensive Math.sqrt in hot loop
-                    fluidSystem.addDensity(gridX, gridY, (speed * 0.2) * delta);
-                    fluidSystem.addVelocity(gridX, gridY, player.velocity.x * delta, player.velocity.z * delta);
+                    fluidSystem.addDensity(gridX, gridY, speed * 0.2 * delta);
+                    fluidSystem.addVelocity(
+                        gridX,
+                        gridY,
+                        player.velocity.x * delta,
+                        player.velocity.z * delta
+                    );
                 }
             }
         }
@@ -897,17 +941,23 @@ export function animate() {
         try {
             const windComputeNode = windComputeSystem.getComputeNode();
             if (windComputeNode) {
-                if (!isCIorHeadless()) { rendererRef.compute(windComputeNode); }
+                if (!isCIorHeadless()) {
+                    rendererRef.compute(windComputeNode);
+                }
             }
 
             if (harmonyOrbSystem.computeNode) {
-                if (!isCIorHeadless()) { rendererRef.compute(harmonyOrbSystem.computeNode); }
+                if (!isCIorHeadless()) {
+                    rendererRef.compute(harmonyOrbSystem.computeNode);
+                }
             }
 
             for (const obj of animatedFoliage) {
                 if (obj.userData.computeNode) {
                     if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
-                        if (!isCIorHeadless()) { rendererRef.compute(obj.userData.computeNode); }
+                        if (!isCIorHeadless()) {
+                            rendererRef.compute(obj.userData.computeNode);
+                        }
                     }
                 }
             }
@@ -936,7 +986,13 @@ export function animate() {
             }
         }
         if (sparkleTrail && player.position && player.velocity) {
-            updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, rendererRef);
+            updateSparkleTrail(
+                sparkleTrail,
+                player.position,
+                player.velocity,
+                gameTime,
+                rendererRef
+            );
         }
 
         if (isGroundDebugEnabled() && player.position && cameraRef) {
@@ -968,10 +1024,10 @@ export function animate() {
                     maxEnergy: player.maxEnergy,
                     dashCooldown: (player as any).dashCooldown || 0,
                     isPhasing: (player as any).isPhasing || false,
-                    phaseTimer: (player as any).phaseTimer || 0
+                    phaseTimer: (player as any).phaseTimer || 0,
                 },
                 audioState,
-                delta
+                delta,
             });
             return;
         }
@@ -980,7 +1036,12 @@ export function animate() {
         const berriesCollected = collectFallingBerries(cameraRef!.position, 1.5);
 
         if (harpoonLine) {
-            updateHarpoonLine(harpoonLine, player.position, player.harpoon.anchor, player.harpoon.active);
+            updateHarpoonLine(
+                harpoonLine,
+                player.position,
+                player.harpoon.anchor,
+                player.harpoon.active
+            );
         }
         if (berriesCollected > 0) {
             player.energy = Math.min(player.maxEnergy, player.energy + berriesCollected * 0.5);
@@ -1022,15 +1083,17 @@ export function animate() {
                 maxEnergy: player.maxEnergy,
                 dashCooldown: (player as any).dashCooldown || 0,
                 isPhasing: (player as any).isPhasing || false,
-                phaseTimer: (player as any).phaseTimer || 0
+                phaseTimer: (player as any).phaseTimer || 0,
             },
             audioState,
-            delta
+            delta,
         });
     });
 
     // uBloomStrength is driven by atmosphere-reactivity.ts (also synced to WebGL bloom in post-processing render).
-    if (!isCIorHeadless()) { profiler.measure('Render', () => postProcessingRef.render()); }
+    if (!isCIorHeadless()) {
+        profiler.measure('Render', () => postProcessingRef.render());
+    }
 
     profiler.endFrame();
 }
