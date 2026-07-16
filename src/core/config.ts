@@ -276,6 +276,9 @@ export interface ConfigType {
         arpeggioFern: PlantPoseConfig;
         portamentoPine: PlantPoseConfig;
         flower: PlantPoseConfig;
+        simpleFlower: PlantPoseConfig;
+        tree: PlantPoseConfig;
+        mushroom: PlantPoseConfig;
     };
 
     circadian: {
@@ -788,6 +791,31 @@ export const CONFIG: ConfigType = {
             dayTarget: 1.0,         // fully blooming during day
             nightTarget: 0.0,       // closed during night
             triggerThreshold: 0.05  // minimum kick channel volume to trigger bloom
+        },
+        simpleFlower: {
+            attackRate: 4.0,        // bloom response to kick
+            releaseRate: 1.0,       // settle back down
+            sustainLevel: 1.0,      // envelope peak
+            dayTarget: 1.0,         // fully blooming during day
+            nightTarget: 0.0,       // closed during night
+            triggerThreshold: 0.05  // minimum kick channel volume to trigger bloom
+        },
+        tree: {
+            attackRate: 2.0,
+            releaseRate: 0.6,
+            sustainLevel: 0.6,
+            dayTarget: 1.0,         // full canopy spread
+            nightTarget: 0.75,      // gentle droop (~25% toward rest)
+            triggerThreshold: 0.08,
+            channelIndex: 2,        // melody, or omit for wind-only baseline
+        },
+        mushroom: {
+            attackRate: 3.0,
+            releaseRate: 0.8,
+            sustainLevel: 0.9,
+            dayTarget: 0.25,        // caps tucked in daylight
+            nightTarget: 1.0,       // caps relaxed / "open" at night
+            triggerThreshold: 0.06,
         }
     },
 
