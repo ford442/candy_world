@@ -652,10 +652,8 @@ if (startButton) {
     const waitFullCheckbox = document.getElementById('wait-full-checkbox') as HTMLInputElement | null;
     if (waitFullCheckbox) {
         waitFullCheckbox.checked = waitForFullPopulation;
-        waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
         waitFullCheckbox.addEventListener('change', () => {
             waitForFullPopulation = waitFullCheckbox.checked;
-            waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
             localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
         });
 
@@ -665,7 +663,6 @@ if (startButton) {
                 e.preventDefault();
                 waitFullCheckbox.checked = !waitFullCheckbox.checked;
                 waitForFullPopulation = waitFullCheckbox.checked;
-                waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
                 localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
             }
         });

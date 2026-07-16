@@ -60,6 +60,7 @@ const _stats: FoliageLodStats = {
 
 const _targets: BatcherLodTarget[] = [];
 const _meshTracks = new Map<THREE.InstancedMesh, Float32Array>();
+const _meshMaxScales = new Map<THREE.InstancedMesh, Float32Array>(); // ⚡ OPTIMIZATION: Cache impostor scales to avoid Math.sqrt in hot loops
 
 let _impostorMesh: THREE.InstancedMesh | null = null;
 let _impostorCapacity = 4096;
@@ -279,9 +280,11 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
 
         if (smoothed.length < mesh.instanceMatrix.count) {
             _meshTracks.set(mesh, new Float32Array(mesh.instanceMatrix.count));
+            _meshMaxScales.set(mesh, new Float32Array(mesh.instanceMatrix.count));
             continue;
         }
 
+        const maxScales = _meshMaxScales.get(mesh);
         const attr = ensureInstanceLodAttribute(mesh);
         const attrArray = attr.array as Float32Array;
         const matrixArray = mesh.instanceMatrix.array as Float32Array;
@@ -378,6 +381,13 @@ export function refreshFoliageLodMesh(mesh: THREE.InstancedMesh): void {
         next.set(prev);
     }
     _meshTracks.set(mesh, next);
+
+    const prevScales = _meshMaxScales.get(mesh);
+    const nextScales = new Float32Array(mesh.instanceMatrix.count);
+    if (prevScales) {
+        nextScales.set(prevScales);
+    }
+    _meshMaxScales.set(mesh, nextScales);
 }
 
 export function getFoliageLodImpostorMesh(): THREE.InstancedMesh | null {
@@ -387,6 +397,7 @@ export function getFoliageLodImpostorMesh(): THREE.InstancedMesh | null {
 export function disposeFoliageBatcherLOD(): void {
     _targets.length = 0;
     _meshTracks.clear();
+    _meshMaxScales.clear();
     if (_impostorMesh) {
         safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, _impostorMesh);
         _impostorMesh = null;
