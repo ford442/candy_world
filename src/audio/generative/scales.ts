@@ -18,7 +18,12 @@ export function rootToMidi(root: NoteName, octave: number): number {
     return (octave + 1) * 12 + (idx >= 0 ? idx : 0);
 }
 
-export function scaleNote(root: NoteName, scale: readonly number[], degree: number, baseOctave: number): string {
+export function scaleNote(
+    root: NoteName,
+    scale: readonly number[],
+    degree: number,
+    baseOctave: number
+): string {
     const rootMidi = rootToMidi(root, baseOctave);
     const len = scale.length;
     const octaveShift = Math.floor(degree / len);

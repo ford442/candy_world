@@ -11,14 +11,15 @@
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 1000;
-    transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-                background-color 0.2s ease;
+    transition:
+        transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+        background-color 0.2s ease;
     mix-blend-mode: difference;
 }
 
 /* Hover State - "Hot Pink Pop" */
 #game-reticle.hover {
-    transform: translate(-50%, -50%) scale(3.0);
+    transform: translate(-50%, -50%) scale(3);
     background-color: rgba(255, 105, 180, 0.9);
     border-color: white;
 }
@@ -31,9 +32,18 @@
 }
 
 @keyframes reticle-pop {
-    0% { transform: translate(-50%, -50%) scale(3.0); background-color: rgba(255, 105, 180, 0.9); }
-    50% { transform: translate(-50%, -50%) scale(0.2); background-color: #FF6B6B; }
-    100% { transform: translate(-50%, -50%) scale(0.5); background-color: #ffffff; }
+    0% {
+        transform: translate(-50%, -50%) scale(3);
+        background-color: rgba(255, 105, 180, 0.9);
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(0.2);
+        background-color: #ff6b6b;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(0.5);
+        background-color: #ffffff;
+    }
 }
 
 /* 🎨 Palette: Reticle Label */
@@ -45,11 +55,15 @@
     font-family: 'Fredoka One', cursive, sans-serif;
     color: white;
     font-size: 1.2rem;
-    text-shadow: 2px 2px 0px #FF6B6B, 0 0 10px rgba(0,0,0,0.2);
+    text-shadow:
+        2px 2px 0px #ff6b6b,
+        0 0 10px rgba(0, 0, 0, 0.2);
     pointer-events: none;
     z-index: 1000;
     opacity: 0;
-    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     white-space: nowrap;
     text-align: center;
 }
@@ -62,7 +76,9 @@
 /* 🎨 Palette: Accessibility - Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
     /* Global transition reset */
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
@@ -108,7 +124,7 @@ body.a11y-motion-reduced .spinner {
     margin-left: 6px;
     vertical-align: middle;
     font-family: 'Consolas', monospace;
-    box-shadow: 0 2px 0 rgba(0,0,0,0.1);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.1);
     border-bottom: 2px solid #e0e0e0;
 }
 
@@ -120,14 +136,17 @@ body.a11y-motion-reduced .spinner {
     background: none;
     border: none;
     font-size: 2em;
-    color: #FF6B6B;
+    color: #ff6b6b;
     cursor: pointer;
     line-height: 1;
     padding: 0;
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    transition: transform 0.2s, background 0.2s, color 0.2s;
+    transition:
+        transform 0.2s,
+        background 0.2s,
+        color 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -136,14 +155,16 @@ body.a11y-motion-reduced .spinner {
 }
 
 .close-icon-btn:hover {
-    background: #FFF0F5;
+    background: #fff0f5;
     transform: scale(1.1);
-    color: #FF4081;
+    color: #ff4081;
 }
 
 .close-icon-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 6px #ff4081;
 }
 
 /* 🎨 Palette: Playlist Layout */
@@ -160,12 +181,14 @@ body.a11y-motion-reduced .spinner {
 .playlist-remove-btn {
     background: none;
     border: none;
-    color: #FFB6C1;
+    color: #ffb6c1;
     font-size: 1.5rem;
     cursor: pointer;
     padding: 0 12px;
     margin-left: 4px;
-    transition: color 0.2s, transform 0.1s;
+    transition:
+        color 0.2s,
+        transform 0.1s;
     font-family: 'Fredoka One', cursive, sans-serif;
     line-height: 1;
     border-radius: 8px;
@@ -176,14 +199,16 @@ body.a11y-motion-reduced .spinner {
 }
 
 .playlist-remove-btn:hover {
-    color: #FF5252;
-    background: #FFF0F5;
+    color: #ff5252;
+    background: #fff0f5;
     transform: scale(1.1);
 }
 
 .playlist-remove-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 6px #ff4081;
     z-index: 5;
 }
 
@@ -201,10 +226,10 @@ body.a11y-motion-reduced .spinner {
 .playlist-empty-state {
     text-align: center;
     padding: 2rem 1rem;
-    color: #FF6B6B;
+    color: #ff6b6b;
     font-weight: bold;
     font-size: 1.1em;
-    border: 2px dashed #FFB6C1;
+    border: 2px dashed #ffb6c1;
     border-radius: 8px;
     margin: 10px;
     background: rgba(255, 255, 255, 0.5);
@@ -230,11 +255,13 @@ body.a11y-motion-reduced .spinner {
     height: 20px;
     background: rgba(30, 30, 40, 0.85);
     border-radius: 10px;
-    border: 3px solid #FFD1DC;
+    border: 3px solid #ffd1dc;
     overflow: hidden;
     position: relative;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s;
+    transition:
+        transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+        border-color 0.2s;
     margin-right: 10px;
 }
 
@@ -243,7 +270,9 @@ body.a11y-motion-reduced .spinner {
     width: 0%;
     background: linear-gradient(90deg, #ff69b4, #ff1493);
     border-radius: 7px;
-    transition: width 0.1s linear, background 0.2s;
+    transition:
+        width 0.1s linear,
+        background 0.2s;
     box-shadow: 0 0 10px rgba(255, 105, 180, 0.5);
 }
 
@@ -256,7 +285,7 @@ body.a11y-motion-reduced .spinner {
     height: 50px;
     background: rgba(255, 255, 255, 0.85);
     border-radius: 12px;
-    border: 3px solid #FFD1DC;
+    border: 3px solid #ffd1dc;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -265,28 +294,37 @@ body.a11y-motion-reduced .spinner {
     overflow: hidden;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     /* PALETTE: Removed transform transition to allow smooth JS beat pulsing */
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
 }
 
 /* 🎨 Palette: Interactive Hover and Focus States */
 .ability-slot:hover {
-    border-color: #FF6B6B;
+    border-color: #ff6b6b;
     box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
     cursor: pointer;
 }
 
 .ability-slot:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
-    border-color: #FF4081;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 6px #ff4081;
+    border-color: #ff4081;
 }
-
 
 /* PALETTE: Fallback beat bounce animation */
 @keyframes hud-bounce {
-    0% { transform: scale(1.0); }
-    50% { transform: scale(1.15); }
-    100% { transform: scale(1.0); }
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.15);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
 
 .hud-beat-bounce {
@@ -299,7 +337,7 @@ body.a11y-motion-reduced .spinner {
     left: 4px;
     font-size: 10px;
     font-weight: bold;
-    color: #FF6B6B;
+    color: #ff6b6b;
     font-family: 'Fredoka One', cursive, sans-serif;
     text-shadow: 1px 1px 0 #fff;
     z-index: 2;
@@ -309,7 +347,9 @@ body.a11y-motion-reduced .spinner {
     z-index: 1;
     filter: grayscale(100%);
     opacity: 0.6;
-    transition: filter 0.2s, opacity 0.2s;
+    transition:
+        filter 0.2s,
+        opacity 0.2s;
 }
 
 .cooldown-overlay {
@@ -325,14 +365,14 @@ body.a11y-motion-reduced .spinner {
 }
 
 /* Ready State */
-.ability-slot[aria-disabled="false"]:not([aria-pressed="true"]) {
-    border-color: #4CAF50;
+.ability-slot[aria-disabled='false']:not([aria-pressed='true']) {
+    border-color: #4caf50;
     box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
     background: #ffffff;
 }
 
 /* 🎨 Palette: Ability Slot Ready State Visual Pop */
-.ability-slot[aria-disabled="false"] {
+.ability-slot[aria-disabled='false'] {
     filter: grayscale(0%) brightness(100%);
     opacity: 1;
     transform: scale(1.1); /* Brief pop */
@@ -340,10 +380,10 @@ body.a11y-motion-reduced .spinner {
 }
 
 /* 🎨 Palette: Active State (Duration Running) */
-.ability-slot[aria-pressed="true"] {
-    border-color: #D500F9;
+.ability-slot[aria-pressed='true'] {
+    border-color: #d500f9;
     box-shadow: 0 0 15px rgba(213, 0, 249, 0.6);
-    background: #F3E5F5;
+    background: #f3e5f5;
 }
 
 /* 🎨 Palette: Ability Counter Badge */
@@ -351,78 +391,79 @@ body.a11y-motion-reduced .spinner {
     position: absolute;
     bottom: -6px;
     right: -6px;
-    background: #FF6B6B;
+    background: #ff6b6b;
     color: white;
     font-size: 0.8rem;
     font-weight: bold;
     padding: 2px 6px;
     border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     font-family: 'Fredoka One', sans-serif;
     z-index: 5;
     border: 2px solid white;
     pointer-events: none;
 }
 
-.ability-slot[aria-disabled="false"]:not([aria-pressed="true"]) .ability-icon {
+.ability-slot[aria-disabled='false']:not([aria-pressed='true']) .ability-icon {
     filter: grayscale(0%);
     opacity: 1;
     transform: scale(1.1);
 }
 
-.ability-slot[aria-disabled="false"]:not([aria-pressed="true"]):active,
-.ability-slot[aria-disabled="false"]:not([aria-pressed="true"]).keyboard-active,
-.ability-slot[aria-pressed="true"] {
+.ability-slot[aria-disabled='false']:not([aria-pressed='true']):active,
+.ability-slot[aria-disabled='false']:not([aria-pressed='true']).keyboard-active,
+.ability-slot[aria-pressed='true'] {
     transform: scale(0.9);
-    border-color: #FF4081; /* High contrast feedback */
+    border-color: #ff4081; /* High contrast feedback */
     box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
     filter: drop-shadow(0 0 10px rgba(255, 64, 129, 0.8));
 }
 
 /* 🎨 Palette: Pressed State */
 /* Visually differentiates active toggle buttons (e.g., Muted, Night Mode) */
-.toggle-button[aria-pressed="true"],
-.toggle-button[aria-expanded="true"] {
-    background: #FF4081; /* Higher contrast active color */
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
-    border: 2px solid #FFD1DC;
+.toggle-button[aria-pressed='true'],
+.toggle-button[aria-expanded='true'] {
+    background: #ff4081; /* Higher contrast active color */
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+    border: 2px solid #ffd1dc;
     padding: 8px 18px; /* Offset border to prevent layout shift */
 }
 
-.toggle-button[aria-pressed="true"]:hover,
-.toggle-button[aria-expanded="true"]:hover {
-    background: #F50057;
+.toggle-button[aria-pressed='true']:hover,
+.toggle-button[aria-expanded='true']:hover {
+    background: #f50057;
 }
 
 /* 🎨 Palette: Soft Disabled State */
 /* Maintains focusability for keyboard users while indicating unavailability */
-.toggle-button[aria-disabled="true"] {
+.toggle-button[aria-disabled='true'] {
     opacity: 0.5;
     cursor: not-allowed;
-    background: #6A5ACD; /* Reset hover color */
+    background: #6a5acd; /* Reset hover color */
 }
 
-.toggle-button[aria-disabled="true"]:hover {
-    background: #6A5ACD;
+.toggle-button[aria-disabled='true']:hover {
+    background: #6a5acd;
     transform: none;
 }
 
-.toggle-button[aria-disabled="true"]:active {
+.toggle-button[aria-disabled='true']:active {
     transform: none;
 }
 
 /* 🎨 Palette: Key Hint Feedback */
 kbd.key {
-    transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-                background-color 0.1s ease,
-                box-shadow 0.1s ease;
+    transition:
+        transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+        background-color 0.1s ease,
+        box-shadow 0.1s ease;
 }
 
 kbd.key.key-highlight {
     transform: scale(1.2);
-    background-color: #FF6B6B;
+    background-color: #ff6b6b;
     color: white;
-    border-color: #FF4081;
+    border-color: #ff4081;
     box-shadow: 0 0 15px rgba(255, 107, 107, 0.6);
     z-index: 10;
     position: relative;
@@ -442,19 +483,19 @@ kbd.key.key-highlight {
 /* 🎨 Palette: Now Playing Info (Pause Menu) */
 .now-playing-info {
     font-family: 'Fredoka One', cursive, sans-serif;
-    color: #FF6B6B;
+    color: #ff6b6b;
     background: rgba(255, 255, 255, 0.9);
     padding: 8px 20px;
     border-radius: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
     font-size: 1.1em;
-    text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
-    border: 2px solid #FFD1DC;
+    text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
+    border: 2px solid #ffd1dc;
     max-width: 80%;
     text-align: center;
 }
@@ -466,7 +507,7 @@ kbd.key.key-highlight {
 }
 
 /* 🎨 Palette: Ability Slot Disabled State */
-.ability-slot[aria-disabled="true"] {
+.ability-slot[aria-disabled='true'] {
     opacity: 0.6;
     cursor: not-allowed;
     filter: grayscale(100%) brightness(50%);
@@ -477,13 +518,13 @@ kbd.key.key-highlight {
     box-shadow: none;
 }
 
-.ability-slot[aria-disabled="true"]:hover {
+.ability-slot[aria-disabled='true']:hover {
     border-color: #dcdcdc;
     box-shadow: none;
     transform: none;
 }
 
-.ability-slot[aria-disabled="true"]:active {
+.ability-slot[aria-disabled='true']:active {
     transform: none;
     box-shadow: none;
 }
@@ -521,15 +562,20 @@ kbd.key.key-highlight {
     width: 56px;
     height: 56px;
     background: rgba(255, 209, 220, 0.82);
-    border: 3px solid #FF6B6B;
+    border: 3px solid #ff6b6b;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     pointer-events: all;
-    box-shadow: 0 4px 14px rgba(255, 107, 107, 0.28), inset 0 2px 0 rgba(255,255,255,0.55);
-    transition: background 0.12s, transform 0.08s, box-shadow 0.12s;
+    box-shadow:
+        0 4px 14px rgba(255, 107, 107, 0.28),
+        inset 0 2px 0 rgba(255, 255, 255, 0.55);
+    transition:
+        background 0.12s,
+        transform 0.08s,
+        box-shadow 0.12s;
     -webkit-tap-highlight-color: transparent;
     touch-action: none;
     backdrop-filter: blur(4px);
@@ -538,29 +584,35 @@ kbd.key.key-highlight {
 .dpad-btn svg {
     width: 28px;
     height: 28px;
-    fill: #FF4081;
+    fill: #ff4081;
     pointer-events: none;
-    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
 }
 
 .dpad-btn:hover {
     background: rgba(255, 180, 210, 0.92);
-    box-shadow: 0 6px 18px rgba(255, 107, 107, 0.4), inset 0 2px 0 rgba(255,255,255,0.6);
+    box-shadow:
+        0 6px 18px rgba(255, 107, 107, 0.4),
+        inset 0 2px 0 rgba(255, 255, 255, 0.6);
 }
 
 .dpad-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 6px #ff4081;
 }
 
-.dpad-btn[aria-pressed="true"],
+.dpad-btn[aria-pressed='true'],
 .dpad-btn:active {
-    background: rgba(255, 100, 150, 0.90);
+    background: rgba(255, 100, 150, 0.9);
     transform: scale(0.92);
-    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.35), inset 0 1px 0 rgba(255,255,255,0.4);
+    box-shadow:
+        0 2px 8px rgba(255, 107, 107, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-.dpad-btn[aria-pressed="true"] svg {
+.dpad-btn[aria-pressed='true'] svg {
     fill: #ffffff;
 }
 
@@ -580,13 +632,29 @@ kbd.key.key-highlight {
 }
 
 /* Separate the buttons slightly so adjacent sides don't visually merge */
-#dpad-forward  { border-bottom-left-radius: 6px; border-bottom-right-radius: 6px; margin-bottom: 2px; }
-#dpad-backward { border-top-left-radius: 6px;    border-top-right-radius: 6px;    margin-top: 2px;    }
-#dpad-left     { border-top-right-radius: 6px;   border-bottom-right-radius: 6px; margin-right: 2px;  }
-#dpad-right    { border-top-left-radius: 6px;    border-bottom-left-radius: 6px;  margin-left: 2px;   }
+#dpad-forward {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    margin-bottom: 2px;
+}
+#dpad-backward {
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    margin-top: 2px;
+}
+#dpad-left {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    margin-right: 2px;
+}
+#dpad-right {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+    margin-left: 2px;
+}
 
 /* ♿ Aria: Accessibility Menu Tabs Focus Styling */
-.a11y-tab[tabindex="0"]:focus-visible {
+.a11y-tab[tabindex='0']:focus-visible {
     outline: 3px solid #fff;
     outline-offset: -3px;
     box-shadow: 0 0 12px currentColor;
@@ -599,13 +667,13 @@ button.keyboard-active,
 .secondary-button.keyboard-active,
 .cta-button.keyboard-active,
 .file-label.keyboard-active,
-.action-btn[aria-pressed="true"],
-button[aria-pressed="true"],
-.icon-btn[aria-pressed="true"],
-.secondary-button[aria-pressed="true"],
-.cta-button[aria-pressed="true"],
-.cta-button[aria-checked="true"],
-.file-label[aria-pressed="true"] {
+.action-btn[aria-pressed='true'],
+button[aria-pressed='true'],
+.icon-btn[aria-pressed='true'],
+.secondary-button[aria-pressed='true'],
+.cta-button[aria-pressed='true'],
+.cta-button[aria-checked='true'],
+.file-label[aria-pressed='true'] {
     transform: scale(0.95) !important;
     filter: brightness(0.9) !important;
     transition-duration: 0.05s !important;
@@ -614,7 +682,10 @@ button[aria-pressed="true"],
 /* 🎨 Palette: Accessibility Menu Buttons Tactile Feedback */
 .a11y-menu-btn {
     cursor: pointer;
-    transition: transform 0.1s ease, background-color 0.1s ease, box-shadow 0.1s ease;
+    transition:
+        transform 0.1s ease,
+        background-color 0.1s ease,
+        box-shadow 0.1s ease;
 }
 
 .a11y-menu-btn:hover {
@@ -632,41 +703,39 @@ button[aria-pressed="true"],
 }
 
 /* ♿ Aria: Mode Selection ARIA States */
-#btn-core-only[aria-checked="true"] {
+#btn-core-only[aria-checked='true'] {
     box-shadow: 0 5px 18px rgba(255, 156, 205, 0.55);
 }
-#btn-full-game[aria-checked="true"] {
+#btn-full-game[aria-checked='true'] {
     box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55);
 }
 
 /* ♿ Aria: Keyboard focus for wait full checkbox */
 #wait-full-checkbox:focus-visible {
-    outline: 2px solid #FF4081;
+    outline: 2px solid #ff4081;
     outline-offset: 2px;
 }
 
 /* 🎨 Palette: Tactile feedback on interactive elements */
-.toggle-button:not([aria-disabled="true"]):active,
-.toggle-button:not([aria-disabled="true"]).keyboard-active,
-.cta-button:not([aria-disabled="true"]):active,
-.cta-button:not([aria-disabled="true"]).keyboard-active,
-.secondary-button:not([aria-disabled="true"]):active,
-.secondary-button:not([aria-disabled="true"]).keyboard-active,
-.close-icon-btn:not([aria-disabled="true"]):active,
-.close-icon-btn:not([aria-disabled="true"]).keyboard-active,
-.playlist-remove-btn:not([aria-disabled="true"]):active,
-.playlist-remove-btn:not([aria-disabled="true"]).keyboard-active {
+.toggle-button:not([aria-disabled='true']):active,
+.toggle-button:not([aria-disabled='true']).keyboard-active,
+.cta-button:not([aria-disabled='true']):active,
+.cta-button:not([aria-disabled='true']).keyboard-active,
+.secondary-button:not([aria-disabled='true']):active,
+.secondary-button:not([aria-disabled='true']).keyboard-active,
+.close-icon-btn:not([aria-disabled='true']):active,
+.close-icon-btn:not([aria-disabled='true']).keyboard-active,
+.playlist-remove-btn:not([aria-disabled='true']):active,
+.playlist-remove-btn:not([aria-disabled='true']).keyboard-active {
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
-
 
 /* ♿ Aria: Canvas focus visible state */
 #glCanvas:focus-visible {
     outline: 3px solid rgba(255, 182, 255, 0.8);
     box-shadow: 0 0 20px rgba(180, 255, 200, 0.6);
 }
-
 
 .visually-hidden {
     position: absolute;
@@ -697,7 +766,9 @@ button[aria-pressed="true"],
     border: 1px solid rgba(255, 255, 255, 0.55);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.25s ease, transform 0.25s ease;
+    transition:
+        opacity 0.25s ease,
+        transform 0.25s ease;
     z-index: 10001;
     text-align: center;
 }
@@ -732,7 +803,9 @@ body.photo-mode-active #tracker-status {
     opacity: 0;
     pointer-events: none;
     transform: translateY(-8px);
-    transition: opacity 0.22s ease, transform 0.22s ease;
+    transition:
+        opacity 0.22s ease,
+        transform 0.22s ease;
 }
 
 #photo-mode-panel.visible {
@@ -771,7 +844,7 @@ body.photo-mode-active #tracker-status {
     cursor: pointer;
 }
 
-.photo-mode-panel__preset[aria-pressed="true"] {
+.photo-mode-panel__preset[aria-pressed='true'] {
     background: #ff69b4;
     color: #fff;
     border-color: #ff69b4;
@@ -801,7 +874,7 @@ body.photo-mode-active #tracker-status {
     opacity: 0.8;
 }
 
-.photo-mode-panel__row input[type="range"] {
+.photo-mode-panel__row input[type='range'] {
     grid-column: 1 / -1;
     width: 100%;
 }

@@ -10,7 +10,15 @@ export interface CaptureStamp {
 }
 
 export interface CaptureOptions {
-    renderer: THREE.WebGLRenderer | { domElement: HTMLCanvasElement; getSize: (target: THREE.Vector2) => THREE.Vector2; setSize: (w: number, h: number, updateStyle?: boolean) => void; getPixelRatio: () => number; setPixelRatio: (v: number) => void };
+    renderer:
+        | THREE.WebGLRenderer
+        | {
+              domElement: HTMLCanvasElement;
+              getSize: (target: THREE.Vector2) => THREE.Vector2;
+              setSize: (w: number, h: number, updateStyle?: boolean) => void;
+              getPixelRatio: () => number;
+              setPixelRatio: (v: number) => void;
+          };
     renderFrame: () => void;
     scale?: number;
     watermark?: boolean;
@@ -106,9 +114,7 @@ export async function capturePhotoPng(options: CaptureOptions): Promise<string> 
             dataUrl = await compositeStamp(dataUrl, stamp, true);
         }
 
-        const filename =
-            options.filename ??
-            `candy-world-${stamp.seed}-${Date.now()}.png`;
+        const filename = options.filename ?? `candy-world-${stamp.seed}-${Date.now()}.png`;
         downloadDataUrl(dataUrl, filename);
         return dataUrl;
     } finally {

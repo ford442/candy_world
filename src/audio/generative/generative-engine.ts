@@ -86,7 +86,11 @@ export class GenerativeEngine {
     attach(audioContext: AudioContext, masterGain: GainNode): void {
         this.ctx = audioContext;
         this.busGain = masterGain;
-        this.synth = new SynthVoice(audioContext, masterGain, 800 + this.activeProfile.brightness * 7200);
+        this.synth = new SynthVoice(
+            audioContext,
+            masterGain,
+            800 + this.activeProfile.brightness * 7200
+        );
     }
 
     onNote(cb: GenerativeNoteCallback): void {
@@ -177,9 +181,7 @@ export class GenerativeEngine {
         const ctx = this.ctx;
         const synth = this.synth;
         const when = ctx ? ctx.currentTime + 0.02 : 0;
-        const stepDuration = ctx
-            ? 60 / (this.visualState.bpm * 4)
-            : 0.125;
+        const stepDuration = ctx ? 60 / (this.visualState.bpm * 4) : 0.125;
 
         let anyKick = false;
 

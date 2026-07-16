@@ -1,176 +1,130 @@
 {
-  "version": 1,
-  "biomes": {
-    "arpeggio_grove": {
-      "shimmer": [
-        3,
-        4
-      ],
-      "hueShift": [
-        5
-      ],
-      "noteColor": [
-        2
-      ]
+    "version": 1,
+    "biomes": {
+        "arpeggio_grove": {
+            "shimmer": [3, 4],
+            "hueShift": [5],
+            "noteColor": [2]
+        },
+        "crystalline_nebula": {
+            "shimmer": [1, 2],
+            "amplitudeScale": [0, 1],
+            "noteColor": [1]
+        },
+        "sky_moon": {
+            "noteColor": [0],
+            "intensity": [0, 1]
+        },
+        "global": {
+            "shimmer": [6],
+            "hueShift": [7],
+            "noteColor": [6]
+        },
+        "musical_flora": {
+            "shimmer": [0, 1],
+            "hueShift": [2],
+            "noteColor": [3]
+        },
+        "lake_features": {
+            "shimmer": [4],
+            "hueShift": [5],
+            "noteColor": [6]
+        },
+        "gem_canopy": {
+            "shimmer": [1, 2],
+            "hueShift": [3],
+            "noteColor": [1],
+            "sparkle": {
+                "intensity": 0.35,
+                "twinkleRate": 4.0,
+                "_comment": "Drives gem_sparks visual tuning; shares gem_canopy channel wiring via BiomeUniforms.gemCanopy.shimmer + uAudioHigh"
+            }
+        }
     },
-    "crystalline_nebula": {
-      "shimmer": [
-        1,
-        2
-      ],
-      "amplitudeScale": [
-        0,
-        1
-      ],
-      "noteColor": [
-        1
-      ]
+    "portamento_pine": {
+        "tracker_channel": 2
+    },
+    "wisteria_cluster": {
+        "tracker_channel": 2
     },
     "sky_moon": {
-      "noteColor": [
-        0
-      ],
-      "intensity": [
-        0,
-        1
-      ]
+        "melody_channel": 2,
+        "base_moon_intensity": 1.5
     },
-    "global": {
-      "shimmer": [
-        6
-      ],
-      "hueShift": [
-        7
-      ],
-      "noteColor": [
-        6
-      ]
+    "luminous_plants": {
+        "tracker_channel": 2,
+        "base_intensity": 1
     },
-    "musical_flora": {
-      "shimmer": [
-        0,
-        1
-      ],
-      "hueShift": [
-        2
-      ],
-      "noteColor": [
-        3
-      ]
+    "sky_wave": {
+        "propagation_ms": 800,
+        "target_biomes": [
+            "arpeggio_grove",
+            "crystalline_nebula",
+            "luminous_plants",
+            "sky_moon",
+            "global",
+            "gem_canopy"
+        ],
+        "decay_ms": 2000,
+        "_comment": "Order in target_biomes controls stagger (earlier = hits first). Wave lerps the corresponding noteColor uniform so any foliage already consuming that uniform (portamento, wisteria, trees, mushrooms, etc.) receives the sky hue automatically."
     },
-    "lake_features": {
-      "shimmer": [
-        4
-      ],
-      "hueShift": [
-        5
-      ],
-      "noteColor": [
-        6
-      ]
+    "atmosphere": {
+        "bloom": {
+            "channels": [0, 6],
+            "rest": 1.0,
+            "peak": 2.5,
+            "smoothing": 8.0
+        },
+        "fogDensity": {
+            "scale": 0.65,
+            "max": 0.85,
+            "smoothing": 6.0
+        },
+        "shaftMelody": {
+            "peak": 0.35,
+            "smoothing": 10.0
+        },
+        "beatPulse": {
+            "bloomSpike": 0.45,
+            "shaftShimmer": 0.12,
+            "decay": 12.0
+        }
     },
-    "gem_canopy": {
-      "shimmer": [
-        1,
-        2
-      ],
-      "hueShift": [
-        3
-      ],
-      "noteColor": [
-        1
-      ],
-      "sparkle": {
-        "intensity": 0.35,
-        "twinkleRate": 4.0,
-        "_comment": "Drives gem_sparks visual tuning; shares gem_canopy channel wiring via BiomeUniforms.gemCanopy.shimmer + uAudioHigh"
-      }
+    "cloud_platform": {
+        "melody_glow": [2, 3],
+        "emissive_strength": 0.35,
+        "_comment": "Walkable cloud blocks — melody channels drive uAudioHigh puff/glow in cloud-batcher.ts"
+    },
+    "weatherReactivity": {
+        "rainIntensity": {
+            "channel": 2,
+            "smoothing": 0.15,
+            "scale": 1
+        },
+        "thunderPulse": {
+            "channel": 0,
+            "smoothing": 0.05,
+            "scale": 0.8
+        },
+        "fogDensity": {
+            "channel": 5,
+            "smoothing": 0.3,
+            "scale": 0.5
+        }
+    },
+    "generative": {
+        "_comment": "Runtime profiles in src/audio/generative/biome-profiles.ts; channel indices match biomes.* above",
+        "defaultSeed": 3396861953,
+        "crossfadeMs": 1000,
+        "channels": {
+            "0": "kick_bass",
+            "1": "lead_pad",
+            "2": "melody",
+            "3": "arpeggio_a",
+            "4": "arpeggio_b",
+            "5": "pad_hue",
+            "6": "global_shimmer",
+            "7": "global_hue"
+        }
     }
-  },
-  "portamento_pine": {
-    "tracker_channel": 2
-  },
-  "wisteria_cluster": {
-    "tracker_channel": 2
-  },
-  "sky_moon": {
-    "melody_channel": 2,
-    "base_moon_intensity": 1.5
-  },
-  "luminous_plants": {
-    "tracker_channel": 2,
-    "base_intensity": 1
-  },
-  "sky_wave": {
-    "propagation_ms": 800,
-    "target_biomes": [
-      "arpeggio_grove",
-      "crystalline_nebula",
-      "luminous_plants",
-      "sky_moon",
-      "global",
-      "gem_canopy"
-    ],
-    "decay_ms": 2000,
-    "_comment": "Order in target_biomes controls stagger (earlier = hits first). Wave lerps the corresponding noteColor uniform so any foliage already consuming that uniform (portamento, wisteria, trees, mushrooms, etc.) receives the sky hue automatically."
-  },
-  "atmosphere": {
-    "bloom": {
-      "channels": [0, 6],
-      "rest": 1.0,
-      "peak": 2.5,
-      "smoothing": 8.0
-    },
-    "fogDensity": {
-      "scale": 0.65,
-      "max": 0.85,
-      "smoothing": 6.0
-    },
-    "shaftMelody": {
-      "peak": 0.35,
-      "smoothing": 10.0
-    },
-    "beatPulse": {
-      "bloomSpike": 0.45,
-      "shaftShimmer": 0.12,
-      "decay": 12.0
-    }
-  },
-  "cloud_platform": {
-    "melody_glow": [2, 3],
-    "emissive_strength": 0.35,
-    "_comment": "Walkable cloud blocks — melody channels drive uAudioHigh puff/glow in cloud-batcher.ts"
-  },
-  "weatherReactivity": {
-    "rainIntensity": {
-      "channel": 2,
-      "smoothing": 0.15,
-      "scale": 1
-    },
-    "thunderPulse": {
-      "channel": 0,
-      "smoothing": 0.05,
-      "scale": 0.8
-    },
-    "fogDensity": {
-      "channel": 5,
-      "smoothing": 0.3,
-      "scale": 0.5
-    }
-  },
-  "generative": {
-    "_comment": "Runtime profiles in src/audio/generative/biome-profiles.ts; channel indices match biomes.* above",
-    "defaultSeed": 3396861953,
-    "crossfadeMs": 1000,
-    "channels": {
-      "0": "kick_bass",
-      "1": "lead_pad",
-      "2": "melody",
-      "3": "arpeggio_a",
-      "4": "arpeggio_b",
-      "5": "pad_hue",
-      "6": "global_shimmer",
-      "7": "global_hue"
-    }
-  }
 }

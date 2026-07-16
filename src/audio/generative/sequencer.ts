@@ -26,14 +26,14 @@ export interface ChannelVoiceConfig {
 
 /** Tracker channel roles aligned with music-bindings.json. */
 export const CHANNEL_VOICES: readonly ChannelVoiceConfig[] = [
-    { wave: 'sine', octave: 2, pattern: 'kick', length: 1 },      // 0 kick/bass
-    { wave: 'triangle', octave: 4, pattern: 'pad', length: 4 },    // 1 lead pad
-    { wave: 'sine', octave: 5, pattern: 'melody', length: 2 },     // 2 melody
-    { wave: 'triangle', octave: 5, pattern: 'arp', length: 1 },    // 3 arpeggio A
-    { wave: 'sine', octave: 6, pattern: 'arp', length: 1 },        // 4 arpeggio B
-    { wave: 'sawtooth', octave: 3, pattern: 'pad', length: 8 },    // 5 pad/hue
-    { wave: 'triangle', octave: 4, pattern: 'fx', length: 2 },     // 6 global shimmer
-    { wave: 'sine', octave: 5, pattern: 'fx', length: 1 },         // 7 global hue
+    { wave: 'sine', octave: 2, pattern: 'kick', length: 1 }, // 0 kick/bass
+    { wave: 'triangle', octave: 4, pattern: 'pad', length: 4 }, // 1 lead pad
+    { wave: 'sine', octave: 5, pattern: 'melody', length: 2 }, // 2 melody
+    { wave: 'triangle', octave: 5, pattern: 'arp', length: 1 }, // 3 arpeggio A
+    { wave: 'sine', octave: 6, pattern: 'arp', length: 1 }, // 4 arpeggio B
+    { wave: 'sawtooth', octave: 3, pattern: 'pad', length: 8 }, // 5 pad/hue
+    { wave: 'triangle', octave: 4, pattern: 'fx', length: 2 }, // 6 global shimmer
+    { wave: 'sine', octave: 5, pattern: 'fx', length: 1 }, // 7 global hue
 ];
 
 /**
@@ -146,7 +146,7 @@ export class GenerativeSequencer {
         for (let s = 0; s < STEPS_PER_BAR; s++) {
             let prob = density * 0.45;
             if (voice.pattern === 'kick') {
-                prob = s % 4 === 0 ? 0.95 : (s % 8 === 4 ? 0.35 : 0.05);
+                prob = s % 4 === 0 ? 0.95 : s % 8 === 4 ? 0.35 : 0.05;
             } else if (voice.pattern === 'arp') {
                 prob = 0.55 + density * 0.35;
             } else if (voice.pattern === 'melody') {

@@ -15,4 +15,9 @@ export {
 } from './sequencer.ts';
 export { SynthVoice } from './synth-voice.ts';
 export { GenerativeEngine, type GenerativeEngineOptions } from './generative-engine.ts';
-export { resolveMusicMode, setMusicModePreference, isGenerativeMusicEnabled, type MusicSourceMode } from './music-mode.ts';
+export {
+    resolveMusicMode,
+    setMusicModePreference,
+    isGenerativeMusicEnabled,
+    type MusicSourceMode,
+} from './music-mode.ts';

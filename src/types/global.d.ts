@@ -2,170 +2,173 @@ export {};
 
 // Loading Screen types
 type LoadingPhase = {
-  id: string;
-  name: string;
-  weight: number;
-  description: string;
-  isDeferred?: boolean;
-  onStart?: () => void;
-  onComplete?: () => void;
+    id: string;
+    name: string;
+    weight: number;
+    description: string;
+    isDeferred?: boolean;
+    onStart?: () => void;
+    onComplete?: () => void;
 };
 
 type LoadingProgress = {
-  phase: string;
-  phaseIndex: number;
-  totalPhases: number;
-  percent: number;
-  overallPercent: number;
-  taskDescription: string;
-  estimatedTimeRemaining: number;
+    phase: string;
+    phaseIndex: number;
+    totalPhases: number;
+    percent: number;
+    overallPercent: number;
+    taskDescription: string;
+    estimatedTimeRemaining: number;
 };
 
 type LoadingScreenOptions = {
-  debug?: boolean;
-  showEstimatedTime?: boolean;
-  allowSkipDeferred?: boolean;
-  fadeOutDuration?: number;
-  theme?: 'candy' | 'dark' | 'minimal';
+    debug?: boolean;
+    showEstimatedTime?: boolean;
+    allowSkipDeferred?: boolean;
+    fadeOutDuration?: number;
+    theme?: 'candy' | 'dark' | 'minimal';
 };
 
 declare global {
-  interface Window {
-    // Legacy loading API
-    setLoadingStatus: (text: string) => void;
-    setLoadingProgress: (percent: number) => void;
-    hideLoadingScreen: () => void;
-    showLoadingScreen: () => void;
-    updateLoadingProgress: (phase: string, percent: number, taskDescription?: string) => void;
-    
-    // Scene ready flag
-    __sceneReady?: boolean;
-    __devOrbitActive?: boolean;
-    __exploreActive?: boolean;
-    __photoModeActive?: boolean;
+    interface Window {
+        // Legacy loading API
+        setLoadingStatus: (text: string) => void;
+        setLoadingProgress: (percent: number) => void;
+        hideLoadingScreen: () => void;
+        showLoadingScreen: () => void;
+        updateLoadingProgress: (phase: string, percent: number, taskDescription?: string) => void;
 
-    // Renderer breadcrumbs (Playwright / agents)
-    rendererType?: 'webgpu' | 'webgl';
-    currentRenderer?: 'webgpu' | 'webgl';
-    usingWebGPU?: boolean;
-    usingWebGL?: boolean;
-    rendererFallbackReason?: string | null;
-    setRenderer?: (backend: 'webgpu' | 'webgl') => void;
-    candy_set_webgl_debug_mode?: (mode: 'wireframe' | 'material' | 'lite', enabled: boolean) => void;
-    candy_get_webgl_debug_state?: () => {
-      wireframe: boolean;
-      materialDebug: boolean;
-      liteGeneration: boolean;
-    };
-    
-    // Audio
-    libopenmptReady?: Promise<any>;
-    libopenmpt?: {
-      INITIAL_MEMORY: number;
-      onRuntimeInitialized: () => void;
-    };
-    NativeWebAssembly?: typeof WebAssembly;
-    
-    // Loading Screen API
-    LoadingScreen?: {
-      new (options?: LoadingScreenOptions): LoadingScreenInstance;
-    };
-    getLoadingScreen?: () => LoadingScreenInstance | null;
-    initLoadingScreen?: (options?: LoadingScreenOptions) => LoadingScreenInstance;
-    setLoadingDebug?: (enabled: boolean) => void;
-    exportCurrentWorldToMap?: (options?: {
-      download?: boolean;
-      fileName?: string;
-      sourceLabel?: string;
-      includeInstancedFallback?: boolean;
-    }) => Promise<{
-      map: any;
-      stats: {
-        totalEntities: number;
-        byType: Record<string, number>;
-        byProvenance: Record<string, number>;
-        deduped: number;
-      };
-    }>;
-    __getBatcherTelemetry?: () => {
-      timestamp: number;
-      totalInstances: number;
-      totalCapacity: number;
-      totalDrawCalls: number;
-      totalEstimatedVramBytes: number;
-      entries: Array<{
-        id: string;
-        label: string;
-        instances: number;
-        capacity: number;
-        drawCalls: number;
-        estimatedVramBytes: number;
-      }>;
-    };
-    __getFogTelemetry?: () => {
-      targetNear: number;
-      targetFar: number;
-      currentNear: number;
-      currentFar: number;
-      tslNear: number;
-      tslFar: number;
-      cameraFar: number;
-      cameraFov: number;
-      dayNightBias: number;
-      playerY: number;
-    };
-  }
-  
-  // Loading Screen instance interface
-  interface LoadingScreenInstance {
-    show(): void;
-    hide(): void;
-    setPhases(phases: LoadingPhase[]): void;
-    startPhase(phaseId: string): void;
-    updateProgress(percent: number, taskDescription?: string): void;
-    completePhase(phaseId?: string): void;
-    skipCurrentPhase(): void;
-    setStatus(text: string): void;
-    onSkip(callback: (phaseId: string) => void): () => void;
-    onComplete(callback: () => void): () => void;
-    onProgress(callback: (progress: LoadingProgress) => void): () => void;
-    getVisible(): boolean;
-    getProgress(): LoadingProgress;
-    getTimingStats(): { phaseDurations: Map<string, number>; averagePhaseTime: number };
-  }
+        // Scene ready flag
+        __sceneReady?: boolean;
+        __devOrbitActive?: boolean;
+        __exploreActive?: boolean;
+        __photoModeActive?: boolean;
+
+        // Renderer breadcrumbs (Playwright / agents)
+        rendererType?: 'webgpu' | 'webgl';
+        currentRenderer?: 'webgpu' | 'webgl';
+        usingWebGPU?: boolean;
+        usingWebGL?: boolean;
+        rendererFallbackReason?: string | null;
+        setRenderer?: (backend: 'webgpu' | 'webgl') => void;
+        candy_set_webgl_debug_mode?: (
+            mode: 'wireframe' | 'material' | 'lite',
+            enabled: boolean
+        ) => void;
+        candy_get_webgl_debug_state?: () => {
+            wireframe: boolean;
+            materialDebug: boolean;
+            liteGeneration: boolean;
+        };
+
+        // Audio
+        libopenmptReady?: Promise<any>;
+        libopenmpt?: {
+            INITIAL_MEMORY: number;
+            onRuntimeInitialized: () => void;
+        };
+        NativeWebAssembly?: typeof WebAssembly;
+
+        // Loading Screen API
+        LoadingScreen?: {
+            new (options?: LoadingScreenOptions): LoadingScreenInstance;
+        };
+        getLoadingScreen?: () => LoadingScreenInstance | null;
+        initLoadingScreen?: (options?: LoadingScreenOptions) => LoadingScreenInstance;
+        setLoadingDebug?: (enabled: boolean) => void;
+        exportCurrentWorldToMap?: (options?: {
+            download?: boolean;
+            fileName?: string;
+            sourceLabel?: string;
+            includeInstancedFallback?: boolean;
+        }) => Promise<{
+            map: any;
+            stats: {
+                totalEntities: number;
+                byType: Record<string, number>;
+                byProvenance: Record<string, number>;
+                deduped: number;
+            };
+        }>;
+        __getBatcherTelemetry?: () => {
+            timestamp: number;
+            totalInstances: number;
+            totalCapacity: number;
+            totalDrawCalls: number;
+            totalEstimatedVramBytes: number;
+            entries: Array<{
+                id: string;
+                label: string;
+                instances: number;
+                capacity: number;
+                drawCalls: number;
+                estimatedVramBytes: number;
+            }>;
+        };
+        __getFogTelemetry?: () => {
+            targetNear: number;
+            targetFar: number;
+            currentNear: number;
+            currentFar: number;
+            tslNear: number;
+            tslFar: number;
+            cameraFar: number;
+            cameraFov: number;
+            dayNightBias: number;
+            playerY: number;
+        };
+    }
+
+    // Loading Screen instance interface
+    interface LoadingScreenInstance {
+        show(): void;
+        hide(): void;
+        setPhases(phases: LoadingPhase[]): void;
+        startPhase(phaseId: string): void;
+        updateProgress(percent: number, taskDescription?: string): void;
+        completePhase(phaseId?: string): void;
+        skipCurrentPhase(): void;
+        setStatus(text: string): void;
+        onSkip(callback: (phaseId: string) => void): () => void;
+        onComplete(callback: () => void): () => void;
+        onProgress(callback: (progress: LoadingProgress) => void): () => void;
+        getVisible(): boolean;
+        getProgress(): LoadingProgress;
+        getTimingStats(): { phaseDurations: Map<string, number>; averagePhaseTime: number };
+    }
 }
 
 // Declare modules for JS files without types
 declare module '*/src/utils/wasm-loader.ts' {
-  export function initWasm(): Promise<boolean>;
-  export function initWasmParallel(): Promise<boolean>;
-  export function isWasmReady(): boolean;
-  export function getGroundHeight(x: number, z: number): number;
-  export const LOADING_PHASES: any;
+    export function initWasm(): Promise<boolean>;
+    export function initWasmParallel(): Promise<boolean>;
+    export function isWasmReady(): boolean;
+    export function getGroundHeight(x: number, z: number): number;
+    export const LOADING_PHASES: any;
 }
 
 // Declare WASM module imports (Vite with vite-plugin-wasm)
 // Using a specific path pattern that TypeScript can resolve
 declare module '../wasm/candy_physics.wasm?init' {
-  const initWasm: (importObject?: WebAssembly.Imports) => Promise<WebAssembly.Instance>;
-  export default initWasm;
+    const initWasm: (importObject?: WebAssembly.Imports) => Promise<WebAssembly.Instance>;
+    export default initWasm;
 }
 
 declare module '*/src/core/init.js' {
-  export function initScene(): any;
-  export function forceFullSceneWarmup(renderer: any, scene: any, camera: any): Promise<void>;
+    export function initScene(): any;
+    export function forceFullSceneWarmup(renderer: any, scene: any, camera: any): Promise<void>;
 }
 
 declare module '*/src/utils/profiler.ts' {
-  export const profiler: {
-    startFrame(): void;
-    endFrame(): void;
-    measure<T>(name: string, fn: () => T): T;
-    toggle(): void;
-  };
+    export const profiler: {
+        startFrame(): void;
+        endFrame(): void;
+        measure<T>(name: string, fn: () => T): T;
+        toggle(): void;
+    };
 }
 
 declare module '*/src/foliage/fluid_fog.js' {
-  import { Mesh } from 'three';
-  export function createFluidFog(width?: number, depth?: number): Mesh;
+    import { Mesh } from 'three';
+    export function createFluidFog(width?: number, depth?: number): Mesh;
 }

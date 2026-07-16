@@ -10,7 +10,12 @@ import * as THREE from 'three';
 import { discoverySystem } from '../../systems/discovery.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { openAccessibilityMenu, closeAccessibilityMenu } from '../../ui/accessibility-menu.ts';
-import { keyStates, InitInputResult, filterValidMusicFiles, triggerAbility } from './input-types.ts';
+import {
+    keyStates,
+    InitInputResult,
+    filterValidMusicFiles,
+    triggerAbility,
+} from './input-types.ts';
 import {
     initPlaylistManager,
     getIsPlaylistOpen,
@@ -21,13 +26,9 @@ import {
     getWasPausedBeforePlaylist,
     togglePlaylist,
     handlePlaylistKeyDown,
-    initLegacyMusicUpload
+    initLegacyMusicUpload,
 } from './playlist-manager.ts';
-import {
-    initAudioControls,
-    handleMuteKey,
-    handleVolumeKey
-} from './audio-controls.ts';
+import { initAudioControls, handleMuteKey, handleVolumeKey } from './audio-controls.ts';
 import {
     bootstrapExploreFromPreference,
     initExploreCamera,
@@ -89,7 +90,7 @@ export function initInput(
     const exploreVariant: ExploreVariant = resolveExploreVariant();
     const exploreCamera = initExploreCamera({
         camera: camera as THREE.PerspectiveCamera,
-        canvas: canvas ?? document.body as unknown as HTMLCanvasElement,
+        canvas: canvas ?? (document.body as unknown as HTMLCanvasElement),
         controls,
         variant: exploreVariant,
         onResetInput: resetMovementInput,
@@ -103,7 +104,9 @@ export function initInput(
         );
     };
 
-    const stopDevOrbitLoop = () => { /* orbit updates run in game-loop via updateExploreCamera */ };
+    const stopDevOrbitLoop = () => {
+        /* orbit updates run in game-loop via updateExploreCamera */
+    };
 
     const setPausedTitle = (paused: boolean) => {
         const title = instructions ? instructions.querySelector('h1') : null;
@@ -116,13 +119,15 @@ export function initInput(
 
     const setStartButtonResumeLabel = () => {
         if (startButton) {
-            startButton.innerHTML = 'Resume the Dream <span aria-hidden="true">✨</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+            startButton.innerHTML =
+                'Resume the Dream <span aria-hidden="true">✨</span> <span class="key-badge" aria-hidden="true">Enter</span>';
         }
     };
 
     const setStartButtonEnterLabel = () => {
         if (startButton) {
-            startButton.innerHTML = 'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+            startButton.innerHTML =
+                'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
         }
     };
 
@@ -197,7 +202,9 @@ export function initInput(
         }
         // UX: If generating the world, keep the "Generating..." message visible
         // The main.js logic will hide it when done.
-        const currentStartButton = document.getElementById('startButton') as HTMLButtonElement | null;
+        const currentStartButton = document.getElementById(
+            'startButton'
+        ) as HTMLButtonElement | null;
         if (currentStartButton && currentStartButton.disabled) {
             return;
         }
@@ -268,7 +275,8 @@ export function initInput(
                 const content = instructions.querySelector('.instructions-content') as HTMLElement;
                 if (content) {
                     content.style.transform = 'scale(0.95)';
-                    content.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                    content.style.transition =
+                        'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                 }
 
                 requestAnimationFrame(() => {
@@ -305,14 +313,16 @@ export function initInput(
         // 3. Instructions (Pause Menu) are hidden
         // 4. We are NOT currently prevented from locking (i.e. not dancing)
         const target = event.target;
-        if (!controls.isLocked &&
+        if (
+            !controls.isLocked &&
             !isExploreActive() &&
             !isPhotoModeActive() &&
             !getIsPlaylistOpen() &&
-            instructions && instructions.style.display === 'none' &&
+            instructions &&
+            instructions.style.display === 'none' &&
             !isInteractiveTarget(target) &&
-            (target === canvas || target === document.body)) {
-
+            (target === canvas || target === document.body)
+        ) {
             if (shouldPreventMenuOnUnlock && shouldPreventMenuOnUnlock()) {
                 // Still dancing/prevented? Do nothing, keep cursor free.
                 return;
@@ -415,10 +425,13 @@ export function initInput(
                     instructions.style.backdropFilter = 'blur(0px)';
                     instructions.style.transition = 'opacity 0.2s ease, backdrop-filter 0.2s ease';
 
-                    const content = instructions.querySelector('.instructions-content') as HTMLElement;
+                    const content = instructions.querySelector(
+                        '.instructions-content'
+                    ) as HTMLElement;
                     if (content) {
                         content.style.transform = 'scale(0.95)';
-                        content.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                        content.style.transition =
+                            'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                     }
 
                     requestAnimationFrame(() => {
@@ -456,7 +469,11 @@ export function initInput(
         // Enter: Resume/Start if menu is visible and button is active
         if (event.code === 'Enter') {
             if (!isPlaylistOpen && instructions && instructions.style.display !== 'none') {
-                if (startButton && !startButton.disabled && document.activeElement !== startButton) {
+                if (
+                    startButton &&
+                    !startButton.disabled &&
+                    document.activeElement !== startButton
+                ) {
                     startButton.click();
                     event.preventDefault();
                 }
@@ -471,14 +488,16 @@ export function initInput(
             const code = event.code;
             const keys = instructions.querySelectorAll('kbd.key');
 
-            keys.forEach(k => {
+            keys.forEach((k) => {
                 const text = (k as HTMLElement).innerText.toUpperCase();
                 // Match by text content or specific codes
                 let match = false;
                 if (text === keyChar) match = true;
                 if (text === 'SPACE' && code === 'Space') match = true;
-                if (text === 'SHIFT' && (code === 'ShiftLeft' || code === 'ShiftRight')) match = true;
-                if (text === 'CTRL' && (code === 'ControlLeft' || code === 'ControlRight')) match = true;
+                if (text === 'SHIFT' && (code === 'ShiftLeft' || code === 'ShiftRight'))
+                    match = true;
+                if (text === 'CTRL' && (code === 'ControlLeft' || code === 'ControlRight'))
+                    match = true;
                 if (text === '+' && (code === 'Equal' || code === 'NumpadAdd')) match = true;
                 if (text === '-' && (code === 'Minus' || code === 'NumpadSubtract')) match = true;
 
@@ -486,7 +505,6 @@ export function initInput(
                     k.classList.add('key-highlight');
                 }
             });
-
         }
 
         // --- UX: Focus Trap & Control Lock when Playlist is open ---
@@ -565,7 +583,7 @@ export function initInput(
                 break;
             case 'KeyN':
                 triggerButtonPress('toggleDayNight');
-                if(toggleDayNightCallback) toggleDayNightCallback();
+                if (toggleDayNightCallback) toggleDayNightCallback();
                 break;
             case 'KeyM':
                 triggerButtonPress('toggleMuteBtn');
@@ -612,13 +630,15 @@ export function initInput(
             const code = event.code;
             const keys = instructions.querySelectorAll('kbd.key');
 
-            keys.forEach(k => {
+            keys.forEach((k) => {
                 const text = (k as HTMLElement).innerText.toUpperCase();
                 let match = false;
                 if (text === keyChar) match = true;
                 if (text === 'SPACE' && code === 'Space') match = true;
-                if (text === 'SHIFT' && (code === 'ShiftLeft' || code === 'ShiftRight')) match = true;
-                if (text === 'CTRL' && (code === 'ControlLeft' || code === 'ControlRight')) match = true;
+                if (text === 'SHIFT' && (code === 'ShiftLeft' || code === 'ShiftRight'))
+                    match = true;
+                if (text === 'CTRL' && (code === 'ControlLeft' || code === 'ControlRight'))
+                    match = true;
                 if (text === '+' && (code === 'Equal' || code === 'NumpadAdd')) match = true;
                 if (text === '-' && (code === 'Minus' || code === 'NumpadSubtract')) match = true;
 
@@ -629,10 +649,18 @@ export function initInput(
         }
 
         switch (event.code) {
-            case 'KeyW': keyStates.forward = false; break;
-            case 'KeyA': keyStates.left = false; break;
-            case 'KeyS': keyStates.backward = false; break;
-            case 'KeyD': keyStates.right = false; break;
+            case 'KeyW':
+                keyStates.forward = false;
+                break;
+            case 'KeyA':
+                keyStates.left = false;
+                break;
+            case 'KeyS':
+                keyStates.backward = false;
+                break;
+            case 'KeyD':
+                keyStates.right = false;
+                break;
             case 'KeyF':
                 keyStates.action = false;
                 if (hudMine) hudMine.classList.remove('keyboard-active');
@@ -655,15 +683,25 @@ export function initInput(
             case 'r':
                 keyStates.dance = false;
                 break;
-            case 'Space': keyStates.jump = false; break;
+            case 'Space':
+                keyStates.jump = false;
+                break;
             case 'KeyC':
-            case 'c': keyStates.clap = false; break;
+            case 'c':
+                keyStates.clap = false;
+                break;
             case 'KeyV':
-            case 'v': keyStates.strike = false; break;
+            case 'v':
+                keyStates.strike = false;
+                break;
             case 'ControlLeft':
-            case 'ControlRight': keyStates.sneak = false; break;
+            case 'ControlRight':
+                keyStates.sneak = false;
+                break;
             case 'ShiftLeft':
-            case 'ShiftRight': keyStates.sprint = false; break;
+            case 'ShiftRight':
+                keyStates.sprint = false;
+                break;
         }
     };
 
@@ -738,26 +776,25 @@ export function initInput(
     }
     // ---------------------------------------------------
 
+    // Cache timeouts to debounce rapid key presses
+    const buttonPressTimeouts = new Map<string, NodeJS.Timeout | number>();
+    function triggerButtonPress(buttonId: string): void {
+        const btn = document.getElementById(buttonId);
+        if (btn && btn.getAttribute('aria-disabled') !== 'true') {
+            btn.classList.add('keyboard-active');
 
-// Cache timeouts to debounce rapid key presses
-const buttonPressTimeouts = new Map<string, NodeJS.Timeout | number>();
-function triggerButtonPress(buttonId: string): void {
-    const btn = document.getElementById(buttonId);
-    if (btn && btn.getAttribute('aria-disabled') !== 'true') {
-        btn.classList.add('keyboard-active');
+            if (buttonPressTimeouts.has(buttonId)) {
+                clearTimeout(buttonPressTimeouts.get(buttonId) as any);
+            }
 
-        if (buttonPressTimeouts.has(buttonId)) {
-            clearTimeout(buttonPressTimeouts.get(buttonId) as any);
+            const timeoutId = setTimeout(() => {
+                btn.classList.remove('keyboard-active');
+                buttonPressTimeouts.delete(buttonId);
+            }, 150);
+
+            buttonPressTimeouts.set(buttonId, timeoutId as unknown as number);
         }
-
-        const timeoutId = setTimeout(() => {
-            btn.classList.remove('keyboard-active');
-            buttonPressTimeouts.delete(buttonId);
-        }, 150);
-
-        buttonPressTimeouts.set(buttonId, timeoutId as unknown as number);
     }
-}
 
     const toggleDayNightBtn = document.getElementById('toggleDayNight');
     if (toggleDayNightBtn && toggleDayNightCallback) {
@@ -768,10 +805,10 @@ function triggerButtonPress(buttonId: string): void {
     type DpadDirection = 'forward' | 'backward' | 'left' | 'right';
 
     const dpadMap: Record<string, DpadDirection> = {
-        'dpad-forward':  'forward',
+        'dpad-forward': 'forward',
         'dpad-backward': 'backward',
-        'dpad-left':     'left',
-        'dpad-right':    'right',
+        'dpad-left': 'left',
+        'dpad-right': 'right',
     };
 
     // Track which D-pad directions are currently held via pointer
@@ -882,23 +919,29 @@ function triggerButtonPress(buttonId: string): void {
             // Use the filter function from input-types
             const { validFiles, invalidFiles } = filterValidMusicFiles(files);
 
-                if (validFiles.length > 0) {
-                    audioSystem.addToQueue(validFiles);
+            if (validFiles.length > 0) {
+                audioSystem.addToQueue(validFiles);
 
-                    // Show feedback via Toast
-                    import('../../utils/toast.ts').then(({ showToast }) => {
-                        if (invalidFiles.length > 0) {
-                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
-                        } else {
-                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
-                        }
-                    });
-                } else {
-                    // All files were invalid
-                    import('../../utils/toast.ts').then(({ showToast }) => {
-                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-                    });
-                }
+                // Show feedback via Toast
+                import('../../utils/toast.ts').then(({ showToast }) => {
+                    if (invalidFiles.length > 0) {
+                        showToast(
+                            `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`,
+                            '⚠️'
+                        );
+                    } else {
+                        showToast(
+                            `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`,
+                            '📂'
+                        );
+                    }
+                });
+            } else {
+                // All files were invalid
+                import('../../utils/toast.ts').then(({ showToast }) => {
+                    showToast('❌ Only .mod, .xm, .it, .s3m allowed!', '🚫');
+                });
+            }
             // End filter
         }
     };
@@ -945,7 +988,10 @@ function triggerButtonPress(buttonId: string): void {
         updateDayNightButtonState: (isPressed: boolean) => {
             if (toggleDayNightBtn) {
                 toggleDayNightBtn.setAttribute('aria-pressed', String(isPressed));
-                toggleDayNightBtn.setAttribute('aria-label', isPressed ? 'Switch to Day' : 'Switch to Night');
+                toggleDayNightBtn.setAttribute(
+                    'aria-label',
+                    isPressed ? 'Switch to Day' : 'Switch to Night'
+                );
                 toggleDayNightBtn.title = isPressed ? 'Switch to Day (N)' : 'Switch to Night (N)';
                 // UX: Update button text to show available action
                 toggleDayNightBtn.innerHTML = isPressed
@@ -953,10 +999,10 @@ function triggerButtonPress(buttonId: string): void {
                     : '<span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>';
 
                 import('../../utils/toast.ts').then(({ showToast }) => {
-                    const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";
+                    const mode = isPressed ? 'Night Mode Active 🌙' : 'Day Mode Active ☀️';
                     showToast(mode, isPressed ? '🌙' : '☀️');
                 });
             }
-        }
+        },
     };
 }

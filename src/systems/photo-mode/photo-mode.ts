@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { CYCLE_DURATION } from '../../core/config.ts';
-import { initExploreCamera, getExploreCamera, setExploreOrbitFlag } from '../../core/camera-modes.ts';
+import {
+    initExploreCamera,
+    getExploreCamera,
+    setExploreOrbitFlag,
+} from '../../core/camera-modes.ts';
 import {
     uBloomStrength,
     uColorSaturation,
@@ -23,7 +27,15 @@ export interface PhotoModeInitOptions {
     canvas: HTMLCanvasElement;
     controls: PointerLockControls;
     timeOffset: { value: number };
-    renderer: THREE.WebGLRenderer | { domElement: HTMLCanvasElement; getSize: (t: THREE.Vector2) => THREE.Vector2; setSize: (w: number, h: number, u?: boolean) => void; getPixelRatio: () => number; setPixelRatio: (v: number) => void };
+    renderer:
+        | THREE.WebGLRenderer
+        | {
+              domElement: HTMLCanvasElement;
+              getSize: (t: THREE.Vector2) => THREE.Vector2;
+              setSize: (w: number, h: number, u?: boolean) => void;
+              getPixelRatio: () => number;
+              setPixelRatio: (v: number) => void;
+          };
     renderFrame: () => void;
     getGameTime?: () => number;
 }

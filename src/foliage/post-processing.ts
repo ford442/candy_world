@@ -32,7 +32,7 @@ export const uShaftScatterBoost = uniform(0.0);
 /**
  * Initializes the Post-Processing pipeline for Candy World.
  * Automatically selects WebGPU TSL pipeline or WebGL EffectComposer based on renderer.
- * 
+ *
  * Features:
  * - Base Scene Render
  * - Bloom (Audio-reactive via uBloomStrength)
@@ -44,7 +44,12 @@ export const uShaftScatterBoost = uniform(0.0);
  * @param mode The renderer mode ('webgpu' or 'webgl')
  * @returns An object to manage and render the post-processing pipeline
  */
-export function initPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera, mode: 'webgpu' | 'webgl') {
+export function initPostProcessing(
+    renderer: CandyRenderer,
+    scene: THREE.Scene,
+    camera: THREE.Camera,
+    mode: 'webgpu' | 'webgl'
+) {
     if (mode === 'webgpu') {
         return initWebGPUPostProcessing(renderer, scene, camera);
     } else {
@@ -55,11 +60,15 @@ export function initPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, 
 /**
  * WebGPU-specific post-processing pipeline using TSL
  */
-function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+function initWebGPUPostProcessing(
+    renderer: CandyRenderer,
+    scene: THREE.Scene,
+    camera: THREE.Camera
+) {
     if (!isWebGPUMode(renderer)) {
         throw new Error('Expected WebGPU renderer for WebGPU post-processing');
     }
-    
+
     // 1. Initialize PostProcessing
     const postProcessing = new PostProcessing(renderer);
 
@@ -82,13 +91,7 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
     if (dofActive) {
         // viewZ drives the circle-of-confusion; aperture/maxblur kept subtle (candy bokeh).
         const viewZ = scenePass.getViewZNode();
-        dofColorNode = dof(
-            scenePass,
-            viewZ,
-            uDofFocus,
-            uDofAperture,
-            uDofMaxBlur
-        );
+        dofColorNode = dof(scenePass, viewZ, uDofFocus, uDofAperture, uDofMaxBlur);
         console.log('[PostFX] Depth of Field enabled (WebGPU TSL bokeh)');
     }
 
@@ -163,20 +166,24 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
             saturation: uColorSaturation,
             contrast: uColorContrast,
             vignetteStrength: uVignetteStrength,
-            aberrationStrength: uAberrationStrength
-        }
+            aberrationStrength: uAberrationStrength,
+        },
     };
 }
 
 /**
  * WebGL-specific post-processing pipeline using EffectComposer
  */
-function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+function initWebGLPostProcessing(
+    renderer: CandyRenderer,
+    scene: THREE.Scene,
+    camera: THREE.Camera
+) {
     if (isWebGPUMode(renderer)) {
         throw new Error('Expected WebGL renderer for WebGL post-processing, got WebGPU');
     }
     const webglRenderer = renderer as THREE.WebGLRenderer;
-    
+
     // 1. Initialize EffectComposer
     const composer = new EffectComposer(webglRenderer);
 
@@ -204,9 +211,9 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
     const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
     const bloomPass = new UnrealBloomPass(
         resolution,
-        1.0,    // strength (maps to uBloomStrength)
-        0.5,    // radius (soft glow spread)
-        0.85    // threshold (only bright spots bloom)
+        1.0, // strength (maps to uBloomStrength)
+        0.5, // radius (soft glow spread)
+        0.85 // threshold (only bright spots bloom)
     );
     composer.addPass(bloomPass);
 
@@ -237,13 +244,13 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
         },
         // Expose uniforms for compatibility
         uniforms: {
-            bloomStrength: uBloomStrength,  // Same uniform as WebGPU; manual sync required
+            bloomStrength: uBloomStrength, // Same uniform as WebGPU; manual sync required
             saturation: uColorSaturation,
             contrast: uColorContrast,
             vignetteStrength: uVignetteStrength,
-            aberrationStrength: uAberrationStrength
+            aberrationStrength: uAberrationStrength,
         },
         // Expose bloom pass for manual control and synchronization
-        bloomPass: bloomPass
+        bloomPass: bloomPass,
     };
 }

@@ -15,31 +15,31 @@ Defaults always remain valid fallback.
 
 ```json
 {
-  "music": {
-    "profile": "dream-meadow",
-    "biomes": {
-      "arpeggio_grove": {
-        "shimmer": [3, 4],
-        "hueShift": [5],
-        "noteColor": [7],
-        "intensityScale": 1.25
-      },
-      "global": {
-        "noteColor": [6],
-        "intensityScale": 0.9
-      }
-    },
-    "skyMoon": { "melodyChannel": 1 },
-    "luminousPlants": { "trackerChannel": 4, "baseIntensity": 1.2 },
-    "skyWave": {
-      "propagationMs": 700,
-      "decayMs": 1800,
-      "targetBiomes": ["arpeggio_grove", "musical_flora", "global"]
-    },
-    "weatherReactivity": {
-      "rainIntensity": { "channel": 2, "smoothing": 0.2, "scale": 0.9 }
+    "music": {
+        "profile": "dream-meadow",
+        "biomes": {
+            "arpeggio_grove": {
+                "shimmer": [3, 4],
+                "hueShift": [5],
+                "noteColor": [7],
+                "intensityScale": 1.25
+            },
+            "global": {
+                "noteColor": [6],
+                "intensityScale": 0.9
+            }
+        },
+        "skyMoon": { "melodyChannel": 1 },
+        "luminousPlants": { "trackerChannel": 4, "baseIntensity": 1.2 },
+        "skyWave": {
+            "propagationMs": 700,
+            "decayMs": 1800,
+            "targetBiomes": ["arpeggio_grove", "musical_flora", "global"]
+        },
+        "weatherReactivity": {
+            "rainIntensity": { "channel": 2, "smoothing": 0.2, "scale": 0.9 }
+        }
     }
-  }
 }
 ```
 
@@ -47,25 +47,25 @@ Defaults always remain valid fallback.
 
 ```json
 {
-  "regions": [
-    {
-      "id": "meadow-center",
-      "bounds": { "min": [-50, -50], "max": [50, 50] },
-      "music": { "biomeTag": "musical_flora", "channels": [3, 7], "intensityScale": 1.1 }
-    }
-  ],
-  "entities": [
-    {
-      "type": "arpeggio_fern",
-      "position": [4, 0, 12],
-      "music": {
-        "biome": "arpeggio_grove",
-        "channels": [3, 4],
-        "intensityScale": 1.3,
-        "reactivityProfile": "lush"
-      }
-    }
-  ]
+    "regions": [
+        {
+            "id": "meadow-center",
+            "bounds": { "min": [-50, -50], "max": [50, 50] },
+            "music": { "biomeTag": "musical_flora", "channels": [3, 7], "intensityScale": 1.1 }
+        }
+    ],
+    "entities": [
+        {
+            "type": "arpeggio_fern",
+            "position": [4, 0, 12],
+            "music": {
+                "biome": "arpeggio_grove",
+                "channels": [3, 4],
+                "intensityScale": 1.3,
+                "reactivityProfile": "lush"
+            }
+        }
+    ]
 }
 ```
 
@@ -85,37 +85,37 @@ Optional top-level `atmosphere` block (parallel to `weatherReactivity`). Drives 
 
 ```json
 {
-  "atmosphere": {
-    "bloom": {
-      "channels": [0, 6],
-      "rest": 1.0,
-      "peak": 2.5,
-      "smoothing": 8.0
-    },
-    "fogDensity": {
-      "scale": 0.65,
-      "max": 0.85,
-      "smoothing": 6.0
-    },
-    "shaftMelody": {
-      "peak": 0.35,
-      "smoothing": 10.0
-    },
-    "beatPulse": {
-      "bloomSpike": 0.45,
-      "shaftShimmer": 0.12,
-      "decay": 12.0
+    "atmosphere": {
+        "bloom": {
+            "channels": [0, 6],
+            "rest": 1.0,
+            "peak": 2.5,
+            "smoothing": 8.0
+        },
+        "fogDensity": {
+            "scale": 0.65,
+            "max": 0.85,
+            "smoothing": 6.0
+        },
+        "shaftMelody": {
+            "peak": 0.35,
+            "smoothing": 10.0
+        },
+        "beatPulse": {
+            "bloomSpike": 0.45,
+            "shaftShimmer": 0.12,
+            "decay": 12.0
+        }
     }
-  }
 }
 ```
 
-| Signal | Source | Target uniform |
-|--------|--------|----------------|
-| Kick / bass energy | `atmosphere.bloom.channels` (fallback: ch0 + `global.shimmer`) | `uBloomStrength` (rest → peak on crescendo) |
-| Mix energy / avg volume | All tracker channels (smoothed) | `uCrescendoFogDensity` |
-| Melody channel hits | `sky_moon.melody_channel` (via `MRState.skyMoonCh`) | `uShaftOpacity` + night shaft visibility |
-| BeatSync downbeats | `atmosphere.beatPulse` | Brief bloom spike + shaft shimmer (smooth decay) |
+| Signal                  | Source                                                         | Target uniform                                   |
+| ----------------------- | -------------------------------------------------------------- | ------------------------------------------------ |
+| Kick / bass energy      | `atmosphere.bloom.channels` (fallback: ch0 + `global.shimmer`) | `uBloomStrength` (rest → peak on crescendo)      |
+| Mix energy / avg volume | All tracker channels (smoothed)                                | `uCrescendoFogDensity`                           |
+| Melody channel hits     | `sky_moon.melody_channel` (via `MRState.skyMoonCh`)            | `uShaftOpacity` + night shaft visibility         |
+| BeatSync downbeats      | `atmosphere.beatPulse`                                         | Brief bloom spike + shaft shimmer (smooth decay) |
 
 Map-level overrides: add `"atmosphere": { ... }` under `music` in map JSON (same precedence as other music overrides).
 
@@ -129,25 +129,32 @@ The Gem Canopy corridor is placed procedurally by `src/world/generation-decorato
 
 ```json
 {
-  "biomes": {
-    "gem_canopy": {
-      "shimmer": [1, 2],
-      "hueShift": [3],
-      "noteColor": [1]
+    "biomes": {
+        "gem_canopy": {
+            "shimmer": [1, 2],
+            "hueShift": [3],
+            "noteColor": [1]
+        }
+    },
+    "sky_wave": {
+        "target_biomes": [
+            "arpeggio_grove",
+            "crystalline_nebula",
+            "luminous_plants",
+            "sky_moon",
+            "global",
+            "gem_canopy"
+        ]
     }
-  },
-  "sky_wave": {
-    "target_biomes": ["arpeggio_grove", "crystalline_nebula", "luminous_plants", "sky_moon", "global", "gem_canopy"]
-  }
 }
 ```
 
-| Signal | Source | Target uniform | Visual effect |
-|--------|--------|----------------|---------------|
-| Melody / chord shimmer | `gem_canopy.shimmer` | `BiomeUniforms.gemCanopy.shimmer` | Gems brighten and bloom; emissive pulse intensifies |
-| Note-hit twist driver | `gem_canopy.hueShift` | `BiomeUniforms.gemCanopy.hueShift` | Subtle pendulum twist on melody notes |
-| Note color | `gem_canopy.noteColor` | `BiomeUniforms.gemCanopy.noteColor` | Ruby / sapphire / amethyst tints shift toward the active tracker note |
-| Sky wave cascade | `sky_wave.target_biomes` includes `gem_canopy` | `BiomeUniforms.gemCanopy.noteColor` | Moon melody hue travels down to the corridor on the beat |
+| Signal                 | Source                                         | Target uniform                      | Visual effect                                                         |
+| ---------------------- | ---------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------- |
+| Melody / chord shimmer | `gem_canopy.shimmer`                           | `BiomeUniforms.gemCanopy.shimmer`   | Gems brighten and bloom; emissive pulse intensifies                   |
+| Note-hit twist driver  | `gem_canopy.hueShift`                          | `BiomeUniforms.gemCanopy.hueShift`  | Subtle pendulum twist on melody notes                                 |
+| Note color             | `gem_canopy.noteColor`                         | `BiomeUniforms.gemCanopy.noteColor` | Ruby / sapphire / amethyst tints shift toward the active tracker note |
+| Sky wave cascade       | `sky_wave.target_biomes` includes `gem_canopy` | `BiomeUniforms.gemCanopy.noteColor` | Moon melody hue travels down to the corridor on the beat              |
 
 Batcher implementation: `src/foliage/gem-fruit-batcher.ts` creates one `InstancedMesh` per jewel type (ruby, sapphire, amethyst) → three draw calls total. Each mesh uses `CandyPresets.Crystal` for the candy-glass clearcoat look, with `calculateWindSway` pendulum motion and a `gemCanopyNoteColorNode` tint in the TSL graph. Resolve uniforms via `getBiomeUniforms('gem_canopy')` — see the [Material Cookbook](./CANDY_MATERIAL_COOKBOOK.md). `GemFruitBatcher.attachToTree` is also used for corridor accent portamento/bubble-willow trees so the jewel motif stays consistent.
 
@@ -159,11 +166,11 @@ Optional in-browser soundtrack synthesized via Web Audio (oscillator + envelope 
 
 ### Enable
 
-| Toggle | Value |
-|--------|-------|
-| URL | `?generative=1` or `?music=generative` |
-| `CONFIG.audio.musicMode` | `'generative'` \| `'tracker'` \| `'auto'` |
-| localStorage | `candy.musicMode` = `generative` \| `tracker` |
+| Toggle                   | Value                                         |
+| ------------------------ | --------------------------------------------- |
+| URL                      | `?generative=1` or `?music=generative`        |
+| `CONFIG.audio.musicMode` | `'generative'` \| `'tracker'` \| `'auto'`     |
+| localStorage             | `candy.musicMode` = `generative` \| `tracker` |
 
 Tracker upload (jukebox `.mod/.xm/.it/.s3m`) always takes precedence: loading a module switches back to libopenmpt playback.
 
@@ -183,4 +190,3 @@ Channel roles match `assets/music-bindings.json` (ch0 kick/bass, ch2 melody/sky_
 ### Payload
 
 Generative mode adds ~8–12 KB gzip to the `audio` chunk (no `.mod`/`.mp3` download required for ambient play). Run `npm run analyze:bundle` to compare with static asset folders under `public/`.
-

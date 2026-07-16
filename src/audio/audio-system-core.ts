@@ -3,12 +3,31 @@ export const SCRIPT_PROCESSOR_VISUAL_UPDATE_FREQUENCY = 10; // Process visuals e
 
 // Helper functions
 export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
-export const decayTowards = (value: number, target: number, rate: number, dt: number): number => lerp(value, target, 1 - Math.exp(-rate * dt));
+export const decayTowards = (value: number, target: number, rate: number, dt: number): number =>
+    lerp(value, target, 1 - Math.exp(-rate * dt));
 
 export const noteToFreq = (note: string | null): number => {
     if (!note) return 0;
     const n = note.toUpperCase();
-    const map: Record<string, number> = { C: 0, 'C#': 1, DB: 1, D: 2, 'D#': 3, EB: 3, E: 4, F: 5, 'F#': 6, GB: 6, G: 7, 'G#': 8, AB: 8, A: 9, 'A#': 10, BB: 10, B: 11 };
+    const map: Record<string, number> = {
+        C: 0,
+        'C#': 1,
+        DB: 1,
+        D: 2,
+        'D#': 3,
+        EB: 3,
+        E: 4,
+        F: 5,
+        'F#': 6,
+        GB: 6,
+        G: 7,
+        'G#': 8,
+        AB: 8,
+        A: 9,
+        'A#': 10,
+        BB: 10,
+        B: 11,
+    };
     const match = n.match(/^([A-G](?:#|B)?)\-?(\d)$/);
     if (!match) return 0;
     const semitone = map[match[1]] ?? 0;
@@ -17,7 +36,8 @@ export const noteToFreq = (note: string | null): number => {
 };
 
 // Unused helper functions preserved for compatibility/future use
-export const extractNote = (cell: PatternRowCell | null): string | undefined => cell?.text?.match(/[A-G][#-]?\d/)?.[0];
+export const extractNote = (cell: PatternRowCell | null): string | undefined =>
+    cell?.text?.match(/[A-G][#-]?\d/)?.[0];
 
 export const extractInstrument = (cell: PatternRowCell | null): number => {
     if (!cell || !cell.text) return 0;
@@ -26,7 +46,9 @@ export const extractInstrument = (cell: PatternRowCell | null): number => {
     return 0;
 };
 
-export const decodeEffectCode = (cell: PatternRowCell | null): { activeEffect: number, intensity: number } => {
+export const decodeEffectCode = (
+    cell: PatternRowCell | null
+): { activeEffect: number; intensity: number } => {
     if (!cell?.text) return { activeEffect: 0, intensity: 0 };
     const text = cell.text.trim().toUpperCase();
     const match = text.match(/([0-9A-F])([0-9A-F]{2})/);
@@ -34,12 +56,19 @@ export const decodeEffectCode = (cell: PatternRowCell | null): { activeEffect: n
     const code = match[1];
     const value = parseInt(match[2], 16) / 255;
     switch (code) {
-        case '4': return { activeEffect: 1, intensity: value };
-        case '3': return { activeEffect: 2, intensity: value };
-        case '7': return { activeEffect: 3, intensity: value };
-        case '0': if (match[2] !== '00') return { activeEffect: 4, intensity: value }; break;
-        case 'R': return { activeEffect: 5, intensity: value };
-        default: break;
+        case '4':
+            return { activeEffect: 1, intensity: value };
+        case '3':
+            return { activeEffect: 2, intensity: value };
+        case '7':
+            return { activeEffect: 3, intensity: value };
+        case '0':
+            if (match[2] !== '00') return { activeEffect: 4, intensity: value };
+            break;
+        case 'R':
+            return { activeEffect: 5, intensity: value };
+        default:
+            break;
     }
     return { activeEffect: 0, intensity: value };
 };
@@ -90,7 +119,17 @@ export interface PatternMatrix {
 export interface LibOpenMPT {
     _malloc(size: number): number;
     _free(ptr: number): void;
-    _openmpt_module_create_from_memory2(ptr: number, size: number, logfunc: number, errfunc: number, errqual: number, errorfunc: number, errorqual: number, error_count_ptr: number, info_ptr: number): number;
+    _openmpt_module_create_from_memory2(
+        ptr: number,
+        size: number,
+        logfunc: number,
+        errfunc: number,
+        errqual: number,
+        errorfunc: number,
+        errorqual: number,
+        error_count_ptr: number,
+        info_ptr: number
+    ): number;
     _openmpt_module_destroy(modPtr: number): void;
     stringToUTF8(str: string): number;
     UTF8ToString(ptr: number): string;
@@ -101,8 +140,21 @@ export interface LibOpenMPT {
     _openmpt_module_get_num_patterns(modPtr: number): number;
     _openmpt_module_get_order_pattern(modPtr: number, order: number): number;
     _openmpt_module_get_pattern_num_rows(modPtr: number, pattern: number): number;
-    _openmpt_module_format_pattern_row_channel(modPtr: number, pattern: number, row: number, channel: number, format: number, detail: number): number;
-    _openmpt_module_read_float_stereo(modPtr: number, sampleRate: number, count: number, leftPtr: number, rightPtr: number): number;
+    _openmpt_module_format_pattern_row_channel(
+        modPtr: number,
+        pattern: number,
+        row: number,
+        channel: number,
+        format: number,
+        detail: number
+    ): number;
+    _openmpt_module_read_float_stereo(
+        modPtr: number,
+        sampleRate: number,
+        count: number,
+        leftPtr: number,
+        rightPtr: number
+    ): number;
     _openmpt_module_get_current_order(modPtr: number): number;
     _openmpt_module_get_current_row(modPtr: number): number;
     _openmpt_module_get_current_estimated_bpm(modPtr: number): number;
@@ -194,7 +246,7 @@ export abstract class AudioSystemCore {
 
         // Callbacks for UI
         this.onPlaylistUpdate = null; // Called when songs added
-        this.onTrackChange = null;    // Called when song changes
+        this.onTrackChange = null; // Called when song changes
 
         // Note Callback
         this.onNoteCallback = null;
@@ -208,7 +260,7 @@ export abstract class AudioSystemCore {
             channelData: [],
             bpm: 120, // Current estimated BPM
             patternIndex: 0, // Current pattern/order index
-            row: 0
+            row: 0,
         };
 
         // Audio mode
@@ -220,10 +272,12 @@ export abstract class AudioSystemCore {
     }
 
     async init(): Promise<void> {
-        if (window.setLoadingStatus) window.setLoadingStatus("Starting Audio System...");
+        if (window.setLoadingStatus) window.setLoadingStatus('Starting Audio System...');
 
         // Log the audio mode being used
-        console.log(`[AudioSystem] Initializing with ${this.useScriptProcessorNode ? 'ScriptProcessorNode (Compatibility Mode)' : 'AudioWorkletNode (Default Mode)'}`);
+        console.log(
+            `[AudioSystem] Initializing with ${this.useScriptProcessorNode ? 'ScriptProcessorNode (Compatibility Mode)' : 'AudioWorkletNode (Default Mode)'}`
+        );
 
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -247,9 +301,8 @@ export abstract class AudioSystemCore {
                 this.scriptProcessorNode.connect(this.gainNode);
             }
             this.gainNode.connect(this.audioContext.destination);
-
         } catch (e) {
-            console.error("AudioSystem Init Failed:", e);
+            console.error('AudioSystem Init Failed:', e);
         }
     }
 
@@ -257,7 +310,10 @@ export abstract class AudioSystemCore {
         // --- PATH DEBUGGING & PRE-FETCH FIX ---
         // Calculate the absolute path to the 'js' folder based on the current page
         // This works for localhost, production, and subdirectories (e.g. GitHub Pages)
-        const basePath = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+        const basePath = window.location.href.substring(
+            0,
+            window.location.href.lastIndexOf('/') + 1
+        );
         const workletUrl = basePath + 'js/audio-processor.js';
 
         console.log(`[AudioSystem] Attempting to load Worklet from: ${workletUrl}`);
@@ -266,7 +322,9 @@ export abstract class AudioSystemCore {
             // First fetch the file to inspect status and content (helps detect SPA rewrites or HTML 404 responses)
             const res = await fetch(workletUrl, { cache: 'no-store' });
             if (!res.ok) {
-                console.error(`[AudioSystem] Worklet fetch failed with status=${res.status} for ${workletUrl}`);
+                console.error(
+                    `[AudioSystem] Worklet fetch failed with status=${res.status} for ${workletUrl}`
+                );
                 throw new Error(`Worklet fetch failed: ${res.status}`);
             }
 
@@ -276,34 +334,56 @@ export abstract class AudioSystemCore {
             // If the response looks like HTML (SPA fallback) or is unexpectedly small, try root '/js/' fallback
             const looksLikeHTML = text.trim().startsWith('<');
             if (text.trim().length < 20 || looksLikeHTML) {
-                console.warn(`[AudioSystem] Worklet content at ${workletUrl} looks suspicious (length=${text.length}, looksLikeHTML=${looksLikeHTML}). Trying root '/js/audio-processor.js' as a fallback.`);
+                console.warn(
+                    `[AudioSystem] Worklet content at ${workletUrl} looks suspicious (length=${text.length}, looksLikeHTML=${looksLikeHTML}). Trying root '/js/audio-processor.js' as a fallback.`
+                );
                 try {
                     const jsUrl = new URL('./js/audio-processor.js', import.meta.url).href;
                     const rootRes = await fetch(jsUrl, { cache: 'no-store' });
                     if (rootRes.ok) {
                         const rootCT = rootRes.headers.get('content-type') || '';
                         const rootText = await rootRes.text();
-                        if (rootText.trim().length > 20 && (/javascript|ecmascript|module/.test(rootCT) || /\b(import|registerProcessor|class)\b/.test(rootText.slice(0, 200)))) {
-                            console.log('[AudioSystem] Fallback /js/audio-processor.js looks like valid JS. Using it.');
+                        if (
+                            rootText.trim().length > 20 &&
+                            (/javascript|ecmascript|module/.test(rootCT) ||
+                                /\b(import|registerProcessor|class)\b/.test(rootText.slice(0, 200)))
+                        ) {
+                            console.log(
+                                '[AudioSystem] Fallback /js/audio-processor.js looks like valid JS. Using it.'
+                            );
                             text = rootText;
                         } else {
-                            console.warn('[AudioSystem] Fallback /js/audio-processor.js did not contain valid JS.');
+                            console.warn(
+                                '[AudioSystem] Fallback /js/audio-processor.js did not contain valid JS.'
+                            );
                         }
                     } else {
-                        console.warn(`[AudioSystem] Fallback fetch failed with status=${rootRes.status}`);
+                        console.warn(
+                            `[AudioSystem] Fallback fetch failed with status=${rootRes.status}`
+                        );
                     }
                 } catch (fallbackErr) {
-                    console.warn('[AudioSystem] Fallback fetch for /js/audio-processor.js failed', fallbackErr);
+                    console.warn(
+                        '[AudioSystem] Fallback fetch for /js/audio-processor.js failed',
+                        fallbackErr
+                    );
                 }
 
                 if (text.trim().length < 20 || text.trim().startsWith('<')) {
-                    console.error(`[AudioSystem] Worklet content is invalid after fallback. First chars: ${text.slice(0, 160)}`);
+                    console.error(
+                        `[AudioSystem] Worklet content is invalid after fallback. First chars: ${text.slice(0, 160)}`
+                    );
                     throw new Error('Worklet content invalid or HTML fallback');
                 }
             }
 
-            if (!/javascript|ecmascript|module/.test(contentType) && !/\b(import|registerProcessor|class)\b/.test(text.slice(0, 200))) {
-                console.warn(`[AudioSystem] Worklet content-type="${contentType}" and file does not look like JS. First chars: ${text.slice(0, 120)}`);
+            if (
+                !/javascript|ecmascript|module/.test(contentType) &&
+                !/\b(import|registerProcessor|class)\b/.test(text.slice(0, 200))
+            ) {
+                console.warn(
+                    `[AudioSystem] Worklet content-type="${contentType}" and file does not look like JS. First chars: ${text.slice(0, 120)}`
+                );
             }
 
             // Before creating the blob, rewrite relative import/export specifiers to absolute URLs
@@ -312,7 +392,8 @@ export abstract class AudioSystemCore {
             try {
                 const makeAbsolute = (spec: string): string => {
                     // Leave full URLs and protocol-relative URLs alone
-                    if (/^[a-zA-Z][a-zA-Z0-9+-.]*:\/\//.test(spec) || spec.startsWith('//')) return spec;
+                    if (/^[a-zA-Z][a-zA-Z0-9+-.]*:\/\//.test(spec) || spec.startsWith('//'))
+                        return spec;
                     // Non-relative bare specifiers (like 'three') should be left unchanged
                     if (!spec.startsWith('.') && !spec.startsWith('/')) return spec;
                     try {
@@ -328,34 +409,49 @@ export abstract class AudioSystemCore {
                     return `${p1}${q}${abs}${q}`;
                 });
                 // import '...'
-                rewritten = rewritten.replace(/(import\s+)(['"])([^'"\n]+)\2/g, (m, p1, q, spec) => {
-                    const abs = makeAbsolute(spec);
-                    return `${p1}${q}${abs}${q}`;
-                });
+                rewritten = rewritten.replace(
+                    /(import\s+)(['"])([^'"\n]+)\2/g,
+                    (m, p1, q, spec) => {
+                        const abs = makeAbsolute(spec);
+                        return `${p1}${q}${abs}${q}`;
+                    }
+                );
                 // dynamic import('...')
-                rewritten = rewritten.replace(/(import\()(['"])([^'"\n]+)\2(\))/g, (m, p1, q, spec, p4) => {
-                    const abs = makeAbsolute(spec);
-                    return `${p1}${q}${abs}${q}${p4}`;
-                });
+                rewritten = rewritten.replace(
+                    /(import\()(['"])([^'"\n]+)\2(\))/g,
+                    (m, p1, q, spec, p4) => {
+                        const abs = makeAbsolute(spec);
+                        return `${p1}${q}${abs}${q}${p4}`;
+                    }
+                );
 
                 if (rewritten !== text) {
-                    console.log('[AudioSystem] Rewrote import specifiers in worklet to absolute URLs to avoid blob-relative resolution issues.');
+                    console.log(
+                        '[AudioSystem] Rewrote import specifiers in worklet to absolute URLs to avoid blob-relative resolution issues.'
+                    );
                 }
             } catch (err) {
-                console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text', err);
+                console.warn(
+                    '[AudioSystem] Failed to rewrite import specifiers, proceeding with original text',
+                    err
+                );
             }
 
-            const blobUrl = URL.createObjectURL(new Blob([rewritten], { type: 'application/javascript' }));
+            const blobUrl = URL.createObjectURL(
+                new Blob([rewritten], { type: 'application/javascript' })
+            );
             try {
                 await this.audioContext!.audioWorklet.addModule(blobUrl);
-                if (window.setLoadingStatus) window.setLoadingStatus("Audio Worklet Ready...");
+                if (window.setLoadingStatus) window.setLoadingStatus('Audio Worklet Ready...');
                 URL.revokeObjectURL(blobUrl);
             } catch (e) {
                 console.error(`[AudioSystem] addModule failed for blob derived from ${workletUrl}`);
                 throw e;
             }
         } catch (e) {
-            console.error(`[AudioSystem] Failed to load worklet at ${workletUrl}. Check the Network tab in DevTools for 404s or HTML responses.`);
+            console.error(
+                `[AudioSystem] Failed to load worklet at ${workletUrl}. Check the Network tab in DevTools for 404s or HTML responses.`
+            );
             throw e;
         }
         // --------------------------
@@ -374,22 +470,24 @@ export abstract class AudioSystemCore {
             if (type === 'VISUAL_UPDATE') {
                 this.handleVisualUpdate(data);
             } else if (type === 'SONG_END') {
-                console.log("AudioSystem: Song finished (Worklet).");
+                console.log('AudioSystem: Song finished (Worklet).');
                 this.playNext();
             } else if (type === 'READY') {
                 this.isReady = true;
-                console.log("AudioSystem: Worklet Ready.");
+                console.log('AudioSystem: Worklet Ready.');
                 if (this.playlist.length > 0 && this.currentIndex === -1) {
                     this.playNext(0);
                 }
             } else if (type === 'ERROR') {
-                console.error("AudioSystem: Worklet Error:", error);
+                console.error('AudioSystem: Worklet Error:', error);
                 // Fall back to ScriptProcessorNode mode if Worklet fails
-                console.warn("AudioSystem: Falling back to ScriptProcessorNode mode due to Worklet error.");
+                console.warn(
+                    'AudioSystem: Falling back to ScriptProcessorNode mode due to Worklet error.'
+                );
                 this.useScriptProcessorNode = true;
                 this.cleanupWorklet();
-                this.initScriptProcessorMode().catch(e => {
-                    console.error("AudioSystem: ScriptProcessor fallback also failed:", e);
+                this.initScriptProcessorMode().catch((e) => {
+                    console.error('AudioSystem: ScriptProcessor fallback also failed:', e);
                 });
             }
         };
@@ -397,7 +495,7 @@ export abstract class AudioSystemCore {
 
     protected async initScriptProcessorMode(): Promise<void> {
         console.log('[AudioSystem] Using ScriptProcessorNode (compatibility mode)');
-        if (window.setLoadingStatus) window.setLoadingStatus("Audio ScriptProcessor Ready...");
+        if (window.setLoadingStatus) window.setLoadingStatus('Audio ScriptProcessor Ready...');
 
         // Wait for libopenmpt to be ready — 5 s timeout for Silent Mode fallback
         if (!window.libopenmpt) {
@@ -439,7 +537,7 @@ export abstract class AudioSystemCore {
         };
 
         this.isReady = true;
-        console.log("AudioSystem: ScriptProcessor Ready.");
+        console.log('AudioSystem: ScriptProcessor Ready.');
 
         if (this.playlist.length > 0 && this.currentIndex === -1) {
             this.playNext(0);

@@ -19,7 +19,10 @@ export interface PhotoControlValues {
     activePresetId: string | null;
 }
 
-export type PhotoControlsChangeHandler = (values: PhotoControlValues, field: keyof PhotoControlValues) => void;
+export type PhotoControlsChangeHandler = (
+    values: PhotoControlValues,
+    field: keyof PhotoControlValues
+) => void;
 
 export interface PhotoControlsOptions {
     onChange: PhotoControlsChangeHandler;
@@ -37,15 +40,78 @@ const SLIDER_SPECS: Array<{
     step: number;
     format?: (v: number) => string;
 }> = [
-    { key: 'focusDistance', label: 'Focus distance', min: 1.5, max: 45, step: 0.5, format: (v) => `${v.toFixed(1)}u` },
-    { key: 'aperture', label: 'Aperture', min: 0.004, max: 0.04, step: 0.001, format: (v) => v.toFixed(3) },
-    { key: 'dofMix', label: 'Depth blur', min: 0, max: 1, step: 0.05, format: (v) => `${Math.round(v * 100)}%` },
-    { key: 'godRayStrength', label: 'God rays', min: 0, max: 1, step: 0.05, format: (v) => `${Math.round(v * 100)}%` },
-    { key: 'bloomStrength', label: 'Exposure / bloom', min: 0.5, max: 2.5, step: 0.05, format: (v) => v.toFixed(2) },
-    { key: 'saturation', label: 'Saturation', min: 0.6, max: 1.6, step: 0.05, format: (v) => v.toFixed(2) },
-    { key: 'contrast', label: 'Contrast', min: 0.8, max: 1.4, step: 0.05, format: (v) => v.toFixed(2) },
-    { key: 'vignette', label: 'Vignette', min: 0, max: 1, step: 0.05, format: (v) => `${Math.round(v * 100)}%` },
-    { key: 'cycleTime', label: 'Time of day', min: 0, max: CYCLE_DURATION, step: 15, format: (v) => `${Math.floor(v / 60)}m ${Math.floor(v % 60)}s` },
+    {
+        key: 'focusDistance',
+        label: 'Focus distance',
+        min: 1.5,
+        max: 45,
+        step: 0.5,
+        format: (v) => `${v.toFixed(1)}u`,
+    },
+    {
+        key: 'aperture',
+        label: 'Aperture',
+        min: 0.004,
+        max: 0.04,
+        step: 0.001,
+        format: (v) => v.toFixed(3),
+    },
+    {
+        key: 'dofMix',
+        label: 'Depth blur',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        format: (v) => `${Math.round(v * 100)}%`,
+    },
+    {
+        key: 'godRayStrength',
+        label: 'God rays',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        format: (v) => `${Math.round(v * 100)}%`,
+    },
+    {
+        key: 'bloomStrength',
+        label: 'Exposure / bloom',
+        min: 0.5,
+        max: 2.5,
+        step: 0.05,
+        format: (v) => v.toFixed(2),
+    },
+    {
+        key: 'saturation',
+        label: 'Saturation',
+        min: 0.6,
+        max: 1.6,
+        step: 0.05,
+        format: (v) => v.toFixed(2),
+    },
+    {
+        key: 'contrast',
+        label: 'Contrast',
+        min: 0.8,
+        max: 1.4,
+        step: 0.05,
+        format: (v) => v.toFixed(2),
+    },
+    {
+        key: 'vignette',
+        label: 'Vignette',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        format: (v) => `${Math.round(v * 100)}%`,
+    },
+    {
+        key: 'cycleTime',
+        label: 'Time of day',
+        min: 0,
+        max: CYCLE_DURATION,
+        step: 15,
+        format: (v) => `${Math.floor(v / 60)}m ${Math.floor(v % 60)}s`,
+    },
 ];
 
 export class PhotoControlsOverlay {
@@ -81,7 +147,8 @@ export class PhotoControlsOverlay {
 
         const header = document.createElement('div');
         header.className = 'photo-mode-panel__header';
-        header.innerHTML = '<h2 id="photo-mode-title">Photo Mode</h2><p id="photo-mode-desc">Frame your shot — simulation paused</p>';
+        header.innerHTML =
+            '<h2 id="photo-mode-title">Photo Mode</h2><p id="photo-mode-desc">Frame your shot — simulation paused</p>';
         root.appendChild(header);
 
         const presets = document.createElement('div');
@@ -103,7 +170,9 @@ export class PhotoControlsOverlay {
         const toggles = document.createElement('div');
         toggles.className = 'photo-mode-panel__toggles';
         toggles.appendChild(this.createToggle('hideHud', 'Hide HUD', this.values.hideHud));
-        toggles.appendChild(this.createToggle('watermark', 'Watermark + seed stamp', this.values.watermark));
+        toggles.appendChild(
+            this.createToggle('watermark', 'Watermark + seed stamp', this.values.watermark)
+        );
         root.appendChild(toggles);
 
         const actions = document.createElement('div');
@@ -210,7 +279,11 @@ export class PhotoControlsOverlay {
         return wrap;
     }
 
-    private createToggle(key: 'hideHud' | 'watermark', label: string, checked: boolean): HTMLElement {
+    private createToggle(
+        key: 'hideHud' | 'watermark',
+        label: string,
+        checked: boolean
+    ): HTMLElement {
         const wrap = document.createElement('label');
         wrap.className = 'photo-mode-panel__toggle';
         const input = document.createElement('input');
@@ -231,7 +304,9 @@ export class PhotoControlsOverlay {
     private syncSliders(): void {
         if (!this.root) return;
         for (const spec of SLIDER_SPECS) {
-            const input = this.root.querySelector(`#photo-${String(spec.key)}`) as HTMLInputElement | null;
+            const input = this.root.querySelector(
+                `#photo-${String(spec.key)}`
+            ) as HTMLInputElement | null;
             const valueEl = this.root.querySelector(`[data-field="${String(spec.key)}"]`);
             const v = this.values[spec.key] as number;
             if (input) {
@@ -242,7 +317,10 @@ export class PhotoControlsOverlay {
         }
         this.root.querySelectorAll('.photo-mode-panel__preset').forEach((el) => {
             const btn = el as HTMLButtonElement;
-            btn.setAttribute('aria-pressed', btn.dataset.presetId === this.values.activePresetId ? 'true' : 'false');
+            btn.setAttribute(
+                'aria-pressed',
+                btn.dataset.presetId === this.values.activePresetId ? 'true' : 'false'
+            );
         });
     }
 
