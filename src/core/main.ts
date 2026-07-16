@@ -61,8 +61,9 @@ import { initFaunaDebug, setFaunaDebugScene } from '../debug/fauna-debug.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 // Refactored module imports
-import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
+import { animate, initGameLoopDependencies, addCameraShake, getGameTime } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
+import { initPhotoMode } from '../systems/photo-mode/index.ts';
 import {
     initDeferredVisuals,
     initDeferredVisualsDependencies,
@@ -237,11 +238,15 @@ console.time('Audio & Systems Init');
 
 let audioSystem: AudioSystem | undefined;
 let beatSync: BeatSync | undefined;
-await StageLoader.loadStage('audio', () => {
+await StageLoader.loadStage('audio', async () => {
     audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
     (window as any).AudioSystem = audioSystem;
     loadingScreen.updateProgress(40, 'Creating audio system...');
     beatSync = new BeatSync(audioSystem);
+    if (audioSystem.musicSourceMode === 'generative') {
+        loadingScreen.updateProgress(55, 'Starting generative soundtrack...');
+        await audioSystem.enableGenerativeMode();
+    }
 });
 
 let weatherSystem: WeatherSystem | undefined;
@@ -384,6 +389,19 @@ await StageLoader.loadStage('gameLoop', () => {
         uShaftOpacity,
         timeOffset,
     });
+
+    const canvasEl = document.getElementById('glCanvas') as HTMLCanvasElement | null;
+    if (canvasEl && controls) {
+        initPhotoMode({
+            camera,
+            canvas: canvasEl,
+            controls,
+            timeOffset,
+            renderer,
+            renderFrame: () => postProcessing.render(),
+            getGameTime,
+        });
+    }
 });
 
 // Optimization: Hoist reusable objects to module scope to prevent GC in animation loop
@@ -395,7 +413,7 @@ window.addEventListener('keydown', (e) => {
     try {
         if (!e.key) return;
         const key = e.key.toLowerCase();
-        if (key === 'p') {
+        if (key === 'p' && e.shiftKey) {
             profiler.toggle();
         } else if (key === 'o' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
             // Toggle startup profiler overlay

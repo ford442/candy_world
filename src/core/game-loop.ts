@@ -100,6 +100,8 @@ import {
     foliageMushrooms,
 } from '../world/state.ts';
 import { getCycleState, getDayNightBias } from './cycle.ts';
+import { getBiomeAtPosition } from '../systems/net/biome-at-position.ts';
+import { getPhotoMode, isPhotoModeActive } from '../systems/photo-mode/index.ts';
 import {
     CYCLE_DURATION,
     DURATION_SUNRISE,
@@ -369,6 +371,27 @@ function _setShaftOpacity(opacity: number): void {
 function applyMusicReactiveLightShafts(delta: number): void {
     if (!lightShaftGroupRef) return;
 
+    const photoMode = getPhotoMode();
+    if (photoMode?.isActive()) {
+        if (!_godRaysEnabled) {
+            lightShaftGroupRef.visible = false;
+            _setShaftOpacity(0);
+            return;
+        }
+        const strength = photoMode.getGodRayStrength();
+        const visible = strength > 0.02;
+        lightShaftGroupRef.visible = visible;
+        if (visible) {
+            const capped = Math.min(_SHAFT_OPACITY_CAP, strength * _SHAFT_OPACITY_CAP);
+            _setShaftOpacity(capped);
+            uShaftScatterBoost.value = capped * CONFIG.postfx.shaftScatterBoost;
+        } else {
+            _setShaftOpacity(0);
+            uShaftScatterBoost.value = 0;
+        }
+        return;
+    }
+
     // Respect the post-FX quality tier — ?postfx=off (or CONFIG.postfx.godRays=false)
     // disables god rays entirely, keeping the group hidden with zero per-frame cost.
     if (!_godRaysEnabled) {
@@ -430,6 +453,7 @@ function applyMusicReactiveLightShafts(delta: number): void {
  * No-op unless DoF was built into the pipeline at boot.
  */
 function _updateDepthOfField(delta: number): void {
+    if (isPhotoModeActive()) return;
     if (!_dofEnabled || !player?.position || !cameraRef) return;
 
     const px = player.position.x;
@@ -512,9 +536,21 @@ export function animate() {
     }
 
     const rawDelta = clock.getDelta();
-    const delta = Math.min(rawDelta, 0.1);
+    const photoMode = getPhotoMode();
+    photoMode?.update(rawDelta);
+    const simDelta = photoMode?.getSimulationDelta(rawDelta) ?? rawDelta;
+    const delta = Math.min(simDelta, 0.1);
 
-    audioState = profiler.measure('Audio', () => audioSystemRef!.update());
+    // Biome + circadian context for generative mode (before audio tick)
+    const previewTime = gameTime + timeOffsetRef.value;
+    const previewCycle = previewTime % CYCLE_DURATION;
+    if (audioSystemRef!.musicSourceMode === 'generative') {
+        const biome = getBiomeAtPosition(player.position.x, player.position.z);
+        audioSystemRef!.setGenerativeBiome(biome);
+        audioSystemRef!.setGenerativeDayNight(getDayNightBias(previewCycle));
+    }
+
+    audioState = profiler.measure('Audio', () => audioSystemRef!.update(delta));
     profiler.measure('BeatSync', () => beatSyncRef!.update());
 
     const currentBPM = audioState?.bpm || 120;
@@ -985,7 +1021,7 @@ export function animate() {
     let playerShieldMesh = getPlayerShieldMesh();
 
     profiler.measure('Physics', () => {
-        const devOrbitActive = exploreActive;
+        const devOrbitActive = exploreActive || isPhotoModeActive();
         if (!devOrbitActive) {
             updatePhysics(delta, cameraRef!, controlsRef, keyStates, audioState);
         }

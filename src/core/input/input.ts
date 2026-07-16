@@ -36,6 +36,7 @@ import {
     type ExploreVariant,
 } from '../camera-modes.ts';
 import { announcePolite } from '../../ui/announcer.ts';
+import { getPhotoMode, isPhotoModeActive } from '../../systems/photo-mode/index.ts';
 
 export { keyStates } from './input-types.ts';
 export type { KeyStates, InitInputResult } from './input-types.ts';
@@ -306,6 +307,7 @@ export function initInput(
         const target = event.target;
         if (!controls.isLocked &&
             !isExploreActive() &&
+            !isPhotoModeActive() &&
             !getIsPlaylistOpen() &&
             instructions && instructions.style.display === 'none' &&
             !isInteractiveTarget(target) &&
@@ -323,6 +325,20 @@ export function initInput(
 
     // Key Handlers
     const onKeyDown = function (event: KeyboardEvent) {
+        if (getPhotoMode()?.handleKeyDown(event)) {
+            return;
+        }
+
+        if (isPhotoModeActive()) {
+            if (event.code === 'Escape' || event.code === 'Enter') {
+                return;
+            }
+            // Block gameplay keys while composing a shot
+            if (!event.altKey && event.code !== 'Tab') {
+                return;
+            }
+        }
+
         if (isDevBuild && event.ctrlKey && event.shiftKey && event.code === 'KeyO') {
             event.preventDefault();
             if (isExploreActive()) {
@@ -336,6 +352,20 @@ export function initInput(
         if (event.code === 'Tab') {
             event.preventDefault();
             exploreCamera.onTabDown();
+            return;
+        }
+
+        if (
+            event.code === 'KeyP' &&
+            !event.ctrlKey &&
+            !event.shiftKey &&
+            !event.metaKey &&
+            !getIsPlaylistOpen() &&
+            instructions &&
+            instructions.style.display === 'none'
+        ) {
+            event.preventDefault();
+            getPhotoMode()?.toggle();
             return;
         }
 

@@ -24,6 +24,8 @@ export const uAberrationStrength = uniform(0.002); // Very subtle by default (ha
 //               snap back to a sharp world instantly without recompiling shaders.
 export const uDofFocus = uniform(CONFIG.postfx.dofFocusDistance);
 export const uDofMix = uniform(0.0);
+export const uDofAperture = uniform(CONFIG.postfx.dofAperture);
+export const uDofMaxBlur = uniform(CONFIG.postfx.dofMaxBlur);
 /** 0–1 bloom swell driven by visible god-ray opacity (screen-space scatter companion). */
 export const uShaftScatterBoost = uniform(0.0);
 
@@ -84,8 +86,8 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
             scenePass,
             viewZ,
             uDofFocus,
-            uniform(CONFIG.postfx.dofAperture),
-            uniform(CONFIG.postfx.dofMaxBlur)
+            uDofAperture,
+            uDofMaxBlur
         );
         console.log('[PostFX] Depth of Field enabled (WebGPU TSL bokeh)');
     }
@@ -228,6 +230,8 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
             if (bokehPass) {
                 bokehPass.enabled = uDofMix.value > 0.01;
                 (bokehPass.uniforms as any)['focus'].value = uDofFocus.value;
+                (bokehPass.uniforms as any)['aperture'].value = uDofAperture.value;
+                (bokehPass.uniforms as any)['maxblur'].value = uDofMaxBlur.value;
             }
             composer.render();
         },

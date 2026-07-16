@@ -1,20 +1,94 @@
 import { AudioSystemCore, noteToFreq, extractNote, extractInstrument, decodeEffectCode, VisualState, SCRIPT_PROCESSOR_VISUAL_UPDATE_FREQUENCY, decayTowards, SAMPLE_RATE, PatternRowCell } from './audio-system-core.ts';
+import { GenerativeEngine } from './generative/generative-engine.ts';
+import { resolveMusicMode, type MusicSourceMode } from './generative/music-mode.ts';
+import { CONFIG } from '../core/config.ts';
 
 export class AudioSystem extends AudioSystemCore {
     private _scratchChannelData?: any[];
+    generativeEngine: GenerativeEngine | null = null;
+    musicSourceMode: MusicSourceMode;
+    private _generativeAttached = false;
 
     constructor(useScriptProcessorNode: boolean = false) {
         super(useScriptProcessorNode);
+        this.musicSourceMode = resolveMusicMode();
     }
 
-    // --- API to register note listener ---
+    /** Ensure generative engine is wired to the master bus. */
+    ensureGenerativeEngine(): GenerativeEngine {
+        if (!this.generativeEngine) {
+            const seed = CONFIG.audio.generativeSeed || 0xca4d0001;
+            this.generativeEngine = new GenerativeEngine({ seed });
+            if (this.onNoteCallback) {
+                this.generativeEngine.onNote(this.onNoteCallback);
+            }
+        }
+        if (!this._generativeAttached && this.audioContext && this.gainNode) {
+            this.generativeEngine.attach(this.audioContext, this.gainNode);
+            this._generativeAttached = true;
+        }
+        return this.generativeEngine;
+    }
+
+    /** Stop tracker playback without tearing down the master bus (for generative handoff). */
+    private stopTrackerOnly(): void {
+        this.isPlaying = false;
+        try {
+            if (this.workletNode?.port) this.workletNode.port.postMessage({ type: 'STOP' });
+        } catch { /* ignore */ }
+        if (this.useScriptProcessorNode && this.libopenmpt && this.currentModulePtr !== 0) {
+            try {
+                this.libopenmpt._openmpt_module_destroy(this.currentModulePtr);
+            } catch { /* ignore */ }
+            this.currentModulePtr = 0;
+        }
+    }
+
+    /** Switch to generative soundtrack (stops tracker playback). */
+    async enableGenerativeMode(): Promise<void> {
+        if (!this.gainNode || !this.audioContext) {
+            await this.init();
+        }
+        this.musicSourceMode = 'generative';
+        this.stopTrackerOnly();
+        const engine = this.ensureGenerativeEngine();
+        if (this.onNoteCallback) engine.onNote(this.onNoteCallback);
+        engine.setMasterVolume(this.volume);
+        await engine.start();
+        this.isPlaying = true;
+        this.moduleInfo.title = engine.getTitle();
+        this.isReady = true;
+        console.log('[AudioSystem] Generative music mode active');
+    }
+
+    /** Switch back to tracker / user-upload mode. */
+    disableGenerativeMode(): void {
+        this.musicSourceMode = 'tracker';
+        this.generativeEngine?.stop();
+        this.isPlaying = false;
+    }
+
+    /** Biome-adaptive crossfade (call from game loop with player position). */
+    setGenerativeBiome(biomeId: string, blendT?: number): void {
+        this.generativeEngine?.setBiomeContext(biomeId, blendT);
+    }
+
+    setGenerativeDayNight(bias: number): void {
+        this.generativeEngine?.setDayNightBias(bias);
+    }
+
+    isGenerativeActive(): boolean {
+        return this.musicSourceMode === 'generative' && (this.generativeEngine?.running ?? false);
+    }
+
     onNote(callback: (note: string, volume: number, channelIndex: number) => void): void {
         this.onNoteCallback = callback;
+        this.generativeEngine?.onNote(callback);
     }
 
     // Backward compatibility alias if needed
     setNoteCallback(callback: (note: string, volume: number, channelIndex: number) => void): void {
-        this.onNoteCallback = callback;
+        this.onNote(callback);
     }
 
     /**
@@ -204,6 +278,7 @@ export class AudioSystem extends AudioSystemCore {
 
     setVolume(value: number): void {
         this.volume = Math.max(0, Math.min(1, value));
+        this.generativeEngine?.setMasterVolume(this.volume);
         if (this.gainNode) {
             // Use setTargetAtTime for smooth volume transitions (avoids clicking)
             // If currentTime is not available, fallback to direct assignment
@@ -326,6 +401,12 @@ export class AudioSystem extends AudioSystemCore {
     // --- Core Loading ---
 
     async loadModule(file: File): Promise<void> {
+        // User-selected tracker file takes precedence over generative mode
+        if (this.musicSourceMode === 'generative') {
+            this.generativeEngine?.stop();
+            this.musicSourceMode = 'tracker';
+        }
+
         if (this.audioContext && this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
@@ -468,6 +549,7 @@ export class AudioSystem extends AudioSystemCore {
 
         // Set isPlaying to false before cleanup to prevent audio callbacks from processing
         this.isPlaying = false;
+        this.generativeEngine?.stop();
 
         // Notify worklet to stop and clean up
         try {
@@ -493,6 +575,7 @@ export class AudioSystem extends AudioSystemCore {
                 try { this.gainNode.disconnect(); } catch(e) {}
                 this.gainNode = null;
             }
+            this._generativeAttached = false;
         } catch (e) {
             console.warn('Error disconnecting audio nodes:', e);
         }
@@ -577,15 +660,44 @@ export class AudioSystem extends AudioSystemCore {
         }
     }
 
-    update(): VisualState {
-        // Run decay logic on the main thread for smooth animations
-        this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1 / 60);
-        const speed = 6; // fallback tempo metric
-        this.visualState.grooveAmount = decayTowards(this.visualState.grooveAmount, speed % 2 === 0 ? 0 : 0.1, 3, 1 / 60);
-        this.visualState.beatPhase = (this.visualState.beatPhase + (this.visualState.bpm / 60) * (1 / 60)) % 1;
+    update(deltaSec: number = 1 / 60): VisualState {
+        if (this.isGenerativeActive() && this.generativeEngine) {
+            const genState = this.generativeEngine.update(deltaSec);
+            // Merge generative channel data into shared visualState for music-reactivity
+            this.visualState.bpm = genState.bpm;
+            this.visualState.beatPhase = genState.beatPhase;
+            this.visualState.kickTrigger = genState.kickTrigger;
+            this.visualState.grooveAmount = genState.grooveAmount;
+            this.visualState.patternIndex = genState.patternIndex;
+            this.visualState.row = genState.row;
+            const src = genState.channelData;
+            while (this.visualState.channelData.length < src.length) {
+                this.visualState.channelData.push({
+                    volume: 0, pan: 0, trigger: 0, note: '', freq: 0,
+                    instrument: 0, activeEffect: 0, effectValue: 0,
+                });
+            }
+            for (let i = 0; i < src.length; i++) {
+                const s = src[i];
+                const d = this.visualState.channelData[i];
+                d.volume = s.volume;
+                d.trigger = s.trigger;
+                d.note = s.note;
+                d.freq = s.freq;
+                d.pan = s.pan;
+                if (s.notes) d.notes = s.notes;
+            }
+            return this.visualState;
+        }
+
+        // Tracker mode: decay logic on the main thread for smooth animations
+        this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, deltaSec);
+        const speed = 6;
+        this.visualState.grooveAmount = decayTowards(this.visualState.grooveAmount, speed % 2 === 0 ? 0 : 0.1, 3, deltaSec);
+        this.visualState.beatPhase = (this.visualState.beatPhase + (this.visualState.bpm / 60) * deltaSec) % 1;
 
         for (const ch of this.visualState.channelData) {
-            ch.trigger = decayTowards(ch.trigger, 0, 10, 1 / 60);
+            ch.trigger = decayTowards(ch.trigger, 0, 10, deltaSec);
         }
 
         return this.visualState;

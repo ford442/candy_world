@@ -42,6 +42,7 @@ declare global {
     __sceneReady?: boolean;
     __devOrbitActive?: boolean;
     __exploreActive?: boolean;
+    __photoModeActive?: boolean;
 
     // Renderer breadcrumbs (Playwright / agents)
     rendererType?: 'webgpu' | 'webgl';

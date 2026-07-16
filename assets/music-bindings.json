@@ -157,5 +157,20 @@
       "smoothing": 0.3,
       "scale": 0.5
     }
+  },
+  "generative": {
+    "_comment": "Runtime profiles in src/audio/generative/biome-profiles.ts; channel indices match biomes.* above",
+    "defaultSeed": 3396861953,
+    "crossfadeMs": 1000,
+    "channels": {
+      "0": "kick_bass",
+      "1": "lead_pad",
+      "2": "melody",
+      "3": "arpeggio_a",
+      "4": "arpeggio_b",
+      "5": "pad_hue",
+      "6": "global_shimmer",
+      "7": "global_hue"
+    }
   }
 }

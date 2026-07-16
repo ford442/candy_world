@@ -54,6 +54,8 @@ export interface ChannelData {
     instrument: number;
     activeEffect: number;
     effectValue: number;
+    /** 12-band chromatic analysis (generative + luminous plants). */
+    notes?: number[];
 }
 
 export interface VisualState {

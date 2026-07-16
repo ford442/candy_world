@@ -153,3 +153,34 @@ Batcher implementation: `src/foliage/gem-fruit-batcher.ts` creates one `Instance
 
 Map export: `gem_canopy_tree` is in `SUPPORTED_EXPORT_TYPES` with `category: 'mushroom-trees'` and `biome: 'gem_canopy'`. Spawn tracker records attempts as type `gem_canopy_tree`, and batcher telemetry reports the instanced gem count under id `gem_canopy`.
 
+## Generative Music Mode (`src/audio/generative/`)
+
+Optional in-browser soundtrack synthesized via Web Audio (oscillator + envelope nodes). When active, **reactivity is driven directly from the sequencer** — channel volumes, note names, and beat phase are known at note-on time (no FFT/VU guessing).
+
+### Enable
+
+| Toggle | Value |
+|--------|-------|
+| URL | `?generative=1` or `?music=generative` |
+| `CONFIG.audio.musicMode` | `'generative'` \| `'tracker'` \| `'auto'` |
+| localStorage | `candy.musicMode` = `generative` \| `tracker` |
+
+Tracker upload (jukebox `.mod/.xm/.it/.s3m`) always takes precedence: loading a module switches back to libopenmpt playback.
+
+### Biome → Musical Profile
+
+Profiles live in `src/audio/generative/biome-profiles.ts` (parallel to `music-bindings.json` biome keys). Each profile defines root, scale, tempo, night tempo scale, brightness, groove, and per-channel density (8 tracker channels).
+
+Runtime flow:
+
+1. `game-loop.ts` reads player XZ → `getBiomeAtPosition()` → `AudioSystem.setGenerativeBiome()`.
+2. Profiles crossfade over ~1 s as the player crosses region bounds.
+3. `getDayNightBias(cyclePos)` modulates tempo via `setGenerativeDayNight()`.
+4. `GenerativeEngine.update()` writes `visualState.channelData` → `MusicReactivitySystem.update()` (same path as tracker modules).
+
+Channel roles match `assets/music-bindings.json` (ch0 kick/bass, ch2 melody/sky_moon, ch3–4 arpeggio_grove, etc.).
+
+### Payload
+
+Generative mode adds ~8–12 KB gzip to the `audio` chunk (no `.mod`/`.mp3` download required for ambient play). Run `npm run analyze:bundle` to compare with static asset folders under `public/`.
+

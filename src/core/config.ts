@@ -70,6 +70,13 @@ export const FEATURE_FLAGS = {
     awakenedPersistence: _hasFlag('awakened'),
     /** Shared multiplayer presence UI + networking (opt-in join; no traffic until joined). */
     presence: _hasFlag('presence') || _getFlag('presence') === '1',
+    /**
+     * In-browser generative soundtrack (?generative=1 or ?music=generative).
+     * Drives music-reactivity from sequencer events instead of FFT/VU analysis.
+     */
+    generativeMusic: _hasFlag('generative') || _getFlag('music') === 'generative',
+    /** Cinematic photo mode (?photo=1 or ?mode=photo). */
+    photoMode: _hasFlag('photo') || _getFlag('mode') === 'photo',
 } as const;
 
 // Log active overrides once at startup so the console makes the state obvious.
@@ -263,6 +270,15 @@ export interface ConfigType {
     };
     audio: {
         useScriptProcessorNode: boolean;
+        /**
+         * Music source mode:
+         * - `tracker` — libopenmpt module playback (default, user-uploaded .mod/.xm)
+         * - `generative` — in-browser seeded sequencer (no asset download)
+         * - `auto` — generative when FEATURE_FLAGS.generativeMusic, else tracker
+         */
+        musicMode: 'tracker' | 'generative' | 'auto';
+        /** Seed for deterministic generative patterns (0 = default). */
+        generativeSeed: number;
     };
     weather: {
         musicReactivity: {
@@ -912,6 +928,9 @@ export const CONFIG: ConfigType = {
         // Default: false (uses modern AudioWorkletNode)
         // See AUDIO_COMPATIBILITY_MODE.md for more information
         useScriptProcessorNode: false,
+        // Music source: tracker (libopenmpt) or generative (Web Audio sequencer)
+        musicMode: 'auto' as 'tracker' | 'generative' | 'auto',
+        generativeSeed: 0,
     },
 
     // Weather music reactivity settings

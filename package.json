@@ -34,6 +34,8 @@
         "test:wasm-loader": "node tests/wasm-loader-reliability.mjs",
         "test:startup": "node tests/startup-bootstrap.mjs",
         "test:atmosphere": "node tests/atmosphere-reactivity.test.mjs",
+        "test:generative": "node tests/generative-sequencer.mjs",
+        "test:photo-mode": "node tests/photo-mode.test.mjs",
         "test:explore": "node tests/explore-camera.test.mjs",
         "test:batcher-lod": "node tests/batcher-lod.test.mjs",
         "test:integration": "npm run build:wasm && npm run test:wasm && npm run test:tier-parity && npm run test:cookbook-presets && npm run test:spawn-tracker && npm run test:world-health && npm run test",
