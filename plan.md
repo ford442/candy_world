@@ -168,3 +168,11 @@ Status: Implemented ✅
 
 Next Step: Ask the user for the next task.
 * Implementation Details: Applied "Juice" to the `gem-fruit-batcher.ts` component by standardizing the deformation with `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. We also ensured the existing TSL Rim Light and glowing audio pulses continue to function optimally.
+
+Status: Implemented ✅
+* Implementation Details: **#1359**, **#1349** Emscripten build + export-manifest verification CI. Untracked build artifacts (`libomp.a`, `math.o`, `*.cpp.bak`) and added them to gitignore. Added strict flag check.
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: **#1347**, **#1350**, **#1357** Fixed typecheck errors and ratcheted down error count. Removed stale `createSubwooferLotus` export from TS files. Fixed `music-reactivity.ts` barrel issues. Fixed `game-loop.ts` sun/moon null-safety.
+Next Step: Ask the user for the next task.

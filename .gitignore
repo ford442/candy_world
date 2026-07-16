@@ -32,3 +32,8 @@ public/js/libopenmpt.js
 # Release tooling
 candy-world-*.zip
 candy-world-*.tar.gz
+
+# C++ Build Artifacts
+*.o
+*.a
+*.cpp.bak
