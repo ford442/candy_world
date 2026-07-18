@@ -177,7 +177,7 @@ function main() {
     console.log('');
     
     // Get WASM file path from command line or use default
-    let wasmPath = process.argv[2];
+    let wasmPath = process.argv.slice(2).find(arg => !arg.startsWith("--"));
     if (!wasmPath) {
         wasmPath = path.resolve(__dirname, '../public/candy_native.wasm');
     }
@@ -288,6 +288,10 @@ function main() {
     console.log('');
     
     // Always exit successfully - missing exports are handled by JS fallbacks
+    if (process.argv.includes("--strict") && results.missing.length > 0) {
+        console.error(`[ERROR] Strict mode enabled and ${results.missing.length} exports are missing!`);
+        process.exit(1);
+    }
     process.exit(0);
 }
 
