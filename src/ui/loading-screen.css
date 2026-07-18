@@ -879,6 +879,8 @@
 
 .deferred-fail.visible {
     display: inline-block;
+}
+
 .deferred-eta {
     color: rgba(255, 182, 193, 0.75);
     font-family: var(--font-family);
