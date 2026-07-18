@@ -20,7 +20,7 @@ import {
     defaultSkyMoonNoteColorCh, defaultSkyMoonIntensityCh, defaultGlobalShimmerCh,
     defaultGlobalHueShiftCh, defaultGlobalNoteColorCh, defaultSkyMoonMelodyCh,
     defaultLuminousPlantTrackerChannel, defaultGemCanopyShimmerCh, defaultGemCanopyHueShiftCh,
-    defaultGemCanopyNoteColorCh, WeatherReactivityBinding, defaultWeatherBindings,
+    defaultGemCanopyNoteColorCh, defaultWeatherBindings,
     defaultSkyWavePropagationMs, defaultSkyWaveDecayMs, defaultSkyWaveTargets,
     skyWaveUniformMap, CHROMATIC_SCALE
 } from './music-reactivity-defaults.ts';

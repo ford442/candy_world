@@ -78,7 +78,7 @@ let _globalQueryId = 0;
 
 export class PhysicsSpatialGrid {
     private cellSize: number;
-    private cells: Map<string, any[]>;
+    private cells: Map<number, any[]>;
     // ⚡ OPTIMIZATION: Reusable array to avoid GC spikes on findNearby
     private _queryResult: any[] = [];
 
@@ -87,8 +87,12 @@ export class PhysicsSpatialGrid {
         this.cells = new Map();
     }
 
-    private getHash(x: number, z: number): string {
-        return `${Math.floor(x / this.cellSize)},${Math.floor(z / this.cellSize)}`;
+    private getHash(x: number, z: number): number {
+        const cx = Math.floor(x / this.cellSize);
+        const cz = Math.floor(z / this.cellSize);
+        // Pack into a single numeric key (assuming coordinates don't exceed +/- 32767 chunks)
+        // using 16 bits for x and 16 bits for z
+        return ((cx & 0xFFFF) << 16) | (cz & 0xFFFF);
     }
 
     insert(obj: any): void {
@@ -117,13 +121,13 @@ export class PhysicsSpatialGrid {
 
         for (let cx = minX; cx <= maxX; cx++) {
             for (let cz = minZ; cz <= maxZ; cz++) {
-                const hash = `${cx},${cz}`;
+                const hash = ((cx & 0xFFFF) << 16) | (cz & 0xFFFF);
                 const cell = this.cells.get(hash);
                 if (cell) {
                     for (let i = 0; i < cell.length; i++) {
                         const obj = cell[i];
-                        if (obj._lastQueryId !== _globalQueryId) {
-                            obj._lastQueryId = _globalQueryId;
+                        if (obj._gridStamp !== _globalQueryId) {
+                            obj._gridStamp = _globalQueryId;
                             this._queryResult.push(obj);
                         }
                     }

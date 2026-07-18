@@ -65,6 +65,27 @@ import type {
 import { ParticleSystemType } from './particle_config.ts';
 import { uPulseStrength, uPulseColor } from './audio_reactive.ts';
 
+// ⚡ OPTIMIZATION: Fast approximations for Math.sin and Math.cos
+function fastSin(x: number): number {
+    // Bhaskara I approximation for sine
+    // Works for x in [0, PI], so we range reduce to [-PI, PI]
+    const INV_PI = 0.3183098861837907; // 1 / PI
+    let i = x * INV_PI;
+    i = i - 2.0 * Math.round(i * 0.5); // Wrap to [-1, 1] range (i.e. [-PI, PI])
+
+    // Now i is in [-1, 1], meaning x is wrapped to [-PI, PI]
+    // Taylor minimax approximation or similar continuous polynomial for [-PI, PI]
+    // A simple, continuous quadratic-based approximation (Bhaskara I variant)
+    // sin(x) ≈ 16*x*(PI - |x|) / (5*PI^2 - 4*|x|*(PI - |x|))  for x in [0, PI]
+
+    const abs_i = Math.abs(i);
+    return (16.0 * i * (1.0 - abs_i)) / (5.0 - 4.0 * abs_i * (1.0 - abs_i));
+}
+
+function fastCos(x: number): number {
+    return fastSin(x + 1.5707963267948966);
+}
+
 // =============================================================================
 // SHIMMER PARTICLES (Floating Sparkles)
 // =============================================================================
@@ -343,9 +364,9 @@ class PollenCloudSystem implements IParticleSystem {
             const phi = Math.acos(2 * Math.random() - 1);
             const r = Math.random() * radius;
 
-            positions[i * 3] = position.x + r * Math.sin(phi) * Math.cos(theta);
-            positions[i * 3 + 1] = position.y + r * Math.sin(phi) * Math.sin(theta);
-            positions[i * 3 + 2] = position.z + r * Math.cos(phi);
+            positions[i * 3] = position.x + r * fastSin(phi) * fastCos(theta);
+            positions[i * 3 + 1] = position.y + r * fastSin(phi) * fastSin(theta);
+            positions[i * 3 + 2] = position.z + r * fastCos(phi);
 
             sizes[i] = Math.random() * 0.15 + 0.05;
             offsets[i] = Math.random() * 100;
@@ -573,9 +594,9 @@ class PulseRingSystem implements IParticleSystem {
 
         for (let i = 0; i < pointCount; i++) {
             const angle = (i / pointCount) * Math.PI * 2;
-            positions[i * 3] = Math.cos(angle) * radius;
+            positions[i * 3] = fastCos(angle) * radius;
             positions[i * 3 + 1] = 0.1;
-            positions[i * 3 + 2] = Math.sin(angle) * radius;
+            positions[i * 3 + 2] = fastSin(angle) * radius;
             angles[i] = angle;
         }
 

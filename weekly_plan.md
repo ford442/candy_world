@@ -61,14 +61,14 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **#1350 Fix music-reactivity.ts barrel** — half-migrated split; line-1 import conflicts with local re-declarations (`ActiveWave`, `applyMapMusicContext`, `syncMapMusicContext`, `toChannels`, `_frustum`) + missing `-core` exports → ~31 tsc errors. `[in progress — 2026-07-14]` ← bundled into today's focus
 - [ ] **#1357 Remove stale `createSubwooferLotus` import from `foliage-registry.ts`** — dead symbol (replaced by `SubwooferLotusBatcher`) → TS2305. `[in progress — 2026-07-14]` ← bundled into today's focus
 - [ ] **#1348 ESLint + build-stripped logger** — no lint tooling; ~658 raw `console.*`, ~623 `any`. Warn-heavy config + `src/utils/log.ts`.
-- [ ] **#1349 Untrack build artifacts** (`libomp.a`, `math.o`, `*.cpp.bak`) + gitignore. ← Copilot prep target today (folded into #1359).
+- [x] **#1349 Untrack build artifacts** (`libomp.a`, `math.o`, `*.cpp.bak`) + gitignore. ← Copilot prep target today (folded into #1359).
 - [ ] **#1360 Split `game-loop.ts`** (1,028 lines) into tick-phase modules. Sequence after #1350/#1347.
 - [ ] **#1361 Break up 796 KB `app` chunk** — lazy-load gameplay/save-UI/world-content; break foliage↔music-reactivity circular imports.
 
 *Migration slices (15%-rule, after foundation):*
 - [ ] **#1351 Cross-tier parity harness** (JS↔AS↔C++ golden vectors) — recommended before widening batcher ports.
 - [ ] **#1358 Batcher instance matrix/color → C++ SIMD** (arpeggio-batcher first). Depends on #1351.
-- [ ] **#1359 Emscripten build + export-manifest verification CI.** ← Copilot prep target today (decoupled from kimi-cli TS work).
+- [x] **#1359 Emscripten build + export-manifest verification CI.** ← Copilot prep target today (decoupled from kimi-cli TS work).
 - [ ] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice). Depends on #1350 split.
 
 *Content / world-building (capstones, after foundation):*

@@ -168,3 +168,22 @@ Status: Implemented ✅
 
 Next Step: Ask the user for the next task.
 * Implementation Details: Applied "Juice" to the `gem-fruit-batcher.ts` component by standardizing the deformation with `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. We also ensured the existing TSL Rim Light and glowing audio pulses continue to function optimally.
+
+Status: Implemented ✅
+* Implementation Details: **#1347 Enforce TS typecheck in CI + error-count ratchet**, **#1350 Fix music-reactivity.ts barrel**, **#1357 Remove stale createSubwooferLotus import**, and game-loop null-safety.
+  * Resolved all ~31 `music-reactivity` barrel import errors by deleting the half-migrated `music-reactivity.core.ts` (was overriding `music-reactivity-core.ts`) and cleaning up duplicate interfaces (`WeatherReactivityBinding`).
+  * Removed stale `createSubwooferLotus` imports from foliage-registry or related dead paths.
+  * Added `?` conditional access and null-guards to `sunLightRef`, `moonRef`, `sunGlowRef`, and `sunCoronaRef` in `game-loop.ts`.
+  * Verified `node scripts/tsc-ratchet.mjs` works, lowering the baseline to 527.
+
+Next Step: Review and continue clearing remaining items from `weekly_plan.md` or `REFACTORING_PLAN_REMAINING.md`.
+* Implementation Details: **#1359**, **#1349** Emscripten build + export-manifest verification CI. Untracked build artifacts (`libomp.a`, `math.o`, `*.cpp.bak`) and added them to gitignore. Added strict flag check.
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: **#1347**, **#1350**, **#1357** Fixed typecheck errors and ratcheted down error count. Removed stale `createSubwooferLotus` export from TS files. Fixed `music-reactivity.ts` barrel issues. Fixed `game-loop.ts` sun/moon null-safety.
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: 🎨 Palette: Added `applyPlayerInteraction` TSL logic to the `waterfall-batcher.ts` and `flower-batcher.ts` components. This ensures waterfalls and flowers react to the player character pushing through them, increasing visual feedback and game feel juice.
+Next Step: Provide next task.

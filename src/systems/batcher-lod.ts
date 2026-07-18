@@ -60,6 +60,7 @@ const _stats: FoliageLodStats = {
 
 const _targets: BatcherLodTarget[] = [];
 const _meshTracks = new Map<THREE.InstancedMesh, Float32Array>();
+const _meshMaxScales = new Map<THREE.InstancedMesh, Float32Array>(); // ⚡ OPTIMIZATION: Cache impostor scales to avoid Math.sqrt in hot loops
 
 let _impostorMesh: THREE.InstancedMesh | null = null;
 let _impostorCapacity = 4096;
@@ -279,9 +280,11 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
 
         if (smoothed.length < mesh.instanceMatrix.count) {
             _meshTracks.set(mesh, new Float32Array(mesh.instanceMatrix.count));
+            _meshMaxScales.set(mesh, new Float32Array(mesh.instanceMatrix.count));
             continue;
         }
 
+        const maxScales = _meshMaxScales.get(mesh);
         const attr = ensureInstanceLodAttribute(mesh);
         const attrArray = attr.array as Float32Array;
         const matrixArray = mesh.instanceMatrix.array as Float32Array;
@@ -310,15 +313,30 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
                 const factor = next;
                 const alpha = impostorAlphaFromFactor(factor, cfg);
                 if (alpha > 0.001 && factor < 3 && impostorCount < _impostorCapacity && distSq < farCullSq) {
-                    const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
-                    const m10 = matrixArray[offset + 4], m11 = matrixArray[offset + 5], m12 = matrixArray[offset + 6];
-                    const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
+                    // ⚡ OPTIMIZATION: Cache impostor scale to drop per-frame Math.sqrt
+                    let scaleCache = _impostorScaleCaches.get(mesh);
+                    if (!scaleCache || scaleCache.length < mesh.instanceMatrix.count) {
+                        scaleCache = new Float32Array(mesh.instanceMatrix.count);
+                        scaleCache.fill(-1);
+                        _impostorScaleCaches.set(mesh, scaleCache);
+                    }
 
-                    const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
-                    const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
-                    const scaleZSq = m20 * m20 + m21 * m21 + m22 * m22;
-                    const maxScaleSq = Math.max(scaleXSq, scaleYSq, scaleZSq);
-                    const size = Math.sqrt(maxScaleSq) * cfg.impostorScaleMul;
+                    let size = cfg.impostorScaleMul;
+                    if (scaleCache[i] >= 0) {
+                        size = scaleCache[i];
+                    } else {
+                        const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
+                        const m10 = matrixArray[offset + 4], m11 = matrixArray[offset + 5], m12 = matrixArray[offset + 6];
+                        const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
+
+                        const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
+                        const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
+                        const scaleZSq = m20 * m20 + m21 * m21 + m22 * m22;
+                        const maxScaleSq = Math.max(scaleXSq, scaleYSq, scaleZSq);
+
+                        size = Math.sqrt(maxScaleSq) * cfg.impostorScaleMul;
+                        scaleCache[i] = size;
+                    }
 
                     _billboardMatrixFromCamera(camera, px, py, pz, size, size * cfg.impostorAspect);
                     _billboardMatrix.toArray(impostor.instanceMatrix.array, impostorCount * 16);
@@ -363,6 +381,13 @@ export function refreshFoliageLodMesh(mesh: THREE.InstancedMesh): void {
         next.set(prev);
     }
     _meshTracks.set(mesh, next);
+
+    const prevScales = _meshMaxScales.get(mesh);
+    const nextScales = new Float32Array(mesh.instanceMatrix.count);
+    if (prevScales) {
+        nextScales.set(prevScales);
+    }
+    _meshMaxScales.set(mesh, nextScales);
 }
 
 export function getFoliageLodImpostorMesh(): THREE.InstancedMesh | null {
@@ -372,6 +397,7 @@ export function getFoliageLodImpostorMesh(): THREE.InstancedMesh | null {
 export function disposeFoliageBatcherLOD(): void {
     _targets.length = 0;
     _meshTracks.clear();
+    _meshMaxScales.clear();
     if (_impostorMesh) {
         safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, _impostorMesh);
         _impostorMesh = null;
