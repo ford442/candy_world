@@ -34,6 +34,7 @@ import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports f
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
+import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { applyAerialPerspective, aerialPerspectiveLodBoost } from './aerial-perspective.ts';
 
 const MAX_MUSHROOMS = getCIAdjustedCount(1000, 0.1, 50); // Reduced from 4000 for WebGPU uniform buffer limits
@@ -861,7 +862,8 @@ export class MushroomBatcher {
 
                     // Extract scale Y (magnitude of the second column)
                     const m10 = matrixArray[matOffset + 4], m11 = matrixArray[matOffset + 5], m12 = matrixArray[matOffset + 6];
-                    const scaleY = Math.sqrt(m10 * m10 + m11 * m11 + m12 * m12);
+                    const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
+                    const scaleY = scaleYSq === 0 ? 0 : scaleYSq * fastInvSqrt(scaleYSq);
 
                     if (this.mesh.instanceColor) {
                         const colorArray = this.mesh.instanceColor.array as Float32Array;

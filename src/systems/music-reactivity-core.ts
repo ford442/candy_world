@@ -1,3 +1,4 @@
+import { fastInvSqrt } from "../utils/wasm-loader.ts";
 import * as THREE from 'three';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { getDayNightBias } from '../core/cycle.ts';
@@ -156,7 +157,8 @@ export function computeWaveTimeSinceArrival(plantWorldPos: THREE.Vector3, active
 
     // Reverted: Using Math.sqrt() because we actually need linear arrival distance for timing logic.
     // The previous optimization attempt distorted wave propagation.
-    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const distSq = dx * dx + dy * dy + dz * dz;
+    const distance = distSq === 0 ? 0 : distSq * fastInvSqrt(distSq);
 
     const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
     return (performance.now() - arrivalTime) / 1000;
