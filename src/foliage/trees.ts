@@ -453,7 +453,7 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
     const pleatMatBase = getCachedProceduralMaterial(`accordion_palm_pleat_base`, 0x8B4513, () => {
         const mat = createClayMaterial(0x8B4513) as MeshStandardNodeMaterial;
         mat.positionNode = applyStandardDeformation(positionLocal);
-        const rim = createJuicyRimLight(tslColor(0x8B4513), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode);
+        const rim = createJuicyRimLight(tslColor(0x8B4513), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode || normalLocal);
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(rim);
         return mat;
     });
@@ -462,7 +462,7 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
     const pleatMatAlt = getCachedProceduralMaterial(`accordion_palm_pleat_alt`, 0xA0522D, () => {
         const mat = createClayMaterial(0xA0522D) as MeshStandardNodeMaterial;
         mat.positionNode = applyStandardDeformation(positionLocal);
-        const rim = createJuicyRimLight(tslColor(0xA0522D), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode);
+        const rim = createJuicyRimLight(tslColor(0xA0522D), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode || normalLocal);
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(rim);
         return mat;
     });
@@ -485,7 +485,7 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
     const leafMat = getCachedProceduralMaterial(`accordion_palm_leaf_${color}`, color, () => {
         const mat = createClayMaterial(color) as MeshStandardNodeMaterial;
         mat.positionNode = applyStandardDeformation(positionLocal);
-        const rim = createJuicyRimLight(tslColor(color), float(1.5).add(uAudioHigh.mul(2.0)), float(3.0), mat.normalNode);
+        const rim = createJuicyRimLight(tslColor(color), float(1.5).add(uAudioHigh.mul(2.0)), float(3.0), mat.normalNode || normalLocal);
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(rim);
         return mat;
     });
