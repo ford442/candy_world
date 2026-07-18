@@ -642,10 +642,14 @@ export function animate() {
         ambIntensity *= (1 - weatherIntensity * 0.2);
     }
 
-    sunLightRef!.color.copy(currentState.sun);
-    sunLightRef!.intensity = sunIntensity;
-    ambientLightRef!.color.copy(currentState.amb);
-    ambientLightRef!.intensity = ambIntensity + beatFlashIntensity * 0.5;
+    if (sunLightRef) {
+        sunLightRef.color.copy(currentState.sun);
+        sunLightRef.intensity = sunIntensity;
+    }
+    if (ambientLightRef) {
+        ambientLightRef.color.copy(currentState.amb);
+        ambientLightRef.intensity = ambIntensity + beatFlashIntensity * 0.5;
+    }
 
     if (cyclePos < 540) {
         const sunProgress = cyclePos / 540;
@@ -660,23 +664,30 @@ export function animate() {
         _scratchSunVector.copy(_scratchLightDir);
 
         const shadowSettings = resolveShadowSettings();
-        sunLightRef!.castShadow = shadowSettings.enabled;
-        if (shadowSettings.enabled) {
-            updateSunShadowFollow(sunLightRef!, player.position, _scratchLightDir);
+        if (sunLightRef) {
+            sunLightRef.castShadow = shadowSettings.enabled;
+            if (shadowSettings.enabled) {
+                updateSunShadowFollow(sunLightRef, player.position, _scratchLightDir);
+            }
+            sunLightRef.visible = true;
         }
-
-        sunLightRef!.visible = true;
-        sunGlowRef!.visible = true;
-        sunCoronaRef!.visible = true;
-        moonRef!.visible = false;
+        if (sunGlowRef) { sunGlowRef.visible = true; }
+        if (sunCoronaRef) { sunCoronaRef.visible = true; }
+        if (moonRef) { moonRef.visible = false; }
         _shaftIsNightMode = false;
 
-        sunGlowRef!.position.copy(_scratchSunVector).multiplyScalar(400);
-        (sunGlowRef as any).lookAt(cameraRef.position);
-        sunCoronaRef!.position.copy(_scratchSunVector).multiplyScalar(390);
-        (sunCoronaRef as any).lookAt(cameraRef.position);
-        lightShaftGroupRef!.position.copy(_scratchSunVector).multiplyScalar(380);
-        (lightShaftGroupRef as any).lookAt(cameraRef.position);
+        if (sunGlowRef) {
+            sunGlowRef.position.copy(_scratchSunVector).multiplyScalar(400);
+            (sunGlowRef as any).lookAt(cameraRef.position);
+        }
+        if (sunCoronaRef) {
+            sunCoronaRef.position.copy(_scratchSunVector).multiplyScalar(390);
+            (sunCoronaRef as any).lookAt(cameraRef.position);
+        }
+        if (lightShaftGroupRef) {
+            lightShaftGroupRef.position.copy(_scratchSunVector).multiplyScalar(380);
+            (lightShaftGroupRef as any).lookAt(cameraRef.position);
+        }
 
         let glowIntensity = 0.25;
         let coronaIntensity = 0.15;
@@ -691,8 +702,8 @@ export function animate() {
             shaftIntensity = factor * 0.12;
             _shaftGoldenHourBase = shaftIntensity;
             _shaftIsGoldenHour = true;
-            (sunGlowMatRef as any).color.setHex(0xFFB366);
-            (coronaMatRef as any).color.setHex(0xFFD6A3);
+            if (sunGlowMatRef) { (sunGlowMatRef as any).color.setHex(0xFFB366); }
+            if (coronaMatRef) { (coronaMatRef as any).color.setHex(0xFFD6A3); }
         } else if (sunProgress > 0.85) {
             const factor = (sunProgress - 0.85) / 0.15;
             glowIntensity = 0.25 + factor * 0.45;
@@ -700,24 +711,26 @@ export function animate() {
             shaftIntensity = factor * 0.18;
             _shaftGoldenHourBase = shaftIntensity;
             _shaftIsGoldenHour = true;
-            (sunGlowMatRef as any).color.setHex(0xFF9966);
-            (coronaMatRef as any).color.setHex(0xFFCC99);
+            if (sunGlowMatRef) { (sunGlowMatRef as any).color.setHex(0xFF9966); }
+            if (coronaMatRef) { (coronaMatRef as any).color.setHex(0xFFCC99); }
         } else {
-            (sunGlowMatRef as any).color.setHex(0xFFE599);
-            (coronaMatRef as any).color.setHex(0xFFF4D6);
+            if (sunGlowMatRef) { (sunGlowMatRef as any).color.setHex(0xFFE599); }
+            if (coronaMatRef) { (coronaMatRef as any).color.setHex(0xFFF4D6); }
         }
 
-        const shaftMat = lightShaftGroupRef!.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+        const shaftMat = lightShaftGroupRef?.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
         if (shaftMat?.color) shaftMat.color.setHex(0xFFE5A0);
 
-        (sunGlowMatRef as any).opacity = glowIntensity;
-        (coronaMatRef as any).opacity = coronaIntensity;
+        if (sunGlowMatRef) { (sunGlowMatRef as any).opacity = glowIntensity; }
+        if (coronaMatRef) { (coronaMatRef as any).opacity = coronaIntensity; }
     } else {
-        sunLightRef!.visible = false;
-        sunLightRef!.castShadow = false;
-        sunGlowRef!.visible = false;
-        sunCoronaRef!.visible = false;
-        moonRef!.visible = true;
+        if (sunLightRef) {
+            sunLightRef.visible = false;
+            sunLightRef.castShadow = false;
+        }
+        if (sunGlowRef) { sunGlowRef.visible = false; }
+        if (sunCoronaRef) { sunCoronaRef.visible = false; }
+        if (moonRef) { moonRef.visible = true; }
 
         _shaftIsGoldenHour = false;
         _shaftGoldenHourBase = 0;
@@ -726,13 +739,15 @@ export function animate() {
         const nightProgress = (cyclePos - 540) / (CYCLE_DURATION - 540);
         const moonAngle = nightProgress * Math.PI;
         const r = 90;
-        moonRef!.position.set(Math.cos(moonAngle) * -r, Math.sin(moonAngle) * r, -30);
-        (moonRef as any).lookAt(0, 0, 0);
+        if (moonRef) {
+            moonRef.position.set(Math.cos(moonAngle) * -r, Math.sin(moonAngle) * r, -30);
+            (moonRef as any).lookAt(0, 0, 0);
+        }
 
         if (lightShaftGroupRef && moonRef && cameraRef) {
-            lightShaftGroupRef.position.copy(moonRef!.position);
+            lightShaftGroupRef.position.copy(moonRef.position);
             lightShaftGroupRef.lookAt(cameraRef.position);
-            _scratchSunVector.copy(moonRef!.position).sub(cameraRef.position).normalize();
+            _scratchSunVector.copy(moonRef.position).sub(cameraRef.position).normalize();
             const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
             _applyShaftColor(shaftMat, true);
         }
