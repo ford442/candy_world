@@ -540,11 +540,10 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     checkbox.type = 'checkbox';
     checkbox.id = id;
     checkbox.checked = checked;
+    // ♿ Aria: Removed redundant aria-checked attributes to prevent screen readers from announcing incorrect native state
     checkbox.setAttribute('role', 'switch');
-    checkbox.setAttribute('aria-checked', String(checked));
     checkbox.style.cssText = 'width: 20px; height: 20px; cursor: pointer;';
     checkbox.onchange = () => {
-      checkbox.setAttribute('aria-checked', String(checkbox.checked));
       onChange(checkbox.checked);
     };
 

@@ -177,3 +177,9 @@ Status: Implemented ✅
   * Verified `node scripts/tsc-ratchet.mjs` works, lowering the baseline to 527.
 
 Next Step: Review and continue clearing remaining items from `weekly_plan.md` or `REFACTORING_PLAN_REMAINING.md`.
+* Implementation Details: **#1359**, **#1349** Emscripten build + export-manifest verification CI. Untracked build artifacts (`libomp.a`, `math.o`, `*.cpp.bak`) and added them to gitignore. Added strict flag check.
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: **#1347**, **#1350**, **#1357** Fixed typecheck errors and ratcheted down error count. Removed stale `createSubwooferLotus` export from TS files. Fixed `music-reactivity.ts` barrel issues. Fixed `game-loop.ts` sun/moon null-safety.
+Next Step: Ask the user for the next task.

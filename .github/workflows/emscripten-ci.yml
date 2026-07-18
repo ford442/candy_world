@@ -1,0 +1,39 @@
+name: Emscripten CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup emsdk
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install root deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Emscripten WASM
+        run: pnpm run build:emcc
+
+      - name: Verify Emscripten Exports
+        run: pnpm run verify:emcc --strict
+
+      - name: Check for Uncommitted Exports
+        run: git diff --exit-code emscripten/exports.txt
