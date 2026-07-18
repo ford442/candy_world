@@ -6,6 +6,27 @@
 
 import type { ComputeParticleType } from './compute-particles-types.ts';
 
+// ⚡ OPTIMIZATION: Fast approximations for Math.sin and Math.cos
+function fastSin(x: number): number {
+    // Bhaskara I approximation for sine
+    // Works for x in [0, PI], so we range reduce to [-PI, PI]
+    const INV_PI = 0.3183098861837907; // 1 / PI
+    let i = x * INV_PI;
+    i = i - 2.0 * Math.round(i * 0.5); // Wrap to [-1, 1] range (i.e. [-PI, PI])
+
+    // Now i is in [-1, 1], meaning x is wrapped to [-PI, PI]
+    // Taylor minimax approximation or similar continuous polynomial for [-PI, PI]
+    // A simple, continuous quadratic-based approximation (Bhaskara I variant)
+    // sin(x) ≈ 16*x*(PI - |x|) / (5*PI^2 - 4*|x|*(PI - |x|))  for x in [0, PI]
+
+    const abs_i = Math.abs(i);
+    return (16.0 * i * (1.0 - abs_i)) / (5.0 - 4.0 * abs_i * (1.0 - abs_i));
+}
+
+function fastCos(x: number): number {
+    return fastSin(x + 1.5707963267948966);
+}
+
 /** World bounds — keep in sync with assembly/constants.ts and tests/wasm.mjs */
 export const PARTICLE_WORLD_BOUNDS = {
     minX: -128.0,
@@ -113,7 +134,7 @@ function setParticleColor(
             colors[idx + 3] = 1.0;
             break;
         case 'gem_sparks': {
-            const huePick = Math.sin(seeds[i] * 12.9898) * 0.5 + 0.5;
+            const huePick = fastSin(seeds[i] * 12.9898) * 0.5 + 0.5;
             const ruby = [0.88, 0.07, 0.37];
             const sapphire = [0.06, 0.32, 0.73];
             const amethyst = [0.60, 0.40, 0.80];
@@ -169,9 +190,9 @@ export function respawnCpuParticle(
         case 'sparks': {
             const angle = Math.random() * Math.PI * 2;
             const speed = 3 + Math.random() * 5;
-            velocities[idx] = Math.cos(angle) * speed;
+            velocities[idx] = fastCos(angle) * speed;
             velocities[idx + 1] = Math.random() * speed;
-            velocities[idx + 2] = Math.sin(angle) * speed;
+            velocities[idx + 2] = fastSin(angle) * speed;
             lives[i] = 0.3 + Math.random() * 0.5;
             break;
         }
@@ -197,9 +218,9 @@ function updateFirefly(
     const idx = i * 3;
     const dt = params.deltaTime;
 
-    const noiseX = Math.sin(positions[idx] * 0.1 + seeds[i]) * params.timeOffsetFirefly;
-    const noiseY = Math.sin(positions[idx + 1] * 0.1 + seeds[i] + 10) * params.timeOffsetFirefly;
-    const noiseZ = Math.sin(positions[idx + 2] * 0.1 + seeds[i] + 20) * params.timeOffsetFirefly;
+    const noiseX = fastSin(positions[idx] * 0.1 + seeds[i]) * params.timeOffsetFirefly;
+    const noiseY = fastSin(positions[idx + 1] * 0.1 + seeds[i] + 10) * params.timeOffsetFirefly;
+    const noiseZ = fastSin(positions[idx + 2] * 0.1 + seeds[i] + 20) * params.timeOffsetFirefly;
 
     const springX = (params.centerX - positions[idx]) * 0.5;
     const springZ = (params.centerZ - positions[idx + 2]) * 0.5;
@@ -251,9 +272,9 @@ function updatePollen(
     velocities[idx + 2] += params.windZ * 0.05 * dt;
 
     const noiseScale = 0.2;
-    const noiseX = Math.sin(positions[idx] * noiseScale + params.timeOffsetPollen);
-    const noiseY = Math.sin(positions[idx + 1] * noiseScale + params.timeOffsetPollen + 10);
-    const noiseZ = Math.sin(positions[idx + 2] * noiseScale + params.timeOffsetPollen + 20);
+    const noiseX = fastSin(positions[idx] * noiseScale + params.timeOffsetPollen);
+    const noiseY = fastSin(positions[idx + 1] * noiseScale + params.timeOffsetPollen + 10);
+    const noiseZ = fastSin(positions[idx + 2] * noiseScale + params.timeOffsetPollen + 20);
 
     const toPlayerX = positions[idx] - params.playerX;
     const toPlayerZ = positions[idx + 2] - params.playerZ;
@@ -358,10 +379,10 @@ function updateGemSpark(buffers: CpuParticleBuffers, params: CpuParticleSimParam
     const seed = seeds[i];
     const timeSec = params.timeSec;
 
-    const noiseX = Math.sin(positions[idx] * 0.12 + timeSec * 0.11 + seed) * 0.35;
-    const noiseY = Math.sin(positions[idx + 1] * 0.12 + timeSec * 0.07 + seed * 1.3) * 0.2;
-    const noiseZ = Math.sin(positions[idx + 2] * 0.12 + timeSec * 0.09 + seed * 0.7) * 0.35;
-    const bobY = Math.sin(timeSec * 0.85 + seed) * 0.14;
+    const noiseX = fastSin(positions[idx] * 0.12 + timeSec * 0.11 + seed) * 0.35;
+    const noiseY = fastSin(positions[idx + 1] * 0.12 + timeSec * 0.07 + seed * 1.3) * 0.2;
+    const noiseZ = fastSin(positions[idx + 2] * 0.12 + timeSec * 0.09 + seed * 0.7) * 0.35;
+    const bobY = fastSin(timeSec * 0.85 + seed) * 0.14;
     const audioLift = params.audioHigh * 0.25;
 
     velocities[idx] += noiseX * 0.55 * dt;

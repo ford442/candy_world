@@ -68,8 +68,14 @@ float* initObstacleBuffer(int maxCount) {
     return obstacleUploadBuffer;
 }
 
+
 EMSCRIPTEN_KEEPALIVE
-void addObstaclesBatch(int count) {
+void addCollisionObject(int type, float x, float y, float z, float r, float h, float p1, float p2, float p3) {
+    obstacles.push_back({type, x, y, z, r, h, p1, p2, p3});
+}
+
+EMSCRIPTEN_KEEPALIVE
+void addCollisionObjectsBatch(int count) {
     if (obstacleUploadBuffer == nullptr) return;
 
     obstacles.reserve(obstacles.size() + count);
