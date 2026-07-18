@@ -448,15 +448,31 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
     const trunkGroup = new THREE.Group();
 
     const pleatGeo = new THREE.TorusGeometry(0.3, 0.15, 8, 16);
-    const pleatMat = createClayMaterial(0x8B4513);
+
+    // 🎨 PALETTE: Add TSL Juice (Wind Sway and Rim Light) to the Accordion trunk pleats
+    const pleatMatBase = getCachedProceduralMaterial(`accordion_palm_pleat_base`, 0x8B4513, () => {
+        const mat = createClayMaterial(0x8B4513) as MeshStandardNodeMaterial;
+        mat.positionNode = applyStandardDeformation(positionLocal);
+        const rim = createJuicyRimLight(tslColor(0x8B4513), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode);
+        mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(rim);
+        return mat;
+    });
+    registerReactiveMaterial(pleatMatBase);
+
+    const pleatMatAlt = getCachedProceduralMaterial(`accordion_palm_pleat_alt`, 0xA0522D, () => {
+        const mat = createClayMaterial(0xA0522D) as MeshStandardNodeMaterial;
+        mat.positionNode = applyStandardDeformation(positionLocal);
+        const rim = createJuicyRimLight(tslColor(0xA0522D), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode);
+        mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(rim);
+        return mat;
+    });
+    registerReactiveMaterial(pleatMatAlt);
 
     for (let i = 0; i < segments; i++) {
-        const pleat = new THREE.Mesh(pleatGeo, pleatMat);
+        const activeMat = (i % 2 === 0) ? pleatMatAlt : pleatMatBase;
+        const pleat = new THREE.Mesh(pleatGeo, activeMat);
         pleat.rotation.x = Math.PI / 2;
         pleat.position.y = i * (trunkHeight / segments);
-        if (i % 2 === 0) {
-            pleat.material = createClayMaterial(0xA0522D);
-        }
         trunkGroup.add(pleat);
     }
     group.add(trunkGroup);
@@ -464,7 +480,15 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
     const leafCount = 6;
     const leafGeo = new THREE.CylinderGeometry(0.05, 0.1, 1.5, 8);
     leafGeo.translate(0, 0.75, 0);
-    const leafMat = createClayMaterial(color);
+
+    // 🎨 PALETTE: Add TSL Juice (Wind Sway and Audio Reactive Rim Light) to the Palm Leaves
+    const leafMat = getCachedProceduralMaterial(`accordion_palm_leaf_${color}`, color, () => {
+        const mat = createClayMaterial(color) as MeshStandardNodeMaterial;
+        mat.positionNode = applyStandardDeformation(positionLocal);
+        const rim = createJuicyRimLight(tslColor(color), float(1.5).add(uAudioHigh.mul(2.0)), float(3.0), mat.normalNode);
+        mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(rim);
+        return mat;
+    });
     registerReactiveMaterial(leafMat);
 
     const headGroup = new THREE.Group();
