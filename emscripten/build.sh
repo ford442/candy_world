@@ -230,6 +230,7 @@ declare -A ANIMATION_FUNCTIONS=(
     ["initPhysics"]="physics"
     ["addCollisionObject"]="physics"
     ["addCollisionObjectsBatch"]="physics"
+    ["addObstaclesBatch"]="physics"
     ["setPlayerState"]="physics"
     ["getPlayerX"]="physics"
     ["getPlayerY"]="physics"
