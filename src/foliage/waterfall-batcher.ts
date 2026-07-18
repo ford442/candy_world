@@ -17,7 +17,8 @@ const modFloat = (x: any, y: any) => {
 };
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight
+    uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight,
+    applyPlayerInteraction
 } from './index.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
@@ -110,7 +111,10 @@ export class WaterfallBatcher {
         const displacement = vec3(wobbleX, float(0.0), wobbleZ).mul(wobbleAmp);
 
         // Apply Displacement
-        colMat.positionNode = positionLocal.add(displacement);
+        const displacedPos = positionLocal.add(displacement);
+
+        // Apply Player Interaction
+        colMat.positionNode = applyPlayerInteraction(displacedPos);
 
         // 4. Color & Emission
         const uPulseIntensity = uAudioLow.mul(2.0); // Amplified bass
