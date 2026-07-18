@@ -183,3 +183,7 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: **#1347**, **#1350**, **#1357** Fixed typecheck errors and ratcheted down error count. Removed stale `createSubwooferLotus` export from TS files. Fixed `music-reactivity.ts` barrel issues. Fixed `game-loop.ts` sun/moon null-safety.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: 🎨 Palette: Added `applyPlayerInteraction` TSL logic to the `waterfall-batcher.ts` and `flower-batcher.ts` components. This ensures waterfalls and flowers react to the player character pushing through them, increasing visual feedback and game feel juice.
+Next Step: Provide next task.
