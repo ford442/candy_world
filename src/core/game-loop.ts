@@ -431,7 +431,7 @@ function _updateDepthOfField(delta: number): void {
         // Focus-follow: distance along the camera look vector toward scenic flora
         const toX = _DOF_FLORA_ZONES[i][0] - px;
         const toZ = _DOF_FLORA_ZONES[i][1] - pz;
-        const horizLen = Math.sqrt(toX * toX + toZ * toZ) || 1;
+        // ⚡ OPTIMIZATION: Bypassed unused horizLen and Math.sqrt overhead.
         const lookAlong = toX * _scratchCameraForward.x + toZ * _scratchCameraForward.z;
         if (lookAlong > 2.0 && lookAlong < lookFocusDist) {
             lookFocusDist = lookAlong;
