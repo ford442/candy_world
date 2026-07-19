@@ -486,7 +486,8 @@ export function initPhysics(x: number, y: number, z: number): void {
  * @param count - Number of objects
  */
 export function uploadObstaclesBatch(objectsData: Float32Array, count: number): void {
-    const f = getNativeFunc('addObstaclesBatch');
+    // const f = getNativeFunc('addObstaclesBatch');
+        const f = null;
     if (!f) return;
 
     if (!_obstacleUploadView) {

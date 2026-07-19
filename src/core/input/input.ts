@@ -811,12 +811,14 @@ function triggerButtonPress(buttonId: string): void {
         dpadHeld.add(dir);
         keyStates[dir] = true;
         btn.setAttribute('aria-pressed', 'true');
+        btn.classList.add('keyboard-active');
     };
 
     const dpadRelease = (dir: DpadDirection, btn: HTMLElement) => {
         dpadHeld.delete(dir);
         keyStates[dir] = false;
         btn.setAttribute('aria-pressed', 'false');
+        btn.classList.remove('keyboard-active');
     };
 
     for (const [id, dir] of Object.entries(dpadMap)) {
@@ -840,6 +842,25 @@ function triggerButtonPress(buttonId: string): void {
             e.preventDefault();
             e.stopPropagation();
             dpadRelease(dir, btn);
+        });
+
+        // ♿ Aria: Keyboard Accessibility for D-Pad Controls
+        btn.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.code === 'Space') {
+                e.preventDefault();
+                dpadPress(dir, btn);
+            }
+        });
+
+        btn.addEventListener('keyup', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.code === 'Space') {
+                e.preventDefault();
+                dpadRelease(dir, btn);
+            }
+        });
+
+        btn.addEventListener('blur', () => {
+             dpadRelease(dir, btn);
         });
 
         // Prevent context menu on long-press (mobile)

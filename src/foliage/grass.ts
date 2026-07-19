@@ -2,8 +2,8 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { time, positionLocal, positionWorld, sin, vec3, color, normalView, dot, float, max, sign, smoothstep, normalize } from 'three/tsl';
-import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, uPlayerPosition, createJuicyRimLight } from './material-core.ts';
+import { time, positionLocal, positionWorld, sin, vec3, color, normalView, float, max, sign, length } from 'three/tsl';
+import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, createJuicyRimLight, applyStandardDeformation, calculatePlayerPush } from './material-core.ts';
 import { uSkyDarkness } from './sky.ts';
 
 let grassMeshes: THREE.InstancedMesh[] = [];
@@ -26,26 +26,12 @@ export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.Instanc
     });
 
     // --- PALETTE UPDATE: Dancing Grass ---
-    // 1. Wind (Base Layer) - Slow, sweeping waves across the world
-    // We use positionWorld to make the wind field continuous across instances
-    const windTime = time.mul(uWindSpeed.max(0.5));
-    const windFreq = float(0.1); // Scale of wind waves
-    const windPhase = positionWorld.x.mul(windFreq).add(positionWorld.z.mul(windFreq)).add(windTime);
-    const windSway = sin(windPhase).mul(positionLocal.y).mul(0.3);
-
-    // 2. Dance (Audio Layer) - Fast, twitchy reaction to Hi-Hats/Melody
+    // 1. Dance (Audio Layer) - Fast, twitchy reaction to Hi-Hats/Melody
     const dancePhase = time.mul(15.0).add(positionWorld.x.mul(0.5)).add(positionWorld.z.mul(0.5));
     // "Shiver" effect: High frequency shake, scaled by uAudioHigh
     const danceSway = sin(dancePhase).mul(uAudioHigh).mul(0.15).mul(positionLocal.y);
 
-    // Combine Sway
-    const totalSway = windSway.add(danceSway);
-
-    // Apply Direction
-    const swayX = totalSway.mul(uWindDirection.x);
-    const swayZ = totalSway.mul(uWindDirection.z);
-
-    // 3. Bounce (Kick Drum) - Squash the grass vertically on the beat
+    // 2. Bounce (Kick Drum) - Squash the grass vertically on the beat
     // When uAudioLow is high, scale Y down and X/Z up slightly (volume preservation)
     const squashFactor = uAudioLow.mul(0.2); // Max 20% squash
     const scaleY = float(1.0).sub(squashFactor);
@@ -57,40 +43,13 @@ export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.Instanc
     // scaleXZ = 1.0 + squashFactor * 0.1 (Simple approximation)
     const scaleXZ = float(1.0).add(squashFactor.mul(0.1));
 
-    // Apply sway AND bulge
-    // Bulge scales the local X/Z relative to center (0,0)
-    let newX = positionLocal.x.mul(scaleXZ).add(swayX);
-    let newZ = positionLocal.z.mul(scaleXZ).add(swayZ);
+    const audioPos = vec3(
+        positionLocal.x.mul(scaleXZ).add(danceSway.mul(uWindDirection.x)),
+        newY,
+        positionLocal.z.mul(scaleXZ).add(danceSway.mul(uWindDirection.z))
+    );
 
-    // --- PALETTE UPDATE: Player Interaction (Bending) ---
-    // Push grass away from uPlayerPosition
-    const playerDistVector = positionWorld.sub(uPlayerPosition);
-    // We only care about X/Z distance (cylinder interaction)
-    const playerDistH = vec3(playerDistVector.x, float(0.0), playerDistVector.z);
-    const distSq = dot(playerDistH, playerDistH);
-
-    // Interaction Radius = 2.0
-    const interactRadiusSq = float(4.0);
-
-    // Force falls off with distance
-    // smoothstep(radiusSq, 0, distSq) -> 1 at center, 0 at edge
-    const pushStrength = smoothstep(interactRadiusSq, float(0.0), distSq);
-
-    // Direction to push (away from player)
-    const pushDir = normalize(playerDistH);
-
-    // Only affect the top of the grass (positionLocal.y)
-    // Bending factor increases with height
-    const bendAmount = pushStrength.mul(2.0).mul(positionLocal.y); // Max push 2.0 units at tip
-
-    newX = newX.add(pushDir.x.mul(bendAmount));
-    newZ = newZ.add(pushDir.z.mul(bendAmount));
-
-    // Also push Y down slightly to simulate bending over?
-    // For simple shear, X/Z is enough, but physically it should lower.
-    // Let's keep it simple for now to avoid ground clipping issues.
-
-    mat.positionNode = vec3(newX, newY, newZ);
+    mat.positionNode = applyStandardDeformation(audioPos);
 
     // --- Material Colors ---
     // Base Colors
@@ -112,7 +71,7 @@ export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.Instanc
     // PALETTE JUICE: Touch Glow (Player Interaction)
     // When player pushes grass, it glows Neon Pink
     const touchGlowColor = color(0xFF00FF);
-    const touchGlowStrength = pushStrength.mul(2.0); // Bright flash on touch
+    const touchGlowStrength = length(calculatePlayerPush(audioPos)).mul(2.0); // Bright flash on touch
 
     mat.colorNode = baseColor;
 

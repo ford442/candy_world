@@ -73,7 +73,8 @@ const EXPECTED_EXPORTS = {
         'initPhysicsMemory',
         'initPhysics',
         'addCollisionObject',
-        'addObstaclesBatch',
+        'addCollisionObjectsBatch',
+
         'setPlayerState',
         'getPlayerX',
         'getPlayerY',

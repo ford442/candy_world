@@ -187,3 +187,8 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: 🎨 Palette: Added `applyPlayerInteraction` TSL logic to the `waterfall-batcher.ts` and `flower-batcher.ts` components. This ensures waterfalls and flowers react to the player character pushing through them, increasing visual feedback and game feel juice.
 Next Step: Provide next task.
+
+Status: Implemented ✅
+* Implementation Details: Split game-loop.ts into 8 modular tick-phase components (`game-loop-core`, `game-loop-visuals`, `game-loop-audio`, `game-loop-particles`, `game-loop-postfx`, `game-loop-physics`, `game-loop-gameplay`, `game-loop-compute`) while properly retaining core timing scale (BPM timeFactor), camera effect decays (shake, FOV pulse), camera tracking, seasonal size logic, and interactive flora spatial queries to ensure zero feature regressions. Refactored the core barrel to coordinate smoothly without cyclical dependency drops.
+
+Next Step: Propose next uncompleted item from the roadmap.
