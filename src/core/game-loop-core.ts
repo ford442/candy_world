@@ -193,16 +193,6 @@ export function initGameLoopDependencies(deps: {
     timeOffsetRef = deps.timeOffset;
 
     initGroundDebug(deps.scene);
-
-    if (beatSyncRef) {
-        beatSyncRef.onBeat((state) => {
-            const kickTrigger = state?.kickTrigger || 0;
-            if (kickTrigger > 0.2) {
-                beatFlashIntensity = Math.max(beatFlashIntensity, 0.4 + kickTrigger * 0.5);
-                cameraZoomPulse = Math.max(cameraZoomPulse, 1 + kickTrigger * 3);
-            }
-        });
-    }
 }
 
 export function getGameTime(): number {
