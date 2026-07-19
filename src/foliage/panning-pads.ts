@@ -1,3 +1,4 @@
+import { UnifiedMaterialOptions } from './material-core.ts';
 // src/foliage/panning-pads.ts
 
 import * as THREE from 'three';
@@ -10,7 +11,7 @@ import {
     createStandardNodeMaterial,
     uPlayerPosition,
     uTime,
-    UnifiedMaterialOptions
+
 } from './index.ts';
 import { spawnImpact } from './impacts.ts';
 import {
