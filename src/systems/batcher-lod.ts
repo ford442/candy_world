@@ -122,22 +122,26 @@ export function computeTargetLodFactorSq(
     const midEdge = cfg.midMax;
 
     const heroMin = heroEdge - bw;
-    if (heroMin >= 0 && distSq <= heroMin * heroMin) return 0;
+    const heroMinSq = heroMin > 0 ? heroMin * heroMin : 0;
+    if (distSq <= heroMinSq) return 0;
 
     const heroMax = heroEdge + bw;
-    if (distSq <= heroMax * heroMax) {
-        const distance = Math.sqrt(distSq);
-        const t = (distance - heroMin) / (2 * bw);
+    const heroMaxSq = heroMax * heroMax;
+    if (distSq <= heroMaxSq) {
+        // ⚡ OPTIMIZATION: Bypassed Math.sqrt overhead by interpolating directly in squared space for LOD blending
+        const t = (distSq - heroMinSq) / (heroMaxSq - heroMinSq);
         return smoothstep01(t);
     }
 
     const midMin = midEdge - bw;
-    if (midMin >= 0 && distSq <= midMin * midMin) return 1;
+    const midMinSq = midMin > 0 ? midMin * midMin : 0;
+    if (distSq <= midMinSq) return 1;
 
     const midMax = midEdge + bw;
-    if (distSq <= midMax * midMax) {
-        const distance = Math.sqrt(distSq);
-        const t = (distance - midMin) / (2 * bw);
+    const midMaxSq = midMax * midMax;
+    if (distSq <= midMaxSq) {
+        // ⚡ OPTIMIZATION: Bypassed Math.sqrt overhead by interpolating directly in squared space for LOD blending
+        const t = (distSq - midMinSq) / (midMaxSq - midMinSq);
         return 1 + smoothstep01(t);
     }
     return 2;
