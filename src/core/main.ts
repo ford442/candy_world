@@ -680,6 +680,7 @@ if (startButton) {
 
         // Immediate UI feedback
         startButton.disabled = true;
+        startButton.setAttribute('aria-busy', 'true');
         startButton.setAttribute('aria-disabled', 'true');
         startButton.setAttribute('title', 'Generating world...');
         startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';

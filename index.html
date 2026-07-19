@@ -82,10 +82,21 @@
             text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
         }
+        /* ♿ Aria: Distinguish busy (loading) states from disabled states */
+        .cta-button[aria-busy="true"] {
+            background: #FFB6C1;
+            cursor: wait;
+            transform: scale(0.98);
+            box-shadow: 0 2px 8px rgba(255, 107, 107, 0.2);
+            opacity: 0.9;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
         .cta-button[aria-disabled="true"],
         .cta-button:disabled {
             background: #FFB6C1;
-            cursor: wait;
+            cursor: not-allowed;
             transform: none;
             box-shadow: none;
             opacity: 0.8;
@@ -97,7 +108,7 @@
         }
 
         /* ♿ Aria & 🎨 Palette: Visual pop when button becomes ready */
-        .cta-button[aria-disabled="false"]:not(:disabled) {
+        .cta-button[aria-disabled="false"]:not(:disabled):not([aria-busy="true"]) {
             animation: cta-pulse-ready 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
@@ -194,6 +205,13 @@
             display: inline-block;
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s, box-shadow 0.2s;
             font-family: inherit;
+        }
+        .file-label[aria-busy="true"] {
+            background: #FFF0F5;
+            cursor: wait;
+            opacity: 0.8;
+            pointer-events: none;
+            transform: scale(0.98);
         }
         .file-label:hover {
             background: #FFF0F5;
