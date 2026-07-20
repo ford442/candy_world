@@ -40,6 +40,7 @@ import {
     mix,
     sin,
     cos,
+    float,
     floor
 } from 'three/tsl';
 
@@ -149,7 +150,7 @@ class ShimmerParticleSystem implements IParticleSystem {
 
         // Twinkle effect
         const twinkle = time.mul(3.0 * speed).add(aOffset).sin().mul(0.5).add(0.5);
-        material.sizeNode = aSize.mul(twinkle.add(0.3));
+        (material as any).sizeNode = aSize.mul(twinkle.add(0.3));
 
         // Color with sparkle
         const sparkle = time.mul(5.0 * speed).add(aOffset.mul(2.0)).sin().mul(0.3).add(0.7);
@@ -267,7 +268,7 @@ class BubbleStreamSystem implements IParticleSystem {
 
         // Size grows as bubble rises
         const growFactor = newY.div(resetHeight).mul(0.5).add(1.0);
-        material.sizeNode = aSize.mul(growFactor);
+        (material as any).sizeNode = aSize.mul(growFactor);
 
         // Iridescent bubble effect
         const iridescence = time.add(aOffset).mul(0.5).sin();
@@ -396,7 +397,7 @@ class PollenCloudSystem implements IParticleSystem {
 
         // Pulsing size
         const pulse = time.mul(2.0).add(aOffset).sin().mul(0.3).add(0.7);
-        material.sizeNode = aSize.mul(pulse);
+        (material as any).sizeNode = aSize.mul(pulse);
 
         material.colorNode = vec4(color(pollenColor), 1.0);
 
@@ -511,7 +512,7 @@ class LeafConfettiSystem implements IParticleSystem {
 
         // Tumbling size effect (simulates rotation)
         const tumble = tumbleRotation.sin().abs();
-        material.sizeNode = aSize.mul(tumble.mul(0.5).add(0.5));
+        (material as any).sizeNode = aSize.mul(tumble.mul(0.5).add(0.5));
 
         // Color variation
         const colorShift = aOffset.mul(0.1).sin().mul(0.2).add(1.0);
@@ -615,7 +616,7 @@ class PulseRingSystem implements IParticleSystem {
         );
 
         // Size and opacity fade with expansion (audio-reactive via uniforms)
-        material.sizeNode = uPulseStrength.mul(2.0).mul(fadeOut).add(0.3);
+        (material as any).sizeNode = uPulseStrength.mul(2.0).mul(fadeOut).add(0.3);
 
         const finalColor = mix(color(0xFFFFFF), uPulseColor, uPulseStrength);
         material.colorNode = vec4(finalColor, fadeOut.mul(uPulseStrength));

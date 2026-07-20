@@ -58,6 +58,7 @@ export {
     deformJiggle_c,
     deformWobble_c,
     batchUpdateLODMatrices_c,
+    batchComposeMatrices_c,
     batchScaleMatrices_c,
     batchFadeColors_c,
     batchFrustumCull_c,

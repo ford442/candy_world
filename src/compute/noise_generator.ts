@@ -229,7 +229,7 @@ export class ProceduralNoiseCompute {
         this.generate();
 
         const texture = new THREE.DataTexture(
-            this.data,
+            this.data as any,
             this.width,
             this.height,
             THREE.RGBAFormat,

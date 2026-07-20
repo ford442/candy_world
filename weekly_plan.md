@@ -72,7 +72,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice). Depends on #1350 split.
 
 *Content / world-building (capstones, after foundation):*
-- [ ] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path.
+- [x] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path.
 - [ ] **#1363 Vertical Sky Islands biome** — layered exploration arc after #1265/#1266.
 - [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [ ] **#1352 Living candy fauna** (WASM boids + ECS). **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
