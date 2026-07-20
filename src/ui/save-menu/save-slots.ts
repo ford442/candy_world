@@ -42,6 +42,8 @@ export function renderSlot(
     return `
         <div class="candy-save-slot ${isEmpty ? 'candy-save-slot--empty' : ''} ${isSelected ? 'candy-save-slot--selected' : ''}"
              data-slot-id="${slot.slotId}"
+             role="group"
+             aria-label="${isEmpty ? 'Empty Save Slot' : 'Save Slot: ' + slot.slotName}"
         >
             ${slot.isAutoSave && !isEmpty ? '<span class="candy-save-slot__badge">AUTO</span>' : ''}
             <div class="candy-save-slot__icon" aria-hidden="true">${isEmpty ? '➕' : '💾'}</div>

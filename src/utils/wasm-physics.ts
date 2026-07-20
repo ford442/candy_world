@@ -718,9 +718,9 @@ export function batchGroundHeight(positions: Float32Array): Float32Array {
         }
 
         if (_batchGroundHeightInPtr && _batchGroundHeightOutPtr) {
-            getEmscriptenInstance().HEAPF32!.set(positions, _batchGroundHeightInPtr >> 2);
+            getEmscriptenInstance()!.HEAPF32!.set(positions, _batchGroundHeightInPtr >> 2);
             cppBatchGroundHeightSimd(_batchGroundHeightInPtr, count, _batchGroundHeightOutPtr);
-            output.set(getEmscriptenInstance().HEAPF32!.subarray(_batchGroundHeightOutPtr >> 2, (_batchGroundHeightOutPtr >> 2) + count));
+            output.set(getEmscriptenInstance()!.HEAPF32!.subarray(_batchGroundHeightOutPtr >> 2, (_batchGroundHeightOutPtr >> 2) + count));
             return output;
         }
     }

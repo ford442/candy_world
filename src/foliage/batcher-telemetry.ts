@@ -99,6 +99,8 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
     const dandelionRecord = toRecord(dandelionBatcher);
     const lanternRecord = toRecord(lanternBatcher);
 
+    const cloudPrimary = toRecord(CloudBatcher.getInstance());
+    const cloudWalkable = toRecord(CloudBatcher.getWalkableInstance());
     const entries: BatcherTelemetryEntry[] = [
         {
             id: 'tree',
@@ -154,5 +156,3 @@ export function installBatcherTelemetry(): void {
     if (typeof window === 'undefined') return;
     window.__getBatcherTelemetry = collectBatcherTelemetry;
 }
-    const cloudPrimary = toRecord(CloudBatcher.getInstance());
-    const cloudWalkable = toRecord(CloudBatcher.getWalkableInstance());

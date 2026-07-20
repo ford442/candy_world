@@ -56,7 +56,8 @@ const _scratch = new THREE.Vector3();
 
 function isPlacerFlagEnabled(): boolean {
     try {
-        if (import.meta.env.DEV) return true;
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) return true;
         return (
             new URLSearchParams(window.location.search).get('cloudPlacer') === '1' ||
             localStorage.getItem('candy_cloudPlacer') === '1'
