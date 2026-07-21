@@ -68,10 +68,30 @@ export const CLOUD_ARCHIPELAGO = {
     enabled: true,
     startX: -100,
     startZ: 100,
-    platforms: 15,
-    stepY: 3.5,
+    platforms: 8,
+    stepY: 2.8,
     radius: 12,
-    heightOffset: 25
+    heightOffset: 8,
+};
+
+/**
+ * Stacked sky islands (#1363) — NW of spawn, above cloud-archipelago approach stairs.
+ * Explicit absolute Y tiers validated against unified ground / platform query.
+ */
+export const SKY_ISLANDS = {
+    enabled: true,
+    centerX: -110,
+    centerZ: 118,
+    // Lateral offsets keep walkable decks from overlapping in XZ so each tier
+    // remains independently queryable via highest-maxY platform override.
+    layers: [
+        { id: 'low_mist', y: 18, radius: 9, height: 3.2, kind: 'mist' as const, offsetX: 0, offsetZ: 0 },
+        { id: 'mid_canopy', y: 32, radius: 11, height: 3.6, kind: 'canopy' as const, offsetX: 26, offsetZ: -18 },
+        { id: 'high_nebula', y: 48, radius: 8, height: 3.0, kind: 'nebula' as const, offsetX: -22, offsetZ: 24 },
+    ],
+    cloudRingCount: 4,
+    panningPadCount: 3,
+    vineLadders: true,
 };
 
 // Note: Actual fern/outer counts for the grove now come from
@@ -200,6 +220,7 @@ const TYPE_ALIASES: Record<string, string> = {
     bubbleWillow: 'bubble_willow',
     portamentoPine: 'portamento_pine',
     gemCanopyTree: 'gem_canopy_tree',
+    skyIsland: 'sky_island',
     arpeggioFern: 'arpeggio_fern',
     cymbalDandelion: 'cymbal_dandelion',
     retriggerMushroom: 'retrigger_mushroom',
@@ -233,6 +254,7 @@ export function isCriticalEntity(item: MapEntity | { type: string, isObstacle?: 
         'panning_pad',
         'cloud',    // can be Walkable
         'vine_ladder',
+        'sky_island',
         'instrument_shrine',
         'waterfall'
     ];

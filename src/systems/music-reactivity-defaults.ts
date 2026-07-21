@@ -17,6 +17,12 @@ export const defaultGlobalNoteColorCh: readonly number[] = musicBindings.biomes.
 export const defaultGemCanopyShimmerCh: readonly number[] = (musicBindings as any).biomes.gem_canopy.shimmer;
 export const defaultGemCanopyHueShiftCh: readonly number[] = (musicBindings as any).biomes.gem_canopy.hueShift;
 export const defaultGemCanopyNoteColorCh: readonly number[] = (musicBindings as any).biomes.gem_canopy.noteColor;
+export const defaultSkyIslandsShimmerCh: readonly number[] = (musicBindings as any).biomes.sky_islands.shimmer;
+export const defaultSkyIslandsHueShiftCh: readonly number[] = (musicBindings as any).biomes.sky_islands.hueShift;
+export const defaultSkyIslandsNoteColorCh: readonly number[] = (musicBindings as any).biomes.sky_islands.noteColor;
+export const defaultSkyIslandsFogCh: readonly number[] = (musicBindings as any).biomes.sky_islands.fog?.channels ?? [5];
+export const defaultSkyIslandsFogRest: number = (musicBindings as any).biomes.sky_islands.fog?.rest ?? 0.15;
+export const defaultSkyIslandsFogPeak: number = (musicBindings as any).biomes.sky_islands.fog?.peak ?? 0.55;
 
 const _skyMoonConfig = (musicBindings as any).sky_moon;
 if (!_skyMoonConfig || typeof _skyMoonConfig.melody_channel !== 'number') {
@@ -39,7 +45,7 @@ export const defaultWeatherBindings: {
 const _skyWaveConfig = (musicBindings as any).sky_wave;
 export const defaultSkyWavePropagationMs = _skyWaveConfig?.propagation_ms ?? 800;
 export const defaultSkyWaveDecayMs = _skyWaveConfig?.decay_ms ?? 2000;
-export const defaultSkyWaveTargets: readonly string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global', 'musical_flora', 'lake_features'];
+export const defaultSkyWaveTargets: readonly string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global', 'musical_flora', 'lake_features', 'sky_islands'];
 
 export const skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
   arpeggio_grove: BiomeUniforms.arpeggioGrove.noteColor,
@@ -49,6 +55,7 @@ export const skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
   lake_features: BiomeUniforms.lakeFeatures.noteColor,
   global: BiomeUniforms.global.noteColor,
   gem_canopy: BiomeUniforms.gemCanopy.noteColor,
+  sky_islands: BiomeUniforms.skyIslands.noteColor,
   sky_moon: BiomeUniforms.skyMoon.moonNoteColor as any,
 };
 

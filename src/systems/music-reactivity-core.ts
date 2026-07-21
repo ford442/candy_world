@@ -6,7 +6,9 @@ import {
     defaultSkyMoonNoteColorCh, defaultSkyMoonIntensityCh, defaultGlobalShimmerCh,
     defaultGlobalHueShiftCh, defaultGlobalNoteColorCh, defaultSkyMoonMelodyCh,
     defaultLuminousPlantTrackerChannel, defaultGemCanopyShimmerCh, defaultGemCanopyHueShiftCh,
-    defaultGemCanopyNoteColorCh, defaultWeatherBindings,
+    defaultGemCanopyNoteColorCh, defaultSkyIslandsShimmerCh, defaultSkyIslandsHueShiftCh,
+    defaultSkyIslandsNoteColorCh, defaultSkyIslandsFogCh, defaultSkyIslandsFogRest, defaultSkyIslandsFogPeak,
+    defaultWeatherBindings,
     defaultSkyWavePropagationMs, defaultSkyWaveDecayMs, defaultSkyWaveTargets,
     CHROMATIC_SCALE
 } from './music-reactivity-defaults.ts';
@@ -63,10 +65,17 @@ export const MRState = {
     gemCanopyShimmerCh: defaultGemCanopyShimmerCh as readonly number[],
     gemCanopyHueShiftCh: defaultGemCanopyHueShiftCh as readonly number[],
     gemCanopyNoteColorCh: defaultGemCanopyNoteColorCh as readonly number[],
+    skyIslandsShimmerCh: defaultSkyIslandsShimmerCh as readonly number[],
+    skyIslandsHueShiftCh: defaultSkyIslandsHueShiftCh as readonly number[],
+    skyIslandsNoteColorCh: defaultSkyIslandsNoteColorCh as readonly number[],
+    skyIslandsFogCh: defaultSkyIslandsFogCh as readonly number[],
+    skyIslandsFogRest: defaultSkyIslandsFogRest,
+    skyIslandsFogPeak: defaultSkyIslandsFogPeak,
     arpeggioIntensityScale: 1.0,
     nebulaIntensityScale: 1.0,
     globalIntensityScale: 1.0,
     gemCanopyIntensityScale: 1.0,
+    skyIslandsIntensityScale: 1.0,
     skyMoonIntensityScale: 1.0,
     luminousIntensityScale: 1.0,
     arpeggioShimmerAccum: 0.0,
@@ -78,11 +87,15 @@ export const MRState = {
     globalHueShiftAccum: 0.0,
     gemCanopyShimmerAccum: 0.0,
     gemCanopyHueShiftAccum: 0.0,
+    skyIslandsShimmerAccum: 0.0,
+    skyIslandsHueShiftAccum: 0.0,
+    skyIslandsFogAccum: 0.0,
     skyMoonNoteVal: 0.0,
     arpeggioNoteVal: 0.0,
     nebulaNoteVal: 0.0,
     globalNoteVal: 0.0,
     gemCanopyNoteVal: 0.0,
+    skyIslandsNoteVal: 0.0,
     skyMoonCh: defaultSkyMoonMelodyCh,
     luminousPlantTrackerChannel: defaultLuminousPlantTrackerChannel,
     smoothedSkyIntensity: 0.0,
@@ -106,6 +119,7 @@ export const _targetArpeggioColor = new THREE.Color(0xffffff);
 export const _targetNebulaColor = new THREE.Color(0xffffff);
 export const _targetGlobalColor = new THREE.Color(0xffffff);
 export const _targetGemCanopyColor = new THREE.Color(0xffffff);
+export const _targetSkyIslandsColor = new THREE.Color(0xffffff);
 
 // ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
 // melody_channel from assets/music-bindings.json sky_moon block.
@@ -170,11 +184,18 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     MRState.gemCanopyShimmerCh = defaultGemCanopyShimmerCh;
     MRState.gemCanopyHueShiftCh = defaultGemCanopyHueShiftCh;
     MRState.gemCanopyNoteColorCh = defaultGemCanopyNoteColorCh;
+    MRState.skyIslandsShimmerCh = defaultSkyIslandsShimmerCh;
+    MRState.skyIslandsHueShiftCh = defaultSkyIslandsHueShiftCh;
+    MRState.skyIslandsNoteColorCh = defaultSkyIslandsNoteColorCh;
+    MRState.skyIslandsFogCh = defaultSkyIslandsFogCh;
+    MRState.skyIslandsFogRest = defaultSkyIslandsFogRest;
+    MRState.skyIslandsFogPeak = defaultSkyIslandsFogPeak;
 
     MRState.arpeggioIntensityScale = 1.0;
     MRState.nebulaIntensityScale = 1.0;
     MRState.globalIntensityScale = 1.0;
     MRState.gemCanopyIntensityScale = 1.0;
+    MRState.skyIslandsIntensityScale = 1.0;
     MRState.skyMoonIntensityScale = 1.0;
     MRState.luminousIntensityScale = 1.0;
 
@@ -200,6 +221,7 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
         const skyMoon = biomeOverrides.sky_moon;
         const global = biomeOverrides.global;
         const gemCanopy = biomeOverrides.gem_canopy;
+        const skyIslands = biomeOverrides.sky_islands;
         if (arpeggio) {
             MRState.arpeggioShimmerCh = toChannels(arpeggio.shimmer) ?? MRState.arpeggioShimmerCh;
             MRState.arpeggioHueShiftCh = toChannels(arpeggio.hueShift) ?? MRState.arpeggioHueShiftCh;
@@ -237,6 +259,14 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
             MRState.gemCanopyNoteColorCh = toChannels(gemCanopy.noteColor) ?? MRState.gemCanopyNoteColorCh;
             if (typeof gemCanopy.intensityScale === 'number' && Number.isFinite(gemCanopy.intensityScale)) {
                 MRState.gemCanopyIntensityScale = gemCanopy.intensityScale;
+            }
+        }
+        if (skyIslands) {
+            MRState.skyIslandsShimmerCh = toChannels(skyIslands.shimmer) ?? MRState.skyIslandsShimmerCh;
+            MRState.skyIslandsHueShiftCh = toChannels(skyIslands.hueShift) ?? MRState.skyIslandsHueShiftCh;
+            MRState.skyIslandsNoteColorCh = toChannels(skyIslands.noteColor) ?? MRState.skyIslandsNoteColorCh;
+            if (typeof skyIslands.intensityScale === 'number' && Number.isFinite(skyIslands.intensityScale)) {
+                MRState.skyIslandsIntensityScale = skyIslands.intensityScale;
             }
         }
     }

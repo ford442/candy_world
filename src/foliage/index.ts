@@ -171,6 +171,14 @@ export { GemFruitBatcher, gemFruitBatcher } from './gem-fruit-batcher.ts';
 export { createGlassMushroom } from './glass-mushroom.ts';
 export { GlassMushroomBatcher, glassMushroomBatcher } from './glass-mushroom-batcher.ts';
 export { createIsland } from './lake_features.ts';
+export {
+    createSkyIsland,
+    registerSkyIsland,
+    getRegisteredSkyIslands,
+    clearSkyIslandRegistry,
+    SkyIslandBatcher,
+    skyIslandBatcher,
+} from './sky-islands.ts';
 export { createCaveEntrance } from './cave.ts';
 export { createNeonPollen } from './pollen.ts';
 export { createTerrainMaterial } from './terrain.ts';

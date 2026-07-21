@@ -34,7 +34,9 @@ const SUPPORTED_EXPORT_TYPES = new Set<string>([
     'melody_mirror',
     'cave',
     'gem_canopy_tree',
-    'glass_mushroom'
+    'glass_mushroom',
+    'sky_island',
+    'vine_ladder'
 ]);
 
 const _worldPos = new THREE.Vector3();

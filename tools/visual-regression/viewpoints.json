@@ -143,6 +143,16 @@
       "fov": 65,
       "timeOfDay": "night",
       "waitForStable": 3500
+    },
+    {
+      "name": "sky_island_horizon",
+      "description": "Stacked sky islands horizon — low mist / mid canopy / high nebula vertical silhouette",
+      "biomeAnchor": "SKY_ISLANDS center (-110, 118); layers Y=18/32/48 offset for non-overlapping decks; CLOUD_ARCHIPELAGO approach (-100, 100)",
+      "cameraPosition": { "x": -70, "y": 36, "z": 150 },
+      "cameraTarget": { "x": -110, "y": 32, "z": 118 },
+      "fov": 55,
+      "timeOfDay": "day",
+      "waitForStable": 3500
     }
   ]
 }

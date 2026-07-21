@@ -78,7 +78,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 *Content / world-building (capstones, after foundation):*
 - [x] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path. Coverage matrix + glow gates + `?debugCircadian=1` + `circadian_night` VR seeds — see `docs/CIRCADIAN_BATCHER_COVERAGE.md`.
-- [ ] **#1363 Vertical Sky Islands biome** — layered exploration arc after #1265/#1266.
+- [x] **#1363 Vertical Sky Islands biome** — layered exploration arc after #1265/#1266. `[in progress — 2026-07-21]` stacked islands + music bindings + traversal test + `sky_island_horizon` viewpoint
 - [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [ ] **#1352 Living candy fauna** (WASM boids + ECS). **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
 

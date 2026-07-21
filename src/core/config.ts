@@ -723,6 +723,12 @@ export const CONFIG: ConfigType = {
             'C': 0xE0115F, 'C#': 0xFF4D6D, 'D': 0xFF6B9D, 'D#': 0x9966CC,
             'E': 0x7B68EE, 'F': 0x0F52BA, 'F#': 0x4169E1, 'G': 0x00CED1,
             'G#': 0x2E8B57, 'A': 0x50C878, 'A#': 0xFFD700, 'B': 0xFF69B4
+        },
+        // Species: Sky Islands — pastel candy mist → nebula (cotton, lilac, aurora)
+        'sky_islands': {
+            'C': 0xFFB6C1, 'C#': 0xFFC0CB, 'D': 0xE6E6FA, 'D#': 0xDDA0DD,
+            'E': 0xB0E0E6, 'F': 0x87CEFA, 'F#': 0x98FB98, 'G': 0xAFEEEE,
+            'G#': 0xF0E68C, 'A': 0xFFE4E1, 'A#': 0xD8BFD8, 'B': 0xFFD1DC
         }
     },
 
