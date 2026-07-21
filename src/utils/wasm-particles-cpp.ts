@@ -64,7 +64,7 @@ export function updateCpuParticlesNative(
         return false;
     }
 
-    const heap = new Float32Array(emscriptenMemory.buffer);
+    const heap = new Float32Array((emscriptenMemory as any).buffer || emscriptenMemory);
     const posOff = ptrPos >> 2;
     const velOff = ptrVel >> 2;
     const lifeOff = ptrLife >> 2;

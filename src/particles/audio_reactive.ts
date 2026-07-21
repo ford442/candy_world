@@ -67,7 +67,7 @@ export function updateParticleAudioUniforms(state: ParticleAudioState): void {
         uBeatPhase.value = state.beatPhase;
     }
     if (state.color !== undefined) {
-        uPulseColor.value.setHex(state.color);
+        (uPulseColor.value as any).setHex(state.color);
     }
 }
 
@@ -80,7 +80,7 @@ export function getParticleAudioState(): ParticleAudioState {
         kick: uPulseStrength.value,
         level: uAudioLevel.value,
         beatPhase: uBeatPhase.value,
-        color: (uPulseColor.value as THREE.Color).getHex()
+        color: (uPulseColor.value as any as THREE.Color).getHex()
     };
 }
 
@@ -91,5 +91,5 @@ export function resetParticleAudioUniforms(): void {
     uPulseStrength.value = 0.0;
     uAudioLevel.value = 0.0;
     uBeatPhase.value = 0.0;
-    uPulseColor.value.setHex(0xFFFFFF);
+    (uPulseColor.value as any).setHex(0xFFFFFF);
 }

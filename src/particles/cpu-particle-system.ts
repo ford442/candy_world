@@ -184,7 +184,7 @@ export class CPUParticleSystem {
                     const jewelRuby = color(0xE0115F);
                     const jewelSapphire = color(0x0F52BA);
                     const jewelAmethyst = color(0x9966CC);
-                    const baseJewel = mix(jewelRuby, mix(jewelSapphire, jewelAmethyst, float(0.5)));
+                    const baseJewel = mix(jewelRuby, mix(jewelSapphire, jewelAmethyst, float(0.5)), float(0.5));
                     const musicTint = mix(baseJewel, gemCanopyNoteColorNode, BiomeUniforms.gemCanopy.shimmer);
                     const beatBoost = uAudioHigh.mul(0.5).add(1.0);
                     return musicTint.mul(beatBoost);
