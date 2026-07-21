@@ -418,6 +418,7 @@ rm -f "$EXPORTS_FILE"
 for func in "${EXPORT_LIST[@]}"; do
     echo "$func" >> "$EXPORTS_FILE"
 done
+LC_ALL=C sort -u -o "$EXPORTS_FILE" "$EXPORTS_FILE"
 echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 
 # ---------------------------------------------------------
