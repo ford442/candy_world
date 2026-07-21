@@ -275,10 +275,13 @@ export class GPUCullingSystem {
         }
 
         if (this.gpu.isReady() && this.sphereBuffer) {
+            const sub = this.spheres.subarray(0, count * 4);
             this.gpu.getDevice()?.queue.writeBuffer(
                 this.sphereBuffer,
                 0,
-                this.spheres.subarray(0, count * 4)
+                sub.buffer,
+                sub.byteOffset,
+                sub.byteLength
             );
         }
     }

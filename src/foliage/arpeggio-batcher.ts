@@ -34,6 +34,8 @@ import { dynamicRadiiView } from '../utils/wasm-physics.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { applyAerialPerspective } from './aerial-perspective.ts';
+import { batchComposeMatrices_c } from '../utils/wasm-batch.ts';
+import { isEmscriptenReady } from '../utils/wasm-loader-core.ts';
 
 const MAX_FERNS = getCIAdjustedCount(500, 0.1, 50); // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
@@ -62,6 +64,12 @@ export class ArpeggioFernBatcher {
     private currentUnfurlValue: number = 0;
     private lastTrigger: boolean = false;
 
+    // Matrix Batching State
+    private _matricesDirty: boolean = false;
+    private _batchPositions: Float32Array;
+    private _batchQuaternions: Float32Array;
+    private _batchScales: Float32Array;
+
     /**
      * Day/night pose state machine — single slot (global unfurl for all ferns).
      * Uses a Float32Array of capacity 1; no per-frame allocations.
@@ -79,6 +87,11 @@ export class ArpeggioFernBatcher {
 
         // Initialize global uniform
         this.uFernUnfurl = uniform(float(0.0));
+
+        // C++ Batching buffers
+        this._batchPositions = new Float32Array(MAX_FERNS * 3);
+        this._batchQuaternions = new Float32Array(MAX_FERNS * 4);
+        this._batchScales = new Float32Array(MAX_FERNS * 3);
     }
 
     init() {
@@ -387,11 +400,25 @@ export class ArpeggioFernBatcher {
         // So the merged geometry has its bottom at y=0 (actually base starts at 0, cone height 0.5 centered at 0.25).
         // So yes, pivot is at bottom.
 
-        // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-        // Compose directly from the logic object's properties without using a proxy THREE.Object3D
+        // ⚡ OPTIMIZATION: Queue properties for batch C++ matrix composition rather than doing it immediately
         dummy.scale.setScalar(scale);
-        _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, i * 16);
+        getGroundAlignedQuaternion(dummy, _scratchQuaternion);
+
+        // Write to SoA buffers for WASM payload
+        this._batchPositions[i * 3 + 0] = dummy.position.x;
+        this._batchPositions[i * 3 + 1] = dummy.position.y;
+        this._batchPositions[i * 3 + 2] = dummy.position.z;
+
+        this._batchQuaternions[i * 4 + 0] = _scratchQuaternion.x;
+        this._batchQuaternions[i * 4 + 1] = _scratchQuaternion.y;
+        this._batchQuaternions[i * 4 + 2] = _scratchQuaternion.z;
+        this._batchQuaternions[i * 4 + 3] = _scratchQuaternion.w;
+
+        this._batchScales[i * 3 + 0] = dummy.scale.x;
+        this._batchScales[i * 3 + 1] = dummy.scale.y;
+        this._batchScales[i * 3 + 2] = dummy.scale.z;
+
+        this._matricesDirty = true;
 
         // Color
         this._color.setHex(color);
@@ -402,27 +429,101 @@ export class ArpeggioFernBatcher {
             colorArray[colorOffset] = this._color.r;
             colorArray[colorOffset + 1] = this._color.g;
             colorArray[colorOffset + 2] = this._color.b;
+            this.mesh!.instanceColor.needsUpdate = true;
         }
 
         // Update count
         this.mesh!.count = this.count;
-        this.mesh!.instanceMatrix.needsUpdate = true;
-        if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
     }
 
     updateInstance(index, dummy) {
-        if (!this.initialized) return;
+        if (!this.initialized || index < 0 || index >= this.count) return;
 
-        // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-        // Compose directly from the logic object's properties without using a proxy THREE.Object3D
-        _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, index * 16);
+        getGroundAlignedQuaternion(dummy, _scratchQuaternion);
 
-        this.mesh!.instanceMatrix.needsUpdate = true;
+        // Write to SoA buffers for WASM payload
+        this._batchPositions[index * 3 + 0] = dummy.position.x;
+        this._batchPositions[index * 3 + 1] = dummy.position.y;
+        this._batchPositions[index * 3 + 2] = dummy.position.z;
+
+        this._batchQuaternions[index * 4 + 0] = _scratchQuaternion.x;
+        this._batchQuaternions[index * 4 + 1] = _scratchQuaternion.y;
+        this._batchQuaternions[index * 4 + 2] = _scratchQuaternion.z;
+        this._batchQuaternions[index * 4 + 3] = _scratchQuaternion.w;
+
+        this._batchScales[index * 3 + 0] = dummy.scale.x;
+        this._batchScales[index * 3 + 1] = dummy.scale.y;
+        this._batchScales[index * 3 + 2] = dummy.scale.z;
+
+        this._matricesDirty = true;
+    }
+
+    private flushMatrices() {
+        if (!this._matricesDirty || !this.mesh || this.count === 0) return;
+
+        const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+
+        if (isEmscriptenReady()) {
+            // C++ Zero-Allocation Fast Path
+            batchComposeMatrices_c(
+                this._batchPositions,
+                this._batchQuaternions,
+                this._batchScales,
+                matrixArray,
+                this.count
+            );
+        } else {
+            // TypeScript fallback
+            for (let i = 0; i < this.count; i++) {
+                _scratchQuaternion.set(
+                    this._batchQuaternions[i * 4 + 0],
+                    this._batchQuaternions[i * 4 + 1],
+                    this._batchQuaternions[i * 4 + 2],
+                    this._batchQuaternions[i * 4 + 3]
+                );
+
+                const sx = this._batchScales[i * 3 + 0];
+                const sy = this._batchScales[i * 3 + 1];
+                const sz = this._batchScales[i * 3 + 2];
+
+                const qx = _scratchQuaternion.x, qy = _scratchQuaternion.y, qz = _scratchQuaternion.z, qw = _scratchQuaternion.w;
+
+                const x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
+                const xx = qx * x2, xy = qx * y2, xz = qx * z2;
+                const yy = qy * y2, yz = qy * z2, zz = qz * z2;
+                const wx = qw * x2, wy = qw * y2, wz = qw * z2;
+
+                const mIdx = i * 16;
+                matrixArray[mIdx + 0] = (1 - (yy + zz)) * sx;
+                matrixArray[mIdx + 1] = (xy + wz) * sx;
+                matrixArray[mIdx + 2] = (xz - wy) * sx;
+                matrixArray[mIdx + 3] = 0;
+
+                matrixArray[mIdx + 4] = (xy - wz) * sy;
+                matrixArray[mIdx + 5] = (1 - (xx + zz)) * sy;
+                matrixArray[mIdx + 6] = (yz + wx) * sy;
+                matrixArray[mIdx + 7] = 0;
+
+                matrixArray[mIdx + 8] = (xz + wy) * sz;
+                matrixArray[mIdx + 9] = (yz - wx) * sz;
+                matrixArray[mIdx + 10] = (1 - (xx + yy)) * sz;
+                matrixArray[mIdx + 11] = 0;
+
+                matrixArray[mIdx + 12] = this._batchPositions[i * 3 + 0];
+                matrixArray[mIdx + 13] = this._batchPositions[i * 3 + 1];
+                matrixArray[mIdx + 14] = this._batchPositions[i * 3 + 2];
+                matrixArray[mIdx + 15] = 1;
+            }
+        }
+
+        this.mesh.instanceMatrix.needsUpdate = true;
+        this._matricesDirty = false;
     }
 
     update(audioState: any = null, dayNightBias: number = 1.0) {
         if (!this.initialized || this.count === 0) return;
+
+        this.flushMatrices();
 
         // --- Arpeggio detection (unchanged) ---
         let arpeggioActive = false;

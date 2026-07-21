@@ -319,14 +319,11 @@ function rebuildCloudDebugMeshes(): void {
     if (!_scene) return;
 
     if (_cloudSurfaces) {
-        _scene.remove(_cloudSurfaces);
-        _cloudSurfaces.dispose();
+        safeRemoveAndDispose(_scene, _cloudSurfaces);
         _cloudSurfaces = null;
     }
     if (_cloudOutlines) {
-        _scene.remove(_cloudOutlines);
-        _cloudOutlines.geometry.dispose();
-        (_cloudOutlines.material as THREE.Material).dispose();
+        safeRemoveAndDispose(_scene, _cloudOutlines);
         _cloudOutlines = null;
     }
 

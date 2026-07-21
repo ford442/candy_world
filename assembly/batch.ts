@@ -380,3 +380,98 @@ export function batchLerp(ptr: usize, count: i32): void {
     store<f32>(base, newValue);
   }
 }
+
+// =============================================================================
+// MATRIX COMPOSITION (parity with emscripten/lod_batch.cpp batchComposeMatrices_c
+// and the TS fallback in arpeggio-batcher / tree-batcher flushMatrices)
+// =============================================================================
+
+/**
+ * Compose TRS instance matrices (column-major, Three.js layout).
+ * positionsPtr:   f32[count*3]  [x,y,z,...]
+ * quaternionsPtr: f32[count*4]  [x,y,z,w,...]
+ * scalesPtr:      f32[count*3]  [sx,sy,sz,...]
+ * matricesPtr:    f32[count*16] output (column-major 4x4)
+ *
+ * Test/parity export — hot-path math must stay identical to C++/TS reference.
+ */
+export function batchComposeMatrices(
+  positionsPtr: usize,
+  quaternionsPtr: usize,
+  scalesPtr: usize,
+  matricesPtr: usize,
+  count: i32
+): void {
+  for (let i: i32 = 0; i < count; i++) {
+    const v3: usize = <usize>(i * 3) * 4;
+    const qOff: usize = <usize>(i * 4) * 4;
+    const mOff: usize = <usize>(i * 16) * 4;
+
+    const px = load<f32>(positionsPtr + v3);
+    const py = load<f32>(positionsPtr + v3 + 4);
+    const pz = load<f32>(positionsPtr + v3 + 8);
+
+    const qx = load<f32>(quaternionsPtr + qOff);
+    const qy = load<f32>(quaternionsPtr + qOff + 4);
+    const qz = load<f32>(quaternionsPtr + qOff + 8);
+    const qw = load<f32>(quaternionsPtr + qOff + 12);
+
+    const sx = load<f32>(scalesPtr + v3);
+    const sy = load<f32>(scalesPtr + v3 + 4);
+    const sz = load<f32>(scalesPtr + v3 + 8);
+
+    const x2: f32 = qx + qx;
+    const y2: f32 = qy + qy;
+    const z2: f32 = qz + qz;
+    const xx: f32 = qx * x2;
+    const xy: f32 = qx * y2;
+    const xz: f32 = qx * z2;
+    const yy: f32 = qy * y2;
+    const yz: f32 = qy * z2;
+    const zz: f32 = qz * z2;
+    const wx: f32 = qw * x2;
+    const wy: f32 = qw * y2;
+    const wz: f32 = qw * z2;
+
+    const m: usize = matricesPtr + mOff;
+    store<f32>(m + 0,  (1.0 - (yy + zz)) * sx);
+    store<f32>(m + 4,  (xy + wz) * sx);
+    store<f32>(m + 8,  (xz - wy) * sx);
+    store<f32>(m + 12, 0.0);
+
+    store<f32>(m + 16, (xy - wz) * sy);
+    store<f32>(m + 20, (1.0 - (xx + zz)) * sy);
+    store<f32>(m + 24, (yz + wx) * sy);
+    store<f32>(m + 28, 0.0);
+
+    store<f32>(m + 32, (xz + wy) * sz);
+    store<f32>(m + 36, (yz - wx) * sz);
+    store<f32>(m + 40, (1.0 - (xx + yy)) * sz);
+    store<f32>(m + 44, 0.0);
+
+    store<f32>(m + 48, px);
+    store<f32>(m + 52, py);
+    store<f32>(m + 56, pz);
+    store<f32>(m + 60, 1.0);
+  }
+}
+
+/**
+ * Write instance RGB colors (parity with batcher instanceColor array writes).
+ * colorsInPtr:  f32[count*3] source RGB
+ * colorsOutPtr: f32[count*3] destination (may alias colorsInPtr)
+ * intensity:    uniform scale applied to each channel
+ */
+export function batchWriteInstanceColors(
+  colorsInPtr: usize,
+  colorsOutPtr: usize,
+  count: i32,
+  intensity: f32
+): void {
+  for (let i: i32 = 0; i < count; i++) {
+    const off: usize = <usize>(i * 3) * 4;
+    store<f32>(colorsOutPtr + off,     load<f32>(colorsInPtr + off) * intensity);
+    store<f32>(colorsOutPtr + off + 4, load<f32>(colorsInPtr + off + 4) * intensity);
+    store<f32>(colorsOutPtr + off + 8, load<f32>(colorsInPtr + off + 8) * intensity);
+  }
+}

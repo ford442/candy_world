@@ -18,3 +18,4 @@ export {
   invalidateGroundCache,
   setGroundCacheTTL,
 } from "./ground";
+export * from "./music_reactivity";

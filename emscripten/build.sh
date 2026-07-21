@@ -262,6 +262,9 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchScaleMatrices_c"]="lod_batch"
     ["batchTranslateMatrices_c"]="lod_batch"
     ["batchFadeColors_c"]="lod_batch"
+    ["batchComposeMatrices_c"]="lod_batch"
+    ["batchWriteInstanceColors_c"]="lod_batch"
+    ["accumulateArpeggioChannels_c"]="lod_batch"
     
     # New batch animation functions (animation_batch.cpp)
     ["batchSnareSnap_c"]="animation_batch"
@@ -417,6 +420,7 @@ rm -f "$EXPORTS_FILE"
 for func in "${EXPORT_LIST[@]}"; do
     echo "$func" >> "$EXPORTS_FILE"
 done
+LC_ALL=C sort -u -o "$EXPORTS_FILE" "$EXPORTS_FILE"
 echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 
 # ---------------------------------------------------------

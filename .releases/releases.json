@@ -1,5 +1,158 @@
 [
   {
+    "tag": "2026-07-19-stable",
+    "commit": "2c620c8",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-19T07:08:18.563Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-19-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-19-stable",
+    "commit": "1e9a622",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-19T07:02:20.547Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-19-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-19-stable",
+    "commit": "37d070d",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-19T06:56:13.719Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-19-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "4a527ac",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T12:51:23.323Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "e242ea2",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T12:46:43.768Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "2019067",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T12:43:17.528Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "0c5449e",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T12:39:15.373Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "ca7d0b3",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T12:36:03.041Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "1aa8d4c",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T12:35:05.363Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "51d89b4",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T12:34:22.773Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "2203821",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T10:37:42.670Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Update releases.json for stable tag"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "0d24d72",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T10:36:25.526Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Update releases.json for stable tag"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "3a9b588",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T10:33:00.284Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "bbb308f",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T10:30:46.282Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "4c4eff1",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T10:24:36.429Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve particle compute/noise TS errors (#1359) and tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "301da2b",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T09:52:45.883Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Resolve WASM build tracking & tree-batcher optimizations"
+  },
+  {
+    "tag": "2026-07-18-stable",
+    "commit": "73680f6",
+    "branch": "jules-10808951814249353551-a2fcb57d",
+    "date": "2026-07-18T09:50:41.547Z",
+    "releaseUrl": "https://github.com/mock/repo/releases/tag/2026-07-18-stable",
+    "distSizeKB": 22256,
+    "commitMsg": "Architect: Extend TreeBatcher to bind Accordion Palm models to the batcher system with TSL interactions and audio reactivity"
+  },
+  {
     "tag": "2026-07-14-stable-v2",
     "commit": "5999d85",
     "branch": "jules-9091542019376475550-6093fb14",

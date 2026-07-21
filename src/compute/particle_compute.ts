@@ -102,7 +102,7 @@ export class ComputeParticleSystem {
     private readonly type: 'rain' | 'mist' | 'default';
 
     /** Compute shader node */
-    private computeNode: ReturnType<ReturnType<typeof Fn>['compute']> | null = null;
+    private computeNode: any = null;
 
     /** Uniforms for audio/weather reactivity */
     private readonly uIntensity = uniform(0.0);
@@ -201,7 +201,7 @@ export class ComputeParticleSystem {
      */
     private setupComputeShader(): void {
         // TSL Compute Logic
-        const computeLogic = Fn(() => {
+        const computeLogic = (Fn as any)(() => {
             const idx = instanceIndex;
 
             // Fetch current particle data
@@ -310,7 +310,7 @@ export class ComputeParticleSystem {
         });
 
         // Create compute node
-        this.computeNode = computeLogic().compute(this.count);
+        this.computeNode = (computeLogic as any)().compute(this.count);
     }
 
     /**
@@ -361,7 +361,7 @@ export class ComputeParticleSystem {
      * @param position - New spawn center
      */
     public setSpawnCenter(position: THREE.Vector3): void {
-        this.uSpawnCenter.value.copy(position);
+        (this.uSpawnCenter.value as any).copy(position);
     }
 
     /**
@@ -370,7 +370,7 @@ export class ComputeParticleSystem {
      * @param gravity - New gravity vector
      */
     public setGravity(gravity: THREE.Vector3): void {
-        this.uGravity.value.copy(gravity);
+        (this.uGravity.value as any).copy(gravity);
     }
 
     /**
@@ -409,7 +409,7 @@ export class ComputeParticleSystem {
         });
 
         // Use buffer data in shader
-        const particlePos = this.positionStorage.toAttribute();
+        const particlePos = (this.positionStorage as any).toAttribute();
         const life = particlePos.w;
 
         material.positionNode = particlePos.xyz;
@@ -419,14 +419,14 @@ export class ComputeParticleSystem {
         const pointCircle = smoothstep(float(0.5), float(0.2), distance(uv(), vec2(0.5, 0.5)));
 
         if (this.type === 'rain') {
-            material.sizeNode = float(size).add(this.uBassIntensity.mul(0.5));
+            (material as any).sizeNode = float(size).add(this.uBassIntensity.mul(0.5));
             const targetOpacity = float(0.4).add(this.uIntensity.mul(0.6));
             material.opacityNode = targetOpacity.mul(life).mul(pointCircle);
         } else if (this.type === 'mist') {
             const targetOpacity = float(0.3).add(this.uMelodyVolume.mul(0.4));
             material.opacityNode = targetOpacity.mul(life).mul(pointCircle);
         } else {
-            material.sizeNode = float(0.2).mul(life); // Shrink as they die
+            (material as any).sizeNode = float(0.2).mul(life); // Shrink as they die
             material.colorNode = vec4(1.0, 0.5, 0.2, life); // Simple fade
         }
 

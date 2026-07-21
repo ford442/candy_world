@@ -115,7 +115,7 @@ export function getHeightmapBatch(coordinates: Float32Array): Float32Array {
 
     try {
         // Copy data to WASM memory
-        const wasmHeap = new Float32Array(emscriptenMemory.buffer);
+        const wasmHeap = new Float32Array((emscriptenMemory as any).buffer || emscriptenMemory);
         wasmHeap.set(coordinates, inputPtr / 4);
 
         // Execute batch calculation
@@ -123,7 +123,7 @@ export function getHeightmapBatch(coordinates: Float32Array): Float32Array {
 
         // Extract results
         const result = new Float32Array(count);
-        const wasmView = new Float32Array(emscriptenMemory.buffer, outputPtr, count);
+        const wasmView = new Float32Array((emscriptenMemory as any).buffer || emscriptenMemory, outputPtr, count);
         result.set(wasmView);
 
         let hasNan = false;

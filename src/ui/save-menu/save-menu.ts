@@ -248,16 +248,23 @@ export class SaveMenu {
         
         this.attachEventListeners();
 
-        // Restore focus if it was dropped
-        if (wasFocusedInside && (!document.activeElement || document.activeElement === document.body)) {
-            const activeTab = this.container.querySelector(`[role="tab"][aria-selected="true"]`) as HTMLElement;
-            if (activeTab) {
-                activeTab.focus({ preventScroll: true });
-            } else {
-                // Fallback to first focusable element
-                const firstFocusable = this.container.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
-                if (firstFocusable) firstFocusable.focus({ preventScroll: true });
-            }
+        // ♿ Aria: explicitly restore focus to a logical element when rebuilding DOM
+        if (wasFocusedInside) {
+            requestAnimationFrame(() => {
+                if (!this.container) return;
+
+                // Only restore if focus actually dropped to body or null
+                if (!document.activeElement || document.activeElement === document.body) {
+                    const activeTab = this.container.querySelector(`[role="tab"][aria-selected="true"]`) as HTMLElement;
+                    if (activeTab) {
+                        activeTab.focus({ preventScroll: true });
+                    } else {
+                        // Fallback to first focusable element
+                        const firstFocusable = this.container.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
+                        if (firstFocusable) firstFocusable.focus({ preventScroll: true });
+                    }
+                }
+            });
         }
 
     }

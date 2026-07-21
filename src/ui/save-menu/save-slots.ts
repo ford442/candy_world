@@ -42,6 +42,8 @@ export function renderSlot(
     return `
         <div class="candy-save-slot ${isEmpty ? 'candy-save-slot--empty' : ''} ${isSelected ? 'candy-save-slot--selected' : ''}"
              data-slot-id="${slot.slotId}"
+             role="group"
+             aria-label="${isEmpty ? 'Empty Save Slot' : 'Save Slot: ' + slot.slotName}"
         >
             ${slot.isAutoSave && !isEmpty ? '<span class="candy-save-slot__badge">AUTO</span>' : ''}
             <div class="candy-save-slot__icon" aria-hidden="true">${isEmpty ? '➕' : '💾'}</div>
@@ -87,7 +89,7 @@ export function renderLoadTab(
     
     if (manualSlots.length === 0 && autoSlots.length === 0) {
         return `
-            <div class="candy-empty-state">
+            <div class="candy-empty-state" role="status" aria-live="polite">
                 <div class="candy-empty-state__icon" aria-hidden="true">📝</div>
                 <div class="candy-empty-state__text">No memories found yet. Embark on a journey to save your progress!</div>
                 ${currentMode === 'full' ? `
@@ -166,16 +168,14 @@ export async function handleSlotAction(
     // Set busy state if button was provided
     if (btnElement) {
         btnElement.setAttribute('aria-busy', 'true');
-        btnElement.style.pointerEvents = 'none';
-        btnElement.style.opacity = '0.7';
+        btnElement.setAttribute('aria-disabled', 'true');
         const originalText = btnElement.innerHTML;
         btnElement.innerHTML = '<span class="spinner" aria-hidden="true"></span>...';
 
         // Setup cleanup to restore state
         const cleanup = () => {
             btnElement.removeAttribute('aria-busy');
-            btnElement.style.pointerEvents = '';
-            btnElement.style.opacity = '';
+            btnElement.removeAttribute('aria-disabled');
             btnElement.innerHTML = originalText;
         };
 
