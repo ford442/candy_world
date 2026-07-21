@@ -30,8 +30,8 @@ import { updateSunShadowFollow } from './game-loop-postfx.ts';
 
 export function updateVisualsPhase(delta: number, t: number, gameTime: number, audioState: any, beatFlashIntensity: number, exploreActive: boolean, _playerPos: THREE.Vector3) {
     let currentBPM = audioState?.bpm || 120;
-    const cyclePos = getCycleState(gameTime, timeOffsetRef.value);
-    const dayNightBias = getDayNightBias(gameTime, timeOffsetRef.value);
+    const cyclePos = (gameTime + timeOffsetRef.value) % (DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT + DURATION_DEEP_NIGHT);
+    const dayNightBias = getDayNightBias(gameTime + timeOffsetRef.value);
 
     const isNightNow = cyclePos >= (DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET);
     setIsNight(isNightNow);
@@ -40,7 +40,8 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
         setLastIsNight(isNightNow);
     }
 
-    circadianController.update(gameTime, timeOffsetRef.value);
+    circadianController.setDayTarget(!isNightNow);
+    circadianController.update(delta);
 
     let weatherState = WeatherState.CLEAR;
     let weatherIntensity = 0;
@@ -105,9 +106,9 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
         _scratchBaseFog.lerp(COLOR_RAIN_FOG, weatherIntensity);
     }
 
-    const tslSkyTop = uSkyTopColor.value as THREE.Color;
-    const tslSkyBot = uSkyBottomColor.value as THREE.Color;
-    const tslHorizon = uHorizonColor.value as THREE.Color;
+    const tslSkyTop = (uSkyTopColor.value as unknown) as THREE.Color;
+    const tslSkyBot = (uSkyBottomColor.value as unknown) as THREE.Color;
+    const tslHorizon = (uHorizonColor.value as unknown) as THREE.Color;
     tslSkyTop.copy(_scratchBaseSkyTop);
     tslSkyBot.copy(_scratchBaseSkyBot);
     tslHorizon.copy(_scratchBaseFog);
@@ -191,7 +192,7 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
 
     const baseAuroraVis = isNightNow ? THREE.MathUtils.clamp(-_scratchSunVector.y, 0.0, 1.0) * (1.0 - weatherIntensity) : 0;
 
-    if (BiomeUniforms && BiomeUniforms.glitch_woods && BiomeUniforms.glitch_woods.shimmer && BiomeUniforms.glitch_woods.shimmer.value) {
+    if (BiomeUniforms && (BiomeUniforms as any).glitch_woods && (BiomeUniforms as any).glitch_woods.shimmer && (BiomeUniforms as any).glitch_woods.shimmer.value) {
         let glitchTrigger = audioState?.kickTrigger || 0;
         if (glitchTrigger > 0.5) {
             uGlitchIntensity.value = glitchTrigger * 0.5;
@@ -233,9 +234,9 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
 
     if (cameraRef) {
         updateFoliageBatcherLOD(cameraRef, delta);
-        updateAerialPerspectiveUniforms(cameraRef.position, _scratchSunVector, isNightNow);
+        if (sceneRef && sceneRef.fog && "color" in sceneRef.fog) { updateAerialPerspectiveUniforms((sceneRef.fog as any).color as THREE.Color, dayNightBias, (sceneRef.fog as any).near || 0, (sceneRef.fog as any).far || 1000); }
     }
-    updateBaseContactAOUniforms(_playerPos);
+    updateBaseContactAOUniforms(dayNightBias);
 
     return {
         cyclePos, isNightNow, weatherStateStr, weatherIntensity

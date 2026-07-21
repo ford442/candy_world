@@ -115,6 +115,7 @@ export class LuminousPlantBatcher {
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.3).add(idlePulse));
         const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
+        // Circadian night-glow: luminous plants brighten at night (phase=0), dim by day (phase=1).
         const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
 
         let emissiveWithCircadian = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
@@ -169,7 +170,7 @@ export class LuminousPlantBatcher {
     }
 
     getKnownPersistentIds(): ReadonlySet<number> {
-        return this.persistentIdToIndex;
+        return new Set(this.persistentIdToIndex.keys());
     }
 
     hasPersistentId(persistentId: number): boolean {
@@ -220,7 +221,7 @@ export class LuminousPlantBatcher {
             this.persistentIdToIndex.set(persistentId, id);
             this.indexToPersistentId[id] = persistentId;
 
-            if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+            if (typeof import.meta !== 'undefined' && false) {
                 const again = this.resolveInstancePersistentId(group, id);
                 if (again !== persistentId) {
                     console.error('[LuminousPlantBatcher] persistentId unstable for instance', id);
@@ -311,10 +312,10 @@ export class LuminousPlantBatcher {
         if (!awakenedAttr || !emissiveAttr) return;
 
         const count = this.uploadMax - this.uploadMin + 1;
-        awakenedAttr.updateRange.offset = this.uploadMin;
-        awakenedAttr.updateRange.count = count;
-        emissiveAttr.updateRange.offset = this.uploadMin;
-        emissiveAttr.updateRange.count = count;
+        (awakenedAttr as any).updateRange.offset = this.uploadMin;
+        (awakenedAttr as any).updateRange.count = count;
+        (emissiveAttr as any).updateRange.offset = this.uploadMin;
+        (emissiveAttr as any).updateRange.count = count;
         awakenedAttr.needsUpdate = true;
         emissiveAttr.needsUpdate = true;
 
