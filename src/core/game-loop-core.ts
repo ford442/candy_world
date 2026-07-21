@@ -80,11 +80,29 @@ export const COLOR_STORM_FOG = new THREE.Color(0x4A5568);
 export const COLOR_RAIN = new THREE.Color(0xA0B5C8);
 export const COLOR_RAIN_FOG = new THREE.Color(0xC0D0E0);
 
+// Day/night sky palette endpoints (module-scope — never allocate inside the tick).
+export const COLOR_NIGHT_SKY_TOP = new THREE.Color(0x1a2436);
+export const COLOR_NIGHT_SKY_BOT = new THREE.Color(0x0a1128);
+export const COLOR_NIGHT_FOG = new THREE.Color(0x0a1128);
+export const COLOR_DAY_SKY_TOP = new THREE.Color(0x87CEEB);
+export const COLOR_DAY_SKY_BOT = new THREE.Color(0xE0F6FF);
+export const COLOR_DAY_FOG = new THREE.Color(0xE0F6FF);
+export const COLOR_SUNRISE_SKY_BOT = new THREE.Color(0xFFA07A);
+export const COLOR_SUNRISE_FOG = new THREE.Color(0xDDA0DD);
+export const COLOR_SUNSET_SKY_TOP = new THREE.Color(0x483D8B);
+export const COLOR_SUNSET_SKY_BOT = new THREE.Color(0xFF7F50);
+export const COLOR_SUNSET_FOG = new THREE.Color(0xFFB6C1);
+export const COLOR_DEEP_NIGHT_SKY_TOP = new THREE.Color(0x0f172a);
+export const COLOR_DEEP_NIGHT_SKY_BOT = new THREE.Color(0x020617);
+export const COLOR_DEEP_NIGHT_FOG = new THREE.Color(0x020617);
+
 export const _scratchBaseSkyTop = new THREE.Color();
 export const _scratchBaseSkyBot = new THREE.Color();
 export const _scratchBaseFog = new THREE.Color();
 export const _scratchSunVector = new THREE.Vector3();
 export const _scratchLightDir = new THREE.Vector3();
+export const _scratchNormalizedSunDir = new THREE.Vector3();
+export const _scratchMoonVector = new THREE.Vector3();
 export const _shadowLightView = new THREE.Vector3();
 export const _shadowSnap = new THREE.Vector3();
 
