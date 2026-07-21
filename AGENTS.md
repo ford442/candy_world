@@ -89,7 +89,8 @@
 │   ├── particle_physics.cpp      # Particle systems
 │   ├── physics.cpp               # Physics computations
 │   ├── build.sh                  # Build script with conditional exports
-│   ├── libomp.a                  # OpenMP static library
+│   ├── exports.txt               # Committed export manifest (CI is source of truth)
+│   ├── vendor/libomp.a           # Vendored OpenMP static archive (kept tracked)
 │   └── omp.h                     # OpenMP headers
 ├── tools/                        # Build and optimization tools
 │   ├── build-optimizer/          # Bundle analysis, tree-shaking audit, compression benchmark, budgets.json
@@ -181,9 +182,17 @@ npm run test:integration
 # Smoke test on WebGL2 path (recommended for headless / SwiftShader CI)
 RENDERER=webgl npm run test
 
-# Verify Emscripten exports after a build
+# Verify Emscripten exports after a build (needs candy_native.wasm)
 npm run verify:emcc
+
+# Lexical export-manifest lint (no em++ required; CI Tier 1)
+npm run verify:emcc:manifest
 ```
+
+### Emscripten export CI (source of truth)
+- **Tier 1** (`.github/workflows/emscripten-ci.yml`): path-filtered PRs/pushes run `pnpm run verify:emcc:manifest` — asserts `build.sh` selection ⊆/`==` committed `emscripten/exports.txt`. No emsdk.
+- **Tier 2** (`.github/workflows/emscripten-verify.yml`): release tags, nightly `main`, and `workflow_dispatch` run `CANDY_DEBUG=0 pnpm run build:emcc` + `verify:emcc --strict` + manifest lint. Not a required PR check (emsdk can flake).
+- After changing `emscripten/build.sh` or `*.cpp` exports, refresh with `pnpm run verify:emcc:manifest -- --write` (or a local `build:emcc`) and commit `exports.txt`.
 
 ### Preview & Deploy
 ```bash
@@ -530,6 +539,7 @@ These notes are for agents running in the Cursor Cloud VM. The startup update sc
 
 ### Emscripten is intentionally absent
 - `em++` is not installed, so `dev.sh` / `build:emcc` print a warning and skip the optional C++ native module — the app runs in JavaScript fallback mode. This is expected, not an error. `candy_native*` 404s in the browser console are also expected.
+- Keep `emscripten/exports.txt` in sync without em++ via `pnpm run verify:emcc:manifest` (Tier-1 CI). Use `-- --write` after editing `build.sh` / `*.cpp` export lists. Full `build:emcc` verification runs in GitHub Actions (`emscripten-verify.yml`) on tags / nightly, not in this VM.
 
 ### Headless GPU limitation (important)
 - This VM has **no real GPU**. The app's logic fully boots headless (`window.__sceneReady === true`), physics/WASM run, and all DOM/HUD UI (start screen, jukebox, accessibility) is interactive — but actual 3D geometry often does **not** rasterize: WebGL falls back to software (blank/clear-color canvas) and WebGPU via SwiftShader is unstable (frequent "WebGPU Device Lost: Device was destroyed" during draw).

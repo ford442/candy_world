@@ -207,6 +207,14 @@ Status: Implemented ✅
   * Verified `node scripts/tsc-ratchet.mjs` works, lowering the baseline to 527.
 
 Next Step: Review and continue clearing remaining items from `weekly_plan.md` or `REFACTORING_PLAN_REMAINING.md`.
+* Implementation Details: **#1359 / #1383 / #1349** Two-tier Emscripten export CI + artifact cleanup.
+  * Tier 1: `scripts/check-emcc-manifest.mjs` + path-filtered `emscripten-ci.yml` (no emsdk).
+  * Tier 2: `emscripten-verify.yml` — pinned emsdk, `CANDY_DEBUG=0 build:emcc`, `verify:emcc --strict`, nightly/tags/dispatch.
+  * Regenerated stale `emscripten/exports.txt` (162 symbols; includes `updateCpuParticlesWASM` + unified ground).
+  * Untracked `math.o` / `animation_batch.cpp.bak`; relocated `libomp.a` → `emscripten/vendor/`.
+Next Step: Review and merge.
+
+Status: Implemented ✅
 * Implementation Details: **#1359**, **#1349** Emscripten build + export-manifest verification CI. Untracked build artifacts (`libomp.a`, `math.o`, `*.cpp.bak`) and added them to gitignore. Added strict flag check.
 Next Step: Ask the user for the next task.
 

@@ -132,9 +132,32 @@ npm run test
 # Test WASM loader
 npm run test:wasm
 
-# Verify Emscripten exports
+# Lexical Emscripten export-manifest lint (no em++ required)
+npm run verify:emcc:manifest
+
+# Verify Emscripten WASM exports after a native build
 npm run verify:emcc
 ```
+
+### Emscripten export inventory (CI is source of truth)
+
+Cloud agents and most contributors work without `em++`, so the committed
+`emscripten/exports.txt` used to drift from `build.sh`'s export map. CI now owns
+the inventory:
+
+| Tier | Workflow | When | What |
+|------|----------|------|------|
+| 1 — lexical | `emscripten-ci.yml` | PRs/pushes touching `emscripten/**` or `src/utils/wasm-*.ts` | `verify:emcc:manifest` (no emsdk) |
+| 2 — full build | `emscripten-verify.yml` | Release tags, nightly `main`, `workflow_dispatch` | `CANDY_DEBUG=0 build:emcc` + `verify:emcc --strict` |
+
+If Tier 1 fails, regenerate and commit:
+
+```bash
+pnpm run verify:emcc:manifest -- --write
+git add emscripten/exports.txt
+```
+
+Or with a local toolchain: `CANDY_DEBUG=0 pnpm run build:emcc` (rewrites `exports.txt`).
 
 ## Troubleshooting
 
@@ -197,18 +220,23 @@ For more details, see `PERFORMANCE_MIGRATION_STRATEGY.md`.
 
 For deployment pipelines:
 
-1. **Minimal Build** (JavaScript fallback):
+1. **Minimal Build** (JavaScript fallback — default CI via `build:ci`):
    ```bash
-   npm install
-   npm run build:wasm
-   vite build
+   pnpm install --frozen-lockfile
+   pnpm run build:ci
    ```
 
-2. **Full Build** (with native module):
+2. **Full Build** (with native module — Tier-2 / release machines):
    ```bash
-   npm install
-   # Install emscripten in CI environment
-   npm run build
+   pnpm install --frozen-lockfile
+   # emsdk on PATH (see Full Build Setup), then:
+   CANDY_DEBUG=0 pnpm run build
+   pnpm run verify:emcc --strict
+   pnpm run verify:emcc:manifest
    ```
+
+3. **Pre-deploy reminder:** run `pnpm run verify:emcc` locally before `python3 deploy.py` when shipping native WASM.
 
 The build system gracefully handles missing emscripten by skipping the C++ build step.
+Object files / `.bak` backups under `emscripten/` are gitignored; the OpenMP
+archive lives at `emscripten/vendor/libomp.a` (tracked on purpose).
