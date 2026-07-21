@@ -384,10 +384,11 @@ export function updateParticlesWASM(
     spawnZ: number
 ): void {
     const f = getNativeFunc('updateParticlesWASM');
-    if (!f || !emscriptenMemory || !getEmscriptenInstance()?._malloc || !getEmscriptenInstance()._free) return;
+    const emsc = getEmscriptenInstance();
+    if (!f || !emscriptenMemory || !emsc || !emsc._malloc || !emsc._free) return;
 
-    const ptrP = getEmscriptenInstance()._malloc(count * 4 * 4);
-    const ptrV = getEmscriptenInstance()._malloc(count * 4 * 4);
+    const ptrP = emsc._malloc(count * 4 * 4);
+    const ptrV = emsc._malloc(count * 4 * 4);
 
     if (!ptrP || !ptrV) return;
 
@@ -400,8 +401,8 @@ export function updateParticlesWASM(
     positions.set(heapF32.subarray(ptrP >> 2, (ptrP >> 2) + count * 4));
     velocities.set(heapF32.subarray(ptrV >> 2, (ptrV >> 2) + count * 4));
 
-    getEmscriptenInstance()._free(ptrP);
-    getEmscriptenInstance()._free(ptrV);
+    emsc._free(ptrP);
+    emsc._free(ptrV);
 }
 
 // =============================================================================
