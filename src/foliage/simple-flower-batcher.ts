@@ -22,8 +22,9 @@ import { foliageGroup } from '../world/state.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
-import { camera } from '../world/state.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { camera } from '../core/camera-ref.ts';
+import { BiomeUniforms, circadianDayGlowMult } from '../systems/biome-uniforms.ts';
+import { getActiveWave } from '../systems/music-wave.ts';
 
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
@@ -168,7 +169,12 @@ export class SimpleFlowerBatcher {
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.3).add(idlePulse));
         const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.35));
-        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000)).add(rim).add(glitter).add(touchColor).add(twilightGlowTint).add(biomeTint);
+        // Circadian: diurnal rest dim — music/touch/twilight still add on top.
+        const dayGlow = circadianDayGlowMult(0.2);
+        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000))
+            .add(rim).add(glitter).add(touchColor)
+            .add(twilightGlowTint)
+            .add(biomeTint.mul(dayGlow));
 
         // Center: Velvet (Brown) + Chain
         const centerMat = (foliageMaterials as any).flowerCenter.clone();
@@ -309,15 +315,45 @@ export class SimpleFlowerBatcher {
 
     update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {
         if (!this.initialized || this.count === 0 || !this._poseMachine) return;
-        const kick = audioState?.kickTrigger || 0;
-        const bloom = Math.min(kick * 0.3, 0.5);
+
+        const config = CONFIG.plantPose.simpleFlower;
+        if (!config) return;
+
+        // Prefer kickTrigger (edge) then sustained kick — same channel family as FlowerBatcher.
+        const kick = audioState?.kickTrigger || audioState?.kick || 0;
+
+        const activeWave = getActiveWave();
+        const cameraPos = camera ? camera.position : undefined;
+
+        const getPlantPos = (index: number, out: THREE.Vector3) => {
+            if (!this.stemMesh) return;
+            const array = this.stemMesh.instanceMatrix.array as Float32Array;
+            const offset = index * 16;
+            out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
+        };
+
+        // Day: baseline open; night: closed; music wave / kick can override.
+        this._poseMachine.update(
+            this.count,
+            deltaTime,
+            kick,
+            dayNightBias,
+            config,
+            activeWave,
+            getPlantPos,
+            cameraPos
+        );
+
+        const poses = this._poseMachine.currentPoses;
         const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
         for (const mesh of meshes) {
-            if (!mesh) continue;
+            if (!mesh || mesh.count === 0) continue;
             const attr = mesh.geometry.getAttribute('aPoseState') as THREE.InstancedBufferAttribute;
             if (!attr) continue;
-            for (let i = 0; i < this.count; i++) {
-                attr.setX(i, bloom);
+            const array = attr.array as Float32Array;
+            const count = mesh.count;
+            for (let i = 0; i < count; i++) {
+                array[i] = poses[i];
             }
             attr.needsUpdate = true;
         }

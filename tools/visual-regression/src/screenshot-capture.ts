@@ -451,15 +451,18 @@ export class ScreenshotCapture {
         cam.updateProjectionMatrix();
       }
 
-      // Set time of day when exposed on the game shell (optional).
-      if (vp.timeOfDay && game?.timeSystem?.setTime) {
-        const timeMap: Record<string, number> = {
-          dawn: 0.2,
-          day: 0.5,
-          sunset: 0.75,
-          night: 0.95,
-        };
-        game.timeSystem.setTime(timeMap[vp.timeOfDay] || 0.5);
+      // Set time of day — prefer window.setTimeOfDay / setCircadianTimeOfDay
+      // (wired by game-loop-core) over the optional game.timeSystem shim.
+      if (vp.timeOfDay) {
+        const setTod =
+          (window as any).setCircadianTimeOfDay ||
+          (window as any).setTimeOfDay ||
+          (game?.timeSystem?.setTime ? (t: string) => game.timeSystem.setTime(
+            ({ dawn: 0.2, day: 0.5, sunset: 0.75, night: 0.95 } as Record<string, number>)[t] ?? 0.5
+          ) : null);
+        if (typeof setTod === 'function') {
+          setTod(vp.timeOfDay);
+        }
       }
 
       if (vp.weather && game?.weatherSystem?.setWeather) {

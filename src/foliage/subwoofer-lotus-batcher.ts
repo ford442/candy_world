@@ -20,7 +20,7 @@ import {
     applyStandardDeformation
 
 } from './index.ts';
-import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
@@ -97,7 +97,10 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
 
     // 🎨 PALETTE: Juicy Rim Light (good)
     const rimLight = createJuicyRimLight(finalColor, float(2.0), float(3.0), normalLocal);
-    mat.emissiveNode = emission.add(twilightGlowTint).add(rimLight);
+    // Circadian: lotus rests by day-floor at night; twilight tint still brightens after dusk.
+    mat.emissiveNode = emission.mul(circadianDayGlowMult(0.35))
+        .add(twilightGlowTint.mul(circadianNightGlowMult()))
+        .add(rimLight);
 
     // 🎨 PALETTE: Correct Wind Sway + Player Interaction composition
     const circadianDroopRing = vec3(0, float(-0.8).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);

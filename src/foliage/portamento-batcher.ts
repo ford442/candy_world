@@ -13,7 +13,7 @@ import {
   uTime
 } from './index.ts';
 import { uTwilight } from './sky.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import {
   vec3,
   positionLocal,
@@ -157,8 +157,9 @@ export class PortamentoPineBatcher {
     needleMat.emissiveNode = baseGlowColor
         .mul(BiomeUniforms.arpeggioGrove.noteColor)
         .mul(audioGlow)
-        .add(rimLight)
-        .add(twilightGlowTint);
+        .mul(circadianDayGlowMult(0.3))
+        .add(rimLight.mul(circadianDayGlowMult(0.3)))
+        .add(twilightGlowTint.mul(circadianNightGlowMult()));
     registerReactiveMaterial(needleMat);
 
     this.bendAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1);

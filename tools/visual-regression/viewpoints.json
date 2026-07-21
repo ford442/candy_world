@@ -123,6 +123,26 @@
       "fov": 65,
       "timeOfDay": "day",
       "waitForStable": 3000
+    },
+    {
+      "name": "circadian_night",
+      "description": "Gem Canopy at night — circadian pose/glow rest vs bioluminescence regression seed",
+      "biomeAnchor": "GEM_CANOPY corridor midpoint (~100, -80); pairs with luminous mycelium spot-check",
+      "cameraPosition": { "x": 100, "y": 10, "z": -82 },
+      "cameraTarget": { "x": 100, "y": 6, "z": -55 },
+      "fov": 65,
+      "timeOfDay": "night",
+      "waitForStable": 3500
+    },
+    {
+      "name": "circadian_night_mycelium",
+      "description": "Luminous Mycelium grove at night — glass mushroom / luminous plant night-glow gate",
+      "biomeAnchor": "MYCELIUM_GROVE center (-78, 78)",
+      "cameraPosition": { "x": -68, "y": 8, "z": 68 },
+      "cameraTarget": { "x": -78, "y": 3, "z": 78 },
+      "fov": 65,
+      "timeOfDay": "night",
+      "waitForStable": 3500
     }
   ]
 }

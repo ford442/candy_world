@@ -276,6 +276,8 @@ export interface ConfigType {
         arpeggioFern: PlantPoseConfig;
         portamentoPine: PlantPoseConfig;
         flower: PlantPoseConfig;
+        /** Shared by SimpleFlowerBatcher — same diurnal open/close as flower. */
+        simpleFlower: PlantPoseConfig;
     };
 
     circadian: {
@@ -782,6 +784,14 @@ export const CONFIG: ConfigType = {
             channelIndex: 2         // melody channel (tracker channel 2)
         },
         flower: {
+            attackRate: 4.0,        // bloom response to kick
+            releaseRate: 1.0,       // settle back down
+            sustainLevel: 1.0,      // envelope peak
+            dayTarget: 1.0,         // fully blooming during day
+            nightTarget: 0.0,       // closed during night
+            triggerThreshold: 0.05  // minimum kick channel volume to trigger bloom
+        },
+        simpleFlower: {
             attackRate: 4.0,        // bloom response to kick
             releaseRate: 1.0,       // settle back down
             sustainLevel: 1.0,      // envelope peak

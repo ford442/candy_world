@@ -28,7 +28,7 @@ import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
 import { createSugarSparkle } from './index.ts';
 import { uTwilight } from './sky.ts';
-import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { CONFIG } from '../core/config.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 import {
@@ -228,6 +228,9 @@ export class TreeBatcher {
         // Target glow color from config mapped to twilight
         const targetGlowColor = color(CONFIG.glow.glowColorMap['tree']);
         const twilightGlowTint = targetGlowColor.mul(uTwilight).mul(float(CONFIG.glow.glowIntensityMax)).mul(float(0.5).add(idlePulse));
+        // Diurnal canopy: music shimmer rests at night; twilight tint still fires via uTwilight.
+        const dayGlow = circadianDayGlowMult(0.3);
+        const nightGlow = circadianNightGlowMult();
 
         // Add Sugar Sparkle! (Palette Polish)
         // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
@@ -246,7 +249,10 @@ export class TreeBatcher {
 
         // 🎨 PALETTE: Make tree leaves pop with sparkly glow, base audio emissive, and twilight glow
         sphereMat.emissiveNode = scaleEmissiveByLod(
-            sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null))
+            sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).mul(dayGlow)
+                .add(sugarSparkle.mul(dayGlow))
+                .add(twilightGlowTint.mul(nightGlow))
+                .add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null).mul(dayGlow))
         );
         applyFoliageLodMaterialFade(sphereMat);
 
@@ -376,7 +382,9 @@ export class TreeBatcher {
         const accordionSwayDeform = baseSway.mul(BiomeUniforms.musicalFlora.shimmer.add(1.0));
         (accordionLeafMat as any).colorNode = instanceColor.add(BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.hueShift));
         (accordionLeafMat as any).deformationNode = accordionSwayDeform;
-        (accordionLeafMat as any).emissiveNode = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.add(0.5));
+        (accordionLeafMat as any).emissiveNode = BiomeUniforms.musicalFlora.noteColor
+            .mul(BiomeUniforms.musicalFlora.shimmer.add(0.5))
+            .mul(circadianDayGlowMult(0.25));
         applyFoliageLodMaterialFade(accordionLeafMat);
 
         const roseMat = CandyPresets.Sugar(0xFF69B4, {

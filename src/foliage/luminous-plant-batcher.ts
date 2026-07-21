@@ -11,7 +11,7 @@ import {
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
-import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPhase, uCircadianPoseOffset, type BiomeId } from '../systems/biome-uniforms.ts';
+import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPoseOffset, circadianNightGlowMult, type BiomeId } from '../systems/biome-uniforms.ts';
 import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import {
@@ -114,9 +114,7 @@ export class LuminousPlantBatcher {
             .mul(uTwilight)
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.3).add(idlePulse));
-        const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
-        // Circadian night-glow: luminous plants brighten at night (phase=0), dim by day (phase=1).
-        const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
+        const circadianGlowMult = circadianNightGlowMult();
 
         let emissiveWithCircadian = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
 

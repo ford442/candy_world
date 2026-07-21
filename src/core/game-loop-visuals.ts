@@ -12,6 +12,7 @@ import { uStarOpacity } from '../foliage/stars.ts';
 import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
+import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/circadian-debug.ts';
 import {
     _scratchBaseSkyTop, _scratchBaseSkyBot, _scratchBaseFog,
     COLOR_STORM_SKY_TOP, COLOR_STORM_SKY_BOT, COLOR_STORM_FOG, COLOR_RAIN, COLOR_RAIN_FOG,
@@ -40,6 +41,10 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
 
     circadianController.setDayTarget(!isNightNow);
     circadianController.update(delta);
+
+    if (isCircadianDebugEnabled()) {
+        updateCircadianDebug(dayNightBias);
+    }
 
     let weatherState = WeatherState.CLEAR;
     let weatherIntensity = 0;
