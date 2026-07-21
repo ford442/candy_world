@@ -29,7 +29,8 @@ import {
     LuminousPlantUniforms,
     luminousPlantsNoteColorNode,
     uCircadianPhase,
-    uCircadianPoseOffset
+    uCircadianPoseOffset,
+    circadianNightGlowMult,
 } from '../systems/biome-uniforms.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
@@ -133,8 +134,7 @@ function createGlassMushroomMaterial(): MeshStandardNodeMaterial {
     const veinGlow = veins.mul(stemBias).mul(baseGlow.add(musicPulse).add(beatBurst));
 
     // Circadian night-glow: brighter at night (phase=0), dimmer by day (phase=1).
-    const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
-    const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
+    const circadianGlowMult = circadianNightGlowMult();
 
     const rim = createJuicyRimLight(musicColor, float(1.0).add(musicEnergy.mul(2.0)), float(3.0), null);
 

@@ -30,13 +30,13 @@ import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { uTwilight } from './sky.ts';
-import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { applyAerialPerspective, aerialPerspectiveLodBoost } from './aerial-perspective.ts';
+import { circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 
 const MAX_MUSHROOMS = getCIAdjustedCount(1000, 0.1, 50); // Reduced from 4000 for WebGPU uniform buffer limits
 
@@ -635,8 +635,7 @@ export class MushroomBatcher {
 
         // Add twilight glow directly to emissive node output
         // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
-        // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
-        const circadianGlowMult = mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);
+        const circadianGlowMult = circadianNightGlowMult();
         capMat.emissiveNode = scaleEmissiveByLod(
             twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult)
         );

@@ -12,7 +12,7 @@ import * as THREE from 'three';
  *   BiomeUniforms.arpeggioGrove.shimmer.value = 0.75;
  */
 
-import { uniform, texture, vec2 } from 'three/tsl';
+import { uniform, texture, vec2, mix, float } from 'three/tsl';
 import { DataTexture, RGBAFormat, HalfFloatType, Color, NearestFilter, DataUtils } from 'three';
 import { CONFIG } from '../core/config.ts';
 
@@ -287,3 +287,21 @@ export const uCircadianPhase = uniform(0.5);
  * Precomputed by CircadianController: lerp(nightPoseOffset, dayPoseOffset, ease(phase)).
  */
 export const uCircadianPoseOffset = uniform(0.0);
+
+/**
+ * TSL helper — nocturnal bioluminescence gate.
+ * phase=0 (night) → nightGlowMultiplier; phase=1 (day) → 1.0.
+ * Prefer this over hand-rolled mix() so batchers stay in sync with CONFIG.circadian.
+ */
+export function circadianNightGlowMult() {
+    return mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);
+}
+
+/**
+ * TSL helper — diurnal rest dim (flowers / canopy that sleep at night).
+ * phase=0 (night) → nightFloor; phase=1 (day) → 1.0.
+ * Music wave / player interaction still override via separate additive terms.
+ */
+export function circadianDayGlowMult(nightFloor: number = 0.25) {
+    return mix(float(nightFloor), float(1.0), uCircadianPhase);
+}

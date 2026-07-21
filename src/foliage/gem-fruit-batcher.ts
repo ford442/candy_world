@@ -17,7 +17,7 @@ import {
 } from './material-core.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
-import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
+import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId, uCircadianPoseOffset, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { sampleEntityScale } from '../world/entity-scale.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import type { BatcherInstanceRef } from '../systems/awakened-persistence.ts';
@@ -98,7 +98,8 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
         null
     );
     mat.emissiveNode = musicTint.mul(shimmerGlow.add(beatPulse)).add(rim.mul(0.7))
-        .add(musicTint.mul(aAwakened.mul(aEmissiveScale).mul(0.45)));
+        .add(musicTint.mul(aAwakened.mul(aEmissiveScale).mul(0.45)))
+        .mul(circadianNightGlowMult());
 
     registerReactiveMaterial(mat);
     return mat;

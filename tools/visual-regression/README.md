@@ -4,7 +4,7 @@ A comprehensive visual regression testing and screenshot comparison system for c
 
 ## Features
 
-- 📸 **Multi-viewpoint Capture**: Test spawn, lake, forest, night, particles, weather, sunset, slope_foot, lake_edge, horizon_lod, and gem_corridor_scale scenes
+- 📸 **Multi-viewpoint Capture**: Test spawn, lake, forest, night, particles, weather, sunset, slope_foot, lake_edge, horizon_lod, gem_corridor_scale, circadian_night, and circadian_night_mycelium scenes
 - 🖥️ **Multi-resolution Support**: Mobile (375x667), Desktop (1920x1080), Ultrawide (3440x1440)
 - ⚙️ **Quality Settings**: Low, Medium, High, Ultra presets for different test scenarios
 - 🔍 **Pixel-perfect Comparison**: Detect even the smallest visual changes
@@ -50,6 +50,8 @@ npm run test:visual -- --update
 | `lake` | Water/refractive surfaces | 3s |
 | `forest` | Dense foliage - tests LOD | 2.5s |
 | `night` | Night scene - tests lighting | 3s |
+| `circadian_night` | Gem Canopy at night — plant circadian rest/glow | 3.5s |
+| `circadian_night_mycelium` | Luminous Mycelium at night — night-glow gate | 3.5s |
 | `particles` | Fireflies, pollen effects | 4s |
 | `weather` | Rain/storm conditions | 3.5s |
 | `sunset` | Atmospheric scattering | 2s |

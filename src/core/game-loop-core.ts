@@ -4,6 +4,7 @@ import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import { initGroundDebug } from '../debug/ground-debug.ts';
+import { initCircadianDebug } from '../debug/circadian-debug.ts';
 import { CONFIG } from './config.ts';
 import { getCameraShake } from './camera-shake.ts';
 
@@ -211,6 +212,10 @@ export function initGameLoopDependencies(deps: {
     timeOffsetRef = deps.timeOffset;
 
     initGroundDebug(deps.scene);
+    initCircadianDebug({
+        timeOffset: deps.timeOffset,
+        getGameTime: () => gameTime,
+    });
 }
 
 export function getGameTime(): number {

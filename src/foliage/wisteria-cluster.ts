@@ -8,7 +8,7 @@ import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCac
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, uCircadianPhase, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { spawnImpact } from './impacts.ts';
@@ -58,20 +58,22 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         const swayX = sin(uTime.mul(baseSwayFreq).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
         const swayZ = cos(uTime.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
 
-        // Apply sway to vertex position
-        const posSwayed = positionLocal.add(vec3(swayX, float(0.0), swayZ));
+        // Apply sway to vertex position + night droop (phase→0 at night)
+        const circadianDroop = vec3(0, float(-0.4).mul(float(1.0).sub(uCircadianPhase)).mul(normalizedHeight), 0);
+        const posSwayed = positionLocal.add(vec3(swayX, float(0.0), swayZ)).add(circadianDroop);
         const posFinal = applyStandardDeformation(posSwayed);
         mat.positionNode = posFinal;
 
         // Glow Effect based on audio
         const baseColorNode = color(baseHexColor);
         const glowColor = color(0xFF66FF); // Neon pink glow
-        // Emissive boost driven by uAudioHigh, fading in smoothly
-        mat.emissiveNode = glowColor.mul(BiomeUniforms.arpeggioGrove.noteColor).mul(uAudioHigh.mul(0.8));
+        // Emissive boost driven by uAudioHigh, fading in smoothly — nocturnal gate
+        const nightGlow = circadianNightGlowMult();
+        mat.emissiveNode = glowColor.mul(BiomeUniforms.arpeggioGrove.noteColor).mul(uAudioHigh.mul(0.8)).mul(nightGlow);
 
         // 🎨 PALETTE: Juicy Rim Light for volumetric glow
         const rimLight = createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null);
-        mat.emissiveNode = mat.emissiveNode.add(rimLight);
+        mat.emissiveNode = mat.emissiveNode.add(rimLight.mul(nightGlow));
 
         // 🎨 PALETTE: Twilight Glow for wisteria
         const glowPhaseOffset = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.3));
@@ -84,7 +86,7 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
 
         // ADSR Glow based on tracker channel (sky_moon base color, reactive)
         // Here we just use audioEnergy for a simple ADSR-like reaction
-        const baseAdsrGlow = targetGlowColor.mul(audioEnergy).mul(0.3);
+        const baseAdsrGlow = targetGlowColor.mul(audioEnergy).mul(0.3).mul(nightGlow);
 
         mat.emissiveNode = mat.emissiveNode.add(twilightGlowTint).add(baseAdsrGlow);
 
