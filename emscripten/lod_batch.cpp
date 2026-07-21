@@ -332,4 +332,63 @@ void batchComposeMatrices_c(
     }
 }
 
+// =============================================================================
+// TEST / PARITY EXPORTS (#1351)
+// =============================================================================
+
+/**
+ * Write instance RGB colors with uniform intensity scale.
+ * Parity with assembly/batch.ts batchWriteInstanceColors and TS reference.
+ */
+EMSCRIPTEN_KEEPALIVE
+void batchWriteInstanceColors_c(
+    float* colorsIn,
+    float* colorsOut,
+    int count,
+    float intensity
+) {
+    for (int i = 0; i < count; i++) {
+        int o = i * 3;
+        colorsOut[o]     = colorsIn[o] * intensity;
+        colorsOut[o + 1] = colorsIn[o + 1] * intensity;
+        colorsOut[o + 2] = colorsIn[o + 2] * intensity;
+    }
+}
+
+/**
+ * Accumulate arpeggio_grove shimmer + hueShift volumes.
+ * Parity with assembly/music_reactivity.ts accumulateArpeggioChannels.
+ * volumes: packed [shimmer..., hueShift...] ; out: [shimmer, hueShift]
+ */
+EMSCRIPTEN_KEEPALIVE
+void accumulateArpeggioChannels_c(
+    float* volumes,
+    int shimmerCount,
+    int hueShiftCount,
+    float nightGate,
+    float intensityScale,
+    float* out
+) {
+    float shimmerAccum = 0.0f;
+    for (int i = 0; i < shimmerCount; i++) {
+        shimmerAccum += volumes[i];
+    }
+
+    float hueShiftAccum = 0.0f;
+    int end = shimmerCount + hueShiftCount;
+    for (int i = shimmerCount; i < end; i++) {
+        hueShiftAccum += volumes[i];
+    }
+
+    float shimmerDiv = shimmerCount > 1 ? (float)shimmerCount : 1.0f;
+    float shimmerVal = shimmerAccum / shimmerDiv;
+    if (shimmerVal > 1.0f) shimmerVal = 1.0f;
+    out[0] = shimmerVal * nightGate * intensityScale;
+
+    float hueShiftDiv = hueShiftCount > 1 ? (float)hueShiftCount : 1.0f;
+    float hueShiftVal = hueShiftAccum / hueShiftDiv;
+    if (hueShiftVal > 1.0f) hueShiftVal = 1.0f;
+    out[1] = hueShiftVal * nightGate * intensityScale;
+}
+
 } // extern "C"

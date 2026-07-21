@@ -995,6 +995,23 @@ export declare function batchSphereCull(positionsPtr: number, count: number, cam
  */
 export declare function batchLerp(ptr: number, count: number): void;
 /**
+ * assembly/batch/batchComposeMatrices
+ * @param positionsPtr `usize`
+ * @param quaternionsPtr `usize`
+ * @param scalesPtr `usize`
+ * @param matricesPtr `usize`
+ * @param count `i32`
+ */
+export declare function batchComposeMatrices(positionsPtr: number, quaternionsPtr: number, scalesPtr: number, matricesPtr: number, count: number): void;
+/**
+ * assembly/batch/batchWriteInstanceColors
+ * @param colorsInPtr `usize`
+ * @param colorsOutPtr `usize`
+ * @param count `i32`
+ * @param intensity `f32`
+ */
+export declare function batchWriteInstanceColors(colorsInPtr: number, colorsOutPtr: number, count: number, intensity: number): void;
+/**
  * assembly/foliage/computeSway
  * @param count `i32`
  * @param time `f32`

@@ -241,6 +241,8 @@ export const {
   batchHslToRgb,
   batchSphereCull,
   batchLerp,
+  batchComposeMatrices,
+  batchWriteInstanceColors,
   computeSway,
   computeBounce,
   computeWobble,
