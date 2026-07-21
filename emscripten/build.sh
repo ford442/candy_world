@@ -265,6 +265,9 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchComposeMatrices_c"]="lod_batch"
     ["batchWriteInstanceColors_c"]="lod_batch"
     ["accumulateArpeggioChannels_c"]="lod_batch"
+
+    # #1358: instanced batcher pose → matrix/color (batcher_instance.cpp)
+    ["batchWriteInstancePose_c"]="batcher_instance"
     
     # New batch animation functions (animation_batch.cpp)
     ["batchSnareSnap_c"]="animation_batch"

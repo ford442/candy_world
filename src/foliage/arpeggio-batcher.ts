@@ -34,8 +34,7 @@ import { dynamicRadiiView } from '../utils/wasm-physics.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { applyAerialPerspective } from './aerial-perspective.ts';
-import { batchComposeMatrices_c } from '../utils/wasm-batch.ts';
-import { isEmscriptenReady } from '../utils/wasm-loader-core.ts';
+import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 
 const MAX_FERNS = getCIAdjustedCount(500, 0.1, 50); // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
@@ -64,11 +63,12 @@ export class ArpeggioFernBatcher {
     private currentUnfurlValue: number = 0;
     private lastTrigger: boolean = false;
 
-    // Matrix Batching State
+    // Matrix/color batching state (SoA → native or TS writeInstancePose)
     private _matricesDirty: boolean = false;
     private _batchPositions: Float32Array;
     private _batchQuaternions: Float32Array;
     private _batchScales: Float32Array;
+    private _batchColors: Float32Array;
 
     /**
      * Day/night pose state machine — single slot (global unfurl for all ferns).
@@ -88,10 +88,11 @@ export class ArpeggioFernBatcher {
         // Initialize global uniform
         this.uFernUnfurl = uniform(float(0.0));
 
-        // C++ Batching buffers
+        // C++ / TS batching SoA buffers (#1358 writeInstancePose)
         this._batchPositions = new Float32Array(MAX_FERNS * 3);
         this._batchQuaternions = new Float32Array(MAX_FERNS * 4);
         this._batchScales = new Float32Array(MAX_FERNS * 3);
+        this._batchColors = new Float32Array(MAX_FERNS * 3);
     }
 
     init() {
@@ -418,19 +419,14 @@ export class ArpeggioFernBatcher {
         this._batchScales[i * 3 + 1] = dummy.scale.y;
         this._batchScales[i * 3 + 2] = dummy.scale.z;
 
-        this._matricesDirty = true;
-
-        // Color
+        // Color → SoA (flushed with matrices via writeInstancePose)
         this._color.setHex(color);
-        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
-        if (this.mesh!.instanceColor) {
-            const colorArray = this.mesh!.instanceColor.array as Float32Array;
-            const colorOffset = i * 3;
-            colorArray[colorOffset] = this._color.r;
-            colorArray[colorOffset + 1] = this._color.g;
-            colorArray[colorOffset + 2] = this._color.b;
-            this.mesh!.instanceColor.needsUpdate = true;
-        }
+        this._batchColors[i * 3 + 0] = this._color.r;
+        this._batchColors[i * 3 + 1] = this._color.g;
+        this._batchColors[i * 3 + 2] = this._color.b;
+
+        this._matricesDirty = true;
+        this.flushMatrices(); // immediate matrix+color write (native or TS)
 
         // Update count
         this.mesh!.count = this.count;
@@ -458,65 +454,32 @@ export class ArpeggioFernBatcher {
         this._matricesDirty = true;
     }
 
+    /**
+     * Flush packed pose SoA into InstancedMesh matrix + color buffers.
+     * Native path: batchWriteInstancePose_c when candy_native is ready;
+     * otherwise allocation-free TS fallback (PlantPoseMachine stays in TS).
+     */
     private flushMatrices() {
         if (!this._matricesDirty || !this.mesh || this.count === 0) return;
 
         const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+        const colorArray = this.mesh.instanceColor
+            ? (this.mesh.instanceColor.array as Float32Array)
+            : null;
 
-        if (isEmscriptenReady()) {
-            // C++ Zero-Allocation Fast Path
-            batchComposeMatrices_c(
-                this._batchPositions,
-                this._batchQuaternions,
-                this._batchScales,
-                matrixArray,
-                this.count
-            );
-        } else {
-            // TypeScript fallback
-            for (let i = 0; i < this.count; i++) {
-                _scratchQuaternion.set(
-                    this._batchQuaternions[i * 4 + 0],
-                    this._batchQuaternions[i * 4 + 1],
-                    this._batchQuaternions[i * 4 + 2],
-                    this._batchQuaternions[i * 4 + 3]
-                );
-
-                const sx = this._batchScales[i * 3 + 0];
-                const sy = this._batchScales[i * 3 + 1];
-                const sz = this._batchScales[i * 3 + 2];
-
-                const qx = _scratchQuaternion.x, qy = _scratchQuaternion.y, qz = _scratchQuaternion.z, qw = _scratchQuaternion.w;
-
-                const x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
-                const xx = qx * x2, xy = qx * y2, xz = qx * z2;
-                const yy = qy * y2, yz = qy * z2, zz = qz * z2;
-                const wx = qw * x2, wy = qw * y2, wz = qw * z2;
-
-                const mIdx = i * 16;
-                matrixArray[mIdx + 0] = (1 - (yy + zz)) * sx;
-                matrixArray[mIdx + 1] = (xy + wz) * sx;
-                matrixArray[mIdx + 2] = (xz - wy) * sx;
-                matrixArray[mIdx + 3] = 0;
-
-                matrixArray[mIdx + 4] = (xy - wz) * sy;
-                matrixArray[mIdx + 5] = (1 - (xx + zz)) * sy;
-                matrixArray[mIdx + 6] = (yz + wx) * sy;
-                matrixArray[mIdx + 7] = 0;
-
-                matrixArray[mIdx + 8] = (xz + wy) * sz;
-                matrixArray[mIdx + 9] = (yz - wx) * sz;
-                matrixArray[mIdx + 10] = (1 - (xx + yy)) * sz;
-                matrixArray[mIdx + 11] = 0;
-
-                matrixArray[mIdx + 12] = this._batchPositions[i * 3 + 0];
-                matrixArray[mIdx + 13] = this._batchPositions[i * 3 + 1];
-                matrixArray[mIdx + 14] = this._batchPositions[i * 3 + 2];
-                matrixArray[mIdx + 15] = 1;
-            }
-        }
+        writeInstancePose(
+            this._batchPositions,
+            this._batchQuaternions,
+            this._batchScales,
+            this._batchColors,
+            matrixArray,
+            colorArray,
+            1.0,
+            this.count
+        );
 
         this.mesh.instanceMatrix.needsUpdate = true;
+        if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
         this._matricesDirty = false;
     }
 
