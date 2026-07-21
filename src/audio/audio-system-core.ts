@@ -409,7 +409,7 @@ export abstract class AudioSystemCore {
                 ]);
             } catch (err) {
                 console.warn('[AudioSystem] WASM failed, starting in Silent Mode:', err);
-                window.libopenmpt = null;
+                window.libopenmpt = undefined;
                 this.isReady = true;
                 return;
             }

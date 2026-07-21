@@ -220,3 +220,7 @@ Status: Implemented ✅
 * Implementation Details: Split game-loop.ts into 8 modular tick-phase components (`game-loop-core`, `game-loop-visuals`, `game-loop-audio`, `game-loop-particles`, `game-loop-postfx`, `game-loop-physics`, `game-loop-gameplay`, `game-loop-compute`) while properly retaining core timing scale (BPM timeFactor), camera effect decays (shake, FOV pulse), camera tracking, seasonal size logic, and interactive flora spatial queries to ensure zero feature regressions. Refactored the core barrel to coordinate smoothly without cyclical dependency drops.
 
 Next Step: Propose next uncompleted item from the roadmap.
+
+Status: Implemented ✅
+* Implementation Details: Wired `mushroom-batcher` and `luminous-plant-batcher` via global `uCircadianPhase` / `uCircadianPoseOffset` (emissive dim by day, bright by night) per #1362. Ensured `circadianController.setDayTarget()` is properly called in `game-loop-visuals.ts` and `delta` is passed instead of `gameTime`.
+Next Step: Sky Islands Biome (#1363) or app-chunk split (#1361).

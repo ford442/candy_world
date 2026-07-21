@@ -198,7 +198,7 @@ export class GPUComputeLibrary {
 
         // Only write data if present (avoid mapping empty buffer)
         if (data.byteLength > 0) {
-            this.device.queue.writeBuffer(buffer, 0, data);
+            this.device.queue.writeBuffer(buffer, 0, data.buffer, data.byteOffset, data.byteLength);
         }
         
         return buffer;
@@ -220,7 +220,7 @@ export class GPUComputeLibrary {
 
         // Only write data if present
         if (data.byteLength > 0) {
-            this.device.queue.writeBuffer(buffer, 0, data);
+            this.device.queue.writeBuffer(buffer, 0, data.buffer, data.byteOffset, data.byteLength);
         }
         
         return buffer;
@@ -229,13 +229,13 @@ export class GPUComputeLibrary {
     /** Write new data into an existing uniform buffer */
     writeUniformBuffer(buffer: GPUBuffer, data: ArrayBufferView): void {
         if (!this.device) return;
-        this.device.queue.writeBuffer(buffer, 0, data);
+        this.device.queue.writeBuffer(buffer, 0, data.buffer, data.byteOffset, data.byteLength);
     }
 
     /** Write new data into an existing storage buffer */
     writeStorageBuffer(buffer: GPUBuffer, data: ArrayBufferView): void {
         if (!this.device) return;
-        this.device.queue.writeBuffer(buffer, 0, data);
+        this.device.queue.writeBuffer(buffer, 0, data.buffer, data.byteOffset, data.byteLength);
     }
 
     /**
