@@ -1159,3 +1159,13 @@ export declare function ecs_getComponent(entity: number, componentName: string):
  * @returns `bool`
  */
 export declare function ecs_hasComponent(entity: number, componentName: string): boolean;
+/**
+ * assembly/music_reactivity/accumulateArpeggioChannels
+ * @param volumesPtr `usize`
+ * @param shimmerCount `i32`
+ * @param hueShiftCount `i32`
+ * @param nightGate `f32`
+ * @param intensityScale `f32`
+ * @param outPtr `usize`
+ */
+export declare function accumulateArpeggioChannels(volumesPtr: number, shimmerCount: number, hueShiftCount: number, nightGate: number, intensityScale: number, outPtr: number): void;
