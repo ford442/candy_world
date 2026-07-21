@@ -6,8 +6,7 @@ import { foliageGroup } from '../world/state.ts';
 import {
   createUnifiedMaterial,
   registerReactiveMaterial,
-  calculateWindSway,
-  calculatePlayerPush,
+  applyStandardDeformation,
   createJuicyRimLight,
   uAudioHigh,
   uAudioLow,
@@ -109,13 +108,7 @@ export class PortamentoPineBatcher {
         // Quadratic bend: more at top
         const bendDisplace = vec3(instanceBend.mul(basePos.y.pow(2.0)), float(0.0), float(0.0));
 
-        // 2. Wind Sway (Ambient)
-        const windDisplace = calculateWindSway(basePos);
-
-        // 3. Player Push (Interaction)
-        const pushDisplace = calculatePlayerPush(basePos);
-
-        return basePos.add(bendDisplace).add(windDisplace).add(pushDisplace);
+        return applyStandardDeformation(basePos.add(bendDisplace));
     };
 
     const animPos = animatedPosition(positionLocal);
