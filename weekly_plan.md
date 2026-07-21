@@ -68,7 +68,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **#1348 ESLint + build-stripped logger** — no lint tooling; ~658 raw `console.*`, ~623 `any`. Warn-heavy config + `src/utils/log.ts`. Next foundation item after chunk split.
 - [x] **#1349 Untrack build artifacts** (`math.o`, `*.cpp.bak`) + gitignore; `libomp.a` relocated to `emscripten/vendor/` (still tracked).
 - [x] **#1360 Split `game-loop.ts`** (1,028 lines) into tick-phase modules. LANDED 8-module split (#1405); follow-up extracted `game-loop-input.ts` + `game-loop-foliage.ts`, zero-alloc day/night palette, sun/moon null-safety. *Close on merge of follow-up PR.*
-- [ ] **#1361 Break up 796 KB `app` chunk** — lazy-load gameplay/save-UI/world-content; break foliage↔music-reactivity circular imports. ← Copilot-adjacent candidate.
+- [x] **#1361 Break up 796 KB `app` chunk** — lazy-load gameplay/save-UI/world-content; break foliage↔music-reactivity circular imports. See `docs/APP_CHUNK_SPLIT.md`.
 
 *Migration slices (15%-rule, after foundation):*
 - [ ] **#1351 Cross-tier parity harness** (JS↔AS↔C++ golden vectors) — recommended before widening batcher ports. `[in progress — 2026-07-21]` ← today's focus. **NOW OVERDUE:** #1358 + #1364 shipped native paths without it.

@@ -34,7 +34,7 @@ export default defineConfig({
           if (id.includes('/src/compute/')) {
             return 'compute';
           }
-          // Audio system and music reactivity
+          // Audio system (music reactivity stays in app — shared with foliage)
           if (id.includes('/src/audio/')) {
             return 'audio';
           }
@@ -42,19 +42,49 @@ export default defineConfig({
           if (id.includes('/src/workers/')) {
             return 'workers';
           }
-          // Merge all app code with circular dependencies into a single chunk.
-          // Rollup does not handle circular *chunk* dependencies well; keeping
-          // related modules in one chunk avoids undefined bindings in production.
+
+          // --- Lazy chunks (#1361): only reached via dynamic import() ---
+          // Thin *lazy.ts stubs stay in `app` (statically imported); the heavy
+          // modules below are loaded via import() from those stubs.
+          // Gameplay abilities (blaster, mines, chord, harpoon, glitch grenade)
+          if (
+            (id.includes('/src/gameplay/') && !id.endsWith('/gameplay/lazy.ts')) ||
+            id.includes('/src/systems/glitch-grenade.ts')
+          ) {
+            return 'gameplay';
+          }
+          // Save menu UI (exclude thin lazy stub)
+          if (
+            id.includes('/src/ui/save-menu/') &&
+            !id.endsWith('/save-menu/lazy.ts')
+          ) {
+            return 'save-ui';
+          }
+          // Analytics debug overlay (?debug=1 / /stats) — not the *-lazy stub
+          if (
+            id.includes('/src/ui/analytics-debug.ts') ||
+            id.includes('/src/ui/analytics-debug-ui.ts') ||
+            id.includes('/src/ui/analytics-debug-handlers.ts')
+          ) {
+            return 'analytics-debug';
+          }
+          // World content decorators (procedural extras, gem canopy, mycelium)
+          if (id.includes('/src/world/generation-decorators.ts')) {
+            return 'world-content';
+          }
+
+          // Remaining app code with intertwined imports stays in one chunk to
+          // avoid circular *chunk* dependencies (foliage ↔ systems core, etc.).
           if (
             id.includes('/src/core/') ||
             id.includes('/src/foliage/') ||
-            id.includes('/src/gameplay/') ||
             id.includes('/src/particles/') ||
             id.includes('/src/rendering/') ||
             id.includes('/src/systems/') ||
             id.includes('/src/ui/') ||
             id.includes('/src/utils/') ||
-            id.includes('/src/world/')
+            id.includes('/src/world/') ||
+            id.includes('/src/debug/')
           ) {
             return 'app';
           }
@@ -87,7 +117,7 @@ export default defineConfig({
   // modern JS (esnext) so top-level await in dependencies is preserved.
   optimizeDeps: {
     // Force dependency scanning to the app's root index -- don't scan test HTML files
-    // inside emsdk or other bundles which can include non-app imports.
+    // inside emsdk or other bundles which can include non-app modules such as loader.mjs.
     entries: ['./index.html'],
     esbuildOptions: {
       target: 'esnext'

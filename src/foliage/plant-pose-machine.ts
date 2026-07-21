@@ -11,7 +11,7 @@
  */
 
 import * as THREE from 'three';
-import { ActiveWave, computeWaveDistSq } from '../systems/music-reactivity.ts';
+import { ActiveWave, computeWaveDistSq, getActiveWave } from '../systems/music-wave.ts';
 
 export interface PlantPoseConfig {
     /** Rate at which envelopeLevel ramps toward 1.0 per second when channel is active. */

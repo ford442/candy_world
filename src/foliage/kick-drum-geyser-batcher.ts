@@ -14,10 +14,9 @@ import {
     color, float, vec3, vec4, sin, cos, positionLocal, time, uniform, normalLocal
 } from 'three/tsl';
 import { BiomeId } from '../systems/biome-uniforms.ts';
-import { computeWaveDistSq } from '../systems/music-reactivity.ts';
+import { computeWaveDistSq, computeWaveTimeSinceArrival } from '../systems/music-wave.ts';
 import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts';
-import { computeWaveTimeSinceArrival } from '../systems/music-reactivity-core.ts';
 
 const MAX_GEYSERS = 500;
 

@@ -342,7 +342,10 @@ export function registerStatsCommand(): void {
   };
 }
 
-// Auto-register on import
-if (typeof window !== 'undefined') {
-  registerStatsCommand();
+// Auto-register only when this module is explicitly loaded (e.g. ?debug=1).
+// Do not side-effect on accidental barrel import — see analytics-debug-lazy.ts (#1361).
+export function ensureAnalyticsDebugRegistered(): void {
+  if (typeof window !== 'undefined') {
+    registerStatsCommand();
+  }
 }

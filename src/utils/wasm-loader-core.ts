@@ -10,7 +10,7 @@
  * - getNativeFunc() helper
  */
 
-import { updateProgress, setWasmPhase, setWasmError } from '../ui/index.ts';
+import { updateProgress, setWasmPhase, setWasmError } from '../ui/loading-screen.ts';
 import { 
     parallelWasmLoad, 
     LOADING_PHASES, 

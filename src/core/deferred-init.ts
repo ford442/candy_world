@@ -15,16 +15,13 @@ import { uTime } from '../foliage/index.ts';
 import { initCelestialBodies } from '../foliage/celestial-bodies.ts';
 import { createFluidFog } from '../foliage/fluid_fog.ts';
 import { createMushroom } from '../foliage/mushrooms.ts';
-import { jitterMineSystem } from '../gameplay/jitter-mines.ts';
-import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
-import { createHarpoonLine } from '../gameplay/harpoon-line.ts';
-import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { animatedFoliage } from '../world/state.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { initGPUCompute } from '../compute/compute-init.ts';
 import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
 import { getAwakenedStore } from '../systems/awakened-persistence.ts';
+import { ensureGameplay, preloadGameplay } from '../gameplay/lazy.ts';
 
 // Deferred visual elements
 let aurora: THREE.Object3D | null = null;
@@ -66,6 +63,21 @@ export function initDeferredVisuals() {
     // Resolves silently when WebGPU is unavailable; CPU/WASM fallbacks stay active.
     initGPUCompute();
 
+    // Prefetch gameplay chunk in parallel with visual init (#1361)
+    void preloadGameplay().then((gp) => {
+        if (!sceneRef) return;
+        if (gp.jitterMineSystem.mesh && !gp.jitterMineSystem.mesh.parent) {
+            sceneRef.add(gp.jitterMineSystem.mesh);
+            console.log('[Deferred] Jitter Mine System initialized');
+        }
+        gp.chordStrikeSystem.addToScene(sceneRef);
+        if (!harpoonLine) {
+            harpoonLine = gp.createHarpoonLine();
+            sceneRef.add(harpoonLine);
+            console.log('[Deferred] Harpoon Line initialized');
+        }
+    });
+
     console.time('Deferred Visuals Init');
 
     // Group 1: Environmental effects (order matters for layering)
@@ -80,8 +92,6 @@ export function initDeferredVisuals() {
         aurora = createAurora();
         sceneRef.add(aurora);
         harmonyOrbSystem.addToScene(sceneRef); // Add Harmony Orbs
-        // Note: chordStrikeSystem is imported and used directly, no need to add here
-        chordStrikeSystem.addToScene(sceneRef);
         console.log('[Deferred] Aurora & Systems initialized');
     }
 
@@ -146,16 +156,7 @@ export function initDeferredVisuals() {
         };
     }
 
-    if (jitterMineSystem.mesh && !jitterMineSystem.mesh.parent) {
-        sceneRef.add(jitterMineSystem.mesh);
-        console.log('[Deferred] Jitter Mine System initialized');
-    }
-
-    if (!harpoonLine) {
-        harpoonLine = createHarpoonLine();
-        sceneRef.add(harpoonLine);
-        console.log('[Deferred] Harpoon Line initialized');
-    }
+    // Gameplay meshes (jitter / harpoon / chord) attach via preloadGameplay() above
     console.timeEnd('Musical Elements');
 
     console.timeEnd('Deferred Visuals Init');
@@ -218,7 +219,8 @@ export function runDeferredWarmup(
         // Keep the rainbow blaster warmup — it uses a distinct particle material.
         const dummyOrigin = new THREE.Vector3(0, -9999, 0);
         const dummyDir = new THREE.Vector3(0, 1, 0);
-        fireRainbow(scene, dummyOrigin, dummyDir);
+        const gp = await ensureGameplay();
+        gp.fireRainbow(scene, dummyOrigin, dummyDir);
 
         let warmupBatches = 0;
         let warmupBatchMaxMs = 0;

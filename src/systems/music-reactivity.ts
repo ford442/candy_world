@@ -1,6 +1,8 @@
-import { MRState, computeWaveTimeSinceArrival, ActiveWave, applyMapMusicContext, syncMapMusicContext, toChannels, mapNoteToColor, WeatherReactivityBinding, WeatherMusicTargets, _frustum, _projScreenMatrix, _scratchSphere, _targetMoonColor, _targetArpeggioColor, _targetNebulaColor, _targetGlobalColor, _targetGemCanopyColor, _zeroVec, _waveColor, _whiteColor } from './music-reactivity-core.ts';
+import { MRState, applyMapMusicContext, syncMapMusicContext, toChannels, mapNoteToColor, WeatherReactivityBinding, WeatherMusicTargets, _frustum, _projScreenMatrix, _scratchSphere, _targetMoonColor, _targetArpeggioColor, _targetNebulaColor, _targetGlobalColor, _targetGemCanopyColor, _waveColor, _whiteColor, getActiveWave as readActiveWave, setActiveWave } from './music-reactivity-core.ts';
 export * from "./music-reactivity-core.ts";
 export { AtmosphereShaftState } from './atmosphere-reactivity.ts';
+export { computeWaveDistSq } from './music-wave.ts';
+import type { ActiveWave } from './music-wave.ts';
 import * as THREE from 'three';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { getDayNightBias } from '../core/cycle.ts';
@@ -146,21 +148,6 @@ const _skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
   sky_moon: BiomeUniforms.skyMoon.moonNoteColor as any,
 };
 
-// ⚡ SKY WAVE state — pre-allocated, zero per-frame allocations in hot path
-let _activeWave: ActiveWave | null = null;
-
-// Return squared distance instead of time (avoids sqrt entirely)
-export function computeWaveDistSq(plantWorldPos: THREE.Vector3, activeWave: ActiveWave | null, cameraPosition?: THREE.Vector3): number {
-    if (!activeWave) return -1;
-    const origin = activeWave.origin || cameraPosition || _zeroVec;
-
-    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math
-    const dx = plantWorldPos.x - origin.x;
-    const dy = plantWorldPos.y - origin.y;
-    const dz = plantWorldPos.z - origin.z;
-
-    return dx * dx + dy * dy + dz * dz;  // ⚡ no sqrt
-}
 // Pre-allocated static fallback to prevent per-frame object allocation when audio is inactive
 const _emptyAudioState: AudioData = { channelData: [], kickTrigger: 0, grooveAmount: 0, beatPhase: 0, patternIndex: 0 };
 let _waveDecayStartTime = 0;
@@ -190,7 +177,7 @@ const _noteNameCache: Record<string | number, string> = {};
 const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 export class MusicReactivitySystem {
-    getActiveWave(): ActiveWave | null { return MRState.activeWave; }
+    getActiveWave(): ActiveWave | null { return readActiveWave(); }
 
     moon: THREE.Object3D | null = null;
     weatherSystem: IWeatherSystem | null = null;
@@ -228,6 +215,7 @@ export class MusicReactivitySystem {
             if (MRState.skyMoonNoteVal > 0) {
                 _waveColor.copy(BiomeUniforms.skyMoon.moonNoteColor.value);
                 MRState.activeWave = { color: _waveColor, timestamp: performance.now(), speed: 25.0 }; // Let wave origin be undefined initially, use camera
+                setActiveWave(MRState.activeWave);
                 MRState.waveDecayStartTime = 0;
             }
         });
@@ -814,6 +802,7 @@ export class MusicReactivitySystem {
 
                 if (elapsed >= 1.0 || allComplete) {
                     MRState.activeWave = null;
+                    setActiveWave(null);
                     MRState.waveDecayStartTime = performance.now();
                 }
             } else if (MRState.waveDecayStartTime > 0) {
@@ -837,6 +826,7 @@ export class MusicReactivitySystem {
             // Dawn guard: clear active wave and decay to white for every targeted uniform
             if (MRState.activeWave) {
                 MRState.activeWave = null;
+                setActiveWave(null);
                 MRState.waveDecayStartTime = performance.now();
             }
             // Also gently clear any lingering wave color on targets (defensive)
