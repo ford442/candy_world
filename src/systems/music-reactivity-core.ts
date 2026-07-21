@@ -114,9 +114,6 @@ export const _frustum = new THREE.Frustum();
 export const _projScreenMatrix = new THREE.Matrix4();
 export const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling checks
 
-// ⚡ OPTIMIZATION: Reusable scratch array for species list
-const _scratchSpeciesList: string[] = [];
-
 export const _waveColor = new THREE.Color(); // scratch for beat capture
 export const _whiteColor = new THREE.Color(0xffffff);
 
