@@ -63,6 +63,27 @@ import {
 import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
 
+// ⚡ OPTIMIZATION: Fast approximations for Math.sin and Math.cos
+function fastSin(x: number): number {
+    // Bhaskara I approximation for sine
+    // Works for x in [0, PI], so we range reduce to [-PI, PI]
+    const INV_PI = 0.3183098861837907; // 1 / PI
+    let i = x * INV_PI;
+    i = i - 2.0 * Math.round(i * 0.5); // Wrap to [-1, 1] range (i.e. [-PI, PI])
+
+    // Now i is in [-1, 1], meaning x is wrapped to [-PI, PI]
+    // Taylor minimax approximation or similar continuous polynomial for [-PI, PI]
+    // A simple, continuous quadratic-based approximation (Bhaskara I variant)
+    // sin(x) ≈ 16*x*(PI - |x|) / (5*PI^2 - 4*|x|*(PI - |x|))  for x in [0, PI]
+
+    const abs_i = Math.abs(i);
+    return (16.0 * i * (1.0 - abs_i)) / (5.0 - 4.0 * abs_i * (1.0 - abs_i));
+}
+
+function fastCos(x: number): number {
+    return fastSin(x + 1.5707963267948966);
+}
+
 // Default spawn center used when no config.center is provided
 const DEFAULT_SPAWN_CENTER = new THREE.Vector3(0, 5, 0);
 
@@ -214,9 +235,9 @@ export class ComputeParticleSystem {
                 case 'sparks': {
                     const angle = Math.random() * Math.PI * 2;
                     const speed = 3 + Math.random() * 5;
-                    velArr[vi] = Math.cos(angle) * speed;
+                    velArr[vi] = fastCos(angle) * speed;
                     velArr[vi + 1] = Math.random() * speed;
-                    velArr[vi + 2] = Math.sin(angle) * speed;
+                    velArr[vi + 2] = fastSin(angle) * speed;
                     lifeArr[i] = 0.3 + Math.random() * 0.5;
                     break;
                 }

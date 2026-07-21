@@ -62,7 +62,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **#1357 Remove stale `createSubwooferLotus` import from `foliage-registry.ts`** — dead symbol (replaced by `SubwooferLotusBatcher`) → TS2305. `[in progress — 2026-07-14]` ← bundled into today's focus
 - [ ] **#1348 ESLint + build-stripped logger** — no lint tooling; ~658 raw `console.*`, ~623 `any`. Warn-heavy config + `src/utils/log.ts`.
 - [x] **#1349 Untrack build artifacts** (`libomp.a`, `math.o`, `*.cpp.bak`) + gitignore. ← Copilot prep target today (folded into #1359).
-- [ ] **#1360 Split `game-loop.ts`** (1,028 lines) into tick-phase modules. Sequence after #1350/#1347.
+- [x] **#1360 Split `game-loop.ts`** (1,028 lines) into tick-phase modules. Sequence after #1350/#1347.
 - [ ] **#1361 Break up 796 KB `app` chunk** — lazy-load gameplay/save-UI/world-content; break foliage↔music-reactivity circular imports.
 
 *Migration slices (15%-rule, after foundation):*

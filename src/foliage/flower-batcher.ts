@@ -6,7 +6,7 @@ import {
     sharedGeometries,
 } from './index.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom } from './material-core.ts';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom, applyStandardDeformation } from './material-core.ts';
 import { foliageMotionPosition, scaleEmissiveByLod, applyFoliageLodMaterialFade } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
@@ -95,7 +95,8 @@ export class FlowerBatcher {
         this._poseMachine = new PlantPoseMachine(MAX_PETALS);
 
         // --- Common TSL Logic ---
-        const posFinal = foliageMotionPosition(calculateFlowerBloom(positionLocal));
+        // 🎨 Palette: Add applyStandardDeformation to include wind sway and player push to all flower parts.
+        const posFinal = applyStandardDeformation(foliageMotionPosition(calculateFlowerBloom(positionLocal)));
 
         // --- 1. Stems (Cylinder) ---
         const stemMat = getCachedProceduralMaterial('flower_batch_stem', 0xFFFFFF, () => {

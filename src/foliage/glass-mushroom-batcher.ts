@@ -29,6 +29,7 @@ import {
     LuminousPlantUniforms,
     luminousPlantsNoteColorNode,
     uCircadianPhase,
+    uCircadianPoseOffset
 } from '../systems/biome-uniforms.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
@@ -92,12 +93,24 @@ function createGlassMushroomMaterial(): MeshStandardNodeMaterial {
     // Visual Impact: concentric ripple travels across the cap dome on bass hits.
     //   amplitude 0.12 → raise for splashier jiggle, lower for subtle shimmer.
     const rippleWave = sin(radial.mul(9.0).sub(uTime.mul(4.0)).add(aPhase));
-    const ripple = rippleWave.mul(uAudioLow).mul(0.12).mul(capMask);
-    const idleSway = sin(uTime.mul(1.1).add(aPhase)).mul(0.015).mul(capMask);
-    const displaced = positionLocal.add(normalLocal.mul(ripple.add(idleSway)));
+
+    // 🎨 PALETTE: Circadian Pose offset logic. Modulate sway/ripple based on day/night phase.
+    const circadianModulator = mix(float(0.5), float(1.0), uCircadianPhase);
+
+    const ripple = rippleWave.mul(uAudioLow).mul(0.12).mul(capMask).mul(circadianModulator);
+    const idleSway = sin(uTime.mul(1.1).add(aPhase)).mul(0.015).mul(capMask).mul(circadianModulator);
+
+    // 🎨 PALETTE: Stem swell during the day based on uCircadianPoseOffset
+    const stemMask = capMask.oneMinus();
+    const heightFactor = positionLocal.y.div(STEM_H).clamp(0.0, 1.0);
+    const circadianSwell = normalLocal.mul(uCircadianPoseOffset).mul(heightFactor).mul(stemMask);
+
+    const localDeformation = normalLocal.mul(ripple.add(idleSway)).add(circadianSwell);
+    const displaced = positionLocal.add(localDeformation);
+
     // 🎨 PALETTE: Glass mushrooms now respond to wind and player presence, matching the world's shared physical language.
-    const swayed = displaced.add(calculateWindSway(displaced));
-    mat.positionNode = applyPlayerInteraction(swayed);
+    const swayed = calculateWindSway(displaced);
+    mat.positionNode = applyPlayerInteraction(displaced.add(swayed));
 
     // --- Emissive vein network (fake SSS along the stem) ---------------------
     // Glowing filaments climb the body; brighter/denser on the stem than the cap.

@@ -401,6 +401,15 @@ body.a11y-motion-reduced .spinner {
     transform: none;
 }
 
+/* ♿ Aria: Distinguish busy (loading) states from disabled states */
+.toggle-button[aria-busy="true"] {
+    opacity: 0.8;
+    cursor: wait;
+    transform: scale(0.98);
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
 /* 🎨 Palette: Key Hint Feedback */
 kbd.key {
     transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275),

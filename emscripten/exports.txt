@@ -37,7 +37,7 @@ _batchCloudBob_c
 _calcBounceY
 _batchGroundHeight_simd
 _batchSpiritFade_c
-_addObstaclesBatch
+_addCollisionObjectsBatch
 _calcArpeggioStep_c
 _batchVineSway_simd
 _getPrismSpin
@@ -156,3 +156,4 @@ _batchComposeMatrices_c
 _calcSpiralWave
 _getUnifiedGroundHeight
 _batchDistances
+_addCollisionObject
