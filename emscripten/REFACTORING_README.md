@@ -380,19 +380,29 @@ The refactoring successfully transforms `animation_batch.cpp` from a monolithic 
 
 ## Quick Reference
 
+### Vendored OpenMP (`vendor/libomp.a`)
+
+`build.sh` links with `-L$SCRIPT_DIR/vendor -lomp`. The archive is a **vendored
+prebuilt** LLVM OpenMP static library for the Emscripten/wasm32-unknown-emscripten
+target (see also `docs/archive/libomp.md`). It is intentionally kept tracked under
+`emscripten/vendor/` (with a `.gitignore` exception) because it is not currently
+reproduced from the toolchain in-tree. Do **not** commit `*.o` / `*.bak` build
+junk beside it — those are gitignored.
+
 ### File Structure
 ```
 emscripten/
-├── animation_batch.cpp              (27 lines - wrapper)
-├── animation_batch_percussion.cpp   (382 lines)
-├── animation_batch_melodic.cpp      (443 lines)
-├── animation_batch_effects.cpp      (232 lines)
-├── animation_batch_foliage.cpp      (396 lines)
-├── animation_batch_simd.cpp         (473 lines)
-├── animation_batch_utils.h          (98 lines - shared)
-├── animation_batch.cpp.bak          (1891 lines - original backup)
-├── REFACTORING_SUMMARY.md           (documentation)
-└── REFACTORING_VERIFICATION.md      (verification report)
+├── animation_batch.cpp              (wrapper)
+├── animation_batch_percussion.cpp
+├── animation_batch_melodic.cpp
+├── animation_batch_effects.cpp
+├── animation_batch_foliage.cpp
+├── animation_batch_simd.cpp
+├── animation_batch_utils.h
+├── vendor/libomp.a                  (tracked OpenMP archive)
+├── exports.txt                      (CI-managed export manifest)
+├── REFACTORING_SUMMARY.md
+└── REFACTORING_VERIFICATION.md
 ```
 
 ### Build Commands
@@ -400,6 +410,8 @@ emscripten/
 npm run build:emcc              # Compile all modules
 npm run build:optimized         # With optimizations
 npm run optimize                # Post-build optimization
+pnpm run verify:emcc:manifest   # Lexical export lint (no em++)
+pnpm run verify:emcc            # Post-build WASM export check
 ```
 
 ### Testing

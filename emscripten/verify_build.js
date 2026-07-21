@@ -97,6 +97,24 @@ const EXPECTED_EXPORTS = {
         'fastInvSqrt',
         'getGroundHeight'
     ],
+
+    // Unified ground (ground.cpp) — #1327
+    ground: [
+        'clearGroundPlatforms',
+        'addGroundPlatform',
+        'invalidateGroundCache',
+        'setGroundCacheTTL',
+        'getUnifiedGroundHeight',
+        'batchUnifiedGroundHeight'
+    ],
+
+    // Particle physics (particle_physics.cpp) — includes #1329 CPU path
+    particle_physics: [
+        'updateParticlesWASM',
+        'updateCpuParticlesWASM',
+        'getParticlePhysicsVersion',
+        'initParticleRandom'
+    ],
     
     // Batch functions (batch.cpp) - MEDIUM priority
     batch: [

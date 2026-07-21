@@ -33,7 +33,10 @@ public/js/libopenmpt.js
 candy-world-*.zip
 candy-world-*.tar.gz
 
-# C++ Build Artifacts
+# C++ Build Artifacts (object files / backups — never commit)
 *.o
 *.a
+*.bak
 *.cpp.bak
+# Vendored OpenMP archive required by emscripten/build.sh (-L vendor -lomp)
+!emscripten/vendor/libomp.a

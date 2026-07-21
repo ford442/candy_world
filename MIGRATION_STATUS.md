@@ -97,8 +97,9 @@ The monolithic `wasm-loader.js` is fully migrated and **split for maintainabilit
 ## 5. C++ / Emscripten coverage (`emscripten/`)
 
 **Build:** `npm run build:emcc` → `public/candy_native*.wasm` + regenerated [`emscripten/exports.txt`](emscripten/exports.txt)  
-**Source of truth for exports:** [`emscripten/build.sh`](emscripten/build.sh) `EXPECTED_EXPORTS` map (conditional export scanning).  
-**CI / cloud agents:** Emscripten often absent — app runs in **JS fallback mode** (404 on `candy_native*` is expected).
+**Source of truth for exports:** [`emscripten/build.sh`](emscripten/build.sh) `ANIMATION_FUNCTIONS` map (conditional export scanning), validated by CI.  
+**CI:** Tier-1 lexical lint (`.github/workflows/emscripten-ci.yml` → `pnpm run verify:emcc:manifest`) on path-filtered PRs; Tier-2 full emsdk build (`.github/workflows/emscripten-verify.yml`) on tags / nightly `main` / `workflow_dispatch`.  
+**Local agents without em++:** regenerate the committed manifest with `pnpm run verify:emcc:manifest -- --write` (mirrors `build.sh` selection). App still runs in **JS fallback mode** when `candy_native*` is absent.
 
 ### Source files (19 `.cpp` units)
 
@@ -117,25 +118,25 @@ The monolithic `wasm-loader.js` is fully migrated and **split for maintainabilit
 | `ecs.cpp` | Native ECS mirror |
 | `bootstrap_loader.cpp` | Shader warmup progress |
 
-### Export inventory (~147 symbols in last `exports.txt`)
+### Export inventory (committed `exports.txt`, kept in sync by CI)
 
-Regenerate after `build:emcc`. Grouped summary:
+Regenerate after changing `build.sh` / `*.cpp`: `pnpm run verify:emcc:manifest -- --write` (or `build:emcc`). Grouped summary:
 
 | Category | Example exports | TS wrapper |
 |----------|-----------------|------------|
 | Math / noise | `_hash`, `_valueNoise2D`, `_fbm`, `_batchGroundHeight_simd`, `_fastInvSqrt` | `wasm-batch-math.ts` |
-| Ground | `_getUnifiedGroundHeight`, `_batchUnifiedGroundHeight` *(when built)* | `wasm-ground.ts` |
+| Ground | `_getUnifiedGroundHeight`, `_batchUnifiedGroundHeight` | `wasm-ground.ts` |
 | Physics | `_updatePhysicsCPP`, `_checkCollision`, `_batchFrustumCull_c` | `wasm-physics.ts` |
-| Foliage interact | `_batchGeyserLaunch_c`, `_batchPadForces_c`, `_batchVineInteraction_c` *(when built)* | `wasm-foliage-interact.ts` |
+| Foliage interact | `_batchGeyserLaunch_c`, `_batchPadForces_c`, `_batchVineInteraction_c` | `wasm-foliage-interact.ts` |
 | Animation batches | `_batchShiver_c`, `_batchSpring_c`, `_calcFiberWhip`, `_batchGeyserErupt_c` | `wasm-batch-animation.ts` |
-| Particles | `_updateParticlesWASM`, `_updateCpuParticlesWASM` *(new — rebuild emcc)*, `_initParticleRandom` | `wasm-particles-cpp.ts` |
+| Particles | `_updateParticlesWASM`, `_updateCpuParticlesWASM`, `_initParticleRandom` | `wasm-particles-cpp.ts` |
 | Mesh deform | `_deformMeshWave`, `_deformWave_c`, `_recomputeNormals` | `mesh_deformation_wasm.ts` |
 | Fluid | `_fluidInit`, `_fluidStep`, `_fluidAddDensity` | `wasm-batch-animation.ts` |
 | Discovery | `_initDiscoveryGrid`, `_queryDiscoveries` | `discovery-optimized.ts` |
 | ECS | `_ecsCreateEntity`, `_ecsQueryComponents` | `systems/ecs/world.ts` |
 | Bootstrap | `_startBootstrapInit`, `_getBootstrapProgress` | `bootstrap-loader.ts` |
 
-> **Note:** `exports.txt` in the repo may lag until the next local `build:emcc`. Symbols added in `build.sh` but not yet in `exports.txt` include `updateCpuParticlesWASM` and unified ground exports.
+> **CI is the source of truth** for the export inventory. Do not treat a locally stale `exports.txt` as authoritative — refresh via Tier-1 `--write` or wait for Tier-2 on main/tags.
 
 ---
 
@@ -205,7 +206,7 @@ Full policy: [`docs/archive/PERFORMANCE_MIGRATION_STRATEGY.md`](docs/archive/PER
 | `src/` JavaScript files (non-generated) | 1 stub |
 | AssemblyScript modules | 14 |
 | Emscripten C++ compile units | 19 |
-| Emscripten exported symbols (last `exports.txt`) | ~147 |
+| Emscripten exported symbols (committed `exports.txt`) | 162 |
 | WebGPU compute modules | 14 |
 | Open `migration` label issues | 0 |
 
@@ -216,7 +217,7 @@ Full policy: [`docs/archive/PERFORMANCE_MIGRATION_STRATEGY.md`](docs/archive/PER
 1. Read **this file** + [`MIGRATION_TRACKER.md`](MIGRATION_TRACKER.md) before a migration pass.
 2. Follow the **15% rule** — one hot function per PR when possible.
 3. Always ship a **JS/TS fallback** beside new C++ or AS exports.
-4. After `build:emcc`, verify new symbols appear in `emscripten/exports.txt`.
+4. After changing C++ exports, run `pnpm run verify:emcc:manifest` (or `-- --write`) so `emscripten/exports.txt` stays in sync; CI Tier-1 enforces this.
 5. Run `npm run test:wasm` after AS changes; `npm run build:ci && npm run test` for integration.
 
 *Previous snapshot archived at [`docs/archive/MIGRATION_STATUS.md`](docs/archive/MIGRATION_STATUS.md).*

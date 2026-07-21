@@ -1,21 +1,33 @@
-name: Emscripten CI
+# Tier 1 — lexical export-manifest lint (no emsdk).
+# Fast, deterministic gate for PRs that touch native / WASM-bridge code.
+# Full em++ build lives in emscripten-verify.yml (tags / nightly / dispatch).
+name: Emscripten Manifest
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'emscripten/**'
+      - 'src/utils/wasm-*.ts'
+      - 'verification/verify_emcc_exports.js'
+      - 'scripts/check-emcc-manifest.mjs'
+      - '.github/workflows/emscripten-ci.yml'
+      - 'package.json'
   push:
     branches: [main]
+    paths:
+      - 'emscripten/**'
+      - 'src/utils/wasm-*.ts'
+      - 'verification/verify_emcc_exports.js'
+      - 'scripts/check-emcc-manifest.mjs'
+      - '.github/workflows/emscripten-ci.yml'
+      - 'package.json'
 
 jobs:
-  build-and-verify:
+  manifest-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup emsdk
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: latest
 
       - uses: pnpm/action-setup@v4
         with:
@@ -29,11 +41,5 @@ jobs:
       - name: Install root deps
         run: pnpm install --frozen-lockfile
 
-      - name: Build Emscripten WASM
-        run: pnpm run build:emcc
-
-      - name: Verify Emscripten Exports
-        run: pnpm run verify:emcc --strict
-
-      - name: Check for Uncommitted Exports
-        run: git diff --exit-code emscripten/exports.txt
+      - name: Lexical export manifest lint
+        run: pnpm run verify:emcc:manifest

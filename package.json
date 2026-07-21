@@ -43,6 +43,7 @@
     "test:visual": "cd tools/visual-regression && pnpm run test:visual",
     "test:visual:typecheck": "cd tools/visual-regression && pnpm run typecheck",
     "verify:emcc": "node verification/verify_emcc_exports.js",
+    "verify:emcc:manifest": "node scripts/check-emcc-manifest.mjs",
     "generate:map": "tsx tools/map-generator/cli.ts",
     "export:map": "tsx tools/map-generator/export-current-world.ts",
     "release:tag": "node scripts/make-release.mjs",

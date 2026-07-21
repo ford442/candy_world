@@ -71,11 +71,16 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 ### 5. Rebuild + verify Emscripten export manifest
 
-**Why:** `emscripten/exports.txt` is stale vs `build.sh` (missing `updateCpuParticlesWASM`, unified ground symbols). Onboarding agents rely on accurate export lists.
+**Status:** ✅ Done — two-tier CI (#1359 / #1383) + artifact cleanup (#1349).
 
-**15% scope:** Run `build:emcc` in CI or a documented pre-release step; add `npm run verify:emcc` check that fails when `EXPECTED_EXPORTS` ⊄ `exports.txt`.
+**Why:** `emscripten/exports.txt` was drifting from `build.sh` because most agents lack `em++`.
 
-**Files:** `emscripten/build.sh`, `emscripten/verify_build.js`, `.github/workflows/*`
+**Shipped:**
+- Tier 1: `scripts/check-emcc-manifest.mjs` + `.github/workflows/emscripten-ci.yml` (path-filtered, no emsdk)
+- Tier 2: `.github/workflows/emscripten-verify.yml` (`CANDY_DEBUG=0 build:emcc` + `verify:emcc --strict` on tags / nightly / dispatch)
+- Untracked `math.o` / `*.cpp.bak`; relocated `libomp.a` → `emscripten/vendor/libomp.a`
+
+**Files:** `emscripten/build.sh`, `emscripten/exports.txt`, `scripts/check-emcc-manifest.mjs`, `.github/workflows/emscripten-*.yml`
 
 ---
 
