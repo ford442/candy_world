@@ -395,13 +395,19 @@ export async function populateProceduralExtras(
                 obj.rotation.y = Math.random() * Math.PI * 2;
                 const normalizedExportType = normalizeMapEntityType(exportType ?? obj.userData?.type ?? '');
                 obj.userData.mapEntityType = normalizedExportType;
+                let hasParams = false;
+                for (const _ in exportParams) {
+                    hasParams = true;
+                    break;
+                }
+
                 obj.userData.mapExport = {
                     type: normalizedExportType,
                     provenance: 'procedural-extra',
                     variant: exportVariant,
                     hasFace: exportHasFace,
                     placement: normalizedExportType === 'cloud' ? 'absolute' : 'ground',
-                    params: Object.keys(exportParams).length > 0 ? exportParams : undefined
+                    params: hasParams ? exportParams : undefined
                 };
                 const placed = safeAddFoliage(obj, isObstacle, radius, weatherSystem);
                  if (!placed) {

@@ -265,4 +265,130 @@ void batchFadeColors_c(
     }
 }
 
+
+// =============================================================================
+// MATRIX COMPOSITION
+// =============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void batchComposeMatrices_c(
+    float* positions,   // [x, y, z, ...]
+    float* quaternions, // [x, y, z, w, ...]
+    float* scales,      // [x, y, z, ...] (or scalar if size is 1 per instance, but let's assume vec3 for generality)
+    float* matrices,    // [m00...m33, ...] (16 floats per instance)
+    int count
+) {
+    #pragma omp parallel for schedule(static) if(count > 100)
+    for (int i = 0; i < count; i++) {
+        int v3_idx = i * 3;
+        int q_idx = i * 4;
+        int m_idx = i * 16;
+
+        float px = positions[v3_idx];
+        float py = positions[v3_idx + 1];
+        float pz = positions[v3_idx + 2];
+
+        float qx = quaternions[q_idx];
+        float qy = quaternions[q_idx + 1];
+        float qz = quaternions[q_idx + 2];
+        float qw = quaternions[q_idx + 3];
+
+        float sx = scales[v3_idx];
+        float sy = scales[v3_idx + 1];
+        float sz = scales[v3_idx + 2];
+
+        float x2 = qx + qx;
+        float y2 = qy + qy;
+        float z2 = qz + qz;
+        float xx = qx * x2;
+        float xy = qx * y2;
+        float xz = qx * z2;
+        float yy = qy * y2;
+        float yz = qy * z2;
+        float zz = qz * z2;
+        float wx = qw * x2;
+        float wy = qw * y2;
+        float wz = qw * z2;
+
+        matrices[m_idx + 0] = (1.0f - (yy + zz)) * sx;
+        matrices[m_idx + 1] = (xy + wz) * sx;
+        matrices[m_idx + 2] = (xz - wy) * sx;
+        matrices[m_idx + 3] = 0.0f;
+
+        matrices[m_idx + 4] = (xy - wz) * sy;
+        matrices[m_idx + 5] = (1.0f - (xx + zz)) * sy;
+        matrices[m_idx + 6] = (yz + wx) * sy;
+        matrices[m_idx + 7] = 0.0f;
+
+        matrices[m_idx + 8] = (xz + wy) * sz;
+        matrices[m_idx + 9] = (yz - wx) * sz;
+        matrices[m_idx + 10] = (1.0f - (xx + yy)) * sz;
+        matrices[m_idx + 11] = 0.0f;
+
+        matrices[m_idx + 12] = px;
+        matrices[m_idx + 13] = py;
+        matrices[m_idx + 14] = pz;
+        matrices[m_idx + 15] = 1.0f;
+    }
+}
+
+// =============================================================================
+// TEST / PARITY EXPORTS (#1351)
+// =============================================================================
+
+/**
+ * Write instance RGB colors with uniform intensity scale.
+ * Parity with assembly/batch.ts batchWriteInstanceColors and TS reference.
+ */
+EMSCRIPTEN_KEEPALIVE
+void batchWriteInstanceColors_c(
+    float* colorsIn,
+    float* colorsOut,
+    int count,
+    float intensity
+) {
+    for (int i = 0; i < count; i++) {
+        int o = i * 3;
+        colorsOut[o]     = colorsIn[o] * intensity;
+        colorsOut[o + 1] = colorsIn[o + 1] * intensity;
+        colorsOut[o + 2] = colorsIn[o + 2] * intensity;
+    }
+}
+
+/**
+ * Accumulate arpeggio_grove shimmer + hueShift volumes.
+ * Parity with assembly/music_reactivity.ts accumulateArpeggioChannels.
+ * volumes: packed [shimmer..., hueShift...] ; out: [shimmer, hueShift]
+ */
+EMSCRIPTEN_KEEPALIVE
+void accumulateArpeggioChannels_c(
+    float* volumes,
+    int shimmerCount,
+    int hueShiftCount,
+    float nightGate,
+    float intensityScale,
+    float* out
+) {
+    float shimmerAccum = 0.0f;
+    for (int i = 0; i < shimmerCount; i++) {
+        shimmerAccum += volumes[i];
+    }
+
+    float hueShiftAccum = 0.0f;
+    int end = shimmerCount + hueShiftCount;
+    for (int i = shimmerCount; i < end; i++) {
+        hueShiftAccum += volumes[i];
+    }
+
+    float shimmerDiv = shimmerCount > 1 ? (float)shimmerCount : 1.0f;
+    float shimmerVal = shimmerAccum / shimmerDiv;
+    if (shimmerVal > 1.0f) shimmerVal = 1.0f;
+    out[0] = shimmerVal * nightGate * intensityScale;
+
+    float hueShiftDiv = hueShiftCount > 1 ? (float)hueShiftCount : 1.0f;
+    float hueShiftVal = hueShiftAccum / hueShiftDiv;
+    if (hueShiftVal > 1.0f) hueShiftVal = 1.0f;
+    out[1] = hueShiftVal * nightGate * intensityScale;
+}
+
 } // extern "C"

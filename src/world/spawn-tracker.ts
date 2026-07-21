@@ -67,14 +67,22 @@ class SpawnTracker {
     }
 
     getReport(): WorldPopulationReport {
+        const byType: Record<string, SpawnTypeStats> = {};
+        for (const type in this.report.byType) {
+            byType[type] = { ...this.report.byType[type] };
+        }
+
+        const errors: SpawnFailureEntry[] = [];
+        for (let i = 0; i < this.report.errors.length; i++) {
+            errors.push({ ...this.report.errors[i] });
+        }
+
         return {
             attemptCount: this.report.attemptCount,
             successCount: this.report.successCount,
             failCount: this.report.failCount,
-            byType: Object.fromEntries(
-                Object.entries(this.report.byType).map(([type, stats]) => [type, { ...stats }])
-            ),
-            errors: this.report.errors.map(entry => ({ ...entry })),
+            byType,
+            errors,
         };
     }
 
@@ -221,7 +229,7 @@ export function reset(): void {
     attempted = 0;
     succeeded = 0;
     failed = 0;
-    for (const k of Object.keys(failuresByType)) delete failuresByType[k];
+    for (const k in failuresByType) delete failuresByType[k];
     lastErrors.length = 0;
     lastReport = null;
     dirty = true;

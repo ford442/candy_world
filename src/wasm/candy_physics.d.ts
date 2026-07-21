@@ -995,6 +995,23 @@ export declare function batchSphereCull(positionsPtr: number, count: number, cam
  */
 export declare function batchLerp(ptr: number, count: number): void;
 /**
+ * assembly/batch/batchComposeMatrices
+ * @param positionsPtr `usize`
+ * @param quaternionsPtr `usize`
+ * @param scalesPtr `usize`
+ * @param matricesPtr `usize`
+ * @param count `i32`
+ */
+export declare function batchComposeMatrices(positionsPtr: number, quaternionsPtr: number, scalesPtr: number, matricesPtr: number, count: number): void;
+/**
+ * assembly/batch/batchWriteInstanceColors
+ * @param colorsInPtr `usize`
+ * @param colorsOutPtr `usize`
+ * @param count `i32`
+ * @param intensity `f32`
+ */
+export declare function batchWriteInstanceColors(colorsInPtr: number, colorsOutPtr: number, count: number, intensity: number): void;
+/**
  * assembly/foliage/computeSway
  * @param count `i32`
  * @param time `f32`
@@ -1159,3 +1176,13 @@ export declare function ecs_getComponent(entity: number, componentName: string):
  * @returns `bool`
  */
 export declare function ecs_hasComponent(entity: number, componentName: string): boolean;
+/**
+ * assembly/music_reactivity/accumulateArpeggioChannels
+ * @param volumesPtr `usize`
+ * @param shimmerCount `i32`
+ * @param hueShiftCount `i32`
+ * @param nightGate `f32`
+ * @param intensityScale `f32`
+ * @param outPtr `usize`
+ */
+export declare function accumulateArpeggioChannels(volumesPtr: number, shimmerCount: number, hueShiftCount: number, nightGate: number, intensityScale: number, outPtr: number): void;

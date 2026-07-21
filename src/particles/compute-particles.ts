@@ -174,12 +174,12 @@ export class ComputeParticleSystem {
             // Use 4 components (vec4) for vec3 data so the underlying GPU buffer is
             // 16-byte-aligned per element, matching WGSL storage buffer requirements.
             // The 4th component is unused padding.
-            position: new StorageBufferAttribute(count, 4),
-            velocity: new StorageBufferAttribute(count, 4),
-            life: new StorageBufferAttribute(count, 1),
-            size: new StorageBufferAttribute(count, 1),
-            color: new StorageBufferAttribute(count, 4),
-            seed: new StorageBufferAttribute(count, 1)
+            position: new StorageBufferAttribute(new Float32Array(count * 4), 4) as any,
+            velocity: new StorageBufferAttribute(new Float32Array(count * 4), 4) as any,
+            life: new StorageBufferAttribute(new Float32Array(count), 1) as any,
+            size: new StorageBufferAttribute(new Float32Array(count), 1) as any,
+            color: new StorageBufferAttribute(new Float32Array(count * 4), 4) as any,
+            seed: new StorageBufferAttribute(new Float32Array(count), 1) as any
         };
     }
 
@@ -304,7 +304,7 @@ export class ComputeParticleSystem {
         material.colorNode = this.getColorNode();
         const sizeNode = this.getSizeNode();
         if (sizeNode) {
-            material.sizeNode = sizeNode;
+            (material as any).sizeNode = sizeNode;
         }
         material.opacityNode = this.getOpacityNode();
         
@@ -938,7 +938,7 @@ export function updateAllComputeSystems(
 ): void {
     // ⚡ OPTIMIZATION: Bypassed Object.entries() to eliminate array allocations and GC spikes in hot update loop.
     for (const type in activeSystems) {
-        const system = activeSystems[type];
+        const system = (activeSystems as any)[type];
         if (system) {
             system.update(renderer, deltaTime, playerPosition, audioData);
         }
@@ -948,7 +948,7 @@ export function updateAllComputeSystems(
 export function disposeAllComputeSystems(): void {
     // ⚡ OPTIMIZATION: Bypassed Object.entries() to eliminate array allocations and GC spikes during cleanup.
     for (const type in activeSystems) {
-        const system = activeSystems[type];
+        const system = (activeSystems as any)[type];
         if (system) {
             system.dispose();
         }

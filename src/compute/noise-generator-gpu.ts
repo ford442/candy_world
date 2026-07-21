@@ -166,7 +166,7 @@ export class NoiseGeneratorGPU {
             this.cpuFallback.generate();
             // Access internal data via createTexture and extract
             const tex = this.cpuFallback.createTexture();
-            return tex.image.data as Float32Array;
+            return (tex.image.data as any) as Float32Array;
         }
 
         this.writeUniforms(time);
@@ -234,7 +234,7 @@ export class NoiseGeneratorGPU {
         const data = await this.generate(time);
 
         const texture = new THREE.DataTexture(
-            data,
+            data as any,
             this.width,
             this.height,
             THREE.RGBAFormat,

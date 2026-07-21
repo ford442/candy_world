@@ -1,22 +1,27 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-07-14 — Foundation cluster: TypeScript typecheck gate + error-count ratchet (#1347), burning down the two
-highest-value clusters — the half-migrated `music-reactivity.ts` barrel (#1350, ~31 errors) and the stale
-`createSubwooferLotus` import (#1357), plus `game-loop.ts` sun/moon null-safety.**
+**2026-07-21 — Migration safety net: #1351 Cross-tier parity harness (JS↔AS↔C++ golden vectors),
+retroactively covering the two migration slices that just landed WITHOUT it — #1358 native batcher
+matrix/color compose (`_batchComposeMatrices_c`, #1411) and #1364 arpeggio_grove channel accumulator (#1415).**
 
-Rationale: On 2026-07-12 Noah filed a 19-issue in-context batch that reorganizes the whole roadmap. The issues
-themselves declare a dependency order — **foundation (#1347 typecheck ratchet, #1350 barrel fix) must land before**
-the migration slices (#1351/#1358/#1359/#1364) and the content arc (#1352/#1353/#1354/#1355/#1356/#1362/#1363/#1365).
-A clean `tsc --noEmit` currently reports ~587 errors; nothing gates them, so every refactor risks adding more
-invisibly. Establishing the gate + ratchet and knocking down the two concrete bug clusters is the single
-highest-leverage move that unblocks the rest of Noah's fresh backlog.
+Rationale: Last week's Foundation cluster landed clean — `tsc --noEmit` ratchet baseline is now **3 errors**
+(down from 587), `typecheck.yml` + `emscripten-ci.yml` are wired, `game-loop.ts` split into 8 tick-phase
+modules (#1360/#1405), release tag `2026-07-14-stable-v2` cut. The self-sequenced roadmap (Foundation →
+Migration → Content) has therefore advanced into **Migration** — and the frontier ran ahead of its safety
+net. `MIGRATION_TRACKER.md` explicitly recommends **#1351 parity harness "before widening batcher ports,"**
+yet #1358 and #1364 both shipped native hot paths (with silent JS/AS fallbacks) and **no golden-vector test
+guards cross-tier drift**. Building #1351 now is the highest-leverage Migration move: it hardens what already
+shipped and unblocks safely widening the matrix-compose port to mushroom/portamento/wisteria batchers.
 
-**Not Fix First:** last week's grounding cluster landed green (`build:ci`, `test:wasm`, WebGL smoke all pass per
-`.swarm-state.md`); the tsc errors are pre-existing debt, not a last-week regression. This is User Idea mode.
+**Not Fix First:** main is green (ratchet at 3, tree clean, branch in sync with origin/main). The missing
+parity harness is a planned-but-unbuilt safety net, not a last-week regression. This is **User Idea mode** —
+#1351 is an unfinished item from Noah's 2026-07-12 in-context batch, now more urgent than when filed.
 
-**Scope of the swarm:** land the typecheck gate + ratchet infra, drive the baseline down by fixing #1350 and #1357
-and the game-loop null-safety, and leave `tsc --noEmit` at a strictly lower committed baseline with CI enforcing it.
+**Scope of the swarm:** golden-vector fixtures + a `test:parity` runner that drives the same inputs through the
+TS reference path and the native (AS + C++) path and asserts bit-tolerant equality for (a) instance
+matrix/color compose (#1358) and (b) arpeggio_grove channel accumulation (#1364). Touch `tests/`, `assembly/`,
+`emscripten/`, and the `wasm-batch-math.ts` / `wasm-music-reactivity.ts` wrappers only.
 
 ## Ideas
 <!--
@@ -56,20 +61,20 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 **User idea pool — GitHub issues filed 2026-07-12 (Noah's FRESHEST in-context batch, 19 issues — primary source this phase). The issues self-sequence: land Foundation before Migration before Content.**
 
-*Foundation / tech-debt (prerequisites — land first):*
-- [ ] **#1347 Enforce TS typecheck in CI + error-count ratchet** — `tsc --noEmit` (~587 errors today) never gates anything; add `typecheck` script, CI job, `scripts/tsc-ratchet.mjs` baseline that can only lower. `[in progress — 2026-07-14]` ← today's focus
-- [ ] **#1350 Fix music-reactivity.ts barrel** — half-migrated split; line-1 import conflicts with local re-declarations (`ActiveWave`, `applyMapMusicContext`, `syncMapMusicContext`, `toChannels`, `_frustum`) + missing `-core` exports → ~31 tsc errors. `[in progress — 2026-07-14]` ← bundled into today's focus
-- [ ] **#1357 Remove stale `createSubwooferLotus` import from `foliage-registry.ts`** — dead symbol (replaced by `SubwooferLotusBatcher`) → TS2305. `[in progress — 2026-07-14]` ← bundled into today's focus
-- [ ] **#1348 ESLint + build-stripped logger** — no lint tooling; ~658 raw `console.*`, ~623 `any`. Warn-heavy config + `src/utils/log.ts`.
-- [x] **#1349 Untrack build artifacts** (`libomp.a`, `math.o`, `*.cpp.bak`) + gitignore. ← Copilot prep target today (folded into #1359).
-- [x] **#1360 Split `game-loop.ts`** (1,028 lines) into tick-phase modules. Sequence after #1350/#1347.
-- [ ] **#1361 Break up 796 KB `app` chunk** — lazy-load gameplay/save-UI/world-content; break foliage↔music-reactivity circular imports.
+*Foundation / tech-debt (prerequisites — land first):* — **CLUSTER LANDED 2026-07-14 (#1388/#1397/#1393/#1405)**
+- [x] **#1347 Enforce TS typecheck in CI + error-count ratchet** — LANDED (#1388). `typecheck` script + `scripts/tsc-ratchet.mjs` + `typecheck.yml`; baseline now **3 errors** (from 587).
+- [x] **#1350 Fix music-reactivity.ts barrel** — LANDED (#1388/#1397). Barrel re-declaration conflicts + missing `-core` exports resolved.
+- [x] **#1357 Remove stale `createSubwooferLotus` import** — LANDED (#1388).
+- [ ] **#1348 ESLint + build-stripped logger** — no lint tooling; ~658 raw `console.*`, ~623 `any`. Warn-heavy config + `src/utils/log.ts`. Next foundation item after chunk split.
+- [x] **#1349 Untrack build artifacts** (`libomp.a`, `math.o`, `*.cpp.bak`) + gitignore. (folded into emscripten CI, #1393/#1359).
+- [x] **#1360 Split `game-loop.ts`** (1,028 lines) into tick-phase modules. LANDED 8-module split (#1405). *GitHub issue still OPEN — close.*
+- [ ] **#1361 Break up 796 KB `app` chunk** — lazy-load gameplay/save-UI/world-content; break foliage↔music-reactivity circular imports. ← Copilot-adjacent candidate.
 
 *Migration slices (15%-rule, after foundation):*
-- [ ] **#1351 Cross-tier parity harness** (JS↔AS↔C++ golden vectors) — recommended before widening batcher ports.
-- [ ] **#1358 Batcher instance matrix/color → C++ SIMD** (arpeggio-batcher first). Depends on #1351.
-- [x] **#1359 Emscripten build + export-manifest verification CI.** ← Copilot prep target today (decoupled from kimi-cli TS work).
-- [ ] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice). Depends on #1350 split.
+- [ ] **#1351 Cross-tier parity harness** (JS↔AS↔C++ golden vectors) — recommended before widening batcher ports. `[in progress — 2026-07-21]` ← today's focus. **NOW OVERDUE:** #1358 + #1364 shipped native paths without it.
+- [x] **#1358 Batcher instance matrix/color → C++ batch** (arpeggio + tree) — LANDED (#1411, `_batchComposeMatrices_c`) per MIGRATION_TRACKER slice 1 = ✅. Shipped ahead of the #1351 harness — now guarded retroactively. *GitHub issue still OPEN — close.*
+- [x] **#1359 Emscripten build + export-manifest verification CI.** LANDED (#1393, `emscripten-ci.yml`). Superseded expansion #1383 still OPEN (two-tier lexical-lint refinement).
+- [x] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice) — LANDED (#1415, AS batch). *GitHub issue still OPEN — close.*
 
 *Content / world-building (capstones, after foundation):*
 - [x] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path.
@@ -83,7 +88,10 @@ Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
 - [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable. `[landed — 2026-07-14]`
-- [ ] **TS-error baseline (feeds #1347)** — `tsc --noEmit` ≈ 587 errors as of 2026-07-12 (per #1347). Top offenders: `asset-streaming-core.ts` (59), `wasm-batch-math.ts` (54), `material-core.ts` (48), `accessibility-menu-rendering.ts` (40), `music-reactivity.ts` (31). No `typecheck`/`lint` script and no typecheck CI job confirmed present in repo (only `budget-check.yml` + `visual-regression.yml`). Today's swarm establishes the gate + ratchet and lowers this.
+- [x] **TS-error baseline (feeds #1347)** — RESOLVED 2026-07-14. `scripts/tsc-ratchet.mjs` + `scripts/tsc-baseline.json` now committed; baseline crushed from 587 → **3 errors**, `typecheck.yml` enforces the ratchet in CI. Remaining 3 are the committed floor; keep ratcheting opportunistically.
+- [ ] **Issue hygiene: close landed-but-open issues** — #1358, #1360, #1364 all LANDED on main but their GitHub issues are still OPEN. Verify + close with `state_reason: completed`. #1359 landed (emscripten CI) — decide whether #1383 (two-tier refinement) supersedes and close/relabel accordingly.
+- [ ] **Circadian PR reconciliation (#1362)** — 3 open Jules draft PRs (#1413 mushroom/luminous global `uCircadianPhase`, #1414 `uCircadianPoseOffset` droop across all batchers, #1416 portamento standardized deformation) all layer on merged #1394/#1400. Review together; merging >1 risks double-applied night droop. Pick the canonical droop path, close/rebase the rest, then close #1362.
+- [ ] **Workflows present** — CI now has `budget-check.yml`, `emscripten-ci.yml`, `typecheck.yml`, `visual-regression.yml`. Still no unit/lint CI beyond the ratchet; #1348 (ESLint) is the next foundation gap.
 - [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable.
 - [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks.
 - [ ] **#1136 — Consolidate duplicated `LoadingScreen` class** (`loading-screen.ts` vs `loading-screen-ui.ts`) — leftover from loading cluster; .swarm-state noted a duplicate-declaration build blocker was patched, not consolidated. Small decoupled refactor — good future Copilot candidate.
@@ -104,6 +112,7 @@ Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
 - [x] **2026-07-21** CIRCADIAN DAY/NIGHT FOR BATCHERS (#1362) — Wired mushroom-batcher and luminous-plant-batcher via global uCircadianPhase (emissive dim by day, bright by night). Ensured circadianController.setDayTarget() is properly called in game-loop-visuals.ts and delta is passed instead of gameTime.
+- [x] **2026-07-14** 🧱 FOUNDATION CLUSTER LANDED — TS typecheck gate + ratchet (#1347, #1388): `scripts/tsc-ratchet.mjs` + `scripts/tsc-baseline.json` + `typecheck.yml`; baseline driven 587 → **3 errors**. music-reactivity.ts barrel fixed (#1350) + stale `createSubwooferLotus` import removed (#1357) + game-loop sun/moon null-safety (#1397). Copilot prep shipped: Emscripten build + export verification CI `emscripten-ci.yml` (#1359/#1393), folding in build-artifact untracking (#1349). Whole-stack: release tag `2026-07-14-stable-v2` cut (#1134 tooling, #1387). Downstream wave the same week: `game-loop.ts` split into 8 tick-phase modules (#1360/#1405), circadian day/night base (#1362/#1394), native batcher matrix compose `_batchComposeMatrices_c` (#1358/#1411), arpeggio_grove accumulator → AS (#1364/#1415).
 - [x] **2026-07-07** ⛰️ GROUNDING CLUSTER — SLOPE ALIGNMENT + FOOTPRINT SAMPLING (#1302 / #1310) — per `.swarm-state.md` iteration 2: added `registerGroundNormalData` / `sampleGroundNormal` (baked-normal + finite-diff fallback) / `sampleGroundFootprint` to `ground-system.ts`; `SLOPE_ALIGN_TYPES`, `getGroundAlignedQuaternion`, footprint/slope-aware `plantOnSurface()` in `placement-utils.ts`; tree/arpeggio/luminous/portamento batchers compose the aligned quaternion; `?debugHeights=1` overlay now draws footprint ring + normal arrow. Slope capped at 45°; footprint uses lowest contact point. Build/WASM/smoke (WebGPU + WebGL) all green.
 - [x] **2026-07-06** 📸 SPATIAL-COHERENCE VISUAL REGRESSION VIEWPOINTS (#1311) — Added `slope_foot`, `lake_edge`, `horizon_lod`, and `gem_corridor_scale` viewpoints to `tools/visual-regression`; updated workflow to WebGL path; fixed ESM `require('crypto')` in `baseline-manager.ts`; captured 8 local baselines. Build/test green: `npm run build:ci`, `npm run test:wasm`, visual-regression `--update` run succeeds.
 - [x] **2026-07-06** 🌱 PER-ENTITY BASE OFFSETS (#1303) — Populated `ENTITY_BASE_OFFSETS` in `src/world/placement-utils.ts` with all major ground-placed entity types; refactored `src/world/generation-decorators.ts` standalone placement loops to use `plantOnSurface()`; extended `src/debug/ground-debug.ts` with `registerPlantedInstance()` and green base-contact rings for `?debugHeights=1`. Build/test green: `npm run build:ci`, `npm run test:wasm`, `npm run test`, `RENDERER=webgl npm run test`.
@@ -146,6 +155,12 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
+Date: 2026-07-21
+Mode: USER IDEA — no Fix First trigger. Last week's Foundation cluster landed clean and GREEN: ratchet baseline crushed 587 → **3 errors**, `typecheck.yml` + `emscripten-ci.yml` wired, game-loop split (#1405), `2026-07-14-stable-v2` tag cut. Main is in sync with the working branch, tree clean. The self-sequenced roadmap has advanced into Migration — and the frontier (#1358 native matrix compose #1411, #1364 arpeggio accumulator #1415) shipped **without** its recommended #1351 parity harness. Picked #1351 as the freshest still-unfinished in-context idea, now more urgent than when filed.
+Focus: **#1351 Cross-tier parity harness (JS↔AS↔C++ golden vectors)** — retroactively guard the two just-landed native paths (#1358 matrix/color compose, #1364 channel accumulation) with `test:parity` golden-vector equality, then unblock widening the port. kimi-cli main event = build fixtures + runner + wire both slices. Copilot prep (decoupled, zero file overlap): **#1365 in-world `?debugPlace` map placement editor** (content-authoring gizmo, unblocks #1363 Sky Islands). Claude Code whole-stack: full `npm run build` → `verify:emcc` → `deploy.py` dry-run → cut a fresh `2026-07-21-stable` release tag over the post-foundation wave.
+Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Context gap: No `recent_chats` / `conversation_search` in this headless run (confirmed — ToolSearch surfaces neither). Prior-session reconstruction from git history, 9 open GitHub issues, 3 open Jules draft PRs, `weekly_plan.md`, `.swarm-state.md` (stale — still shows the 2026-07-06 grounding cluster, not last week's foundation work), `MIGRATION_TRACKER.md`, and `scripts/tsc-baseline.json`. Could not run `tsc`/build locally (no `node_modules`) or verify live-site behaviour. Flagged: #1358/#1360/#1364 landed but issues still OPEN; #1362 fragmented across 3 competing draft PRs.
+
 Date: 2026-07-14
 Mode: USER IDEA — no Fix First trigger (last week's grounding cluster landed green per `.swarm-state.md`; the ~587 tsc errors are pre-existing debt, not a last-week regression). Noah filed a 19-issue in-context batch on 2026-07-12 that reorganizes the roadmap and self-sequences Foundation → Migration → Content. Picked the freshest, highest-leverage foundation item that unblocks everything else.
 Focus: **#1347 TS typecheck gate + error-count ratchet**, bundling the two concrete bug clusters it names — **#1350** (half-migrated `music-reactivity.ts` barrel, ~31 errors) and **#1357** (stale `createSubwooferLotus` import) — plus `game-loop.ts` sun/moon null-safety. kimi-cli main event = build the gate/ratchet infra + burn down the baseline. Copilot prep (decoupled from all TS-typecheck/music-reactivity/game-loop files): **#1359 Emscripten build + export-manifest verification CI**, folding in **#1349** artifact untracking. Claude Code whole-stack: full `npm run build` → `deploy.py` dry-run → cut the first known-good release tag (#1134 tooling exists).

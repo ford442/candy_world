@@ -106,7 +106,11 @@ export function validateWorldPopulation(mode: string = 'UNKNOWN'): WorldHealthRe
             : null;
         if (telem) {
             batcherTotal = telem.totalInstances;
-            batcherEntries = telem.entries.map(e => ({ id: e.id, label: e.label, instances: e.instances }));
+            const entriesLen = telem.entries.length;
+            for (let i = 0; i < entriesLen; i++) {
+                const e = telem.entries[i];
+                batcherEntries.push({ id: e.id, label: e.label, instances: e.instances });
+            }
         }
     } catch { /* telemetry not available — non-fatal */ }
 
@@ -116,7 +120,12 @@ export function validateWorldPopulation(mode: string = 'UNKNOWN'): WorldHealthRe
     if (spawn.failed > 0) {
         const rate = spawn.attempted > 0 ? spawn.failed / spawn.attempted : 0;
         const pct = (rate * 100).toFixed(1);
-        warnings.push(`${spawn.failed} spawn failure(s) (${pct}% of ${spawn.attempted} attempted). Types: ${Object.entries(spawn.failuresByType).map(([k, v]) => `${k}:${v}`).join(', ')}`);
+        let typesStr = '';
+        for (const k in spawn.failuresByType) {
+            if (typesStr.length > 0) typesStr += ', ';
+            typesStr += `${k}:${spawn.failuresByType[k]}`;
+        }
+        warnings.push(`${spawn.failed} spawn failure(s) (${pct}% of ${spawn.attempted} attempted). Types: ${typesStr}`);
     }
 
     // 2. Under-count checks (only meaningful in FULL mode)
