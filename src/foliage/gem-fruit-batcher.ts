@@ -17,7 +17,7 @@ import {
 } from './material-core.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
-import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId } from '../systems/biome-uniforms.ts';
+import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { sampleEntityScale } from '../world/entity-scale.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import type { BatcherInstanceRef } from '../systems/awakened-persistence.ts';
@@ -78,9 +78,10 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
     const twist = sin(uTime.mul(4.0).add(aPhase.mul(2.0))).mul(gemUniforms.hueShift).mul(0.12).mul(normH);
 
     const swayed = positionLocal.add(vec3(swayX, float(0.0), swayZ));
+    const circadianDroop = float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y);
     const twisted = vec3(
         swayed.x.mul(cos(twist)).sub(swayed.z.mul(sin(twist))),
-        swayed.y,
+        swayed.y.add(circadianDroop),
         swayed.x.mul(sin(twist)).add(swayed.z.mul(cos(twist)))
     );
     // Pendulum + wind: calculateWindSway gives the broad atmospheric drift.

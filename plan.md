@@ -39,7 +39,9 @@ Next Step: Provide instructions for next feature.
 Next Step: Provide instructions for next feature.
 * Implementation Details: Replaced uniform channel intensity logic with wave-swept geographic distance updates. Introduced `ActiveWave` and `computeWaveTimeSinceArrival` in `music-reactivity.ts`. Updated `PlantPoseMachine.update` to perform zero-allocation per-instance wave delay calculations based on their distance from the propagating wave. Modified `flowerBatcher`, `portamentoBatcher`, and `arpeggioBatcher` to pass zero-allocation getters referencing their internal `instanceMatrix.array` values directly to calculate localized bloom times.
 
-Next Step: Review and continue clearing remaining items from `weekly_plan.md` or `REFACTORING_PLAN_REMAINING.md`.
+Status: Implemented ✅
+* Implementation Details: **#1362 Circadian day/night across all instanced batchers**. Extended the PlantPoseMachine usage in simple-flower-batcher, flower-batcher, arpeggio-batcher and verified portamento-batcher already acts upon dayNightBias. For static batchers like mushroom-batcher, tree-batcher, luminous-plant-batcher, gem-fruit-batcher, subwoofer-lotus-batcher, and kick-drum-geyser-batcher, utilized the uCircadianPoseOffset to compose a negative Y-axis droop inside the standard TSL deformation graph to properly simulate a night rest pose uniformly governed by the core game loop's circadian controller.
+Next Step: Propose moving to #1361 (Chunk optimization) or #1351 (Cross-tier parity harness).
 
 Status: Implemented ✅
 * Implementation Details: Audited remaining batchers (`wisteria-cluster.ts`, `glowing-flower-batcher.ts`, `dandelion-batcher.ts`, `arpeggio-batcher.ts`, `waterfall-batcher.ts`) for VRAM leaks. Introduced `_cachedMergedGeo` and `_cachedHitGeo` singletons in `createWisteriaCluster` to eliminate per-call geometry instantiation leaks. Added fully robust `dispose()` methods to all other tracked batchers to properly clean up `mesh.geometry`, `mesh.material`, and custom attributes like `mesh.instanceColor`. Marked task as complete in `weekly_plan.md`.
@@ -221,6 +223,8 @@ Status: Implemented ✅
 
 Next Step: Propose next uncompleted item from the roadmap.
 
+
 Status: Implemented ✅
-* Implementation Details: Wired `mushroom-batcher` and `luminous-plant-batcher` via global `uCircadianPhase` / `uCircadianPoseOffset` (emissive dim by day, bright by night) per #1362. Ensured `circadianController.setDayTarget()` is properly called in `game-loop-visuals.ts` and `delta` is passed instead of `gameTime`.
-Next Step: Sky Islands Biome (#1363) or app-chunk split (#1361).
+* Implementation Details: Replaced legacy `getUnifiedGroundHeight` and `getUnifiedGroundHeightTyped` with the centralized `getAuthoritativeGroundHeight` across generators, batchers, and physics loops. Migrated all hardcoded decorator placement offsets to use `computePlacementY` and `plantOnSurface` to ensure batcher-placed instances are perfectly grounded according to their `ENTITY_BASE_OFFSETS`. Wired `reconcileGroundedEyeY` in the player fallback loop so the first-person camera smoothly tracks terrain height and platform limits without snapping or drift.
+
+Next Step: Ask the user for the next task.

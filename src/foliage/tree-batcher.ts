@@ -28,7 +28,7 @@ import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
 import { createSugarSparkle } from './index.ts';
 import { uTwilight } from './sky.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { CONFIG } from '../core/config.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 import {
@@ -148,9 +148,10 @@ export class TreeBatcher {
         );
         const trunkColor = applyAerialPerspective(trunkColorGrounded, positionWorld, aerialPerspectiveLodBoost());
 
-        // Combined Deformation: Interaction + Wind
+        // Combined Deformation: Interaction + Wind + Circadian
         const animOffsetTrunk = applyInstanceAnimation();
-        const baseTrunkPos = positionLocal.add(animOffsetTrunk);
+        const circadianDroopTrunk = vec3(0, float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        const baseTrunkPos = positionLocal.add(animOffsetTrunk).add(circadianDroopTrunk);
         const trunkDeform = foliageDeformationOffset(baseTrunkPos);
 
         // Create Material using CandyPresets.Clay for nice bump/rim
@@ -204,7 +205,8 @@ export class TreeBatcher {
         );
 
         const animOffsetSphere = applyInstanceAnimation();
-        const baseSpherePos = positionLocal.add(animOffsetSphere);
+        const circadianDroopSphere = vec3(0, float(-1.0).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        const baseSpherePos = positionLocal.add(animOffsetSphere).add(circadianDroopSphere);
         const sphereBaseDeform = foliageDeformationOffset(baseSpherePos);
         const flutterWeight = lodHeroGate().add(lodMidOnlyGate().mul(0.25));
         const sphereFluttered = sphereBaseDeform.add(flutterOffset.mul(flutterWeight));
@@ -272,7 +274,8 @@ export class TreeBatcher {
             aerialPerspectiveLodBoost(),
         );
         const animOffsetCapsule = applyInstanceAnimation();
-        const baseCapsulePos = positionLocal.add(animOffsetCapsule);
+        const circadianDroopCapsule = vec3(0, float(-1.0).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        const baseCapsulePos = positionLocal.add(animOffsetCapsule).add(circadianDroopCapsule);
         const capsuleDeform = foliageDeformationOffset(baseCapsulePos);
 
         const capsuleMat = CandyPresets.Clay(0x8B4513, {
@@ -310,7 +313,8 @@ export class TreeBatcher {
 
         const spiralPos = vec3(cos(angle).mul(radius), t, sin(angle).mul(radius));
         const animOffsetHelix = applyInstanceAnimation();
-        const baseHelixPos = spiralPos.add(animOffsetHelix);
+        const circadianDroopHelix = vec3(0, float(-1.0).mul(uCircadianPoseOffset).mul(t), 0);
+        const baseHelixPos = spiralPos.add(animOffsetHelix).add(circadianDroopHelix);
         const helixDeform = foliageDeformationOffset(baseHelixPos, undefined, spiralPos);
 
         // Emissive Pulse (Scrolling light)
@@ -354,7 +358,8 @@ export class TreeBatcher {
             aerialPerspectiveLodBoost(),
         );
         const animOffsetRose = applyInstanceAnimation();
-        const baseRosePos = positionLocal.add(animOffsetRose);
+        const circadianDroopRose = vec3(0, float(-1.0).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        const baseRosePos = positionLocal.add(animOffsetRose).add(circadianDroopRose);
         const roseDeform = foliageDeformationOffset(baseRosePos);
 
         // Use Sugar preset for crystalline/sparkly look

@@ -15,6 +15,7 @@ import {
 } from 'three/tsl';
 import { BiomeId } from '../systems/biome-uniforms.ts';
 import { computeWaveDistSq } from '../systems/music-reactivity.ts';
+import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts';
 import { computeWaveTimeSinceArrival } from '../systems/music-reactivity-core.ts';
 
@@ -94,7 +95,8 @@ export class KickDrumGeyserBatcher {
         );
 
         // 🎨 PALETTE: Add wind sway and player interaction to the geyser plumes
-        plumeMat.positionNode = applyStandardDeformation(plumePos);
+        const circadianDroop = vec3(0, float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        plumeMat.positionNode = applyStandardDeformation(plumePos.add(circadianDroop));
         plumeMat.colorNode = vec4(color(0xFF4500), float(0.8));
 
         this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, MAX_GEYSERS);

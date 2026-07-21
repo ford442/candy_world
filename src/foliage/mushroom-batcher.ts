@@ -28,6 +28,7 @@ import {
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
+import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
@@ -535,6 +536,7 @@ export class MushroomBatcher {
             const squashScale = calculatePlayerSquash();
             const breathScale = calculateIdleBreathing();
             const wobble = calculateJellyWobble(pos);
+            const circadianDroop = float(-0.5).mul(uCircadianPoseOffset).mul(pos.y);
 
             // Combine scales (Multiplicative)
             // Add wobble to XZ scale
@@ -543,7 +545,7 @@ export class MushroomBatcher {
 
             return vec3(
                 pos.x.mul(finalScaleXZ),
-                pos.y.mul(finalScaleY),
+                pos.y.mul(finalScaleY).add(circadianDroop),
                 pos.z.mul(finalScaleXZ)
             );
         };
