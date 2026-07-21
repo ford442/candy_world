@@ -36,17 +36,6 @@ const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['
 let _arpeggioVolScratch = new Float32Array(16);
 const _arpeggioOutScratch = new Float32Array(2);
 
-
-
-
-
-
-
- // The active MIDI note (e.g., 60 for C4)
-
-
-
-
 // ⚡ OPTIMIZATION: Module-scoped colors for zero-allocation note lerping
 
 export const MRState = {
@@ -120,14 +109,6 @@ export const _targetGlobalColor = new THREE.Color(0xffffff);
 export const _targetGemCanopyColor = new THREE.Color(0xffffff);
 export const _targetSkyIslandsColor = new THREE.Color(0xffffff);
 
-// ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
-// melody_channel from assets/music-bindings.json sky_moon block.
-
-
-
-// Last valid note index (0–127) kept across frames to avoid flicker when channel is silent.
-
-
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
 export const _frustum = new THREE.Frustum();
 export const _projScreenMatrix = new THREE.Matrix4();
@@ -136,27 +117,8 @@ export const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling 
 // ⚡ OPTIMIZATION: Reusable scratch array for species list
 const _scratchSpeciesList: string[] = [];
 
-// --- Weather Music Reactivity ---
-// Parsed once at module init from assets/music-bindings.json weatherReactivity block.
-
-// ⚡ SKY WAVE config from music-bindings.json
-
-
-
-
-// Map from sky_wave.target_biomes keys (in music-bindings.json) → the Color uniform to receive the propagating hue.
-// This makes the wave fully data-driven. Adding a new target = add key here + entry in JSON list.
-// Many foliage already consume arpeggioGrove.noteColor or crystallineNebula.noteColor (portamento, wisteria, trees, mushrooms),
-// so they receive the sky wave "for free" when those hubs are targeted.
-
-
 export const _waveColor = new THREE.Color(); // scratch for beat capture
 export const _whiteColor = new THREE.Color(0xffffff);
-
-
-// One-time validation flag for channel range checks against music-bindings.json
-
-
 
 export function toChannels(value: unknown): readonly number[] | undefined {
     if (!Array.isArray(value) || value.length === 0) return undefined;
