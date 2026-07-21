@@ -309,7 +309,14 @@ export interface WasmExports {
     batchLerp?: (ptr: number, count: number) => void;
     // New particle functions from assembly/particles.ts
     updateParticles?: (positionsPtr: number, count: number, dt: number, gravity: number) => void;
-    spawnBurst?: (outputPtr: number, count: number, centerX: number, centerY: number, centerZ: number, speed: number, time: number) => void;
+    accumulateArpeggioChannels?: (
+        volumesPtr: number,
+        shimmerCount: number,
+        hueShiftCount: number,
+        nightGate: number,
+        intensityScale: number,
+        outPtr: number
+    ) => void;
 }
 
 // Extend window for global functions

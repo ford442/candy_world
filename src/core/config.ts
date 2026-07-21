@@ -13,6 +13,8 @@ import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 //   ?no_fireflies         — skip firefly particle system
 //   ?no_grass             — skip GPU grass instancing
 //   ?awakened             — enable durable glow for music-awakened flora (default off)
+//   ?nativeMusicAccum=0   — force TS arpeggio_grove channel accumulate (A/B vs AS)
+//   ?nativeMusicAccum=1   — prefer AS accumulate when candy_physics export present (default)
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).

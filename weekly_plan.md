@@ -74,7 +74,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **#1351 Cross-tier parity harness** (JS↔AS↔C++ golden vectors) — recommended before widening batcher ports. `[in progress — 2026-07-21]` ← today's focus. **NOW OVERDUE:** #1358 + #1364 shipped native paths without it.
 - [x] **#1358 Batcher instance matrix/color → C++ batch** (arpeggio + tree) — LANDED (#1411, `_batchComposeMatrices_c`) per MIGRATION_TRACKER slice 1 = ✅. Shipped ahead of the #1351 harness — now guarded retroactively. *GitHub issue still OPEN — close.*
 - [x] **#1359 / #1383 Emscripten export verification CI** — Tier-1 lexical `verify:emcc:manifest` (`emscripten-ci.yml`) + Tier-2 full emsdk build (`emscripten-verify.yml` on tags/nightly/dispatch).
-- [x] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice) — LANDED (#1415, AS batch). *GitHub issue still OPEN — close.*
+- [x] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice) — AS export + wrapper landed (#1415); **hot-path wiring** completed: `applyArpeggioGroveChannelAccum` in `-core.ts`, `?nativeMusicAccum` A/B flag, TS fallback, `docs/MUSIC_ARPEGGIO_ACCUM.md`. *GitHub issue — close when reviewed.*
 
 *Content / world-building (capstones, after foundation):*
 - [x] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path. Coverage matrix + glow gates + `?debugCircadian=1` + `circadian_night` VR seeds — see `docs/CIRCADIAN_BATCHER_COVERAGE.md`.
