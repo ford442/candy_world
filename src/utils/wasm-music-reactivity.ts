@@ -46,11 +46,11 @@ export function accumulateArpeggioChannelsNative(
     if (!mem) return false;
 
     // Fast copy
-    new Float32Array((mem as any).buffer || mem, _inPtr, totalCount).set(volumes.subarray(0, totalCount));
+    new Float32Array((mem as unknown as { buffer: ArrayBuffer }).buffer || mem, _inPtr, totalCount).set(volumes.subarray(0, totalCount));
 
     accumulateArpeggioChannels(_inPtr, shimmerCount, hueShiftCount, nightGate, intensityScale, _outPtr);
 
-    const outView = new Float32Array((mem as any).buffer || mem, _outPtr, 2);
+    const outView = new Float32Array((mem as unknown as { buffer: ArrayBuffer }).buffer || mem, _outPtr, 2);
     outResult[0] = outView[0];
     outResult[1] = outView[1];
 
