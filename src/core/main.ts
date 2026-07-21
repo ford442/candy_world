@@ -761,6 +761,15 @@ if (startButton) {
 
             initCloudPlacer({ scene, camera, weatherSystem: weatherSystem ?? null });
 
+            // Sky Islands connectivity debug (?debugIslands=1)
+            try {
+                const { initSkyIslandDebug, rebuildSkyIslandDebug } = await import('../world/sky-island-graph.ts');
+                initSkyIslandDebug(scene);
+                rebuildSkyIslandDebug();
+            } catch (e) {
+                console.warn('[Startup] Sky island debug init skipped:', e);
+            }
+
             applyAwakenedPersistenceAfterWorldLoad();
 
             loadingScreen.updateProgress(100, 'World generation complete!');

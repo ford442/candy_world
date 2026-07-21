@@ -5,7 +5,8 @@
     "biomes": [
       "meadow",
       "crystallineNebula",
-      "lake"
+      "lake",
+      "sky_islands"
     ],
     "bounds": {
       "min": [
@@ -36726,5 +36727,31 @@
       },
       "estimatedMemoryMB": 0.44
     }
-  }
+  },
+  "regions": [
+    {
+      "id": "sky_islands",
+      "name": "Sky Islands",
+      "bounds": {
+        "min": [
+          -145,
+          85
+        ],
+        "max": [
+          -70,
+          155
+        ]
+      },
+      "biome": "sky_islands",
+      "tags": [
+        "vertical",
+        "stacked",
+        "scenic"
+      ],
+      "music": {
+        "biomeTag": "sky_islands",
+        "intensityScale": 1.0
+      }
+    }
+  ]
 }

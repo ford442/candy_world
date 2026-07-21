@@ -153,3 +153,33 @@ Batcher implementation: `src/foliage/gem-fruit-batcher.ts` creates one `Instance
 
 Map export: `gem_canopy_tree` is in `SUPPORTED_EXPORT_TYPES` with `category: 'mushroom-trees'` and `biome: 'gem_canopy'`. Spawn tracker records attempts as type `gem_canopy_tree`, and batcher telemetry reports the instanced gem count under id `gem_canopy`.
 
+## Sky Islands Binding (`sky_islands`)
+
+Stacked floating landmasses (#1363) — low mist / mid canopy / high nebula — placed by `populateCloudArchipelago` + `populateSkyIslands` in `src/world/generation-decorators.ts`. Absolute Y tiers live in `SKY_ISLANDS` (`generation-utils.ts`). Map metadata includes a `regions` entry with `biomeTag: "sky_islands"`.
+
+```json
+{
+  "biomes": {
+    "sky_islands": {
+      "shimmer": [0, 3],
+      "hueShift": [4],
+      "noteColor": [2],
+      "fog": { "channels": [5], "rest": 0.15, "peak": 0.55 }
+    }
+  },
+  "sky_wave": {
+    "target_biomes": [..., "sky_islands", "gem_canopy"]
+  }
+}
+```
+
+| Signal | Source | Target uniform | Visual effect |
+|--------|--------|----------------|---------------|
+| Melody shimmer | `sky_islands.shimmer` | `BiomeUniforms.skyIslands.shimmer` | Island rim bob + pastel emissive |
+| Hue shift | `sky_islands.hueShift` | `BiomeUniforms.skyIslands.hueShift` | Rim wave phase / color mix |
+| Note color | `sky_islands.noteColor` | `BiomeUniforms.skyIslands.noteColor` | Cotton→aurora tint toward active note |
+| Mist fog | `sky_islands.fog` | `BiomeUniforms.skyIslands.fogDensity` | Low-mist atmosphere density |
+| Sky wave | `sky_wave.target_biomes` includes `sky_islands` | noteColor | Moon hue cascades onto island decks |
+
+Mesh: `src/foliage/sky-islands.ts` (`createSkyIsland` + lightweight `SkyIslandBatcher` registry). Walkability via `registerWalkableIslandPlatform` on the unified ground query. Connectivity graph + `?debugIslands=1` viz in `src/world/sky-island-graph.ts`. Viewpoint: `sky_island_horizon` in visual-regression.
+

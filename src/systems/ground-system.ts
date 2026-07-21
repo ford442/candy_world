@@ -236,6 +236,44 @@ export function unregisterWalkableCloudPlatform(cloud: THREE.Object3D): void {
     unregisterPlatform(id);
 }
 
+/**
+ * Register a walkable sky-island deck with the unified ground query (#1363).
+ * Top surface is the island group's world Y (pivot at deck).
+ */
+export function registerWalkableIslandPlatform(island: THREE.Object3D): void {
+    if (!island.userData.isWalkable && island.userData.type !== 'sky_island') return;
+
+    const radius = typeof island.userData.islandRadius === 'number'
+        ? island.userData.islandRadius
+        : 10;
+    const topY = island.position.y;
+    const id = typeof island.userData.persistentId === 'string'
+        ? `sky_island:${island.userData.persistentId}`
+        : typeof island.userData.mapEntityId === 'string'
+            ? `sky_island:${island.userData.mapEntityId}`
+            : `sky_island:${island.position.x.toFixed(1)}_${island.position.z.toFixed(1)}_${island.position.y.toFixed(1)}`;
+
+    registerPlatform({
+        id,
+        minX: island.position.x - radius * 0.9,
+        maxX: island.position.x + radius * 0.9,
+        minZ: island.position.z - radius * 0.9,
+        maxZ: island.position.z + radius * 0.9,
+        minY: topY - 0.8,
+        maxY: topY,
+        priority: 3,
+    });
+}
+
+export function unregisterWalkableIslandPlatform(island: THREE.Object3D): void {
+    const id = typeof island.userData.persistentId === 'string'
+        ? `sky_island:${island.userData.persistentId}`
+        : typeof island.userData.mapEntityId === 'string'
+            ? `sky_island:${island.userData.mapEntityId}`
+            : `sky_island:${island.position.x.toFixed(1)}_${island.position.z.toFixed(1)}_${island.position.y.toFixed(1)}`;
+    unregisterPlatform(id);
+}
+
 // -----------------------------------------------------------------------------
 // Baked normal data registration (populated by ground-heightmap.ts)
 // -----------------------------------------------------------------------------

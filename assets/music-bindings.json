@@ -85,6 +85,27 @@
         "twinkleRate": 4.0,
         "_comment": "Drives gem_sparks visual tuning; shares gem_canopy channel wiring via BiomeUniforms.gemCanopy.shimmer + uAudioHigh"
       }
+    },
+    "sky_islands": {
+      "shimmer": [
+        0,
+        3
+      ],
+      "hueShift": [
+        4
+      ],
+      "noteColor": [
+        2
+      ],
+      "fog": {
+        "channels": [
+          5
+        ],
+        "rest": 0.15,
+        "peak": 0.55,
+        "_comment": "Drives BiomeUniforms.skyIslands.fogDensity for mist-layer atmosphere"
+      },
+      "_comment": "Stacked sky islands (#1363) — low mist / mid canopy / high nebula shimmer + fog atmosphere"
     }
   },
   "portamento_pine": {
@@ -108,7 +129,9 @@
       "crystalline_nebula",
       "luminous_plants",
       "sky_moon",
-      "global"
+      "global",
+      "sky_islands",
+      "gem_canopy"
     ],
     "decay_ms": 2000,
     "_comment": "Order in target_biomes controls stagger (earlier = hits first). Wave lerps the corresponding noteColor uniform so any foliage already consuming that uniform (portamento, wisteria, trees, mushrooms, etc.) receives the sky hue automatically."

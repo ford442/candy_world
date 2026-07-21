@@ -31,6 +31,7 @@ import {
 } from '../foliage/index.ts';
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { createGemCanopyTree } from '../foliage/gem-canopy-tree.ts';
+import { createSkyIsland } from '../foliage/sky-islands.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 
@@ -112,7 +113,8 @@ export function registerBuiltinWorldObjectTypes(): void {
 
     registerType('cloud', (params) => {
         const size = typeof params?.size === 'number' ? params.size : 1.5;
-        return createRainingCloud({ size });
+        const tier = typeof params?.tier === 'number' ? params.tier : 1;
+        return createRainingCloud({ size, tier });
     }, { defaultRadius: 0.8, batcherHint: 'cloud' });
 
     registerType('subwoofer_lotus', (params) => {
@@ -163,6 +165,12 @@ export function registerBuiltinWorldObjectTypes(): void {
     registerType('glass_mushroom', (params) => createGlassMushroom({
         scale: typeof params?.scale === 'number' ? params.scale : 1.0,
     }), { defaultIsObstacle: true, defaultRadius: 0.6, supportsMusic: true, batcherHint: 'glass_mushroom' });
+    registerType('sky_island', (params) => createSkyIsland({
+        radius: typeof params?.radius === 'number' ? params.radius : 10,
+        height: typeof params?.height === 'number' ? params.height : 3.5,
+        kind: (params?.kind as 'mist' | 'canopy' | 'nebula') || 'mist',
+        layerId: typeof params?.layerId === 'string' ? params.layerId : 'sky_island',
+    }), { defaultIsObstacle: true, defaultRadius: 8, supportsMusic: true, batcherHint: 'sky_islands' });
     registerType('melody_mirror', (params) => createMelodyMirror({ scale: typeof params?.scale === 'number' ? params.scale : 1.0 }), { supportsMusic: true });
     registerType('cave', (params) => createCaveEntrance({ scale: typeof params?.scale === 'number' ? params.scale : 2.0 }));
 }

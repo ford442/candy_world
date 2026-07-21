@@ -85,6 +85,18 @@ export const BiomeUniforms = {
         noteColor: uniform(new THREE.Color(0xffffff)),
     },
 
+    /**
+     * Sky Islands — stacked floating landmasses; channels in music-bindings.json sky_islands.
+     * fogDensity drives mist-layer atmosphere (0–1).
+     */
+    skyIslands: {
+        shimmer: uniform(0.0),
+        hueShift: uniform(0.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
+        /** 0–1 mist/fog density for low-mist layer atmosphere. Visual Impact: soft pastel haze */
+        fogDensity: uniform(0.15),
+    },
+
     global: {
         /** 0–1 shimmer emissive boost for global effects. */
         shimmer: uniform(0.0),
@@ -210,6 +222,9 @@ export const luminousPlantsNoteColorNode = texture(_luminousPlantsLutTex, vec2(L
 /** Gem canopy note tint — driven by music-reactivity noteColor lerp (same pattern as arpeggio grove). */
 export const gemCanopyNoteColorNode = BiomeUniforms.gemCanopy.noteColor;
 
+/** Sky islands note tint — driven by music-reactivity noteColor lerp. */
+export const skyIslandsNoteColorNode = BiomeUniforms.skyIslands.noteColor;
+
 // ---------------------------------------------------------------------------
 // Biome tagging & uniform lookup (foundational for scalable music reactivity)
 // ---------------------------------------------------------------------------
@@ -222,7 +237,7 @@ export const gemCanopyNoteColorNode = BiomeUniforms.gemCanopy.noteColor;
  * Add new values here + corresponding entry in BiomeUniforms (or alias) when
  * introducing a new musical biome.
  */
-export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global' | 'musical_flora' | 'lake_features' | 'gem_canopy';
+export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global' | 'musical_flora' | 'lake_features' | 'gem_canopy' | 'sky_islands';
 
 /**
  * Returns the appropriate uniform group for a given biome tag.
@@ -261,6 +276,8 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
             return BiomeUniforms.lakeFeatures;
         case 'gem_canopy':
             return BiomeUniforms.gemCanopy;
+        case 'sky_islands':
+            return BiomeUniforms.skyIslands;
         case 'global':
             return BiomeUniforms.global;
         default:

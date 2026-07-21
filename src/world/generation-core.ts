@@ -387,10 +387,14 @@ export async function generateMap(
         populateProceduralExtras,
         populateGemCanopyCorridor,
         populateMyceliumGrove,
+        populateCloudArchipelago,
+        populateSkyIslands,
     } = await import('./generation-decorators.ts');
     await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
     await populateGemCanopyCorridor(weatherSystem);
     await populateMyceliumGrove(weatherSystem);
+    await populateCloudArchipelago(weatherSystem);
+    await populateSkyIslands(weatherSystem);
     console.timeEnd('[World] procedural-extras');
 
     // Keep a lightweight final fallback for any entities excluded from the streaming query.
