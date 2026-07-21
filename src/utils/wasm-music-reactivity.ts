@@ -1,9 +1,69 @@
+/**
+ * @file wasm-music-reactivity.ts
+ * @brief AS bridge for arpeggio_grove channel volume accumulate + nightGate scale (#1364)
+ *
+ * Native: assembly/music_reactivity.ts → accumulateArpeggioChannels
+ * Fallback: allocation-free TypeScript (parity with MusicReactivitySystem)
+ *
+ * Feature flag (A/B):
+ *   ?nativeMusicAccum=0  — force TS path
+ *   ?nativeMusicAccum=1  — prefer native (same as default when export present)
+ *   absent               — default ON when WASM export is present
+ */
+
 import { wasmInstance, getWasmMemory } from './wasm-loader-core.ts';
 import type { WasmExports } from './wasm-loader-core.ts';
 
 let _inPtr = 0;
 let _outPtr = 0;
 let _capacity = 0;
+
+/** Cached URL flag: null = default (on when ready), false = force off, true = prefer on. */
+let _flagCache: boolean | null | undefined = undefined;
+
+function resolveNativeMusicAccumFlag(): boolean | null {
+    if (_flagCache !== undefined) return _flagCache;
+    try {
+        if (typeof window === 'undefined') {
+            _flagCache = null;
+            return _flagCache;
+        }
+        const raw = new URLSearchParams(window.location.search).get('nativeMusicAccum');
+        if (raw === null) {
+            _flagCache = null;
+        } else if (raw === '0' || raw === 'false' || raw === 'off') {
+            _flagCache = false;
+        } else {
+            // '1' / 'true' / 'on' / any other value → prefer native
+            _flagCache = true;
+        }
+    } catch {
+        _flagCache = null;
+    }
+    return _flagCache;
+}
+
+/** True when AS export is callable on the loaded candy_physics instance. */
+export function isNativeMusicAccumReady(): boolean {
+    if (!wasmInstance) return false;
+    const exports = wasmInstance.exports as WasmExports;
+    return typeof exports.accumulateArpeggioChannels === 'function';
+}
+
+/**
+ * Whether the hot path should attempt the native accumulator.
+ * Default ON when the WASM export is present; `?nativeMusicAccum=0` forces TS.
+ */
+export function isNativeMusicAccumEnabled(): boolean {
+    const flag = resolveNativeMusicAccumFlag();
+    if (flag === false) return false;
+    return isNativeMusicAccumReady();
+}
+
+/** Test/reset helper — clears cached URL flag (parity / unit tests). */
+export function _resetNativeMusicAccumFlagCacheForTests(): void {
+    _flagCache = undefined;
+}
 
 // =============================================================================
 // TEST-ONLY / PARITY REFERENCE ENTRYPOINT (#1351)
@@ -101,4 +161,41 @@ export function accumulateArpeggioChannelsNative(
     outResult[1] = outView[1];
 
     return true;
+}
+
+/**
+ * Hot-path entry: prefer AS when enabled, else TS fallback.
+ * @returns true if the native path wrote outResult
+ */
+export function accumulateArpeggioChannels(
+    volumes: Float32Array,
+    shimmerCount: number,
+    hueShiftCount: number,
+    nightGate: number,
+    intensityScale: number,
+    outResult: Float32Array
+): boolean {
+    if (isNativeMusicAccumEnabled()) {
+        if (
+            accumulateArpeggioChannelsNative(
+                volumes,
+                shimmerCount,
+                hueShiftCount,
+                nightGate,
+                intensityScale,
+                outResult
+            )
+        ) {
+            return true;
+        }
+    }
+    accumulateArpeggioChannelsTS(
+        volumes,
+        shimmerCount,
+        hueShiftCount,
+        nightGate,
+        intensityScale,
+        outResult
+    );
+    return false;
 }

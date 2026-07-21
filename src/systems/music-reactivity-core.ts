@@ -19,6 +19,8 @@ import {
     getActiveWave,
     setActiveWave,
 } from './music-wave.ts';
+import { BiomeUniforms } from './biome-uniforms.ts';
+import { accumulateArpeggioChannels } from '../utils/wasm-music-reactivity.ts';
 
 import { getMapMusicContext } from '../world/map-music-context.ts';
 import type { MapMusicOverrides } from '../world/map-loader.ts';
@@ -29,13 +31,10 @@ export { _zeroVec, computeWaveTimeSinceArrival, getActiveWave, setActiveWave };
 
 const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
 
-
-
-
-
-
-
-// ⚡ OPTIMIZATION: Per-frame scratch floats — no per-frame object allocations.
+// ⚡ OPTIMIZATION: Fixed scratch for arpeggio_grove volume packing (zero per-frame alloc).
+// Capacity grows if map overrides expand channel lists beyond the default 3 slots.
+let _arpeggioVolScratch = new Float32Array(16);
+const _arpeggioOutScratch = new Float32Array(2);
 
 
 
@@ -337,6 +336,62 @@ export function mapNoteToColor(note: number, outColor: THREE.Color, palette: str
     const hexColor = speciesMap[noteName] || CONFIG.noteColorMap.global[noteName] || 0xffffff;
     outColor.setHex(hexColor);
     return outColor;
+}
+
+/**
+ * arpeggio_grove hot path (#1364 / migration slice 2):
+ * Pack shimmer + hueShift channel volumes into a fixed Float32Array, run
+ * accumulateArpeggioChannels (AS when enabled, else TS), write BiomeUniforms.
+ *
+ * Bindings stay pre-parsed in MRState (from music-bindings.json at module load).
+ * noteColor / sky-wave orchestration remain in MusicReactivitySystem (TS).
+ *
+ * @returns true when the native AS path wrote the uniforms
+ */
+export function applyArpeggioGroveChannelAccum(
+    channels: ReadonlyArray<{ volume: number }>,
+    nightGate: number
+): boolean {
+    const shimmerCh = MRState.arpeggioShimmerCh;
+    const hueCh = MRState.arpeggioHueShiftCh;
+    const shimmerCount = shimmerCh.length;
+    const hueShiftCount = hueCh.length;
+    const total = shimmerCount + hueShiftCount;
+
+    if (_arpeggioVolScratch.length < total) {
+        _arpeggioVolScratch = new Float32Array(Math.max(total, _arpeggioVolScratch.length * 2));
+    }
+
+    let shimmerAccum = 0.0;
+    for (let i = 0; i < shimmerCount; i++) {
+        const idx = shimmerCh[i];
+        const vol = idx < channels.length ? channels[idx].volume : 0.0;
+        _arpeggioVolScratch[i] = vol;
+        shimmerAccum += vol;
+    }
+    let hueAccum = 0.0;
+    for (let i = 0; i < hueShiftCount; i++) {
+        const idx = hueCh[i];
+        const vol = idx < channels.length ? channels[idx].volume : 0.0;
+        _arpeggioVolScratch[shimmerCount + i] = vol;
+        hueAccum += vol;
+    }
+    MRState.arpeggioShimmerAccum = shimmerAccum;
+    MRState.arpeggioHueShiftAccum = hueAccum;
+
+    const usedNative = accumulateArpeggioChannels(
+        _arpeggioVolScratch,
+        shimmerCount,
+        hueShiftCount,
+        nightGate,
+        MRState.arpeggioIntensityScale,
+        _arpeggioOutScratch
+    );
+
+    // Mutate .value in place — never reassign the uniform node.
+    BiomeUniforms.arpeggioGrove.shimmer.value = _arpeggioOutScratch[0];
+    BiomeUniforms.arpeggioGrove.hueShift.value = _arpeggioOutScratch[1];
+    return usedNative;
 }
 
 // --- Type Definitions ---

@@ -162,7 +162,7 @@ These files contain per-frame O(N) work **not yet** fully native. See [MIGRATION
 | Area | File(s) | Notes |
 |------|---------|-------|
 | Batcher pose + matrix writes | `src/foliage/*-batcher.ts`, `plant-pose-machine.ts` | C++ covers many *animation curves*; instance matrix/color writes still TS |
-| Music reactivity | `src/systems/music-reactivity.ts`, `music-reactivity.core.ts` | Channel → uniform updates; partial `.core` extraction done |
+| Music reactivity | `src/systems/music-reactivity.ts`, `music-reactivity-core.ts`, `assembly/music_reactivity.ts` | arpeggio_grove shimmer/hueShift via AS `accumulateArpeggioChannels` (`?nativeMusicAccum`); other biomes still TS |
 | Game loop aggregation | `src/core/game-loop.ts` | Calls all batchers, distance checks, deferred sqrt opts |
 | Region / LOD | `src/systems/region-manager.ts`, `batcher-lod.ts` | Partial C++ LOD matrix batches exist |
 | Physics orchestration | `src/systems/physics/physics-updates.ts` | Vine *attach* logic still JS; proximity batches native |

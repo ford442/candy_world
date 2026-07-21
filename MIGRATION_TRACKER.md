@@ -16,6 +16,7 @@
 | [#1328](https://github.com/ford442/candy_world/issues/1328) | Foliage physics batches | `emscripten/foliage_interact.cpp`, `wasm-foliage-interact.ts` |
 | [#1329](https://github.com/ford442/candy_world/issues/1329) | CPU particle sim kernel | `cpu-particle-simulate.ts`, `updateCpuParticlesWASM` |
 | [#1330](https://github.com/ford442/candy_world/issues/1330) | Migration docs refresh | `MIGRATION_STATUS.md` (this tracker) |
+| [#1364](https://github.com/ford442/candy_world/issues/1364) | arpeggio_grove channel accum → AS | `assembly/music_reactivity.ts`, `wasm-music-reactivity.ts`, `applyArpeggioGroveChannelAccum` (wired + `?nativeMusicAccum`) |
 
 ---
 
@@ -39,13 +40,15 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 ### 2. Music reactivity `update()` channel → uniform block
 
-**Why:** `MusicReactivitySystem.update()` runs every frame across all biomes; `.core.ts` already extracted helpers but the main accumulator + smooth/decay loop is still monolithic TS.
+**Status:** ✅ Completed for arpeggio_grove (#1364) — `assembly/music_reactivity.ts` (`accumulateArpeggioChannels`) + `src/utils/wasm-music-reactivity.ts` with TS fallback; hot path in `applyArpeggioGroveChannelAccum` (`music-reactivity-core.ts`). Feature flag `?nativeMusicAccum=0` forces TS for A/B; default ON when WASM export present. Widen to crystalline_nebula / global only after parity stays green.
+
+**Why:** `MusicReactivitySystem.update()` runs every frame across all biomes; `.core.ts` already extracted helpers but the main accumulator + smooth/decay loop is still monolithic TS for non-arpeggio biomes.
 
 **15% scope:** Move channel volume accumulation + `nightGate` smoothing for **one biome** (e.g. `arpeggio_grove`) to a small AS or C++ batch; leave beat/sky-wave orchestration in TS.
 
-**Files:** `src/systems/music-reactivity.ts`, `src/systems/biome-uniforms.ts`, `assets/music-bindings.json`
+**Files:** `src/systems/music-reactivity.ts`, `src/systems/music-reactivity-core.ts`, `src/utils/wasm-music-reactivity.ts`, `assembly/music_reactivity.ts`, `assets/music-bindings.json`
 
-**Fallback:** Current TS `update()` path unchanged when native unavailable.
+**Fallback:** Current TS `accumulateArpeggioChannelsTS` path when native unavailable or `?nativeMusicAccum=0`.
 
 ---
 

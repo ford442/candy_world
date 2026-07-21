@@ -354,3 +354,13 @@ export {
     PAD_STRIDE,
     VINE_STRIDE,
 } from './wasm-foliage-interact.ts';
+
+// Music reactivity channel accumulate (arpeggio_grove)
+export {
+    accumulateArpeggioChannels,
+    accumulateArpeggioChannelsTS,
+    accumulateArpeggioChannelsNative,
+    nightGateFromBias,
+    isNativeMusicAccumReady,
+    isNativeMusicAccumEnabled,
+} from './wasm-music-reactivity.ts';
