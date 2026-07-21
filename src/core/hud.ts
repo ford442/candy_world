@@ -3,7 +3,6 @@
 
 import * as THREE from 'three';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { jitterMineSystem } from '../gameplay/jitter-mines.ts';
 import { CYCLE_DURATION } from './config.ts';
 import { announce } from '../ui/announcer.ts';
 
@@ -362,8 +361,10 @@ export function updateHUD(params: {
     };
     audioState: any;
     delta: number;
+    /** Optional override; when omitted mine HUD stays at ready (0). */
+    mineCooldown?: number;
 }): void {
-    const { player, audioState, delta } = params;
+    const { player, audioState, delta, mineCooldown = 0 } = params;
 
     // 🎨 Palette: Update Energy Bar (UI Feedback)
     updateEnergyBar(player.energy, player.maxEnergy, audioState, delta);
@@ -372,7 +373,7 @@ export function updateHUD(params: {
     updateDashHUD(player.dashCooldown, audioState);
 
     // 🎨 Palette: Update Ability HUD - Mine
-    updateMineHUD(jitterMineSystem.cooldownTimer, audioState);
+    updateMineHUD(mineCooldown, audioState);
 
     // 🎨 Palette: Update Phase Shift HUD (Ammo + Duration)
     updatePhaseHUD(

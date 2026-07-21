@@ -1,20 +1,5 @@
-import { fastInvSqrt } from "../utils/wasm-loader.ts";
 import * as THREE from 'three';
-import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
-import { getDayNightBias } from '../core/cycle.ts';
-import { animateFoliage } from '../foliage/animation.ts';
-import { foliageBatcher } from '../foliage/batcher/index.ts';
-import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
-import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
-import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
-import { flowerBatcher } from '../foliage/flower-batcher.ts';
-import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
-import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
-import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
-import type { AudioData, FoliageObject } from '../foliage/types.ts';
-import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
-import { uTwilight } from '../foliage/sky.ts';
-import { BeatSync } from '../audio/beat-sync.ts';
+import { CONFIG } from '../core/config.ts';
 import {
     defaultArpeggioShimmerCh, defaultArpeggioHueShiftCh, defaultArpeggioNoteColorCh,
     defaultNebulaShimmerCh, defaultNebulaAmplitudeCh, defaultNebulaNoteColorCh,
@@ -23,11 +8,22 @@ import {
     defaultLuminousPlantTrackerChannel, defaultGemCanopyShimmerCh, defaultGemCanopyHueShiftCh,
     defaultGemCanopyNoteColorCh, defaultWeatherBindings,
     defaultSkyWavePropagationMs, defaultSkyWaveDecayMs, defaultSkyWaveTargets,
-    skyWaveUniformMap, CHROMATIC_SCALE
+    CHROMATIC_SCALE
 } from './music-reactivity-defaults.ts';
+import {
+    type ActiveWave,
+    _zeroVec,
+    computeWaveTimeSinceArrival,
+    getActiveWave,
+    setActiveWave,
+} from './music-wave.ts';
 
 import { getMapMusicContext } from '../world/map-music-context.ts';
 import type { MapMusicOverrides } from '../world/map-loader.ts';
+
+// Re-export wave leaf for callers that historically imported from this module.
+export type { ActiveWave };
+export { _zeroVec, computeWaveTimeSinceArrival, getActiveWave, setActiveWave };
 
 const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
 
@@ -141,29 +137,6 @@ const _scratchSpeciesList: string[] = [];
 // so they receive the sky wave "for free" when those hubs are targeted.
 
 
-// ⚡ SKY WAVE state — pre-allocated, zero per-frame allocations in hot path
-export interface ActiveWave { color: THREE.Color; timestamp: number; origin?: THREE.Vector3; speed?: number; }
-
-
-export const _zeroVec = new THREE.Vector3();
-export function computeWaveTimeSinceArrival(plantWorldPos: THREE.Vector3, activeWave: ActiveWave | null, cameraPosition?: THREE.Vector3): number {
-    if (!activeWave) return -999;
-    const origin = activeWave.origin || cameraPosition || _zeroVec;
-    const speed = activeWave.speed || 25.0;
-    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math.
-    const dx = plantWorldPos.x - origin.x;
-    const dy = plantWorldPos.y - origin.y;
-    const dz = plantWorldPos.z - origin.z;
-
-    // Reverted: Using Math.sqrt() because we actually need linear arrival distance for timing logic.
-    // The previous optimization attempt distorted wave propagation.
-    const distSq = dx * dx + dy * dy + dz * dz;
-    // ⚡ OPTIMIZATION: Removed WASM bridge call for Math.sqrt.
-    const distance = Math.sqrt(distSq);
-
-    const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
-    return (performance.now() - arrivalTime) / 1000;
-}
 export const _waveColor = new THREE.Color(); // scratch for beat capture
 export const _whiteColor = new THREE.Color(0xffffff);
 

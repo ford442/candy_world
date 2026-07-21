@@ -15,7 +15,7 @@ import { uTwilight } from './sky.ts';
 import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { getActiveWave } from '../systems/music-wave.ts';
 import { camera } from '../core/camera-ref.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 
@@ -432,7 +432,7 @@ export class FlowerBatcher {
         const kick = audioState?.kick || 0;
         
         // Step the state machine
-        const activeWave = musicReactivitySystem.getActiveWave();
+        const activeWave = getActiveWave();
         const cameraPos = camera ? camera.position : undefined;
 
         const getPlantPos = (index: number, out: THREE.Vector3) => {

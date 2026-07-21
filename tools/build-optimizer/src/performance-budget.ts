@@ -162,10 +162,13 @@ class PerformanceBudgetChecker {
         if (name.endsWith('.js') || name.endsWith('.ts')) {
           if (name.includes('vendor') || name.includes('node_modules')) {
             chunks.push({ name: 'vendor', size });
-          } else if (name.includes('main') || name.includes('index')) {
+          } else if (name.startsWith('main-') || name.includes('index')) {
             chunks.push({ name: 'main', size });
           } else {
-            chunks.push({ name: name.replace(/\.[jt]s$/, ''), size });
+            // Strip Vite content-hash suffixes so budgets.json keys like "app" match
+            // chunks/app-<hash>.js (and gameplay/save-ui/world-content/…).
+            const base = name.replace(/\.[jt]s$/, '').replace(/-[A-Za-z0-9_]+$/, '');
+            chunks.push({ name: base, size });
           }
         } else if (name.endsWith('.wasm')) {
           chunks.push({ name: 'wasm', size });

@@ -1,6 +1,7 @@
 {
   "budgets": {
     "main": "300kb",
+    "app": "800kb",
     "vendor": "1500kb",
     "wasm": "600kb",
     "total": "20mb"
@@ -10,7 +11,8 @@
     "error": 1
   },
   "comments": {
-    "main": "Core application code (main.ts, core modules, shaders)",
+    "main": "Entry shell (main-*.js) — tiny after code-splitting",
+    "app": "Core + foliage + systems hot path (#1361). Soft ceiling after gameplay/save-ui/world-content split; still > Vite 500kB warning — see docs/APP_CHUNK_SPLIT.md",
     "vendor": "Third-party libraries (Three.js, Vite chunks, etc.)",
     "wasm": "WebAssembly modules (physics + compute via AssemblyScript)",
     "total": "Total JavaScript + WASM bundle size"

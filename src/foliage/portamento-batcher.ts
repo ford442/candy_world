@@ -12,7 +12,6 @@ import {
   uAudioLow,
   uTime
 } from './index.ts';
-import { _skyMoonNoteVal } from '../systems/music-reactivity.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import {
@@ -27,7 +26,7 @@ import {
   instanceIndex
 } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
-import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { getActiveWave } from '../systems/music-wave.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
@@ -254,7 +253,7 @@ export class PortamentoPineBatcher {
     if (audioState && audioState.channelData && audioState.channelData[channelIdx]) {
         channelIntensity = audioState.channelData[channelIdx].volume || 0;
     }
-    const activeWave = musicReactivitySystem.getActiveWave();
+    const activeWave = getActiveWave();
     const cameraPos = camera ? camera.position : undefined;
 
     const getPlantPos = (index: number, out: THREE.Vector3) => {

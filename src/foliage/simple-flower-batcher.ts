@@ -22,7 +22,6 @@ import { foliageGroup } from '../world/state.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
-import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { camera } from '../world/state.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 

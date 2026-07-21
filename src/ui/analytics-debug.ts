@@ -11,5 +11,9 @@
 export * from './analytics-debug-ui.ts';
 export * from './analytics-debug-handlers.ts';
 import { analyticsDebug } from './analytics-debug-handlers.ts';
+import { ensureAnalyticsDebugRegistered } from './analytics-debug-handlers.ts';
+
+// Register console helpers when this chunk is actually loaded
+ensureAnalyticsDebugRegistered();
 
 export default analyticsDebug;

@@ -20,7 +20,6 @@ import { getGroundHeight } from '../systems/ground-system.ts';
 import { profiler } from '../utils/profiler.ts';
 import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, toggleOverlay } from '../utils/startup-profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
-import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 
 // Core imports
 import { CONFIG, resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from './config.ts';
@@ -39,7 +38,7 @@ import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritic
 import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { installWorldExportTools } from '../world/map-exporter.ts';
 import { initCloudPlacer } from '../world/cloud-placer.ts';
-import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
+import { ensureGameplay, getGameplay, preloadGameplay } from '../gameplay/lazy.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
@@ -48,7 +47,7 @@ import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.t
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup, applyAwakenedPersistenceAfterWorldLoad } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress, setDeferredFailures } from '../ui/index.ts';
+import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress, setDeferredFailures } from '../ui/loading-screen.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
 import { globalLoadingManager } from '../systems/loading-manager.ts';
 import { validateWorldPopulation } from '../world/world-health.ts';
@@ -57,6 +56,8 @@ import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 import { installBatcherTelemetry } from '../foliage/batcher-telemetry.ts';
 import { spawnTracker } from '../world/spawn-tracker.ts';
+import { installSaveMenuGlobals } from '../ui/save-menu/lazy.ts';
+import { initAnalyticsDebugIfNeeded } from '../ui/analytics-debug-lazy.ts';
 
 // Debug staging system
 import { StageLoader, showDebugError, initDebugPanel } from '../debug/index.ts';
@@ -136,6 +137,8 @@ enableStartupProfiler({
 // --- Initialize Debug Panel (if ?debug=1) ---
 initDebugPanel();
 installBatcherTelemetry();
+installSaveMenuGlobals();
+void initAnalyticsDebugIfNeeded();
 
 import { initializeSaveSystemIntegration } from '../systems/save-integration.ts';
 initializeSaveSystemIntegration();
@@ -367,10 +370,12 @@ window.addEventListener('keydown', (e) => {
         } else if (key === 'f') {
             // Demo logic...
         } else if (key === 'g') {
-            // Throw Glitch Grenade
+            // Throw Glitch Grenade (lazy-loads gameplay chunk on first use)
             if (document.pointerLockElement) {
                 camera.getWorldDirection(_scratchClickDir);
-                glitchGrenadeSystem.throwGrenade(scene, camera.position, _scratchClickDir);
+                void ensureGameplay().then((gp) => {
+                    gp.glitchGrenadeSystem.throwGrenade(scene, camera.position, _scratchClickDir);
+                });
             }
         }
     } catch (err) {
@@ -391,7 +396,9 @@ window.addEventListener('mousedown', (e) => {
                 camera.getWorldDirection(_scratchClickDir);
                 _scratchClickOrigin.copy(camera.position).addScaledVector(_scratchClickDir, 1.0);
                 _scratchClickOrigin.y -= 0.2; // Lower slightly
-                fireRainbow(scene, _scratchClickOrigin, _scratchClickDir);
+                void ensureGameplay().then((gp) => {
+                    gp.fireRainbow(scene, _scratchClickOrigin, _scratchClickDir);
+                });
             }
         }
     }
@@ -493,6 +500,8 @@ loadingScreen.completePhase('wasm-init');
     // Start game loop NOW — player can move immediately
     renderer.setAnimationLoop(animate);
     try { (window as any).__sceneReady = true; } catch (e) { }
+    // Prefetch gameplay chunk after first paint (#1361)
+    void preloadGameplay();
 
     // Issue #5: Only hide the initial loading screen if world generation has not
     // yet started. If the user clicked "Start" during shader warmup, enterWorld()

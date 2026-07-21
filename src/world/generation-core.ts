@@ -15,9 +15,8 @@ import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
 import { animatedFoliage, worldGroup } from './state.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
-import { updateProgress } from '../ui/index.ts';
+import { updateProgress } from '../ui/loading-screen.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
-import { populateProceduralExtras, populateGemCanopyCorridor, populateMyceliumGrove } from './generation-decorators.ts';
 import { safeAddFoliage, processMapEntity } from './generation-entities.ts';
 import {
     DEFAULT_MAP_CHUNK_SIZE, ENTITY_BUDGET_MS, PROCEDURAL_ENTITY_COUNT,
@@ -382,8 +381,13 @@ export async function generateMap(
         onProgress(phase1Total, phase1Total, '[World] Visible bubble ready');
     }
 
-    // 3. Queue Procedural Extras
+    // 3. Queue Procedural Extras (lazy world-content chunk — #1361)
     console.time('[World] procedural-extras');
+    const {
+        populateProceduralExtras,
+        populateGemCanopyCorridor,
+        populateMyceliumGrove,
+    } = await import('./generation-decorators.ts');
     await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
     await populateGemCanopyCorridor(weatherSystem);
     await populateMyceliumGrove(weatherSystem);

@@ -3,7 +3,6 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
-import { _skyMoonNoteVal } from '../systems/music-reactivity.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, applyStandardDeformation, calculateWindSway } from './material-core.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';

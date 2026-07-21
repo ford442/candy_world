@@ -27,7 +27,7 @@ import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
-import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { getActiveWave } from '../systems/music-wave.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { dynamicRadiiView } from '../utils/wasm-physics.ts';
@@ -526,7 +526,7 @@ export class ArpeggioFernBatcher {
         const poseConfig = CONFIG.plantPose.arpeggioFern;
 
         // Fixed dt (60 Hz assumption) keeps parity with portamento batcher convention.
-        const activeWave = musicReactivitySystem.getActiveWave();
+        const activeWave = getActiveWave();
         const cameraPos = camera ? camera.position : undefined;
 
         const getPlantPos = (index: number, out: THREE.Vector3) => {

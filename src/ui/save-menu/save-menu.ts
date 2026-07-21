@@ -849,24 +849,8 @@ export function showSaveIndicator(duration: number = 2000): void {
     }, duration);
 }
 
-// Expose to window for debugging
-declare global {
-    interface Window {
-        openSaveMenu: typeof openSaveMenu;
-        openLoadMenu: typeof openLoadMenu;
-        openSaveGameMenu: typeof openSaveGameMenu;
-        closeSaveMenu: typeof closeSaveMenu;
-        SaveMenu: typeof SaveMenu;
-    }
-}
-
-if (typeof window !== 'undefined') {
-    window.openSaveMenu = openSaveMenu;
-    window.openLoadMenu = openLoadMenu;
-    window.openSaveGameMenu = openSaveGameMenu;
-    window.closeSaveMenu = closeSaveMenu;
-    window.SaveMenu = SaveMenu;
-}
+// Window globals are installed by `installSaveMenuGlobals()` in save-menu/lazy.ts
+// so this module is not pulled into the boot graph via side effects (#1361).
 
 // Default export
 export default SaveMenu;
