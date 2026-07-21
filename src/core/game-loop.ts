@@ -1,5 +1,6 @@
 // src/core/game-loop.ts
-// Main animation loop and game state management
+// Thin animate() coordinator — tick phases live in sibling game-loop-*.ts modules.
+// Frame order is intentional; do not reorder phases without a gameplay audit.
 
 import * as THREE from 'three';
 
@@ -23,12 +24,12 @@ import {
     cameraShake, setCameraShakeCore,
     lastBeatPhase, setLastBeatPhase,
     baseFOV,
-    _interactionLists,
-    interactionSystemRef
 } from './game-loop-core.ts';
 
 import { updateAudioPhase } from './game-loop-audio.ts';
+import { updateInteractionPhase, updateExploreCameraPhase } from './game-loop-input.ts';
 import { updateVisualsPhase } from './game-loop-visuals.ts';
+import { updateFoliagePhase } from './game-loop-foliage.ts';
 import { updateParticlesPhase } from './game-loop-particles.ts';
 import { updatePostFX, renderPostProcessing } from './game-loop-postfx.ts';
 import { updateComputePhase } from './game-loop-compute.ts';
@@ -36,14 +37,12 @@ import { updatePhysicsPhase } from './game-loop-physics.ts';
 import { updateGameplayPhase } from './game-loop-gameplay.ts';
 
 import { profiler } from '../utils/profiler.ts';
-import { isExploreActive, getExploreCamera, updateExploreCamera } from './camera-modes.ts';
-import { keyStates } from './input/index.ts';
+import { isExploreActive } from './camera-modes.ts';
 import { player } from '../systems/physics/index.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
-import { animatedFoliage, foliageMushrooms, foliageClouds } from '../world/state.ts';
 
-// Re-exports
+// Re-exports (public surface for main.ts / index.ts)
 export { initGameLoopDependencies, getGameTime, getAudioState, getBeatFlashIntensity };
 export { addCameraShake } from './camera-shake.ts';
 
@@ -113,14 +112,7 @@ export function animate() {
         setCameraShakeCore(cs);
     }
 
-    profiler.measure('Interaction', () => {
-        if (interactionSystemRef) {
-            _interactionLists[0] = animatedFoliage || [];
-            _interactionLists[1] = foliageMushrooms || [];
-            _interactionLists[2] = foliageClouds || [];
-            interactionSystemRef.update(delta, cameraRef!.position, _interactionLists as any);
-        }
-    });
+    updateInteractionPhase(delta);
 
     const exploreActive = isExploreActive();
 
@@ -133,6 +125,16 @@ export function animate() {
         getBeatFlashIntensity(),
         exploreActive,
         player.position
+    );
+
+    // 2b. Foliage materials + batcher LOD (after sky/fog uniforms settle)
+    updateFoliagePhase(
+        delta,
+        audioState,
+        visualsState.isNightNow,
+        visualsState.weatherStateStr,
+        visualsState.weatherIntensity,
+        visualsState.dayNightBias,
     );
 
     // 3. Particles and Music Reactivity phase
@@ -149,18 +151,7 @@ export function animate() {
         updatePostFX(delta);
     });
 
-    updateExploreCamera(delta);
-
-    // Update Explore Camera Mode
-    if (exploreActive && getExploreCamera()?.isHybrid()) {
-        let forward = 0;
-        let strafe = 0;
-        if (keyStates.forward) forward += 1;
-        if (keyStates.backward) forward -= 1;
-        if (keyStates.left) strafe -= 1;
-        if (keyStates.right) strafe += 1;
-        getExploreCamera()?.panTargetXZ(forward, strafe, delta);
-    }
+    updateExploreCameraPhase(delta, exploreActive);
 
     if (firefliesRef) {
         firefliesRef.visible = visualsState.cyclePos >= (0.2 + 0.3 + 0.1 + 0.1);

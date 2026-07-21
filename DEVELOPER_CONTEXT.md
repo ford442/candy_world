@@ -10,7 +10,7 @@
         *   *Emscripten (C++):* Stateless, heavy compute (noise generation, batch processing).
     *   **Tooling:** Vite (Build/Dev), Playwright (Verification).
 *   **Design Patterns:**
-    *   **Orchestrator Pattern:** `src/core/main.ts` initializes; `src/core/game-loop.ts` runs the loop, delegating logic to specialized systems (`src/systems/*`).
+    *   **Orchestrator Pattern:** `src/core/main.ts` initializes; `src/core/game-loop.ts` runs a thin `animate()` that delegates each tick phase to sibling modules (`game-loop-audio.ts`, `game-loop-input.ts`, `game-loop-visuals.ts`, `game-loop-foliage.ts`, `game-loop-particles.ts`, `game-loop-postfx.ts`, `game-loop-compute.ts`, `game-loop-physics.ts`, `game-loop-gameplay.ts`, plus shared state in `game-loop-core.ts`).
     *   **Factory Pattern:** Foliage creation (flowers, mushrooms) uses factory functions in `src/foliage/*` to generate complex instanced meshes with shared geometries.
     *   **Data-Driven Design:** World layout is defined in `assets/map.json`.
     *   **Shared Mutable State:** To avoid Garbage Collection (GC) in the render loop, systems share mutable global objects (e.g., `_weatherBiasOutput`, `keyStates`) rather than passing new objects.
@@ -19,7 +19,7 @@
 
 | Feature | Entry Point / Key File | Description |
 | :--- | :--- | :--- |
-| **Main Loop** | `src/core/main.ts` + `src/core/game-loop.ts` | Orchestrate Audio, Physics, Weather, and Rendering. Handle the startup sequence. |
+| **Main Loop** | `src/core/main.ts` + `src/core/game-loop.ts` (+ `game-loop-*.ts` phases) | Orchestrate Audio, Physics, Weather, and Rendering. Handle the startup sequence. |
 | **World Gen** | `src/world/generation-core.ts` | Loads `assets/map.json`, spawns static assets (grass) and procedural extras (mushrooms/flowers). |
 | **Physics** | `src/systems/physics/index.ts` | Bridges JS and WASM. Handles player movement, collision, and gravity. |
 | **Weather** | `src/systems/weather.ts` | Simulates wind, rain, and storm cycles. Controls global light levels. |
@@ -60,7 +60,7 @@
 *   **Build Pipeline:** `npm run dev` builds the WASM modules before starting the server. This can be slow.
     *   *Constraint:* Do not remove the `build:wasm` step from the dev script, or the physics will be out of sync.
 *   **Garbage Collection:** The render loop is highly optimized to avoid GC.
-    *   *Constraint:* Do not create `new THREE.Vector3` or `new THREE.Color` inside `animate()` or `update()` functions. Use module-scope scratch variables (e.g., `_scratchSunVector` in `src/core/game-loop.ts`).
+    *   *Constraint:* Do not create `new THREE.Vector3` or `new THREE.Color` inside `animate()` or `update()` functions. Use module-scope scratch variables (e.g., `_scratchSunVector` in `src/core/game-loop-core.ts`).
 *   **Physics "Floatiness":** The gravity is intentionally "floaty" to match the dream-like candy aesthetic. Do not "fix" this to be realistic earth gravity unless explicitly asked.
 *   **File System:** The runtime environment initially lacks `node_modules` at the root. You must run `npm install` before running verification scripts that utilize non-native node modules.
 
