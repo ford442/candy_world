@@ -115,6 +115,7 @@ export class LuminousPlantBatcher {
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.3).add(idlePulse));
         const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
+        // Circadian night-glow: luminous plants brighten at night (phase=0), dim by day (phase=1).
         const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
 
         let emissiveWithCircadian = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);

@@ -40,7 +40,8 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
         setLastIsNight(isNightNow);
     }
 
-    circadianController.update(gameTime, timeOffsetRef.value);
+    circadianController.setDayTarget(!isNightNow);
+    circadianController.update(delta);
 
     let weatherState = WeatherState.CLEAR;
     let weatherIntensity = 0;

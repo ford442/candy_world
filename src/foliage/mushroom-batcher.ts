@@ -633,6 +633,7 @@ export class MushroomBatcher {
 
         // Add twilight glow directly to emissive node output
         // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
+        // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
         const circadianGlowMult = mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);
         capMat.emissiveNode = scaleEmissiveByLod(
             twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult)

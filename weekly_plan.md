@@ -28,7 +28,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [x] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
 
 <!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit). -->
-- [ ] **Day/night plant behaviour** *(promoted to Copilot issue 2026-06-02)* — Plants physically open/glow by day, close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Landed for `SimpleFlowerBatcher` (commit 99fcbad, #1208) — verify coverage across remaining batchers, then close.
+- [x] **Day/night plant behaviour** *(promoted to Copilot issue 2026-06-02)* — Plants physically open/glow by day, close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Landed for `SimpleFlowerBatcher` (commit 99fcbad, #1208) — verify coverage across remaining batchers, then close.
 
 **User idea pool — GitHub issues filed 2026-06-28 (Noah's freshest in-context backlog — vertical-exploration arc):**
 - [x] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `bug`+`enhancement`. Hard prerequisite for #1266. `[landed — 2026-06-30]` ← today's focus
@@ -72,7 +72,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice). Depends on #1350 split.
 
 *Content / world-building (capstones, after foundation):*
-- [ ] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path.
+- [x] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path.
 - [ ] **#1363 Vertical Sky Islands biome** — layered exploration arc after #1265/#1266.
 - [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [ ] **#1352 Living candy fauna** (WASM boids + ECS). **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
@@ -103,6 +103,7 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-07-21** CIRCADIAN DAY/NIGHT FOR BATCHERS (#1362) — Wired mushroom-batcher and luminous-plant-batcher via global uCircadianPhase (emissive dim by day, bright by night). Ensured circadianController.setDayTarget() is properly called in game-loop-visuals.ts and delta is passed instead of gameTime.
 - [x] **2026-07-07** ⛰️ GROUNDING CLUSTER — SLOPE ALIGNMENT + FOOTPRINT SAMPLING (#1302 / #1310) — per `.swarm-state.md` iteration 2: added `registerGroundNormalData` / `sampleGroundNormal` (baked-normal + finite-diff fallback) / `sampleGroundFootprint` to `ground-system.ts`; `SLOPE_ALIGN_TYPES`, `getGroundAlignedQuaternion`, footprint/slope-aware `plantOnSurface()` in `placement-utils.ts`; tree/arpeggio/luminous/portamento batchers compose the aligned quaternion; `?debugHeights=1` overlay now draws footprint ring + normal arrow. Slope capped at 45°; footprint uses lowest contact point. Build/WASM/smoke (WebGPU + WebGL) all green.
 - [x] **2026-07-06** 📸 SPATIAL-COHERENCE VISUAL REGRESSION VIEWPOINTS (#1311) — Added `slope_foot`, `lake_edge`, `horizon_lod`, and `gem_corridor_scale` viewpoints to `tools/visual-regression`; updated workflow to WebGL path; fixed ESM `require('crypto')` in `baseline-manager.ts`; captured 8 local baselines. Build/test green: `npm run build:ci`, `npm run test:wasm`, visual-regression `--update` run succeeds.
 - [x] **2026-07-06** 🌱 PER-ENTITY BASE OFFSETS (#1303) — Populated `ENTITY_BASE_OFFSETS` in `src/world/placement-utils.ts` with all major ground-placed entity types; refactored `src/world/generation-decorators.ts` standalone placement loops to use `plantOnSurface()`; extended `src/debug/ground-debug.ts` with `registerPlantedInstance()` and green base-contact rings for `?debugHeights=1`. Build/test green: `npm run build:ci`, `npm run test:wasm`, `npm run test`, `RENDERER=webgl npm run test`.
