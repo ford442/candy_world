@@ -67,7 +67,7 @@ the heavy chunks.
 
 | Chunk | Raw | Gzip |
 |-------|-----|------|
-| `app` | ~724 KB | ~220 KB |
+| `app` | ~735 KB | ~223 KB |
 | `save-ui` | ~45 KB | ~10 KB |
 | `analytics-debug` | ~21 KB | ~5 KB |
 | `gameplay` | ~16 KB | ~5 KB |
@@ -75,6 +75,10 @@ the heavy chunks.
 
 **Exception:** `app` remains **above Vite’s 500 KB warning** because the foliage batchers +
 music-reactivity + physics hot path must stay co-located to avoid circular chunk deps.
+`compute` is also kept inside `app` (statically imported from deferred-init / weather /
+culling); a separate compute chunk reintroduced `Circular chunk: compute ↔ app` and
+undefined live bindings at runtime.
+
 This PR removes ~84 KB from the critical path (gameplay / save-ui / analytics / world
 decorators). Further cuts need a follow-up that peels weather / particles without
 reintroducing circular chunk edges.

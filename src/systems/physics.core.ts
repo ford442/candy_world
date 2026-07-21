@@ -4,14 +4,15 @@
 
 import * as THREE from 'three';
 import {
-    isInLakeBasin as _isInLakeBasin,
-    isOnLakeIsland as _isOnLakeIsland,
+    isInLakeBasin,
+    isOnLakeIsland,
     getGroundHeight,
 } from './ground-system.ts';
 
 // Re-export lake helpers so existing call sites keep working without edits.
-export const isInLakeBasin = _isInLakeBasin;
-export const isOnLakeIsland = _isOnLakeIsland;
+// Use live re-exports (not `export const x = imported`) so circular chunk
+// init cannot snapshot an undefined binding (#1361).
+export { isInLakeBasin, isOnLakeIsland };
 
 /**
  * Backward-compatible alias. Prefer {@link getGroundHeight} from `ground-system.ts`.

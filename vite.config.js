@@ -30,10 +30,9 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             return 'vendor';
           }
-          // GPU compute modules - isolated, heavy
-          if (id.includes('/src/compute/')) {
-            return 'compute';
-          }
+          // NOTE: /src/compute/ stays in `app` — it is statically imported from
+          // deferred-init / weather / culling, and a separate compute chunk
+          // creates Circular chunk: compute ↔ app (undefined live bindings).
           // Audio system (music reactivity stays in app — shared with foliage)
           if (id.includes('/src/audio/')) {
             return 'audio';
@@ -84,7 +83,8 @@ export default defineConfig({
             id.includes('/src/ui/') ||
             id.includes('/src/utils/') ||
             id.includes('/src/world/') ||
-            id.includes('/src/debug/')
+            id.includes('/src/debug/') ||
+            id.includes('/src/compute/')
           ) {
             return 'app';
           }
