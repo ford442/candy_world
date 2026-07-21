@@ -692,7 +692,7 @@ export class LoadingScreen {
         this.spinner = null;
 
         // Clear aria-busy once loading is complete
-        this.container?.setAttribute('aria-busy', 'false');
+        this.container?.removeAttribute('aria-busy');
     }
 }
 
