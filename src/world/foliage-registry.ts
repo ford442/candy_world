@@ -120,7 +120,7 @@ export function registerBuiltinWorldObjectTypes(): void {
         subwooferLotusBatcher.register(proxy, { scale: typeof params?.scale === 'number' ? params.scale : 1.0 });
         return proxy;
     }, { supportsMusic: true, batcherHint: 'musical_flora' });
-    registerType('accordion_palm', () => createAccordionPalm({ color: 0xFFD700 }), { defaultIsObstacle: true });
+    registerType('accordion_palm', () => createAccordionPalm({ color: 0xFFD700 }), { defaultIsObstacle: true, supportsMusic: true, batcherHint: 'musical_flora' });
     registerType('fiber_optic_willow', () => createFiberOpticWillow(), { defaultIsObstacle: true });
     registerType('floating_orb', (params) => createFloatingOrb({ size: typeof params?.size === 'number' ? params.size : 0.5 }));
     registerType('swingable_vine', (params) => createSwingableVine({ length: typeof params?.length === 'number' ? params.length : 8 }));

@@ -28,6 +28,13 @@ import {
 // BATCH ANIMATION
 // =============================================================================
 
+// Zero-allocation buffer pointers for matrix composition
+let _composePtrPos = 0;
+let _composePtrQuat = 0;
+let _composePtrScale = 0;
+let _composePtrMat = 0;
+let _composeMaxCount = 512;
+
 /**
  * Batch animation calculation
  * @param time - Current time
@@ -173,6 +180,58 @@ export function batchUpdateLODMatrices_c(
 ): void {
     const f = getNativeFunc('batchUpdateLODMatrices_c');
     if (f) f(matrices, colors, count, cameraX, cameraY, cameraZ, lod1Dist, lod2Dist, cullDist, results);
+}
+
+/**
+ * Batch compose matrices (affine transform)
+ * @param positions - Positions array (x, y, z)
+ * @param quaternions - Quaternions array (x, y, z, w)
+ * @param scales - Scales array (x, y, z)
+ * @param matrices - Output matrices array (16 floats per instance)
+ * @param count - Count of instances
+ */
+export function batchComposeMatrices_c(
+    positions: Float32Array,
+    quaternions: Float32Array,
+    scales: Float32Array,
+    matrices: Float32Array,
+    count: number
+): void {
+    const f = getNativeFunc('batchComposeMatrices_c');
+    if (!f || !emscriptenMemory || !getEmscriptenInstance()?._malloc || !getEmscriptenInstance()._free) return;
+
+    // Handle memory alignment and avoid reallocation
+    if (!_composePtrPos || _composeMaxCount < count) {
+        if (_composePtrPos) {
+            getEmscriptenInstance()._free(_composePtrPos);
+            getEmscriptenInstance()._free(_composePtrQuat);
+            getEmscriptenInstance()._free(_composePtrScale);
+            getEmscriptenInstance()._free(_composePtrMat);
+        }
+
+        _composeMaxCount = Math.max(count, _composeMaxCount * 2);
+        _composePtrPos = getEmscriptenInstance()._malloc(_composeMaxCount * 3 * 4);
+        _composePtrQuat = getEmscriptenInstance()._malloc(_composeMaxCount * 4 * 4);
+        _composePtrScale = getEmscriptenInstance()._malloc(_composeMaxCount * 3 * 4);
+        _composePtrMat = getEmscriptenInstance()._malloc(_composeMaxCount * 16 * 4);
+    }
+
+    if (!_composePtrPos || !_composePtrQuat || !_composePtrScale || !_composePtrMat) return;
+
+    // Use .buffer safely
+    const memoryBuffer = (emscriptenMemory as any).buffer || emscriptenMemory;
+    const heapF32 = new Float32Array(memoryBuffer);
+
+    // Copy input data to WASM memory
+    heapF32.set(positions.subarray(0, count * 3), _composePtrPos >> 2);
+    heapF32.set(quaternions.subarray(0, count * 4), _composePtrQuat >> 2);
+    heapF32.set(scales.subarray(0, count * 3), _composePtrScale >> 2);
+
+    // Call the native C++ function
+    f(_composePtrPos, _composePtrQuat, _composePtrScale, _composePtrMat, count);
+
+    // Read resulting matrices back
+    matrices.set(heapF32.subarray(_composePtrMat >> 2, (_composePtrMat >> 2) + count * 16), 0);
 }
 
 /**
@@ -325,10 +384,11 @@ export function updateParticlesWASM(
     spawnZ: number
 ): void {
     const f = getNativeFunc('updateParticlesWASM');
-    if (!f || !emscriptenMemory || !getEmscriptenInstance()?._malloc || !getEmscriptenInstance()._free) return;
+    const emsc = getEmscriptenInstance();
+    if (!f || !emscriptenMemory || !emsc || !emsc._malloc || !emsc._free) return;
 
-    const ptrP = getEmscriptenInstance()._malloc(count * 4 * 4);
-    const ptrV = getEmscriptenInstance()._malloc(count * 4 * 4);
+    const ptrP = emsc._malloc(count * 4 * 4);
+    const ptrV = emsc._malloc(count * 4 * 4);
 
     if (!ptrP || !ptrV) return;
 
@@ -341,8 +401,8 @@ export function updateParticlesWASM(
     positions.set(heapF32.subarray(ptrP >> 2, (ptrP >> 2) + count * 4));
     velocities.set(heapF32.subarray(ptrV >> 2, (ptrV >> 2) + count * 4));
 
-    getEmscriptenInstance()._free(ptrP);
-    getEmscriptenInstance()._free(ptrV);
+    emsc._free(ptrP);
+    emsc._free(ptrV);
 }
 
 // =============================================================================
