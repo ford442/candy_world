@@ -246,6 +246,7 @@ _fastPow2
 _batchComposeMatrices_c
 _batchWriteInstanceColors_c
 _accumulateArpeggioChannels_c
+_batchWriteInstancePose_c
 _calcSpiralWave
 _getUnifiedGroundHeight
 _batchDistances

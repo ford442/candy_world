@@ -1012,6 +1012,18 @@ export declare function batchComposeMatrices(positionsPtr: number, quaternionsPt
  */
 export declare function batchWriteInstanceColors(colorsInPtr: number, colorsOutPtr: number, count: number, intensity: number): void;
 /**
+ * assembly/batch/batchWriteInstancePose
+ * @param positionsPtr `usize`
+ * @param quaternionsPtr `usize`
+ * @param scalesPtr `usize`
+ * @param colorsInPtr `usize`
+ * @param matricesPtr `usize`
+ * @param colorsOutPtr `usize`
+ * @param colorIntensity `f32`
+ * @param count `i32`
+ */
+export declare function batchWriteInstancePose(positionsPtr: number, quaternionsPtr: number, scalesPtr: number, colorsInPtr: number, matricesPtr: number, colorsOutPtr: number, colorIntensity: number, count: number): void;
+/**
  * assembly/foliage/computeSway
  * @param count `i32`
  * @param time `f32`

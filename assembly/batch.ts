@@ -475,3 +475,23 @@ export function batchWriteInstanceColors(
     store<f32>(colorsOutPtr + off + 8, load<f32>(colorsInPtr + off + 8) * intensity);
   }
 }
+
+/**
+ * Combined pose → matrix + color write (#1358 / batcher_instance.cpp parity).
+ * colorsInPtr/colorsOutPtr may be 0 to skip color writes.
+ */
+export function batchWriteInstancePose(
+  positionsPtr: usize,
+  quaternionsPtr: usize,
+  scalesPtr: usize,
+  colorsInPtr: usize,
+  matricesPtr: usize,
+  colorsOutPtr: usize,
+  colorIntensity: f32,
+  count: i32
+): void {
+  batchComposeMatrices(positionsPtr, quaternionsPtr, scalesPtr, matricesPtr, count);
+  if (colorsInPtr != 0 && colorsOutPtr != 0) {
+    batchWriteInstanceColors(colorsInPtr, colorsOutPtr, count, colorIntensity);
+  }
+}

@@ -243,6 +243,7 @@ export const {
   batchLerp,
   batchComposeMatrices,
   batchWriteInstanceColors,
+  batchWriteInstancePose,
   computeSway,
   computeBounce,
   computeWobble,

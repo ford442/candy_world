@@ -24,6 +24,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { composeMatricesTS, writeInstanceColorsTS } from './parity/refs/compose-matrices.mjs';
 import { accumulateArpeggioChannelsTS } from './parity/refs/accumulate-arpeggio.mjs';
+import { writeInstancePoseTS } from './parity/refs/write-instance-pose.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -374,8 +375,106 @@ function runArpeggioParity(asInstance, em) {
 }
 
 // ---------------------------------------------------------------------------
+// Path 3: combined batchWriteInstancePose (#1358 arpeggio slice)
+// ---------------------------------------------------------------------------
+function cppWriteInstancePose(em, positions, quaternions, scales, colors, intensity, count) {
+  if (!em || typeof em._batchWriteInstancePose_c !== 'function' || !em._malloc || !em.HEAPF32) {
+    return null;
+  }
+  const pPos = em._malloc(count * 3 * 4);
+  const pQuat = em._malloc(count * 4 * 4);
+  const pScale = em._malloc(count * 3 * 4);
+  const pColIn = em._malloc(count * 3 * 4);
+  const pMat = em._malloc(count * 16 * 4);
+  const pColOut = em._malloc(count * 3 * 4);
+  em.HEAPF32.set(positions.subarray(0, count * 3), pPos >> 2);
+  em.HEAPF32.set(quaternions.subarray(0, count * 4), pQuat >> 2);
+  em.HEAPF32.set(scales.subarray(0, count * 3), pScale >> 2);
+  em.HEAPF32.set(colors.subarray(0, count * 3), pColIn >> 2);
+  em._batchWriteInstancePose_c(pPos, pQuat, pScale, pColIn, pMat, pColOut, intensity, count);
+  const mat = new Float32Array(count * 16);
+  const col = new Float32Array(count * 3);
+  mat.set(em.HEAPF32.subarray(pMat >> 2, (pMat >> 2) + count * 16));
+  col.set(em.HEAPF32.subarray(pColOut >> 2, (pColOut >> 2) + count * 3));
+  em._free(pPos); em._free(pQuat); em._free(pScale);
+  em._free(pColIn); em._free(pMat); em._free(pColOut);
+  return { mat, col };
+}
+
+function runPoseWriteParity(asInstance, em) {
+  console.log('\n══ Path 3: batchWriteInstancePose (combined matrix+color, #1358) ══');
+  const fixture = JSON.parse(
+    fs.readFileSync(path.join(root, 'tests/fixtures/parity/matrix-compose.json'), 'utf8')
+  );
+
+  const mem = asInstance.exports.memory;
+  const asPose = asInstance.exports.batchWriteInstancePose;
+  if (typeof asPose !== 'function') {
+    console.error('  ✗ AS missing export batchWriteInstancePose');
+    failures++;
+    return;
+  }
+
+  let cppAvailable = false;
+
+  for (const c of fixture.cases) {
+    const count = c.count;
+    const positions = new Float32Array(c.positions);
+    const quaternions = new Float32Array(c.quaternions);
+    const scales = new Float32Array(c.scales);
+    const colors = new Float32Array(c.colors);
+    const intensity = c.intensity;
+    const hint = `case=${c.name} count=${count}`;
+
+    const tsMat = new Float32Array(count * 16);
+    const tsCol = new Float32Array(count * 3);
+    writeInstancePoseTS(positions, quaternions, scales, colors, tsMat, tsCol, intensity, count);
+
+    const scratch = asScratch(mem);
+    const pPos = scratch.alloc(count * 3 * 4);
+    const pQuat = scratch.alloc(count * 4 * 4);
+    const pScale = scratch.alloc(count * 3 * 4);
+    const pColIn = scratch.alloc(count * 3 * 4);
+    const pMat = scratch.alloc(count * 16 * 4);
+    const pColOut = scratch.alloc(count * 3 * 4);
+    scratch.writeF32(pPos, positions);
+    scratch.writeF32(pQuat, quaternions);
+    scratch.writeF32(pScale, scales);
+    scratch.writeF32(pColIn, colors);
+    asPose(pPos, pQuat, pScale, pColIn, pMat, pColOut, intensity, count);
+    const asMat = scratch.readF32(pMat, count * 16);
+    const asCol = scratch.readF32(pColOut, count * 3);
+
+    const ok =
+      compareF32Arrays(`AS pose-mat ${c.name}`, tsMat, asMat, FLOAT_TOL, hint) &&
+      compareF32Arrays(`AS pose-col ${c.name}`, tsCol, asCol, FLOAT_TOL, hint);
+    if (ok) {
+      console.log(`  ✓ TS↔AS  pose ${c.name}`);
+      passes++;
+    }
+
+    const cpp = cppWriteInstancePose(em, positions, quaternions, scales, colors, intensity, count);
+    if (cpp) {
+      cppAvailable = true;
+      const cppOk =
+        compareF32Arrays(`C++ pose-mat ${c.name}`, tsMat, cpp.mat, FLOAT_TOL, hint) &&
+        compareF32Arrays(`C++ pose-col ${c.name}`, tsCol, cpp.col, FLOAT_TOL, hint);
+      if (cppOk) {
+        console.log(`  ✓ TS↔C++ pose ${c.name}`);
+        passes++;
+      }
+    }
+  }
+
+  if (!cppAvailable) {
+    console.log('  ⏭ C++ SKIP — batchWriteInstancePose_c / candy_native unavailable');
+    skips++;
+  }
+}
+
+// ---------------------------------------------------------------------------
 async function main() {
-  console.log('Cross-tier parity harness (#1351)');
+  console.log('Cross-tier parity harness (#1351 + #1358 pose write)');
   console.log(`Tolerance: |Δ| ≤ ${FLOAT_TOL} for f32; exact for integers`);
   console.log(`WHY: f32 quat→matrix / volume÷count intermediates; 1e-5 catches formula drift without flaking on ulp noise`);
 
@@ -396,6 +495,7 @@ async function main() {
 
   runMatrixParity(asInstance, em);
   runArpeggioParity(asInstance, em);
+  runPoseWriteParity(asInstance, em);
 
   console.log('\n────────────────────────────────────────');
   console.log(`Result: ${passes} PASS, ${failures} FAIL, ${skips} SKIP`);
