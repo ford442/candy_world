@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { instanceIndex, color, float, vec3, vec4, attribute, positionLocal,
+import { color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
     max, pow, min, cameraPosition, uv, floor, instanceIndex, varyingProperty
@@ -512,7 +512,7 @@ export class MushroomBatcher {
         });
 
         // --- PALETTE: Jelly Wobble (Audio Reaction) ---
-        const calculateJellyWobble = Fn(([pos]) => {
+        const calculateJellyWobble = Fn(([pos]: any) => {
             // Only wobble when bouncing (triggered by note)
             // Frequency 10.0, Speed 15.0
             const wobbleFreq = float(10.0);
@@ -638,14 +638,14 @@ export class MushroomBatcher {
         capMat.emissiveNode = scaleEmissiveByLod(
             twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult)
         );
-        capMat.emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
+        (capMat as any).emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills
         const gillMat = getCachedProceduralMaterial('mushroom_gill_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
-            m.emissiveIntensityNode = totalGlow.mul(0.3);
+            (m as any).emissiveIntensityNode = totalGlow.mul(0.3);
             applyFoliageLodMaterialFade(m);
             return m;
         }) as MeshStandardNodeMaterial;
@@ -660,7 +660,7 @@ export class MushroomBatcher {
         }) as MeshStandardNodeMaterial;
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
         const spotAudio = uAudioHigh.mul(0.8); // 🎨 PALETTE: Make spots pop more on highs
-        spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
+        (spotMat as any).emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
 
         // Face Hiding Logic
         // If hasFace < 0.5, scale vertices to 0
