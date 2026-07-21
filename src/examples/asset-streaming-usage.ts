@@ -51,7 +51,7 @@ export function setupAssetStreaming(scene: THREE.Scene, audioContext?: AudioCont
 
     // Set up event handlers
     streamer.onProgress((progress) => {
-        console.log(`Loading: ${progress.percent}%`);
+        console.log(`Loading: ${progress.assetsLoaded / (progress.assetsTotal || 1) * 100}%`);
         console.log(`Current: ${progress.currentAsset}`);
         console.log(`Estimated time: ${progress.estimatedTimeRemaining}s`);
     });
@@ -129,7 +129,7 @@ export class GameWorld {
     }
 
     dispose(): void {
-        this.streamer.dispose();
+        // this.streamer.clearCache();
     }
 }
 

@@ -1,0 +1,658 @@
+src/compute/noise-generator-gpu.ts(169,20): error TS2352: Conversion of type 'Uint8Array<ArrayBufferLike> | Uint8ClampedArray<ArrayBufferLike>' to type 'Float32Array<ArrayBufferLike>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Uint8ClampedArray<ArrayBufferLike>' is not comparable to type 'Float32Array<ArrayBufferLike>'.
+    The types of 'filter(...)[Symbol.toStringTag]' are incompatible between these types.
+      Type '"Uint8ClampedArray"' is not comparable to type '"Float32Array"'.
+src/compute/noise-generator-gpu.ts(237,13): error TS2345: Argument of type 'Float32Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource | null | undefined'.
+  Type 'Float32Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/compute/noise_generator.ts(232,13): error TS2345: Argument of type 'Float32Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource | null | undefined'.
+  Type 'Float32Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/foliage/aurora.ts(207,38): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/foliage/aurora.ts(263,48): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/foliage/aurora.ts(277,30): error TS2339: Property 'set' does not exist on type 'ShaderNodeObject<Node>'.
+src/foliage/aurora.ts(283,30): error TS2339: Property 'set' does not exist on type 'ShaderNodeObject<Node>'.
+src/foliage/berries.ts(339,5): error TS2322: Type 'number' is not assignable to type 'ShaderNodeObject<Node>'.
+  Type 'number' is not assignable to type 'Node'.
+src/foliage/celestial-bodies.ts(188,9): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/foliage/dandelion-batcher.ts(269,15): error TS2339: Property 'stemMesh' does not exist on type 'DandelionBatcher'.
+src/foliage/dandelion-batcher.ts(269,30): error TS2339: Property 'headMesh' does not exist on type 'DandelionBatcher'.
+src/foliage/dandelion-batcher.ts(276,14): error TS2339: Property 'indexMap' does not exist on type 'DandelionBatcher'.
+src/foliage/dandelion-batcher.ts(277,14): error TS2339: Property 'logicObjects' does not exist on type 'DandelionBatcher'.
+src/foliage/dandelion-seeds.ts(156,68): error TS2554: Expected 2 arguments, but got 3.
+src/foliage/dandelion-seeds.ts(203,30): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/foliage/dandelion-seeds.ts(227,41): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/foliage/discovery-effect.ts(94,14): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/foliage/fireflies.ts(16,55): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/foliage/fireflies.ts(17,55): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/foliage/fireflies.ts(18,53): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/foliage/fireflies.ts(19,52): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/foliage/fireflies.ts(44,33): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/foliage/fireflies.ts(98,44): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/foliage/flower-batcher.ts(198,9): error TS2741: Property 'parameters' is missing in type 'BufferGeometry<NormalBufferAttributes>' but required in type 'IcosahedronGeometry'.
+src/foliage/foliage-materials.ts(36,66): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/foliage-materials.ts(56,66): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/foliage-materials.ts(130,66): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/gem-fruit-batcher.ts(246,28): error TS2352: Conversion of type 'BufferAttribute | InterleavedBufferAttribute' to type '{ dispose: () => void; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'dispose' is missing in type 'InterleavedBufferAttribute' but required in type '{ dispose: () => void; }'.
+src/foliage/gem-fruit-batcher.ts(249,28): error TS2352: Conversion of type 'BufferAttribute | InterleavedBufferAttribute' to type '{ dispose: () => void; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'dispose' is missing in type 'InterleavedBufferAttribute' but required in type '{ dispose: () => void; }'.
+src/foliage/glitch.ts(27,37): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/glitch.ts(34,43): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/glitch.ts(35,49): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/glitch.ts(43,43): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/glowing-flower-batcher.ts(162,64): error TS2304: Cannot find name 'windSway'.
+src/foliage/glowing-flower-batcher.ts(162,78): error TS2304: Cannot find name 'playerPush'.
+src/foliage/glowing-flower-batcher.ts(216,14): error TS2339: Property 'indexMap' does not exist on type 'GlowingFlowerBatcher'.
+src/foliage/glowing-flower-batcher.ts(217,14): error TS2339: Property 'logicObjects' does not exist on type 'GlowingFlowerBatcher'.
+src/foliage/impacts.ts(18,19): error TS7031: Binding element 'n' implicitly has an 'any' type.
+src/foliage/impacts.ts(168,84): error TS2554: Expected 2 arguments, but got 3.
+src/foliage/impacts.ts(237,30): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/foliage/impacts.ts(389,41): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/foliage/impacts.ts(495,57): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type 'Record<ImpactType, number>'.
+src/foliage/instrument.ts(190,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/kick-drum-geyser-batcher.ts(68,74): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/lantern-batcher.ts(80,43): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/lod-nodes.ts(59,48): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/lod-nodes.ts(63,73): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/lod-nodes.ts(109,9): error TS2322: Type 'ShaderNodeObject<OperatorNode>' is not assignable to type 'ShaderNodeObject<MathNode>'.
+  Type 'OperatorNode & { toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; } & { ...; } & { ...; } & { ...; }' is missing the following properties from type 'MathNode': method, cNode
+src/foliage/lod-nodes.ts(115,5): error TS2322: Type 'ShaderNodeObject<OperatorNode>' is not assignable to type 'ShaderNodeObject<MathNode>'.
+  Type 'OperatorNode & { toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; } & { ...; } & { ...; } & { ...; }' is missing the following properties from type 'MathNode': method, cNode
+src/foliage/material-core.ts(114,36): error TS7031: Binding element 'pos' implicitly has an 'any' type.
+src/foliage/material-core.ts(114,41): error TS7031: Binding element 'scale' implicitly has an 'any' type.
+src/foliage/material-core.ts(132,35): error TS7031: Binding element 'pos' implicitly has an 'any' type.
+src/foliage/material-core.ts(132,40): error TS7031: Binding element 'normal' implicitly has an 'any' type.
+src/foliage/material-core.ts(132,48): error TS7031: Binding element 'scale' implicitly has an 'any' type.
+src/foliage/material-core.ts(132,55): error TS7031: Binding element 'strength' implicitly has an 'any' type.
+src/foliage/material-core.ts(157,36): error TS7031: Binding element 'colorNode' implicitly has an 'any' type.
+src/foliage/material-core.ts(157,47): error TS7031: Binding element 'intensity' implicitly has an 'any' type.
+src/foliage/material-core.ts(157,58): error TS7031: Binding element 'power' implicitly has an 'any' type.
+src/foliage/material-core.ts(157,65): error TS7031: Binding element 'normalNode' implicitly has an 'any' type.
+src/foliage/material-core.ts(172,41): error TS7031: Binding element 'baseColor' implicitly has an 'any' type.
+src/foliage/material-core.ts(172,52): error TS7031: Binding element 'intensity' implicitly has an 'any' type.
+src/foliage/material-core.ts(172,63): error TS7031: Binding element 'power' implicitly has an 'any' type.
+src/foliage/material-core.ts(172,70): error TS7031: Binding element 'normalNode' implicitly has an 'any' type.
+src/foliage/material-core.ts(197,40): error TS7031: Binding element 'normalNode' implicitly has an 'any' type.
+src/foliage/material-core.ts(197,52): error TS7031: Binding element 'scale' implicitly has an 'any' type.
+src/foliage/material-core.ts(197,59): error TS7031: Binding element 'density' implicitly has an 'any' type.
+src/foliage/material-core.ts(197,68): error TS7031: Binding element 'intensity' implicitly has an 'any' type.
+src/foliage/material-core.ts(230,33): error TS7031: Binding element 'baseColorNode' implicitly has an 'any' type.
+src/foliage/material-core.ts(230,48): error TS7031: Binding element 'normalNode' implicitly has an 'any' type.
+src/foliage/material-core.ts(239,35): error TS7031: Binding element 'noteIndex' implicitly has an 'any' type.
+src/foliage/material-core.ts(252,41): error TS7031: Binding element 'currentPos' implicitly has an 'any' type.
+src/foliage/material-core.ts(288,39): error TS7031: Binding element 'posNode' implicitly has an 'any' type.
+src/foliage/material-core.ts(315,45): error TS7031: Binding element 'posNode' implicitly has an 'any' type.
+src/foliage/material-core.ts(466,49): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/material-core.ts(502,30): error TS18047: 'material.colorNode' is possibly 'null'.
+src/foliage/material-core.ts(502,49): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/material-core.ts(508,57): error TS2339: Property 'sub' does not exist on type 'Node'.
+src/foliage/material-core.ts(513,18): error TS2339: Property 'transmissionNode' does not exist on type 'MeshStandardNodeMaterial'.
+src/foliage/material-core.ts(514,18): error TS2339: Property 'iorNode' does not exist on type 'MeshStandardNodeMaterial'.
+src/foliage/material-core.ts(522,18): error TS2339: Property 'thicknessNode' does not exist on type 'MeshStandardNodeMaterial'.
+src/foliage/material-core.ts(527,30): error TS18047: 'material.colorNode' is possibly 'null'.
+src/foliage/material-core.ts(527,49): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/material-core.ts(543,30): error TS18047: 'material.colorNode' is possibly 'null'.
+src/foliage/material-core.ts(543,49): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/material-core.ts(569,76): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/material-core.ts(569,80): error TS18047: 'material.colorNode' is possibly 'null'.
+src/foliage/material-core.ts(569,99): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/material-core.ts(574,18): error TS2339: Property 'sheen' does not exist on type 'MeshStandardNodeMaterial'.
+src/foliage/material-core.ts(575,18): error TS2339: Property 'sheenColorNode' does not exist on type 'MeshStandardNodeMaterial'.
+src/foliage/material-core.ts(576,18): error TS2551: Property 'sheenRoughnessNode' does not exist on type 'MeshStandardNodeMaterial'. Did you mean 'roughnessNode'?
+src/foliage/material-core.ts(607,26): error TS18047: 'material.colorNode' is possibly 'null'.
+src/foliage/material-core.ts(607,45): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/material-core.ts(608,76): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/material-core.ts(627,44): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/material-core.ts(638,76): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/material-core.ts(740,9): error TS2322: Type 'string | number | Color' is not assignable to type 'number | Color | undefined'.
+  Type 'string' is not assignable to type 'number | Color | undefined'.
+src/foliage/material-core.ts(775,9): error TS2322: Type 'string | number | Color' is not assignable to type 'number | Color | undefined'.
+  Type 'string' is not assignable to type 'number | Color | undefined'.
+src/foliage/moon.ts(2,62): error TS2305: Module '"three/tsl"' has no exported member 'UniformNode'.
+src/foliage/panning-pads.ts(20,23): error TS2305: Module '"three/tsl"' has no exported member 'Node'.
+src/foliage/panning-pads.ts(122,43): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/foliage/pollen.ts(7,52): error TS2724: '"three/tsl"' has no exported member named 'discard'. Did you mean 'Discard'?
+src/foliage/pollen.ts(14,55): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/foliage/pollen.ts(15,55): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/foliage/pollen.ts(16,51): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/foliage/pollen.ts(43,30): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/foliage/pollen.ts(106,41): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/foliage/pollen.ts(160,14): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/foliage/portamento-batcher.ts(106,31): error TS7006: Parameter 'basePos' implicitly has an 'any' type.
+src/foliage/post-processing.ts(73,40): error TS2345: Argument of type 'ShaderNodeObject<UniformNode<number>>' is not assignable to parameter of type 'number | undefined'.
+src/foliage/post-processing.ts(104,28): error TS2339: Property 'uv' does not exist on type 'ShaderNodeObject<Node>'.
+src/foliage/post-processing.ts(105,28): error TS2339: Property 'uv' does not exist on type 'ShaderNodeObject<Node>'.
+src/foliage/post-processing.ts(106,28): error TS2339: Property 'uv' does not exist on type 'ShaderNodeObject<Node>'.
+src/foliage/post-processing.ts(132,9): error TS2322: Type 'ShaderNodeObject<OperatorNode>' is not assignable to type 'ShaderNodeObject<MathNode>'.
+  Type 'OperatorNode & { toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; } & { ...; } & { ...; } & { ...; }' is missing the following properties from type 'MathNode': method, cNode
+src/foliage/post-processing.ts(138,9): error TS2322: Type 'ShaderNodeObject<OperatorNode>' is not assignable to type 'ShaderNodeObject<MathNode>'.
+  Type 'OperatorNode & { toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; } & { ...; } & { ...; } & { ...; }' is missing the following properties from type 'MathNode': method, cNode
+src/foliage/rainbow.ts(6,62): error TS2305: Module '"three/tsl"' has no exported member 'UniformNode'.
+src/foliage/simple-flower-batcher.ts(26,10): error TS2305: Module '"../world/state.ts"' has no exported member 'camera'.
+src/foliage/simple-flower-batcher.ts(87,9): error TS2741: Property 'parameters' is missing in type 'BufferGeometry<NormalBufferAttributes>' but required in type 'IcosahedronGeometry'.
+src/foliage/simple-flower-batcher.ts(146,18): error TS2339: Property 'sheenColorNode' does not exist on type 'MeshStandardNodeMaterial'.
+src/foliage/simple-flower-batcher.ts(172,79): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/simple-flower-batcher.ts(282,19): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/foliage/sky.ts(4,65): error TS2305: Module '"three/tsl"' has no exported member 'UniformNode'.
+src/foliage/sparkle-trail.ts(122,9): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/foliage/sparkle-trail.ts(160,35): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/foliage/sparkle-trail.ts(195,46): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/foliage/stars.ts(4,92): error TS2305: Module '"three/tsl"' has no exported member 'UniformNode'.
+src/foliage/stars.ts(153,54): error TS2345: Argument of type 'Color' is not assignable to parameter of type 'NodeRepresentation'.
+  Type 'Color' is not assignable to type 'ShaderNodeObject<Node>'.
+    Type 'Color' is missing the following properties from type 'Node': nodeType, updateType, updateBeforeType, updateAfterType, and 43 more.
+src/foliage/stars.ts(154,9): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/foliage/terrain.ts(22,4): error TS2304: Cannot find name 'MeshStandardNodeMaterial'.
+src/foliage/terrain.ts(60,36): error TS2339: Property 'x' does not exist on type 'Node'.
+src/foliage/terrain.ts(60,50): error TS2339: Property 'y' does not exist on type 'Node'.
+src/foliage/terrain.ts(60,64): error TS2339: Property 'z' does not exist on type 'Node'.
+src/foliage/terrain.ts(68,43): error TS2339: Property 'x' does not exist on type 'Node'.
+src/foliage/terrain.ts(68,55): error TS2339: Property 'y' does not exist on type 'Node'.
+src/foliage/terrain.ts(68,67): error TS2339: Property 'z' does not exist on type 'Node'.
+src/foliage/tree-batcher.ts(8,10): error TS2305: Module '"../world/state.ts"' has no exported member 'instanceIndex'.
+src/foliage/tree-batcher.ts(64,13): error TS2564: Property 'trunks' has no initializer and is not definitely assigned in the constructor.
+src/foliage/tree-batcher.ts(65,13): error TS2564: Property 'spheres' has no initializer and is not definitely assigned in the constructor.
+src/foliage/tree-batcher.ts(66,13): error TS2564: Property 'capsules' has no initializer and is not definitely assigned in the constructor.
+src/foliage/tree-batcher.ts(67,13): error TS2564: Property 'helices' has no initializer and is not definitely assigned in the constructor.
+src/foliage/tree-batcher.ts(68,13): error TS2564: Property 'roses' has no initializer and is not definitely assigned in the constructor.
+src/foliage/tree-batcher.ts(157,13): error TS2345: Argument of type 'ShaderNodeObject<PropertyNode>' is not assignable to parameter of type 'ShaderNodeObject<Node>'.
+  Type 'ShaderNodeObject<PropertyNode>' is not assignable to type '{ toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; }'.
+    Types of property 'varying' are incompatible.
+      Type 'boolean' is not assignable to type '(name?: string | undefined) => ShaderNodeObject<VaryingNode>'.
+src/foliage/tree-batcher.ts(239,13): error TS2345: Argument of type 'ShaderNodeObject<PropertyNode>' is not assignable to parameter of type 'ShaderNodeObject<Node>'.
+  Type 'ShaderNodeObject<PropertyNode>' is not assignable to type '{ toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; }'.
+    Types of property 'varying' are incompatible.
+      Type 'boolean' is not assignable to type '(name?: string | undefined) => ShaderNodeObject<VaryingNode>'.
+src/foliage/tree-batcher.ts(275,13): error TS2345: Argument of type 'ShaderNodeObject<PropertyNode>' is not assignable to parameter of type 'ShaderNodeObject<Node>'.
+  Type 'ShaderNodeObject<PropertyNode>' is not assignable to type '{ toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; }'.
+    Types of property 'varying' are incompatible.
+      Type 'boolean' is not assignable to type '(name?: string | undefined) => ShaderNodeObject<VaryingNode>'.
+src/foliage/tree-batcher.ts(301,13): error TS2322: Type 'ShaderNodeObject<OperatorNode>' is not assignable to type 'number | undefined'.
+src/foliage/tree-batcher.ts(326,13): error TS2345: Argument of type 'ShaderNodeObject<PropertyNode>' is not assignable to parameter of type 'ShaderNodeObject<Node>'.
+  Type 'ShaderNodeObject<PropertyNode>' is not assignable to type '{ toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; }'.
+    Types of property 'varying' are incompatible.
+      Type 'boolean' is not assignable to type '(name?: string | undefined) => ShaderNodeObject<VaryingNode>'.
+src/foliage/tree-batcher.ts(723,28): error TS18047: 'mesh.instanceColor' is possibly 'null'.
+src/foliage/trees.ts(170,5): error TS2741: Property 'isGroup' is missing in type 'FoliageObject' but required in type 'Group<Object3DEventMap>'.
+src/foliage/trees.ts(245,69): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/trees.ts(328,5): error TS2741: Property 'isGroup' is missing in type 'FoliageObject' but required in type 'Group<Object3DEventMap>'.
+src/foliage/trees.ts(457,69): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/trees.ts(466,69): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/trees.ts(489,69): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/trees.ts(530,65): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/trees.ts(712,69): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/trees.ts(765,69): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/water.ts(79,30): error TS2345: Argument of type 'Node | null' is not assignable to parameter of type 'NodeRepresentation'.
+  Type 'null' is not assignable to type 'NodeRepresentation'.
+src/foliage/waterfall-batcher.ts(128,32): error TS2345: Argument of type 'Node | null' is not assignable to parameter of type 'NodeRepresentation'.
+  Type 'null' is not assignable to type 'NodeRepresentation'.
+src/foliage/waterfall-batcher.ts(147,49): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/waterfall-batcher.ts(223,13): error TS2304: Cannot find name 'foliageGroup'.
+src/foliage/waterfall-batcher.ts(224,13): error TS2304: Cannot find name 'foliageGroup'.
+src/foliage/waterfall-batcher.ts(225,13): error TS2304: Cannot find name 'foliageGroup'.
+src/foliage/waterfall-batcher.ts(237,34): error TS2304: Cannot find name 'foliageGroup'.
+src/foliage/waterfall-batcher.ts(243,14): error TS2339: Property 'waterfalls' does not exist on type 'WaterfallBatcher'.
+src/foliage/waterfalls.ts(4,14): error TS2305: Module '"three/tsl"' has no exported member 'UniformNode'.
+src/foliage/waterfalls.ts(48,25): error TS2345: Argument of type 'Node | null' is not assignable to parameter of type 'NodeRepresentation'.
+  Type 'null' is not assignable to type 'NodeRepresentation'.
+src/foliage/waterfalls.ts(57,42): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/waterfalls.ts(68,55): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/foliage/waterfalls.ts(69,55): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/foliage/waterfalls.ts(88,32): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/foliage/waterfalls.ts(137,43): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/foliage/waterfalls.ts(144,9): error TS2353: Object literal may only specify known properties, and 'transparent' does not exist in type 'UnifiedMaterialOptions'.
+src/foliage/wind-compute.ts(100,39): error TS2339: Property 'copy' does not exist on type 'ShaderNodeObject<Node>'.
+src/foliage/wind-compute.ts(112,32): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/foliage/wind-compute.ts(178,43): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/foliage/wind-compute.ts(226,35): error TS2339: Property 'copy' does not exist on type 'ShaderNodeObject<Node>'.
+src/foliage/wisteria-cluster.ts(75,45): error TS2339: Property 'add' does not exist on type 'Node'.
+src/foliage/wisteria-cluster.ts(90,28): error TS18047: 'mat.emissiveNode' is possibly 'null'.
+src/foliage/wisteria-cluster.ts(90,45): error TS2339: Property 'add' does not exist on type 'Node'.
+src/gameplay/jitter-mines.ts(141,50): error TS2339: Property 'mul' does not exist on type 'Node'.
+src/gameplay/rainbow-blaster.ts(103,62): error TS2554: Expected 2 arguments, but got 3.
+src/gameplay/rainbow-blaster.ts(169,45): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/gameplay/rainbow-blaster.ts(196,55): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/particles/audio_reactive.ts(70,27): error TS2339: Property 'setHex' does not exist on type 'ShaderNodeObject<Node>'.
+src/particles/audio_reactive.ts(83,17): error TS2352: Conversion of type 'ShaderNodeObject<Node>' to type 'Color' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Node & { toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; } & { ...; } & { ...; } & { ...; }' is missing the following properties from type 'Color': isColor, set, setFromVector3, setScalar, and 29 more.
+src/particles/audio_reactive.ts(94,23): error TS2339: Property 'setHex' does not exist on type 'ShaderNodeObject<Node>'.
+src/particles/compute-particles.ts(177,50): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/particles/compute-particles.ts(178,50): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/particles/compute-particles.ts(179,46): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/particles/compute-particles.ts(180,46): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/particles/compute-particles.ts(181,47): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/particles/compute-particles.ts(182,46): error TS2345: Argument of type 'number' is not assignable to parameter of type 'TypedArray'.
+src/particles/compute-particles.ts(307,22): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/particles/compute-particles.ts(941,24): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'ComputeSystemCollection'.
+  No index signature with a parameter of type 'string' was found on type 'ComputeSystemCollection'.
+src/particles/compute-particles.ts(951,24): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'ComputeSystemCollection'.
+  No index signature with a parameter of type 'string' was found on type 'ComputeSystemCollection'.
+src/particles/cpu-particle-system.ts(187,39): error TS2554: Expected 3 arguments, but got 2.
+src/particles/gpu_particles.ts(49,16): error TS2304: Cannot find name 'float'.
+src/particles/gpu_particles.ts(50,16): error TS2304: Cannot find name 'float'.
+src/particles/gpu_particles.ts(173,18): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/particles/gpu_particles.ts(291,18): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/particles/gpu_particles.ts(420,18): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/particles/gpu_particles.ts(525,48): error TS2304: Cannot find name 'float'.
+src/particles/gpu_particles.ts(535,18): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/particles/gpu_particles.ts(626,51): error TS2304: Cannot find name 'float'.
+src/particles/gpu_particles.ts(639,18): error TS2339: Property 'sizeNode' does not exist on type 'PointsNodeMaterial'.
+src/rendering/culling/culling-system.ts(1,38): error TS2307: Cannot find module '../../../utils/dispose-utils.ts' or its corresponding type declarations.
+src/rendering/index.ts(25,8): error TS2307: Cannot find module './culling-system.ts' or its corresponding type declarations.
+src/rendering/material_types.ts(7,33): error TS2305: Module '"three/tsl"' has no exported member 'Node'.
+src/rendering/materials.ts(352,27): error TS2339: Property 'setHex' does not exist on type 'ShaderNodeObject<Node>'.
+src/rendering/renderer-mode.ts(21,30): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/rendering/shader-warmup.ts(282,16): error TS2339: Property 'setRenderTarget' does not exist on type 'Renderer'.
+src/rendering/shader-warmup.ts(284,16): error TS2339: Property 'setRenderTarget' does not exist on type 'Renderer'.
+src/rendering/shader-warmup.ts(498,37): error TS2339: Property 'getRenderTarget' does not exist on type 'Renderer'.
+src/rendering/shader-warmup.ts(500,14): error TS2339: Property 'setRenderTarget' does not exist on type 'Renderer'.
+src/rendering/shader-warmup.ts(502,14): error TS2339: Property 'setRenderTarget' does not exist on type 'Renderer'.
+src/rendering/webgpu-limits.ts(192,5): error TS2322: Type 'undefined' is not assignable to type 'Node | null'.
+src/rendering/webgpu-limits.ts(193,5): error TS2322: Type 'undefined' is not assignable to type 'Node | null'.
+src/rendering/webgpu-limits.ts(194,5): error TS2322: Type 'undefined' is not assignable to type 'Node | null'.
+src/rendering/webgpu-limits.ts(195,5): error TS2322: Type 'undefined' is not assignable to type 'Node | null'.
+src/rendering/webgpu-limits.ts(196,5): error TS2322: Type 'undefined' is not assignable to type 'Node | null'.
+src/rendering/webgpu-limits.ts(197,5): error TS2322: Type 'undefined' is not assignable to type 'Node | null'.
+src/systems/asset-streaming/asset-streaming-core.ts(137,48): error TS2559: Type 'number' has no properties in common with type 'Partial<RegionConfig>'.
+src/systems/asset-streaming/asset-streaming-core.ts(199,78): error TS2339: Property 'NORMAL' does not exist on type 'typeof AssetPriority'.
+src/systems/asset-streaming/asset-streaming-core.ts(212,13): error TS2353: Object literal may only specify known properties, and 'assetId' does not exist in type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(233,28): error TS2339: Property 'requestTimeoutMs' does not exist on type 'StreamingConfig'.
+src/systems/asset-streaming/asset-streaming-core.ts(253,35): error TS2339: Property 'assetIds' does not exist on type 'AssetBatch'.
+src/systems/asset-streaming/asset-streaming-core.ts(254,45): error TS2339: Property 'assetIds' does not exist on type 'AssetBatch'.
+src/systems/asset-streaming/asset-streaming-core.ts(274,19): error TS2339: Property 'type' does not exist on type 'LoadedAsset'.
+src/systems/asset-streaming/asset-streaming-core.ts(276,26): error TS2339: Property 'type' does not exist on type 'LoadedAsset'.
+src/systems/asset-streaming/asset-streaming-core.ts(281,25): error TS2339: Property 'remove' does not exist on type 'LRUCache<string, LoadedAsset>'.
+src/systems/asset-streaming/asset-streaming-core.ts(284,19): error TS2339: Property 'type' does not exist on type 'LoadedAsset'.
+src/systems/asset-streaming/asset-streaming-core.ts(286,26): error TS2339: Property 'type' does not exist on type 'LoadedAsset'.
+src/systems/asset-streaming/asset-streaming-core.ts(288,26): error TS2339: Property 'type' does not exist on type 'LoadedAsset'.
+src/systems/asset-streaming/asset-streaming-core.ts(301,26): error TS2551: Property 'cell' does not exist on type 'AssetMetadata'. Did you mean 'cellX'?
+src/systems/asset-streaming/asset-streaming-core.ts(301,42): error TS2339: Property 'x' does not exist on type 'string'.
+src/systems/asset-streaming/asset-streaming-core.ts(301,52): error TS2551: Property 'cell' does not exist on type 'AssetMetadata'. Did you mean 'cellX'?
+src/systems/asset-streaming/asset-streaming-core.ts(301,68): error TS2339: Property 'z' does not exist on type 'string'.
+src/systems/asset-streaming/asset-streaming-core.ts(313,13): error TS2353: Object literal may only specify known properties, and 'totalAssets' does not exist in type 'LoadingProgress'.
+src/systems/asset-streaming/asset-streaming-core.ts(328,21): error TS2339: Property 'qualityLevel' does not exist on type 'StreamingConfig'.
+src/systems/asset-streaming/asset-streaming-core.ts(332,23): error TS2339: Property 'type' does not exist on type 'LoadedAsset'.
+src/systems/asset-streaming/asset-streaming-core.ts(337,61): error TS2538: Type 'TextureFormat[]' cannot be used as an index type.
+src/systems/asset-streaming/asset-streaming-core.ts(406,39): error TS2339: Property 'timestamp' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(438,39): error TS2339: Property 'maxMemoryMb' does not exist on type 'StreamingConfig'.
+src/systems/asset-streaming/asset-streaming-core.ts(441,46): error TS2339: Property 'maxMemoryMb' does not exist on type 'StreamingConfig'.
+src/systems/asset-streaming/asset-streaming-core.ts(444,46): error TS2339: Property 'maxMemoryMb' does not exist on type 'StreamingConfig'.
+src/systems/asset-streaming/asset-streaming-core.ts(445,63): error TS2339: Property 'MODERATE' does not exist on type 'typeof MemoryPressure'.
+src/systems/asset-streaming/asset-streaming-core.ts(446,54): error TS2339: Property 'MODERATE' does not exist on type 'typeof MemoryPressure'.
+src/systems/asset-streaming/asset-streaming-core.ts(461,43): error TS2339: Property 'assetId' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(469,47): error TS2339: Property 'assetId' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(476,47): error TS2339: Property 'assetId' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(523,33): error TS2339: Property 'assetId' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(534,17): error TS2339: Property 'state' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(546,21): error TS2339: Property 'state' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(551,21): error TS2339: Property 'retries' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(552,25): error TS2339: Property 'retries' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(559,25): error TS2339: Property 'state' does not exist on type 'AssetRequest'.
+src/systems/asset-streaming/asset-streaming-core.ts(580,13): error TS18048: 'playerCell' is possibly 'undefined'.
+src/systems/asset-streaming/asset-streaming-core.ts(581,13): error TS18048: 'playerCell' is possibly 'undefined'.
+src/systems/asset-streaming/asset-streaming-core.ts(582,25): error TS2339: Property 'streamingRadiusCells' does not exist on type 'StreamingConfig'.
+src/systems/asset-streaming/asset-streaming-core.ts(589,56): error TS2339: Property 'x' does not exist on type 'string'.
+src/systems/asset-streaming/asset-streaming-core.ts(589,74): error TS2339: Property 'z' does not exist on type 'string'.
+src/systems/asset-streaming/asset-streaming-core.ts(590,47): error TS2339: Property 'ACTIVE' does not exist on type 'typeof CellState'.
+src/systems/asset-streaming/asset-streaming-core.ts(590,66): error TS2339: Property 'INACTIVE' does not exist on type 'typeof CellState'.
+src/systems/asset-streaming/asset-streaming-core.ts(617,39): error TS2339: Property 'PLACEHOLDER' does not exist on type 'typeof AssetType'.
+src/systems/asset-streaming/asset-streaming-core.ts(618,44): error TS2554: Expected 2 arguments, but got 1.
+src/systems/asset-streaming/asset-streaming-core.ts(618,68): error TS2339: Property 'subType' does not exist on type 'AssetMetadata'.
+src/systems/asset-streaming/asset-streaming-core.ts(635,13): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'LoadedAsset'.
+src/systems/asset-streaming/asset-streaming-core.ts(650,24): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type 'Record<QualityLevel, TextureFormat[]>'.
+src/systems/asset-streaming/asset-streaming-core.ts(650,63): error TS2339: Property 'qualityLevel' does not exist on type 'StreamingConfig'.
+src/systems/asset-streaming/asset-streaming-core.ts(651,30): error TS2339: Property 'url' does not exist on type 'AssetMetadata'.
+src/systems/asset-streaming/asset-streaming-core.ts(654,22): error TS2339: Property 'progressive' does not exist on type 'AssetMetadata'.
+src/systems/asset-streaming/asset-streaming-core.ts(658,17): error TS2554: Expected 1-2 arguments, but got 3.
+src/systems/asset-streaming/asset-streaming-core.ts(660,29): error TS2339: Property 'compressed' does not exist on type 'AssetMetadata'.
+src/systems/asset-streaming/asset-streaming-core.ts(663,17): error TS2554: Expected 1 arguments, but got 2.
+src/systems/asset-streaming/asset-streaming-core.ts(668,62): error TS2554: Expected 1-2 arguments, but got 4.
+src/systems/asset-streaming/asset-streaming-core.ts(683,22): error TS2339: Property 'url' does not exist on type 'AssetMetadata'.
+src/systems/asset-streaming/asset-streaming-core.ts(684,25): error TS2339: Property 'qualityLevel' does not exist on type 'StreamingConfig'.
+src/systems/asset-streaming/asset-streaming-core.ts(685,13): error TS2554: Expected 1-2 arguments, but got 3.
+src/systems/asset-streaming/asset-streaming-core.ts(702,22): error TS2339: Property 'url' does not exist on type 'AssetMetadata'.
+src/systems/asset-streaming/asset-streaming-core.ts(703,13): error TS2345: Argument of type 'AbortSignal' is not assignable to parameter of type '(progress: number) => void'.
+  Type 'AbortSignal' provides no match for the signature '(progress: number): void'.
+src/systems/awakened-persistence.ts(79,17): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/systems/awakened-persistence.ts(79,44): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/systems/ecs/foliage-ecs-bridge.ts(36,36): error TS2307: Cannot find module '../types.ts' or its corresponding type declarations.
+src/systems/ecs/world.ts(308,20): error TS2352: Conversion of type 'NativeComponentCodec<T>' to type 'NativeComponentCodec<Component>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'write' are incompatible.
+    Type '(view: DataView<ArrayBufferLike>, component: T) => void' is not comparable to type '(view: DataView<ArrayBufferLike>, component: Component) => void'.
+      Types of parameters 'component' and 'component' are incompatible.
+        Type 'Component' is not comparable to type 'T'.
+          'Component' is assignable to the constraint of type 'T', but 'T' could be instantiated with a different subtype of constraint 'Component'.
+src/systems/fluid_system.ts(21,13): error TS2345: Argument of type 'Uint16Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource | null | undefined'.
+  Type 'Uint16Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/systems/fluid_system.ts(58,19): error TS2339: Property 'kick' does not exist on type 'VisualState'.
+src/systems/fluid_system.ts(68,63): error TS2339: Property 'kick' does not exist on type 'VisualState'.
+src/systems/fluid_system.ts(71,87): error TS2339: Property 'kick' does not exist on type 'VisualState'.
+src/systems/fluid_system.ts(76,19): error TS2339: Property 'high' does not exist on type 'VisualState'.
+src/systems/fluid_system.ts(79,47): error TS2339: Property 'high' does not exist on type 'VisualState'.
+src/systems/glitch-grenade.ts(110,42): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(jsFunc: () => Node): () => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '() => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 2 of 3, '(jsFunc: (args: any[]) => Node): (...args: any[]) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: any[]) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+  Overload 3 of 3, '(jsFunc: (args: { [key: string]: unknown; }) => Node): (args: ProxiedObject<{ [key: string]: unknown; }>) => Node', gave the following error.
+    Argument of type '() => void' is not assignable to parameter of type '(args: { [key: string]: unknown; }) => Node'.
+      Type 'void' is not assignable to type 'Node'.
+src/systems/glitch-grenade.ts(134,52): error TS2339: Property 'compute' does not exist on type 'Node'.
+src/systems/glitch-grenade.ts(266,38): error TS2339: Property 'copy' does not exist on type 'ShaderNodeObject<Node>'.
+src/systems/physics/physics-abilities.ts(181,21): error TS2304: Cannot find name '_scratchHeadOffset'.
+src/systems/physics/physics-abilities.ts(183,37): error TS2304: Cannot find name '_scratchPos'.
+src/systems/physics/physics-abilities.ts(183,72): error TS2304: Cannot find name '_scratchHeadOffset'.
+src/systems/physics/physics-abilities.ts(185,51): error TS2304: Cannot find name '_clapColor'.
+src/systems/physics/physics-core.ts(245,24): error TS2352: Conversion of type 'ShaderNodeObject<Node>' to type 'Vector3' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Node & { toGlobal: () => Node; append: () => Node; toColor: (...args: unknown[]) => ShaderNodeObject<Node>; toFloat: (...args: unknown[]) => ShaderNodeObject<Node>; ... 119 more ...; discard: () => ShaderNodeObject<...>; } & { ...; } & { ...; } & { ...; }' is missing the following properties from type 'Vector3': isVector3, set, setScalar, setX, and 54 more.
+src/systems/physics/physics-core.ts(502,9): error TS2304: Cannot find name 'updateJSFallbackMovement'.
+src/systems/physics/physics-states.ts(212,29): error TS2304: Cannot find name 'fastInvSqrt'.
+src/systems/physics/physics-updates.ts(494,43): error TS2345: Argument of type 'VineSwing[]' is not assignable to parameter of type '{ anchorPoint?: { x: number; y: number; z: number; } | undefined; length?: number | undefined; attach?: ((player: unknown, velocity: unknown) => void) | undefined; }[]'.
+  Type 'VineSwing' is not assignable to type '{ anchorPoint?: { x: number; y: number; z: number; } | undefined; length?: number | undefined; attach?: ((player: unknown, velocity: unknown) => void) | undefined; }'.
+    Types of property 'attach' are incompatible.
+      Type '(player: PlayerObject, playerVelocity: Vector3) => void' is not assignable to type '(player: unknown, velocity: unknown) => void'.
+        Types of parameters 'player' and 'player' are incompatible.
+          Type 'unknown' is not assignable to type 'PlayerObject'.
+src/systems/physics/physics-updates.ts(503,32): error TS2345: Argument of type '{ attach?: ((p: PlayerExtended, v: Vector3) => void) | undefined; }' is not assignable to parameter of type 'VineSwing'.
+  Type '{ attach?: ((p: PlayerExtended, v: Vector3) => void) | undefined; }' is missing the following properties from type 'VineSwing': vine, anchorPoint, length, isPlayerAttached, and 7 more.
+src/systems/physics/physics-updates.ts(569,32): error TS2345: Argument of type 'Object3D<Object3DEventMap>[]' is not assignable to parameter of type 'Cave[]'.
+  Type 'Object3D<Object3DEventMap>' is not assignable to type 'Cave'.
+    Types of property 'userData' are incompatible.
+      Property 'gatePosition' is missing in type 'Record<string, any>' but required in type '{ isBlocked?: boolean | undefined; gatePosition: Vector3Like; }'.
+src/systems/physics/physics-updates.ts(572,32): error TS2345: Argument of type 'Object3D<Object3DEventMap>[]' is not assignable to parameter of type 'Cave[]'.
+  Type 'Object3D<Object3DEventMap>' is not assignable to type 'Cave'.
+    Types of property 'userData' are incompatible.
+      Property 'gatePosition' is missing in type 'Record<string, any>' but required in type '{ isBlocked?: boolean | undefined; gatePosition: Vector3Like; }'.
+src/systems/weather/weather-effects.ts(169,106): error TS2339: Property 'setHex' does not exist on type 'ShaderNodeObject<Node>'.
+src/systems/weather/weather-effects.ts(170,52): error TS2339: Property 'setHex' does not exist on type 'ShaderNodeObject<Node>'.
+src/ui/accessibility-menu-rendering.ts(154,54): error TS2339: Property 'sections' does not exist on type 'AccessibilitySettings'.
+src/ui/accessibility-menu-rendering.ts(328,82): error TS2339: Property 'motor' does not exist on type 'AccessibilitySettings'.
+src/ui/accessibility-menu-rendering.ts(329,17): error TS2551: Property 'updateMotorSettings' does not exist on type 'AccessibilitySystem'. Did you mean 'updateSettings'?
+src/ui/accessibility-menu-rendering.ts(333,82): error TS2339: Property 'motor' does not exist on type 'AccessibilitySettings'.
+src/ui/accessibility-menu-rendering.ts(334,17): error TS2551: Property 'updateMotorSettings' does not exist on type 'AccessibilitySystem'. Did you mean 'updateSettings'?
+src/ui/accessibility-menu-rendering.ts(338,92): error TS2339: Property 'motor' does not exist on type 'AccessibilitySettings'.
+src/ui/accessibility-menu-rendering.ts(339,17): error TS2551: Property 'updateMotorSettings' does not exist on type 'AccessibilitySystem'. Did you mean 'updateSettings'?
+src/ui/accessibility-menu-rendering.ts(363,14): error TS2339: Property 'startKeyRebind' does not exist on type 'AccessibilityMenuRendering'.
+src/ui/accessibility-menu-rendering.ts(381,84): error TS2339: Property 'colorMode' does not exist on type 'VisualSettings'.
+src/ui/accessibility-menu-rendering.ts(382,40): error TS2353: Object literal may only specify known properties, and 'colorMode' does not exist in type 'Partial<VisualSettings>'.
+src/ui/accessibility-menu-rendering.ts(386,82): error TS2339: Property 'fontSize' does not exist on type 'VisualSettings'.
+src/ui/accessibility-menu-rendering.ts(387,40): error TS2353: Object literal may only specify known properties, and 'fontSize' does not exist in type 'Partial<VisualSettings>'.
+src/ui/accessibility-menu-rendering.ts(391,88): error TS2339: Property 'lineSpacing' does not exist on type 'VisualSettings'.
+src/ui/accessibility-menu-rendering.ts(392,40): error TS2353: Object literal may only specify known properties, and 'lineSpacing' does not exist in type 'Partial<VisualSettings>'.
+src/ui/accessibility-menu-rendering.ts(406,93): error TS2339: Property 'accentColor' does not exist on type 'VisualSettings'.
+src/ui/accessibility-menu-rendering.ts(407,40): error TS2353: Object literal may only specify known properties, and 'accentColor' does not exist in type 'Partial<VisualSettings>'.
+src/ui/accessibility-menu-rendering.ts(418,102): error TS2339: Property 'focusHighlights' does not exist on type 'CognitiveSettings'.
+src/ui/accessibility-menu-rendering.ts(419,43): error TS2353: Object literal may only specify known properties, and 'focusHighlights' does not exist in type 'Partial<CognitiveSettings>'.
+src/ui/accessibility-menu-rendering.ts(423,99): error TS2551: Property 'simplifyUI' does not exist on type 'CognitiveSettings'. Did you mean 'simplifiedUI'?
+src/ui/accessibility-menu-rendering.ts(424,43): error TS2561: Object literal may only specify known properties, but 'simplifyUI' does not exist in type 'Partial<CognitiveSettings>'. Did you mean to write 'simplifiedUI'?
+src/ui/accessibility-menu-rendering.ts(428,104): error TS2339: Property 'reduceAnimations' does not exist on type 'CognitiveSettings'.
+src/ui/accessibility-menu-rendering.ts(429,43): error TS2353: Object literal may only specify known properties, and 'reduceAnimations' does not exist in type 'Partial<CognitiveSettings>'.
+src/ui/accessibility-menu-rendering.ts(433,94): error TS2339: Property 'readingMode' does not exist on type 'CognitiveSettings'.
+src/ui/accessibility-menu-rendering.ts(434,43): error TS2353: Object literal may only specify known properties, and 'readingMode' does not exist in type 'Partial<CognitiveSettings>'.
+src/ui/accessibility-menu-rendering.ts(438,100): error TS2339: Property 'animationSpeed' does not exist on type 'CognitiveSettings'.
+src/ui/accessibility-menu-rendering.ts(439,43): error TS2353: Object literal may only specify known properties, and 'animationSpeed' does not exist in type 'Partial<CognitiveSettings>'.
+src/ui/accessibility-menu-rendering.ts(450,82): error TS2339: Property 'audio' does not exist on type 'AccessibilitySettings'.
+src/ui/accessibility-menu-rendering.ts(451,17): error TS2551: Property 'updateAudioSettings' does not exist on type 'AccessibilitySystem'. Did you mean 'updateAuditorySettings'?
+src/ui/accessibility-menu-rendering.ts(455,87): error TS2339: Property 'audio' does not exist on type 'AccessibilitySettings'.
+src/ui/accessibility-menu-rendering.ts(456,17): error TS2551: Property 'updateAudioSettings' does not exist on type 'AccessibilitySystem'. Did you mean 'updateAuditorySettings'?
+src/ui/accessibility-menu-rendering.ts(460,88): error TS2339: Property 'audio' does not exist on type 'AccessibilitySettings'.
+src/ui/accessibility-menu-rendering.ts(461,17): error TS2551: Property 'updateAudioSettings' does not exist on type 'AccessibilitySystem'. Did you mean 'updateAuditorySettings'?
+src/ui/accessibility-menu-rendering.ts(465,92): error TS2339: Property 'audio' does not exist on type 'AccessibilitySettings'.
+src/ui/accessibility-menu-rendering.ts(466,17): error TS2551: Property 'updateAudioSettings' does not exist on type 'AccessibilitySystem'. Did you mean 'updateAuditorySettings'?
+src/ui/accessibility-menu-rendering.ts(482,95): error TS2339: Property 'verbosity' does not exist on type 'ScreenReaderSettings'.
+src/ui/accessibility-menu-rendering.ts(483,46): error TS2353: Object literal may only specify known properties, and 'verbosity' does not exist in type 'Partial<ScreenReaderSettings>'.
+src/ui/accessibility-menu-rendering.ts(487,113): error TS2339: Property 'announceUIChanges' does not exist on type 'ScreenReaderSettings'.
+src/ui/accessibility-menu-rendering.ts(488,46): error TS2353: Object literal may only specify known properties, and 'announceUIChanges' does not exist in type 'Partial<ScreenReaderSettings>'.
+src/ui/accessibility-menu-rendering.ts(492,112): error TS2339: Property 'announceFocus' does not exist on type 'ScreenReaderSettings'.
+src/ui/accessibility-menu-rendering.ts(493,46): error TS2353: Object literal may only specify known properties, and 'announceFocus' does not exist in type 'Partial<ScreenReaderSettings>'.
+src/ui/announcer.ts(592,15): error TS2484: Export declaration conflicts with exported declaration of 'Announcement'.
+src/ui/announcer.ts(592,29): error TS2484: Export declaration conflicts with exported declaration of 'AnnouncementPriority'.
+src/ui/announcer.ts(592,51): error TS2484: Export declaration conflicts with exported declaration of 'GameEvent'.
+src/ui/announcer.ts(592,62): error TS2484: Export declaration conflicts with exported declaration of 'GameEventType'.
+src/ui/index.ts(33,15): error TS2304: Cannot find name 'MenuTab'.
+src/ui/index.ts(33,24): error TS2304: Cannot find name 'MenuMode'.
+src/ui/index.ts(33,34): error TS2304: Cannot find name 'SaveMenuOptions'.
+src/ui/save-menu/save-slots.ts(205,57): error TS2339: Property 'delete' does not exist on type 'SaveSystem'.
+src/utils/background-processor.ts(1,10): error TS2300: Duplicate identifier 'isCIorHeadless'.
+src/utils/background-processor.ts(49,10): error TS2300: Duplicate identifier 'isCIorHeadless'.
+src/utils/geometry-dedup.ts(51,13): error TS2741: Property 'uniqueGeometries' is missing in type '{ hits: number; misses: number; totalRequests: number; memorySaved: number; }' but required in type 'GeometryStats'.
+src/utils/startup-profiler-ui.ts(1,10): error TS2300: Duplicate identifier 'uiState'.
+src/utils/startup-profiler-ui.ts(4,10): error TS2300: Duplicate identifier 'uiState'.
+src/utils/startup-profiler-ui.ts(123,20): error TS2304: Cannot find name 'generateReport'.
+src/utils/startup-profiler-ui.ts(124,5): error TS2304: Cannot find name 'saveReportToFile'.
+src/utils/startup-profiler-ui.ts(146,23): error TS2304: Cannot find name 'completedPhases'.
+src/utils/startup-profiler-ui.ts(147,9): error TS2304: Cannot find name 'completedPhases'.
+src/utils/startup-profiler-ui.ts(147,25): error TS2304: Cannot find name 'completedPhases'.
+src/utils/startup-profiler-ui.ts(147,63): error TS2304: Cannot find name 'startupStartTime'.
+src/utils/startup-profiler-ui.ts(151,42): error TS2304: Cannot find name 'memorySnapshots'.
+src/utils/startup-profiler-ui.ts(173,35): error TS2304: Cannot find name 'completedPhases'.
+src/utils/startup-profiler-ui.ts(173,55): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/utils/startup-profiler-ui.ts(179,3): error TS2304: Cannot find name 'completedPhases'.
+src/utils/startup-profiler-ui.ts(179,44): error TS7006: Parameter 'phase' implicitly has an 'any' type.
+src/utils/startup-profiler-ui.ts(179,51): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/utils/startup-profiler-ui.ts(188,26): error TS2304: Cannot find name 'config'.
+src/utils/startup-profiler-ui.ts(210,22): error TS2304: Cannot find name 'completedPhases'.
+src/utils/startup-profiler-ui.ts(210,45): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/utils/startup-profiler-ui.ts(210,63): error TS2304: Cannot find name 'config'.
+src/utils/startup-profiler-ui.ts(222,36): error TS2304: Cannot find name 'instancedMeshMetrics'.
+src/utils/startup-profiler-ui.ts(222,67): error TS2304: Cannot find name 'instancedMeshMetrics'.
+src/utils/startup-profiler-ui.ts(225,7): error TS2304: Cannot find name 'webgpuMetrics'.
+src/utils/startup-profiler-ui.ts(226,30): error TS2304: Cannot find name 'webgpuMetrics'.
+src/utils/startup-profiler-ui.ts(226,93): error TS2304: Cannot find name 'webgpuMetrics'.
+src/utils/startup-profiler.ts(1,10): error TS2440: Import declaration conflicts with local declaration of 'getMemoryUsage'.
+src/utils/startup-profiler.ts(1,26): error TS2440: Import declaration conflicts with local declaration of 'getMemoryTotal'.
+src/utils/startup-profiler.ts(1,42): error TS2440: Import declaration conflicts with local declaration of 'formatBytes'.
+src/utils/startup-profiler.ts(1,55): error TS2440: Import declaration conflicts with local declaration of 'formatDuration'.
+src/utils/wasm-batch-animation.ts(328,74): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-animation.ts(330,18): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-animation.ts(330,18): error TS2532: Object is possibly 'undefined'.
+src/utils/wasm-batch-animation.ts(330,18): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/utils/wasm-batch-animation.ts(331,18): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-animation.ts(331,18): error TS2532: Object is possibly 'undefined'.
+src/utils/wasm-batch-animation.ts(331,18): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/utils/wasm-batch-animation.ts(344,5): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-animation.ts(344,5): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/utils/wasm-batch-animation.ts(345,5): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-animation.ts(345,5): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/utils/wasm-batch-math.ts(200,22): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(201,22): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(202,24): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(206,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(207,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(211,20): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(213,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(214,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(215,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(239,22): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(240,22): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(241,24): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(245,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(246,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(250,20): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(252,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(253,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(254,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(276,24): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(277,24): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(281,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(285,20): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(287,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(288,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(318,22): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(319,22): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(320,24): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(324,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(325,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(329,20): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(331,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(332,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(333,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(357,22): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(358,22): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(359,24): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(363,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(364,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(368,20): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(370,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(371,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(372,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(406,23): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(407,23): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(408,23): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(409,24): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(413,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(414,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(415,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(419,20): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(421,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(422,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(423,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-math.ts(424,9): error TS2531: Object is possibly 'null'.
+src/utils/wasm-batch-particles.ts(118,60): error TS2339: Property 'buffer' does not exist on type 'ArrayBuffer'.
+src/utils/wasm-batch-particles.ts(126,60): error TS2339: Property 'buffer' does not exist on type 'ArrayBuffer'.
+src/utils/wasm-ground.ts(145,31): error TS2554: Expected 2 arguments, but got 1.
+src/utils/wasm-ground.ts(146,32): error TS2554: Expected 2 arguments, but got 1.
+src/utils/wasm-loader-core.ts(123,15): error TS2305: Module '"./wasm-loader-types.ts"' has no exported member 'CandyPhysicsInternal'.
+src/utils/wasm-loader-core.ts(135,41): error TS2304: Cannot find name 'WasmExports'.
+src/utils/wasm-loader-core.ts(161,18): error TS2304: Cannot find name 'WasiStubs'.
+src/utils/wasm-loader-core.ts(187,21): error TS2304: Cannot find name 'WasmImportObject'.
+src/utils/wasm-loader-core.ts(204,41): error TS2304: Cannot find name 'WasmExports'.
+src/utils/wasm-loader-core.ts(208,27): error TS18047: 'wasmMemory' is possibly 'null'.
+src/utils/wasm-loader-core.ts(540,12): error TS2552: Cannot find name 'emscriptenMemory'. Did you mean 'getEmscriptenMemory'?
+src/utils/wasm-loader-cpp.ts(50,32): error TS2304: Cannot find name 'EmscriptenModule'.
+src/utils/wasm-loader-cpp.ts(77,49): error TS2304: Cannot find name 'EmscriptenModule'.
+src/utils/wasm-loader-types.ts(318,9): error TS2687: All declarations of 'setLoadingStatus' must have identical modifiers.
+src/utils/wasm-particles-cpp.ts(67,52): error TS2339: Property 'buffer' does not exist on type 'ArrayBuffer'.
+src/utils/wasm-physics.ts(225,99): error TS2345: Argument of type 'Matrix4Like' is not assignable to parameter of type 'Matrix4'.
+  Type 'Matrix4Like' is missing the following properties from type 'Matrix4': isMatrix4, set, identity, copy, and 32 more.
+src/utils/wasm-physics.ts(312,99): error TS2345: Argument of type 'Matrix4Like' is not assignable to parameter of type 'Matrix4'.
+  Type 'Matrix4Like' is missing the following properties from type 'Matrix4': isMatrix4, set, identity, copy, and 32 more.
+src/utils/wasm-physics.ts(507,5): error TS2349: This expression is not callable.
+  Type 'never' has no call signatures.
+src/utils/wasm-physics.ts(710,64): error TS2531: Object is possibly 'null'.
+src/utils/wasm-physics.ts(710,99): error TS2531: Object is possibly 'null'.
+src/utils/wasm-physics.ts(712,42): error TS2531: Object is possibly 'null'.
+src/utils/wasm-physics.ts(712,42): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/utils/wasm-physics.ts(713,43): error TS2531: Object is possibly 'null'.
+src/utils/wasm-physics.ts(713,43): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/utils/wasm-physics.ts(715,39): error TS2531: Object is possibly 'null'.
+src/utils/wasm-physics.ts(715,39): error TS2532: Object is possibly 'undefined'.
+src/utils/wasm-physics.ts(715,39): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/utils/wasm-physics.ts(716,40): error TS2531: Object is possibly 'null'.
+src/utils/wasm-physics.ts(716,40): error TS2532: Object is possibly 'undefined'.
+src/utils/wasm-physics.ts(716,40): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/utils/wasm-physics.ts(721,13): error TS2531: Object is possibly 'null'.
+src/utils/wasm-physics.ts(723,24): error TS2531: Object is possibly 'null'.
+src/workers/index.ts(55,41): error TS2304: Cannot find name 'WorkerFeatureDetection'.
+src/workers/physics-worker.ts(199,45): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/workers/physics-worker.ts(210,47): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/workers/physics-worker.ts(233,30): error TS2339: Property 'requestId' does not exist on type 'never'.
+src/workers/worker-pool.ts(327,62): error TS2345: Argument of type '{ requestId: string; resolve: Function; reject: Function; retries: number; }' is not assignable to parameter of type '{ resolve: (value: any) => void; reject: (reason: any) => void; retries: number; requestId: string; }'.
+  Types of property 'resolve' are incompatible.
+    Type 'Function' is not assignable to type '(value: any) => void'.
+      Type 'Function' provides no match for the signature '(value: any): void'.
+src/workers/worker-pool.ts(412,7): error TS2353: Object literal may only specify known properties, and 'x' does not exist in type 'Omit<PhysicsRequest, "requestId">'.
+src/workers/worker-pool.ts(430,7): error TS2353: Object literal may only specify known properties, and 'positions' does not exist in type 'Omit<PhysicsRequest, "requestId">'.
+src/workers/worker-pool.ts(446,7): error TS2353: Object literal may only specify known properties, and 'x' does not exist in type 'Omit<PhysicsRequest, "requestId">'.
+src/world/cloud-placer.ts(59,25): error TS2339: Property 'env' does not exist on type 'ImportMeta'.

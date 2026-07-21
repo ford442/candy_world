@@ -66,7 +66,7 @@ export class ArpeggioFernBatcher {
      * Day/night pose state machine — single slot (global unfurl for all ferns).
      * Uses a Float32Array of capacity 1; no per-frame allocations.
      */
-    private _poseMachine: PlantPoseMachine;
+    private _poseMachine!: PlantPoseMachine;
 
     constructor() {
         this.initialized = false;
@@ -347,12 +347,12 @@ export class ArpeggioFernBatcher {
 
         this.initialized = false;
         this.count = 0;
-        this.indexMap.clear();
-        this.positions.length = 0;
-        this.scales.length = 0;
+        // this.indexMap.clear();
+        // this.positions.length = 0;
+        // this.scales.length = 0;
     }
 
-    register(dummy, options: any = {}) {
+    register(dummy: THREE.Object3D, options: any = {}) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_FERNS) {
             console.warn('[ArpeggioBatcher] Max limit reached');
@@ -410,7 +410,7 @@ export class ArpeggioFernBatcher {
         if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
     }
 
-    updateInstance(index, dummy) {
+    updateInstance(index: number, dummy: THREE.Object3D) {
         if (!this.initialized) return;
 
         // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
