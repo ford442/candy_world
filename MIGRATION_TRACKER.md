@@ -25,6 +25,8 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 ### 1. Batcher instance matrix + color hot path → C++ batch
 
+**Status:** ✅ Completed (Implemented across `arpeggio-batcher.ts` and `tree-batcher.ts` utilizing single-allocation pointer properties and chunked WASM `_batchComposeMatrices_c` processing).
+
 **Why:** `arpeggio-batcher.ts`, `tree-batcher.ts`, `mushroom-batcher.ts`, etc. still write `instanceMatrix.array` / `instanceColor.array` per plant per frame in TS after `PlantPoseMachine.update`.
 
 **15% scope:** Extract *only* the matrix/color write loop for one batcher species (suggest `arpeggio-batcher`) into `emscripten/lod_batch.cpp` or a new `batcher_instance.cpp` batch export.

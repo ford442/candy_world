@@ -2,6 +2,7 @@ _main
 _malloc
 _free
 _calcFloatingParticle
+_batchUnifiedGroundHeight
 _getSpeakerScale
 _hash
 _startShaderWarmup
@@ -12,6 +13,7 @@ _getPlayerVX
 _getPlayerVY
 _ecsQueryComponents
 _calcAccordionStretch
+_invalidateGroundCache
 _batchSpring_simd
 _initParticleRandom
 _fastInvSqrt
@@ -23,11 +25,13 @@ _queryDiscoveries
 _calcShiver
 _valueNoise2D
 _smoothDamp
+_batchPadForces_c
 _batchTranslateMatrices_c
 _fluidInit
 _fluidStep
 _getAccordionWidthXZ
 _batchPanningBob_c
+_setGroundCacheTTL
 _fastSin
 _batchCloudBob_c
 _calcBounceY
@@ -42,6 +46,7 @@ _batchSpring_c
 _deformWobble_c
 _batchFastSin_simd
 _fluidAddDensity
+_batchVineInteraction_c
 _deformMeshWave
 _getSpiralScale
 _batchFiberWhip_c
@@ -68,6 +73,7 @@ _batchAccordion_c
 _batchCalcWobble
 _updatePhysicsCPP
 _getShaderWarmupProgress
+_updateCpuParticlesWASM
 _ecsSetComponent
 _ecsCreateEntity
 _updateParticles
@@ -105,6 +111,7 @@ _batchSpiralWave_c
 _ecsIsAlive
 _ecsInit
 _getBootstrapHeight
+_batchGeyserLaunch_c
 _initPhysicsMemory
 _batchCymbalShake_c
 _batchSnareSnap_c
@@ -119,11 +126,13 @@ _batchVibratoShake_c
 _getPrismHue
 _ecsGetComponent
 _recomputeNormals
+_clearGroundPlatforms
 _ecsHasComponent
 _getPrismPulse
 _fastCos
 _getAccordionStretchY
 _valueNoise2D_simd4
+_addGroundPlatform
 _batchDistanceCullLOD_c
 _batchDistSq3D_omp
 _calcPrismRose
@@ -143,6 +152,8 @@ _registerDiscoverable
 _updateParticlesWASM
 _getFiberBranchRotZ
 _fastPow2
+_batchComposeMatrices_c
 _calcSpiralWave
+_getUnifiedGroundHeight
 _batchDistances
 _addCollisionObject
