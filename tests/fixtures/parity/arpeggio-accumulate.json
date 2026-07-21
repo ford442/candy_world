@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "seed": "0xA26B00E",
+  "description": "arpeggio_grove shimmer+hueShift packed volumes with nightGate/intensityScale",
+  "bindingsNote": "volumes are pre-gathered channel volumes (shimmer first, then hueShift)",
+  "cases": [
+    {
+      "name": "night_full",
+      "shimmerCount": 2,
+      "hueShiftCount": 1,
+      "dayNightBias": 0,
+      "nightGate": 1,
+      "intensityScale": 1,
+      "volumes": [
+        0.8,
+        0.6,
+        0.4
+      ]
+    },
+    {
+      "name": "day_attenuated",
+      "shimmerCount": 2,
+      "hueShiftCount": 1,
+      "dayNightBias": 1,
+      "nightGate": 0.2,
+      "intensityScale": 1,
+      "volumes": [
+        0.8,
+        0.6,
+        0.4
+      ]
+    },
+    {
+      "name": "twilight",
+      "shimmerCount": 2,
+      "hueShiftCount": 1,
+      "dayNightBias": 0.5,
+      "nightGate": 0.6000000000000001,
+      "intensityScale": 1.2,
+      "volumes": [
+        1,
+        0.9,
+        0.7
+      ]
+    },
+    {
+      "name": "silent",
+      "shimmerCount": 2,
+      "hueShiftCount": 1,
+      "dayNightBias": 0,
+      "nightGate": 1,
+      "intensityScale": 1,
+      "volumes": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "clipped",
+      "shimmerCount": 2,
+      "hueShiftCount": 1,
+      "dayNightBias": 0,
+      "nightGate": 1,
+      "intensityScale": 1,
+      "volumes": [
+        1.5,
+        1.2,
+        2
+      ]
+    },
+    {
+      "name": "single_shimmer",
+      "shimmerCount": 1,
+      "hueShiftCount": 2,
+      "dayNightBias": 0.2,
+      "nightGate": 0.8400000000000001,
+      "intensityScale": 0.8,
+      "volumes": [
+        0.55,
+        0.3,
+        0.1
+      ]
+    },
+    {
+      "name": "zero_hue",
+      "shimmerCount": 2,
+      "hueShiftCount": 0,
+      "dayNightBias": 0,
+      "nightGate": 1,
+      "intensityScale": 1,
+      "volumes": [
+        0.4,
+        0.3
+      ]
+    },
+    {
+      "name": "random_spread",
+      "shimmerCount": 3,
+      "hueShiftCount": 2,
+      "dayNightBias": 0.33473199885338545,
+      "nightGate": 0.7322144009172917,
+      "intensityScale": 1.4787630701903254,
+      "volumes": [
+        0.10801169159822166,
+        0.9969919300638139,
+        0.6361496718600392,
+        0.539542272221297,
+        0.38856499013490975
+      ]
+    }
+  ]
+}

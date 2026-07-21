@@ -17,6 +17,82 @@ import {
 const MATH_STRIDE = 4; // 4 floats per result (rotX, rotY, rotZ, scale)
 
 // =============================================================================
+// TEST-ONLY / PARITY REFERENCE ENTRYPOINTS (#1351)
+// Pure typed-array TRS→matrix + color write — mirrors batcher TS fallback and
+// assembly/batch.ts batchComposeMatrices / batchWriteInstanceColors.
+// =============================================================================
+
+/**
+ * Compose TRS instance matrices (column-major). Allocation-free.
+ * @param positions - [x,y,z,...]
+ * @param quaternions - [x,y,z,w,...]
+ * @param scales - [sx,sy,sz,...]
+ * @param matrices - output [m0..m15,...]
+ * @param count - instance count
+ */
+export function composeMatricesTS(
+    positions: Float32Array,
+    quaternions: Float32Array,
+    scales: Float32Array,
+    matrices: Float32Array,
+    count: number
+): void {
+    for (let i = 0; i < count; i++) {
+        const qx = quaternions[i * 4 + 0];
+        const qy = quaternions[i * 4 + 1];
+        const qz = quaternions[i * 4 + 2];
+        const qw = quaternions[i * 4 + 3];
+
+        const sx = scales[i * 3 + 0];
+        const sy = scales[i * 3 + 1];
+        const sz = scales[i * 3 + 2];
+
+        const x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
+        const xx = qx * x2, xy = qx * y2, xz = qx * z2;
+        const yy = qy * y2, yz = qy * z2, zz = qz * z2;
+        const wx = qw * x2, wy = qw * y2, wz = qw * z2;
+
+        const mIdx = i * 16;
+        matrices[mIdx + 0] = (1 - (yy + zz)) * sx;
+        matrices[mIdx + 1] = (xy + wz) * sx;
+        matrices[mIdx + 2] = (xz - wy) * sx;
+        matrices[mIdx + 3] = 0;
+
+        matrices[mIdx + 4] = (xy - wz) * sy;
+        matrices[mIdx + 5] = (1 - (xx + zz)) * sy;
+        matrices[mIdx + 6] = (yz + wx) * sy;
+        matrices[mIdx + 7] = 0;
+
+        matrices[mIdx + 8] = (xz + wy) * sz;
+        matrices[mIdx + 9] = (yz - wx) * sz;
+        matrices[mIdx + 10] = (1 - (xx + yy)) * sz;
+        matrices[mIdx + 11] = 0;
+
+        matrices[mIdx + 12] = positions[i * 3 + 0];
+        matrices[mIdx + 13] = positions[i * 3 + 1];
+        matrices[mIdx + 14] = positions[i * 3 + 2];
+        matrices[mIdx + 15] = 1;
+    }
+}
+
+/**
+ * Write instance RGB colors with uniform intensity. Allocation-free.
+ */
+export function writeInstanceColorsTS(
+    colorsIn: Float32Array,
+    colorsOut: Float32Array,
+    count: number,
+    intensity: number
+): void {
+    for (let i = 0; i < count; i++) {
+        const o = i * 3;
+        colorsOut[o] = colorsIn[o] * intensity;
+        colorsOut[o + 1] = colorsIn[o + 1] * intensity;
+        colorsOut[o + 2] = colorsIn[o + 2] * intensity;
+    }
+}
+
+// =============================================================================
 // UTILITY FALLBACK FUNCTIONS
 // =============================================================================
 

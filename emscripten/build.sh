@@ -263,6 +263,8 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchTranslateMatrices_c"]="lod_batch"
     ["batchFadeColors_c"]="lod_batch"
     ["batchComposeMatrices_c"]="lod_batch"
+    ["batchWriteInstanceColors_c"]="lod_batch"
+    ["accumulateArpeggioChannels_c"]="lod_batch"
     
     # New batch animation functions (animation_batch.cpp)
     ["batchSnareSnap_c"]="animation_batch"
