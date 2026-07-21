@@ -20,7 +20,7 @@ import {
     applyStandardDeformation
 
 } from './index.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
@@ -52,7 +52,8 @@ export class SubwooferLotusBatcher {
 
         // 1. Base Pad
         const padMat = createClayMaterial(hexColor);
-        padMat.positionNode = applyStandardDeformation(positionLocal);
+        const circadianDroopPad = vec3(0, float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        padMat.positionNode = applyStandardDeformation(positionLocal.add(circadianDroopPad));
         this.padMesh = new THREE.InstancedMesh(sharedGeometries.unitCylinder, padMat, MAX_LOTUS);
         this.padMesh.count = 0;
         this.padMesh.castShadow = true;
@@ -99,7 +100,8 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
     mat.emissiveNode = emission.add(twilightGlowTint).add(rimLight);
 
     // 🎨 PALETTE: Correct Wind Sway + Player Interaction composition
-    const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
+    const circadianDroopRing = vec3(0, float(-0.8).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+    const newPos = positionLocal.add(vec3(0.0, displacement, 0.0)).add(circadianDroopRing);
     mat.positionNode = applyStandardDeformation(newPos);
 
     return mat;
@@ -146,7 +148,8 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
 
         centerMat.colorNode = vec3(0.0);
         centerMat.emissiveNode = finalPortal.add(hotCenter);
-        centerMat.positionNode = applyStandardDeformation(positionLocal);
+        const circadianDroopCenter = vec3(0, float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        centerMat.positionNode = applyStandardDeformation(positionLocal.add(circadianDroopCenter));
 
         this.centerMesh = new THREE.InstancedMesh(centerGeo, centerMat, MAX_LOTUS);
         this.centerMesh.count = 0;

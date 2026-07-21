@@ -102,7 +102,7 @@ export class ComputeParticleSystem {
     private readonly type: 'rain' | 'mist' | 'default';
 
     /** Compute shader node */
-    private computeNode: ReturnType<ReturnType<typeof Fn>['compute']> | null = null;
+    private computeNode: any | null = null;
 
     /** Uniforms for audio/weather reactivity */
     private readonly uIntensity = uniform(0.0);

@@ -278,7 +278,7 @@ export class GPUCullingSystem {
             this.gpu.getDevice()?.queue.writeBuffer(
                 this.sphereBuffer,
                 0,
-                this.spheres.subarray(0, count * 4)
+                this.spheres.subarray(0, count * 4) as any
             );
         }
     }
@@ -324,7 +324,7 @@ export class GPUCullingSystem {
             planeData[i * 4 + 2] = frustum.planes[i].normal[2];
             planeData[i * 4 + 3] = frustum.planes[i].distance;
         }
-        device.queue.writeBuffer(this.planeBuffer!, 0, planeData);
+        device.queue.writeBuffer(this.planeBuffer!, 0, planeData as any);
 
         // Upload camera position and LOD distances
         // Note: LOD_SELECT_WGSL expects vec3 positions, but we use spheres (vec4)
@@ -336,7 +336,7 @@ export class GPUCullingSystem {
             this.config.lodDistances[2],
             this.sphereCount,
         ]);
-        device.queue.writeBuffer(this.cameraBuffer!, 0, cameraData);
+        device.queue.writeBuffer(this.cameraBuffer!, 0, cameraData as any);
 
         // Create uniform buffer for frustum pass instance count
         const frustumUniformData = new Float32Array([
@@ -349,7 +349,7 @@ export class GPUCullingSystem {
             label: 'frustum-uniforms',
             mappedAtCreation: false,
         });
-        device.queue.writeBuffer(frustumUniformBuffer, 0, frustumUniformData);
+        device.queue.writeBuffer(frustumUniformBuffer, 0, frustumUniformData as any);
 
         // Update bind group with new uniform buffer
         const frustumBindGroup = device.createBindGroup({
@@ -381,7 +381,7 @@ export class GPUCullingSystem {
             this.config.lodDistances[1],
             this.sphereCount, 0,
         ]);
-        device.queue.writeBuffer(this.cameraBuffer!, 0, lodUniformData);
+        device.queue.writeBuffer(this.cameraBuffer!, 0, lodUniformData as any);
 
         const lodPass = commandEncoder.beginComputePass({ label: 'lod-pass' });
         lodPass.setPipeline(this.lodPipeline!);
