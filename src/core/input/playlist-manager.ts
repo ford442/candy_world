@@ -354,7 +354,7 @@ export function renderPlaylist(): void {
             // Keep focus on the clicked item (re-rendered)
             // We need to find the new button after render
             requestAnimationFrame(() => {
-                const newItems = playlistList!.querySelectorAll('.playlist-btn');
+                const newItems = playlistList?.querySelectorAll('.playlist-btn');
                 if (newItems[index] && newItems[index] instanceof HTMLElement) {
                     (newItems[index] as HTMLElement).focus({ preventScroll: true });
                 }
@@ -387,13 +387,13 @@ export function renderPlaylist(): void {
                 const remainingSongs = audioSystemRef!.getPlaylist().length;
                 if (remainingSongs === 0) {
                      // Fallback to empty state button if list is now empty
-                     const emptyBtn = playlistList!.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
+                     const emptyBtn = playlistList?.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
                      if (emptyBtn) {
                          (emptyBtn as HTMLElement).focus({ preventScroll: true });
                      }
                 } else {
-                    const removeBtns = playlistList!.querySelectorAll('.playlist-remove-btn');
-                    const playBtns = playlistList!.querySelectorAll('.playlist-btn');
+                    const removeBtns = playlistList?.querySelectorAll('.playlist-remove-btn');
+                    const playBtns = playlistList?.querySelectorAll('.playlist-btn');
 
                     // Try focusing the next remove button (at same index, since list shifted)
                     if (removeBtns[index]) {
