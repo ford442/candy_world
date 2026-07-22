@@ -132,6 +132,7 @@ export class GameWorld {
 
     dispose(): void {
         // Assume streamer cleanup handled internally or via cache clear
+        this.streamer.stop();
     }
 }
 
