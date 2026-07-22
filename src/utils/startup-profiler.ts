@@ -401,26 +401,25 @@ function saveReportToFile(report: StartupReport): void {
     
     const json = JSON.stringify(serializableReport, null, 2);
     
-    // 1. Try to save to the workspace file via a fetch endpoint (if available in dev environment)
-    try {
-      fetch('/api/save-startup-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: json,
-      }).catch(() => {
-        // Silent fail - this endpoint may not exist in production
-      });
-    } catch (e) {}
+    // Prefer local download + localStorage. Skip optional HTTP endpoints unless
+    // we are clearly on a local Vite host — avoids 404/405 console noise in prod
+    // (/api/save-startup-profile and absolute OpenClaw workspace paths).
+    const isDevHost = typeof location !== 'undefined' &&
+      (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+
+    if (isDevHost) {
+      try {
+        fetch('/api/save-startup-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: json,
+        }).catch(() => {
+          // Silent fail - endpoint is optional even in dev
+        });
+      } catch (e) {}
+    }
     
-    // 2. Also try the specific path for OpenClaw workspace
-    try {
-      fetch('/root/.openclaw/workspace/candy_world/startup-profile.json', {
-        method: 'PUT',
-        body: json,
-      }).catch(() => {});
-    } catch (e) {}
-    
-    // 3. Create a download link for the user
+    // Create a download link for the user
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -431,12 +430,12 @@ function saveReportToFile(report: StartupReport): void {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    // 4. Store in localStorage for persistence
+    // Store in localStorage for persistence
     try {
       localStorage.setItem('candy_world_startup_profile', json);
     } catch (e) {}
     
-    // 5. Also output to console as a data URI for easy copying
+    // Also output to console as a data URI for easy copying
     if (config.enableConsole) {
       console.log('[StartupProfiler] Report ready for download: startup-profile.json');
       console.log('[StartupProfiler] Report also stored in localStorage as "candy_world_startup_profile"');

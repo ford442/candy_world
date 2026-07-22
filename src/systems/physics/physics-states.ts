@@ -34,6 +34,7 @@ import { spawnImpact } from '../../foliage/impacts.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { calculateWaterLevel } from '../physics.core.ts';
 import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
+import { fastInvSqrt } from '../../utils/wasm-loader.ts';
 
 // Helper: Unified Ground Height (authoritative terrain + lake + island + platforms)
 

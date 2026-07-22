@@ -19,10 +19,11 @@ import { updateProgress } from '../ui/loading-screen.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
 import { safeAddFoliage, processMapEntity } from './generation-entities.ts';
 import {
-    DEFAULT_MAP_CHUNK_SIZE, ENTITY_BUDGET_MS, PROCEDURAL_ENTITY_COUNT,
+    DEFAULT_MAP_CHUNK_SIZE, getEntityBudgetMs, getProceduralEntityCount, getPopulationScale,
     WeatherSystem, WorldObjects, WorldMode, MapEntity, WorldProgressCallback,
     isPositionValid, yieldControl
 } from './generation-utils.ts';
+import { getLoadMemoryTier } from '../core/config.ts';
 import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } from './map-loader.ts';
 import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
@@ -486,7 +487,7 @@ export async function generateCoreWorld(
     }
     await yieldControl();
 
-    // Basic candy trees — yield every ENTITY_BUDGET_MS to avoid blocking the main thread.
+    // Basic candy trees — yield every getEntityBudgetMs() to avoid blocking the main thread.
     // Tree geometry creation can take 10–30 ms each; without yielding 18 trees back-to-back
     // would stall the browser for up to 540 ms and trigger "Page Unresponsive".
     const treeFactories: Array<() => THREE.Object3D | null> = [
@@ -506,7 +507,7 @@ export async function generateCoreWorld(
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, true, 1.5, weatherSystem);
         }
-        if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+        if (performance.now() - chunkStart >= getEntityBudgetMs()) {
             await yieldControl();
             chunkStart = performance.now();
         }
@@ -524,7 +525,7 @@ export async function generateCoreWorld(
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, true, 0.5, weatherSystem);
         }
-        if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+        if (performance.now() - chunkStart >= getEntityBudgetMs()) {
             await yieldControl();
             chunkStart = performance.now();
         }
@@ -543,7 +544,7 @@ export async function generateCoreWorld(
         cloud.userData.tier = 1;
         cloud.userData.isWalkable = true;
         safeAddFoliage(cloud, false, 0.8, weatherSystem);
-        if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+        if (performance.now() - chunkStart >= getEntityBudgetMs()) {
             await yieldControl();
             chunkStart = performance.now();
         }
@@ -616,7 +617,7 @@ export async function populateWorld(
     console.log('%c[World] FULL Mode — attempting complete musical ecosystem', 'color:#7dd3fc');
     try {
         const loadedMap = await getLoadedMap();
-        console.log(`[World] Full mode: ${loadedMap.entities.length} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process (population scaled via CONFIG.world.population${options?.fastPopulation ? ' + fast mode multiplier' : ''})`);
+        console.log(`[World] Full mode: ${loadedMap.entities.length} map entities + ${getProceduralEntityCount()} procedural extras to process (population scale=${getPopulationScale().toFixed(2)}, memory tier=${getLoadMemoryTier()}${options?.fastPopulation ? ', fast-full' : ''})`);
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
         console.log('[World] populateWorld() complete in FULL mode');

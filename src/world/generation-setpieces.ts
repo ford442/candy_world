@@ -6,8 +6,8 @@ import { spawnImpact } from '../foliage/impacts.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 import {
     ARPEGGIO_GROVE, LAKE_ISLAND, WeatherSystem, yieldControl,
-    ARPEGGIO_GROVE_FERN_COUNT, ARPEGGIO_GROVE_OUTER_COUNT,
-    LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT
+    getArpeggioGroveFernCount, getArpeggioGroveOuterCount,
+    getLakeArpeggioFernCount, getLakeDandelionCount
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
@@ -36,7 +36,7 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
     await yieldControl();
 
     // Arpeggio Ferns ring (count controlled via CONFIG.world.population for faster Full mode loads)
-    const fernCount = ARPEGGIO_GROVE_FERN_COUNT;
+    const fernCount = getArpeggioGroveFernCount();
     const fernRadius = radius * 0.4;
     for (let i = 0; i < fernCount; i++) {
         const angle = (i / fernCount) * Math.PI * 2;
@@ -58,7 +58,7 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
     }
 
     // Outer ring: Kick Drum Geysers and Vibrato Violets
-    const outerCount = ARPEGGIO_GROVE_OUTER_COUNT;
+    const outerCount = getArpeggioGroveOuterCount();
     const outerRadius = radius * 0.8;
     for (let i = 0; i < outerCount; i++) {
         const angle = (i / outerCount) * Math.PI * 2 + 0.2;
@@ -166,7 +166,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     }
 
     // Scattered Arpeggio Ferns (lake island)
-    const fernCount = LAKE_ARPEGGIO_FERN_COUNT;
+    const fernCount = getLakeArpeggioFernCount();
     for (let i = 0; i < fernCount; i++) {
         // Random position within island
         const randAngle = Math.random() * Math.PI * 2;
@@ -188,7 +188,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     }
 
     // Edge decorations: Cymbal Dandelions
-    const dandelionCount = LAKE_DANDELION_COUNT;
+    const dandelionCount = getLakeDandelionCount();
     for (let i = 0; i < dandelionCount; i++) {
         const angle = (i / dandelionCount) * Math.PI * 2 + Math.random() * 0.2;
         const edgeOffset = radius * 0.85 + Math.random() * (radius * 0.1);

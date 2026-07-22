@@ -1,4 +1,10 @@
-import { isCIorHeadless } from './config.ts';
+import {
+    isCIorHeadless,
+    getDeviceMemoryGB,
+    getLoadMemoryScale,
+    getLoadMemoryTier,
+    shouldPreferLightWorldLoad,
+} from './config.ts';
 // src/core/main.ts
 // Main entry point - Core initialization and game startup
 
@@ -131,8 +137,20 @@ enableStartupProfiler({
     slowPhaseThreshold: 100,
     enableOverlay: false,
     enableConsole: true,
-    saveToFile: true,
+    // Avoid auto-download spam; report still goes to localStorage when finalized.
+    saveToFile: false,
 });
+
+{
+    const tier = getLoadMemoryTier();
+    const gb = getDeviceMemoryGB();
+    console.log(
+        `[Startup] Memory tier: ${tier}` +
+        (typeof gb === 'number' ? ` (~${gb} GB deviceMemory)` : '') +
+        ` · population scale=${getLoadMemoryScale().toFixed(2)}` +
+        (shouldPreferLightWorldLoad() ? ' · preferring lighter Full-mode population' : '')
+    );
+}
 
 // --- Initialize Debug Panel (if ?debug=1) ---
 initDebugPanel();
@@ -557,11 +575,16 @@ if (startButton) {
         }
 
         if (modeDescription) {
+            const memHint = shouldPreferLightWorldLoad()
+                ? ' (auto-throttled for this device\'s RAM)'
+                : '';
             modeDescription.textContent = isCore
                 ? 'Fast startup with classic candy terrain, trees, mushrooms, and clouds.'
                 : isFast
-                    ? 'Full musical map with greatly reduced object count for much faster loading.'
-                    : 'Full game with the complete musical foliage map.';
+                    ? `Full musical map with greatly reduced object count for much faster loading${memHint}.`
+                    : shouldPreferLightWorldLoad()
+                        ? 'Full musical map — population will be auto-reduced on this device to avoid load lockups.'
+                        : 'Full game with the complete musical foliage map.';
         }
 
         startButton.innerHTML = isCore
@@ -696,7 +719,13 @@ if (startButton) {
 
         await yieldFrame(); // Let the spinner paint
         const requestedMode: WorldMode = coreOnlyMode ? 'CORE' : 'FULL';
-        const useFastPopulation = fastFullMode;   // "Fast Full" = Full map but with aggressive population reduction
+        // Fast Full UI, or automatic light population when device RAM is constrained.
+        const useFastPopulation = fastFullMode || (!coreOnlyMode && shouldPreferLightWorldLoad());
+        if (useFastPopulation && !fastFullMode && shouldPreferLightWorldLoad()) {
+            console.warn(
+                `[Startup] Low/critical memory tier (${getLoadMemoryTier()}) — enabling reduced Full-mode population to avoid load lockups`
+            );
+        }
         let activeWorldMode: WorldMode = requestedMode;
 
         const worldGenResult = await StageLoader.loadStage('worldGeneration', async () => {

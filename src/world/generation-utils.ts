@@ -6,32 +6,80 @@ import {
     LAKE_ISLAND,
     getGroundHeight
 } from '../systems/ground-system.ts';
-import { CONFIG } from '../core/config.ts';
+import { CONFIG, getLoadMemoryScale, getLoadMemoryTier } from '../core/config.ts';
 
 export const DEFAULT_MAP_CHUNK_SIZE = 100;
 export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100;
 
-// Population numbers are now driven from CONFIG.world.population for easier tuning.
-// These are the effective values used by Full mode generation.
-const cfg = (typeof CONFIG !== 'undefined' ? CONFIG : undefined) as any;
-const pop = (cfg && cfg.world && cfg.world.population) ? cfg.world.population : {};
-let popScale = pop.scale ?? 1.0;
+/**
+ * Effective Full-mode population scale.
+ * Combines CONFIG.world.population.scale, Fast-Full override, and device RAM tier.
+ * Evaluated at call time so Fast-Full / memory scaling actually apply (module-load
+ * constants previously missed the runtime `__fastPopulationOverride` flag).
+ */
+export function getPopulationScale(): number {
+    const pop = CONFIG.world?.population;
+    let scale = pop?.scale ?? 1.0;
 
-// Runtime override for "Fast Full Mode" (chosen in the startup UI)
-if ((window as any).__fastPopulationOverride) {
-    popScale *= 0.42; // Aggressive reduction for fast loading while still feeling like "full"
+    // Runtime override for "Fast Full Mode" (chosen in the startup UI)
+    if (typeof window !== 'undefined' && (window as any).__fastPopulationOverride) {
+        scale *= 0.42;
+    }
+
+    // Device RAM awareness — shrink Full-mode population on low-memory machines
+    scale *= getLoadMemoryScale();
+    return scale;
 }
 
+/** Procedural extras count for Full mode (CONFIG + memory + fast-full). */
+export function getProceduralEntityCount(): number {
+    const base = CONFIG.world?.population?.proceduralExtras ?? 200;
+    return Math.max(20, Math.floor(base * getPopulationScale()));
+}
+
+/** @deprecated Prefer getProceduralEntityCount() — kept for worker docs / legacy imports. */
 export const PROCEDURAL_ENTITY_COUNT = 200;
+
+/** Per-chunk time budget (ms); tighter on low-RAM devices to avoid long stalls. */
+export function getEntityBudgetMs(): number {
+    const tier = getLoadMemoryTier();
+    if (tier === 'critical') return 6;
+    if (tier === 'low') return 8;
+    if (tier === 'medium') return 12;
+    return 14;
+}
+
+/** @deprecated Prefer getEntityBudgetMs() */
 export const ENTITY_BUDGET_MS = 14;
 export const YIELD_ENTITY_BATCH_SIZE = 40;
 export const YIELD_LOG_INTERVAL = YIELD_ENTITY_BATCH_SIZE * 5;
 
-// Arpeggio Grove counts (used by generation-decorators)
-export const ARPEGGIO_GROVE_FERN_COUNT = Math.max(3, Math.floor((pop.arpeggioGroveFerns ?? 7) * popScale));
-export const ARPEGGIO_GROVE_OUTER_COUNT = Math.max(2, Math.floor((pop.arpeggioGroveOuter ?? 4) * popScale));
-export const LAKE_ARPEGGIO_FERN_COUNT = Math.max(1, Math.floor((pop.lakeArpeggioFerns ?? 3) * popScale));
-export const LAKE_DANDELION_COUNT = Math.max(2, Math.floor((pop.lakeDandelions ?? 6) * popScale));
+function scaledPopCount(configValue: number | undefined, fallback: number, min: number): number {
+    const base = configValue ?? fallback;
+    return Math.max(min, Math.floor(base * getPopulationScale()));
+}
+
+export function getArpeggioGroveFernCount(): number {
+    return scaledPopCount(CONFIG.world?.population?.arpeggioGroveFerns, 7, 3);
+}
+export function getArpeggioGroveOuterCount(): number {
+    return scaledPopCount(CONFIG.world?.population?.arpeggioGroveOuter, 4, 2);
+}
+export function getLakeArpeggioFernCount(): number {
+    return scaledPopCount(CONFIG.world?.population?.lakeArpeggioFerns, 3, 1);
+}
+export function getLakeDandelionCount(): number {
+    return scaledPopCount(CONFIG.world?.population?.lakeDandelions, 6, 2);
+}
+
+/** @deprecated Prefer getArpeggioGroveFernCount() */
+export const ARPEGGIO_GROVE_FERN_COUNT = 7;
+/** @deprecated Prefer getArpeggioGroveOuterCount() */
+export const ARPEGGIO_GROVE_OUTER_COUNT = 4;
+/** @deprecated Prefer getLakeArpeggioFernCount() */
+export const LAKE_ARPEGGIO_FERN_COUNT = 3;
+/** @deprecated Prefer getLakeDandelionCount() */
+export const LAKE_DANDELION_COUNT = 6;
 
 // Re-export lake constants from the single authoritative source.
 export { LAKE_BOUNDS, LAKE_BOTTOM, LAKE_ISLAND };
