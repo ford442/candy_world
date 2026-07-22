@@ -355,7 +355,7 @@ export function renderPlaylist(): void {
             // We need to find the new button after render
             requestAnimationFrame(() => {
                 const newItems = playlistList!.querySelectorAll('.playlist-btn');
-                if (newItems[index] && newItems[index] instanceof HTMLElement) {
+                if (newItems && newItems[index] && newItems[index] instanceof HTMLElement) {
                     (newItems[index] as HTMLElement).focus({ preventScroll: true });
                 }
             });
@@ -411,7 +411,7 @@ export function renderPlaylist(): void {
 
         li.appendChild(btn);
         li.appendChild(removeBtn);
-        playlistList.appendChild(li);
+        playlistList?.appendChild(li);
     });
     
     if (songs.length === 0) {
