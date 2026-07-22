@@ -35,6 +35,7 @@ import {
     calculateMovementInput
 } from '../physics.core.ts';
 import { CONFIG } from '../../core/config.ts';
+import { DISCOVERY_MAP } from '../discovery_map.ts';
 import { isInLakeBasin, reconcileGroundedEyeY } from '../ground-system.ts';
 import {
     initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
@@ -140,6 +141,7 @@ export class PhysicsSpatialGrid {
 
 // Global grids for different collision types
 export const physicsFoliageGrid = new PhysicsSpatialGrid(30);
+export const physicsDiscoveryGrid = new PhysicsSpatialGrid(30);
 export const physicsTrapsGrid = new PhysicsSpatialGrid(30);
 export const physicsGeysersGrid = new PhysicsSpatialGrid(30);
 export const physicsPinesGrid = new PhysicsSpatialGrid(30);
@@ -151,6 +153,7 @@ export const physicsPanningPadsGrid = new PhysicsSpatialGrid(30);
  */
 export function populatePhysicsGrids() {
     physicsFoliageGrid.clear();
+    physicsDiscoveryGrid.clear();
     physicsTrapsGrid.clear();
     physicsGeysersGrid.clear();
     physicsPinesGrid.clear();
@@ -158,6 +161,9 @@ export function populatePhysicsGrids() {
 
     for (let i = 0; i < animatedFoliage.length; i++) {
         const obj = animatedFoliage[i];
+        if (obj.userData?.type && DISCOVERY_MAP[obj.userData.type]) {
+            physicsDiscoveryGrid.insert(obj);
+        }
         if (obj.userData?.type === 'retrigger_mushroom' || obj.userData?.type === 'vibratoViolet' || (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal')) {
             physicsFoliageGrid.insert(obj);
         }

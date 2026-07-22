@@ -354,8 +354,8 @@ export function renderPlaylist(): void {
             // Keep focus on the clicked item (re-rendered)
             // We need to find the new button after render
             requestAnimationFrame(() => {
-                const newItems = playlistList?.querySelectorAll('.playlist-btn');
-                if (newItems[index] && newItems[index] instanceof HTMLElement) {
+                const newItems = playlistList!.querySelectorAll('.playlist-btn');
+                if (newItems && newItems[index] && newItems[index] instanceof HTMLElement) {
                     (newItems[index] as HTMLElement).focus({ preventScroll: true });
                 }
             });
