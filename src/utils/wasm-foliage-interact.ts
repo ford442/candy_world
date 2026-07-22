@@ -7,6 +7,7 @@ import {
     cppBatchGeyserLaunch,
     cppBatchPadForces,
     cppBatchVineInteraction,
+    cppCalcVineDetachImpulse,
     getEmscriptenInstance,
     isEmscriptenReady,
 } from './wasm-loader-core.ts';
@@ -162,18 +163,29 @@ export interface VineProximityResult {
     candidateIndex: number;
     distHSq: number;
     inAttachZone: boolean;
+    swingPlaneX: number;
+    swingPlaneZ: number;
+    swingAngle: number;
+    swingAngularVel: number;
 }
 
 export function vineProximityJS(
     px: number,
     py: number,
     pz: number,
+    pvx: number,
+    pvy: number,
+    pvz: number,
     vines: Float32Array,
     count: number
 ): VineProximityResult {
     let bestIndex = -1;
     let bestDistHSq = Number.POSITIVE_INFINITY;
     let inAttachZone = false;
+    let bestAx = 0;
+    let bestAy = 0;
+    let bestAz = 0;
+    let bestLength = 0;
 
     for (let i = 0; i < count; i++) {
         const base = i * VINE_STRIDE;
@@ -194,10 +206,56 @@ export function vineProximityJS(
             bestDistHSq = distHSq;
             bestIndex = i;
             inAttachZone = distHSq < 1.0;
+            bestAx = ax;
+            bestAy = ay;
+            bestAz = az;
+            bestLength = length;
         }
     }
 
-    return { candidateIndex: bestIndex, distHSq: bestDistHSq, inAttachZone };
+    let swingPlaneX = 0;
+    let swingPlaneZ = 0;
+    let swingAngle = 0;
+    let swingAngularVel = 0;
+
+    if (inAttachZone) {
+        const horizVelSq = pvx * pvx + pvz * pvz;
+        if (horizVelSq > 1.0) {
+            const invLen = 1.0 / Math.sqrt(horizVelSq);
+            swingPlaneX = pvx * invLen;
+            swingPlaneZ = pvz * invLen;
+        } else {
+            const toPlayerX = px - bestAx;
+            const toPlayerZ = pz - bestAz;
+            const toPlayerLenSq = toPlayerX * toPlayerX + toPlayerZ * toPlayerZ;
+            if (toPlayerLenSq > 0.1) {
+                const invLen = 1.0 / Math.sqrt(toPlayerLenSq);
+                swingPlaneX = toPlayerX * invLen;
+                swingPlaneZ = toPlayerZ * invLen;
+            } else {
+                swingPlaneX = 1;
+            }
+        }
+
+        const toPlayerY = py - bestAy;
+        const dh = (px - bestAx) * swingPlaneX + (pz - bestAz) * swingPlaneZ;
+        swingAngle = Math.atan2(dh, -toPlayerY);
+
+        const cosA = Math.cos(swingAngle);
+        const sinA = Math.sin(swingAngle);
+
+        const horizVelLen = Math.sqrt(horizVelSq);
+        const dotPlane = pvx * swingPlaneX + pvz * swingPlaneZ;
+        const vH = horizVelLen * (dotPlane > 0 ? 1 : -1);
+
+        const vTangential = vH * cosA + pvy * sinA;
+        swingAngularVel = vTangential / bestLength;
+    }
+
+    return {
+        candidateIndex: bestIndex, distHSq: bestDistHSq, inAttachZone,
+        swingPlaneX, swingPlaneZ, swingAngle, swingAngularVel
+    };
 }
 
 // -----------------------------------------------------------------------------
@@ -338,31 +396,76 @@ export function batchVineInteraction(
     px: number,
     py: number,
     pz: number,
+    pvx: number,
+    pvy: number,
+    pvz: number,
     vines: Float32Array,
     count: number
 ): VineProximityResult {
     if (count === 0) {
-        return { candidateIndex: -1, distHSq: Number.POSITIVE_INFINITY, inAttachZone: false };
+        return {
+            candidateIndex: -1, distHSq: Number.POSITIVE_INFINITY, inAttachZone: false,
+            swingPlaneX: 0, swingPlaneZ: 0, swingAngle: 0, swingAngularVel: 0
+        };
     }
 
     if (cppBatchVineInteraction && isEmscriptenReady()) {
         const em = getEmscriptenInstance();
-        const ptrs = ensurePtr(_vineInPtr, _vineOutPtr, MAX_BATCH * VINE_STRIDE * 4, 12);
+        const ptrs = ensurePtr(_vineInPtr, _vineOutPtr, MAX_BATCH * VINE_STRIDE * 4, 28); // 7 floats * 4 bytes
         if (ptrs && em?.HEAPF32) {
             _vineInPtr = ptrs.inPtr;
             _vineOutPtr = ptrs.outPtr;
             em.HEAPF32.set(vines.subarray(0, count * VINE_STRIDE), _vineInPtr >> 2);
-            cppBatchVineInteraction(px, py, pz, _vineInPtr, count, _vineOutPtr);
-            const out = em.HEAPF32.subarray(_vineOutPtr >> 2, (_vineOutPtr >> 2) + 3);
+            cppBatchVineInteraction(px, py, pz, pvx, pvy, pvz, _vineInPtr, count, _vineOutPtr);
+            const out = em.HEAPF32.subarray(_vineOutPtr >> 2, (_vineOutPtr >> 2) + 7);
             return {
                 candidateIndex: out[0] | 0,
                 distHSq: out[1],
                 inAttachZone: out[2] > 0.5,
+                swingPlaneX: out[3],
+                swingPlaneZ: out[4],
+                swingAngle: out[5],
+                swingAngularVel: out[6]
             };
         }
     }
 
-    return vineProximityJS(px, py, pz, vines, count);
+    return vineProximityJS(px, py, pz, pvx, pvy, pvz, vines, count);
+}
+
+let _detachOutPtr = 0;
+
+export function calcVineDetachImpulse(
+    length: number, swingAngle: number, swingAngularVel: number,
+    planeX: number, planeZ: number
+): { vx: number; vy: number; vz: number } {
+    if (cppCalcVineDetachImpulse && isEmscriptenReady()) {
+        const em = getEmscriptenInstance();
+        if (em) {
+            if (!_detachOutPtr && typeof em._malloc === 'function') {
+                _detachOutPtr = em._malloc(12);
+            }
+            if (em.HEAPF32 && _detachOutPtr) {
+                cppCalcVineDetachImpulse(length, swingAngle, swingAngularVel, planeX, planeZ, _detachOutPtr);
+                const out = em.HEAPF32.subarray(_detachOutPtr >> 2, (_detachOutPtr >> 2) + 3);
+                return { vx: out[0], vy: out[1], vz: out[2] };
+            }
+        }
+    }
+
+    // JS Fallback
+    const tangentVel = swingAngularVel * length;
+    const cosA = Math.cos(swingAngle);
+    const sinA = Math.sin(swingAngle);
+
+    const vH = tangentVel * cosA;
+    const vY = tangentVel * sinA;
+
+    return {
+        vx: planeX * vH,
+        vy: vY + 5.0,
+        vz: planeZ * vH
+    };
 }
 
 export function isNativeFoliageInteractReady(): boolean {
