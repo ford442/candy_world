@@ -58,6 +58,7 @@ import {
 } from '../physics.core.ts';
 import {
     physicsFoliageGrid,
+    physicsDiscoveryGrid,
     physicsTrapsGrid,
     physicsGeysersGrid,
     physicsPinesGrid,
@@ -110,18 +111,22 @@ export function checkFloraDiscovery(playerPos: THREE.Vector3) {
     if (optimizedDiscovery.isUsingWasm()) {
         checkPlayerDiscovery(playerPos);
     } else {
+        // ⚡ OPTIMIZATION: Converted O(N) array search into a Spatial Hash Grid query for flora discovery
         const DISCOVERY_RADIUS_SQ = 5.0 * 5.0;
-        for (let i = 0; i < animatedFoliage.length; i++) {
-            const obj = animatedFoliage[i];
-            if (!obj.userData || !obj.userData.type) continue;
-            const type = obj.userData.type;
+        const nearbyObjects = physicsDiscoveryGrid.findNearby(playerPos.x, playerPos.z, 5.0);
+
+        for (let i = 0; i < nearbyObjects.length; i++) {
+            const obj = nearbyObjects[i];
+            const type = obj.userData?.type;
+            if (!type) continue;
+
             const discoveryInfo = DISCOVERY_MAP[type];
-            if (discoveryInfo) {
-                if (discoverySystem.isDiscovered(type)) continue;
+            if (discoveryInfo && !discoverySystem.isDiscovered(type)) {
                 const dx = playerPos.x - obj.position.x;
                 const dy = playerPos.y - obj.position.y;
                 const dz = playerPos.z - obj.position.z;
                 const distSq = dx*dx + dy*dy + dz*dz;
+
                 if (distSq < DISCOVERY_RADIUS_SQ) {
                     discoverySystem.discover(type, discoveryInfo.name, discoveryInfo.icon);
                 }
