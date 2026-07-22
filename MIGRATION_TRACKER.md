@@ -54,11 +54,13 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 ### 3. Vine attach / detach state machine → native proximity + flags
 
+**Status:** ✅ Completed — Extended `batchVineInteraction_c` with player velocity to export native swing planes, angles, and rotational velocity. Replaced manual TS detach logic with native `calcVineDetachImpulse_c` to keep game physics within the WASM boundary.
+
 **Why:** [#1328](https://github.com/ford442/candy_world/issues/1328) shipped `batchVineInteraction` for proximity, but attach/detach and force application for swinging still run in `physics-updates.ts`.
 
 **15% scope:** Extend `foliage_interact.cpp` with a second pass that outputs attach flags + impulse vectors; TS only applies results to game objects.
 
-**Files:** `src/systems/physics/physics-updates.ts`, `emscripten/foliage_interact.cpp`
+**Files:** `src/systems/physics/physics-updates.ts`, `emscripten/foliage_interact.cpp`, `src/utils/wasm-foliage-interact.ts`, `src/foliage/trees.ts`
 
 ---
 

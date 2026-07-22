@@ -34,7 +34,12 @@ export let cppBatchPadForces: ((
 ) => void) | null = null;
 export let cppBatchVineInteraction: ((
     px: number, py: number, pz: number,
+    pvx: number, pvy: number, pvz: number,
     vinesPtr: number, count: number, outPtr: number
+) => void) | null = null;
+export let cppCalcVineDetachImpulse: ((
+    length: number, swingAngle: number, swingAngularVel: number,
+    planeX: number, planeZ: number, outPtr: number
 ) => void) | null = null;
 
 /** Animation batch functions from emscripten/animation_batch.cpp */
@@ -112,6 +117,7 @@ export function initCppFunctions(): void {
   cppBatchGeyserLaunch = getNativeFuncVoid('batchGeyserLaunch_c');
   cppBatchPadForces = getNativeFuncVoid('batchPadForces_c');
   cppBatchVineInteraction = getNativeFuncVoid('batchVineInteraction_c');
+  cppCalcVineDetachImpulse = getNativeFuncVoid('calcVineDetachImpulse_c');
 
   // Animation
   calcFiberWhip = getNativeFunc('calcFiberWhip');

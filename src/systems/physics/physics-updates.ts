@@ -490,16 +490,28 @@ export function checkVineAttachment(_camera: THREE.Camera) {
         if (!vineSwings || vineSwings.length === 0) return;
 
         const playerPos = player.position;
+        const playerVel = player.velocity;
         const vineManagers: unknown[] = [];
         const { data, count } = packVines(vineSwings, undefined, vineManagers);
         if (count === 0) return;
 
-        const prox = batchVineInteraction(playerPos.x, playerPos.y, playerPos.z, data, count);
+        const prox = batchVineInteraction(
+            playerPos.x, playerPos.y, playerPos.z,
+            playerVel.x, playerVel.y, playerVel.z,
+            data, count
+        );
+
         if (!prox.inAttachZone || prox.candidateIndex < 0) return;
 
-        const vineManager = vineManagers[prox.candidateIndex] as { attach?: (p: typeof player, v: typeof player.velocity) => void };
-        if (vineManager && typeof vineManager.attach === 'function') {
-            vineManager.attach(player, player.velocity);
+        // Apply Native WASM outputs to the active swing state
+        const vineManager = vineManagers[prox.candidateIndex] as any;
+        if (vineManager) {
+            vineManager.isPlayerAttached = true;
+            if (vineManager.swingPlane) {
+                vineManager.swingPlane.set(prox.swingPlaneX, 0, prox.swingPlaneZ);
+            }
+            vineManager.swingAngle = prox.swingAngle;
+            vineManager.swingAngularVel = prox.swingAngularVel;
             setActiveVineSwing(vineManager);
         }
     });

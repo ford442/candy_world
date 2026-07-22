@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uAudioHigh, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
 import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld, normalLocal } from 'three/tsl';
+import { calcVineDetachImpulse } from '../utils/wasm-foliage-interact.ts';
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
 import { FoliageObject } from './types.ts';
@@ -648,51 +649,20 @@ export class VineSwing {
         this.vine.quaternion.setFromUnitVectors(this.defaultDown, dir);
     }
 
-    attach(player: PlayerObject, playerVelocity: THREE.Vector3): void {
-        this.isPlayerAttached = true;
-
-        const horizVel = _scratchPhysicsVec1.set(playerVelocity.x, 0, playerVelocity.z);
-        if (horizVel.lengthSq() > 1.0) {
-            this.swingPlane.copy(horizVel.normalize());
-        } else {
-            const toPlayer = _scratchPhysicsVec2.subVectors(player.position, this.anchorPoint);
-            toPlayer.y = 0;
-            if (toPlayer.lengthSq() > 0.1) {
-                this.swingPlane.copy(toPlayer.normalize());
-            }
-        }
-
-        const toPlayer = _scratchPhysicsVec2.subVectors(player.position, this.anchorPoint);
-        const dy = toPlayer.y;
-        const dh = toPlayer.dot(this.swingPlane);
-        this.swingAngle = Math.atan2(dh, -dy);
-
-        const cosA = Math.cos(this.swingAngle);
-        const sinA = Math.sin(this.swingAngle);
-
-        const vH = horizVel.length() * (playerVelocity.dot(this.swingPlane) > 0 ? 1 : -1);
-        const vY = playerVelocity.y;
-
-        const vTangential = vH * cosA + vY * sinA;
-
-        this.swingAngularVel = vTangential / this.length;
-    }
-
     detach(player: PlayerObject): number {
         this.isPlayerAttached = false;
 
-        const tangentVel = this.swingAngularVel * this.length;
-        const cosA = Math.cos(this.swingAngle);
-        const sinA = Math.sin(this.swingAngle);
+        const impulse = calcVineDetachImpulse(
+            this.length,
+            this.swingAngle,
+            this.swingAngularVel,
+            this.swingPlane.x,
+            this.swingPlane.z
+        );
 
-        const vH = tangentVel * cosA;
-        const vY = tangentVel * sinA;
-
-        player.velocity.x = this.swingPlane.x * vH;
-        player.velocity.z = this.swingPlane.z * vH;
-        player.velocity.y = vY;
-
-        player.velocity.y += 5.0;
+        player.velocity.x = impulse.vx;
+        player.velocity.y = impulse.vy;
+        player.velocity.z = impulse.vz;
 
         return Date.now();
     }
