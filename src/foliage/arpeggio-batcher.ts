@@ -365,7 +365,7 @@ export class ArpeggioFernBatcher {
         this.scales.length = 0;
     }
 
-    register(dummy, options: any = {}) {
+    register(dummy: any, options: any = {}) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_FERNS) {
             console.warn('[ArpeggioBatcher] Max limit reached');
@@ -431,7 +431,7 @@ export class ArpeggioFernBatcher {
         this.mesh!.count = this.count;
     }
 
-    updateInstance(index, dummy) {
+    updateInstance(index: number, dummy: any) {
         if (!this.initialized || index < 0 || index >= this.count) return;
 
         getGroundAlignedQuaternion(dummy, _scratchQuaternion);
