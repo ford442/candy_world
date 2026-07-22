@@ -74,7 +74,7 @@ export class ArpeggioFernBatcher {
      * Day/night pose state machine — single slot (global unfurl for all ferns).
      * Uses a Float32Array of capacity 1; no per-frame allocations.
      */
-    private _poseMachine: PlantPoseMachine;
+    private _poseMachine!: PlantPoseMachine;
 
     constructor() {
         this.initialized = false;
@@ -361,12 +361,12 @@ export class ArpeggioFernBatcher {
 
         this.initialized = false;
         this.count = 0;
-        this.indexMap.clear();
+
         this.positions.length = 0;
         this.scales.length = 0;
     }
 
-    register(dummy, options: any = {}) {
+    register(dummy: any, options: any = {}) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_FERNS) {
             console.warn('[ArpeggioBatcher] Max limit reached');
@@ -432,7 +432,7 @@ export class ArpeggioFernBatcher {
         this.mesh!.count = this.count;
     }
 
-    updateInstance(index, dummy) {
+    updateInstance(index: number, dummy: any) {
         if (!this.initialized || index < 0 || index >= this.count) return;
 
         getGroundAlignedQuaternion(dummy, _scratchQuaternion);

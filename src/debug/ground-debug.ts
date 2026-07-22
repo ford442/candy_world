@@ -1,3 +1,4 @@
+import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
 /**
  * @file src/debug/ground-debug.ts
  * @brief Optional visualizer for issue #1265 ground-height / eye-height tuning.
@@ -13,6 +14,7 @@
 import * as THREE from 'three';
 import { getGroundHeight, getEyeTargetY, sampleGroundNormal } from '../systems/ground-system.ts';
 import { CONFIG } from '../core/config.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 const _hasFlag = (key: string): boolean => {
     try {

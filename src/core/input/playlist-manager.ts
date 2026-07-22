@@ -387,13 +387,13 @@ export function renderPlaylist(): void {
                 const remainingSongs = audioSystemRef!.getPlaylist().length;
                 if (remainingSongs === 0) {
                      // Fallback to empty state button if list is now empty
-                     const emptyBtn = playlistList!.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
+                     const emptyBtn = playlistList?.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
                      if (emptyBtn) {
                          (emptyBtn as HTMLElement).focus({ preventScroll: true });
                      }
                 } else {
-                    const removeBtns = playlistList!.querySelectorAll('.playlist-remove-btn');
-                    const playBtns = playlistList!.querySelectorAll('.playlist-btn');
+                    const removeBtns = playlistList?.querySelectorAll('.playlist-remove-btn');
+                    const playBtns = playlistList?.querySelectorAll('.playlist-btn');
 
                     // Try focusing the next remove button (at same index, since list shifted)
                     if (removeBtns[index]) {
@@ -447,7 +447,7 @@ export function renderPlaylist(): void {
         li.appendChild(iconContainer);
         li.appendChild(text);
         li.appendChild(browseBtn);
-        playlistList.appendChild(li);
+        playlistList?.appendChild(li);
     }
 }
 
@@ -594,7 +594,7 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
         event.preventDefault();
         if (closePlaylistBtn) {
             closePlaylistBtn.classList.add('keyboard-active');
-            setTimeout(() => closePlaylistBtn.classList.remove('keyboard-active'), 150);
+            setTimeout(() => closePlaylistBtn?.classList.remove('keyboard-active'), 150);
         }
         togglePlaylist();
         return true;
