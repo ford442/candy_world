@@ -50,7 +50,8 @@ export function initInput(
     const instructions = document.getElementById('instructions');
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     const canvas = document.getElementById('glCanvas') as HTMLCanvasElement | null;
-    const isDevBuild = (import.meta as any).env?.DEV;
+    // @ts-ignore
+    const isDevBuild = import.meta.env?.DEV || false;
 
     // Ability HUD Elements
     const hudDash = document.getElementById('ability-dash');

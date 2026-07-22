@@ -18,9 +18,7 @@ import {
     CandyPresets,
     uTime,
     uAudioLow,
-    calculateWindSway,
     createJuicyRimLight,
-    applyPlayerInteraction,
     applyStandardDeformation,
 } from './material-core.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
@@ -110,8 +108,7 @@ function createGlassMushroomMaterial(): MeshStandardNodeMaterial {
     const displaced = positionLocal.add(localDeformation);
 
     // 🎨 PALETTE: Glass mushrooms now respond to wind and player presence, matching the world's shared physical language.
-    const swayed = calculateWindSway(displaced);
-    mat.positionNode = applyPlayerInteraction(displaced.add(swayed));
+    mat.positionNode = applyStandardDeformation(displaced);
 
     // --- Emissive vein network (fake SSS along the stem) ---------------------
     // Glowing filaments climb the body; brighter/denser on the stem than the cap.

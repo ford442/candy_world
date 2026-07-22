@@ -411,7 +411,7 @@ export function renderPlaylist(): void {
 
         li.appendChild(btn);
         li.appendChild(removeBtn);
-        playlistList.appendChild(li);
+        playlistList?.appendChild(li);
     });
     
     if (songs.length === 0) {
@@ -447,7 +447,7 @@ export function renderPlaylist(): void {
         li.appendChild(iconContainer);
         li.appendChild(text);
         li.appendChild(browseBtn);
-        playlistList.appendChild(li);
+        playlistList?.appendChild(li);
     }
 }
 
@@ -594,7 +594,7 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
         event.preventDefault();
         if (closePlaylistBtn) {
             closePlaylistBtn.classList.add('keyboard-active');
-            setTimeout(() => closePlaylistBtn.classList.remove('keyboard-active'), 150);
+            setTimeout(() => closePlaylistBtn?.classList.remove('keyboard-active'), 150);
         }
         togglePlaylist();
         return true;
