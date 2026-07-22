@@ -51,7 +51,7 @@ export function setupAssetStreaming(scene: THREE.Scene, audioContext?: AudioCont
 
     // Set up event handlers
     streamer.onProgress((progress) => {
-        console.log(`Loading: ${progress.percent}%`);
+        console.log(`Loading: ${Math.round(progress.loadedAssets / Math.max(1, progress.totalAssets) * 100)}%`);
         console.log(`Current: ${progress.currentAsset}`);
         console.log(`Estimated time: ${progress.estimatedTimeRemaining}s`);
     });
@@ -97,7 +97,7 @@ export class GameWorld {
 
     private updateLoadingUI(progress: LoadingProgress): void {
         // Update loading bar, etc.
-        // document.getElementById('loading-bar').style.width = `${progress.percent}%`;
+        // document.getElementById('loading-bar').style.width = `${Math.round(progress.loadedAssets / Math.max(1, progress.totalAssets) * 100)}%`;
     }
 
     async loadImportantAsset(assetId: string): Promise<void> {
@@ -129,7 +129,7 @@ export class GameWorld {
     }
 
     dispose(): void {
-        this.streamer.dispose();
+        this.streamer.stop();
     }
 }
 

@@ -603,8 +603,8 @@ if (startButton) {
                     updateStartupMode(mode);
                     await yieldFrame();
                 } finally {
-                    btn.setAttribute('aria-busy', 'false');
-                    btn.setAttribute('aria-disabled', 'false');
+                    btn.removeAttribute('aria-busy');
+                    btn.removeAttribute('aria-disabled');
                 }
             });
 

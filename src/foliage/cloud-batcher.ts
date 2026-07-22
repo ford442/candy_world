@@ -408,7 +408,7 @@ export class CloudBatcher {
 
     dispose(): void {
         if (this.mesh && this.mesh.parent) {
-            safeRemoveAndDispose(this.mesh.parent, this.mesh);
+            safeRemoveAndDispose(this.mesh.parent, this.mesh, true);
         }
     }
 }
