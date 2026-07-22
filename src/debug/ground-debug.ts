@@ -13,6 +13,7 @@
 import * as THREE from 'three';
 import { getGroundHeight, getEyeTargetY, sampleGroundNormal } from '../systems/ground-system.ts';
 import { CONFIG } from '../core/config.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 const _hasFlag = (key: string): boolean => {
     try {

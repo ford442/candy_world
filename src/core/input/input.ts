@@ -50,7 +50,8 @@ export function initInput(
     const instructions = document.getElementById('instructions');
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     const canvas = document.getElementById('glCanvas') as HTMLCanvasElement | null;
-    const isDevBuild = import.meta.env.DEV;
+    // @ts-ignore
+    const isDevBuild = import.meta.env?.DEV || false;
 
     // Ability HUD Elements
     const hudDash = document.getElementById('ability-dash');
@@ -770,7 +771,7 @@ export function initInput(
 
 
 // Cache timeouts to debounce rapid key presses
-const buttonPressTimeouts = new Map<string, NodeJS.Timeout | number>();
+const buttonPressTimeouts = new Map<string, ReturnType<typeof setTimeout> | number>();
 function triggerButtonPress(buttonId: string): void {
     const btn = document.getElementById(buttonId);
     if (btn && btn.getAttribute('aria-disabled') !== 'true') {

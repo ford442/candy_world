@@ -74,7 +74,7 @@ export class ArpeggioFernBatcher {
      * Day/night pose state machine — single slot (global unfurl for all ferns).
      * Uses a Float32Array of capacity 1; no per-frame allocations.
      */
-    private _poseMachine: PlantPoseMachine;
+    private _poseMachine!: PlantPoseMachine;
 
     constructor() {
         this.initialized = false;
@@ -361,7 +361,6 @@ export class ArpeggioFernBatcher {
 
         this.initialized = false;
         this.count = 0;
-        this.indexMap.clear();
         this.positions.length = 0;
         this.scales.length = 0;
     }
