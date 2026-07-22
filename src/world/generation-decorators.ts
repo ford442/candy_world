@@ -6,8 +6,8 @@ import { recordSpawnAttempt } from './spawn-tracker.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 import { worldGenerationToken } from './generation-core.ts';
 import {
-    PROCEDURAL_ENTITY_COUNT, DEFAULT_PROCEDURAL_CHUNK_SIZE,
-    ENTITY_BUDGET_MS, WeatherSystem, FoliageGrowthOptions, yieldControl,
+    getProceduralEntityCount, DEFAULT_PROCEDURAL_CHUNK_SIZE,
+    getEntityBudgetMs, WeatherSystem, FoliageGrowthOptions, yieldControl,
     isPositionValid, normalizeMapEntityType,
     GEM_CANOPY, MYCELIUM_GROVE, CLOUD_ARCHIPELAGO, SKY_ISLANDS
 } from './generation-utils.ts';
@@ -199,7 +199,7 @@ export async function populateProceduralExtras(
         return;
     }
     console.log("[World] Populating procedural extras (Critical + Deferred)...");
-    const extrasCount = PROCEDURAL_ENTITY_COUNT;
+    const extrasCount = getProceduralEntityCount();
     const range = 150;
 
     // We no longer block the main thread for non-critical procedural objects.
@@ -455,14 +455,14 @@ export async function populateProceduralExtras(
             // Yield BEFORE a potentially heavy spawn if we have already burned the budget
             // in a previous spawn.  This prevents a single heavy tree (10–30 ms) from
             // stacking on top of an already-overrun chunk and compounding the stall.
-            if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+            if (performance.now() - chunkStart >= getEntityBudgetMs()) {
                 await yieldControl();
                 chunkStart = performance.now();
             }
             spawnExtra();
             criticalCount++;
             // Also yield immediately AFTER a heavy spawn so the browser can breathe.
-            if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+            if (performance.now() - chunkStart >= getEntityBudgetMs()) {
                 await yieldControl();
                 chunkStart = performance.now();
             }

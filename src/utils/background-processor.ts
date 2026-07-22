@@ -1,4 +1,4 @@
-import { isCIorHeadless } from '../core/config.ts';
+import { isCIorHeadless, getJsHeapUsageRatio, getLoadMemoryTier } from '../core/config.ts';
 /**
  * Time-Budgeted Background Processor
  *
@@ -13,6 +13,9 @@ import { isCIorHeadless } from '../core/config.ts';
  * individual tasks: we measure elapsed time *before* dequeuing each task so
  * that a single expensive factory function (e.g. 25 ms tree geometry) only
  * causes one overrun rather than stacking overruns across entities.
+ *
+ * Under high JS-heap pressure the budget is cut further and we briefly yield
+ * so the GC can reclaim memory instead of locking the tab during load.
  */
 
 import { spawnTracker } from '../world/spawn-tracker.ts';
@@ -46,7 +49,32 @@ function inferFailureTypeFromTaskId(taskId: string): string {
     return 'background_task';
 }
 import { maybeRecordBackgroundFailure } from '../world/spawn-tracker.ts';
-import { isCIorHeadless } from '../core/config.ts';
+
+/** Effective per-frame budget under current RAM pressure. */
+function memoryAwareBudget(baseMs: number): number {
+    const heapRatio = getJsHeapUsageRatio();
+    const tier = getLoadMemoryTier();
+    let budget = baseMs;
+    if (tier === 'critical') budget = Math.min(budget, 4);
+    else if (tier === 'low') budget = Math.min(budget, 6);
+
+    if (heapRatio >= 0.8) budget = Math.min(budget, 2);
+    else if (heapRatio >= 0.65) budget = Math.min(budget, 4);
+    else if (heapRatio >= 0.5) budget = Math.min(budget, Math.max(3, baseMs * 0.5));
+    return Math.max(1, budget);
+}
+
+/** Brief pause so Chromium can GC when the heap is near the limit. */
+function yieldForMemoryPressure(): Promise<void> {
+    const heapRatio = getJsHeapUsageRatio();
+    if (heapRatio < 0.7) return Promise.resolve();
+    return new Promise(resolve => {
+        // Two rAFs give the browser a chance to run GC between deferred spawns.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve());
+        });
+    });
+}
 
 export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
@@ -186,14 +214,15 @@ export class BackgroundProcessor {
     private scheduleNext(): void {
         if (hasIdleCallback) {
             requestIdleCallback((deadline) => {
-                // Guarantee at least 2 ms so a forced-timeout callback (timeRemaining≈0)
+                // Guarantee at least 1–2 ms so a forced-timeout callback (timeRemaining≈0)
                 // still makes forward progress instead of spinning with zero work done.
-                const budget = Math.max(2, Math.min(deadline.timeRemaining(), this.maxMsPerFrame));
+                const aware = memoryAwareBudget(this.maxMsPerFrame);
+                const budget = Math.max(1, Math.min(deadline.timeRemaining() || aware, aware));
                 this.processChunk(budget);
-            }, { timeout: 500 }); // tighter timeout so forced callbacks fire sooner under load
+            }, { timeout: getJsHeapUsageRatio() >= 0.65 ? 250 : 500 });
         } else {
             requestAnimationFrame(() => {
-                this.processChunk(this.maxMsPerFrame);
+                this.processChunk(memoryAwareBudget(this.maxMsPerFrame));
             });
         }
     }
@@ -211,14 +240,21 @@ export class BackgroundProcessor {
             return;
         }
 
+        // Under heavy heap pressure, pause a frame before more allocations.
+        if (getJsHeapUsageRatio() >= 0.7) {
+            await yieldForMemoryPressure();
+        }
+
         const chunkStart = performance.now();
         let processed = 0;
+        // On critical heap pressure, process at most one heavy task per slot.
+        const maxTasksThisChunk = getJsHeapUsageRatio() >= 0.8 ? 1 : Number.POSITIVE_INFINITY;
 
         while (this.queue.length > 0) {
             // Check budget only after we've done at least one task, so a forced
             // callback with timeRemaining()=0 still drains one entry per slot
             // rather than spinning forever without touching the queue.
-            if (processed > 0 && performance.now() - chunkStart >= budgetMs) {
+            if (processed > 0 && (processed >= maxTasksThisChunk || performance.now() - chunkStart >= budgetMs)) {
                 break;
             }
 
