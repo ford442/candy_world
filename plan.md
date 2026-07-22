@@ -238,3 +238,7 @@ Status: Implemented ✅
 * Implementation Details: Replaced legacy `getUnifiedGroundHeight` and `getUnifiedGroundHeightTyped` with the centralized `getAuthoritativeGroundHeight` across generators, batchers, and physics loops. Migrated all hardcoded decorator placement offsets to use `computePlacementY` and `plantOnSurface` to ensure batcher-placed instances are perfectly grounded according to their `ENTITY_BASE_OFFSETS`. Wired `reconcileGroundedEyeY` in the player fallback loop so the first-person camera smoothly tracks terrain height and platform limits without snapping or drift.
 
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: **#1365 In-world `?debugPlace` map placement editor**: Created `src/debug/debug-place.ts` with a UI overlay and a ground-following reticle to select, scale, rotate, and place objects interactively, outputting JSON to the console for `map.json` integration. Integrated cleanly into the game loop using zero-allocation vectors and the authoritative ground-height query.
+Next Step: Address missing ESLint integration (#1348) or Living candy fauna (#1352).

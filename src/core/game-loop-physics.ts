@@ -5,10 +5,13 @@ import { updatePhysics, player } from '../systems/physics/index.ts';
 import { keyStates } from './input/index.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { updateGroundDebug, isGroundDebugEnabled } from '../debug/ground-debug.ts';
+import { updatePlacementDebug, isPlacementDebugEnabled } from '../debug/debug-place.ts';
 import { createShield } from '../foliage/shield.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { getSparkleTrail, getPlayerShieldMesh, setPlayerShieldMesh } from './deferred-init.ts';
 import { uPlayerPosition, uPlayerVelocity } from '../foliage/index.ts';
+
+const _scratchDir = new THREE.Vector3();
 
 export function updatePhysicsPhase(delta: number, devOrbitActive: boolean, audioState: any) {
     const sparkleTrail = getSparkleTrail();
@@ -33,6 +36,12 @@ export function updatePhysicsPhase(delta: number, devOrbitActive: boolean, audio
         if (isGroundDebugEnabled() && player.position && cameraRef) {
             updateGroundDebug(player.position, cameraRef.position);
         }
+
+        if (isPlacementDebugEnabled() && cameraRef) {
+            cameraRef.getWorldDirection(_scratchDir);
+            updatePlacementDebug(cameraRef.position, _scratchDir);
+        }
+
 
         if (unlockSystem.isUnlocked('arpeggio_shield')) {
             if (!playerShieldMesh && sceneRef) {
