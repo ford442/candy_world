@@ -550,9 +550,11 @@ export function togglePlaylist(): void {
                 // Focus trap is re-established by main input module
             }
             // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
-            if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
-                lastFocusedElement.focus({ preventScroll: true });
-            }
+            yieldToPaint(50).then(() => {
+                if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
+                    lastFocusedElement.focus({ preventScroll: true });
+                }
+            });
             // Do NOT lock controls, stay unlocked
         } else {
             // Return to Game

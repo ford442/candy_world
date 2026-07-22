@@ -238,3 +238,4 @@ Status: Implemented ✅
 * Implementation Details: Replaced legacy `getUnifiedGroundHeight` and `getUnifiedGroundHeightTyped` with the centralized `getAuthoritativeGroundHeight` across generators, batchers, and physics loops. Migrated all hardcoded decorator placement offsets to use `computePlacementY` and `plantOnSurface` to ensure batcher-placed instances are perfectly grounded according to their `ENTITY_BASE_OFFSETS`. Wired `reconcileGroundedEyeY` in the player fallback loop so the first-person camera smoothly tracks terrain height and platform limits without snapping or drift.
 
 Next Step: Ask the user for the next task.
+Status: Implemented ✅\n* Implementation Details: ♿ Aria: Fixed focus trap restoration bug in Jukebox. Used yieldToPaint() to allow DOM reflow for the instructionsRef display toggle before explicitly returning keyboard focus to the Open Jukebox button.\nNext Step: Ask the user for the next task.
