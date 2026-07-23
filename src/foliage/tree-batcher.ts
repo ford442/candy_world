@@ -164,6 +164,11 @@ export class TreeBatcher {
             triplanar: true    // Avoid UV seams on cylinder
         });
 
+        // 🎨 PALETTE: Add Juicy Rim Light to tree trunks
+        trunkMat.emissiveNode = (trunkMat.emissiveNode || color(0x000000)).add(
+            createJuicyRimLight(color(0x8B4513), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), null)
+        );
+
         applyFoliageLodMaterialFade(trunkMat);
 
         this.trunks = new THREE.InstancedMesh(sharedGeometries.unitCylinder, trunkMat, this.trunkCapacity);
