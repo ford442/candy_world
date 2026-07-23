@@ -1,4 +1,3 @@
-import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
 /**
  * @file src/debug/ground-debug.ts
  * @brief Optional visualizer for issue #1265 ground-height / eye-height tuning.
