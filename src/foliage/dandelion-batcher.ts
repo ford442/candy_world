@@ -266,15 +266,15 @@ export class DandelionBatcher {
     dispose() {
         if (!this.initialized) return;
 
-        [this.stemMesh, this.headMesh].forEach(mesh => {
+        [this.mesh].forEach(mesh => {
             if (!mesh) return;
             safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
         });
 
         this.initialized = false;
         this.count = 0;
-        this.indexMap.clear();
-        this.logicObjects.length = 0;
+
+
     }
 
     register(logicObject: THREE.Object3D, options: any = {}) {
