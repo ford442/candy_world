@@ -1081,8 +1081,8 @@ export class TreeBatcher {
         newMesh.castShadow = true;
         newMesh.receiveShadow = true;
 
-        foliageGroup.remove(oldMesh);
-        oldMesh.dispose();
+        // ⚡ OPTIMIZATION: Replaced manual removal and disposal with safeRemoveAndDispose to prevent VRAM leaks
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
 
         this.accordionLeaves = newMesh;

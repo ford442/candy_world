@@ -8,6 +8,7 @@
  */
 
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils';
 
 export type SkyIslandEdgeKind = 'vine_ladder' | 'cloud_hop' | 'lift_pad' | 'approach';
 
@@ -106,16 +107,13 @@ export function buildTraversalWaypoints(): Array<{ x: number; y: number; z: numb
 }
 
 function disposeDebugMeshes(): void {
+    // ⚡ OPTIMIZATION: Replaced manual scene.remove with safeRemoveAndDispose to prevent VRAM leaks.
     if (_edgeLines && _scene) {
-        _scene.remove(_edgeLines);
-        _edgeLines.geometry.dispose();
-        (_edgeLines.material as THREE.Material).dispose();
+        safeRemoveAndDispose(_scene, _edgeLines);
         _edgeLines = null;
     }
     if (_nodeMarkers && _scene) {
-        _scene.remove(_nodeMarkers);
-        _nodeMarkers.geometry.dispose();
-        (_nodeMarkers.material as THREE.Material).dispose();
+        safeRemoveAndDispose(_scene, _nodeMarkers);
         _nodeMarkers = null;
     }
 }
