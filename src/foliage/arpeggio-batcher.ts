@@ -361,9 +361,6 @@ export class ArpeggioFernBatcher {
 
         this.initialized = false;
         this.count = 0;
-
-        this.positions.length = 0;
-        this.scales.length = 0;
     }
 
     register(dummy: any, options: any = {}) {

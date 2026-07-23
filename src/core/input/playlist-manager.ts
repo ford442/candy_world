@@ -392,8 +392,8 @@ export function renderPlaylist(): void {
                          (emptyBtn as HTMLElement).focus({ preventScroll: true });
                      }
                 } else {
-                    const removeBtns = playlistList?.querySelectorAll('.playlist-remove-btn');
-                    const playBtns = playlistList?.querySelectorAll('.playlist-btn');
+                    const removeBtns = playlistList?.querySelectorAll('.playlist-remove-btn') || [];
+                    const playBtns = playlistList?.querySelectorAll('.playlist-btn') || [];
 
                     // Try focusing the next remove button (at same index, since list shifted)
                     if (removeBtns[index]) {
@@ -550,9 +550,11 @@ export function togglePlaylist(): void {
                 // Focus trap is re-established by main input module
             }
             // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
-            if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
-                lastFocusedElement.focus({ preventScroll: true });
-            }
+            yieldToPaint(50).then(() => {
+                if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
+                    lastFocusedElement.focus({ preventScroll: true });
+                }
+            });
             // Do NOT lock controls, stay unlocked
         } else {
             // Return to Game
