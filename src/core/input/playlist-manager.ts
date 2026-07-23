@@ -396,12 +396,12 @@ export function renderPlaylist(): void {
                     const playBtns = playlistList?.querySelectorAll('.playlist-btn') || [];
 
                     // Try focusing the next remove button (at same index, since list shifted)
-                    if (removeBtns[index]) {
+                    if (removeBtns && removeBtns[index]) {
                         (removeBtns[index] as HTMLElement).focus({ preventScroll: true });
-                    } else if (removeBtns[index - 1]) {
+                    } else if (removeBtns && removeBtns[index - 1]) {
                         // Or the previous one
                         (removeBtns[index - 1] as HTMLElement).focus({ preventScroll: true });
-                    } else if (playBtns[0]) {
+                    } else if (playBtns && playBtns[0]) {
                         // Or the first song
                         (playBtns[0] as HTMLElement).focus({ preventScroll: true });
                     }
