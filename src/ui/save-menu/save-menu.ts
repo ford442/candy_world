@@ -469,19 +469,19 @@ export class SaveMenu {
                 activeElement.classList.contains('candy-keybind') ||
                 activeElement.classList.contains('candy-save-menu__close')
             )) {
-                    if (!activeElement.classList.contains('keyboard-active')) {
-                        activeElement.classList.add('keyboard-active');
+                if (!activeElement.classList.contains('keyboard-active')) {
+                    activeElement.classList.add('keyboard-active');
 
-                        // ♿ Aria: Remove class on keyup and blur to match tactile hold duration
-                        const removeFeedback = () => {
-                            activeElement.classList.remove('keyboard-active');
-                            activeElement.removeEventListener('keyup', removeFeedback);
-                            activeElement.removeEventListener('blur', removeFeedback);
-                        };
+                    // ♿ Aria: Remove class on keyup and blur to match tactile hold duration
+                    const removeFeedback = () => {
+                        activeElement.classList.remove('keyboard-active');
+                        activeElement.removeEventListener('keyup', removeFeedback);
+                        activeElement.removeEventListener('blur', removeFeedback);
+                    };
 
-                        activeElement.addEventListener('keyup', removeFeedback);
-                        activeElement.addEventListener('blur', removeFeedback);
-                    }
+                    activeElement.addEventListener('keyup', removeFeedback);
+                    activeElement.addEventListener('blur', removeFeedback);
+                }
             }
         }
 
