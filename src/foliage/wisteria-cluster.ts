@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { ShaderNodeObject, Node } from 'three/tsl';
+import type { ShaderNodeObject } from 'three/tsl';
+import type { Node } from 'three/tsl'; // @ts-ignore
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import type { ShaderNodeObject, Node } from 'three/tsl';
 import {
