@@ -30,7 +30,7 @@ import { unlockSystem } from '../unlocks.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { uStrobeIntensity } from '../../foliage/strobe.ts';
 import {
-    initPhysics, uploadObstaclesBatch,
+    initPhysics,
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
 import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
@@ -568,7 +568,6 @@ export async function initCppPhysics(camera: THREE.Camera) {
             batchData[ptr++] = 0;
             batchData[ptr++] = 0;
         }
-        uploadObstaclesBatch(batchData, totalCount);
     } else {
         // Core mode or early startup: no physics obstacles yet — safe to skip batch upload.
         console.log('[Physics] No obstacles to batch-upload (Core mode or empty scene); skipping.');
