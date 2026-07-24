@@ -5,7 +5,7 @@
  * This module contains:
  * - Collision system: uploadCollisionObjects, resolveGameCollisionsWASM
  * - Physics helpers: initCollisionSystem, addCollisionObject, checkPositionValidity
- * - Native C++ physics wrappers: updatePhysicsCPP, initPhysics
+ * - Native C++ physics wrappers: updatePhysicsCPP, initPhysics, uploadObstaclesBatch
  * - Player state: setPlayerState, getPlayerState
  * - Math fallbacks: valueNoise2D, fbm, fastInvSqrt, fastDistance, hash
  */
