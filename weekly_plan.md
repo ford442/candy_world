@@ -79,7 +79,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 *Content / world-building (capstones, after foundation):*
 - [x] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path. Coverage matrix + glow gates + `?debugCircadian=1` + `circadian_night` VR seeds — see `docs/CIRCADIAN_BATCHER_COVERAGE.md`.
 - [x] **#1363 Vertical Sky Islands biome** — layered exploration arc after #1265/#1266. `[in progress — 2026-07-21]` stacked islands + music bindings + traversal test + `sky_island_horizon` viewpoint
-- [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
+- [x] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [ ] **#1352 Living candy fauna** (WASM boids + ECS). **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
 
 ## Backlog
@@ -111,6 +111,8 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-07-24** IN-WORLD DEBUG PLACE GIZMO (#1365) — **Status: Implemented ✅**
+  * Implementation Details: The `?debugPlace=1` gizmo functionality was confirmed to be initialized in `game-loop-core.ts` via `initPlacementDebug` and updated per frame in `game-loop-physics.ts` using `updatePlacementDebug`. It features robust placement capability across the procedurally generated terrain, supporting a wide range of candy biomes, mapping placement config to `map.json` standard.
 - [x] **2026-07-21** CIRCADIAN COVERAGE PASS (#1362 follow-up) — Fixed `SimpleFlowerBatcher` to drive `PlantPoseMachine` with `dayNightBias` (was kick-only bloom). Shared `circadianNightGlowMult`/`circadianDayGlowMult` helpers; gated tree/portamento/gem-fruit/wisteria/lotus/lantern emissives. Added `?debugCircadian=1` overlay + `circadian_night` / `circadian_night_mycelium` visual-regression viewpoints. Docs: `docs/CIRCADIAN_BATCHER_COVERAGE.md`.
 - [x] **2026-07-21** CIRCADIAN DAY/NIGHT FOR BATCHERS (#1362) — Wired mushroom-batcher and luminous-plant-batcher via global uCircadianPhase (emissive dim by day, bright by night). Ensured circadianController.setDayTarget() is properly called in game-loop-visuals.ts and delta is passed instead of gameTime.
 - [x] **2026-07-14** 🧱 FOUNDATION CLUSTER LANDED — TS typecheck gate + ratchet (#1347, #1388): `scripts/tsc-ratchet.mjs` + `scripts/tsc-baseline.json` + `typecheck.yml`; baseline driven 587 → **3 errors**. music-reactivity.ts barrel fixed (#1350) + stale `createSubwooferLotus` import removed (#1357) + game-loop sun/moon null-safety (#1397). Copilot prep shipped: Emscripten build + export verification CI `emscripten-ci.yml` (#1359/#1393), folding in build-artifact untracking (#1349). Whole-stack: release tag `2026-07-14-stable-v2` cut (#1134 tooling, #1387). Downstream wave the same week: `game-loop.ts` split into 8 tick-phase modules (#1360/#1405), circadian day/night base (#1362/#1394), native batcher matrix compose `_batchComposeMatrices_c` (#1358/#1411), arpeggio_grove accumulator → AS (#1364/#1415).
