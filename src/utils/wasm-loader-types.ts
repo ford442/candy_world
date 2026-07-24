@@ -54,8 +54,6 @@ export interface ExtendedEmscriptenModule extends EmscriptenModule {
     // Physics functions
     _updatePhysicsCPP?: (...args: number[]) => number;
     _initPhysics?: (...args: number[]) => void;
-    _addObstaclesBatch?: (count: number) => void;
-    _initObstacleBuffer?: (maxCount: number) => number;
     _setPlayerState?: (...args: number[]) => void;
     _getPlayerX?: () => number;
     _getPlayerY?: () => number;

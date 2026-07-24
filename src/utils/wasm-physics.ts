@@ -68,27 +68,6 @@ export interface PlayerStateResult {
 
 /** Shared Float32Array for updating dynamic object radii in WASM (Zero-Allocation Bridge) */
 export let dynamicRadiiView: Float32Array | null = null;
-let _obstacleUploadView: Float32Array | null = null;
-const MAX_OBSTACLES = 2000;
-
-/**
- * Initializes the WASM memory block for obstacle batch uploading
- * @param maxCount Maximum number of obstacles
- * @returns boolean true if successful
- */
-export function initObstacleUploadBridge(maxCount: number): boolean {
-    if (!emscriptenMemory) return false;
-    const initFn = getNativeFunc('initObstacleBuffer');
-    if (!initFn) return false;
-
-    const ptr = initFn(maxCount);
-    if (!ptr) return false;
-
-    // Create Float32Array view directly into WASM memory over the returned offset
-    _obstacleUploadView = new Float32Array(emscriptenMemory, ptr, maxCount * 9);
-    console.log(`[WASM Physics Bridge] Initialized obstacle upload view (Cap: ${maxCount}, Offset: ${ptr})`);
-    return true;
-}
 
 /**
  * Initializes the WASM memory block for dynamic foliage collision radii
@@ -478,33 +457,6 @@ export function updatePhysicsCPP(delta: number, inputX: number, inputZ: number, 
 export function initPhysics(x: number, y: number, z: number): void {
     const f = getNativeFunc('initPhysics');
     if (f) f(x, y, z);
-}
-
-/**
- * Upload obstacles in batch using the persistent buffer
- * @param objectsData - Float32Array of object data
- * @param count - Number of objects
- */
-export function uploadObstaclesBatch(objectsData: Float32Array, count: number): void {
-    // const f = getNativeFunc('addObstaclesBatch');
-        const f = null;
-    if (!f) return;
-
-    if (!_obstacleUploadView) {
-        if (!initObstacleUploadBridge(MAX_OBSTACLES)) {
-            return;
-        }
-    }
-
-    // Limit to max count to prevent out-of-bounds writes
-    const maxAllowed = Math.min(count, MAX_OBSTACLES);
-
-    // ⚡ OPTIMIZATION: Write directly into the persistent SharedArrayBuffer view
-    // Avoids per-frame malloc/free and simplifies WASM bridge
-    _obstacleUploadView!.set(objectsData.subarray(0, maxAllowed * 9));
-
-    // Invoke C++ to process the buffer
-    f(maxAllowed);
 }
 
 // =============================================================================

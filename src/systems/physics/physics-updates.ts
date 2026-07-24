@@ -30,7 +30,7 @@ import { unlockSystem } from '../unlocks.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { uStrobeIntensity } from '../../foliage/strobe.ts';
 import {
-    initPhysics, uploadObstaclesBatch,
+    initPhysics,
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
 import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
@@ -531,48 +531,8 @@ export async function initCppPhysics(camera: THREE.Camera) {
     const validClouds = filterValidPhysicsObjects(foliageClouds, 'cloud');
     const validTrampolines = filterValidPhysicsObjects(foliageTrampolines, 'trampoline');
     const totalCount = validMushrooms.length + validClouds.length + validTrampolines.length;
-    console.log(`[Physics] Uploading obstacle batch: ${validMushrooms.length} mushrooms, ${validClouds.length} clouds, ${validTrampolines.length} trampolines (total: ${totalCount})`);
-    if (totalCount > 0) {
-        const batchData = new Float32Array(totalCount * 9);
-        let ptr = 0;
-        for (const m of validMushrooms) {
-            batchData[ptr++] = 0;
-            batchData[ptr++] = m.position.x;
-            batchData[ptr++] = m.position.y;
-            batchData[ptr++] = m.position.z;
-            batchData[ptr++] = 0;
-            batchData[ptr++] = (m.userData as any).capHeight || 3;
-            batchData[ptr++] = (m.userData as any).stemRadius || 0.5;
-            batchData[ptr++] = (m.userData as any).capRadius || 2;
-            batchData[ptr++] = (m.userData as any).isTrampoline ? 1 : 0;
-        }
-        for (const c of validClouds) {
-            batchData[ptr++] = 1;
-            batchData[ptr++] = c.position.x;
-            batchData[ptr++] = c.position.y;
-            batchData[ptr++] = c.position.z;
-            batchData[ptr++] = (c.scale.x || 1) * 2.0;
-            batchData[ptr++] = (c.scale.y || 1) * 0.8;
-            batchData[ptr++] = 0;
-            batchData[ptr++] = (c.userData as any).tier || 1;
-            batchData[ptr++] = 0;
-        }
-        for (const t of validTrampolines) {
-            batchData[ptr++] = 2;
-            batchData[ptr++] = t.position.x;
-            batchData[ptr++] = t.position.y;
-            batchData[ptr++] = t.position.z;
-            batchData[ptr++] = (t.userData as any).bounceRadius || 0.5;
-            batchData[ptr++] = (t.userData as any).bounceHeight || 0.5;
-            batchData[ptr++] = (t.userData as any).bounceForce || 12;
-            batchData[ptr++] = 0;
-            batchData[ptr++] = 0;
-        }
-        uploadObstaclesBatch(batchData, totalCount);
-    } else {
-        // Core mode or early startup: no physics obstacles yet — safe to skip batch upload.
-        console.log('[Physics] No obstacles to batch-upload (Core mode or empty scene); skipping.');
-    }
+    console.log(`[Physics] Skipping dead C++ obstacle batch upload (total items: ${totalCount})`);
+
     initDynamicFoliageBridge(500);
     const { arpeggioFernBatcher } = await import('../../foliage/arpeggio-batcher.ts');
     const validCaves = filterValidPhysicsObjects(foliageCaves, 'cave');
