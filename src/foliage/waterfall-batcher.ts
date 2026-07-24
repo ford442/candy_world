@@ -18,7 +18,7 @@ const modFloat = (x: any, y: any) => {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight,
-    applyPlayerInteraction
+    applyStandardDeformation
 } from './index.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
@@ -114,7 +114,7 @@ export class WaterfallBatcher {
         const displacedPos = positionLocal.add(displacement);
 
         // Apply Player Interaction
-        colMat.positionNode = applyPlayerInteraction(displacedPos);
+        colMat.positionNode = applyStandardDeformation(displacedPos); // 🎨 PALETTE: Replaced applyPlayerInteraction with applyStandardDeformation for wind-shear + player interaction
 
         // 4. Color & Emission
         const uPulseIntensity = uAudioLow.mul(2.0); // Amplified bass
