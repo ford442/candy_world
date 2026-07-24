@@ -470,9 +470,21 @@ export class SaveMenu {
                 activeElement.classList.contains('candy-save-menu__close')
             )) {
                 activeElement.classList.add('keyboard-active');
-                setTimeout(() => {
-                    if (activeElement) activeElement.classList.remove('keyboard-active');
-                }, 150);
+
+                const cleanup = () => {
+                    activeElement.classList.remove('keyboard-active');
+                    activeElement.removeEventListener('keyup', keyupHandler);
+                    activeElement.removeEventListener('blur', cleanup);
+                };
+
+                const keyupHandler = (ev: KeyboardEvent) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                        cleanup();
+                    }
+                };
+
+                activeElement.addEventListener('keyup', keyupHandler);
+                activeElement.addEventListener('blur', cleanup);
             }
         }
 
