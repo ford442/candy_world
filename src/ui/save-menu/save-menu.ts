@@ -461,7 +461,7 @@ export class SaveMenu {
         // ♿ Aria: Keyboard tactile feedback for interactive elements
         if (e.key === 'Enter' || e.key === ' ') {
             const activeElement = document.activeElement as HTMLElement;
-            if (activeElement && (
+            if (activeElement && !activeElement.classList.contains('keyboard-active') && (
                 activeElement.classList.contains('candy-save-menu__tab') ||
                 activeElement.classList.contains('candy-save-menu__btn') ||
                 activeElement.classList.contains('candy-save-slot__btn') ||
@@ -473,7 +473,7 @@ export class SaveMenu {
 
                 const cleanup = () => {
                     activeElement.classList.remove('keyboard-active');
-                    activeElement.removeEventListener('keyup', keyupHandler);
+                    activeElement.removeEventListener('keyup', keyupHandler as EventListener);
                     activeElement.removeEventListener('blur', cleanup);
                 };
 
@@ -483,7 +483,7 @@ export class SaveMenu {
                     }
                 };
 
-                activeElement.addEventListener('keyup', keyupHandler);
+                activeElement.addEventListener('keyup', keyupHandler as EventListener);
                 activeElement.addEventListener('blur', cleanup);
             }
         }
