@@ -86,7 +86,7 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 ## Next Steps
 
 1. **In-world `?debugPlace` map placement editor** (Status: Implemented ✅)
-   - *Implementation Details:* The `?debugPlace=1` gizmo functionality was confirmed to be correctly initialized in `game-loop-core.ts` via `initPlacementDebug` and updated per frame in `game-loop-physics.ts` using `updatePlacementDebug`. It features robust placement capability across the procedurally generated terrain, supporting a wide range of candy biomes, mapping placement config to `map.json` standard.
+   - *Implementation Details:* The `?debugPlace=1` gizmo functionality was confirmed to be initialized in `game-loop-core.ts` via `initPlacementDebug` and updated per frame in `game-loop-physics.ts` using `updatePlacementDebug`. It features robust placement capability across the procedurally generated terrain, supporting a wide range of candy biomes, mapping placement config to `map.json` standard.
    - *Next Step Suggestion:* Propose moving to #1352 Living candy fauna (WASM boids + ECS) or #1353 Real-time co-presence (Supabase Realtime).
 
 1. **Refactoring Large Files: region-manager.ts** (Status: Implemented ✅)
