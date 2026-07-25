@@ -461,7 +461,7 @@ export class SaveMenu {
         // ♿ Aria: Keyboard tactile feedback for interactive elements
         if (e.key === 'Enter' || e.key === ' ') {
             const activeElement = document.activeElement as HTMLElement;
-            if (activeElement && (
+            if (activeElement && !activeElement.classList.contains('keyboard-active') && (
                 activeElement.classList.contains('candy-save-menu__tab') ||
                 activeElement.classList.contains('candy-save-menu__btn') ||
                 activeElement.classList.contains('candy-save-slot__btn') ||
@@ -469,19 +469,22 @@ export class SaveMenu {
                 activeElement.classList.contains('candy-keybind') ||
                 activeElement.classList.contains('candy-save-menu__close')
             )) {
-                if (!activeElement.classList.contains('keyboard-active')) {
-                    activeElement.classList.add('keyboard-active');
+                activeElement.classList.add('keyboard-active');
 
-                    // ♿ Aria: Remove class on keyup and blur to match tactile hold duration
-                    const removeFeedback = () => {
-                        activeElement.classList.remove('keyboard-active');
-                        activeElement.removeEventListener('keyup', removeFeedback);
-                        activeElement.removeEventListener('blur', removeFeedback);
-                    };
+                const cleanup = () => {
+                    activeElement.classList.remove('keyboard-active');
+                    activeElement.removeEventListener('keyup', keyupHandler as EventListener);
+                    activeElement.removeEventListener('blur', cleanup);
+                };
 
-                    activeElement.addEventListener('keyup', removeFeedback);
-                    activeElement.addEventListener('blur', removeFeedback);
-                }
+                const keyupHandler = (ev: KeyboardEvent) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                        cleanup();
+                    }
+                };
+
+                activeElement.addEventListener('keyup', keyupHandler as EventListener);
+                activeElement.addEventListener('blur', cleanup);
             }
         }
 
