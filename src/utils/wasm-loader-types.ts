@@ -225,6 +225,9 @@ export type WasmExportValue = WebAssembly.ExportValue | ((...args: number[]) => 
  * WASM exports interface
  */
 export interface WasmExports {
+    initBoids?: () => void;
+    updateBoids?: (delta: number) => number;
+    getBoidsCount?: () => number;
     [key: string]: WasmExportValue | undefined;
     memory: WebAssembly.Memory;
     getGroundHeight: (x: number, z: number) => number;
