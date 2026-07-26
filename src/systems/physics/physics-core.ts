@@ -38,7 +38,7 @@ import { CONFIG } from '../../core/config.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
 import { isInLakeBasin, reconcileGroundedEyeY } from '../ground-system.ts';
 import {
-    initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
+    initPhysics, setPlayerState, getPlayerState, updatePhysicsCPP,
     uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
 
