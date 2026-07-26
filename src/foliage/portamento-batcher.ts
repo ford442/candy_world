@@ -30,6 +30,8 @@ import { getActiveWave } from '../systems/music-wave.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
+import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
+
 
 const MAX_PINES = 200; // conservative default for performance
 /** Default melody channel index used when config does not specify channelIndex. */
@@ -201,16 +203,26 @@ export class PortamentoPineBatcher {
     dummy.userData.bendFactor = 0;
     this.logicPines[i] = dummy;
 
-    // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-    // Compose directly from the logic object's properties without using a proxy THREE.Object3D
-    _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
-    _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, i * 16);
-    _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, i * 16);
+    getGroundAlignedQuaternion(dummy, _scratchQuaternion);
+    this._batchPositions[i * 3 + 0] = dummy.position.x;
+    this._batchPositions[i * 3 + 1] = dummy.position.y;
+    this._batchPositions[i * 3 + 2] = dummy.position.z;
+
+    this._batchQuaternions[i * 4 + 0] = _scratchQuaternion.x;
+    this._batchQuaternions[i * 4 + 1] = _scratchQuaternion.y;
+    this._batchQuaternions[i * 4 + 2] = _scratchQuaternion.z;
+    this._batchQuaternions[i * 4 + 3] = _scratchQuaternion.w;
+
+    this._batchScales[i * 3 + 0] = dummy.scale.x;
+    this._batchScales[i * 3 + 1] = dummy.scale.y;
+    this._batchScales[i * 3 + 2] = dummy.scale.z;
+
+    this._matricesDirty = true;
+    this.flushMatrices();
 
     this.bendAttribute!.setX(i, 0);
 
-    this.trunkMesh!.instanceMatrix.needsUpdate = true;
-    this.needleMesh!.instanceMatrix.needsUpdate = true;
+
 
     this.trunkMesh!.count = this.count;
     this.needleMesh!.count = this.count;
@@ -221,14 +233,22 @@ export class PortamentoPineBatcher {
   updateInstance(idx: number, dummy: THREE.Object3D) {
     if (!this.initialized) return;
 
-    // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-    // Compose directly from the logic object's properties without using a proxy THREE.Object3D
-    _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
-    _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, idx * 16);
-    _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, idx * 16);
+    getGroundAlignedQuaternion(dummy, _scratchQuaternion);
+    this._batchPositions[idx * 3 + 0] = dummy.position.x;
+    this._batchPositions[idx * 3 + 1] = dummy.position.y;
+    this._batchPositions[idx * 3 + 2] = dummy.position.z;
 
-    this.trunkMesh!.instanceMatrix.needsUpdate = true;
-    this.needleMesh!.instanceMatrix.needsUpdate = true;
+    this._batchQuaternions[idx * 4 + 0] = _scratchQuaternion.x;
+    this._batchQuaternions[idx * 4 + 1] = _scratchQuaternion.y;
+    this._batchQuaternions[idx * 4 + 2] = _scratchQuaternion.z;
+    this._batchQuaternions[idx * 4 + 3] = _scratchQuaternion.w;
+
+    this._batchScales[idx * 3 + 0] = dummy.scale.x;
+    this._batchScales[idx * 3 + 1] = dummy.scale.y;
+    this._batchScales[idx * 3 + 2] = dummy.scale.z;
+
+    this._matricesDirty = true;
+    this.flushMatrices();
   }
 
   setBendForIndex(idx: number, value: number) {

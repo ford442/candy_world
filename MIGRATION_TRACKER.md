@@ -26,7 +26,7 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 ### 1. Batcher instance matrix + color hot path → C++ batch
 
-**Status:** ✅ Completed for arpeggio (#1358) — dedicated `emscripten/batcher_instance.cpp` (`batchWriteInstancePose_c`) + `src/utils/wasm-batcher-instance.ts` with TS fallback; `arpeggio-batcher` wired. Tree still uses `batchComposeMatrices_c`. Widen to mushroom/portamento/wisteria only after parity stays green.
+**Status:** ✅ Completed for arpeggio (#1358), mushroom, and portamento batchers — dedicated `emscripten/batcher_instance.cpp` (`batchWriteInstancePose_c`) + `src/utils/wasm-batcher-instance.ts` with TS fallback. Tree still uses `batchComposeMatrices_c`.
 
 **Why:** `arpeggio-batcher.ts`, `tree-batcher.ts`, `mushroom-batcher.ts`, etc. still write `instanceMatrix.array` / `instanceColor.array` per plant per frame in TS after `PlantPoseMachine.update`.
 
