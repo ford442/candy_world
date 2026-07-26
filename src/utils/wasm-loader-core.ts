@@ -55,6 +55,9 @@ export let wasmInitCollisionSystem: (() => void) | null = null;
 export let wasmAddCollisionObject: ((type: number, x: number, y: number, z: number, r: number, h: number, p1: number, p2: number, p3: number) => void) | null = null;
 export let wasmResolveGameCollisions: ((kickTrigger: number) => number) | null = null;
 export let wasmCheckPositionValidity: ((x: number, z: number, radius: number) => number) | null = null;
+export let wasmInitBoids: (() => void) | null = null;
+export let wasmUpdateBoids: ((delta: number) => number) | null = null;
+export let wasmGetBoidsCount: (() => number) | null = null;
 
 /** Hot-path Foliage Animation exports (Migrated from TS) */
 export let wasmSmoothWobble: ((noteBufferPtr: number, bufferSize: number, currentWobble: number, scale: number, maxAmplitude: number, minThreshold: number, smoothingRate: number) => number) | null = null;
@@ -223,6 +226,9 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmAddCollisionObject = exports.addCollisionObject || null;
     wasmResolveGameCollisions = exports.resolveGameCollisions || null;
     wasmCheckPositionValidity = exports.checkPositionValidity || null;
+    wasmInitBoids = exports.initBoids || null;
+    wasmUpdateBoids = exports.updateBoids || null;
+    wasmGetBoidsCount = exports.getBoidsCount || null;
 
     wasmBatchGroundHeight = exports.batchGroundHeight || null;
     wasmGetUnifiedGroundHeight = exports.getUnifiedGroundHeight || null;

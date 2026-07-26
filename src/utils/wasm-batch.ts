@@ -21,6 +21,7 @@ export type {
 // Re-export core batch operations
 export {
     uploadPositions,
+    uploadPositionsFlat,
     uploadMushroomSpecs,
     copySharedPositions,
     uploadAnimationData,

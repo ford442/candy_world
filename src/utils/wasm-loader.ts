@@ -59,6 +59,9 @@ export {
     wasmAddCollisionObject,
     wasmResolveGameCollisions,
     wasmCheckPositionValidity,
+    wasmInitBoids,
+    wasmUpdateBoids,
+    wasmGetBoidsCount,
     
     // Hot-path Foliage Animation exports (Migrated from TS)
     wasmSmoothWobble,
@@ -215,7 +218,6 @@ export {
     // Native C++ physics wrappers
     updatePhysicsCPP,
     initPhysics,
-    uploadObstaclesBatch,
     
     // Player state
     setPlayerState,
