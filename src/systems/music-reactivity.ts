@@ -25,6 +25,7 @@ import {
     applyAtmosphereMapOverrides,
 } from './atmosphere-reactivity.ts';
 import { awakenedPersistence } from './awakened-persistence.ts';
+import { uploadPositionsFlat, batchDistanceCull } from '../utils/wasm-batch.ts';
 
 // Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
 const WEATHER_TARGET_DECAY_RATE = 5.0;
@@ -227,6 +228,19 @@ export class MusicReactivitySystem {
         this.moonState.blinkStartTime = performance.now();
     }
 
+    private _batchPositionsBuffer = new Float32Array(0);
+    private _batchPositionsCapacity = 0;
+
+    private ensureBatchPositionsCapacity(neededCount: number) {
+        if (neededCount <= this._batchPositionsCapacity) return;
+        let next = Math.max(this._batchPositionsCapacity * 2, 16);
+        while (next < neededCount) next *= 2;
+        const nextBuf = new Float32Array(next * 4);
+        nextBuf.set(this._batchPositionsBuffer.subarray(0, this._batchPositionsCapacity * 4));
+        this._batchPositionsBuffer = nextBuf;
+        this._batchPositionsCapacity = next;
+    }
+
     private updateFoliageAnimationLoop(time: number, deltaTime: number, audioState: AudioData | null, cpuAnimatedFoliage: FoliageObject[], camera: THREE.Camera, isDay: boolean, isDeepNight: boolean) {
         const isNight = !isDay;
         if (typeof isDay !== 'boolean') {
@@ -252,69 +266,91 @@ export class MusicReactivitySystem {
         const cy = camera.position.y;
         const cz = camera.position.z;
 
-        for (let i = 0; i < cpuAnimatedFoliage.length; i++) {
-        const obj = cpuAnimatedFoliage[i];
-        if (!obj) continue;
-        totalObjects++;
+        // Ensure buffer has enough capacity (zero allocation if it's already large enough)
+        const n = cpuAnimatedFoliage.length;
+        this.ensureBatchPositionsCapacity(n);
 
-        // ⚡ PERFORMANCE: Size-based culling distances
-        // ⚡ OPTIMIZATION: Move the common, cheap distance check up before calculating specific cull distances if it's very far
-        const ox = obj.position.x;
-        const oy = obj.position.y;
-        const oz = obj.position.z;
-        const dx = cx - ox;
-        const dy = cy - oy;
-        const dz = cz - oz;
-        const distSq = dx * dx + dy * dy + dz * dz;
+        // Fill float buffer densely in a tight loop
+        const buf = this._batchPositionsBuffer;
+        for (let i = 0; i < n; i++) {
+            const obj = cpuAnimatedFoliage[i];
+            if (!obj) continue;
 
-        // Fast rejection for anything beyond max distance (cloud max)
-        if (distSq > 62500) {
-            culledByDistance++;
-            continue;
+            const base = i * 4;
+            buf[base] = obj.position.x;
+            buf[base + 1] = obj.position.y;
+            buf[base + 2] = obj.position.z;
+            buf[base + 3] = (obj.userData.radius || 2.0) * (obj.scale.x > 1.0 ? obj.scale.x : 1.0);
         }
 
-        let cullDistanceSq = 22500; // 150 * 150 Default
-        const objType = obj.userData.type;
+        // Upload to WASM via flat float array
+        uploadPositionsFlat(buf, n);
 
-        if (objType === 'flower') {
-            cullDistanceSq = 6400; // 80 * 80
-        } else if (objType === 'mushroom') {
-            if (obj.userData.size === 'giant') {
-               cullDistanceSq = 40000; // 200 * 200
-            } else {
-               cullDistanceSq = 14400; // 120 * 120
+        // ⚡ OPTIMIZATION: Bypassed CPU distance math with WASM batchDistanceCull
+        const { flags } = batchDistanceCull(cx, cy, cz, 250, n);
+
+        for (let i = 0; i < n; i++) {
+            const obj = cpuAnimatedFoliage[i];
+            if (!obj) continue;
+            totalObjects++;
+
+            // Base max distance check (from WASM flags)
+            if (flags && flags[i] === 0) {
+                culledByDistance++;
+                continue;
             }
-        } else if (objType === 'tree' || objType === 'shrub') {
-            cullDistanceSq = 22500; // 150 * 150
-        } else if (objType === 'cloud') {
-            cullDistanceSq = 62500; // 250 * 250
-        }
 
-        if (distSq > cullDistanceSq) {
-            culledByDistance++;
-            continue;
-        }
+            // Finer-grained size-based culling for objects closer than the max
+            const objType = obj.userData.type;
+            let cullDistanceSq = 22500; // 150 * 150 Default
 
-        // Frustum Culling
-        let isVisible = false;
-        if ((obj as THREE.Mesh).geometry && (obj as THREE.Mesh).geometry.boundingSphere) {
-            isVisible = _frustum.intersectsObject(obj as THREE.Mesh);
-        } else {
-            _scratchSphere.center.x = ox;
-            _scratchSphere.center.y = oy;
-            _scratchSphere.center.z = oz;
-            _scratchSphere.radius = (obj.userData.radius || 2.0) * (obj.scale.x > 1.0 ? obj.scale.x : 1.0);
-            isVisible = _frustum.intersectsSphere(_scratchSphere);
-        }
+            if (objType === 'flower') {
+                cullDistanceSq = 6400; // 80 * 80
+            } else if (objType === 'mushroom') {
+                if (obj.userData.size === 'giant') {
+                   cullDistanceSq = 40000; // 200 * 200
+                } else {
+                   cullDistanceSq = 14400; // 120 * 120
+                }
+            } else if (objType === 'tree' || objType === 'shrub') {
+                cullDistanceSq = 22500; // 150 * 150
+            } else if (objType === 'cloud') {
+                cullDistanceSq = 62500; // 250 * 250
+            }
 
-        if (isVisible) {
-            rendered++;
-            // Using animateFoliage (assumed typed correctly in animation.ts)
-            // ⚡ OPTIMIZATION: Use static _emptyAudioState instead of allocating {} per frame
-            animateFoliage(obj, time, audioState || _emptyAudioState, isDay);
-        } else {
-            culledByFrustum++;
-        }
+            const ox = obj.position.x;
+            const oy = obj.position.y;
+            const oz = obj.position.z;
+            const dx = cx - ox;
+            const dy = cy - oy;
+            const dz = cz - oz;
+            const distSq = dx * dx + dy * dy + dz * dz;
+
+            if (distSq > cullDistanceSq) {
+                culledByDistance++;
+                continue;
+            }
+
+            // Frustum Culling
+            let isVisible = false;
+            if ((obj as THREE.Mesh).geometry && (obj as THREE.Mesh).geometry.boundingSphere) {
+                isVisible = _frustum.intersectsObject(obj as THREE.Mesh);
+            } else {
+                _scratchSphere.center.x = ox;
+                _scratchSphere.center.y = oy;
+                _scratchSphere.center.z = oz;
+                _scratchSphere.radius = (obj.userData.radius || 2.0) * (obj.scale.x > 1.0 ? obj.scale.x : 1.0);
+                isVisible = _frustum.intersectsSphere(_scratchSphere);
+            }
+
+            if (isVisible) {
+                rendered++;
+                // Using animateFoliage (assumed typed correctly in animation.ts)
+                // ⚡ OPTIMIZATION: Use static _emptyAudioState instead of allocating {} per frame
+                animateFoliage(obj, time, audioState || _emptyAudioState, isDay);
+            } else {
+                culledByFrustum++;
+            }
         }
 
         // ⚡ PERFORMANCE: Debug logging every 5 seconds

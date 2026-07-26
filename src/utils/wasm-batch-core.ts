@@ -51,6 +51,17 @@ export function uploadPositions(objects: PositionData[]): void {
 }
 
 /**
+ * Upload packed Float32Array positions to WASM
+ * @param buf - Flat Float32Array with stride 4 (x, y, z, radius)
+ * @param count - Number of items
+ */
+export function uploadPositionsFlat(buf: Float32Array, count: number): void {
+    if (!positionView) return;
+    const limit = Math.min(count, 5000); // safety bounds
+    positionView.set(buf.subarray(0, limit * 4));
+}
+
+/**
  * Upload mushroom specs to WASM
  * @param mushrooms - Array of mushroom objects
  */
