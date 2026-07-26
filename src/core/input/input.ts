@@ -947,7 +947,7 @@ function triggerButtonPress(buttonId: string): void {
             e.stopPropagation();
             exploreCamera.togglePersistent();
             const active = isExploreActive();
-            toggleExploreBtn.setAttribute('aria-pressed', String(active));
+            toggleExploreBtn.setAttribute('aria-checked', String(active));
             announcePolite(active ? 'Explore mode enabled' : 'First-person mode');
         });
     }
@@ -975,7 +975,7 @@ function triggerButtonPress(buttonId: string): void {
         },
         updateDayNightButtonState: (isPressed: boolean) => {
             if (toggleDayNightBtn) {
-                toggleDayNightBtn.setAttribute('aria-pressed', String(isPressed));
+                toggleDayNightBtn.setAttribute('aria-checked', String(isPressed));
                 toggleDayNightBtn.setAttribute('aria-label', isPressed ? 'Switch to Day' : 'Switch to Night');
                 toggleDayNightBtn.title = isPressed ? 'Switch to Day (N)' : 'Switch to Night (N)';
                 // UX: Update button text to show available action
