@@ -1,3 +1,6 @@
+import { makeInteractive } from '../utils/interaction-utils.ts';
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
+import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, vec4, attribute, positionLocal,
@@ -66,6 +69,14 @@ export class MushroomBatcher {
     // packedFlags encoding: noteIndex+1 + hasFace*20 + isGiant*40
     private instanceData: THREE.InstancedBufferAttribute | null = null;
 
+    // Matrix/color batching state (SoA → native or TS writeInstancePose)
+    private _matricesDirty: boolean = false;
+    private _batchPositions: Float32Array = new Float32Array(0);
+    private _batchQuaternions: Float32Array = new Float32Array(0);
+    private _batchScales: Float32Array = new Float32Array(0);
+    private _batchColors: Float32Array = new Float32Array(0);
+
+
     // Mapping: Note Index (0-11) -> Array of Instance Indices
     private noteToInstances: Map<number, number[]> = new Map();
 
@@ -103,6 +114,13 @@ export class MushroomBatcher {
 
         // 2. Attributes - SINGLE packed attribute to stay within WebGPU 8 buffer limit
         this.instanceData = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 4), 4);
+
+        // C++ / TS batching SoA buffers (#1358 writeInstancePose)
+        this._batchPositions = new Float32Array(MAX_MUSHROOMS * 3);
+        this._batchQuaternions = new Float32Array(MAX_MUSHROOMS * 4);
+        this._batchScales = new Float32Array(MAX_MUSHROOMS * 3);
+        this._batchColors = new Float32Array(MAX_MUSHROOMS * 3);
+
         geometry.setAttribute('instanceData', this.instanceData);
 
         // 3. Materials with TSL
@@ -137,6 +155,30 @@ export class MushroomBatcher {
 
     getLODMeshes(): THREE.InstancedMesh[] {
         return this.mesh ? [this.mesh] : [];
+    }
+
+    private flushMatrices() {
+        if (!this._matricesDirty || !this.mesh || this.count === 0) return;
+
+        const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+        const colorArray = this.mesh.instanceColor
+            ? (this.mesh.instanceColor.array as Float32Array)
+            : null;
+
+        writeInstancePose(
+            this._batchPositions,
+            this._batchQuaternions,
+            this._batchScales,
+            this._batchColors,
+            matrixArray,
+            colorArray,
+            1.0,
+            this.count
+        );
+
+        this.mesh.instanceMatrix.needsUpdate = true;
+        if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+        this._matricesDirty = false;
     }
 
     private createMergedGeometry(): THREE.BufferGeometry {
@@ -704,22 +746,30 @@ export class MushroomBatcher {
         this.instanceToLogicId[i] = dummy.id;
 
         // 1. Set Matrix
-        _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
+        getGroundAlignedQuaternion(dummy, _scratchQuat);
+        this._batchPositions[i * 3 + 0] = dummy.position.x;
+        this._batchPositions[i * 3 + 1] = dummy.position.y;
+        this._batchPositions[i * 3 + 2] = dummy.position.z;
+
+        this._batchQuaternions[i * 4 + 0] = _scratchQuat.x;
+        this._batchQuaternions[i * 4 + 1] = _scratchQuat.y;
+        this._batchQuaternions[i * 4 + 2] = _scratchQuat.z;
+        this._batchQuaternions[i * 4 + 3] = _scratchQuat.w;
+
+        this._batchScales[i * 3 + 0] = dummy.scale.x;
+        this._batchScales[i * 3 + 1] = dummy.scale.y;
+        this._batchScales[i * 3 + 2] = dummy.scale.z;
 
         // PALETTE: Set Color
         // Default to Red (0xFF6B6B) if no note color provided
         const colorHex = options.noteColor !== undefined ? options.noteColor : 0xFF6B6B;
         _scratchColor.setHex(colorHex);
-        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
-        if (this.mesh!.instanceColor) {
-            const colorArray = this.mesh!.instanceColor.array as Float32Array;
-            const colorOffset = i * 3;
-            colorArray[colorOffset] = _scratchColor.r;
-            colorArray[colorOffset + 1] = _scratchColor.g;
-            colorArray[colorOffset + 2] = _scratchColor.b;
-        }
+        this._batchColors[i * 3 + 0] = _scratchColor.r;
+        this._batchColors[i * 3 + 1] = _scratchColor.g;
+        this._batchColors[i * 3 + 2] = _scratchColor.b;
+
+        this._matricesDirty = true;
+        this.flushMatrices();
 
         // 2. Set Attributes - Packed into single vec4
         // packedFlags: noteIndex+1 + hasFace*20 + isGiant*40
@@ -781,24 +831,17 @@ export class MushroomBatcher {
             const movedNoteIndex = (lastPackedFlags % 20) - 1;
 
             // A. Copy Attributes from Last to Removed
-            // Matrix
-            // ⚡ OPTIMIZATION: Fast memory copy bypassing object instantiation and setMatrixAt overhead
-            const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
-            const destOffset = indexToRemove * 16;
-            const srcOffset = lastIndex * 16;
-            for(let k = 0; k < 16; k++) {
-                matrixArray[destOffset + k] = matrixArray[srcOffset + k];
+            // Matrix & Color (SoA updates)
+            for (let k = 0; k < 3; k++) {
+                this._batchPositions[indexToRemove * 3 + k] = this._batchPositions[lastIndex * 3 + k];
+                this._batchScales[indexToRemove * 3 + k] = this._batchScales[lastIndex * 3 + k];
+                this._batchColors[indexToRemove * 3 + k] = this._batchColors[lastIndex * 3 + k];
             }
-
-            // Color
-            if (this.mesh!.instanceColor) {
-                const colorArray = this.mesh!.instanceColor.array as Float32Array;
-                const destColorOffset = indexToRemove * 3;
-                const srcColorOffset = lastIndex * 3;
-                colorArray[destColorOffset] = colorArray[srcColorOffset];
-                colorArray[destColorOffset + 1] = colorArray[srcColorOffset + 1];
-                colorArray[destColorOffset + 2] = colorArray[srcColorOffset + 2];
+            for (let k = 0; k < 4; k++) {
+                this._batchQuaternions[indexToRemove * 4 + k] = this._batchQuaternions[lastIndex * 4 + k];
             }
+            this._matricesDirty = true;
+            this.flushMatrices();
 
             // Single packed attribute
             // ⚡ OPTIMIZATION: Bypassed setXYZW overhead

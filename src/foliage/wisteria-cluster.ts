@@ -1,27 +1,17 @@
+import type { ShaderNodeObject, Node } from 'three/tsl';
 import * as THREE from 'three';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { attachReactivity } from './foliage-reactivity.ts';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, applyStandardDeformation, calculateWindSway } from './material-core.ts';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { makeInteractive } from '../utils/interaction-utils.ts';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { CONFIG } from '../core/config.ts';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { uTwilight } from './sky.ts';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { BiomeUniforms, uCircadianPhase, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { discoverySystem } from '../systems/discovery.ts';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import { spawnImpact } from './impacts.ts';
 
 export interface WisteriaClusterOptions {

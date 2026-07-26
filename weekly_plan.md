@@ -12,7 +12,7 @@ Migration → Content) has therefore advanced into **Migration** — and the fro
 net. `MIGRATION_TRACKER.md` explicitly recommends **#1351 parity harness "before widening batcher ports,"**
 yet #1358 and #1364 both shipped native hot paths (with silent JS/AS fallbacks) and **no golden-vector test
 guards cross-tier drift**. Building #1351 now is the highest-leverage Migration move: it hardens what already
-shipped and unblocks safely widening the matrix-compose port to mushroom/portamento/wisteria batchers.
+shipped and unblocks safely widening the matrix-compose port to mushroom/portamento/wisteria batchers. ✅ **Status: Implemented. widened to mushroom and portamento batchers.**
 
 **Not Fix First:** main is green (ratchet at 3, tree clean, branch in sync with origin/main). The missing
 parity harness is a planned-but-unbuilt safety net, not a last-week regression. This is **User Idea mode** —
