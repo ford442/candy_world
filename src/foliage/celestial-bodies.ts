@@ -185,7 +185,7 @@ function createGalaxy(): THREE.Points {
 
     // Pulse size on melody highs
     const audioScale = float(1.0).add(uAudioHigh.mul(2.0));
-    mat.sizeNode = particleSize.mul(audioScale).mul(mat.size);
+    (mat as any).sizeNode = particleSize.mul(audioScale).mul(mat.size);
 
     // Shift color towards neon on beat
     const highColor = mix(particleColor, vec3(1.0, 0.2, 0.8), uAudioHigh.mul(0.5));

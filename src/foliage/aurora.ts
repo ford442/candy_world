@@ -204,7 +204,7 @@ class HarmonyOrbSystem {
         this.mesh.receiveShadow = false;
 
         // 3. Define TSL Compute Node for Physics/Lifecycle Updates
-        const updateOrbsCompute = Fn(() => {
+        const updateOrbsCompute: any = Fn(() => {
             const index = instanceIndex;
 
             const position = storage(this.positionBuffer, 'vec3', this.positionBuffer.count).element(index);
@@ -260,7 +260,7 @@ class HarmonyOrbSystem {
             });
         });
 
-        this.computeNode = updateOrbsCompute().compute(MAX_ORBS);
+        this.computeNode = (updateOrbsCompute() as any).compute(MAX_ORBS);
     }
 
     addToScene(scene: THREE.Scene) {
@@ -274,13 +274,13 @@ class HarmonyOrbSystem {
         this._nextSpawnIndex = (this._nextSpawnIndex + 1) % MAX_ORBS;
 
         const spawnRadius = 30.0;
-        this.uSpawnPos.value.set(
+        (this.uSpawnPos.value as any).set(
             playerPos.x + (Math.random() - 0.5) * spawnRadius,
             200.0 + Math.random() * 50.0,
             playerPos.z + (Math.random() - 0.5) * spawnRadius
         );
 
-        this.uSpawnVel.value.set(
+        (this.uSpawnVel.value as any).set(
             (Math.random() - 0.5) * 5.0,
             -10.0,
             (Math.random() - 0.5) * 5.0

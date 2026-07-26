@@ -81,6 +81,10 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [x] **#1363 Vertical Sky Islands biome** — layered exploration arc after #1265/#1266. `[in progress — 2026-07-21]` stacked islands + music bindings + traversal test + `sky_island_horizon` viewpoint
 - [x] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [ ] **#1352 Living candy fauna** (WASM boids + ECS). **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
+- [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
+- [x] **#1352 Living candy fauna** (WASM boids + ECS).
+  - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
+- [ ] **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
 
 ## Backlog
 <!--

@@ -91,7 +91,7 @@ export function createDiscoveryEffect() {
     // Base size multiplied by fade curve
     const sizeMultiplier = float(1.0).sub(normalizedAge);
     // Multiply by the original base size for the particle
-    material.sizeNode = aSize.mul(20.0).mul(sizeMultiplier);
+    (material as any).sizeNode = aSize.mul(20.0).mul(sizeMultiplier);
 
     // Color Logic: Magical Cyan/Pink shift and twinkle
     // Shift color over particle life from Cyan (0x00FFFF) to Pink (0xFF69B4)
