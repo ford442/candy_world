@@ -42,6 +42,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     this.container.className = 'a11y-menu-container';
     this.container.setAttribute('role', 'dialog');
     this.container.setAttribute('aria-modal', 'true');
+    this.container.setAttribute('tabindex', '-1');
     this.container.setAttribute('aria-labelledby', 'a11y-menu-title');
     this.container.style.cssText = `
       background: var(--menu-bg, #2a2a2a);
