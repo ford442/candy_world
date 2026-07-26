@@ -532,6 +532,10 @@ export function createElements(
   const container = document.createElement('div');
   container.className = 'analytics-debug-container';
   container.id = 'analytics-debug-panel';
+  container.setAttribute('role', 'dialog');
+  container.setAttribute('aria-modal', 'true');
+  container.setAttribute('tabindex', '-1');
+  container.setAttribute('aria-labelledby', 'analytics-debug-title');
 
   // Header
   const header = document.createElement('div');
@@ -539,6 +543,7 @@ export function createElements(
 
   const title = document.createElement('span');
   title.className = 'analytics-debug-title';
+  title.id = 'analytics-debug-title';
   title.innerHTML = '<span aria-hidden="true">🍭</span> Analytics Debug';
 
   const closeBtn = document.createElement('button');
