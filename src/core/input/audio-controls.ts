@@ -70,7 +70,7 @@ export function initAudioControls(audioSystem: AudioSystem): void {
 // Helper: Update Mute UI
 export const updateMuteUI = (isMuted: boolean) => {
     if (toggleMuteBtn) {
-        toggleMuteBtn.setAttribute('aria-pressed', String(isMuted));
+        toggleMuteBtn.setAttribute('aria-checked', String(isMuted));
         toggleMuteBtn.innerHTML = isMuted ? '<span aria-hidden="true">🔇</span> Unmute <span class="key-badge" aria-hidden="true">M</span>' : '<span aria-hidden="true">🔊</span> Mute <span class="key-badge" aria-hidden="true">M</span>';
         toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
         toggleMuteBtn.title = isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';

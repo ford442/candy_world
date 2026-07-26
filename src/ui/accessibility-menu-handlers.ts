@@ -33,10 +33,19 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
         activeElement.classList.contains('a11y-preset-card') ||
         activeElement.classList.contains('a11y-close-btn')
       )) {
-        activeElement.classList.add('keyboard-active');
-        setTimeout(() => {
-          if (activeElement) activeElement.classList.remove('keyboard-active');
-        }, 150);
+        if (!activeElement.classList.contains('keyboard-active')) {
+          activeElement.classList.add('keyboard-active');
+
+          // ♿ Aria: Remove class on keyup and blur to match tactile hold duration
+          const removeFeedback = () => {
+            activeElement.classList.remove('keyboard-active');
+            activeElement.removeEventListener('keyup', removeFeedback);
+            activeElement.removeEventListener('blur', removeFeedback);
+          };
+
+          activeElement.addEventListener('keyup', removeFeedback);
+          activeElement.addEventListener('blur', removeFeedback);
+        }
       }
     }
 

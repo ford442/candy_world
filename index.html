@@ -158,6 +158,7 @@
         .toggle-button:active,
         .toggle-button.keyboard-active,
         .toggle-button[aria-pressed="true"],
+        .toggle-button[aria-checked="true"],
         .secondary-button:active,
         .secondary-button.keyboard-active,
         .secondary-button[aria-pressed="true"],
@@ -709,14 +710,14 @@
                 <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </button>
 
-            <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N" aria-label="Switch to Night" title="Switch to Night (N)">
+        <button type="button" role="switch" aria-checked="false" id="toggleDayNight" class="toggle-button" aria-keyshortcuts="N" aria-label="Switch to Night" title="Switch to Night (N)">
                 <span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>
             </button>
 
             <button id="volDownBtn" class="toggle-button" aria-label="Decrease Volume" aria-keyshortcuts="-" title="Decrease Volume (-)">
                 <span aria-hidden="true">&minus;</span> <span class="key-badge" aria-hidden="true">-</span>
             </button>
-            <button id="toggleMuteBtn" class="toggle-button" aria-pressed="false" aria-keyshortcuts="M" aria-label="Mute Audio">
+        <button type="button" role="switch" aria-checked="false" id="toggleMuteBtn" class="toggle-button" aria-keyshortcuts="M" aria-label="Mute Audio">
                 <span aria-hidden="true">🔊</span> Mute <span class="key-badge" aria-hidden="true">M</span>
             </button>
             <button id="volUpBtn" class="toggle-button" aria-label="Increase Volume" aria-keyshortcuts="+" title="Increase Volume (+)">
@@ -727,7 +728,7 @@
                 Open Jukebox <span class="key-badge" aria-hidden="true">Q</span>
             </button>
 
-            <button id="toggleExploreBtn" class="toggle-button" aria-pressed="false" aria-keyshortcuts="Tab" aria-label="Toggle Explore camera mode" title="Cinematic orbit camera (hold Tab)">
+        <button type="button" role="switch" aria-checked="false" id="toggleExploreBtn" class="toggle-button" aria-keyshortcuts="Tab" aria-label="Toggle Explore camera mode" title="Cinematic orbit camera (hold Tab)">
                 <span aria-hidden="true">🎥</span> Explore Mode <span class="key-badge" aria-hidden="true">Tab</span>
             </button>
 

@@ -153,7 +153,7 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     // Rotation: Tumbling
     const tumbleSpeed = float(2.0);
     const tumbleAngle = age.mul(tumbleSpeed).add(randomPhase);
-    const rotatedLocal = rotate(positionLocal, normalize(rotAxis), tumbleAngle);
+    const rotatedLocal = rotate(positionLocal, tumbleAngle, normalize(rotAxis));
 
     // Apply Position
     mat.positionNode = particleWorldPos.add(rotatedLocal);
@@ -200,7 +200,7 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     const uSpawnCount = uniform(0, 'uint');
     const uSpawnIndex = uniform(0, 'uint');
 
-    const updateCompute = Fn(() => {
+    const updateCompute: any = Fn(() => {
         const stageIndex = instanceIndex;
 
         const sSpawnNode = storage(spawnBuffer, 'vec4', spawnBuffer.count);
@@ -224,7 +224,7 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
         });
     });
 
-    const computeNode = updateCompute().compute(MAX_SPAWNS_PER_FRAME);
+    const computeNode = (updateCompute() as any).compute(MAX_SPAWNS_PER_FRAME);
 
     const userData: DandelionSeedUserData = {
         isDandelionSeedSystem: true,
