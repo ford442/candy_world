@@ -248,6 +248,8 @@ export class CloudBatcher {
     mesh: THREE.InstancedMesh | null;
     clouds: any[]; // Logic objects
     isWalkableAttribute: THREE.InstancedBufferAttribute | null;
+    private _cullPositions: Float32Array | null = null;
+    private _cullFlags: Float32Array | null = null;
 
     constructor() {
         this.initialized = false;
