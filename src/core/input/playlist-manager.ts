@@ -421,6 +421,7 @@ export function renderPlaylist(): void {
         li.style.listStyle = 'none';
         li.setAttribute('role', 'status');
         li.setAttribute('aria-live', 'polite');
+        li.setAttribute('aria-atomic', 'true');
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'jukebox-empty-icon-container';
