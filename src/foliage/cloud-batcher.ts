@@ -16,6 +16,9 @@ import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { CONFIG } from '../core/config.ts';
+import { batchDistanceCull_c } from '../utils/wasm-batch-animation.ts';
+import { camera } from '../core/camera-ref.ts';
+
 
 // --- Global Uniforms (Moved from clouds.js) ---
 export const uCloudRainbowIntensity = uniform(0.0);
@@ -364,16 +367,47 @@ export class CloudBatcher {
         }
     }
 
-    update(delta: number) {
+                update(delta: number, cameraPos?: THREE.Vector3) {
         if (!this.initialized || !this.mesh) return;
 
         let needsUpdate = false;
 
+        // 1. Sync capacity
+        const cloudCount = this.clouds.length;
+        if (!this._cullPositions || this._cullPositions.length < cloudCount * 3) {
+            const newCap = Math.max(cloudCount * 2, 256);
+            this._cullPositions = new Float32Array(newCap * 3);
+            this._cullFlags = new Float32Array(newCap);
+        }
+
+        // 2. Pack positions
+        for (let i = 0; i < cloudCount; i++) {
+            const cloud = this.clouds[i];
+            this._cullPositions[i * 3] = cloud.position.x;
+            this._cullPositions[i * 3 + 1] = cloud.position.y;
+            this._cullPositions[i * 3 + 2] = cloud.position.z;
+        }
+
+        // 3. WASM batch distance cull (max distance ~250m)
+        if (cameraPos && cloudCount > 0) {
+            const cx = cameraPos.x;
+            const cy = cameraPos.y;
+            const cz = cameraPos.z;
+            batchDistanceCull_c(this._cullPositions, cloudCount, cx, cy, cz, 250 * 250, this._cullFlags);
+        } else {
+            // Default everything to visible if no camera
+            for(let i=0; i<cloudCount; i++) this._cullFlags[i] = 1.0;
+        }
+
         // Iterate over clouds
         // ⚡ OPTIMIZATION: Only update moving clouds (e.g. falling or dragged)
         // Static clouds are now animated via TSL (Vertex Shader)
-        for (let i = 0; i < this.clouds.length; i++) {
+        for (let i = 0; i < cloudCount; i++) {
             const cloud = this.clouds[i];
+
+            // ⚡ OPTIMIZATION: Skip distant clouds completely based on WASM cull flags
+            if (this._cullFlags[i] === 0.0) continue;
+
             // Run Cloud Logic (Sine Wave / Falling)
             // Note: updateFallingClouds in clouds.js handles falling physics on cloud.position externally.
             // Here we just handle the "Animation" callback if it exists.

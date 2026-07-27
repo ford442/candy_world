@@ -8,6 +8,7 @@ import { distanceToCellSq, cellToBounds, getCellKey } from './region-manager-cor
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { updateFoliageBatcherLOD } from './batcher-lod.ts';
+import { batchDistanceCull_c } from '../utils/wasm-batch.ts';
 
 const _scratchCells: GridCell[] = [];
 
@@ -62,11 +63,28 @@ export function getCellsToUnload(
     const rSq = r * r;
 
     const result: GridCell[] = [];
-    for (const cell of manager.cells.values()) {
-        const dx = cell.x - cx;
-        const dz = cell.z - cz;
-        if (dx * dx + dz * dz > rSq && cell.state === CellState.LOADED) {
-            result.push(cell);
+    manager.syncCellBuffers();
+
+    const count = manager._cellList.length;
+    if (count === 0) return result;
+
+    batchDistanceCull_c(
+        manager._cellPositions,
+        count,
+        cx,
+        0,
+        cz,
+        rSq,
+        manager._cellFlags
+    );
+
+    for (let i = 0; i < count; i++) {
+        // We want cells that are outside the radius (so culled by batchDistanceCull_c -> flags = 0.0)
+        if (manager._cellFlags[i] === 0.0) {
+            const cell = manager._cellList[i];
+            if (cell.state === CellState.LOADED) {
+                result.push(cell);
+            }
         }
     }
     return result;
@@ -88,11 +106,27 @@ export function getDistantCells(manager: RegionManager, minRadius: number): Grid
     const result: GridCell[] = [];
     const minRadiusSq = minRadius * minRadius;
 
-    for (const cell of manager.cells.values()) {
-        const dx = cell.x - manager.playerCellX;
-        const dz = cell.z - manager.playerCellZ;
-        if (dx * dx + dz * dz >= minRadiusSq && cell.state === CellState.LOADED) {
-            result.push(cell);
+    manager.syncCellBuffers();
+    const count = manager._cellList.length;
+    if (count === 0) return result;
+
+    batchDistanceCull_c(
+        manager._cellPositions,
+        count,
+        manager.playerCellX,
+        0,
+        manager.playerCellZ,
+        minRadiusSq, // anything <= minRadiusSq will be flagged 1.0 (visible)
+        manager._cellFlags
+    );
+
+    for (let i = 0; i < count; i++) {
+        // We want distant cells (outside minRadius, so culled by distance Cull -> flags = 0.0)
+        if (manager._cellFlags[i] === 0.0) {
+            const cell = manager._cellList[i];
+            if (cell.state === CellState.LOADED) {
+                result.push(cell);
+            }
         }
     }
 
