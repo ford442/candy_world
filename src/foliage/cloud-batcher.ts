@@ -8,7 +8,7 @@ import {
 } from 'three/tsl';
 import {
     uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
-    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, applyPlayerInteraction, uPlayerVelocity
+    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, applyStandardDeformation, uPlayerVelocity
 } from './index.ts';
 import { attribute } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
@@ -123,7 +123,7 @@ function createCloudMaterial() {
     const animatedPos = squishedPos.add(fluffOffset).add(floatOffset).add(bounceDisp);
 
     // Apply player interaction
-    material.positionNode = applyPlayerInteraction(animatedPos);
+    material.positionNode = applyStandardDeformation(animatedPos);
   
     // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)
     // Adds high-frequency noise to Roughness and slightly to Color
