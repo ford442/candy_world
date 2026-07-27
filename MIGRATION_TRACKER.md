@@ -66,6 +66,8 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 ### 4. Region manager distance pre-pass → existing cull exports
 
+**Status:** ✅ Completed — Updated `src/systems/region-manager-lod.ts` to use `batchDistanceCull` and `uploadPositionsFlat` from WASM batch exports for distance culling inside `getCellsToUnload` and `getDistantCells`.
+
 **Why:** `region-manager.ts` + `game-loop.ts` still do TS distance checks before batchers update; C++ already exports `batchDistanceCull_c`, `batchFrustumCullSIMD_c`, `batchDistanceCullLOD_c`.
 
 **15% scope:** Wire region visibility bitmask update through one existing batch export for a single entity class (e.g. clouds or distant trees).
