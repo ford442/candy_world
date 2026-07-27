@@ -31,10 +31,10 @@ export const _scratchParticleAudioData: ParticleAudioData = {
     windSpeed: 0
 };
 
-export function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher') {
+export function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher', pos?: any) {
     if (batcher && typeof batcher.update === 'function') {
         try {
-            batcher.update(delta);
+            batcher.update(delta, pos);
         } catch (err) {
             console.warn(`[GameLoop] Skipped update on ${label} (likely empty or incomplete in Core mode)`, err);
         }

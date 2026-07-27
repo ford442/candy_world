@@ -64,6 +64,7 @@ export {
     batchFadeColors_c,
     batchFrustumCull_c,
     batchDistanceCullIndexed_c,
+    batchDistanceCull_c,
     batchShiver_c as batchShiverHighLevel,
     batchSpring_c as batchSpringHighLevel,
     batchFloat_c as batchFloatHighLevel,
