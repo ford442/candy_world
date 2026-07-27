@@ -8,9 +8,10 @@ import { distanceToCellSq, cellToBounds, getCellKey } from './region-manager-cor
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { updateFoliageBatcherLOD } from './batcher-lod.ts';
-import { batchDistanceCull_c } from '../utils/wasm-batch.ts';
+import { batchDistanceCull, uploadPositionsFlat } from '../utils/wasm-batch.ts';
 
 const _scratchCells: GridCell[] = [];
+const _scratchPositions = new Float32Array(5000 * 4);
 
 /** Generate cells in spiral order for priority loading */
 export function getSpiralCells(centerX: number, centerZ: number, radius: number): Array<{ x: number; z: number }> {
@@ -63,30 +64,45 @@ export function getCellsToUnload(
     const rSq = r * r;
 
     const result: GridCell[] = [];
-    manager.syncCellBuffers();
-
-    const count = manager._cellList.length;
-    if (count === 0) return result;
-
-    batchDistanceCull_c(
-        manager._cellPositions,
-        count,
-        cx,
-        0,
-        cz,
-        rSq,
-        manager._cellFlags
-    );
-
-    for (let i = 0; i < count; i++) {
-        // We want cells that are outside the radius (so culled by batchDistanceCull_c -> flags = 0.0)
-        if (manager._cellFlags[i] === 0.0) {
-            const cell = manager._cellList[i];
-            if (cell.state === CellState.LOADED) {
-                result.push(cell);
+    let count = 0;
+    for (const cell of manager.cells.values()) {
+        if (cell.state === CellState.LOADED) {
+            _scratchCells[count] = cell;
+            if (count < 5000) {
+                const idx = count * 4;
+                _scratchPositions[idx] = cell.x;
+                _scratchPositions[idx + 1] = 0;
+                _scratchPositions[idx + 2] = cell.z;
+                _scratchPositions[idx + 3] = 0;
             }
+            count++;
         }
     }
+
+    if (count > 0 && count <= 5000) {
+        uploadPositionsFlat(_scratchPositions, count);
+        const { flags } = batchDistanceCull(cx, 0, cz, r, count);
+        if (flags) {
+            for (let i = 0; i < count; i++) {
+                if (flags[i] === 0.0) {
+                    result.push(_scratchCells[i]);
+                }
+            }
+            for (let i = 0; i < count; i++) _scratchCells[i] = null as any;
+            return result;
+        }
+    }
+
+    for (let i = 0; i < count; i++) {
+        const cell = _scratchCells[i];
+        const dx = cell.x - cx;
+        const dz = cell.z - cz;
+        if (dx * dx + dz * dz > rSq) {
+            result.push(cell);
+        }
+        _scratchCells[i] = null as any;
+    }
+
     return result;
 }
 
@@ -105,30 +121,53 @@ export function getCellsInRadius(centerX: number, centerZ: number, radius: numbe
 export function getDistantCells(manager: RegionManager, minRadius: number): GridCell[] {
     const result: GridCell[] = [];
     const minRadiusSq = minRadius * minRadius;
+    let count = 0;
 
-    manager.syncCellBuffers();
-    const count = manager._cellList.length;
-    if (count === 0) return result;
+    for (const cell of manager.cells.values()) {
+        if (cell.state === CellState.LOADED) {
+            _scratchCells[count] = cell;
+            if (count < 5000) {
+                const idx = count * 4;
+                _scratchPositions[idx] = cell.x;
+                _scratchPositions[idx + 1] = 0;
+                _scratchPositions[idx + 2] = cell.z;
+                _scratchPositions[idx + 3] = 0;
+            }
+            count++;
+        }
+    }
 
-    batchDistanceCull_c(
-        manager._cellPositions,
-        count,
-        manager.playerCellX,
-        0,
-        manager.playerCellZ,
-        minRadiusSq, // anything <= minRadiusSq will be flagged 1.0 (visible)
-        manager._cellFlags
-    );
-
-    for (let i = 0; i < count; i++) {
-        // We want distant cells (outside minRadius, so culled by distance Cull -> flags = 0.0)
-        if (manager._cellFlags[i] === 0.0) {
-            const cell = manager._cellList[i];
-            if (cell.state === CellState.LOADED) {
+    if (count > 0 && count <= 5000) {
+        uploadPositionsFlat(_scratchPositions, count);
+        const { flags } = batchDistanceCull(manager.playerCellX, 0, manager.playerCellZ, minRadius, count);
+        if (flags) {
+            for (let i = 0; i < count; i++) {
+                if (flags[i] === 0.0) {
+                    result.push(_scratchCells[i]);
+                }
+            }
+        } else {
+            for (let i = 0; i < count; i++) {
+                const cell = _scratchCells[i];
+                const dx = cell.x - manager.playerCellX;
+                const dz = cell.z - manager.playerCellZ;
+                if (dx * dx + dz * dz >= minRadiusSq) {
+                    result.push(cell);
+                }
+            }
+        }
+    } else {
+        for (let i = 0; i < count; i++) {
+            const cell = _scratchCells[i];
+            const dx = cell.x - manager.playerCellX;
+            const dz = cell.z - manager.playerCellZ;
+            if (dx * dx + dz * dz >= minRadiusSq) {
                 result.push(cell);
             }
         }
     }
+
+    for (let i = 0; i < count; i++) _scratchCells[i] = null as any;
 
     result.sort((a, b) => {
         const dxA = a.x - manager.playerCellX;
