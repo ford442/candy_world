@@ -116,6 +116,13 @@ class DiscoverySystem {
 
         const overlay = document.createElement('div');
         overlay.id = 'discovery-log-overlay';
+
+        // ♿ Aria: Apply modal semantics to the container element
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('tabindex', '-1');
+        overlay.setAttribute('aria-labelledby', 'discovery-log-title');
+
         overlay.style.position = 'fixed';
         overlay.style.top = '0';
         overlay.style.left = '0';
@@ -143,6 +150,7 @@ class DiscoverySystem {
         logContainer.style.position = 'relative';
 
         const title = document.createElement('h2');
+        title.id = 'discovery-log-title';
         title.innerText = 'Discovery Log 🌿';
         title.style.marginTop = '0';
         title.style.borderBottom = '2px solid #ff69b4';
