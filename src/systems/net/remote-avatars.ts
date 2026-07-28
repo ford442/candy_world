@@ -79,7 +79,8 @@ export class RemoteAvatars {
         _scratchHide.makeScale(0, 0, 0);
         this._slotPeer = new Array(maxPeers).fill(null);
         for (let i = 0; i < maxPeers; i++) {
-            this._mesh.setMatrixAt(i, _scratchHide);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+            _scratchHide.toArray(this._mesh.instanceMatrix.array, i * 16);
         }
         this._mesh.instanceMatrix.needsUpdate = true;
 
@@ -147,7 +148,8 @@ export class RemoteAvatars {
         this._peerToSlot.delete(peerId);
         const idx = this._peerOrder.indexOf(peerId);
         if (idx >= 0) this._peerOrder.splice(idx, 1);
-        this._mesh.setMatrixAt(slot, _scratchHide);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+        _scratchHide.toArray(this._mesh.instanceMatrix.array, slot * 16);
         const tag = this._tags[slot];
         if (tag) {
             tag.peerId = null;
@@ -223,7 +225,8 @@ export class RemoteAvatars {
             if (inRange) {
                 _scratchScale.set(1, 1, 1);
                 _scratchMat.compose(_interpPos, _interpQuat, _scratchScale);
-                this._mesh.setMatrixAt(slot, _scratchMat);
+                // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+                _scratchMat.toArray(this._mesh.instanceMatrix.array, slot * 16);
                 visibleCount++;
 
                 const tag = this._tags[slot];
@@ -236,7 +239,8 @@ export class RemoteAvatars {
                     tag.el.style.background = `rgba(${(tint >> 16) & 255}, ${(tint >> 8) & 255}, ${tint & 255}, 0.55)`;
                 }
             } else {
-                this._mesh.setMatrixAt(slot, _scratchHide);
+                // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+                _scratchHide.toArray(this._mesh.instanceMatrix.array, slot * 16);
                 const tag = this._tags[slot];
                 if (tag) {
                     tag.visible = false;

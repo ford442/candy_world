@@ -218,9 +218,9 @@ export function initGroundDebug(scene: THREE.Scene): void {
             const typeColor = new THREE.Color();
             for (let i = 0; i < ringCount; i++) {
                 const p = _plantedInstances[i];
-                dummy.position.set(p.x, p.y + 0.02, p.z);
-                dummy.updateMatrix();
-                _plantedRings.setMatrixAt(i, dummy.matrix);
+                // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+                dummy.matrix.makeTranslation(p.x, p.y + 0.02, p.z);
+                dummy.matrix.toArray(_plantedRings.instanceMatrix.array, i * 16);
                 typeColor.copy(typeColorForEntity(p.type));
                 _plantedRings.setColorAt(i, typeColor);
             }
@@ -353,10 +353,10 @@ function rebuildCloudDebugMeshes(): void {
         const width = p.maxX - p.minX;
         const depth = p.maxZ - p.minZ;
 
-        dummy.position.set((p.minX + p.maxX) * 0.5, p.topY, (p.minZ + p.maxZ) * 0.5);
-        dummy.scale.set(width, 1, depth);
-        dummy.updateMatrix();
-        _cloudSurfaces.setMatrixAt(i, dummy.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+        dummy.matrix.makeTranslation((p.minX + p.maxX) * 0.5, p.topY, (p.minZ + p.maxZ) * 0.5);
+        dummy.matrix.scale(dummy.scale.set(width, 1, depth));
+        dummy.matrix.toArray(_cloudSurfaces.instanceMatrix.array, i * 16);
         _cloudSurfaces.setColorAt(i, p.color);
 
         // Wireframe rectangle at the walkable surface.
@@ -504,9 +504,9 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
                 positions[base + 5] = z;
 
                 // Update box at the ground surface.
-                _dummy.position.set(x, groundY, z);
-                _dummy.updateMatrix();
-                _gridBoxes.setMatrixAt(idx, _dummy.matrix);
+                // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+                _dummy.matrix.makeTranslation(x, groundY, z);
+                _dummy.matrix.toArray(_gridBoxes.instanceMatrix.array, idx * 16);
                 idx++;
             }
         }
@@ -577,9 +577,9 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
                             sz = nearest.z + Math.sin(angle) * nearest.footprintRadius!;
                         }
                         const sy = getGroundHeight(sx, sz);
-                        _dummy.position.set(sx, sy + 0.04, sz);
-                        _dummy.updateMatrix();
-                        _nearestFootprintSamples.setMatrixAt(i, _dummy.matrix);
+                        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+                        _dummy.matrix.makeTranslation(sx, sy + 0.04, sz);
+                        _dummy.matrix.toArray(_nearestFootprintSamples.instanceMatrix.array, i * 16);
                     }
                     _nearestFootprintSamples.count = sampleCount;
                     _nearestFootprintSamples.instanceMatrix.needsUpdate = true;

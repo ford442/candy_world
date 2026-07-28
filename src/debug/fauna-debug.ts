@@ -81,7 +81,8 @@ export function updateFaunaDebug(
         const vz = heap[b + 5];
 
         m.makeTranslation(x, y + 0.02, z);
-        _rings.setMatrixAt(i, m);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+        m.toArray(_rings.instanceMatrix.array, i * 16);
 
         const o = i * 6;
         arr[o] = x;
