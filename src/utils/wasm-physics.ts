@@ -201,7 +201,7 @@ export function uploadCollisionObjects(
             for (const cave of caves) {
                 if (cave && cave.userData && cave.userData.isBlocked) {
                     // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
-                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
+                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld as THREE.Matrix4);
                     batchData[ptr++] = 3; // type
                     batchData[ptr++] = gatePos.x;
                     batchData[ptr++] = gatePos.y;
@@ -288,7 +288,7 @@ export function uploadCollisionObjects(
             for (let i = 0; i < caves.length; i++) { const cave = caves[i];
                 if (cave && cave.userData && cave.userData.isBlocked) {
                     // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
-                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
+                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld as THREE.Matrix4);
                     wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0, 0);
                 }
             }
@@ -659,13 +659,13 @@ export function batchGroundHeight(positions: Float32Array): Float32Array {
     const output = new Float32Array(count);
 
     // 1. C++ SIMD (fastest, but optional)
-    if (cppBatchGroundHeightSimd && getEmscriptenInstance() && getEmscriptenInstance()._malloc && getEmscriptenInstance()._free) {
+    if (cppBatchGroundHeightSimd && getEmscriptenInstance() && getEmscriptenInstance()!._malloc! && getEmscriptenInstance()!._free!) {
         if (_batchGroundHeightCapacity < count) {
-            if (_batchGroundHeightInPtr) getEmscriptenInstance()._free(_batchGroundHeightInPtr);
-            if (_batchGroundHeightOutPtr) getEmscriptenInstance()._free(_batchGroundHeightOutPtr);
+            if (_batchGroundHeightInPtr) getEmscriptenInstance()!._free!(_batchGroundHeightInPtr);
+            if (_batchGroundHeightOutPtr) getEmscriptenInstance()!._free!(_batchGroundHeightOutPtr);
             const newCapacity = Math.max(count, _batchGroundHeightCapacity * 2 || 1024);
-            _batchGroundHeightInPtr = getEmscriptenInstance()._malloc(newCapacity * 2 * 4); // x, z pairs
-            _batchGroundHeightOutPtr = getEmscriptenInstance()._malloc(newCapacity * 4);
+            _batchGroundHeightInPtr = getEmscriptenInstance()!._malloc!(newCapacity * 2 * 4); // x, z pairs
+            _batchGroundHeightOutPtr = getEmscriptenInstance()!._malloc!(newCapacity * 4);
             _batchGroundHeightCapacity = newCapacity;
         }
 

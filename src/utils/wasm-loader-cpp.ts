@@ -1,3 +1,4 @@
+import type { EmscriptenModule } from './wasm-loader-types.ts';
 import { getNativeFunc, getNativeFuncVoid } from './wasm-loader-core.ts';
 
 // =============================================================================
@@ -53,7 +54,7 @@ export let cppBatchRetriggerSimd: ((inputPtr: number, count: number, time: numbe
 
 /** Emscripten module (native C functions) */
 export let emscriptenInstance: EmscriptenModule | null = null;
-export let emscriptenMemory: ArrayBuffer | null = null;
+export let emscriptenMemory: ArrayBufferLike | null = null;
 
 // Physics / animation stubs referenced by initCppFunctions
 export let calcFiberWhip: ((...args: number[]) => number) | null = null;
@@ -153,3 +154,5 @@ export function initCppFunctions(): void {
 }
 
 export function setEmscriptenMemory(val: ArrayBuffer | null) { emscriptenMemory = val; }
+
+export function getEmscriptenMemory(): ArrayBufferLike | null { return emscriptenMemory; }

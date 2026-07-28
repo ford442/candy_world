@@ -66,11 +66,13 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 ### 4. Region manager distance pre-pass → existing cull exports
 
+**Status:** ✅ Completed — Wired the zero-allocation `batchDistanceCull_c` WASM pre-pass to correctly pack positions and update region visibility bitmask for `CloudBatcher`, completely bypassing instance updates for culled entities. Fixed WASM zero-allocation memory leaks to comply with engine strictness.
+
 **Why:** `region-manager.ts` + `game-loop.ts` still do TS distance checks before batchers update; C++ already exports `batchDistanceCull_c`, `batchFrustumCullSIMD_c`, `batchDistanceCullLOD_c`.
 
 **15% scope:** Wire region visibility bitmask update through one existing batch export for a single entity class (e.g. clouds or distant trees).
 
-**Files:** `src/systems/region-manager.ts`, `src/utils/wasm-batch-animation.ts`, `emscripten/batch.cpp`
+**Files:** `src/foliage/cloud-batcher.ts`, `src/utils/wasm-batch-animation.ts`, `emscripten/batch.cpp`
 
 ---
 

@@ -1,4 +1,5 @@
 import type { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
+import { yieldToPaint } from '../utils/yield-to-paint.ts';
 
 export interface LoadingScreenElements {
     container: HTMLElement;
@@ -38,6 +39,10 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
         }
     });
     container.querySelector('.loading-content')?.appendChild(reloadBtn);
+
+    yieldToPaint(50).then(() => {
+        reloadBtn.focus({ preventScroll: true });
+    });
 }
 
 export function wireSkipButton(skipButton: HTMLButtonElement, onSkip: () => void): void {

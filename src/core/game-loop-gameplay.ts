@@ -86,8 +86,8 @@ export function updateGameplayPhase(delta: number, t: number, exploreActive: boo
             () => updateFallingClouds(delta, foliageClouds, getGroundHeight),
             'updateFallingClouds'
         );
-        safeUpdateBatcher(CloudBatcher.getInstance(), delta, 'CloudBatcher');
-        safeUpdateBatcher(CloudBatcher.getWalkableInstance(), delta, 'CloudBatcherWalkable');
+        safeUpdateBatcher(CloudBatcher.getInstance(), delta, 'CloudBatcher', cameraRef?.position);
+        safeUpdateBatcher(CloudBatcher.getWalkableInstance(), delta, 'CloudBatcherWalkable', cameraRef?.position);
 
         // Update HUD (cooldown reads 0 until gameplay chunk loads)
         updateHUD({

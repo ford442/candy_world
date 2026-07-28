@@ -123,7 +123,8 @@ export const AnimationType = {
 export type AnimationTypeValue = typeof AnimationType[keyof typeof AnimationType];
 
 export * from './wasm-loader-types.ts';
-import type { CandyPhysicsInternal, EmscriptenModule, ExtendedEmscriptenModule } from './wasm-loader-types.ts';
+import type { EmscriptenModule, ExtendedEmscriptenModule, WasmExports, WasiStubs, WasmImportObject } from './wasm-loader-types.ts';
+import { getEmscriptenMemory } from './wasm-loader-cpp.ts';
 // =============================================================================
 // WASM EXPORT VALIDATION
 // =============================================================================
@@ -255,8 +256,8 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmBatchSphereCull = exports.batchSphereCull || null;
     wasmBatchLerp = exports.batchLerp || null;
 
-    wasmUpdateParticles = exports.updateParticles || null;
-    wasmSpawnBurst = exports.spawnBurst || null;
+    wasmUpdateParticles = asExportFn(exports.updateParticles);
+    wasmSpawnBurst = asExportFn(exports.spawnBurst);
 }
 
 // Immediately initialize the AssemblyScript WASM module with retry logic.
@@ -542,24 +543,22 @@ export function getWasmMemory(): ArrayBuffer | null {
  * Get the Emscripten memory buffer
  * @returns The Emscripten memory ArrayBuffer or null if not initialized
  */
-export function getEmscriptenMemory(): ArrayBuffer | null {
-    return emscriptenMemory;
-}
+
 
 /**
  * Get a native C++ function from the Emscripten module.
  * @param name - Function name without underscore prefix
  * @returns The function or null if not found
  */
-export function getNativeFunc(name: string): ((...args: number[]) => number) | null {
+export function getNativeFunc<T extends (...args: any[]) => number>(name: string): T | null {
     if (!emscriptenInstance) return null;
     const inst = emscriptenInstance as ExtendedEmscriptenModule;
     const underscoreName = '_' + name;
     if (typeof inst[underscoreName] === 'function') {
-        return inst[underscoreName] as (...args: number[]) => number;
+        return inst[underscoreName] as T;
     }
     if (typeof inst[name] === 'function') {
-        return inst[name] as (...args: number[]) => number;
+        return inst[name] as T;
     }
     return null;
 }
@@ -567,15 +566,22 @@ export function getNativeFunc(name: string): ((...args: number[]) => number) | n
 /**
  * Get a native C++ function that returns void.
  */
-export function getNativeFuncVoid(name: string): ((...args: number[]) => void) | null {
+
+function asExportFn<T extends (...args: never[]) => unknown>(
+  v: WebAssembly.ExportValue | undefined
+): T | null {
+  return typeof v === 'function' ? (v as T) : null;
+}
+
+export function getNativeFuncVoid<T extends (...args: any[]) => void>(name: string): T | null {
     if (!emscriptenInstance) return null;
     const inst = emscriptenInstance as ExtendedEmscriptenModule;
     const underscoreName = '_' + name;
     if (typeof inst[underscoreName] === 'function') {
-        return inst[underscoreName] as (...args: number[]) => void;
+        return inst[underscoreName] as T;
     }
     if (typeof inst[name] === 'function') {
-        return inst[name] as (...args: number[]) => void;
+        return inst[name] as T;
     }
     return null;
 }

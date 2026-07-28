@@ -177,6 +177,12 @@ export class RegionManager {
     public loadQueue: GridCell[] = [];
     public unloadSchedule: Map<string, number> = new Map();
 
+    // ⚡ OPTIMIZATION: Flat arrays for WASM region culling
+    public _cellPositions: Float32Array = new Float32Array(0);
+    public _cellFlags: Float32Array = new Float32Array(0);
+    public _cellList: GridCell[] = [];
+    private _cellBuffersDirty: boolean = false;
+
     public loadTimes: number[] = [];
     public transitionCallbacks: Array<(transition: LODTransition) => void> = [];
     public stateChangeCallbacks: Array<(cell: GridCell, oldState: CellState, newState: CellState) => void> = [];
@@ -226,6 +232,7 @@ export class RegionManager {
                 dependenciesLoaded: false
             };
             this.cells.set(key, cell);
+            this._cellBuffersDirty = true;
         }
 
         for (const id of assetIds) {
@@ -249,7 +256,31 @@ export class RegionManager {
 
         this.cells.delete(key);
         this.unloadSchedule.delete(key);
+        this._cellBuffersDirty = true;
         return true;
+    }
+
+    syncCellBuffers(): void {
+        if (!this._cellBuffersDirty) return;
+        this._cellBuffersDirty = false;
+
+        const count = this.cells.size;
+        if (this._cellPositions.length < count * 3) {
+            const newCap = Math.max(count * 2, 256);
+            this._cellPositions = new Float32Array(newCap * 3);
+            this._cellFlags = new Float32Array(newCap);
+        }
+
+        this._cellList.length = 0;
+        let idx = 0;
+        for (const cell of this.cells.values()) {
+            this._cellList.push(cell);
+            // We use cell coordinates for position matching (not world XYZ)
+            this._cellPositions[idx * 3] = cell.x;
+            this._cellPositions[idx * 3 + 1] = 0;
+            this._cellPositions[idx * 3 + 2] = cell.z;
+            idx++;
+        }
     }
 
     getCell(cellX: number, cellZ: number): GridCell | undefined {
@@ -415,6 +446,7 @@ export class RegionManager {
         this.cells.clear();
         this.loadQueue = [];
         this.unloadSchedule.clear();
+        this._cellBuffersDirty = true;
     }
 
     public handleCellChange(): void {

@@ -142,8 +142,8 @@ export function fillUnifiedGroundHeights(
                 if (_batchInPtr) wasmFree(_batchInPtr);
                 if (_batchOutPtr) wasmFree(_batchOutPtr);
                 const cap = Math.max(count, _batchCapacity * 2 || 64);
-                _batchInPtr = wasmMalloc(cap * 2 * 4);
-                _batchOutPtr = wasmMalloc(cap * 4);
+                _batchInPtr = wasmMalloc(cap * 2 * 4, 1);
+                _batchOutPtr = wasmMalloc(cap * 4, 1);
                 _batchCapacity = cap;
             }
             if (_batchInPtr && _batchOutPtr) {

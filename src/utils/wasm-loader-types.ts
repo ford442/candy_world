@@ -323,7 +323,7 @@ export interface WasmExports {
 // Extend window for global functions
 declare global {
     interface Window {
-        setLoadingStatus?: (msg: string) => void;
+
         NativeWebAssembly?: typeof WebAssembly;
     }
 }

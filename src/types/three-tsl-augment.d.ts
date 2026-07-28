@@ -29,5 +29,13 @@ declare module 'three/nodes' {
       count: number | readonly [number, number, number],
       workgroupSize?: number[]
     ): any;
+import 'three/tsl';
+
+declare module 'three/tsl' {
+  interface Node {
+    compute?(workgroupCount: number | [number, number, number]): any;
+  }
+  interface ShaderNodeObject<T> {
+    compute?(workgroupCount: number | [number, number, number]): any;
   }
 }
