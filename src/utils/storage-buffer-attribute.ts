@@ -31,9 +31,10 @@ type TypedArrayConstructor =
 
 /** The upstream constructor, widened to the overload three.js actually implements. */
 type CountAwareConstructor = new (
-    countOrArray: number | Float32Array | Uint32Array | Int32Array | Uint16Array | Int16Array | Uint8Array,
+    countOrArray:
+        number | Float32Array | Uint32Array | Int32Array | Uint16Array | Int16Array | Uint8Array,
     itemSize: number,
-    typeClass?: TypedArrayConstructor,
+    typeClass?: TypedArrayConstructor
 ) => StorageBufferAttribute;
 
 const CountAwareStorageBufferAttribute = StorageBufferAttribute as unknown as CountAwareConstructor;
@@ -44,9 +45,10 @@ const CountAwareStorageBufferAttribute = StorageBufferAttribute as unknown as Co
  * existing typed array.
  */
 export function createStorageBufferAttribute(
-    countOrArray: number | Float32Array | Uint32Array | Int32Array | Uint16Array | Int16Array | Uint8Array,
+    countOrArray:
+        number | Float32Array | Uint32Array | Int32Array | Uint16Array | Int16Array | Uint8Array,
     itemSize: number,
-    typeClass?: TypedArrayConstructor,
+    typeClass?: TypedArrayConstructor
 ): StorageBufferAttribute {
     return new CountAwareStorageBufferAttribute(countOrArray, itemSize, typeClass);
 }
