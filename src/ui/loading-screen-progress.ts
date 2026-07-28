@@ -1,6 +1,7 @@
 import type { LoadingScreen } from './loading-screen-ui.ts';
 import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types.ts';
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
+import { getAccessibilitySystem } from '../systems/accessibility.ts';
 
 let LoadingScreenCtor: typeof LoadingScreen | null = null;
 
@@ -182,10 +183,16 @@ export class LoadingScreenProgress {
      */
     tick(deltaSeconds: number): boolean {
         let needsVisualUpdate = false;
+        const reduceMotion = getAccessibilitySystem().shouldReduceMotion();
 
         // Dampen the displayed phase progress towards target
         const phaseDiff = this.phaseProgress - this.displayedPhaseProgress;
-        if (Math.abs(phaseDiff) > 0.1) {
+        if (reduceMotion) {
+            if (this.displayedPhaseProgress !== this.phaseProgress) {
+                this.displayedPhaseProgress = this.phaseProgress;
+                needsVisualUpdate = true;
+            }
+        } else if (Math.abs(phaseDiff) > 0.1) {
             this.displayedPhaseProgress += phaseDiff * (1.0 - Math.exp(-5.0 * deltaSeconds));
             needsVisualUpdate = true;
         } else if (this.displayedPhaseProgress !== this.phaseProgress) {
@@ -195,7 +202,12 @@ export class LoadingScreenProgress {
 
         // Dampen the displayed overall progress towards the target
         const diff = this.targetOverallProgress - this.displayedOverallProgress;
-        if (Math.abs(diff) > 0.1) {
+        if (reduceMotion) {
+            if (this.displayedOverallProgress !== this.targetOverallProgress) {
+                this.displayedOverallProgress = this.targetOverallProgress;
+                needsVisualUpdate = true;
+            }
+        } else if (Math.abs(diff) > 0.1) {
             this.displayedOverallProgress += diff * (1.0 - Math.exp(-5.0 * deltaSeconds));
             needsVisualUpdate = true;
         } else if (this.displayedOverallProgress !== this.targetOverallProgress) {

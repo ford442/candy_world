@@ -5,6 +5,7 @@ import { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
 import { LoadingScreenProgress, setLoadingScreenClass } from './loading-screen-progress.ts';
 import { createDeferredIndicator, createLoadingScreenDOM, addFatalErrorReloadButton, wireSkipButton } from './loading-screen-dom.ts';
 import { updateSpawnFailureBadge } from './loading-screen-reporting.ts';
+import { announce } from './announcer.ts';
 import './loading-screen.css';
 
 export class LoadingScreen {
@@ -526,7 +527,7 @@ export class LoadingScreen {
     }
 
     private animateProgress = (time: number): void => {
-        if (!this.isVisible || this.isComplete || this.hasFatalError) {
+        if (!this.isVisible || this.isComplete) {
             this.animationFrameId = null;
             return;
         }
@@ -599,12 +600,6 @@ export class LoadingScreen {
      * @param message Human-readable error description shown to the user.
      */
     showFatalError(message: string): void {
-        // Stop the animation loop so the spinner and lerp no longer run
-        if (this.animationFrameId !== null) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
-
         // Use a dedicated flag so hide() and animateProgress() don't misinterpret
         // this as a successful completion.
         this.hasFatalError = true;
@@ -613,11 +608,17 @@ export class LoadingScreen {
             this.container.classList.add('fatal-error');
             this.container.setAttribute('aria-valuenow', '0');
             this.container.setAttribute('aria-label', 'Game initialization failed');
+            this.container.removeAttribute('aria-busy');
         }
 
-        // Turn progress bar red
+        if (typeof document !== 'undefined') {
+            document.body.removeAttribute('aria-busy');
+        }
+
+        announce('Game failed to load. Reload button available.', 'assertive');
+
+        // Turn progress bar red without snapping to 1 instantly, let tick continue!
         if (this.progressFill) {
-            this.progressFill.style.transform = 'scaleX(1)';
             this.progressFill.classList.add('fatal-error');
         }
 
