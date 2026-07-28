@@ -1,0 +1,16 @@
+--- src/workers/physics-worker.ts
++++ src/workers/physics-worker.ts
+@@ -190,7 +190,12 @@
+
+       case 'batchGroundHeight': {
+         const { positions } = request as BatchGroundHeightRequest;
+-        const heights = positions.map(pos => getGroundHeight(pos.x, pos.z));
++        // ⚡ OPTIMIZATION: Bypassed .map() array allocation in hot worker message path to eliminate GC spikes.
++        const heights = new Float32Array(positions.length);
++        for (let i = 0; i < positions.length; i++) {
++          const pos = positions[i];
++          heights[i] = getGroundHeight(pos.x, pos.z);
++        }
+         return {
+           type: 'batchGroundHeight',
+           requestId: request.requestId,
