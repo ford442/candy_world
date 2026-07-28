@@ -1,27 +1,32 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-07-21 — Migration safety net: #1351 Cross-tier parity harness (JS↔AS↔C++ golden vectors),
-retroactively covering the two migration slices that just landed WITHOUT it — #1358 native batcher
-matrix/color compose (`_batchComposeMatrices_c`, #1411) and #1364 arpeggio_grove channel accumulator (#1415).**
+**2026-07-28 — Foundation: #1448 Unify the WebGPU device & renderer context (single-device architecture).**
+Build a single `src/rendering/gpu-context.ts` owner that resolves backend once, configures `WebGPURenderer`
+with explicit context options + `powerPreference`, `await`s `renderer.init()`, and exposes one shared
+`device`/`adapter`/limits. Route the two rogue `requestDevice` consumers (`src/compute/gpu-compute-library.ts`,
+`src/particles/compute-particles.ts`) and the opportunistic `startup-profiler.ts` adapter query onto that shared
+device, or fail-closed to WASM/CPU. Add a device-lost policy on the render path (soft-disable GPU compute →
+reload UI, never a silent black canvas).
 
-Rationale: Last week's Foundation cluster landed clean — `tsc --noEmit` ratchet baseline is now **3 errors**
-(down from 587), `typecheck.yml` + `emscripten-ci.yml` are wired, `game-loop.ts` split into 8 tick-phase
-modules (#1360/#1405), release tag `2026-07-14-stable-v2` cut. The self-sequenced roadmap (Foundation →
-Migration → Content) has therefore advanced into **Migration** — and the frontier ran ahead of its safety
-net. `MIGRATION_TRACKER.md` explicitly recommends **#1351 parity harness "before widening batcher ports,"**
-yet #1358 and #1364 both shipped native hot paths (with silent JS/AS fallbacks) and **no golden-vector test
-guards cross-tier drift**. Building #1351 now is the highest-leverage Migration move: it hardens what already
-shipped and unblocks safely widening the matrix-compose port to mushroom/portamento/wisteria batchers. ✅ **Status: Implemented. widened to mushroom and portamento batchers.**
+Rationale: This is the one **genuinely un-done, priority-high** item in Noah's freshest in-context batch (5 issues
+filed 2026-07-27). Verified on current main: **3 independent `requestDevice` call sites**, **no `gpu-context.ts`**,
+and no device-lost recovery on the renderer — the exact multi-device VRAM-pressure / device-lost failure mode the
+issue describes (worst on integrated GPUs and SwiftShader CI). Noah explicitly sequenced it as **"do this before
+large content or new compute features"** — both #1451 Sky Islands and #1452 Fauna say "prefer landing WebGPU
+single-device first." Highest leverage: it de-risks every content/compute issue behind it.
 
-**Not Fix First:** main is green (ratchet at 3, tree clean, branch in sync with origin/main). The missing
-parity harness is a planned-but-unbuilt safety net, not a last-week regression. This is **User Idea mode** —
-#1351 is an unfinished item from Noah's 2026-07-12 in-context batch, now more urgent than when filed.
+**Not Fix First (but foundation-critical):** main builds and bots merge daily; #1351 parity harness (last week's
+focus) landed clean (#1418). This is **User Idea mode** — #1448 is Noah's own priority-high issue, chosen over its
+siblings because #1450 (game-loop split) and #1451 (Sky Islands) are *already largely satisfied on main*
+(`game-loop.ts` is 177 lines / 11 phase modules; `src/world/sky-island-graph.ts` exists via #1363), and #1449
+(TS debt) is a mechanical ratchet better handed to Copilot. Reconciliation of those stale "landed" claims is in
+Backlog below.
 
-**Scope of the swarm:** golden-vector fixtures + a `test:parity` runner that drives the same inputs through the
-TS reference path and the native (AS + C++) path and asserts bit-tolerant equality for (a) instance
-matrix/color compose (#1358) and (b) arpeggio_grove channel accumulation (#1364). Touch `tests/`, `assembly/`,
-`emscripten/`, and the `wasm-batch-math.ts` / `wasm-music-reactivity.ts` wrappers only.
+**Scope of the swarm — touch ONLY:** `src/rendering/gpu-context.ts` (new), `src/rendering/webgpu-limits.ts`,
+`src/rendering/renderer-mode.ts`, `src/compute/gpu-compute-library.ts`, `src/particles/compute-particles.ts`,
+`src/utils/startup-profiler.ts`, `src/core/init.ts` (renderer construction only), `docs/WEBGPU_CONTEXT.md` (new).
+**Do NOT touch** foliage/music/world/fauna/UI or the TS-debt cluster files — those belong to the Copilot slice.
 
 ## Ideas
 <!--
@@ -30,6 +35,15 @@ Routine prioritizes these over generated ideas.
 Format: - [ ] Short description (optional: more context on next line indented)
 Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
+
+**User idea pool — GitHub issues filed 2026-07-27 (Noah's FRESHEST in-context batch, 5 issues — primary source this run). Roadmap self-sequences: Foundation → Content.**
+- [ ] **#1448 Unify WebGPU device & renderer context (single-device architecture)** — `priority-high`. One `gpu-context.ts` owner; compute/particles consume the shared device or fail-closed; device-lost recovery on render path. Explicit "do before content/compute" blocker. Verified real: 3 `requestDevice` sites, no `gpu-context.ts`. `[in progress — 2026-07-28]` ← today's focus
+- [ ] **#1449 Cut TS & ESLint debt (ratchet 543 → <200)** — `priority-high`. Phased per-cluster ratchet. **Partially started** (#1457 resolved one WASM-bridge cluster). No `eslint-baseline.json` wired yet. ← **Copilot-prep target today** (pure-TS cluster slice: asset-streaming-core, material-core, accessibility-menu-rendering, startup-profiler-ui — decoupled from #1448 render/compute/init files).
+- [ ] **#1452 Living-World fauna flocks + optional GPU/C++ boids scale-up** — Content. Scaffold exists (#1440 landed: `src/systems/fauna/`, `assembly/boids.ts`, `fauna-batcher.ts`). Phase A content/reactivity, then Phase B perf. Sequence after WebGPU single-device.
+- [~] **#1450 Split game-loop phases + break 817KB app chunk** — game-loop half **already satisfied** on main (`game-loop.ts` = 177 lines, 11 phase modules). Remaining slice = the ~817KB `app` chunk graph redesign only. Verify-and-narrow before scheduling.
+- [~] **#1451 Vertical Sky Islands biome** — **already largely landed** via #1363 (`src/world/sky-island-graph.ts` + generation-core/decorators references exist). Issue's "no sky_island symbols exist" claim is stale on current main. Verify coverage vs the issue's layer/traversal spec, then close or narrow to an enrichment slice.
+
+<!-- Older Ideas (opportunistic / archived) below. -->
 - [x] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
 
 <!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit). -->
@@ -93,7 +107,9 @@ Routine maintains this automatically — you can add items too.
 -->
 - [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable. `[landed — 2026-07-14]`
 - [x] **TS-error baseline (feeds #1347)** — RESOLVED 2026-07-14. `scripts/tsc-ratchet.mjs` + `scripts/tsc-baseline.json` now committed; baseline crushed from 587 → **3 errors**, `typecheck.yml` enforces the ratchet in CI. Remaining 3 are the committed floor; keep ratcheting opportunistically.
-- [ ] **Issue hygiene: close landed-but-open issues** — #1358, #1360, #1364 all LANDED on main but their GitHub issues are still OPEN. Verify + close with `state_reason: completed`. #1359 landed (emscripten CI) — decide whether #1383 (two-tier refinement) supersedes and close/relabel accordingly.
+- [ ] **⚠️ Tracking-drift reconciliation (2026-07-28)** — The 2026-07-21 focus block claimed `tsc --noEmit` baseline = **3 errors**. That is FALSE on current main: `scripts/tsc-baseline.json` = **396**, and issue #1449 measures **543** live (79 ESLint errors + 2425 warnings). No `scripts/eslint-baseline.json` exists yet despite the ratchet story. Treat the "3 errors" milestone as never-real; #1449 is the real campaign. Also: #1450/#1451 were filed 2026-07-27 against stale perceptions — `game-loop.ts` is already 177 lines (split done) and `sky-island-graph.ts` already exists (#1363 landed). Verify-and-close/narrow both rather than re-doing landed work.
+- [ ] **Issue hygiene: close landed-but-open issues** — #1358, #1360, #1364 all LANDED on main but their GitHub issues are still OPEN. Verify + close with `state_reason: completed`. #1359 landed (emscripten CI) — decide whether #1383 (two-tier refinement) supersedes and close/relabel accordingly. Add #1363 (Sky Islands, landed via 9368bab) and #1352/#1440 (fauna scaffold) to the verify-and-close sweep.
+- [ ] **817KB `app` chunk (from #1450)** — the game-loop split half of #1450 is done, but the ~817KB first-party `app` chunk graph redesign (madge cycle map + lazy gameplay/save-UI/world-content entry points, target <500KB) is still open. This is the live remainder of #1450.
 - [x] **Circadian PR reconciliation (#1362)** — Canonical path: PlantPoseMachine for flower/portamento/arpeggio/simple-flower; `uCircadianPoseOffset` + `circadianNightGlowMult`/`circadianDayGlowMult` for static batchers. Documented in `docs/CIRCADIAN_BATCHER_COVERAGE.md`. SimpleFlower pose wiring fixed (was kick-only).
 - [ ] **Workflows present** — CI now has `budget-check.yml`, `emscripten-ci.yml`, `typecheck.yml`, `visual-regression.yml`. Still no unit/lint CI beyond the ratchet; #1348 (ESLint) is the next foundation gap.
 - [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable.
@@ -115,6 +131,8 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-07-28** ✅ #1351 CROSS-TIER PARITY HARNESS — LANDED (#1418, `test(#1351): cross-tier parity harness for matrix compose + arpeggio accumulate`). Reconciled from last week's focus: golden-vector `test:parity` runner guards #1358 matrix/color compose + #1364 arpeggio_grove accumulation across TS↔AS↔C++; widened to mushroom + portamento batchers per `MIGRATION_TRACKER.md` slice 1. Native C++ path SKIPs when `em++` absent; TS fallback always green.
+- [x] **2026-07-28** POST-07-21 WAVE (landed on main, reconciled this run) — #1363 stacked Sky Islands biome (9368bab, `sky-island-graph.ts` + music bindings + traversal), #1352/#1440 Living Candy Fauna (WASM boids ECS + `FaunaBatcher`), circadian coverage extended across batchers (#1362 follow-ups), region-manager WASM distance-cull pre-pass wired to clouds (#1453/#1455), TSL wind sway on cloud batcher (#1447), app-chunk lazy split (#1422), and the ARIA modal-semantics sweep (#1456/#1441/#1446). `game-loop.ts` confirmed thin (177 lines) across 11 phase modules.
 - [x] **2026-07-24** IN-WORLD DEBUG PLACE GIZMO (#1365) — **Status: Implemented ✅**
   * Implementation Details: The `?debugPlace=1` gizmo functionality was confirmed to be initialized in `game-loop-core.ts` via `initPlacementDebug` and updated per frame in `game-loop-physics.ts` using `updatePlacementDebug`. It features robust placement capability across the procedurally generated terrain, supporting a wide range of candy biomes, mapping placement config to `map.json` standard.
 - [x] **2026-07-21** CIRCADIAN COVERAGE PASS (#1362 follow-up) — Fixed `SimpleFlowerBatcher` to drive `PlantPoseMachine` with `dayNightBias` (was kick-only bloom). Shared `circadianNightGlowMult`/`circadianDayGlowMult` helpers; gated tree/portamento/gem-fruit/wisteria/lotus/lantern emissives. Added `?debugCircadian=1` overlay + `circadian_night` / `circadian_night_mycelium` visual-regression viewpoints. Docs: `docs/CIRCADIAN_BATCHER_COVERAGE.md`.
@@ -162,6 +180,12 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
+Date: 2026-07-28
+Mode: **USER IDEA** — no Fix First trigger (main builds, bots merge daily; last week's #1351 parity harness landed clean, #1418). Noah filed a fresh 5-issue in-context batch on 2026-07-27; that is this run's primary idea pool. Picked the single **genuinely un-done, priority-high** foundation item: **#1448 WebGPU single-device / renderer-context unification.** Rejected its siblings after verifying on current main that #1450 (game-loop split) and #1451 (Sky Islands) are already largely landed, and routed #1449 (TS debt) to Copilot as a mechanical ratchet.
+Focus: **#1448** — one `src/rendering/gpu-context.ts` owner; route the 3 rogue `requestDevice` sites (compute, particles, startup-profiler) onto a shared Three.js device or fail-closed; explicit context options + `powerPreference`; device-lost recovery on the render path. kimi-cli main event = build `gpu-context.ts` + migrate consumers + device-lost policy, verifying `RENDERER=webgl` + default smoke each iteration. Copilot prep (decoupled, zero file overlap): **#1449 pure-TS cluster slice** (asset-streaming-core, material-core, accessibility-menu-rendering, startup-profiler-ui). Claude Code whole-stack: full `npm run build` → `verify:emcc` → `deploy.py` dry-run → cut a fresh `2026-07-28-stable` release tag over the post-07-21 wave.
+Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Context gap: No `recent_chats` / `conversation_search` in this headless run (confirmed — ToolSearch surfaces neither; reconstruction is from git history, 5 open GitHub issues, 1 open Jules draft PR #1454, `weekly_plan.md`, `.swarm-state.md`, `MIGRATION_TRACKER.md`, `scripts/tsc-baseline.json`). Could not run `tsc`/build locally (no `node_modules`) or verify live-site behaviour. **Tracking-drift flagged:** the prior focus block's "3 errors" tsc claim is false (real = 396 file / 543 live); #1450/#1451 filed against stale perceptions of unsplit game-loop / missing Sky Islands that are already resolved on main.
+
 Date: 2026-07-21
 Mode: USER IDEA — no Fix First trigger. Last week's Foundation cluster landed clean and GREEN: ratchet baseline crushed 587 → **3 errors**, `typecheck.yml` + `emscripten-ci.yml` wired, game-loop split (#1405), `2026-07-14-stable-v2` tag cut. Main is in sync with the working branch, tree clean. The self-sequenced roadmap has advanced into Migration — and the frontier (#1358 native matrix compose #1411, #1364 arpeggio accumulator #1415) shipped **without** its recommended #1351 parity harness. Picked #1351 as the freshest still-unfinished in-context idea, now more urgent than when filed.
 Focus: **#1351 Cross-tier parity harness (JS↔AS↔C++ golden vectors)** — retroactively guard the two just-landed native paths (#1358 matrix/color compose, #1364 channel accumulation) with `test:parity` golden-vector equality, then unblock widening the port. kimi-cli main event = build fixtures + runner + wire both slices. Copilot prep (decoupled, zero file overlap): **#1365 in-world `?debugPlace` map placement editor** (content-authoring gizmo, unblocks #1363 Sky Islands). Claude Code whole-stack: full `npm run build` → `verify:emcc` → `deploy.py` dry-run → cut a fresh `2026-07-21-stable` release tag over the post-foundation wave.
