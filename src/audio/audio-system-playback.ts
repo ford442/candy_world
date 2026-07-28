@@ -1,26 +1,118 @@
-import { AudioSystemCore, noteToFreq, extractNote, extractInstrument, decodeEffectCode, VisualState, SCRIPT_PROCESSOR_VISUAL_UPDATE_FREQUENCY, decayTowards, SAMPLE_RATE, PatternRowCell } from './audio-system-core.ts';
+import {
+    AudioSystemCore,
+    noteToFreq,
+    extractNote,
+    extractInstrument,
+    decodeEffectCode,
+    VisualState,
+    SCRIPT_PROCESSOR_VISUAL_UPDATE_FREQUENCY,
+    decayTowards,
+    SAMPLE_RATE,
+    PatternRowCell,
+} from './audio-system-core.ts';
+import { GenerativeEngine } from './generative/generative-engine.ts';
+import { resolveMusicMode, type MusicSourceMode } from './generative/music-mode.ts';
+import { CONFIG } from '../core/config.ts';
 
 export class AudioSystem extends AudioSystemCore {
     private _scratchChannelData?: any[];
+    generativeEngine: GenerativeEngine | null = null;
+    musicSourceMode: MusicSourceMode;
+    private _generativeAttached = false;
 
     constructor(useScriptProcessorNode: boolean = false) {
         super(useScriptProcessorNode);
+        this.musicSourceMode = resolveMusicMode();
     }
 
-    // --- API to register note listener ---
+    /** Ensure generative engine is wired to the master bus. */
+    ensureGenerativeEngine(): GenerativeEngine {
+        if (!this.generativeEngine) {
+            const seed = CONFIG.audio.generativeSeed || 0xca4d0001;
+            this.generativeEngine = new GenerativeEngine({ seed });
+            if (this.onNoteCallback) {
+                this.generativeEngine.onNote(this.onNoteCallback);
+            }
+        }
+        if (!this._generativeAttached && this.audioContext && this.gainNode) {
+            this.generativeEngine.attach(this.audioContext, this.gainNode);
+            this._generativeAttached = true;
+        }
+        return this.generativeEngine;
+    }
+
+    /** Stop tracker playback without tearing down the master bus (for generative handoff). */
+    private stopTrackerOnly(): void {
+        this.isPlaying = false;
+        try {
+            if (this.workletNode?.port) this.workletNode.port.postMessage({ type: 'STOP' });
+        } catch {
+            /* ignore */
+        }
+        if (this.useScriptProcessorNode && this.libopenmpt && this.currentModulePtr !== 0) {
+            try {
+                this.libopenmpt._openmpt_module_destroy(this.currentModulePtr);
+            } catch {
+                /* ignore */
+            }
+            this.currentModulePtr = 0;
+        }
+    }
+
+    /** Switch to generative soundtrack (stops tracker playback). */
+    async enableGenerativeMode(): Promise<void> {
+        if (!this.gainNode || !this.audioContext) {
+            await this.init();
+        }
+        this.musicSourceMode = 'generative';
+        this.stopTrackerOnly();
+        const engine = this.ensureGenerativeEngine();
+        if (this.onNoteCallback) engine.onNote(this.onNoteCallback);
+        engine.setMasterVolume(this.volume);
+        await engine.start();
+        this.isPlaying = true;
+        this.moduleInfo.title = engine.getTitle();
+        this.isReady = true;
+        console.log('[AudioSystem] Generative music mode active');
+    }
+
+    /** Switch back to tracker / user-upload mode. */
+    disableGenerativeMode(): void {
+        this.musicSourceMode = 'tracker';
+        this.generativeEngine?.stop();
+        this.isPlaying = false;
+    }
+
+    /** Biome-adaptive crossfade (call from game loop with player position). */
+    setGenerativeBiome(biomeId: string, blendT?: number): void {
+        this.generativeEngine?.setBiomeContext(biomeId, blendT);
+    }
+
+    setGenerativeDayNight(bias: number): void {
+        this.generativeEngine?.setDayNightBias(bias);
+    }
+
+    isGenerativeActive(): boolean {
+        return this.musicSourceMode === 'generative' && (this.generativeEngine?.running ?? false);
+    }
+
     onNote(callback: (note: string, volume: number, channelIndex: number) => void): void {
         this.onNoteCallback = callback;
+        this.generativeEngine?.onNote(callback);
     }
 
     // Backward compatibility alias if needed
     setNoteCallback(callback: (note: string, volume: number, channelIndex: number) => void): void {
-        this.onNoteCallback = callback;
+        this.onNote(callback);
     }
 
     /**
      * Synthesize procedural sound effects matching the Candy World aesthetic
      */
-    playSound(name: string, options: { volume?: number, pitch?: number, position?: any } = {}): void {
+    playSound(
+        name: string,
+        options: { volume?: number; pitch?: number; position?: any } = {}
+    ): void {
         if (!this.audioContext) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
@@ -132,7 +224,7 @@ export class AudioSystem extends AudioSystemCore {
         );
 
         if (frames === 0) {
-            console.log("AudioSystem: Song finished (ScriptProcessor).");
+            console.log('AudioSystem: Song finished (ScriptProcessor).');
             this.playNext();
             return;
         }
@@ -175,7 +267,7 @@ export class AudioSystem extends AudioSystemCore {
                 note: '',
                 instrument: 0,
                 activeEffect: 0,
-                effectValue: 0
+                effectValue: 0,
             });
         }
 
@@ -196,7 +288,10 @@ export class AudioSystem extends AudioSystemCore {
             dest.effectValue = intensity;
         }
 
-        const scratchData = this._scratchChannelData.length === numChannels ? this._scratchChannelData : this._scratchChannelData.slice(0, numChannels);
+        const scratchData =
+            this._scratchChannelData.length === numChannels
+                ? this._scratchChannelData
+                : this._scratchChannelData.slice(0, numChannels);
         this.handleVisualUpdate({ bpm, channelData: scratchData, anyTrigger, order, row });
     }
 
@@ -204,13 +299,14 @@ export class AudioSystem extends AudioSystemCore {
 
     setVolume(value: number): void {
         this.volume = Math.max(0, Math.min(1, value));
+        this.generativeEngine?.setMasterVolume(this.volume);
         if (this.gainNode) {
             // Use setTargetAtTime for smooth volume transitions (avoids clicking)
             // If currentTime is not available, fallback to direct assignment
             const time = this.audioContext ? this.audioContext.currentTime : 0;
             try {
                 this.gainNode.gain.setTargetAtTime(this.volume, time, 0.1);
-            } catch(e) {
+            } catch (e) {
                 this.gainNode.gain.value = this.volume;
             }
         }
@@ -253,10 +349,10 @@ export class AudioSystem extends AudioSystemCore {
     async playNext(forceIndex: number | null = null): Promise<void> {
         if (this.playlist.length === 0) return;
 
-        let nextIndex = (forceIndex !== null) ? forceIndex : this.currentIndex + 1;
+        let nextIndex = forceIndex !== null ? forceIndex : this.currentIndex + 1;
 
         if (nextIndex >= this.playlist.length) {
-            console.log("Playlist finished. Looping to start.");
+            console.log('Playlist finished. Looping to start.');
             nextIndex = 0;
         }
 
@@ -282,7 +378,7 @@ export class AudioSystem extends AudioSystemCore {
 
         console.log(`[AudioSystem] Removing track ${index}: ${this.playlist[index].name}`);
 
-        const isCurrent = (index === this.currentIndex);
+        const isCurrent = index === this.currentIndex;
 
         if (isCurrent) {
             this.stop(false); // Clean stop
@@ -326,6 +422,12 @@ export class AudioSystem extends AudioSystemCore {
     // --- Core Loading ---
 
     async loadModule(file: File): Promise<void> {
+        // User-selected tracker file takes precedence over generative mode
+        if (this.musicSourceMode === 'generative') {
+            this.generativeEngine?.stop();
+            this.musicSourceMode = 'tracker';
+        }
+
         if (this.audioContext && this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
@@ -341,16 +443,28 @@ export class AudioSystem extends AudioSystemCore {
                 // AudioWorkletNode mode - send to worklet for loading/decoding (transfer the buffer)
                 if (this.workletNode && this.workletNode.port) {
                     try {
-                        this.workletNode.port.postMessage({ type: 'LOAD', fileData: arrayBuffer, fileName: file.name }, [arrayBuffer]);
+                        this.workletNode.port.postMessage(
+                            { type: 'LOAD', fileData: arrayBuffer, fileName: file.name },
+                            [arrayBuffer]
+                        );
                     } catch (e) {
                         // Some browsers may not accept transferred buffer if already neutered; fall back to structured clone
-                        this.workletNode.port.postMessage({ type: 'LOAD', fileData: arrayBuffer, fileName: file.name });
+                        this.workletNode.port.postMessage({
+                            type: 'LOAD',
+                            fileData: arrayBuffer,
+                            fileName: file.name,
+                        });
                     }
                 } else {
-                    console.warn('Worklet not ready to receive LOAD message. Attempting to init worklet and retry.');
+                    console.warn(
+                        'Worklet not ready to receive LOAD message. Attempting to init worklet and retry.'
+                    );
                     await this.init();
                     if (this.workletNode && this.workletNode.port) {
-                        this.workletNode.port.postMessage({ type: 'LOAD', fileData: arrayBuffer, fileName: file.name }, [arrayBuffer]);
+                        this.workletNode.port.postMessage(
+                            { type: 'LOAD', fileData: arrayBuffer, fileName: file.name },
+                            [arrayBuffer]
+                        );
                     }
                 }
             }
@@ -358,7 +472,7 @@ export class AudioSystem extends AudioSystemCore {
             // Start playback (worklet will decode/play once module loaded, or ScriptProcessor is already ready)
             await this.play();
         } catch (e) {
-            console.error("Error loading file:", e);
+            console.error('Error loading file:', e);
             this.playNext();
         }
     }
@@ -379,7 +493,17 @@ export class AudioSystem extends AudioSystemCore {
             const bufferPtr = lib._malloc(fileData.length);
             lib.HEAPU8.set(fileData, bufferPtr);
 
-            const modPtr = lib._openmpt_module_create_from_memory2(bufferPtr, fileData.length, 0, 0, 0, 0, 0, 0, 0);
+            const modPtr = lib._openmpt_module_create_from_memory2(
+                bufferPtr,
+                fileData.length,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            );
             lib._free(bufferPtr);
 
             if (modPtr === 0) {
@@ -387,7 +511,7 @@ export class AudioSystem extends AudioSystemCore {
             }
             this.currentModulePtr = modPtr;
 
-            const titleKeyPtr = lib.stringToUTF8("title");
+            const titleKeyPtr = lib.stringToUTF8('title');
             const titleValuePtr = lib._openmpt_module_get_metadata(modPtr, titleKeyPtr);
             const title = lib.UTF8ToString(titleValuePtr) || fileName;
             lib._free(titleKeyPtr);
@@ -396,9 +520,8 @@ export class AudioSystem extends AudioSystemCore {
             this.moduleInfo.title = title;
             this.preCachePatternData(modPtr);
             this.play();
-
         } catch (e) {
-            console.error("Failed to load module:", e);
+            console.error('Failed to load module:', e);
             this.playNext(); // Skip broken files
         }
     }
@@ -421,7 +544,14 @@ export class AudioSystem extends AudioSystemCore {
                 for (let r = 0; r < numRows; r++) {
                     const rowCells: PatternRowCell[] = [];
                     for (let c = 0; c < numChannels; c++) {
-                        const commandPtr = lib._openmpt_module_format_pattern_row_channel(modPtr, pattern, r, c, 12, 1);
+                        const commandPtr = lib._openmpt_module_format_pattern_row_channel(
+                            modPtr,
+                            pattern,
+                            r,
+                            c,
+                            12,
+                            1
+                        );
                         const commandStr = lib.UTF8ToString(commandPtr);
                         lib._openmpt_free_string(commandPtr);
                         rowCells.push({ text: (commandStr || '').trim() });
@@ -431,7 +561,7 @@ export class AudioSystem extends AudioSystemCore {
                 this.patternMatrices[o] = { rows: matrixRows, numRows, numChannels };
             }
         } catch (e) {
-            console.error("Pattern caching error:", e);
+            console.error('Pattern caching error:', e);
         }
     }
 
@@ -448,11 +578,19 @@ export class AudioSystem extends AudioSystemCore {
         // Ensure audio processing node is initialized
         if (this.useScriptProcessorNode) {
             if (!this.scriptProcessorNode) {
-                try { await this.init(); } catch (e) { console.warn('ScriptProcessor init failed in play()', e); }
+                try {
+                    await this.init();
+                } catch (e) {
+                    console.warn('ScriptProcessor init failed in play()', e);
+                }
             }
         } else {
             if (!this.workletNode) {
-                try { await this.init(); } catch (e) { console.warn('Worklet init failed in play()', e); }
+                try {
+                    await this.init();
+                } catch (e) {
+                    console.warn('Worklet init failed in play()', e);
+                }
             }
         }
 
@@ -468,10 +606,12 @@ export class AudioSystem extends AudioSystemCore {
 
         // Set isPlaying to false before cleanup to prevent audio callbacks from processing
         this.isPlaying = false;
+        this.generativeEngine?.stop();
 
         // Notify worklet to stop and clean up
         try {
-            if (this.workletNode && this.workletNode.port) this.workletNode.port.postMessage({ type: 'STOP' });
+            if (this.workletNode && this.workletNode.port)
+                this.workletNode.port.postMessage({ type: 'STOP' });
         } catch (e) {
             console.warn('Failed to signal STOP to worklet', e);
         }
@@ -479,20 +619,25 @@ export class AudioSystem extends AudioSystemCore {
         // Disconnect audio graph parts
         try {
             if (this.workletNode) {
-                try { this.workletNode.disconnect(); } catch(e) {}
+                try {
+                    this.workletNode.disconnect();
+                } catch (e) {}
                 this.workletNode = null;
             }
             if (this.scriptProcessorNode) {
                 try {
                     this.scriptProcessorNode.disconnect();
                     this.scriptProcessorNode.onaudioprocess = null;
-                } catch(e) {}
+                } catch (e) {}
                 this.scriptProcessorNode = null;
             }
             if (this.gainNode) {
-                try { this.gainNode.disconnect(); } catch(e) {}
+                try {
+                    this.gainNode.disconnect();
+                } catch (e) {}
                 this.gainNode = null;
             }
+            this._generativeAttached = false;
         } catch (e) {
             console.warn('Error disconnecting audio nodes:', e);
         }
@@ -512,7 +657,9 @@ export class AudioSystem extends AudioSystemCore {
                     this.libopenmpt._free(this.rightBufferPtr);
                     this.rightBufferPtr = 0;
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
         } else if (this.libopenmpt) {
             // Backwards-compat: free any local WASM buffers if present
             try {
@@ -524,7 +671,9 @@ export class AudioSystem extends AudioSystemCore {
                     this.libopenmpt._free(this.rightBufferPtr);
                     this.rightBufferPtr = 0;
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
         }
 
         // Release the stopping guard
@@ -550,7 +699,16 @@ export class AudioSystem extends AudioSystemCore {
         if (anyTrigger) this.visualState.kickTrigger = 1.0;
 
         while (this.visualState.channelData.length < channelData.length) {
-            this.visualState.channelData.push({ volume: 0, pan: 0, trigger: 0, note: '', freq: 0, instrument: 0, activeEffect: 0, effectValue: 0 });
+            this.visualState.channelData.push({
+                volume: 0,
+                pan: 0,
+                trigger: 0,
+                note: '',
+                freq: 0,
+                instrument: 0,
+                activeEffect: 0,
+                effectValue: 0,
+            });
         }
 
         for (let i = 0; i < channelData.length; i++) {
@@ -568,7 +726,7 @@ export class AudioSystem extends AudioSystemCore {
                 // Assuming AudioProcessor sends 'note' string only on the frame it is triggered.
                 // If it persists, we need a flag. Let's assume it's one-shot for now based on context.
                 if (this.onNoteCallback) {
-                     this.onNoteCallback(src.note, src.volume, i); // note, velocity (using volume as proxy), channelIndex
+                    this.onNoteCallback(src.note, src.volume, i); // note, velocity (using volume as proxy), channelIndex
                 }
             }
             dest.instrument = src.instrument;
@@ -577,15 +735,56 @@ export class AudioSystem extends AudioSystemCore {
         }
     }
 
-    update(): VisualState {
-        // Run decay logic on the main thread for smooth animations
-        this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1 / 60);
-        const speed = 6; // fallback tempo metric
-        this.visualState.grooveAmount = decayTowards(this.visualState.grooveAmount, speed % 2 === 0 ? 0 : 0.1, 3, 1 / 60);
-        this.visualState.beatPhase = (this.visualState.beatPhase + (this.visualState.bpm / 60) * (1 / 60)) % 1;
+    update(deltaSec: number = 1 / 60): VisualState {
+        if (this.isGenerativeActive() && this.generativeEngine) {
+            const genState = this.generativeEngine.update(deltaSec);
+            // Merge generative channel data into shared visualState for music-reactivity
+            this.visualState.bpm = genState.bpm;
+            this.visualState.beatPhase = genState.beatPhase;
+            this.visualState.kickTrigger = genState.kickTrigger;
+            this.visualState.grooveAmount = genState.grooveAmount;
+            this.visualState.patternIndex = genState.patternIndex;
+            this.visualState.row = genState.row;
+            const src = genState.channelData;
+            while (this.visualState.channelData.length < src.length) {
+                this.visualState.channelData.push({
+                    volume: 0,
+                    pan: 0,
+                    trigger: 0,
+                    note: '',
+                    freq: 0,
+                    instrument: 0,
+                    activeEffect: 0,
+                    effectValue: 0,
+                });
+            }
+            for (let i = 0; i < src.length; i++) {
+                const s = src[i];
+                const d = this.visualState.channelData[i];
+                d.volume = s.volume;
+                d.trigger = s.trigger;
+                d.note = s.note;
+                d.freq = s.freq;
+                d.pan = s.pan;
+                if (s.notes) d.notes = s.notes;
+            }
+            return this.visualState;
+        }
+
+        // Tracker mode: decay logic on the main thread for smooth animations
+        this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, deltaSec);
+        const speed = 6;
+        this.visualState.grooveAmount = decayTowards(
+            this.visualState.grooveAmount,
+            speed % 2 === 0 ? 0 : 0.1,
+            3,
+            deltaSec
+        );
+        this.visualState.beatPhase =
+            (this.visualState.beatPhase + (this.visualState.bpm / 60) * deltaSec) % 1;
 
         for (const ch of this.visualState.channelData) {
-            ch.trigger = decayTowards(ch.trigger, 0, 10, 1 / 60);
+            ch.trigger = decayTowards(ch.trigger, 0, 10, deltaSec);
         }
 
         return this.visualState;

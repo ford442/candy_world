@@ -1,7 +1,7 @@
 /**
  * @file wasm-loader.ts
  * @brief Barrel file - re-exports from wasm-loader modules
- * 
+ *
  * This file maintains backward compatibility for code importing from wasm-loader.
  * All implementation has been split into:
  * - wasm-loader-core.ts: Core WASM initialization and state
@@ -22,14 +22,14 @@ export {
     isEmscriptenReady,
     getWasmInstance,
     getEmscriptenInstance,
-    
+
     // Memory accessors
     getWasmMemory,
     getEmscriptenMemory,
-    
+
     // Internal utilities (exported for advanced use)
     getNativeFunc,
-    
+
     // State exports
     wasmInstance,
     wasmMemory,
@@ -39,16 +39,16 @@ export {
     animationView,
     outputView,
     playerStateView,
-    
+
     // Memory layout constants
     POSITION_OFFSET,
     ANIMATION_OFFSET,
     OUTPUT_OFFSET,
     PLAYER_STATE_OFFSET,
-    
+
     // Animation type constants
     AnimationType,
-    
+
     // Cached WASM function references
     wasmGetGroundHeight,
     wasmFreqToHue,
@@ -59,10 +59,8 @@ export {
     wasmAddCollisionObject,
     wasmResolveGameCollisions,
     wasmCheckPositionValidity,
-    wasmInitBoids,
     wasmUpdateBoids,
-    wasmGetBoidsCount,
-    
+
     // Hot-path Foliage Animation exports (Migrated from TS)
     wasmSmoothWobble,
     wasmBatchGrowth,
@@ -81,7 +79,7 @@ export {
     wasmBatchDistanceCalc,
     wasmBatchFrustumTest,
     wasmBatchLODSelect,
-    
+
     // New math functions
     wasmHslToRgb,
     wasmHash2D,
@@ -98,7 +96,7 @@ export {
     // New particle functions
     wasmUpdateParticles,
     wasmSpawnBurst,
-    
+
     // C++ Emscripten function references
     cppValueNoise2DSimd4,
     cppFbm2DSimd4,
@@ -122,10 +120,10 @@ export {
     cppBatchVineSwaySimd,
     cppBatchGeyserEruptC,
     cppBatchRetriggerSimd,
-    
+
     // C++ function initialization
     initCppFunctions,
-    
+
     // Type definitions
     type AnimationTypeValue,
     type WasiStubs,
@@ -146,14 +144,14 @@ export {
     type WasmExportValue,
     type WasmExports,
     type InitWasmParallelOptions,
-    
+
     // Re-exports from orchestrator
     LOADING_PHASES,
     isSharedMemoryAvailable,
     initSharedBuffer,
     getSharedBuffer,
     createPlaceholderScene,
-    removePlaceholderScene
+    removePlaceholderScene,
 } from './wasm-loader-core.ts';
 
 // =============================================================================
@@ -170,30 +168,30 @@ export {
     type PrismResult,
     type ArpeggioResult,
     type ParticleResult,
-    
+
     // Simple animation helpers
     calcBounceY,
     calcSwayRotZ,
     calcWobble,
     calcHopY,
     calcShiver,
-    
+
     // Advanced animations
     calcAccordionStretch,
     calcFiberWhip,
     calcSpiralWave,
     calcPrismRose,
-    
+
     // Musical/audio reactivity
     calcArpeggioStep,
     calcSpeakerPulse,
-    
+
     // Particle effects
     calcFloatingParticle,
     calcRainDropY,
-    
+
     // Color utilities
-    lerpColor
+    lerpColor,
 } from './wasm-animations.ts';
 
 // =============================================================================
@@ -203,33 +201,33 @@ export {
 export {
     // Type definitions
     type PlayerStateResult,
-    
+
     // Collision system
     uploadCollisionObjects,
     resolveGameCollisionsWASM,
     checkCollision,
-    
+
     // Physics helpers
     initDynamicFoliageBridge,
     initCollisionSystem,
     addCollisionObject,
     checkPositionValidity,
-    
+
     // Native C++ physics wrappers
     updatePhysicsCPP,
     initPhysics,
-    
+
     // Player state
     setPlayerState,
     getPlayerState,
-    
+
     // Math fallbacks
     valueNoise2D,
     fbm,
     fastInvSqrt,
     fastDistance,
     hash,
-    
+
     // Simple math functions
     getGroundHeight,
     getGroundHeightBatch,
@@ -244,7 +242,7 @@ export {
     distSq2D,
     distSq3D,
     smoothstep,
-    inverseLerp
+    inverseLerp,
 } from './wasm-physics.ts';
 
 // =============================================================================
@@ -256,47 +254,47 @@ export {
     type SpawnCandidate,
     type MaterialAnalysisResult,
     type DistanceCullResult,
-    
+
     // Batch upload functions
     uploadPositions,
     uploadMushroomSpecs,
     copySharedPositions,
     uploadAnimationData,
-    
+
     // Culling
     batchDistanceCull,
-    
+
     // Spawning
     batchMushroomSpawnCandidates,
     readSpawnCandidates,
-    
+
     // Materials
     analyzeMaterials,
     getUniqueShaderCount,
-    
+
     // Batch animation
     batchAnimationCalc,
-    
+
     // Agent 1: Simple animation batch
     batchShiver_c,
     batchSpring_c,
     batchFloat_c,
     batchCloudBob_c,
-    
+
     // Agent 2: Mesh deformation
     deformWave_c,
     deformJiggle_c,
     deformWobble_c,
-    
+
     // Agent 3: LOD batch
     batchUpdateLODMatrices_c,
     batchScaleMatrices_c,
     batchFadeColors_c,
-    
+
     // Agent 4: Frustum/distance culling
     batchFrustumCull_c,
     batchDistanceCullIndexed_c,
-    
+
     // Fluid simulation
     fluidInit,
     fluidStep,
@@ -325,7 +323,7 @@ export {
     batchShiverHighLevel,
     batchSpringHighLevel,
     batchFloatHighLevel,
-    batchCloudBobHighLevel
+    batchCloudBobHighLevel,
 } from './wasm-batch.ts';
 
 // Unified ground-height bridge

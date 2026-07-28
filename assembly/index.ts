@@ -1,21 +1,22 @@
-export * from "./constants";
-export * from "./math";
-export * from "./memory";
-export * from "./physics";
-export * from "./animation";
-export * from "./animation_batch";
-export * from "./material_batch";
-export * from "./discovery";
-export * from "./batch";
-export * from "./foliage";
-export * from "./particles";
-export * from "./ecs";
+export * from './constants';
+export * from './math';
+export * from './memory';
+export * from './physics';
+export * from './animation';
+export * from './animation_batch';
+export * from './material_batch';
+export * from './discovery';
+export * from './batch';
+export * from './foliage';
+export * from './particles';
+export * from './ecs';
+export * from './boids';
 export {
-  getUnifiedGroundHeight,
-  batchUnifiedGroundHeight,
-  clearGroundPlatforms,
-  addGroundPlatform,
-  invalidateGroundCache,
-  setGroundCacheTTL,
-} from "./ground";
-export * from "./music_reactivity";
+    getUnifiedGroundHeight,
+    batchUnifiedGroundHeight,
+    clearGroundPlatforms,
+    addGroundPlatform,
+    invalidateGroundCache,
+    setGroundCacheTTL,
+} from './ground';
+export * from './music_reactivity';

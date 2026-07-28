@@ -19,6 +19,7 @@ import { animatedFoliage } from '../world/state.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { initGPUCompute } from '../compute/compute-init.ts';
+import { ensureGpuComputeReady } from '../compute/compute-orchestrator.ts';
 import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
 import { getAwakenedStore } from '../systems/awakened-persistence.ts';
 import { ensureGameplay, preloadGameplay } from '../gameplay/lazy.ts';
@@ -62,6 +63,7 @@ export function initDeferredVisuals() {
     // NoiseGeneratorGPU, and GPUCullingSystem find a warm device on first use.
     // Resolves silently when WebGPU is unavailable; CPU/WASM fallbacks stay active.
     initGPUCompute();
+    void ensureGpuComputeReady();
 
     // Prefetch gameplay chunk in parallel with visual init (#1361)
     void preloadGameplay().then((gp) => {
@@ -189,11 +191,7 @@ export function abortWarmup(): void {
     _warmupAborted = true;
 }
 
-export function runDeferredWarmup(
-    scene: THREE.Scene,
-    camera: THREE.Camera,
-    renderer: any
-) {
+export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, renderer: any) {
     _warmupAborted = false;
 
     setTimeout(async () => {
@@ -203,7 +201,9 @@ export function runDeferredWarmup(
 
         // Check CI bypass here
         if (isCIorHeadless()) {
-            console.log('[Deferred] Skipping incremental shader pre-compilation in CI mode to prevent WebGPU Device Lost');
+            console.log(
+                '[Deferred] Skipping incremental shader pre-compilation in CI mode to prevent WebGPU Device Lost'
+            );
             endPhase('Shader Warmup');
             return;
         }
@@ -253,7 +253,7 @@ export function runDeferredWarmup(
                 if (batchMs > warmupBatchMaxMs) warmupBatchMaxMs = batchMs;
 
                 // Always yield between batches to stay within the 100 ms long-task budget.
-                await new Promise<void>(resolve => setTimeout(resolve, 0));
+                await new Promise<void>((resolve) => setTimeout(resolve, 0));
             }
             warmup.dispose();
 
@@ -304,7 +304,9 @@ export function runDeferredWarmup(
                             // Clone so warmupSingle can dispose the temporary copy.
                             const clone = mat.clone();
                             await sceneWarmup.warmupSingle(clone, renderer, `scene_${mat.id}`);
-                        } catch (_e) { /* skip */ }
+                        } catch (_e) {
+                            /* skip */
+                        }
                     }
 
                     const batchMs = performance.now() - batchStart;
@@ -313,7 +315,7 @@ export function runDeferredWarmup(
 
                     // Yield if the batch took too long or more batches remain.
                     if (batchMs > WARMUP_BUDGET_MS || i + WARMUP_BATCH_SIZE < sceneEntries.length) {
-                        await new Promise<void>(resolve => setTimeout(resolve, 0));
+                        await new Promise<void>((resolve) => setTimeout(resolve, 0));
                     }
                 }
                 sceneWarmup.dispose();
@@ -321,7 +323,7 @@ export function runDeferredWarmup(
 
             console.log(
                 `✅ Scene shaders pre-compiled (${warmupBatches} batch${warmupBatches !== 1 ? 'es' : ''}, ` +
-                `max ${warmupBatchMaxMs.toFixed(0)} ms/batch).`
+                    `max ${warmupBatchMaxMs.toFixed(0)} ms/batch).`
             );
         } catch (e) {
             console.warn('[Warmup] Shader compilation error:', e);
@@ -332,8 +334,14 @@ export function runDeferredWarmup(
 
         performance.mark('candy:shader-warmup-end');
         try {
-            performance.measure('candy:Shader Warmup', 'candy:shader-warmup-start', 'candy:shader-warmup-end');
-        } catch (_e) { /* ignore if marks were cleared */ }
+            performance.measure(
+                'candy:Shader Warmup',
+                'candy:shader-warmup-start',
+                'candy:shader-warmup-end'
+            );
+        } catch (_e) {
+            /* ignore if marks were cleared */
+        }
 
         console.log('[Deferred] Shader compilation complete');
         endPhase('Shader Warmup');
@@ -341,15 +349,39 @@ export function runDeferredWarmup(
 }
 
 // Getters for deferred objects (used by game-loop)
-export function getMelodyRibbon() { return melodyRibbon; }
-export function getSparkleTrail() { return sparkleTrail; }
-export function getImpactSystem() { return impactSystem; }
-export function getFluidFog() { return fluidFog; }
-export function getDandelionSeedSystem() { return dandelionSeedSystem; }
-export function getDiscoveryEffect() { return discoveryEffect; }
-export function getHarpoonLine() { return harpoonLine; }
-export function getAurora() { return aurora; }
-export function getChromaticPulse() { return chromaticPulse; }
-export function getStrobePulse() { return strobePulse; }
-export function getPlayerShieldMesh() { return playerShieldMesh; }
-export function setPlayerShieldMesh(mesh: THREE.Object3D | null) { playerShieldMesh = mesh; }
+export function getMelodyRibbon() {
+    return melodyRibbon;
+}
+export function getSparkleTrail() {
+    return sparkleTrail;
+}
+export function getImpactSystem() {
+    return impactSystem;
+}
+export function getFluidFog() {
+    return fluidFog;
+}
+export function getDandelionSeedSystem() {
+    return dandelionSeedSystem;
+}
+export function getDiscoveryEffect() {
+    return discoveryEffect;
+}
+export function getHarpoonLine() {
+    return harpoonLine;
+}
+export function getAurora() {
+    return aurora;
+}
+export function getChromaticPulse() {
+    return chromaticPulse;
+}
+export function getStrobePulse() {
+    return strobePulse;
+}
+export function getPlayerShieldMesh() {
+    return playerShieldMesh;
+}
+export function setPlayerShieldMesh(mesh: THREE.Object3D | null) {
+    playerShieldMesh = mesh;
+}

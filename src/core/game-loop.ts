@@ -19,10 +19,14 @@ import {
     WebGPURendererWithDeviceLimits,
     timeOffsetRef,
     firefliesRef,
-    beatFlashIntensity, setBeatFlashIntensity,
-    cameraZoomPulse, setCameraZoomPulse,
-    cameraShake, setCameraShakeCore,
-    lastBeatPhase, setLastBeatPhase,
+    beatFlashIntensity,
+    setBeatFlashIntensity,
+    cameraZoomPulse,
+    setCameraZoomPulse,
+    cameraShake,
+    setCameraShakeCore,
+    lastBeatPhase,
+    setLastBeatPhase,
     baseFOV,
 } from './game-loop-core.ts';
 
@@ -41,6 +45,9 @@ import { isExploreActive } from './camera-modes.ts';
 import { player } from '../systems/physics/index.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
+import { updateFaunaSystem } from '../systems/fauna/index.ts';
+import { getPhotoMode } from '../systems/photo-mode/index.ts';
+import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
 
 // Re-exports (public surface for main.ts / index.ts)
 export { initGameLoopDependencies, getGameTime, getAudioState, getBeatFlashIntensity };
@@ -65,10 +72,13 @@ export function animate() {
     }
 
     const rawDelta = clock.getDelta();
-    const delta = Math.min(rawDelta, 0.1);
+    const photoMode = getPhotoMode();
+    photoMode?.update(rawDelta);
+    const simDelta = photoMode?.getSimulationDelta(rawDelta) ?? rawDelta;
+    const delta = Math.min(simDelta, 0.1);
 
     // 1. Audio and Beat phase
-    const audioState = updateAudioPhase(rawDelta);
+    const audioState = updateAudioPhase(delta);
 
     const currentBPM = audioState?.bpm || 120;
     const timeFactor = 120 / Math.max(10, currentBPM);
@@ -134,7 +144,7 @@ export function animate() {
         visualsState.isNightNow,
         visualsState.weatherStateStr,
         visualsState.weatherIntensity,
-        visualsState.dayNightBias,
+        visualsState.dayNightBias
     );
 
     // 3. Particles and Music Reactivity phase
@@ -143,7 +153,7 @@ export function animate() {
         gt + timeOffsetRef.value,
         audioState,
         visualsState.isNightNow,
-        visualsState.cyclePos >= (0.2 + 0.3 + 0.1 + 0.1) // deep night start approx, exact logic is in config
+        visualsState.cyclePos >= 0.2 + 0.3 + 0.1 + 0.1 // deep night start approx, exact logic is in config
     );
 
     // 4. PostFX and Camera phase
@@ -154,14 +164,16 @@ export function animate() {
     updateExploreCameraPhase(delta, exploreActive);
 
     if (firefliesRef) {
-        firefliesRef.visible = visualsState.cyclePos >= (0.2 + 0.3 + 0.1 + 0.1);
+        firefliesRef.visible = visualsState.cyclePos >= 0.2 + 0.3 + 0.1 + 0.1;
     }
 
     // 5. Compute passes
     updateComputePhase();
+    tickComputeOrchestrator();
 
     updateImpacts(rendererRef, gt + timeOffsetRef.value);
     updateDandelionSeeds(rendererRef);
+    updateFaunaSystem(delta, gt + timeOffsetRef.value);
 
     // 6. Physics Phase
     const devOrbitActive = exploreActive;

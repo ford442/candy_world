@@ -1,7 +1,7 @@
 /**
  * @file wasm-loader-core.ts
  * @brief Core WASM Module Initialization and State Management
- * 
+ *
  * This module handles:
  * - AssemblyScript WASM initialization (top-level await)
  * - Emscripten module loader (threaded/single-threaded fallback)
@@ -11,16 +11,20 @@
  */
 
 import { updateProgress, setWasmPhase, setWasmError } from '../ui/loading-screen.ts';
-import { 
-    parallelWasmLoad, 
-    LOADING_PHASES, 
-    initSharedBuffer, 
+import {
+    parallelWasmLoad,
+    LOADING_PHASES,
+    initSharedBuffer,
     getSharedBuffer,
     isSharedMemoryAvailable,
-    type ParallelWasmLoadOptions
+    type ParallelWasmLoadOptions,
 } from './wasm-orchestrator.ts';
 
-import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.ts';
+import {
+    checkWasmFileExists,
+    inspectWasmExports,
+    patchWasmInstantiateAliases,
+} from './wasm-utils.ts';
 import { showToast } from './toast.ts';
 
 // Import WASM initialization function (Vite + vite-plugin-wasm)
@@ -34,9 +38,9 @@ import initCandyPhysics from '../wasm/candy_physics.wasm?init';
 /** WASM instance and memory */
 export let wasmInstance: WebAssembly.Instance | null = null;
 export let wasmMemory: WebAssembly.Memory | null = null;
-export let positionView: Float32Array | null = null;   // Float32Array for object positions
-export let animationView: Float32Array | null = null;  // Float32Array for animation data
-export let outputView: Float32Array | null = null;     // Float32Array for reading results
+export let positionView: Float32Array | null = null; // Float32Array for object positions
+export let animationView: Float32Array | null = null; // Float32Array for animation data
+export let outputView: Float32Array | null = null; // Float32Array for reading results
 export let playerStateView: Float32Array | null = null; // Float32Array for player physics state
 
 /** Shared Float32Array for batch operations */
@@ -46,38 +50,98 @@ export let sharedF32: Float32Array | null = null;
 export let wasmGetGroundHeight: ((x: number, z: number) => number) | null = null;
 export let wasmFreqToHue: ((freq: number) => number) | null = null;
 export let wasmLerp: ((a: number, b: number, t: number) => number) | null = null;
-export let wasmBatchMushroomSpawnCandidates: ((time: number, windX: number, windZ: number, windSpeed: number, objectCount: number, spawnThreshold: number, minDistance: number, maxDistance: number) => number) | null = null;
+export let wasmBatchMushroomSpawnCandidates:
+    | ((
+          time: number,
+          windX: number,
+          windZ: number,
+          windSpeed: number,
+          objectCount: number,
+          spawnThreshold: number,
+          minDistance: number,
+          maxDistance: number
+      ) => number)
+    | null = null;
 export let wasmUpdateFoliageBatch: ((...args: number[]) => void) | null = null;
 
 /** New Physics exports */
 export let wasmInitDynamicFoliageMemory: ((maxInstances: number) => number) | null = null;
 export let wasmInitCollisionSystem: (() => void) | null = null;
-export let wasmAddCollisionObject: ((type: number, x: number, y: number, z: number, r: number, h: number, p1: number, p2: number, p3: number) => void) | null = null;
+export let wasmAddCollisionObject:
+    | ((
+          type: number,
+          x: number,
+          y: number,
+          z: number,
+          r: number,
+          h: number,
+          p1: number,
+          p2: number,
+          p3: number
+      ) => void)
+    | null = null;
 export let wasmResolveGameCollisions: ((kickTrigger: number) => number) | null = null;
-export let wasmCheckPositionValidity: ((x: number, z: number, radius: number) => number) | null = null;
-export let wasmInitBoids: (() => void) | null = null;
-export let wasmUpdateBoids: ((delta: number) => number) | null = null;
-export let wasmGetBoidsCount: (() => number) | null = null;
+export let wasmCheckPositionValidity: ((x: number, z: number, radius: number) => number) | null =
+    null;
+/** Fauna boids from assembly/boids.ts (ptr,count,dt,playerX,playerZ,time) */
+export let wasmUpdateBoids:
+    | ((
+          boidsPtr: number,
+          count: number,
+          dt: number,
+          playerX: number,
+          playerZ: number,
+          time: number
+      ) => void)
+    | null = null;
 
 /** Hot-path Foliage Animation exports (Migrated from TS) */
-export let wasmSmoothWobble: ((noteBufferPtr: number, bufferSize: number, currentWobble: number, scale: number, maxAmplitude: number, minThreshold: number, smoothingRate: number) => number) | null = null;
+export let wasmSmoothWobble:
+    | ((
+          noteBufferPtr: number,
+          bufferSize: number,
+          currentWobble: number,
+          scale: number,
+          maxAmplitude: number,
+          minThreshold: number,
+          smoothingRate: number
+      ) => number)
+    | null = null;
 export let wasmBatchGrowth: ((dataPtr: number, count: number) => void) | null = null;
 export let wasmBatchBloom: ((dataPtr: number, count: number) => void) | null = null;
 export let wasmBatchScaleAnimation: ((dataPtr: number, count: number) => void) | null = null;
 
 /** Hot-path Physics exports (Migrated from TS) */
-export let wasmBatchGroundHeight: ((positionsPtr: number, count: number, outputPtr: number) => void) | null = null;
+export let wasmBatchGroundHeight:
+    ((positionsPtr: number, count: number, outputPtr: number) => void) | null = null;
 /** Unified ground height (assembly/ground.ts) */
-export let wasmGetUnifiedGroundHeight: ((x: number, z: number, nowMs: number) => number) | null = null;
-export let wasmBatchUnifiedGroundHeight: ((positionsPtr: number, count: number, outputPtr: number, nowMs: number) => void) | null = null;
+export let wasmGetUnifiedGroundHeight: ((x: number, z: number, nowMs: number) => number) | null =
+    null;
+export let wasmBatchUnifiedGroundHeight:
+    ((positionsPtr: number, count: number, outputPtr: number, nowMs: number) => void) | null = null;
 export let wasmClearGroundPlatforms: (() => void) | null = null;
-export let wasmAddGroundPlatform: ((minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void) | null = null;
+export let wasmAddGroundPlatform:
+    ((minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void) | null = null;
 export let wasmInvalidateGroundCache: (() => void) | null = null;
 export let wasmSetGroundCacheTTL: ((seconds: number) => void) | null = null;
-export let wasmDampVelocity: ((velocityPtr: number, count: number, damping: number) => void) | null = null;
-export let wasmBatchDistanceCalc: ((positionsPtr: number, count: number, camX: number, camY: number, camZ: number, outputPtr: number) => void) | null = null;
-export let wasmBatchFrustumTest: ((positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number) => number) | null = null;
-export let wasmBatchLODSelect: ((distancesPtr: number, count: number, lodThresholdsPtr: number, outputPtr: number) => number) | null = null;
+export let wasmDampVelocity:
+    ((velocityPtr: number, count: number, damping: number) => void) | null = null;
+export let wasmBatchDistanceCalc:
+    | ((
+          positionsPtr: number,
+          count: number,
+          camX: number,
+          camY: number,
+          camZ: number,
+          outputPtr: number
+      ) => void)
+    | null = null;
+export let wasmBatchFrustumTest:
+    | ((positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number) => number)
+    | null = null;
+export let wasmBatchLODSelect:
+    | ((distancesPtr: number, count: number, lodThresholdsPtr: number, outputPtr: number) => number)
+    | null = null;
 
 /** Math functions from assembly/math.ts */
 export let wasmHslToRgb: ((h: number, s: number, l: number) => number) | null = null;
@@ -85,21 +149,49 @@ export let wasmHash2D: ((x: number, y: number) => number) | null = null;
 export let wasmValueNoise2D: ((x: number, y: number) => number) | null = null;
 export let wasmFbm2D: ((x: number, y: number, octaves: number) => number) | null = null;
 export let wasmDistSq2D: ((ax: number, ay: number, bx: number, by: number) => number) | null = null;
-export let wasmDistSq3D: ((ax: number, ay: number, az: number, bx: number, by: number, bz: number) => number) | null = null;
+export let wasmDistSq3D:
+    ((ax: number, ay: number, az: number, bx: number, by: number, bz: number) => number) | null =
+    null;
 export let wasmSmoothstep: ((t: number) => number) | null = null;
 export let wasmInverseLerp: ((a: number, b: number, value: number) => number) | null = null;
 
 /** Batch functions from assembly/batch.ts */
 export let wasmBatchHslToRgb: ((ptr: number, count: number) => void) | null = null;
-export let wasmBatchSphereCull: ((positionsPtr: number, count: number, camX: number, camY: number, camZ: number, maxDist: number, outputPtr: number) => void) | null = null;
+export let wasmBatchSphereCull:
+    | ((
+          positionsPtr: number,
+          count: number,
+          camX: number,
+          camY: number,
+          camZ: number,
+          maxDist: number,
+          outputPtr: number
+      ) => void)
+    | null = null;
 export let wasmBatchLerp: ((ptr: number, count: number) => void) | null = null;
 
 /** Particle functions from assembly/particles.ts */
-export let wasmUpdateParticles: ((positionsPtr: number, count: number, dt: number, gravity: number) => void) | null = null;
-export let wasmSpawnBurst: ((outputPtr: number, count: number, centerX: number, centerY: number, centerZ: number, speed: number, time: number) => void) | null = null;
+export let wasmUpdateParticles:
+    ((positionsPtr: number, count: number, dt: number, gravity: number) => void) | null = null;
+export let wasmSpawnBurst:
+    | ((
+          outputPtr: number,
+          count: number,
+          centerX: number,
+          centerY: number,
+          centerZ: number,
+          speed: number,
+          time: number
+      ) => void)
+    | null = null;
 
 export * from './wasm-loader-cpp.ts';
-import { initCppFunctions, setEmscriptenInstance, setEmscriptenMemory, emscriptenInstance } from './wasm-loader-cpp.ts';
+import {
+    initCppFunctions,
+    setEmscriptenInstance,
+    setEmscriptenMemory,
+    emscriptenInstance,
+} from './wasm-loader-cpp.ts';
 
 // =============================================================================
 // CONSTANTS
@@ -116,14 +208,20 @@ export const AnimationType = {
     BOUNCE: 1,
     SWAY: 2,
     WOBBLE: 3,
-    HOP: 4
+    HOP: 4,
 } as const;
 
 /** Animation type values */
-export type AnimationTypeValue = typeof AnimationType[keyof typeof AnimationType];
+export type AnimationTypeValue = (typeof AnimationType)[keyof typeof AnimationType];
 
 export * from './wasm-loader-types.ts';
-import type { EmscriptenModule, ExtendedEmscriptenModule, WasmExports, WasiStubs, WasmImportObject } from './wasm-loader-types.ts';
+import type {
+    EmscriptenModule,
+    ExtendedEmscriptenModule,
+    WasmExports,
+    WasiStubs,
+    WasmImportObject,
+} from './wasm-loader-types.ts';
 import { getEmscriptenMemory } from './wasm-loader-cpp.ts';
 // =============================================================================
 // WASM EXPORT VALIDATION
@@ -173,14 +271,14 @@ const wasiStubs: WasiStubs = {
     path_open: () => 0,
     environ_sizes_get: () => 0,
     environ_get: () => 0,
-    proc_exit: () => { },
+    proc_exit: () => {},
     clock_time_get: (id: number, precision: bigint, outPtr: number | bigint) => {
         // Robust clock_time_get handling BigInt mixing
         const now = BigInt(Date.now()) * 1000000n;
         if (wasmMemory) {
             const idx = typeof outPtr === 'bigint' ? Number(outPtr) : outPtr;
             const view = new BigInt64Array(wasmMemory.buffer);
-            if (idx >= 0 && (idx >> 3) < view.length) {
+            if (idx >= 0 && idx >> 3 < view.length) {
                 view[idx >> 3] = now;
             }
         }
@@ -194,9 +292,9 @@ const importObject: WasmImportObject = {
             console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
         },
         seed: () => Date.now() * Math.random(),
-        now: () => Date.now()
+        now: () => Date.now(),
     },
-    wasi_snapshot_preview1: wasiStubs
+    wasi_snapshot_preview1: wasiStubs,
 };
 
 /**
@@ -227,9 +325,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmAddCollisionObject = exports.addCollisionObject || null;
     wasmResolveGameCollisions = exports.resolveGameCollisions || null;
     wasmCheckPositionValidity = exports.checkPositionValidity || null;
-    wasmInitBoids = exports.initBoids || null;
     wasmUpdateBoids = exports.updateBoids || null;
-    wasmGetBoidsCount = exports.getBoidsCount || null;
 
     wasmBatchGroundHeight = exports.batchGroundHeight || null;
     wasmGetUnifiedGroundHeight = exports.getUnifiedGroundHeight || null;
@@ -270,7 +366,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
         try {
             if (attempt > 0) {
                 console.warn(`[WASM] AS init attempt ${attempt + 1}/${WASM_MAX_RETRIES}...`);
-                await new Promise(r => setTimeout(r, WASM_RETRY_DELAYS_MS[attempt - 1]));
+                await new Promise((r) => setTimeout(r, WASM_RETRY_DELAYS_MS[attempt - 1]));
             }
 
             const instance = await initCandyPhysics(importObject);
@@ -289,12 +385,17 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     if (lastError) {
         // All retries exhausted — JS fallbacks will kick in automatically because
         // all function pointers remain null.
-        console.error('[WASM] All AssemblyScript init attempts failed. JS fallbacks active.', lastError);
+        console.error(
+            '[WASM] All AssemblyScript init attempts failed. JS fallbacks active.',
+            lastError
+        );
         // Notify loading screen so the user sees a non-fatal warning (not a full
         // fatal error since JS fallbacks allow the game to continue).
         try {
             setWasmPhase('Physics engine unavailable - using JS fallback', 0);
-        } catch (_) { /* loading screen may not be ready yet */ }
+        } catch (_) {
+            /* loading screen may not be ready yet */
+        }
     }
 }
 
@@ -330,7 +431,7 @@ export async function updateWasmProgress(percent: number, msg: string): Promise<
         startButton.textContent = msg;
     }
     console.log('[WASM Progress]', msg);
-    await new Promise(r => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 20));
 }
 
 /**
@@ -355,7 +456,9 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         let isThreaded = true;
 
         if (!canUseThreads) {
-            console.warn('[Native] Using Single-Threaded Fallback (No SharedArrayBuffer or forced ST)');
+            console.warn(
+                '[Native] Using Single-Threaded Fallback (No SharedArrayBuffer or forced ST)'
+            );
             wasmFilename = 'candy_native_st.wasm';
             jsFilename = 'candy_native_st.js';
             isThreaded = false;
@@ -367,20 +470,21 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             console.log(`[WASM] ${wasmFilename} not found. Using JS fallback.`);
             // If threaded failed (e.g. file missing), try ST if we haven't already
             if (isThreaded) {
-                 return loadEmscriptenModule(true);
+                return loadEmscriptenModule(true);
             }
             return false;
         }
 
         // Construct the full resolved path based on checkWasmFileExists result
         const prefix = wasmCheck.path || '';
-        const cleanPrefix = prefix.endsWith('/') ? prefix : (prefix ? `${prefix}/` : '');
+        const cleanPrefix = prefix.endsWith('/') ? prefix : prefix ? `${prefix}/` : '';
         const resolvedWasmPath = `${cleanPrefix}${wasmFilename}`;
         const resolvedJsPath = jsFilename.includes('://') ? jsFilename : `/${jsFilename}`;
-        console.log("Loading WASM:", resolvedJsPath);
+        console.log('Loading WASM:', resolvedJsPath);
 
         // Load the JS factory
-        let createCandyNative: ((config: Record<string, unknown>) => Promise<ExtendedEmscriptenModule>) | undefined;
+        let createCandyNative:
+            ((config: Record<string, unknown>) => Promise<ExtendedEmscriptenModule>) | undefined;
         try {
             const module = await import(/* @vite-ignore */ `${resolvedJsPath}?v=${Date.now()}`);
             createCandyNative = module.default;
@@ -404,21 +508,23 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         // MANUAL FETCH: Pre-fetch binary
         let wasmBinary: ArrayBuffer | null = null;
         try {
-             const resp = await fetch(resolvedWasmPath);
-             if (resp.ok) {
-                 wasmBinary = await resp.arrayBuffer();
-             } else {
-                 console.warn(`[WASM] Pre-fetch failed with status: ${resp.status}`);
-             }
-        } catch(e) {
-            console.warn("[WASM] Failed to pre-fetch binary:", e);
+            const resp = await fetch(resolvedWasmPath);
+            if (resp.ok) {
+                wasmBinary = await resp.arrayBuffer();
+            } else {
+                console.warn(`[WASM] Pre-fetch failed with status: ${resp.status}`);
+            }
+        } catch (e) {
+            console.warn('[WASM] Failed to pre-fetch binary:', e);
             // Help diagnose common server configuration issues
-            if (e instanceof Error && e.message.toLowerCase().includes("content decoding")) {
-                console.error("[WASM] CRITICAL: Content Decoding Failed! The server is likely sending 'Content-Encoding: gzip' for an uncompressed .wasm file. This is a common issue with Vite preview/dev servers.");
+            if (e instanceof Error && e.message.toLowerCase().includes('content decoding')) {
+                console.error(
+                    "[WASM] CRITICAL: Content Decoding Failed! The server is likely sending 'Content-Encoding: gzip' for an uncompressed .wasm file. This is a common issue with Vite preview/dev servers."
+                );
             }
         }
 
-        // POLYFILL BYPASS: 
+        // POLYFILL BYPASS:
         // If the environment has a NativeWebAssembly object that differs from window.WebAssembly (polyfill),
         // we MUST swap it in. This ensures Emscripten creates a valid native Memory object and
         // that the Module we compile is a real WebAssembly.Module, transferable to the Worker.
@@ -441,21 +547,28 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
                 },
                 print: (text: string) => console.log('[Native]', text),
                 printErr: (text: string) => console.warn('[Native Err]', text),
-                
-                // IMPORTANT: Do NOT set wasmBinary in config. 
+
+                // IMPORTANT: Do NOT set wasmBinary in config.
                 // Bypass internal instantiation logic completely
-                instantiateWasm: (imports: WebAssembly.Imports, successCallback: (instance: WebAssembly.Instance, module: WebAssembly.Module) => void) => {
+                instantiateWasm: (
+                    imports: WebAssembly.Imports,
+                    successCallback: (
+                        instance: WebAssembly.Instance,
+                        module: WebAssembly.Module
+                    ) => void
+                ) => {
                     console.log('[Native] Manual instantiation hook triggered');
 
                     const run = async () => {
                         try {
                             let bytes = wasmBinary;
-                            
+
                             // Fallback fetch if pre-fetch failed
                             if (!bytes) {
                                 console.log('[Native] Fetching binary inside hook...');
                                 const response = await fetch(resolvedWasmPath);
-                                if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+                                if (!response.ok)
+                                    throw new Error(`Fetch failed: ${response.status}`);
                                 bytes = await response.arrayBuffer();
                             }
 
@@ -463,20 +576,19 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
                             const WA = window.WebAssembly;
 
                             // We use instantiate() directly instead of compile() + instantiate().
-                            // This works around missing compile() in some polyfills and ensures 
+                            // This works around missing compile() in some polyfills and ensures
                             // we get a valid Module/Instance pair from the native implementation.
                             const result = await WA.instantiate(bytes, imports);
-                            
+
                             console.log('[Native] Manual instantiation success');
-                            
+
                             // Standardize result
                             const instance = result.instance;
                             const module = result.module || null; // Some polyfills might not return module
 
-                            // We must pass a valid Module object if Pthreads are used, 
+                            // We must pass a valid Module object if Pthreads are used,
                             // so the worker can receive it.
                             successCallback(instance, module!);
-
                         } catch (e) {
                             console.error('[Native] Manual instantiation failed:', e);
                         }
@@ -484,7 +596,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
 
                     run();
                     return {}; // Async indicates to Emscripten we are handling it
-                }
+                },
             };
 
             // Initialize Emscripten (will use Native WA for Memory creation)
@@ -494,12 +606,12 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
         } catch (e) {
             console.warn('[WASM] Instantiation failed:', e);
-            
+
             // If threaded failed, try ST (recursive call will handle clean up/restore via finally)
             if (isThreaded) {
                 console.log('[WASM] Falling back to Single-Threaded build...');
                 // We must restore before recursing, which finally block does
-                return loadEmscriptenModule(true); 
+                return loadEmscriptenModule(true);
             }
             return false;
         } finally {
@@ -536,14 +648,13 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
  * @returns The WASM memory ArrayBuffer or null if not initialized
  */
 export function getWasmMemory(): ArrayBuffer | null {
-    return wasmMemory ? wasmMemory.buffer as ArrayBuffer : null;
+    return wasmMemory ? (wasmMemory.buffer as ArrayBuffer) : null;
 }
 
 /**
  * Get the Emscripten memory buffer
  * @returns The Emscripten memory ArrayBuffer or null if not initialized
  */
-
 
 /**
  * Get a native C++ function from the Emscripten module.
@@ -568,9 +679,9 @@ export function getNativeFunc<T extends (...args: any[]) => number>(name: string
  */
 
 function asExportFn<T extends (...args: never[]) => unknown>(
-  v: WebAssembly.ExportValue | undefined
+    v: WebAssembly.ExportValue | undefined
 ): T | null {
-  return typeof v === 'function' ? (v as T) : null;
+    return typeof v === 'function' ? (v as T) : null;
 }
 
 export function getNativeFuncVoid<T extends (...args: any[]) => void>(name: string): T | null {
@@ -594,24 +705,24 @@ export function getNativeFuncVoid<T extends (...args: any[]) => void>(name: stri
  * Check if WASM is ready
  * @returns True if WASM instance is initialized
  */
-export function isWasmReady(): boolean { 
-    return wasmInstance !== null; 
+export function isWasmReady(): boolean {
+    return wasmInstance !== null;
 }
 
 /**
  * Check if Emscripten is ready
  * @returns True if Emscripten instance is initialized
  */
-export function isEmscriptenReady(): boolean { 
-    return emscriptenInstance !== null; 
+export function isEmscriptenReady(): boolean {
+    return emscriptenInstance !== null;
 }
 
 /**
  * Get the WASM instance
  * @returns The WASM instance or null
  */
-export function getWasmInstance(): WebAssembly.Instance | null { 
-    return wasmInstance; 
+export function getWasmInstance(): WebAssembly.Instance | null {
+    return wasmInstance;
 }
 
 /**
@@ -675,17 +786,22 @@ export async function initWasm(): Promise<boolean> {
 
             // loadEmscriptenModule returned false (file missing / optional skip) —
             // not a hard error; fall through to allow JS fallbacks.
-            console.warn('[WASM] Emscripten module unavailable (optional). JS fallbacks remain active.');
+            console.warn(
+                '[WASM] Emscripten module unavailable (optional). JS fallbacks remain active.'
+            );
             loaded = true; // treated as "done" — fallbacks are fine
             lastError = null;
             break;
         } catch (err) {
             lastError = err;
-            console.error(`[WASM] Emscripten init attempt ${attempt + 1}/${EMCC_MAX_RETRIES} failed:`, err);
+            console.error(
+                `[WASM] Emscripten init attempt ${attempt + 1}/${EMCC_MAX_RETRIES} failed:`,
+                err
+            );
 
             if (attempt < EMCC_MAX_RETRIES - 1) {
                 // Wait before next retry (exponential backoff)
-                await new Promise(r => setTimeout(r, EMCC_RETRY_DELAYS_MS[attempt]));
+                await new Promise((r) => setTimeout(r, EMCC_RETRY_DELAYS_MS[attempt]));
             } else {
                 // All attempts exhausted
                 setWasmError(
@@ -727,11 +843,11 @@ export async function initWasmParallel(options: InitWasmParallelOptions = {}): P
 }
 
 // Re-exports from orchestrator
-export { 
-    LOADING_PHASES, 
+export {
+    LOADING_PHASES,
     isSharedMemoryAvailable,
     initSharedBuffer,
     getSharedBuffer,
     createPlaceholderScene,
-    removePlaceholderScene 
+    removePlaceholderScene,
 } from './wasm-orchestrator.ts';

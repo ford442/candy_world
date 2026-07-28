@@ -64,7 +64,14 @@ export interface ExtendedEmscriptenModule extends EmscriptenModule {
     _valueNoise2D?: (x: number, y: number) => number;
     _fbm?: (x: number, y: number, octaves: number) => number;
     _fastInvSqrt?: (x: number) => number;
-    _fastDistance?: (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number) => number;
+    _fastDistance?: (
+        x1: number,
+        y1: number,
+        z1: number,
+        x2: number,
+        y2: number,
+        z2: number
+    ) => number;
     _hash?: (x: number, y: number) => number;
     // Batch functions
     _batchShiver_c?: (...args: number[]) => void;
@@ -217,25 +224,51 @@ export interface PlayerState {
 /**
  * Generic WASM export value type
  */
-export type WasmExportValue = WebAssembly.ExportValue | ((...args: number[]) => number) | ((...args: number[]) => void);
+export type WasmExportValue =
+    WebAssembly.ExportValue | ((...args: number[]) => number) | ((...args: number[]) => void);
 
 /**
  * WASM exports interface
  */
 export interface WasmExports {
-    initBoids?: () => void;
-    updateBoids?: (delta: number) => number;
-    getBoidsCount?: () => number;
+    updateBoids?: (
+        boidsPtr: number,
+        count: number,
+        dt: number,
+        playerX: number,
+        playerZ: number,
+        time: number
+    ) => void;
+    boidsBufferBytes?: (count: number) => number;
     [key: string]: WasmExportValue | undefined;
     memory: WebAssembly.Memory;
     getGroundHeight: (x: number, z: number) => number;
     freqToHue: (freq: number) => number;
     lerp: (a: number, b: number, t: number) => number;
-    batchMushroomSpawnCandidates?: (time: number, windX: number, windZ: number, windSpeed: number, objectCount: number, spawnThreshold: number, minDistance: number, maxDistance: number) => number;
+    batchMushroomSpawnCandidates?: (
+        time: number,
+        windX: number,
+        windZ: number,
+        windSpeed: number,
+        objectCount: number,
+        spawnThreshold: number,
+        minDistance: number,
+        maxDistance: number
+    ) => number;
     updateFoliageBatch?: (...args: number[]) => void;
     initDynamicFoliageMemory?: (maxInstances: number) => number;
     initCollisionSystem?: () => void;
-    addCollisionObject?: (type: number, x: number, y: number, z: number, r: number, h: number, p1: number, p2: number, p3: number) => void;
+    addCollisionObject?: (
+        type: number,
+        x: number,
+        y: number,
+        z: number,
+        r: number,
+        h: number,
+        p1: number,
+        p2: number,
+        p3: number
+    ) => void;
     resolveGameCollisions?: (kickTrigger: number) => number;
     checkPositionValidity?: (x: number, z: number, radius: number) => number;
     addCollisionObjectsBatch?: (ptr: number, count: number) => void;
@@ -243,34 +276,84 @@ export interface WasmExports {
     __new?: (size: number) => number;
     free?: (ptr: number) => void;
     __free?: (ptr: number) => void;
-    batchDistanceCull?: (cameraX: number, cameraY: number, cameraZ: number, maxDistSq: number, objectCount: number) => number;
+    batchDistanceCull?: (
+        cameraX: number,
+        cameraY: number,
+        cameraZ: number,
+        maxDistSq: number,
+        objectCount: number
+    ) => number;
     // Hot-path Physics exports (from assembly/physics.ts)
     batchGroundHeight?: (positionsPtr: number, count: number, outputPtr: number) => void;
     getUnifiedGroundHeight?: (x: number, z: number, nowMs: number) => number;
-    batchUnifiedGroundHeight?: (positionsPtr: number, count: number, outputPtr: number, nowMs: number) => void;
+    batchUnifiedGroundHeight?: (
+        positionsPtr: number,
+        count: number,
+        outputPtr: number,
+        nowMs: number
+    ) => void;
     clearGroundPlatforms?: () => void;
-    addGroundPlatform?: (minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void;
+    addGroundPlatform?: (
+        minX: number,
+        maxX: number,
+        minZ: number,
+        maxZ: number,
+        maxY: number
+    ) => void;
     invalidateGroundCache?: () => void;
     setGroundCacheTTL?: (seconds: number) => void;
     dampVelocity?: (velocityPtr: number, count: number, damping: number) => void;
-    batchDistanceCalc?: (positionsPtr: number, count: number, camX: number, camY: number, camZ: number, outputPtr: number) => void;
-    batchFrustumTest?: (positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number) => number;
-    batchLODSelect?: (distancesPtr: number, count: number, lodThresholdsPtr: number, outputPtr: number) => number;
+    batchDistanceCalc?: (
+        positionsPtr: number,
+        count: number,
+        camX: number,
+        camY: number,
+        camZ: number,
+        outputPtr: number
+    ) => void;
+    batchFrustumTest?: (
+        positionsPtr: number,
+        count: number,
+        frustumPlanesPtr: number,
+        outputPtr: number
+    ) => number;
+    batchLODSelect?: (
+        distancesPtr: number,
+        count: number,
+        lodThresholdsPtr: number,
+        outputPtr: number
+    ) => number;
     analyzeMaterials?: (offset: number, count: number) => number;
     getUniqueShaderCount?: () => number;
-    batchAnimationCalc?: (time: number, intensity: number, kick: number, objectCount: number) => void;
+    batchAnimationCalc?: (
+        time: number,
+        intensity: number,
+        kick: number,
+        objectCount: number
+    ) => void;
     // Animation functions
     calcBounceY?: (time: number, offset: number, intensity: number, kick: number) => number;
     calcSwayRotZ?: (time: number, offset: number, intensity: number) => number;
     calcWobble?: (time: number, offset: number, intensity: number) => void;
     getWobbleX?: () => number;
     getWobbleZ?: () => number;
-    checkCollision?: (playerX: number, playerZ: number, playerRadius: number, objectCount: number) => number;
+    checkCollision?: (
+        playerX: number,
+        playerZ: number,
+        playerRadius: number,
+        objectCount: number
+    ) => number;
     // Advanced animations
     calcAccordionStretch?: (animTime: number, offset: number, intensity: number) => void;
     getAccordionStretchY?: () => number;
     getAccordionWidthXZ?: () => number;
-    calcFiberWhip?: (time: number, offset: number, leadVol: number, isActive: number, branchIndex: number) => void;
+    calcFiberWhip?: (
+        time: number,
+        offset: number,
+        leadVol: number,
+        isActive: number,
+        branchIndex: number
+    ) => void;
     getFiberBaseRotY?: () => number;
     getFiberBranchRotZ?: () => number;
     calcHopY?: (time: number, offset: number, intensity: number, kick: number) => number;
@@ -281,17 +364,37 @@ export interface WasmExports {
     getSpiralRotY?: () => number;
     getSpiralYOffset?: () => number;
     getSpiralScale?: () => number;
-    calcPrismRose?: (time: number, offset: number, kick: number, groove: number, isActive: number) => void;
+    calcPrismRose?: (
+        time: number,
+        offset: number,
+        kick: number,
+        groove: number,
+        isActive: number
+    ) => void;
     getPrismUnfurl?: () => number;
     getPrismSpin?: () => number;
     getPrismPulse?: () => number;
     getPrismHue?: () => number;
-    calcArpeggioStep?: (currentUnfurl: number, currentTarget: number, lastTrigger: number, arpeggioActive: number, noteTrigger: number, maxSteps: number) => void;
+    calcArpeggioStep?: (
+        currentUnfurl: number,
+        currentTarget: number,
+        lastTrigger: number,
+        arpeggioActive: number,
+        noteTrigger: number,
+        maxSteps: number
+    ) => void;
     getArpeggioTargetStep?: () => number;
     getArpeggioUnfurlStep?: () => number;
     lerpColor?: (color1: number, color2: number, t: number) => number;
     calcRainDropY?: (startY: number, time: number, speed: number, cycleHeight: number) => number;
-    calcFloatingParticle?: (baseX: number, baseY: number, baseZ: number, time: number, offset: number, amplitude: number) => void;
+    calcFloatingParticle?: (
+        baseX: number,
+        baseY: number,
+        baseZ: number,
+        time: number,
+        offset: number,
+        amplitude: number
+    ) => void;
     getParticleX?: () => number;
     getParticleY?: () => number;
     getParticleZ?: () => number;
@@ -306,7 +409,15 @@ export interface WasmExports {
     inverseLerp?: (a: number, b: number, value: number) => number;
     // New batch functions from assembly/batch.ts
     batchHslToRgb?: (ptr: number, count: number) => void;
-    batchSphereCull?: (positionsPtr: number, count: number, camX: number, camY: number, camZ: number, maxDist: number, outputPtr: number) => void;
+    batchSphereCull?: (
+        positionsPtr: number,
+        count: number,
+        camX: number,
+        camY: number,
+        camZ: number,
+        maxDist: number,
+        outputPtr: number
+    ) => void;
     batchLerp?: (ptr: number, count: number) => void;
     // New particle functions from assembly/particles.ts
     updateParticles?: (positionsPtr: number, count: number, dt: number, gravity: number) => void;
@@ -323,7 +434,6 @@ export interface WasmExports {
 // Extend window for global functions
 declare global {
     interface Window {
-
         NativeWebAssembly?: typeof WebAssembly;
     }
 }

@@ -264,6 +264,8 @@ export const {
   ecs_removeComponent,
   ecs_getComponent,
   ecs_hasComponent,
+  updateBoids,
+  boidsBufferBytes,
   accumulateArpeggioChannels,
 } = await (async url => instantiate(
   await (async () => {
