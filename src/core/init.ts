@@ -12,6 +12,14 @@ import {
     resolveRendererBackend,
     type RendererBackend,
 } from '../rendering/renderer-mode.ts';
+import {
+    armGpuContext,
+    captureAdapterRequests,
+    GPU_ALPHA,
+    GPU_ANTIALIAS,
+    GPU_POWER_PREFERENCE,
+    GPU_REQUIRED_LIMITS,
+} from '../rendering/gpu-context.ts';
 
 /**
  * Type union for supported renderers (WebGPU or WebGL fallback)
@@ -99,7 +107,17 @@ declare global {
 }
 
 function createWebGLRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    // Context options kept at parity with the WebGPU path (see gpu-context.ts):
+    // same power preference and the same MSAA choice. `alpha` is deliberately
+    // left at the WebGL default (opaque) — unlike WebGPU, where Three's default
+    // is already premultiplied — so this path's compositing is unchanged.
+    // colorSpace stays the 'srgb' string literal; the Three enum regression is
+    // tracked separately.
+    const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: GPU_ANTIALIAS,
+        powerPreference: GPU_POWER_PREFERENCE,
+    });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.outputColorSpace = 'srgb';
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -141,7 +159,18 @@ export function createRenderer(
     if (WebGPU.isAvailable()) {
         try {
             console.log('[Init] WebGPU available, creating WebGPURenderer');
-            const renderer = new WebGPURenderer({ canvas, antialias: true });
+            // The renderer owns the one and only GPUDevice for the page.
+            // Capture the adapter it requests first (no extra requestAdapter),
+            // then hand it explicit context options instead of relying on
+            // Three's implicit defaults. See docs/WEBGPU_CONTEXT.md.
+            captureAdapterRequests();
+            const renderer = new WebGPURenderer({
+                canvas,
+                antialias: GPU_ANTIALIAS,
+                alpha: GPU_ALPHA,
+                powerPreference: GPU_POWER_PREFERENCE,
+                requiredLimits: GPU_REQUIRED_LIMITS,
+            });
             return { renderer, mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime
@@ -187,6 +216,11 @@ export function initScene(): SceneInitResult {
 
     const requested = resolveRendererBackend();
     const { renderer, mode, fallbackReason } = createRenderer(canvas, requested);
+
+    // Adopt the renderer's device as the process-wide GPU context. Deliberately
+    // not awaited: initScene() is synchronous, and every consumer of the shared
+    // device awaits `getGpuContext()` instead. Never rejects.
+    void armGpuContext(renderer, mode, fallbackReason);
 
     const initialFog = getInitialFogDistances();
 

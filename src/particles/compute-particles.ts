@@ -62,6 +62,7 @@ import {
 
 import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
+import { awaitGpuDevice, getGpuContextSync, onGpuDeviceLost } from '../rendering/gpu-context.ts';
 
 // ⚡ OPTIMIZATION: Fast approximations for Math.sin and Math.cos
 function fastSin(x: number): number {
@@ -107,6 +108,7 @@ export class ComputeParticleSystem {
     private cpuFallback: CPUParticleSystem | null = null;
     private particleBuffer: GPUBuffer | null = null;
     private nextSpawnIndex: number = 0;
+    private unsubscribeDeviceLost: (() => void) | null = null;
     private static scratchFloat32Array = new Float32Array(4);
 
     public initPromise: Promise<void> | null = null;
@@ -453,43 +455,29 @@ private getOpacityNode(): any {
         if (!navigator.gpu) {
             throw new Error('WebGPU not supported');
         }
-        
-        // Timeout wrapper for GPU operations (prevent 5min hangs)
-        const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
-            return Promise.race([
-                promise,
-                new Promise<T>((_, reject) => 
-                    setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-                )
-            ]);
-        };
-        
-        const adapter = await withTimeout(
-            navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }),
-            5000,
-            'WebGPU requestAdapter'
-        );
-        
-        if (!adapter) {
-            throw new Error('No WebGPU adapter found');
-        }
-        
-        this.device = await withTimeout(
-            adapter.requestDevice({
-                requiredFeatures: [],
-                requiredLimits: {
-                    maxStorageBufferBindingSize: 134217728, // 128MB
-                    maxComputeWorkgroupSizeX: 256
-                }
-            }),
-            5000,
-            'WebGPU requestDevice'
-        );
 
-        this.device.lost.then((info) => {
-            console.error(`[ComputeParticles] WebGPU Device Lost for ${this.type}: ${info.message}`);
+        // Borrow the single renderer-owned device instead of requesting one per
+        // particle system — N systems used to mean N devices, N heaps.
+        // `awaitGpuDevice` resolves null (never hangs, never throws) when the
+        // shared device is missing, so we fail closed to the CPU tier.
+        const device = await awaitGpuDevice();
+        if (!device) {
+            const reason = getGpuContextSync().reason ?? 'device unavailable';
+            throw new Error(`No shared WebGPU device (${reason})`);
+        }
+        this.device = device;
+
+        // Device loss is owned by gpu-context. Drop GPU state so update() stops
+        // dispatching; the CPU fallback keeps the system alive visually.
+        this.unsubscribeDeviceLost = onGpuDeviceLost(() => {
+            this.usingGPU = false;
+            this.device = null;
+            this.computePipeline = null;
+            this.bindGroup = null;
+            this.particleBuffer = null;
+            this.uniformBuffer = null;
         });
-        
+
         // Ensure WebGPU resources are created sequentially with rAF yields
         // rather than Promise.all parallel execution, to prevent VRAM allocation spikes.
         await this.createComputePipeline();
@@ -762,12 +750,20 @@ private getOpacityNode(): any {
         
         this.mesh.geometry.dispose();
         (this.mesh.material as THREE.Material).dispose();
-        
 
+        this.unsubscribeDeviceLost?.();
+        this.unsubscribeDeviceLost = null;
 
-        if (this.device) {
-            this.device.destroy();
-        }
+        // Release this system's GPU buffers, but never destroy the device —
+        // it is the renderer's, shared by every GPU consumer.
+        this.particleBuffer?.destroy();
+        this.uniformBuffer?.destroy();
+        this.particleBuffer = null;
+        this.uniformBuffer = null;
+        this.computePipeline = null;
+        this.bindGroup = null;
+        this.device = null;
+        this.usingGPU = false;
     }
 
     /**
