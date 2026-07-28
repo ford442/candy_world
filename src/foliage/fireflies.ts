@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     Fn, uniform, storage, instanceIndex, float, vec3,
     mix, sin, cos, normalize, color,
     mx_noise_float, positionLocal, max, length, min,
     vec4, positionWorld, normalLocal
 } from 'three/tsl';
+import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
 import {
     uTime, uAudioLow, uAudioHigh, uPlayerPosition,
     sharedGeometries, createJuicyRimLight
@@ -13,10 +14,10 @@ import {
 
 export function createFireflies(count = 150, areaSize = 100) {
     // 1. Setup Buffers
-    const positionBuffer = new StorageBufferAttribute(count, 3);
-    const velocityBuffer = new StorageBufferAttribute(count, 3);
-    const anchorBuffer = new StorageBufferAttribute(count, 3);
-    const phaseBuffer = new StorageBufferAttribute(count, 1); // Phase for blinking
+    const positionBuffer = createStorageBufferAttribute(count, 3);
+    const velocityBuffer = createStorageBufferAttribute(count, 3);
+    const anchorBuffer = createStorageBufferAttribute(count, 3);
+    const phaseBuffer = createStorageBufferAttribute(count, 1); // Phase for blinking
 
     // Initialize with random data
     for (let i = 0; i < count; i++) {

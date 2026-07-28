@@ -4,7 +4,8 @@ import {
     uniform, UniformNode, normalWorld, Fn, storage, 
     instanceIndex, vec3, positionLocal, max, length, min, abs 
 } from 'three/tsl';
-import { MeshStandardNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
 import { registerReactiveMaterial, attachReactivity, CandyPresets, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
 /**
  * Creates a bioluminescent waterfall connecting two points.
@@ -65,8 +66,8 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
 
     // === GPU Compute Splashes (Phase 4) ===
     const splashCount = 128;
-    const positionBuffer = new StorageBufferAttribute(splashCount, 3);
-    const velocityBuffer = new StorageBufferAttribute(splashCount, 3);
+    const positionBuffer = createStorageBufferAttribute(splashCount, 3);
+    const velocityBuffer = createStorageBufferAttribute(splashCount, 3);
 
     // Initial particle positions/velocities
     for (let i = 0; i < splashCount; i++) {

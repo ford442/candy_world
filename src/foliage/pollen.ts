@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import { PointsNodeMaterial } from 'three/webgpu';
 import {
     Fn, uniform, storage, instanceIndex, float, vec3,
     mix, sin, cos, normalize, color,
@@ -7,13 +7,14 @@ import {
     positionLocal, time, uv, distance, smoothstep, discard,
     vec2
 } from 'three/tsl';
+import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
 import { uTime, uAudioLow, uAudioHigh, uWindSpeed, uWindDirection, uPlayerPosition } from './index.ts';
 
 export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE.Vector3(0, 5, 0)) {
     // 1. Setup Buffers
-    const positionBuffer = new StorageBufferAttribute(count, 3);
-    const velocityBuffer = new StorageBufferAttribute(count, 3);
-    const lifeBuffer = new StorageBufferAttribute(count, 1);
+    const positionBuffer = createStorageBufferAttribute(count, 3);
+    const velocityBuffer = createStorageBufferAttribute(count, 3);
+    const lifeBuffer = createStorageBufferAttribute(count, 1);
 
     // Initialize with random data
     for (let i = 0; i < count; i++) {

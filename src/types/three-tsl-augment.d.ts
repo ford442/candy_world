@@ -29,6 +29,9 @@ declare module 'three/nodes' {
       count: number | readonly [number, number, number],
       workgroupSize?: number[]
     ): any;
+  }
+}
+
 import 'three/tsl';
 
 declare module 'three/tsl' {
