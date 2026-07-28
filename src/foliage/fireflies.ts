@@ -1,22 +1,42 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    Fn, uniform, storage, instanceIndex, float, vec3,
-    mix, sin, cos, normalize, color,
-    mx_noise_float, positionLocal, max, length, min,
-    vec4, positionWorld, normalLocal
+    Fn,
+    uniform,
+    storage,
+    instanceIndex,
+    float,
+    vec3,
+    mix,
+    sin,
+    cos,
+    normalize,
+    color,
+    mx_noise_float,
+    positionLocal,
+    max,
+    length,
+    min,
+    vec4,
+    positionWorld,
+    normalLocal,
 } from 'three/tsl';
+import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
 import {
-    uTime, uAudioLow, uAudioHigh, uPlayerPosition,
-    sharedGeometries, createJuicyRimLight
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    uPlayerPosition,
+    sharedGeometries,
+    createJuicyRimLight,
 } from './index.ts';
 
 export function createFireflies(count = 150, areaSize = 100) {
     // 1. Setup Buffers
-    const positionBuffer = new StorageBufferAttribute(count, 3);
-    const velocityBuffer = new StorageBufferAttribute(count, 3);
-    const anchorBuffer = new StorageBufferAttribute(count, 3);
-    const phaseBuffer = new StorageBufferAttribute(count, 1); // Phase for blinking
+    const positionBuffer = createStorageBufferAttribute(count, 3);
+    const velocityBuffer = createStorageBufferAttribute(count, 3);
+    const anchorBuffer = createStorageBufferAttribute(count, 3);
+    const phaseBuffer = createStorageBufferAttribute(count, 1); // Phase for blinking
 
     // Initialize with random data
     for (let i = 0; i < count; i++) {
@@ -29,7 +49,12 @@ export function createFireflies(count = 150, areaSize = 100) {
         anchorBuffer.setXYZ(i, x, y, z); // Anchor is initial position
 
         // Random small velocity
-        velocityBuffer.setXYZ(i, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1);
+        velocityBuffer.setXYZ(
+            i,
+            (Math.random() - 0.5) * 0.1,
+            (Math.random() - 0.5) * 0.1,
+            (Math.random() - 0.5) * 0.1
+        );
 
         phaseBuffer.setX(i, Math.random() * Math.PI * 2);
     }
@@ -92,7 +117,6 @@ export function createFireflies(count = 150, areaSize = 100) {
         // Floor constraint (bounce or clamp)
         // p.y = max(p.y, 0.5)
         p.y.assign(max(p.y, float(0.5)));
-
     });
 
     const computeNode = computeFireflies().compute(count);
@@ -107,7 +131,7 @@ export function createFireflies(count = 150, areaSize = 100) {
         metalness: 0.1,
         transparent: true, // Needed for opacity fade
         depthWrite: false, // Don't occlude other fireflies
-        blending: THREE.AdditiveBlending
+        blending: THREE.AdditiveBlending,
     });
 
     // --- TSL Vertex Logic ---
@@ -156,8 +180,8 @@ export function createFireflies(count = 150, areaSize = 100) {
     const sharpBlink = max(float(0.0), blink); // 0 to 1
 
     // Colors
-    const colorA = color(0x88FF00); // Green
-    const colorB = color(0xFFFF00); // Gold
+    const colorA = color(0x88ff00); // Green
+    const colorB = color(0xffff00); // Gold
 
     // Mix based on intensity/blink
     const intensity = sharpBlink.add(uAudioHigh.mul(3.0)); // Audio boost
