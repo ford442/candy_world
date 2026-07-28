@@ -198,22 +198,22 @@ export function batchComposeMatrices_c(
     count: number
 ): void {
     const f = getNativeFunc('batchComposeMatrices_c');
-    if (!f || !emscriptenMemory || !getEmscriptenInstance()?._malloc || !getEmscriptenInstance()._free) return;
+    if (!f || !emscriptenMemory || !(getEmscriptenInstance() as any)?._malloc || !getEmscriptenInstance()!._free!) return;
 
     // Handle memory alignment and avoid reallocation
     if (!_composePtrPos || _composeMaxCount < count) {
         if (_composePtrPos) {
-            getEmscriptenInstance()._free(_composePtrPos);
-            getEmscriptenInstance()._free(_composePtrQuat);
-            getEmscriptenInstance()._free(_composePtrScale);
-            getEmscriptenInstance()._free(_composePtrMat);
+            getEmscriptenInstance()!._free!(_composePtrPos);
+            getEmscriptenInstance()!._free!(_composePtrQuat);
+            getEmscriptenInstance()!._free!(_composePtrScale);
+            getEmscriptenInstance()!._free!(_composePtrMat);
         }
 
         _composeMaxCount = Math.max(count, _composeMaxCount * 2);
-        _composePtrPos = getEmscriptenInstance()._malloc(_composeMaxCount * 3 * 4);
-        _composePtrQuat = getEmscriptenInstance()._malloc(_composeMaxCount * 4 * 4);
-        _composePtrScale = getEmscriptenInstance()._malloc(_composeMaxCount * 3 * 4);
-        _composePtrMat = getEmscriptenInstance()._malloc(_composeMaxCount * 16 * 4);
+        _composePtrPos = getEmscriptenInstance()!._malloc!(_composeMaxCount * 3 * 4);
+        _composePtrQuat = getEmscriptenInstance()!._malloc!(_composeMaxCount * 4 * 4);
+        _composePtrScale = getEmscriptenInstance()!._malloc!(_composeMaxCount * 3 * 4);
+        _composePtrMat = getEmscriptenInstance()!._malloc!(_composeMaxCount * 16 * 4);
     }
 
     if (!_composePtrPos || !_composePtrQuat || !_composePtrScale || !_composePtrMat) return;
