@@ -26,7 +26,6 @@ import {
     getWasPausedBeforePlaylist,
     togglePlaylist,
     handlePlaylistKeyDown,
-    handlePlaylistKeyUp,
     initLegacyMusicUpload,
 } from './playlist-manager.ts';
 import { initAudioControls, handleMuteKey, handleVolumeKey } from './audio-controls.ts';
@@ -606,9 +605,7 @@ export function initInput(
                 discoverySystem.showLog();
                 break;
             case 'KeyQ':
-                if (getIsPlaylistOpen()) return; // Handled by playlist manager
-                if (event.repeat) return;
-                triggerButtonPressDown('openJukeboxBtn');
+                triggerButtonPress('openJukeboxBtn');
                 togglePlaylist();
                 break;
             case 'KeyW':
@@ -669,31 +666,26 @@ export function initInput(
                 keyStates.jump = true;
                 break;
             case 'KeyN':
-                if (event.repeat) return;
-                triggerButtonPressDown('toggleDayNight');
+                triggerButtonPress('toggleDayNight');
                 if (toggleDayNightCallback) toggleDayNightCallback();
                 break;
             case 'KeyM':
-                if (event.repeat) return;
-                triggerButtonPressDown('toggleMuteBtn');
+                triggerButtonPress('toggleMuteBtn');
                 handleMuteKey();
                 break;
             case 'KeyU':
-                if (event.repeat) return;
-                triggerButtonPressDown('musicUploadBtn');
+                triggerButtonPress('musicUploadBtn');
                 const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
                 if (uploadInput) uploadInput.click();
                 break;
             case 'Equal':
             case 'NumpadAdd':
-                if (event.repeat) return;
-                triggerButtonPressDown('volUpBtn');
+                triggerButtonPress('volUpBtn');
                 handleVolumeKey(0.1);
                 break;
             case 'Minus':
             case 'NumpadSubtract':
-                if (event.repeat) return;
-                triggerButtonPressDown('volDownBtn');
+                triggerButtonPress('volDownBtn');
                 handleVolumeKey(-0.1);
                 break;
             case 'ControlLeft':
@@ -715,9 +707,6 @@ export function initInput(
             exploreCamera.onTabUp();
             return;
         }
-
-        // --- UX: Tactile Feedback Cleanup when Playlist is open ---
-        handlePlaylistKeyUp(event);
 
         if (isExploreActive()) return;
         if (instructions && instructions.style.display !== 'none') {
@@ -797,28 +786,6 @@ export function initInput(
             case 'ShiftRight':
                 keyStates.sprint = false;
                 break;
-
-            // ♿ Aria: Tactile feedback cleanup
-            case 'KeyQ':
-                triggerButtonPressUp('openJukeboxBtn');
-                break;
-            case 'KeyN':
-                triggerButtonPressUp('toggleDayNight');
-                break;
-            case 'KeyM':
-                triggerButtonPressUp('toggleMuteBtn');
-                break;
-            case 'KeyU':
-                triggerButtonPressUp('musicUploadBtn');
-                break;
-            case 'Equal':
-            case 'NumpadAdd':
-                triggerButtonPressUp('volUpBtn');
-                break;
-            case 'Minus':
-            case 'NumpadSubtract':
-                triggerButtonPressUp('volDownBtn');
-                break;
         }
     };
 
@@ -893,31 +860,25 @@ export function initInput(
     }
     // ---------------------------------------------------
 
-    // ♿ Aria: Tactile feedback mapping keyboard interactions to standard :active behavior
-    const activeKeyboardButtons = new Set<string>();
-
-    function triggerButtonPressDown(buttonId: string): void {
+    // Cache timeouts to debounce rapid key presses
+    const buttonPressTimeouts = new Map<string, ReturnType<typeof setTimeout> | number>();
+    function triggerButtonPress(buttonId: string): void {
         const btn = document.getElementById(buttonId);
         if (btn && btn.getAttribute('aria-disabled') !== 'true') {
             btn.classList.add('keyboard-active');
-            activeKeyboardButtons.add(buttonId);
+
+            if (buttonPressTimeouts.has(buttonId)) {
+                clearTimeout(buttonPressTimeouts.get(buttonId) as any);
+            }
+
+            const timeoutId = setTimeout(() => {
+                btn.classList.remove('keyboard-active');
+                buttonPressTimeouts.delete(buttonId);
+            }, 150);
+
+            buttonPressTimeouts.set(buttonId, timeoutId as unknown as number);
         }
     }
-
-    function triggerButtonPressUp(buttonId: string): void {
-        const btn = document.getElementById(buttonId);
-        if (btn) {
-            btn.classList.remove('keyboard-active');
-        }
-        activeKeyboardButtons.delete(buttonId);
-    }
-
-    // Safety: release all stuck button states if window loses focus
-    window.addEventListener('blur', () => {
-        for (const buttonId of activeKeyboardButtons) {
-            triggerButtonPressUp(buttonId);
-        }
-    });
 
     const toggleDayNightBtn = document.getElementById('toggleDayNight');
     if (toggleDayNightBtn && toggleDayNightCallback) {
