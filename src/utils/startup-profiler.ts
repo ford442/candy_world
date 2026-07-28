@@ -13,6 +13,7 @@ import * as THREE from 'three';
 // Types & Interfaces
 // ============================================================================
 import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
+import { getGpuContext } from '../rendering/gpu-context.ts';
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -45,6 +46,9 @@ let webgpuMetrics: WebGPUMetrics = {
   shaderCompileTime: 0,
   pipelineCreations: 0,
 };
+
+/** The shared device we have already wrapped (wrap it at most once). */
+let instrumentedDevice: GPUDevice | null = null;
 
 // InstancedMesh tracking
 let instancedMeshMetrics: InstancedMeshMetrics = {
@@ -189,64 +193,66 @@ function unhookInstancedMesh() {
 // WebGPU Hook (if available)
 // ============================================================================
 
+/**
+ * Instrument the single shared WebGPU device for allocation telemetry.
+ *
+ * The profiler used to monkey-patch `navigator.gpu.requestAdapter` so it could
+ * wrap whichever devices happened to be created. With one renderer-owned
+ * device (see `src/rendering/gpu-context.ts`) there is nothing to intercept —
+ * we simply await the shared context and wrap that device's methods. The
+ * profiler never requests an adapter or a device of its own.
+ */
 function hookWebGPU() {
-  // Try to hook into WebGPU device creation for buffer tracking
-  if ((navigator as any).gpu) {
-    const originalRequestAdapter = (navigator as any).gpu.requestAdapter;
-    
-    (navigator as any).gpu.requestAdapter = async (...args: any[]) => {
-      const adapter = await originalRequestAdapter.apply((navigator as any).gpu, args);
-      if (!adapter) return null;
-      
-      const originalRequestDevice = adapter.requestDevice;
-      adapter.requestDevice = async (...deviceArgs: any[]) => {
-        const device = await originalRequestDevice.apply(adapter, deviceArgs);
-        if (!device) return null;
-        
-        // Hook buffer creation
-        const originalCreateBuffer = device.createBuffer;
-        device.createBuffer = (desc: GPUBufferDescriptor) => {
-          if (isEnabled) {
-            webgpuMetrics.bufferAllocations++;
-            webgpuMetrics.bufferTotalSize += desc.size;
-          }
-          // Fix for mapping issue on some devices - force mappedAtCreation to false when we can
-          // Unless explicitly requested otherwise
-          if (desc.mappedAtCreation === undefined) {
-             desc.mappedAtCreation = false;
-          }
-          return originalCreateBuffer.call(device, desc);
-        };
-        
-        // Hook shader module creation
-        const originalCreateShaderModule = device.createShaderModule;
-        device.createShaderModule = (desc: GPUShaderModuleDescriptor) => {
-          if (isEnabled) {
-            const start = performance.now();
-            const result = originalCreateShaderModule.call(device, desc);
-            const end = performance.now();
-            webgpuMetrics.shaderCompilations++;
-            webgpuMetrics.shaderCompileTime += (end - start);
-            return result;
-          }
-          return originalCreateShaderModule.call(device, desc);
-        };
-        
-        // Hook pipeline creation
-        const originalCreateRenderPipeline = device.createRenderPipeline;
-        device.createRenderPipeline = (desc: GPURenderPipelineDescriptor) => {
-          if (isEnabled) {
-            webgpuMetrics.pipelineCreations++;
-          }
-          return originalCreateRenderPipeline.call(device, desc);
-        };
-        
-        return device;
-      };
-      
-      return adapter;
+  if (typeof navigator === 'undefined' || !(navigator as any).gpu) return;
+
+  void getGpuContext().then((ctx) => {
+    const device = ctx.device;
+    if (!device || instrumentedDevice === device) return;
+    instrumentedDevice = device;
+
+    if (isEnabled) {
+      // Attribute the allocation counters to a specific GPU. Adapter identity
+      // comes from the shared context — the profiler never queries its own.
+      const adapter = ctx.adapterInfo
+        ? [ctx.adapterInfo.vendor, ctx.adapterInfo.architecture, ctx.adapterInfo.device]
+            .filter(Boolean)
+            .join(' ') || 'masked'
+        : 'unknown';
+      console.log(
+        `[Profiler] Instrumenting shared WebGPU device · adapter=${adapter} · powerPreference=${ctx.powerPreference}`
+      );
+    }
+
+    // Hook buffer creation
+    const originalCreateBuffer = device.createBuffer.bind(device);
+    device.createBuffer = (desc: GPUBufferDescriptor) => {
+      if (isEnabled) {
+        webgpuMetrics.bufferAllocations++;
+        webgpuMetrics.bufferTotalSize += desc.size;
+      }
+      return originalCreateBuffer(desc);
     };
-  }
+
+    // Hook shader module creation
+    const originalCreateShaderModule = device.createShaderModule.bind(device);
+    device.createShaderModule = (desc: GPUShaderModuleDescriptor) => {
+      if (!isEnabled) return originalCreateShaderModule(desc);
+      const start = performance.now();
+      const result = originalCreateShaderModule(desc);
+      webgpuMetrics.shaderCompilations++;
+      webgpuMetrics.shaderCompileTime += performance.now() - start;
+      return result;
+    };
+
+    // Hook pipeline creation
+    const originalCreateRenderPipeline = device.createRenderPipeline.bind(device);
+    device.createRenderPipeline = (desc: GPURenderPipelineDescriptor) => {
+      if (isEnabled) {
+        webgpuMetrics.pipelineCreations++;
+      }
+      return originalCreateRenderPipeline(desc);
+    };
+  });
 }
 
 // ============================================================================

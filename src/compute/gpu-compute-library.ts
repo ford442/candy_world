@@ -9,13 +9,26 @@
  * **Safety Guarantee**: All buffer allocations include a minimum size safeguard
  * to prevent WebGPU validation errors when registries are empty (CORE mode).
  *
+ * **Device ownership**: this library does NOT create a device. It borrows the
+ * single `GPUDevice` owned by the renderer via `src/rendering/gpu-context.ts`.
+ * When that device is unavailable (WebGL path, no WebGPU, or device lost),
+ * `initDevice()` fails closed and callers stay on their CPU/WASM tier.
+ *
  * @example
  * ```ts
  * const lib = new GPUComputeLibrary();
  * await lib.initDevice();
  * if (lib.isReady()) { ... }
  * ```
+ *
+ * @see docs/WEBGPU_CONTEXT.md
  */
+
+import {
+    awaitGpuDevice,
+    getGpuContextSync,
+    onGpuDeviceLost,
+} from '../rendering/gpu-context.ts';
 
 // =============================================================================
 // TYPES
@@ -51,6 +64,7 @@ export class GPUComputeLibrary {
     private layoutCache: Map<string, GPUBindGroupLayout> = new Map();
     private metrics: ComputeMetrics = {};
     private _ready = false;
+    private unsubscribeDeviceLost: (() => void) | null = null;
 
     // =========================================================================
     // Device Management
@@ -72,7 +86,11 @@ export class GPUComputeLibrary {
     }
 
     /**
-     * Initialise the WebGPU device. Rejects if WebGPU is unavailable.
+     * Adopt the shared, renderer-owned WebGPU device.
+     *
+     * Does **not** request a device of its own — see `gpu-context.ts`. Rejects
+     * when no shared device is available so callers fail closed to their
+     * CPU/WASM tier; `compute-init.ts` swallows that rejection by design.
      * Safe to call multiple times — subsequent calls are no-ops.
      */
     async initDevice(): Promise<void> {
@@ -81,42 +99,29 @@ export class GPUComputeLibrary {
             throw new Error('[GPU] WebGPU is not supported in this browser');
         }
 
-        const withTimeout = <T>(p: Promise<T>, ms: number, label: string): Promise<T> =>
-            Promise.race([
-                p,
-                new Promise<T>((_, reject) =>
-                    setTimeout(() => reject(new Error(`[GPU] ${label} timed out after ${ms}ms`)), ms)
-                ),
-            ]);
-
-        this.adapter = await withTimeout(
-            navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }),
-            5000,
-            'requestAdapter'
-        );
-        if (!this.adapter) {
-            throw new Error('[GPU] No WebGPU adapter found');
+        const device = await awaitGpuDevice();
+        if (!device) {
+            const reason = getGpuContextSync().reason ?? 'device unavailable';
+            throw new Error(`[GPU] No shared WebGPU device (${reason})`);
         }
 
-        this.device = await withTimeout(
-            this.adapter.requestDevice({
-                requiredLimits: {
-                    maxStorageBufferBindingSize: 134217728, // 128 MB
-                    maxComputeWorkgroupSizeX: 256,
-                },
-            }),
-            5000,
-            'requestDevice'
-        );
+        this.device = device;
+        this.adapter = getGpuContextSync().adapter;
 
-        this.device.lost.then((info) => {
-            console.error(`[GPU] Device lost: ${info.message}`);
+        // Loss is owned by gpu-context; react by soft-disabling compute so the
+        // GPU wrappers drop back to CPU instead of dispatching onto a dead
+        // device. Caches are dropped with the device that created them.
+        this.unsubscribeDeviceLost = onGpuDeviceLost(() => {
             this._ready = false;
             this.device = null;
+            this.adapter = null;
+            this.pipelineCache.clear();
+            this.layoutCache.clear();
+            console.warn('[GPU] Shared device lost — GPU compute soft-disabled');
         });
 
         this._ready = true;
-        console.log('[GPU] Device initialised');
+        console.log('[GPU] Using shared renderer-owned device');
     }
 
     // =========================================================================
@@ -432,17 +437,22 @@ export class GPUComputeLibrary {
     // Cleanup
     // =========================================================================
 
-    /** Destroy the device and release all resources */
+    /**
+     * Release this library's GPU resources.
+     *
+     * The device is **not** destroyed: it belongs to the renderer, and tearing
+     * it down here would kill the render path too.
+     */
     dispose(): void {
         this.pipelineCache.clear();
         this.layoutCache.clear();
         this.metrics = {};
-        if (this.device) {
-            this.device.destroy();
-            this.device = null;
-        }
+        this.unsubscribeDeviceLost?.();
+        this.unsubscribeDeviceLost = null;
+        this.device = null;
+        this.adapter = null;
         this._ready = false;
-        console.log('[GPU] Compute library disposed');
+        console.log('[GPU] Compute library disposed (shared device left intact)');
     }
 }
 

@@ -23,68 +23,114 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { getGpuContextSync, GPU_REQUIRED_LIMITS } from './gpu-context.ts';
 
 /**
  * WebGPU device limits
+ *
+ * Sourced from the single shared device owned by `gpu-context.ts`. Before that
+ * device exists (or on the WebGL path) these are the WebGPU spec defaults,
+ * which every conformant adapter guarantees.
  */
 export interface WebGPULimits {
     maxVertexBuffers: number;
     maxVertexAttributes: number;
     maxBindGroups: number;
+    /** Largest storage buffer a compute pass may bind, in bytes. */
+    maxStorageBufferBindingSize: number;
+    /** Largest workgroup X dimension a compute kernel may declare. */
+    maxComputeWorkgroupSizeX: number;
+    maxComputeInvocationsPerWorkgroup: number;
     isWebGPUAvailable: boolean;
 }
+
+/** WebGPU spec defaults — the floor every adapter must provide. */
+const SPEC_DEFAULT_LIMITS: WebGPULimits = {
+    maxVertexBuffers: 8,
+    maxVertexAttributes: 16,
+    maxBindGroups: 4,
+    maxStorageBufferBindingSize: GPU_REQUIRED_LIMITS.maxStorageBufferBindingSize,
+    maxComputeWorkgroupSizeX: GPU_REQUIRED_LIMITS.maxComputeWorkgroupSizeX,
+    maxComputeInvocationsPerWorkgroup: GPU_REQUIRED_LIMITS.maxComputeInvocationsPerWorkgroup,
+    isWebGPUAvailable: false
+};
 
 // Cached limits
 let cachedLimits: WebGPULimits | null = null;
 
+function readLimits(limits: Record<string, number> | GPUSupportedLimits): WebGPULimits {
+    const get = (key: keyof WebGPULimits): number =>
+        (limits as any)[key] || (SPEC_DEFAULT_LIMITS[key] as number);
+
+    return {
+        maxVertexBuffers: get('maxVertexBuffers'),
+        maxVertexAttributes: get('maxVertexAttributes'),
+        maxBindGroups: get('maxBindGroups'),
+        maxStorageBufferBindingSize: get('maxStorageBufferBindingSize'),
+        maxComputeWorkgroupSizeX: get('maxComputeWorkgroupSizeX'),
+        maxComputeInvocationsPerWorkgroup: get('maxComputeInvocationsPerWorkgroup'),
+        isWebGPUAvailable: true
+    };
+}
+
 /**
  * Detect WebGPU device limits
- * Returns conservative defaults if WebGPU is not available
+ *
+ * Prefers the shared context's device (the one device the renderer owns), then
+ * a renderer passed in directly, then conservative spec defaults. Results are
+ * only cached once a real device has been seen, so early callers do not pin
+ * the defaults for the rest of the session.
+ *
+ * @param renderer Optional renderer; only consulted when the shared context
+ *                 has not been armed yet.
  */
 export function getWebGPULimits(renderer?: THREE.Renderer): WebGPULimits {
     if (cachedLimits) return cachedLimits;
 
-    // Default conservative limits (guaranteed by WebGPU spec)
-    const defaults: WebGPULimits = {
-        maxVertexBuffers: 8,
-        maxVertexAttributes: 16,
-        maxBindGroups: 4,
-        isWebGPUAvailable: false
-    };
-
     try {
-        // Try to access WebGPU backend through the renderer
-        if (renderer && (renderer as any).backend) {
-            const backend = (renderer as any).backend;
-            
-            // Check if it's WebGPU backend
-            if (backend.adapter && backend.device) {
-                const device = backend.device;
-                const limits = device.limits;
-                
-                cachedLimits = {
-                    maxVertexBuffers: limits.maxVertexBuffers || 8,
-                    maxVertexAttributes: limits.maxVertexAttributes || 16,
-                    maxBindGroups: limits.maxBindGroups || 4,
-                    isWebGPUAvailable: true
-                };
-                
-                console.log('[WebGPULimits] Detected device limits:', cachedLimits);
-                return cachedLimits;
-            }
+        // Preferred source: the single shared device.
+        const ctx = getGpuContextSync();
+        if (ctx.available && ctx.limits) {
+            cachedLimits = readLimits(ctx.limits);
+            console.log('[WebGPULimits] Adopted shared device limits:', cachedLimits);
+            return cachedLimits;
         }
-        
-        // Try to get limits from navigator.gpu
+
+        // Fallback: read straight off a renderer that has already initialised.
+        const backend = (renderer as any)?.backend;
+        if (backend?.device?.limits) {
+            cachedLimits = readLimits(backend.device.limits);
+            console.log('[WebGPULimits] Detected device limits:', cachedLimits);
+            return cachedLimits;
+        }
+
         if (typeof navigator !== 'undefined' && (navigator as any).gpu) {
-            // We'll get actual limits when device is created
-            console.log('[WebGPULimits] WebGPU available, using conservative defaults until device creation');
+            // Device not up yet — do NOT cache, so a later call can adopt it.
+            console.log('[WebGPULimits] WebGPU available, using spec defaults until device creation');
+            return SPEC_DEFAULT_LIMITS;
         }
     } catch (e) {
         console.warn('[WebGPULimits] Could not detect WebGPU limits:', e);
     }
 
-    cachedLimits = defaults;
-    return defaults;
+    cachedLimits = { ...SPEC_DEFAULT_LIMITS };
+    return cachedLimits;
+}
+
+/**
+ * Clamp a desired storage-buffer size to what the shared device actually
+ * granted. Compute consumers call this instead of assuming 128 MB.
+ */
+export function clampStorageBufferSize(desiredBytes: number): number {
+    return Math.min(desiredBytes, getWebGPULimits().maxStorageBufferBindingSize);
+}
+
+/**
+ * Clamp a desired compute workgroup X size to the shared device's ceiling.
+ */
+export function clampWorkgroupSizeX(desired: number): number {
+    const limits = getWebGPULimits();
+    return Math.min(desired, limits.maxComputeWorkgroupSizeX, limits.maxComputeInvocationsPerWorkgroup);
 }
 
 /**
