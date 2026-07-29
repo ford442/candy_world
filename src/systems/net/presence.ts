@@ -249,7 +249,9 @@ export class PresenceSystem {
     private _mergePresenceState(): void {
         if (!this._channel) return;
         const state = this._channel.presenceState<PresenceMeta>();
-        for (const key of Object.keys(state)) {
+        // ⚡ OPTIMIZATION: Bypassed Object.keys() array allocation in presence state merge to eliminate GC spikes.
+        for (const key in state) {
+            if (!Object.prototype.hasOwnProperty.call(state, key)) continue;
             if (key === this._sessionId) continue;
             const entries = state[key];
             if (!entries || entries.length === 0) continue;
