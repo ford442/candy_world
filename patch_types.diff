@@ -1,0 +1,26 @@
+--- src/workers/worker-types.ts
++++ src/workers/worker-types.ts
+@@ -48,7 +48,7 @@
+
+ export interface BatchGroundHeightResponse extends BasePhysicsResponse {
+   type: 'batchGroundHeight';
+-  heights: number[];
++  heights: number[] | Float32Array;
+ }
+
+ export type PhysicsResponse =
+@@ -107,12 +107,12 @@
+
+ export interface ValidatePositionsResponse extends BaseWorldGenResponse {
+   type: 'validatePositions';
+-  results: boolean[];
++  results: boolean[] | Array<boolean>;
+ }
+
+ export interface GetGroundHeightsResponse extends BaseWorldGenResponse {
+   type: 'getGroundHeights';
+-  heights: number[];
++  heights: number[] | Float32Array;
+ }
+
+ export interface BaseWorldGenResponse {

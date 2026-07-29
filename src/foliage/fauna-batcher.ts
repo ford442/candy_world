@@ -145,7 +145,8 @@ export class FaunaBatcher {
         if (slot >= 0) sp.slotToInstance.set(slot, idx);
 
         const m = new THREE.Matrix4().makeTranslation(x, y, z);
-        sp.mesh.setMatrixAt(idx, m);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+        m.toArray(sp.mesh.instanceMatrix.array, idx * 16);
         return idx;
     }
 
@@ -159,7 +160,8 @@ export class FaunaBatcher {
         const sp = this._species[species];
         const idx = sp.slotToInstance.get(slot);
         if (idx === undefined) return;
-        sp.mesh.setMatrixAt(idx, matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+        matrix.toArray(sp.mesh.instanceMatrix.array, idx * 16);
         sp.phases[idx] = phase;
     }
 
