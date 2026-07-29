@@ -23,11 +23,7 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-<<<<<<< HEAD
-import { gpuContext } from './gpu-context.ts';
-=======
 import { getGpuContextSync, GPU_REQUIRED_LIMITS } from './gpu-context.ts';
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
 
 /**
  * WebGPU device limits
@@ -92,48 +88,12 @@ export function getWebGPULimits(renderer?: THREE.Renderer): WebGPULimits {
     if (cachedLimits) return cachedLimits;
 
     try {
-<<<<<<< HEAD
-        if (gpuContext.isReady()) {
-            const limits = gpuContext.getLimits();
-            if (limits) {
-                cachedLimits = {
-                    maxVertexBuffers: limits.maxVertexBuffers,
-                    maxVertexAttributes: limits.maxVertexAttributes,
-                    maxBindGroups: limits.maxBindGroups,
-                    isWebGPUAvailable: true
-                };
-                console.log('[WebGPULimits] Detected device limits from shared context:', cachedLimits);
-                return cachedLimits;
-            }
-        }
-
-        // Try to access WebGPU backend through the renderer fallback
-        if (renderer && (renderer as any).backend) {
-            const backend = (renderer as any).backend;
-            
-            // Check if it's WebGPU backend
-            if (backend.adapter && backend.device) {
-                const device = backend.device;
-                const limits = device.limits;
-                
-                cachedLimits = {
-                    maxVertexBuffers: limits.maxVertexBuffers || 8,
-                    maxVertexAttributes: limits.maxVertexAttributes || 16,
-                    maxBindGroups: limits.maxBindGroups || 4,
-                    isWebGPUAvailable: true
-                };
-                
-                console.log('[WebGPULimits] Detected device limits from renderer fallback:', cachedLimits);
-                return cachedLimits;
-            }
-=======
         // Preferred source: the single shared device.
         const ctx = getGpuContextSync();
         if (ctx.available && ctx.limits) {
             cachedLimits = readLimits(ctx.limits);
             console.log('[WebGPULimits] Adopted shared device limits:', cachedLimits);
             return cachedLimits;
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
         }
 
         // Fallback: read straight off a renderer that has already initialised.

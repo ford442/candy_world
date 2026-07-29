@@ -62,11 +62,7 @@ import {
 
 import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
-<<<<<<< HEAD
-import { gpuContext } from '../rendering/gpu-context.ts';
-=======
 import { awaitGpuDevice, getGpuContextSync, onGpuDeviceLost } from '../rendering/gpu-context.ts';
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
 
 // ⚡ OPTIMIZATION: Fast approximations for Math.sin and Math.cos
 function fastSin(x: number): number {
@@ -459,19 +455,6 @@ private getOpacityNode(): any {
         if (!navigator.gpu) {
             throw new Error('WebGPU not supported');
         }
-<<<<<<< HEAD
-        
-        if (!gpuContext.isReady()) {
-            throw new Error('[ComputeParticles] Shared GPU context is not initialized yet');
-        }
-
-        const device = gpuContext.getDevice();
-        if (!device) {
-            throw new Error('[ComputeParticles] Shared GPU context missing device');
-        }
-        this.device = device;
-        
-=======
 
         // Borrow the single renderer-owned device instead of requesting one per
         // particle system — N systems used to mean N devices, N heaps.
@@ -495,7 +478,6 @@ private getOpacityNode(): any {
             this.uniformBuffer = null;
         });
 
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
         // Ensure WebGPU resources are created sequentially with rAF yields
         // rather than Promise.all parallel execution, to prevent VRAM allocation spikes.
         await this.createComputePipeline();

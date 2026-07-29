@@ -12,9 +12,6 @@ import {
     resolveRendererBackend,
     type RendererBackend,
 } from '../rendering/renderer-mode.ts';
-<<<<<<< HEAD
-import { gpuContext } from '../rendering/gpu-context.ts';
-=======
 import {
     armGpuContext,
     captureAdapterRequests,
@@ -23,7 +20,6 @@ import {
     GPU_POWER_PREFERENCE,
     GPU_REQUIRED_LIMITS,
 } from '../rendering/gpu-context.ts';
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
 
 /**
  * Type union for supported renderers (WebGPU or WebGL fallback)
@@ -162,10 +158,6 @@ export async function createRenderer(
 
     if (WebGPU.isAvailable()) {
         try {
-<<<<<<< HEAD
-            console.log('[Init] WebGPU available, initializing shared WebGPURenderer context');
-            const renderer = await gpuContext.init(canvas);
-=======
             console.log('[Init] WebGPU available, creating WebGPURenderer');
             // The renderer owns the one and only GPUDevice for the page.
             // Capture the adapter it requests first (no extra requestAdapter),
@@ -179,7 +171,6 @@ export async function createRenderer(
                 powerPreference: GPU_POWER_PREFERENCE,
                 requiredLimits: GPU_REQUIRED_LIMITS,
             });
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
             return { renderer, mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime

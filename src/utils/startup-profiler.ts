@@ -203,16 +203,6 @@ function unhookInstancedMesh() {
  * profiler never requests an adapter or a device of its own.
  */
 function hookWebGPU() {
-<<<<<<< HEAD
-  // We no longer hook requestAdapter globally, instead we poll/hook the single device
-  // when it becomes available, or let the user wrap it. Since startup is heavily async
-  // we will just replace the GPUDevice prototype methods temporarily if WebGPU exists,
-  // or hook the device directly once the gpuContext has it.
-  // The easiest and safest way to intercept all buffer creations globally is via the prototype.
-  if (typeof GPUDevice !== 'undefined' && GPUDevice.prototype) {
-    const originalCreateBuffer = GPUDevice.prototype.createBuffer;
-    GPUDevice.prototype.createBuffer = function(desc: GPUBufferDescriptor) {
-=======
   if (typeof navigator === 'undefined' || !(navigator as any).gpu) return;
 
   void getGpuContext().then((ctx) => {
@@ -236,41 +226,11 @@ function hookWebGPU() {
     // Hook buffer creation
     const originalCreateBuffer = device.createBuffer.bind(device);
     device.createBuffer = (desc: GPUBufferDescriptor) => {
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
       if (isEnabled) {
         webgpuMetrics.bufferAllocations++;
         webgpuMetrics.bufferTotalSize += desc.size;
       }
-<<<<<<< HEAD
-      // Fix for mapping issue on some devices - force mappedAtCreation to false when we can
-      if (desc.mappedAtCreation === undefined) {
-          desc.mappedAtCreation = false;
-      }
-      return originalCreateBuffer.call(this, desc);
-    };
-
-    const originalCreateShaderModule = GPUDevice.prototype.createShaderModule;
-    GPUDevice.prototype.createShaderModule = function(desc: GPUShaderModuleDescriptor) {
-      if (isEnabled) {
-        const start = performance.now();
-        const result = originalCreateShaderModule.call(this, desc);
-        const end = performance.now();
-        webgpuMetrics.shaderCompilations++;
-        webgpuMetrics.shaderCompileTime += (end - start);
-        return result;
-      }
-      return originalCreateShaderModule.call(this, desc);
-    };
-
-    const originalCreateRenderPipeline = GPUDevice.prototype.createRenderPipeline;
-    GPUDevice.prototype.createRenderPipeline = function(desc: GPURenderPipelineDescriptor) {
-      if (isEnabled) {
-        webgpuMetrics.pipelineCreations++;
-      }
-      return originalCreateRenderPipeline.call(this, desc);
-=======
       return originalCreateBuffer(desc);
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
     };
 
     // Hook shader module creation

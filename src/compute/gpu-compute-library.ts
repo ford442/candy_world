@@ -49,8 +49,6 @@ export interface ComputeMetrics {
     [key: string]: number;
 }
 
-import { gpuContext } from '../rendering/gpu-context.ts';
-
 // =============================================================================
 // GPU COMPUTE LIBRARY
 // =============================================================================
@@ -79,26 +77,20 @@ export class GPUComputeLibrary {
 
     /** True when the device has been successfully initialised */
     isReady(): boolean {
-        return this._ready && this.device !== null && gpuContext.isReady();
+        return this._ready && this.device !== null;
     }
 
     /** Get the raw GPUDevice (null if not initialised) */
     getDevice(): GPUDevice | null {
-        if (!gpuContext.isReady()) return null;
         return this.device;
     }
 
     /**
-<<<<<<< HEAD
-     * Initialise the WebGPU device by grabbing the shared gpuContext.
-     * Rejects if WebGPU is unavailable or initialization fails.
-=======
      * Adopt the shared, renderer-owned WebGPU device.
      *
      * Does **not** request a device of its own — see `gpu-context.ts`. Rejects
      * when no shared device is available so callers fail closed to their
      * CPU/WASM tier; `compute-init.ts` swallows that rejection by design.
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
      * Safe to call multiple times — subsequent calls are no-ops.
      */
     async initDevice(): Promise<void> {
@@ -107,26 +99,6 @@ export class GPUComputeLibrary {
             throw new Error('[GPU] WebGPU is not supported in this browser');
         }
 
-<<<<<<< HEAD
-        if (!gpuContext.isReady()) {
-             throw new Error('[GPU] Shared GPU context is not initialized yet');
-        }
-
-        this.device = gpuContext.getDevice();
-        this.adapter = gpuContext.getAdapter();
-
-        if (!this.device || !this.adapter) {
-            throw new Error('[GPU] Shared GPU context missing device or adapter');
-        }
-
-        // We do not need to register a new lost callback here to panic/reload,
-        // because gpuContext handles the device lost recovery. We simply degrade gracefully
-        // by making isReady() evaluate to false on subsequent calls since gpuContext.isReady()
-        // will become false.
-
-        this._ready = true;
-        console.log('[GPU] Compute library hooked into shared device successfully');
-=======
         const device = await awaitGpuDevice();
         if (!device) {
             const reason = getGpuContextSync().reason ?? 'device unavailable';
@@ -150,7 +122,6 @@ export class GPUComputeLibrary {
 
         this._ready = true;
         console.log('[GPU] Using shared renderer-owned device');
->>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
     }
 
     // =========================================================================
