@@ -74,7 +74,12 @@ function buildGraph() {
     }
     edges.push({ id: 'e0', from: 'approach:ground', to: 'island:low_mist', kind: 'vine_ladder' });
     edges.push({ id: 'e1', from: 'island:low_mist', to: 'island:mid_canopy', kind: 'vine_ladder' });
-    edges.push({ id: 'e2', from: 'island:mid_canopy', to: 'island:high_nebula', kind: 'vine_ladder' });
+    edges.push({
+        id: 'e2',
+        from: 'island:mid_canopy',
+        to: 'island:high_nebula',
+        kind: 'vine_ladder',
+    });
     edges.push({ id: 'e3', from: 'mist:cloud:0', to: 'island:low_mist', kind: 'cloud_hop' });
     nodes.set('mist:cloud:0', { id: 'mist:cloud:0', kind: 'cloud', x: -101, y: 16.5, z: 118 });
     return { nodes, edges };
@@ -101,10 +106,58 @@ function buildTraversalWaypoints(nodes) {
     const path = [{ x: islands[0].x, y: 2.0, z: islands[0].z, id: 'spawn_ground' }];
     for (const n of islands) path.push({ x: n.x, y: n.y, z: n.z, id: n.id });
     for (let i = islands.length - 2; i >= 0; i--) {
-        path.push({ x: islands[i].x, y: islands[i].y, z: islands[i].z, id: `return:${islands[i].id}` });
+        path.push({
+            x: islands[i].x,
+            y: islands[i].y,
+            z: islands[i].z,
+            id: `return:${islands[i].id}`,
+        });
     }
     path.push({ x: islands[0].x, y: 2.0, z: islands[0].z, id: 'return_ground' });
     return path;
+}
+
+/** Mirror planRoostAnchors from src/systems/fauna/roosts.ts (#1363 task 7). */
+function planRoostAnchors(islands, opts, rng) {
+    const anchors = [];
+    const perIsland = Math.max(0, Math.floor(opts.perIsland));
+    if (perIsland === 0) return anchors;
+
+    for (const island of islands) {
+        if (!Number.isFinite(island.radius) || island.radius <= 0) continue;
+        if (!Number.isFinite(island.x) || !Number.isFinite(island.z)) continue;
+
+        const ring = island.radius * opts.ringInset;
+        const jitterAmp = island.radius * opts.jitter;
+
+        for (let i = 0; i < perIsland; i++) {
+            const angle = (i / perIsland) * Math.PI * 2 + (island.layerId.length % 7) * 0.31;
+            const jx = rng ? (rng() - 0.5) * 2 * jitterAmp : 0;
+            const jz = rng ? (rng() - 0.5) * 2 * jitterAmp : 0;
+            anchors.push({
+                islandId: island.id,
+                layerId: island.layerId,
+                x: island.x + Math.cos(angle) * ring + jx,
+                y: island.y,
+                z: island.z + Math.sin(angle) * ring + jz,
+            });
+        }
+    }
+    return anchors;
+}
+
+const ROOST_PLAN = { perIsland: 4, ringInset: 0.55, jitter: 0.12 };
+const ROOST_DECK_TOLERANCE = 2.5;
+
+function buildRoostSources() {
+    return LAYERS.map((l) => ({
+        id: `sky_island:${l.id}`,
+        layerId: l.id,
+        x: l.x,
+        y: l.y,
+        z: l.z,
+        radius: l.radius,
+    }));
 }
 
 // ---- harness ----
@@ -204,6 +257,54 @@ test('traversal path: spawn → hops → apex → return without clipping', () =
 test('layer Y ordering matches proposal tiers', () => {
     assert(LAYERS[0].y < LAYERS[1].y && LAYERS[1].y < LAYERS[2].y, 'mist < canopy < nebula');
     assert(LAYERS[0].y === 18 && LAYERS[1].y === 32 && LAYERS[2].y === 48, 'explicit Y coords');
+});
+
+test('fauna roosts: anchors land on every island deck', () => {
+    const anchors = planRoostAnchors(buildRoostSources(), ROOST_PLAN);
+    assert(anchors.length === LAYERS.length * 4, `12 anchors (got ${anchors.length})`);
+    for (const l of LAYERS) {
+        const onLayer = anchors.filter((a) => a.layerId === l.id);
+        assert(onLayer.length === 4, `${l.id} seats 4 roosts (got ${onLayer.length})`);
+    }
+});
+
+test('fauna roosts: anchors stay inside the walkable platform AABB', () => {
+    // registerWalkableIslandPlatform uses radius * 0.9 for the deck bounds —
+    // an anchor outside it would resolve to terrain and get rejected at spawn.
+    const anchors = planRoostAnchors(buildRoostSources(), ROOST_PLAN, () => 1.0);
+    for (const a of anchors) {
+        const layer = LAYERS.find((l) => l.id === a.layerId);
+        const dx = Math.abs(a.x - layer.x);
+        const dz = Math.abs(a.z - layer.z);
+        const bound = layer.radius * 0.9;
+        assert(dx <= bound && dz <= bound, `${a.layerId} anchor within deck AABB`);
+    }
+});
+
+test('fauna roosts: ground query resolves the deck, not terrain', () => {
+    const platforms = buildIslandPlatforms();
+    const anchors = planRoostAnchors(buildRoostSources(), ROOST_PLAN, () => 1.0);
+    let seated = 0;
+    for (const a of anchors) {
+        const surfaceY = applyPlatformOverride(a.x, a.z, 1.5, platforms);
+        if (Math.abs(surfaceY - a.y) > ROOST_DECK_TOLERANCE) continue;
+        seated++;
+    }
+    assert(
+        seated === anchors.length,
+        `all ${anchors.length} roosts resolve to a deck (got ${seated})`
+    );
+});
+
+test('fauna roosts: degrade to zero when no islands registered', () => {
+    assert(planRoostAnchors([], ROOST_PLAN).length === 0, 'empty registry → no roosts');
+    const disabled = planRoostAnchors(buildRoostSources(), { ...ROOST_PLAN, perIsland: 0 });
+    assert(disabled.length === 0, 'perIsland 0 → no roosts');
+    const degenerate = planRoostAnchors(
+        [{ id: 'x', layerId: 'x', x: 0, y: 10, z: 0, radius: 0 }],
+        ROOST_PLAN
+    );
+    assert(degenerate.length === 0, 'zero-radius island skipped (no NaN anchors)');
 });
 
 console.log(`\n---\n${passed} passed, ${failed} failed`);
