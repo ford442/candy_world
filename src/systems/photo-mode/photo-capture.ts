@@ -99,9 +99,18 @@ export async function capturePhotoPng(options: CaptureOptions): Promise<string> 
     renderer.setPixelRatio(1);
     renderer.setSize(width, height, false);
 
+
     try {
         options.renderFrame();
+
+        // Wait for WebGPU queue to submit rendering work before capturing
+        const backend = (renderer as any).backend;
+        if (backend?.device?.queue?.onSubmittedWorkDone) {
+            await backend.device.queue.onSubmittedWorkDone();
+        }
+
         let dataUrl = renderer.domElement.toDataURL('image/png');
+
 
         const stamp: CaptureStamp = options.stamp ?? {
             seed: getWorldSeed(),

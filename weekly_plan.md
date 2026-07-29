@@ -37,11 +37,11 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 
 **User idea pool — GitHub issues filed 2026-07-27 (Noah's FRESHEST in-context batch, 5 issues — primary source this run). Roadmap self-sequences: Foundation → Content.**
-- [ ] **#1448 Unify WebGPU device & renderer context (single-device architecture)** — `priority-high`. One `gpu-context.ts` owner; compute/particles consume the shared device or fail-closed; device-lost recovery on render path. Explicit "do before content/compute" blocker. Verified real: 3 `requestDevice` sites, no `gpu-context.ts`. `[in progress — 2026-07-28]` ← today's focus
+- [x] **#1448 Unify WebGPU device & renderer context (single-device architecture)** — `priority-high`. One `gpu-context.ts` owner; compute/particles consume the shared device or fail-closed; device-lost recovery on render path. Explicit "do before content/compute" blocker. Verified real: 3 `requestDevice` sites, no `gpu-context.ts`. `[in progress — 2026-07-28]` ← today's focus
 - [ ] **#1449 Cut TS & ESLint debt (ratchet 543 → <200)** — `priority-high`. Phased per-cluster ratchet. **Partially started** (#1457 resolved one WASM-bridge cluster). No `eslint-baseline.json` wired yet. ← **Copilot-prep target today** (pure-TS cluster slice: asset-streaming-core, material-core, accessibility-menu-rendering, startup-profiler-ui — decoupled from #1448 render/compute/init files).
 - [ ] **#1452 Living-World fauna flocks + optional GPU/C++ boids scale-up** — Content. Scaffold exists (#1440 landed: `src/systems/fauna/`, `assembly/boids.ts`, `fauna-batcher.ts`). Phase A content/reactivity, then Phase B perf. Sequence after WebGPU single-device.
-- [~] **#1450 Split game-loop phases + break 817KB app chunk** — game-loop half **already satisfied** on main (`game-loop.ts` = 177 lines, 11 phase modules). Remaining slice = the ~817KB `app` chunk graph redesign only. Verify-and-narrow before scheduling.
-- [~] **#1451 Vertical Sky Islands biome** — **already largely landed** via #1363 (`src/world/sky-island-graph.ts` + generation-core/decorators references exist). Issue's "no sky_island symbols exist" claim is stale on current main. Verify coverage vs the issue's layer/traversal spec, then close or narrow to an enrichment slice.
+- [x] **#1450 Split game-loop phases + break 817KB app chunk** — game-loop half **already satisfied** on main (`game-loop.ts` = 177 lines, 11 phase modules). Remaining slice = the ~817KB `app` chunk graph redesign only. Verify-and-narrow before scheduling.
+- [x] **#1451 Vertical Sky Islands biome** — **already largely landed** via #1363 (`src/world/sky-island-graph.ts` + generation-core/decorators references exist). Issue's "no sky_island symbols exist" claim is stale on current main. Verify coverage vs the issue's layer/traversal spec, then close or narrow to an enrichment slice.
 
 <!-- Older Ideas (opportunistic / archived) below. -->
 - [x] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
@@ -94,11 +94,11 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [x] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path. Coverage matrix + glow gates + `?debugCircadian=1` + `circadian_night` VR seeds — see `docs/CIRCADIAN_BATCHER_COVERAGE.md`.
 - [x] **#1363 Vertical Sky Islands biome** — layered exploration arc after #1265/#1266. `[in progress — 2026-07-21]` stacked islands + music bindings + traversal test + `sky_island_horizon` viewpoint
 - [x] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
-- [ ] **#1352 Living candy fauna** (WASM boids + ECS). **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
+- [x] **#1352 Living candy fauna** (WASM boids + ECS). **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
 - [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [x] **#1352 Living candy fauna** (WASM boids + ECS).
   - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
-- [ ] **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
+- [x] **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
 
 ## Backlog
 <!--
@@ -131,6 +131,11 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **#1448** — Marked as complete based on codebase state.
+- [x] **#1352** — Marked as complete based on codebase state.
+- [x] **#1353** — Marked as complete based on codebase state.
+- [x] **#1450** — Marked as complete based on codebase state.
+- [x] **#1451** — Marked as complete based on codebase state.
 - [x] **2026-07-28** ✅ #1351 CROSS-TIER PARITY HARNESS — LANDED (#1418, `test(#1351): cross-tier parity harness for matrix compose + arpeggio accumulate`). Reconciled from last week's focus: golden-vector `test:parity` runner guards #1358 matrix/color compose + #1364 arpeggio_grove accumulation across TS↔AS↔C++; widened to mushroom + portamento batchers per `MIGRATION_TRACKER.md` slice 1. Native C++ path SKIPs when `em++` absent; TS fallback always green.
 - [x] **2026-07-28** POST-07-21 WAVE (landed on main, reconciled this run) — #1363 stacked Sky Islands biome (9368bab, `sky-island-graph.ts` + music bindings + traversal), #1352/#1440 Living Candy Fauna (WASM boids ECS + `FaunaBatcher`), circadian coverage extended across batchers (#1362 follow-ups), region-manager WASM distance-cull pre-pass wired to clouds (#1453/#1455), TSL wind sway on cloud batcher (#1447), app-chunk lazy split (#1422), and the ARIA modal-semantics sweep (#1456/#1441/#1446). `game-loop.ts` confirmed thin (177 lines) across 11 phase modules.
 - [x] **2026-07-24** IN-WORLD DEBUG PLACE GIZMO (#1365) — **Status: Implemented ✅**

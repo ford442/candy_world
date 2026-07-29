@@ -46,7 +46,7 @@ import { player } from '../systems/physics/index.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
-import { getPhotoMode } from '../systems/photo-mode/index.ts';
+import { getPhotoMode, isPhotoModeActive } from '../systems/photo-mode/index.ts';
 import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
 
 // Re-exports (public surface for main.ts / index.ts)
@@ -138,23 +138,27 @@ export function animate() {
     );
 
     // 2b. Foliage materials + batcher LOD (after sky/fog uniforms settle)
-    updateFoliagePhase(
-        delta,
-        audioState,
-        visualsState.isNightNow,
-        visualsState.weatherStateStr,
-        visualsState.weatherIntensity,
-        visualsState.dayNightBias
-    );
+    if (!isPhotoModeActive()) {
+        updateFoliagePhase(
+            delta,
+            audioState,
+            visualsState.isNightNow,
+            visualsState.weatherStateStr,
+            visualsState.weatherIntensity,
+            visualsState.dayNightBias
+        );
+    }
 
     // 3. Particles and Music Reactivity phase
-    updateParticlesPhase(
-        delta,
-        gt + timeOffsetRef.value,
-        audioState,
-        visualsState.isNightNow,
-        visualsState.cyclePos >= 0.2 + 0.3 + 0.1 + 0.1 // deep night start approx, exact logic is in config
-    );
+    if (!isPhotoModeActive()) {
+        updateParticlesPhase(
+            delta,
+            gt + timeOffsetRef.value,
+            audioState,
+            visualsState.isNightNow,
+            visualsState.cyclePos >= 0.2 + 0.3 + 0.1 + 0.1 // deep night start approx, exact logic is in config
+        );
+    }
 
     // 4. PostFX and Camera phase
     profiler.measure('PostFX', () => {
@@ -168,19 +172,25 @@ export function animate() {
     }
 
     // 5. Compute passes
-    updateComputePhase();
-    tickComputeOrchestrator();
+    if (!isPhotoModeActive()) {
+        updateComputePhase();
+        tickComputeOrchestrator();
 
-    updateImpacts(rendererRef, gt + timeOffsetRef.value);
-    updateDandelionSeeds(rendererRef);
-    updateFaunaSystem(delta, gt + timeOffsetRef.value);
+        updateImpacts(rendererRef, gt + timeOffsetRef.value);
+        updateDandelionSeeds(rendererRef);
+        updateFaunaSystem(delta, gt + timeOffsetRef.value);
+    }
 
     // 6. Physics Phase
     const devOrbitActive = exploreActive;
-    updatePhysicsPhase(delta, devOrbitActive, audioState);
+    if (!isPhotoModeActive()) {
+        updatePhysicsPhase(delta, devOrbitActive, audioState);
+    }
 
     // 7. Gameplay Phase
-    updateGameplayPhase(delta, gt + timeOffsetRef.value, exploreActive, audioState);
+    if (!isPhotoModeActive()) {
+        updateGameplayPhase(delta, gt + timeOffsetRef.value, exploreActive, audioState);
+    }
 
     // 8. Render
     renderPostProcessing();

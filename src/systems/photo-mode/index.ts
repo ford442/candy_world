@@ -12,4 +12,3 @@ export {
     type PhotoPreset,
 } from './photo-presets.ts';
 export { capturePhotoPng, type CaptureStamp, type CaptureOptions } from './photo-capture.ts';
-export { PhotoControlsOverlay, type PhotoControlValues } from './photo-controls.ts';

@@ -98,3 +98,6 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 1. **Refactoring Large Files: Finalization** (Status: Implemented ✅)
    - *Implementation Details:* Completed refactoring of all large files listed in `REFACTORING_PLAN_REMAINING.md` (`generation.ts`, `region-manager.ts`, `loading-screen.ts`, `audio-system.ts`, `analytics-debug.ts`) into smaller, modular components.
    - *Next Step Suggestion:* Implement TSL Volumetric God Rays + selective DoF (#1173) or Awakened Flora Persistence (#1176).
+
+1. **#1356 Cinematic Photo Mode** (Status: In Progress ⏳)
+   - *Implementation Details:* Pending UI scaffolding and canvas capture logic.

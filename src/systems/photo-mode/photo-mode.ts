@@ -16,7 +16,7 @@ import {
     uShaftScatterBoost,
 } from '../../foliage/post-processing.ts';
 import { capturePhotoPng } from './photo-capture.ts';
-import { PhotoControlsOverlay, type PhotoControlValues } from './photo-controls.ts';
+import type { PhotoControlsOverlay, PhotoControlValues } from './photo-controls.ts';
 import { defaultPhotoSettings } from './photo-presets.ts';
 import { announcePolite } from '../../ui/announcer.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
@@ -137,6 +137,8 @@ export class PhotoModeManager {
 
         document.body.classList.add('photo-mode-active');
         this.setHudVisible(!this.values.hideHud);
+
+        const { PhotoControlsOverlay } = await import('./photo-controls.ts');
 
         this.overlay = new PhotoControlsOverlay({
             initial: this.values,
