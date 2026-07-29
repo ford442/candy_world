@@ -757,25 +757,19 @@ if (startButton) {
         });
     }
 
-    // Wire the wait-for-full checkbox
+    // ♿ Aria: Refactor wait-for-full checkbox to an accessible switch button
     const waitFullCheckbox = document.getElementById(
         'wait-full-checkbox'
-    ) as HTMLInputElement | null;
+    ) as HTMLButtonElement | null;
     if (waitFullCheckbox) {
-        waitFullCheckbox.checked = waitForFullPopulation;
-        waitFullCheckbox.addEventListener('change', () => {
-            waitForFullPopulation = waitFullCheckbox.checked;
+        waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
+        waitFullCheckbox.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent accidental form submission
+            const isChecked = waitFullCheckbox.getAttribute('aria-checked') === 'true';
+            const newCheckedState = !isChecked;
+            waitFullCheckbox.setAttribute('aria-checked', String(newCheckedState));
+            waitForFullPopulation = newCheckedState;
             localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
-        });
-
-        // ♿ Aria: Keyboard support for custom switch behavior on Enter
-        waitFullCheckbox.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                waitFullCheckbox.checked = !waitFullCheckbox.checked;
-                waitForFullPopulation = waitFullCheckbox.checked;
-                localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
-            }
         });
     }
 
