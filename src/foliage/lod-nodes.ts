@@ -2,7 +2,17 @@
  * TSL nodes for three-tier foliage LOD (hero / mid / far).
  * Hero tier (factor ≈ 0) preserves pre-LOD visuals; mid/far simplify motion and emissive.
  */
-import { attribute, float, mix, positionLocal, smoothstep, uniform, vec3, floor, mod } from 'three/tsl';
+import {
+    attribute,
+    float,
+    mix,
+    positionLocal,
+    smoothstep,
+    uniform,
+    vec3,
+    floor,
+    mod,
+} from 'three/tsl';
 import { calculatePlayerPush, calculateWindSway } from './material-core.ts';
 import type { TSLArg } from './material-core.ts';
 import type { MeshStandardNodeMaterial } from 'three/webgpu';
@@ -35,8 +45,12 @@ export const lodMeshOpacity = () => float(1.0).sub(lodImpostorBlend());
 /** Instances actively cross-fading between tiers (hero↔mid or mid↔far/impostor). */
 export const lodBlendBandGate = () => {
     const f = aInstanceLodFactor;
-    const heroMid = smoothstep(float(0.75), float(0.85), f).mul(smoothstep(float(1.15), float(1.05), f));
-    const midFar = smoothstep(float(1.45), float(1.55), f).mul(smoothstep(float(2.15), float(1.95), f));
+    const heroMid = smoothstep(float(0.75), float(0.85), f).mul(
+        smoothstep(float(1.15), float(1.05), f)
+    );
+    const midFar = smoothstep(float(1.45), float(1.55), f).mul(
+        smoothstep(float(2.15), float(1.95), f)
+    );
     return heroMid.add(midFar).clamp(0.0, 1.0);
 };
 
@@ -52,8 +66,13 @@ export const lodDitheredOpacity = (baseOpacity: ReturnType<typeof float> = lodMe
  * Hero tier (<120u) opacity stays 1.0 — only far handoff fades.
  */
 export function applyFoliageLodMaterialFade(material: MeshStandardNodeMaterial): void {
-    if ((material as unknown as { userData: Record<string, unknown> }).userData?.foliageLodFadeApplied) return;
-    (material as unknown as { userData: Record<string, unknown> }).userData.foliageLodFadeApplied = true;
+    if (
+        (material as unknown as { userData: Record<string, unknown> }).userData
+            ?.foliageLodFadeApplied
+    )
+        return;
+    (material as unknown as { userData: Record<string, unknown> }).userData.foliageLodFadeApplied =
+        true;
     material.transparent = true;
     const existing = material.opacityNode;
     const fade = lodDitheredOpacity();
@@ -131,8 +150,10 @@ export const scaleEmissiveByLod = (emissiveNode: ReturnType<typeof float>) => {
 };
 
 /** Mix a hero-only multiplier toward 1.0 in mid/far (e.g. audio squash) */
-export const lodHeroOnlyMultiplier = (heroValue: ReturnType<typeof vec3>, identity = vec3(1, 1, 1)) =>
-    mix(identity, heroValue, lodHeroGate());
+export const lodHeroOnlyMultiplier = (
+    heroValue: ReturnType<typeof vec3>,
+    identity = vec3(1, 1, 1)
+) => mix(identity, heroValue, lodHeroGate());
 
 /**
  * 🏗️ ARCHITECT: Standardized TSL deformation chain for LOD-enabled objects
