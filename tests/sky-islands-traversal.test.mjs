@@ -74,7 +74,12 @@ function buildGraph() {
     }
     edges.push({ id: 'e0', from: 'approach:ground', to: 'island:low_mist', kind: 'vine_ladder' });
     edges.push({ id: 'e1', from: 'island:low_mist', to: 'island:mid_canopy', kind: 'vine_ladder' });
-    edges.push({ id: 'e2', from: 'island:mid_canopy', to: 'island:high_nebula', kind: 'vine_ladder' });
+    edges.push({
+        id: 'e2',
+        from: 'island:mid_canopy',
+        to: 'island:high_nebula',
+        kind: 'vine_ladder',
+    });
     edges.push({ id: 'e3', from: 'mist:cloud:0', to: 'island:low_mist', kind: 'cloud_hop' });
     nodes.set('mist:cloud:0', { id: 'mist:cloud:0', kind: 'cloud', x: -101, y: 16.5, z: 118 });
     return { nodes, edges };
@@ -101,7 +106,12 @@ function buildTraversalWaypoints(nodes) {
     const path = [{ x: islands[0].x, y: 2.0, z: islands[0].z, id: 'spawn_ground' }];
     for (const n of islands) path.push({ x: n.x, y: n.y, z: n.z, id: n.id });
     for (let i = islands.length - 2; i >= 0; i--) {
-        path.push({ x: islands[i].x, y: islands[i].y, z: islands[i].z, id: `return:${islands[i].id}` });
+        path.push({
+            x: islands[i].x,
+            y: islands[i].y,
+            z: islands[i].z,
+            id: `return:${islands[i].id}`,
+        });
     }
     path.push({ x: islands[0].x, y: 2.0, z: islands[0].z, id: 'return_ground' });
     return path;
@@ -280,7 +290,10 @@ test('fauna roosts: ground query resolves the deck, not terrain', () => {
         if (Math.abs(surfaceY - a.y) > ROOST_DECK_TOLERANCE) continue;
         seated++;
     }
-    assert(seated === anchors.length, `all ${anchors.length} roosts resolve to a deck (got ${seated})`);
+    assert(
+        seated === anchors.length,
+        `all ${anchors.length} roosts resolve to a deck (got ${seated})`
+    );
 });
 
 test('fauna roosts: degrade to zero when no islands registered', () => {

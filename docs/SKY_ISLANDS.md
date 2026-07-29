@@ -4,12 +4,12 @@ Stacked candy landmasses for vertical exploration — builds on unified ground s
 
 ## Layers
 
-| Layer | Y | Content |
-|-------|---|---------|
-| Approach stairs | ~8→28 | `CLOUD_ARCHIPELAGO` walkable cloud hops |
-| Low mist | 18 | Cotton-candy island, cloud ring, panning lift pads |
-| Mid canopy | 32 | Lilac sugar island, wisteria accents, gem canopy sapling |
-| High nebula | 48 | Crystal island, glass mushrooms, silence spirits |
+| Layer           | Y     | Content                                                  |
+| --------------- | ----- | -------------------------------------------------------- |
+| Approach stairs | ~8→28 | `CLOUD_ARCHIPELAGO` walkable cloud hops                  |
+| Low mist        | 18    | Cotton-candy island, cloud ring, panning lift pads       |
+| Mid canopy      | 32    | Lilac sugar island, wisteria accents, gem canopy sapling |
+| High nebula     | 48    | Crystal island, glass mushrooms, silence spirits         |
 
 Constants: `SKY_ISLANDS` / `CLOUD_ARCHIPELAGO` in `src/world/generation-utils.ts`.
 

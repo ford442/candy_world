@@ -118,7 +118,7 @@ function writeCritter(
     surfaceY: number,
     z: number,
     species: FaunaSpecies,
-    biome: string,
+    biome: string
 ): void {
     const { world, buffer, base, rng, entries } = ctx;
     const normal = sampleGroundNormal(x, z, _scratchNormal);
@@ -164,7 +164,7 @@ function spawnSkyIslandRoosts(
         entries: FaunaSpawnEntry[];
     },
     startSlot: number,
-    maxCount: number,
+    maxCount: number
 ): number {
     const cfg = CONFIG.fauna?.roosts;
     if (cfg && cfg.enabled === false) return startSlot;
@@ -175,7 +175,7 @@ function spawnSkyIslandRoosts(
             ringInset: cfg?.ringInset ?? DEFAULT_ROOST_PLAN.ringInset,
             jitter: cfg?.jitter ?? DEFAULT_ROOST_PLAN.jitter,
         },
-        ctx.rng,
+        ctx.rng
     );
     if (anchors.length === 0) return startSlot;
 

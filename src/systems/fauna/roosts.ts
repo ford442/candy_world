@@ -79,7 +79,7 @@ export const DEFAULT_ROOST_PLAN: RoostPlanOptions = {
 export function planRoostAnchors(
     islands: readonly SkyIslandRoostSource[],
     opts: RoostPlanOptions = DEFAULT_ROOST_PLAN,
-    rng?: () => number,
+    rng?: () => number
 ): RoostAnchor[] {
     const anchors: RoostAnchor[] = [];
     const perIsland = Math.max(0, Math.floor(opts.perIsland));
@@ -119,7 +119,7 @@ export function planRoostAnchors(
  */
 export function getSkyIslandRoostAnchors(
     opts: RoostPlanOptions = DEFAULT_ROOST_PLAN,
-    rng?: () => number,
+    rng?: () => number
 ): RoostAnchor[] {
     return planRoostAnchors(getRegisteredSkyIslands(), opts, rng);
 }
