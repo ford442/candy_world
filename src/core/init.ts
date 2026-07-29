@@ -142,10 +142,10 @@ export interface CreateRendererResult {
  * @param canvas The canvas element to render to
  * @param preference Resolved renderer preference from URL/localStorage
  */
-export function createRenderer(
+export async function createRenderer(
     canvas: HTMLCanvasElement,
     preference: RendererBackend = resolveRendererBackend(),
-): CreateRendererResult {
+): Promise<CreateRendererResult> {
     if (preference === 'webgl') {
         console.log('[Init] WebGL requested — creating WebGLRenderer');
         return {
@@ -208,14 +208,14 @@ export function createRenderer(
  * - Sun glow, corona, and volumetric light shafts
  * - Resize event handler
  * 
- * @returns SceneInitResult containing all scene objects, lights, materials, uniforms, and mode
+ * @returns Promise<SceneInitResult> containing all scene objects, lights, materials, uniforms, and mode
  */
-export function initScene(): SceneInitResult {
+export async function initScene(): Promise<SceneInitResult> {
     const canvas = document.querySelector('#glCanvas') as HTMLCanvasElement;
     const scene = new THREE.Scene();
 
     const requested = resolveRendererBackend();
-    const { renderer, mode, fallbackReason } = createRenderer(canvas, requested);
+    const { renderer, mode, fallbackReason } = await createRenderer(canvas, requested);
 
     // Adopt the renderer's device as the process-wide GPU context. Deliberately
     // not awaited: initScene() is synchronous, and every consumer of the shared

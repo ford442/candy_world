@@ -151,7 +151,7 @@ declare module '../wasm/candy_physics.wasm?init' {
 }
 
 declare module '*/src/core/init.js' {
-  export function initScene(): any;
+  export function initScene(): Promise<any>;
   export function forceFullSceneWarmup(renderer: any, scene: any, camera: any): Promise<void>;
 }
 
