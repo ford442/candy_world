@@ -1,3 +1,80 @@
+--- a/src/core/input/input.ts
++++ b/src/core/input/input.ts
+@@ -607,6 +607,7 @@
+                 break;
+             case 'KeyQ':
+                 if (getIsPlaylistOpen()) return; // Handled by playlist manager
++                if (event.repeat) return; // Prevent repeated triggers
+                 triggerButtonPressDown('openJukeboxBtn');
+                 togglePlaylist();
+                 break;
+@@ -668,26 +669,31 @@
+                 keyStates.jump = true;
+                 break;
+             case 'KeyN':
++                if (event.repeat) return;
+                 triggerButtonPressDown('toggleDayNight');
+                 if (toggleDayNightCallback) toggleDayNightCallback();
+                 break;
+             case 'KeyM':
++                if (event.repeat) return;
+                 triggerButtonPressDown('toggleMuteBtn');
+                 handleMuteKey();
+                 break;
+             case 'KeyU':
++                if (event.repeat) return;
+                 triggerButtonPressDown('musicUploadBtn');
+                 const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
+                 if (uploadInput) uploadInput.click();
+                 break;
+             case 'Equal':
+             case 'NumpadAdd':
++                if (event.repeat) return;
+                 triggerButtonPressDown('volUpBtn');
+                 handleVolumeKey(0.1);
+                 break;
+             case 'Minus':
+             case 'NumpadSubtract':
++                if (event.repeat) return;
+                 triggerButtonPressDown('volDownBtn');
+                 handleVolumeKey(-0.1);
+                 break;
+             case 'ControlLeft':
+@@ -887,20 +893,29 @@
+     }
+     // ---------------------------------------------------
+
+     // ♿ Aria: Tactile feedback mapping keyboard interactions to standard :active behavior
+-    function triggerButtonPressDown(buttonId: string): void {
++    const activeKeyboardButtons = new Set<string>();
++
++    function triggerButtonPressDown(buttonId: string): void {
+         const btn = document.getElementById(buttonId);
+         if (btn && btn.getAttribute('aria-disabled') !== 'true') {
+             btn.classList.add('keyboard-active');
+-
+-            // Fallback for cases where keyup doesn't fire or focus is lost
+-            btn.addEventListener('blur', () => {
+-                btn.classList.remove('keyboard-active');
+-            }, { once: true });
++            activeKeyboardButtons.add(buttonId);
+         }
+     }
+
+     function triggerButtonPressUp(buttonId: string): void {
+         const btn = document.getElementById(buttonId);
+         if (btn) {
+             btn.classList.remove('keyboard-active');
+         }
++        activeKeyboardButtons.delete(buttonId);
+     }
++
++    // Safety: release all stuck button states if window loses focus
++    window.addEventListener('blur', () => {
++        for (const buttonId of activeKeyboardButtons) {
++            triggerButtonPressUp(buttonId);
++        }
++    });
 --- src/workers/worldgen-worker.ts
 +++ src/workers/worldgen-worker.ts
 @@ -356,10 +356,12 @@
