@@ -179,9 +179,9 @@ export function rebuildSkyIslandDebug(): void {
     _nodeMarkers.frustumCulled = false;
     const dummy = new THREE.Object3D();
     nodes.forEach((n, i) => {
-        dummy.position.set(n.x, n.y + 0.6, n.z);
-        dummy.updateMatrix();
-        _nodeMarkers!.setMatrixAt(i, dummy.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
+        dummy.matrix.makeTranslation(n.x, n.y + 0.6, n.z);
+        dummy.matrix.toArray(_nodeMarkers!.instanceMatrix.array, i * 16);
     });
     _nodeMarkers.instanceMatrix.needsUpdate = true;
     _scene.add(_nodeMarkers);
