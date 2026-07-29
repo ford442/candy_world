@@ -29,19 +29,57 @@ interface WasmExport {
     kind: string;
 }
 
+/** WebAssembly binary magic: `\0asm` */
+const WASM_MAGIC = new Uint8Array([0x00, 0x61, 0x73, 0x6d]);
+
 /**
- * Check if a WASM file exists by attempting HEAD requests
+ * True when the first bytes of a response are a WASM module (not SPA index.html).
+ */
+function bufferHasWasmMagic(buffer: ArrayBuffer): boolean {
+    const bytes = new Uint8Array(buffer);
+    if (bytes.length < 4) return false;
+    for (let i = 0; i < 4; i++) {
+        if (bytes[i] !== WASM_MAGIC[i]) return false;
+    }
+    return true;
+}
+
+/**
+ * Probe a URL for a real WASM file. Rejects SPA fallbacks that return index.html with 200.
+ */
+async function probeWasmAtUrl(url: string): Promise<boolean> {
+    try {
+        const ranged = await fetch(url, { headers: { Range: 'bytes=0-3' } });
+        if (ranged.ok || ranged.status === 206) {
+            const bytes = await ranged.arrayBuffer();
+            if (bufferHasWasmMagic(bytes)) return true;
+            // Some hosts ignore Range and return HTML — fall through to full GET check.
+        }
+
+        const full = await fetch(url);
+        if (!full.ok) return false;
+
+        const contentType = full.headers.get('content-type') || '';
+        if (contentType.includes('text/html')) return false;
+
+        const bytes = await full.arrayBuffer();
+        return bufferHasWasmMagic(bytes);
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Check if a WASM file exists by probing for the `\0asm` magic bytes.
+ * HEAD-only checks are unreliable: Vite preview/dev SPA fallback returns 200 + text/html.
  * @param filename - The WASM filename to check
  * @returns Promise with existence status and path
  */
 export async function checkWasmFileExists(filename: string): Promise<WasmFileCheckResult> {
     // 1. Handle absolute URLs directly
     if (filename.includes('://')) {
-        try {
-            const check = await fetch(filename, { method: 'HEAD' });
-            if (check.ok) return { exists: true, path: '' };
-        } catch (e) {
-            // Ignore fetch errors
+        if (await probeWasmAtUrl(filename)) {
+            return { exists: true, path: '' };
         }
         return { exists: false, path: null };
     }
@@ -53,30 +91,21 @@ export async function checkWasmFileExists(filename: string): Promise<WasmFileChe
         return `${cleanPrefix}/${file}`;
     };
 
-    // 2. Try Production/Relative Path
-    const prodPath = joinPath(PRODUCTION_PATH_PREFIX, filename);
-    try {
-        const prodCheck = await fetch(prodPath, { method: 'HEAD' });
-        if (prodCheck.ok) {
-            // Return the prefix detected
-            const foundPrefix = PRODUCTION_PATH_PREFIX.endsWith('/') ? PRODUCTION_PATH_PREFIX : `${PRODUCTION_PATH_PREFIX}/`;
-            return { exists: true, path: foundPrefix };
-        }
-    } catch (prodError) {
-        // Ignore fetch errors
-    }
+    const tryPrefix = async (prefix: string): Promise<WasmFileCheckResult | null> => {
+        const url = joinPath(prefix, filename);
+        if (!(await probeWasmAtUrl(url))) return null;
+        const foundPrefix = prefix.endsWith('/') ? prefix : `${prefix}/`;
+        return { exists: true, path: foundPrefix };
+    };
 
-    // 3. Fallback: Try local path explicitly if different
+    // 2. Try production/relative path (supports non-root deployments)
+    const prodResult = await tryPrefix(PRODUCTION_PATH_PREFIX);
+    if (prodResult) return prodResult;
+
+    // 3. Fallback: try local path explicitly if different
     if (PRODUCTION_PATH_PREFIX !== './') {
-        const localPath = `./${filename}`;
-        try {
-            const localCheck = await fetch(localPath, { method: 'HEAD' });
-            if (localCheck.ok) {
-                return { exists: true, path: './' };
-            }
-        } catch (localError) {
-            // Ignore fetch errors
-        }
+        const localResult = await tryPrefix('.');
+        if (localResult) return localResult;
     }
 
     return { exists: false, path: null };
