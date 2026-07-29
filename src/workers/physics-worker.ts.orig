@@ -1,20 +1,20 @@
 /**
  * Physics Worker - Offloads heavy WASM physics calculations from the main thread
- * 
+ *
  * Handles:
  * - Ground height calculations (getGroundHeight)
  * - Collision detection (checkPositionValidity, checkCollision)
  * - Batch physics operations
- * 
+ *
  * Performance Benefits:
  * - Main thread stays responsive during physics calculations
  * - Parallel processing of independent calculations
  * - ~1.5-2x speedup for physics-heavy scenes on multi-core systems
  */
 
-import type { 
-  PhysicsRequest, 
-  PhysicsResponse, 
+import type {
+  PhysicsRequest,
+  PhysicsResponse,
   GroundHeightRequest,
   GroundHeightResponse,
   CollisionCheckRequest,
@@ -56,13 +56,13 @@ async function initWasm(wasmUrl: string): Promise<boolean> {
     if (!response.ok) {
       throw new Error(`Failed to fetch WASM: ${response.status}`);
     }
-    
+
     const bytes = await response.arrayBuffer();
     wasmModule = await WebAssembly.compile(bytes);
-    
+
     // Create memory (64MB should be sufficient for physics)
     memory = new WebAssembly.Memory({ initial: 1024, maximum: 2048 });
-    
+
     // Instantiate with WASI-like imports
     const importObject = {
       env: {
@@ -82,15 +82,15 @@ async function initWasm(wasmUrl: string): Promise<boolean> {
         'Math.PI': Math.PI,
       }
     };
-    
+
     wasmInstance = await WebAssembly.instantiate(wasmModule, importObject);
     exports = wasmInstance.exports;
-    
+
     // Initialize collision system if available
     if (exports.initCollisionSystem) {
       exports.initCollisionSystem();
     }
-    
+
     return true;
   } catch (error) {
     console.error('[PhysicsWorker] WASM init failed:', error);
@@ -107,18 +107,18 @@ function getGroundHeight(x: number, z: number): number {
     // Fallback to simple noise approximation
     return Math.sin(x * 0.1) * Math.cos(z * 0.1) * 2;
   }
-  
+
   let height = exports.getGroundHeight(x, z);
-  
+
   // Check if we're in the lake bounds
-  if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && 
+  if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX &&
       z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
-    
+
     // Check if we're on the island
     if (LAKE_ISLAND.enabled) {
       const dx = x - LAKE_ISLAND.centerX;
       const dz = z - LAKE_ISLAND.centerZ;
-      
+
       // ⚡ OPTIMIZATION: Deferred Math.sqrt() by using squared distance for early-out bounds check.
       const distFromIslandCenterSq = dx * dx + dz * dz;
       const islandRadiusSq = LAKE_ISLAND.radius * LAKE_ISLAND.radius;
@@ -134,19 +134,19 @@ function getGroundHeight(x: number, z: number): number {
         return Math.max(height, finalIslandHeight);
       }
     }
-    
+
     // Apply lake depression
     const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
     const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
     const distEdge = Math.min(distX, distZ);
     const blend = Math.min(1.0, distEdge / 10.0);
     const targetHeight = height * blend + LAKE_BOTTOM * (1 - blend);
-    
+
     if (targetHeight < height) {
       height = targetHeight;
     }
   }
-  
+
   return height;
 }
 
@@ -160,7 +160,7 @@ function checkPositionValidity(x: number, z: number, radius: number): boolean {
     if (distFromCenterSq < 15 * 15) return false;
     return true;
   }
-  
+
   const result = exports.checkPositionValidity(x, z, radius);
   return result === 0; // 0 means valid (no collision)
 }
@@ -180,7 +180,7 @@ function checkCollision(playerX: number, playerZ: number, playerRadius: number, 
  */
 function processRequest(request: PhysicsRequest): PhysicsResponse {
   const startTime = performance.now();
-  
+
   try {
     switch (request.type) {
       case 'getGroundHeight': {
@@ -193,7 +193,7 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
           computeTime: performance.now() - startTime
         } as GroundHeightResponse;
       }
-      
+
       case 'checkCollision': {
         const { playerX, playerZ, playerRadius, objectCount } = request as CollisionCheckRequest;
         const hasCollision = checkCollision(playerX, playerZ, playerRadius, objectCount);
@@ -204,7 +204,7 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
           computeTime: performance.now() - startTime
         } as CollisionCheckResponse;
       }
-      
+
       case 'checkPositionValidity': {
         const { x, z, radius } = request as CollisionCheckRequest;
         const isValid = checkPositionValidity(x, z, radius);
@@ -215,15 +215,10 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
           computeTime: performance.now() - startTime
         };
       }
-      
+
       case 'batchGroundHeight': {
         const { positions } = request as BatchGroundHeightRequest;
-        // ⚡ OPTIMIZATION: Bypassed .map() array allocation in hot worker message path to eliminate GC spikes.
-        const heights = new Float32Array(positions.length);
-        for (let i = 0; i < positions.length; i++) {
-          const pos = positions[i];
-          heights[i] = getGroundHeight(pos.x, pos.z);
-        }
+        const heights = positions.map(pos => getGroundHeight(pos.x, pos.z));
         return {
           type: 'batchGroundHeight',
           requestId: request.requestId,
@@ -231,7 +226,7 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
           computeTime: performance.now() - startTime
         } as BatchGroundHeightResponse;
       }
-      
+
       default:
         return {
           type: 'error',
@@ -255,20 +250,20 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
  */
 function processBatch(): void {
   if (requestQueue.length === 0) return;
-  
+
   // Take up to MAX_BATCH_SIZE requests
   const batch = requestQueue.splice(0, MAX_BATCH_SIZE);
   const responses: PhysicsResponse[] = [];
-  
+
   // Process all requests in the batch
   for (const request of batch) {
     const response = processRequest(request);
     responses.push(response);
   }
-  
+
   // Send all responses back
   self.postMessage({ type: 'batchResponse', responses });
-  
+
   // Schedule next batch if there are more requests
   if (requestQueue.length > 0) {
     batchTimeout = self.setTimeout(processBatch, BATCH_DELAY_MS);
@@ -282,11 +277,11 @@ function processBatch(): void {
  */
 function queueRequest(request: PhysicsRequest): void {
   requestQueue.push(request);
-  
+
   if (batchTimeout === null) {
     batchTimeout = self.setTimeout(processBatch, BATCH_DELAY_MS);
   }
-  
+
   // If queue is getting full, process immediately
   if (requestQueue.length >= MAX_BATCH_SIZE) {
     if (batchTimeout !== null) {
@@ -299,22 +294,22 @@ function queueRequest(request: PhysicsRequest): void {
 // Worker message handler
 self.onmessage = (event: MessageEvent) => {
   const msg = event.data;
-  
+
   if (!msg || !msg.type) return;
-  
+
   switch (msg.type) {
     case 'init': {
       const { wasmUrl } = msg;
       initWasm(wasmUrl).then(success => {
-        self.postMessage({ 
-          type: 'initComplete', 
+        self.postMessage({
+          type: 'initComplete',
           success,
-          workerId: msg.workerId 
+          workerId: msg.workerId
         });
       });
       break;
     }
-    
+
     case 'getGroundHeight':
     case 'checkCollision':
     case 'checkPositionValidity':
@@ -323,19 +318,19 @@ self.onmessage = (event: MessageEvent) => {
       queueRequest(msg as PhysicsRequest);
       break;
     }
-    
+
     case 'immediate': {
       // Process immediately without batching (for urgent requests)
       const response = processRequest(msg.request);
       self.postMessage(response);
       break;
     }
-    
+
     case 'ping': {
       self.postMessage({ type: 'pong', timestamp: performance.now() });
       break;
     }
-    
+
     case 'stats': {
       self.postMessage({
         type: 'stats',
@@ -344,7 +339,7 @@ self.onmessage = (event: MessageEvent) => {
       });
       break;
     }
-    
+
     default:
       self.postMessage({
         type: 'error',
