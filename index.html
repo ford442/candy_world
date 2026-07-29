@@ -696,10 +696,12 @@
             <button id="btn-fast-full" type="button" role="radio" aria-checked="false" tabindex="-1" class="cta-button mode-btn fast-full-btn" aria-describedby="mode-description">
                 🌿 Fast Full (Light)
             </button>
-            <label id="wait-full-label" class="wait-full-option" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;cursor:pointer;font-size:0.82rem;opacity:0.85;">
-                <input type="checkbox" id="wait-full-checkbox" role="switch" style="width:15px;height:15px;cursor:pointer;accent-color:#FFB6C1;">
-                <span>Wait for complete scenery before entering</span>
-            </label>
+            <div id="wait-full-label" class="wait-full-option" style="margin-top:12px; display:flex; justify-content:center; align-items:center;">
+                <button type="button" id="wait-full-checkbox" role="switch" aria-checked="false" class="wait-full-toggle">
+                    <span class="toggle-indicator" aria-hidden="true"></span>
+                    <span class="wait-full-text">Wait for complete scenery before entering</span>
+                </button>
+            </div>
         </div>
 
         <div class="settings settings-container" role="group" aria-label="Game Settings">
