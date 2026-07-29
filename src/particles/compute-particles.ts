@@ -62,6 +62,7 @@ import {
 
 import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
+import { gpuContext } from '../rendering/gpu-context.ts';
 
 // ⚡ OPTIMIZATION: Fast approximations for Math.sin and Math.cos
 function fastSin(x: number): number {
@@ -454,41 +455,15 @@ private getOpacityNode(): any {
             throw new Error('WebGPU not supported');
         }
         
-        // Timeout wrapper for GPU operations (prevent 5min hangs)
-        const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
-            return Promise.race([
-                promise,
-                new Promise<T>((_, reject) => 
-                    setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-                )
-            ]);
-        };
-        
-        const adapter = await withTimeout(
-            navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }),
-            5000,
-            'WebGPU requestAdapter'
-        );
-        
-        if (!adapter) {
-            throw new Error('No WebGPU adapter found');
+        if (!gpuContext.isReady()) {
+            throw new Error('[ComputeParticles] Shared GPU context is not initialized yet');
         }
-        
-        this.device = await withTimeout(
-            adapter.requestDevice({
-                requiredFeatures: [],
-                requiredLimits: {
-                    maxStorageBufferBindingSize: 134217728, // 128MB
-                    maxComputeWorkgroupSizeX: 256
-                }
-            }),
-            5000,
-            'WebGPU requestDevice'
-        );
 
-        this.device.lost.then((info) => {
-            console.error(`[ComputeParticles] WebGPU Device Lost for ${this.type}: ${info.message}`);
-        });
+        const device = gpuContext.getDevice();
+        if (!device) {
+            throw new Error('[ComputeParticles] Shared GPU context missing device');
+        }
+        this.device = device;
         
         // Ensure WebGPU resources are created sequentially with rAF yields
         // rather than Promise.all parallel execution, to prevent VRAM allocation spikes.

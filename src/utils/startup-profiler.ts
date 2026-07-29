@@ -190,61 +190,44 @@ function unhookInstancedMesh() {
 // ============================================================================
 
 function hookWebGPU() {
-  // Try to hook into WebGPU device creation for buffer tracking
-  if ((navigator as any).gpu) {
-    const originalRequestAdapter = (navigator as any).gpu.requestAdapter;
-    
-    (navigator as any).gpu.requestAdapter = async (...args: any[]) => {
-      const adapter = await originalRequestAdapter.apply((navigator as any).gpu, args);
-      if (!adapter) return null;
-      
-      const originalRequestDevice = adapter.requestDevice;
-      adapter.requestDevice = async (...deviceArgs: any[]) => {
-        const device = await originalRequestDevice.apply(adapter, deviceArgs);
-        if (!device) return null;
-        
-        // Hook buffer creation
-        const originalCreateBuffer = device.createBuffer;
-        device.createBuffer = (desc: GPUBufferDescriptor) => {
-          if (isEnabled) {
-            webgpuMetrics.bufferAllocations++;
-            webgpuMetrics.bufferTotalSize += desc.size;
-          }
-          // Fix for mapping issue on some devices - force mappedAtCreation to false when we can
-          // Unless explicitly requested otherwise
-          if (desc.mappedAtCreation === undefined) {
-             desc.mappedAtCreation = false;
-          }
-          return originalCreateBuffer.call(device, desc);
-        };
-        
-        // Hook shader module creation
-        const originalCreateShaderModule = device.createShaderModule;
-        device.createShaderModule = (desc: GPUShaderModuleDescriptor) => {
-          if (isEnabled) {
-            const start = performance.now();
-            const result = originalCreateShaderModule.call(device, desc);
-            const end = performance.now();
-            webgpuMetrics.shaderCompilations++;
-            webgpuMetrics.shaderCompileTime += (end - start);
-            return result;
-          }
-          return originalCreateShaderModule.call(device, desc);
-        };
-        
-        // Hook pipeline creation
-        const originalCreateRenderPipeline = device.createRenderPipeline;
-        device.createRenderPipeline = (desc: GPURenderPipelineDescriptor) => {
-          if (isEnabled) {
-            webgpuMetrics.pipelineCreations++;
-          }
-          return originalCreateRenderPipeline.call(device, desc);
-        };
-        
-        return device;
-      };
-      
-      return adapter;
+  // We no longer hook requestAdapter globally, instead we poll/hook the single device
+  // when it becomes available, or let the user wrap it. Since startup is heavily async
+  // we will just replace the GPUDevice prototype methods temporarily if WebGPU exists,
+  // or hook the device directly once the gpuContext has it.
+  // The easiest and safest way to intercept all buffer creations globally is via the prototype.
+  if (typeof GPUDevice !== 'undefined' && GPUDevice.prototype) {
+    const originalCreateBuffer = GPUDevice.prototype.createBuffer;
+    GPUDevice.prototype.createBuffer = function(desc: GPUBufferDescriptor) {
+      if (isEnabled) {
+        webgpuMetrics.bufferAllocations++;
+        webgpuMetrics.bufferTotalSize += desc.size;
+      }
+      // Fix for mapping issue on some devices - force mappedAtCreation to false when we can
+      if (desc.mappedAtCreation === undefined) {
+          desc.mappedAtCreation = false;
+      }
+      return originalCreateBuffer.call(this, desc);
+    };
+
+    const originalCreateShaderModule = GPUDevice.prototype.createShaderModule;
+    GPUDevice.prototype.createShaderModule = function(desc: GPUShaderModuleDescriptor) {
+      if (isEnabled) {
+        const start = performance.now();
+        const result = originalCreateShaderModule.call(this, desc);
+        const end = performance.now();
+        webgpuMetrics.shaderCompilations++;
+        webgpuMetrics.shaderCompileTime += (end - start);
+        return result;
+      }
+      return originalCreateShaderModule.call(this, desc);
+    };
+
+    const originalCreateRenderPipeline = GPUDevice.prototype.createRenderPipeline;
+    GPUDevice.prototype.createRenderPipeline = function(desc: GPURenderPipelineDescriptor) {
+      if (isEnabled) {
+        webgpuMetrics.pipelineCreations++;
+      }
+      return originalCreateRenderPipeline.call(this, desc);
     };
   }
 }

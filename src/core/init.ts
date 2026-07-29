@@ -12,6 +12,7 @@ import {
     resolveRendererBackend,
     type RendererBackend,
 } from '../rendering/renderer-mode.ts';
+import { gpuContext } from '../rendering/gpu-context.ts';
 
 /**
  * Type union for supported renderers (WebGPU or WebGL fallback)
@@ -124,10 +125,10 @@ export interface CreateRendererResult {
  * @param canvas The canvas element to render to
  * @param preference Resolved renderer preference from URL/localStorage
  */
-export function createRenderer(
+export async function createRenderer(
     canvas: HTMLCanvasElement,
     preference: RendererBackend = resolveRendererBackend(),
-): CreateRendererResult {
+): Promise<CreateRendererResult> {
     if (preference === 'webgl') {
         console.log('[Init] WebGL requested — creating WebGLRenderer');
         return {
@@ -140,8 +141,8 @@ export function createRenderer(
 
     if (WebGPU.isAvailable()) {
         try {
-            console.log('[Init] WebGPU available, creating WebGPURenderer');
-            const renderer = new WebGPURenderer({ canvas, antialias: true });
+            console.log('[Init] WebGPU available, initializing shared WebGPURenderer context');
+            const renderer = await gpuContext.init(canvas);
             return { renderer, mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime
@@ -179,14 +180,14 @@ export function createRenderer(
  * - Sun glow, corona, and volumetric light shafts
  * - Resize event handler
  * 
- * @returns SceneInitResult containing all scene objects, lights, materials, uniforms, and mode
+ * @returns Promise<SceneInitResult> containing all scene objects, lights, materials, uniforms, and mode
  */
-export function initScene(): SceneInitResult {
+export async function initScene(): Promise<SceneInitResult> {
     const canvas = document.querySelector('#glCanvas') as HTMLCanvasElement;
     const scene = new THREE.Scene();
 
     const requested = resolveRendererBackend();
-    const { renderer, mode, fallbackReason } = createRenderer(canvas, requested);
+    const { renderer, mode, fallbackReason } = await createRenderer(canvas, requested);
 
     const initialFog = getInitialFogDistances();
 

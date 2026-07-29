@@ -23,6 +23,7 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { gpuContext } from './gpu-context.ts';
 
 /**
  * WebGPU device limits
@@ -53,7 +54,21 @@ export function getWebGPULimits(renderer?: THREE.Renderer): WebGPULimits {
     };
 
     try {
-        // Try to access WebGPU backend through the renderer
+        if (gpuContext.isReady()) {
+            const limits = gpuContext.getLimits();
+            if (limits) {
+                cachedLimits = {
+                    maxVertexBuffers: limits.maxVertexBuffers,
+                    maxVertexAttributes: limits.maxVertexAttributes,
+                    maxBindGroups: limits.maxBindGroups,
+                    isWebGPUAvailable: true
+                };
+                console.log('[WebGPULimits] Detected device limits from shared context:', cachedLimits);
+                return cachedLimits;
+            }
+        }
+
+        // Try to access WebGPU backend through the renderer fallback
         if (renderer && (renderer as any).backend) {
             const backend = (renderer as any).backend;
             
@@ -69,7 +84,7 @@ export function getWebGPULimits(renderer?: THREE.Renderer): WebGPULimits {
                     isWebGPUAvailable: true
                 };
                 
-                console.log('[WebGPULimits] Detected device limits:', cachedLimits);
+                console.log('[WebGPULimits] Detected device limits from renderer fallback:', cachedLimits);
                 return cachedLimits;
             }
         }

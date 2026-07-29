@@ -36,6 +36,8 @@ export interface ComputeMetrics {
     [key: string]: number;
 }
 
+import { gpuContext } from '../rendering/gpu-context.ts';
+
 // =============================================================================
 // GPU COMPUTE LIBRARY
 // =============================================================================
@@ -63,16 +65,18 @@ export class GPUComputeLibrary {
 
     /** True when the device has been successfully initialised */
     isReady(): boolean {
-        return this._ready && this.device !== null;
+        return this._ready && this.device !== null && gpuContext.isReady();
     }
 
     /** Get the raw GPUDevice (null if not initialised) */
     getDevice(): GPUDevice | null {
+        if (!gpuContext.isReady()) return null;
         return this.device;
     }
 
     /**
-     * Initialise the WebGPU device. Rejects if WebGPU is unavailable.
+     * Initialise the WebGPU device by grabbing the shared gpuContext.
+     * Rejects if WebGPU is unavailable or initialization fails.
      * Safe to call multiple times — subsequent calls are no-ops.
      */
     async initDevice(): Promise<void> {
@@ -81,42 +85,24 @@ export class GPUComputeLibrary {
             throw new Error('[GPU] WebGPU is not supported in this browser');
         }
 
-        const withTimeout = <T>(p: Promise<T>, ms: number, label: string): Promise<T> =>
-            Promise.race([
-                p,
-                new Promise<T>((_, reject) =>
-                    setTimeout(() => reject(new Error(`[GPU] ${label} timed out after ${ms}ms`)), ms)
-                ),
-            ]);
-
-        this.adapter = await withTimeout(
-            navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }),
-            5000,
-            'requestAdapter'
-        );
-        if (!this.adapter) {
-            throw new Error('[GPU] No WebGPU adapter found');
+        if (!gpuContext.isReady()) {
+             throw new Error('[GPU] Shared GPU context is not initialized yet');
         }
 
-        this.device = await withTimeout(
-            this.adapter.requestDevice({
-                requiredLimits: {
-                    maxStorageBufferBindingSize: 134217728, // 128 MB
-                    maxComputeWorkgroupSizeX: 256,
-                },
-            }),
-            5000,
-            'requestDevice'
-        );
+        this.device = gpuContext.getDevice();
+        this.adapter = gpuContext.getAdapter();
 
-        this.device.lost.then((info) => {
-            console.error(`[GPU] Device lost: ${info.message}`);
-            this._ready = false;
-            this.device = null;
-        });
+        if (!this.device || !this.adapter) {
+            throw new Error('[GPU] Shared GPU context missing device or adapter');
+        }
+
+        // We do not need to register a new lost callback here to panic/reload,
+        // because gpuContext handles the device lost recovery. We simply degrade gracefully
+        // by making isReady() evaluate to false on subsequent calls since gpuContext.isReady()
+        // will become false.
 
         this._ready = true;
-        console.log('[GPU] Device initialised');
+        console.log('[GPU] Compute library hooked into shared device successfully');
     }
 
     // =========================================================================

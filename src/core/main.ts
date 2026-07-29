@@ -198,9 +198,9 @@ initializeSaveSystemIntegration();
 loadingScreen.startPhase('core-scene');
 console.time('Core Scene Setup');
 
-let sceneInitResult: ReturnType<typeof initScene> | undefined;
-await StageLoader.loadStage('core', () => {
-    sceneInitResult = initScene();
+let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
+await StageLoader.loadStage('core', async () => {
+    sceneInitResult = await initScene();
 });
 
 if (!sceneInitResult) {
