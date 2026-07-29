@@ -1,7 +1,6 @@
 import { uiState } from './startup-profiler.ts';
 import { PhaseTiming, InstancedMeshMetrics, WebGPUMetrics, ProfilerConfig, StartupReport } from './startup-profiler-types.ts';
 import { formatBytes, formatDuration, getMemoryUsage } from './startup-profiler-utils.ts';
-import { uiState } from './startup-profiler.ts';
 
 let overlayContainer: HTMLElement | null = null;
 let overlayCanvas: HTMLCanvasElement | null = null;
@@ -170,13 +169,13 @@ export function drawOverlay(): void {
   }
 
   // Draw phase bars
-  const maxDuration = Math.max(...completedPhases.map(p => p.duration), 1);
+  const maxDuration = Math.max(...completedPhases.map((p: PhaseTiming) => p.duration), 1);
   const barHeight = 20;
   const barSpacing = 4;
   const maxBars = 6;
   const startY = 10;
 
-  completedPhases.slice(-maxBars).forEach((phase, index) => {
+  completedPhases.slice(-maxBars).forEach((phase: PhaseTiming, index: number) => {
     const y = startY + index * (barHeight + barSpacing);
     const barWidth = (phase.duration / maxDuration) * (width - 120);
 
@@ -207,7 +206,7 @@ export function drawOverlay(): void {
   });
 
   // Draw warnings
-  const slowPhases = completedPhases.filter(p => p.duration > config.slowPhaseThreshold);
+  const slowPhases = completedPhases.filter((p: PhaseTiming) => p.duration > config.slowPhaseThreshold);
   if (slowPhases.length > 0) {
     const warningY = startY + maxBars * (barHeight + barSpacing) + 10;
     ctx.fillStyle = '#FF6B6B';
