@@ -1,5 +1,11 @@
 import { uiState } from './startup-profiler.ts';
-import { PhaseTiming, InstancedMeshMetrics, WebGPUMetrics, ProfilerConfig, StartupReport } from './startup-profiler-types.ts';
+import {
+    PhaseTiming,
+    InstancedMeshMetrics,
+    WebGPUMetrics,
+    ProfilerConfig,
+    StartupReport,
+} from './startup-profiler-types.ts';
 import { formatBytes, formatDuration, getMemoryUsage } from './startup-profiler-utils.ts';
 
 let overlayContainer: HTMLElement | null = null;
@@ -7,12 +13,12 @@ let overlayCanvas: HTMLCanvasElement | null = null;
 let overlayCtx: CanvasRenderingContext2D | null = null;
 
 export function createOverlay(): void {
-  if (uiState.overlayContainer) return;
+    if (uiState.overlayContainer) return;
 
-  // Container
-  uiState.overlayContainer = document.createElement('div');
-  uiState.overlayContainer.id = 'startup-profiler-overlay';
-  uiState.overlayContainer.style.cssText = `
+    // Container
+    uiState.overlayContainer = document.createElement('div');
+    uiState.overlayContainer.id = 'startup-profiler-overlay';
+    uiState.overlayContainer.style.cssText = `
     position: fixed;
     top: 10px;
     right: 10px;
@@ -31,9 +37,9 @@ export function createOverlay(): void {
     transition: opacity 0.3s ease;
   `;
 
-  // Header
-  const header = document.createElement('div');
-  header.style.cssText = `
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = `
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -41,7 +47,7 @@ export function createOverlay(): void {
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(255, 107, 107, 0.3);
   `;
-  header.innerHTML = `
+    header.innerHTML = `
     <span style="font-weight: bold; font-size: 14px; color: #FF6B6B;">🚀 Startup Profiler</span>
     <button id="startup-profiler-close" style="
       background: none;
@@ -59,30 +65,30 @@ export function createOverlay(): void {
       transition: background 0.2s;
     ">×</button>
   `;
-  uiState.overlayContainer.appendChild(header);
+    uiState.overlayContainer.appendChild(header);
 
-  // Content area
-  const content = document.createElement('div');
-  content.id = 'startup-profiler-content';
-  uiState.overlayContainer.appendChild(content);
+    // Content area
+    const content = document.createElement('div');
+    content.id = 'startup-profiler-content';
+    uiState.overlayContainer.appendChild(content);
 
-  // Canvas for charts
-  uiState.overlayCanvas = document.createElement('canvas');
-  uiState.overlayCanvas.width = 360;
-  uiState.overlayCanvas.height = 200;
-  uiState.overlayCanvas.style.cssText = `
+    // Canvas for charts
+    uiState.overlayCanvas = document.createElement('canvas');
+    uiState.overlayCanvas.width = 360;
+    uiState.overlayCanvas.height = 200;
+    uiState.overlayCanvas.style.cssText = `
     width: 100%;
     height: auto;
     margin-top: 12px;
     border-radius: 6px;
     background: rgba(0, 0, 0, 0.3);
   `;
-  uiState.overlayContainer.appendChild(uiState.overlayCanvas);
-  uiState.overlayCtx = uiState.overlayCanvas.getContext('2d');
+    uiState.overlayContainer.appendChild(uiState.overlayCanvas);
+    uiState.overlayCtx = uiState.overlayCanvas.getContext('2d');
 
-  // Footer with actions
-  const footer = document.createElement('div');
-  footer.style.cssText = `
+    // Footer with actions
+    const footer = document.createElement('div');
+    footer.style.cssText = `
     margin-top: 12px;
     padding-top: 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -90,7 +96,7 @@ export function createOverlay(): void {
     gap: 8px;
     font-size: 11px;
   `;
-  footer.innerHTML = `
+    footer.innerHTML = `
     <button id="startup-profiler-export" style="
       background: #FF6B6B;
       border: none;
@@ -111,45 +117,46 @@ export function createOverlay(): void {
       font-size: 11px;
     ">Hide</button>
   `;
-  uiState.overlayContainer.appendChild(footer);
+    uiState.overlayContainer.appendChild(footer);
 
-  document.body.appendChild(uiState.overlayContainer);
+    document.body.appendChild(uiState.overlayContainer);
 
-  // Event listeners
-  document.getElementById('startup-profiler-close')?.addEventListener('click', hideOverlay);
-  document.getElementById('startup-profiler-hide')?.addEventListener('click', hideOverlay);
-  document.getElementById('startup-profiler-export')?.addEventListener('click', () => {
-    const report = generateReport();
-    saveReportToFile(report);
-  });
+    // Event listeners
+    document.getElementById('startup-profiler-close')?.addEventListener('click', hideOverlay);
+    document.getElementById('startup-profiler-hide')?.addEventListener('click', hideOverlay);
+    document.getElementById('startup-profiler-export')?.addEventListener('click', () => {
+        const report = generateReport();
+        saveReportToFile(report);
+    });
 }
 
 export function drawOverlay(): void {
-  if (!uiState.overlayCtx || !uiState.overlayCanvas) return;
+    if (!uiState.overlayCtx || !uiState.overlayCanvas) return;
 
-  const ctx = uiState.overlayCtx;
-  const canvas = uiState.overlayCanvas;
-  const width = canvas.width;
-  const height = canvas.height;
+    const ctx = uiState.overlayCtx;
+    const canvas = uiState.overlayCanvas;
+    const width = canvas.width;
+    const height = canvas.height;
 
-  // Clear
-  ctx.clearRect(0, 0, width, height);
+    // Clear
+    ctx.clearRect(0, 0, width, height);
 
-  // Background
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-  ctx.fillRect(0, 0, width, height);
+    // Background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.fillRect(0, 0, width, height);
 
-  // Update content HTML
-  const content = document.getElementById('startup-profiler-content');
-  if (content) {
-    const totalTime = completedPhases.length > 0
-      ? completedPhases[completedPhases.length - 1].endTime - startupStartTime
-      : 0;
+    // Update content HTML
+    const content = document.getElementById('startup-profiler-content');
+    if (content) {
+        const totalTime =
+            completedPhases.length > 0
+                ? completedPhases[completedPhases.length - 1].endTime - startupStartTime
+                : 0;
 
-    const currentMemory = getMemoryUsage();
-    const memoryDelta = currentMemory - (memorySnapshots[0] || 0);
+        const currentMemory = getMemoryUsage();
+        const memoryDelta = currentMemory - (memorySnapshots[0] || 0);
 
-    content.innerHTML = `
+        content.innerHTML = `
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
         <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
           <div style="font-size: 10px; color: #888; text-transform: uppercase;">Total Time</div>
@@ -166,93 +173,103 @@ export function drawOverlay(): void {
       </div>
       <div style="font-size: 11px; color: #888; margin-bottom: 4px;">Phase Breakdown:</div>
     `;
-  }
-
-  // Draw phase bars
-  const maxDuration = Math.max(...completedPhases.map((p: PhaseTiming) => p.duration), 1);
-  const barHeight = 20;
-  const barSpacing = 4;
-  const maxBars = 6;
-  const startY = 10;
-
-  completedPhases.slice(-maxBars).forEach((phase: PhaseTiming, index: number) => {
-    const y = startY + index * (barHeight + barSpacing);
-    const barWidth = (phase.duration / maxDuration) * (width - 120);
-
-    // Bar background
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.fillRect(80, y, width - 120, barHeight);
-
-    // Bar fill - color based on duration
-    if (phase.duration > config.slowPhaseThreshold) {
-      ctx.fillStyle = '#FF6B6B'; // Red for slow
-    } else if (phase.duration > 50) {
-      ctx.fillStyle = '#FBBF24'; // Yellow for medium
-    } else {
-      ctx.fillStyle = '#4ADE80'; // Green for fast
     }
-    ctx.fillRect(80, y, barWidth, barHeight);
 
-    // Phase name (truncated)
-    ctx.fillStyle = '#fff';
-    ctx.font = '11px sans-serif';
-    const shortName = phase.name.length > 12 ? phase.name.substring(0, 12) + '...' : phase.name;
-    ctx.fillText(shortName, 4, y + 14);
+    // Draw phase bars
+    const maxDuration = Math.max(...completedPhases.map((p: PhaseTiming) => p.duration), 1);
+    const barHeight = 20;
+    const barSpacing = 4;
+    const maxBars = 6;
+    const startY = 10;
 
-    // Duration
-    ctx.fillStyle = '#aaa';
-    ctx.font = '10px monospace';
-    ctx.fillText(`${phase.duration.toFixed(0)}ms`, 85 + barWidth + 4, y + 14);
-  });
+    completedPhases.slice(-maxBars).forEach((phase: PhaseTiming, index: number) => {
+        const y = startY + index * (barHeight + barSpacing);
+        const barWidth = (phase.duration / maxDuration) * (width - 120);
 
-  // Draw warnings
-  const slowPhases = completedPhases.filter((p: PhaseTiming) => p.duration > config.slowPhaseThreshold);
-  if (slowPhases.length > 0) {
-    const warningY = startY + maxBars * (barHeight + barSpacing) + 10;
-    ctx.fillStyle = '#FF6B6B';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.fillText(`⚠️ ${slowPhases.length} slow phase(s) detected`, 4, warningY);
-  }
+        // Bar background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(80, y, width - 120, barHeight);
 
-  // Draw InstancedMesh count
-  const meshY = height - 30;
-  ctx.fillStyle = '#888';
-  ctx.font = '10px sans-serif';
-  ctx.fillText(`InstancedMeshes: ${instancedMeshMetrics.count} (${instancedMeshMetrics.totalInstances.toLocaleString()} instances)`, 4, meshY);
+        // Bar fill - color based on duration
+        if (phase.duration > config.slowPhaseThreshold) {
+            ctx.fillStyle = '#FF6B6B'; // Red for slow
+        } else if (phase.duration > 50) {
+            ctx.fillStyle = '#FBBF24'; // Yellow for medium
+        } else {
+            ctx.fillStyle = '#4ADE80'; // Green for fast
+        }
+        ctx.fillRect(80, y, barWidth, barHeight);
 
-  // Draw WebGPU metrics
-  if (webgpuMetrics.shaderCompilations > 0) {
-    ctx.fillText(`Shaders: ${webgpuMetrics.shaderCompilations} compiled in ${formatDuration(webgpuMetrics.shaderCompileTime)}`, 4, meshY + 14);
-  }
+        // Phase name (truncated)
+        ctx.fillStyle = '#fff';
+        ctx.font = '11px sans-serif';
+        const shortName = phase.name.length > 12 ? phase.name.substring(0, 12) + '...' : phase.name;
+        ctx.fillText(shortName, 4, y + 14);
+
+        // Duration
+        ctx.fillStyle = '#aaa';
+        ctx.font = '10px monospace';
+        ctx.fillText(`${phase.duration.toFixed(0)}ms`, 85 + barWidth + 4, y + 14);
+    });
+
+    // Draw warnings
+    const slowPhases = completedPhases.filter(
+        (p: PhaseTiming) => p.duration > config.slowPhaseThreshold
+    );
+    if (slowPhases.length > 0) {
+        const warningY = startY + maxBars * (barHeight + barSpacing) + 10;
+        ctx.fillStyle = '#FF6B6B';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(`⚠️ ${slowPhases.length} slow phase(s) detected`, 4, warningY);
+    }
+
+    // Draw InstancedMesh count
+    const meshY = height - 30;
+    ctx.fillStyle = '#888';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(
+        `InstancedMeshes: ${instancedMeshMetrics.count} (${instancedMeshMetrics.totalInstances.toLocaleString()} instances)`,
+        4,
+        meshY
+    );
+
+    // Draw WebGPU metrics
+    if (webgpuMetrics.shaderCompilations > 0) {
+        ctx.fillText(
+            `Shaders: ${webgpuMetrics.shaderCompilations} compiled in ${formatDuration(webgpuMetrics.shaderCompileTime)}`,
+            4,
+            meshY + 14
+        );
+    }
 }
 
 export function showOverlay(): void {
-  if (!uiState.overlayContainer) {
-    createOverlay();
-  }
-  if (uiState.overlayContainer) {
-    uiState.overlayContainer.style.display = 'block';
-    uiState.overlayContainer.style.opacity = '1';
-    drawOverlay();
-  }
+    if (!uiState.overlayContainer) {
+        createOverlay();
+    }
+    if (uiState.overlayContainer) {
+        uiState.overlayContainer.style.display = 'block';
+        uiState.overlayContainer.style.opacity = '1';
+        drawOverlay();
+    }
 }
 
 export function hideOverlay(): void {
-  if (uiState.overlayContainer) {
-    uiState.overlayContainer.style.opacity = '0';
-    setTimeout(() => {
-      if (uiState.overlayContainer) uiState.overlayContainer.style.display = 'none';
-    }, 300);
-  }
+    if (uiState.overlayContainer) {
+        uiState.overlayContainer.style.opacity = '0';
+        setTimeout(() => {
+            if (uiState.overlayContainer) uiState.overlayContainer.style.display = 'none';
+        }, 300);
+    }
 }
 
 /**
  * Toggle the profiler overlay visibility
  */
 export function toggleOverlay(): void {
-  if (!overlayContainer || overlayContainer.style.display === 'none') {
-    showOverlay();
-  } else {
-    hideOverlay();
-  }
+    if (!overlayContainer || overlayContainer.style.display === 'none') {
+        showOverlay();
+    } else {
+        hideOverlay();
+    }
 }
