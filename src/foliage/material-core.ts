@@ -4,42 +4,92 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
+// `three/tsl` re-exports TSL values but no types; ShaderNodeObject (the mapped
+// type that supplies .mul()/.add()/swizzles) only exists on the canonical path.
+import type { ShaderNodeObject } from 'three/src/nodes/tsl/TSLCore.js';
 import {
-    color, float, uv, mix, vec3, vec2, Fn, uniform, dot, max, min,
-    mx_noise_float, positionLocal, positionWorld, normalWorld, normalLocal,
-    cameraPosition, sin, pow, abs, normalize, smoothstep, exp,
-    texture, attribute
+    color,
+    float,
+    uv,
+    mix,
+    vec3,
+    vec2,
+    Fn,
+    uniform,
+    dot,
+    max,
+    min,
+    mx_noise_float,
+    positionLocal,
+    positionWorld,
+    normalWorld,
+    normalLocal,
+    cameraPosition,
+    sin,
+    pow,
+    abs,
+    normalize,
+    smoothstep,
+    exp,
+    texture,
+    attribute,
 } from 'three/tsl';
 
 import { applyGlitch } from './glitch.ts';
 import { CONFIG } from '../core/config.ts';
-import { 
-    CommonGeometries,
-} from '../utils/geometry-dedup.ts';
+import { CommonGeometries } from '../utils/geometry-dedup.ts';
 import { getWindTextureData } from './wind-compute.ts';
 
 // --- Shared Resources & Geometries (Deduplicated via GeometryRegistry) ---
 // All geometries are now created through the registry to prevent duplicates
 export const sharedGeometries: { [key: string]: THREE.BufferGeometry } = {
     // Unit geometries with pivot at bottom
-    get unitSphere() { return CommonGeometries.unitSphere; },
-    get unitCylinder() { return CommonGeometries.unitCylinder; },
-    get unitCone() { return CommonGeometries.unitCone; },
-    get quad() { return CommonGeometries.unitPlane; },
+    get unitSphere() {
+        return CommonGeometries.unitSphere;
+    },
+    get unitCylinder() {
+        return CommonGeometries.unitCylinder;
+    },
+    get unitCone() {
+        return CommonGeometries.unitCone;
+    },
+    get quad() {
+        return CommonGeometries.unitPlane;
+    },
 
     // Common convenience aliases (deduplicated - these reference the same underlying geometry)
-    get sphere() { return CommonGeometries.unitSphere; },  // Same as unitSphere
-    get sphereLow() { return CommonGeometries.unitSphereLow; },
-    get cylinder() { return CommonGeometries.unitCylinder; },  // Same as unitCylinder
-    get cylinderLow() { return CommonGeometries.unitCylinderLow; },
-    get capsule() { return CommonGeometries.capsule; },
-    get eye() { return CommonGeometries.eye; },
-    get pupil() { return CommonGeometries.pupil; },
+    get sphere() {
+        return CommonGeometries.unitSphere;
+    }, // Same as unitSphere
+    get sphereLow() {
+        return CommonGeometries.unitSphereLow;
+    },
+    get cylinder() {
+        return CommonGeometries.unitCylinder;
+    }, // Same as unitCylinder
+    get cylinderLow() {
+        return CommonGeometries.unitCylinderLow;
+    },
+    get capsule() {
+        return CommonGeometries.capsule;
+    },
+    get eye() {
+        return CommonGeometries.eye;
+    },
+    get pupil() {
+        return CommonGeometries.pupil;
+    },
 
     // Mushroom parts
-    get mushroomCap() { return CommonGeometries.mushroomCap; },
-    get mushroomGillCenter() { return CommonGeometries.mushroomGillCenter; },
-    get mushroomSmile() { return CommonGeometries.mushroomSmile; },
+    get mushroomCap() {
+        return CommonGeometries.mushroomCap;
+    },
+    get mushroomGillCenter() {
+        return CommonGeometries.mushroomGillCenter;
+    },
+    get mushroomSmile() {
+        return CommonGeometries.mushroomSmile;
+    },
 };
 
 export const eyeGeo = sharedGeometries.eye;
@@ -57,8 +107,8 @@ export const uTime = uniform(0.0); // Global time uniform for animated materials
 export const uGlitchIntensity = uniform(0.0); // Global glitch intensity
 export const uGlitchExplosionCenter = uniform(vec3(0, 0, 0)); // Local glitch center
 export const uGlitchExplosionRadius = uniform(0.0); // Local glitch radius (0 when inactive)
-export const uAudioLow = uniform(0.0);   // Bass energy (Kick)
-export const uAudioHigh = uniform(0.0);  // Treble energy (Hi-hats/Cymbals)
+export const uAudioLow = uniform(0.0); // Bass energy (Kick)
+export const uAudioHigh = uniform(0.0); // Treble energy (Hi-hats/Cymbals)
 
 // --- PALETTE UPDATE: New Uniforms for Player Interaction ---
 export const uPlayerPosition = uniform(vec3(0, 0, 0)); // Player position in world space
@@ -109,9 +159,25 @@ export function generateNoiseTexture(size = 256): THREE.DataTexture {
 // --- TSL UTILITY FUNCTIONS ---
 
 /**
+ * A TSL node argument as seen *inside* an `Fn` body.
+ *
+ * `Fn<T extends any[]>` cannot infer `T` from a destructuring pattern alone, so
+ * every parameter lands as implicit `any` (TS7031) unless the tuple is supplied
+ * explicitly. Naming it once keeps the call sites readable.
+ */
+export type TSLArg = ShaderNodeObject<Node>;
+
+/**
+ * An optional TSL node argument. Several helpers below accept `null` for a
+ * normal/override slot and fall back to a global (`normalNode || normalWorld`),
+ * so callers legitimately pass `null` — the tuple has to allow it.
+ */
+export type TSLArgOpt = TSLArg | null;
+
+/**
  * Generates triplanar noise to avoid UV seams on complex geometry.
  */
-export const triplanarNoise = Fn(([pos, scale]) => {
+export const triplanarNoise = Fn<[TSLArg, TSLArg]>(([pos, scale]) => {
     const p = pos.mul(scale);
     const n = abs(normalWorld);
 
@@ -129,114 +195,122 @@ export const triplanarNoise = Fn(([pos, scale]) => {
  * Calculates a perturbed normal using finite difference of a noise function.
  * This creates real physical bumps that react to light.
  */
-export const perturbNormal = Fn(([pos, normal, scale, strength]) => {
-    const eps = float(0.01);
-    const s = scale;
+export const perturbNormal = Fn<[TSLArg, TSLArg, TSLArg, TSLArg]>(
+    ([pos, normal, scale, strength]) => {
+        const eps = float(0.01);
+        const s = scale;
 
-    // Sample noise at offsets
-    const n0 = mx_noise_float(pos.mul(s));
-    const nX = mx_noise_float(pos.add(vec3(eps, 0.0, 0.0)).mul(s));
-    const nY = mx_noise_float(pos.add(vec3(0.0, eps, 0.0)).mul(s));
-    const nZ = mx_noise_float(pos.add(vec3(0.0, 0.0, eps)).mul(s));
+        // Sample noise at offsets
+        const n0 = mx_noise_float(pos.mul(s));
+        const nX = mx_noise_float(pos.add(vec3(eps, 0.0, 0.0)).mul(s));
+        const nY = mx_noise_float(pos.add(vec3(0.0, eps, 0.0)).mul(s));
+        const nZ = mx_noise_float(pos.add(vec3(0.0, 0.0, eps)).mul(s));
 
-    // Calculate gradients
-    const dx = nX.sub(n0).div(eps);
-    const dy = nY.sub(n0).div(eps);
-    const dz = nZ.sub(n0).div(eps);
+        // Calculate gradients
+        const dx = nX.sub(n0).div(eps);
+        const dy = nY.sub(n0).div(eps);
+        const dz = nZ.sub(n0).div(eps);
 
-    // Perturb original normal
-    const noiseGrad = vec3(dx, dy, dz);
-    // Project gradient onto surface tangent plane roughly
-    const perturbed = normalize(normal.sub(noiseGrad.mul(strength)));
-    return perturbed;
-});
+        // Perturb original normal
+        const noiseGrad = vec3(dx, dy, dz);
+        // Project gradient onto surface tangent plane roughly
+        const perturbed = normalize(normal.sub(noiseGrad.mul(strength)));
+        return perturbed;
+    }
+);
 
 /**
  * Creates a TSL node for Rim Light (Fresnel-like edge glow).
  */
-export const createRimLight = Fn(([colorNode, intensity, power, normalNode]) => {
-    const viewDir = normalize(cameraPosition.sub(positionWorld));
-    // Use supplied normal or default to global world normal
-    const N = normalNode || normalWorld;
+export const createRimLight = Fn<[TSLArg, TSLArg, TSLArg, TSLArgOpt]>(
+    ([colorNode, intensity, power, normalNode]) => {
+        const viewDir = normalize(cameraPosition.sub(positionWorld));
+        // Use supplied normal or default to global world normal
+        const N = normalNode || normalWorld;
 
-    // NdotV can be negative if back-facing, but rim light usually wraps.
-    // However, strictly it's dot(N, V).
-    const NdotV = abs(dot(N, viewDir));
-    const rim = float(1.0).sub(NdotV).pow(power);
-    return colorNode.mul(rim).mul(intensity);
-});
+        // NdotV can be negative if back-facing, but rim light usually wraps.
+        // However, strictly it's dot(N, V).
+        const NdotV = abs(dot(N, viewDir));
+        const rim = float(1.0).sub(NdotV).pow(power);
+        return colorNode.mul(rim).mul(intensity);
+    }
+);
 
 /**
  * Creates a "Juicy" Rim Light with audio reactivity and color shifting.
  */
-export const createJuicyRimLight = Fn(([baseColor, intensity, power, normalNode]) => {
-    const viewDir = normalize(cameraPosition.sub(positionWorld));
-    const N = normalNode || normalWorld;
-    const NdotV = abs(dot(N, viewDir));
-    const rim = float(1.0).sub(NdotV).pow(power);
+export const createJuicyRimLight = Fn<[TSLArg, TSLArg, TSLArg, TSLArgOpt]>(
+    ([baseColor, intensity, power, normalNode]) => {
+        const viewDir = normalize(cameraPosition.sub(positionWorld));
+        const N = normalNode || normalWorld;
+        const NdotV = abs(dot(N, viewDir));
+        const rim = float(1.0).sub(NdotV).pow(power);
 
-    // 1. Audio Pulse (Juice)
-    const pulse = sin(uTime.mul(3.0)).mul(0.2).add(0.8); // 0.6 to 1.0
-    const audioBoost = uAudioHigh.mul(2.0); // Boost on high freq (melody)
+        // 1. Audio Pulse (Juice)
+        const pulse = sin(uTime.mul(3.0)).mul(0.2).add(0.8); // 0.6 to 1.0
+        const audioBoost = uAudioHigh.mul(2.0); // Boost on high freq (melody)
 
-    // 2. Color Shift (Neon Magic)
-    const magicColor = color(0x00FFFF); // Cyan
-    // Mix Magic color at the very edge (rim > 0.5) and when audio is loud
-    const colorMix = rim.mul(0.5).add(audioBoost.mul(0.2)).min(1.0);
-    const finalColor = mix(baseColor, magicColor, colorMix);
+        // 2. Color Shift (Neon Magic)
+        const magicColor = color(0x00ffff); // Cyan
+        // Mix Magic color at the very edge (rim > 0.5) and when audio is loud
+        const colorMix = rim.mul(0.5).add(audioBoost.mul(0.2)).min(1.0);
+        const finalColor = mix(baseColor, magicColor, colorMix);
 
-    const finalIntensity = intensity.mul(pulse).add(audioBoost);
+        const finalIntensity = intensity.mul(pulse).add(audioBoost);
 
-    return finalColor.mul(rim).mul(finalIntensity);
-});
+        return finalColor.mul(rim).mul(finalIntensity);
+    }
+);
 
 /**
  * Creates a "Sugar Sparkle" effect for candy aesthetics.
  * View-dependent, audio-reactive glitter.
  */
-export const createSugarSparkle = Fn(([normalNode, scale, density, intensity]) => {
-    const viewDir = normalize(cameraPosition.sub(positionWorld));
+export const createSugarSparkle = Fn<[TSLArgOpt, TSLArg, TSLArg, TSLArg]>(
+    ([normalNode, scale, density, intensity]) => {
+        const viewDir = normalize(cameraPosition.sub(positionWorld));
 
-    // View-dependent shift: Sparkles "twinkle" as you move around
-    // We add the view direction to the noise coordinates so the pattern shifts with the camera angle.
-    const noiseCoord = positionLocal.mul(scale).add(viewDir.mul(2.0));
+        // View-dependent shift: Sparkles "twinkle" as you move around
+        // We add the view direction to the noise coordinates so the pattern shifts with the camera angle.
+        const noiseCoord = positionLocal.mul(scale).add(viewDir.mul(2.0));
 
-    // High frequency noise for the glitter grains
-    const noiseVal = mx_noise_float(noiseCoord);
+        // High frequency noise for the glitter grains
+        const noiseVal = mx_noise_float(noiseCoord);
 
-    // Threshold: Only the peaks of the noise become sparkles.
-    // increasing density lowers the threshold (more sparkles).
-    // density 0.1 -> threshold 0.9 (few)
-    // density 0.5 -> threshold 0.5 (many)
-    const threshold = float(1.0).sub(density);
+        // Threshold: Only the peaks of the noise become sparkles.
+        // increasing density lowers the threshold (more sparkles).
+        // density 0.1 -> threshold 0.9 (few)
+        // density 0.5 -> threshold 0.5 (many)
+        const threshold = float(1.0).sub(density);
 
-    // Hard cutoff for sharp glitter, or smoothstep for soft glow?
-    // Glitter should be sharp.
-    const sparkle = smoothstep(threshold, float(1.0), noiseVal);
+        // Hard cutoff for sharp glitter, or smoothstep for soft glow?
+        // Glitter should be sharp.
+        const sparkle = smoothstep(threshold, float(1.0), noiseVal);
 
-    // Audio Reactivity: Sparkles flare up on High Frequencies (Melody)
-    // Base intensity + Audio boost
-    const audioBoost = uAudioHigh.mul(3.0).add(1.0);
+        // Audio Reactivity: Sparkles flare up on High Frequencies (Melody)
+        // Base intensity + Audio boost
+        const audioBoost = uAudioHigh.mul(3.0).add(1.0);
 
-    // Fresnel Fade: Glitter is often more visible at grazing angles or facing?
-    // Let's make it uniform but slightly boosted at edges for "magic dust" feel
-    const NdotV = abs(dot(normalNode, viewDir));
-    const fresnel = float(1.0).sub(NdotV).pow(2.0).add(0.5); // Always visible but brighter at edge
+        // Fresnel Fade: Glitter is often more visible at grazing angles or facing?
+        // Let's make it uniform but slightly boosted at edges for "magic dust" feel
+        const NdotV = abs(dot(normalNode, viewDir));
+        const fresnel = float(1.0).sub(NdotV).pow(2.0).add(0.5); // Always visible but brighter at edge
 
-    return sparkle.mul(intensity).mul(audioBoost).mul(fresnel);
-});
+        return sparkle.mul(intensity).mul(audioBoost).mul(fresnel);
+    }
+);
 
 // Legacy helper kept for compatibility
-export const addRimLight = Fn(([baseColorNode, normalNode]) => {
+export const addRimLight = Fn<[TSLArg, TSLArgOpt]>(([baseColorNode, normalNode]) => {
     // Pass the normalNode if it exists
-    return baseColorNode.add(createRimLight(color(0xFFFFFF), float(0.5), float(3.0), normalNode));
+    return baseColorNode.add(createRimLight(color(0xffffff), float(0.5), float(3.0), normalNode));
 });
 
 /**
  * Derives color from note index (0-11) for musical elements.
  * Reduces vertex buffer count by eliminating per-instance color attributes.
  */
-export const colorFromNote = Fn(([noteIndex]) => {
+export const colorFromNote = Fn<[TSLArg]>(([noteIndex]) => {
     // Simple rainbow color mapping using sine waves
     const angle = noteIndex.div(12.0).mul(6.28318); // 2*PI
 
@@ -249,7 +323,7 @@ export const colorFromNote = Fn(([noteIndex]) => {
 
 // --- PALETTE HELPER: Player Interaction ---
 // Calculates displacement vector based on player proximity
-export const calculatePlayerPush = Fn(([currentPos]) => {
+export const calculatePlayerPush = Fn<[TSLArg]>(([currentPos]) => {
     const playerDistVector = positionWorld.sub(uPlayerPosition);
     // We only care about X/Z distance for most vertical foliage (cylinder interaction)
     const playerDistH = vec3(playerDistVector.x, float(0.0), playerDistVector.z);
@@ -285,7 +359,7 @@ export const applyPlayerInteraction = (basePosNode: any) => {
  * Optimized wind sway using baked texture sampling
  * Samples wind vector from texture based on world position + time
  */
-export const calculateWindSway = Fn(([posNode]) => {
+export const calculateWindSway = Fn<[TSLArg]>(([posNode]) => {
     // NOTE: Texture-sampled wind is disabled. Three.js TSL's WGSLNodeBuilder
     // generates `textureLoad(tex, vec2u)` (no mip-level arg) for any
     // texture flagged isStorageTexture === true, even when read as a
@@ -312,7 +386,7 @@ export const calculateWindSway = Fn(([posNode]) => {
  * Legacy wind sway calculation (kept for comparison/debugging)
  * Use this to verify visual quality matches the optimized version
  */
-export const calculateWindSwayLegacy = Fn(([posNode]) => {
+export const calculateWindSwayLegacy = Fn<[TSLArg]>(([posNode]) => {
     const windTime = uTime.mul(uWindSpeed.add(0.5));
     // Continuous phase field for wind
     const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
@@ -396,7 +470,10 @@ export interface UnifiedMaterialOptions {
  * Creates a highly configurable procedural material using TSL.
  * Supports: Micro-bumps, Transmission, SSS, Iridescence, Sheen, and Animation.
  */
-export function createUnifiedMaterial(hexColor: number | string | THREE.Color, options: UnifiedMaterialOptions = {}) {
+export function createUnifiedMaterial(
+    hexColor: number | string | THREE.Color,
+    options: UnifiedMaterialOptions = {}
+) {
     const {
         // Material Overrides
         colorNode = null,
@@ -407,7 +484,7 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
         metalness = 0.0,
         bumpStrength = 0.0,
         noiseScale = 5.0,
-        triplanar = false,      // Use triplanar mapping for bumps?
+        triplanar = false, // Use triplanar mapping for bumps?
         side = THREE.FrontSide, // Render side
 
         // Emissive
@@ -415,14 +492,14 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
         emissiveIntensity = 1.0,
 
         // Translucency (Glass / Jelly)
-        transmission = 0.0,     // 0.0 to 1.0
-        thickness = 0.0,        // Physical thickness
-        ior = 1.5,              // Refraction index
+        transmission = 0.0, // 0.0 to 1.0
+        thickness = 0.0, // Physical thickness
+        ior = 1.5, // Refraction index
         thicknessDistortion = 0.0,
 
         // Subsurface Scattering (Gummy / Wax)
         subsurfaceStrength = 0.0,
-        subsurfaceColor = 0xFFFFFF,
+        subsurfaceColor = 0xffffff,
 
         // Iridescence (Oil / Magic)
         iridescenceStrength = 0.0,
@@ -430,7 +507,7 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
 
         // Sheen (Velvet / Frosting)
         sheen = 0.0,
-        sheenColor = 0xFFFFFF,
+        sheenColor = 0xffffff,
         sheenRoughness = 1.0,
 
         // Animation
@@ -446,8 +523,8 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
 
         // Rim Light (Palette Polish)
         rimStrength = 0.0,
-        rimColor = 0xFFFFFF,
-        rimPower = 3.0
+        rimColor = 0xffffff,
+        rimPower = 3.0,
     } = options;
 
     const material = new MeshStandardNodeMaterial();
@@ -461,7 +538,9 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
 
     // Apply Contact Darkening (Cheap Base AO)
     if (contactDarkening > 0.0) {
-        const gradient = smoothstep(float(0.0), float(contactDarkeningHeight), positionLocal.y).pow(2.0);
+        const gradient = smoothstep(float(0.0), float(contactDarkeningHeight), positionLocal.y).pow(
+            2.0
+        );
         const aoFactor = mix(float(1.0).sub(float(contactDarkening)), float(1.0), gradient);
         material.colorNode = material.colorNode.mul(aoFactor);
     }
@@ -494,7 +573,12 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
 
     if (bumpStrength > 0.0) {
         // Apply True Normal Perturbation
-        material.normalNode = perturbNormal(positionLocal, normalWorld, float(noiseScale), float(bumpStrength));
+        material.normalNode = perturbNormal(
+            positionLocal,
+            normalWorld,
+            float(noiseScale),
+            float(bumpStrength)
+        );
 
         // Cavity AO: Darken crevices (low noise values)
         const cavity = smoothstep(0.3, 0.7, surfaceNoise);
@@ -566,7 +650,9 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
     // 6. Pulse Animation
     if (animatePulse) {
         const pulse = sin(uTime.mul(3.0)).mul(0.2).add(0.8); // 0.6 to 1.0
-        material.emissiveNode = (material.emissiveNode || color(0x000000)).add(material.colorNode.mul(pulse.mul(0.2)));
+        material.emissiveNode = (material.emissiveNode || color(0x000000)).add(
+            material.colorNode.mul(pulse.mul(0.2))
+        );
     }
 
     // 7. Sheen
@@ -582,7 +668,9 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
     // Calculate local glitch intensity based on distance
     const distToGlitch = positionWorld.distance(uGlitchExplosionCenter);
     // Smooth falloff: 1.0 at center, 0.0 at edge
-    const localGlitchFactor = float(1.0).sub(smoothstep(float(0.0), uGlitchExplosionRadius, distToGlitch));
+    const localGlitchFactor = float(1.0).sub(
+        smoothstep(float(0.0), uGlitchExplosionRadius, distToGlitch)
+    );
     // Apply local glitch only when radius > 0
     const isActive = uGlitchExplosionRadius.greaterThan(0.0);
     // If active, combine local with global intensity. (Mix or Add)
@@ -615,7 +703,9 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
         // High frequency noise based on position and fast time
         const vibrationScale = float(20.0);
         const vibrationSpeed = float(10.0);
-        const flutterNoise = mx_noise_float(positionLocal.mul(vibrationScale).add(uTime.mul(vibrationSpeed)));
+        const flutterNoise = mx_noise_float(
+            positionLocal.mul(vibrationScale).add(uTime.mul(vibrationSpeed))
+        );
 
         // Amplitude: Small (0.02) scaled by audio volume
         const flutterAmp = singPulse.mul(0.02);
@@ -632,7 +722,12 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
     if (rimStrength > 0.0) {
         const rimColorNode = color(rimColor);
         // Use current material normal (might be perturbed by bumps)
-        const rimEffect = createRimLight(rimColorNode, float(rimStrength), float(rimPower), material.normalNode);
+        const rimEffect = createRimLight(
+            rimColorNode,
+            float(rimStrength),
+            float(rimPower),
+            material.normalNode
+        );
 
         // Add to existing emissive
         material.emissiveNode = (material.emissiveNode || color(0x000000)).add(rimEffect);
@@ -660,9 +755,11 @@ const _scratchGroundTint = new THREE.Color();
 export function getBaseContactHeight(entityType: string): number {
     const table = CONFIG.foliage?.baseContactAO?.contactHeight;
     if (!table) return 0.4;
-    return (table as Record<string, number>)[entityType]
-        ?? (table as Record<string, number>)._default
-        ?? 0.4;
+    return (
+        (table as Record<string, number>)[entityType] ??
+        (table as Record<string, number>)._default ??
+        0.4
+    );
 }
 
 /**
@@ -676,10 +773,13 @@ export function applyBaseContactAO(
     baseColor: ReturnType<typeof vec3>,
     localY: ReturnType<typeof float>,
     contactHeight: ReturnType<typeof float> = float(0.4),
-    strengthMul: ReturnType<typeof float> = float(1.0),
+    strengthMul: ReturnType<typeof float> = float(1.0)
 ) {
     const nightBoost = float(1.0).add(uBaseContactAONightBoost.mul(uBaseContactAONightFactor));
-    const strength = uBaseContactAOStrength.mul(strengthMul).mul(nightBoost).mul(uBaseContactAOEnabled);
+    const strength = uBaseContactAOStrength
+        .mul(strengthMul)
+        .mul(nightBoost)
+        .mul(uBaseContactAOEnabled);
     const contactT = float(1.0).sub(smoothstep(float(0.0), contactHeight, max(localY, float(0.0))));
     return mix(baseColor, _uBaseContactGroundTint, contactT.mul(strength).clamp(0.0, 0.85));
 }
@@ -700,127 +800,147 @@ export function updateBaseContactAOUniforms(dayNightBias: number): void {
 
 // --- PRESETS (The "Beauty" Collection) ---
 
-type PresetFn = (hex: number | string | THREE.Color, opts?: UnifiedMaterialOptions) => MeshStandardNodeMaterial;
+type PresetFn = (
+    hex: number | string | THREE.Color,
+    opts?: UnifiedMaterialOptions
+) => MeshStandardNodeMaterial;
 
 export const CandyPresets: { [key: string]: PresetFn } = {
     // 1. Standard Clay: Tactile, slightly bumpy, matte
-    Clay: (hex, opts={}) => createUnifiedMaterial(hex, {
-        roughness: 0.8,
-        bumpStrength: 0.15,
-        noiseScale: 8.0,
-        triplanar: true,
-        contactDarkening: 0.3,
-        contactDarkeningHeight: 1.0,
-        // PALETTE: Subtle Rim Light by default
-        rimStrength: 0.3,
-        rimPower: 3.0,
-        ...opts
-    }),
+    Clay: (hex, opts = {}) =>
+        createUnifiedMaterial(hex, {
+            roughness: 0.8,
+            bumpStrength: 0.15,
+            noiseScale: 8.0,
+            triplanar: true,
+            contactDarkening: 0.3,
+            contactDarkeningHeight: 1.0,
+            // PALETTE: Subtle Rim Light by default
+            rimStrength: 0.3,
+            rimPower: 3.0,
+            ...opts,
+        }),
 
     // 2. Sugared: Frosted look with high sheen and micro-bumps
-    Sugar: (hex, opts={}) => createUnifiedMaterial(hex, {
-        roughness: 0.6,
-        bumpStrength: 0.8,
-        noiseScale: 60.0, // High freq for crystals
-        sheen: 1.0,
-        sheenColor: 0xFFFFFF,
-        sheenRoughness: 0.5,
-        contactDarkening: 0.2,
-        contactDarkeningHeight: 0.8,
-        ...opts
-    }),
+    Sugar: (hex, opts = {}) =>
+        createUnifiedMaterial(hex, {
+            roughness: 0.6,
+            bumpStrength: 0.8,
+            noiseScale: 60.0, // High freq for crystals
+            sheen: 1.0,
+            sheenColor: 0xffffff,
+            sheenRoughness: 0.5,
+            contactDarkening: 0.2,
+            contactDarkeningHeight: 0.8,
+            ...opts,
+        }),
 
     // 3. Gummy: Translucent, inner glow, soft
-    Gummy: (hex, opts={}) => createUnifiedMaterial(hex, {
-        transmission: 0.9,
-        thickness: 1.5,
-        roughness: 0.2,
-        ior: 1.4,
-        subsurfaceStrength: 0.6,
-        subsurfaceColor: hex, // Self-colored glow
-        thicknessDistortion: 0.3,
-        contactDarkening: 0.2,
-        contactDarkeningHeight: 1.0,
-        ...opts
-    }),
+    Gummy: (hex, opts = {}) =>
+        createUnifiedMaterial(hex, {
+            transmission: 0.9,
+            thickness: 1.5,
+            roughness: 0.2,
+            ior: 1.4,
+            subsurfaceStrength: 0.6,
+            subsurfaceColor: hex, // Self-colored glow
+            thicknessDistortion: 0.3,
+            contactDarkening: 0.2,
+            contactDarkeningHeight: 1.0,
+            ...opts,
+        }),
 
     // 4. Sea Jelly: Wobbly, wet, very translucent
-    SeaJelly: (hex, opts={}) => createUnifiedMaterial(hex, {
-        transmission: 0.95,
-        thickness: 0.8,
-        ior: 1.33,
-        roughness: 0.05,
-        subsurfaceStrength: 0.4,
-        subsurfaceColor: 0xCCFFFF,
-        animateMoisture: true, // Appears wet/flowing
-        thicknessDistortion: 0.5,
-        ...opts
-    }),
+    SeaJelly: (hex, opts = {}) =>
+        createUnifiedMaterial(hex, {
+            transmission: 0.95,
+            thickness: 0.8,
+            ior: 1.33,
+            roughness: 0.05,
+            subsurfaceStrength: 0.4,
+            subsurfaceColor: 0xccffff,
+            animateMoisture: true, // Appears wet/flowing
+            thicknessDistortion: 0.5,
+            ...opts,
+        }),
 
     // 5. Enchanted Crystal: High refraction + Iridescence
-    Crystal: (hex, opts={}) => createUnifiedMaterial(hex, {
-        transmission: 1.0,
-        thickness: 4.0,
-        roughness: 0.0,
-        ior: 2.0, // Diamond-like
-        iridescenceStrength: 0.7,
-        iridescenceFresnelPower: 2.5,
-        ...opts
-    }),
+    Crystal: (hex, opts = {}) =>
+        createUnifiedMaterial(hex, {
+            transmission: 1.0,
+            thickness: 4.0,
+            roughness: 0.0,
+            ior: 2.0, // Diamond-like
+            iridescenceStrength: 0.7,
+            iridescenceFresnelPower: 2.5,
+            ...opts,
+        }),
 
     // 6. Velvet Frosting: Soft, no specular, high sheen
-    Velvet: (hex, opts={}) => createUnifiedMaterial(hex, {
-        roughness: 1.0,
-        sheen: 1.0,
-        sheenColor: hex, // Colored sheen
-        sheenRoughness: 1.0,
-        bumpStrength: 0.05,
-        ...opts
-    }),
+    Velvet: (hex, opts = {}) =>
+        createUnifiedMaterial(hex, {
+            roughness: 1.0,
+            sheen: 1.0,
+            sheenColor: hex, // Colored sheen
+            sheenRoughness: 1.0,
+            bumpStrength: 0.05,
+            ...opts,
+        }),
 
     // 7. Oil Slick: Dark base, rainbow edges
-    OilSlick: (hex=0x222222, opts={}) => createUnifiedMaterial(hex, {
-        roughness: 0.3,
-        metalness: 0.8,
-        iridescenceStrength: 1.0,
-        iridescenceFresnelPower: 1.5,
-        ...opts
-    })
+    OilSlick: (hex = 0x222222, opts = {}) =>
+        createUnifiedMaterial(hex, {
+            roughness: 0.3,
+            metalness: 0.8,
+            iridescenceStrength: 1.0,
+            iridescenceFresnelPower: 1.5,
+            ...opts,
+        }),
 };
 
 // --- LEGACY WRAPPERS (Backward Compatibility) ---
 
-export function createClayMaterial(hexColor: number | string | THREE.Color, opts: UnifiedMaterialOptions={}) {
+export function createClayMaterial(
+    hexColor: number | string | THREE.Color,
+    opts: UnifiedMaterialOptions = {}
+) {
     return CandyPresets.Clay(hexColor, opts);
 }
 
-export function createCandyMaterial(hexColor: number | string | THREE.Color, opts: UnifiedMaterialOptions={}) {
+export function createCandyMaterial(
+    hexColor: number | string | THREE.Color,
+    opts: UnifiedMaterialOptions = {}
+) {
     return CandyPresets.Gummy(hexColor, opts); // Upgrade old candy to Gummy
 }
 
-export function createTexturedClay(hexColor: number | string | THREE.Color, options: any={}) {
+export function createTexturedClay(hexColor: number | string | THREE.Color, options: any = {}) {
     return createUnifiedMaterial(hexColor, {
         roughness: options.roughness || 0.6,
         bumpStrength: options.bumpStrength || 0.1,
         noiseScale: options.noiseScale || 5.0,
-        triplanar: true
+        triplanar: true,
     });
 }
 
-export function createSugaredMaterial(hexColor: number | string | THREE.Color, options: any={}) {
+export function createSugaredMaterial(hexColor: number | string | THREE.Color, options: any = {}) {
     // Wrapper for specific sugar tweaking
     return createUnifiedMaterial(hexColor, {
         roughness: 0.5,
         bumpStrength: 0.6,
         noiseScale: options.crystalScale || 50.0,
         sheen: 1.0,
-        sheenColor: 0xFFFFFF,
-        subsurfaceStrength: options.subsurface || 0.2
+        sheenColor: 0xffffff,
+        subsurfaceStrength: options.subsurface || 0.2,
     });
 }
 
 // Juicy Bark Material (Replaces Legacy Gradient)
-export function createGradientMaterial(colorBottom: number | string | THREE.Color, colorTop: number | string | THREE.Color, roughness = 0.9) {
+export function createGradientMaterial(
+    colorBottom: number | string | THREE.Color,
+    colorTop: number | string | THREE.Color,
+    roughness = 0.9
+) {
     // 1. TSL Sway + Interaction Logic
     const windTime = uTime.mul(uWindSpeed.add(0.5));
     // Continuous phase field for wind
@@ -851,13 +971,13 @@ export function createGradientMaterial(colorBottom: number | string | THREE.Colo
         colorNode: gradientNode,
         deformationNode: totalDeformation,
         roughness: roughness,
-        bumpStrength: 0.2,   // Bark texture
-        noiseScale: 4.0,     // Scale of bark details
-        triplanar: true,     // Avoid UV seams on cylinder
+        bumpStrength: 0.2, // Bark texture
+        noiseScale: 4.0, // Scale of bark details
+        triplanar: true, // Avoid UV seams on cylinder
         metalness: 0.0,
         // PALETTE: Subtle Rim Light for trunks too
         rimStrength: 0.3,
-        rimPower: 3.0
+        rimPower: 3.0,
     });
 }
 
@@ -869,23 +989,23 @@ export function createStandardNodeMaterial(options: any = {}) {
     if (options.metalness !== undefined) mat.metalnessNode = float(options.metalness);
     if (options.emissive !== undefined) mat.emissiveNode = color(options.emissive);
     if (options.emissiveIntensity !== undefined && options.emissive !== undefined) {
-         mat.emissiveNode = color(options.emissive).mul(float(options.emissiveIntensity));
+        mat.emissiveNode = color(options.emissive).mul(float(options.emissiveIntensity));
     }
-    
+
     // Explicitly copy standard properties
     if (options.transparent) mat.transparent = true;
     if (options.opacity !== undefined) mat.opacity = options.opacity;
     if (options.side !== undefined) mat.side = options.side;
     if (options.blending !== undefined) mat.blending = options.blending;
     if (options.depthWrite !== undefined) mat.depthWrite = options.depthWrite;
-    
+
     return mat;
 }
 
 export function createTransparentNodeMaterial(options: any = {}) {
     const mat = createStandardNodeMaterial(options);
     mat.transparent = true;
-    mat.depthWrite = options.depthWrite !== undefined ? options.depthWrite : false; 
+    mat.depthWrite = options.depthWrite !== undefined ? options.depthWrite : false;
     return mat;
 }
 

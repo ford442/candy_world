@@ -1,6 +1,6 @@
 /**
  * Shared type definitions for Web Workers
- * 
+ *
  * This file contains all type definitions used by the worker system
  * to ensure type safety across worker boundaries.
  */
@@ -9,9 +9,9 @@
 // Physics Worker Types
 // ============================================================================
 
-export type PhysicsRequestType = 
-  | 'getGroundHeight' 
-  | 'checkCollision' 
+export type PhysicsRequestType =
+  | 'getGroundHeight'
+  | 'checkCollision'
   | 'checkPositionValidity'
   | 'batchGroundHeight';
 
@@ -42,9 +42,9 @@ export interface BatchGroundHeightRequest extends BasePhysicsRequest {
   positions: { x: number; z: number }[];
 }
 
-export type PhysicsRequest = 
-  | GroundHeightRequest 
-  | CollisionCheckRequest 
+export type PhysicsRequest =
+  | GroundHeightRequest
+  | CollisionCheckRequest
   | BatchGroundHeightRequest;
 
 // Physics Responses
@@ -69,12 +69,12 @@ export interface CollisionCheckResponse extends BasePhysicsResponse {
 
 export interface BatchGroundHeightResponse extends BasePhysicsResponse {
   type: 'batchGroundHeight';
-  heights: number[] | Float32Array;
+  heights: number[];
 }
 
-export type PhysicsResponse = 
-  | GroundHeightResponse 
-  | CollisionCheckResponse 
+export type PhysicsResponse =
+  | GroundHeightResponse
+  | CollisionCheckResponse
   | BatchGroundHeightResponse
   | BasePhysicsResponse;
 
@@ -82,7 +82,7 @@ export type PhysicsResponse =
 // World Generation Worker Types
 // ============================================================================
 
-export type WorldGenRequestType = 
+export type WorldGenRequestType =
   | 'generateEntities'
   | 'batchEntities'
   | 'validatePositions'
@@ -130,7 +130,7 @@ export interface GetGroundHeightsRequest extends BaseWorldGenRequest {
   positions: { x: number; z: number }[];
 }
 
-export type WorldGenRequest = 
+export type WorldGenRequest =
   | GenerateEntitiesRequest
   | BatchEntityRequest
   | ValidatePositionsRequest
@@ -151,12 +151,12 @@ export interface BatchEntityResponse extends BaseWorldGenResponse {
 
 export interface ValidatePositionsResponse extends BaseWorldGenResponse {
   type: 'validatePositions';
-  results: boolean[] | Array<boolean>;
+  results: boolean[];
 }
 
 export interface GetGroundHeightsResponse extends BaseWorldGenResponse {
   type: 'getGroundHeights';
-  heights: number[] | Float32Array;
+  heights: number[];
 }
 
 export interface BaseWorldGenResponse {
@@ -174,7 +174,7 @@ export interface ProgressResponse {
   percent: number;
 }
 
-export type WorldGenResponse = 
+export type WorldGenResponse =
   | GenerateEntitiesResponse
   | BatchEntityResponse
   | ValidatePositionsResponse
@@ -228,9 +228,9 @@ export interface WorkerReadyMessage {
   [key: string]: any;
 }
 
-export type WorkerInternalMessage = 
-  | WorkerInitMessage 
-  | WorkerReadyMessage 
+export type WorkerInternalMessage =
+  | WorkerInitMessage
+  | WorkerReadyMessage
   | { type: 'ping' }
   | { type: 'immediate'; request: PhysicsRequest }
   | { type: 'batchResponse'; responses: PhysicsResponse[] };

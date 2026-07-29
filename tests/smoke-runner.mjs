@@ -263,6 +263,33 @@ async function runSmokeTest() {
       }
     }
 
+    // GPU context assertion (#1448): one renderer-owned device, published once
+    // with adapter, limits, and power preference, and armed for device loss.
+    const gpuContext = await page.evaluate(() => window.__gpuContext ?? null);
+    if (!gpuContext) {
+      console.error('[CONSOLE ERROR] window.__gpuContext was never published');
+      hasError = true;
+    } else if (USE_WEBGL_BOOT) {
+      console.log(`✓ GPU context: backend=${gpuContext.backend} reason=${gpuContext.reason}`);
+    } else if (rendererInfo.usingWebGPU) {
+      const ok =
+        gpuContext.available === true &&
+        gpuContext.lost === false &&
+        gpuContext.powerPreference === 'high-performance' &&
+        !!gpuContext.adapterName &&
+        !!gpuContext.limits?.maxStorageBufferBindingSize;
+      if (!ok) {
+        console.error(`[CONSOLE ERROR] Incomplete GPU context: ${JSON.stringify(gpuContext)}`);
+        hasError = true;
+      } else {
+        console.log(
+          `✓ GPU context: adapter=${gpuContext.adapterName} ` +
+          `powerPreference=${gpuContext.powerPreference} ` +
+          `maxStorageBufferBindingSize=${gpuContext.limits.maxStorageBufferBindingSize}`
+        );
+      }
+    }
+
     // Check canvas
     const canvasInfo = await page.evaluate(() => {
       const canvas = document.querySelector('canvas');

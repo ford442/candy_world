@@ -602,6 +602,18 @@ export interface ConfigType {
         seed: number;
         areaScale: number;
         biomeDensity: Record<string, { beetle: number; hopper: number; moth: number }>;
+        /** Sky-island roost flocks (#1363) — reserved slice of the population. */
+        roosts: {
+            enabled: boolean;
+            /** Critters placed per registered island deck. */
+            perIsland: number;
+            /** Ring radius as a fraction of deck radius (keeps roosts off the rim). */
+            ringInset: number;
+            /** Random offset as a fraction of deck radius. */
+            jitter: number;
+            /** Species mix at roosts — moth-heavy; flyers suit floating decks. */
+            density: { beetle: number; hopper: number; moth: number };
+        };
     };
 
     presence: {
@@ -1230,7 +1242,17 @@ export const CONFIG: ConfigType = {
             luminous_plants: { beetle: 5, hopper: 4, moth: 8 },
             gem_canopy: { beetle: 6, hopper: 5, moth: 3 },
             lake_features: { beetle: 3, hopper: 2, moth: 5 },
+            sky_islands: { beetle: 2, hopper: 2, moth: 9 },
             global: { beetle: 5, hopper: 4, moth: 4 },
+        },
+        roosts: {
+            enabled: true,
+            // 3 island tiers × 4 = 12 of the 96-instance cap (~12%), leaving the
+            // terrain scatter essentially unchanged.
+            perIsland: 4,
+            ringInset: 0.55,
+            jitter: 0.12,
+            density: { beetle: 1, hopper: 1, moth: 8 },
         },
     },
 

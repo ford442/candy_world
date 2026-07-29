@@ -62,7 +62,11 @@ import {
 
 import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
+<<<<<<< HEAD
 import { gpuContext } from '../rendering/gpu-context.ts';
+=======
+import { awaitGpuDevice, getGpuContextSync, onGpuDeviceLost } from '../rendering/gpu-context.ts';
+>>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
 
 // ⚡ OPTIMIZATION: Fast approximations for Math.sin and Math.cos
 function fastSin(x: number): number {
@@ -108,6 +112,7 @@ export class ComputeParticleSystem {
     private cpuFallback: CPUParticleSystem | null = null;
     private particleBuffer: GPUBuffer | null = null;
     private nextSpawnIndex: number = 0;
+    private unsubscribeDeviceLost: (() => void) | null = null;
     private static scratchFloat32Array = new Float32Array(4);
 
     public initPromise: Promise<void> | null = null;
@@ -454,6 +459,7 @@ private getOpacityNode(): any {
         if (!navigator.gpu) {
             throw new Error('WebGPU not supported');
         }
+<<<<<<< HEAD
         
         if (!gpuContext.isReady()) {
             throw new Error('[ComputeParticles] Shared GPU context is not initialized yet');
@@ -465,6 +471,31 @@ private getOpacityNode(): any {
         }
         this.device = device;
         
+=======
+
+        // Borrow the single renderer-owned device instead of requesting one per
+        // particle system — N systems used to mean N devices, N heaps.
+        // `awaitGpuDevice` resolves null (never hangs, never throws) when the
+        // shared device is missing, so we fail closed to the CPU tier.
+        const device = await awaitGpuDevice();
+        if (!device) {
+            const reason = getGpuContextSync().reason ?? 'device unavailable';
+            throw new Error(`No shared WebGPU device (${reason})`);
+        }
+        this.device = device;
+
+        // Device loss is owned by gpu-context. Drop GPU state so update() stops
+        // dispatching; the CPU fallback keeps the system alive visually.
+        this.unsubscribeDeviceLost = onGpuDeviceLost(() => {
+            this.usingGPU = false;
+            this.device = null;
+            this.computePipeline = null;
+            this.bindGroup = null;
+            this.particleBuffer = null;
+            this.uniformBuffer = null;
+        });
+
+>>>>>>> ff6e32bf3c6218a7e2c8f1413dc8f9e3eefc43c7
         // Ensure WebGPU resources are created sequentially with rAF yields
         // rather than Promise.all parallel execution, to prevent VRAM allocation spikes.
         await this.createComputePipeline();
@@ -737,12 +768,20 @@ private getOpacityNode(): any {
         
         this.mesh.geometry.dispose();
         (this.mesh.material as THREE.Material).dispose();
-        
 
+        this.unsubscribeDeviceLost?.();
+        this.unsubscribeDeviceLost = null;
 
-        if (this.device) {
-            this.device.destroy();
-        }
+        // Release this system's GPU buffers, but never destroy the device —
+        // it is the renderer's, shared by every GPU consumer.
+        this.particleBuffer?.destroy();
+        this.uniformBuffer?.destroy();
+        this.particleBuffer = null;
+        this.uniformBuffer = null;
+        this.computePipeline = null;
+        this.bindGroup = null;
+        this.device = null;
+        this.usingGPU = false;
     }
 
     /**

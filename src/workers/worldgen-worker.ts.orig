@@ -1,11 +1,11 @@
 /**
  * World Generation Worker - Offloads procedural entity placement from the main thread
- * 
+ *
  * Handles:
  * - Procedural entity placement for PROCEDURAL_ENTITY_COUNT = 400 items
  * - Position validation using physics calculations
  * - Returns positioned entities ready to be instantiated
- * 
+ *
  * Performance Benefits:
  * - Main thread stays responsive during world generation
  * - Parallel processing of entity placement
@@ -83,12 +83,12 @@ async function initWasm(wasmUrl: string): Promise<boolean> {
     if (!response.ok) {
       throw new Error(`Failed to fetch WASM: ${response.status}`);
     }
-    
+
     const bytes = await response.arrayBuffer();
     wasmModule = await WebAssembly.compile(bytes);
-    
+
     memory = new WebAssembly.Memory({ initial: 1024, maximum: 2048 });
-    
+
     const importObject = {
       env: {
         memory,
@@ -106,14 +106,14 @@ async function initWasm(wasmUrl: string): Promise<boolean> {
         'Math.PI': Math.PI,
       }
     };
-    
+
     wasmInstance = await WebAssembly.instantiate(wasmModule, importObject);
     exports = wasmInstance.exports;
-    
+
     if (exports.initCollisionSystem) {
       exports.initCollisionSystem();
     }
-    
+
     return true;
   } catch (error) {
     console.error('[WorldGenWorker] WASM init failed:', error);
@@ -129,7 +129,7 @@ function getGroundHeight(x: number, z: number): number {
     return exports.getGroundHeight(x, z);
   }
   // Fallback: simple procedural terrain
-  return Math.sin(x * 0.05) * Math.cos(z * 0.05) * 2 + 
+  return Math.sin(x * 0.05) * Math.cos(z * 0.05) * 2 +
          Math.sin(x * 0.15) * Math.cos(z * 0.15) * 0.5;
 }
 
@@ -140,12 +140,12 @@ function isPositionValid(x: number, z: number, radius: number, existingEntities:
   // Distance from center check
   const distFromCenterSq = x * x + z * z;
   if (distFromCenterSq < 15 * 15) return false;
-  
+
   // Lake avoidance for procedural content
   if (x > -40 && x < 80 && z > -30 && z < 70) {
     return false;
   }
-  
+
   // Check against existing entities
   for (const entity of existingEntities) {
     const dx = x - entity.x;
@@ -154,13 +154,13 @@ function isPositionValid(x: number, z: number, radius: number, existingEntities:
     const minDistance = entity.radius + radius + 1.5;
     if (distSq < minDistance * minDistance) return false;
   }
-  
+
   // WASM collision check if available
   if (exports && exports.checkPositionValidity) {
     const result = exports.checkPositionValidity(x, z, radius);
     if (result === 1) return false; // Collision detected
   }
-  
+
   return true;
 }
 
@@ -170,14 +170,14 @@ function isPositionValid(x: number, z: number, radius: number, existingEntities:
 function selectEntityType(): string {
   const rand = Math.random();
   let cumulative = 0;
-  
+
   for (const [type, config] of Object.entries(ENTITY_DISTRIBUTION)) {
     cumulative += config.weight;
     if (rand < cumulative) {
       return type;
     }
   }
-  
+
   return 'flower';
 }
 
@@ -199,14 +199,14 @@ function selectTreeSubtype(): string {
  * Generate a single procedural entity
  */
 function generateEntity(
-  index: number, 
-  range: number, 
+  index: number,
+  range: number,
   existingEntities: ProceduralEntity[]
 ): ProceduralEntity | null {
   let x = 0, z = 0;
   let attempts = 0;
   let validPosition = false;
-  
+
   // Find valid position
   while (attempts < MAX_PLACEMENT_ATTEMPTS) {
     x = (Math.random() - 0.5) * range;
@@ -217,12 +217,12 @@ function generateEntity(
     }
     attempts++;
   }
-  
+
   if (!validPosition) return null;
-  
+
   const type = selectEntityType();
   const groundY = getGroundHeight(x, z);
-  
+
   // Base entity properties
   const entity: ProceduralEntity = {
     id: `proc_${index}_${Date.now()}`,
@@ -236,7 +236,7 @@ function generateEntity(
     isObstacle: false,
     variant: null
   };
-  
+
   // Type-specific customization
   switch (type) {
     case 'mushroom': {
@@ -250,7 +250,7 @@ function generateEntity(
       };
       break;
     }
-    
+
     case 'tree': {
       const subtype = selectTreeSubtype();
       const treeType = TREE_ENTITY_TYPES[subtype] ?? 'tree';
@@ -262,13 +262,13 @@ function generateEntity(
       };
       break;
     }
-    
+
     case 'musical': {
       const subtype = selectMusicalSubtype();
       const floraType = MUSICAL_ENTITY_TYPES[subtype] ?? 'flower';
       entity.variant = { subtype };
       entity.scale = sampleEntityScale(floraType);
-      
+
       // Subtype-specific properties
       switch (subtype) {
         case 'kickDrumGeyser':
@@ -290,7 +290,7 @@ function generateEntity(
       }
       break;
     }
-    
+
     case 'cloud': {
       const isHigh = Math.random() < 0.5;
       entity.y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
@@ -300,7 +300,7 @@ function generateEntity(
       };
       break;
     }
-    
+
     case 'spirit': {
       entity.variant = {
         wanderRadius: 5 + Math.random() * 10,
@@ -308,7 +308,7 @@ function generateEntity(
       };
       break;
     }
-    
+
     case 'shrine': {
       entity.radius = 1.0;
       entity.isObstacle = true;
@@ -318,13 +318,13 @@ function generateEntity(
       };
       break;
     }
-    
+
     case 'mirror': {
       entity.y = groundY + 15 + Math.random() * 10;
       entity.scale = 2.0;
       break;
     }
-    
+
     case 'pad': {
       entity.radius = 1.2 + Math.random();
       entity.variant = {
@@ -333,7 +333,7 @@ function generateEntity(
       if (entity.y < 2) entity.y = 1.0;
       break;
     }
-    
+
     case 'flower':
     default: {
       const isGlowing = Math.random() < 0.5;
@@ -341,7 +341,7 @@ function generateEntity(
       break;
     }
   }
-  
+
   return entity;
 }
 
@@ -355,28 +355,28 @@ async function generateProceduralEntities(
   onProgress?: (current: number, total: number) => void
 ): Promise<ProceduralEntity[]> {
   const entities: ProceduralEntity[] = [];
-  
+
   for (let i = 0; i < count; i++) {
     const entity = generateEntity(i, range, entities);
     if (entity) {
       entities.push(entity);
     }
-    
+
     // Report progress
     if (onProgress && (i + 1) % chunkSize === 0) {
       onProgress(Math.min(i + 1, count), count);
     }
-    
+
     // Yield control periodically
     if ((i + 1) % chunkSize === 0) {
       await new Promise(resolve => setTimeout(resolve, 0));
     }
   }
-  
+
   if (onProgress && count % chunkSize !== 0) {
     onProgress(count, count);
   }
-  
+
   return entities;
 }
 
@@ -385,17 +385,17 @@ async function generateProceduralEntities(
  */
 function processBatchRequest(request: BatchEntityRequest): BatchEntityResponse {
   const startTime = performance.now();
-  
+
   const entities: ProceduralEntity[] = [];
   const { count, range, existingEntities } = request;
-  
+
   for (let i = 0; i < count; i++) {
     const entity = generateEntity(i, range || DEFAULT_RANGE, existingEntities || entities);
     if (entity) {
       entities.push(entity);
     }
   }
-  
+
   return {
     type: 'batchEntities',
     requestId: request.requestId,
@@ -411,9 +411,9 @@ let generatedCount = 0;
 // Worker message handler
 self.onmessage = (event: MessageEvent) => {
   const msg = event.data;
-  
+
   if (!msg || !msg.type) return;
-  
+
   switch (msg.type) {
     case 'init': {
       const { wasmUrl } = msg;
@@ -426,7 +426,7 @@ self.onmessage = (event: MessageEvent) => {
       });
       break;
     }
-    
+
     case 'generateEntities': {
       if (isGenerating) {
         self.postMessage({
@@ -436,11 +436,11 @@ self.onmessage = (event: MessageEvent) => {
         });
         return;
       }
-      
+
       isGenerating = true;
       const startTime = performance.now();
       const { count, range, chunkSize } = msg;
-      
+
       generateProceduralEntities(
         count || PROCEDURAL_ENTITY_COUNT,
         range || DEFAULT_RANGE,
@@ -457,7 +457,7 @@ self.onmessage = (event: MessageEvent) => {
       ).then(entities => {
         generatedCount += entities.length;
         isGenerating = false;
-        
+
         self.postMessage({
           type: 'generateEntities',
           requestId: msg.requestId,
@@ -473,25 +473,23 @@ self.onmessage = (event: MessageEvent) => {
           error: String(error)
         });
       });
-      
+
       break;
     }
-    
+
     case 'batchEntities': {
       const response = processBatchRequest(msg as BatchEntityRequest);
       self.postMessage(response);
       break;
     }
-    
+
     case 'validatePositions': {
       const startTime = performance.now();
       const { positions } = msg;
-      // ⚡ OPTIMIZATION: Replaced .map() with a zero-allocation for-loop to eliminate GC spikes in worker IPC.
-      const results = new Array(positions.length);
-      for (let i = 0; i < positions.length; i++) {
-        results[i] = isPositionValid(positions[i].x, positions[i].z, positions[i].radius, []);
-      }
-      
+      const results = positions.map((pos: { x: number; z: number; radius: number }) =>
+        isPositionValid(pos.x, pos.z, pos.radius, [])
+      );
+
       self.postMessage({
         type: 'validatePositions',
         requestId: msg.requestId,
@@ -500,16 +498,14 @@ self.onmessage = (event: MessageEvent) => {
       });
       break;
     }
-    
+
     case 'getGroundHeights': {
       const startTime = performance.now();
       const { positions } = msg;
-      // ⚡ OPTIMIZATION: Replaced .map() with a zero-allocation for-loop to eliminate GC spikes in worker IPC.
-      const heights = new Float32Array(positions.length);
-      for (let i = 0; i < positions.length; i++) {
-        heights[i] = getGroundHeight(positions[i].x, positions[i].z);
-      }
-      
+      const heights = positions.map((pos: { x: number; z: number }) =>
+        getGroundHeight(pos.x, pos.z)
+      );
+
       self.postMessage({
         type: 'getGroundHeights',
         requestId: msg.requestId,
@@ -518,12 +514,12 @@ self.onmessage = (event: MessageEvent) => {
       });
       break;
     }
-    
+
     case 'ping': {
       self.postMessage({ type: 'pong', timestamp: performance.now() });
       break;
     }
-    
+
     case 'stats': {
       self.postMessage({
         type: 'stats',
@@ -533,7 +529,7 @@ self.onmessage = (event: MessageEvent) => {
       });
       break;
     }
-    
+
     default:
       self.postMessage({
         type: 'error',

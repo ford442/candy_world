@@ -2,8 +2,19 @@
  * TSL nodes for three-tier foliage LOD (hero / mid / far).
  * Hero tier (factor ≈ 0) preserves pre-LOD visuals; mid/far simplify motion and emissive.
  */
-import { attribute, float, mix, positionLocal, smoothstep, uniform, vec3, floor, mod } from 'three/tsl';
+import {
+    attribute,
+    float,
+    mix,
+    positionLocal,
+    smoothstep,
+    uniform,
+    vec3,
+    floor,
+    mod,
+} from 'three/tsl';
 import { calculatePlayerPush, calculateWindSway } from './material-core.ts';
+import type { TSLArg } from './material-core.ts';
 import type { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
 
@@ -34,8 +45,12 @@ export const lodMeshOpacity = () => float(1.0).sub(lodImpostorBlend());
 /** Instances actively cross-fading between tiers (hero↔mid or mid↔far/impostor). */
 export const lodBlendBandGate = () => {
     const f = aInstanceLodFactor;
-    const heroMid = smoothstep(float(0.75), float(0.85), f).mul(smoothstep(float(1.15), float(1.05), f));
-    const midFar = smoothstep(float(1.45), float(1.55), f).mul(smoothstep(float(2.15), float(1.95), f));
+    const heroMid = smoothstep(float(0.75), float(0.85), f).mul(
+        smoothstep(float(1.15), float(1.05), f)
+    );
+    const midFar = smoothstep(float(1.45), float(1.55), f).mul(
+        smoothstep(float(2.15), float(1.95), f)
+    );
     return heroMid.add(midFar).clamp(0.0, 1.0);
 };
 
@@ -51,8 +66,13 @@ export const lodDitheredOpacity = (baseOpacity: ReturnType<typeof float> = lodMe
  * Hero tier (<120u) opacity stays 1.0 — only far handoff fades.
  */
 export function applyFoliageLodMaterialFade(material: MeshStandardNodeMaterial): void {
-    if ((material as unknown as { userData: Record<string, unknown> }).userData?.foliageLodFadeApplied) return;
-    (material as unknown as { userData: Record<string, unknown> }).userData.foliageLodFadeApplied = true;
+    if (
+        (material as unknown as { userData: Record<string, unknown> }).userData
+            ?.foliageLodFadeApplied
+    )
+        return;
+    (material as unknown as { userData: Record<string, unknown> }).userData.foliageLodFadeApplied =
+        true;
     material.transparent = true;
     const existing = material.opacityNode;
     const fade = lodDitheredOpacity();
@@ -72,13 +92,13 @@ export function syncFoliageLodUniforms(): void {
 }
 
 /** Player push only within hero band */
-export const applyPlayerInteractionWithLod = (basePosNode: Parameters<typeof calculatePlayerPush>[0]) => {
+export const applyPlayerInteractionWithLod = (basePosNode: TSLArg) => {
     const push = calculatePlayerPush(basePosNode).mul(lodHeroGate());
     return basePosNode.add(push);
 };
 
 /** Wind sway attenuated in mid/far tiers */
-export const calculateWindSwayWithLod = (posNode: Parameters<typeof calculateWindSway>[0]) => {
+export const calculateWindSwayWithLod = (posNode: TSLArg) => {
     const wind = calculateWindSway(posNode);
     const weight = lodHeroGate().add(lodMidOnlyGate().mul(0.45));
     return wind.mul(weight);
@@ -91,7 +111,7 @@ export const calculateWindSwayWithLod = (posNode: Parameters<typeof calculateWin
  * Internally composes wind sway and player push. DO NOT wrap with applyPlayerInteraction.
  */
 export const foliageDeformationOffset = (
-    baseWithAnimPos: Parameters<typeof calculatePlayerPush>[0],
+    baseWithAnimPos: TSLArg,
     extraOffset?: ReturnType<typeof float>,
     subtractNode: typeof positionLocal = positionLocal
 ) => {
@@ -119,7 +139,7 @@ export const foliageDeformationOffset = (
 
 /** Absolute displaced position (for materials using positionNode directly) */
 export const foliageMotionPosition = (
-    baseWithAnimPos: Parameters<typeof calculatePlayerPush>[0],
+    baseWithAnimPos: TSLArg,
     extraOffset?: ReturnType<typeof float>
 ) => foliageDeformationOffset(baseWithAnimPos, extraOffset).add(positionLocal);
 
@@ -130,8 +150,10 @@ export const scaleEmissiveByLod = (emissiveNode: ReturnType<typeof float>) => {
 };
 
 /** Mix a hero-only multiplier toward 1.0 in mid/far (e.g. audio squash) */
-export const lodHeroOnlyMultiplier = (heroValue: ReturnType<typeof vec3>, identity = vec3(1, 1, 1)) =>
-    mix(identity, heroValue, lodHeroGate());
+export const lodHeroOnlyMultiplier = (
+    heroValue: ReturnType<typeof vec3>,
+    identity = vec3(1, 1, 1)
+) => mix(identity, heroValue, lodHeroGate());
 
 /**
  * 🏗️ ARCHITECT: Standardized TSL deformation chain for LOD-enabled objects
