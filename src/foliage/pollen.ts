@@ -1,19 +1,45 @@
 import * as THREE from 'three';
-import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import { PointsNodeMaterial } from 'three/webgpu';
 import {
-    Fn, uniform, storage, instanceIndex, float, vec3,
-    mix, sin, cos, normalize, color,
-    mx_noise_float, vertexIndex, max, min, length,
-    positionLocal, time, uv, distance, smoothstep, discard,
-    vec2
+    Fn,
+    uniform,
+    storage,
+    instanceIndex,
+    float,
+    vec3,
+    mix,
+    sin,
+    cos,
+    normalize,
+    color,
+    mx_noise_float,
+    vertexIndex,
+    max,
+    min,
+    length,
+    positionLocal,
+    time,
+    uv,
+    distance,
+    smoothstep,
+    discard,
+    vec2,
 } from 'three/tsl';
-import { uTime, uAudioLow, uAudioHigh, uWindSpeed, uWindDirection, uPlayerPosition } from './index.ts';
+import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
+import {
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    uWindSpeed,
+    uWindDirection,
+    uPlayerPosition,
+} from './index.ts';
 
 export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE.Vector3(0, 5, 0)) {
     // 1. Setup Buffers
-    const positionBuffer = new StorageBufferAttribute(count, 3);
-    const velocityBuffer = new StorageBufferAttribute(count, 3);
-    const lifeBuffer = new StorageBufferAttribute(count, 1);
+    const positionBuffer = createStorageBufferAttribute(count, 3);
+    const velocityBuffer = createStorageBufferAttribute(count, 3);
+    const lifeBuffer = createStorageBufferAttribute(count, 1);
 
     // Initialize with random data
     for (let i = 0; i < count; i++) {
@@ -29,7 +55,12 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
         positionBuffer.setXYZ(i, x, y, z);
 
         // Random small velocity
-        velocityBuffer.setXYZ(i, (Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.05);
+        velocityBuffer.setXYZ(
+            i,
+            (Math.random() - 0.5) * 0.05,
+            (Math.random() - 0.5) * 0.05,
+            (Math.random() - 0.5) * 0.05
+        );
 
         // Life offset / Random seed
         lifeBuffer.setX(i, Math.random() * 100.0);
@@ -87,7 +118,11 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
 
         // Integration
         const dt = float(0.016);
-        const acceleration = windForce.add(wanderForce).add(audioJitter).add(centerForce).add(repelForce);
+        const acceleration = windForce
+            .add(wanderForce)
+            .add(audioJitter)
+            .add(centerForce)
+            .add(repelForce);
 
         const newVel = v.add(acceleration.mul(dt));
 
@@ -110,7 +145,7 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
         size: 0.1, // Will be overridden by sizeNode
         transparent: true,
         depthWrite: false,
-        blending: THREE.AdditiveBlending
+        blending: THREE.AdditiveBlending,
     });
 
     const particlePos = positionStorage.element(vertexIndex);
@@ -141,15 +176,17 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
 
     // Color Logic (Neon Gradient)
     // Mix Cyan (0x00FFFF) and Magenta (0xFF00FF) based on position
-    const hueMix = sin(particlePos.x.mul(0.1).add(particlePos.z.mul(0.1)).add(uTime)).mul(0.5).add(0.5);
-    const cyan = color(0x00FFFF);
-    const magenta = color(0xFF00FF);
+    const hueMix = sin(particlePos.x.mul(0.1).add(particlePos.z.mul(0.1)).add(uTime))
+        .mul(0.5)
+        .add(0.5);
+    const cyan = color(0x00ffff);
+    const magenta = color(0xff00ff);
     const baseColor = mix(cyan, magenta, hueMix);
 
     // Hot Core (White center)
     // Mix White at center (dist < 0.2)
     const coreMix = smoothstep(0.3, 0.0, distFromCenter);
-    const finalColor = mix(baseColor, color(0xFFFFFF), coreMix.mul(0.5)); // 50% white core
+    const finalColor = mix(baseColor, color(0xffffff), coreMix.mul(0.5)); // 50% white core
 
     material.colorNode = finalColor.mul(brightness);
     material.opacityNode = alpha; // Apply circular mask
