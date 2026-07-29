@@ -4,6 +4,9 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
+// `three/tsl` re-exports TSL values but no types; ShaderNodeObject (the mapped
+// type that supplies .mul()/.add()/swizzles) only exists on the canonical path.
+import type { ShaderNodeObject } from 'three/src/nodes/tsl/TSLCore.js';
 import {
     color, float, uv, mix, vec3, vec2, Fn, uniform, dot, max, min,
     mx_noise_float, positionLocal, positionWorld, normalWorld, normalLocal,
@@ -109,9 +112,25 @@ export function generateNoiseTexture(size = 256): THREE.DataTexture {
 // --- TSL UTILITY FUNCTIONS ---
 
 /**
+ * A TSL node argument as seen *inside* an `Fn` body.
+ *
+ * `Fn<T extends any[]>` cannot infer `T` from a destructuring pattern alone, so
+ * every parameter lands as implicit `any` (TS7031) unless the tuple is supplied
+ * explicitly. Naming it once keeps the call sites readable.
+ */
+export type TSLArg = ShaderNodeObject<Node>;
+
+/**
+ * An optional TSL node argument. Several helpers below accept `null` for a
+ * normal/override slot and fall back to a global (`normalNode || normalWorld`),
+ * so callers legitimately pass `null` — the tuple has to allow it.
+ */
+export type TSLArgOpt = TSLArg | null;
+
+/**
  * Generates triplanar noise to avoid UV seams on complex geometry.
  */
-export const triplanarNoise = Fn(([pos, scale]) => {
+export const triplanarNoise = Fn<[TSLArg, TSLArg]>(([pos, scale]) => {
     const p = pos.mul(scale);
     const n = abs(normalWorld);
 
@@ -129,7 +148,7 @@ export const triplanarNoise = Fn(([pos, scale]) => {
  * Calculates a perturbed normal using finite difference of a noise function.
  * This creates real physical bumps that react to light.
  */
-export const perturbNormal = Fn(([pos, normal, scale, strength]) => {
+export const perturbNormal = Fn<[TSLArg, TSLArg, TSLArg, TSLArg]>(([pos, normal, scale, strength]) => {
     const eps = float(0.01);
     const s = scale;
 
@@ -154,7 +173,7 @@ export const perturbNormal = Fn(([pos, normal, scale, strength]) => {
 /**
  * Creates a TSL node for Rim Light (Fresnel-like edge glow).
  */
-export const createRimLight = Fn(([colorNode, intensity, power, normalNode]) => {
+export const createRimLight = Fn<[TSLArg, TSLArg, TSLArg, TSLArgOpt]>(([colorNode, intensity, power, normalNode]) => {
     const viewDir = normalize(cameraPosition.sub(positionWorld));
     // Use supplied normal or default to global world normal
     const N = normalNode || normalWorld;
@@ -169,7 +188,7 @@ export const createRimLight = Fn(([colorNode, intensity, power, normalNode]) => 
 /**
  * Creates a "Juicy" Rim Light with audio reactivity and color shifting.
  */
-export const createJuicyRimLight = Fn(([baseColor, intensity, power, normalNode]) => {
+export const createJuicyRimLight = Fn<[TSLArg, TSLArg, TSLArg, TSLArgOpt]>(([baseColor, intensity, power, normalNode]) => {
     const viewDir = normalize(cameraPosition.sub(positionWorld));
     const N = normalNode || normalWorld;
     const NdotV = abs(dot(N, viewDir));
@@ -194,7 +213,7 @@ export const createJuicyRimLight = Fn(([baseColor, intensity, power, normalNode]
  * Creates a "Sugar Sparkle" effect for candy aesthetics.
  * View-dependent, audio-reactive glitter.
  */
-export const createSugarSparkle = Fn(([normalNode, scale, density, intensity]) => {
+export const createSugarSparkle = Fn<[TSLArgOpt, TSLArg, TSLArg, TSLArg]>(([normalNode, scale, density, intensity]) => {
     const viewDir = normalize(cameraPosition.sub(positionWorld));
 
     // View-dependent shift: Sparkles "twinkle" as you move around
@@ -227,7 +246,7 @@ export const createSugarSparkle = Fn(([normalNode, scale, density, intensity]) =
 });
 
 // Legacy helper kept for compatibility
-export const addRimLight = Fn(([baseColorNode, normalNode]) => {
+export const addRimLight = Fn<[TSLArg, TSLArgOpt]>(([baseColorNode, normalNode]) => {
     // Pass the normalNode if it exists
     return baseColorNode.add(createRimLight(color(0xFFFFFF), float(0.5), float(3.0), normalNode));
 });
@@ -236,7 +255,7 @@ export const addRimLight = Fn(([baseColorNode, normalNode]) => {
  * Derives color from note index (0-11) for musical elements.
  * Reduces vertex buffer count by eliminating per-instance color attributes.
  */
-export const colorFromNote = Fn(([noteIndex]) => {
+export const colorFromNote = Fn<[TSLArg]>(([noteIndex]) => {
     // Simple rainbow color mapping using sine waves
     const angle = noteIndex.div(12.0).mul(6.28318); // 2*PI
 
@@ -249,7 +268,7 @@ export const colorFromNote = Fn(([noteIndex]) => {
 
 // --- PALETTE HELPER: Player Interaction ---
 // Calculates displacement vector based on player proximity
-export const calculatePlayerPush = Fn(([currentPos]) => {
+export const calculatePlayerPush = Fn<[TSLArg]>(([currentPos]) => {
     const playerDistVector = positionWorld.sub(uPlayerPosition);
     // We only care about X/Z distance for most vertical foliage (cylinder interaction)
     const playerDistH = vec3(playerDistVector.x, float(0.0), playerDistVector.z);
@@ -285,7 +304,7 @@ export const applyPlayerInteraction = (basePosNode: any) => {
  * Optimized wind sway using baked texture sampling
  * Samples wind vector from texture based on world position + time
  */
-export const calculateWindSway = Fn(([posNode]) => {
+export const calculateWindSway = Fn<[TSLArg]>(([posNode]) => {
     // NOTE: Texture-sampled wind is disabled. Three.js TSL's WGSLNodeBuilder
     // generates `textureLoad(tex, vec2u)` (no mip-level arg) for any
     // texture flagged isStorageTexture === true, even when read as a
@@ -312,7 +331,7 @@ export const calculateWindSway = Fn(([posNode]) => {
  * Legacy wind sway calculation (kept for comparison/debugging)
  * Use this to verify visual quality matches the optimized version
  */
-export const calculateWindSwayLegacy = Fn(([posNode]) => {
+export const calculateWindSwayLegacy = Fn<[TSLArg]>(([posNode]) => {
     const windTime = uTime.mul(uWindSpeed.add(0.5));
     // Continuous phase field for wind
     const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
