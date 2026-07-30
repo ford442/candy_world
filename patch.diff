@@ -1,0 +1,12 @@
+<<<<<<< SEARCH
+import type { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
+import { yieldToPaint } from '../utils/yield-to-paint.ts';
+
+export interface LoadingScreenElements {
+=======
+import type { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
+import { yieldToPaint } from '../utils/yield-to-paint.ts';
+import { announce } from './announcer.ts';
+
+export interface LoadingScreenElements {
+>>>>>>> REPLACE
