@@ -282,22 +282,24 @@ export function initInput(
             }
         });
 
-        // ♿ Aria: Keyboard tactile feedback for start button
-        startButton.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                if (e.repeat) return;
-                startButton.classList.add('keyboard-active');
-            }
-        });
+        if (startButton) {
+            // ♿ Aria: Keyboard tactile feedback for start button
+            startButton.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.repeat) return;
+                    startButton.classList.add('keyboard-active');
+                }
+            });
 
-        const cleanupStartBtn = () => startButton.classList.remove('keyboard-active');
+            const cleanupStartBtn = () => startButton.classList.remove('keyboard-active');
 
-        startButton.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                cleanupStartBtn();
-            }
-        });
-        startButton.addEventListener('blur', cleanupStartBtn);
+            startButton.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    cleanupStartBtn();
+                }
+            });
+            startButton.addEventListener('blur', cleanupStartBtn);
+        }
     }
 
     controls.addEventListener('lock', () => {
