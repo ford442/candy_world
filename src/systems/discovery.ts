@@ -4,6 +4,7 @@ import { showToast } from '../utils/toast.ts';
 import { DISCOVERY_MAP } from './discovery_map.ts';
 import { discoveryPersistence } from './discovery-persistence.ts';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { yieldToPaint } from '../utils/yield-to-paint.ts';
 
 /**
  * Manages the discovery of rare flora and environmental features.
@@ -170,7 +171,7 @@ class DiscoverySystem {
         closeBtn.style.fontSize = '24px';
         closeBtn.style.cursor = 'pointer';
 
-        closeBtn.onclick = () => {
+        const closeOverlay = () => {
             if (this.releaseFocusTrap) {
                 this.releaseFocusTrap();
                 this.releaseFocusTrap = null;
@@ -185,6 +186,34 @@ class DiscoverySystem {
                 this.lastFocusedElement = null;
             }
         };
+        closeBtn.onclick = closeOverlay;
+
+        // Escape to close
+        overlay.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeOverlay();
+            }
+        });
+
+        // ♿ Aria: Keyboard tactile feedback for interactive elements
+        closeBtn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (e.repeat) return;
+                closeBtn.classList.add('keyboard-active');
+            }
+        });
+
+        const cleanupKeyboardActive = () => {
+            closeBtn.classList.remove('keyboard-active');
+        };
+
+        closeBtn.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                cleanupKeyboardActive();
+            }
+        });
+        closeBtn.addEventListener('blur', cleanupKeyboardActive);
+
         logContainer.appendChild(closeBtn);
 
         const grid = document.createElement('div');
@@ -230,14 +259,17 @@ class DiscoverySystem {
         overlay.appendChild(logContainer);
         document.body.appendChild(overlay);
 
+        // Force reflow before trapping focus
+        void overlay.offsetWidth;
+
         // Trap focus inside the overlay
-        setTimeout(() => {
+        yieldToPaint(50).then(() => {
             if (document.getElementById('discovery-log-overlay')) {
                 this.releaseFocusTrap = trapFocusInside(overlay);
                 // Focus close button for accessibility
                 closeBtn.focus({ preventScroll: true });
             }
-        }, 300);
+        });
     }
 
     /**

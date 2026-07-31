@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { discoverySystem } from '../../systems/discovery.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { openAccessibilityMenu, closeAccessibilityMenu } from '../../ui/accessibility-menu.ts';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import {
     keyStates,
     InitInputResult,
@@ -280,6 +281,23 @@ export function initInput(
                 controls.lock();
             }
         });
+
+        // ♿ Aria: Keyboard tactile feedback for start button
+        startButton.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (e.repeat) return;
+                startButton.classList.add('keyboard-active');
+            }
+        });
+
+        const cleanupStartBtn = () => startButton.classList.remove('keyboard-active');
+
+        startButton.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                cleanupStartBtn();
+            }
+        });
+        startButton.addEventListener('blur', cleanupStartBtn);
     }
 
     controls.addEventListener('lock', () => {
@@ -375,14 +393,14 @@ export function initInput(
                     }
                 });
 
-                setTimeout(() => {
+                yieldToPaint(50).then(() => {
                     if (instructions && instructions.style.display !== 'none') {
                         releasePauseMenuFocus = trapFocusInside(instructions);
                         if (startButton) {
                             startButton.focus({ preventScroll: true });
                         }
                     }
-                }, 200);
+                });
             }
 
             // UX: Update Title to "Paused" to give context
@@ -519,6 +537,9 @@ export function initInput(
                             'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                     }
 
+                    // Force a layout calculation so transitions work correctly
+                    void instructions.offsetWidth;
+
                     requestAnimationFrame(() => {
                         if (instructions) {
                             instructions.style.opacity = '1';
@@ -529,14 +550,14 @@ export function initInput(
                         }
                     });
 
-                    setTimeout(() => {
+                    yieldToPaint(50).then(() => {
                         if (instructions && instructions.style.display !== 'none') {
                             releasePauseMenuFocus = trapFocusInside(instructions);
                             if (startButton) {
                                 startButton.focus({ preventScroll: true });
                             }
                         }
-                    }, 200);
+                    });
                 }
                 if (startButton) {
                     setStartButtonResumeLabel();
