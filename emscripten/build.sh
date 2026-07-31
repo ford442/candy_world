@@ -377,6 +377,9 @@ declare -A ANIMATION_FUNCTIONS=(
 
     # ECS entity-component system (ecs.cpp)
     ["ecsInit"]="ecs"
+
+    # Boids (boids.cpp)
+    ["updateBoids_c"]="boids"
     ["ecsCreateEntity"]="ecs"
     ["ecsDestroyEntity"]="ecs"
     ["ecsIsAlive"]="ecs"

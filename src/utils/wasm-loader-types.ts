@@ -239,6 +239,14 @@ export interface WasmExports {
         playerZ: number,
         time: number
     ) => void;
+    updateBoids_c?: (
+        boidsPtr: number,
+        count: number,
+        dt: number,
+        playerX: number,
+        playerZ: number,
+        time: number
+    ) => void;
     boidsBufferBytes?: (count: number) => number;
     [key: string]: WasmExportValue | undefined;
     memory: WebAssembly.Memory;
