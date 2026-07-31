@@ -1,5 +1,6 @@
 import type { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
+import { announce } from './announcer.ts';
 
 export interface LoadingScreenElements {
     container: HTMLElement;
@@ -27,6 +28,9 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
     const existing = container.querySelector('.fatal-error-reload');
     if (existing) return;
 
+    // ♿ Aria: Explicitly announce the fatal loading error so screen reader users aren't left waiting
+    announce('Fatal loading error. Please reload the page to try again.', 'assertive');
+
     const reloadBtn = document.createElement('button');
     reloadBtn.className = 'fatal-error-reload skip-button';
     reloadBtn.setAttribute('aria-label', 'Reload page to try again');
@@ -34,8 +38,19 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
     reloadBtn.addEventListener('click', () => window.location.reload());
     reloadBtn.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
-            reloadBtn.classList.add('keyboard-active');
-            setTimeout(() => reloadBtn.classList.remove('keyboard-active'), 150);
+            if (!reloadBtn.classList.contains('keyboard-active')) {
+                reloadBtn.classList.add('keyboard-active');
+
+                // ♿ Aria: Remove class on keyup and blur to match tactile hold duration
+                const removeFeedback = () => {
+                    reloadBtn.classList.remove('keyboard-active');
+                    reloadBtn.removeEventListener('keyup', removeFeedback);
+                    reloadBtn.removeEventListener('blur', removeFeedback);
+                };
+
+                reloadBtn.addEventListener('keyup', removeFeedback);
+                reloadBtn.addEventListener('blur', removeFeedback);
+            }
         }
     });
     container.querySelector('.loading-content')?.appendChild(reloadBtn);
@@ -49,8 +64,19 @@ export function wireSkipButton(skipButton: HTMLButtonElement, onSkip: () => void
     skipButton.addEventListener('click', onSkip);
     skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
-            skipButton.classList.add('keyboard-active');
-            setTimeout(() => skipButton.classList.remove('keyboard-active'), 150);
+            if (!skipButton.classList.contains('keyboard-active')) {
+                skipButton.classList.add('keyboard-active');
+
+                // ♿ Aria: Remove class on keyup and blur to match tactile hold duration
+                const removeFeedback = () => {
+                    skipButton.classList.remove('keyboard-active');
+                    skipButton.removeEventListener('keyup', removeFeedback);
+                    skipButton.removeEventListener('blur', removeFeedback);
+                };
+
+                skipButton.addEventListener('keyup', removeFeedback);
+                skipButton.addEventListener('blur', removeFeedback);
+            }
         }
     });
 }
