@@ -134,7 +134,7 @@ export class AssetStreamer {
         this.config = { ...DEFAULT_STREAMING_CONFIG, ...config };
         this.manifest = manifest;
         
-        this.regionManager = new RegionManager(this.config.cellSize);
+        this.regionManager = new RegionManager({ cellSize: this.config.cellSize });
         this.assetCache = new LRUCache(
             this.config.lruCacheSize,
             (asset) => asset.metadata.estimatedMemory
@@ -196,7 +196,7 @@ export class AssetStreamer {
     /**
      * Load a single asset with priority.
      */
-    async loadAsset(assetId: string, priority: AssetPriority = AssetPriority.NORMAL): Promise<LoadedAsset> {
+    async loadAsset(assetId: string, priority: AssetPriority = AssetPriority.MEDIUM): Promise<LoadedAsset> {
         if (this.assets.has(assetId)) {
             this.stats.cacheHits++;
             return this.assets.get(assetId)!;
@@ -230,7 +230,7 @@ export class AssetStreamer {
             const timeout = setTimeout(() => {
                 reject(new Error(`Asset load timeout: ${assetId}`));
                 this.activeLoads.delete(assetId);
-            }, this.config.requestTimeoutMs);
+            }, this.config.retryDelayMs ?? 5000);
 
             // Monitor load
             const onLoaded = (asset: LoadedAsset) => {
@@ -250,8 +250,8 @@ export class AssetStreamer {
      */
     async loadBatch(batch: AssetBatch): Promise<LoadedAsset[]> {
         const loads: Promise<LoadedAsset>[] = [];
-        for (let i = 0; i < batch.assetIds.length; i++) {
-            loads.push(this.loadAsset(batch.assetIds[i], batch.priority));
+        for (let i = 0; i < batch.ids.length; i++) {
+            loads.push(this.loadAsset(batch.ids[i], batch.priority));
         }
         return Promise.all(loads);
     }
@@ -271,21 +271,21 @@ export class AssetStreamer {
         if (!asset) return;
 
         // Dispose of THREE.js resources
-        if (asset.type === AssetType.TEXTURE && asset.data instanceof THREE.Texture) {
+        if (asset.metadata.type === AssetType.TEXTURE && asset.data instanceof THREE.Texture) {
             asset.data.dispose();
-        } else if (asset.type === AssetType.GEOMETRY && asset.data instanceof THREE.BufferGeometry) {
+        } else if (asset.metadata.type === AssetType.GEOMETRY && asset.data instanceof THREE.BufferGeometry) {
             asset.data.dispose();
         }
 
         this.assets.delete(assetId);
-        this.assetCache.remove(assetId);
+        this.assetCache.delete(assetId);
 
         // Update memory tracking
-        if (asset.type === AssetType.TEXTURE) {
+        if (asset.metadata.type === AssetType.TEXTURE) {
             this.textureMemoryUsed = Math.max(0, this.textureMemoryUsed - asset.metadata.estimatedMemory);
-        } else if (asset.type === AssetType.GEOMETRY) {
+        } else if (asset.metadata.type === AssetType.GEOMETRY) {
             this.geometryMemoryUsed = Math.max(0, this.geometryMemoryUsed - asset.metadata.estimatedMemory);
-        } else if (asset.type === AssetType.AUDIO) {
+        } else if (asset.metadata.type === AssetType.AUDIO) {
             this.audioMemoryUsed = Math.max(0, this.audioMemoryUsed - asset.metadata.estimatedMemory);
         }
     }
@@ -295,10 +295,11 @@ export class AssetStreamer {
      */
     async preloadRegion(cellX: number, cellZ: number, radius: number): Promise<void> {
         const cells = this.regionManager.getCellsInRadius(cellX, cellZ, radius);
-        for (const cell of cells) {
+        for (const cellKey of cells) {
+            const [cx, cz] = cellKey.split(',').map(Number);
             const assets = this.manifest.assets;
             for (const [assetId, meta] of Object.entries(assets)) {
-                if (meta.cell.x === cell.x && meta.cell.z === cell.z) {
+                if (meta.cellX === cx && meta.cellZ === cz) {
                     await this.loadAsset(assetId, AssetPriority.LOW);
                 }
             }
@@ -310,13 +311,12 @@ export class AssetStreamer {
      */
     getLoadingProgress(): LoadingProgress {
         return {
-            totalAssets: this.stats.totalAssets,
-            loadedAssets: this.stats.loadedAssets,
-            loadingAssets: this.stats.loadingAssets,
-            pendingAssets: this.stats.pendingAssets,
-            percentComplete: this.stats.totalAssets > 0 
-                ? this.stats.loadedAssets / this.stats.totalAssets 
-                : 0,
+            bytesLoaded: 0,          // byte-level tracking not yet implemented
+            bytesTotal: 0,
+            assetsLoaded: this.stats.loadedAssets,
+            assetsTotal: this.stats.totalAssets,
+            currentAsset: null,
+            queueLength: this.loadingQueue.length,
             estimatedTimeRemaining: this.estimateLoadTime()
         };
     }
@@ -325,16 +325,16 @@ export class AssetStreamer {
      * Set quality level for streaming (affects texture resolution, geometry LOD).
      */
     setQualityLevel(level: QualityLevel): void {
-        this.config.qualityLevel = level;
+        this.config.quality = level;
         
         // Reload textures if quality changed
         for (const asset of this.assets.values()) {
-            if (asset.type === AssetType.TEXTURE) {
+            if (asset.metadata.type === AssetType.TEXTURE) {
                 // Reload with new quality
                 const manifest = this.manifest.assets[asset.id];
                 if (manifest.formats) {
-                    const preferredFormat = QUALITY_FORMAT_PREFERENCES[level];
-                    if (preferredFormat && manifest.formats[preferredFormat]) {
+                    const preferredFormats = QUALITY_FORMAT_PREFERENCES[level];
+                    if (preferredFormats && preferredFormats.length > 0) {
                         this.loadAsset(asset.id, AssetPriority.HIGH);
                     }
                 }
@@ -435,15 +435,16 @@ export class AssetStreamer {
         const totalMemory = this.textureMemoryUsed + this.geometryMemoryUsed + this.audioMemoryUsed;
         this.stats.memoryUsed = totalMemory;
 
-        if (totalMemory > this.config.maxMemoryMb * 0.9) {
+        const maxMemory = this.config.maxTextureMemory + this.config.maxGeometryMemory + this.config.maxAudioMemory;
+        if (totalMemory > maxMemory * 0.9) {
             this.stats.currentMemoryPressure = MemoryPressure.CRITICAL;
             this.handleMemoryPressure(MemoryPressure.CRITICAL);
-        } else if (totalMemory > this.config.maxMemoryMb * 0.7) {
+        } else if (totalMemory > maxMemory * 0.7) {
             this.stats.currentMemoryPressure = MemoryPressure.HIGH;
             this.handleMemoryPressure(MemoryPressure.HIGH);
-        } else if (totalMemory > this.config.maxMemoryMb * 0.5) {
-            this.stats.currentMemoryPressure = MemoryPressure.MODERATE;
-            this.handleMemoryPressure(MemoryPressure.MODERATE);
+        } else if (totalMemory > maxMemory * 0.5) {
+            this.stats.currentMemoryPressure = MemoryPressure.MEDIUM;
+            this.handleMemoryPressure(MemoryPressure.MEDIUM);
         } else {
             this.stats.currentMemoryPressure = MemoryPressure.NONE;
         }
@@ -575,19 +576,22 @@ export class AssetStreamer {
             this.playerPosition.z
         );
 
+        if (!playerCell) return;
+
         // Get cells within streaming radius
         const priorityCells = this.regionManager.getCellsInRadius(
             playerCell.x,
             playerCell.z,
-            this.config.streamingRadiusCells
+            this.config.loadRadius
         );
 
         this.stats.activeCells = priorityCells.length;
 
-        // Mark cells as active/inactive
+        // Mark cells as active/inactive based on whether they are in the priority set
         for (const cell of this.regionManager.getAllCells()) {
-            const isActive = priorityCells.some(c => c.x === cell.x && c.z === cell.z);
-            cell.state = isActive ? CellState.ACTIVE : CellState.INACTIVE;
+            const cellKey = `${cell.x},${cell.z}`;
+            const isActive = priorityCells.includes(cellKey);
+            cell.state = isActive ? CellState.LOADED : CellState.UNLOADED;
         }
     }
 
@@ -614,8 +618,8 @@ export class AssetStreamer {
             data = await this.loadGeometryAsset(manifest, signal);
         } else if (type === AssetType.AUDIO) {
             data = await this.loadAudioAsset(manifest, signal);
-        } else if (type === AssetType.PLACEHOLDER) {
-            data = this.placeholderManager.getPlaceholder(manifest.subType as string);
+        } else if (type === AssetType.DATA) {
+            data = this.placeholderManager.getPlaceholder(AssetType.DATA, manifest.estimatedMemory);
         } else {
             throw new Error(`Unknown asset type: ${type}`);
         }
@@ -632,11 +636,14 @@ export class AssetStreamer {
 
         return {
             id: assetId,
-            type,
-            data,
             metadata: manifest,
-            loadTime,
-            cached: false
+            state: LoadState.LOADED,
+            data,
+            progress: 1,
+            lastUsed: Date.now(),
+            referenceCount: 1,
+            quality: this.config.quality,
+            loadTime
         };
     }
 
@@ -645,27 +652,23 @@ export class AssetStreamer {
      */
     private async loadTextureAsset(
         manifest: AssetMetadata,
-        signal: AbortSignal
+        _signal: AbortSignal
     ): Promise<THREE.Texture> {
-        const format = QUALITY_FORMAT_PREFERENCES[this.config.qualityLevel];
+        const format = QUALITY_FORMAT_PREFERENCES[this.config.quality];
         const url = manifest.url || '';
 
         let texture;
         if (manifest.progressive) {
             texture = await this.progressiveLoader.loadProgressive(
-                url,
-                manifest.formats?.[format] || url,
-                signal
+                { thumbnail: url, full: url },
+                undefined
             );
         } else if (manifest.compressed) {
-            texture = await this.progressiveLoader.loadCompressed(
-                manifest.formats || {},
-                signal
-            );
+            texture = await this.progressiveLoader.loadCompressed(url);
         } else {
             // Fallback: load as standard THREE texture
             const loader = new THREE.TextureLoader();
-            texture = await loader.loadAsync(url, undefined, undefined, signal);
+            texture = await loader.loadAsync(url);
         }
 
         this.textureMemoryUsed += manifest.estimatedMemory;
@@ -677,12 +680,11 @@ export class AssetStreamer {
      */
     private async loadGeometryAsset(
         manifest: AssetMetadata,
-        signal: AbortSignal
+        _signal: AbortSignal
     ): Promise<THREE.BufferGeometry> {
         const geometry = await this.geometryLoader.loadLOD(
-            manifest.url || '',
-            this.config.qualityLevel,
-            signal
+            { low: manifest.url || '' },
+            undefined
         );
         this.geometryMemoryUsed += manifest.estimatedMemory;
         return geometry;
@@ -693,14 +695,13 @@ export class AssetStreamer {
      */
     private async loadAudioAsset(
         manifest: AssetMetadata,
-        signal: AbortSignal
+        _signal: AbortSignal
     ): Promise<AudioBuffer> {
         if (!this.audioLoader) {
             throw new Error('Audio context not initialized');
         }
         const buffer = await this.audioLoader.streamAudio(
-            manifest.url || '',
-            signal
+            manifest.url || ''
         );
         this.audioMemoryUsed += manifest.estimatedMemory;
         return buffer;

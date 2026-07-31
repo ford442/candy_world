@@ -86,6 +86,14 @@ export interface AssetMetadata {
     estimatedMemory: number;   // GPU memory in bytes
     cellX?: number;            // World grid position
     cellZ?: number;
+    /** Remote URL for fetching this asset */
+    url?: string;
+    /** Whether to use progressive (low-res first) loading */
+    progressive?: boolean;
+    /** Whether the asset is stored in a compressed container */
+    compressed?: boolean;
+    /** Sub-type tag (e.g. placeholder geometry variant) */
+    subType?: string;
 }
 
 /** Complete asset manifest */
@@ -192,10 +200,22 @@ export interface StreamingStats {
 
 /** Asset request for loading queue */
 export interface AssetRequest {
+    /** UUID identifying this request instance */
     id: string;
+    /** The asset manifest ID to load */
+    assetId: string;
     priority: AssetPriority;
-    resolve: (asset: LoadedAsset) => void;
-    reject: (error: Error) => void;
+    /** Epoch ms when the request was enqueued (used for age-based priority boost) */
+    timestamp: number;
+    /** Current lifecycle state of this request */
+    state: LoadState;
+    /** Number of load attempts so far */
+    retries: number;
+    /** Called once the asset is successfully loaded (optional — may be wired via callbacks) */
+    resolve?: (asset: LoadedAsset) => void;
+    /** Called on terminal failure (optional — may be wired via callbacks) */
+    reject?: (error: Error) => void;
+    /** @deprecated use retries */
     attempts?: number;
 }
 
