@@ -152,7 +152,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       'screen-reader': 'Screen Reader'
     };
 
-    const sectionMenuItems = this.a11y.getSettings().sections;
+    const sectionMenuItems = sections; // all sections are always available
 
     for (const section of sections) {
       const isActive = this.currentSection === section;
@@ -325,19 +325,14 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     this.createSectionTitle(container, 'Motor Accessibility');
     this.createSectionSubtitle(container, 'Control & movement settings');
 
-    // Pointer speed
-    this.createSlider(container, 'Pointer Speed', 'motor.pointerSpeed', settings.motor.pointerSpeed, 0.5, 2, 0.1, (val) => {
-      this.a11y.updateMotorSettings({ pointerSpeed: val });
+    // Pointer speed — maps to input.sensitivity (0.1–2.0)
+    this.createSlider(container, 'Pointer Speed', 'input.sensitivity', settings.input.sensitivity, 0.1, 2, 0.1, (val) => {
+      this.a11y.updateInputSettings({ sensitivity: val });
     });
 
-    // Reduced motion
-    this.createToggle(container, 'Reduce Motion', 'motor.reduceMotion', settings.motor.reduceMotion, (val) => {
-      this.a11y.updateMotorSettings({ reduceMotion: val });
-    });
-
-    // Button hold time
-    this.createSlider(container, 'Button Hold Time (ms)', 'motor.buttonHoldTime', settings.motor.buttonHoldTime, 100, 1000, 50, (val) => {
-      this.a11y.updateMotorSettings({ buttonHoldTime: val });
+    // Reduced motion — maps to visual.motionReduction
+    this.createToggle(container, 'Reduce Motion', 'visual.motionReduction', settings.visual.motionReduction, (val) => {
+      this.a11y.updateVisualSettings({ motionReduction: val });
     });
 
     // Keybindings
@@ -372,26 +367,38 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     container.appendChild(keybindingContainer);
   }
 
+  /**
+   * Begin listening for the next keypress to rebind an action.
+   * The button label updates to show the new key; the binding is persisted
+   * via updateInputSettings once a key is captured.
+   */
+  private startKeyRebind(action: string, btn: HTMLButtonElement): void {
+    const originalText = btn.textContent ?? '';
+    btn.textContent = 'Press a key…';
+    btn.setAttribute('aria-label', `Rebinding ${action} — press a key`);
+    const handler = (e: KeyboardEvent): void => {
+      e.preventDefault();
+      document.removeEventListener('keydown', handler, true);
+      const keybindings = new Map(this.a11y.getSettings().input.keybindings);
+      const existing = keybindings.get(action);
+      keybindings.set(action, { ...(existing ?? {}), key: e.key });
+      this.a11y.updateInputSettings({ keybindings });
+      btn.textContent = e.key;
+      btn.setAttribute('aria-label', `${action} bound to ${e.key}`);
+    };
+    document.addEventListener('keydown', handler, true);
+    // Safety timeout: cancel rebind after 10 s of no input
+    setTimeout(() => {
+      document.removeEventListener('keydown', handler, true);
+      if (btn.textContent === 'Press a key…') btn.textContent = originalText;
+    }, 10_000);
+  }
+
   private renderVisualSection(container: HTMLElement): void {
     const settings = this.a11y.getSettings();
 
     this.createSectionTitle(container, 'Visual Accessibility');
     this.createSectionSubtitle(container, 'Colors, contrast & text settings');
-
-    // Color mode
-    this.createSelect(container, 'Color Mode', 'visual.colorMode', settings.visual.colorMode, ['normal', 'high-contrast', 'monochrome'], (val) => {
-      this.a11y.updateVisualSettings({ colorMode: val as any });
-    });
-
-    // Font size
-    this.createSlider(container, 'Font Size', 'visual.fontSize', settings.visual.fontSize, 12, 24, 1, (val) => {
-      this.a11y.updateVisualSettings({ fontSize: val });
-    });
-
-    // Line spacing
-    this.createSlider(container, 'Line Spacing', 'visual.lineSpacing', settings.visual.lineSpacing, 1, 2.5, 0.1, (val) => {
-      this.a11y.updateVisualSettings({ lineSpacing: val });
-    });
 
     // High contrast
     this.createToggle(container, 'High Contrast', 'visual.highContrast', settings.visual.highContrast, (val) => {
@@ -403,9 +410,24 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       this.a11y.updateVisualSettings({ colorBlindMode: val as any });
     });
 
-    // Accent color
-    this.createColorPicker(container, 'Accent Color', 'visual.accentColor', settings.visual.accentColor, (val) => {
-      this.a11y.updateVisualSettings({ accentColor: val });
+    // Motion reduction
+    this.createToggle(container, 'Reduce Motion', 'visual.motionReduction', settings.visual.motionReduction, (val) => {
+      this.a11y.updateVisualSettings({ motionReduction: val });
+    });
+
+    // Screen shake
+    this.createToggle(container, 'Screen Shake', 'visual.screenShake', settings.visual.screenShake, (val) => {
+      this.a11y.updateVisualSettings({ screenShake: val });
+    });
+
+    // Brightness
+    this.createSlider(container, 'Brightness', 'visual.brightness', settings.visual.brightness, 0.5, 1.5, 0.05, (val) => {
+      this.a11y.updateVisualSettings({ brightness: val });
+    });
+
+    // Crosshair color
+    this.createColorPicker(container, 'Crosshair Color', 'visual.crosshairColor', settings.visual.crosshairColor, (val) => {
+      this.a11y.updateVisualSettings({ crosshairColor: val });
     });
   }
 
@@ -415,29 +437,34 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     this.createSectionTitle(container, 'Cognitive Accessibility');
     this.createSectionSubtitle(container, 'Simplification & focus settings');
 
-    // Focus assistance
-    this.createToggle(container, 'Focus Highlights', 'cognitive.focusHighlights', settings.cognitive.focusHighlights, (val) => {
-      this.a11y.updateCognitiveSettings({ focusHighlights: val });
+    // Simplified UI (was: simplifyUI — renamed to simplifiedUI in AccessibilitySettings)
+    this.createToggle(container, 'Simplify Interface', 'cognitive.simplifiedUI', settings.cognitive.simplifiedUI, (val) => {
+      this.a11y.updateCognitiveSettings({ simplifiedUI: val });
     });
 
-    // Simplify UI
-    this.createToggle(container, 'Simplify Interface', 'cognitive.simplifyUI', settings.cognitive.simplifyUI, (val) => {
-      this.a11y.updateCognitiveSettings({ simplifyUI: val });
+    // Distraction-free mode (closest to focusHighlights / readingMode)
+    this.createToggle(container, 'Distraction-Free Mode', 'cognitive.distractionFree', settings.cognitive.distractionFree, (val) => {
+      this.a11y.updateCognitiveSettings({ distractionFree: val });
     });
 
-    // Reduce animations
-    this.createToggle(container, 'Reduce Animations', 'cognitive.reduceAnimations', settings.cognitive.reduceAnimations, (val) => {
-      this.a11y.updateCognitiveSettings({ reduceAnimations: val });
+    // Extended timers
+    this.createToggle(container, 'Extended Timers', 'cognitive.extendedTimers', settings.cognitive.extendedTimers, (val) => {
+      this.a11y.updateCognitiveSettings({ extendedTimers: val });
     });
 
-    // Reading mode
-    this.createToggle(container, 'Reading Mode', 'cognitive.readingMode', settings.cognitive.readingMode, (val) => {
-      this.a11y.updateCognitiveSettings({ readingMode: val });
+    // Timer extension factor
+    this.createSlider(container, 'Timer Extension Factor', 'cognitive.timerExtensionFactor', settings.cognitive.timerExtensionFactor, 1, 4, 0.5, (val) => {
+      this.a11y.updateCognitiveSettings({ timerExtensionFactor: val });
     });
 
-    // Animation speed
-    this.createSlider(container, 'Animation Speed', 'cognitive.animationSpeed', settings.cognitive.animationSpeed, 0.25, 2, 0.25, (val) => {
-      this.a11y.updateCognitiveSettings({ animationSpeed: val });
+    // Show text labels
+    this.createToggle(container, 'Show Text Labels', 'cognitive.showTextLabels', settings.cognitive.showTextLabels, (val) => {
+      this.a11y.updateCognitiveSettings({ showTextLabels: val });
+    });
+
+    // Pause on focus lost
+    this.createToggle(container, 'Pause on Focus Lost', 'cognitive.pauseOnFocusLost', settings.cognitive.pauseOnFocusLost, (val) => {
+      this.a11y.updateCognitiveSettings({ pauseOnFocusLost: val });
     });
   }
 
@@ -448,23 +475,33 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     this.createSectionSubtitle(container, 'Sound & audio settings');
 
     // Master volume
-    this.createSlider(container, 'Master Volume', 'audio.masterVolume', settings.audio.masterVolume, 0, 1, 0.05, (val) => {
-      this.a11y.updateAudioSettings({ masterVolume: val });
+    this.createSlider(container, 'Master Volume', 'auditory.masterVolume', settings.auditory.masterVolume, 0, 1, 0.05, (val) => {
+      this.a11y.updateAuditorySettings({ masterVolume: val });
     });
 
-    // Captions enabled
-    this.createToggle(container, 'Enable Captions', 'audio.captionsEnabled', settings.audio.captionsEnabled, (val) => {
-      this.a11y.updateAudioSettings({ captionsEnabled: val });
+    // Music volume
+    this.createSlider(container, 'Music Volume', 'auditory.musicVolume', settings.auditory.musicVolume, 0, 1, 0.05, (val) => {
+      this.a11y.updateAuditorySettings({ musicVolume: val });
     });
 
-    // Caption position
-    this.createSelect(container, 'Caption Position', 'audio.captionPosition', settings.audio.captionPosition, ['bottom', 'top', 'center'], (val) => {
-      this.a11y.updateAudioSettings({ captionPosition: val as any });
+    // Subtitles / captions
+    this.createToggle(container, 'Enable Subtitles', 'auditory.subtitleEnabled', settings.auditory.subtitleEnabled, (val) => {
+      this.a11y.updateAuditorySettings({ subtitleEnabled: val });
     });
 
-    // Audio descriptions
-    this.createToggle(container, 'Audio Descriptions', 'audio.audioDescriptions', settings.audio.audioDescriptions, (val) => {
-      this.a11y.updateAudioSettings({ audioDescriptions: val });
+    // Subtitle size
+    this.createSelect(container, 'Subtitle Size', 'auditory.subtitleSize', settings.auditory.subtitleSize, ['small', 'medium', 'large'], (val) => {
+      this.a11y.updateAuditorySettings({ subtitleSize: val as 'small' | 'medium' | 'large' });
+    });
+
+    // Mono audio
+    this.createToggle(container, 'Mono Audio', 'auditory.monoAudio', settings.auditory.monoAudio, (val) => {
+      this.a11y.updateAuditorySettings({ monoAudio: val });
+    });
+
+    // Visual sound indicators
+    this.createToggle(container, 'Visual Sound Indicators', 'auditory.visualSoundIndicators', settings.auditory.visualSoundIndicators, (val) => {
+      this.a11y.updateAuditorySettings({ visualSoundIndicators: val });
     });
   }
 
@@ -479,19 +516,24 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       this.a11y.updateScreenReaderSettings({ enabled: val });
     });
 
-    // Verbosity level
-    this.createSelect(container, 'Verbosity', 'screenReader.verbosity', settings.screenReader.verbosity, ['minimal', 'normal', 'verbose'], (val) => {
-      this.a11y.updateScreenReaderSettings({ verbosity: val as any });
+    // Announce events
+    this.createToggle(container, 'Announce Events', 'screenReader.announceEvents', settings.screenReader.announceEvents, (val) => {
+      this.a11y.updateScreenReaderSettings({ announceEvents: val });
     });
 
-    // Announce UI changes
-    this.createToggle(container, 'Announce UI Changes', 'screenReader.announceUIChanges', settings.screenReader.announceUIChanges, (val) => {
-      this.a11y.updateScreenReaderSettings({ announceUIChanges: val });
+    // Announce location
+    this.createToggle(container, 'Announce Location', 'screenReader.announceLocation', settings.screenReader.announceLocation, (val) => {
+      this.a11y.updateScreenReaderSettings({ announceLocation: val });
     });
 
-    // Announce focus
-    this.createToggle(container, 'Announce Focus Changes', 'screenReader.announceFocus', settings.screenReader.announceFocus, (val) => {
-      this.a11y.updateScreenReaderSettings({ announceFocus: val });
+    // Announce inventory
+    this.createToggle(container, 'Announce Inventory', 'screenReader.announceInventory', settings.screenReader.announceInventory, (val) => {
+      this.a11y.updateScreenReaderSettings({ announceInventory: val });
+    });
+
+    // Announce combat
+    this.createToggle(container, 'Announce Combat', 'screenReader.announceCombat', settings.screenReader.announceCombat, (val) => {
+      this.a11y.updateScreenReaderSettings({ announceCombat: val });
     });
   }
 

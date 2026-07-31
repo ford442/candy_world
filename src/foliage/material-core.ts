@@ -2,7 +2,7 @@
 // Core material system: shared resources, TSL utilities, and material factory
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial, MeshPhysicalNodeMaterial } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
 // `three/tsl` re-exports TSL values but no types; ShaderNodeObject (the mapped
 // type that supplies .mul()/.add()/swizzles) only exists on the canonical path.
@@ -175,6 +175,17 @@ export type TSLArg = ShaderNodeObject<Node>;
 export type TSLArgOpt = TSLArg | null;
 
 /**
+ * Downcasts a `Node | null | undefined` to `ShaderNodeObject<Node>` for TSL method chaining.
+ * Behaviour-preserving: runtime TSL node objects always carry ShaderNodeObject methods
+ * (.mul/.add/.sub etc); @types/three 0.185.x widens material node properties to plain
+ * `Node | null`. Throws on null/undefined (loud-failure discipline).
+ */
+function $sn(n: Node | null | undefined): ShaderNodeObject<Node> {
+    if (n == null) throw new Error('$sn(): unexpected null/undefined TSL node');
+    return n as ShaderNodeObject<Node>;
+}
+
+/**
  * Generates triplanar noise to avoid UV seams on complex geometry.
  */
 export const triplanarNoise = Fn<[TSLArg, TSLArg]>(([pos, scale]) => {
@@ -293,7 +304,8 @@ export const createSugarSparkle = Fn<[TSLArgOpt, TSLArg, TSLArg, TSLArg]>(
 
         // Fresnel Fade: Glitter is often more visible at grazing angles or facing?
         // Let's make it uniform but slightly boosted at edges for "magic dust" feel
-        const NdotV = abs(dot(normalNode, viewDir));
+        const effectiveNormal = normalNode ?? normalLocal;
+        const NdotV = abs(dot(effectiveNormal, viewDir));
         const fresnel = float(1.0).sub(NdotV).pow(2.0).add(0.5); // Always visible but brighter at edge
 
         return sparkle.mul(intensity).mul(audioBoost).mul(fresnel);
@@ -444,11 +456,11 @@ export interface UnifiedMaterialOptions {
     ior?: number;
     thicknessDistortion?: number;
     subsurfaceStrength?: number;
-    subsurfaceColor?: number | THREE.Color;
+    subsurfaceColor?: number | string | THREE.Color;
     iridescenceStrength?: number;
     iridescenceFresnelPower?: number;
     sheen?: number;
-    sheenColor?: number | THREE.Color;
+    sheenColor?: number | string | THREE.Color;
     sheenRoughness?: number;
     animateMoisture?: boolean;
     animatePulse?: boolean;
@@ -527,7 +539,7 @@ export function createUnifiedMaterial(
         rimPower = 3.0,
     } = options;
 
-    const material = new MeshStandardNodeMaterial();
+    const material = new MeshPhysicalNodeMaterial();
 
     // 1. Base Properties
     if (colorNode) {
@@ -542,7 +554,7 @@ export function createUnifiedMaterial(
             2.0
         );
         const aoFactor = mix(float(1.0).sub(float(contactDarkening)), float(1.0), gradient);
-        material.colorNode = material.colorNode.mul(aoFactor);
+        material.colorNode = $sn(material.colorNode).mul(aoFactor);
     }
     material.roughnessNode = float(roughness);
     material.metalnessNode = float(metalness);
@@ -583,13 +595,13 @@ export function createUnifiedMaterial(
         // Cavity AO: Darken crevices (low noise values)
         const cavity = smoothstep(0.3, 0.7, surfaceNoise);
         // Mix base color with darker version based on cavity
-        material.colorNode = material.colorNode.mul(cavity.mul(0.5).add(0.5));
+        material.colorNode = $sn(material.colorNode).mul(cavity.mul(0.5).add(0.5));
     }
 
     if (animateMoisture) {
         // Vary roughness with noise to look like flowing water/slime
         const wetness = surfaceNoise.mul(0.3);
-        material.roughnessNode = material.roughnessNode.sub(wetness); // Wet = smoother
+        material.roughnessNode = $sn(material.roughnessNode).sub(wetness); // Wet = smoother
     }
 
     // 3. Translucency & Thickness (Beer-Lambert Approximation)
@@ -608,7 +620,7 @@ export function createUnifiedMaterial(
         // Absorb color based on thickness (Beer's Law simulation)
         // Deeper parts absorb more light, shifting color
         const absorption = exp(thickNode.negate().mul(0.5));
-        material.colorNode = material.colorNode.mul(absorption.add(0.2));
+        material.colorNode = $sn(material.colorNode).mul(absorption.add(0.2));
     }
 
     // 4. Simulated Subsurface Scattering (Back-lighting)
@@ -624,7 +636,7 @@ export function createUnifiedMaterial(
         const sssColorNode = color(subsurfaceColor);
         // Add glow to base color
         const sssEffect = wrap.mul(subsurfaceStrength).mul(sssColorNode);
-        material.colorNode = material.colorNode.add(sssEffect);
+        material.colorNode = $sn(material.colorNode).add(sssEffect);
     }
 
     // 5. Iridescence (Thin-Film Interference approximation)
@@ -650,20 +662,20 @@ export function createUnifiedMaterial(
     // 6. Pulse Animation
     if (animatePulse) {
         const pulse = sin(uTime.mul(3.0)).mul(0.2).add(0.8); // 0.6 to 1.0
-        material.emissiveNode = (material.emissiveNode || color(0x000000)).add(
-            material.colorNode.mul(pulse.mul(0.2))
+        material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(
+            $sn(material.colorNode).mul(pulse.mul(0.2))
         );
     }
 
     // 7. Sheen
     if (sheen > 0.0) {
         material.sheen = sheen;
-        material.sheenColorNode = color(sheenColor);
+        material.sheenNode = color(sheenColor);
         material.sheenRoughnessNode = float(sheenRoughness);
     }
 
     // 8. Global Glitch Effect (Sample Offset / Pixelation) + Local Glitch Grenade
-    const basePos = deformationNode || material.positionNode || positionLocal;
+    const basePos: ShaderNodeObject<Node> = $sn(deformationNode ?? material.positionNode ?? positionLocal);
 
     // Calculate local glitch intensity based on distance
     const distToGlitch = positionWorld.distance(uGlitchExplosionCenter);
@@ -692,13 +704,13 @@ export function createUnifiedMaterial(
 
         // Pulse the base color into the emissive channel
         // Factor 0.5 ensures it's a glow, not a blinding flash
-        const singGlow = material.colorNode.mul(singPulse).mul(0.5);
-        material.emissiveNode = (material.emissiveNode || color(0x000000)).add(singGlow);
+        const singGlow = $sn(material.colorNode).mul(singPulse).mul(0.5);
+        material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(singGlow);
 
         // B. Physical "Vibration" (Vertex Flutter)
         // Add subtle noise displacement to simulate sound waves vibrating the surface
         // Ensure we have a starting position node
-        const currentPos = material.positionNode || positionLocal;
+        const currentPos: ShaderNodeObject<Node> = $sn(material.positionNode ?? positionLocal);
 
         // High frequency noise based on position and fast time
         const vibrationScale = float(20.0);
@@ -730,7 +742,7 @@ export function createUnifiedMaterial(
         );
 
         // Add to existing emissive
-        material.emissiveNode = (material.emissiveNode || color(0x000000)).add(rimEffect);
+        material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(rimEffect);
     }
 
     material.userData.isUnified = true;
@@ -803,7 +815,7 @@ export function updateBaseContactAOUniforms(dayNightBias: number): void {
 type PresetFn = (
     hex: number | string | THREE.Color,
     opts?: UnifiedMaterialOptions
-) => MeshStandardNodeMaterial;
+) => MeshPhysicalNodeMaterial;
 
 export const CandyPresets: { [key: string]: PresetFn } = {
     // 1. Standard Clay: Tactile, slightly bumpy, matte

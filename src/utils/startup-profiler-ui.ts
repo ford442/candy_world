@@ -1,16 +1,57 @@
-import { uiState } from './startup-profiler.ts';
+import { uiState, finalizeStartupProfile } from './startup-profiler.ts';
 import {
     PhaseTiming,
     InstancedMeshMetrics,
     WebGPUMetrics,
     ProfilerConfig,
-    StartupReport,
 } from './startup-profiler-types.ts';
 import { formatBytes, formatDuration, getMemoryUsage } from './startup-profiler-utils.ts';
 
 let overlayContainer: HTMLElement | null = null;
 let overlayCanvas: HTMLCanvasElement | null = null;
 let overlayCtx: CanvasRenderingContext2D | null = null;
+
+/**
+ * Snapshot of profiler state needed to render the overlay.
+ * Callers push updated state via setProfilerRenderState() whenever
+ * the profiler advances (e.g. after endPhase or finalizeStartupProfile).
+ */
+export interface ProfilerRenderState {
+    completedPhases: PhaseTiming[];
+    startupStartTime: number;
+    memorySnapshots: number[];
+    config: ProfilerConfig;
+    instancedMeshMetrics: InstancedMeshMetrics;
+    webgpuMetrics: WebGPUMetrics;
+}
+
+const _defaultRenderState: ProfilerRenderState = {
+    completedPhases: [],
+    startupStartTime: 0,
+    memorySnapshots: [],
+    config: {
+        slowPhaseThreshold: 100,
+        enableOverlay: true,
+        enableConsole: true,
+        saveToFile: false,
+        filePath: '',
+    },
+    instancedMeshMetrics: { count: 0, totalInstances: 0, meshesByType: new Map() },
+    webgpuMetrics: {
+        bufferAllocations: 0,
+        bufferTotalSize: 0,
+        shaderCompilations: 0,
+        shaderCompileTime: 0,
+        pipelineCreations: 0,
+    },
+};
+
+let _renderState: ProfilerRenderState = { ..._defaultRenderState };
+
+/** Push a fresh snapshot of profiler state for the overlay renderer to use. */
+export function setProfilerRenderState(state: Partial<ProfilerRenderState>): void {
+    _renderState = { ..._renderState, ...state };
+}
 
 export function createOverlay(): void {
     if (uiState.overlayContainer) return;
@@ -125,8 +166,9 @@ export function createOverlay(): void {
     document.getElementById('startup-profiler-close')?.addEventListener('click', hideOverlay);
     document.getElementById('startup-profiler-hide')?.addEventListener('click', hideOverlay);
     document.getElementById('startup-profiler-export')?.addEventListener('click', () => {
-        const report = generateReport();
-        saveReportToFile(report);
+        // typefix: behaviour-preserving — finalizeStartupProfile() internally calls
+        // generateReport() + saveReportToFile() which were previously private.
+        finalizeStartupProfile();
     });
 }
 
@@ -148,6 +190,9 @@ export function drawOverlay(): void {
     // Update content HTML
     const content = document.getElementById('startup-profiler-content');
     if (content) {
+        const completedPhases = _renderState.completedPhases;
+        const startupStartTime = _renderState.startupStartTime;
+        const memorySnapshots = _renderState.memorySnapshots;
         const totalTime =
             completedPhases.length > 0
                 ? completedPhases[completedPhases.length - 1].endTime - startupStartTime
@@ -176,6 +221,10 @@ export function drawOverlay(): void {
     }
 
     // Draw phase bars
+    const completedPhases = _renderState.completedPhases;
+    const config = _renderState.config;
+    const instancedMeshMetrics = _renderState.instancedMeshMetrics;
+    const webgpuMetrics = _renderState.webgpuMetrics;
     const maxDuration = Math.max(...completedPhases.map((p: PhaseTiming) => p.duration), 1);
     const barHeight = 20;
     const barSpacing = 4;
