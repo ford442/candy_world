@@ -226,10 +226,18 @@ export class PerformanceBudgetOverlay {
     const gpu = getGPUComputeStatus();
     const gpuLabel = gpu.ready ? '✓ GPU' : (gpu.available ? 'init…' : '✗ CPU');
     const gpuColor = gpu.ready ? '#44ff44' : (gpu.available ? '#ffaa44' : '#aaaaaa');
-    const gpuMetricEntries = Object.entries(gpu.metrics);
-    const gpuMetricsStr = gpuMetricEntries.length > 0
-        ? gpuMetricEntries.map(([k, v]) => `${k}: ${(v as number).toFixed(1)}ms`).join(' | ')
-        : '';
+
+    // ⚡ OPTIMIZATION: Bypassed Object.entries() and .map() in hot overlay update loop to prevent GC spikes.
+    let gpuMetricsStr = '';
+    let firstMetric = true;
+    for (const k in gpu.metrics) {
+        if (Object.prototype.hasOwnProperty.call(gpu.metrics, k)) {
+            if (!firstMetric) gpuMetricsStr += ' | ';
+            gpuMetricsStr += `${k}: ${(gpu.metrics[k] as number).toFixed(1)}ms`;
+            firstMetric = false;
+        }
+    }
+
     html += `
       <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #444; font-size: ${10 * this.overlayOptions.scale}px;">
         <span style="color: #aaa;">GPU Compute: </span>
