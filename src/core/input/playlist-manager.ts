@@ -3,12 +3,12 @@
  * Handles playlist UI rendering, jukebox modal, and playlist-related event handlers
  */
 
-import { AudioSystem } from '../../audio/audio-system';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
-import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
+import { AudioSystem } from '../../audio/audio-system';
 import { announce } from '../../ui/announcer.ts';
+import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
+import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
 
 // State
 let isPlaylistOpen = false;
@@ -344,7 +344,6 @@ export function renderPlaylist(): void {
             <span class="song-title">${index + 1}. ${displayName}</span>
             <span class="status-icon" aria-hidden="true">${index === currentIdx ? '🔊' : '▶️'}</span>
         `;
-
         btn.onclick = (e) => {
             // Prevent bubbling if needed, though li has no click handler now
             e.stopPropagation();
@@ -361,6 +360,21 @@ export function renderPlaylist(): void {
             });
         };
 
+        // ♿ Aria: Keyboard tactile feedback for play button
+        btn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (e.repeat) return;
+                btn.classList.add('keyboard-active');
+            }
+        });
+        btn.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                btn.classList.remove('keyboard-active');
+            }
+        });
+        btn.addEventListener('blur', () => {
+            btn.classList.remove('keyboard-active');
+        });
         // Remove Button (UX Improvement)
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -369,10 +383,9 @@ export function renderPlaylist(): void {
         // 🎨 Palette: Use formatted title for tooltip and screen readers
         removeBtn.title = `Remove ${displayName}`;
         removeBtn.setAttribute('aria-label', `Remove ${displayName} from playlist`);
-
         removeBtn.onclick = (e) => {
             e.stopPropagation();
-            const wasActive = document.activeElement === removeBtn;
+            const _wasActive = document.activeElement === removeBtn;
             audioSystemRef!.removeTrack(index);
             renderPlaylist();
 
@@ -409,6 +422,21 @@ export function renderPlaylist(): void {
             });
         };
 
+        // ♿ Aria: Keyboard tactile feedback for remove button
+        removeBtn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (e.repeat) return;
+                removeBtn.classList.add('keyboard-active');
+            }
+        });
+        removeBtn.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                removeBtn.classList.remove('keyboard-active');
+            }
+        });
+        removeBtn.addEventListener('blur', () => {
+            removeBtn.classList.remove('keyboard-active');
+        });
         li.appendChild(btn);
         li.appendChild(removeBtn);
         playlistList?.appendChild(li);
