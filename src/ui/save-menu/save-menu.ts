@@ -110,9 +110,11 @@ export class SaveMenu {
 
         this.container = document.createElement('div');
         this.container.className = 'candy-save-menu';
+        // 🎨 PALETTE: Trap focus accessibility juice
         this.container.setAttribute('role', 'dialog');
         this.container.setAttribute('aria-modal', 'true');
         this.container.setAttribute('aria-labelledby', 'save-menu-title');
+        this.container.setAttribute('tabindex', '-1');
         
         // Add click outside to close
         this.container.addEventListener('click', (e) => {
