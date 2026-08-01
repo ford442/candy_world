@@ -727,6 +727,8 @@ button[aria-pressed='true'],
 .close-icon-btn:not([aria-disabled='true']):active,
 .close-icon-btn:not([aria-disabled='true']).keyboard-active,
 .playlist-remove-btn:not([aria-disabled='true']):active,
+.playlist-btn:not([aria-disabled='true']):active,
+.playlist-btn:not([aria-disabled='true']).keyboard-active,
 .playlist-remove-btn:not([aria-disabled='true']).keyboard-active {
     transform: scale(0.95);
     transition-duration: 0.05s;

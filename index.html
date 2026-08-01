@@ -93,6 +93,16 @@
             transition: all 0.3s ease;
         }
 
+        .secondary-button[aria-busy="true"] {
+            background: #a39bda;
+            cursor: wait;
+            transform: scale(0.98);
+            box-shadow: 0 2px 8px rgba(106, 90, 205, 0.2);
+            opacity: 0.9;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
         .cta-button[aria-disabled="true"],
         .cta-button:disabled {
             background: #FFB6C1;
@@ -107,9 +117,22 @@
             text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
         }
 
+        .secondary-button[aria-disabled="true"],
+        .secondary-button:disabled {
+            background: #a39bda;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.7;
+        }
+
         /* ♿ Aria & 🎨 Palette: Visual pop when button becomes ready */
         .cta-button[aria-disabled="false"]:not(:disabled):not([aria-busy="true"]) {
             animation: cta-pulse-ready 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .secondary-button[aria-disabled="false"]:not(:disabled):not([aria-busy="true"]) {
+            pointer-events: auto;
         }
 
         @keyframes cta-pulse-ready {
@@ -177,6 +200,7 @@
             transform: scale(0.95);
             transition-duration: 0.05s;
         }
+
         .settings-container {
             margin-bottom: 20px;
             z-index: 201;
