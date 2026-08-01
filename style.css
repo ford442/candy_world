@@ -1019,3 +1019,9 @@ body.photo-mode-active #tracker-status {
 .wait-full-toggle:focus-visible::before {
     box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #ff4081;
 }
+
+.wait-full-toggle:active,
+.wait-full-toggle.keyboard-active {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}

@@ -771,6 +771,26 @@ if (startButton) {
             waitForFullPopulation = newCheckedState;
             localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
         });
+
+        // ♿ Aria: Keyboard tactile feedback for wait-full switch
+        waitFullCheckbox.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (e.repeat) return;
+                waitFullCheckbox.classList.add('keyboard-active');
+                waitFullCheckbox.click();
+            }
+        });
+
+        waitFullCheckbox.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                waitFullCheckbox.classList.remove('keyboard-active');
+            }
+        });
+
+        waitFullCheckbox.addEventListener('blur', () => {
+            waitFullCheckbox.classList.remove('keyboard-active');
+        });
     }
 
     async function enterWorld() {
