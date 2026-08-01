@@ -84,6 +84,17 @@ export let wasmResolveGameCollisions: ((kickTrigger: number) => number) | null =
 export let wasmCheckPositionValidity: ((x: number, z: number, radius: number) => number) | null =
     null;
 /** Fauna boids from assembly/boids.ts (ptr,count,dt,playerX,playerZ,time) */
+export let wasmUpdateBoids_c:
+    | ((
+          boidsPtr: number,
+          count: number,
+          dt: number,
+          playerX: number,
+          playerZ: number,
+          time: number
+      ) => void)
+    | null = null;
+
 export let wasmUpdateBoids:
     | ((
           boidsPtr: number,
@@ -326,6 +337,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmResolveGameCollisions = exports.resolveGameCollisions || null;
     wasmCheckPositionValidity = exports.checkPositionValidity || null;
     wasmUpdateBoids = exports.updateBoids || null;
+    wasmUpdateBoids_c = exports._updateBoids_c || null;
 
     wasmBatchGroundHeight = exports.batchGroundHeight || null;
     wasmGetUnifiedGroundHeight = exports.getUnifiedGroundHeight || null;

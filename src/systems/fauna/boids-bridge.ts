@@ -3,7 +3,7 @@
  * JS fallback mirrors the WASM spatial-grid boids when AS is unavailable.
  */
 
-import { wasmMemory, wasmInstance, wasmUpdateBoids } from '../../utils/wasm-loader-core.ts';
+import { wasmMemory, wasmInstance, wasmUpdateBoids, wasmUpdateBoids_c } from '../../utils/wasm-loader-core.ts';
 import type { WasmExports } from '../../utils/wasm-loader-types.ts';
 import { FAUNA_BOID_STRIDE } from './types.ts';
 
@@ -264,6 +264,10 @@ export function updateBoidsBatch(
     playerZ: number,
     time: number
 ): void {
+    if (wasmUpdateBoids_c) {
+        wasmUpdateBoids_c(byteOffset, count, dt, playerX, playerZ, time);
+        return;
+    }
     if (wasmUpdateBoids && wasmMemory) {
         wasmUpdateBoids(byteOffset, count, dt, playerX, playerZ, time);
         return;

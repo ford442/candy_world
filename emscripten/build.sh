@@ -364,6 +364,7 @@ declare -A ANIMATION_FUNCTIONS=(
     ["fluidGetDensityPtr"]="fluid"
     
     # Particle physics functions (particle_physics.cpp)
+    ["_updateBoids_c"]="boids"
     ["updateParticlesWASM"]="particle_physics"
     ["updateCpuParticlesWASM"]="particle_physics"
     ["getParticlePhysicsVersion"]="particle_physics"

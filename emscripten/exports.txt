@@ -155,6 +155,7 @@ _smoothDamp
 _startBootstrapInit
 _startShaderWarmup
 _updateCpuParticlesWASM
+_updateBoids_c
 _updateParticles
 _updateParticlesWASM
 _updatePhysicsCPP

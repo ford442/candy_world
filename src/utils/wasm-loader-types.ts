@@ -240,6 +240,7 @@ export interface WasmExports {
         time: number
     ) => void;
     boidsBufferBytes?: (count: number) => number;
+    _updateBoids_c?: (boidsPtr: number, count: number, dt: number, playerX: number, playerZ: number, time: number) => void;
     [key: string]: WasmExportValue | undefined;
     memory: WebAssembly.Memory;
     getGroundHeight: (x: number, z: number) => number;
