@@ -3,7 +3,7 @@
  * JS fallback mirrors the WASM spatial-grid boids when AS is unavailable.
  */
 
-import { wasmMemory, wasmInstance, wasmUpdateBoids } from '../../utils/wasm-loader-core.ts';
+import { wasmMemory, wasmInstance, wasmUpdateBoids, cppUpdateBoids, emscriptenMemory } from '../../utils/wasm-loader-core.ts';
 import type { WasmExports } from '../../utils/wasm-loader-types.ts';
 import { FAUNA_BOID_STRIDE } from './types.ts';
 
@@ -264,6 +264,11 @@ export function updateBoidsBatch(
     playerZ: number,
     time: number
 ): void {
+    // ⚡ OPTIMIZATION: Try C++ Boids Scale-Up first
+    if (cppUpdateBoids && emscriptenMemory) {
+        cppUpdateBoids(byteOffset, count, dt, playerX, playerZ, time);
+        return;
+    }
     if (wasmUpdateBoids && wasmMemory) {
         wasmUpdateBoids(byteOffset, count, dt, playerX, playerZ, time);
         return;
@@ -272,6 +277,19 @@ export function updateBoidsBatch(
 }
 
 export function allocateBoidsBuffer(count: number): { ptr: number; view: Float32Array } | null {
+    if (cppUpdateBoids && emscriptenMemory) {
+        // C++ module uses its own malloc
+        const malloc = (window as any).candyNative?._malloc || (window as any).candyNative?.malloc;
+        if (malloc) {
+            const bytes = count * FAUNA_BOID_STRIDE * 4;
+            const ptr = malloc(bytes);
+            if (ptr) {
+                const view = new Float32Array((emscriptenMemory as any).buffer || emscriptenMemory, ptr, count * FAUNA_BOID_STRIDE);
+                return { ptr, view };
+            }
+        }
+    }
+
     if (!wasmInstance || !wasmMemory) return null;
     const malloc = (wasmInstance.exports as WasmExports).malloc as
         ((n: number) => number) | undefined;
@@ -284,7 +302,16 @@ export function allocateBoidsBuffer(count: number): { ptr: number; view: Float32
 }
 
 export function freeBoidsBuffer(ptr: number): void {
-    if (!wasmInstance || !ptr) return;
+    if (!ptr) return;
+    if (cppUpdateBoids && emscriptenMemory) {
+        const free = (window as any).candyNative?._free || (window as any).candyNative?.free;
+        if (free) {
+            free(ptr);
+            return;
+        }
+    }
+
+    if (!wasmInstance) return;
     const free = (wasmInstance.exports as WasmExports).free as ((p: number) => void) | undefined;
     free?.(ptr);
 }

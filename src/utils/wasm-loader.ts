@@ -60,6 +60,7 @@ export {
     wasmResolveGameCollisions,
     wasmCheckPositionValidity,
     wasmUpdateBoids,
+    cppUpdateBoids,
 
     // Hot-path Foliage Animation exports (Migrated from TS)
     wasmSmoothWobble,

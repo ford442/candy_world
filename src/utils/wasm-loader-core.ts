@@ -94,6 +94,16 @@ export let wasmUpdateBoids:
           time: number
       ) => void)
     | null = null;
+export let cppUpdateBoids:
+    | ((
+          boidsPtr: number,
+          count: number,
+          dt: number,
+          playerX: number,
+          playerZ: number,
+          time: number
+      ) => void)
+    | null = null;
 
 /** Hot-path Foliage Animation exports (Migrated from TS) */
 export let wasmSmoothWobble:
@@ -328,6 +338,8 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmUpdateBoids = exports.updateBoids || null;
 
     wasmBatchGroundHeight = exports.batchGroundHeight || null;
+    cppUpdateBoids = getNativeFuncVoid('updateBoids_c');
+
     wasmGetUnifiedGroundHeight = exports.getUnifiedGroundHeight || null;
     wasmBatchUnifiedGroundHeight = exports.batchUnifiedGroundHeight || null;
     wasmClearGroundPlatforms = exports.clearGroundPlatforms || null;

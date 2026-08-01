@@ -154,6 +154,7 @@ _setPlayerState
 _smoothDamp
 _startBootstrapInit
 _startShaderWarmup
+_updateBoids_c
 _updateCpuParticlesWASM
 _updateParticles
 _updateParticlesWASM
