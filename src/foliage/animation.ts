@@ -110,19 +110,18 @@ export function triggerGrowth(plants: FoliageObject[], intensity: number): void 
 
 /** JS fallback for single plant growth */
 function processGrowthJS(plant: FoliageObject, intensity: number): void {
-    // Initialize baseline scales if not present
-    if (plant.userData.initialScale === undefined) {
-        plant.userData.initialScale = plant.scale.x;
-    }
+    const ud = plant.userData;
     
-    // Set limits if not already defined
-    if (!plant.userData.maxScale) {
-        const growthFactor = plant.userData.type === 'mushroom' ? 2.5 : 1.5;
-        plant.userData.maxScale = plant.userData.initialScale * growthFactor;
-    }
+    // ⚡ OPTIMIZATION: Bypassed repeated undefined checks and property lookups by caching limits
+    if (ud._growthLimitsInit === undefined) {
+        if (ud.initialScale === undefined) {
+            ud.initialScale = plant.scale.x;
+        }
 
-    if (!plant.userData.minScale) {
-        plant.userData.minScale = plant.userData.initialScale * 0.5;
+        const growthFactor = ud.type === 'mushroom' ? 2.5 : 1.5;
+        ud.maxScale = ud.initialScale * growthFactor;
+        ud.minScale = ud.initialScale * 0.5;
+        ud._growthLimitsInit = true;
     }
 
     const currentScale = plant.scale.x;
@@ -131,9 +130,9 @@ function processGrowthJS(plant: FoliageObject, intensity: number): void {
 
     // Apply Limits
     if (growthRate > 0) {
-        if (nextScale > plant.userData.maxScale) nextScale = plant.userData.maxScale;
+        if (nextScale > ud.maxScale) nextScale = ud.maxScale;
     } else {
-        if (nextScale < plant.userData.minScale) nextScale = plant.userData.minScale;
+        if (nextScale < ud.minScale) nextScale = ud.minScale;
     }
 
     // Apply scale if changed
@@ -339,10 +338,13 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                 let fi = child.userData.flashIntensity || 0;
                 const decay = child.userData.flashDecay ?? 0.05;
 
-                // ⚡ OPTIMIZATION: Removed Array Allocation [child.material]
-                const isArray = Array.isArray(child.material);
-                // Use a loop that handles both array and single material without creating new array
-                const materialCount = isArray ? (child.material as FoliageMaterial[]).length : (child.material ? 1 : 0);
+                // ⚡ OPTIMIZATION: Removed Array Allocation [child.material] and repeated isArray checks
+                if (child.userData._matCount === undefined) {
+                    child.userData._isArray = Array.isArray(child.material);
+                    child.userData._matCount = child.userData._isArray ? (child.material as FoliageMaterial[]).length : (child.material ? 1 : 0);
+                }
+                const isArray = child.userData._isArray;
+                const materialCount = child.userData._matCount;
 
                 if (fi > 0) {
                     const fc = child.userData.flashColor || _scratchWhite;
@@ -350,10 +352,13 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                         const mat = isArray ? (child.material as FoliageMaterial[])[m] : (child.material as FoliageMaterial);
                         if (!mat) continue;
 
+                        // ⚡ OPTIMIZATION: Cache property access to avoid dynamic lookups
+                        const matIsMeshBasicMaterial = (mat as any).isMeshBasicMaterial;
+
                         // stronger blend for higher intensity; immediate override when very strong
                         const t = Math.min(1, fi * 1.2) * 0.8;
 
-                        if ((mat as any).isMeshBasicMaterial && mat.color) {
+                        if (matIsMeshBasicMaterial && mat.color) {
                             if (fi > 0.7) mat.color.copy(fc);
                             else mat.color.lerp(fc, t);
                         } else if (mat.emissive) {
@@ -384,25 +389,29 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                         const mat = isArray ? (child.material as FoliageMaterial[])[m] : (child.material as FoliageMaterial);
                         if (!mat) continue;
 
-                        if ((mat as any).isMeshBasicMaterial) {
-                            if (mat.userData && mat.userData.baseColor && mat.color) {
+                        // ⚡ OPTIMIZATION: Cache property access to avoid dynamic lookups
+                        const matIsMeshBasicMaterial = (mat as any).isMeshBasicMaterial;
+                        const matUserData = mat.userData;
+
+                        if (matIsMeshBasicMaterial) {
+                            if (matUserData && matUserData.baseColor && mat.color) {
                                 // ⚡ OPTIMIZATION: Inline color distance check to avoid method-call overhead
                                 const c = mat.color;
-                                const b = mat.userData.baseColor;
+                                const b = matUserData.baseColor;
                                 const dr = c.r - b.r;
                                 const dg = c.g - b.g;
                                 const db = c.b - b.b;
                                 const distSq = dr * dr + dg * dg + db * db;
                                 if (distSq > snapThresholdSq) {
-                                    mat.color.lerp(mat.userData.baseColor, fadeT);
+                                    mat.color.lerp(matUserData.baseColor, fadeT);
                                     allFadedBack = false;
                                 } else {
-                                    mat.color.copy(mat.userData.baseColor);
+                                    mat.color.copy(matUserData.baseColor);
                                 }
                             }
                         } else if (mat.emissive) {
-                            if (mat.userData && mat.userData.baseEmissive) {
-                                mat.emissive.lerp(mat.userData.baseEmissive, fadeT);
+                            if (matUserData && matUserData.baseEmissive) {
+                                mat.emissive.lerp(matUserData.baseEmissive, fadeT);
                             }
                             // lerp emissiveIntensity back toward 0
                             const current = mat.emissiveIntensity || 0;
@@ -411,8 +420,8 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                                 allFadedBack = false;
                             } else {
                                 // If intensity is very low, snap back to base to avoid residual tint
-                                if (mat.userData && mat.userData.baseEmissive) {
-                                    mat.emissive.copy(mat.userData.baseEmissive);
+                                if (matUserData && matUserData.baseEmissive) {
+                                    mat.emissive.copy(matUserData.baseEmissive);
                                 }
                                 mat.emissiveIntensity = 0;
                             }

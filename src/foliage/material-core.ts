@@ -137,11 +137,29 @@ export function getCachedProceduralMaterial(
 
 // --- UTILITY FUNCTIONS ---
 
+// ⚡ OPTIMIZATION: Module-scoped scratch buffer for zero-allocation median calculation
+const _medianScratch = new Float32Array(64);
+
 export function median(arr: number[]): number {
-    if (arr.length === 0) return 0;
-    const sorted = [...arr].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    const len = arr.length;
+    if (len === 0) return 0;
+
+    // Fallback if buffer is too small, though in practice it maxes at 64
+    if (len > _medianScratch.length) {
+        const sorted = [...arr].sort((a, b) => a - b);
+        const mid = Math.floor(len / 2);
+        return len % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
+    for (let i = 0; i < len; i++) {
+        _medianScratch[i] = arr[i];
+    }
+
+    // Note: Float32Array.prototype.sort is in-place and fast
+    _medianScratch.subarray(0, len).sort();
+
+    const mid = Math.floor(len / 2);
+    return len % 2 !== 0 ? _medianScratch[mid] : (_medianScratch[mid - 1] + _medianScratch[mid]) / 2;
 }
 
 export function generateNoiseTexture(size = 256): THREE.DataTexture {
