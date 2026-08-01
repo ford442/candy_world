@@ -10,7 +10,8 @@ import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { foliageGroup } from '../world/state.ts';
 import { CommonGeometries, getSphereGeometry } from '../utils/geometry-dedup.ts';
-import { createComputeBerries, ComputeParticleSystem } from '../particles/compute-particles.ts';
+import { getParticles } from '../particles/lazy.ts';
+import type { ComputeParticleSystem } from '../particles/compute-particles-types.ts';
 
 // OPTIMIZED: BerryBatcher replaces thousands of individual InstancedMeshes
 // with a single large InstancedMesh for improved draw call performance.

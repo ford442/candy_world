@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createIntegratedFireflies } from '../particles/index.ts';
+import { getParticles } from '../particles/lazy.ts';
 import { initCollisionSystem } from '../utils/wasm-loader.ts';
 import {
     createSky,
