@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createIntegratedSpores, createIntegratedGemSparks, registerIntegratedSystem } from '../particles/index.ts';
+import { getParticles } from '../particles/lazy.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';

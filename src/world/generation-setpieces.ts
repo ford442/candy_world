@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
+import { getParticles } from '../particles/lazy.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from '../foliage/impacts.ts';

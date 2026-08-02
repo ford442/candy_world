@@ -5,7 +5,7 @@ import {
 } from './game-loop-core.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { updateMelodyRibbons } from '../foliage/ribbons.ts';
-import { updateAllIntegratedSystems } from '../particles/index.ts';
+import { getParticles } from '../particles/lazy.ts';
 import { fluidSystem } from '../systems/fluid_system.ts';
 import { WeatherState } from '../systems/weather-types.ts';
 import { cpuAnimatedFoliage } from '../world/state.ts';

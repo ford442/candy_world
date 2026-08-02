@@ -8,8 +8,8 @@ import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor }
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
 import { ComputeParticleSystem } from '../../compute/particle_compute.ts';
-import { createIntegratedRain } from '../../particles/index.ts';
-import { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles.ts';
+import { getParticles } from '../../particles/lazy.ts';
+import type { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles-types.ts';
 import { WeatherState } from '../weather-types.ts';
 import { CONFIG } from '../../core/config.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';

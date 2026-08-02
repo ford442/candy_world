@@ -20,7 +20,7 @@ import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { fluidSystem } from '../systems/fluid_system.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { WeatherSystem } from '../systems/weather.ts';
+import type { WeatherSystem } from '../systems/weather.ts';
 import { initWasm } from '../utils/wasm-loader.ts';
 import { getGroundHeight } from '../systems/ground-system.ts';
 import { profiler } from '../utils/profiler.ts';
@@ -275,10 +275,10 @@ await StageLoader.loadStage('audio', () => {
 });
 
 let weatherSystem: WeatherSystem | undefined;
-await StageLoader.loadStage('weather', () => {
+await StageLoader.loadStage('weather', async () => {
     loadingScreen.updateProgress(70, 'Initializing weather system...');
-    weatherSystem = new WeatherSystem(scene);
-    weatherSystem.setRenderer(renderer);
+    const { loadWeatherSystem } = await import('../systems/weather/lazy.ts');
+    weatherSystem = await loadWeatherSystem(scene, renderer);
 });
 console.timeEnd('Audio & Systems Init');
 loadingScreen.updateProgress(100);
@@ -1107,6 +1107,8 @@ if (startButton) {
 // --- DEFERRED WORLD CONTENT (non-blocking, after loop is running) ---
 function startDeferredWorldLoading() {
     StageLoader.loadStage('deferredWorld', async () => {
+        const { loadParticles } = await import('../particles/lazy.ts');
+        await loadParticles();
         await initDeferredWorldContent(scene, weatherSystem!, (pct, label) => {
             if (pct % 25 === 0 || pct === 100) {
                 console.log(`[Deferred World] ${pct}%: ${label}`);

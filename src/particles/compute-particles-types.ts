@@ -85,3 +85,11 @@ export interface ComputeSystemCollection {
     sparks?: any; // ComputeParticleSystem
     gem_sparks?: any; // ComputeParticleSystem
 }
+
+export interface ComputeParticleSystem {
+    particlesMesh: any;
+    computeNode: any;
+    update(delta: number, time: number, audioData: any): void;
+    dispose(): void;
+    updateInstances(count: number): void;
+}
