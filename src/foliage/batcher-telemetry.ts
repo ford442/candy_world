@@ -110,21 +110,35 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
             drawCalls: 5,
             estimatedVramBytes: treeCapacity * 192
         },
-        summarize('MushroomBatcher', 'mushroom', [mushroomBatcher.mesh].filter((m): m is THREE.InstancedMesh => !!m)),
+        // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
+        summarize('MushroomBatcher', 'mushroom', mushroomBatcher.mesh ? [mushroomBatcher.mesh] : []),
         summarize('FlowerBatcher', 'flower', flowerRecord ? getMeshesFromRecord(flowerRecord, ['stems', 'centers', 'stamens', 'petalsSimple', 'petalsMulti', 'petalsSpiral']) : []),
         summarize('SimpleFlowerBatcher', 'simple-flower', simpleFlowerRecord ? getMeshesFromRecord(simpleFlowerRecord, ['stemMesh', 'petalMesh', 'centerMesh', 'stamenMesh', 'beamMesh']) : []),
+        // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
         summarize(
             'CloudBatcher',
             'cloud',
-            [
-                cloudPrimary ? getMesh(cloudPrimary.mesh) : null,
-                cloudWalkable ? getMesh(cloudWalkable.mesh) : null
-            ].filter((m): m is THREE.InstancedMesh => !!m)
+            (() => {
+                const arr: THREE.InstancedMesh[] = [];
+                const p = cloudPrimary ? getMesh(cloudPrimary.mesh) : null;
+                if (p) arr.push(p);
+                const w = cloudWalkable ? getMesh(cloudWalkable.mesh) : null;
+                if (w) arr.push(w);
+                return arr;
+            })()
         ),
-        summarize('LuminousPlantBatcher', 'luminous', [luminousPlantBatcher?.mesh].filter((m): m is THREE.InstancedMesh => !!m)),
+        // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
+        summarize('LuminousPlantBatcher', 'luminous', luminousPlantBatcher?.mesh ? [luminousPlantBatcher.mesh] : []),
         summarize('GemFruitBatcher', 'gem_canopy', gemFruitBatcher?.meshes ?? []),
-        summarize('GlassMushroomBatcher', 'glass_mushroom', [glassMushroomBatcher?.mesh].filter((m): m is THREE.InstancedMesh => !!m)),
-        summarize('WaterfallBatcher', 'waterfall', [waterfallBatcher?.mesh, waterfallBatcher?.splashMesh].filter((m): m is THREE.InstancedMesh => !!m)),
+        // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
+        summarize('GlassMushroomBatcher', 'glass_mushroom', glassMushroomBatcher?.mesh ? [glassMushroomBatcher.mesh] : []),
+        // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
+        summarize('WaterfallBatcher', 'waterfall', (() => {
+            const arr: THREE.InstancedMesh[] = [];
+            if (waterfallBatcher?.mesh) arr.push(waterfallBatcher.mesh);
+            if (waterfallBatcher?.splashMesh) arr.push(waterfallBatcher.splashMesh);
+            return arr;
+        })()),
         summarize('ArpeggioFernBatcher', 'arpeggio', arpeggioRecord ? getMeshesFromRecord(arpeggioRecord, ['mesh']) : []),
         summarize('PortamentoPineBatcher', 'portamento', portamentoRecord ? getMeshesFromRecord(portamentoRecord, ['trunkMesh', 'needleMesh']) : []),
         summarize('DandelionBatcher', 'dandelion', dandelionRecord ? getMeshesFromRecord(dandelionRecord, ['mesh']) : []),
