@@ -1,3 +1,4 @@
+import { createIntegratedFireflies } from '../particles/index.ts';
 import * as THREE from 'three';
 import { getParticles } from '../particles/lazy.ts';
 import { initCollisionSystem } from '../utils/wasm-loader.ts';
