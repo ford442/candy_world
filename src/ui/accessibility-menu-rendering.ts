@@ -372,7 +372,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
    * The button label updates to show the new key; the binding is persisted
    * via updateInputSettings once a key is captured.
    */
-  private startKeyRebind(action: string, btn: HTMLButtonElement): void {
+  protected startKeyRebind(action: string, btn: HTMLButtonElement): void {
     const originalText = btn.textContent ?? '';
     btn.textContent = 'Press a key…';
     btn.setAttribute('aria-label', `Rebinding ${action} — press a key`);
@@ -573,25 +573,64 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       margin-bottom: 12px;
     `;
 
-    const labelEl = document.createElement('label');
+    // ♿ Aria: Use <div> instead of <label> for custom button switches to prevent double-announcing
+    const labelEl = document.createElement('div');
     labelEl.textContent = label;
-    labelEl.htmlFor = id;
+    labelEl.id = `${id}-label`;
     labelEl.style.cssText = 'flex: 1; cursor: pointer;';
 
-    const checkbox = document.createElement('input');
-    checkbox.className = 'a11y-checkbox';
-    checkbox.type = 'checkbox';
-    checkbox.id = id;
-    checkbox.checked = checked;
-    // ♿ Aria: Removed redundant aria-checked attributes to prevent screen readers from announcing incorrect native state
-    checkbox.setAttribute('role', 'switch');
-    checkbox.style.cssText = 'width: 20px; height: 20px; cursor: pointer;';
-    checkbox.onchange = () => {
-      onChange(checkbox.checked);
+    // ♿ Aria: Format custom toggles as <button type="button" role="switch" aria-checked="...">
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'a11y-button';
+    toggleBtn.id = id;
+    toggleBtn.setAttribute('role', 'switch');
+    toggleBtn.setAttribute('aria-checked', checked.toString());
+    toggleBtn.setAttribute('aria-labelledby', labelEl.id);
+
+    // Switch styling
+    toggleBtn.style.cssText = `
+      width: 44px;
+      height: 24px;
+      cursor: pointer;
+      border-radius: 12px;
+      border: 2px solid var(--menu-border, #444);
+      background: ${checked ? 'var(--a11y-color, #00aaff)' : 'transparent'};
+      position: relative;
+      padding: 0;
+    `;
+
+    // Inner thumb
+    const thumb = document.createElement('div');
+    thumb.style.cssText = `
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: white;
+      position: absolute;
+      top: 3px;
+      left: ${checked ? '23px' : '3px'};
+      transition: left 0.2s, background 0.2s;
+    `;
+    toggleBtn.appendChild(thumb);
+
+    let isChecked = checked;
+    const toggleState = (e?: Event) => {
+      if (e) e.preventDefault();
+      isChecked = !isChecked;
+
+      toggleBtn.setAttribute('aria-checked', isChecked.toString());
+      toggleBtn.style.background = isChecked ? 'var(--a11y-color, #00aaff)' : 'transparent';
+      thumb.style.left = isChecked ? '23px' : '3px';
+
+      onChange(isChecked);
     };
 
+    toggleBtn.addEventListener('click', toggleState);
+    labelEl.addEventListener('click', toggleState);
+
     wrapper.appendChild(labelEl);
-    wrapper.appendChild(checkbox);
+    wrapper.appendChild(toggleBtn);
     container.appendChild(wrapper);
   }
 

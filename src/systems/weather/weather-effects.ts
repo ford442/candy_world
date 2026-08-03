@@ -1,21 +1,25 @@
+import { createIntegratedRain } from '../../particles/compute-integration.ts';
+import { ComputeParticleSystem } from '../../compute/particle_compute.ts';
+
 // src/systems/weather/weather-effects.ts
 // Visual effects management: rainbow, aurora, lightning, plant growth
 
 import * as THREE from 'three';
-import { createRainbow, uRainbowOpacity } from '../../foliage/rainbow.ts';
+import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
 import { createAurora, uAuroraIntensity } from '../../foliage/aurora.ts';
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../../foliage/clouds.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
-import { ComputeParticleSystem } from '../../compute/particle_compute.ts';
-import { getParticles } from '../../particles/lazy.ts';
+
+
 import type { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles-types.ts';
 import { WeatherState } from '../weather-types.ts';
 import { CONFIG } from '../../core/config.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 
 // Cache palette keys outside the render loop to prevent GC spikes during storms
-const _cloudPaletteKeys = Object.keys((CONFIG.noteColorMap && CONFIG.noteColorMap.cloud) || {});
+// Evaluate keys lazily since this module may load before config is initialized
+const getCloudPaletteKeys = () => Object.keys((CONFIG?.noteColorMap && CONFIG?.noteColorMap?.cloud) || {});
 
 export interface EffectsState {
     rainbow: any; // Mesh
@@ -162,8 +166,9 @@ export class EffectsManager {
         if (state === WeatherState.STORM && (bassIntensity > 0.8 || Math.random() < 0.01)) {
             try { if (uCloudLightningStrength) uCloudLightningStrength.value = 1.0; } catch (e) {}
 
-            if (_cloudPaletteKeys.length > 0) {
-                const randomKey = _cloudPaletteKeys[Math.floor(Math.random() * _cloudPaletteKeys.length)];
+            const keys = getCloudPaletteKeys();
+            if (keys.length > 0) {
+                const randomKey = keys[Math.floor(Math.random() * keys.length)];
                 const colorHex = CONFIG.noteColorMap.cloud[randomKey];
                 try { 
                     if (uCloudLightningColor && uCloudLightningColor.value && uCloudLightningColor.value.setHex) {

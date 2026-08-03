@@ -1,3 +1,4 @@
+import { createComputeBerries } from '../particles/index.ts';
 import * as THREE from 'three';
 import { StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
