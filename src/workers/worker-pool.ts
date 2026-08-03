@@ -422,7 +422,13 @@ export class WorkerPool {
   async batchGetGroundHeight(positions: { x: number; z: number }[]): Promise<number[]> {
     if (!this.useWorkers || positions.length < 10) {
       // Use fallback for small batches
-      return Promise.all(positions.map(pos => this.fallbackGetGroundHeight(pos.x, pos.z)));
+      // ⚡ OPTIMIZATION: Zero-allocation loop replacing .map() to prevent GC spikes
+      const len = positions.length;
+      const promises = new Array(len);
+      for (let i = 0; i < len; i++) {
+        promises[i] = this.fallbackGetGroundHeight(positions[i].x, positions[i].z);
+      }
+      return Promise.all(promises);
     }
     
     const response = await this.sendRequest<PhysicsRequest>('physics', {

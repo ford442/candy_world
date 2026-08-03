@@ -120,7 +120,7 @@ export class FaunaBatcher {
 
         registerFoliageBatcherLod({
             id: 'fauna',
-            getMeshes: () => this._species.map((s) => s.mesh),
+            getMeshes: () => this.getMeshes(),
         });
 
         this._initialized = true;
@@ -182,10 +182,21 @@ export class FaunaBatcher {
     }
 
     getMeshes(): THREE.InstancedMesh[] {
-        return this._species.map((s) => s.mesh);
+        // ⚡ OPTIMIZATION: Zero-allocation loop replacing .map() to prevent GC spikes
+        const len = this._species.length;
+        const out = new Array(len);
+        for (let i = 0; i < len; i++) {
+            out[i] = this._species[i].mesh;
+        }
+        return out;
     }
 
     getTotalCount(): number {
-        return this._species.reduce((n, s) => n + s.count, 0);
+        // ⚡ OPTIMIZATION: Zero-allocation loop replacing .reduce() to prevent GC spikes
+        let total = 0;
+        for (let i = 0; i < this._species.length; i++) {
+            total += this._species[i].count;
+        }
+        return total;
     }
 }
