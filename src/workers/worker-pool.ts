@@ -20,10 +20,7 @@ import type {
   WorldGenRequest,
   WorldGenResponse,
   WorkerMessage,
-  WorkerStats,
-  GroundHeightRequest,
-  BatchGroundHeightRequest,
-  CollisionCheckRequest
+  WorkerStats
 } from './worker-types';
 
 // Worker pool configuration
@@ -363,7 +360,7 @@ export class WorkerPool {
    */
   private sendRequest<T extends WorkerMessage>(
     type: 'physics' | 'worldgen',
-    request: Omit<T, 'requestId'>,
+    request: any,
     timeout: number = 30000
   ): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -410,7 +407,7 @@ export class WorkerPool {
       return this.fallbackGetGroundHeight(x, z);
     }
     
-    const response = await this.sendRequest<GroundHeightRequest>('physics', {
+    const response = await this.sendRequest<PhysicsRequest>('physics', {
       type: 'getGroundHeight',
       x,
       z
@@ -434,7 +431,7 @@ export class WorkerPool {
       return Promise.all(promises);
     }
     
-    const response = await this.sendRequest<BatchGroundHeightRequest>('physics', {
+    const response = await this.sendRequest<PhysicsRequest>('physics', {
       type: 'batchGroundHeight',
       positions
     }, 60000);
@@ -450,7 +447,7 @@ export class WorkerPool {
       return this.fallbackCheckPositionValidity(x, z, radius);
     }
     
-    const response = await this.sendRequest<CollisionCheckRequest>('physics', {
+    const response = await this.sendRequest<PhysicsRequest>('physics', {
       type: 'checkPositionValidity',
       x,
       z,
