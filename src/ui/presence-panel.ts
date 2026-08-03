@@ -15,6 +15,8 @@ import {
     isPresenceOptedIn,
     setPresenceOptIn,
 } from '../systems/net/presence.ts';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { yieldToPaint } from '../utils/yield-to-paint.ts';
 
 const PRESENCE_UI_ID = 'presence-opt-in';
 
@@ -26,30 +28,62 @@ export function installPresenceStartScreenUI(): void {
 
     const configured = isPresenceBackendConfigured();
     const wrapper = document.createElement('div');
+    wrapper.setAttribute('role', 'dialog');
+    wrapper.setAttribute('aria-modal', 'true');
+    wrapper.setAttribute('tabindex', '-1');
+    wrapper.setAttribute('aria-labelledby', 'presence-title');
     wrapper.id = PRESENCE_UI_ID;
     wrapper.style.cssText =
         'margin:16px auto 0;max-width:420px;padding:12px 14px;border-radius:14px;' +
         'background:rgba(255,255,255,0.35);text-align:left;font-size:0.85rem;';
 
-    const title = document.createElement('p');
+    const title = document.createElement('h2');
+    title.id = 'presence-title';
     title.style.cssText = 'margin:0 0 8px;font-weight:600;opacity:0.95;';
     title.textContent = '🫧 Shared presence (opt-in)';
 
-    const label = document.createElement('label');
+    const label = document.createElement('div');
     label.style.cssText = 'display:flex;align-items:flex-start;gap:8px;cursor:pointer;';
-    label.htmlFor = 'presence-join-checkbox';
+    label.id = 'presence-join-wrapper';
 
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
+    const checkbox = document.createElement('button');
+    checkbox.type = 'button';
+    checkbox.setAttribute('role', 'switch');
     checkbox.id = 'presence-join-checkbox';
-    checkbox.disabled = !configured;
-    checkbox.checked = isPresenceOptedIn() || new URLSearchParams(location.search).has('presence');
-    checkbox.style.cssText = 'margin-top:3px;accent-color:#FF6B6B;';
+
+    const isInitiallyChecked = isPresenceOptedIn() || new URLSearchParams(location.search).has('presence');
+    checkbox.setAttribute('aria-checked', String(isInitiallyChecked));
+    if (!configured) {
+        checkbox.setAttribute('aria-disabled', 'true');
+    }
+
+    // Switch styling matching memory guidelines
+    checkbox.style.cssText = 'margin-top:3px;appearance:none;width:36px;height:20px;background:rgba(255,255,255,0.5);border-radius:10px;position:relative;cursor:pointer;border:2px solid transparent;transition:all 0.2s;flex-shrink:0;';
+
+    // Switch handle
+    const handle = document.createElement('span');
+    handle.style.cssText = 'position:absolute;top:2px;left:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);';
+    if (isInitiallyChecked) {
+        checkbox.style.background = '#FF6B6B';
+        handle.style.transform = 'translateX(16px)';
+    }
+    checkbox.appendChild(handle);
+
+    // Focus visible outline via injected style if needed, but we'll use CSS class or inline
+    checkbox.addEventListener('focus', () => {
+        checkbox.style.outline = '3px solid #ff69b4';
+        checkbox.style.outlineOffset = '2px';
+    });
+    checkbox.addEventListener('blur', () => {
+        checkbox.style.outline = 'none';
+    });
 
     const copy = document.createElement('span');
     copy.innerHTML = configured
         ? 'Join a shared room and see other explorers (camera position only). No chat, no accounts.'
         : 'Supabase not configured — set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to enable.';
+    copy.id = 'presence-desc';
+    checkbox.setAttribute('aria-describedby', 'presence-desc');
 
     label.appendChild(checkbox);
     label.appendChild(copy);
@@ -72,7 +106,7 @@ export function installPresenceStartScreenUI(): void {
     shareInput.type = 'text';
     shareInput.readOnly = true;
     shareInput.id = 'presence-share-link';
-    shareInput.value = buildShareUrl(getWorldSeed(), { presence: checkbox.checked });
+    shareInput.value = buildShareUrl(getWorldSeed(), { presence: isInitiallyChecked });
     shareInput.style.cssText =
         'flex:1;min-width:180px;font-size:0.75rem;padding:6px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.1);';
 
@@ -93,11 +127,23 @@ export function installPresenceStartScreenUI(): void {
     const refreshShare = (): void => {
         const seed = getWorldSeed();
         seedValue.textContent = String(seed);
-        shareInput.value = buildShareUrl(seed, { presence: checkbox.checked });
+        const isChecked = checkbox.getAttribute('aria-checked') === 'true';
+        shareInput.value = buildShareUrl(seed, { presence: isChecked });
     };
 
-    checkbox.addEventListener('change', () => {
-        const enabled = checkbox.checked;
+    const toggleCheckbox = () => {
+        if (!configured) return;
+        const enabled = checkbox.getAttribute('aria-checked') !== 'true';
+        checkbox.setAttribute('aria-checked', String(enabled));
+
+        if (enabled) {
+            checkbox.style.background = '#FF6B6B';
+            handle.style.transform = 'translateX(16px)';
+        } else {
+            checkbox.style.background = 'rgba(255,255,255,0.5)';
+            handle.style.transform = 'translateX(0)';
+        }
+
         setPresenceOptIn(enabled);
         if (enabled) {
             const seed = getWorldSeed();
@@ -116,6 +162,33 @@ export function installPresenceStartScreenUI(): void {
             history.replaceState({}, '', url.toString());
         }
         refreshShare();
+    };
+
+    checkbox.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleCheckbox();
+    });
+
+    label.addEventListener('click', (e) => {
+        if (e.target !== checkbox) {
+            e.preventDefault();
+            toggleCheckbox();
+        }
+    });
+
+    // Keyboard active state matching tactile feedback rule
+    checkbox.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
+        if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            checkbox.classList.add('keyboard-active');
+            toggleCheckbox();
+        }
+    });
+    checkbox.addEventListener('keyup', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+            checkbox.classList.remove('keyboard-active');
+        }
     });
 
     copyBtn.addEventListener('click', async () => {
@@ -136,4 +209,9 @@ export function installPresenceStartScreenUI(): void {
     wrapper.appendChild(linkRow);
     wrapper.appendChild(note);
     modeSelect.insertAdjacentElement('afterend', wrapper);
+
+    yieldToPaint(50).then(() => {
+        trapFocusInside(wrapper);
+        wrapper.focus();
+    });
 }
