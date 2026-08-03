@@ -74,10 +74,10 @@ export default defineConfig({
 
           // Remaining app code with intertwined imports stays in one chunk to
           // avoid circular *chunk* dependencies (foliage ↔ systems core, etc.).
+          if (id.includes('/src/systems/weather/') || id.includes('/src/particles/') || id.includes('/src/compute/')) { return 'weather'; }
           if (
             id.includes('/src/core/') ||
             id.includes('/src/foliage/') ||
-            id.includes('/src/particles/') ||
             id.includes('/src/rendering/') ||
             id.includes('/src/systems/') ||
             id.includes('/src/ui/') ||
