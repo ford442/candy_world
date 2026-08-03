@@ -416,7 +416,7 @@ export class SaveMenu {
 
         // Quick save
         const quickSaveBtn = this.container.querySelector('[data-action="quick-save"]');
-        quickSaveBtn?.addEventListener('click', () => this.handleQuickSave());
+        quickSaveBtn?.addEventListener('click', () => this.handleQuickSave(quickSaveBtn as HTMLElement));
 
         // Settings
         this.container.querySelectorAll('[data-setting]').forEach(el => {
@@ -540,7 +540,7 @@ export class SaveMenu {
         );
     }
 
-    private async handleQuickSave(): Promise<void> {
+    private async handleQuickSave(btnElement?: HTMLElement): Promise<void> {
         const boundSaveToSlot = async (id: string) => {
             const result = await saveSystem.save(id);
             if (result) {
@@ -550,7 +550,7 @@ export class SaveMenu {
                 this.render();
             }
         };
-        await handleQuickSave(this.slots, boundSaveToSlot);
+        await handleQuickSave(this.slots, boundSaveToSlot, btnElement);
     }
 
     private handleSettingChange(e: Event): void {
