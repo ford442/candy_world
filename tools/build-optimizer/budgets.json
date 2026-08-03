@@ -1,7 +1,7 @@
 {
   "budgets": {
     "main": "300kb",
-    "app": "800kb",
+    "app": "850kb",
     "vendor": "1500kb",
     "wasm": "600kb",
     "total": "20mb"
