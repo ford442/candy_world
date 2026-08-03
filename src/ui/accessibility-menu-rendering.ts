@@ -372,7 +372,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
    * The button label updates to show the new key; the binding is persisted
    * via updateInputSettings once a key is captured.
    */
-  private startKeyRebind(action: string, btn: HTMLButtonElement): void {
+  protected startKeyRebind(action: string, btn: HTMLButtonElement): void {
     const originalText = btn.textContent ?? '';
     btn.textContent = 'Press a key…';
     btn.setAttribute('aria-label', `Rebinding ${action} — press a key`);
