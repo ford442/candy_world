@@ -49,6 +49,7 @@ function inferFailureTypeFromTaskId(taskId: string): string {
     return 'background_task';
 }
 import { maybeRecordBackgroundFailure } from '../world/spawn-tracker.ts';
+import { log } from './log.ts';
 
 /** Effective per-frame budget under current RAM pressure. */
 function memoryAwareBudget(baseMs: number): number {
@@ -129,7 +130,7 @@ export class BackgroundProcessor {
      */
     public async start(): Promise<void> {
         if (isCIorHeadless()) {
-            console.log('[BackgroundProcessor] CI/Headless mode detected, running synchronously.');
+            log.info('BackgroundProcessor', 'CI/Headless mode detected, running synchronously.');
             while (this.queue.length > 0) {
                 const task = this.queue.shift();
                 if (task) {
@@ -137,7 +138,7 @@ export class BackgroundProcessor {
                         const result = task.execute(); if (result instanceof Promise) { await result; }
                         this.completedTasks++;
                     } catch (e) {
-                        console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                        log.error('BackgroundProcessor', `Error executing task ${task.id}:`, e);
                         this.failedTasks++;
                     }
                 }
@@ -153,10 +154,10 @@ export class BackgroundProcessor {
         this.isRunning = true;
         this.startTimeMs = performance.now();
 
-        console.log(`[BackgroundProcessor] Starting with ${this.queue.length} tasks`);
+        log.info('BackgroundProcessor', `Starting with ${this.queue.length} tasks`);
 
         if (isCIorHeadless()) {
-            console.log(`[BackgroundProcessor] CI bypass: Synchronously processing ${this.queue.length} tasks...`);
+            log.info('BackgroundProcessor', `CI bypass: Synchronously processing ${this.queue.length} tasks...`);
 
             // We create an async wrapper so we can await the tasks without making start() return a Promise
             const processAllSync = async () => {
@@ -169,7 +170,7 @@ export class BackgroundProcessor {
                         }
                         this.completedTasks++;
                     } catch (e) {
-                        console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                        log.error('BackgroundProcessor', `Error executing task ${task.id}:`, e);
                         maybeRecordBackgroundFailure(task.id, e);
                         this.failedTasks++;
                     }
@@ -296,7 +297,7 @@ export class BackgroundProcessor {
 
     private complete(): void {
         this.isRunning = false;
-        console.log(`[BackgroundProcessor] Queue complete (${this.completedTasks}/${this.totalTasks}, ${this.failedTasks} failed)`);
+        log.info('BackgroundProcessor', `Queue complete (${this.completedTasks}/${this.totalTasks}, ${this.failedTasks} failed)`);
         if (this.onCompleteCallback) this.onCompleteCallback(this.completedTasks, this.totalTasks, this.failedTasks);
     }
 

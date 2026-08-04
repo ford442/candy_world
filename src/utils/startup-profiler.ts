@@ -96,38 +96,6 @@ let originalConsoleLog: typeof console.log;
 let originalInstancedMesh: typeof THREE.InstancedMesh;
 
 // ============================================================================
-// Memory Utilities
-// ============================================================================
-
-function getMemoryUsage(): number {
-  if ('memory' in performance && performance.memory) {
-    return (performance.memory as any).usedJSHeapSize;
-  }
-  return 0;
-}
-
-function getMemoryTotal(): number {
-  if ('memory' in performance && performance.memory) {
-    return (performance.memory as any).totalJSHeapSize;
-  }
-  return 0;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1) return (ms * 1000).toFixed(2) + ' μs';
-  if (ms < 1000) return ms.toFixed(2) + ' ms';
-  return (ms / 1000).toFixed(2) + ' s';
-}
-
-// ============================================================================
 // Console Hook
 // ============================================================================
 

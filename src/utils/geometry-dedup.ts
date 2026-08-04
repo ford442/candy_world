@@ -3,6 +3,7 @@
 // Uses hash-based lookup with reference counting for automatic cleanup
 
 import * as THREE from 'three';
+import { log } from './log.ts';
 
 /**
  * Geometry creation parameters for hashing
@@ -52,6 +53,7 @@ export class GeometryRegistry {
         hits: 0,
         misses: 0,
         totalRequests: 0,
+        uniqueGeometries: 0,
         memorySaved: 0
     };
 
@@ -488,14 +490,14 @@ export function reportGeometryStats(): void {
     const unique = geometryRegistry.getUniqueCount();
     const totalRefs = geometryRegistry.getTotalRefCount();
     
-    console.log('=== Geometry Deduplication Report ===');
-    console.log(`Cache hits:     ${stats.hits.toLocaleString()}`);
-    console.log(`Cache misses:   ${stats.misses.toLocaleString()}`);
-    console.log(`Hit rate:       ${stats.totalRequests > 0 ? ((stats.hits / stats.totalRequests) * 100).toFixed(1) : 0}%`);
-    console.log(`Unique geometries: ${unique.toLocaleString()}`);
-    console.log(`Total references:  ${totalRefs.toLocaleString()}`);
-    console.log(`Memory saved:   ${(stats.memorySaved / 1024 / 1024).toFixed(2)} MB`);
-    console.log('=====================================');
+    log.info('GeometryDedup', '=== Geometry Deduplication Report ===');
+    log.info('GeometryDedup', `Cache hits:     ${stats.hits.toLocaleString()}`);
+    log.info('GeometryDedup', `Cache misses:   ${stats.misses.toLocaleString()}`);
+    log.info('GeometryDedup', `Hit rate:       ${stats.totalRequests > 0 ? ((stats.hits / stats.totalRequests) * 100).toFixed(1) : 0}%`);
+    log.info('GeometryDedup', `Unique geometries: ${unique.toLocaleString()}`);
+    log.info('GeometryDedup', `Total references:  ${totalRefs.toLocaleString()}`);
+    log.info('GeometryDedup', `Memory saved:   ${(stats.memorySaved / 1024 / 1024).toFixed(2)} MB`);
+    log.info('GeometryDedup', '=====================================');
 }
 
 /**
@@ -503,9 +505,9 @@ export function reportGeometryStats(): void {
  */
 export function listRegisteredGeometries(): void {
     const entries = geometryRegistry.getAllEntries();
-    console.log('=== Registered Geometries ===');
+    log.info('GeometryDedup', '=== Registered Geometries ===');
     entries.forEach(({ key, refCount, type }) => {
-        console.log(`[${refCount}x] ${type}: ${key.substring(0, 80)}...`);
+        log.info('GeometryDedup', `[${refCount}x] ${type}: ${key.substring(0, 80)}...`);
     });
-    console.log(`Total: ${entries.length} unique geometries`);
+    log.info('GeometryDedup', `Total: ${entries.length} unique geometries`);
 }
