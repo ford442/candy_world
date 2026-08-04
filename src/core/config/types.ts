@@ -1,0 +1,331 @@
+import type { PlantPoseConfig } from '../../foliage/plant-pose-machine.ts';
+import type { EntityScaleEntry } from './palette.ts';
+
+export interface ConfigType {
+    /** True when ?safe=1 is in the URL — disables shader warmup and skips heavy compute init */
+    safeMode: boolean;
+    terrain: {
+        useGpuHeightmap: boolean;
+        heightmapResolution: number;
+    };
+    colors: {
+        ground: number;
+        fog: number;
+    };
+    interaction: {
+        maxDistance: number;
+        proximityRadius: number;
+        interactionDistance: number;
+    };
+    glow: {
+        startOffsetMinutes: number;
+        endOffsetMinutes: number;
+        glowPulseFrequency: number;
+        glowPulseAmplitude: number;
+        glowIntensityMax: number;
+        /** Visual Impact: soft emissive boost for previously awakened flora (remembered, not noisy) */
+        awakenedGlowMultiplier: number;
+        glowColorMap: Record<string, number>;
+    };
+    luminousPlants: {
+        density: number;
+        baseGlowIntensity: number;
+        peakGlowIntensity: number;
+        pulseSpeed: number;
+        pulseDepth: number;
+        subsurfaceStrength: number;
+        glowIntensity: number;
+    };
+    noteColorMap: {
+        global: Record<string, number>;
+        mushroom: Record<string, number>;
+        flower: Record<string, number>;
+        tree: Record<string, number>;
+        cloud: Record<string, number>;
+        sky: Record<string, number>;
+        luminous_plants: Record<string, number>;
+        [key: string]: Record<string, number>; // Allow for dynamic access if needed
+    };
+    reactivity: {
+        [key: string]: {
+            medianWindow?: number;
+            smoothingRate?: number;
+            scale?: number;
+            maxAmplitude?: number;
+            minThreshold?: number;
+        };
+    };
+    flashScale: number;
+    debugNoteReactivity: boolean;
+    moon: {
+        blinkOnBeat: boolean;
+        blinkDuration: number;
+        blinkInterval: number;
+        danceAmplitude: number;
+        danceFrequency: number;
+    };
+    audio: {
+        useScriptProcessorNode: boolean;
+        /**
+         * Music source mode:
+         * - `tracker` — libopenmpt module playback (default, user-uploaded .mod/.xm)
+         * - `generative` — in-browser seeded sequencer (no asset download)
+         * - `auto` — generative when FEATURE_FLAGS.generativeMusic, else tracker
+         */
+        musicMode: 'tracker' | 'generative' | 'auto';
+        /** Seed for deterministic generative patterns (0 = default). */
+        generativeSeed: number;
+    };
+    weather: {
+        musicReactivity: {
+            enabled: boolean;
+            blendWeight: number; // 0.0 = no music influence, 1.0 = full override
+        };
+    };
+    /**
+     * Per-plant-type ADSR envelope configuration for the day/night pose state machine.
+     * Values are data-driven so they can be tuned without touching shader code.
+     */
+    plantPose: {
+        arpeggioFern: PlantPoseConfig;
+        portamentoPine: PlantPoseConfig;
+        flower: PlantPoseConfig;
+        /** Shared by SimpleFlowerBatcher — same diurnal open/close as flower. */
+        simpleFlower: PlantPoseConfig;
+    };
+
+    circadian: {
+        transitionSeconds: number;
+        dayPoseOffset: number;
+        nightPoseOffset: number;
+        nightGlowMultiplier: number;
+        biomeOverrides: Record<
+            string,
+            Partial<{
+                transitionSeconds: number;
+                dayPoseOffset: number;
+                nightPoseOffset: number;
+                nightGlowMultiplier: number;
+            }>
+        >;
+    };
+
+    lighting: {
+        shadows: {
+            enabled: boolean;
+            /** Hard off switch (e.g. CI sets via runtime). */
+            forceDisable: boolean;
+            /** Skip shadows when postfx tier is low (perf mode). */
+            disableOnLowPostfx: boolean;
+            /** Visual Impact: shadow map resolution at default quality. */
+            mapSize: number;
+            /** Visual Impact: shadow map resolution when postfx=high. */
+            mapSizeHigh: number;
+            /** Visual Impact: ortho half-extent — ±followRadius covers player neighborhood. */
+            followRadius: number;
+            /** Extra ortho margin (render ±(followRadius+snapHeadroom)) for texel-snap headroom. */
+            snapHeadroom: number;
+            /** Light placed at player + normalizedSunDir * sunDistance. */
+            sunDistance: number;
+            cameraNear: number;
+            cameraFar: number;
+            /** Depth bias — reduces acne on glossy MeshPhysicalMaterial. */
+            bias: number;
+            normalBias: number;
+            /** PCF soft shadow filter radius. */
+            pcfRadius: number;
+        };
+    };
+
+    atmosphere: {
+        fog: {
+            /** Visual Impact: day near as ratio of camera.far (≈20u at far=2000). */
+            nearRatio: number;
+            /** Visual Impact: day far as ratio of camera.far (≈320u at far=2000). */
+            farRatio: number;
+            nightNearRatio: number;
+            nightFarRatio: number;
+            minNear: number;
+            maxNear: number;
+            minFar: number;
+            maxFar: number;
+            /** Visual Impact: cap near so foreground (<30u) stays crisp. */
+            maxForegroundNear: number;
+            minSpan: number;
+            fovScale: number;
+            referenceFov: number;
+            altitudeBaseline: number;
+            /** Extra fog far per meter above altitudeBaseline (vantage / cloud pads). */
+            altitudeScale: number;
+            /** Cap far as ratio of camera.far — aligns with sky horizon band. */
+            horizonFarCap: number;
+            /** Exponential lerp rate for near/far transitions (frame-rate aware). */
+            lerpSpeed: number;
+        };
+    };
+
+    /**
+     * Player avatar / first-person camera height tuning.
+     * eyeHeight is added to the authoritative ground height to place the camera.
+     * spawnEyeHeightY is the transient starting height before the first ground snap.
+     */
+    player: {
+        eyeHeight: number;
+        spawnEyeHeightY: number;
+    };
+
+    /**
+     * Ground-follow tuning. The camera/player Y is lerped toward the authoritative
+     * ground height + eyeHeight to avoid snapping over small terrain bumps.
+     */
+    ground: {
+        followLerpSpeed: number;
+        followMaxStep: number;
+        /** Eye Y above terrain before we treat the player as standing on a platform. */
+        platformElevationThreshold: number;
+        cacheCellSize: number;
+        cacheTTL: number;
+        /** Perimeter samples for circular footprint queries (center is always included). */
+        footprintSamples: number;
+        /** Max tilt from world-up when aligning props to terrain slope (radians). */
+        maxSlopeAngle: number;
+        /** Per-entity footprint radius (world units). 0 / absent = single-point sample. */
+        footprintRadius: Record<string, number>;
+        /** Footprint Y policy: `min` = lowest contact (trees/rocks), `avg` = level pads. */
+        footprintPlacementY: Record<string, 'min' | 'avg'>;
+    };
+
+    /** Walkable cloud platform tuning (#1266). */
+    cloud: {
+        defaultSize: number;
+        sizePresets: { small: number; medium: number; large: number };
+        /** Grid snap for dev placement (0 = off). */
+        gridSnap: number;
+        snapY: boolean;
+        placementRayDistance: number;
+        /** Default float height when raycast misses geometry. */
+        defaultFloatHeight: number;
+        /** Small lift applied on raycast hits so clouds sit on surfaces. */
+        surfaceYOffset: number;
+        walkableTier: number;
+        /** Visual Impact: candy pastel cloud palette */
+        pastelTint: number;
+        creamHighlight: number;
+        lavenderShadow: number;
+        emissivePulse: number;
+    };
+
+    world: {
+        population: {
+            proceduralExtras: number;
+            arpeggioGroveFerns: number;
+            arpeggioGroveOuter: number;
+            lakeArpeggioFerns: number;
+            lakeDandelions: number;
+            scale: number;
+        };
+        /** Single source of truth for procedural instance scale / height sampling. */
+        scaleTable: Record<string, EntityScaleEntry>;
+        /** Subtle forced-perspective shrink toward biome outer radius. */
+        scaleDistanceBias: {
+            enabled: boolean;
+            /** Max scale reduction at normalizedDistance = 1 (e.g. 0.08 → 8% smaller). */
+            outerShrink: number;
+        };
+    };
+
+    foliage: {
+        lod: {
+            enabled: boolean;
+            heroMax: number;
+            midMax: number;
+            blendWidth: number;
+            blendSeconds: number;
+            farCull: number;
+            useImpostors: boolean;
+            impostorMinFactor: number;
+            impostorMaxFactor: number;
+            impostorScaleMul: number;
+            impostorAspect: number;
+        };
+        aerialPerspective: {
+            enabled: boolean;
+            /** Visual Impact: master blend — 0.85 reads natural without greying heroes. */
+            strength: number;
+            /** Visual Impact: first distance (units) where recession begins. */
+            startDist: number;
+            /** Visual Impact: full atmospheric blend distance (horizon tree line). */
+            endDist: number;
+            /** Visual Impact: desaturation amount at far end (0–1). */
+            desatAmount: number;
+            /** Visual Impact: fog-color lift at far end (0–1). */
+            fogBlend: number;
+            /** Visual Impact: strength retained at night when linear fog is already tight. */
+            nightFactor: number;
+        };
+        /** Ground-contact ambient-occlusion-style darkening on diffuse (not emissive). */
+        baseContactAO: {
+            enabled: boolean;
+            /** Visual Impact: 0.25–0.4 reads grounded without muddy bases. */
+            strength: number;
+            /** Extra strength at night for moonlit grounding. */
+            nightBoost: number;
+            groundTint: number;
+            contactHeight: Record<string, number> & { _default: number };
+        };
+    };
+
+    postfx: {
+        quality: 'off' | 'low' | 'high';
+        godRays: boolean;
+        /** Max combined shaft opacity (golden hour + melody). Visual Impact: 0.4 keeps beams dreamy, not blinding. */
+        shaftOpacityCap: number;
+        /** Min dot(cameraForward, celestialDir) before shafts render (performance frustum gate). */
+        shaftFrustumDot: number;
+        /** Bloom scatter boost at full shaft opacity (0 = off). Pairs with additive shaft planes. */
+        shaftScatterBoost: number;
+        dofEnabled: boolean;
+        dofFocusFollow: boolean;
+        dofFocusDistance: number;
+        dofAperture: number;
+        dofMaxBlur: number;
+        dofProximity: number;
+    };
+
+    /** Ambient fauna (WASM boids + instanced critters). */
+    fauna: {
+        enabled: boolean;
+        maxInstances: number;
+        maxPerSpecies: number;
+        seed: number;
+        areaScale: number;
+        biomeDensity: Record<string, { beetle: number; hopper: number; moth: number }>;
+        /** Sky-island roost flocks (#1363) — reserved slice of the population. */
+        roosts: {
+            enabled: boolean;
+            /** Critters placed per registered island deck. */
+            perIsland: number;
+            /** Ring radius as a fraction of deck radius (keeps roosts off the rim). */
+            ringInset: number;
+            /** Random offset as a fraction of deck radius. */
+            jitter: number;
+            /** Species mix at roosts — moth-heavy; flyers suit floating decks. */
+            density: { beetle: number; hopper: number; moth: number };
+        };
+    };
+
+    presence: {
+        /** Master enable — also requires FEATURE_FLAGS.presence and Supabase env vars. */
+        enabled: boolean;
+        maxPeers: number;
+        tickHz: number;
+        cullDistance: number;
+    };
+
+    compute: {
+        /** Prefer GPU compute over WASM/JS when WebGPU is ready (Tier 4 default). */
+        preferGpu: boolean;
+        /** Minimum batch size before foliage scalar work moves to GPU. */
+        foliageGpuBatchMin: number;
+    };
+}
