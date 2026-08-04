@@ -1,3 +1,5 @@
+import { log } from '../utils/log.ts';
+
 export interface LoadingPhase {
     id: string;
     name: string;
@@ -42,48 +44,48 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
         name: 'Scene Setup',
         weight: 0.15,
         description: 'Initializing 3D renderer and scene...',
-        onStart: () => console.log('[Loading] Starting Core Scene Setup'),
-        onComplete: () => console.log('[Loading] Core Scene Setup complete')
+        onStart: () => log.debug('Loading', 'Starting Core Scene Setup'),
+        onComplete: () => log.debug('Loading', 'Core Scene Setup complete')
     },
     {
         id: 'audio-init',
         name: 'Audio System',
         weight: 0.05,
         description: 'Starting audio worklet and effects...',
-        onStart: () => console.log('[Loading] Starting Audio System Init'),
-        onComplete: () => console.log('[Loading] Audio System Init complete')
+        onStart: () => log.debug('Loading', 'Starting Audio System Init'),
+        onComplete: () => log.debug('Loading', 'Audio System Init complete')
     },
     {
         id: 'world-generation',
         name: 'World Build',
         weight: 0.20,
         description: 'Building sky, terrain and base world...',
-        onStart: () => console.log('[Loading] Starting World Generation'),
-        onComplete: () => console.log('[Loading] World Generation complete')
+        onStart: () => log.debug('Loading', 'Starting World Generation'),
+        onComplete: () => log.debug('Loading', 'World Generation complete')
     },
     {
         id: 'wasm-init',
         name: 'Physics Engine',
         weight: 0.35,
         description: 'Loading physics engine and native modules...',
-        onStart: () => console.log('[Loading] Starting WASM Initialization'),
-        onComplete: () => console.log('[Loading] WASM Initialization complete')
+        onStart: () => log.debug('Loading', 'Starting WASM Initialization'),
+        onComplete: () => log.debug('Loading', 'WASM Initialization complete')
     },
     {
         id: 'shader-warmup',
         name: 'Shader Warmup',
         weight: 0.30,
         description: 'Pre-compiling shaders for smooth gameplay...',
-        onStart: () => console.log('[Loading] Starting Shader Warmup'),
-        onComplete: () => console.log('[Loading] Shader Warmup complete')
+        onStart: () => log.debug('Loading', 'Starting Shader Warmup'),
+        onComplete: () => log.debug('Loading', 'Shader Warmup complete')
     },
     {
         id: 'map-generation',
         name: 'Map Generation',
         weight: 0.30,
         description: 'Placing entities, foliage and discoveries...',
-        onStart: () => console.log('[Loading] Starting Map Generation'),
-        onComplete: () => console.log('[Loading] Map Generation complete')
+        onStart: () => log.debug('Loading', 'Starting Map Generation'),
+        onComplete: () => log.debug('Loading', 'Map Generation complete')
     },
     {
         id: 'deferred-population',
@@ -91,7 +93,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
         weight: 0,   // 0 in normal mode; set to >0 in waitForFull mode before registering
         description: 'Populating horizon...',
         isDeferred: true,
-        onStart: () => console.log('[Loading] Starting deferred world population'),
-        onComplete: () => console.log('[Loading] Deferred world population complete')
+        onStart: () => log.debug('Loading', 'Starting deferred world population'),
+        onComplete: () => log.debug('Loading', 'Deferred world population complete')
     }
 ];

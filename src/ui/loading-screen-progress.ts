@@ -2,6 +2,7 @@ import type { LoadingScreen } from './loading-screen-ui.ts';
 import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types.ts';
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
 import { getAccessibilitySystem } from '../systems/accessibility.ts';
+import { log } from '../utils/log.ts';
 
 let LoadingScreenCtor: typeof LoadingScreen | null = null;
 
@@ -63,7 +64,7 @@ export class LoadingScreenProgress {
         });
 
         if (this.options.debug) {
-            console.log('[LoadingScreen] Phases registered:', this.phases.map(p => p.id));
+            log.debug('LoadingScreen', 'Phases registered:', this.phases.map(p => p.id));
         }
     }
 
@@ -75,7 +76,7 @@ export class LoadingScreenProgress {
     startPhase(phaseId: string): LoadingPhase | undefined {
         const phaseIndex = this.phases.findIndex(p => p.id === phaseId);
         if (phaseIndex === -1) {
-            console.warn(`[LoadingScreen] Unknown phase: ${phaseId}`);
+            log.warn('LoadingScreen', `Unknown phase: ${phaseId}`);
             return undefined;
         }
 
@@ -88,7 +89,7 @@ export class LoadingScreenProgress {
         phase.onStart?.();
 
         if (this.options.debug) {
-            console.log(`[LoadingScreen] Phase started: ${phase.name}`);
+            log.debug('LoadingScreen', `Phase started: ${phase.name}`);
         }
 
         return phase;
@@ -129,7 +130,7 @@ export class LoadingScreenProgress {
             phase.onComplete?.();
 
             if (this.options.debug) {
-                console.log(`[LoadingScreen] Phase completed: ${phase.name} (${duration}ms)`);
+                log.debug('LoadingScreen', `Phase completed: ${phase.name} (${duration}ms)`);
             }
         }
 
@@ -440,6 +441,6 @@ export function installLegacyAPI(): void {
     };
 
     if (debugEnabled) {
-        console.log('[LoadingScreen] Legacy window API installed');
+        log.debug('LoadingScreen', 'Legacy window API installed');
     }
 }
