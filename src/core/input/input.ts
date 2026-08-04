@@ -54,7 +54,7 @@ export function initInput(
     const instructions = document.getElementById('instructions');
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     const canvas = document.getElementById('glCanvas') as HTMLCanvasElement | null;
-    // @ts-ignore
+    // @ts-expect-error vite build issue
     const isDevBuild = import.meta.env?.DEV || false;
 
     // Ability HUD Elements
@@ -701,21 +701,24 @@ export function initInput(
                 triggerButtonPressDown('toggleMuteBtn');
                 handleMuteKey();
                 break;
-            case 'KeyU':
+            case 'KeyU': {
                 if (event.repeat) return;
                 triggerButtonPressDown('musicUploadBtn');
                 const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
                 if (uploadInput) uploadInput.click();
                 break;
+            }
             case 'Equal':
             case 'NumpadAdd':
                 if (event.repeat) return;
+                // ♿ Aria: Added tactile keyboard feedback for volume hotkeys
                 triggerButtonPressDown('volUpBtn');
                 handleVolumeKey(0.1);
                 break;
             case 'Minus':
             case 'NumpadSubtract':
                 if (event.repeat) return;
+                // ♿ Aria: Added tactile keyboard feedback for volume hotkeys
                 triggerButtonPressDown('volDownBtn');
                 handleVolumeKey(-0.1);
                 break;
@@ -836,10 +839,12 @@ export function initInput(
                 break;
             case 'Equal':
             case 'NumpadAdd':
+                // ♿ Aria: Added tactile keyboard feedback for volume hotkeys
                 triggerButtonPressUp('volUpBtn');
                 break;
             case 'Minus':
             case 'NumpadSubtract':
+                // ♿ Aria: Added tactile keyboard feedback for volume hotkeys
                 triggerButtonPressUp('volDownBtn');
                 break;
         }
