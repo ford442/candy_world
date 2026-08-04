@@ -13,6 +13,7 @@ import {
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import type { SaveMenu } from './save-menu.ts';
+
 /**
  * Format playtime in seconds to human-readable string
  */
