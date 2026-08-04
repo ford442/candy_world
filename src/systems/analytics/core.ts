@@ -30,6 +30,7 @@ import {
 } from './types.ts';
 
 import { PerformanceTracker } from './performance.ts';
+import { log } from '../../utils/log.ts';
 
 /**
  * Privacy-first analytics system for Candy World
@@ -76,7 +77,7 @@ export class AnalyticsSystem {
     this.performanceTracker.setupPerformanceTracking(this.trackEventInternal.bind(this));
     
     if (this.config.debug) {
-      console.log('[Analytics] System initialized', { config: this.config });
+      log.debug('Analytics', 'System initialized', { config: this.config });
     }
   }
 
@@ -128,7 +129,7 @@ export class AnalyticsSystem {
     saveConfig(this.config);
     
     if (this.config.debug) {
-      console.log('[Analytics] Opt-in set:', { enabled, localOnly });
+      log.debug('Analytics', 'Opt-in set:', { enabled, localOnly });
     }
   }
 
@@ -211,7 +212,7 @@ export class AnalyticsSystem {
     this.startHeartbeat();
     
     if (this.config.debug) {
-      console.log('[Analytics] Session started:', sessionId);
+      log.debug('Analytics', 'Session started:', sessionId);
     }
   }
 
@@ -253,7 +254,7 @@ export class AnalyticsSystem {
     this.stopHeartbeat();
     
     if (this.config.debug) {
-      console.log('[Analytics] Session ended:', {
+      log.debug('Analytics', 'Session ended:', {
         duration: this.session.duration,
         crashed: this.isCrashed,
       });
@@ -452,7 +453,7 @@ export class AnalyticsSystem {
     }
     
     if (this.config.debug) {
-      console.log('[Analytics] Event:', event);
+      log.debug('Analytics', 'Event:', event);
     }
   }
 
@@ -527,7 +528,7 @@ export class AnalyticsSystem {
     saveQueuedEvents(this.queuedEvents);
     
     if (this.config.debug) {
-      console.log('[Analytics] Flushed', this.eventBuffer.length, 'events');
+      log.debug('Analytics', 'Flushed', this.eventBuffer.length, 'events');
     }
     
     // Clear buffer
@@ -544,7 +545,7 @@ export class AnalyticsSystem {
     // Check online status
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       if (this.config.debug) {
-        console.log('[Analytics] Offline - batch queued for later');
+        log.debug('Analytics', 'Offline - batch queued for later');
       }
       return;
     }
@@ -572,7 +573,7 @@ export class AnalyticsSystem {
       saveQueuedEvents(this.queuedEvents);
       
       if (this.config.debug) {
-        console.log('[Analytics] Sent batch:', batch.length, 'events');
+        log.debug('Analytics', 'Sent batch:', batch.length, 'events');
       }
     } catch (e) {
       // Put events back in queue
@@ -580,7 +581,7 @@ export class AnalyticsSystem {
       saveQueuedEvents(this.queuedEvents);
       
       if (this.config.debug) {
-        console.warn('[Analytics] Failed to send batch:', e);
+        log.warn('Analytics', 'Failed to send batch:', e);
       }
     }
   }
@@ -786,7 +787,7 @@ export class AnalyticsSystem {
     URL.revokeObjectURL(url);
     
     if (this.config.debug) {
-      console.log('[Analytics] Data exported');
+      log.debug('Analytics', 'Data exported');
     }
   }
 
@@ -808,7 +809,7 @@ export class AnalyticsSystem {
     }
     
     if (this.config.debug) {
-      console.log('[Analytics] All data cleared');
+      log.debug('Analytics', 'All data cleared');
     }
   }
 

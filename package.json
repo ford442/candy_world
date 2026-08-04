@@ -52,8 +52,8 @@
         "typecheck": "node scripts/tsc-ratchet.mjs",
         "test:generative": "node tests/generative-sequencer.mjs",
         "test:photo-mode": "node tests/photo-mode.test.mjs",
-        "lint": "eslint src",
-        "lint:ratchet": "node scripts/eslint-ratchet.mjs",
+        "lint": "node scripts/eslint-ratchet.mjs",
+        "lint:raw": "eslint src",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "prepare": "simple-git-hooks"

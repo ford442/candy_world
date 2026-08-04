@@ -64,10 +64,16 @@ if (count > maxProblems) {
         process.exit(1);
     }
 } else if (count < maxProblems) {
-    const lowered = maxProblems - count;
-    console.log(`\n✅ Ratchet passed — count is ${lowered} below baseline.`);
-    console.log('To lower the baseline, run:');
-    console.log(`  node scripts/eslint-ratchet.mjs --set-baseline ${count}`);
+    console.log(`\n🎉 You reduced ESLint problems! Ratcheting down ${maxProblems} -> ${count}...`);
+    writeFileSync(
+        baselinePath,
+        JSON.stringify(
+            { maxProblems: count, updatedAt: new Date().toISOString().slice(0, 10) },
+            null,
+            2
+        ) + '\n'
+    );
+    console.log(`Baseline updated to ${count}.`);
 } else {
     console.log('\n✅ Ratchet passed — count matches baseline.');
 }
