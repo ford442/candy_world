@@ -1,8 +1,0 @@
-⚡ Bolt: Zero-alloc weather particle updates
-
-1. Replace new THREE.Vector3(0,0,0) with a module-scoped scratch vector `_scratchVecZero` in `weather-effects.ts`.
-2. Mutate `_scratchParticleAudioDataRain` in place for `percussionRain.update()`.
-3. Mutate `_scratchParticleAudioDataMist` in place for `melodicMist.update()`.
-4. Pre-cache `CONFIG.noteColorMap.cloud` keys at module init to prevent GC spikes during lightning flashes.
-
-These changes eliminate per-frame allocations during weather particle updates in the hot main game loop path.

@@ -621,20 +621,20 @@ export class AudioSystem extends AudioSystemCore {
             if (this.workletNode) {
                 try {
                     this.workletNode.disconnect();
-                } catch (e) {}
+                } catch (e) { /* ignored */ }
                 this.workletNode = null;
             }
             if (this.scriptProcessorNode) {
                 try {
                     this.scriptProcessorNode.disconnect();
                     this.scriptProcessorNode.onaudioprocess = null;
-                } catch (e) {}
+                } catch (e) { /* ignored */ }
                 this.scriptProcessorNode = null;
             }
             if (this.gainNode) {
                 try {
                     this.gainNode.disconnect();
-                } catch (e) {}
+                } catch (e) { /* ignored */ }
                 this.gainNode = null;
             }
             this._generativeAttached = false;

@@ -1,21 +1,19 @@
-import { createIntegratedRain } from '../../particles/compute-integration.ts';
+import * as THREE from 'three';
 import { ComputeParticleSystem } from '../../compute/particle_compute.ts';
+import { CONFIG } from '../../core/config.ts';
+import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
+import { createAurora, uAuroraIntensity } from '../../foliage/aurora.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../../foliage/clouds.ts';
+import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
+import { createIntegratedRain } from '../../particles/compute-integration.ts';
 
 // src/systems/weather/weather-effects.ts
 // Visual effects management: rainbow, aurora, lightning, plant growth
 
-import * as THREE from 'three';
-import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
-import { createAurora, uAuroraIntensity } from '../../foliage/aurora.ts';
-import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../../foliage/clouds.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
-
-
 import type { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles-types.ts';
-import { WeatherState } from '../weather-types.ts';
-import { CONFIG } from '../../core/config.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
+import { WeatherState } from '../weather-types.ts';
 
 // Cache palette keys outside the render loop to prevent GC spikes during storms
 // Evaluate keys lazily since this module may load before config is initialized
@@ -175,7 +173,7 @@ export class EffectsManager {
         let lightningActive = false;
 
         if (state === WeatherState.STORM && (bassIntensity > 0.8 || Math.random() < 0.01)) {
-            try { if (uCloudLightningStrength) uCloudLightningStrength.value = 1.0; } catch (e) {}
+            try { if (uCloudLightningStrength) uCloudLightningStrength.value = 1.0; } catch (e) { /* ignored */ }
 
             const keys = getCloudPaletteKeys();
             if (keys.length > 0) {
@@ -185,7 +183,7 @@ export class EffectsManager {
                     if (uCloudLightningColor && uCloudLightningColor.value && uCloudLightningColor.value.setHex) {
                         uCloudLightningColor.value.setHex(colorHex);
                     }
-                } catch (e) {}
+                } catch (e) { /* ignored */ }
                 lightningLight.color.setHex(colorHex);
                 lightningLight.intensity = 10 * cloudDensity;
                 lightningLight.position.set((Math.random() - 0.5) * 100, 50, (Math.random() - 0.5) * 100);
@@ -196,7 +194,7 @@ export class EffectsManager {
                 if (uCloudLightningStrength) {
                     uCloudLightningStrength.value *= 0.85;
                 }
-            } catch (e) {}
+            } catch (e) { /* ignored */ }
         }
 
         return lightningActive;
@@ -211,7 +209,7 @@ export class EffectsManager {
             if (uCloudRainbowIntensity) {
                 uCloudRainbowIntensity.value += (rainbowTarget - uCloudRainbowIntensity.value) * 0.05;
             }
-        } catch (e) {}
+        } catch (e) { /* ignored */ }
     }
 
     /**
