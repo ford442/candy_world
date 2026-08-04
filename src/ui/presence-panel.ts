@@ -15,8 +15,6 @@ import {
     isPresenceOptedIn,
     setPresenceOptIn,
 } from '../systems/net/presence.ts';
-import { trapFocusInside } from '../utils/interaction-utils.ts';
-import { yieldToPaint } from '../utils/yield-to-paint.ts';
 
 const PRESENCE_UI_ID = 'presence-opt-in';
 
@@ -28,10 +26,6 @@ export function installPresenceStartScreenUI(): void {
 
     const configured = isPresenceBackendConfigured();
     const wrapper = document.createElement('div');
-    wrapper.setAttribute('role', 'dialog');
-    wrapper.setAttribute('aria-modal', 'true');
-    wrapper.setAttribute('tabindex', '-1');
-    wrapper.setAttribute('aria-labelledby', 'presence-title');
     wrapper.id = PRESENCE_UI_ID;
     wrapper.style.cssText =
         'margin:16px auto 0;max-width:420px;padding:12px 14px;border-radius:14px;' +
@@ -210,8 +204,4 @@ export function installPresenceStartScreenUI(): void {
     wrapper.appendChild(note);
     modeSelect.insertAdjacentElement('afterend', wrapper);
 
-    yieldToPaint(50).then(() => {
-        trapFocusInside(wrapper);
-        wrapper.focus();
-    });
 }
