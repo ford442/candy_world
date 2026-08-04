@@ -128,6 +128,11 @@ installPresenceStartScreenUI();
 // --- Top-level error boundary (Issue #1) ---
 // Catch any unhandled promise rejections during startup and surface them to the
 // loading screen so the user never sees a silent hang at 0%.
+
+window.addEventListener('beforeunload', () => {
+    teardownPresence();
+});
+
 window.addEventListener('unhandledrejection', (event) => {
     const err = event.reason;
     const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');

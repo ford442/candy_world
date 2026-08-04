@@ -46,6 +46,7 @@ import { player } from '../systems/physics/index.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
+import { updatePresenceSystem } from '../systems/net/index.ts';
 import { getPhotoMode } from '../systems/photo-mode/index.ts';
 import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
 
@@ -174,6 +175,7 @@ export function animate() {
     updateImpacts(rendererRef, gt + timeOffsetRef.value);
     updateDandelionSeeds(rendererRef);
     updateFaunaSystem(delta, gt + timeOffsetRef.value);
+    updatePresenceSystem(delta, cameraRef, player.position);
 
     // 6. Physics Phase
     const devOrbitActive = exploreActive;
