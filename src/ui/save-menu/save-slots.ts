@@ -320,10 +320,32 @@ async function deleteSlot(
  */
 export async function handleQuickSave(
     slots: SaveSlotInfo[],
-    saveToSlotFn: (slotId: string) => Promise<void>
+    saveToSlotFn: (slotId: string) => Promise<void>,
+    btnElement?: HTMLElement
 ): Promise<void> {
-    // Find first empty manual slot or use slot-1
-    const emptySlot = slots.find(s => !s.isAutoSave && !s.exists);
-    const slotId = emptySlot?.slotId || 'manual-1';
-    await saveToSlotFn(slotId);
+    if (btnElement) {
+        // Prevent race condition if double clicked
+        if (btnElement.getAttribute('aria-busy') === 'true') return;
+
+        btnElement.setAttribute('aria-busy', 'true');
+        btnElement.setAttribute('aria-disabled', 'true');
+        const originalText = btnElement.innerHTML;
+        btnElement.innerHTML = '<span class="spinner" aria-hidden="true"></span>...';
+
+        try {
+            await yieldToPaint();
+            const emptySlot = slots.find(s => !s.isAutoSave && !s.exists);
+            const slotId = emptySlot?.slotId || 'manual-1';
+            await saveToSlotFn(slotId);
+        } finally {
+            btnElement.removeAttribute('aria-busy');
+            btnElement.removeAttribute('aria-disabled');
+            btnElement.innerHTML = originalText;
+        }
+    } else {
+        // Find first empty manual slot or use slot-1
+        const emptySlot = slots.find(s => !s.isAutoSave && !s.exists);
+        const slotId = emptySlot?.slotId || 'manual-1';
+        await saveToSlotFn(slotId);
+    }
 }
