@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import { CYCLE_DURATION } from '../../core/config.ts';
 import {
     initExploreCamera,
     getExploreCamera,
     setExploreOrbitFlag,
 } from '../../core/camera-modes.ts';
+import { CYCLE_DURATION } from '../../core/config.ts';
 import {
     uBloomStrength,
     uColorSaturation,
@@ -15,11 +15,11 @@ import {
     uDofMix,
     uShaftScatterBoost,
 } from '../../foliage/post-processing.ts';
+import { announcePolite } from '../../ui/announcer.ts';
+import { getWorldSeed } from '../../world/world-seed.ts';
 import { capturePhotoPng } from './photo-capture.ts';
 import { PhotoControlsOverlay, type PhotoControlValues } from './photo-controls.ts';
 import { defaultPhotoSettings } from './photo-presets.ts';
-import { announcePolite } from '../../ui/announcer.ts';
-import { getWorldSeed } from '../../world/world-seed.ts';
 
 export interface PhotoModeInitOptions {
     camera: THREE.PerspectiveCamera;

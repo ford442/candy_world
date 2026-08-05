@@ -4,10 +4,11 @@
 
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
+import { updateFaunaDebug, isFaunaDebugEnabled } from '../../debug/tools-stub.ts';
+import { FaunaBatcher } from '../../foliage/fauna-batcher.ts';
 import { World } from '../ecs/world.ts';
 import { sampleGroundNormal } from '../ground-system.ts';
 import { player } from '../physics/physics-types.ts';
-import { FaunaBatcher } from '../../foliage/fauna-batcher.ts';
 import {
     allocateBoidsBuffer,
     bindBoidsWasm,
@@ -16,7 +17,6 @@ import {
 } from './boids-bridge.ts';
 import { spawnFaunaPopulation } from './spawn.ts';
 import { FAUNA_BOID_STRIDE, FaunaSpecies, type FaunaSpawnEntry } from './types.ts';
-import { updateFaunaDebug, isFaunaDebugEnabled } from '../../debug/fauna-debug.ts';
 
 const _up = new THREE.Vector3(0, 1, 0);
 const _normal = new THREE.Vector3();

@@ -10,6 +10,12 @@
  */
 
 import { 
+    SpawnCandidate, 
+    MaterialAnalysisResult, 
+    DistanceCullResult,
+    MaterialInfo 
+} from './wasm-batch-types.ts';
+import { 
     wasmInstance,
     wasmMemory,
     positionView,
@@ -22,12 +28,6 @@ import {
     type PositionData
 } from './wasm-loader-core.ts';
 
-import { 
-    SpawnCandidate, 
-    MaterialAnalysisResult, 
-    DistanceCullResult,
-    MaterialInfo 
-} from './wasm-batch-types.ts';
 
 // =============================================================================
 // BATCH UPLOAD FUNCTIONS

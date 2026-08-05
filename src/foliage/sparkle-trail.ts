@@ -1,7 +1,7 @@
-import { isCIorHeadless } from '../core/config.ts';
 import * as THREE from 'three';
-import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
 import { vec4, attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos, Fn, instanceIndex, storage, uniform, If, length, floor } from 'three/tsl';
+import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import { isCIorHeadless } from '../core/config.ts';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -119,7 +119,7 @@ export function createSparkleTrail(): THREE.Points {
     // PALETTE: Smaller base size when walking slow to avoid clutter
     const baseSize = float(0.2).add(speedFactor.mul(0.5));
     const sizeNode = baseSize.mul(float(1.0).sub(lifeProgress)).mul(audioScale);
-    mat.sizeNode = sizeNode;
+    (mat as { sizeNode?: unknown }).sizeNode = sizeNode;
 
     // Color: Cycle Gold -> Pink -> Cyan based on age
     // PALETTE: Tuned colors for maximum candy vibe
@@ -157,7 +157,7 @@ export function createSparkleTrail(): THREE.Points {
     const uSpawnIndex = uniform(-1);
     const uCurrentTime = uniform(0);
 
-    const updateTrailCompute = Fn(() => {
+    const updateTrailCompute = (Fn as any)((): void => {
         const index = instanceIndex;
 
         const posNode = storage(positionBuffer, 'vec3', positionBuffer.count).element(index);
@@ -192,7 +192,7 @@ export function createSparkleTrail(): THREE.Points {
         });
     });
 
-    const computeNode = updateTrailCompute().compute(TRAIL_SIZE);
+    const computeNode = (updateTrailCompute() as unknown as { compute: (n: number) => unknown }).compute(TRAIL_SIZE);
 
     // Custom data for JS update loop
     points.userData = {

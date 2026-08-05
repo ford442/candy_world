@@ -1,10 +1,10 @@
 // src/foliage/mushrooms.ts
 
 import * as THREE from 'three';
-import { mushroomBatcher } from './mushroom-batcher.ts';
-import { sharedGeometries } from './index.ts';
-import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
+import { sharedGeometries } from './index.ts';
+import { mushroomBatcher } from './mushroom-batcher.ts';
 
 // Interface for Note Definition
 export interface MushroomNote {
@@ -204,7 +204,7 @@ export function replaceMushroomWithGiant(scene: THREE.Scene, oldMushroom: THREE.
 
     // Manually trigger placement since we bypass safeAddFoliage
     if (newGiant.userData.onPlacement) {
-        (newGiant.userData.onPlacement as Function)();
+        (newGiant.userData.onPlacement as () => void)();
     }
 
     scene.add(newGiant);

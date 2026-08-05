@@ -2,10 +2,10 @@
 // Zero-allocation hot path: module-scope scratch only.
 
 import musicBindings from '../../assets/music-bindings.json';
+import { BeatSync } from '../audio/beat-sync.ts';
 import { uBloomStrength } from '../foliage/post-processing.ts';
 import { uCrescendoFogDensity } from '../foliage/sky.ts';
 import type { AudioData } from '../foliage/types.ts';
-import { BeatSync } from '../audio/beat-sync.ts';
 import { MRState, toChannels } from './music-reactivity-core.ts';
 
 export interface AtmosphereBloomBinding {

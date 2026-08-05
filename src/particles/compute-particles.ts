@@ -29,12 +29,6 @@
  */
 
 import * as THREE from 'three';
-import { getCIAdjustedCount, isCIorHeadless } from '../core/config.ts';
-import { 
-    MeshStandardNodeMaterial, 
-    PointsNodeMaterial, 
-    StorageBufferAttribute 
-} from 'three/webgpu';
 import {
     Fn, uniform, storage, instanceIndex, vertexIndex, float, vec2, vec3, vec4,
     mix, sin, cos, normalize, color, attribute,
@@ -42,10 +36,16 @@ import {
     smoothstep, uv, distance, time, sqrt, dot, cross,
     cameraPosition
 } from 'three/tsl';
-
+import { 
+    MeshStandardNodeMaterial, 
+    PointsNodeMaterial, 
+    StorageBufferAttribute 
+} from 'three/webgpu';
+import { getCIAdjustedCount, isCIorHeadless } from '../core/config.ts';
 import { uTime, uAudioLow, uAudioHigh, uPlayerPosition, uWindSpeed, uWindDirection } from '../foliage/material-core.ts';
+import { awaitGpuDevice, getGpuContextSync, onGpuDeviceLost } from '../rendering/gpu-context.ts';
 import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
-
+import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { 
     ComputeParticleType, 
     ComputeParticleConfig, 
@@ -59,10 +59,7 @@ import {
     GemSparkConfig,
     ComputeSystemCollection
 } from './compute-particles-types.ts';
-
-import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
-import { awaitGpuDevice, getGpuContextSync, onGpuDeviceLost } from '../rendering/gpu-context.ts';
 
 // ⚡ OPTIMIZATION: Fast approximations for Math.sin and Math.cos
 function fastSin(x: number): number {

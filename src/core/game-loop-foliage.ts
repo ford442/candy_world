@@ -3,8 +3,8 @@
 // Zero-alloc: no new Vector3/Color inside updateFoliagePhase.
 
 import * as THREE from 'three';
-import { updateFoliageMaterials } from '../foliage/animation.ts';
 import { updateAerialPerspectiveUniforms } from '../foliage/aerial-perspective.ts';
+import { updateFoliageMaterials } from '../foliage/animation.ts';
 import { updateBaseContactAOUniforms } from '../foliage/material-core.ts';
 import { updateFoliageBatcherLOD } from '../systems/batcher-lod.ts';
 import { cameraRef, sceneRef } from './game-loop-core.ts';

@@ -1,7 +1,14 @@
-import { UnifiedMaterialOptions } from './material-core.ts';
 // src/foliage/panning-pads.ts
 
 import * as THREE from 'three';
+import {
+    color, float, mix, uv, distance, vec2, smoothstep, uniform,
+    positionLocal, positionWorld, vec3,
+    ShaderNodeObject, Node
+} from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
+import { spawnImpact } from './impacts.ts';
 import {
     createUnifiedMaterial,
     CandyPresets,
@@ -13,13 +20,8 @@ import {
     uTime,
 
 } from './index.ts';
-import { spawnImpact } from './impacts.ts';
-import {
-    color, float, mix, uv, distance, vec2, smoothstep, uniform,
-    positionLocal, positionWorld, vec3,
-    ShaderNodeObject, Node
-} from 'three/tsl';
-import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { $sn } from './material-core/tsl-types.ts';
+import { UnifiedMaterialOptions } from './material-core.ts';
 
 export interface PanningPadOptions {
     radius?: number;
@@ -119,7 +121,7 @@ export function createPanningPad(options: PanningPadOptions = {}): THREE.Group {
     glowMat.opacityNode = core.mul(0.3).add(ring).mul(uGlowOpacity.add(proximityBoost));
     // Music Impact: arpeggio grove shimmer/noteColor drives pad glow intensity
     const groveUniforms = getBiomeUniforms('arpeggio_grove');
-    const musicGlow = glowMat.opacityNode.mul(groveUniforms.noteColor).mul(groveUniforms.shimmer).mul(0.5);
+    const musicGlow = $sn(glowMat.opacityNode).mul(groveUniforms.noteColor).mul(groveUniforms.shimmer).mul(0.5);
     glowMat.emissiveNode = color(glowColor).mul(glowMat.opacityNode).add(musicGlow);
 
     const glowDisc = new THREE.Mesh(sharedGeometries.quad, glowMat);

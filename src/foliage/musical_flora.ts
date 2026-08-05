@@ -1,5 +1,18 @@
 import * as THREE from 'three';
+import {
+    color, float, vec3, sin, cos, mix, uv, positionLocal, time, smoothstep, uniform, vec2, step, abs
+} from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
+import { makeInteractive as makeInteractiveUtils } from '../utils/interaction-utils.ts';
+import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.ts';
+import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
+import { dandelionBatcher } from './dandelion-batcher.ts';
+import { spawnDandelionExplosion } from './dandelion-seeds.ts';
+import { gemFruitBatcher } from './gem-fruit-batcher.ts';
+import { applyGlitch } from './glitch.ts';
+import { spawnImpact } from './impacts.ts';
 import { 
     createClayMaterial, 
     createCandyMaterial, 
@@ -10,22 +23,7 @@ import {
     uTime,
     uGlitchIntensity
 } from './index.ts';
-import {
-    color, float, vec3, sin, cos, mix, uv, positionLocal, time, smoothstep, uniform, vec2, step, abs
-} from 'three/tsl';
-import { applyGlitch } from './glitch.ts';
-import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-
-import { makeInteractive as makeInteractiveUtils } from '../utils/interaction-utils.ts';
-import { unlockSystem } from '../systems/unlocks.ts';
-import { spawnImpact } from './impacts.ts';
-
-import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.ts';
-import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
-import { dandelionBatcher } from './dandelion-batcher.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
-import { gemFruitBatcher } from './gem-fruit-batcher.ts';
-import { spawnDandelionExplosion } from './dandelion-seeds.ts';
 
 // Interfaces for options
 export interface ArpeggioFernOptions {

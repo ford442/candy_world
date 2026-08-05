@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createCloud } from './clouds.ts';
 import { CloudBatcher } from './cloud-batcher.ts';
+import { createCloud } from './clouds.ts';
 
 /**
  * Generates a procedural cloud layer for the background sky.

@@ -1,5 +1,5 @@
-import { Entity, Component, System, NativeComponentCodec, NativeQueryTable } from './types.ts';
 import { isEmscriptenReady, getNativeFunc, getEmscriptenInstance } from '../../utils/wasm-loader-core.ts';
+import { Entity, Component, System, NativeComponentCodec, NativeQueryTable } from './types.ts';
 
 // =============================================================================
 // C++ ECS BRIDGE
@@ -305,7 +305,7 @@ export class World {
 
         this.cppTypeMap.set(componentName, type);
         this.nativeComponents.set(componentName, {
-            codec: codec as NativeComponentCodec<Component>,
+            codec: codec as unknown as NativeComponentCodec<Component>,
             type,
             scratchPtr
         });

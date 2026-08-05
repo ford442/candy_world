@@ -95,7 +95,7 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 | Topic | Hint |
 |-------|------|
-| GPU foliage animator maturity | `gpu-foliage-animator.ts` vs batcher TS path |
+| GPU foliage default-on | Pilot behind `?gpuFoliage=1` — see `docs/GPU_FOLIAGE.md`; flip default after VR + parity |
 | Discovery batch on AS vs C++ dedup | Both `assembly/discovery.ts` and `emscripten/discovery.cpp` exist |
 | World gen micro-opts | `generation-entities.ts` — profile first |
 | Stub removal | Delete `shared-buffer-example.js` after confirming no external imports |

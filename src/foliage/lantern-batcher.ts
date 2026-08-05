@@ -1,24 +1,24 @@
 import * as THREE from 'three';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec4, attribute, positionLocal, positionWorld,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, uv,
     mx_noise_float, varyingProperty
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { getCIAdjustedCount } from '../core/config.ts';
+import { CONFIG } from '../core/config.ts';
+import { BiomeUniforms, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
+import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
+import { foliageGroup } from '../world/state.ts';
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation,
     createStandardNodeMaterial, createUnifiedMaterial
 } from './index.ts';
-import { foliageGroup } from '../world/state.ts';
-import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
-import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
-import { BiomeUniforms, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import { getCIAdjustedCount } from '../core/config.ts';
 
 const MAX_LANTERNS = getCIAdjustedCount(250, 0.2, 50); // Reduced from 1000 for WebGPU uniform buffer limits
 
@@ -77,7 +77,8 @@ export class LanternBatcher {
 
         // Material (TSL)
         // Clone standard stem material but modify for height scaling
-        const mat = foliageMaterials.stem.clone();
+        const stemMaterial = foliageMaterials.stem;
+        const mat = (Array.isArray(stemMaterial) ? stemMaterial[0] : stemMaterial).clone() as MeshStandardNodeMaterial;
 
         // Custom Position Logic:
         // 1. Scale Y based on instanceParams.x (Height)

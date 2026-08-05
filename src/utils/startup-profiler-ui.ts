@@ -1,4 +1,3 @@
-import { uiState, finalizeStartupProfile } from './startup-profiler.ts';
 import {
     PhaseTiming,
     InstancedMeshMetrics,
@@ -6,10 +5,11 @@ import {
     ProfilerConfig,
 } from './startup-profiler-types.ts';
 import { formatBytes, formatDuration, getMemoryUsage } from './startup-profiler-utils.ts';
+import { uiState, finalizeStartupProfile } from './startup-profiler.ts';
 
-let overlayContainer: HTMLElement | null = null;
-let overlayCanvas: HTMLCanvasElement | null = null;
-let overlayCtx: CanvasRenderingContext2D | null = null;
+const overlayContainer: HTMLElement | null = null;
+const overlayCanvas: HTMLCanvasElement | null = null;
+const overlayCtx: CanvasRenderingContext2D | null = null;
 
 /**
  * Snapshot of profiler state needed to render the overlay.

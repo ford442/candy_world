@@ -7,7 +7,8 @@ GPU compute is now the **preferred** path for high-volume simulation when WebGPU
 | Subsystem                                | GPU module                               | Fallback                                     |
 | ---------------------------------------- | ---------------------------------------- | -------------------------------------------- |
 | Instanced foliage LOD                    | `batcher-gpu-lod.ts` → `LOD_SELECT_WGSL` | `batcher-lod.ts` CPU distance loop           |
-| Foliage scalar batches (sway/bounce/hop) | `foliage-gpu-batch.ts`                   | AssemblyScript via `foliage-batcher-core.ts` |
+| Foliage scalar batches (sway/bounce/hop) | `foliage-gpu-batch.ts` (`?gpuFoliage=1`) | AssemblyScript via `foliage-batcher-core.ts` |
+| SimpleFlower pose (pilot) | `gpu-plant-pose.ts` (`?gpuFoliage=1`) | `PlantPoseMachine` |
 | Particles (integrated systems)           | `compute-particles.ts` raw WebGPU        | `cpu-particle-system.ts`                     |
 | Frustum/LOD culling (library)            | `gpu-culling-system.ts` + `cullAsync()`  | `cpuCull()`                                  |
 
@@ -33,7 +34,7 @@ npm run budget:batchers   # before/after instance budgets
 
 ## Parity
 
-GPU foliage scalar shaders mirror `assembly/foliage.ts` `computeSway` / `computeBounce` / `computeHop` math. Extend `tests/tier-parity.mjs` with GPU tiers when a path becomes canonical.
+GPU foliage scalar shaders mirror `assembly/foliage.ts` `computeSway` / `computeBounce` / `computeHop` math. Plant pose WGSL mirrors `plant-pose-machine.ts`. Extend `tests/parity.mjs` (Path 4–5) when promoting a path to default-on. See `docs/GPU_FOLIAGE.md` for the `?gpuFoliage=1` pilot.
 
 ## Files
 

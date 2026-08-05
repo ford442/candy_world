@@ -1,3 +1,4 @@
+import { log } from '../utils/log.ts';
 import { getReport } from '../world/spawn-tracker.ts';
 
 /**
@@ -26,10 +27,7 @@ export function updateSpawnFailureBadge(
                 try {
                     const r = getReport();
                     const summary = `Spawn failures: ${r.failed}/${r.attempted} (succeeded ${r.succeeded}). By type: ${Object.entries(r.failuresByType).map(([k,v])=>k+':'+v).join(', ') || 'n/a'}`;
-                    console.group('[SpawnTracker] Failures during population');
-                    console.table(r.failuresByType);
-                    console.log('Last errors:', r.lastErrors);
-                    console.groupEnd();
+                    log.debug('SpawnTracker', 'Failures during population', r.failuresByType, 'Last errors:', r.lastErrors);
                     import('../utils/toast.ts').then(({ showToast }) => {
                         showToast(summary + ' — see console for full list', '⚠️', 6000);
                     }).catch(() => {
@@ -39,7 +37,7 @@ export function updateSpawnFailureBadge(
                         document.body.appendChild(t);
                         setTimeout(() => t.remove(), 5000);
                     });
-                } catch (e) { console.warn('[Deferred] failed to show spawn report', e); }
+                } catch (e) { log.warn('Deferred', 'failed to show spawn report', e); }
             };
             failEl.addEventListener('click', handleActivate);
             failEl.addEventListener('keydown', (ev: KeyboardEvent) => {

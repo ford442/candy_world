@@ -6,18 +6,18 @@
  * Requires VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY. Networking stays off until join().
  */
 
-import * as THREE from 'three';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
 import { getBiomeAtPosition } from './biome-at-position.ts';
-import { remoteAvatars } from './remote-avatars.ts';
 import {
     PRESENCE_BROADCAST_EVENT,
     type PresenceMeta,
     type PresencePose,
     type RemotePeer,
 } from './presence-types.ts';
+import { remoteAvatars } from './remote-avatars.ts';
 
 const PRESENCE_OPT_IN_KEY = 'candy_presence_opt_in';
 const STALE_PEER_MS = 15_000;

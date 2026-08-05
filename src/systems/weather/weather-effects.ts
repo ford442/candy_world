@@ -179,9 +179,9 @@ export class EffectsManager {
             if (keys.length > 0) {
                 const randomKey = keys[Math.floor(Math.random() * keys.length)];
                 const colorHex = CONFIG.noteColorMap.cloud[randomKey];
-                try { 
-                    if (uCloudLightningColor && uCloudLightningColor.value && uCloudLightningColor.value.setHex) {
-                        uCloudLightningColor.value.setHex(colorHex);
+                try {
+                    if (uCloudLightningColor) {
+                        (uCloudLightningColor.value as unknown as THREE.Color).setHex(colorHex);
                     }
                 } catch (e) { /* ignored */ }
                 lightningLight.color.setHex(colorHex);

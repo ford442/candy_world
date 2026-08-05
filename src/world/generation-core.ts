@@ -1,7 +1,6 @@
-import { createIntegratedFireflies } from '../particles/index.ts';
 import * as THREE from 'three';
-import { getParticles } from '../particles/lazy.ts';
-import { initCollisionSystem } from '../utils/wasm-loader.ts';
+import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
+import { getLoadMemoryTier } from '../core/config.ts';
 import {
     createSky,
     createStars,
@@ -13,16 +12,17 @@ import {
     createTerrainMaterial,
     luminousPlantBatcher,
 } from '../foliage/index.ts';
-import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
-import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
-import { generateGroundHeightmap } from './ground-heightmap.ts';
+import { generateCloudLayer } from '../foliage/procedural-sky.ts';
+import { treeBatcher } from '../foliage/tree-batcher.ts';
+import { createIntegratedFireflies } from '../particles/index.ts';
+import { getParticles } from '../particles/lazy.ts';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
-import { animatedFoliage, worldGroup } from './state.ts';
-import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { updateProgress } from '../ui/loading-screen.ts';
+import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
+import { initCollisionSystem } from '../utils/wasm-loader.ts';
+import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { safeAddFoliage, processMapEntity } from './generation-entities.ts';
 import {
     DEFAULT_MAP_CHUNK_SIZE,
@@ -37,7 +37,9 @@ import {
     isPositionValid,
     yieldControl,
 } from './generation-utils.ts';
-import { getLoadMemoryTier } from '../core/config.ts';
+import { generateGroundHeightmap } from './ground-heightmap.ts';
+import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
+import { animatedFoliage, worldGroup } from './state.ts';
 import {
     getMapSourceFromUrl,
     loadMap,
@@ -50,10 +52,8 @@ import {
     setMapMusicContext,
 } from './map-music-context.ts';
 import { setMapMetadataSeed } from './world-seed.ts';
-import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
-import { treeBatcher } from '../foliage/tree-batcher.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
 

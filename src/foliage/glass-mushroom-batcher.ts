@@ -8,21 +8,13 @@
 // One InstancedMesh, one glass material => a single draw call for the whole grove.
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
     color, float, vec3, attribute, positionLocal, normalLocal,
     sin, mix, smoothstep, normalWorld, positionWorld, cameraPosition, normalize, dot,
 } from 'three/tsl';
-import {
-    CandyPresets,
-    uTime,
-    uAudioLow,
-    createJuicyRimLight,
-    applyStandardDeformation,
-} from './material-core.ts';
-import { registerReactiveMaterial } from './foliage-reactivity.ts';
-import { foliageGroup } from '../world/state.ts';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import {
     LuminousPlantUniforms,
     luminousPlantsNoteColorNode,
@@ -30,8 +22,16 @@ import {
     uCircadianPoseOffset,
     circadianNightGlowMult,
 } from '../systems/biome-uniforms.ts';
-import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { foliageGroup } from '../world/state.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
+import {
+    CandyPresets,
+    uTime,
+    uAudioLow,
+    createJuicyRimLight,
+    applyStandardDeformation,
+} from './material-core.ts';
 
 /** Visual Impact: cyan candy-glass base tint (cool bioluminescent fungus). */
 const GLASS_BASE_COLOR = 0x4DE2FF;

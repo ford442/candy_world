@@ -7,8 +7,8 @@
  */
 
 import { isCIorHeadless, CONFIG } from '../core/config.ts';
-import { getSharedGPUCompute } from './gpu-compute-library.ts';
 import { initGPUCompute } from './compute-init.ts';
+import { getSharedGPUCompute } from './gpu-compute-library.ts';
 
 export interface ComputeOrchestratorStatus {
     preferGpu: boolean;

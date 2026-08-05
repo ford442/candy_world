@@ -1,20 +1,20 @@
-import { cpuAnimatedFoliage } from '../../world/state.ts';
 // src/systems/weather/weather-ecosystem.ts
 // Ecosystem management: cloud-mushroom interactions, spawning, waterfalls
 
 import * as THREE from 'three';
-import { getGroundHeight, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../../utils/wasm-loader.ts';
-import { createMushroom } from '../../foliage/mushrooms.ts';
-import { FoliageGrowthOptions } from '../../foliage/types.ts';
-import { spawnNearbyFoliage } from '../../world/generation.ts';
+import { updateCloudAttraction, isCloudOverTarget } from '../../foliage/clouds.ts';
+import { flowerBatcher } from '../../foliage/flower-batcher.ts';
 import { createLanternFlower } from '../../foliage/flowers.ts';
 import { cleanupReactivity } from '../../foliage/foliage-reactivity.ts';
-import { updateCloudAttraction, isCloudOverTarget } from '../../foliage/clouds.ts';
-import { foliageClouds } from '../../world/state.ts';
-import { replaceMushroomWithGiant } from '../../foliage/mushrooms.ts';
 import { mushroomBatcher } from '../../foliage/mushroom-batcher.ts';
-import { flowerBatcher } from '../../foliage/flower-batcher.ts';
+import { createMushroom } from '../../foliage/mushrooms.ts';
+import { replaceMushroomWithGiant } from '../../foliage/mushrooms.ts';
+import { FoliageGrowthOptions } from '../../foliage/types.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
+import { getGroundHeight, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../../utils/wasm-loader.ts';
+import { spawnNearbyFoliage } from '../../world/generation.ts';
+import { foliageClouds } from '../../world/state.ts';
+import { cpuAnimatedFoliage } from '../../world/state.ts';
 import { musicReactivitySystem } from '../music-reactivity.ts';
 import type { WeatherSystem } from './weather.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
@@ -406,7 +406,7 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
                 newM.position.set(nx, ny, nz);
                 newM.rotation.y = Math.random() * Math.PI * 2;
                 if (onSpawnFoliage) {
-                    try { onSpawnFoliage(newM, true, 0.5); } catch (e) {}
+                    try { onSpawnFoliage(newM, true, 0.5); } catch (e) { void e; }
                 } else {
                     if (!newM.parent) scene.add(newM);
                     this.weatherSystem.registerMushroom(newM);
@@ -450,7 +450,7 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
                     newM.position.set(c.x, c.y, c.z);
                     newM.rotation.y = Math.random() * Math.PI * 2;
                     if (onSpawnFoliage) {
-                        try { onSpawnFoliage(newM, true, 0.5); } catch (e) {}
+                        try { onSpawnFoliage(newM, true, 0.5); } catch (e) { void e; }
                     } else {
                         if (!newM.parent) scene.add(newM);
                         this.weatherSystem.registerMushroom(newM);

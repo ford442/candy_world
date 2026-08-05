@@ -1,11 +1,19 @@
-import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
     color, float, vec3, positionLocal, normalLocal,
     mix, sin, abs, smoothstep,
     mx_noise_float, uv, length, atan2, max
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
+import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
+import { discoverySystem } from '../systems/discovery.ts';
+import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
+import { makeInteractive } from '../utils/interaction-utils.ts';
+import { showToast } from '../utils/toast.ts';
+import { foliageGroup } from '../world/state.ts';
+import { spawnImpact } from './impacts.ts';
 import {
     createClayMaterial,
     sharedGeometries,
@@ -20,15 +28,7 @@ import {
     applyStandardDeformation
 
 } from './index.ts';
-import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import { makeInteractive } from '../utils/interaction-utils.ts';
-import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
-import { discoverySystem } from '../systems/discovery.ts';
-import { showToast } from '../utils/toast.ts';
-import { spawnImpact } from './impacts.ts';
-import { foliageGroup } from '../world/state.ts';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const MAX_LOTUS = getCIAdjustedCount(100, 0.2, 20);
 

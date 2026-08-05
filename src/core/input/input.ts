@@ -1,45 +1,8 @@
 /**
- * Main Input Module
+ * Main Input Module (barrel)
  * Handles pointer lock controls, keyboard/mouse input, ability HUD, and drag & drop
  * Coordinates with playlist-manager and audio-controls modules
  */
-
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import { AudioSystem } from '../../audio/audio-system';
-import * as THREE from 'three';
-import { discoverySystem } from '../../systems/discovery.ts';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
-import { openAccessibilityMenu, closeAccessibilityMenu } from '../../ui/accessibility-menu.ts';
-import { yieldToPaint } from '../../utils/yield-to-paint.ts';
-import {
-    keyStates,
-    InitInputResult,
-    filterValidMusicFiles,
-    triggerAbility,
-} from './input-types.ts';
-import {
-    initPlaylistManager,
-    getIsPlaylistOpen,
-    setIsPlaylistOpen,
-    closePlaylist,
-    getReleaseJukeboxFocus,
-    setReleaseJukeboxFocus,
-    getWasPausedBeforePlaylist,
-    togglePlaylist,
-    handlePlaylistKeyDown,
-    handlePlaylistKeyUp,
-    initLegacyMusicUpload,
-} from './playlist-manager.ts';
-import { initAudioControls, handleMuteKey, handleVolumeKey } from './audio-controls.ts';
-import {
-    bootstrapExploreFromPreference,
-    initExploreCamera,
-    isExploreActive,
-    resolveExploreVariant,
-    type ExploreVariant,
-} from '../camera-modes.ts';
-import { announcePolite } from '../../ui/announcer.ts';
-import { getPhotoMode, isPhotoModeActive } from '../../systems/photo-mode/index.ts';
 
 export { keyStates } from './input-types.ts';
 export type { KeyStates, InitInputResult } from './input-types.ts';
@@ -701,21 +664,24 @@ export function initInput(
                 triggerButtonPressDown('toggleMuteBtn');
                 handleMuteKey();
                 break;
-            case 'KeyU':
+            case 'KeyU': {
                 if (event.repeat) return;
                 triggerButtonPressDown('musicUploadBtn');
                 const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
                 if (uploadInput) uploadInput.click();
                 break;
+            }
             case 'Equal':
             case 'NumpadAdd':
                 if (event.repeat) return;
+                // ♿ Aria: Added tactile keyboard feedback for volume hotkeys
                 triggerButtonPressDown('volUpBtn');
                 handleVolumeKey(0.1);
                 break;
             case 'Minus':
             case 'NumpadSubtract':
                 if (event.repeat) return;
+                // ♿ Aria: Added tactile keyboard feedback for volume hotkeys
                 triggerButtonPressDown('volDownBtn');
                 handleVolumeKey(-0.1);
                 break;
@@ -836,10 +802,12 @@ export function initInput(
                 break;
             case 'Equal':
             case 'NumpadAdd':
+                // ♿ Aria: Added tactile keyboard feedback for volume hotkeys
                 triggerButtonPressUp('volUpBtn');
                 break;
             case 'Minus':
             case 'NumpadSubtract':
+                // ♿ Aria: Added tactile keyboard feedback for volume hotkeys
                 triggerButtonPressUp('volDownBtn');
                 break;
         }
@@ -1157,3 +1125,4 @@ export function initInput(
         },
     };
 }
+export { initInput } from './input/init-input.ts';

@@ -1,10 +1,10 @@
 // src/systems/discovery.ts
 
-import { showToast } from '../utils/toast.ts';
-import { DISCOVERY_MAP } from './discovery_map.ts';
-import { discoveryPersistence } from './discovery-persistence.ts';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { showToast } from '../utils/toast.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
+import { discoveryPersistence } from './discovery-persistence.ts';
+import { DISCOVERY_MAP } from './discovery_map.ts';
 
 /**
  * Manages the discovery of rare flora and environmental features.
@@ -96,7 +96,7 @@ class DiscoverySystem {
      */
     public showLog(): void {
         // Remove existing if any
-        let existingLog = document.getElementById('discovery-log-overlay');
+        const existingLog = document.getElementById('discovery-log-overlay');
         if (existingLog) {
             if (this.releaseFocusTrap) {
                 this.releaseFocusTrap();

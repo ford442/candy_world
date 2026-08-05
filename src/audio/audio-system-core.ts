@@ -9,7 +9,7 @@ export const noteToFreq = (note: string | null): number => {
     if (!note) return 0;
     const n = note.toUpperCase();
     const map: Record<string, number> = { C: 0, 'C#': 1, DB: 1, D: 2, 'D#': 3, EB: 3, E: 4, F: 5, 'F#': 6, GB: 6, G: 7, 'G#': 8, AB: 8, A: 9, 'A#': 10, BB: 10, B: 11 };
-    const match = n.match(/^([A-G](?:#|B)?)\-?(\d)$/);
+    const match = n.match(/^([A-G](?:#|B)?)-?(\d)$/);
     if (!match) return 0;
     const semitone = map[match[1]] ?? 0;
     const midi = (parseInt(match[2], 10) + 1) * 12 + semitone;
@@ -21,7 +21,7 @@ export const extractNote = (cell: PatternRowCell | null): string | undefined => 
 
 export const extractInstrument = (cell: PatternRowCell | null): number => {
     if (!cell || !cell.text) return 0;
-    const match = cell.text.match(/[A-G\.-][#\.-][\d\.-]\s+(\d+|[0-9A-F]{2})/i);
+    const match = cell.text.match(/[A-G.-][#.-][\d.-]\s+(\d+|[0-9A-F]{2})/i);
     if (match) return parseInt(match[1], 10) || parseInt(match[1], 16) || 0;
     return 0;
 };
@@ -54,6 +54,8 @@ export interface ChannelData {
     instrument: number;
     activeEffect: number;
     effectValue: number;
+    /** Chromatic / band analysis (generative path). */
+    notes?: number[];
 }
 
 export interface VisualState {
@@ -112,7 +114,6 @@ export interface LibOpenMPT {
 // Extend Window interface for global libopenmpt
 declare global {
     interface Window {
-        setLoadingStatus?: (text: string) => void;
         libopenmpt?: LibOpenMPT;
         libopenmptReady?: Promise<LibOpenMPT>;
         webkitAudioContext?: typeof AudioContext;

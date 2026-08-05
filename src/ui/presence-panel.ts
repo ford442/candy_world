@@ -3,20 +3,20 @@
  */
 
 import { FEATURE_FLAGS } from '../core/config.ts';
-import { applyWorldSeed } from '../utils/seeded-random.ts';
-import {
-    buildShareUrl,
-    ensureSeedInUrl,
-    getWorldSeed,
-    hasExplicitSeedInURL,
-} from '../world/world-seed.ts';
 import {
     isPresenceBackendConfigured,
     isPresenceOptedIn,
     setPresenceOptIn,
 } from '../systems/net/presence.ts';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { applyWorldSeed } from '../utils/seeded-random.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
+import {
+    buildShareUrl,
+    ensureSeedInUrl,
+    getWorldSeed,
+    hasExplicitSeedInURL,
+} from '../world/world-seed.ts';
 
 const PRESENCE_UI_ID = 'presence-opt-in';
 

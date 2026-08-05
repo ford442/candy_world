@@ -1,8 +1,8 @@
 // src/foliage/grass.ts
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { time, positionLocal, positionWorld, sin, vec3, color, normalView, float, max, sign, length } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, createJuicyRimLight, applyStandardDeformation, calculatePlayerPush } from './material-core.ts';
 import { uSkyDarkness } from './sky.ts';
 

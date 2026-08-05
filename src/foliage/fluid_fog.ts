@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { texture, vec4, color, vec3, uv, mx_noise_float, positionLocal, mix, smoothstep, normalLocal } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { fluidSystem } from '../systems/fluid_system.ts';
 import { uTime } from './index.ts';
 

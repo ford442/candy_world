@@ -2,8 +2,9 @@
 // Foliage material instances - pre-configured materials for all foliage types
 
 import * as THREE from 'three';
+import { color, float, vec3, positionLocal, positionWorld, uv, sin, pow, abs, smoothstep, add } from 'three/tsl';
+import { mx_noise_float } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { color, float, vec3, positionLocal, positionWorld, uv, sin, pow, abs, smoothstep } from 'three/tsl';
 import {
     CandyPresets,
     createUnifiedMaterial,
@@ -18,7 +19,6 @@ import {
     uWindSpeed,
     uWindDirection
 } from './material-core.ts';
-import { mx_noise_float } from 'three/tsl';
 
 // --- MATERIAL DEFINITIONS ---
 
@@ -33,7 +33,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         // 🎨 PALETTE: Add Juicy Rim Light to stem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
-        mat.emissiveNode = (mat.emissiveNode || color(0x000000)).add(rimLight);
+        mat.emissiveNode = add(mat.emissiveNode ?? color(0x000000), rimLight);
 
         return mat;
     })(),
@@ -53,7 +53,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         // 🎨 PALETTE: Add Juicy Rim Light to flowerStem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
-        mat.emissiveNode = (mat.emissiveNode || color(0x000000)).add(rimLight);
+        mat.emissiveNode = add(mat.emissiveNode ?? color(0x000000), rimLight);
 
         return mat;
     })(),
@@ -127,7 +127,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         // 🎨 PALETTE: Add Juicy Rim Light to mushroomStem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         const rimLight = createJuicyRimLight(color(0xF5F5DC), audioRimIntensity, float(3.0), mat.normalNode);
-        mat.emissiveNode = (mat.emissiveNode || color(0x000000)).add(rimLight);
+        mat.emissiveNode = add(mat.emissiveNode ?? color(0x000000), rimLight);
 
         return mat;
     })(),

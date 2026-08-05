@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { MeshBasicNodeMaterial } from 'three/webgpu';
 import {
     Fn,
     vec3,
@@ -12,6 +11,7 @@ import {
     sin,
     mix,
 } from 'three/tsl';
+import { MeshBasicNodeMaterial } from 'three/webgpu';
 
 // Global uniform for Strobe Sickness intensity
 export const uStrobeIntensity = uniform(0.0);

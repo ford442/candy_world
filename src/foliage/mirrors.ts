@@ -1,12 +1,12 @@
 // src/foliage/mirrors.ts
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     float, vec3, vec2, color, positionWorld, normalWorld, cameraPosition, normalize,
     reflect, sin, abs, dot,
     texture, uniform
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { attachReactivity, createRimLight, uAudioHigh, uTime } from './index.ts';
 
 // Global texture for the "Dream Reflection"
