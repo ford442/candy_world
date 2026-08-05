@@ -3,6 +3,10 @@ import { FAUNA_DEFAULTS } from './fauna.ts';
 import { GROUND_DEFAULTS, PLAYER_DEFAULTS } from './ground.ts';
 import { PRESENCE_DEFAULTS } from './presence.ts';
 import type { ConfigType } from './types.ts';
+import { AUDIO_DEFAULTS } from './audio.ts';
+import { FAUNA_DEFAULTS } from './fauna.ts';
+import { GROUND_DEFAULTS, PLAYER_DEFAULTS } from './ground.ts';
+import { PRESENCE_DEFAULTS } from './presence.ts';
 
 export const CONFIG: ConfigType = {
     safeMode:
