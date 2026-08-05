@@ -2,23 +2,22 @@
 // Core WeatherSystem orchestrator - delegates to specialized managers
 
 import * as THREE from 'three';
+import { VisualState } from '../../audio/audio-system.ts';
+import { camera } from '../../core/camera-ref.ts';
+import { CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, CONFIG } from '../../core/config.ts';
+import * as Cycle from '../../core/cycle.ts';
+import { getDayNightBias } from '../../core/cycle.ts';
+import { triggerGrowth } from '../../foliage/animation.ts';
+import { BerryBatcher } from '../../foliage/berries.ts';
+import { updateCaveWaterLevel } from '../../foliage/cave.ts';
+import { uTwilight } from '../../foliage/sky.ts';
+import { computeAtmosphereFogTargets } from '../atmosphere-fog.ts';
 import { WeatherState } from '../weather-types.ts';
 import { calculateTimeOfDayBias } from '../weather-utils.ts';
 import { EcosystemManager } from './weather-ecosystem.ts';
 import { AtmosphereManager } from './weather-atmosphere.ts';
 import { EffectsManager } from './weather-effects.ts';
-import { CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, CONFIG } from '../../core/config.ts';
-import * as Cycle from '../../core/cycle.ts';
-import { getDayNightBias } from '../../core/cycle.ts';
-import { camera } from '../../core/camera-ref.ts';
-import { computeAtmosphereFogTargets } from '../atmosphere-fog.ts';
-import { VisualState } from '../../audio/audio-system.ts';
 import { WeatherMusicTargets } from '../music-reactivity.ts';
-
-import { uTwilight } from '../../foliage/sky.ts';
-import { updateCaveWaterLevel } from '../../foliage/cave.ts';
-import { BerryBatcher } from '../../foliage/berries.ts';
-import { triggerGrowth } from '../../foliage/animation.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 
 // Scratch objects for optimization
@@ -275,7 +274,7 @@ export class WeatherSystem {
         // Twilight Glow Update
         const twilightIntensity = this.atmosphereManager.getTwilightGlowIntensity(cyclePos);
         this.lastTwilightProgress = twilightIntensity;
-        try { if (uTwilight) uTwilight.value = twilightIntensity; } catch (e) {}
+        try { if (uTwilight) uTwilight.value = twilightIntensity; } catch (e) { void e; }
 
         // Aurora Update
         this.effectsManager.updateAurora(twilightIntensity, this.state);
@@ -314,8 +313,8 @@ export class WeatherSystem {
         let floraFavorability = globalLight * (0.5 + moisture);
         if (moisture > 0.9) floraFavorability *= 0.5;
 
-        let fungiFavorability = (1.0 - globalLight) * (0.2 + moisture * 1.5);
-        let lanternFavorability = (this.state === WeatherState.STORM ? 1.0 : 0.0) + (1.0 - globalLight) * 0.2;
+        const fungiFavorability = (1.0 - globalLight) * (0.2 + moisture * 1.5);
+        const lanternFavorability = (this.state === WeatherState.STORM ? 1.0 : 0.0) + (1.0 - globalLight) * 0.2;
 
         // Plant growth from rain
         if (this.percussionRain && this.rainMesh && this.rainMesh.visible) {

@@ -5,6 +5,6 @@ export {
     AwakenedPersistenceManager as FloraPersistenceManager,
     awakenedPersistence as floraPersistenceManager,
     DEFAULT_AWAKENED_EMISSIVE_SCALE,
-} from './awakened-persistence-api.ts';
+} from './awakened-persistence.ts';
 
 export type { AwakenedFloraState } from './save-system/save-types.ts';

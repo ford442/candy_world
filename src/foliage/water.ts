@@ -1,12 +1,12 @@
 // src/foliage/water.ts
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec2, Fn, uniform, sin, cos, time, positionLocal,
     uv, normalize, smoothstep, mix, abs, max, positionWorld,
     mx_noise_float, normalLocal
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight } from './index.ts';
 
 export const uWaveHeight = uniform(1.0); // Base wave height scaler
@@ -76,7 +76,7 @@ export function createWaveformWater(width: number = 400, depth: number = 400): T
     const waterColor = material.colorNode; // The base color from SeaJelly
 
     // Mix foam into base color
-    material.colorNode = mix(waterColor, foamColor, heightFactor.mul(0.5));
+    material.colorNode = mix(waterColor ?? color(0x00FFFF), foamColor, heightFactor.mul(0.5));
 
     // --- PALETTE Polish: Melody Sparkles & Rim Light ---
 

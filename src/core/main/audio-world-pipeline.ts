@@ -1,13 +1,13 @@
-import { CONFIG } from '../config.ts';
 import { AudioSystem } from '../../audio/audio-system.ts';
 import { BeatSync } from '../../audio/beat-sync.ts';
-import type { WeatherSystem } from '../../systems/weather.ts';
-import { musicReactivitySystem } from '../../systems/music-reactivity.ts';
-import { validateNodeGeometries } from '../../foliage/index.ts';
-import { initWorldCritical } from '../../world/generation.ts';
 import { StageLoader } from '../../debug/index.ts';
-import { scene, renderer } from './exports.ts';
+import { validateNodeGeometries } from '../../foliage/index.ts';
+import { musicReactivitySystem } from '../../systems/music-reactivity.ts';
+import type { WeatherSystem } from '../../systems/weather.ts';
+import { initWorldCritical } from '../../world/generation.ts';
+import { CONFIG } from '../config.ts';
 import type { MainContext } from './context.ts';
+import { scene, renderer } from './exports.ts';
 
 export async function runAudioWorldPipeline(ctx: MainContext): Promise<void> {
     const { loadingScreen } = ctx;

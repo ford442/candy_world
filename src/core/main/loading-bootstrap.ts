@@ -1,3 +1,10 @@
+import { initDebugPanelIfNeeded } from '../../debug/index.ts';
+import { initializeSaveSystemIntegration } from '../../systems/save-integration-lazy.ts';
+import { initAnalyticsDebugIfNeeded } from '../../ui/analytics-debug-lazy.ts';
+import { initLoadingScreen, installLegacyAPI } from '../../ui/loading-screen.ts';
+import { installPresenceStartScreenUI } from '../../ui/presence-lazy.ts';
+import { installSaveMenuGlobals } from '../../ui/save-menu/lazy.ts';
+import { enableStartupProfiler } from '../../utils/startup-profiler.ts';
 import {
     isCIorHeadless,
     getDeviceMemoryGB,
@@ -6,13 +13,6 @@ import {
     shouldPreferLightWorldLoad,
     CONFIG,
 } from '../config.ts';
-import { enableStartupProfiler } from '../../utils/startup-profiler.ts';
-import { initDebugPanelIfNeeded } from '../../debug/index.ts';
-import { installSaveMenuGlobals } from '../../ui/save-menu/lazy.ts';
-import { initAnalyticsDebugIfNeeded } from '../../ui/analytics-debug-lazy.ts';
-import { initializeSaveSystemIntegration } from '../../systems/save-integration-lazy.ts';
-import { initLoadingScreen, installLegacyAPI } from '../../ui/loading-screen.ts';
-import { installPresenceStartScreenUI } from '../../ui/presence-lazy.ts';
 import { WAIT_FULL_KEY } from './constants.ts';
 import type { LoadingScreen } from './context.ts';
 

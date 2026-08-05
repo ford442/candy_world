@@ -7,8 +7,8 @@ import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld,
     normalLocal, varyingProperty
 } from 'three/tsl';
-import { foliageGroup } from '../world/state.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { foliageGroup } from '../world/state.ts';
 
 const _scratchLODMatrix = new THREE.Matrix4();
 import {

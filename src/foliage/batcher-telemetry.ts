@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { treeBatcher } from './tree-batcher.ts';
-import { mushroomBatcher } from './mushroom-batcher.ts';
-import { flowerBatcher } from './flower-batcher.ts';
-import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
+import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { CloudBatcher } from './cloud-batcher.ts';
-import { luminousPlantBatcher } from './luminous-plant-batcher.ts';
+import { dandelionBatcher } from './dandelion-batcher.ts';
+import { flowerBatcher } from './flower-batcher.ts';
 import { gemFruitBatcher } from './gem-fruit-batcher.ts';
 import { glassMushroomBatcher } from './glass-mushroom-batcher.ts';
-import { waterfallBatcher } from './waterfall-batcher.ts';
-import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
-import { portamentoPineBatcher } from './portamento-batcher.ts';
-import { dandelionBatcher } from './dandelion-batcher.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
+import { luminousPlantBatcher } from './luminous-plant-batcher.ts';
+import { mushroomBatcher } from './mushroom-batcher.ts';
+import { portamentoPineBatcher } from './portamento-batcher.ts';
+import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
+import { treeBatcher } from './tree-batcher.ts';
+import { waterfallBatcher } from './waterfall-batcher.ts';
 
 export interface BatcherTelemetryEntry {
     id: string;

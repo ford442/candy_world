@@ -1,3 +1,7 @@
+import { AUDIO_DEFAULTS } from './audio.ts';
+import { FAUNA_DEFAULTS } from './fauna.ts';
+import { GROUND_DEFAULTS, PLAYER_DEFAULTS } from './ground.ts';
+import { PRESENCE_DEFAULTS } from './presence.ts';
 import type { ConfigType } from './types.ts';
 import { AUDIO_DEFAULTS } from './audio.ts';
 import { FAUNA_DEFAULTS } from './fauna.ts';
@@ -87,6 +91,7 @@ export const CONFIG: ConfigType = {
     //   - Lower proceduralExtras first (biggest object count).
     //   - Then reduce arpeggioGrove* numbers (expensive reactive batchers + TSL materials).
     world: {
+        seed: 12345,
         population: {
             // Scattered procedural objects across the world (mushrooms, flowers, trees, clouds, etc.)
             proceduralExtras: 220, // Reduced from 400 for faster Full mode loads

@@ -23,8 +23,8 @@
  */
 
 import * as THREE from 'three';
-import { getWasmInstance } from '../utils/wasm-loader.ts';
 import { CONFIG } from '../core/config.ts';
+import { getWasmInstance } from '../utils/wasm-loader.ts';
 
 // Material entry tracking
 interface MaterialEntry {

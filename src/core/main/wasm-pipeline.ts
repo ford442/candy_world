@@ -1,7 +1,7 @@
-import { initWasm } from '../../utils/wasm-loader.ts';
-import { recordWASMInit } from '../../utils/startup-profiler.ts';
-import { fluidSystem } from '../../systems/fluid_system.ts';
 import { StageLoader } from '../../debug/index.ts';
+import { fluidSystem } from '../../systems/fluid_system.ts';
+import { recordWASMInit } from '../../utils/startup-profiler.ts';
+import { initWasm } from '../../utils/wasm-loader.ts';
 import type { MainContext } from './context.ts';
 
 export async function runWasmPipeline(ctx: MainContext): Promise<void> {

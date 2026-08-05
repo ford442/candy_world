@@ -6,15 +6,15 @@
  * Stateful envelope + currentPose live in a GPU storage buffer between frames.
  */
 
-import { getSharedGPUCompute } from './gpu-compute-library.ts';
+import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 import {
     preferGpuCompute,
     isGpuComputeReady,
     setLastFrameGpuFoliage,
     trackGpuBufferBytes,
 } from './compute-orchestrator.ts';
+import { getSharedGPUCompute } from './gpu-compute-library.ts';
 import { isGpuFoliagePilotEnabled } from './gpu-foliage-flag.ts';
-import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 
 const PLANT_POSE_WGSL = /* wgsl */ `
 struct Uniforms {

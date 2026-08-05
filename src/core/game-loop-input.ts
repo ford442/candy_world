@@ -2,15 +2,15 @@
 // Tick phase: interaction queries + explore-camera handoff.
 // Ability triggers (jitter mine / chord strike) stay in gameplay to preserve frame order.
 
+import { profiler } from '../utils/profiler.ts';
+import { animatedFoliage, foliageMushrooms, foliageClouds } from '../world/state.ts';
 import { isExploreActive, getExploreCamera, updateExploreCamera } from './camera-modes.ts';
-import { keyStates } from './input/index.ts';
 import {
     cameraRef,
     interactionSystemRef,
     _interactionLists,
 } from './game-loop-core.ts';
-import { animatedFoliage, foliageMushrooms, foliageClouds } from '../world/state.ts';
-import { profiler } from '../utils/profiler.ts';
+import { keyStates } from './input/index.ts';
 
 /** Interaction raycasts / hover — early in the frame, before visuals. */
 export function updateInteractionPhase(delta: number): void {

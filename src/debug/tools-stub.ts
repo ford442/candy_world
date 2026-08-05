@@ -164,16 +164,17 @@ export function updateCircadianDebug(dayNightBias: number): void {
 }
 
 export function updateFaunaDebug(
+    heap: Float32Array,
+    byteOffset: number,
+    count: number,
     entries: readonly import('../systems/fauna/types.ts').FaunaSpawnEntry[],
-    boidBuffer: Float32Array | null,
-    count: number
 ): void {
     if (!urlFlag('debugFauna')) return;
     if (_faunaMod) {
-        _faunaMod.updateFaunaDebug(entries, boidBuffer, count);
+        _faunaMod.updateFaunaDebug(heap, byteOffset, count, [...entries]);
         return;
     }
-    void loadFauna().then((m) => m?.updateFaunaDebug(entries, boidBuffer, count));
+    void loadFauna().then((m) => m?.updateFaunaDebug(heap, byteOffset, count, [...entries]));
 }
 
 export function setFaunaDebugScene(scene: THREE.Scene): void {

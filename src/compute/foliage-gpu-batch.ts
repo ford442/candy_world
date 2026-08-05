@@ -6,13 +6,13 @@
  */
 
 import { CONFIG } from '../core/config.ts';
-import { getSharedGPUCompute } from './gpu-compute-library.ts';
 import {
     preferGpuCompute,
     isGpuComputeReady,
     setLastFrameGpuFoliage,
     trackGpuBufferBytes,
 } from './compute-orchestrator.ts';
+import { getSharedGPUCompute } from './gpu-compute-library.ts';
 import { isGpuFoliagePilotEnabled } from './gpu-foliage-flag.ts';
 
 const BATCH_SCALAR_WGSL = /* wgsl */ `

@@ -1,5 +1,5 @@
-import type { EmscriptenModule } from './wasm-loader-types.ts';
 import { getNativeFunc, getNativeFuncVoid } from './wasm-loader-core.ts';
+import type { EmscriptenModule } from './wasm-loader-types.ts';
 
 // =============================================================================
 // C++ EMSCRIPTEN FUNCTION REFERENCES (CACHED)
@@ -44,13 +44,13 @@ export let cppCalcVineDetachImpulse: ((
 ) => void) | null = null;
 
 /** Animation batch functions from emscripten/animation_batch.cpp */
-export let cppBatchShiverSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
-export let cppBatchSpringSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
-export let cppBatchFloatSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
-export let cppBatchCloudBobSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
-export let cppBatchVineSwaySimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
-export let cppBatchGeyserEruptC: ((particlesPtr: number, count: number, time: number, kick: number, outputPtr: number) => void) | null = null;
-export let cppBatchRetriggerSimd: ((inputPtr: number, count: number, time: number, retriggerSpeed: number, intensity: number, outputPtr: number) => void) | null = null;
+export const cppBatchShiverSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
+export const cppBatchSpringSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
+export const cppBatchFloatSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
+export const cppBatchCloudBobSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
+export const cppBatchVineSwaySimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
+export const cppBatchGeyserEruptC: ((particlesPtr: number, count: number, time: number, kick: number, outputPtr: number) => void) | null = null;
+export const cppBatchRetriggerSimd: ((inputPtr: number, count: number, time: number, retriggerSpeed: number, intensity: number, outputPtr: number) => void) | null = null;
 
 /** Emscripten module (native C functions) */
 export let emscriptenInstance: EmscriptenModule | null = null;

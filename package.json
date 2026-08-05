@@ -53,6 +53,7 @@
         "test:generative": "node tests/generative-sequencer.mjs",
         "test:photo-mode": "node tests/photo-mode.test.mjs",
         "lint": "node scripts/eslint-ratchet.mjs",
+        "lint:ratchet": "node scripts/eslint-ratchet.mjs",
         "lint:raw": "eslint src",
         "format": "prettier --write .",
         "format:check": "prettier --check .",

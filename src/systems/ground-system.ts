@@ -12,16 +12,7 @@
  */
 
 import * as THREE from 'three';
-import { getGroundHeight as getWasmGroundHeight } from '../utils/wasm-loader.ts';
 import { CONFIG } from '../core/config.ts';
-import {
-    LAKE_BOUNDS,
-    LAKE_BOTTOM,
-    LAKE_ISLAND,
-    LAKE_ISLAND_RADIUS_SQ,
-    setGroundCacheTTL,
-    type GroundPlatform,
-} from './ground-height-core.ts';
 import {
     queryUnifiedGroundHeight,
     fillUnifiedGroundHeights,
@@ -31,6 +22,15 @@ import {
     isNativeUnifiedGroundReady,
     getUnifiedGroundBackend,
 } from '../utils/wasm-ground.ts';
+import { getGroundHeight as getWasmGroundHeight } from '../utils/wasm-loader.ts';
+import {
+    LAKE_BOUNDS,
+    LAKE_BOTTOM,
+    LAKE_ISLAND,
+    LAKE_ISLAND_RADIUS_SQ,
+    setGroundCacheTTL,
+    type GroundPlatform,
+} from './ground-height-core.ts';
 
 // Re-export constants and types for existing call sites
 export { LAKE_BOUNDS, LAKE_BOTTOM, LAKE_ISLAND, LAKE_ISLAND_RADIUS_SQ };

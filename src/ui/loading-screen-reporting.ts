@@ -1,5 +1,5 @@
-import { getReport } from '../world/spawn-tracker.ts';
 import { log } from '../utils/log.ts';
+import { getReport } from '../world/spawn-tracker.ts';
 
 /**
  * Wire the deferred indicator's spawn-failure badge once, then update its

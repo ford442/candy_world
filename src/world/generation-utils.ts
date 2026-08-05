@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { checkPositionValidity } from '../utils/wasm-loader.ts';
+import { CONFIG, getLoadMemoryScale, getLoadMemoryTier } from '../core/config.ts';
 import {
     LAKE_BOUNDS,
     LAKE_BOTTOM,
     LAKE_ISLAND,
     getGroundHeight
 } from '../systems/ground-system.ts';
-import { CONFIG, getLoadMemoryScale, getLoadMemoryTier } from '../core/config.ts';
+import { checkPositionValidity } from '../utils/wasm-loader.ts';
 
 export const DEFAULT_MAP_CHUNK_SIZE = 100;
 export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100;

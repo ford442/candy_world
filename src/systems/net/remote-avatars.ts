@@ -4,8 +4,8 @@
 
 import * as THREE from 'three';
 import { MeshPhysicalMaterial } from 'three';
-import { foliageGroup } from '../../world/state.ts';
 import { CONFIG } from '../../core/config.ts';
+import { foliageGroup } from '../../world/state.ts';
 import type { RemotePeer } from './presence-types.ts';
 
 const _scratchPos = new THREE.Vector3();

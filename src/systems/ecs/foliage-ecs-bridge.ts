@@ -30,10 +30,10 @@
  *   bridge.runBatch('shiver', time, intensity);
  */
 
-import { World } from './world.ts';
+import type { FoliageObject } from '../../foliage/types.ts';
 import { getNativeFunc, isEmscriptenReady, getEmscriptenInstance } from '../../utils/wasm-loader-core.ts';
 import type { NativeComponentCodec, Component } from './types.ts';
-import type { FoliageObject } from '../types.ts';
+import { World } from './world.ts';
 
 // Must match ENTRY_STRIDE=6 and RESULT_STRIDE=4 in animation_batch_utils.h
 const ENTRY_STRIDE = 6;  // floats per input entry

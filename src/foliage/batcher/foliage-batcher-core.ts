@@ -2,8 +2,34 @@
 // OPTIMIZATION: WASM batch processing for foliage animations
 // Migrated 10 additional animation types from JS to WASM (Phase 1)
 
-import { getWasmInstance } from '../../utils/wasm-loader.ts';
 import * as THREE from 'three';
+import {
+    submitFoliageGpuScalarBatch,
+    takeFoliageGpuScalarResult,
+    shouldUseFoliageGpuBatch,
+} from '../../compute/foliage-gpu-batch.ts';
+import type { FoliageGpuBatchMode } from '../../compute/foliage-gpu-batch.ts';
+import { isCIorHeadless } from '../../core/config.ts';
+import { FoliageEcsBridge, type SimpleAnimType } from '../../systems/ecs/foliage-ecs-bridge.ts';
+import { getWasmInstance } from '../../utils/wasm-loader.ts';
+import {
+    getVibratoAmount,
+    getTremoloAmount,
+    getHighFreqAmount,
+    getAverageVolume,
+    getPanActivity
+} from './foliage-batcher-audio.ts';
+import {
+    applySnareSnap,
+    applyAccordion,
+    applyFiberWhip,
+    applySpiralWave,
+    applyVibratoShake,
+    applyTremoloPulse,
+    applyCymbalShake,
+    applyPanningBob,
+    applySpiritFade
+} from './foliage-batcher-effects.ts';
 import {
     BATCH_SIZE,
     BATCH_MEMORY_START,
@@ -16,32 +42,6 @@ import {
     ExtendedBatchState,
     FoliageObject
 } from './foliage-batcher-types.ts';
-import {
-    getVibratoAmount,
-    getTremoloAmount,
-    getHighFreqAmount,
-    getAverageVolume,
-    getPanActivity
-} from './foliage-batcher-audio.ts';
-import { isCIorHeadless } from '../../core/config.ts';
-import {
-    submitFoliageGpuScalarBatch,
-    takeFoliageGpuScalarResult,
-    shouldUseFoliageGpuBatch,
-} from '../../compute/foliage-gpu-batch.ts';
-import type { FoliageGpuBatchMode } from '../../compute/foliage-gpu-batch.ts';
-import {
-    applySnareSnap,
-    applyAccordion,
-    applyFiberWhip,
-    applySpiralWave,
-    applyVibratoShake,
-    applyTremoloPulse,
-    applyCymbalShake,
-    applyPanningBob,
-    applySpiritFade
-} from './foliage-batcher-effects.ts';
-import { FoliageEcsBridge, type SimpleAnimType } from '../../systems/ecs/foliage-ecs-bridge.ts';
 
 export class FoliageBatcher {
     private static instance: FoliageBatcher;

@@ -21,6 +21,8 @@
  *   terminateWorkerPool();
  */
 
+import type { WorkerFeatureDetection } from './worker-types.ts';
+
 // Worker Pool
 export {
   WorkerPool,

@@ -1,6 +1,9 @@
 import { discoverySystem } from '../../../systems/discovery.ts';
+import { getPhotoMode, isPhotoModeActive, togglePhotoMode } from '../../../systems/photo-mode/lazy.ts';
 import { trapFocusInside } from '../../../utils/interaction-utils.ts';
 import { yieldToPaint } from '../../../utils/yield-to-paint.ts';
+import { isExploreActive } from '../../camera-modes.ts';
+import { handleMuteKey, handleVolumeKey } from '../audio-controls.ts';
 import { keyStates } from '../input-types.ts';
 import {
     getIsPlaylistOpen,
@@ -8,17 +11,14 @@ import {
     handlePlaylistKeyDown,
     handlePlaylistKeyUp,
 } from '../playlist-manager.ts';
-import { handleMuteKey, handleVolumeKey } from '../audio-controls.ts';
-import { isExploreActive } from '../../camera-modes.ts';
-import { getPhotoMode, isPhotoModeActive, togglePhotoMode } from '../../../systems/photo-mode/lazy.ts';
-import type { InputSession } from './session.ts';
+import type { ButtonPressHandlers } from './button-press.ts';
 import {
     disableExploreMode,
     enableExploreMode,
     isInteractiveTarget,
     setStartButtonResumeLabel,
 } from './menu-helpers.ts';
-import type { ButtonPressHandlers } from './button-press.ts';
+import type { InputSession } from './session.ts';
 
 export interface InputKeyboardHandlers {
     onKeyDown: (event: KeyboardEvent) => void;
@@ -281,12 +281,13 @@ export function createKeyboardHandlers(
                 triggerButtonPressDown('toggleMuteBtn');
                 handleMuteKey();
                 break;
-            case 'KeyU':
+            case 'KeyU': {
                 if (event.repeat) return;
                 triggerButtonPressDown('musicUploadBtn');
                 const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
                 if (uploadInput) uploadInput.click();
                 break;
+            }
             case 'Equal':
             case 'NumpadAdd':
                 if (event.repeat) return;

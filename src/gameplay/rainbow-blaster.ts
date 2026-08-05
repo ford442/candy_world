@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
     vec3, float, positionLocal, normalLocal, mx_noise_float,
     mix, sin, smoothstep, normalize, positionWorld, color, attribute,
     storage, instanceIndex, Fn, If, exp, vec4, uniform, rotate, varyingProperty
 } from 'three/tsl';
-import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
-import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/material-core.ts';
+import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
-import { unlockSystem } from '../systems/unlocks.ts';
-import { triggerHarpoon } from '../systems/physics/index.ts';
+import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/material-core.ts';
 import { isInLakeBasin } from '../systems/ground-system.ts';
+import { triggerHarpoon } from '../systems/physics/index.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
+import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
 
 // Projectile Configuration
 const SPEED = 60.0;
@@ -100,7 +100,7 @@ class ProjectilePool {
         // Apply spinning rotation ("Juice")
         const spinAxis = normalize(vec3(1.0, 0.0, 1.0));
         const spunTime = uTime ? uTime.mul(float(5.0)) : float(0.0);
-        const spunPosition = rotate(positionLocal, spinAxis, spunTime);
+        const spunPosition = rotate(positionLocal, spunTime);
 
         // Apply Total Deformation based on compute shader scale and position
         mat.positionNode = spunPosition.add(displacement).mul(audioPulse).mul(scaleAttr).add(instancePos);
@@ -166,7 +166,7 @@ class ProjectilePool {
         // --- WebGPU COMPUTE SHADER LOGIC ---
         this.uDeltaTime = uniform(0);
 
-        const updateProjectilesCompute = Fn(() => {
+        const updateProjectilesCompute = (Fn as any)(() => {
             const index = instanceIndex;
 
             const stateNode = storage(this.stateBuffer, 'vec4', MAX_PROJECTILES).element(index);
@@ -193,7 +193,7 @@ class ProjectilePool {
             });
         });
 
-        this.computeNode = updateProjectilesCompute().compute(MAX_PROJECTILES);
+        this.computeNode = (updateProjectilesCompute() as unknown as { compute: (n: number) => unknown }).compute(MAX_PROJECTILES);
     }
 
     addToScene(scene: THREE.Scene) {

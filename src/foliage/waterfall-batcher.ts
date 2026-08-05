@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import {
     color, float, vec3, vec2, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time, uv,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld,
-    instanceIndex, storage, mx_noise_float, normalWorld, floor
+    instanceIndex, storage, mx_noise_float, normalWorld, floor, add
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -15,14 +15,15 @@ const modFloat = (x: any, y: any) => {
     const yf = float(y);
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { fastInvSqrt } from '../utils/wasm-loader.ts';
+import { foliageGroup } from '../world/state.ts';
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight,
     applyStandardDeformation
 } from './index.ts';
-import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
-import { fastInvSqrt } from '../utils/wasm-loader.ts';
 
 const MAX_WATERFALLS = getCIAdjustedCount(50, 0.2, 10); // Reduced from 200 for WebGPU uniform buffer limits
 const SPLASHES_PER_WATERFALL = 8;
@@ -125,7 +126,7 @@ export class WaterfallBatcher {
         const gradient = mix(color(0xFF00FF), color(0x00FFFF), uv().y);
 
         // Mix gradient into base color (Base is Cyan from SeaJelly)
-        colMat.colorNode = mix(colMat.colorNode, gradient, 0.5);
+        colMat.colorNode = mix(colMat.colorNode ?? color(0x00FFFF), gradient, 0.5);
 
         // Juicy Rim Light (The "Palette" Polish)
         // Makes the edges glow with energy
@@ -143,8 +144,8 @@ export class WaterfallBatcher {
         colMat.emissiveNode = gradient.mul(uBaseEmission).add(foamEmission).add(rim).add(musicTint);
 
         // Roughness: Foam makes it rougher
-        const currentRoughness = colMat.roughnessNode || float(colMat.roughness);
-        colMat.roughnessNode = currentRoughness.add(totalFoam.mul(0.5));
+        const currentRoughness = colMat.roughnessNode ?? float(colMat.roughness);
+        colMat.roughnessNode = add(currentRoughness, totalFoam.mul(0.5));
 
         this.mesh = new THREE.InstancedMesh(colGeo, colMat, MAX_WATERFALLS);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -240,7 +241,6 @@ export class WaterfallBatcher {
         this.initialized = false;
         this.count = 0;
         this.idToIndex.clear();
-        this.waterfalls.length = 0;
     }
 
     /**

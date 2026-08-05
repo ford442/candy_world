@@ -1,5 +1,5 @@
-import { audioSystemRef, beatSyncRef, setAudioState, setBeatFlashIntensity, setCameraZoomPulse } from './game-loop-core.ts';
 import { profiler } from '../utils/profiler.ts';
+import { audioSystemRef, beatSyncRef, setAudioState, setBeatFlashIntensity, setCameraZoomPulse } from './game-loop-core.ts';
 
 export function updateAudioPhase(rawDelta: number) {
     let audioState = null;

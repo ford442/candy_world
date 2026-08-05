@@ -6,9 +6,9 @@ import {
     _blendScratch,
     type BiomeMusicProfile,
 } from './biome-profiles.ts';
+import { noteNameToChromaticIndex } from './scales.ts';
 import { GenerativeSequencer, NUM_CHANNELS, CHANNEL_VOICES, STEPS_PER_BAR } from './sequencer.ts';
 import { SynthVoice } from './synth-voice.ts';
-import { noteNameToChromaticIndex } from './scales.ts';
 
 export type GenerativeNoteCallback = (note: string, velocity: number, channelIndex: number) => void;
 

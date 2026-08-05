@@ -1,4 +1,5 @@
-import { safeRemoveAndDispose } from "../../../utils/dispose-utils.ts";
+import * as THREE from 'three';
+import { safeRemoveAndDispose } from "../../utils/dispose-utils.ts";
 /**
  * @file culling-system.ts
  * @description Advanced culling and visibility system for candy_world
@@ -16,7 +17,11 @@ import { safeRemoveAndDispose } from "../../../utils/dispose-utils.ts";
  * - Frame time improvement: 30-50%
  */
 
-import * as THREE from 'three';
+import {
+    SpatialHashGrid,
+    OcclusionQueryManager,
+    CullingDebugVisualizer
+} from './culling-components.ts';
 import {
     CullingGroup,
     EntityType,
@@ -30,11 +35,6 @@ import {
     QUALITY_MULTIPLIERS,
     DEFAULT_CULLING_CONFIG
 } from './culling-types.ts';
-import {
-    SpatialHashGrid,
-    OcclusionQueryManager,
-    CullingDebugVisualizer
-} from './culling-components.ts';
 
 const _scratchBox3 = new THREE.Box3();
 const _scratchSphere = new THREE.Sphere(); // ⚡ OPTIMIZATION: Scratch sphere for culling tests

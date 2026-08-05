@@ -244,7 +244,7 @@ export class InteractionSystem {
 
         // Leave old
         if (this.hoveredObject && this.hoveredObject.userData?.onGazeLeave) {
-            try { this.hoveredObject.userData.onGazeLeave(); } catch(e) {}
+            try { this.hoveredObject.userData.onGazeLeave(); } catch(e) { void e; }
         }
 
         // Enter new
@@ -252,7 +252,7 @@ export class InteractionSystem {
 
         if (this.hoveredObject) {
             if (this.hoveredObject.userData?.onGazeEnter) {
-                try { this.hoveredObject.userData.onGazeEnter(); } catch(e) {}
+                try { this.hoveredObject.userData.onGazeEnter(); } catch(e) { void e; }
             }
             if (this.reticleCallback) {
                 const label = this.getLabel(this.hoveredObject);

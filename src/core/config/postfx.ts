@@ -1,6 +1,6 @@
 import { CONFIG } from './defaults.ts';
-import { _hasFlag, _getFlag } from './url-flags.ts';
 import { isCIorHeadless } from './runtime.ts';
+import { _hasFlag, _getFlag } from './url-flags.ts';
 
 // ---------------------------------------------------------------------------
 // Post-FX resolution helpers — read URL overrides on top of CONFIG.postfx.

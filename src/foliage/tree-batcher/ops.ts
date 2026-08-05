@@ -1,12 +1,12 @@
 import * as THREE from 'three';
+import { refreshFoliageLodMesh } from '../../systems/batcher-lod.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
+import { batchComposeMatrices_c } from '../../utils/wasm-batch.ts';
+import { isEmscriptenReady } from '../../utils/wasm-loader-core.ts';
 import { getGroundAlignedQuaternion } from '../../world/placement-utils.ts';
 import { foliageGroup } from '../../world/state.ts';
 import { ANIMATION_TYPES } from '../animation-nodes.ts';
 import { copyInstanceLodOnGrow, initInstanceLodAttribute } from '../batcher-lod-utils.ts';
-import { refreshFoliageLodMesh } from '../../systems/batcher-lod.ts';
-import { batchComposeMatrices_c } from '../../utils/wasm-batch.ts';
-import { isEmscriptenReady } from '../../utils/wasm-loader-core.ts';
 import {
     BATCH_QUEUE_LIMIT,
     MAX_INSTANCES,
@@ -38,7 +38,7 @@ export function disposeInstancedMesh(mesh: THREE.InstancedMesh) {
 
         // Ensure custom instance attributes are disposed if supported
         if (mesh.instanceColor && typeof (mesh.instanceColor as any).dispose === 'function') {
-            try { (mesh.instanceColor as any).dispose(); } catch (e) {}
+            try { (mesh.instanceColor as any).dispose(); } catch (e) { void e; }
         }
     }
 

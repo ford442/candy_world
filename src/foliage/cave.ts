@@ -1,11 +1,11 @@
 // src/foliage/cave.ts
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, mix, positionLocal, normalWorld,
     smoothstep, abs
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     uAudioLow, createJuicyRimLight, applyPlayerInteraction, triplanarNoise, perturbNormal
 } from './index.ts';

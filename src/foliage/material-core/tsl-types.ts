@@ -1,5 +1,5 @@
-import type { Node } from 'three/webgpu';
 import type { ShaderNodeObject } from 'three/src/nodes/tsl/TSLCore.js';
+import type { Node } from 'three/webgpu';
 
 export type TSLArg = ShaderNodeObject<Node>;
 

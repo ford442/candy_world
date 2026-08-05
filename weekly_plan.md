@@ -1,26 +1,15 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-08-04 — Foundation: #1493 Recover the TS + ESLint ratchets and make lint a real CI gate.**
-The ratchet *substrate already exists on main* (`scripts/tsc-ratchet.mjs`, `scripts/eslint-ratchet.mjs`,
-`scripts/tsc-baseline.json` = **206**, `scripts/eslint-baseline.json`, `eslint.config.js`,
-`.github/workflows/typecheck.yml` + `.github/workflows/lint.yml`, `src/utils/log.ts` build-stripped logger).
-So this is **NOT a build-from-scratch** — it is: (1) capture honest current baselines and prove they match what
-CI enforces, (2) confirm `lint.yml` actually **blocks** PRs on any regression (fail-closed, not warn-only, and
-not silently green because it lints an empty set), (3) tighten both ratchet scripts so a delta up is a hard
-failure, and (4) drive the numbers *down* one bounded cluster at a time (console.* → `log.ts`, then `any`
-removals), committing a lower baseline after each cluster.
 
-Rationale: #1493 is the single **`priority-high` + `foundation`** item in Noah's freshest in-context batch (13
-issues filed 2026-08-01). The 2026-07-28 tracking-drift note already flagged the ratchet story as unverified
-(claimed "3 errors", real was 396); #1464 has since crushed tsc 396 → **206** and wired much of the tooling, so
-the honest job now is *verify + gate + continue*, not *invent*. Foundation-before-content is Noah's standing
-sequencing, and a real lint gate de-risks every content issue behind it (#1492/#1494/#1496).
+**2026-08-05 — Foundation landed: #1493 TS + ESLint ratchets green (`tsc` 0, ESLint 1894 / 0 errors). Next: Phase D warning burn-down + #1496 GPU foliage default.**
+
+Ratchet gates are fail-closed in CI (`typecheck.yml` + `lint.yml`). Phase D next: console/`any` warnings → `log.ts` in `startup-profiler.ts`, `generation-core.ts`, `physics-updates.ts` to reach ESLint **<1500**.
 
 **Not Fix First:** last week's #1448 WebGPU single-device landed clean and verified (#1462/#1468/#1464 — build ✅,
 tests ✅, device-lost drill ✅, single `requestDevice` confirmed); no regression. This is **User Idea mode** —
 #1493 is Noah's own priority-high issue, chosen over its 2026-08-01 siblings because #1495 (app-chunk) and #1496
-(GPU foliage default) are *content/perf* work that a real lint gate should land *before*, and #1497/#1485-#1491
+(GPU foliage default) are _content/perf_ work that a real lint gate should land _before_, and #1497/#1485-#1491
 (hygiene + file splits) are mechanical Copilot/refactor fodder.
 
 **Scope of the swarm — touch ONLY:** `scripts/tsc-ratchet.mjs`, `scripts/eslint-ratchet.mjs`,
@@ -32,6 +21,7 @@ only — mechanical `console.*`→`log.ts` / `any` fixes in a **named, bounded**
 feature logic.
 
 ## Ideas
+
 <!--
 Write ideas here during the week as they come to you.
 Routine prioritizes these over generated ideas.
@@ -40,7 +30,8 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 
 **User idea pool — GitHub issues filed 2026-08-01 (Noah's FRESHEST in-context batch, 13 open issues — PRIMARY source this run). Two clusters: a Vision/Foundation batch (21:03) and a mechanical file-split batch (20:35). Self-sequences Foundation → Perf → Content.**
-- [~] **#1493 Recover TS + ESLint ratchets + make lint a CI gate** — `priority-high` `foundation`. Substrate already on main (ratchet scripts, `eslint.config.js`, `lint.yml`, `log.ts`; tsc-baseline **206**). Job = verify honest baselines, prove the gate blocks, tighten ratchets, burn down clusters. `[in progress — 2026-08-04]` ← **today's focus**
+
+- [x] **#1493 Recover TS + ESLint ratchets + make lint a CI gate** — `priority-high` `foundation`. Landed 2026-08-05: `tsc` **0 errors** (baseline ratcheted from dishonest 0/206 drift to honest 0), ESLint **1894** problems (0 errors; baseline down from 2689 via error fixes + `--fix`), `lint.yml` + `typecheck.yml` fail-closed on PRs; unified `ChannelData` via `audio-system-core.ts`; Phase A–C clusters fixed (generative/audio, workers, UI barrels, compute).
 - [ ] **#1496 Make GPU foliage instance animation the default path on the shared WebGPU device** — `performance` `rendering` `webgpu` `migration`. Direct successor to the landed #1448 single-device work. ← **Copilot-prep target today** (foliage/rendering animation path — zero file overlap with #1493's tooling slice).
 - [~] **#1495 Finish app-chunk graph redesign + power-tier loading** — `performance` `foundation`. **Landed ~599 KB `app`** (PR #1522): lazy debug/presence/photo/generative/awakened, `budget:check` 600 KB ceiling. Remaining: stretch 500 KB peel. See `docs/APP_CHUNK_SPLIT.md`.
 - [x] **#1497 Repo hygiene — delete one-shot scripts / `.orig` / root `temp_base`, own mega-modules** — `architecture` `foundation`. Landed 2026-08-05: deleted root codemods/patches/screenshot throwaways, removed `src/**/*.orig`, gitignore scratch patterns, added `plan.md`; config domain modules (`ground`, `audio`, `fauna`, `presence`); `main.ts` already thin via `main/bootstrap.ts` + pipelines.
@@ -49,27 +40,33 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **Mechanical file-split batch (#1485-#1491)** — split >700-line files into modules: `config.ts` (#1485 **partial — domain barrel landed**), `tree-batcher.ts` (#1486), `input.ts` (#1487), `main.ts` (#1488 **landed — `main/` pipelines**), `temp_base.ts` (#1489 **absent on main**), `style.css` (#1490), `material-core.ts` (#1491). Pure mechanical — ideal future Copilot fodder, one file per PR.
 
 <!-- ARCHIVED — 2026-07-27 batch (resolved). -->
+
 **User idea pool — GitHub issues filed 2026-07-27 (5 issues — primary source last run). Roadmap self-sequences: Foundation → Content.**
+
 - [x] **#1448 Unify WebGPU device & renderer context (single-device architecture)** — `priority-high`. **Status: Implemented ✅ — LANDED on main (#1462/#1468/#1464), verified 2026-08-04.**
-  * Implementation Details: Created `gpu-context.ts` to act as the single source of truth for the WebGPU device. Updated `init.ts`, `gpu-compute-library.ts`, `compute-particles.ts`, `startup-profiler.ts` and `webgpu-limits.ts` to depend on this singleton context, eliminating duplicate adapter allocations and safely handling device-lost events via UI overlays.
+    - Implementation Details: Created `gpu-context.ts` to act as the single source of truth for the WebGPU device. Updated `init.ts`, `gpu-compute-library.ts`, `compute-particles.ts`, `startup-profiler.ts` and `webgpu-limits.ts` to depend on this singleton context, eliminating duplicate adapter allocations and safely handling device-lost events via UI overlays.
 - [ ] **#1449 Cut TS & ESLint debt (ratchet 543 → <200)** — `priority-high`. Phased per-cluster ratchet. **Partially started** (#1457 resolved one WASM-bridge cluster). No `eslint-baseline.json` wired yet. ← **Copilot-prep target today** (pure-TS cluster slice: asset-streaming-core, material-core, accessibility-menu-rendering, startup-profiler-ui — decoupled from #1448 render/compute/init files).
 - [x] **#1452 Living-World fauna flocks + optional GPU/C++ boids scale-up** — Content. **Status: Implemented ✅**.
-  * Implementation Details: Implemented C++ native boids simulation (`updateBoids_c`) with TS fallback to improve living candy fauna performance, scaling up to more instances.
+    - Implementation Details: Implemented C++ native boids simulation (`updateBoids_c`) with TS fallback to improve living candy fauna performance, scaling up to more instances.
 - [x] **#1450 Split game-loop phases + break 817KB app chunk** — **Status: Implemented ✅**
-  * Implementation Details: The game-loop phase split is complete (`game-loop.ts` ~177 lines). The ~817KB `app` chunk limit warning is an accepted exception (budget is 850KB per `APP_CHUNK_SPLIT.md`) because the foliage batchers, music-reactivity, and physics hot paths must stay co-located to avoid circular chunk dependencies.
+    - Implementation Details: The game-loop phase split is complete (`game-loop.ts` ~177 lines). The ~817KB `app` chunk limit warning is an accepted exception (budget is 850KB per `APP_CHUNK_SPLIT.md`) because the foliage batchers, music-reactivity, and physics hot paths must stay co-located to avoid circular chunk dependencies.
 - [~] **#1451 Vertical Sky Islands biome** — **already largely landed** via #1363 (`src/world/sky-island-graph.ts` + generation-core/decorators references exist). Issue's "no sky_island symbols exist" claim is stale on current main. Verify coverage vs the issue's layer/traversal spec, then close or narrow to an enrichment slice.
 
 <!-- Older Ideas (opportunistic / archived) below. -->
+
 - [x] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
 
 <!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit). -->
-- [x] **Day/night plant behaviour** *(promoted to Copilot issue 2026-06-02)* — Plants physically open/glow by day, close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Landed for `SimpleFlowerBatcher` (commit 99fcbad, #1208) — verify coverage across remaining batchers, then close.
+
+- [x] **Day/night plant behaviour** _(promoted to Copilot issue 2026-06-02)_ — Plants physically open/glow by day, close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Landed for `SimpleFlowerBatcher` (commit 99fcbad, #1208) — verify coverage across remaining batchers, then close.
 
 **User idea pool — GitHub issues filed 2026-06-28 (Noah's freshest in-context backlog — vertical-exploration arc):**
+
 - [x] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `bug`+`enhancement`. Hard prerequisite for #1266. `[landed — 2026-06-30]` ← today's focus
 - [x] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. **Blocked on #1265** — do not start cloud integration until ground system is merged & stable. Next in the arc. `[landed — 2026-07-05]`
 
 **User idea pool — GitHub issues filed 2026-06-09 (Noah's in-context backlog, primary source this phase):**
+
 - [x] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. `[in progress — 2026-06-16]` ← today's focus
 - [x] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. LANDED 2026-06-23 (#1221).
 - [x] **#1168 WebGL2 fallback renderer** — toggleable WebGLRenderer alongside WebGPU for debugging/CI/agent porting; unblocks visual inspection. Foundational for several others.
@@ -91,39 +88,44 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 **User idea pool — GitHub issues filed 2026-07-12 (Noah's FRESHEST in-context batch, 19 issues — primary source this phase). The issues self-sequence: land Foundation before Migration before Content.**
 
-*Foundation / tech-debt (prerequisites — land first):* — **CLUSTER LANDED 2026-07-14 (#1388/#1397/#1393/#1405)**
+_Foundation / tech-debt (prerequisites — land first):_ — **CLUSTER LANDED 2026-07-14 (#1388/#1397/#1393/#1405)**
+
 - [x] **#1347 Enforce TS typecheck in CI + error-count ratchet** — LANDED (#1388). `typecheck` script + `scripts/tsc-ratchet.mjs` + `typecheck.yml`; baseline now **3 errors** (from 587).
 - [x] **#1350 Fix music-reactivity.ts barrel** — LANDED (#1388/#1397). Barrel re-declaration conflicts + missing `-core` exports resolved.
 - [x] **#1357 Remove stale `createSubwooferLotus` import** — LANDED (#1388).
 - [ ] **#1348 ESLint + build-stripped logger** — no lint tooling; ~658 raw `console.*`, ~623 `any`. Warn-heavy config + `src/utils/log.ts`. Next foundation item after chunk split.
 - [x] **#1349 Untrack build artifacts** (`math.o`, `*.cpp.bak`) + gitignore; `libomp.a` relocated to `emscripten/vendor/` (still tracked).
-- [x] **#1360 Split `game-loop.ts`** (1,028 lines) into tick-phase modules. LANDED 8-module split (#1405); follow-up extracted `game-loop-input.ts` + `game-loop-foliage.ts`, zero-alloc day/night palette, sun/moon null-safety. *Close on merge of follow-up PR.*
+- [x] **#1360 Split `game-loop.ts`** (1,028 lines) into tick-phase modules. LANDED 8-module split (#1405); follow-up extracted `game-loop-input.ts` + `game-loop-foliage.ts`, zero-alloc day/night palette, sun/moon null-safety. _Close on merge of follow-up PR._
 - [x] **#1361 Break up 796 KB `app` chunk** — lazy-load gameplay/save-UI/world-content; break foliage↔music-reactivity circular imports. See `docs/APP_CHUNK_SPLIT.md`.
 
-*Migration slices (15%-rule, after foundation):*
-- [x] **#1351 Cross-tier parity harness** (JS↔AS↔C++ golden vectors) — recommended before widening batcher ports. `[in progress — 2026-07-21]` ← today's focus. **NOW OVERDUE:** #1358 + #1364 shipped native paths without it.
-- [x] **#1358 Batcher instance matrix/color → C++ batch** (arpeggio + tree) — LANDED (#1411, `_batchComposeMatrices_c`) per MIGRATION_TRACKER slice 1 = ✅. Shipped ahead of the #1351 harness — now guarded retroactively. *GitHub issue still OPEN — close.*
-- [x] **#1359 / #1383 Emscripten export verification CI** — Tier-1 lexical `verify:emcc:manifest` (`emscripten-ci.yml`) + Tier-2 full emsdk build (`emscripten-verify.yml` on tags/nightly/dispatch).
-- [x] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice) — AS export + wrapper landed (#1415); **hot-path wiring** completed: `applyArpeggioGroveChannelAccum` in `-core.ts`, `?nativeMusicAccum` A/B flag, TS fallback, `docs/MUSIC_ARPEGGIO_ACCUM.md`. *GitHub issue — close when reviewed.*
+_Migration slices (15%-rule, after foundation):_
 
-*Content / world-building (capstones, after foundation):*
+- [x] **#1351 Cross-tier parity harness** (JS↔AS↔C++ golden vectors) — recommended before widening batcher ports. `[in progress — 2026-07-21]` ← today's focus. **NOW OVERDUE:** #1358 + #1364 shipped native paths without it.
+- [x] **#1358 Batcher instance matrix/color → C++ batch** (arpeggio + tree) — LANDED (#1411, `_batchComposeMatrices_c`) per MIGRATION_TRACKER slice 1 = ✅. Shipped ahead of the #1351 harness — now guarded retroactively. _GitHub issue still OPEN — close._
+- [x] **#1359 / #1383 Emscripten export verification CI** — Tier-1 lexical `verify:emcc:manifest` (`emscripten-ci.yml`) + Tier-2 full emsdk build (`emscripten-verify.yml` on tags/nightly/dispatch).
+- [x] **#1364 Per-biome music channel accumulator → WASM** (arpeggio_grove slice) — AS export + wrapper landed (#1415); **hot-path wiring** completed: `applyArpeggioGroveChannelAccum` in `-core.ts`, `?nativeMusicAccum` A/B flag, TS fallback, `docs/MUSIC_ARPEGGIO_ACCUM.md`. _GitHub issue — close when reviewed._
+
+_Content / world-building (capstones, after foundation):_
+
 - [x] **#1362 Circadian day/night across all instanced batchers** — extend `SimpleFlowerBatcher` pose path. Coverage matrix + glow gates + `?debugCircadian=1` + `circadian_night` VR seeds — see `docs/CIRCADIAN_BATCHER_COVERAGE.md`.
 - [x] **#1363 Vertical Sky Islands biome** — layered exploration arc after #1265/#1266. `[in progress — 2026-07-21]` stacked islands + music bindings + traversal test + `sky_island_horizon` viewpoint
 - [x] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [ ] **#1352 Living candy fauna** (WASM boids + ECS). **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
 - [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [x] **#1352 Living candy fauna** (WASM boids + ECS).
-  - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
+    - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
 - [ ] **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
 
 ## Backlog
+
 <!--
 Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
+
 - [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable. `[landed — 2026-07-14]`
 - [x] **TS-error baseline (feeds #1347)** — RESOLVED 2026-07-14. `scripts/tsc-ratchet.mjs` + `scripts/tsc-baseline.json` now committed; baseline crushed from 587 → **3 errors**, `typecheck.yml` enforces the ratchet in CI. Remaining 3 are the committed floor; keep ratcheting opportunistically.
-- [~] **Ratchet reconciliation (2026-08-04)** — The old "3 errors" claim is retired. Ground truth on main today: `scripts/tsc-baseline.json` = **206** (down from 396 last week via #1464 ratchet Phase 1). `scripts/eslint-baseline.json`, `eslint.config.js`, `scripts/eslint-ratchet.mjs`, `.github/workflows/lint.yml`, and `src/utils/log.ts` **all now exist** — much of what #1493 asked for has already landed. Open question #1493 must answer: does `lint.yml` actually *block* PRs (fail-closed) or is it warn-only / linting an empty set? Today's kimi task verifies this before burning down further.
+- [x] **Ratchet reconciliation (2026-08-05)** — Ground truth: `tsc-baseline.json` = **0 errors** (full `src/` strict pass). `eslint-baseline.json` = **1894** (0 errors, 1894 warnings). Remaining debt clusters: console/`any` warnings in `startup-profiler.ts`, `generation-core.ts`, `physics-updates.ts` (Phase D → `log.ts`). Targets: ESLint **<1500** then **<800**; keep TS at 0.
 - [x] **Repo hygiene (#1497, 2026-08-05)** — Removed 36 root scratch files (`*-replace.cjs`, `patch*.mjs`, `screenshot-*.mjs`, `test-build*.mjs`, etc.), 4 `*.orig` backups, added `.gitignore` scratch patterns; `temp_base.ts` was already absent; `plan.md` restored as pointer to `weekly_plan.md`.
 - [ ] **Issue-hygiene sweep (2026-08-04)** — Verify + close landed issues still OPEN: #1448 (single-device, landed #1462/#1468) should be CLOSED with `state_reason: completed`. Re-check the older open set (#1358/#1360/#1364/#1363/#1352).
 - [ ] **Open PRs (2026-08-04)** — #1481 `Architect: Implement C++ WASM boids scale-up` (non-draft, ford442, open since 08-01) — decide merge/close vs the already-landed #1478 native boids; may be superseded. #1504 `♿ Aria: Add loading states for Save Menu buttons` (draft) — bot polish, leave to Aria loop.
@@ -142,20 +144,23 @@ Routine maintains this automatically — you can add items too.
 - [x] **Open draft PRs hygiene** — #1170/#1173/#1182/#1176 confirmed already closed on GitHub. #1255 was the only remaining open PR; reviewed and closed as superseded because its diff largely reverted landed Gem Canopy work rather than delivering the titled HUD ability-button polish.
 
 ### Notes / not standalone tasks
+
 - Accessibility: `Announcer` in `src/ui/announcer.ts` dynamically injects `aria-live` regions — future ARIA work should use the dynamic path, not add static tags.
 - UI bug #702: auto-scroll likely resolved by `preventScroll: true` on `.focus()` calls; verify on live site, then close.
 - Three.js ColorSpace enum regression: fixed 2026-07-06 by using string literals (`'display-p3'`, `'srgb'`) in `src/core/init.ts`; revert to enum when upgrading Three.js.
 
 ## Done
+
 <!--
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+
 - [x] **2026-08-04** ✅ #1448 WEBGPU SINGLE-DEVICE ARCHITECTURE — **LANDED on main** (#1462 `feat(webgpu): unify GPU device ownership under a single renderer-owned context`, #1468 `feat: implement single-device WebGPU architecture`, plus #1464 ratchet-Phase-1 WebGPU buffer typing fix). New `src/rendering/gpu-context.ts` is the single device owner; `gpu-compute-library.ts` / `compute-particles.ts` / `startup-profiler.ts` / `webgpu-limits.ts` / `init.ts` all adopt it; device-lost banner + fail-closed-to-WASM/CPU wired. `.swarm-state.md` iteration 1 verified: `build:wasm` ✅, `build` ✅, `test:wasm` 3/3 ✅, instrumented Playwright shows **single `requestDevice`** ✅, device-lost drill 0 uncaught errors ✅ (the runner's ❌ verdict is the pre-existing `fonts.googleapis.com` sandbox block, identical on baseline). This was last week's focus — reconciled and closed.
 - [x] **2026-07-28** ✅ #1351 CROSS-TIER PARITY HARNESS — LANDED (#1418, `test(#1351): cross-tier parity harness for matrix compose + arpeggio accumulate`). Reconciled from last week's focus: golden-vector `test:parity` runner guards #1358 matrix/color compose + #1364 arpeggio_grove accumulation across TS↔AS↔C++; widened to mushroom + portamento batchers per `MIGRATION_TRACKER.md` slice 1. Native C++ path SKIPs when `em++` absent; TS fallback always green.
 - [x] **2026-07-28** POST-07-21 WAVE (landed on main, reconciled this run) — #1363 stacked Sky Islands biome (9368bab, `sky-island-graph.ts` + music bindings + traversal), #1352/#1440 Living Candy Fauna (WASM boids ECS + `FaunaBatcher`), circadian coverage extended across batchers (#1362 follow-ups), region-manager WASM distance-cull pre-pass wired to clouds (#1453/#1455), TSL wind sway on cloud batcher (#1447), app-chunk lazy split (#1422), and the ARIA modal-semantics sweep (#1456/#1441/#1446). `game-loop.ts` confirmed thin (177 lines) across 11 phase modules.
 - [x] **2026-07-24** IN-WORLD DEBUG PLACE GIZMO (#1365) — **Status: Implemented ✅**
-  * Implementation Details: The `?debugPlace=1` gizmo functionality was confirmed to be initialized in `game-loop-core.ts` via `initPlacementDebug` and updated per frame in `game-loop-physics.ts` using `updatePlacementDebug`. It features robust placement capability across the procedurally generated terrain, supporting a wide range of candy biomes, mapping placement config to `map.json` standard.
+    - Implementation Details: The `?debugPlace=1` gizmo functionality was confirmed to be initialized in `game-loop-core.ts` via `initPlacementDebug` and updated per frame in `game-loop-physics.ts` using `updatePlacementDebug`. It features robust placement capability across the procedurally generated terrain, supporting a wide range of candy biomes, mapping placement config to `map.json` standard.
 - [x] **2026-07-21** CIRCADIAN COVERAGE PASS (#1362 follow-up) — Fixed `SimpleFlowerBatcher` to drive `PlantPoseMachine` with `dayNightBias` (was kick-only bloom). Shared `circadianNightGlowMult`/`circadianDayGlowMult` helpers; gated tree/portamento/gem-fruit/wisteria/lotus/lantern emissives. Added `?debugCircadian=1` overlay + `circadian_night` / `circadian_night_mycelium` visual-regression viewpoints. Docs: `docs/CIRCADIAN_BATCHER_COVERAGE.md`.
 - [x] **2026-07-21** CIRCADIAN DAY/NIGHT FOR BATCHERS (#1362) — Wired mushroom-batcher and luminous-plant-batcher via global uCircadianPhase (emissive dim by day, bright by night). Ensured circadianController.setDayTarget() is properly called in game-loop-visuals.ts and delta is passed instead of gameTime.
 - [x] **2026-07-14** 🧱 FOUNDATION CLUSTER LANDED — TS typecheck gate + ratchet (#1347, #1388): `scripts/tsc-ratchet.mjs` + `scripts/tsc-baseline.json` + `typecheck.yml`; baseline driven 587 → **3 errors**. music-reactivity.ts barrel fixed (#1350) + stale `createSubwooferLotus` import removed (#1357) + game-loop sun/moon null-safety (#1397). Copilot prep shipped: Emscripten build + export verification CI `emscripten-ci.yml` (#1359/#1393), folding in build-artifact untracking (#1349). Whole-stack: release tag `2026-07-14-stable-v2` cut (#1134 tooling, #1387). Downstream wave the same week: `game-loop.ts` split into 8 tick-phase modules (#1360/#1405), circadian day/night base (#1362/#1394), native batcher matrix compose `_batchComposeMatrices_c` (#1358/#1411), arpeggio_grove accumulator → AS (#1364/#1415).
@@ -200,10 +205,12 @@ Prune occasionally when this gets long.
 - [x] **2026-05-05** ARIA: focus restoration, Jukebox keyboard nav, Save Menu focus trap, ability-slot keyboard support, aria-busy states (PRs #719, #725, #717, #716, #709, #729).
 
 ## Last run
+
 <!-- Routine writes summary here each run. Overwrites previous. -->
+
 Date: 2026-08-04
 Mode: **USER IDEA** — no Fix First trigger. Last week's #1448 WebGPU single-device landed clean and verified on main (#1462/#1468/#1464; `gpu-context.ts` present, build/tests/device-lost drill all green per `.swarm-state.md`). Noah filed a fresh 13-issue in-context batch on 2026-08-01; that is this run's primary idea pool. Picked the single **`priority-high` + `foundation`** item: **#1493 recover the TS + ESLint ratchets and make lint a real CI gate.**
-Focus: **#1493** — but reframed after verifying main: the ratchet substrate already exists (`tsc-ratchet.mjs`/`eslint-ratchet.mjs`/`eslint.config.js`/`lint.yml`/`log.ts`; tsc-baseline **206**, down from 396). So the job is *verify honest baselines → prove `lint.yml` fail-closes → tighten ratchets → burn down clusters* (console.*→`log.ts`, then `any`), NOT build-from-scratch. kimi-cli main event = audit + gate-hardening + bounded cluster burn-down, committing a lower baseline per cluster. Copilot prep (decoupled, zero file overlap): **#1496 make GPU foliage instance animation the default path on the shared WebGPU device** (foliage/rendering — natural successor to landed #1448). Claude Code whole-stack: full `npm run build` → `verify:emcc` → `deploy.py` dry-run → cut a fresh `2026-08-04-stable` release tag over the post-07-28 wave.
+Focus: **#1493** — but reframed after verifying main: the ratchet substrate already exists (`tsc-ratchet.mjs`/`eslint-ratchet.mjs`/`eslint.config.js`/`lint.yml`/`log.ts`; tsc-baseline **206**, down from 396). So the job is _verify honest baselines → prove `lint.yml` fail-closes → tighten ratchets → burn down clusters_ (console.*→`log.ts`, then `any`), NOT build-from-scratch. kimi-cli main event = audit + gate-hardening + bounded cluster burn-down, committing a lower baseline per cluster. Copilot prep (decoupled, zero file overlap): **#1496 make GPU foliage instance animation the default path on the shared WebGPU device** (foliage/rendering — natural successor to landed #1448). Claude Code whole-stack: full `npm run build` → `verify:emcc` → `deploy.py` dry-run → cut a fresh `2026-08-04-stable` release tag over the post-07-28 wave.
 Outcome: <!-- fill in at end of day after kimi-cli loop -->
 Context gap: No `recent_chats` / `conversation_search` in this headless run (confirmed — ToolSearch surfaces neither; reconstruction from git history, 13 open GitHub issues, 2 open PRs, `weekly_plan.md`, `.swarm-state.md`, and a direct FS check of the ratchet/lint tooling). Could NOT run `tsc`/`eslint`/build locally (no `node_modules`) or verify the live site or whether `lint.yml` truly fail-closes — that verification is the first kimi iteration. Flagged: #1448 issue likely still OPEN despite landing (close it); #1481 boids-scaleup PR may be superseded by #1478.
 
@@ -229,12 +236,13 @@ Context gap: No access to `recent_chats` / `conversation_search` in this environ
 Date: 2026-07-06
 Mode: USER IDEA continuation — all four approved phases complete.
 Focus:
+
 - Phase 1: Verified #1170/#1173/#1182/#1176 closed; reviewed/closed stale draft PR #1255 as superseded.
 - Phase 2: Split remaining >700-line files (`generation-core.ts`, `generation-decorators.ts`, `loading-screen-ui.ts`) via coder subagent.
 - Phase 3: Hardened walkable cloud platforms — added `registerCloudPlatform`/`unregisterCloudPlatform` debug visualization to `src/debug/ground-debug.ts` (enabled via `?debugClouds=1` or `?debugHeights=1`), wired registration from `src/foliage/clouds.ts` and explicit registration in `src/world/cloud-placer.ts`, fixed dev-placed cloud collision extents to match ground-system bounds, and set `cloudScale` before registration.
 - Phase 4: Made visual-regression CI-ready — added root `.gitattributes` to track baselines under Git LFS, activated the `update-baselines` job on `main` to capture and commit baselines, added `--seed` deterministic random-seed support via `src/utils/seeded-random.ts` and the visual-regression CLI, cleaned up TypeScript errors so `cd tools/visual-regression && pnpm run typecheck` passes, added `test:visual` / `test:visual:typecheck` root scripts, and fixed `validate.ts` root-path bug.
-Outcome: `pnpm run build:ci`, `pnpm run test:wasm`, `RENDERER=webgl pnpm run test`, and `cd tools/visual-regression && pnpm run typecheck && pnpm run validate` all pass.
-Context gap: Root `npx tsc --noEmit` still has many pre-existing TypeScript errors unrelated to this work. No live-site verification performed.
+  Outcome: `pnpm run build:ci`, `pnpm run test:wasm`, `RENDERER=webgl pnpm run test`, and `cd tools/visual-regression && pnpm run typecheck && pnpm run validate` all pass.
+  Context gap: Root `npx tsc --noEmit` still has many pre-existing TypeScript errors unrelated to this work. No live-site verification performed.
 
 Date: 2026-06-30
 Mode: USER IDEA — no Fix First trigger (last week's #1170 Gem Canopy LANDED clean, all tests green, 24 trees spawning). Picked the freshest in-context user idea: GitHub issue #1265 (filed 2026-06-28 alongside #1266). #1265 is `bug`-tagged (eye-height drift, player sink/hover near clusters) and is the hard prerequisite #1266 (walkable cloud platforms) blocks on — foundation before feature.
@@ -251,14 +259,15 @@ Date: 2026-06-24
 Mode: USER IDEA — #1170 Gem Canopy finish & ship.
 Focus: Finalize the Gem Canopy biome: verify existing `GemFruitBatcher`/`createGemCanopyTree`/decorator wiring, fix pre-existing duplicate-export build blockers, tune `MAX_GEMS_PER_TYPE` to eliminate CI overflow warnings, run build + WASM + smoke (CORE and FAST_FULL) + WebGL fallback, and update `.swarm-state.md`, `weekly_plan.md`, and `docs/MUSIC_MAP_BINDING.md`.
 Outcome: #1170 LANDED. `npm run build:ci`, `npm run test:wasm`, `npm run test`, `FULL_BOOT=fast npm run test`, and `RENDERER=webgl npm run test` all pass. FAST_FULL reports 24 gem_canopy_trees spawned, 2322/2322 objects, no GemFruitBatcher capacity warnings. Docs updated with Gem Canopy binding reference.
+
 # Refactoring Plan
 
 1. **Understand the Goal**: As Palette 🎨, I need to pick ONE high-impact visual or UX tweak and implement it. Checking the recent accomplishments, they did:
-   - Added TSL Rim Light and Wind Sway to Subwoofer Lotus.
-   - Fixed accessibility and keyboard issues in Jukebox empty state.
-   - Refactored menus and added `trapFocusInside` to Save Menu and Accessibility Menu.
-   - Fixed auto-scroll issues by using `{ preventScroll: true }`.
-   - Used `<style>` to inject tactile "Game Feel" active pressed states.
+    - Added TSL Rim Light and Wind Sway to Subwoofer Lotus.
+    - Fixed accessibility and keyboard issues in Jukebox empty state.
+    - Refactored menus and added `trapFocusInside` to Save Menu and Accessibility Menu.
+    - Fixed auto-scroll issues by using `{ preventScroll: true }`.
+    - Used `<style>` to inject tactile "Game Feel" active pressed states.
 
 2. **Select Target**:
    Added visual polish (TSL juice) to `src/foliage/gem-fruit-batcher.ts`. Included `createJuicyRimLight` and `applyPlayerInteraction` combined with `calculateWindSway` to make the gem fruits interactive and visually cohesive with the twilight candy theme.
@@ -268,4 +277,5 @@ Outcome: #1170 LANDED. `npm run build:ci`, `npm run test:wasm`, `npm run test`, 
 4. **Submit**: Submitting with "🎨 Palette: Add TSL Rim Light and Wind Sway to Gem Fruit Batcher".
 
 Status: Implemented ✅
-* Implementation Details: Applied "Juice" to the `gem-fruit-batcher.ts` component by standardizing the deformation with `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. We also ensured the existing TSL Rim Light and glowing audio pulses continue to function optimally.
+
+- Implementation Details: Applied "Juice" to the `gem-fruit-batcher.ts` component by standardizing the deformation with `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. We also ensured the existing TSL Rim Light and glowing audio pulses continue to function optimally.

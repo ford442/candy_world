@@ -2,11 +2,17 @@
 // One InstancedMesh draw call per jewel type; music-driven via gem_canopy biome uniforms.
 
 import * as THREE from 'three';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { getCIAdjustedCount } from '../core/config.ts';
+import type { BatcherInstanceRef } from '../systems/awakened-types.ts';
+import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId, uCircadianPoseOffset, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { sampleEntityScale } from '../world/entity-scale.ts';
+import { foliageGroup } from '../world/state.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     CandyPresets,
     uTime,
@@ -15,12 +21,6 @@ import {
     applyPlayerInteraction,
     createJuicyRimLight,
 } from './material-core.ts';
-import { registerReactiveMaterial } from './foliage-reactivity.ts';
-import { foliageGroup } from '../world/state.ts';
-import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId, uCircadianPoseOffset, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import { sampleEntityScale } from '../world/entity-scale.ts';
-import { getCIAdjustedCount } from '../core/config.ts';
-import type { BatcherInstanceRef } from '../systems/awakened-types.ts';
 
 const GEM_BIOME: BiomeId = 'gem_canopy';
 const gemUniforms = getBiomeUniforms(GEM_BIOME);
@@ -245,10 +245,10 @@ export class GemFruitBatcher {
                 const phaseAttr = mesh.geometry.getAttribute('aPhase');
                 const armAttr = mesh.geometry.getAttribute('aArmLen');
                 if (phaseAttr && typeof (phaseAttr as { dispose?: () => void }).dispose === 'function') {
-                    try { (phaseAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+                    try { (phaseAttr as unknown as { dispose: () => void }).dispose(); } catch { /* ignore */ }
                 }
                 if (armAttr && typeof (armAttr as { dispose?: () => void }).dispose === 'function') {
-                    try { (armAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+                    try { (armAttr as unknown as { dispose: () => void }).dispose(); } catch { /* ignore */ }
                 }
             }
             // ⚡ OPTIMIZATION: Replaced manual removal with safeRemoveAndDispose to prevent VRAM leaks

@@ -1,21 +1,21 @@
 import * as THREE from 'three';
-import { InteractionSystem } from '../../systems/interaction.ts';
-import { CONFIG } from '../config.ts';
-import { initInput } from '../input/index.ts';
-import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
-import { getGroundHeight } from '../../systems/ground-system.ts';
-import { player } from '../../systems/physics/index.ts';
+import { StageLoader } from '../../debug/index.ts';
 import { ensureGameplay } from '../../gameplay/lazy.ts';
+import { getGroundHeight } from '../../systems/ground-system.ts';
+import { InteractionSystem } from '../../systems/interaction.ts';
+import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
+import { player } from '../../systems/physics/index.ts';
 import { profiler } from '../../utils/profiler.ts';
 import { toggleOverlay } from '../../utils/startup-profiler.ts';
+import { CONFIG } from '../config.ts';
 import {
     initDeferredVisualsDependencies,
 } from '../deferred-init.ts';
 import { animate, initGameLoopDependencies, getGameTime } from '../game-loop.ts';
 import { toggleDayNight, setInputSystem } from '../hud.ts';
-import { StageLoader } from '../../debug/index.ts';
-import { camera, renderer, scene } from './exports.ts';
+import { initInput } from '../input/index.ts';
 import type { MainContext } from './context.ts';
+import { camera, renderer, scene } from './exports.ts';
 
 const _scratchClickDir = new THREE.Vector3();
 const _scratchClickOrigin = new THREE.Vector3();

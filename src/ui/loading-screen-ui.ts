@@ -1,12 +1,12 @@
-import { trapFocusInside } from '../utils/interaction-utils.ts';
-import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
-import { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
-import { LoadingScreenProgress, setLoadingScreenClass } from './loading-screen-progress.ts';
-import { createDeferredIndicator, createLoadingScreenDOM, addFatalErrorReloadButton, wireSkipButton } from './loading-screen-dom.ts';
-import { updateSpawnFailureBadge } from './loading-screen-reporting.ts';
-import { announce } from './announcer.ts';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
 import { log } from '../utils/log.ts';
+import { yieldToPaint } from '../utils/yield-to-paint.ts';
+import { announce } from './announcer.ts';
+import { createDeferredIndicator, createLoadingScreenDOM, addFatalErrorReloadButton, wireSkipButton } from './loading-screen-dom.ts';
+import { LoadingScreenProgress, setLoadingScreenClass } from './loading-screen-progress.ts';
+import { updateSpawnFailureBadge } from './loading-screen-reporting.ts';
+import { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
 import './loading-screen.css';
 
 export class LoadingScreen {

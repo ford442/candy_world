@@ -121,7 +121,16 @@ export function accumulateArpeggioChannelsNative(
 ): boolean {
     if (!wasmInstance) return false;
     const exports = wasmInstance.exports as WasmExports;
-    const accumulateArpeggioChannels = exports.accumulateArpeggioChannels as Function | undefined;
+    const accumulateArpeggioChannels = exports.accumulateArpeggioChannels as
+        | ((
+              volumesPtr: number,
+              shimmerCount: number,
+              hueShiftCount: number,
+              nightGate: number,
+              intensityScale: number,
+              outPtr: number
+          ) => void)
+        | undefined;
     if (!accumulateArpeggioChannels) return false;
 
     const totalCount = shimmerCount + hueShiftCount;

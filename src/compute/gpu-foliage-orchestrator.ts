@@ -6,17 +6,17 @@
  * taking down the render canvas (policy in `gpu-context.ts`).
  */
 
-import { getSharedGPUCompute } from './gpu-compute-library.ts';
+import { onGpuDeviceLost } from '../rendering/gpu-context.ts';
 import { ensureGpuComputeReady, setLastFrameGpuFoliage } from './compute-orchestrator.ts';
-import { isGpuFoliagePilotEnabled } from './gpu-foliage-flag.ts';
-import { disposeGpuPlantPose } from './gpu-plant-pose.ts';
 import { disposeFoliageGpuBatch } from './foliage-gpu-batch.ts';
+import { getSharedGPUCompute } from './gpu-compute-library.ts';
 import {
     GPUFoliageAnimator,
     type FoliageAudioState,
     type FoliageInstanceData,
 } from './gpu-foliage-animator.ts';
-import { onGpuDeviceLost } from '../rendering/gpu-context.ts';
+import { isGpuFoliagePilotEnabled } from './gpu-foliage-flag.ts';
+import { disposeGpuPlantPose } from './gpu-plant-pose.ts';
 
 let _animator: GPUFoliageAnimator | null = null;
 let _initPromise: Promise<GPUFoliageAnimator | null> | null = null;

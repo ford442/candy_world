@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import {
     color,
     time,
@@ -10,7 +11,6 @@ import {
     cos,
     step, // ← added cos + step
     uniform,
-    UniformNode,
     normalWorld,
     Fn,
     storage,
@@ -21,6 +21,7 @@ import {
     length,
     min,
     abs,
+    add,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
@@ -79,7 +80,7 @@ export function createWaterfall(
     const uBaseEmission = float(0.2);
 
     const gradient = mix(color(0xff00ff), color(0x00ffff), uv().y);
-    mat.colorNode = mix(mat.colorNode, gradient, 0.5);
+    mat.colorNode = mix(mat.colorNode ?? color(0x00FFFF), gradient, 0.5);
 
     const rim = createJuicyRimLight(gradient, float(2.0), float(3.0), normalWorld);
 
@@ -87,8 +88,8 @@ export function createWaterfall(
     const highIntensity = uAudioHigh.pow(float(1.5)).mul(1.5);
     mat.emissiveNode = emission.add(rim).add(gradient.mul(highIntensity));
 
-    const currentRoughness = mat.roughnessNode || float(mat.roughness);
-    mat.roughnessNode = currentRoughness.add(foam.mul(0.5));
+    const currentRoughness = mat.roughnessNode ?? float(mat.roughness);
+    mat.roughnessNode = add(currentRoughness, foam.mul(0.5));
 
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(startPos.x, midY, startPos.z);
@@ -120,7 +121,7 @@ export function createWaterfall(
     const velocityStorage = storage(velocityBuffer, 'vec3', splashCount);
     const baseFloorY = float(endPos.y);
 
-    const computeSplashes = Fn(() => {
+    const computeSplashes = (Fn as any)((): void => {
         const p = positionStorage.element(instanceIndex);
         const v = velocityStorage.element(instanceIndex);
 
@@ -171,16 +172,16 @@ export function createWaterfall(
         v.assign(finalVel);
     });
 
-    const computeNode = computeSplashes().compute(splashCount);
+    const computeNode = (computeSplashes() as unknown as { compute: (n: number) => unknown }).compute(splashCount);
 
     // Splash visuals (Sugar preset + GPU positioning)
     const splashGeo = new THREE.SphereGeometry(width * 0.15, 8, 8);
     const splashMat = CandyPresets.Sugar(0xccffff, {
         roughness: 0.35,
         metalness: 0.0,
-        transparent: true,
-        opacity: 0.9,
     });
+    splashMat.transparent = true;
+    splashMat.opacity = 0.9;
 
     const instancePos = positionStorage.element(instanceIndex);
     const instanceVel = velocityStorage.element(instanceIndex);

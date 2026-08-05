@@ -2,17 +2,17 @@
 // Ability system: Dash, Dodge Roll, Double Jump, Sonic Clap, Phase Shift
 
 import * as THREE from 'three';
-import { player, _lastInputState, _scratchCamDir, AudioState, KeyStates } from './physics-types.ts';
-import { spawnImpact } from '../../foliage/impacts.ts';
-import { spawnDandelionExplosion } from '../../foliage/dandelion-seeds.ts';
+import { addCameraShake } from '../../core/camera-shake.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { dandelionBatcher } from '../../foliage/dandelion-batcher.ts';
+import { spawnDandelionExplosion } from '../../foliage/dandelion-seeds.ts';
+import { spawnImpact } from '../../foliage/impacts.ts';
+import { showToast } from '../../utils/toast.ts';
 import { animatedFoliage } from '../../world/state.ts';
-import { physicsFoliageGrid } from './physics.ts';
 import { discoverySystem } from '../discovery.ts';
 import { unlockSystem } from '../unlocks.ts';
-import { showToast } from '../../utils/toast.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { addCameraShake } from '../../core/camera-shake.ts';
+import { player, _lastInputState, _scratchCamDir, _scratchHeadOffset, _scratchPos, _clapColor, AudioState, KeyStates } from './physics-types.ts';
+import { physicsFoliageGrid } from './physics.ts';
 
 // --- Ability Handler ---
 export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStates) {

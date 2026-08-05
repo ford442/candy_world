@@ -27,6 +27,7 @@
  */
 
 import * as THREE from 'three';
+import type { ShaderNodeObject } from 'three/src/nodes/tsl/TSLCore.js';
 import {
     color,
     vec3,
@@ -41,7 +42,7 @@ import {
     uniform
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-
+import type { Node } from 'three/webgpu';
 import type {
     CandyMaterialConfig,
     GlowingMaterialConfig,
@@ -52,7 +53,6 @@ import type {
     MaterialCreateResult,
     AudioUniforms
 } from './material_types.ts';
-
 import { MaterialType } from './material_types.ts';
 
 // =============================================================================
@@ -349,7 +349,8 @@ export function updateAudioReactiveMaterials(audioState: AudioState): void {
         uAudioPulse.value = audioState.kick;
     }
     if (audioState.color !== undefined) {
-        uAudioColor.value.setHex(audioState.color);
+        const audioColorValue = uAudioColor.value as unknown as THREE.Color;
+        audioColorValue.setHex(audioState.color);
     }
 }
 
@@ -377,8 +378,8 @@ export class MaterialFactory {
      */
     public getAudioUniforms(): AudioUniforms {
         return {
-            audioPulse: uAudioPulse,
-            audioColor: uAudioColor
+            audioPulse: uAudioPulse as unknown as ShaderNodeObject<Node>,
+            audioColor: uAudioColor as unknown as ShaderNodeObject<Node>
         };
     }
 

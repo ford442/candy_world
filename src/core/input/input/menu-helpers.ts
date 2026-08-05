@@ -1,6 +1,6 @@
-import { keyStates } from '../input-types.ts';
-import { initExploreCamera, resolveExploreVariant } from '../../camera-modes.ts';
 import type * as THREE from 'three';
+import { initExploreCamera, resolveExploreVariant } from '../../camera-modes.ts';
+import { keyStates } from '../input-types.ts';
 import type { InputSession } from './session.ts';
 
 export function resetMovementInput(): void {

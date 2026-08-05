@@ -1,19 +1,19 @@
-import { resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from '../config.ts';
-import { initScene } from '../init.ts';
-import { setCameraRef } from '../camera-ref.ts';
+import { StageLoader } from '../../debug/index.ts';
 import { initPostProcessing } from '../../foliage/post-processing.ts';
 import {
     publishRendererBreadcrumbs,
     installRendererHotSwitch,
 } from '../../rendering/renderer-mode.ts';
 import { initWebGLDebug } from '../../rendering/webgl-debug.ts';
-import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
-import { installWorldExportTools } from '../../world/map-exporter.ts';
 import { showRendererBadge } from '../../ui/mode-badge-lazy.ts';
-import { StageLoader } from '../../debug/index.ts';
-import { assignCoreExports } from './exports.ts';
+import { installWorldExportTools } from '../../world/map-exporter.ts';
+import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
+import { setCameraRef } from '../camera-ref.ts';
+import { resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from '../config.ts';
+import { initScene } from '../init.ts';
 import { POST_PROCESSING_PROGRESS } from './constants.ts';
 import type { MainContext } from './context.ts';
+import { assignCoreExports } from './exports.ts';
 
 export async function runScenePipeline(ctx: MainContext): Promise<void> {
     const { loadingScreen } = ctx;

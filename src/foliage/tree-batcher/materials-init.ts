@@ -1,5 +1,17 @@
 import * as THREE from 'three';
+import {
+    color, float, vec3, positionLocal, mix, sin, cos, positionWorld,
+    instanceIndex as tslInstanceIndex, add,
+} from 'three/tsl';
+import { varyingProperty, normalWorld } from 'three/tsl';
+import { CONFIG } from '../../core/config.ts';
+import { registerFoliageBatcherLod } from '../../systems/batcher-lod.ts';
+import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../../systems/biome-uniforms.ts';
+import { getCylinderGeometry, getTorusKnotGeometry } from '../../utils/geometry-dedup.ts';
 import { foliageGroup } from '../../world/state.ts';
+import { applyAerialPerspective, aerialPerspectiveLodBoost } from '../aerial-perspective.ts';
+import { applyInstanceAnimation } from '../animation-nodes.ts';
+import { initInstanceLodAttribute } from '../batcher-lod-utils.ts';
 import {
     CandyPresets,
     sharedGeometries,
@@ -11,14 +23,6 @@ import {
     createSugarSparkle,
 } from '../index.ts';
 import {
-    color, float, vec3, positionLocal, mix, sin, cos, positionWorld,
-    instanceIndex as tslInstanceIndex,
-} from 'three/tsl';
-import { uTwilight } from '../sky.ts';
-import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../../systems/biome-uniforms.ts';
-import { CONFIG } from '../../core/config.ts';
-import { applyInstanceAnimation } from '../animation-nodes.ts';
-import {
     foliageDeformationOffset,
     scaleEmissiveByLod,
     lodHeroOnlyMultiplier,
@@ -26,12 +30,8 @@ import {
     lodMidOnlyGate,
     applyFoliageLodMaterialFade,
 } from '../lod-nodes.ts';
-import { initInstanceLodAttribute } from '../batcher-lod-utils.ts';
-import { registerFoliageBatcherLod } from '../../systems/batcher-lod.ts';
-import { applyAerialPerspective, aerialPerspectiveLodBoost } from '../aerial-perspective.ts';
-import { getCylinderGeometry, getTorusKnotGeometry } from '../../utils/geometry-dedup.ts';
+import { uTwilight } from '../sky.ts';
 import { applyBaseContactAO, getBaseContactHeight } from '../index.ts';
-import { varyingProperty, normalWorld } from 'three/tsl';
 import type { TreeBatcherState } from './types.ts';
 
 
@@ -69,7 +69,8 @@ export function initializeTreeBatcherMeshes(state: TreeBatcherState, getLODMeshe
         });
 
         // 🎨 PALETTE: Add Juicy Rim Light to tree trunks
-        trunkMat.emissiveNode = (trunkMat.emissiveNode || color(0x000000)).add(
+        trunkMat.emissiveNode = add(
+            trunkMat.emissiveNode ?? color(0x000000),
             createJuicyRimLight(color(0x8B4513), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), null)
         );
 
@@ -90,7 +91,7 @@ export function initializeTreeBatcherMeshes(state: TreeBatcherState, getLODMeshe
         // PALETTE: "Flutter" + "Squash" Juice
         const sphereInstanceColor = varyingProperty('vec3', 'vInstanceColor');
         const sphereColor = applyAerialPerspective(
-            sphereInstanceColor,
+            sphereInstanceColor as unknown as ReturnType<typeof vec3>,
             positionWorld,
             aerialPerspectiveLodBoost(),
         );
@@ -179,7 +180,7 @@ export function initializeTreeBatcherMeshes(state: TreeBatcherState, getLODMeshe
         // --- 3. Capsule Batch (Branches) ---
         const capsuleColorRaw = varyingProperty('vec3', 'vInstanceColor');
         const capsuleColorGrounded = applyBaseContactAO(
-            capsuleColorRaw,
+            capsuleColorRaw as unknown as ReturnType<typeof vec3>,
             positionLocal.y,
             float(getBaseContactHeight('tree')),
         );
@@ -216,7 +217,7 @@ export function initializeTreeBatcherMeshes(state: TreeBatcherState, getLODMeshe
         // --- 4. Helix Batch (Vines/Strange Plants) ---
         // PALETTE: Neon Pulse
         const helixColor = applyAerialPerspective(
-            varyingProperty('vec3', 'vInstanceColor'),
+            varyingProperty('vec3', 'vInstanceColor') as unknown as ReturnType<typeof vec3>,
             positionWorld,
             aerialPerspectiveLodBoost(),
         );
@@ -243,9 +244,10 @@ export function initializeTreeBatcherMeshes(state: TreeBatcherState, getLODMeshe
             roughness: 0.2,
             deformationNode: helixDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
             emissive: 0xFFFFFF,
-            emissiveIntensity: pulse.mul(0.5).add(audioBoost), // Dynamic glow
+            emissiveIntensity: 1.0,
             rimStrength: 0.8
         });
+        helixMat.emissiveNode = color(0xFFFFFF).mul(pulse.mul(0.5).add(audioBoost));
 
         applyFoliageLodMaterialFade(helixMat);
 
@@ -268,7 +270,7 @@ export function initializeTreeBatcherMeshes(state: TreeBatcherState, getLODMeshe
         // --- 5. Rose Batch (TorusKnot) ---
         // PALETTE: Velvet/Sugar Look
         const roseColor = applyAerialPerspective(
-            varyingProperty('vec3', 'vInstanceColor'),
+            varyingProperty('vec3', 'vInstanceColor') as unknown as ReturnType<typeof vec3>,
             positionWorld,
             aerialPerspectiveLodBoost(),
         );

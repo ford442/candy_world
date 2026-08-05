@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { getGroundAlignedQuaternion } from '../../world/placement-utils.ts';
 import { ANIMATION_TYPES } from '../animation-nodes.ts';
 import { INITIAL_INSTANCES, MAX_INSTANCES, _scratchTreeOriginalQuaternion, _scratchTreeFinalQuaternion } from './constants.ts';
+import type { PendingInstance } from './constants.ts';
 import { initializeTreeBatcherMeshes } from './materials-init.ts';
 import {
     flushRegistrations,
@@ -14,7 +15,6 @@ import {
     registerFloweringTree,
     registerHelixPlant,
 } from './ops.ts';
-import type { PendingInstance } from './constants.ts';
 import type { TreeBatcherState } from './types.ts';
 
 export class TreeBatcher implements TreeBatcherState {
