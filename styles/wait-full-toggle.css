@@ -1,0 +1,68 @@
+/* ♿ Aria: Accessible Switch Button */
+.wait-full-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    outline: none;
+    padding: 4px;
+    font-size: 0.82rem;
+    color: inherit;
+    font-family: inherit;
+    opacity: 0.85;
+}
+
+.wait-full-toggle:hover {
+    opacity: 1;
+}
+
+.wait-full-toggle::before {
+    content: '';
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    background: rgba(255, 255, 255, 0.4);
+    border: 2px solid #FFB6C1;
+    border-radius: 12px;
+    position: relative;
+    transition: background-color 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+
+.wait-full-toggle[aria-checked="true"]::before {
+    background: #FFB6C1;
+}
+
+.wait-full-toggle .toggle-indicator {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.wait-full-toggle[aria-checked="true"] .toggle-indicator {
+    transform: translateX(18px);
+}
+
+.wait-full-toggle:focus-visible {
+    outline: none;
+}
+
+.wait-full-toggle:focus-visible::before {
+    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #ff4081;
+}
+
+.wait-full-toggle:active,
+.wait-full-toggle.keyboard-active {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}

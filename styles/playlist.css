@@ -1,0 +1,117 @@
+/* 🎨 Palette: Button Keyboard Badges */
+.key-badge {
+    display: inline-block;
+    background: #ffffff;
+    color: #555;
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 0.85em;
+    font-weight: bold;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-family: 'Consolas', monospace;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.1);
+    border-bottom: 2px solid #e0e0e0;
+}
+
+/* 🎨 Palette: Playlist Close Button */
+.close-icon-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 2em;
+    color: #ff6b6b;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    transition:
+        transform 0.2s,
+        background 0.2s,
+        color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fredoka One', cursive, sans-serif;
+    z-index: 10;
+}
+
+.close-icon-btn:hover {
+    background: #fff0f5;
+    transform: scale(1.1);
+    color: #ff4081;
+}
+
+.close-icon-btn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 6px #ff4081;
+}
+
+/* 🎨 Palette: Playlist Layout */
+.song-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1;
+    margin-right: 10px;
+    min-width: 0;
+}
+
+/* 🎨 Palette: Playlist Remove Button */
+.playlist-remove-btn {
+    background: none;
+    border: none;
+    color: #ffb6c1;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 12px;
+    margin-left: 4px;
+    transition:
+        color 0.2s,
+        transform 0.1s;
+    font-family: 'Fredoka One', cursive, sans-serif;
+    line-height: 1;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.playlist-remove-btn:hover {
+    color: #ff5252;
+    background: #fff0f5;
+    transform: scale(1.1);
+}
+
+.playlist-remove-btn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 6px #ff4081;
+    z-index: 5;
+}
+
+/* 🎨 Palette: Active Item Remove Style */
+.playlist-item.active .playlist-remove-btn {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.playlist-item.active .playlist-remove-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ♿ Aria: Jukebox Empty State */
+.jukebox-browse-btn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 6px #ff4081;
+}
