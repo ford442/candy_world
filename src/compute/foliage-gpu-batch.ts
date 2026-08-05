@@ -13,6 +13,7 @@ import {
     setLastFrameGpuFoliage,
     trackGpuBufferBytes,
 } from './compute-orchestrator.ts';
+import { isGpuFoliagePilotEnabled } from './gpu-foliage-flag.ts';
 
 const BATCH_SCALAR_WGSL = /* wgsl */ `
 struct Uniforms {
@@ -40,13 +41,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (u.mode == 0u) {
         val = sin(u.time + offset) * 0.11 * intensity;
     } else if (u.mode == 1u) {
-        val = sin(u.time + offset) * 0.06 * intensity;
+        val = sin(u.time * 0.5 + offset) * 0.05 * intensity;
     } else if (u.mode == 2u) {
         let y0 = originalYs[i];
-        val = y0 + abs(sin(u.time * 2.0 + offset)) * 0.15 * intensity + u.kick * 0.05;
+        var kickAmt: f32 = 0.0;
+        if (u.kick > 0.12) { kickAmt = u.kick * 0.21; }
+        val = y0 + sin(u.time * 3.0 + offset) * 0.12 * intensity + kickAmt;
     } else {
         let y0 = originalYs[i];
-        val = y0 + max(0.0, sin(u.time * 3.0 + offset)) * 0.25 * intensity;
+        var kickAmt: f32 = 0.0;
+        if (u.kick > 0.1) { kickAmt = u.kick * 0.15; }
+        val = y0 + max(0.0, sin(u.time * 4.0 + offset)) * 0.3 * intensity + kickAmt;
     }
 
     outScalars[i] = val;
@@ -261,9 +266,10 @@ export function takeFoliageGpuScalarResult(batchKey: string): Float32Array | nul
     return resolved;
 }
 
-/** Sync gate for foliage-batcher: use GPU when ready and batch is large enough. */
+/** Sync gate for foliage-batcher: pilot flag + ready + min batch size. */
 export function shouldUseFoliageGpuBatch(count: number): boolean {
     return (
+        isGpuFoliagePilotEnabled() &&
         preferGpuCompute() &&
         isGpuComputeReady() &&
         count >= (CONFIG.compute?.foliageGpuBatchMin ?? 8)

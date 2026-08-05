@@ -20,6 +20,8 @@ import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { initGPUCompute } from '../compute/compute-init.ts';
 import { ensureGpuComputeReady } from '../compute/compute-orchestrator.ts';
+import { initGpuFoliageOrchestrator } from '../compute/gpu-foliage-orchestrator.ts';
+import { isGpuFoliagePilotEnabled } from '../compute/gpu-foliage-flag.ts';
 import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
 import { getAwakenedStore } from '../systems/awakened-persistence.ts';
 import { ensureGameplay, preloadGameplay } from '../gameplay/lazy.ts';
@@ -63,7 +65,11 @@ export function initDeferredVisuals() {
     // NoiseGeneratorGPU, and GPUCullingSystem find a warm device on first use.
     // Resolves silently when WebGPU is unavailable; CPU/WASM fallbacks stay active.
     initGPUCompute();
-    void ensureGpuComputeReady();
+    void ensureGpuComputeReady().then(() => {
+        if (isGpuFoliagePilotEnabled()) {
+            void initGpuFoliageOrchestrator();
+        }
+    });
 
     // Prefetch gameplay chunk in parallel with visual init (#1361)
     void preloadGameplay().then((gp) => {
