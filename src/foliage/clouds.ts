@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { CloudBatcher, uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, getSharedCloudMaterial } from './cloud-batcher.ts';
 import { registerWalkableCloudPlatform } from '../systems/ground-system.ts';
-import { registerCloudPlatform } from '../debug/ground-debug.ts';
+import { registerCloudPlatform } from '../debug/tools-stub.ts';
 
 // Re-export for compatibility with weather.ts
 export { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, getSharedCloudMaterial };

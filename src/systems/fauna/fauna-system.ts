@@ -16,7 +16,7 @@ import {
 } from './boids-bridge.ts';
 import { spawnFaunaPopulation } from './spawn.ts';
 import { FAUNA_BOID_STRIDE, FaunaSpecies, type FaunaSpawnEntry } from './types.ts';
-import { updateFaunaDebug, isFaunaDebugEnabled } from '../../debug/fauna-debug.ts';
+import { updateFaunaDebug, isFaunaDebugEnabled } from '../../debug/tools-stub.ts';
 
 const _up = new THREE.Vector3(0, 1, 0);
 const _normal = new THREE.Vector3();

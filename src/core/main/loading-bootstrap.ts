@@ -7,13 +7,12 @@ import {
     CONFIG,
 } from '../config.ts';
 import { enableStartupProfiler } from '../../utils/startup-profiler.ts';
-import { initDebugPanel } from '../../debug/index.ts';
-import { installBatcherTelemetry } from '../../foliage/batcher-telemetry.ts';
+import { initDebugPanelIfNeeded } from '../../debug/index.ts';
 import { installSaveMenuGlobals } from '../../ui/save-menu/lazy.ts';
 import { initAnalyticsDebugIfNeeded } from '../../ui/analytics-debug-lazy.ts';
-import { initializeSaveSystemIntegration } from '../../systems/save-integration.ts';
+import { initializeSaveSystemIntegration } from '../../systems/save-integration-lazy.ts';
 import { initLoadingScreen, installLegacyAPI } from '../../ui/loading-screen.ts';
-import { installPresenceStartScreenUI } from '../../ui/presence-panel.ts';
+import { installPresenceStartScreenUI } from '../../ui/presence-lazy.ts';
 import { WAIT_FULL_KEY } from './constants.ts';
 import type { LoadingScreen } from './context.ts';
 
@@ -80,8 +79,8 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
         );
     }
 
-    initDebugPanel();
-    installBatcherTelemetry();
+    initDebugPanelIfNeeded();
+    void import('../../foliage/batcher-telemetry.ts').then((m) => m.installBatcherTelemetry());
     installSaveMenuGlobals();
     void initAnalyticsDebugIfNeeded();
     initializeSaveSystemIntegration();

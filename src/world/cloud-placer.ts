@@ -19,7 +19,7 @@ import { createCloud } from '../foliage/clouds.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 import { getGroundHeight, registerWalkableCloudPlatform } from '../systems/ground-system.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
-import { registerCloudPlatform } from '../debug/ground-debug.ts';
+import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import type { WeatherSystem } from '../systems/weather.ts';
 
 const STORAGE_KEY = 'candy_dev_cloud_placements';

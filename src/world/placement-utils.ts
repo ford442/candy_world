@@ -11,7 +11,7 @@ export type { ScaleSampleOptions } from './entity-scale.ts';
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { getGroundHeight, sampleGroundNormal, sampleGroundFootprint, type GroundFootprintResult } from '../systems/ground-system.ts';
-import { registerPlantedInstance } from '../debug/ground-debug.ts';
+import { registerPlantedInstance } from '../debug/tools-stub.ts';
 
 /**
  * Local-origin Y offset from ground contact to object root (world units).

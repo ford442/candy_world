@@ -10,7 +10,7 @@ import {
 } from '../playlist-manager.ts';
 import { handleMuteKey, handleVolumeKey } from '../audio-controls.ts';
 import { isExploreActive } from '../../camera-modes.ts';
-import { getPhotoMode, isPhotoModeActive } from '../../../systems/photo-mode/index.ts';
+import { getPhotoMode, isPhotoModeActive, togglePhotoMode } from '../../../systems/photo-mode/lazy.ts';
 import type { InputSession } from './session.ts';
 import {
     disableExploreMode,
@@ -57,7 +57,7 @@ export function createKeyboardHandlers(
             session.instructions.style.display === 'none'
         ) {
             event.preventDefault();
-            getPhotoMode()?.toggle();
+            togglePhotoMode();
             return;
         }
 

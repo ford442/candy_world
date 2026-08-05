@@ -1,7 +1,7 @@
 {
   "budgets": {
     "main": "300kb",
-    "app": "850kb",
+    "app": "600kb",
     "vendor": "1500kb",
     "wasm": "600kb",
     "total": "20mb"
@@ -12,7 +12,7 @@
   },
   "comments": {
     "main": "Entry shell (main-*.js) — tiny after code-splitting",
-    "app": "Core + foliage + systems hot path (#1361). Soft ceiling after gameplay/save-ui/world-content split; still > Vite 500kB warning — see docs/APP_CHUNK_SPLIT.md",
+    "app": "Core + foliage + systems hot path (#1361). Ceiling 600 KB raw after debug/presence/photo splits — see docs/APP_CHUNK_SPLIT.md",
     "vendor": "Third-party libraries (Three.js, Vite chunks, etc.)",
     "wasm": "WebAssembly modules (physics + compute via AssemblyScript)",
     "total": "Total JavaScript + WASM bundle size"

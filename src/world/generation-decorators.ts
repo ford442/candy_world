@@ -22,7 +22,7 @@ import {
     getGroundHeight,
 } from '../systems/ground-system.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
-import { registerCloudPlatform } from '../debug/ground-debug.ts';
+import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import {
     clearSkyIslandGraph,
     registerSkyIslandNode,

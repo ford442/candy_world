@@ -14,16 +14,10 @@ import { createDiscoveryEffect } from '../foliage/discovery-effect.ts';
 import { uTime } from '../foliage/index.ts';
 import { initCelestialBodies } from '../foliage/celestial-bodies.ts';
 import { createFluidFog } from '../foliage/fluid_fog.ts';
-import { createMushroom } from '../foliage/mushrooms.ts';
 import { animatedFoliage } from '../world/state.ts';
-import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
-import { initGPUCompute } from '../compute/compute-init.ts';
-import { ensureGpuComputeReady } from '../compute/compute-orchestrator.ts';
-import { initGpuFoliageOrchestrator } from '../compute/gpu-foliage-orchestrator.ts';
-import { isGpuFoliagePilotEnabled } from '../compute/gpu-foliage-flag.ts';
 import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
-import { getAwakenedStore } from '../systems/awakened-persistence.ts';
+import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence-api.ts';
 import { ensureGameplay, preloadGameplay } from '../gameplay/lazy.ts';
 
 // Deferred visual elements
@@ -64,11 +58,17 @@ export function initDeferredVisuals() {
     // Arm the GPU compute library in the background so MeshDeformationGPU,
     // NoiseGeneratorGPU, and GPUCullingSystem find a warm device on first use.
     // Resolves silently when WebGPU is unavailable; CPU/WASM fallbacks stay active.
-    initGPUCompute();
-    void ensureGpuComputeReady().then(() => {
-        if (isGpuFoliagePilotEnabled()) {
-            void initGpuFoliageOrchestrator();
-        }
+    void import('../compute/compute-init.ts').then(({ initGPUCompute }) => {
+        initGPUCompute();
+        return import('../compute/compute-orchestrator.ts');
+    }).then(({ ensureGpuComputeReady }) => {
+        void ensureGpuComputeReady().then(async () => {
+            const { isGpuFoliagePilotEnabled } = await import('../compute/gpu-foliage-flag.ts');
+            if (isGpuFoliagePilotEnabled()) {
+                const { initGpuFoliageOrchestrator } = await import('../compute/gpu-foliage-orchestrator.ts');
+                void initGpuFoliageOrchestrator();
+            }
+        });
     });
 
     // Prefetch gameplay chunk in parallel with visual init (#1361)
@@ -85,6 +85,10 @@ export function initDeferredVisuals() {
             console.log('[Deferred] Harpoon Line initialized');
         }
     });
+
+    if (FEATURE_FLAGS.awakenedPersistence) {
+        initAwakenedPersistenceIfNeeded();
+    }
 
     console.time('Deferred Visuals Init');
 
@@ -176,7 +180,9 @@ export function initDeferredVisuals() {
  */
 export function applyAwakenedPersistenceAfterWorldLoad(): void {
     if (!FEATURE_FLAGS.awakenedPersistence) return;
-    getAwakenedStore()?.reconcileAndApplyToBatchers();
+    void import('../systems/awakened-persistence.ts').then((m) => {
+        m.getAwakenedStore()?.reconcileAndApplyToBatchers();
+    });
 }
 
 // --- DEFERRED INCREMENTAL SHADER WARMUP ---
@@ -235,6 +241,7 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
             // --- Phase 1: Compile predefined foliage / preset materials in batches ---
             // ShaderWarmup renders each material in a 1×1 pixel target and disposes
             // the temporary mesh+render-target; the original scene materials are unaffected.
+            const { ShaderWarmup } = await import('../rendering/shader-warmup.ts');
             const warmup = new ShaderWarmup();
             const targets = warmup.getTargets();
 
@@ -297,6 +304,7 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
 
                 // Compile each material by cloning it so warmupSingle can safely dispose
                 // the clone while the original in the scene remains intact.
+                const { ShaderWarmup } = await import('../rendering/shader-warmup.ts');
                 const sceneWarmup = new ShaderWarmup();
                 for (let i = 0; i < sceneEntries.length; i += WARMUP_BATCH_SIZE) {
                     if (_warmupAborted) break;

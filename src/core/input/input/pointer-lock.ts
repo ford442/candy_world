@@ -1,4 +1,4 @@
-import { closeAccessibilityMenu } from '../../../ui/accessibility-menu.ts';
+import { closeAccessibilityMenu } from '../../../ui/accessibility-menu-lazy.ts';
 import { trapFocusInside } from '../../../utils/interaction-utils.ts';
 import { yieldToPaint } from '../../../utils/yield-to-paint.ts';
 import { isExploreActive } from '../../camera-modes.ts';
