@@ -17,7 +17,7 @@ export function initInput(
     const instructions = document.getElementById('instructions');
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     const canvas = document.getElementById('glCanvas') as HTMLCanvasElement | null;
-    // @ts-expect-error vite build issue
+    // @ts-expect-error
     const isDevBuild = import.meta.env?.DEV || false;
 
     // Ability HUD Elements
