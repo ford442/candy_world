@@ -128,14 +128,14 @@ export class ComputeParticleSystem {
     constructor(
         count: number,
         renderer: WebGPURenderer,
-        config: ComputeParticleConfig & { type?: 'rain' | 'mist' | 'default' } = {}
+        config: ComputeParticleConfig & { gravity?: THREE.Vector3 } = { type: 'default' }
     ) {
         this.count = count;
         this.renderer = renderer;
         this.type = config.type || 'default';
 
         const {
-            spawnCenter = new THREE.Vector3(0, 5, 0),
+            center = new THREE.Vector3(0, 5, 0),
             gravity = new THREE.Vector3(0, -2.0, 0)
         } = config;
 
@@ -165,7 +165,7 @@ export class ComputeParticleSystem {
 
         // Create uniforms
         this.uGravity = uniform(gravity);
-        this.uSpawnCenter = uniform(spawnCenter);
+        this.uSpawnCenter = uniform(center);
 
         this.setupComputeShader();
     }

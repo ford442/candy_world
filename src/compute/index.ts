@@ -148,7 +148,7 @@ export {
     ensureGpuComputeReady,
     tickComputeOrchestrator,
     getComputeOrchestratorStatus,
-    isGpuComputePreferred,
+    isGpuComputeReady,
 } from './compute-orchestrator.ts';
 export { dispatchGpuBatcherLod, applyGpuBatcherLodIfReady } from './batcher-gpu-lod.ts';
 export { shouldUseFoliageGpuBatch } from './foliage-gpu-batch.ts';
