@@ -25,6 +25,13 @@ import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { camera } from '../core/camera-ref.ts';
 import { BiomeUniforms, circadianDayGlowMult } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-wave.ts';
+import { isGpuFoliagePilotEnabled } from '../compute/gpu-foliage-flag.ts';
+import {
+    runGpuPlantPose,
+    uploadGpuPlantPositions,
+    shouldUseGpuPlantPose,
+    type GpuPlantPoseWave,
+} from '../compute/gpu-plant-pose.ts';
 
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
@@ -43,6 +50,9 @@ const _scratchColor = new THREE.Color();
 
 export class SimpleFlowerBatcher {
     private _poseMachine!: PlantPoseMachine;
+    private _gpuPositions: Float32Array | null = null;
+    private _lastGpuPoses: Float32Array | null = null;
+    private _gpuPoseInFlight = false;
     initialized: boolean;
     count: number;
 
@@ -217,6 +227,7 @@ export class SimpleFlowerBatcher {
         this.initPollenSystem();
 
         this._poseMachine = new PlantPoseMachine(MAX_FLOWERS);
+        this._gpuPositions = new Float32Array(MAX_FLOWERS * 3);
         this.initialized = true;
         console.log(`[SimpleFlowerBatcher] Initialized with capacity ${MAX_FLOWERS}`);
     }
@@ -319,32 +330,41 @@ export class SimpleFlowerBatcher {
         const config = CONFIG.plantPose.simpleFlower;
         if (!config) return;
 
-        // Prefer kickTrigger (edge) then sustained kick — same channel family as FlowerBatcher.
         const kick = audioState?.kickTrigger || audioState?.kick || 0;
-
         const activeWave = getActiveWave();
         const cameraPos = camera ? camera.position : undefined;
 
-        const getPlantPos = (index: number, out: THREE.Vector3) => {
-            if (!this.stemMesh) return;
-            const array = this.stemMesh.instanceMatrix.array as Float32Array;
-            const offset = index * 16;
-            out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
-        };
+        const useGpuPose = shouldUseGpuPlantPose(this.count);
 
-        // Day: baseline open; night: closed; music wave / kick can override.
-        this._poseMachine.update(
-            this.count,
-            deltaTime,
-            kick,
-            dayNightBias,
-            config,
-            activeWave,
-            getPlantPos,
-            cameraPos
-        );
+        if (useGpuPose && this._lastGpuPoses && this._lastGpuPoses.length >= this.count) {
+            this._applyPoseState(this._lastGpuPoses);
+        } else {
+            const getPlantPos = (index: number, out: THREE.Vector3) => {
+                if (!this.stemMesh) return;
+                const array = this.stemMesh.instanceMatrix.array as Float32Array;
+                const offset = index * 16;
+                out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
+            };
 
-        const poses = this._poseMachine.currentPoses;
+            this._poseMachine.update(
+                this.count,
+                deltaTime,
+                kick,
+                dayNightBias,
+                config,
+                activeWave,
+                getPlantPos,
+                cameraPos
+            );
+            this._applyPoseState(this._poseMachine.currentPoses);
+        }
+
+        if (useGpuPose && !this._gpuPoseInFlight) {
+            this._dispatchGpuPose(deltaTime, kick, dayNightBias, config, activeWave, cameraPos);
+        }
+    }
+
+    private _applyPoseState(poses: Float32Array): void {
         const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
         for (const mesh of meshes) {
             if (!mesh || mesh.count === 0) continue;
@@ -359,6 +379,49 @@ export class SimpleFlowerBatcher {
         }
     }
 
+    private _dispatchGpuPose(
+        deltaTime: number,
+        kick: number,
+        dayNightBias: number,
+        config: NonNullable<typeof CONFIG.plantPose.simpleFlower>,
+        activeWave: ReturnType<typeof getActiveWave>,
+        cameraPos: THREE.Vector3 | undefined
+    ): void {
+        if (!this._gpuPositions) return;
+
+        let wave: GpuPlantPoseWave | null = null;
+        if (activeWave) {
+            const origin = activeWave.origin || cameraPos;
+            if (origin) {
+                const speed = activeWave.speed || 25.0;
+                const elapsedSec = Math.max(0, (performance.now() - activeWave.timestamp) / 1000);
+                const radius = elapsedSec * speed;
+                wave = {
+                    originX: origin.x,
+                    originY: origin.y,
+                    originZ: origin.z,
+                    radiusSq: radius * radius,
+                };
+            }
+        }
+
+        this._gpuPoseInFlight = true;
+        void runGpuPlantPose({
+            count: this.count,
+            delta: deltaTime,
+            channelIntensity: kick,
+            dayNightBias,
+            config,
+            wave,
+        })
+            .then((poses) => {
+                if (poses) this._lastGpuPoses = poses;
+            })
+            .finally(() => {
+                this._gpuPoseInFlight = false;
+            });
+    }
+
     register(logicObject: THREE.Object3D, options: any = {}) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_FLOWERS) {
@@ -368,6 +431,14 @@ export class SimpleFlowerBatcher {
 
         const i = this.count;
         const { color = 0xFFFFFF } = options;
+
+        if (this._gpuPositions && isGpuFoliagePilotEnabled()) {
+            const base = i * 3;
+            this._gpuPositions[base] = logicObject.position.x;
+            this._gpuPositions[base + 1] = logicObject.position.y;
+            this._gpuPositions[base + 2] = logicObject.position.z;
+            uploadGpuPlantPositions(this._gpuPositions, this.count + 1);
+        }
 
         // 1. Calculate Transforms
         _scratchMat.compose(logicObject.position, logicObject.quaternion, logicObject.scale);
@@ -470,6 +541,10 @@ export class SimpleFlowerBatcher {
         }
 
         this.count++;
+
+        if (this._poseMachine) {
+            this._poseMachine.reset(i, 0);
+        }
 
         // Mark for update
         this.stemMesh!.instanceMatrix.needsUpdate = true;
