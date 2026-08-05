@@ -1,7 +1,16 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
-import { uTime, createJuicyRimLight, applyBaseContactAO, getBaseContactHeight } from './material-core.ts';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
+import {
+    computePersistentId,
+    persistentIdFromString,
+    LUMINOUS_PLANT_TYPE_ID,
+} from '../systems/awakened-persistent-id.ts';
+import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
+import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPoseOffset, circadianNightGlowMult, type BiomeId } from '../systems/biome-uniforms.ts';
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
+import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import {
     applyPlayerInteractionWithLod,
     calculateWindSwayWithLod,
@@ -9,17 +18,8 @@ import {
     applyStandardDeformationWithLod,
     applyFoliageLodMaterialFade,
 } from './lod-nodes.ts';
-import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
-import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
-import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPoseOffset, circadianNightGlowMult, type BiomeId } from '../systems/biome-uniforms.ts';
-import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
+import { uTime, createJuicyRimLight, applyBaseContactAO, getBaseContactHeight } from './material-core.ts';
 import { uTwilight } from './sky.ts';
-import {
-    computePersistentId,
-    persistentIdFromString,
-    LUMINOUS_PLANT_TYPE_ID,
-} from '../systems/awakened-persistent-id.ts';
-import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 
 const AWAKENED_ATTR_ENABLED = FEATURE_FLAGS.awakenedPersistence;
 const LUMINOUS_TYPE_ID = LUMINOUS_PLANT_TYPE_ID;
@@ -219,7 +219,8 @@ export class LuminousPlantBatcher {
             this.persistentIdToIndex.set(persistentId, id);
             this.indexToPersistentId[id] = persistentId;
 
-            if (typeof import.meta !== 'undefined' && false) {
+            const _debugPersistentId = false;
+            if (typeof import.meta !== 'undefined' && _debugPersistentId) {
                 const again = this.resolveInstancePersistentId(group, id);
                 if (again !== persistentId) {
                     console.error('[LuminousPlantBatcher] persistentId unstable for instance', id);

@@ -196,7 +196,12 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
       
       case 'checkCollision': {
         const { playerX, playerZ, playerRadius, objectCount } = request as CollisionCheckRequest;
-        const hasCollision = checkCollision(playerX, playerZ, playerRadius, objectCount);
+        const hasCollision = checkCollision(
+          playerX ?? 0,
+          playerZ ?? 0,
+          playerRadius ?? 1,
+          objectCount ?? 0
+        );
         return {
           type: 'checkCollision',
           requestId: request.requestId,
@@ -207,7 +212,7 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
       
       case 'checkPositionValidity': {
         const { x, z, radius } = request as CollisionCheckRequest;
-        const isValid = checkPositionValidity(x, z, radius);
+        const isValid = checkPositionValidity(x ?? 0, z ?? 0, radius ?? 1);
         return {
           type: 'checkPositionValidity',
           requestId: request.requestId,
@@ -232,13 +237,16 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
         } as BatchGroundHeightResponse;
       }
       
-      default:
+      default: {
+        const fallbackRequest = request as { type?: string; requestId?: number };
+        const unknownType = fallbackRequest.type ?? 'unknown';
         return {
           type: 'error',
-          requestId: request.requestId,
-          error: `Unknown request type: ${(request as any).type}`,
+          requestId: String(fallbackRequest.requestId ?? ''),
+          error: `Unknown request type: ${unknownType}`,
           computeTime: performance.now() - startTime
         };
+      }
     }
   } catch (error) {
     return {

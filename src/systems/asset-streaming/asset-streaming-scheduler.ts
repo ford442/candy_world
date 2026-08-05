@@ -13,7 +13,8 @@ import {
     AssetRequest,
     AssetBatch,
     LoadedAsset,
-    LoadingProgress
+    LoadingProgress,
+    LoadState,
 } from './asset-streaming-types.ts';
 
 // ============================================================================
@@ -200,12 +201,12 @@ export class AssetScheduler {
         for (const request of batch) {
             try {
                 const asset = await processor(request);
-                request.resolve(asset);
+                request.resolve?.(asset);
                 processedCount++;
             } catch (error) {
                 failedCount++;
                 const err = error instanceof Error ? error : new Error(String(error));
-                request.reject(err);
+                request.reject?.(err);
             } finally {
                 this.completeLoad();
             }
@@ -325,10 +326,13 @@ export class BatchCoordinator {
         for (let i = 0; i < batch.ids.length; i++) {
             requests.push({
                 id: batch.ids[i],
+                assetId: batch.ids[i],
                 priority: batch.priority,
+                timestamp: Date.now(),
+                state: LoadState.PENDING,
+                retries: 0,
                 resolve: () => {},
                 reject: () => {},
-                attempts: 0
             });
         }
         return requests;

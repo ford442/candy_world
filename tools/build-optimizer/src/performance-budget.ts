@@ -22,6 +22,7 @@ const OUTPUT_FILE = path.join(STATS_DIR, 'budget-report.json');
 interface BudgetConfig {
   budgets: {
     main: string;
+    app: string;
     vendor: string;
     wasm: string;
     total: string;
@@ -55,6 +56,7 @@ interface BudgetReport {
 const DEFAULT_CONFIG: BudgetConfig = {
   budgets: {
     main: '200kb',
+    app: '600kb',
     vendor: '500kb',
     wasm: '100kb',
     total: '2mb'
@@ -89,6 +91,7 @@ class PerformanceBudgetChecker {
     console.log('');
     console.log('Budgets:');
     console.log(`  Main:   ${this.config.budgets.main}`);
+    console.log(`  App:    ${this.config.budgets.app}`);
     console.log(`  Vendor: ${this.config.budgets.vendor}`);
     console.log(`  WASM:   ${this.config.budgets.wasm}`);
     console.log(`  Total:  ${this.config.budgets.total}`);
@@ -213,6 +216,10 @@ class PerformanceBudgetChecker {
         } else if (result.name === 'main') {
           this.report.recommendations.push(
             `MAIN BUDGET EXCEEDED: Split main.ts into smaller chunks or defer non-critical initialization.`
+          );
+        } else if (result.name === 'app') {
+          this.report.recommendations.push(
+            `APP BUDGET EXCEEDED: Lazy-load debug/presence/photo/generative chunks or peel weather/particles — see docs/APP_CHUNK_SPLIT.md.`
           );
         } else if (result.name === 'wasm') {
           this.report.recommendations.push(

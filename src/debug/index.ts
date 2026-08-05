@@ -1,5 +1,5 @@
 // src/debug/index.ts
-// Debug system exports
+// Lightweight debug exports — heavy panel/tools load via lazy.ts / tools-stub.ts
 
 export {
   DEBUG_CONFIG,
@@ -14,4 +14,4 @@ export {
   type StageMetadata,
 } from './stages.ts';
 
-export { DebugPanel, getDebugPanel, initDebugPanel } from './panel.ts';
+export { initDebugPanelIfNeeded } from './lazy.ts';

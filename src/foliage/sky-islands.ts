@@ -8,8 +8,6 @@
  */
 
 import * as THREE from 'three';
-import { CandyPresets, createClayMaterial } from './material-core.ts';
-import { attachReactivity } from './foliage-reactivity.ts';
 import {
     positionLocal,
     vec3,
@@ -22,6 +20,8 @@ import {
     smoothstep,
 } from 'three/tsl';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
+import { CandyPresets, createClayMaterial } from './material-core.ts';
 
 export type SkyIslandLayerKind = 'mist' | 'canopy' | 'nebula';
 
@@ -118,9 +118,9 @@ export function createSkyIsland(options: SkyIslandOptions = {}): THREE.Group {
     if (kind === 'nebula') {
         islandMat = CandyPresets.Crystal(baseColor, {
             roughness: 0.25,
-            clearcoat: 0.9,
             transmission: 0.15,
         });
+        islandMat.clearcoat = 0.9;
     } else if (kind === 'canopy') {
         islandMat = CandyPresets.Sugar(baseColor, {
             roughness: 0.35,

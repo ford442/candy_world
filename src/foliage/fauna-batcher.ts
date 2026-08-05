@@ -4,8 +4,14 @@
  */
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, attribute, mix, positionLocal } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
+import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { FaunaSpecies } from '../systems/fauna/types.ts';
+import { foliageGroup } from '../world/state.ts';
+import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import {
     CandyPresets,
     uTime,
@@ -13,12 +19,6 @@ import {
     createJuicyRimLight,
     registerReactiveMaterial,
 } from './index.ts';
-import { foliageGroup } from '../world/state.ts';
-import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
-import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
-import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
-import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-import { FaunaSpecies } from '../systems/fauna/types.ts';
 
 const SPECIES_LABELS = ['gumdrop_beetle', 'jellybean_hopper', 'sugar_moth'] as const;
 

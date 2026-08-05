@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { profiler } from '../utils/profiler.ts';
-import { cameraRef, controlsRef, sceneRef, rendererRef, gameTime } from './game-loop-core.ts';
-import { updatePhysics, player } from '../systems/physics/index.ts';
-import { keyStates } from './input/index.ts';
-import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
-import { updateGroundDebug, isGroundDebugEnabled } from '../debug/ground-debug.ts';
-import { updatePlacementDebug, isPlacementDebugEnabled } from '../debug/debug-place.ts';
-import { createShield } from '../foliage/shield.ts';
-import { unlockSystem } from '../systems/unlocks.ts';
-import { getSparkleTrail, getPlayerShieldMesh, setPlayerShieldMesh } from './deferred-init.ts';
+import { updateGroundDebug, isGroundDebugEnabled } from '../debug/tools-stub.ts';
+import { updatePlacementDebug, isPlacementDebugEnabled } from '../debug/tools-stub.ts';
 import { uPlayerPosition, uPlayerVelocity } from '../foliage/index.ts';
+import { createShield } from '../foliage/shield.ts';
+import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
+import { updatePhysics, player } from '../systems/physics/index.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
+import { profiler } from '../utils/profiler.ts';
+import { getSparkleTrail, getPlayerShieldMesh, setPlayerShieldMesh } from './deferred-init.ts';
+import { cameraRef, controlsRef, sceneRef, rendererRef, gameTime } from './game-loop-core.ts';
+import { keyStates } from './input/index.ts';
 
 const _scratchDir = new THREE.Vector3();
 

@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     Fn,
     uniform,
@@ -21,6 +20,7 @@ import {
     positionWorld,
     normalLocal,
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
 import {
     uTime,
@@ -66,7 +66,7 @@ export function createFireflies(count = 150, areaSize = 100) {
     const anchorStorage = storage(anchorBuffer, 'vec3', count);
 
     // Compute shader runs per instance (thread)
-    const computeFireflies = Fn(() => {
+    const computeFireflies = (Fn as any)((): void => {
         const p = positionStorage.element(instanceIndex);
         const v = velocityStorage.element(instanceIndex);
         const anchor = anchorStorage.element(instanceIndex);
@@ -119,7 +119,7 @@ export function createFireflies(count = 150, areaSize = 100) {
         p.y.assign(max(p.y, float(0.5)));
     });
 
-    const computeNode = computeFireflies().compute(count);
+    const computeNode = (computeFireflies() as unknown as { compute: (n: number) => unknown }).compute(count);
 
     // 3. Create Visualization (InstancedMesh)
     // Use low-poly sphere for performance

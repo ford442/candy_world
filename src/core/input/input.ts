@@ -1,45 +1,8 @@
 /**
- * Main Input Module
+ * Main Input Module (barrel)
  * Handles pointer lock controls, keyboard/mouse input, ability HUD, and drag & drop
  * Coordinates with playlist-manager and audio-controls modules
  */
-
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import { AudioSystem } from '../../audio/audio-system';
-import * as THREE from 'three';
-import { discoverySystem } from '../../systems/discovery.ts';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
-import { openAccessibilityMenu, closeAccessibilityMenu } from '../../ui/accessibility-menu.ts';
-import { yieldToPaint } from '../../utils/yield-to-paint.ts';
-import {
-    keyStates,
-    InitInputResult,
-    filterValidMusicFiles,
-    triggerAbility,
-} from './input-types.ts';
-import {
-    initPlaylistManager,
-    getIsPlaylistOpen,
-    setIsPlaylistOpen,
-    closePlaylist,
-    getReleaseJukeboxFocus,
-    setReleaseJukeboxFocus,
-    getWasPausedBeforePlaylist,
-    togglePlaylist,
-    handlePlaylistKeyDown,
-    handlePlaylistKeyUp,
-    initLegacyMusicUpload,
-} from './playlist-manager.ts';
-import { initAudioControls, handleMuteKey, handleVolumeKey } from './audio-controls.ts';
-import {
-    bootstrapExploreFromPreference,
-    initExploreCamera,
-    isExploreActive,
-    resolveExploreVariant,
-    type ExploreVariant,
-} from '../camera-modes.ts';
-import { announcePolite } from '../../ui/announcer.ts';
-import { getPhotoMode, isPhotoModeActive } from '../../systems/photo-mode/index.ts';
 
 export { keyStates } from './input-types.ts';
 export type { KeyStates, InitInputResult } from './input-types.ts';
@@ -1162,3 +1125,4 @@ export function initInput(
         },
     };
 }
+export { initInput } from './input/init-input.ts';

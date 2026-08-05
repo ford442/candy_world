@@ -89,7 +89,7 @@ export interface ComputeSystemCollection {
 export interface ComputeParticleSystem {
     particlesMesh: any;
     computeNode: any;
-    update(delta: number, time: number, audioData: any): void;
+    update(renderer: THREE.Renderer, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void;
     dispose(): void;
     updateInstances(count: number): void;
 }

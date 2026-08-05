@@ -12,8 +12,8 @@ import * as THREE from 'three';
  *   BiomeUniforms.arpeggioGrove.shimmer.value = 0.75;
  */
 
-import { uniform, texture, vec2, mix, float } from 'three/tsl';
 import { DataTexture, RGBAFormat, HalfFloatType, Color, NearestFilter, DataUtils } from 'three';
+import { uniform, texture, vec2, mix, float } from 'three/tsl';
 import { CONFIG } from '../core/config.ts';
 
 export const BiomeUniforms = {

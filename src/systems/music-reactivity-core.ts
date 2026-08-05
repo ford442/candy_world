@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
+import { accumulateArpeggioChannels } from '../utils/wasm-music-reactivity.ts';
+import type { MapMusicOverrides } from '../world/map-loader.ts';
+import { getMapMusicContext } from '../world/map-music-context.ts';
+import { BiomeUniforms } from './biome-uniforms.ts';
 import {
     defaultArpeggioShimmerCh, defaultArpeggioHueShiftCh, defaultArpeggioNoteColorCh,
     defaultNebulaShimmerCh, defaultNebulaAmplitudeCh, defaultNebulaNoteColorCh,
@@ -19,11 +23,6 @@ import {
     getActiveWave,
     setActiveWave,
 } from './music-wave.ts';
-import { BiomeUniforms } from './biome-uniforms.ts';
-import { accumulateArpeggioChannels } from '../utils/wasm-music-reactivity.ts';
-
-import { getMapMusicContext } from '../world/map-music-context.ts';
-import type { MapMusicOverrides } from '../world/map-loader.ts';
 
 // Re-export wave leaf for callers that historically imported from this module.
 export type { ActiveWave };

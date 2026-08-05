@@ -19,8 +19,8 @@
 
 import * as THREE from 'three';
 import { GPUComputeLibrary, getSharedGPUCompute } from './gpu-compute-library.ts';
-import { ProceduralNoiseCompute, NoiseConfig } from './noise_generator.ts';
 import { NOISE_FBM_WGSL, NOISE_HEIGHTMAP_WGSL } from './gpu-compute-shaders.ts';
+import { ProceduralNoiseCompute, NoiseConfig } from './noise_generator.ts';
 
 // =============================================================================
 // TYPES

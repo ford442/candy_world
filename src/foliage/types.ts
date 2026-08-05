@@ -1,18 +1,7 @@
 import * as THREE from 'three';
+import type { ChannelData } from '../audio/audio-system-core.ts';
 
-export interface ChannelData {
-    freq: number;
-    volume: number;
-    trigger: number;
-    pan?: number;
-    instrument?: number;
-    activeEffect?: number;
-    effectValue?: number;
-
-    // --- Missing fields present at runtime (from audio worklet / audio-system.ts) ---
-    note: string;           // e.g. "C", "F#", ""
-    notes?: number[];       // 12-band / chromatic analysis (used for luminous dominant note detection)
-}
+export type { ChannelData };
 
 export interface AudioData {
     channelData?: ChannelData[];

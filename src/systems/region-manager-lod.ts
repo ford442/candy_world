@@ -3,12 +3,12 @@
  * @description LOD transitions and spatial queries for RegionManager
  */
 
-import { GridCell, CellState, SpatialQueryResult, RegionManager } from './region-manager-core.ts';
-import { distanceToCellSq, cellToBounds, getCellKey } from './region-manager-core.ts';
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
-import { updateFoliageBatcherLOD } from './batcher-lod.ts';
 import { batchDistanceCull, uploadPositionsFlat } from '../utils/wasm-batch.ts';
+import { updateFoliageBatcherLOD } from './batcher-lod.ts';
+import { distanceToCellSq, cellToBounds, getCellKey } from './region-manager-core.ts';
+import { GridCell, CellState, SpatialQueryResult, RegionManager } from './region-manager-core.ts';
 
 const _scratchCells: GridCell[] = [];
 const _scratchPositions = new Float32Array(5000 * 4);

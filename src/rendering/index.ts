@@ -22,7 +22,7 @@ export {
     type CullableObject,
     type CullingConfig,
     type CullingStats
-} from './culling-system.ts';
+} from './culling/index.ts';
 
 // Material types and interfaces
 export * from './material_types.ts';

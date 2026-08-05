@@ -1,18 +1,18 @@
-import { createComputeBerries } from '../particles/index.ts';
 import * as THREE from 'three';
-import { StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
     color, float, uniform, vec3, positionLocal, positionWorld,
     sin, dot, time, attribute,
     storage, instanceIndex, Fn, If, vec4, varyingProperty
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
-import { spawnImpact } from './impacts.ts';
-import { uChromaticIntensity } from './chromatic.ts';
-import { foliageGroup } from '../world/state.ts';
-import { CommonGeometries, getSphereGeometry } from '../utils/geometry-dedup.ts';
+import { StorageInstancedBufferAttribute } from 'three/webgpu';
+import type { ComputeParticleSystem } from '../particles/compute-particles.ts';
+import { createComputeBerries } from '../particles/index.ts';
 import { getParticles } from '../particles/lazy.ts';
-import type { ComputeParticleSystem } from '../particles/compute-particles-types.ts';
+import { CommonGeometries, getSphereGeometry } from '../utils/geometry-dedup.ts';
+import { foliageGroup } from '../world/state.ts';
+import { uChromaticIntensity } from './chromatic.ts';
+import { spawnImpact } from './impacts.ts';
+import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
 
 // OPTIMIZED: BerryBatcher replaces thousands of individual InstancedMeshes
 // with a single large InstancedMesh for improved draw call performance.
@@ -338,7 +338,7 @@ export function updateGlobalBerryScale(phase: string, phaseProgress: number): vo
         default:
             targetScaleFactor = 1.0;
     }
-    uBerrySeasonScale.value = targetScaleFactor;
+    (uBerrySeasonScale as unknown as { value: number }).value = targetScaleFactor;
 }
 
 /**

@@ -12,8 +12,8 @@ import * as THREE from 'three';
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
-import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
 import { getGpuContext } from '../rendering/gpu-context.ts';
+import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -33,7 +33,7 @@ const DEFAULT_CONFIG: ProfilerConfig = {
 let config: ProfilerConfig = { ...DEFAULT_CONFIG };
 let isEnabled = false;
 let startupStartTime = 0;
-let phases: Map<string, PhaseTiming> = new Map();
+const phases: Map<string, PhaseTiming> = new Map();
 let completedPhases: PhaseTiming[] = [];
 let warnings: string[] = [];
 let memorySnapshots: number[] = [];
@@ -94,38 +94,6 @@ let originalConsoleLog: typeof console.log;
 
 // InstancedMesh constructor tracking
 let originalInstancedMesh: typeof THREE.InstancedMesh;
-
-// ============================================================================
-// Memory Utilities
-// ============================================================================
-
-function getMemoryUsage(): number {
-  if ('memory' in performance && performance.memory) {
-    return (performance.memory as any).usedJSHeapSize;
-  }
-  return 0;
-}
-
-function getMemoryTotal(): number {
-  if ('memory' in performance && performance.memory) {
-    return (performance.memory as any).totalJSHeapSize;
-  }
-  return 0;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1) return (ms * 1000).toFixed(2) + ' μs';
-  if (ms < 1000) return ms.toFixed(2) + ' ms';
-  return (ms / 1000).toFixed(2) + ' s';
-}
 
 // ============================================================================
 // Console Hook
@@ -422,7 +390,7 @@ function saveReportToFile(report: StartupReport): void {
         }).catch(() => {
           // Silent fail - endpoint is optional even in dev
         });
-      } catch (e) {}
+      } catch (e) { void e; }
     }
     
     // Create a download link for the user
@@ -439,7 +407,7 @@ function saveReportToFile(report: StartupReport): void {
     // Store in localStorage for persistence
     try {
       localStorage.setItem('candy_world_startup_profile', json);
-    } catch (e) {}
+    } catch (e) { void e; }
     
     // Also output to console as a data URI for easy copying
     if (config.enableConsole) {

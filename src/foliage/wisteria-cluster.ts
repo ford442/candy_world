@@ -1,18 +1,18 @@
-import type { ShaderNodeObject, Node } from 'three/tsl';
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { ShaderNodeObject, Node } from 'three/tsl';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
-import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, applyStandardDeformation, calculateWindSway } from './material-core.ts';
-import { makeInteractive } from '../utils/interaction-utils.ts';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
-import { uTwilight } from './sky.ts';
 import { BiomeUniforms, uCircadianPhase, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { discoverySystem } from '../systems/discovery.ts';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { makeInteractive } from '../utils/interaction-utils.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
 import { spawnImpact } from './impacts.ts';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, applyStandardDeformation, calculateWindSway } from './material-core.ts';
+import { uTwilight } from './sky.ts';
 
 export interface WisteriaClusterOptions {
     scale?: number;

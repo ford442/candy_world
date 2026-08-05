@@ -235,12 +235,12 @@ export function simplifyMaterial(
     const simple = material.clone();
     
     // Remove TSL nodes that add vertex buffer requirements
-    simple.colorNode = undefined;
-    simple.emissiveNode = undefined;
-    simple.normalNode = undefined;
-    simple.opacityNode = undefined;
-    simple.roughnessNode = undefined;
-    simple.metalnessNode = undefined;
+    simple.colorNode = null;
+    simple.emissiveNode = null;
+    simple.normalNode = null;
+    simple.opacityNode = null;
+    simple.roughnessNode = null;
+    simple.metalnessNode = null;
     
     // Keep basic properties
     simple.color = material.color;

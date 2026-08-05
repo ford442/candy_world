@@ -18,7 +18,7 @@ export function isRendererBackend(value: string): value is RendererBackend {
 export function getStoredRendererPreference(): RendererBackend | null {
   try {
     const value = window.localStorage.getItem(RENDERER_STORAGE_KEY);
-    return isRendererBackend(value) ? value : null;
+    return value != null && isRendererBackend(value) ? value : null;
   } catch {
     return null;
   }

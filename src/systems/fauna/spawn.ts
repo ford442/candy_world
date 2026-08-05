@@ -4,9 +4,9 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../../core/config.ts';
-import { getGroundHeight, sampleGroundNormal } from '../ground-system.ts';
 import { animatedFoliage } from '../../world/state.ts';
 import { World } from '../ecs/world.ts';
+import { getGroundHeight, sampleGroundNormal } from '../ground-system.ts';
 import { faunaComponentCodec } from './components.ts';
 import { getSkyIslandRoostAnchors, DEFAULT_ROOST_PLAN } from './roosts.ts';
 import {

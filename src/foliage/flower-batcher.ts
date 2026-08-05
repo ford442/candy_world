@@ -1,23 +1,23 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
+import { camera } from '../core/camera-ref.ts';
+import { CONFIG } from '../core/config.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
+import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { getActiveWave } from '../systems/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
+import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
 import {
     foliageMaterials,
     sharedGeometries,
 } from './index.ts';
-import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom, applyStandardDeformation } from './material-core.ts';
 import { foliageMotionPosition, scaleEmissiveByLod, applyFoliageLodMaterialFade } from './lod-nodes.ts';
-import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
-import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
-import { CONFIG } from '../core/config.ts';
-import { uTwilight } from './sky.ts';
-import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom, applyStandardDeformation } from './material-core.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { getActiveWave } from '../systems/music-wave.ts';
-import { camera } from '../core/camera-ref.ts';
-import { getCIAdjustedCount } from '../core/config.ts';
+import { uTwilight } from './sky.ts';
 
 const MAX_FLOWERS = getCIAdjustedCount(1000, 0.05, 50); // Reduced from 5000 for WebGPU uniform buffer limits
 const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)
@@ -194,7 +194,7 @@ export class FlowerBatcher {
         });
 
         // Simple Petals (Icosahedron)
-        let simpleGeo = new THREE.IcosahedronGeometry(0.15, 0);
+        let simpleGeo: THREE.BufferGeometry = new THREE.IcosahedronGeometry(0.15, 0);
         simpleGeo = mergeVertices(simpleGeo);
         simpleGeo.scale(1, 0.5, 1);
 
@@ -262,7 +262,7 @@ export class FlowerBatcher {
 
         // Parse options
         const colorHex = options.color !== undefined ? options.color : null;
-        let color = _scratchColor;
+        const color = _scratchColor;
         color.set(0xFF69B4); // Default pink
         if (colorHex !== null) {
             if (colorHex.isColor) color.copy(colorHex);

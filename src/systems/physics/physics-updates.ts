@@ -19,27 +19,46 @@
  */
 
 import * as THREE from 'three';
-import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
-import { discoverySystem } from '../discovery.ts';
-import { spawnImpact } from '../../foliage/impacts.ts';
-import { showToast } from '../../utils/toast.ts';
-import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { addCameraShake } from '../../core/camera-shake.ts';
-import { unlockSystem } from '../unlocks.ts';
+import { CONFIG } from '../../core/config.ts';
+import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { spawnImpact } from '../../foliage/impacts.ts';
 import { uStrobeIntensity } from '../../foliage/strobe.ts';
+import { showToast } from '../../utils/toast.ts';
+import {
+    batchGeyserLaunch,
+    batchPadForces,
+    batchVineInteraction,
+    packGeysers,
+    packPads,
+    packVines,
+} from '../../utils/wasm-foliage-interact.ts';
 import {
     initPhysics,
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
+import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
+import { DISCOVERY_MAP } from '../discovery_map.ts';
+import { discoverySystem } from '../discovery.ts';
 import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
-import { CONFIG } from '../../core/config.ts';
+import {
+    calculateMovementInput
+} from '../physics.core.ts';
+import { unlockSystem } from '../unlocks.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     foliageTraps, foliageGeysers, foliagePortamentoPines,
     foliagePanningPads, animatedFoliage
 } from '../../world/state.ts';
+import {
+    physicsFoliageGrid,
+    physicsDiscoveryGrid,
+    physicsTrapsGrid,
+    physicsGeysersGrid,
+    physicsPinesGrid,
+    physicsPanningPadsGrid
+} from './physics-core.ts';
 import {
     player,
     _scratchPlayerState,
@@ -53,25 +72,6 @@ import {
     _scratchUp,
     foliageCaves
 } from './physics-types.ts';
-import {
-    calculateMovementInput
-} from '../physics.core.ts';
-import {
-    physicsFoliageGrid,
-    physicsDiscoveryGrid,
-    physicsTrapsGrid,
-    physicsGeysersGrid,
-    physicsPinesGrid,
-    physicsPanningPadsGrid
-} from './physics-core.ts';
-import {
-    batchGeyserLaunch,
-    batchPadForces,
-    batchVineInteraction,
-    packGeysers,
-    packPads,
-    packVines,
-} from '../../utils/wasm-foliage-interact.ts';
 
 interface PhysicsSyncObject {
     position?: {
@@ -582,10 +582,10 @@ export async function initCppPhysics(camera: THREE.Camera) {
         console.log('[Physics] Arpeggio fern batcher is empty or uninitialized; skipping dynamic foliage collision sync.');
     }
     if (fernCount > 0) {
-        uploadCollisionObjects(validCaves, validMushrooms, validClouds, validTrampolines, validFerns);
+        uploadCollisionObjects(validCaves as any, validMushrooms as any, validClouds as any, validTrampolines as any, validFerns);
     } else {
         // No arpeggio ferns yet (Core mode): upload only structural collision objects.
-        uploadCollisionObjects(validCaves, validMushrooms, validClouds, validTrampolines, []);
+        uploadCollisionObjects(validCaves as any, validMushrooms as any, validClouds as any, validTrampolines as any, []);
     }
     console.log('[Physics] Engines Initialized (C++ & ASC).');
 }

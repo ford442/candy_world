@@ -1,7 +1,8 @@
 // src/foliage/stars.ts
 
 import * as THREE from 'three';
-import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, sin, cos, UniformNode, pow, step, smoothstep } from 'three/tsl';
+import type UniformNode from 'three/src/nodes/core/UniformNode.js';
+import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, sin, cos, pow, step, smoothstep } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
 import { uAudioLow, uAudioHigh } from './index.ts';
 
@@ -150,8 +151,8 @@ export function createStars(count: number = 1500): THREE.Points {
     const audioOpacity = uStarOpacity.mul(float(1.0).add(smoothstep(0.0, 1.0, uAudioLow).mul(pulseOffset).mul(0.5)));
 
     // Final Output
-    mat.colorNode = vec4(finalRGB, audioOpacity).mul(mat.color);
-    mat.sizeNode = aSize.mul(intensity.max(0.4)); // Keep min size 0.4 so they don't disappear
+    mat.colorNode = vec4(finalRGB, audioOpacity).mul(color(mat.color));
+    (mat as { sizeNode?: unknown }).sizeNode = aSize.mul(intensity.max(0.4)); // Keep min size 0.4 so they don't disappear
 
     // 4. Star Warp/Dance (Existing logic preserved but tuned)
     const pos = positionLocal;

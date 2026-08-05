@@ -8,6 +8,9 @@
  *
  * @example
  * ```ts
+ * // Device comes from the renderer-owned context — never requestDevice() here.
+ * await ensureGpuComputeReady();
+ * const gpu = getSharedGPUCompute();
  * const animator = new GPUFoliageAnimator(gpu, 10000);
  * await animator.initialize();
  * animator.uploadInstances(foliageData);
@@ -346,7 +349,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
  * @example
  * ```ts
  * const gpu = new GPUComputeLibrary();
- * await gpu.initDevice();
+ * await ensureGpuComputeReady(); // borrows shared device via awaitGpuDevice()
  * 
  * const animator = new GPUFoliageAnimator(gpu, 10000);
  * await animator.initialize();
@@ -397,7 +400,9 @@ export class GPUFoliageAnimator {
         this.maxInstances = Math.min(maxInstances, 10000);
         
         if (!this.gpu.isReady()) {
-            console.warn('[GPUFoliageAnimator] GPU not ready. Call gpu.initDevice() before using animator.');
+            console.warn(
+                '[GPUFoliageAnimator] Shared WebGPU device not ready — await ensureGpuComputeReady() / awaitGpuDevice()'
+            );
         }
     }
     
@@ -413,7 +418,9 @@ export class GPUFoliageAnimator {
      */
     async initialize(): Promise<void> {
         if (!this.gpu.isReady()) {
-            throw new Error('[GPUFoliageAnimator] GPU device not initialized. Call gpu.initDevice() first.');
+            throw new Error(
+                '[GPUFoliageAnimator] Shared WebGPU device unavailable — ensureGpuComputeReady() / awaitGpuDevice() returned null'
+            );
         }
         
         const instanceBufferSize = this.maxInstances * this.INSTANCE_STRUCT_SIZE;

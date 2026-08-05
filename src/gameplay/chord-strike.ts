@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, uv, positionLocal, mx_noise_float, mix, smoothstep, normalLocal, sin } from 'three/tsl';
-import { uAudioLow, uAudioHigh, createJuicyRimLight, uTime } from '../foliage/material-core.ts';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
+import { uAudioLow, uAudioHigh, createJuicyRimLight, uTime } from '../foliage/material-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { showToast } from '../utils/toast.ts';
 
@@ -119,7 +119,6 @@ export class ChordStrikeSystem {
 
         // Add some jitter to the scale based on audio
         // For a more chaotic "superweapon" feel
-        // @ts-ignore - uAudioHigh exists and has value
         const jitter = (uAudioHigh as any).value * 0.5;
         this.mesh.scale.set(this.radius + jitter, 1, this.radius + jitter);
 

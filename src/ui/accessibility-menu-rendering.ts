@@ -4,8 +4,8 @@
  * This module extends the core AccessibilityMenu class with rendering capabilities.
  */
 
-import { AccessibilityMenuCore, MenuSection } from './accessibility-menu-core';
 import { trapFocusInside } from '../utils/interaction-utils';
+import { AccessibilityMenuCore, MenuSection } from './accessibility-menu-core';
 import { announce } from './announcer';
 
 /**
