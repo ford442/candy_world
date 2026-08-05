@@ -565,11 +565,14 @@ loadingScreen.completePhase('wasm-init');
     }
 })();
 
-// --- START BUTTON + MAP GENERATION (unchanged UX) ---
+// --- START BUTTON + MAP GENERATION (legacy inline path) ---
+// Skipped when the Graphics × Map profile UI is present — modular
+// `setupStartScreen` (via runBootstrap) owns that flow.
 const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
 const statusEl = document.getElementById('world-status');
+const _usesProfileUi = !!document.getElementById('btn-map-small');
 
-if (startButton) {
+if (startButton && !_usesProfileUi) {
     startButton.disabled = false;
     startButton.setAttribute('aria-disabled', 'false');
     startButton.removeAttribute('aria-busy');

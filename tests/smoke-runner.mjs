@@ -6,9 +6,11 @@
 //   2. npx playwright install chromium – downloads the browser binary required by Playwright
 //
 // ENVIRONMENT VARIABLES:
-//   FULL_BOOT=1      Run smoke test in FULL mode (spawns full map, asserts population counts)
-//   FULL_BOOT=fast   Run smoke test in FAST_FULL mode (lighter full map)
-//   (default)        Run smoke test in CORE mode (fast boot, no population assertions)
+//   FULL_BOOT=1      Run smoke test with Large map (full population assertions)
+//   FULL_BOOT=fast   Run smoke test with Medium map (lighter full map / streaming)
+//   (default)        Run smoke test with Small map (fast boot, no population assertions)
+//
+// Profile URL params (?graphics=&map=) replace the old CORE/FULL/FAST_FULL buttons.
 
 import { spawn } from 'child_process';
 import { chromium } from '@playwright/test';
@@ -19,6 +21,19 @@ const IS_FULL_BOOT = FULL_BOOT && FULL_BOOT !== '0' && FULL_BOOT !== 'false';
 const IS_FAST_FULL = FULL_BOOT === 'fast';
 const RENDERER = process.env.RENDERER?.toLowerCase();
 const USE_WEBGL_BOOT = RENDERER === 'webgl' || RENDERER === 'webgl2';
+
+/** Map size button id for the current FULL_BOOT setting. */
+function mapButtonId() {
+  if (IS_FAST_FULL) return 'btn-map-medium';
+  if (IS_FULL_BOOT) return 'btn-map-large';
+  return 'btn-map-small';
+}
+
+function mapModeLabel() {
+  if (IS_FAST_FULL) return 'MEDIUM';
+  if (IS_FULL_BOOT) return 'LARGE';
+  return 'SMALL';
+}
 
 /**
  * Check if a server is running on a port
@@ -84,7 +99,9 @@ async function runSmokeTest() {
   console.log('========================\n');
 
   if (IS_FULL_BOOT) {
-    console.log(`🌸 FULL BOOT mode enabled (${IS_FAST_FULL ? 'FAST_FULL' : 'FULL'}) — population assertions will run\n`);
+    console.log(
+      `🌸 FULL BOOT enabled (map=${mapModeLabel()}) — population assertions will run\n`
+    );
   }
 
   let viteServer = null;
@@ -211,10 +228,13 @@ async function runSmokeTest() {
       localStorage.setItem('__IS_FULL_BOOT_TEST', 'true');
     });
 
-    // Navigate to localhost:4173
+    // Navigate to localhost:4173 with profile URL params (graphics × map)
+    const mapParam = IS_FAST_FULL ? 'medium' : IS_FULL_BOOT ? 'large' : 'small';
+    const gfxParam = IS_FULL_BOOT && !IS_FAST_FULL ? 'medium' : 'low';
+    const profileQs = `graphics=${gfxParam}&map=${mapParam}`;
     const bootUrl = USE_WEBGL_BOOT
-      ? 'http://localhost:4173/?renderer=webgl&webglLite=1'
-      : 'http://localhost:4173';
+      ? `http://localhost:4173/?renderer=webgl&webglLite=1&${profileQs}`
+      : `http://localhost:4173/?${profileQs}`;
     console.log(`\nNavigating to ${bootUrl}`);
     try {
       await page.goto(bootUrl, {
@@ -334,22 +354,22 @@ async function runSmokeTest() {
     }
 
     // -------------------------------------------------------------------------
-    // FULL BOOT path: select FULL mode, click start, wait for population, assert
+    // FULL BOOT path: select map size, click start, wait for population, assert
     // -------------------------------------------------------------------------
     if (IS_FULL_BOOT) {
-      const modeLabel = IS_FAST_FULL ? 'FAST_FULL' : 'FULL';
-      const modeBtnId = IS_FAST_FULL ? 'btn-fast-full' : 'btn-full-game';
+      const modeLabel = mapModeLabel();
+      const modeBtnId = mapButtonId();
 
-      console.log(`\n🌸 Selecting ${modeLabel} mode...`);
+      console.log(`\n🌸 Selecting ${modeLabel} map...`);
       try {
         await page.evaluate((btnId) => {
           const btn = document.getElementById(btnId);
           if (btn) btn.click();
         }, modeBtnId);
         await page.waitForTimeout(200);
-        console.log(`✓ ${modeLabel} mode selected`);
+        console.log(`✓ ${modeLabel} map selected`);
       } catch (e) {
-        console.error(`❌ Failed to select ${modeLabel} mode:`, e.message);
+        console.error(`❌ Failed to select ${modeLabel} map:`, e.message);
         hasError = true;
       }
 

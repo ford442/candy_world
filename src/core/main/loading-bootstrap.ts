@@ -13,7 +13,10 @@ import {
     shouldPreferLightWorldLoad,
     CONFIG,
 } from '../config.ts';
-import { WAIT_FULL_KEY } from './constants.ts';
+import {
+    loadStartupProfile,
+    mapSizeWaitsForFullPopulation,
+} from '../startup-profile.ts';
 import type { LoadingScreen } from './context.ts';
 
 export interface LoadingBootstrapResult {
@@ -27,9 +30,12 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
         (window as any).__computeDisabled = true;
     }
 
+    const profile = loadStartupProfile();
+    (window as any).__startupProfile = profile;
+    // Large map implies wait-for-full; URL ?waitForFull still forces it for smoke/debug.
     const waitForFullPopulation =
         new URLSearchParams(location.search).has('waitForFull') ||
-        localStorage.getItem(WAIT_FULL_KEY) === '1';
+        mapSizeWaitsForFullPopulation(profile.mapSize);
 
     const loadingScreen = initLoadingScreen({ theme: 'candy', showEstimatedTime: true });
     loadingScreen.show();
@@ -76,6 +82,10 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
                 (typeof gb === 'number' ? ` (~${gb} GB deviceMemory)` : '') +
                 ` · population scale=${getLoadMemoryScale().toFixed(2)}` +
                 (shouldPreferLightWorldLoad() ? ' · preferring lighter Full-mode population' : '')
+        );
+        console.log(
+            `[Startup] Profile: graphics=${profile.graphics} map=${profile.mapSize}` +
+                (waitForFullPopulation ? ' · wait-for-full' : '')
         );
     }
 

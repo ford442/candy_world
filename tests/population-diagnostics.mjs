@@ -71,10 +71,10 @@ async function run() {
     await page.waitForFunction(() => window.__sceneReady === true, { timeout: 25000 });
     console.log('Scene ready');
 
-    // Select FULL mode and click start
+    // Select Large map and click start
     await page.evaluate(() => {
-      const btnFull = document.getElementById('btn-full-game');
-      if (btnFull) btnFull.click();
+      const btnLarge = document.getElementById('btn-map-large');
+      if (btnLarge) btnLarge.click();
     });
     await new Promise(r => setTimeout(r, 300));
 
@@ -82,7 +82,7 @@ async function run() {
       const startBtn = document.getElementById('startButton');
       if (startBtn) startBtn.click();
     });
-    console.log('Clicked start (FULL mode)');
+    console.log('Clicked start (Large map)');
 
     // Poll for spawn report over 90s
     let lastReport = null;

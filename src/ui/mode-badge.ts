@@ -1,3 +1,6 @@
+import type { StartupProfile } from '../core/startup-profile.ts';
+import { profileBadgeLabel } from '../core/startup-profile.ts';
+
 export type WorldMode = 'CORE' | 'FULL';
 
 let modeBadge: HTMLDivElement | null = null;
@@ -66,7 +69,7 @@ export function removeRendererBadge() {
   }
 }
 
-export function showModeBadge(mode: WorldMode) {
+export function showModeBadge(mode: WorldMode, profile?: StartupProfile) {
   if (modeBadge) {
     modeBadge.remove();
   }
@@ -95,7 +98,20 @@ export function showModeBadge(mode: WorldMode) {
     opacity: '0.98',
   });
 
-  if (mode === 'CORE') {
+  if (profile) {
+    const map = profile.mapSize;
+    if (map === 'small') {
+      modeBadge.style.background = 'rgba(255, 158, 205, 0.92)';
+      modeBadge.style.color = '#2b0f1c';
+    } else if (map === 'medium') {
+      modeBadge.style.background = 'rgba(165, 214, 167, 0.92)';
+      modeBadge.style.color = '#1b3a1b';
+    } else {
+      modeBadge.style.background = 'rgba(125, 211, 252, 0.92)';
+      modeBadge.style.color = '#0f2a3a';
+    }
+    modeBadge.innerText = profileBadgeLabel(profile);
+  } else if (mode === 'CORE') {
     modeBadge.style.background = 'rgba(255, 158, 205, 0.92)';
     modeBadge.style.color = '#2b0f1c';
     modeBadge.innerText = 'CORE MODE';

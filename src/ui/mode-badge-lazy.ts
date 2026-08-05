@@ -1,10 +1,11 @@
 /**
  * Lazy mode badge UI — renderer / world mode badges after scene boot.
  */
+import type { StartupProfile } from '../core/startup-profile.ts';
 import type { WorldMode } from './mode-badge.ts';
 
-export function showModeBadge(label: WorldMode): void {
-    void import('./mode-badge.ts').then((m) => m.showModeBadge(label));
+export function showModeBadge(label: WorldMode, profile?: StartupProfile): void {
+    void import('./mode-badge.ts').then((m) => m.showModeBadge(label, profile));
 }
 
 export function showRendererBadge(
