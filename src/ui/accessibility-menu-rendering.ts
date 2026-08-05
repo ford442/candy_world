@@ -103,10 +103,22 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       font-size: 1.2rem;
     `;
     closeBtn.onclick = () => {
-      closeBtn.classList.add('keyboard-active');
-      setTimeout(() => closeBtn.classList.remove('keyboard-active'), 150);
       this.close();
     };
+    closeBtn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (!closeBtn.classList.contains('keyboard-active')) {
+          closeBtn.classList.add('keyboard-active');
+          const removeFeedback = () => {
+            closeBtn.classList.remove('keyboard-active');
+            closeBtn.removeEventListener('keyup', removeFeedback);
+            closeBtn.removeEventListener('blur', removeFeedback);
+          };
+          closeBtn.addEventListener('keyup', removeFeedback);
+          closeBtn.addEventListener('blur', removeFeedback);
+        }
+      }
+    });
     closeBtn.setAttribute('aria-label', 'Close accessibility menu');
 
     header.appendChild(title);
@@ -174,10 +186,22 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         text-align: left;
       `;
       tab.onclick = () => {
-        tab.classList.add('keyboard-active');
-        setTimeout(() => tab.classList.remove('keyboard-active'), 150);
         this.switchSection(section);
       };
+      tab.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (!tab.classList.contains('keyboard-active')) {
+            tab.classList.add('keyboard-active');
+            const removeFeedback = () => {
+              tab.classList.remove('keyboard-active');
+              tab.removeEventListener('keyup', removeFeedback);
+              tab.removeEventListener('blur', removeFeedback);
+            };
+            tab.addEventListener('keyup', removeFeedback);
+            tab.addEventListener('blur', removeFeedback);
+          }
+        }
+      });
 
       sidebar.appendChild(tab);
     }
@@ -354,10 +378,22 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       btn.textContent = binding.key || 'Unbound';
       btn.style.cssText = `${this.getButtonStyle()} width: 120px;`;
       btn.onclick = () => {
-        btn.classList.add('keyboard-active');
-        setTimeout(() => btn.classList.remove('keyboard-active'), 150);
         this.startKeyRebind(action, btn);
       };
+      btn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (!btn.classList.contains('keyboard-active')) {
+            btn.classList.add('keyboard-active');
+            const removeFeedback = () => {
+              btn.classList.remove('keyboard-active');
+              btn.removeEventListener('keyup', removeFeedback);
+              btn.removeEventListener('blur', removeFeedback);
+            };
+            btn.addEventListener('keyup', removeFeedback);
+            btn.addEventListener('blur', removeFeedback);
+          }
+        }
+      });
 
       row.appendChild(label);
       row.appendChild(btn);
