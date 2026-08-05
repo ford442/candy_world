@@ -13,10 +13,7 @@ import {
     shouldPreferLightWorldLoad,
     CONFIG,
 } from '../config.ts';
-import {
-    loadStartupProfile,
-    mapSizeWaitsForFullPopulation,
-} from '../startup-profile.ts';
+import { loadStartupProfile, mapSizeWaitsForFullPopulation } from '../startup-profile.ts';
 import type { LoadingScreen } from './context.ts';
 
 export interface LoadingBootstrapResult {
@@ -48,7 +45,9 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
         const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');
         console.error('[Bootstrap] Unhandled rejection during startup:', err);
         try {
-            loadingScreen.showFatalError(`Startup failed: ${msg}\n\nRefresh the page to try again.`);
+            loadingScreen.showFatalError(
+                `Startup failed: ${msg}\n\nRefresh the page to try again.`
+            );
         } catch (_) {
             const fallback =
                 document.getElementById('loading-overlay') ??

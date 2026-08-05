@@ -11,7 +11,9 @@ export function showModeBadge(label: WorldMode, profile?: StartupProfile): void 
 export function showRendererBadge(
     activeBackend: 'webgpu' | 'webgl',
     requested: 'webgpu' | 'webgl',
-    fallbackReason: string | null = null,
+    fallbackReason: string | null = null
 ): void {
-    void import('./mode-badge.ts').then((m) => m.showRendererBadge(activeBackend, requested, fallbackReason));
+    void import('./mode-badge.ts').then((m) =>
+        m.showRendererBadge(activeBackend, requested, fallbackReason)
+    );
 }
