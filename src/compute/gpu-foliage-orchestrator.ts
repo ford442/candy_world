@@ -15,7 +15,7 @@ import {
     type FoliageAudioState,
     type FoliageInstanceData,
 } from './gpu-foliage-animator.ts';
-import { isGpuFoliagePilotEnabled } from './gpu-foliage-flag.ts';
+import { isGpuFoliagePilotEnabled, isGpuFoliageDefaultPath } from './gpu-foliage-flag.ts';
 import { disposeGpuPlantPose } from './gpu-plant-pose.ts';
 
 let _animator: GPUFoliageAnimator | null = null;
@@ -33,18 +33,18 @@ function attachDeviceLostHandler(): void {
 }
 
 /**
- * Initialise shared GPU foliage resources when the pilot flag is enabled.
+ * Initialise shared GPU foliage resources (default path when WebGPU is available).
  * Uses `awaitGpuDevice()` indirectly via `getSharedGPUCompute()` — never
- * calls `navigator.gpu.requestDevice()`.
+ * calls `navigator.gpu.requestDevice()`. Opt-out via `?gpuFoliage=0`.
  */
 export async function initGpuFoliageOrchestrator(): Promise<GPUFoliageAnimator | null> {
-    if (_disabledByDeviceLoss || !isGpuFoliagePilotEnabled()) return null;
+    if (_disabledByDeviceLoss || !isGpuFoliageDefaultPath()) return null;
     if (_animator?.isReady()) return _animator;
     if (_initPromise) return _initPromise;
 
     _initPromise = (async () => {
         const gpuReady = await ensureGpuComputeReady();
-        if (!gpuReady || !isGpuFoliagePilotEnabled()) return null;
+        if (!gpuReady || !isGpuFoliageDefaultPath()) return null;
 
         const gpu = getSharedGPUCompute();
         if (!gpu.isReady()) {
@@ -63,7 +63,7 @@ export async function initGpuFoliageOrchestrator(): Promise<GPUFoliageAnimator |
         }
 
         _animator = animator;
-        console.log('[GPUFoliage] Pilot orchestrator ready (shared device)');
+        console.log('[GPUFoliage] Orchestrator ready — default GPU animation path (opt-out: ?gpuFoliage=0)');
         return animator;
     })();
 
@@ -93,7 +93,7 @@ export function teardownGpuFoliageOrchestrator(): void {
 }
 
 export function isGpuFoliageOrchestratorActive(): boolean {
-    return !_disabledByDeviceLoss && isGpuFoliagePilotEnabled() && (_animator?.isReady() ?? false);
+    return !_disabledByDeviceLoss && isGpuFoliageDefaultPath() && (_animator?.isReady() ?? false);
 }
 
 if (typeof window !== 'undefined') {

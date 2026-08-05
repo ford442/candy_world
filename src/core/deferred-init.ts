@@ -63,11 +63,8 @@ export function initDeferredVisuals() {
         return import('../compute/compute-orchestrator.ts');
     }).then(({ ensureGpuComputeReady }) => {
         void ensureGpuComputeReady().then(async () => {
-            const { isGpuFoliagePilotEnabled } = await import('../compute/gpu-foliage-flag.ts');
-            if (isGpuFoliagePilotEnabled()) {
-                const { initGpuFoliageOrchestrator } = await import('../compute/gpu-foliage-orchestrator.ts');
-                void initGpuFoliageOrchestrator();
-            }
+            const { initGpuFoliageOrchestrator } = await import('../compute/gpu-foliage-orchestrator.ts');
+            void initGpuFoliageOrchestrator();
         });
     });
 
