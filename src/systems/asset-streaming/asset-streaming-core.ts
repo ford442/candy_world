@@ -296,11 +296,39 @@ export class AssetStreamer {
     async preloadRegion(cellX: number, cellZ: number, radius: number): Promise<void> {
         const cells = this.regionManager.getCellsInRadius(cellX, cellZ, radius);
         for (const cellKey of cells) {
-            const [cx, cz] = cellKey.split(',').map(Number);
+            // ⚡ OPTIMIZATION: Bypassed .split().map() and Object.entries() to prevent GC spikes.
+            let i = 0;
+            let cx = 0, cz = 0;
+            let signX = 1, signZ = 1;
+
+            if (cellKey.charCodeAt(i) === 45) { // '-'
+                signX = -1;
+                i++;
+            }
+            while (i < cellKey.length && cellKey.charCodeAt(i) !== 44) { // ','
+                cx = cx * 10 + (cellKey.charCodeAt(i) - 48);
+                i++;
+            }
+            cx *= signX;
+            i++; // Skip ','
+
+            if (i < cellKey.length && cellKey.charCodeAt(i) === 45) { // '-'
+                signZ = -1;
+                i++;
+            }
+            while (i < cellKey.length) {
+                cz = cz * 10 + (cellKey.charCodeAt(i) - 48);
+                i++;
+            }
+            cz *= signZ;
+
             const assets = this.manifest.assets;
-            for (const [assetId, meta] of Object.entries(assets)) {
-                if (meta.cellX === cx && meta.cellZ === cz) {
-                    await this.loadAsset(assetId, AssetPriority.LOW);
+            for (const assetId in assets) {
+                if (Object.prototype.hasOwnProperty.call(assets, assetId)) {
+                    const meta = assets[assetId];
+                    if (meta.cellX === cx && meta.cellZ === cz) {
+                        await this.loadAsset(assetId, AssetPriority.LOW);
+                    }
                 }
             }
         }
