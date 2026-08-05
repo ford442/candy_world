@@ -30,6 +30,10 @@ Inspired by low-poly nature scenes with a candy twist!
 > [Candy Material Cookbook](./docs/CANDY_MATERIAL_COOKBOOK.md) — reusable glossy-material
 > recipes, copy-paste TSL snippets, and an "adding a reactive plant" tutorial.
 
+**Roadmap:** Part I scaffolds (Sky Islands, fauna, opt-in presence, awakened flora) are landing;
+the **capstone epic** (#1492) sequences Presence polish + the next signature biome toward a Part II door.
+See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md).
+
 ## How to Run
 
 > **Note**: For detailed setup instructions including native module compilation with Emscripten, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)
