@@ -1,37 +1,59 @@
 /**
  * @file gpu-foliage-flag.ts
- * @brief A/B gate for GPU foliage pilot paths (`?gpuFoliage=1`, default OFF).
+ * @brief Gate for GPU foliage instance animation (default ON when WebGPU is available).
  *
+ * Opt-out: append `?gpuFoliage=0` or `?no_gpu_foliage` to the URL.
  * Requires the shared renderer-owned WebGPU device (#1448). WebGL, CI/headless,
  * `?no_gpu_compute`, and device-lost all fall back to CPU/WASM tiers.
  */
 
 import { preferGpuCompute, isGpuComputeReady } from './compute-orchestrator.ts';
 
-function readGpuFoliageFromUrl(): boolean {
+/** Returns false only when the user explicitly opts out via URL params. */
+function isGpuFoliageOptedOut(): boolean {
     try {
         const params = new URLSearchParams(window.location.search);
-        if (!params.has('gpuFoliage')) return false;
-        const v = params.get('gpuFoliage');
-        return v === null || v === '' || v === '1' || v === 'true';
+        if (params.has('no_gpu_foliage')) return true;
+        if (params.has('gpuFoliage')) {
+            const v = params.get('gpuFoliage');
+            return v === '0' || v === 'false';
+        }
+        return false;
     } catch {
         return false;
     }
 }
 
-/** True when the GPU foliage pilot is explicitly enabled and compute is ready. */
+/**
+ * True when the GPU foliage default path is active (device available and not
+ * opted out). Previously a pilot requiring `?gpuFoliage=1`; now ON by default.
+ */
 export function isGpuFoliagePilotEnabled(): boolean {
     if (typeof window === 'undefined') return false;
-    if (!readGpuFoliageFromUrl()) return false;
+    if (isGpuFoliageOptedOut()) return false;
     return preferGpuCompute() && isGpuComputeReady();
 }
 
+/** Convenience alias that clarifies intent at call sites. */
+export function isGpuFoliageDefaultPath(): boolean {
+    return isGpuFoliagePilotEnabled();
+}
+
 /** Exposed for devtools / smoke assertions. */
-export function getGpuFoliageFlagState(): { urlEnabled: boolean; pilotActive: boolean } {
-    const urlEnabled = typeof window !== 'undefined' && readGpuFoliageFromUrl();
+export function getGpuFoliageFlagState(): {
+    optedOut: boolean;
+    defaultPath: boolean;
+    pilotActive: boolean;
+    urlEnabled: boolean;
+} {
+    const optedOut = typeof window !== 'undefined' && isGpuFoliageOptedOut();
+    const active = !optedOut && preferGpuCompute() && isGpuComputeReady();
     return {
-        urlEnabled,
-        pilotActive: urlEnabled && preferGpuCompute() && isGpuComputeReady(),
+        optedOut,
+        defaultPath: active,
+        pilotActive: active,
+        // Legacy field kept for backwards-compat with older devtools snapshots.
+        urlEnabled: !optedOut,
     };
 }
 
