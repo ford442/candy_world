@@ -22,18 +22,18 @@
 import * as THREE from 'three';
 import { GPUComputeLibrary, getSharedGPUCompute } from './gpu-compute-library.ts';
 import {
-    MeshDeformationCompute,
-    DeformationType,
-    DeformationTypeValue,
-    DeformationAudioState,
-} from './mesh_deformation.ts';
-import {
     MESH_DEFORM_WAVE_WGSL,
     MESH_DEFORM_JIGGLE_WGSL,
     MESH_DEFORM_WOBBLE_WGSL,
     NORMAL_RECOMPUTE_WGSL,
     NORMAL_NORMALIZE_WGSL,
 } from './gpu-compute-shaders.ts';
+import {
+    MeshDeformationCompute,
+    DeformationType,
+    DeformationTypeValue,
+    DeformationAudioState,
+} from './mesh_deformation.ts';
 
 // =============================================================================
 // TYPES

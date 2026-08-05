@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uAudioHigh, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
-import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld, normalLocal } from 'three/tsl';
-import { calcVineDetachImpulse } from '../utils/wasm-foliage-interact.ts';
-import { uTwilight } from './sky.ts';
-import { createBerryCluster } from './berries.ts';
-import { FoliageObject } from './types.ts';
-import { treeBatcher } from './tree-batcher.ts';
-import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
+import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld, normalLocal, add } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu'; // Import explicit type for cast
+import { calcVineDetachImpulse } from '../utils/wasm-foliage-interact.ts';
+import { createBerryCluster } from './berries.ts';
+import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uAudioHigh, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
+import { uTwilight } from './sky.ts';
+import { treeBatcher } from './tree-batcher.ts';
+import { FoliageObject } from './types.ts';
 
 // Configuration interfaces for tree creation options
 export interface TreeOptions {
@@ -89,7 +89,7 @@ function enhanceWithFloralJuice(material: any) {
         // 4. Juicy Rim Light (Audio-reactive edge glow)
         // Memory explicitly notes: To apply createJuicyRimLight to non-instanced Three.js meshes without crashing WebGPU, construct a standard TSL color node (e.g., tslColor(colorHex)) and pass it as the baseColor argument instead of an instanced attribute.
         const rimLight = createJuicyRimLight(tslColor(0xFFFFFF), float(1.5), float(3.0), null);
-        material.emissiveNode = (material.emissiveNode || tslColor(0x000000)).add(rimLight);
+        material.emissiveNode = add(material.emissiveNode ?? tslColor(0x000000), rimLight);
     }
     return material;
 }
@@ -168,7 +168,7 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
         group.userData.onPlacement = null;
     };
 
-    return attachReactivity(group) as FoliageObject;
+    return attachReactivity(group);
 }
 
 export function createShrub(options: ShrubOptions = {}): THREE.Group {
@@ -243,7 +243,7 @@ export function createVine(options: VineOptions = {}): THREE.Group {
         const mat = createClayMaterial(color);
         mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
+        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;
     });
     registerReactiveMaterial(vineMat);
@@ -326,7 +326,7 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
         group.userData.onPlacement = null;
     };
 
-    return attachReactivity(group) as FoliageObject;
+    return attachReactivity(group);
 }
 
 export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
@@ -455,7 +455,7 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
         const mat = createClayMaterial(0x8B4513) as MeshStandardNodeMaterial;
         mat.positionNode = applyStandardDeformation(positionLocal);
         const rim = createJuicyRimLight(tslColor(0x8B4513), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode || normalLocal);
-        mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(rim);
+        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), rim);
         return mat;
     });
     registerReactiveMaterial(pleatMatBase);
@@ -464,7 +464,7 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
         const mat = createClayMaterial(0xA0522D) as MeshStandardNodeMaterial;
         mat.positionNode = applyStandardDeformation(positionLocal);
         const rim = createJuicyRimLight(tslColor(0xA0522D), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode || normalLocal);
-        mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(rim);
+        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), rim);
         return mat;
     });
     registerReactiveMaterial(pleatMatAlt);
@@ -487,7 +487,7 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
         const mat = createClayMaterial(color) as MeshStandardNodeMaterial;
         mat.positionNode = applyStandardDeformation(positionLocal);
         const rim = createJuicyRimLight(tslColor(color), float(1.5).add(uAudioHigh.mul(2.0)), float(3.0), mat.normalNode || normalLocal);
-        mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(rim);
+        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), rim);
         return mat;
     });
     registerReactiveMaterial(leafMat);
@@ -528,7 +528,7 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
         const m = createClayMaterial(0x111111);
         m.roughness = 0.4;
         m.positionNode = applyStandardDeformation(positionLocal);
-        m.emissiveNode = (m.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(0x222222), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), normalLocal));
+        m.emissiveNode = add(m.emissiveNode ?? tslColor(0x000000), createJuicyRimLight(tslColor(0x222222), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), normalLocal));
         return m;
     });
     registerReactiveMaterial(cableMat);
@@ -679,7 +679,7 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
         const mat = createClayMaterial(color);
         mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
+        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;
     });
 
@@ -732,7 +732,7 @@ export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
         const mat = createClayMaterial(color);
         mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
+        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;
     });
 

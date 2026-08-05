@@ -3,6 +3,12 @@
  * Falls back to ground-height-core.ts when native exports are unavailable.
  */
 
+import type { GroundPlatform } from '../systems/ground-height-core.ts';
+import {
+    queryUnifiedGroundHeightJS,
+    fillUnifiedGroundHeightsJS,
+    invalidateJsGroundCache,
+} from '../systems/ground-height-core.ts';
 import {
     wasmGetUnifiedGroundHeight,
     wasmBatchUnifiedGroundHeight,
@@ -22,12 +28,6 @@ import {
     isWasmReady,
     isEmscriptenReady,
 } from '../utils/wasm-loader-core.ts';
-import type { GroundPlatform } from '../systems/ground-height-core.ts';
-import {
-    queryUnifiedGroundHeightJS,
-    fillUnifiedGroundHeightsJS,
-    invalidateJsGroundCache,
-} from '../systems/ground-height-core.ts';
 
 // Persistent batch buffers (AssemblyScript path)
 let _batchInPtr: number | null = null;

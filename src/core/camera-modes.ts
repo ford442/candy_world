@@ -5,12 +5,12 @@
  */
 
 import * as THREE from 'three';
-import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { getGroundHeight } from '../systems/ground-system.ts';
 import { player } from '../systems/physics/index.ts';
-import { CONFIG } from './config.ts';
 import { announcePolite } from '../ui/announcer.ts';
+import { CONFIG } from './config.ts';
 
 export const EXPLORE_STORAGE_KEY = 'candy.exploreMode';
 

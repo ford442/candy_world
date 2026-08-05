@@ -1,25 +1,29 @@
-import { createIntegratedRain } from '../../particles/compute-integration.ts';
+import * as THREE from 'three';
 import { ComputeParticleSystem } from '../../compute/particle_compute.ts';
+import { CONFIG } from '../../core/config.ts';
+import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
+import { createAurora, uAuroraIntensity } from '../../foliage/aurora.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../../foliage/clouds.ts';
+import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
+import { createIntegratedRain } from '../../particles/compute-integration.ts';
 
 // src/systems/weather/weather-effects.ts
 // Visual effects management: rainbow, aurora, lightning, plant growth
 
-import * as THREE from 'three';
-import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
-import { createAurora, uAuroraIntensity } from '../../foliage/aurora.ts';
-import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../../foliage/clouds.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
-
-
 import type { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles-types.ts';
-import { WeatherState } from '../weather-types.ts';
-import { CONFIG } from '../../core/config.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
+import { WeatherState } from '../weather-types.ts';
 
 // Cache palette keys outside the render loop to prevent GC spikes during storms
 // Evaluate keys lazily since this module may load before config is initialized
-const getCloudPaletteKeys = () => Object.keys((CONFIG?.noteColorMap && CONFIG?.noteColorMap?.cloud) || {});
+let _cachedCloudPaletteKeys: string[] | null = null;
+const getCloudPaletteKeys = () => {
+    if (!_cachedCloudPaletteKeys) {
+        _cachedCloudPaletteKeys = Object.keys((CONFIG?.noteColorMap && CONFIG?.noteColorMap?.cloud) || {});
+    }
+    return _cachedCloudPaletteKeys;
+};
 
 export interface EffectsState {
     rainbow: any; // Mesh
@@ -33,6 +37,11 @@ export interface EffectsState {
     percussionRain: Phase4ComputeSystem | null;
     melodicMist: ComputeParticleSystem | null;
 }
+
+// ⚡ OPTIMIZATION: Module-scoped variables to eliminate per-frame allocations in weather particle updates
+const _scratchVecZero = new THREE.Vector3(0, 0, 0);
+const _scratchParticleAudioDataRain = { low: 0, mid: 0, high: 0, beat: false, groove: 0, windX: 0, windZ: 0, windSpeed: 0 };
+const _scratchParticleAudioDataMist = { kick: 0, low: 0, mid: 0 } as any;
 
 export class EffectsManager {
     private scene: THREE.Scene;
@@ -164,17 +173,17 @@ export class EffectsManager {
         let lightningActive = false;
 
         if (state === WeatherState.STORM && (bassIntensity > 0.8 || Math.random() < 0.01)) {
-            try { if (uCloudLightningStrength) uCloudLightningStrength.value = 1.0; } catch (e) {}
+            try { if (uCloudLightningStrength) uCloudLightningStrength.value = 1.0; } catch (e) { /* ignored */ }
 
             const keys = getCloudPaletteKeys();
             if (keys.length > 0) {
                 const randomKey = keys[Math.floor(Math.random() * keys.length)];
                 const colorHex = CONFIG.noteColorMap.cloud[randomKey];
-                try { 
-                    if (uCloudLightningColor && uCloudLightningColor.value && uCloudLightningColor.value.setHex) {
-                        uCloudLightningColor.value.setHex(colorHex);
+                try {
+                    if (uCloudLightningColor) {
+                        (uCloudLightningColor.value as unknown as THREE.Color).setHex(colorHex);
                     }
-                } catch (e) {}
+                } catch (e) { /* ignored */ }
                 lightningLight.color.setHex(colorHex);
                 lightningLight.intensity = 10 * cloudDensity;
                 lightningLight.position.set((Math.random() - 0.5) * 100, 50, (Math.random() - 0.5) * 100);
@@ -185,7 +194,7 @@ export class EffectsManager {
                 if (uCloudLightningStrength) {
                     uCloudLightningStrength.value *= 0.85;
                 }
-            } catch (e) {}
+            } catch (e) { /* ignored */ }
         }
 
         return lightningActive;
@@ -200,7 +209,7 @@ export class EffectsManager {
             if (uCloudRainbowIntensity) {
                 uCloudRainbowIntensity.value += (rainbowTarget - uCloudRainbowIntensity.value) * 0.05;
             }
-        } catch (e) {}
+        } catch (e) { /* ignored */ }
     }
 
     /**
@@ -253,12 +262,17 @@ export class EffectsManager {
         }
 
         if (shouldShowRain && percussionRain) {
-            percussionRain.update(renderer, dt, new THREE.Vector3(0,0,0), { low: bassIntensity, mid: melodyVol, high: 0, beat: false, groove: 0, windX: 0, windZ: 0, windSpeed: 0 });
+            _scratchParticleAudioDataRain.low = bassIntensity;
+            _scratchParticleAudioDataRain.mid = melodyVol;
+            percussionRain.update(renderer, dt, _scratchVecZero, _scratchParticleAudioDataRain);
         }
         
         if (shouldShowMist && melodicMist) {
             // old CPU update for mist
-            melodicMist.update(dt, { kick: bassIntensity, low: bassIntensity, mid: melodyVol }, 0);
+            _scratchParticleAudioDataMist.kick = bassIntensity;
+            _scratchParticleAudioDataMist.low = bassIntensity;
+            _scratchParticleAudioDataMist.mid = melodyVol;
+            melodicMist.update(dt, _scratchParticleAudioDataMist, 0);
 
             // Dynamic color behavior
             if (weatherType === 'mist') {

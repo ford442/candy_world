@@ -214,7 +214,7 @@ export class PlaceholderManager {
 
     private createPlaceholder(type: AssetType, size: number): THREE.Object3D {
         switch (type) {
-            case AssetType.GEOMETRY:
+            case AssetType.GEOMETRY: {
                 // Low-poly bounding box representation
                 const box = new THREE.BoxGeometry(size, size, size);
                 const material = new THREE.MeshBasicMaterial({
@@ -224,8 +224,9 @@ export class PlaceholderManager {
                     opacity: 0.5
                 });
                 return new THREE.Mesh(box, material);
+            }
 
-            case AssetType.TEXTURE:
+            case AssetType.TEXTURE: {
                 // Colored plane as texture placeholder
                 const plane = new THREE.PlaneGeometry(size, size);
                 const planeMat = new THREE.MeshBasicMaterial({
@@ -234,8 +235,9 @@ export class PlaceholderManager {
                     opacity: 0.3
                 });
                 return new THREE.Mesh(plane, planeMat);
+            }
 
-            default:
+            default: {
                 // Generic placeholder
                 const generic = new THREE.Group();
                 const dot = new THREE.Mesh(
@@ -244,6 +246,7 @@ export class PlaceholderManager {
                 );
                 generic.add(dot);
                 return generic;
+            }
         }
     }
 

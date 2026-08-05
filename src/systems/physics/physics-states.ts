@@ -2,6 +2,20 @@
 // State handlers: Swimming, Vine, Climbing, Dancing, Default
 
 import * as THREE from 'three';
+import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { spawnImpact } from '../../foliage/impacts.ts';
+import { fastInvSqrt } from '../../utils/wasm-loader.ts';
+import { 
+    activeVineSwing, 
+    setActiveVineSwing, 
+    lastVineDetachTime, 
+    setLastVineDetachTime, 
+    vineSwings,
+    foliageVineLadders
+} from '../../world/state.ts';
+import { discoverySystem } from '../discovery.ts';
+import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
+import { calculateWaterLevel } from '../physics.core.ts';
 import { 
     player, 
     PlayerState, 
@@ -21,20 +35,6 @@ import {
     KeyStates,
     foliageCaves
 } from './physics-types.ts';
-import { 
-    activeVineSwing, 
-    setActiveVineSwing, 
-    lastVineDetachTime, 
-    setLastVineDetachTime, 
-    vineSwings,
-    foliageVineLadders
-} from '../../world/state.ts';
-import { discoverySystem } from '../discovery.ts';
-import { spawnImpact } from '../../foliage/impacts.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { calculateWaterLevel } from '../physics.core.ts';
-import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
-import { fastInvSqrt } from '../../utils/wasm-loader.ts';
 
 // Helper: Unified Ground Height (authoritative terrain + lake + island + platforms)
 

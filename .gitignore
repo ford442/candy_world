@@ -38,5 +38,21 @@ candy-world-*.tar.gz
 *.a
 *.bak
 *.cpp.bak
+*.orig
+
+# Root scratch / one-shot codemods (keep durable tools under tools/ or scripts/)
+/temp_base.ts
+/*-replace.cjs
+/patch*.mjs
+/run_patch.mjs
+/screenshot-*.mjs
+/style.css.patch
+/test-build*.mjs
+/test-webgpu.mjs
+/test-playwright.mjs
+/test-madge.mjs
+/test-proxy.ts
+/test-a11y-loading.mjs
+/test-audio-compatibility.mjs
 # Vendored OpenMP archive required by emscripten/build.sh (-L vendor -lomp)
 !emscripten/vendor/libomp.a

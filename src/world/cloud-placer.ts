@@ -15,12 +15,12 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
+import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import { createCloud } from '../foliage/clouds.ts';
-import { safeAddFoliage } from './generation-entities.ts';
 import { getGroundHeight, registerWalkableCloudPlatform } from '../systems/ground-system.ts';
-import { addCollisionObject } from '../utils/wasm-loader.ts';
-import { registerCloudPlatform } from '../debug/ground-debug.ts';
 import type { WeatherSystem } from '../systems/weather.ts';
+import { addCollisionObject } from '../utils/wasm-loader.ts';
+import { safeAddFoliage } from './generation-entities.ts';
 
 const STORAGE_KEY = 'candy_dev_cloud_placements';
 

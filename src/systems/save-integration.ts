@@ -3,6 +3,10 @@
  * Wires SaveSystem gather/apply hooks to live game state.
  */
 
+import { FEATURE_FLAGS } from '../core/config.ts';
+import { awakenedPersistence } from './awakened-persistence-api.ts';
+import { discoverySystem } from './discovery.ts';
+import { player } from './physics/index.ts';
 import {
     saveSystem,
     createPlayerSaveData,
@@ -10,11 +14,7 @@ import {
     createProgressSaveData,
     type SaveData,
 } from './save-system/index.ts';
-import { player } from './physics/index.ts';
-import { discoverySystem } from './discovery.ts';
 import { unlockSystem } from './unlocks.ts';
-import { FEATURE_FLAGS } from '../core/config.ts';
-import { awakenedPersistence } from './awakened-persistence.ts';
 
 type SaveSystemInternals = {
     gatherPlayerData: () => SaveData['player'];

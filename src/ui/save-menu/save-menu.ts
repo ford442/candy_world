@@ -17,17 +17,11 @@ import {
     SettingsSaveData,
     KeyBindings
 } from '../../systems/save-system/index.ts';
-import { showToast } from '../../utils/toast.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { showToast } from '../../utils/toast.ts';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { announce } from '../announcer.ts';
 import { MENU_STYLES } from './save-menu-styles.ts';
-import { yieldToPaint } from '../../utils/yield-to-paint.ts';
-import { 
-    renderLoadTab, 
-    renderSaveTab, 
-    handleSlotAction, 
-    handleQuickSave 
-} from './save-slots.ts';
 import { 
     renderSettingsTab, 
     handleSettingChange, 
@@ -36,6 +30,12 @@ import {
     cancelKeybindListen as cancelKeybindListenBase,
     updateKeybind as updateKeybindBase
 } from './save-settings.ts';
+import { 
+    renderLoadTab, 
+    renderSaveTab, 
+    handleSlotAction, 
+    handleQuickSave 
+} from './save-slots.ts';
 
 // =============================================================================
 // TYPES
@@ -416,7 +416,7 @@ export class SaveMenu {
 
         // Quick save
         const quickSaveBtn = this.container.querySelector('[data-action="quick-save"]');
-        quickSaveBtn?.addEventListener('click', () => this.handleQuickSave());
+        quickSaveBtn?.addEventListener('click', () => this.handleQuickSave(quickSaveBtn as HTMLElement));
 
         // Settings
         this.container.querySelectorAll('[data-setting]').forEach(el => {
@@ -540,7 +540,7 @@ export class SaveMenu {
         );
     }
 
-    private async handleQuickSave(): Promise<void> {
+    private async handleQuickSave(btnElement?: HTMLElement): Promise<void> {
         const boundSaveToSlot = async (id: string) => {
             const result = await saveSystem.save(id);
             if (result) {
@@ -550,7 +550,7 @@ export class SaveMenu {
                 this.render();
             }
         };
-        await handleQuickSave(this.slots, boundSaveToSlot);
+        await handleQuickSave(this.slots, boundSaveToSlot, btnElement);
     }
 
     private handleSettingChange(e: Event): void {
@@ -649,10 +649,11 @@ export class SaveMenu {
                 await this.importData();
                 setTimeout(restoreState, 300);
                 break;
-            case 'clear-import':
+            case 'clear-import': {
                 const importArea = this.container?.querySelector('#import-area') as HTMLTextAreaElement;
                 if (importArea) importArea.value = '';
                 break;
+            }
             case 'delete-all':
                 setWorkingState();
                 await this.deleteAll();

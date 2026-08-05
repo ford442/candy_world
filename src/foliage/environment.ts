@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
 import { time, vec3, vec4, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld, normalWorld, floor } from 'three/tsl';
+import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats

@@ -1,13 +1,18 @@
-import { makeInteractive } from '../utils/interaction-utils.ts';
-import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
-import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
     max, pow, min, cameraPosition, uv, floor, instanceIndex, varyingProperty
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
+import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
+import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
+import { circadianNightGlowMult } from '../systems/biome-uniforms.ts';
+import { makeInteractive } from '../utils/interaction-utils.ts';
+import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
+import { fastInvSqrt } from '../utils/wasm-loader.ts';
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -16,6 +21,11 @@ const modFloat = (x: any, y: any) => {
     const yf = float(y);
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
+import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
+import { applyAerialPerspective, aerialPerspectiveLodBoost } from './aerial-perspective.ts';
+import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
+import { uChromaticIntensity } from './chromatic.ts';
+import { spawnImpact } from './impacts.ts';
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
@@ -29,17 +39,7 @@ import {
     applyStandardDeformationWithLod,
     applyFoliageLodMaterialFade,
 } from './lod-nodes.ts';
-import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
-import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
-import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { uTwilight } from './sky.ts';
-import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
-import { spawnImpact } from './impacts.ts';
-import { uChromaticIntensity } from './chromatic.ts';
-import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
-import { fastInvSqrt } from '../utils/wasm-loader.ts';
-import { applyAerialPerspective, aerialPerspectiveLodBoost } from './aerial-perspective.ts';
-import { circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 
 const MAX_MUSHROOMS = getCIAdjustedCount(1000, 0.1, 50); // Reduced from 4000 for WebGPU uniform buffer limits
 

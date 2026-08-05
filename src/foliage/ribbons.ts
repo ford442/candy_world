@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, Fn, uniform, mix,
     positionLocal, normalWorld,
     cameraPosition, sin, abs, smoothstep, uv,
     mx_noise_float
 } from 'three/tsl';
-import { createUnifiedMaterial } from './index.ts';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { fastInvSqrt } from '../utils/wasm-loader.ts';
+import { createUnifiedMaterial } from './index.ts';
 
 /**
  * Melody Ribbon System

@@ -6,6 +6,7 @@
  * into the candy_world game.
  */
 
+import * as THREE from 'three';
 import {
     AssetStreamer,
     AssetPriority,
@@ -14,7 +15,6 @@ import {
     createSampleManifest
 } from '../systems';
 
-import * as THREE from 'three';
 
 // ============================================================================
 // EXAMPLE 1: Basic Setup

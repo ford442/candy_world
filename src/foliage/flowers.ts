@@ -1,8 +1,14 @@
 // src/foliage/flowers.ts
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { color as tslColor, mix, float, positionLocal, uv, vec2, sub, mul, add, sin, length, atan, atan2, smoothstep, vec3 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { unlockSystem } from '../systems/unlocks.ts';
+import { getCircleGeometry, getCylinderGeometry, getTorusGeometry, getSphereGeometry } from '../utils/geometry-dedup.ts';
+import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
+import { flowerBatcher } from './flower-batcher.ts'; // ⚡ OPTIMIZATION: New Unified Batcher
+import { spawnImpact } from './impacts.ts';
 import { 
     foliageMaterials, 
     registerReactiveMaterial, 
@@ -22,16 +28,10 @@ import {
     uAudioHigh,
     uAudioLow
 } from './index.ts';
-import { color as tslColor, mix, float, positionLocal, uv, vec2, sub, mul, add, sin, length, atan, atan2, smoothstep, vec3 } from 'three/tsl';
-import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
-import { unlockSystem } from '../systems/unlocks.ts';
-import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
+import { uTwilight } from './sky.ts';
 import { treeBatcher } from './tree-batcher.ts';
-import { flowerBatcher } from './flower-batcher.ts'; // ⚡ OPTIMIZATION: New Unified Batcher
-import { spawnImpact } from './impacts.ts';
-import { getCircleGeometry, getCylinderGeometry, getTorusGeometry, getSphereGeometry } from '../utils/geometry-dedup.ts';
 
 interface FlowerOptions {
     color?: number | string | THREE.Color | null;
@@ -133,7 +133,6 @@ export function createStarflower(options: { color?: number | string | THREE.Colo
     stem.castShadow = true;
     group.add(stem);
 
-    // @ts-ignore
     const center = new THREE.Mesh(sharedGeometries.unitSphere, foliageMaterials.flowerCenter);
     center.scale.setScalar(0.09);
     center.position.y = stemH;
@@ -171,7 +170,7 @@ export function createStarflower(options: { color?: number | string | THREE.Colo
 
     // ⚡ OPTIMIZATION: Cache Beam
     const beamMat = getCachedProceduralMaterial('starflower_beam', hexColor, () => {
-        // @ts-ignore
+        // @ts-expect-error foliageMaterials.lightBeam clone accepts colorNode override
         const mat = foliageMaterials.lightBeam.clone();
         mat.colorNode = tslColor(hexColor);
         return mat;

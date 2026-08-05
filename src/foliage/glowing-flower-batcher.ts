@@ -1,12 +1,14 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
-import type { Node } from 'three/webgpu';
 import {
     color, float, vec3, attribute, positionLocal, positionWorld,
     sin, smoothstep, uniform, mix,
     varyingProperty
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import type { Node } from 'three/webgpu';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { foliageGroup } from '../world/state.ts';
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, uWindSpeed, uWindDirection,
@@ -14,8 +16,6 @@ import {
     createStandardNodeMaterial
 } from './index.ts';
 import { uTwilight } from './sky.ts';
-import { foliageGroup } from '../world/state.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
@@ -30,6 +30,8 @@ const _scratchColor = new THREE.Color();
 export class GlowingFlowerBatcher {
     initialized: boolean;
     count: number;
+    private indexMap = new Map<string, number>();
+    private logicObjects: THREE.Object3D[] = [];
 
     // Meshes
     stemMesh: THREE.InstancedMesh | null;
@@ -159,7 +161,7 @@ export class GlowingFlowerBatcher {
         washMat.emissiveNode = instanceColor.mul(washOpacity); // Additive glow
 
         // 3. Position Logic (Same as Head)
-        const washPos = positionLocal.mul(visibilityScale).add(windSway).add(playerPush);
+        const washPos = positionLocal.mul(visibilityScale).add(standardDef);
         washMat.positionNode = washPos;
 
 

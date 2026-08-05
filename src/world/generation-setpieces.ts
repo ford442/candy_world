@@ -1,17 +1,18 @@
 import * as THREE from 'three';
-import { getParticles } from '../particles/lazy.ts';
-import { makeInteractive } from '../utils/interaction-utils.ts';
-import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
+import { createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/compute-integration.ts';
+import { getParticles } from '../particles/lazy.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
+import { makeInteractive } from '../utils/interaction-utils.ts';
+import { sampleEntityScale, sampleEntityHeight, biomeNormalizedDistance } from './entity-scale.ts';
+import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 import {
     ARPEGGIO_GROVE, LAKE_ISLAND, WeatherSystem, yieldControl,
     getArpeggioGroveFernCount, getArpeggioGroveOuterCount,
     getLakeArpeggioFernCount, getLakeDandelionCount
 } from './generation-utils.ts';
-import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
-import { sampleEntityScale, sampleEntityHeight, biomeNormalizedDistance } from './entity-scale.ts';
 
 registerBuiltinWorldObjectTypes();
 

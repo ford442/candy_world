@@ -1,0 +1,299 @@
+/* 🎨 Palette: Ability HUD */
+#ability-hud {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    z-index: 100;
+}
+
+/* 🎨 Palette: Energy Bar */
+#energy-bar-container {
+    width: 150px;
+    height: 20px;
+    background: rgba(30, 30, 40, 0.85);
+    border-radius: 10px;
+    border: 3px solid #ffd1dc;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition:
+        transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+        border-color 0.2s;
+    margin-right: 10px;
+}
+
+#energy-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ff69b4, #ff1493);
+    border-radius: 7px;
+    transition:
+        width 0.1s linear,
+        background 0.2s;
+    box-shadow: 0 0 10px rgba(255, 105, 180, 0.5);
+}
+
+.low-energy-pulse {
+    border-color: #ff1493 !important;
+}
+
+.ability-slot {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 12px;
+    border: 3px solid #ffd1dc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    /* PALETTE: Removed transform transition to allow smooth JS beat pulsing */
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
+}
+
+/* 🎨 Palette: Interactive Hover and Focus States */
+.ability-slot:hover {
+    border-color: #ff6b6b;
+    box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
+    cursor: pointer;
+}
+
+.ability-slot:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 6px #ff4081;
+    border-color: #ff4081;
+}
+
+/* PALETTE: Fallback beat bounce animation */
+@keyframes hud-bounce {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.15);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.hud-beat-bounce {
+    animation: hud-bounce 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ability-key {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #ff6b6b;
+    font-family: 'Fredoka One', cursive, sans-serif;
+    text-shadow: 1px 1px 0 #fff;
+    z-index: 2;
+}
+
+.ability-icon {
+    z-index: 1;
+    filter: grayscale(100%);
+    opacity: 0.6;
+    transition:
+        filter 0.2s,
+        opacity 0.2s;
+}
+
+.cooldown-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%;
+    background: rgba(100, 100, 100, 0.6);
+    transition: height 0.1s linear;
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* Ready State */
+.ability-slot[aria-disabled='false']:not([aria-pressed='true']) {
+    border-color: #4caf50;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+    background: #ffffff;
+}
+
+/* 🎨 Palette: Ability Slot Ready State Visual Pop */
+.ability-slot[aria-disabled='false'] {
+    filter: grayscale(0%) brightness(100%);
+    opacity: 1;
+    transform: scale(1.1); /* Brief pop */
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 🎨 Palette: Active State (Duration Running) */
+.ability-slot[aria-pressed='true'] {
+    border-color: #d500f9;
+    box-shadow: 0 0 15px rgba(213, 0, 249, 0.6);
+    background: #f3e5f5;
+}
+
+/* 🎨 Palette: Ability Counter Badge */
+.ability-count {
+    position: absolute;
+    bottom: -6px;
+    right: -6px;
+    background: #ff6b6b;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    font-family: 'Fredoka One', sans-serif;
+    z-index: 5;
+    border: 2px solid white;
+    pointer-events: none;
+}
+
+.ability-slot[aria-disabled='false']:not([aria-pressed='true']) .ability-icon {
+    filter: grayscale(0%);
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.ability-slot[aria-disabled='false']:not([aria-pressed='true']):active,
+.ability-slot[aria-disabled='false']:not([aria-pressed='true']).keyboard-active,
+.ability-slot[aria-pressed='true'] {
+    transform: scale(0.9);
+    border-color: #ff4081; /* High contrast feedback */
+    box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
+    filter: drop-shadow(0 0 10px rgba(255, 64, 129, 0.8));
+}
+
+/* 🎨 Palette: Pressed State */
+/* Visually differentiates active toggle buttons (e.g., Muted, Night Mode) */
+.toggle-button[aria-pressed='true'],
+.toggle-button[aria-expanded='true'] {
+    background: #ff4081; /* Higher contrast active color */
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+    border: 2px solid #ffd1dc;
+    padding: 8px 18px; /* Offset border to prevent layout shift */
+}
+
+.toggle-button[aria-pressed='true']:hover,
+.toggle-button[aria-expanded='true']:hover {
+    background: #f50057;
+}
+
+/* 🎨 Palette: Soft Disabled State */
+/* Maintains focusability for keyboard users while indicating unavailability */
+.toggle-button[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #6a5acd; /* Reset hover color */
+}
+
+.toggle-button[aria-disabled='true']:hover {
+    background: #6a5acd;
+    transform: none;
+}
+
+.toggle-button[aria-disabled='true']:active {
+    transform: none;
+}
+
+/* ♿ Aria: Distinguish busy (loading) states from disabled states */
+.toggle-button[aria-busy='true'] {
+    opacity: 0.8;
+    cursor: wait;
+    transform: scale(0.98);
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 🎨 Palette: Key Hint Feedback */
+kbd.key {
+    transition:
+        transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+        background-color 0.1s ease,
+        box-shadow 0.1s ease;
+}
+
+kbd.key.key-highlight {
+    transform: scale(1.2);
+    background-color: #ff6b6b;
+    color: white;
+    border-color: #ff4081;
+    box-shadow: 0 0 15px rgba(255, 107, 107, 0.6);
+    z-index: 10;
+    position: relative;
+}
+
+/* 🎨 Palette: Prevent Layout Shifts on Toggle */
+#toggleDayNight {
+    min-width: 220px;
+    text-align: center;
+}
+
+#toggleMuteBtn {
+    min-width: 140px;
+    text-align: center;
+}
+
+/* 🎨 Palette: Now Playing Info (Pause Menu) */
+.now-playing-info {
+    font-family: 'Fredoka One', cursive, sans-serif;
+    color: #ff6b6b;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 20px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 1.1em;
+    text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
+    border: 2px solid #ffd1dc;
+    max-width: 80%;
+    text-align: center;
+}
+
+.now-playing-info .music-note {
+    font-size: 1.2em;
+    animation: bounce 1s infinite alternate;
+    display: inline-block;
+}
+
+/* 🎨 Palette: Ability Slot Disabled State */
+.ability-slot[aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    filter: grayscale(100%) brightness(50%);
+    pointer-events: none; /* Prevent clicks while on cooldown */
+    transition: all 0.3s ease;
+    background: rgba(230, 230, 230, 0.85);
+    border-color: #dcdcdc;
+    box-shadow: none;
+}
+
+.ability-slot[aria-disabled='true']:hover {
+    border-color: #dcdcdc;
+    box-shadow: none;
+    transform: none;
+}
+
+.ability-slot[aria-disabled='true']:active {
+    transform: none;
+    box-shadow: none;
+}

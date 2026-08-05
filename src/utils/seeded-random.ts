@@ -8,6 +8,7 @@
  */
 
 import { readSeedFromURL } from '../world/world-seed.ts';
+import { log } from './log.ts';
 
 let _seed: number | null = null;
 let _rng: (() => number) | null = null;
@@ -50,7 +51,7 @@ export function applyWorldSeed(seed: number): void {
         mathObj.__originalRandom = Math.random;
     }
     Math.random = () => _rng!();
-    console.log(`[SeededRandom] Deterministic mode enabled with seed ${normalized}`);
+    log.info('SeededRandom', `Deterministic mode enabled with seed ${normalized}`);
 }
 
 const _seedValue = readSeedFromURL();

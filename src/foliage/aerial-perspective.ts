@@ -14,8 +14,8 @@ import {
     uniform,
     vec3,
 } from 'three/tsl';
-import { lodFarGate, lodMidOnlyGate } from './lod-nodes.ts';
 import { CONFIG } from '../core/config.ts';
+import { lodFarGate, lodMidOnlyGate } from './lod-nodes.ts';
 
 /** 0 = disabled, 1 = full strength (scaled by night/fog gates on CPU). */
 export const uAerialStrength = uniform(0.0);

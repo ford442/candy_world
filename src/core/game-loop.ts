@@ -3,7 +3,15 @@
 // Frame order is intentional; do not reorder phases without a gameplay audit.
 
 import * as THREE from 'three';
-
+import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
+import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
+import { updateImpacts } from '../foliage/impacts.ts';
+import { updateFaunaSystem } from '../systems/fauna/index.ts';
+import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
+import { player } from '../systems/physics/index.ts';
+import { profiler } from '../utils/profiler.ts';
+import { isExploreActive } from './camera-modes.ts';
+import { updateAudioPhase } from './game-loop-audio.ts';
 import {
     initGameLoopDependencies,
     getGameTime,
@@ -29,11 +37,10 @@ import {
     setLastBeatPhase,
     baseFOV,
 } from './game-loop-core.ts';
-
-import { updateAudioPhase } from './game-loop-audio.ts';
+import { updateFoliagePhase } from './game-loop-foliage.ts';
+import { updateGameplayPhase } from './game-loop-gameplay.ts';
 import { updateInteractionPhase, updateExploreCameraPhase } from './game-loop-input.ts';
 import { updateVisualsPhase } from './game-loop-visuals.ts';
-import { updateFoliagePhase } from './game-loop-foliage.ts';
 import { updateParticlesPhase } from './game-loop-particles.ts';
 import { updatePostFX, renderPostProcessing } from './game-loop-postfx.ts';
 import { updateComputePhase } from './game-loop-compute.ts';
@@ -46,6 +53,7 @@ import { player } from '../systems/physics/index.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
+import { updatePresenceSystem } from '../systems/net/index.ts';
 import { getPhotoMode } from '../systems/photo-mode/index.ts';
 import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
 
@@ -82,7 +90,7 @@ export function animate() {
 
     const currentBPM = audioState?.bpm || 120;
     const timeFactor = 120 / Math.max(10, currentBPM);
-    let gt = getGameTime() + delta * timeFactor;
+    const gt = getGameTime() + delta * timeFactor;
     setGameTime(gt);
 
     const currentBeatPhase = audioState?.beatPhase || 0;
@@ -174,6 +182,7 @@ export function animate() {
     updateImpacts(rendererRef, gt + timeOffsetRef.value);
     updateDandelionSeeds(rendererRef);
     updateFaunaSystem(delta, gt + timeOffsetRef.value);
+    updatePresenceSystem(delta, cameraRef, player.position);
 
     // 6. Physics Phase
     const devOrbitActive = exploreActive;

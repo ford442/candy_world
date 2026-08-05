@@ -11,8 +11,8 @@
  */
 
 import * as THREE from 'three';
-import { getGroundHeight, getEyeTargetY, sampleGroundNormal } from '../systems/ground-system.ts';
 import { CONFIG } from '../core/config.ts';
+import { getGroundHeight, getEyeTargetY, sampleGroundNormal } from '../systems/ground-system.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 const _hasFlag = (key: string): boolean => {
@@ -27,7 +27,7 @@ const DEBUG_HEIGHTS = _hasFlag('debugHeights');
 const DEBUG_PLAYER = _hasFlag('debugPlayer');
 const DEBUG_CLOUDS = _hasFlag('debugClouds') || DEBUG_HEIGHTS;
 
-let _enabled = DEBUG_HEIGHTS || DEBUG_PLAYER || DEBUG_CLOUDS;
+const _enabled = DEBUG_HEIGHTS || DEBUG_PLAYER || DEBUG_CLOUDS;
 
 let _scene: THREE.Scene | null = null;
 let _playerMesh: THREE.Mesh | null = null;

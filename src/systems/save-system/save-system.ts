@@ -11,9 +11,10 @@
  * - Corrupted save handling with graceful fallback
  */
 
-import { showToast } from '../../utils/toast.ts';
 import { FEATURE_FLAGS } from '../../core/config.ts';
-import { awakenedPersistence } from '../awakened-persistence.ts';
+import { showToast } from '../../utils/toast.ts';
+import { awakenedPersistence } from '../awakened-persistence-api.ts';
+import { SaveDatabase, MigrationSystem, LZString } from './save-database.ts';
 import {
     SAVE_VERSION,
     SAVE_VERSION as SAVE_VERSION_CONST,
@@ -30,7 +31,6 @@ import {
     SaveSlotInfo,
     SaveMetadata
 } from './save-types.ts';
-import { SaveDatabase, MigrationSystem, LZString } from './save-database.ts';
 
 // =============================================================================
 // MAIN SAVE SYSTEM

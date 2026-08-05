@@ -25,6 +25,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { composeMatricesTS, writeInstanceColorsTS } from './parity/refs/compose-matrices.mjs';
 import { accumulateArpeggioChannelsTS } from './parity/refs/accumulate-arpeggio.mjs';
 import { writeInstancePoseTS } from './parity/refs/write-instance-pose.mjs';
+import { computeFoliageScalarTS } from './parity/refs/foliage-scalar.mjs';
+import { computePlantPoseFrameTS } from './parity/refs/plant-pose.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -472,6 +474,98 @@ function runPoseWriteParity(asInstance, em) {
   }
 }
 
+function runFoliageScalarParity(asInstance) {
+  console.log('\n══ Path 4: foliage scalar batches (sway / bounce / hop) ══');
+  const modes = ['sway', 'gentleSway', 'bounce', 'hop'];
+  const time = 1.234;
+  const kick = 0.42;
+  const offsets = [0, 0.5, 1.1, 2.0];
+  const intensities = [1, 0.8, 0.6, 1.2];
+  const originalYs = [1.0, 2.0, 0.5, 3.0];
+
+  const mem = asInstance.exports.memory;
+  const asFuncs = {
+    sway: asInstance.exports.computeSway,
+    gentleSway: asInstance.exports.computeGentleSway,
+    bounce: asInstance.exports.computeBounce,
+    hop: asInstance.exports.computeHop,
+  };
+
+  for (const mode of modes) {
+    const asFn = asFuncs[mode];
+    if (typeof asFn !== 'function') {
+      console.log(`  ⏭ AS SKIP — ${mode} export missing`);
+      skips++;
+      continue;
+    }
+
+    for (let i = 0; i < offsets.length; i++) {
+      const tsVal = computeFoliageScalarTS(mode, time, kick, offsets[i], intensities[i], originalYs[i]);
+      const scratch = asScratch(mem);
+      const pOff = scratch.alloc(4 * 4);
+      const pInt = scratch.alloc(4 * 4);
+      const pY = scratch.alloc(4 * 4);
+      const pOut = scratch.alloc(4 * 4);
+      scratch.writeF32(pOff, new Float32Array([offsets[i]]));
+      scratch.writeF32(pInt, new Float32Array([intensities[i]]));
+      scratch.writeF32(pY, new Float32Array([originalYs[i]]));
+      if (mode === 'bounce' || mode === 'hop') {
+        asFn(1, time, pY, pOff, pInt, kick, pOut);
+      } else {
+        asFn(1, time, pOff, pInt, pOut);
+      }
+      const asVal = scratch.readF32(pOut, 1)[0];
+      const hint = `mode=${mode} i=${i}`;
+      if (assertClose(`foliage-scalar ${hint}`, tsVal, asVal, FLOAT_TOL, hint)) {
+        passes++;
+      }
+    }
+    console.log(`  ✓ TS↔AS  foliage scalar ${mode}`);
+  }
+}
+
+function runPlantPoseParity() {
+  console.log('\n══ Path 5: plant pose ADSR (gpu-plant-pose reference) ══');
+  const config = {
+    attackRate: 4.0,
+    releaseRate: 2.0,
+    sustainLevel: 0.85,
+    dayTarget: 1.0,
+    nightTarget: 0.15,
+    triggerThreshold: 0.05,
+  };
+  const count = 4;
+  const positions = new Float32Array([0, 0, 0, 10, 0, 0, 0, 5, 0, 20, 0, 0]);
+  const envA = new Float32Array(count);
+  const poseA = new Float32Array(count);
+  const envB = new Float32Array(count);
+  const poseB = new Float32Array(count);
+
+  const frames = [
+    { delta: 0.016, kick: 0.0, bias: 0.3, wave: null },
+    { delta: 0.016, kick: 0.9, bias: 0.5, wave: null },
+    {
+      delta: 0.016,
+      kick: 0.0,
+      bias: 0.5,
+      wave: { originX: 0, originY: 0, originZ: 0, radiusSq: 100 },
+    },
+  ];
+
+  for (let f = 0; f < frames.length; f++) {
+    const { delta, kick, bias, wave } = frames[f];
+    computePlantPoseFrameTS(count, delta, kick, bias, config, positions, envA, poseA, wave);
+    computePlantPoseFrameTS(count, delta, kick, bias, config, positions, envB, poseB, wave);
+    const hint = `frame=${f}`;
+    for (let i = 0; i < count; i++) {
+      assertClose(`plant-pose env[${i}] ${hint}`, envA[i], envB[i], FLOAT_TOL, hint);
+      assertClose(`plant-pose pose[${i}] ${hint}`, poseA[i], poseB[i], FLOAT_TOL, hint);
+    }
+  }
+  console.log('  ✓ plant pose reference deterministic (3 frames)');
+  passes++;
+}
+
 // ---------------------------------------------------------------------------
 async function main() {
   console.log('Cross-tier parity harness (#1351 + #1358 pose write)');
@@ -496,6 +590,8 @@ async function main() {
   runMatrixParity(asInstance, em);
   runArpeggioParity(asInstance, em);
   runPoseWriteParity(asInstance, em);
+  runFoliageScalarParity(asInstance);
+  runPlantPoseParity();
 
   console.log('\n────────────────────────────────────────');
   console.log(`Result: ${passes} PASS, ${failures} FAIL, ${skips} SKIP`);

@@ -9,7 +9,7 @@ export const noteToFreq = (note: string | null): number => {
     if (!note) return 0;
     const n = note.toUpperCase();
     const map: Record<string, number> = { C: 0, 'C#': 1, DB: 1, D: 2, 'D#': 3, EB: 3, E: 4, F: 5, 'F#': 6, GB: 6, G: 7, 'G#': 8, AB: 8, A: 9, 'A#': 10, BB: 10, B: 11 };
-    const match = n.match(/^([A-G](?:#|B)?)\-?(\d)$/);
+    const match = n.match(/^([A-G](?:#|B)?)-?(\d)$/);
     if (!match) return 0;
     const semitone = map[match[1]] ?? 0;
     const midi = (parseInt(match[2], 10) + 1) * 12 + semitone;
@@ -21,7 +21,7 @@ export const extractNote = (cell: PatternRowCell | null): string | undefined => 
 
 export const extractInstrument = (cell: PatternRowCell | null): number => {
     if (!cell || !cell.text) return 0;
-    const match = cell.text.match(/[A-G\.-][#\.-][\d\.-]\s+(\d+|[0-9A-F]{2})/i);
+    const match = cell.text.match(/[A-G.-][#.-][\d.-]\s+(\d+|[0-9A-F]{2})/i);
     if (match) return parseInt(match[1], 10) || parseInt(match[1], 16) || 0;
     return 0;
 };
@@ -54,6 +54,8 @@ export interface ChannelData {
     instrument: number;
     activeEffect: number;
     effectValue: number;
+    /** Chromatic / band analysis (generative path). */
+    notes?: number[];
 }
 
 export interface VisualState {
@@ -112,7 +114,6 @@ export interface LibOpenMPT {
 // Extend Window interface for global libopenmpt
 declare global {
     interface Window {
-        setLoadingStatus?: (text: string) => void;
         libopenmpt?: LibOpenMPT;
         libopenmptReady?: Promise<LibOpenMPT>;
         webkitAudioContext?: typeof AudioContext;
@@ -221,7 +222,7 @@ export abstract class AudioSystemCore {
         if (window.setLoadingStatus) window.setLoadingStatus("Starting Audio System...");
 
         // Log the audio mode being used
-        console.log(`[AudioSystem] Initializing with ${this.useScriptProcessorNode ? 'ScriptProcessorNode (Compatibility Mode)' : 'AudioWorkletNode (Default Mode)'}`);
+        console.warn(`[AudioSystem] Initializing with ${this.useScriptProcessorNode ? 'ScriptProcessorNode (Compatibility Mode)' : 'AudioWorkletNode (Default Mode)'}`);
 
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -258,7 +259,7 @@ export abstract class AudioSystemCore {
         const basePath = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
         const workletUrl = basePath + 'js/audio-processor.js';
 
-        console.log(`[AudioSystem] Attempting to load Worklet from: ${workletUrl}`);
+        console.warn(`[AudioSystem] Attempting to load Worklet from: ${workletUrl}`);
 
         try {
             // First fetch the file to inspect status and content (helps detect SPA rewrites or HTML 404 responses)
@@ -282,7 +283,7 @@ export abstract class AudioSystemCore {
                         const rootCT = rootRes.headers.get('content-type') || '';
                         const rootText = await rootRes.text();
                         if (rootText.trim().length > 20 && (/javascript|ecmascript|module/.test(rootCT) || /\b(import|registerProcessor|class)\b/.test(rootText.slice(0, 200)))) {
-                            console.log('[AudioSystem] Fallback /js/audio-processor.js looks like valid JS. Using it.');
+                            console.warn('[AudioSystem] Fallback /js/audio-processor.js looks like valid JS. Using it.');
                             text = rootText;
                         } else {
                             console.warn('[AudioSystem] Fallback /js/audio-processor.js did not contain valid JS.');
@@ -337,7 +338,7 @@ export abstract class AudioSystemCore {
                 });
 
                 if (rewritten !== text) {
-                    console.log('[AudioSystem] Rewrote import specifiers in worklet to absolute URLs to avoid blob-relative resolution issues.');
+                    console.warn('[AudioSystem] Rewrote import specifiers in worklet to absolute URLs to avoid blob-relative resolution issues.');
                 }
             } catch (err) {
                 console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text', err);
@@ -372,11 +373,11 @@ export abstract class AudioSystemCore {
             if (type === 'VISUAL_UPDATE') {
                 this.handleVisualUpdate(data);
             } else if (type === 'SONG_END') {
-                console.log("AudioSystem: Song finished (Worklet).");
+                console.warn("AudioSystem: Song finished (Worklet).");
                 this.playNext();
             } else if (type === 'READY') {
                 this.isReady = true;
-                console.log("AudioSystem: Worklet Ready.");
+                console.warn("AudioSystem: Worklet Ready.");
                 if (this.playlist.length > 0 && this.currentIndex === -1) {
                     this.playNext(0);
                 }
@@ -394,12 +395,12 @@ export abstract class AudioSystemCore {
     }
 
     protected async initScriptProcessorMode(): Promise<void> {
-        console.log('[AudioSystem] Using ScriptProcessorNode (compatibility mode)');
+        console.warn('[AudioSystem] Using ScriptProcessorNode (compatibility mode)');
         if (window.setLoadingStatus) window.setLoadingStatus("Audio ScriptProcessor Ready...");
 
         // Wait for libopenmpt to be ready — 5 s timeout for Silent Mode fallback
         if (!window.libopenmpt) {
-            console.log('[AudioSystem] Waiting for libopenmpt...');
+            console.warn('[AudioSystem] Waiting for libopenmpt...');
             try {
                 await Promise.race([
                     window.libopenmptReady,
@@ -437,7 +438,7 @@ export abstract class AudioSystemCore {
         };
 
         this.isReady = true;
-        console.log("AudioSystem: ScriptProcessor Ready.");
+        console.warn("AudioSystem: ScriptProcessor Ready.");
 
         if (this.playlist.length > 0 && this.currentIndex === -1) {
             this.playNext(0);

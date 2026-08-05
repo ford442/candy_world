@@ -4,10 +4,12 @@
  */
 
 import * as THREE from 'three';
-import { PointsNodeMaterial } from 'three/webgpu';
 import { uv, distance, vec2, vec3, smoothstep, sin, float, mix, color, Fn } from 'three/tsl';
+import { PointsNodeMaterial } from 'three/webgpu';
 import { uTime, uAudioHigh } from '../foliage/material-core.ts';
 import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { isEmscriptenReady } from '../utils/wasm-loader-core.ts';
+import { updateCpuParticlesNative } from '../utils/wasm-particles-cpp.ts';
 import { ComputeParticleType, ComputeParticleConfig, ParticleAudioData } from './compute-particles-types.ts';
 import {
     respawnCpuParticle,
@@ -15,8 +17,6 @@ import {
     type CpuParticleBuffers,
     type CpuParticleSimParams,
 } from './cpu-particle-simulate.ts';
-import { isEmscriptenReady } from '../utils/wasm-loader-core.ts';
-import { updateCpuParticlesNative } from '../utils/wasm-particles-cpp.ts';
 
 /**
  * CPU-based fallback when WebGPU compute is not available

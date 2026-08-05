@@ -2,36 +2,37 @@ import { MRState, syncMapMusicContext, mapNoteToColor, applyArpeggioGroveChannel
 export * from "./music-reactivity-core.ts";
 export { AtmosphereShaftState } from './atmosphere-reactivity.ts';
 export { computeWaveDistSq } from './music-wave.ts';
-import type { ActiveWave } from './music-wave.ts';
 import * as THREE from 'three';
-import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
-import { getDayNightBias } from '../core/cycle.ts';
-import { animateFoliage } from '../foliage/animation.ts';
-import { foliageBatcher } from '../foliage/batcher/index.ts';
-import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
-import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
-import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
-import { flowerBatcher } from '../foliage/flower-batcher.ts';
-import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
 import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
 import { uTwilight } from '../foliage/sky.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { CHROMATIC_SCALE, skyWaveUniformMap } from './music-reactivity-defaults.ts';
+import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
+import { getDayNightBias } from '../core/cycle.ts';
+import { animateFoliage } from '../foliage/animation.ts';
+import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
+import { foliageBatcher } from '../foliage/batcher/index.ts';
+import { flowerBatcher } from '../foliage/flower-batcher.ts';
+import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
+import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
+import { uploadPositionsFlat, batchDistanceCull } from '../utils/wasm-batch.ts';
 import {
     updateAtmosphereReactivity,
     registerAtmosphereBeatSync,
     applyAtmosphereMapOverrides,
 } from './atmosphere-reactivity.ts';
-import { awakenedPersistence } from './awakened-persistence.ts';
-import { uploadPositionsFlat, batchDistanceCull } from '../utils/wasm-batch.ts';
+import { awakenedPersistence } from './awakened-persistence-api.ts';
+import { CHROMATIC_SCALE, skyWaveUniformMap } from './music-reactivity-defaults.ts';
+import type { ActiveWave } from './music-wave.ts';
 
 // Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
 const WEATHER_TARGET_DECAY_RATE = 5.0;
 
 // Pre-allocated static fallback to prevent per-frame object allocation when audio is inactive
 const _emptyAudioState: AudioData = { channelData: [], kickTrigger: 0, grooveAmount: 0, beatPhase: 0, patternIndex: 0 };
+const _scratchSpeciesList: string[] = [];
 
 // --- Type Definitions ---
 

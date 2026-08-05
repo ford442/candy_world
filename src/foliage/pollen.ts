@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { PointsNodeMaterial } from 'three/webgpu';
 import {
     Fn,
     uniform,
@@ -22,9 +21,9 @@ import {
     uv,
     distance,
     smoothstep,
-    discard,
     vec2,
 } from 'three/tsl';
+import { PointsNodeMaterial } from 'three/webgpu';
 import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
 import {
     uTime,
@@ -71,7 +70,7 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
     const velocityStorage = storage(velocityBuffer, 'vec3', count);
     const lifeStorage = storage(lifeBuffer, 'float', count);
 
-    const computePollen = Fn(() => {
+    const computePollen = (Fn as any)((): void => {
         const p = positionStorage.element(instanceIndex);
         const v = velocityStorage.element(instanceIndex);
 
@@ -138,7 +137,7 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
         p.y.assign(max(p.y, float(1.8)));
     });
 
-    const computeNode = computePollen().compute(count);
+    const computeNode = (computePollen() as unknown as { compute: (n: number) => unknown }).compute(count);
 
     // 3. Visualization Material
     const material = new PointsNodeMaterial({
@@ -194,7 +193,7 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
     // Size modulation
     // Base size + audio boost
     // Make them slightly larger so the soft edge is visible
-    material.sizeNode = float(0.15).add(uAudioHigh.mul(0.1));
+    (material as { sizeNode?: unknown }).sizeNode = float(0.15).add(uAudioHigh.mul(0.1));
 
     // 4. Mesh
     function ensureUVAttribute(geometry: THREE.BufferGeometry) {

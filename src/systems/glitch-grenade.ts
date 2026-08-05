@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { uGlitchExplosionCenter, uGlitchExplosionRadius, sharedGeometries } from '../foliage/index.ts';
-import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { color, float, attribute, storage, instanceIndex, Fn, If, vec4, uniform, positionLocal, smoothstep } from 'three/tsl';
-import { getGroundHeight } from '../systems/ground-system.ts';
-import { spawnImpact } from '../foliage/impacts.ts';
+import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { addCameraShake } from '../core/camera-shake.ts';
+import { spawnImpact } from '../foliage/impacts.ts';
+import { uGlitchExplosionCenter, uGlitchExplosionRadius, sharedGeometries } from '../foliage/index.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 
 const MAX_GRENADES = 10; // Simple fixed pool size
 
@@ -107,7 +107,7 @@ class GlitchGrenadeSystem {
         // --- WebGPU COMPUTE SHADER LOGIC ---
         this.uDeltaTime = uniform(0);
 
-        const updateGrenadesCompute = Fn(() => {
+        const updateGrenadesCompute = (Fn as any)((): void => {
             const index = instanceIndex;
 
             const stateNode = storage(this.stateBuffer, 'vec4', MAX_GRENADES).element(index);
@@ -131,7 +131,7 @@ class GlitchGrenadeSystem {
             });
         });
 
-        this.computeNode = updateGrenadesCompute().compute(MAX_GRENADES);
+        this.computeNode = (updateGrenadesCompute() as unknown as { compute: (n: number) => unknown }).compute(MAX_GRENADES);
     }
 
     /**
@@ -263,7 +263,7 @@ class GlitchGrenadeSystem {
 
     private triggerExplosion(position: THREE.Vector3) {
         // Set the TSL uniforms to apply the local glitch shader
-        uGlitchExplosionCenter.value.copy(position);
+        (uGlitchExplosionCenter.value as unknown as THREE.Vector3).copy(position);
         uGlitchExplosionRadius.value = this.explosionRadiusMax;
 
         // Reset timer

@@ -95,7 +95,7 @@ export function validateWorldPopulation(mode: string = 'UNKNOWN'): WorldHealthRe
 
     // Batcher telemetry — lazy import keeps the health check self-contained;
     // fall back gracefully if the module hasn't loaded yet.
-    let batcherEntries: WorldHealthBatcherEntry[] = [];
+    const batcherEntries: WorldHealthBatcherEntry[] = [];
     let batcherTotal = 0;
     try {
         // collectBatcherTelemetry is synchronous; import is evaluated at module parse

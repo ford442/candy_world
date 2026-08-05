@@ -1,17 +1,17 @@
 import * as THREE from 'three';
+import { harmonyOrbSystem } from '../foliage/aurora.ts';
+import { updateFallingBerries, collectFallingBerries } from '../foliage/berries.ts';
+import { CloudBatcher } from '../foliage/cloud-batcher.ts';
+import { updateFallingClouds } from '../foliage/clouds.ts';
+import { ensureGameplay, getGameplay, getJitterMineCooldown } from '../gameplay/lazy.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
+import { player } from '../systems/physics/index.ts';
 import { profiler } from '../utils/profiler.ts';
+import { foliageClouds } from '../world/state.ts';
+import { getHarpoonLine } from './deferred-init.ts';
 import { safeSystemUpdate, safeUpdateBatcher, rendererRef, sceneRef, weatherSystemRef, cameraRef } from './game-loop-core.ts';
 import { updateHUD, setLastStrikeState, getLastStrikeState } from './hud.ts';
-import { player } from '../systems/physics/index.ts';
-import { updateFallingBerries, collectFallingBerries } from '../foliage/berries.ts';
-import { harmonyOrbSystem } from '../foliage/aurora.ts';
-import { updateFallingClouds } from '../foliage/clouds.ts';
-import { getGroundHeight } from '../systems/ground-system.ts';
-import { CloudBatcher } from '../foliage/cloud-batcher.ts';
-import { foliageClouds } from '../world/state.ts';
 import { keyStates } from './input/index.ts';
-import { getHarpoonLine } from './deferred-init.ts';
-import { ensureGameplay, getGameplay, getJitterMineCooldown } from '../gameplay/lazy.ts';
 
 export function updateGameplayPhase(delta: number, t: number, exploreActive: boolean, audioState: any) {
     const harpoonLine = getHarpoonLine();

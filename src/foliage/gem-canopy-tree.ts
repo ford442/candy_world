@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { treeBatcher } from './tree-batcher.ts';
-import { gemFruitBatcher } from './gem-fruit-batcher.ts';
+import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
-import { awakenedPersistence } from '../systems/awakened-persistence.ts';
+import { gemFruitBatcher } from './gem-fruit-batcher.ts';
+import { treeBatcher } from './tree-batcher.ts';
 import type { FoliageObject } from './types.ts';
 
 export interface GemCanopyTreeOptions {

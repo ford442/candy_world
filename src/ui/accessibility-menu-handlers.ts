@@ -3,9 +3,9 @@
  * Handles keyboard navigation and key rebinding for the accessibility settings menu.
  */
 
-import { AccessibilityMenuRendering } from './accessibility-menu-rendering';
-import { MenuSection } from './accessibility-menu-core';
 import { announce } from '../systems/accessibility';
+import { MenuSection } from './accessibility-menu-core';
+import { AccessibilityMenuRendering } from './accessibility-menu-rendering';
 
 /**
  * Extension of AccessibilityMenuRendering with event handler methods.

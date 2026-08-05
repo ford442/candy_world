@@ -19,17 +19,15 @@ import {
     isSharedMemoryAvailable,
     type ParallelWasmLoadOptions,
 } from './wasm-orchestrator.ts';
-
 import {
     checkWasmFileExists,
     inspectWasmExports,
     patchWasmInstantiateAliases,
 } from './wasm-utils.ts';
-import { showToast } from './toast.ts';
 
-// Import WASM initialization function (Vite + vite-plugin-wasm)
-// @ts-ignore - Vite-specific WASM import with vite-plugin-wasm
+// Vite WASM import via vite-plugin-wasm
 import initCandyPhysics from '../wasm/candy_physics.wasm?init';
+import { showToast } from './toast.ts';
 
 // =============================================================================
 // STATE EXPORTS
@@ -44,7 +42,7 @@ export let outputView: Float32Array | null = null; // Float32Array for reading r
 export let playerStateView: Float32Array | null = null; // Float32Array for player physics state
 
 /** Shared Float32Array for batch operations */
-export let sharedF32: Float32Array | null = null;
+export const sharedF32: Float32Array | null = null;
 
 /** Cached WASM function references */
 export let wasmGetGroundHeight: ((x: number, z: number) => number) | null = null;
@@ -106,7 +104,7 @@ export let cppUpdateBoids:
     | null = null;
 
 /** Hot-path Foliage Animation exports (Migrated from TS) */
-export let wasmSmoothWobble:
+export const wasmSmoothWobble:
     | ((
           noteBufferPtr: number,
           bufferSize: number,
@@ -117,9 +115,9 @@ export let wasmSmoothWobble:
           smoothingRate: number
       ) => number)
     | null = null;
-export let wasmBatchGrowth: ((dataPtr: number, count: number) => void) | null = null;
-export let wasmBatchBloom: ((dataPtr: number, count: number) => void) | null = null;
-export let wasmBatchScaleAnimation: ((dataPtr: number, count: number) => void) | null = null;
+export const wasmBatchGrowth: ((dataPtr: number, count: number) => void) | null = null;
+export const wasmBatchBloom: ((dataPtr: number, count: number) => void) | null = null;
+export const wasmBatchScaleAnimation: ((dataPtr: number, count: number) => void) | null = null;
 
 /** Hot-path Physics exports (Migrated from TS) */
 export let wasmBatchGroundHeight:
@@ -225,6 +223,7 @@ export const AnimationType = {
 export type AnimationTypeValue = (typeof AnimationType)[keyof typeof AnimationType];
 
 export * from './wasm-loader-types.ts';
+import { getEmscriptenMemory } from './wasm-loader-cpp.ts';
 import type {
     EmscriptenModule,
     ExtendedEmscriptenModule,
@@ -232,7 +231,6 @@ import type {
     WasiStubs,
     WasmImportObject,
 } from './wasm-loader-types.ts';
-import { getEmscriptenMemory } from './wasm-loader-cpp.ts';
 // =============================================================================
 // WASM EXPORT VALIDATION
 // =============================================================================
@@ -381,7 +379,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
                 await new Promise((r) => setTimeout(r, WASM_RETRY_DELAYS_MS[attempt - 1]));
             }
 
-            const instance = await initCandyPhysics(importObject);
+            const instance = await initCandyPhysics(importObject as unknown as WebAssembly.Imports);
             validateWasmExports(instance);
             cacheWasmFunctions(instance);
 

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { DataUtils } from 'three';
+import { VisualState } from '../audio/audio-system.ts';
 import {
     fluidInit, fluidStep, fluidAddDensity, fluidAddVelocity, getFluidDensityView
 } from '../utils/wasm-loader.ts';
-import { VisualState } from '../audio/audio-system.ts';
 
 export class FluidSystem {
     private size: number = 128;
@@ -18,7 +18,11 @@ export class FluidSystem {
         // which avoids the 'textureLoad(texture_2d, vec2)' WGSL error caused by r32float textures.
         this.textureData = new Uint16Array(this.size * this.size);
         this.texture = new THREE.DataTexture(
-            this.textureData, this.size, this.size, THREE.RedFormat, THREE.HalfFloatType
+            this.textureData as Uint16Array<ArrayBuffer>,
+            this.size,
+            this.size,
+            THREE.RedFormat,
+            THREE.HalfFloatType
         );
         this.texture.magFilter = THREE.LinearFilter;
         this.texture.minFilter = THREE.LinearFilter;
@@ -54,8 +58,14 @@ export class FluidSystem {
 
         // --- Input Injection ---
 
+        const kick = audio.kickTrigger ?? 0;
+        const high =
+            audio.channelData?.reduce((max, ch) => Math.max(max, ch.volume ?? 0), 0) ??
+            audio.grooveAmount ??
+            0;
+
         // 1. Kick Drum: Upward blast from bottom center
-        if (audio.kick > 0.1) {
+        if (kick > 0.1) {
              const cx = this.size / 2;
              const cy = 5; // Bottom
              const spread = 5;
@@ -65,18 +75,18 @@ export class FluidSystem {
                  const oy = (Math.random() - 0.5) * spread;
 
                  // Add Density
-                 this.addDensity(cx + ox, cy + oy, 50 * audio.kick * dt);
+                 this.addDensity(cx + ox, cy + oy, 50 * kick * dt);
 
                  // Add Velocity (Upward)
-                 this.addVelocity(cx + ox, cy + oy, (Math.random()-0.5)*2, 10 * audio.kick);
+                 this.addVelocity(cx + ox, cy + oy, (Math.random()-0.5)*2, 10 * kick);
              }
         }
 
         // 2. High Freq: Random sparkles/drips
-        if (audio.high > 0.2) {
+        if (high > 0.2) {
              const x = Math.floor(Math.random() * this.size);
              const y = Math.floor(Math.random() * this.size);
-             this.addDensity(x, y, 20 * audio.high * dt);
+             this.addDensity(x, y, 20 * high * dt);
              this.addVelocity(x, y, (Math.random()-0.5)*5, (Math.random()-0.5)*5);
         }
 

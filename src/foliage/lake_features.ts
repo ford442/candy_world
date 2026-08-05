@@ -1,12 +1,12 @@
 // src/foliage/lake_features.ts
 import * as THREE from 'three';
 import {
-    CandyPresets, attachReactivity
-} from './index.ts';
-import {
     positionLocal, vec3, float, sin, time, uv, add, color
 } from 'three/tsl';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import {
+    CandyPresets, attachReactivity
+} from './index.ts';
 
 export interface IslandOptions {
     radius?: number;
