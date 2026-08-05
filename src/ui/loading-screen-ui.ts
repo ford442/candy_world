@@ -1,11 +1,12 @@
-import { trapFocusInside } from '../utils/interaction-utils.ts';
-import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
-import { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
-import { LoadingScreenProgress, setLoadingScreenClass } from './loading-screen-progress.ts';
-import { createDeferredIndicator, createLoadingScreenDOM, addFatalErrorReloadButton, wireSkipButton } from './loading-screen-dom.ts';
-import { updateSpawnFailureBadge } from './loading-screen-reporting.ts';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { log } from '../utils/log.ts';
+import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { announce } from './announcer.ts';
+import { createDeferredIndicator, createLoadingScreenDOM, addFatalErrorReloadButton, wireSkipButton } from './loading-screen-dom.ts';
+import { LoadingScreenProgress, setLoadingScreenClass } from './loading-screen-progress.ts';
+import { updateSpawnFailureBadge } from './loading-screen-reporting.ts';
+import { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
 import './loading-screen.css';
 
 export class LoadingScreen {
@@ -68,7 +69,7 @@ export class LoadingScreen {
         });
 
         if (this.options.debug) {
-            console.log('[LoadingScreen] Initialized with options:', this.options);
+            log.debug('LoadingScreen', 'Initialized with options:', this.options);
         }
     }
 
@@ -123,7 +124,7 @@ export class LoadingScreen {
         }
 
         if (this.options.debug) {
-            console.log('[LoadingScreen] DOM created');
+            log.debug('LoadingScreen', 'DOM created');
         }
     }
 
@@ -194,7 +195,7 @@ export class LoadingScreen {
         }
 
         if (this.options.debug) {
-            console.log('[LoadingScreen] Shown');
+            log.debug('LoadingScreen', 'Shown');
         }
     }
 
@@ -206,7 +207,7 @@ export class LoadingScreen {
         this.isDeferredVisible = true;
         this.deferredIndicator.classList.add('visible');
         this.deferredIndicator.setAttribute('aria-hidden', 'false');
-        if (this.options.debug) console.log('[LoadingScreen] Deferred indicator shown');
+        if (this.options.debug) log.debug('LoadingScreen', 'Deferred indicator shown');
     }
 
     /**
@@ -258,7 +259,7 @@ export class LoadingScreen {
         this.isDeferredVisible = false;
         this.deferredIndicator.classList.remove('visible');
         this.deferredIndicator.setAttribute('aria-hidden', 'true');
-        if (this.options.debug) console.log('[LoadingScreen] Deferred indicator hidden');
+        if (this.options.debug) log.debug('LoadingScreen', 'Deferred indicator hidden');
     }
 
     hide(): void {
@@ -327,7 +328,7 @@ export class LoadingScreen {
         }, 10);
 
         if (this.options.debug) {
-            console.log('[LoadingScreen] Hiding...');
+            log.debug('LoadingScreen', 'Hiding...');
         }
     }
 
@@ -399,14 +400,14 @@ export class LoadingScreen {
 
         const result = this.progress.skipPhase(currentPhase.id);
         if (!result.success) {
-            console.warn('[LoadingScreen] Cannot skip non-deferred phase');
+            log.warn('LoadingScreen', 'Cannot skip non-deferred phase');
             return;
         }
 
         this.onSkipCallbacks.forEach(cb => cb(currentPhase.id));
 
         if (this.options.debug) {
-            console.log(`[LoadingScreen] Skipped phase: ${currentPhase.name}`);
+            log.debug('LoadingScreen', `Skipped phase: ${currentPhase.name}`);
         }
 
         globalLoadingManager.skipTask(currentPhase.id);
@@ -652,7 +653,7 @@ export class LoadingScreen {
             addFatalErrorReloadButton(this.container);
         }
 
-        console.error('[LoadingScreen] Fatal error displayed:', message);
+        log.error('LoadingScreen', 'Fatal error displayed:', message);
     }
 
     private destroy(): void {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { float, color, positionLocal, sin, cos, vec3 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { uAudioHigh, createJuicyRimLight, uTime } from '../foliage/material-core.ts';
 
 // Reusable scratch variables to avoid GC

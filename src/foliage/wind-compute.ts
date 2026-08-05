@@ -97,7 +97,8 @@ export class WindComputeSystem {
         );
         this.currentDirection.copy(this.baseDirection);
         if (this.uWindDirection.value) {
-            this.uWindDirection.value.copy(this.currentDirection);
+            const windDir = this.uWindDirection.value as unknown as THREE.Vector3;
+            windDir.set(this.currentDirection.x, this.currentDirection.y, 0);
         }
         
         this.initComputeNode();
@@ -109,7 +110,7 @@ export class WindComputeSystem {
     private initComputeNode() {
         const size = float(WIND_TEXTURE_SIZE);
 
-        const computeWind = Fn(() => {
+        const computeWind = (Fn as any)((): void => {
             const index = float(instanceIndex);
             const sizeInt = WIND_TEXTURE_SIZE;
 
@@ -175,7 +176,7 @@ export class WindComputeSystem {
         });
 
         // Dispatch one thread per pixel
-        this._computeNode = computeWind().compute(WIND_TEXTURE_SIZE * WIND_TEXTURE_SIZE);
+        this._computeNode = (computeWind() as unknown as { compute: (n: number) => unknown }).compute(WIND_TEXTURE_SIZE * WIND_TEXTURE_SIZE);
     }
 
     /**
@@ -223,7 +224,8 @@ export class WindComputeSystem {
         // Update uniforms for the compute shader
         this.uTime.value = this.timeAccumulator;
         this.uWindSpeed.value = this.config.baseSpeed;
-        this.uWindDirection.value.copy(this.currentDirection);
+        const windDir = this.uWindDirection.value as unknown as THREE.Vector3;
+        windDir.set(this.currentDirection.x, this.currentDirection.y, 0);
         this.uGustFreq.value = this.config.gustFrequency;
         this.uGustStrength.value = this.config.gustStrength;
         

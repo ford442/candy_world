@@ -1,15 +1,15 @@
 import * as THREE from 'three';
+import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep, Fn } from 'three/tsl';
+import { uChromaticIntensity } from '../foliage/chromatic.ts';
+import { applyGlitch } from '../foliage/glitch.ts';
+import { spawnImpact } from '../foliage/impacts.ts';
 import {
     createClayMaterial,
     uGlitchIntensity,
     uTime,
     uAudioLow
 } from '../foliage/material-core.ts';
-import { applyGlitch } from '../foliage/glitch.ts';
-import { uChromaticIntensity } from '../foliage/chromatic.ts';
-import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep, Fn } from 'three/tsl';
 
 const MAX_MINES = 50;
 const _scratchMatrix = new THREE.Matrix4();

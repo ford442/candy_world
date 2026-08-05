@@ -30,7 +30,7 @@ export function safeRemoveAndDispose(scene: THREE.Object3D, obj: THREE.Object3D 
 
         // Special handling for InstancedMesh colors or custom dispose methods
         if (child.instanceColor && typeof child.instanceColor.dispose === 'function') {
-            try { child.instanceColor.dispose(); } catch (e) {}
+            try { child.instanceColor.dispose(); } catch (e) { void e; }
         }
 
         // Special handling for lights

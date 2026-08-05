@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createGemCanopyTree } from '../foliage/gem-canopy-tree.ts';
 import {
     createMushroom,
     createGlowingFlower,
@@ -29,11 +30,10 @@ import {
     createGlassMushroom,
     createVineLadder,
 } from '../foliage/index.ts';
-import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
-import { createGemCanopyTree } from '../foliage/gem-canopy-tree.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { createSkyIsland } from '../foliage/sky-islands.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
-import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
+import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 
 export interface WorldObjectMeta {
     isCritical?: boolean;

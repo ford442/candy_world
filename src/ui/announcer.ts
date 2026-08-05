@@ -8,6 +8,8 @@
  * - 2.4.7 Focus Visible (AA) - Visual focus indicators
  */
 
+import { log } from '../utils/log.ts';
+
 // ============================================================================
 // Type Definitions
 // ============================================================================
@@ -230,7 +232,7 @@ export class Announcer {
     }
 
     if (this.options.enableLogging) {
-      console.log(`[Announcer] ${priority}: ${message}`);
+      log.debug('Announcer', `${priority}: ${message}`);
     }
   }
 
@@ -587,6 +589,3 @@ export function announceAchievement(achievement: string): void {
 export function announceValueChange(control: string, value: string | number, min?: number, max?: number): void {
   getAnnouncer().announceValueChange(control, value, min, max);
 }
-
-// Re-export types
-export type { Announcement, AnnouncementPriority, GameEvent, GameEventType };

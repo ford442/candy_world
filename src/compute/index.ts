@@ -148,7 +148,24 @@ export {
     ensureGpuComputeReady,
     tickComputeOrchestrator,
     getComputeOrchestratorStatus,
-    isGpuComputePreferred,
+    preferGpuCompute,
+    isGpuComputeReady,
+    setLastFrameGpuFoliage,
 } from './compute-orchestrator.ts';
+export { isGpuFoliagePilotEnabled, getGpuFoliageFlagState } from './gpu-foliage-flag.ts';
+export {
+    initGpuFoliageOrchestrator,
+    getGpuFoliageAnimator,
+    isGpuFoliageOrchestratorActive,
+} from './gpu-foliage-orchestrator.ts';
+export {
+    runGpuPlantPose,
+    shouldUseGpuPlantPose,
+    computePlantPoseFrameTS,
+} from './gpu-plant-pose.ts';
+export {
+    submitFoliageGpuScalarBatch,
+    takeFoliageGpuScalarResult,
+    shouldUseFoliageGpuBatch,
+} from './foliage-gpu-batch.ts';
 export { dispatchGpuBatcherLod, applyGpuBatcherLodIfReady } from './batcher-gpu-lod.ts';
-export { shouldUseFoliageGpuBatch } from './foliage-gpu-batch.ts';

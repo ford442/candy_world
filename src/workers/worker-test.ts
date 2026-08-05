@@ -5,6 +5,7 @@
  * Run this test to verify TypeScript compiles without errors.
  */
 
+import type { WorkerPool } from './worker-pool';
 import type {
   PhysicsRequest,
   PhysicsResponse,
@@ -16,7 +17,6 @@ import type {
   EmscriptenWorkerResponse
 } from './worker-types';
 
-import type { WorkerPool } from './worker-pool';
 
 // Type-only imports to verify exports work
 export type {

@@ -1,18 +1,17 @@
 import * as THREE from 'three';
-import { WeatherState } from '../systems/weather-types.ts';
-import { updateTheme, getLastIsNight, setLastIsNight, setIsNight } from './hud.ts';
-import { getDayNightBias } from './cycle.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './config.ts';
+import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/tools-stub.ts';
+import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
+import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import {
     uWindSpeed, uWindDirection, uAudioLow, uAudioHigh, uGlitchIntensity, uTime,
 } from '../foliage/index.ts';
 import { uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity } from '../foliage/sky.ts';
 import { uStarOpacity } from '../foliage/stars.ts';
-import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
-import { uChromaticIntensity } from '../foliage/chromatic.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
-import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/circadian-debug.ts';
+import { WeatherState } from '../systems/weather-types.ts';
+import { DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './config.ts';
+import { getDayNightBias } from './cycle.ts';
 import {
     _scratchBaseSkyTop, _scratchBaseSkyBot, _scratchBaseFog,
     COLOR_STORM_SKY_TOP, COLOR_STORM_SKY_BOT, COLOR_STORM_FOG, COLOR_RAIN, COLOR_RAIN_FOG,
@@ -27,6 +26,7 @@ import {
     setShaftIsGoldenHour, setShaftIsNightMode, setShaftGoldenHourBase
 } from './game-loop-core.ts';
 import { updateSunShadowFollow } from './game-loop-postfx.ts';
+import { updateTheme, getLastIsNight, setLastIsNight, setIsNight } from './hud.ts';
 
 export function updateVisualsPhase(delta: number, t: number, gameTime: number, audioState: any, beatFlashIntensity: number, _exploreActive: boolean, _playerPos: THREE.Vector3) {
     const cyclePos = (gameTime + timeOffsetRef.value) % (DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT + DURATION_DEEP_NIGHT);
@@ -198,7 +198,7 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
     const baseAuroraVis = isNightNow ? THREE.MathUtils.clamp(-_scratchSunVector.y, 0.0, 1.0) * (1.0 - weatherIntensity) : 0;
 
     if (BiomeUniforms && (BiomeUniforms as any).glitch_woods && (BiomeUniforms as any).glitch_woods.shimmer && (BiomeUniforms as any).glitch_woods.shimmer.value) {
-        let glitchTrigger = audioState?.kickTrigger || 0;
+        const glitchTrigger = audioState?.kickTrigger || 0;
         if (glitchTrigger > 0.5) {
             uGlitchIntensity.value = glitchTrigger * 0.5;
         } else {

@@ -1,8 +1,8 @@
 // src/foliage/batcher/foliage-batcher-effects.ts
 // Animation-specific apply functions for foliage batch processing
 
-import { FoliageObject } from './foliage-batcher-types.ts';
 import { spawnImpact } from '../impacts.ts';
+import { FoliageObject } from './foliage-batcher-types.ts';
 
 /**
  * Apply snare snap animation results

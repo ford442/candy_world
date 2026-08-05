@@ -2,6 +2,8 @@
 // TypeScript wrapper for the Emscripten pthread bootstrap loader
 // Manages terrain pre-computation and loading UI integration
 
+import { log } from './log.ts';
+
 /**
  * Bootstrap Loader - Pre-warms terrain generation using pthread workers
  * 
@@ -51,13 +53,13 @@ function getNativeFunc(name: string, emscriptenInstance: EmscriptenModule | null
  */
 export function startBootstrap(emscriptenInstance: EmscriptenModule | null): boolean {
     if (!emscriptenInstance) {
-        console.warn('[Bootstrap] Emscripten module not available');
+        log.warn('Bootstrap', 'Emscripten module not available');
         return false;
     }
 
     const startFn = getNativeFunc('startBootstrapInit', emscriptenInstance);
     if (!startFn) {
-        console.warn('[Bootstrap] startBootstrapInit not found in WASM exports');
+        log.warn('Bootstrap', 'startBootstrapInit not found in WASM exports');
         return false;
     }
 
@@ -65,10 +67,10 @@ export function startBootstrap(emscriptenInstance: EmscriptenModule | null): boo
         startFn();
         bootstrapActive = true;
         bootstrapStartTime = performance.now();
-        console.log('[Bootstrap] Terrain pre-computation started');
+        log.info('Bootstrap', 'Terrain pre-computation started');
         return true;
     } catch (error) {
-        console.error('[Bootstrap] Failed to start:', error);
+        log.error('Bootstrap', 'Failed to start:', error);
         return false;
     }
 }
@@ -91,7 +93,7 @@ export function getBootstrapProgress(emscriptenInstance: EmscriptenModule | null
     try {
         return progressFn();
     } catch (error) {
-        console.error('[Bootstrap] Failed to get progress:', error);
+        log.error('Bootstrap', 'Failed to get progress:', error);
         return 0;
     }
 }
@@ -115,13 +117,13 @@ export function isBootstrapComplete(emscriptenInstance: EmscriptenModule | null)
         const result = completeFn();
         if (result === 1) {
             const duration = performance.now() - bootstrapStartTime;
-            console.log(`[Bootstrap] Terrain pre-computation complete (${duration.toFixed(0)}ms)`);
+            log.info('Bootstrap', `Terrain pre-computation complete (${duration.toFixed(0)}ms)`);
             bootstrapActive = false;
             return true;
         }
         return false;
     } catch (error) {
-        console.error('[Bootstrap] Failed to check completion:', error);
+        log.error('Bootstrap', 'Failed to check completion:', error);
         return false;
     }
 }
@@ -179,7 +181,7 @@ export function pollBootstrapProgress(
                     try {
                         onProgress(progress);
                     } catch (e) {
-                        console.error('[Bootstrap] Progress callback error:', e);
+                        log.error('Bootstrap', 'Progress callback error:', e);
                     }
                 }
             }
@@ -190,12 +192,12 @@ export function pollBootstrapProgress(
                     try {
                         onComplete();
                     } catch (e) {
-                        console.error('[Bootstrap] Complete callback error:', e);
+                        log.error('Bootstrap', 'Complete callback error:', e);
                     }
                 }
             }
         } catch (error) {
-            console.error('[Bootstrap] Polling error:', error);
+            log.error('Bootstrap', 'Polling error:', error);
             cleanup();
         }
     }, pollInterval);
@@ -219,9 +221,9 @@ export function resetBootstrap(emscriptenInstance: EmscriptenModule | null): voi
             resetFn();
             bootstrapActive = false;
             bootstrapStartTime = 0;
-            console.log('[Bootstrap] State reset');
+            log.info('Bootstrap', 'State reset');
         } catch (error) {
-            console.error('[Bootstrap] Failed to reset:', error);
+            log.error('Bootstrap', 'Failed to reset:', error);
         }
     }
 }
@@ -247,17 +249,8 @@ export function getBootstrapHeight(emscriptenInstance: EmscriptenModule | null, 
     try {
         return heightFn(x, z);
     } catch (error) {
-        console.error('[Bootstrap] Failed to get height:', error);
+        log.error('Bootstrap', 'Failed to get height:', error);
         return 0;
-    }
-}
-
-/**
- * Window interface extension for global functions
- */
-declare global {
-    interface Window {
-        setLoadingStatus?: (msg: string) => void;
     }
 }
 

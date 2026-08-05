@@ -1,8 +1,8 @@
-import { rendererRef } from './game-loop-core.ts';
-import { isCIorHeadless } from './config.ts';
-import { windComputeSystem } from '../foliage/wind-compute.ts';
 import { harmonyOrbSystem } from '../foliage/aurora.ts';
+import { windComputeSystem } from '../foliage/wind-compute.ts';
 import { animatedFoliage } from '../world/state.ts';
+import { isCIorHeadless } from './config.ts';
+import { rendererRef } from './game-loop-core.ts';
 
 export function updateComputePhase() {
     if (!(window as any).__computeDisabled) {

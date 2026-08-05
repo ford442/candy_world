@@ -18,12 +18,12 @@
  */
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { vec3, positionLocal } from 'three/tsl';
+import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
+import { CONFIG, isCIorHeadless } from '../core/config.ts';
 import { CandyPresets, foliageMaterials } from '../foliage/index.ts';
 import { createTerrainMaterial } from '../foliage/terrain.ts';
-import { CONFIG, isCIorHeadless } from '../core/config.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 // Warm-up target types
 export type WarmupTarget = {
@@ -279,9 +279,10 @@ export class ShaderWarmup {
       const renderTarget = new THREE.RenderTarget(this.options.renderSize, this.options.renderSize);
       
       // Force shader compilation by rendering
-      renderer.setRenderTarget(renderTarget);
-      renderer.render(scene, this.warmupCamera);
-      renderer.setRenderTarget(null);
+      const glRenderer = renderer as THREE.WebGLRenderer;
+      glRenderer.setRenderTarget(renderTarget as THREE.WebGLRenderTarget);
+      glRenderer.render(scene, this.warmupCamera);
+      glRenderer.setRenderTarget(null);
       
       // Cleanup
       renderTarget.dispose();
@@ -495,11 +496,12 @@ export async function warmupShader(
   if (scene && camera) {
     // Use provided scene/camera
     const renderTarget = new THREE.RenderTarget(1, 1);
-    const originalTarget = renderer.getRenderTarget();
+    const glRenderer = renderer as THREE.WebGLRenderer;
+    const originalTarget = glRenderer.getRenderTarget();
     
-    renderer.setRenderTarget(renderTarget);
-    renderer.render(scene, camera);
-    renderer.setRenderTarget(originalTarget);
+    glRenderer.setRenderTarget(renderTarget as THREE.WebGLRenderTarget);
+    glRenderer.render(scene, camera);
+    glRenderer.setRenderTarget(originalTarget);
     
     renderTarget.dispose();
     warmup.dispose();

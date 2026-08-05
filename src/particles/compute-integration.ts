@@ -7,11 +7,11 @@
  */
 
 import * as THREE from 'three';
-import { ComputeParticleSystem, createComputeFireflies, createComputePollen, createComputeSparks, createComputeBerries, createComputeRain, createComputeGemSparks, addComputeSystem } from './compute-particles.ts';
-import type { ParticleAudioData } from './compute-particles.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { createFireflies as createLegacyFireflies } from '../foliage/fireflies.ts';
 import { createNeonPollen as createLegacyPollen } from '../foliage/pollen.ts';
+import type { ParticleAudioData } from './compute-particles.ts';
+import { ComputeParticleSystem, createComputeFireflies, createComputePollen, createComputeSparks, createComputeBerries, createComputeRain, createComputeGemSparks, addComputeSystem } from './compute-particles.ts';
 
 // ⚡ OPTIMIZATION: Detect Headless/CI environments to aggressively scale down particle
 // counts and prevent WebGPU Device Lost errors caused by massive VRAM buffer allocations.

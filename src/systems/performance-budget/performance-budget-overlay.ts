@@ -14,13 +14,13 @@
  * ```
  */
 
+import { getGPUComputeStatus } from '../../compute/compute-init.ts';
+import { getFoliageLodStats } from '../batcher-lod.ts';
+import { PerformanceBudget } from './performance-budget-core.ts';
 import {
   BudgetType,
   DebugOverlayOptions
 } from './performance-budget-types.ts';
-import { PerformanceBudget } from './performance-budget-core.ts';
-import { getGPUComputeStatus } from '../../compute/compute-init.ts';
-import { getFoliageLodStats } from '../batcher-lod.ts';
 
 export { DebugOverlayOptions };
 

@@ -1,12 +1,12 @@
-import { isCIorHeadless } from '../core/config.ts';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
     attribute, float, sin, cos, positionLocal, normalLocal,
     exp, rotate, normalize, vec4, vec3, smoothstep, step,
     mix, color, storage, instanceIndex, uniform, Fn, If
 } from 'three/tsl';
+import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
+import { isCIorHeadless } from '../core/config.ts';
 import { uTime, uAudioHigh, uWindSpeed, uWindDirection, createSugarSparkle } from './index.ts';
 
 const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
@@ -153,7 +153,7 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     // Rotation: Tumbling
     const tumbleSpeed = float(2.0);
     const tumbleAngle = age.mul(tumbleSpeed).add(randomPhase);
-    const rotatedLocal = rotate(positionLocal, tumbleAngle, normalize(rotAxis));
+    const rotatedLocal = rotate(positionLocal, tumbleAngle);
 
     // Apply Position
     mat.positionNode = particleWorldPos.add(rotatedLocal);
@@ -200,7 +200,7 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     const uSpawnCount = uniform(0, 'uint');
     const uSpawnIndex = uniform(0, 'uint');
 
-    const updateCompute: any = Fn(() => {
+    const updateCompute: any = (Fn as any)(() => {
         const stageIndex = instanceIndex;
 
         const sSpawnNode = storage(spawnBuffer, 'vec4', spawnBuffer.count);

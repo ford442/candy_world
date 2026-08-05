@@ -1,10 +1,10 @@
-import { isCIorHeadless } from '../core/config.ts';
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
     float, sin, cos, step, positionLocal, storage, Fn, If, instanceIndex, uniform,
     exp, rotate, normalize, vec4, vec3, smoothstep, mix, floor
 } from 'three/tsl';
+import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
+import { isCIorHeadless } from '../core/config.ts';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -15,7 +15,7 @@ const modFloat = (x: any, y: any) => {
 };
 
 
-const hash = Fn(([n]) => {
+const hash = Fn(([n]: [ReturnType<typeof float>]) => {
     return modFloat(sin(n).mul(43758.5453), 1.0);
 });
 
@@ -23,7 +23,7 @@ import { uTime, uAudioHigh, uAudioLow } from './index.ts';
 
 const MAX_PARTICLES = 1000; // Reduced from 4000 for WebGPU uniform buffer limits
 let _impactMesh: THREE.InstancedMesh | null = null;
-let _head = 0;
+const _head = 0;
 
 export type ImpactType =
   | 'jump'
@@ -88,7 +88,7 @@ export interface ImpactSystemUserData {
 }
 
 // Global uniform to store max speed across multiple calls
-let uMaxSpeed = 0;
+const uMaxSpeed = 0;
 
 export function createImpactSystem(): THREE.InstancedMesh {
     if (_impactMesh) return _impactMesh;
@@ -165,7 +165,7 @@ export function createImpactSystem(): THREE.InstancedMesh {
     // 2. Rotation (Spin)
     const spinSpeed = float(10.0);
     const rotationAngle = age.mul(spinSpeed);
-    const rotatedLocal = rotate(positionLocal, normalize(rotAxis.add(vec3(0.01))), rotationAngle);
+    const rotatedLocal = rotate(positionLocal, rotationAngle);
 
     // 3. Scaling (Pop in with Elastic Overshoot, Shrink out)
     // 🎨 PALETTE: Make particles pop in fast, overshoot, and slowly shrink
@@ -234,7 +234,7 @@ export function createImpactSystem(): THREE.InstancedMesh {
     const uSpawnCount = uniform(0);
     const uSpawnIndex = uniform(-1);
 
-    const updateCompute = Fn(() => {
+    const updateCompute = (Fn as any)((): void => {
         // Run ONLY for the number of particles spawned this frame
         const stageIndex = instanceIndex;
 
@@ -386,7 +386,7 @@ export function createImpactSystem(): THREE.InstancedMesh {
         });
     });
 
-    const computeNode = updateCompute().compute(MAX_SPAWNS_PER_FRAME);
+    const computeNode = (updateCompute() as unknown as { compute: (n: number) => unknown }).compute(MAX_SPAWNS_PER_FRAME);
 
     _impactMesh.userData = {
         head: 0,
@@ -412,7 +412,7 @@ export function createImpactSystem(): THREE.InstancedMesh {
 }
 
 // Staging queues for particles since spawnImpact can be called multiple times per frame
-let _spawnQueue: any[] = [];
+const _spawnQueue: any[] = [];
 
 export function spawnImpact(
     pos: THREE.Vector3 | {x:number, y:number, z:number},
@@ -492,7 +492,7 @@ export function updateImpacts(renderer: any, time: number) {
                 userData.stagingColorArray[offset + 3] = 1.0;
 
                 // Misc stores typeId and direction
-                userData.stagingMiscArray[offset + 0] = IMPACT_TYPE_MAP[type] ?? 13.0;
+                userData.stagingMiscArray[offset + 0] = IMPACT_TYPE_MAP[type as ImpactType] ?? 13.0;
                 userData.stagingMiscArray[offset + 1] = direction ? direction.x : 0.0;
                 userData.stagingMiscArray[offset + 2] = direction ? direction.y : 0.0;
                 userData.stagingMiscArray[offset + 3] = direction ? direction.z : 0.0;

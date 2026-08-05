@@ -2,8 +2,34 @@
 // OPTIMIZATION: WASM batch processing for foliage animations
 // Migrated 10 additional animation types from JS to WASM (Phase 1)
 
-import { getWasmInstance } from '../../utils/wasm-loader.ts';
 import * as THREE from 'three';
+import {
+    submitFoliageGpuScalarBatch,
+    takeFoliageGpuScalarResult,
+    shouldUseFoliageGpuBatch,
+} from '../../compute/foliage-gpu-batch.ts';
+import type { FoliageGpuBatchMode } from '../../compute/foliage-gpu-batch.ts';
+import { isCIorHeadless } from '../../core/config.ts';
+import { FoliageEcsBridge, type SimpleAnimType } from '../../systems/ecs/foliage-ecs-bridge.ts';
+import { getWasmInstance } from '../../utils/wasm-loader.ts';
+import {
+    getVibratoAmount,
+    getTremoloAmount,
+    getHighFreqAmount,
+    getAverageVolume,
+    getPanActivity
+} from './foliage-batcher-audio.ts';
+import {
+    applySnareSnap,
+    applyAccordion,
+    applyFiberWhip,
+    applySpiralWave,
+    applyVibratoShake,
+    applyTremoloPulse,
+    applyCymbalShake,
+    applyPanningBob,
+    applySpiritFade
+} from './foliage-batcher-effects.ts';
 import {
     BATCH_SIZE,
     BATCH_MEMORY_START,
@@ -16,26 +42,6 @@ import {
     ExtendedBatchState,
     FoliageObject
 } from './foliage-batcher-types.ts';
-import {
-    getVibratoAmount,
-    getTremoloAmount,
-    getHighFreqAmount,
-    getAverageVolume,
-    getPanActivity
-} from './foliage-batcher-audio.ts';
-import { isCIorHeadless } from '../../core/config.ts';
-import {
-    applySnareSnap,
-    applyAccordion,
-    applyFiberWhip,
-    applySpiralWave,
-    applyVibratoShake,
-    applyTremoloPulse,
-    applyCymbalShake,
-    applyPanningBob,
-    applySpiritFade
-} from './foliage-batcher-effects.ts';
-import { FoliageEcsBridge, type SimpleAnimType } from '../../systems/ecs/foliage-ecs-bridge.ts';
 
 export class FoliageBatcher {
     private static instance: FoliageBatcher;
@@ -522,6 +528,32 @@ export class FoliageBatcher {
     private processSimpleBatch(batch: BatchState, funcName: string, time: number, apply: (o: FoliageObject, v: number) => void) {
         if (batch.count === 0) return;
 
+        const count = batch.count;
+        const gpuMode = this.funcNameToGpuMode(funcName);
+        const batchKey = `foliage-${funcName}`;
+
+        if (gpuMode && shouldUseFoliageGpuBatch(count)) {
+            const gpuScalars = takeFoliageGpuScalarResult(batchKey);
+            if (gpuScalars && gpuScalars.length >= count) {
+                for (let i = 0; i < count; i++) {
+                    apply(batch.objects[i], gpuScalars[i]);
+                    batch.objects[i] = undefined as any;
+                }
+                submitFoliageGpuScalarBatch(
+                    batchKey,
+                    gpuMode,
+                    count,
+                    time,
+                    0,
+                    batch.offsets.subarray(0, count),
+                    batch.intensities.subarray(0, count),
+                    batch.originalYs?.subarray(0, count) ?? batch.offsets.subarray(0, count)
+                );
+                batch.count = 0;
+                return;
+            }
+        }
+
         const instance = getWasmInstance();
         if (!instance) return;
 
@@ -551,11 +583,66 @@ export class FoliageBatcher {
                 batch.objects[i] = undefined as any;
             }
         }
+
+        if (gpuMode && shouldUseFoliageGpuBatch(count)) {
+            submitFoliageGpuScalarBatch(
+                batchKey,
+                gpuMode,
+                count,
+                time,
+                0,
+                batch.offsets.subarray(0, count),
+                batch.intensities.subarray(0, count),
+                batch.originalYs?.subarray(0, count) ?? batch.offsets.subarray(0, count)
+            );
+        }
+
         batch.count = 0;
+    }
+
+    private funcNameToGpuMode(funcName: string): FoliageGpuBatchMode | null {
+        switch (funcName) {
+            case 'computeSway':
+                return 'sway';
+            case 'computeGentleSway':
+                return 'gentleSway';
+            case 'computeBounce':
+                return 'bounce';
+            case 'computeHop':
+                return 'hop';
+            default:
+                return null;
+        }
     }
 
     private processPhysicsBatch(batch: BatchState, funcName: string, time: number, kick: number, apply: (o: FoliageObject, v: number) => void) {
         if (batch.count === 0) return;
+
+        const count = batch.count;
+        const gpuMode = this.funcNameToGpuMode(funcName);
+        const batchKey = `foliage-${funcName}`;
+
+        if (gpuMode && shouldUseFoliageGpuBatch(count) && batch.originalYs) {
+            const gpuScalars = takeFoliageGpuScalarResult(batchKey);
+            if (gpuScalars && gpuScalars.length >= count) {
+                for (let i = 0; i < count; i++) {
+                    apply(batch.objects[i], gpuScalars[i]);
+                    batch.objects[i] = undefined as any;
+                }
+                submitFoliageGpuScalarBatch(
+                    batchKey,
+                    gpuMode,
+                    count,
+                    time,
+                    kick,
+                    batch.offsets.subarray(0, count),
+                    batch.intensities.subarray(0, count),
+                    batch.originalYs.subarray(0, count)
+                );
+                batch.count = 0;
+                return;
+            }
+        }
 
         const instance = getWasmInstance();
         if (!instance) return;
@@ -588,6 +675,20 @@ export class FoliageBatcher {
                 batch.objects[i] = undefined as any;
             }
         }
+
+        if (gpuMode && shouldUseFoliageGpuBatch(count) && batch.originalYs) {
+            submitFoliageGpuScalarBatch(
+                batchKey,
+                gpuMode,
+                count,
+                time,
+                kick,
+                batch.offsets.subarray(0, count),
+                batch.intensities.subarray(0, count),
+                batch.originalYs.subarray(0, count)
+            );
+        }
+
         batch.count = 0;
     }
 

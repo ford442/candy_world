@@ -13,10 +13,11 @@ import {
     floor,
     mod,
 } from 'three/tsl';
-import { calculatePlayerPush, calculateWindSway } from './material-core.ts';
-import type { TSLArg } from './material-core.ts';
 import type { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
+import { $sn } from './material-core/tsl-types.ts';
+import { calculatePlayerPush, calculateWindSway } from './material-core.ts';
+import type { TSLArg } from './material-core.ts';
 
 /** Continuous LOD factor: 0 = hero, 1 = mid, 2 = far, 3+ = culled */
 export const aInstanceLodFactor = attribute('instanceLodFactor', 'float');
@@ -76,11 +77,12 @@ export function applyFoliageLodMaterialFade(material: MeshStandardNodeMaterial):
     material.transparent = true;
     const existing = material.opacityNode;
     const fade = lodDitheredOpacity();
-    material.opacityNode = existing ? existing.mul(fade) : fade;
+    material.opacityNode = existing ? $sn(existing).mul(fade) : fade;
     const debugTint = vec3(1.0, 0.55, 1.0);
     const band = lodBlendBandGate().mul(uLodDebugHighlight);
     if (material.colorNode) {
-        material.colorNode = mix(material.colorNode, material.colorNode.mul(debugTint), band);
+        const colorNode = $sn(material.colorNode);
+        material.colorNode = mix(colorNode, colorNode.mul(debugTint), band);
     }
 }
 
@@ -122,17 +124,17 @@ export const foliageDeformationOffset = (
     const farPos = baseWithAnimPos;
 
     const heroMid = mix(midPos, heroPos, lodHeroGate());
-    let blended = mix(farPos, heroMid, float(1).sub(lodFarGate()));
+    let blended: ReturnType<typeof mix> = mix(farPos, heroMid, float(1).sub(lodFarGate()));
 
     if (extraOffset) {
         const extraWeight = lodHeroGate().add(lodMidOnlyGate().mul(0.35));
-        blended = blended.add(extraOffset.mul(extraWeight));
+        blended = blended.add(extraOffset.mul(extraWeight)) as unknown as ReturnType<typeof mix>;
     }
 
     // Far tier: collapse in sync with impostor cross-fade (not a hard pop)
     const impostorBlend = lodImpostorBlend();
     const collapse = float(1.0).sub(impostorBlend.mul(0.85));
-    blended = blended.mul(collapse);
+    blended = blended.mul(collapse) as unknown as ReturnType<typeof mix>;
 
     return blended.sub(subtractNode);
 };

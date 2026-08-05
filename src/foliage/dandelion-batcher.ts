@@ -1,5 +1,11 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import {
+    float, vec3, positionLocal, attribute, mix, sin, color,
+    instanceIndex, normalLocal, step, length
+} from 'three/tsl';
+import { CONFIG } from '../core/config.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -14,13 +20,7 @@ import {
     createJuicyRimLight,
     getCachedProceduralMaterial
 } from './index.ts';
-import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import {
-    float, vec3, positionLocal, attribute, mix, sin, color,
-    instanceIndex, normalLocal, step, length
-} from 'three/tsl';
 
 const MAX_DANDELIONS = 500;
 const SEEDS_PER_HEAD = 24;

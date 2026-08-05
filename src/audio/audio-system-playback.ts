@@ -1,3 +1,4 @@
+import { CONFIG } from '../core/config.ts';
 import {
     AudioSystemCore,
     noteToFreq,
@@ -10,9 +11,8 @@ import {
     SAMPLE_RATE,
     PatternRowCell,
 } from './audio-system-core.ts';
-import { GenerativeEngine } from './generative/generative-engine.ts';
+import type { GenerativeEngine } from './generative/generative-engine.ts';
 import { resolveMusicMode, type MusicSourceMode } from './generative/music-mode.ts';
-import { CONFIG } from '../core/config.ts';
 
 export class AudioSystem extends AudioSystemCore {
     private _scratchChannelData?: any[];
@@ -25,11 +25,12 @@ export class AudioSystem extends AudioSystemCore {
         this.musicSourceMode = resolveMusicMode();
     }
 
-    /** Ensure generative engine is wired to the master bus. */
-    ensureGenerativeEngine(): GenerativeEngine {
+    /** Ensure generative engine is wired to the master bus (lazy-loaded chunk). */
+    async ensureGenerativeEngine(): Promise<GenerativeEngine> {
         if (!this.generativeEngine) {
+            const { GenerativeEngine: Engine } = await import('./generative/generative-engine.ts');
             const seed = CONFIG.audio.generativeSeed || 0xca4d0001;
-            this.generativeEngine = new GenerativeEngine({ seed });
+            this.generativeEngine = new Engine({ seed });
             if (this.onNoteCallback) {
                 this.generativeEngine.onNote(this.onNoteCallback);
             }
@@ -66,7 +67,7 @@ export class AudioSystem extends AudioSystemCore {
         }
         this.musicSourceMode = 'generative';
         this.stopTrackerOnly();
-        const engine = this.ensureGenerativeEngine();
+        const engine = await this.ensureGenerativeEngine();
         if (this.onNoteCallback) engine.onNote(this.onNoteCallback);
         engine.setMasterVolume(this.volume);
         await engine.start();
@@ -621,20 +622,20 @@ export class AudioSystem extends AudioSystemCore {
             if (this.workletNode) {
                 try {
                     this.workletNode.disconnect();
-                } catch (e) {}
+                } catch (e) { void e; }
                 this.workletNode = null;
             }
             if (this.scriptProcessorNode) {
                 try {
                     this.scriptProcessorNode.disconnect();
                     this.scriptProcessorNode.onaudioprocess = null;
-                } catch (e) {}
+                } catch (e) { void e; }
                 this.scriptProcessorNode = null;
             }
             if (this.gainNode) {
                 try {
                     this.gainNode.disconnect();
-                } catch (e) {}
+                } catch (e) { void e; }
                 this.gainNode = null;
             }
             this._generativeAttached = false;

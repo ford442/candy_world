@@ -1,6 +1,9 @@
 // src/debug/panel.ts
 // Debug UI panel for toggling initialization stages
 
+import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
+import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
+import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import {
   DEBUG_CONFIG,
   DEBUG_STAGES,
@@ -10,9 +13,6 @@ import {
   type DebugStages,
   type StageMetadata,
 } from './stages.ts';
-import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
-import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
-import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 
 /**
  * Debug panel UI controller

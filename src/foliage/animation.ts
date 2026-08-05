@@ -1,6 +1,7 @@
 // src/foliage/animation.ts
 
 import * as THREE from 'three';
+import { CONFIG } from '../core/config.ts';
 import { 
   freqToHue, 
   isWasmReady,
@@ -11,11 +12,10 @@ import {
   wasmBatchScaleAnimation,
   OUTPUT_OFFSET
 } from '../utils/wasm-loader.ts';
-import { reactiveMaterials, _foliageReactiveColor, median } from './index.ts';
-import { CONFIG } from '../core/config.ts';
-import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 import { foliageBatcher } from './batcher/index.ts';
 import { spawnImpact } from './impacts.ts';
+import { reactiveMaterials, _foliageReactiveColor, median } from './index.ts';
+import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 
 // WASM memory views for batch operations
 let growthDataView: Float32Array | null = null;
@@ -130,7 +130,7 @@ function processGrowthJS(plant: FoliageObject, intensity: number): void {
 
     // Apply Limits
     if (growthRate > 0) {
-        if (nextScale > ud.maxScale) nextScale = ud.maxScale;
+        if (nextScale > (ud.maxScale ?? 1.5)) nextScale = ud.maxScale ?? 1.5;
     } else {
         if (nextScale < ud.minScale) nextScale = ud.minScale;
     }
@@ -335,7 +335,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         if (hasActiveFlash || needsFadeBack) {
             for (let i = 0; i < reactive.length; i++) {
                 const child = reactive[i];
-                let fi = child.userData.flashIntensity || 0;
+                const fi = child.userData.flashIntensity || 0;
                 const decay = child.userData.flashDecay ?? 0.05;
 
                 // ⚡ OPTIMIZATION: Removed Array Allocation [child.material] and repeated isArray checks
@@ -664,7 +664,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         let eruptionStrength = foliageObject.userData.eruptionStrength || 0;
 
         // Charge Logic (from Rainbow Blaster)
-        let charge = foliageObject.userData.chargeLevel || 0;
+        const charge = foliageObject.userData.chargeLevel || 0;
         if (charge > 0) {
             foliageObject.userData.chargeLevel = Math.max(0, charge - 0.01);
         }

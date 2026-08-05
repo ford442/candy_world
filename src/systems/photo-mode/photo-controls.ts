@@ -1,7 +1,7 @@
-import { PHOTO_PRESETS, type PhotoPreset } from './photo-presets.ts';
 import { CYCLE_DURATION } from '../../core/config.ts';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { announcePolite } from '../../ui/announcer.ts';
+import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { PHOTO_PRESETS, type PhotoPreset } from './photo-presets.ts';
 
 export interface PhotoControlValues {
     focusDistance: number;
@@ -269,7 +269,7 @@ export class PhotoControlsOverlay {
         input.setAttribute('aria-valuenow', String(current));
         input.addEventListener('input', () => {
             const v = parseFloat(input.value);
-            (this.values as Record<string, unknown>)[spec.key] = v;
+            (this.values as unknown as Record<string, unknown>)[spec.key] = v;
             valueEl.textContent = spec.format ? spec.format(v) : String(v);
             input.setAttribute('aria-valuenow', String(v));
             this.values.activePresetId = null;

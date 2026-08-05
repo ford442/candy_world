@@ -53,8 +53,8 @@ export async function showSaveIndicator(duration: number = 2000): Promise<void> 
 /** Install window.* stubs that dynamic-import on first call. */
 export function installSaveMenuGlobals(): void {
     if (typeof window === 'undefined') return;
-    (window as any).openSaveMenu = (...args: any[]) => openSaveMenu(...args);
-    (window as any).openLoadMenu = (...args: any[]) => openLoadMenu(...args);
-    (window as any).openSaveGameMenu = (...args: any[]) => openSaveGameMenu(...args);
+    (window as any).openSaveMenu = (options?: SaveMenuOptions) => openSaveMenu(options);
+    (window as any).openLoadMenu = (onLoad: (data: SaveData) => void) => openLoadMenu(onLoad);
+    (window as any).openSaveGameMenu = (onSave?: (slotId: string) => void) => openSaveGameMenu(onSave);
     (window as any).closeSaveMenu = () => closeSaveMenu();
 }

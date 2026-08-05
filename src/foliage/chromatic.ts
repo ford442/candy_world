@@ -1,6 +1,5 @@
 
 import * as THREE from 'three';
-import { MeshBasicNodeMaterial } from 'three/webgpu';
 import {
     Fn,
     vec3,
@@ -16,6 +15,7 @@ import {
     max,
     mix
 } from 'three/tsl';
+import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 
 // Global uniform for Candy Impact / Glow Pulse intensity.
@@ -91,7 +91,7 @@ export function createChromaticPulse(): THREE.Mesh {
         const candyPink = vec3(1.08, 0.88, 0.98); // soft warm pink
         const candyShift = mix(vec3(1.0), candyPink, uChromaticIntensity.mul(0.35));
 
-        let finalColor = glowed.mul(candyShift);
+        const finalColor = glowed.mul(candyShift);
 
         // Gentle extra saturation on high intensity (makes pastels more vivid without breaking)
         const satAmount = uChromaticIntensity.mul(0.25).add(1.0);

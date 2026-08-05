@@ -12,6 +12,7 @@
  * - ~2-3x speedup for world generation on multi-core systems
  */
 
+import { sampleEntityScale, sampleEntityHeight } from '../world/entity-scale.ts';
 import type {
   WorldGenRequest,
   WorldGenResponse,
@@ -19,7 +20,6 @@ import type {
   BatchEntityRequest,
   BatchEntityResponse
 } from './worker-types';
-import { sampleEntityScale, sampleEntityHeight } from '../world/entity-scale.ts';
 
 // Worker state
 let wasmModule: WebAssembly.Module | null = null;

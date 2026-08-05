@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { glassMushroomBatcher } from './glass-mushroom-batcher.ts';
-import { makeInteractive } from '../utils/interaction-utils.ts';
-import type { FoliageObject } from './types.ts';
 import { discoverySystem } from '../systems/discovery.ts';
+import { makeInteractive } from '../utils/interaction-utils.ts';
+import { glassMushroomBatcher } from './glass-mushroom-batcher.ts';
 import { spawnImpact } from './impacts.ts';
+import type { FoliageObject } from './types.ts';
 
 export interface GlassMushroomOptions {
     scale?: number;

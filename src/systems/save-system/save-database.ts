@@ -29,11 +29,11 @@ export const LZString = {
         const data: (string | number)[] = [];
         let currChar: string;
         let subStr = '';
-        let numBits = 3;
-        let numBitsPrev = 2;
+        const numBits = 3;
+        const numBitsPrev = 2;
         let value: number;
         let pos = 1;
-        let enlargeIn = 2;
+        const enlargeIn = 2;
 
         for (let i = 0; i < input.length; i += 1) {
             currChar = input.charAt(i);
@@ -62,9 +62,9 @@ export const LZString = {
         let entry = '';
         let res = '';
         let w = '';
-        let enlargeIn = 4;
+        const enlargeIn = 4;
         let dictSize = 4;
-        let numBits = 3;
+        const numBits = 3;
         let c = input.charCodeAt(0);
         let errorCount = 0;
 

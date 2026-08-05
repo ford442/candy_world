@@ -1,48 +1,14 @@
-import {
-    isCIorHeadless,
-    getDeviceMemoryGB,
-    getLoadMemoryScale,
-    getLoadMemoryTier,
-    shouldPreferLightWorldLoad,
-} from './config.ts';
 // src/core/main.ts
 // Main entry point - Core initialization and game startup
 
 // Deterministic random seed override must load before any world-generation logic.
 import '../utils/seeded-random.ts';
 
-import * as THREE from 'three';
 import '../../style.css';
-import { validateNodeGeometries } from '../foliage/index.ts';
 
-import { InteractionSystem } from '../systems/interaction.ts';
-import { musicReactivitySystem } from '../systems/music-reactivity.ts';
-import { fluidSystem } from '../systems/fluid_system.ts';
-import { AudioSystem } from '../audio/audio-system.ts';
-import { BeatSync } from '../audio/beat-sync.ts';
-import type { WeatherSystem } from '../systems/weather.ts';
-import { initWasm } from '../utils/wasm-loader.ts';
-import { getGroundHeight } from '../systems/ground-system.ts';
-import { profiler } from '../utils/profiler.ts';
-import {
-    enableStartupProfiler,
-    finalizeStartupProfile,
-    recordWASMInit,
-    toggleOverlay,
-} from '../utils/startup-profiler.ts';
-import { startPhase, endPhase } from '../utils/startup-profiler.ts';
+export { scene, camera, renderer, player, addCameraShake } from './main/exports.ts';
 
-// Core imports
-import { CONFIG, resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from './config.ts';
-import { initScene } from './init.ts';
-import { ShaderWarmup } from '../rendering/shader-warmup.ts';
-import { initInput, keyStates } from './input/index.ts';
-import { initPostProcessing } from '../foliage/post-processing.ts';
-import {
-    publishRendererBreadcrumbs,
-    installRendererHotSwitch,
-} from '../rendering/renderer-mode.ts';
-import { initWebGLDebug, isWebGLLiteMode } from '../rendering/webgl-debug.ts';
+import { runBootstrap } from './main/bootstrap.ts';
 
 // World & System imports
 import {
@@ -1153,3 +1119,4 @@ deferredVisualLoader.on('complete', ({ loaded }) => {
 setTimeout(() => {
     deferredVisualLoader.start();
 }, 400);
+await runBootstrap();

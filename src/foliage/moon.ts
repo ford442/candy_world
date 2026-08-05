@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { color, vec3, sin, cos, uniform, mix, positionLocal, UniformNode, smoothstep, float } from 'three/tsl';
+import type UniformNode from 'three/src/nodes/core/UniformNode.js';
+import { color, vec3, sin, cos, uniform, mix, positionLocal, smoothstep, float } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { attachReactivity, CandyPresets, uAudioLow, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
 import { VisualState } from '../audio/audio-system.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { SkyUniforms, skyNoteColorNode } from '../systems/biome-uniforms.ts';
+import { attachReactivity, CandyPresets, uAudioLow, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
 
 // Moon Configuration
 export const moonConfig = {

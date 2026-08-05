@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { CONFIG, areGodRaysEnabled, isDofEnabled, isDofManual } from './config.ts';
 import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processing.ts';
-import { AtmosphereShaftState } from '../systems/music-reactivity.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { AtmosphereShaftState } from '../systems/music-reactivity.ts';
 import { player } from '../systems/physics/index.ts';
+import { CONFIG, areGodRaysEnabled, isDofEnabled, isDofManual } from './config.ts';
 import { isCIorHeadless } from './config.ts';
 import {
     _SHAFT_FRUSTUM_DOT,

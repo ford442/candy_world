@@ -4,7 +4,9 @@ import {
     smoothstep, mix, positionWorld, mx_noise_float, normalLocal,
     distance, max, uv, texture
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, uPlayerPosition } from './index.ts';
+import { $sn } from './material-core/tsl-types.ts';
 
 /**
  * Creates an audio-reactive Terrain Material.
@@ -47,7 +49,7 @@ export function createTerrainMaterial(
     });
 
 
-    const currentPos = material.positionNode || positionLocal;
+    const currentPos = $sn(material.positionNode ?? positionLocal);
 
     // Static Heightmap Displacement
     let finalPos = currentPos;

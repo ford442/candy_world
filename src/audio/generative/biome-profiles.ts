@@ -139,7 +139,7 @@ export function blendProfiles(
     out.groove = a.groove * (1 - w) + b.groove * w;
     out.mood = w < 0.5 ? a.mood : b.mood;
     if (!out.channelDensity || out.channelDensity.length !== 8) {
-        (out as { channelDensity: number[] }).channelDensity = new Array(8).fill(0);
+        (out as unknown as { channelDensity: number[] }).channelDensity = new Array(8).fill(0);
     }
     const cd = out.channelDensity as number[];
     for (let i = 0; i < 8; i++) {

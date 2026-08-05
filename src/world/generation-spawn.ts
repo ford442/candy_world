@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { animatedFoliage, cpuAnimatedFoliage } from './state.ts';
-import { recordSpawnAttempt } from './spawn-tracker.ts';
+import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 import {
     WeatherSystem, FoliageGrowthOptions, isPositionValid,
 } from './generation-utils.ts';
-import { create } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
+import { recordSpawnAttempt } from './spawn-tracker.ts';
+import { animatedFoliage, cpuAnimatedFoliage } from './state.ts';
 
 /**
  * Weather-ecosystem growth spawn — kept out of generation-decorators so the

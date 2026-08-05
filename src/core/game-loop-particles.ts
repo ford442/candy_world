@@ -1,16 +1,17 @@
 import * as THREE from 'three';
+import { updateMelodyRibbons } from '../foliage/ribbons.ts';
+import { updateAllIntegratedSystems } from '../particles/compute-integration.ts';
+import { getParticles } from '../particles/lazy.ts';
+import { fluidSystem } from '../systems/fluid_system.ts';
+import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { player } from '../systems/physics/index.ts';
+import { WeatherState } from '../systems/weather-types.ts';
 import { profiler } from '../utils/profiler.ts';
+import { cpuAnimatedFoliage } from '../world/state.ts';
+import { getMelodyRibbon, getFluidFog } from './deferred-init.ts';
 import {
     _scratchParticleAudioData, rendererRef, weatherSystemRef, cameraRef, safeSystemUpdate
 } from './game-loop-core.ts';
-import { musicReactivitySystem } from '../systems/music-reactivity.ts';
-import { updateMelodyRibbons } from '../foliage/ribbons.ts';
-import { getParticles } from '../particles/lazy.ts';
-import { fluidSystem } from '../systems/fluid_system.ts';
-import { WeatherState } from '../systems/weather-types.ts';
-import { cpuAnimatedFoliage } from '../world/state.ts';
-import { player } from '../systems/physics/index.ts';
-import { getMelodyRibbon, getFluidFog } from './deferred-init.ts';
 
 export function updateParticlesPhase(delta: number, t: number, audioState: any, isNightNow: boolean, isDeepNight: boolean) {
     const melodyRibbon = getMelodyRibbon();

@@ -20,9 +20,9 @@ import {
   AccessibilitySystem,
   getAccessibilitySystem,
 } from '../systems/accessibility';
-import { announce } from './announcer';
 import { trapFocusInside } from '../utils/interaction-utils';
 import { yieldToPaint } from '../utils/yield-to-paint';
+import { announce } from './announcer';
 
 // ============================================================================
 // Menu Section Types

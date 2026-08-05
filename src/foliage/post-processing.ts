@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { PostProcessing } from 'three/webgpu';
-import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
-import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
-import { dof } from 'three/examples/jsm/tsl/display/DepthOfFieldNode.js';
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
+import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
+import { dof } from 'three/examples/jsm/tsl/display/DepthOfFieldNode.js';
+import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
+import { PostProcessing } from 'three/webgpu';
+import { CONFIG, isDofEnabled } from '../core/config.ts';
 import type { CandyRenderer } from '../core/init.ts';
 import { isWebGPUMode } from '../core/init.ts';
-import { CONFIG, isDofEnabled } from '../core/config.ts';
 
 // Global uniforms for reactivity
 export const uBloomStrength = uniform(1.0);
@@ -70,7 +70,12 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
     const threshold = uniform(0.85);
     const radius = uniform(0.5);
 
-    const bloomPass = bloom(scenePass, uBloomStrength, radius, threshold);
+    const bloomPass = bloom(
+        scenePass,
+        uBloomStrength as unknown as number,
+        radius as unknown as number,
+        threshold as unknown as number,
+    );
 
     // 3b. Depth of Field (bokeh) — only built into the graph when enabled at boot,
     // so the default `low` tier carries zero DoF cost. When present it is blended by
@@ -100,7 +105,7 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
         const uvG = uvNode;
         const uvB = uvNode.sub(vec2(caOffset, 0.0));
 
-        const sceneTex = scenePass.getTextureNode();
+        const sceneTex = scenePass.getTextureNode() as unknown as { uv: (coords: ReturnType<typeof vec2>) => ReturnType<typeof vec3> };
         const r = sceneTex.uv(uvR).r;
         const g = sceneTex.uv(uvG).g;
         const b = sceneTex.uv(uvB).b;
@@ -129,13 +134,13 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
         // Contrast
         // smoothstep-like contrast adjustment or simple centering
         const midPoint = vec3(0.5);
-        satColor = satColor.sub(midPoint).mul(uColorContrast).add(midPoint);
+        satColor = satColor.sub(midPoint).mul(uColorContrast).add(midPoint) as unknown as ReturnType<typeof mix>;
 
         // Vignette
         const dist = distance(uvNode, vec2(0.5, 0.5));
         const vig = float(1.0).sub(smoothstep(0.2, 1.0, dist));
         const vignetteMultiplier = mix(float(1.0), vig, uVignetteStrength);
-        satColor = satColor.mul(vignetteMultiplier);
+        satColor = satColor.mul(vignetteMultiplier) as unknown as ReturnType<typeof mix>;
 
         return satColor;
     });

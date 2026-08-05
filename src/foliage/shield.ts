@@ -1,17 +1,17 @@
 
 import * as THREE from 'three';
 import {
-    createUnifiedMaterial,
-    uTime,
-    uAudioLow
-} from './index.ts';
-import {
     vec3,
     sin,
     cos,
     positionLocal,
     timerLocal
 } from 'three/tsl';
+import {
+    createUnifiedMaterial,
+    uTime,
+    uAudioLow
+} from './index.ts';
 
 /**
  * Creates the "Arpeggio Shield" - a crystalline barrier.

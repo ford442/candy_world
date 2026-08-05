@@ -1,19 +1,5 @@
 import * as THREE from 'three';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
-import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { foliageGroup } from '../world/state.ts';
-import {
-  createUnifiedMaterial,
-  registerReactiveMaterial,
-  applyStandardDeformation,
-  createJuicyRimLight,
-  uAudioHigh,
-  uAudioLow,
-  uTime
-} from './index.ts';
-import { uTwilight } from './sky.ts';
-import { BiomeUniforms, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import {
   vec3,
   positionLocal,
@@ -25,12 +11,26 @@ import {
   sin,
   instanceIndex
 } from 'three/tsl';
-import { PlantPoseMachine } from './plant-pose-machine.ts';
-import { getActiveWave } from '../systems/music-wave.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
-import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
+import { BiomeUniforms, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
+import { getActiveWave } from '../systems/music-wave.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
+import { foliageGroup } from '../world/state.ts';
+import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
+import {
+  createUnifiedMaterial,
+  registerReactiveMaterial,
+  applyStandardDeformation,
+  createJuicyRimLight,
+  uAudioHigh,
+  uAudioLow,
+  uTime
+} from './index.ts';
+import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { uTwilight } from './sky.ts';
 
 
 const MAX_PINES = 200; // conservative default for performance
@@ -57,6 +57,44 @@ export class PortamentoPineBatcher {
    * Allocated once with MAX_PINES capacity; no per-frame allocations.
    */
   private _poseMachine!: PlantPoseMachine;
+
+  // scratch / batch pose buffers
+  private _batchPositions = new Float32Array(MAX_PINES * 3);
+  private _batchQuaternions = new Float32Array(MAX_PINES * 4);
+  private _batchScales = new Float32Array(MAX_PINES * 3);
+  private _matricesDirty = false;
+
+  private flushMatrices() {
+    if (!this._matricesDirty || this.count === 0 || !this.trunkMesh || !this.needleMesh) return;
+
+    const trunkArray = this.trunkMesh.instanceMatrix.array as Float32Array;
+    const needleArray = this.needleMesh.instanceMatrix.array as Float32Array;
+
+    writeInstancePose(
+      this._batchPositions,
+      this._batchQuaternions,
+      this._batchScales,
+      null,
+      trunkArray,
+      null,
+      1.0,
+      this.count
+    );
+    writeInstancePose(
+      this._batchPositions,
+      this._batchQuaternions,
+      this._batchScales,
+      null,
+      needleArray,
+      null,
+      1.0,
+      this.count
+    );
+
+    this.trunkMesh.instanceMatrix.needsUpdate = true;
+    this.needleMesh.instanceMatrix.needsUpdate = true;
+    this._matricesDirty = false;
+  }
 
   init() {
     if (this.initialized) return;
@@ -103,7 +141,7 @@ export class PortamentoPineBatcher {
 
     // --- TSL ANIMATION LOGIC ---
     // Combined deformation: Note Bend + Wind Sway + Player Push
-    const animatedPosition = (basePos) => {
+    const animatedPosition = (basePos: any) => {
         // 1. Instance Bend (Note Play)
         const instanceBend = attribute('instanceBend', 'float');
         // Quadratic bend: more at top

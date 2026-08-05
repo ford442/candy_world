@@ -1,23 +1,14 @@
 import * as THREE from 'three';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float,
     float, normalize, positionWorld, normalWorld, cameraPosition, dot, abs, sin, pow,
     uv, smoothstep
 } from 'three/tsl';
-import {
-    uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
-    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, applyStandardDeformation, uPlayerVelocity
-} from './index.ts';
 import { attribute } from 'three/tsl';
-import { foliageGroup } from '../world/state.ts';
-import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
-import { uSkyDarkness, uTwilight } from './sky.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { CONFIG } from '../core/config.ts';
-import { batchDistanceCull_c } from '../utils/wasm-batch-animation.ts';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { camera } from '../core/camera-ref.ts';
+import { CONFIG } from '../core/config.ts';
 
 
 // --- Global Uniforms (Moved from clouds.js) ---
@@ -216,6 +207,15 @@ export function getSharedCloudMaterial() {
 }
 
 import { getCIAdjustedCount } from '../core/config.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
+import { batchDistanceCull_c } from '../utils/wasm-batch-animation.ts';
+import { foliageGroup } from '../world/state.ts';
+import {
+    uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
+    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, applyStandardDeformation, uPlayerVelocity
+} from './index.ts';
+import { uSkyDarkness, uTwilight } from './sky.ts';
 
 // --- Cloud Batcher ---
 const MAX_PUFFS = getCIAdjustedCount(400, 0.1, 50); // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
@@ -391,12 +391,14 @@ export class CloudBatcher {
         }
 
         // 3. WASM batch distance cull (max distance ~250m)
-        if (cameraPos && cloudCount > 0) {
+        if (cameraPos && cloudCount > 0 && this._cullPositions && this._cullFlags) {
+            const cullPositions = this._cullPositions;
+            const cullFlags = this._cullFlags;
             const cx = cameraPos.x;
             const cy = cameraPos.y;
             const cz = cameraPos.z;
-            batchDistanceCull_c(this._cullPositions, cloudCount, cx, cy, cz, 250 * 250, this._cullFlags);
-        } else {
+            batchDistanceCull_c(cullPositions, cloudCount, cx, cy, cz, 250 * 250, cullFlags);
+        } else if (this._cullFlags) {
             // Default everything to visible if no camera
             for(let i=0; i<cloudCount; i++) this._cullFlags[i] = 1.0;
         }
@@ -408,7 +410,7 @@ export class CloudBatcher {
             const cloud = this.clouds[i];
 
             // ⚡ OPTIMIZATION: Skip distant clouds completely based on WASM cull flags
-            if (this._cullFlags[i] === 0.0) continue;
+            if (!this._cullFlags || this._cullFlags[i] === 0.0) continue;
 
             // Run Cloud Logic (Sine Wave / Falling)
             // Note: updateFallingClouds in clouds.js handles falling physics on cloud.position externally.
