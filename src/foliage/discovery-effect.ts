@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { PointsNodeMaterial } from 'three/webgpu';
 import {
     time, color, positionLocal, vec3, vec4, attribute, float,
     mix, sin, cos, positionWorld, abs, step
 } from 'three/tsl';
+import { PointsNodeMaterial } from 'three/webgpu';
 
 /**
  * Creates a magical, audio-reactive particle burst effect triggered upon rare flora discovery.

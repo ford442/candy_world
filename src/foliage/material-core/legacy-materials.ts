@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color,
     float,
@@ -10,10 +9,11 @@ import {
     positionLocal,
     positionWorld,
 } from 'three/tsl';
-import { CandyPresets } from './presets.ts';
-import { createUnifiedMaterial, type UnifiedMaterialOptions } from './unified-material.ts';
-import { uTime, uWindSpeed, uWindDirection } from './shared-resources.ts';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { calculatePlayerPush } from './deformation.ts';
+import { CandyPresets } from './presets.ts';
+import { uTime, uWindSpeed, uWindDirection } from './shared-resources.ts';
+import { createUnifiedMaterial, type UnifiedMaterialOptions } from './unified-material.ts';
 
 export function createClayMaterial(
     hexColor: number | string | THREE.Color,

@@ -7,15 +7,15 @@
 
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
-import { saveSystem } from './save-system/save-system.ts';
-import { trackEvent } from './analytics/index.ts';
-import type { AwakenedFloraState } from './save-system/save-types.ts';
 import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
+import { trackEvent } from './analytics/index.ts';
 import {
     computePersistentId,
     persistentIdFromString,
     POSITION_QUANTIZE,
 } from './awakened-persistent-id.ts';
+import { saveSystem } from './save-system/save-system.ts';
+import type { AwakenedFloraState } from './save-system/save-types.ts';
 
 // =============================================================================
 // Constants & types
@@ -76,7 +76,7 @@ const AWAKEN_RADIUS_SQ = 30 * 30;
 
 function isHeadless(): boolean {
     return typeof window === 'undefined' ||
-        (typeof process !== 'undefined' && process.env?.CI === 'true') ||
+        (typeof import.meta !== 'undefined' && (import.meta as { env?: { CI?: string } }).env?.CI === 'true') ||
         (typeof navigator !== 'undefined' && navigator.userAgent.includes('Headless'));
 }
 

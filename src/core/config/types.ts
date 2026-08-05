@@ -216,6 +216,8 @@ export interface ConfigType {
     };
 
     world: {
+        /** Matches `assets/map.json` metadata.seed. */
+        seed: number;
         population: {
             proceduralExtras: number;
             arpeggioGroveFerns: number;

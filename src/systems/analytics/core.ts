@@ -7,6 +7,8 @@
  * and local-only mode support.
  */
 
+import { log } from '../../utils/log.ts';
+import { PerformanceTracker } from './performance.ts';
 import {
   type AnalyticsConfig,
   type AnalyticsEvent,
@@ -29,8 +31,6 @@ import {
   saveQueuedEvents,
 } from './types.ts';
 
-import { PerformanceTracker } from './performance.ts';
-import { log } from '../../utils/log.ts';
 
 /**
  * Privacy-first analytics system for Candy World

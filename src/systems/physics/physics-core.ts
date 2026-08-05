@@ -18,30 +18,37 @@
  */
 
 import * as THREE from 'three';
-
+import { addCameraShake } from '../../core/camera-shake.ts';
+import { CONFIG } from '../../core/config.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { spawnImpact } from '../../foliage/impacts.ts';
+import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/index.ts';
+import { showToast } from '../../utils/toast.ts';
+import {
+    initPhysics, setPlayerState, getPlayerState, updatePhysicsCPP,
+    uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
+} from '../../utils/wasm-loader.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
     foliageTraps, foliageGeysers, foliagePortamentoPines, foliagePanningPads,
     activeVineSwing, lastVineDetachTime
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/index.ts';
-import { spawnImpact } from '../../foliage/impacts.ts';
-import { showToast } from '../../utils/toast.ts';
-import { addCameraShake } from '../../core/camera-shake.ts';
-import { unlockSystem } from '../unlocks.ts';
-import {
-    calculateMovementInput
-} from '../physics.core.ts';
-import { CONFIG } from '../../core/config.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
 import { isInLakeBasin, reconcileGroundedEyeY } from '../ground-system.ts';
 import {
-    initPhysics, setPlayerState, getPlayerState, updatePhysicsCPP,
-    uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
-} from '../../utils/wasm-loader.ts';
-
+    calculateMovementInput
+} from '../physics.core.ts';
+import { unlockSystem } from '../unlocks.ts';
+import { handleAbilities } from './physics-abilities.ts';
+import {
+    updateSwimmingState,
+    updateVineState,
+    updateClimbingState,
+    updateDancingState,
+    updateStateTransitions,
+    updateEnvironmentalModifiers
+} from './physics-states.ts';
 import { 
     player, 
     PlayerState,
@@ -58,17 +65,7 @@ import {
     AudioState,
     KeyStates
 } from './physics-types.ts';
-
-import {
-    updateSwimmingState,
-    updateVineState,
-    updateClimbingState,
-    updateDancingState,
-    updateStateTransitions,
-    updateEnvironmentalModifiers
-} from './physics-states.ts';
-
-import { handleAbilities } from './physics-abilities.ts';
+import { updateJSFallbackMovement } from './physics-updates.ts';
 
 // Re-export player and types for external use
 export { player, PlayerState };
@@ -248,7 +245,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     // ⚡ OPTIMIZATION: Faster radius squared check
     const glitchRad = uGlitchExplosionRadius.value;
     if (glitchRad > 0) {
-        const center = uGlitchExplosionCenter.value as THREE.Vector3;
+        const center = uGlitchExplosionCenter.value as unknown as THREE.Vector3;
         const dx = player.position.x - center.x;
         const dy = player.position.y - center.y;
         const dz = player.position.z - center.z;

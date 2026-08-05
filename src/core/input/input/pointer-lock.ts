@@ -8,7 +8,6 @@ import {
     getReleaseJukeboxFocus,
     setReleaseJukeboxFocus,
 } from '../playlist-manager.ts';
-import type { InputSession } from './session.ts';
 import {
     disableExploreMode,
     isInteractiveTarget,
@@ -16,6 +15,7 @@ import {
     setStartButtonEnterLabel,
     setStartButtonResumeLabel,
 } from './menu-helpers.ts';
+import type { InputSession } from './session.ts';
 
 export function setupPointerLock(session: InputSession): (event: MouseEvent) => void {
     if (session.startButton) {

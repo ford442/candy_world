@@ -1,3 +1,4 @@
+import { CONFIG } from '../core/config.ts';
 import {
     AudioSystemCore,
     noteToFreq,
@@ -12,7 +13,6 @@ import {
 } from './audio-system-core.ts';
 import type { GenerativeEngine } from './generative/generative-engine.ts';
 import { resolveMusicMode, type MusicSourceMode } from './generative/music-mode.ts';
-import { CONFIG } from '../core/config.ts';
 
 export class AudioSystem extends AudioSystemCore {
     private _scratchChannelData?: any[];
@@ -622,20 +622,20 @@ export class AudioSystem extends AudioSystemCore {
             if (this.workletNode) {
                 try {
                     this.workletNode.disconnect();
-                } catch (e) {}
+                } catch (e) { void e; }
                 this.workletNode = null;
             }
             if (this.scriptProcessorNode) {
                 try {
                     this.scriptProcessorNode.disconnect();
                     this.scriptProcessorNode.onaudioprocess = null;
-                } catch (e) {}
+                } catch (e) { void e; }
                 this.scriptProcessorNode = null;
             }
             if (this.gainNode) {
                 try {
                     this.gainNode.disconnect();
-                } catch (e) {}
+                } catch (e) { void e; }
                 this.gainNode = null;
             }
             this._generativeAttached = false;

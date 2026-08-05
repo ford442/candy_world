@@ -228,7 +228,7 @@ export function patchWasmInstantiateAliases(): () => void {
     }
 
     return function restore(): void {
-        try { WA.instantiate = origInstantiate; } catch (e) {}
-        try { WA.instantiateStreaming = origInstantiateStreaming; } catch (e) {}
+        try { WA.instantiate = origInstantiate; } catch (e) { void e; }
+        try { WA.instantiateStreaming = origInstantiateStreaming; } catch (e) { void e; }
     };
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import type { CandyMapData, CandyMapEntity } from './map-loader.ts';
 import { normalizeMapEntityType } from './generation-utils.ts';
+import type { CandyMapData, CandyMapEntity } from './map-loader.ts';
 import { animatedFoliage, foliageGroup } from './state.ts';
 
 const SUPPORTED_EXPORT_TYPES = new Set<string>([

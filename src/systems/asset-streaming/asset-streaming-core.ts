@@ -19,6 +19,13 @@
 
 import * as THREE from 'three';
 import { RegionManager, GridCell, CellState } from '../region-manager.ts';
+import { LRUCache, NetworkManager } from './asset-loading-infrastructure.ts';
+import {
+    ProgressiveTextureLoader,
+    AudioStreamingLoader,
+    GeometryLODLoader,
+    PlaceholderManager
+} from './asset-streaming-loader.ts';
 import {
     AssetPriority,
     AssetType,
@@ -39,13 +46,6 @@ import {
     PRIORITY_DISTANCES_SQ,
     QUALITY_FORMAT_PREFERENCES
 } from './asset-streaming-types.ts';
-import { LRUCache, NetworkManager } from './asset-loading-infrastructure.ts';
-import {
-    ProgressiveTextureLoader,
-    AudioStreamingLoader,
-    GeometryLODLoader,
-    PlaceholderManager
-} from './asset-streaming-loader.ts';
 
 const _scratchFuturePos = new THREE.Vector3();
 

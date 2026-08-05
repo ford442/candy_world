@@ -12,8 +12,8 @@ import * as THREE from 'three';
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
-import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
 import { getGpuContext } from '../rendering/gpu-context.ts';
+import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -33,7 +33,7 @@ const DEFAULT_CONFIG: ProfilerConfig = {
 let config: ProfilerConfig = { ...DEFAULT_CONFIG };
 let isEnabled = false;
 let startupStartTime = 0;
-let phases: Map<string, PhaseTiming> = new Map();
+const phases: Map<string, PhaseTiming> = new Map();
 let completedPhases: PhaseTiming[] = [];
 let warnings: string[] = [];
 let memorySnapshots: number[] = [];
@@ -390,7 +390,7 @@ function saveReportToFile(report: StartupReport): void {
         }).catch(() => {
           // Silent fail - endpoint is optional even in dev
         });
-      } catch (e) {}
+      } catch (e) { void e; }
     }
     
     // Create a download link for the user
@@ -407,7 +407,7 @@ function saveReportToFile(report: StartupReport): void {
     // Store in localStorage for persistence
     try {
       localStorage.setItem('candy_world_startup_profile', json);
-    } catch (e) {}
+    } catch (e) { void e; }
     
     // Also output to console as a data URI for easy copying
     if (config.enableConsole) {

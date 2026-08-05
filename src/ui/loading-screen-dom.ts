@@ -1,6 +1,6 @@
-import type { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { announce } from './announcer.ts';
+import type { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
 
 export interface LoadingScreenElements {
     container: HTMLElement;

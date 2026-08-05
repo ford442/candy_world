@@ -1,6 +1,13 @@
 import * as THREE from 'three';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import {
+    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform, normalLocal, add
+} from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { BiomeId } from '../systems/biome-uniforms.ts';
+import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
+import { computeWaveDistSq, computeWaveTimeSinceArrival } from '../systems/music-wave.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { foliageGroup } from '../world/state.ts';
 import {
     CandyPresets,
     uTime,
@@ -10,13 +17,6 @@ import {
     applyStandardDeformation,
     createJuicyRimLight
 } from './index.ts';
-import {
-    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform, normalLocal
-} from 'three/tsl';
-import { BiomeId } from '../systems/biome-uniforms.ts';
-import { computeWaveDistSq, computeWaveTimeSinceArrival } from '../systems/music-wave.ts';
-import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
-import { foliageGroup } from '../world/state.ts';
 
 const MAX_GEYSERS = 500;
 
@@ -65,7 +65,7 @@ export class KickDrumGeyserBatcher {
             emissiveIntensity: 0.8
         });
         // 🎨 PALETTE: Add juicy rim light to geyser core
-        coreMat.emissiveNode = (coreMat.emissiveNode || color(0x000000)).add(createJuicyRimLight(color(0xFF4500), float(1.5), float(3.0), normalLocal));
+        coreMat.emissiveNode = add(coreMat.emissiveNode ?? color(0x000000), createJuicyRimLight(color(0xFF4500), float(1.5), float(3.0), normalLocal));
         registerReactiveMaterial(coreMat);
         this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, MAX_GEYSERS);
         this.coreMesh.count = 0;

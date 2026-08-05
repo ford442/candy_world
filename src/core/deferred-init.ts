@@ -3,22 +3,22 @@
 
 import * as THREE from 'three';
 import { createAurora, harmonyOrbSystem } from '../foliage/aurora.ts';
+import { initCelestialBodies } from '../foliage/celestial-bodies.ts';
 import { createChromaticPulse } from '../foliage/chromatic.ts';
-import { createStrobePulse } from '../foliage/strobe.ts';
-import { createMelodyRibbon } from '../foliage/ribbons.ts';
-import { createSparkleTrail } from '../foliage/sparkle-trail.ts';
-import { createImpactSystem } from '../foliage/impacts.ts';
-import { createShield } from '../foliage/shield.ts';
 import { createDandelionSeedSystem } from '../foliage/dandelion-seeds.ts';
 import { createDiscoveryEffect } from '../foliage/discovery-effect.ts';
-import { uTime } from '../foliage/index.ts';
-import { initCelestialBodies } from '../foliage/celestial-bodies.ts';
 import { createFluidFog } from '../foliage/fluid_fog.ts';
-import { animatedFoliage } from '../world/state.ts';
-import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
-import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
-import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence-api.ts';
+import { createImpactSystem } from '../foliage/impacts.ts';
+import { uTime } from '../foliage/index.ts';
+import { createMelodyRibbon } from '../foliage/ribbons.ts';
+import { createShield } from '../foliage/shield.ts';
+import { createSparkleTrail } from '../foliage/sparkle-trail.ts';
+import { createStrobePulse } from '../foliage/strobe.ts';
 import { ensureGameplay, preloadGameplay } from '../gameplay/lazy.ts';
+import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence-api.ts';
+import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
+import { animatedFoliage } from '../world/state.ts';
+import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
 
 // Deferred visual elements
 let aurora: THREE.Object3D | null = null;

@@ -4,16 +4,16 @@
  */
 
 import {
+    CPU_PARTICLE_TYPE_ID,
+    type CpuParticleBuffers,
+    type CpuParticleSimParams,
+} from '../particles/cpu-particle-simulate.ts';
+import {
     emscriptenMemory,
     getEmscriptenInstance,
     getNativeFuncVoid,
     isEmscriptenReady,
 } from './wasm-loader-core.ts';
-import {
-    CPU_PARTICLE_TYPE_ID,
-    type CpuParticleBuffers,
-    type CpuParticleSimParams,
-} from '../particles/cpu-particle-simulate.ts';
 
 let cachedUpdateCpuParticles: ((...args: number[]) => void) | null = null;
 

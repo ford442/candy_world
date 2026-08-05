@@ -1,5 +1,5 @@
-import type { WeatherSystem } from './weather.ts';
 import type * as THREE from 'three';
+import type { WeatherSystem } from './weather.ts';
 
 let weatherSystemInstance: WeatherSystem | null = null;
 let weatherSystemPromise: Promise<typeof import('./weather.ts')> | null = null;

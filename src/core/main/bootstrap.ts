@@ -1,13 +1,13 @@
 import type { InteractionSystem } from '../../systems/interaction.ts';
+import { runAudioWorldPipeline } from './audio-world-pipeline.ts';
+import type { MainContext } from './context.ts';
+import { scheduleDeferredLoading } from './deferred-loading.ts';
+import { runInputPipeline } from './input-pipeline.ts';
 import { runLoadingBootstrap } from './loading-bootstrap.ts';
 import { runScenePipeline } from './scene-pipeline.ts';
-import { runAudioWorldPipeline } from './audio-world-pipeline.ts';
-import { runInputPipeline } from './input-pipeline.ts';
-import { runWasmPipeline } from './wasm-pipeline.ts';
 import { runShaderWarmup } from './shader-warmup.ts';
 import { setupStartScreen } from './start-screen.ts';
-import { scheduleDeferredLoading } from './deferred-loading.ts';
-import type { MainContext } from './context.ts';
+import { runWasmPipeline } from './wasm-pipeline.ts';
 
 function createInitialContext(
     loadingScreen: MainContext['loadingScreen'],

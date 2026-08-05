@@ -1,9 +1,9 @@
-import { isCIorHeadless, CONFIG } from '../config.ts';
-import { preloadGameplay } from '../../gameplay/lazy.ts';
-import { animate } from '../game-loop.ts';
 import { StageLoader } from '../../debug/index.ts';
-import { renderer } from './exports.ts';
+import { preloadGameplay } from '../../gameplay/lazy.ts';
+import { isCIorHeadless, CONFIG } from '../config.ts';
+import { animate } from '../game-loop.ts';
 import type { MainContext } from './context.ts';
+import { renderer } from './exports.ts';
 
 export function runShaderWarmup(ctx: MainContext): void {
     void (async function warmupAndStartLoop() {
@@ -70,7 +70,7 @@ export function runShaderWarmup(ctx: MainContext): void {
         renderer.setAnimationLoop(animate);
         try {
             (window as any).__sceneReady = true;
-        } catch (e) {}
+        } catch (e) { void e; }
         void preloadGameplay();
 
         if (!worldGenerationActive) {

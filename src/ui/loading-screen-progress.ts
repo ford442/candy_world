@@ -1,8 +1,8 @@
-import type { LoadingScreen } from './loading-screen-ui.ts';
-import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types.ts';
-import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
 import { getAccessibilitySystem } from '../systems/accessibility.ts';
+import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
 import { log } from '../utils/log.ts';
+import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types.ts';
+import type { LoadingScreen } from './loading-screen-ui.ts';
 
 let LoadingScreenCtor: typeof LoadingScreen | null = null;
 
@@ -383,7 +383,7 @@ export function completePhase(phaseId?: string): void {
 export function setLoadingDebug(enabled: boolean): void {
     debugEnabled = enabled;
     if (globalLoadingScreen) {
-        // @ts-ignore - accessing private for debug
+        // @ts-expect-error accessing private options field for debug toggle
         globalLoadingScreen.options.debug = enabled;
     }
 }

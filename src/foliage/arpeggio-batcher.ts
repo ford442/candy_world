@@ -1,6 +1,26 @@
 import * as THREE from 'three';
 import { foliageGroup } from '../world/state.ts';
 import {
+    color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
+    smoothstep, attribute, positionWorld, If, vec4, varyingProperty
+} from 'three/tsl';
+
+const ARPEGGIO_BIOME: BiomeId = 'arpeggio_grove';
+const arpeggioUniforms = getBiomeUniforms(ARPEGGIO_BIOME); // Future-proof: adding new biomes only requires updating the helper + JSON
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { camera } from '../core/camera-ref.ts';
+import { CONFIG } from '../core/config.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
+import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { getActiveWave } from '../systems/music-wave.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
+import { dynamicRadiiView } from '../utils/wasm-physics.ts';
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
+import { applyAerialPerspective } from './aerial-perspective.ts';
+import { applyGlitch } from './glitch.ts';
+import { uTime, uGlitchIntensity } from './index.ts';
+import {
     createCandyMaterial,
     registerReactiveMaterial,
     sharedGeometries,
@@ -14,27 +34,7 @@ import {
     applyBaseContactAO,
     getBaseContactHeight,
 } from './index.ts';
-import {
-    color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
-    smoothstep, attribute, positionWorld, If, vec4, varyingProperty
-} from 'three/tsl';
-import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-
-const ARPEGGIO_BIOME: BiomeId = 'arpeggio_grove';
-const arpeggioUniforms = getBiomeUniforms(ARPEGGIO_BIOME); // Future-proof: adding new biomes only requires updating the helper + JSON
-import { uTime, uGlitchIntensity } from './index.ts';
-import { applyGlitch } from './glitch.ts';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
-import { getActiveWave } from '../systems/music-wave.ts';
-import { camera } from '../core/camera-ref.ts';
-import { CONFIG } from '../core/config.ts';
-import { dynamicRadiiView } from '../utils/wasm-physics.ts';
-import { getCIAdjustedCount } from '../core/config.ts';
-import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
-import { applyAerialPerspective } from './aerial-perspective.ts';
-import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 
 const MAX_FERNS = getCIAdjustedCount(500, 0.1, 50); // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
@@ -313,7 +313,7 @@ export class ArpeggioFernBatcher {
         const bob = instanceUnfurl.mul(0.2);
         const finalPos = withWind.add(vec3(0, bob, 0));
 
-        const glitched = applyGlitch(uv(), finalPos, uGlitchIntensity);
+        const glitched = applyGlitch(uv(), finalPos, uGlitchIntensity as unknown as import('three/src/nodes/tsl/TSLCore.js').ShaderNodeObject<import('three/webgpu').Node>);
         material.positionNode = glitched.position;
 
         // Fragment Shader: Instance Color Tint + Rim Light

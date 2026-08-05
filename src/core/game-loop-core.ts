@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { WeatherSystem } from '../systems/weather.ts';
-import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import { initGroundDebug } from '../debug/tools-stub.ts';
 import { initPlacementDebug } from '../debug/tools-stub.ts';
 import { initCircadianDebug } from '../debug/tools-stub.ts';
-import { CONFIG } from './config.ts';
+import { InteractionSystem } from '../systems/interaction.ts';
+import { WeatherSystem } from '../systems/weather.ts';
 import { getCameraShake } from './camera-shake.ts';
+import { CONFIG } from './config.ts';
 
 export type ParticleAudioData = {
     low: number;

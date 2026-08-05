@@ -52,7 +52,7 @@ const modFloat = (x: any, y: any) => {
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
 import { PointsNodeMaterial } from 'three/webgpu';
-
+import { uPulseStrength, uPulseColor } from './audio_reactive.ts';
 import type {
     IParticleSystem,
     ShimmerParticleConfig,
@@ -64,7 +64,6 @@ import type {
     ParticleBounds
 } from './particle_config.ts';
 import { ParticleSystemType } from './particle_config.ts';
-import { uPulseStrength, uPulseColor } from './audio_reactive.ts';
 
 // ⚡ OPTIMIZATION: Fast approximations for Math.sin and Math.cos
 function fastSin(x: number): number {

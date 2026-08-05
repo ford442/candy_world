@@ -3,13 +3,13 @@
  * Zero-allocation hot path: module-scope scratch buffers only.
  */
 import * as THREE from 'three';
-import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { attribute, float, varyingProperty } from 'three/tsl';
+import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { uAerialFogColor } from '../foliage/aerial-perspective.ts';
 import { INSTANCE_LOD_ATTR, ensureInstanceLodAttribute } from '../foliage/batcher-lod-utils.ts';
 import { syncFoliageLodUniforms, uLodDebugHighlight } from '../foliage/lod-nodes.ts';
-import { uAerialFogColor } from '../foliage/aerial-perspective.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 
 export interface FoliageLodConfig {
@@ -63,7 +63,7 @@ const _meshTracks = new Map<THREE.InstancedMesh, Float32Array>();
 const _meshMaxScales = new Map<THREE.InstancedMesh, Float32Array>(); // ⚡ OPTIMIZATION: Cache impostor scales to avoid Math.sqrt in hot loops
 
 let _impostorMesh: THREE.InstancedMesh | null = null;
-let _impostorCapacity = 4096;
+const _impostorCapacity = 4096;
 let _debugHighlight = false;
 
 export function getFoliageLodConfig(): FoliageLodConfig {

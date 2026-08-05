@@ -21,7 +21,6 @@
  */
 
 import * as THREE from 'three';
-import { isCIorHeadless } from '../core/config.ts';
 import {
     storage,
     uniform,
@@ -39,9 +38,17 @@ import {
     vec2
 } from 'three/tsl';
 import { StorageInstancedBufferAttribute, PointsNodeMaterial } from 'three/webgpu';
-
-import type { ComputeParticleConfig, ParticleAudioData } from '../particles/compute-particles-types.ts';
 import type { WebGPURenderer } from 'three/webgpu';
+import { isCIorHeadless } from '../core/config.ts';
+import type { ParticleAudioData } from '../particles/compute-particles-types.ts';
+import type { ParticleAudioState } from '../particles/particle_config.ts';
+
+/** Local config for GPU compute particle system (distinct from factory ComputeParticleConfig). */
+interface ParticleComputeConfig {
+    type?: 'rain' | 'mist' | 'default';
+    spawnCenter?: THREE.Vector3;
+    gravity?: THREE.Vector3;
+}
 
 /**
  * Interface for optional WASM particle physics module
@@ -128,7 +135,7 @@ export class ComputeParticleSystem {
     constructor(
         count: number,
         renderer: WebGPURenderer,
-        config: ComputeParticleConfig & { type?: 'rain' | 'mist' | 'default' } = {}
+        config: ParticleComputeConfig = {}
     ) {
         this.count = count;
         this.renderer = renderer;

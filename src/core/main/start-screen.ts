@@ -1,16 +1,7 @@
-import {
-    getLoadMemoryTier,
-    shouldPreferLightWorldLoad,
-} from '../config.ts';
-import { isWebGLLiteMode } from '../../rendering/webgl-debug.ts';
-import { populateWorld, WorldMode } from '../../world/generation.ts';
-import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
-import { populatePhysicsGrids } from '../../systems/physics/index.ts';
-import { initFaunaSystem } from '../../systems/fauna/index.ts';
+import { StageLoader } from '../../debug/index.ts';
 import { initFaunaDebug } from '../../debug/tools-stub.ts';
-import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
-import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
-import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
+import { isWebGLLiteMode } from '../../rendering/webgl-debug.ts';
+import { initFaunaSystem } from '../../systems/fauna/index.ts';
 import {
     applyAwakenedPersistenceAfterWorldLoad,
     initDeferredVisuals,
@@ -25,13 +16,22 @@ import {
 } from '../../ui/loading-screen.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../../world/spawn-tracker.ts';
 import { globalLoadingManager } from '../../systems/loading-manager.ts';
+import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
+import { populatePhysicsGrids } from '../../systems/physics/index.ts';
 import { showModeBadge } from '../../ui/mode-badge-lazy.ts';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
+import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
+import { populateWorld, WorldMode } from '../../world/generation.ts';
 import { spawnTracker } from '../../world/spawn-tracker.ts';
-import { StageLoader } from '../../debug/index.ts';
-import { camera, renderer, scene } from './exports.ts';
+import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
+import {
+    getLoadMemoryTier,
+    shouldPreferLightWorldLoad,
+} from '../config.ts';
 import { WAIT_FULL_KEY } from './constants.ts';
 import type { MainContext } from './context.ts';
+import { camera, renderer, scene } from './exports.ts';
 
 export function setupStartScreen(ctx: MainContext): void {
     const { loadingScreen, mode } = ctx;
@@ -427,7 +427,7 @@ export function setupStartScreen(ctx: MainContext): void {
                             `[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`
                         );
                     }
-                } catch {}
+                } catch { void 0; }
 
                 document.dispatchEvent(new CustomEvent('worldFullyPopulated'));
 

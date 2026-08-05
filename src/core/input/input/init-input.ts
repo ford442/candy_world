@@ -2,25 +2,25 @@
  * Input initialization orchestrator — wires sub-modules into initInput().
  */
 
+import type * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import type { AudioSystem } from '../../../audio/audio-system';
-import type * as THREE from 'three';
 import { resolveExploreVariant } from '../../camera-modes.ts';
+import { initAudioControls } from '../audio-controls.ts';
 import type { InitInputResult } from '../input-types.ts';
 import {
     initPlaylistManager,
     initLegacyMusicUpload,
 } from '../playlist-manager.ts';
-import { initAudioControls } from '../audio-controls.ts';
-import type { InputSession } from './session.ts';
-import { initExploreCameraForSession } from './menu-helpers.ts';
-import { ensureGameReticle, createUpdateReticleState, setupAbilitySlotInputs } from './reticle.ts';
-import { setupPointerLock } from './pointer-lock.ts';
 import { createButtonPressHandlers } from './button-press.ts';
-import { createKeyboardHandlers } from './keyboard-handlers.ts';
-import { setupHudControls } from './hud-setup.ts';
 import { setupDragDrop } from './drag-drop.ts';
 import { setupExploreToggle } from './explore-toggle.ts';
+import { setupHudControls } from './hud-setup.ts';
+import { createKeyboardHandlers } from './keyboard-handlers.ts';
+import { initExploreCameraForSession } from './menu-helpers.ts';
+import { setupPointerLock } from './pointer-lock.ts';
+import { ensureGameReticle, createUpdateReticleState, setupAbilitySlotInputs } from './reticle.ts';
+import type { InputSession } from './session.ts';
 
 export function initInput(
     camera: THREE.Camera,
@@ -37,7 +37,6 @@ export function initInput(
         instructions: document.getElementById('instructions'),
         startButton: document.getElementById('startButton') as HTMLButtonElement | null,
         canvas: document.getElementById('glCanvas') as HTMLCanvasElement | null,
-        // @ts-ignore
         isDevBuild: import.meta.env?.DEV || false,
         hudDash: document.getElementById('ability-dash'),
         hudMine: document.getElementById('ability-mine'),

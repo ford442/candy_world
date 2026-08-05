@@ -30,10 +30,10 @@
  */
 
 import * as THREE from 'three';
-import { getWasmInstance } from '../utils/wasm-loader.ts';
 import { isEmscriptenReady, getEmscriptenInstance, getNativeFunc } from '../utils/wasm-loader-core.ts';
-import { discoverySystem } from './discovery.ts';
+import { getWasmInstance } from '../utils/wasm-loader.ts';
 import { discoveryPersistence } from './discovery-persistence.ts';
+import { discoverySystem } from './discovery.ts';
 import { DISCOVERY_MAP } from './discovery_map.ts';
 
 // Type definition for discovery info

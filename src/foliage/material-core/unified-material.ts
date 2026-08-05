@@ -1,6 +1,4 @@
 import * as THREE from 'three';
-import { MeshPhysicalNodeMaterial } from 'three/webgpu';
-import type { Node } from 'three/webgpu';
 import type { ShaderNodeObject } from 'three/src/nodes/tsl/TSLCore.js';
 import {
     color,
@@ -22,6 +20,8 @@ import {
     smoothstep,
     exp,
 } from 'three/tsl';
+import { MeshPhysicalNodeMaterial } from 'three/webgpu';
+import type { Node } from 'three/webgpu';
 import { applyGlitch } from '../glitch.ts';
 import {
     uTime,
@@ -30,8 +30,8 @@ import {
     uGlitchExplosionCenter,
     uGlitchExplosionRadius,
 } from './shared-resources.ts';
-import { $sn } from './tsl-types.ts';
 import { triplanarNoise, perturbNormal, createRimLight } from './tsl-nodes.ts';
+import { $sn } from './tsl-types.ts';
 
 export interface UnifiedMaterialOptions {
     colorNode?: Node;

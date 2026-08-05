@@ -106,7 +106,7 @@ function valueNoise2DJS(x: number, y: number): number {
     const v = y - fy;
     
     const hash = (x: number, y: number): number => {
-        let n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+        const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
         return n - Math.floor(n);
     };
     

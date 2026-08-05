@@ -3,8 +3,8 @@
 
 import * as THREE from 'three';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { CYCLE_DURATION } from './config.ts';
 import { announce } from '../ui/announcer.ts';
+import { CYCLE_DURATION } from './config.ts';
 
 // Theme state (managed here, but timeOffset is in main)
 let isNight = false;

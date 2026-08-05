@@ -1,7 +1,20 @@
 import * as THREE from 'three';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld, uv, distance, vec2, varyingProperty, add } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
+import { isGpuFoliagePilotEnabled } from '../compute/gpu-foliage-flag.ts';
+import {
+    runGpuPlantPose,
+    uploadGpuPlantPositions,
+    shouldUseGpuPlantPose,
+    type GpuPlantPoseWave,
+} from '../compute/gpu-plant-pose.ts';
+import { camera } from '../core/camera-ref.ts';
+import { CONFIG } from '../core/config.ts';
+import { BiomeUniforms, circadianDayGlowMult } from '../systems/biome-uniforms.ts';
+import { getActiveWave } from '../systems/music-wave.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { foliageGroup } from '../world/state.ts';
 import {
     foliageMaterials,
     sharedGeometries,
@@ -17,21 +30,8 @@ import {
     uAudioLow,
     uPlayerPosition
 } from './index.ts';
-import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld, uv, distance, vec2, varyingProperty } from 'three/tsl';
-import { foliageGroup } from '../world/state.ts';
-import { CONFIG } from '../core/config.ts';
-import { uTwilight } from './sky.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
-import { camera } from '../core/camera-ref.ts';
-import { BiomeUniforms, circadianDayGlowMult } from '../systems/biome-uniforms.ts';
-import { getActiveWave } from '../systems/music-wave.ts';
-import { isGpuFoliagePilotEnabled } from '../compute/gpu-foliage-flag.ts';
-import {
-    runGpuPlantPose,
-    uploadGpuPlantPositions,
-    shouldUseGpuPlantPose,
-    type GpuPlantPoseWave,
-} from '../compute/gpu-plant-pose.ts';
+import { uTwilight } from './sky.ts';
 
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
@@ -93,7 +93,7 @@ export class SimpleFlowerBatcher {
 
         // Petals: Pre-merged 5-petal flower shape
         const petalGeos: THREE.BufferGeometry[] = [];
-        let basePetalGeo = new THREE.IcosahedronGeometry(0.15, 0);
+        let basePetalGeo: THREE.BufferGeometry = new THREE.IcosahedronGeometry(0.15, 0);
         basePetalGeo = mergeVertices(basePetalGeo);
         basePetalGeo.scale(1, 0.5, 1);
 
@@ -153,7 +153,7 @@ export class SimpleFlowerBatcher {
         });
 
         petalMat.colorNode = instanceColor;
-        petalMat.sheenColorNode = instanceColor;
+        petalMat.sheenNode = instanceColor;
 
         // 3. Add Juicy Rim Light (Neon Edge)
         const rim = createJuicyRimLight(instanceColor, float(1.0), float(3.0), null);
@@ -181,10 +181,14 @@ export class SimpleFlowerBatcher {
         const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.35));
         // Circadian: diurnal rest dim — music/touch/twilight still add on top.
         const dayGlow = circadianDayGlowMult(0.2);
-        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000))
-            .add(rim).add(glitter).add(touchColor)
-            .add(twilightGlowTint)
-            .add(biomeTint.mul(dayGlow));
+        petalMat.emissiveNode = add(
+            petalMat.emissiveNode ?? tslColor(0x000000),
+            rim,
+            glitter,
+            touchColor,
+            twilightGlowTint,
+            biomeTint.mul(dayGlow),
+        );
 
         // Center: Velvet (Brown) + Chain
         const centerMat = (foliageMaterials as any).flowerCenter.clone();
@@ -295,7 +299,7 @@ export class SimpleFlowerBatcher {
         // Size: Pulse on Audio + Interaction
         const audioPulse = uAudioHigh.mul(0.1);
         const touchPulse = push.mul(0.15);
-        pollenMat.sizeNode = float(0.05).add(audioPulse).add(touchPulse);
+        (pollenMat as { sizeNode?: unknown }).sizeNode = float(0.05).add(audioPulse).add(touchPulse);
 
         // Circular soft-disc mask using uv() to avoid the gl_PointCoord WGSL error.
         const pollenCircle = smoothstep(float(0.5), float(0.2), distance(uv(), vec2(0.5, 0.5)));

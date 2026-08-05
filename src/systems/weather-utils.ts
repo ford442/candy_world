@@ -1,4 +1,3 @@
-import { WeatherState } from './weather-types.ts';
 import {
     DURATION_SUNRISE,
     DURATION_DAY,
@@ -6,6 +5,7 @@ import {
     DURATION_DUSK_NIGHT,
     CYCLE_DURATION
 } from '../core/config.ts';
+import { WeatherState } from './weather-types.ts';
 
 export function calculateTimeOfDayBias(cyclePos: number, randomVal: number = Math.random()): { biasState: WeatherState, biasIntensity: number, type: string } {
     const SUNRISE = DURATION_SUNRISE;

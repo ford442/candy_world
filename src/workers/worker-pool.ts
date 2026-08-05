@@ -310,7 +310,7 @@ export class WorkerPool {
    */
   private async retryRequest(
     failedWorker: PooledWorker, 
-    pending: { requestId: string; resolve: Function; reject: Function; retries: number }
+    pending: { requestId: string; resolve: (value: unknown) => void; reject: (reason?: unknown) => void; retries: number }
   ): Promise<void> {
     pending.retries++;
     

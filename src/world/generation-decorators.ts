@@ -1,28 +1,30 @@
 import * as THREE from 'three';
-import { getParticles } from '../particles/lazy.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import { FEATURE_FLAGS } from '../core/config.ts';
+import { CONFIG } from '../core/config.ts';
+import { registerCloudPlatform } from '../debug/tools-stub.ts';
+import { createSkyIsland, skyIslandBatcher } from '../foliage/sky-islands.ts';
+import { createIntegratedGemSparks, createIntegratedSpores, registerIntegratedSystem } from '../particles/compute-integration.ts';
+import { getParticles } from '../particles/lazy.ts';
+import {
+    registerWalkableIslandPlatform,
+    registerWalkableCloudPlatform,
+    getGroundHeight,
+} from '../systems/ground-system.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { recordSpawnAttempt } from './spawn-tracker.ts';
-import { safeAddFoliage } from './generation-entities.ts';
+import { addCollisionObject } from '../utils/wasm-loader.ts';
+import { sampleEntityScale, sampleEntityHeight, biomeNormalizedDistance } from './entity-scale.ts';
+import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { worldGenerationToken } from './generation-core.ts';
+import { safeAddFoliage } from './generation-entities.ts';
+import { recordSpawnAttempt } from './spawn-tracker.ts';
 import {
     getProceduralEntityCount, DEFAULT_PROCEDURAL_CHUNK_SIZE,
     getEntityBudgetMs, WeatherSystem, FoliageGrowthOptions, yieldControl,
     isPositionValid, normalizeMapEntityType,
     GEM_CANOPY, MYCELIUM_GROVE, CLOUD_ARCHIPELAGO, SKY_ISLANDS
 } from './generation-utils.ts';
-import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
-import { sampleEntityScale, sampleEntityHeight, biomeNormalizedDistance } from './entity-scale.ts';
-import { FEATURE_FLAGS } from '../core/config.ts';
-import { createSkyIsland, skyIslandBatcher } from '../foliage/sky-islands.ts';
-import {
-    registerWalkableIslandPlatform,
-    registerWalkableCloudPlatform,
-    getGroundHeight,
-} from '../systems/ground-system.ts';
-import { addCollisionObject } from '../utils/wasm-loader.ts';
-import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import {
     clearSkyIslandGraph,
     registerSkyIslandNode,
@@ -31,7 +33,6 @@ import {
     validateSkyIslandGraph,
     initSkyIslandDebug,
 } from './sky-island-graph.ts';
-import { CONFIG } from '../core/config.ts';
 
 registerBuiltinWorldObjectTypes();
 
@@ -216,7 +217,8 @@ export async function populateProceduralExtras(
     const deferredItems: Array<{ distSq: number; id: string; execute: () => void }> = [];
 
     for (let i = 0; i < extrasCount; i++) {
-        let x = 0, z = 0, y = 0;
+        let x = 0, z = 0;
+        const y = 0;
         let attempts = 0;
         let validPosition = false;
 

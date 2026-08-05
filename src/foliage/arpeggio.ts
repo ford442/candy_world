@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { FoliageObject, AudioData } from './types.ts';
 import { calcArpeggioStep } from '../utils/wasm-loader.ts';
+import { FoliageObject, AudioData } from './types.ts';
 
 export function updateArpeggio(foliageObject: FoliageObject, time: number, audioData: AudioData | null) {
     // Step-based unfurling logic (Revised for Quantized Steps with Rising Edge)

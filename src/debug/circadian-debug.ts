@@ -10,11 +10,11 @@
  * and live uniform values so Palette can spot species that stay "always awake".
  */
 
-import { circadianController } from '../systems/circadian-controller.ts';
-import { uCircadianPhase, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
-import { uTwilight } from '../foliage/sky.ts';
-import { getDayNightBias } from '../core/cycle.ts';
 import { CYCLE_DURATION } from '../core/config.ts';
+import { getDayNightBias } from '../core/cycle.ts';
+import { uTwilight } from '../foliage/sky.ts';
+import { uCircadianPhase, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
+import { circadianController } from '../systems/circadian-controller.ts';
 
 const _hasFlag = (key: string): boolean => {
     try {

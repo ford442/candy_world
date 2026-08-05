@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { VineSwing, addGrassInstance } from '../foliage/index.ts';
 import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
+import { VineSwing, addGrassInstance } from '../foliage/index.ts';
+import { registerPhysicsCave } from '../systems/physics/index.ts';
+import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
+import { WeatherSystem, normalizeMapEntityType, MapEntity, obstaclesData } from './generation-utils.ts';
+import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
+import { recordSpawnAttempt } from './spawn-tracker.ts';
 import {
     animatedFoliage, cpuAnimatedFoliage, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers,
     foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders
 } from './state.ts';
-import { recordSpawnAttempt } from './spawn-tracker.ts';
-import { WeatherSystem, normalizeMapEntityType, MapEntity, obstaclesData } from './generation-utils.ts';
-import { registerPhysicsCave } from '../systems/physics/index.ts';
-import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
-import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 
 registerBuiltinWorldObjectTypes();
 

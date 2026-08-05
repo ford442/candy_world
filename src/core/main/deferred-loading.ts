@@ -1,10 +1,10 @@
+import { StageLoader } from '../../debug/index.ts';
+import { DeferredLoader, LoadPriority } from '../../systems/deferred-loader.ts';
+import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { initDeferredWorldContent } from '../../world/generation.ts';
 import { initDeferredVisuals } from '../deferred-init.ts';
-import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
-import { DeferredLoader, LoadPriority } from '../../systems/deferred-loader.ts';
-import { StageLoader } from '../../debug/index.ts';
-import { scene } from './exports.ts';
 import type { MainContext } from './context.ts';
+import { scene } from './exports.ts';
 
 export function scheduleDeferredLoading(ctx: MainContext): void {
     function startDeferredWorldLoading() {

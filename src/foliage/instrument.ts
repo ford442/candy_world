@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import {
+    color, float, mix, uv, sin, cos,
+    vec3, vec2, floor, smoothstep, abs, mx_noise_float, uniform
+} from 'three/tsl';
+import { unlockSystem } from '../systems/unlocks.ts';
+import { makeInteractive } from '../utils/interaction-utils.ts';
+import { spawnImpact } from './impacts.ts';
+import {
     createUnifiedMaterial,
     sharedGeometries,
     attachReactivity
 } from './index.ts';
-import {
-    color, float, mix, uv, sin, cos,
-    vec3, vec2, floor, smoothstep, abs, mx_noise_float, uniform
-} from 'three/tsl';
-import { makeInteractive } from '../utils/interaction-utils.ts';
-import { unlockSystem } from '../systems/unlocks.ts';
-import { spawnImpact } from './impacts.ts';
 
 const _scratchPos = new THREE.Vector3();
 const _scratchUp = new THREE.Vector3(0, 1, 0);
@@ -187,5 +187,5 @@ export function createInstrumentShrine(options: InstrumentShrineOptions = {}): T
         if (originalInteract) originalInteract();
     };
 
-    return interactive;
+    return interactive as THREE.Group;
 }

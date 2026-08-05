@@ -15,12 +15,12 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
-import { createCloud } from '../foliage/clouds.ts';
-import { safeAddFoliage } from './generation-entities.ts';
-import { getGroundHeight, registerWalkableCloudPlatform } from '../systems/ground-system.ts';
-import { addCollisionObject } from '../utils/wasm-loader.ts';
 import { registerCloudPlatform } from '../debug/tools-stub.ts';
+import { createCloud } from '../foliage/clouds.ts';
+import { getGroundHeight, registerWalkableCloudPlatform } from '../systems/ground-system.ts';
 import type { WeatherSystem } from '../systems/weather.ts';
+import { addCollisionObject } from '../utils/wasm-loader.ts';
+import { safeAddFoliage } from './generation-entities.ts';
 
 const STORAGE_KEY = 'candy_dev_cloud_placements';
 
@@ -56,7 +56,6 @@ const _scratch = new THREE.Vector3();
 
 function isPlacerFlagEnabled(): boolean {
     try {
-        // @ts-ignore
         if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) return true;
         return (
             new URLSearchParams(window.location.search).get('cloudPlacer') === '1' ||

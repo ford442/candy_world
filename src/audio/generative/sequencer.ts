@@ -1,6 +1,6 @@
+import type { BiomeMusicProfile } from './biome-profiles.ts';
 import { SeededRng } from './prng.ts';
 import { scaleNote, noteNameToChromaticIndex, type NoteName } from './scales.ts';
-import type { BiomeMusicProfile } from './biome-profiles.ts';
 
 export const NUM_CHANNELS = 8;
 export const STEPS_PER_BAR = 16;

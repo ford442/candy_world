@@ -3,9 +3,10 @@
 import * as THREE from 'three';
 import { color, float, vec3, vec4, uv, mix, smoothstep, uniform, Fn, time, mx_noise_float, positionWorld, positionLocal, dot, sin, cos, storage, instanceIndex, vec2, If } from 'three/tsl';
 import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
-import { uAudioLow, uAudioHigh, CandyPresets, uTime, createJuicyRimLight } from './index.ts';
-import { getSphereGeometry } from '../utils/geometry-dedup.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { getSphereGeometry } from '../utils/geometry-dedup.ts';
+import { uAudioLow, uAudioHigh, CandyPresets, uTime, createJuicyRimLight } from './index.ts';
 
 // Global uniforms for Aurora control
 export const uAuroraIntensity = uniform(0.0); // 0.0 to 1.0
@@ -19,7 +20,7 @@ export function createAurora(): THREE.Mesh {
     geometry.translate(0, 300, 0); // Lift it up into the sky
 
     // TSL Shader Logic
-    const mainAurora = Fn(() => {
+    const mainAurora = (Fn as any)(() => {
         const vUv = uv();
 
         // 1. Organic Curtain Movement (Noise-based)
@@ -83,7 +84,6 @@ export function createAurora(): THREE.Mesh {
     return mesh;
 }
 
-import { getCIAdjustedCount } from '../core/config.ts';
 
 // --- HARMONY ORBS SYSTEM ---
 
@@ -204,7 +204,7 @@ class HarmonyOrbSystem {
         this.mesh.receiveShadow = false;
 
         // 3. Define TSL Compute Node for Physics/Lifecycle Updates
-        const updateOrbsCompute: any = Fn(() => {
+        const updateOrbsCompute: any = (Fn as any)(() => {
             const index = instanceIndex;
 
             const position = storage(this.positionBuffer, 'vec3', this.positionBuffer.count).element(index);

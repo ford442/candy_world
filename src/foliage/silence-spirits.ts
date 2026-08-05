@@ -1,11 +1,13 @@
 // src/foliage/silence-spirits.ts
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, mix, sin, cos, positionLocal, positionWorld, vec3, normalWorld,
     mx_noise_float, distance, smoothstep, max, min
 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { grantInvisibility } from '../systems/physics/index.ts';
 import {
     sharedGeometries,
     registerReactiveMaterial,
@@ -13,8 +15,6 @@ import {
     uTime,
     uPlayerPosition
 } from './index.ts';
-import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-import { grantInvisibility } from '../systems/physics/index.ts';
 
 export interface SilenceSpiritOptions {
     scale?: number;

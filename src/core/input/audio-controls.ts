@@ -4,8 +4,8 @@
  */
 
 import { AudioSystem } from '../../audio/audio-system';
-import { keyStates } from './input-types.ts';
 import { announce, announceValueChange, announcePolite } from '../../ui/announcer.ts';
+import { keyStates } from './input-types.ts';
 
 let audioSystemRef: AudioSystem | null = null;
 

@@ -20,7 +20,7 @@ const DEBUG_FAUNA = _hasFlag('debugFauna');
 let _scene: THREE.Scene | null = null;
 let _arrows: THREE.LineSegments | null = null;
 let _rings: THREE.InstancedMesh | null = null;
-let _enabled = DEBUG_FAUNA;
+const _enabled = DEBUG_FAUNA;
 let _maxCount = 128;
 
 const _ringMat = new THREE.MeshBasicMaterial({

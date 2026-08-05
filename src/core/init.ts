@@ -1,17 +1,11 @@
 // src/core/init.ts
 
 import * as THREE from 'three';
-import { color, uniform, uv, float, smoothstep } from 'three/tsl';
-import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
+import type UniformNode from 'three/src/nodes/core/UniformNode.js';
+import { color, uniform, uv, float, smoothstep } from 'three/tsl';
 import { WebGPURenderer, MeshBasicNodeMaterial, StorageInstancedBufferAttribute, StorageBufferAttribute } from 'three/webgpu';
-import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
 import { createCrescendoFogNode, uFogNear, uFogFar } from '../foliage/sky.ts';
-import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
-import {
-    resolveRendererBackend,
-    type RendererBackend,
-} from '../rendering/renderer-mode.ts';
 import {
     armGpuContext,
     captureAdapterRequests,
@@ -20,6 +14,12 @@ import {
     GPU_POWER_PREFERENCE,
     GPU_REQUIRED_LIMITS,
 } from '../rendering/gpu-context.ts';
+import {
+    resolveRendererBackend,
+    type RendererBackend,
+} from '../rendering/renderer-mode.ts';
+import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
+import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
 
 /**
  * Type union for supported renderers (WebGPU or WebGL fallback)

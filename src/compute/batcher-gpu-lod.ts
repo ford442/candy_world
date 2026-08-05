@@ -7,15 +7,15 @@
  */
 
 import * as THREE from 'three';
-import { LOD_SELECT_WGSL } from './gpu-compute-shaders.ts';
-import { getSharedGPUCompute } from './gpu-compute-library.ts';
+import type { FoliageLodConfig } from '../systems/batcher-lod.ts';
 import {
     preferGpuCompute,
     isGpuComputeReady,
     setLastFrameGpuLod,
     trackGpuBufferBytes,
 } from './compute-orchestrator.ts';
-import type { FoliageLodConfig } from '../systems/batcher-lod.ts';
+import { getSharedGPUCompute } from './gpu-compute-library.ts';
+import { LOD_SELECT_WGSL } from './gpu-compute-shaders.ts';
 
 const WORKGROUP = 256;
 
