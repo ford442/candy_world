@@ -1,4 +1,8 @@
 import type { ConfigType } from './types.ts';
+import { AUDIO_DEFAULTS } from './audio.ts';
+import { FAUNA_DEFAULTS } from './fauna.ts';
+import { GROUND_DEFAULTS, PLAYER_DEFAULTS } from './ground.ts';
+import { PRESENCE_DEFAULTS } from './presence.ts';
 
 export const CONFIG: ConfigType = {
     safeMode:
@@ -8,45 +12,8 @@ export const CONFIG: ConfigType = {
         heightmapResolution: 256,
     },
 
-    // --- PLAYER / CAMERA HEIGHT ---
-    // Issue #1265: centralised eye height and ground-follow tuning so the
-    // first-person camera no longer snaps over small terrain bumps.
-    player: {
-        eyeHeight: 1.8, // Height of the camera above the ground surface
-        spawnEyeHeightY: 5.0, // Transient camera Y before the first authoritative ground snap
-    },
-    ground: {
-        followLerpSpeed: 12.0, // Units/sec for smoothing eye height over terrain bumps
-        followMaxStep: 2.5, // Max vertical change per frame to prevent huge jumps
-        platformElevationThreshold: 1.25, // Above terrain eye Y → trust physics (clouds, pads)
-        cacheCellSize: 2.0, // GroundSystem height-cache cell size (0.01-unit quantised)
-        cacheTTL: 1.0, // Seconds before a cached height sample expires
-        footprintSamples: 4, // Perimeter ring samples (+ center) for wide-prop grounding
-        maxSlopeAngle: (25 * Math.PI) / 180,
-        footprintRadius: {
-            tree: 0.4,
-            shrub: 0.4,
-            portamento_pine: 0.5,
-            bubble_willow: 0.6,
-            balloon_bush: 0.6,
-            helix_plant: 0.4,
-            gem_canopy_tree: 0.6,
-            subwoofer_lotus: 0.7,
-            kick_drum_geyser: 0.5,
-            snare_trap: 0.5,
-            instrument_shrine: 0.6,
-            panning_pad: 0.5,
-            mushroom: 0.25,
-            retrigger_mushroom: 0.35,
-            glass_mushroom: 0.25,
-            rock: 0.3,
-            grass: 0.15,
-        },
-        footprintPlacementY: {
-            panning_pad: 'avg',
-            subwoofer_lotus: 'avg',
-        },
-    },
+    player: PLAYER_DEFAULTS,
+    ground: GROUND_DEFAULTS,
 
     cloud: {
         defaultSize: 1.5,
@@ -385,17 +352,7 @@ export const CONFIG: ConfigType = {
         danceFrequency: 1.0, // Hz
     },
 
-    // Audio processing settings
-    audio: {
-        // Use ScriptProcessorNode for compatibility mode (deprecated but more reliable in some cases)
-        // Set to true if experiencing AudioWorkletNode performance issues or slow loading
-        // Default: false (uses modern AudioWorkletNode)
-        // See AUDIO_COMPATIBILITY_MODE.md for more information
-        useScriptProcessorNode: false,
-        // Music source: tracker (libopenmpt) or generative (Web Audio sequencer)
-        musicMode: 'auto' as 'tracker' | 'generative' | 'auto',
-        generativeSeed: 0,
-    },
+    audio: AUDIO_DEFAULTS,
 
     // Weather music reactivity settings
     weather: {
@@ -593,41 +550,8 @@ export const CONFIG: ConfigType = {
         },
     },
 
-    // --- AMBIENT FAUNA (boids + instanced critters) ---
-    fauna: {
-        enabled: true,
-        /** Total instance cap across all species (documented perf budget). */
-        maxInstances: 96,
-        /** Per-species cap (beetle / hopper / moth). */
-        maxPerSpecies: 40,
-        seed: 42,
-        areaScale: 1.0,
-        biomeDensity: {
-            arpeggio_grove: { beetle: 8, hopper: 6, moth: 4 },
-            crystalline_nebula: { beetle: 4, hopper: 3, moth: 10 },
-            luminous_plants: { beetle: 5, hopper: 4, moth: 8 },
-            gem_canopy: { beetle: 6, hopper: 5, moth: 3 },
-            lake_features: { beetle: 3, hopper: 2, moth: 5 },
-            sky_islands: { beetle: 2, hopper: 2, moth: 9 },
-            global: { beetle: 5, hopper: 4, moth: 4 },
-        },
-        roosts: {
-            enabled: true,
-            // 3 island tiers × 4 = 12 of the 96-instance cap (~12%), leaving the
-            // terrain scatter essentially unchanged.
-            perIsland: 4,
-            ringInset: 0.55,
-            jitter: 0.12,
-            density: { beetle: 1, hopper: 1, moth: 8 },
-        },
-    },
-
-    presence: {
-        enabled: true,
-        maxPeers: 16,
-        tickHz: 10,
-        cullDistance: 120,
-    },
+    fauna: FAUNA_DEFAULTS,
+    presence: PRESENCE_DEFAULTS,
 
     compute: {
         preferGpu: true,
