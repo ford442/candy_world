@@ -1,4 +1,4 @@
-import { openAccessibilityMenu } from '../../../ui/accessibility-menu.ts';
+import { openAccessibilityMenu } from '../../../ui/accessibility-menu-lazy.ts';
 import { keyStates } from '../input-types.ts';
 import type { InputSession } from './session.ts';
 import type { InputKeyboardHandlers } from './keyboard-handlers.ts';

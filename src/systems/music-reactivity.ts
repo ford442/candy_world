@@ -24,7 +24,7 @@ import {
     registerAtmosphereBeatSync,
     applyAtmosphereMapOverrides,
 } from './atmosphere-reactivity.ts';
-import { awakenedPersistence } from './awakened-persistence.ts';
+import { awakenedPersistence } from './awakened-persistence-api.ts';
 import { uploadPositionsFlat, batchDistanceCull } from '../utils/wasm-batch.ts';
 
 // Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)

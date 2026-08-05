@@ -9,7 +9,7 @@ import {
 import { initWebGLDebug } from '../../rendering/webgl-debug.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
 import { installWorldExportTools } from '../../world/map-exporter.ts';
-import { showRendererBadge } from '../../ui/mode-badge.ts';
+import { showRendererBadge } from '../../ui/mode-badge-lazy.ts';
 import { StageLoader } from '../../debug/index.ts';
 import { assignCoreExports } from './exports.ts';
 import { POST_PROCESSING_PROGRESS } from './constants.ts';

@@ -13,7 +13,7 @@
 
 import { showToast } from '../../utils/toast.ts';
 import { FEATURE_FLAGS } from '../../core/config.ts';
-import { awakenedPersistence } from '../awakened-persistence.ts';
+import { awakenedPersistence } from '../awakened-persistence-api.ts';
 import {
     SAVE_VERSION,
     SAVE_VERSION as SAVE_VERSION_CONST,

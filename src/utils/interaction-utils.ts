@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { awakenedPersistence } from '../systems/awakened-persistence.ts';
+import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
 
 const _inverseMatrix = new THREE.Matrix4();
 const _ray = new THREE.Ray();

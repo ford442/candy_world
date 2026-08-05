@@ -76,7 +76,13 @@ export function getLoadMemoryScale(): number {
 /** True when the device should prefer lighter world modes on first paint. */
 export function shouldPreferLightWorldLoad(): boolean {
     const tier = getLoadMemoryTier();
-    return tier === 'critical' || tier === 'low';
+    if (tier === 'critical' || tier === 'low') return true;
+    try {
+        if (new URLSearchParams(window.location.search).has('lite')) return true;
+    } catch {
+        /* non-browser */
+    }
+    return false;
 }
 
 /**

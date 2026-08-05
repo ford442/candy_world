@@ -20,7 +20,7 @@ import { foliageGroup } from '../world/state.ts';
 import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId, uCircadianPoseOffset, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { sampleEntityScale } from '../world/entity-scale.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
-import type { BatcherInstanceRef } from '../systems/awakened-persistence.ts';
+import type { BatcherInstanceRef } from '../systems/awakened-types.ts';
 
 const GEM_BIOME: BiomeId = 'gem_canopy';
 const gemUniforms = getBiomeUniforms(GEM_BIOME);

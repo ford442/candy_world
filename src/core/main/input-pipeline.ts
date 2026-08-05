@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { InteractionSystem } from '../../systems/interaction.ts';
 import { CONFIG } from '../config.ts';
 import { initInput } from '../input/index.ts';
-import { initPhotoMode } from '../../systems/photo-mode/index.ts';
+import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
 import { getGroundHeight } from '../../systems/ground-system.ts';
 import { player } from '../../systems/physics/index.ts';
 import { ensureGameplay } from '../../gameplay/lazy.ts';
@@ -92,7 +92,7 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
 
         const canvasEl = document.getElementById('glCanvas') as HTMLCanvasElement | null;
         if (canvasEl && ctx.controls) {
-            initPhotoMode({
+            registerPhotoModeInit({
                 camera,
                 canvas: canvasEl,
                 controls: ctx.controls,

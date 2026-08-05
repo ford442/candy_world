@@ -3,9 +3,9 @@ import { WeatherSystem } from '../systems/weather.ts';
 import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { initGroundDebug } from '../debug/ground-debug.ts';
-import { initPlacementDebug } from '../debug/debug-place.ts';
-import { initCircadianDebug } from '../debug/circadian-debug.ts';
+import { initGroundDebug } from '../debug/tools-stub.ts';
+import { initPlacementDebug } from '../debug/tools-stub.ts';
+import { initCircadianDebug } from '../debug/tools-stub.ts';
 import { CONFIG } from './config.ts';
 import { getCameraShake } from './camera-shake.ts';
 

@@ -7,9 +7,9 @@ import { populateWorld, WorldMode } from '../../world/generation.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
 import { populatePhysicsGrids } from '../../systems/physics/index.ts';
 import { initFaunaSystem } from '../../systems/fauna/index.ts';
-import { initFaunaDebug } from '../../debug/fauna-debug.ts';
-import { initCloudPlacer } from '../../world/cloud-placer.ts';
-import { initPresenceFromOptIn } from '../../systems/net/index.ts';
+import { initFaunaDebug } from '../../debug/tools-stub.ts';
+import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
+import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import {
     applyAwakenedPersistenceAfterWorldLoad,
@@ -25,8 +25,7 @@ import {
 } from '../../ui/loading-screen.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../../world/spawn-tracker.ts';
 import { globalLoadingManager } from '../../systems/loading-manager.ts';
-import { validateWorldPopulation } from '../../world/world-health.ts';
-import { showModeBadge } from '../../ui/mode-badge.ts';
+import { showModeBadge } from '../../ui/mode-badge-lazy.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { spawnTracker } from '../../world/spawn-tracker.ts';
 import { StageLoader } from '../../debug/index.ts';
@@ -433,18 +432,20 @@ export function setupStartScreen(ctx: MainContext): void {
                 document.dispatchEvent(new CustomEvent('worldFullyPopulated'));
 
                 try {
-                    const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
-                    if (!health.healthy) {
-                        import('../../utils/toast.ts')
-                            .then(({ showToast }) => {
-                                const summary =
-                                    health.warnings.length === 1
-                                        ? health.warnings[0]
-                                        : `${health.warnings.length} world health warnings — see console`;
-                                showToast(summary, '⚠️', 7000);
-                            })
-                            .catch(() => {});
-                    }
+                    void import('../../world/world-health.ts').then(({ validateWorldPopulation }) => {
+                        const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
+                        if (!health.healthy) {
+                            import('../../utils/toast.ts')
+                                .then(({ showToast }) => {
+                                    const summary =
+                                        health.warnings.length === 1
+                                            ? health.warnings[0]
+                                            : `${health.warnings.length} world health warnings — see console`;
+                                    showToast(summary, '⚠️', 7000);
+                                })
+                                .catch(() => {});
+                        }
+                    });
                 } catch (e) {
                     console.warn('[WorldHealth] Validation threw:', e);
                 }

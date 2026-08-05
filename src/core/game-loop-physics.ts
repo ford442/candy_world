@@ -4,8 +4,8 @@ import { cameraRef, controlsRef, sceneRef, rendererRef, gameTime } from './game-
 import { updatePhysics, player } from '../systems/physics/index.ts';
 import { keyStates } from './input/index.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
-import { updateGroundDebug, isGroundDebugEnabled } from '../debug/ground-debug.ts';
-import { updatePlacementDebug, isPlacementDebugEnabled } from '../debug/debug-place.ts';
+import { updateGroundDebug, isGroundDebugEnabled } from '../debug/tools-stub.ts';
+import { updatePlacementDebug, isPlacementDebugEnabled } from '../debug/tools-stub.ts';
 import { createShield } from '../foliage/shield.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { getSparkleTrail, getPlayerShieldMesh, setPlayerShieldMesh } from './deferred-init.ts';

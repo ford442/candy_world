@@ -52,11 +52,26 @@ export default defineConfig({
           ) {
             return 'gameplay';
           }
-          // Save menu UI (exclude thin lazy stub)
+          // Save menu UI + save-system core (exclude thin lazy stubs)
           if (
-            id.includes('/src/ui/save-menu/') &&
-            !id.endsWith('/save-menu/lazy.ts')
+            (id.includes('/src/ui/save-menu/') && !id.endsWith('/save-menu/lazy.ts')) ||
+            id.includes('/src/systems/save-system/')
           ) {
+            return 'save-ui';
+          }
+          // Accessibility settings DOM (lazy-loaded menu)
+          if (
+            id.includes('/src/ui/accessibility-menu') &&
+            !id.endsWith('/accessibility-menu-lazy.ts')
+          ) {
+            return 'accessibility-ui';
+          }
+          // Dev cloud placement tool (lazy stub stays in app)
+          if (id.includes('/src/world/cloud-placer.ts')) {
+            return 'cloud-placer';
+          }
+          // Save integration hooks (lazy stub stays in app)
+          if (id.includes('/src/systems/save-integration.ts')) {
             return 'save-ui';
           }
           // Analytics debug overlay (?debug=1 / /stats) — not the *-lazy stub
@@ -71,6 +86,70 @@ export default defineConfig({
           if (id.includes('/src/world/generation-decorators.ts')) {
             return 'world-content';
           }
+          // Debug tools (panel, gizmos, ground/placement/circadian/fauna overlays)
+          if (
+            id.includes('/src/debug/') &&
+            !id.endsWith('/debug/stages.ts') &&
+            !id.endsWith('/debug/index.ts') &&
+            !id.endsWith('/debug/lazy.ts') &&
+            !id.endsWith('/debug/tools-stub.ts')
+          ) {
+            return 'debug';
+          }
+          // Shared presence / net (opt-in ?presence=1)
+          if (
+            (id.includes('/src/systems/net/') && !id.endsWith('/net/lazy.ts')) ||
+            id.includes('/src/ui/presence-panel.ts')
+          ) {
+            return 'presence';
+          }
+          // Cinematic photo mode (?photo=1 or first P press)
+          if (
+            id.includes('/src/systems/photo-mode/') &&
+            !id.endsWith('/photo-mode/lazy.ts')
+          ) {
+            return 'photo-mode';
+          }
+          // Playlist / jukebox UI (input layer — separate chunk, sync-imported at boot)
+          if (id.includes('/src/core/input/playlist-manager.ts')) {
+            return 'playlist-ui';
+          }
+          if (id.includes('/src/systems/interaction.ts')) {
+            return 'interaction';
+          }
+          if (id.includes('/src/systems/loading-manager.ts')) {
+            return 'loading-ui';
+          }
+          if (id.includes('/src/core/hud.ts')) {
+            return 'hud-ui';
+          }
+          if (id.includes('/src/core/camera-modes.ts')) {
+            return 'camera-modes';
+          }
+          if (id.includes('/src/world/world-health.ts')) {
+            return 'world-health';
+          }
+          if (id.includes('/src/ui/mode-badge.ts')) {
+            return 'mode-badge';
+          }
+          if (id.includes('/src/foliage/batcher-telemetry.ts')) {
+            return 'telemetry';
+          }
+          // Shader warmup (loading-screen phase — not first-paint brain)
+          if (id.includes('/src/rendering/shader-warmup.ts')) {
+            return 'shader-warmup';
+          }
+          // Awakened flora persistence (feature-flagged ?awakened)
+          if (id.includes('/src/systems/awakened-persistence.ts')) {
+            return 'awakened';
+          }
+          // Generative soundtrack engine (not music-mode.ts resolver)
+          if (
+            id.includes('/src/audio/generative/') &&
+            !id.endsWith('/generative/music-mode.ts')
+          ) {
+            return 'generative-music';
+          }
 
           // Remaining app code with intertwined imports stays in one chunk to
           // avoid circular *chunk* dependencies (foliage ↔ systems core, etc.).
@@ -83,7 +162,6 @@ export default defineConfig({
             id.includes('/src/ui/') ||
             id.includes('/src/utils/') ||
             id.includes('/src/world/') ||
-            id.includes('/src/debug/') ||
             id.includes('/src/compute/')
           ) {
             return 'app';

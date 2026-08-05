@@ -12,7 +12,7 @@ import { uStarOpacity } from '../foliage/stars.ts';
 import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
-import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/circadian-debug.ts';
+import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/tools-stub.ts';
 import {
     _scratchBaseSkyTop, _scratchBaseSkyBot, _scratchBaseFog,
     COLOR_STORM_SKY_TOP, COLOR_STORM_SKY_BOT, COLOR_STORM_FOG, COLOR_RAIN, COLOR_RAIN_FOG,

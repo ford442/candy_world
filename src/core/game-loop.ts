@@ -46,7 +46,7 @@ import { player } from '../systems/physics/index.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
-import { getPhotoMode } from '../systems/photo-mode/index.ts';
+import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
 
 // Re-exports (public surface for main.ts / index.ts)

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { LuminousPlantBatcher } from './luminous-plant-batcher.ts';
 import { attachReactivity } from './index.ts';
-import { awakenedPersistence } from '../systems/awakened-persistence.ts';
+import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
 
 export interface LuminousPlantOptions {
     scale?: number;

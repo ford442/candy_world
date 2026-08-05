@@ -1,5 +1,4 @@
 import { isCIorHeadless, CONFIG } from '../config.ts';
-import { ShaderWarmup } from '../../rendering/shader-warmup.ts';
 import { preloadGameplay } from '../../gameplay/lazy.ts';
 import { animate } from '../game-loop.ts';
 import { StageLoader } from '../../debug/index.ts';
@@ -27,6 +26,7 @@ export function runShaderWarmup(ctx: MainContext): void {
                     console.warn('[Startup] safeMode active — skipping shader warmup');
                     return;
                 }
+                const { ShaderWarmup } = await import('../../rendering/shader-warmup.ts');
                 const warmup = new ShaderWarmup();
                 const targets = warmup.getTargets();
 

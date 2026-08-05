@@ -14,7 +14,7 @@ import { player } from './physics/index.ts';
 import { discoverySystem } from './discovery.ts';
 import { unlockSystem } from './unlocks.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
-import { awakenedPersistence } from './awakened-persistence.ts';
+import { awakenedPersistence } from './awakened-persistence-api.ts';
 
 type SaveSystemInternals = {
     gatherPlayerData: () => SaveData['player'];
