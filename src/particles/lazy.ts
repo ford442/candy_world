@@ -1,19 +1,14 @@
-let particlesPromise: Promise<typeof import('./index.ts')> | null = null;
-let particlesInstance: typeof import('./index.ts') | null = null;
+import * as particlesModule from './index.ts';
 
-export async function loadParticles(): Promise<typeof import('./index.ts')> {
-    if (particlesInstance) {
-        return particlesInstance;
+let particlesInstance: typeof particlesModule | null = null;
+
+export async function loadParticles(): Promise<typeof particlesModule> {
+    if (!particlesInstance) {
+        particlesInstance = particlesModule;
     }
-
-    if (!particlesPromise) {
-        particlesPromise = import('./index.ts');
-    }
-
-    particlesInstance = await particlesPromise;
     return particlesInstance;
 }
 
-export function getParticles(): typeof import('./index.ts') | null {
+export function getParticles(): typeof particlesModule | null {
     return particlesInstance;
 }

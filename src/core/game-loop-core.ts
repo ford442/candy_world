@@ -28,7 +28,7 @@ export const _scratchParticleAudioData: ParticleAudioData = {
     groove: 0,
     windX: 0,
     windZ: 0,
-    windSpeed: 0
+    windSpeed: 0,
 };
 
 export function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher', pos?: any) {
@@ -36,7 +36,10 @@ export function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher'
         try {
             batcher.update(delta, pos);
         } catch (err) {
-            console.warn(`[GameLoop] Skipped update on ${label} (likely empty or incomplete in Core mode)`, err);
+            console.warn(
+                `[GameLoop] Skipped update on ${label} (likely empty or incomplete in Core mode)`,
+                err
+            );
         }
     }
 }
@@ -51,49 +54,65 @@ export function safeSystemUpdate(updateFn: any, label: string, ...args: any[]) {
 }
 
 export let gameTime = 0;
-export function setGameTime(v: number) { gameTime = v; }
+export function setGameTime(v: number) {
+    gameTime = v;
+}
 
 export let audioState: any = null;
-export function setAudioState(v: any) { audioState = v; }
+export function setAudioState(v: any) {
+    audioState = v;
+}
 
 export let lastBeatPhase = 0;
-export function setLastBeatPhase(v: number) { lastBeatPhase = v; }
+export function setLastBeatPhase(v: number) {
+    lastBeatPhase = v;
+}
 
 export let beatFlashIntensity = 0;
-export function setBeatFlashIntensity(v: number) { beatFlashIntensity = v; }
+export function setBeatFlashIntensity(v: number) {
+    beatFlashIntensity = v;
+}
 
 export let cameraZoomPulse = 0;
-export function setCameraZoomPulse(v: number) { cameraZoomPulse = v; }
+export function setCameraZoomPulse(v: number) {
+    cameraZoomPulse = v;
+}
 
 export let cameraShake = getCameraShake();
-export function setCameraShakeCore(v: number) { cameraShake = v; }
+export function setCameraShakeCore(v: number) {
+    cameraShake = v;
+}
 
 export let currentShakeOffsetX = 0;
-export function setCurrentShakeOffsetX(v: number) { currentShakeOffsetX = v; }
+export function setCurrentShakeOffsetX(v: number) {
+    currentShakeOffsetX = v;
+}
 
 export let currentShakeOffsetY = 0;
-export function setCurrentShakeOffsetY(v: number) { currentShakeOffsetY = v; }
+export function setCurrentShakeOffsetY(v: number) {
+    currentShakeOffsetY = v;
+}
 
 export const baseFOV = 75;
 
-export const COLOR_STORM_SKY_TOP = new THREE.Color(0x1A1A2E);
-export const COLOR_STORM_SKY_BOT = new THREE.Color(0x2E3A59);
-export const COLOR_STORM_FOG = new THREE.Color(0x4A5568);
-export const COLOR_RAIN = new THREE.Color(0xA0B5C8);
-export const COLOR_RAIN_FOG = new THREE.Color(0xC0D0E0);
+export const COLOR_STORM_SKY_TOP = new THREE.Color(0x1a1a2e);
+export const COLOR_STORM_SKY_BOT = new THREE.Color(0x2e3a59);
+export const COLOR_STORM_FOG = new THREE.Color(0x4a5568);
+export const COLOR_RAIN = new THREE.Color(0xa0b5c8);
+export const COLOR_RAIN_FOG = new THREE.Color(0xc0d0e0);
 
 // Day/night sky palette endpoints (module-scope — never allocate inside the tick).
 export const COLOR_NIGHT_SKY_TOP = new THREE.Color(0x1a2436);
 export const COLOR_NIGHT_SKY_BOT = new THREE.Color(0x0a1128);
 export const COLOR_NIGHT_FOG = new THREE.Color(0x0a1128);
-export const COLOR_DAY_SKY_TOP = new THREE.Color(0x87CEEB);
-export const COLOR_DAY_SKY_BOT = new THREE.Color(0xE0F6FF);
-export const COLOR_DAY_FOG = new THREE.Color(0xE0F6FF);
-export const COLOR_SUNRISE_SKY_BOT = new THREE.Color(0xFFA07A);
-export const COLOR_SUNRISE_FOG = new THREE.Color(0xDDA0DD);
-export const COLOR_SUNSET_SKY_TOP = new THREE.Color(0x483D8B);
-export const COLOR_SUNSET_SKY_BOT = new THREE.Color(0xFF7F50);
-export const COLOR_SUNSET_FOG = new THREE.Color(0xFFB6C1);
+export const COLOR_DAY_SKY_TOP = new THREE.Color(0x87ceeb);
+export const COLOR_DAY_SKY_BOT = new THREE.Color(0xe0f6ff);
+export const COLOR_DAY_FOG = new THREE.Color(0xe0f6ff);
+export const COLOR_SUNRISE_SKY_BOT = new THREE.Color(0xffa07a);
+export const COLOR_SUNRISE_FOG = new THREE.Color(0xdda0dd);
+export const COLOR_SUNSET_SKY_TOP = new THREE.Color(0x483d8b);
+export const COLOR_SUNSET_SKY_BOT = new THREE.Color(0xff7f50);
+export const COLOR_SUNSET_FOG = new THREE.Color(0xffb6c1);
 export const COLOR_DEEP_NIGHT_SKY_TOP = new THREE.Color(0x0f172a);
 export const COLOR_DEEP_NIGHT_SKY_BOT = new THREE.Color(0x020617);
 export const COLOR_DEEP_NIGHT_FOG = new THREE.Color(0x020617);
@@ -109,29 +128,39 @@ export const _shadowLightView = new THREE.Vector3();
 export const _shadowSnap = new THREE.Vector3();
 
 export let _shadowSnapCellX = Number.NaN;
-export function setShadowSnapCellX(v: number) { _shadowSnapCellX = v; }
+export function setShadowSnapCellX(v: number) {
+    _shadowSnapCellX = v;
+}
 
 export let _shadowSnapCellZ = Number.NaN;
-export function setShadowSnapCellZ(v: number) { _shadowSnapCellZ = v; }
+export function setShadowSnapCellZ(v: number) {
+    _shadowSnapCellZ = v;
+}
 
 export const _scratchAuroraColor = new THREE.Color();
 export const _scratchCameraForward = new THREE.Vector3();
 
 export let _shaftGoldenHourBase = 0;
-export function setShaftGoldenHourBase(v: number) { _shaftGoldenHourBase = v; }
+export function setShaftGoldenHourBase(v: number) {
+    _shaftGoldenHourBase = v;
+}
 
 export let _shaftIsGoldenHour = false;
-export function setShaftIsGoldenHour(v: boolean) { _shaftIsGoldenHour = v; }
+export function setShaftIsGoldenHour(v: boolean) {
+    _shaftIsGoldenHour = v;
+}
 
 export let _shaftIsNightMode = false;
-export function setShaftIsNightMode(v: boolean) { _shaftIsNightMode = v; }
+export function setShaftIsNightMode(v: boolean) {
+    _shaftIsNightMode = v;
+}
 
 export const _SHAFT_FRUSTUM_DOT = CONFIG.postfx.shaftFrustumDot;
 export const _SHAFT_OPACITY_CAP = CONFIG.postfx.shaftOpacityCap;
 
 export const _DOF_FLORA_ZONES: ReadonlyArray<readonly [number, number]> = [
-    [-40, 40],  // Melody Lake luminous plants
-    [-78, 78],  // Luminous Mycelium grove (glass mushrooms)
+    [-40, 40], // Melody Lake luminous plants
+    [-78, 78], // Luminous Mycelium grove (glass mushrooms)
     [100, -80], // Gem Canopy jewel corridor
 ];
 
@@ -159,7 +188,9 @@ export let uShaftOpacityRef: { value: number } | null = null;
 export let timeOffsetRef: { value: number } = { value: 0 };
 
 export let _loggedWebGPULimits = false;
-export function setLoggedWebGPULimits(v: boolean) { _loggedWebGPULimits = v; }
+export function setLoggedWebGPULimits(v: boolean) {
+    _loggedWebGPULimits = v;
+}
 
 export type WebGPURendererWithDeviceLimits = THREE.Renderer & {
     backend?: {

@@ -4,22 +4,18 @@
  */
 import type * as THREE from 'three';
 import { FEATURE_FLAGS } from '../../core/config.ts';
+import * as netModule from './index.ts';
 
-type NetModule = typeof import('./index.ts');
+type NetModule = typeof netModule;
 
 let _mod: NetModule | null = null;
-let _load: Promise<NetModule | null> | null = null;
 
-function ensureNet(): Promise<NetModule | null> {
-    if (!FEATURE_FLAGS.presence) return Promise.resolve(null);
-    if (_mod) return Promise.resolve(_mod);
-    if (!_load) {
-        _load = import('./index.ts').then((m) => {
-            _mod = m;
-            return m;
-        });
+function ensureNet(): NetModule | null {
+    if (!FEATURE_FLAGS.presence) return null;
+    if (!_mod) {
+        _mod = netModule;
     }
-    return _load;
+    return _mod;
 }
 
 export function initPresenceFromOptIn(
@@ -27,7 +23,8 @@ export function initPresenceFromOptIn(
     camera: THREE.PerspectiveCamera,
     renderer: THREE.Renderer
 ): void {
-    void ensureNet().then((m) => m?.initPresenceFromOptIn(scene, camera, renderer));
+    const m = ensureNet();
+    m?.initPresenceFromOptIn(scene, camera, renderer);
 }
 
 export function updatePresenceSystem(
@@ -35,11 +32,13 @@ export function updatePresenceSystem(
     camera: THREE.PerspectiveCamera,
     playerPosition?: THREE.Vector3
 ): void {
-    if (!_mod) return;
-    _mod.updatePresenceSystem(delta, camera, playerPosition);
+    const m = ensureNet();
+    if (!m) return;
+    m.updatePresenceSystem(delta, camera, playerPosition);
 }
 
 export function teardownPresence(): void {
-    if (!_mod) return;
-    _mod.teardownPresence();
+    const m = ensureNet();
+    if (!m) return;
+    m.teardownPresence();
 }

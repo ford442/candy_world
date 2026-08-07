@@ -202,9 +202,7 @@ export async function handleSlotAction(
                     if (confirm('Are you sure you want to delete this save?')) {
                         const result = await saveSystem.deleteSlot(slotId);
                         if (result) {
-                            import('../../utils/toast.ts').then(({ showToast }) => {
-                                showToast('Save deleted', '🗑️', 3000);
-                            });
+                            showToast('Save deleted', '🗑️', 3000);
                             await refreshSlots?.();
                             render?.();
                         }

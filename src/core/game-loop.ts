@@ -7,7 +7,7 @@ import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
-import { updatePresenceSystem } from '../systems/net/index.ts';
+import { updatePresenceSystem } from '../systems/net/lazy.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { player } from '../systems/physics/index.ts';
 import { profiler } from '../utils/profiler.ts';

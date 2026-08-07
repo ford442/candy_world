@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
 import { create } from '../world/foliage-registry.ts';
 import { plantOnSurface } from '../world/placement-utils.ts';
+import { showToast } from '../utils/toast.ts';
 
 const _hasFlag = (key: string): boolean => {
     try {
@@ -179,9 +180,7 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
             console.log(`[DebugPlace] Spawned ${_currentType}`);
             console.log(JSON.stringify(jsonSnippet, null, 2) + ',');
 
-            import('../utils/toast.ts').then(({ showToast }) => {
-                showToast(`Placed ${_currentType}. JSON logged.`, '🏗️');
-            }).catch(() => {});
+            showToast(`Placed ${_currentType}. JSON logged.`, '🏗️');
         } else {
             console.warn(`[DebugPlace] Could not create type ${_currentType}`);
         }
