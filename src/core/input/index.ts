@@ -3,7 +3,8 @@
  * Re-exports all public APIs from the input system
  */
 
-export { initInput, keyStates } from './input.ts';
+export { initInput } from './input/init-input.ts';
+export { keyStates } from './input-types.ts';
 export type { KeyStates, InitInputResult } from './input-types.ts';
 
 // Re-export specific utilities if needed by other modules
