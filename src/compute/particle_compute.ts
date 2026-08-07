@@ -135,6 +135,7 @@ export class ComputeParticleSystem {
     constructor(
         count: number,
         renderer: WebGPURenderer,
+        config: ParticleComputeConfig = {}
         config: ComputeParticleConfig & { gravity?: THREE.Vector3 } = { type: 'default' }
 
     ) {
@@ -143,7 +144,7 @@ export class ComputeParticleSystem {
         this.type = config.type || 'default';
 
         const {
-            center = new THREE.Vector3(0, 5, 0),
+            spawnCenter = new THREE.Vector3(0, 5, 0),
             gravity = new THREE.Vector3(0, -2.0, 0)
         } = config;
 
