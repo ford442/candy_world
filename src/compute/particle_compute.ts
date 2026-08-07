@@ -135,6 +135,7 @@ export class ComputeParticleSystem {
     constructor(
         count: number,
         renderer: WebGPURenderer,
+        config: ComputeParticleConfig & { gravity?: THREE.Vector3 } = { type: 'default' }
         config: ParticleComputeConfig = {}
     ) {
         this.count = count;
