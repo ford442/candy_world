@@ -30,13 +30,10 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             return 'vendor';
           }
-          // NOTE: /src/compute/ stays in `app` — it is statically imported from
-          // deferred-init / weather / culling, and a separate compute chunk
-          // creates Circular chunk: compute ↔ app (undefined live bindings).
-          // Audio system (music reactivity stays in app — shared with foliage)
-          if (id.includes('/src/audio/')) {
-            return 'audio';
-          }
+          // NOTE: audio + boot UI modules stay in `app` (separate chunks caused
+          // Circular chunk: * ↔ app). weather/particles/compute stay in `weather`
+          // — folding weather into `app` breaks init (TDZ); splitting particles
+          // out of `weather` deadlocks boot. One benign weather ↔ app warning remains.
           // Workers
           if (id.includes('/src/workers/')) {
             return 'workers';
@@ -96,35 +93,11 @@ export default defineConfig({
           ) {
             return 'debug';
           }
-          // Shared presence / net (opt-in ?presence=1)
-          if (
-            (id.includes('/src/systems/net/') && !id.endsWith('/net/lazy.ts')) ||
-            id.includes('/src/ui/presence-panel.ts')
-          ) {
-            return 'presence';
-          }
-          // Cinematic photo mode (?photo=1 or first P press)
-          if (
-            id.includes('/src/systems/photo-mode/') &&
-            !id.endsWith('/photo-mode/lazy.ts')
-          ) {
-            return 'photo-mode';
-          }
-          // Playlist / jukebox UI (input layer — separate chunk, sync-imported at boot)
-          if (id.includes('/src/core/input/playlist-manager.ts')) {
-            return 'playlist-ui';
-          }
-          if (id.includes('/src/systems/interaction.ts')) {
-            return 'interaction';
-          }
+          // camera-modes, hud-ui, interaction, playlist-ui, presence, photo-mode:
+          // co-located in `app` — separate chunks created Rollup circular-chunk
+          // warnings (app ↔ chunk) without reducing first-paint bytes.
           if (id.includes('/src/systems/loading-manager.ts')) {
             return 'loading-ui';
-          }
-          if (id.includes('/src/core/hud.ts')) {
-            return 'hud-ui';
-          }
-          if (id.includes('/src/core/camera-modes.ts')) {
-            return 'camera-modes';
           }
           if (id.includes('/src/world/world-health.ts')) {
             return 'world-health';
@@ -151,18 +124,28 @@ export default defineConfig({
             return 'generative-music';
           }
 
+          // Weather + particles + compute — separate from `app`. Folding weather
+          // into `app` breaks init order (TDZ). particles/compute must stay with
+          // weather (not app) or dynamic weather load deadlocks at boot.
+          if (
+            id.includes('/src/systems/weather/') ||
+            id.includes('/src/particles/') ||
+            id.includes('/src/compute/')
+          ) {
+            return 'weather';
+          }
+
           // Remaining app code with intertwined imports stays in one chunk to
           // avoid circular *chunk* dependencies (foliage ↔ systems core, etc.).
-          if (id.includes('/src/systems/weather/') || id.includes('/src/particles/') || id.includes('/src/compute/')) { return 'weather'; }
           if (
             id.includes('/src/core/') ||
+            id.includes('/src/audio/') ||
             id.includes('/src/foliage/') ||
             id.includes('/src/rendering/') ||
             id.includes('/src/systems/') ||
             id.includes('/src/ui/') ||
             id.includes('/src/utils/') ||
-            id.includes('/src/world/') ||
-            id.includes('/src/compute/')
+            id.includes('/src/world/')
           ) {
             return 'app';
           }

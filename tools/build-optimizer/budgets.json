@@ -1,7 +1,7 @@
 {
   "budgets": {
     "main": "300kb",
-    "app": "600kb",
+    "app": "800kb",
     "vendor": "1500kb",
     "wasm": "600kb",
     "total": "20mb"
@@ -12,7 +12,7 @@
   },
   "comments": {
     "main": "Entry shell (main-*.js) — tiny after code-splitting",
-    "app": "Core + foliage + systems hot path (#1361). Ceiling 600 KB raw after debug/presence/photo splits — see docs/APP_CHUNK_SPLIT.md",
+    "app": "Core + foliage + audio + systems hot path (#1361). Ceiling 800 KB raw — boot modules co-located to avoid app↔chunk cycles; see docs/APP_CHUNK_SPLIT.md",
     "vendor": "Third-party libraries (Three.js, Vite chunks, etc.)",
     "wasm": "WebAssembly modules (physics + compute via AssemblyScript)",
     "total": "Total JavaScript + WASM bundle size"

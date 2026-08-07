@@ -15,9 +15,9 @@ stay co-located.
 
 | Metric | Hard ceiling | Stretch | Notes |
 |--------|--------------|---------|-------|
-| `app` raw (`build:ci`) | **600 KB** | 500 KB | Enforced by `pnpm run budget:check` (`tools/build-optimizer/budgets.json`) |
+| `app` raw (`build:ci`) | **800 KB** | 500 KB | Enforced by `pnpm run budget:check` (`tools/build-optimizer/budgets.json`) |
 | Vite warning | 500 KB | — | Informational; hot path likely stays > 500 KB until fauna/map peel |
-| Critical-path flags off | presence / photo / generative / debug not in `app` | — | Verified via separate async chunks below |
+| Critical-path flags off | generative / debug / save / gameplay not in `app` | — | Verified via separate async chunks below |
 
 ## Baseline (pre-split, ~808 KB `app`)
 
@@ -30,23 +30,28 @@ stay co-located.
 
 | Chunk | Raw (approx.) | Gzip | Critical path when |
 |-------|---------------|------|-------------------|
-| `app` | **~599 KB** | ~191 KB | Always (hot path) |
-| `weather` | ~104 KB | ~29 KB | Boot (particles/compute) |
-| `playlist-ui` | ~13 KB | ~4 KB | Boot (jukebox wiring) |
+| `app` | **~755 KB** | ~237 KB | Always (hot path + audio + boot UI) |
+| `weather` | ~105 KB | ~29 KB | Boot (weather orchestrator + particles + compute) |
 | `save-ui` | ~63 KB | ~16 KB | `openSaveMenu` / save hooks |
 | `debug` | ~30 KB | ~10 KB | `?debug=*` URL flags |
-| `presence` | ~15 KB | ~6 KB | `?presence=1` |
-| `photo-mode` | ~12 KB | ~4 KB | `?photo=1` or first **P** |
 | `awakened` | ~9 KB | ~3 KB | `?awakened` |
 | `shader-warmup` | ~6 KB | ~2 KB | Loading-screen warmup phase |
-| `camera-modes` | ~6 KB | ~2 KB | Boot (explore wiring) |
 | `gameplay` | ~16 KB | ~5 KB | After `__sceneReady` / first ability |
+
 | `world-content` | ~13 KB | ~5 KB | Procedural extras pass |
 | `analytics-debug` | ~21 KB | ~5 KB | `?debug=1` / `/stats` |
 | `generative-music` | (async) | — | `?generative=1` / `enableGenerativeMode()` |
 
-`compute` is **not** a separate chunk — a `compute ↔ app` circular chunk caused
-undefined live bindings at runtime. Weather/particles/compute live in `weather`.
+**Co-located in `app` (not separate chunks):** `audio`, `presence`, `photo-mode`,
+`playlist-ui`, `interaction`, `hud-ui`, `camera-modes` — each created a Rollup
+`Circular chunk: … ↔ app` graph when split. Lazy `*-lazy.ts` stubs still gate
+runtime loading; only the Rollup chunk boundary was removed.
+
+**`weather` chunk (particles + compute + orchestrator):** must stay separate from
+`app` — folding weather into `app` causes TDZ init failures; splitting particles
+out of `weather` deadlocks boot. A benign `Circular chunk: weather ↔ app` warning
+remains (static foliage ↔ particles imports). `systems/weather.ts` re-exports only
+`WeatherState` + `type WeatherSystem` to avoid extra app→weather value edges.
 
 **Do not** split foliage batchers that import `music-reactivity` / `foliage/index`
 barrel into async chunks without breaking TSL live bindings (see deferred-visuals
@@ -69,12 +74,9 @@ flowchart LR
   end
   subgraph lazy_chunks["Lazy / flag-gated chunks"]
     debug["debug"]
-    presence["presence"]
-    photo["photo-mode"]
     awakened["awakened"]
     gameplay["gameplay"]
     save["save-ui"]
-    playlist["playlist-ui"]
   end
   weather["weather\n(particles + compute)"]
   vendor["vendor"]
@@ -84,7 +86,7 @@ flowchart LR
   systems --> foliage
   world --> foliage
   core -.->|dynamic import| lazy_chunks
-  core --> weather
+  foliage <-->|static imports| weather
   app_chunk --> vendor
 ```
 
@@ -106,21 +108,26 @@ foliage/index → animation → batcher → ecs/world → wasm-loader → loadin
 | `src/utils/wasm-loader*` | Ground height + boot pipeline |
 | `src/core/game-loop*.ts` | Frame coordinator |
 | `src/rendering/gpu-context.ts` | WebGPU device (boot) |
+| `src/audio/*` (except generative async peel) | Boot audio + beat sync; `audio ↔ app` cycle when split |
+| `src/core/hud.ts`, `camera-modes.ts`, `input/playlist-manager.ts` | Boot UI wiring; chunk cycles with core |
+| `src/systems/interaction.ts`, `net/*`, `photo-mode/*` | Static core imports; lazy stubs remain for runtime gating |
+
+| Area | Separate `weather` chunk |
+|------|--------------------------|
+| `src/systems/weather/*`, `src/particles/*`, `src/compute/*` | Foliage statically imports particles; weather imports foliage — must not fold into `app` |
 
 ## Safe extractions (implemented)
 
 | Chunk | Trigger | Entry stub |
 |-------|---------|------------|
 | `debug` | `?debugHeights` / `?debugPlace` / `?debugCircadian` / `?debugFauna` / `?debug=1` | `src/debug/tools-stub.ts`, `src/debug/lazy.ts` |
-| `presence` | `FEATURE_FLAGS.presence` | `src/systems/net/lazy.ts`, `src/ui/presence-lazy.ts` |
-| `photo-mode` | `FEATURE_FLAGS.photoMode` or **P** | `src/systems/photo-mode/lazy.ts` |
+| `presence` | `FEATURE_FLAGS.presence` | `src/systems/net/lazy.ts`, `src/ui/presence-lazy.ts` (chunk co-located in `app`) |
+| `photo-mode` | `FEATURE_FLAGS.photoMode` or **P** | `src/systems/photo-mode/lazy.ts` (chunk co-located in `app`) |
 | `generative-music` | `enableGenerativeMode()` / `?generative=1` | dynamic import in `audio-system-playback.ts` |
 | `awakened` | `FEATURE_FLAGS.awakenedPersistence` | `src/systems/awakened-persistence-api.ts` |
 | `gameplay` | `preloadGameplay()` / abilities | `src/gameplay/lazy.ts` |
 | `save-ui` | `openSaveMenu` | `src/ui/save-menu/lazy.ts`, `save-integration-lazy.ts` |
 | `shader-warmup` | Loading warmup phase | dynamic import in `deferred-init.ts`, `shader-warmup.ts` |
-| `playlist-ui` | Boot input (sync chunk, not in `app` file) | `manualChunks` only |
-| `interaction` | Boot input | `manualChunks` only |
 | `accessibility-ui` | First accessibility menu open | `accessibility-menu-lazy.ts` |
 
 ## Power-tier loading
@@ -134,7 +141,7 @@ caps (existing CI population scaling + lite URL flags).
 
 ## Budget
 
-`pnpm run budget:check` enforces `budgets.json` → `app: 600kb` (raw `app-*.js`).
+`pnpm run budget:check` enforces `budgets.json` → `app: 800kb` (raw `app-*.js`).
 Fails the build when the `app` chunk exceeds the ceiling.
 
 ## Non-goals
@@ -146,8 +153,7 @@ Fails the build when the `app` chunk exceeds the ceiling.
 
 ## Follow-ups
 
-- Peel `foliage/index` barrel dependencies so aurora / deferred visuals can async-load
-  without `Circular chunk` / `xe is not a function` runtime errors.
+- Break `weather ↔ app` static import cycle (particles lazy peel from foliage) so the last Rollup circular-chunk warning clears without TDZ regressions.
 - Fauna / map-loader peel for stretch 500 KB `app` target.
 - Config hygiene (#config split) in parallel.
 
