@@ -1125,4 +1125,3 @@ export function initInput(
         },
     };
 }
-export { initInput } from './input/init-input.ts';
