@@ -110,7 +110,7 @@ export class EffectsManager {
         if (!this.state.melodicMist) {
             this.state.melodicMist = new ComputeParticleSystem(1000, renderer, {
                 type: 'rain',
-                center: new THREE.Vector3(0, 5, 0),
+                spawnCenter: new THREE.Vector3(0, 5, 0),
                 gravity: new THREE.Vector3(0, 0, 0)
             });
             this.state.mistMesh = this.state.melodicMist.createMesh();

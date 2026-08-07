@@ -136,8 +136,6 @@ export class ComputeParticleSystem {
         count: number,
         renderer: WebGPURenderer,
         config: ParticleComputeConfig = {}
-        config: ComputeParticleConfig & { gravity?: THREE.Vector3 } = { type: 'default' }
-
     ) {
         this.count = count;
         this.renderer = renderer;
@@ -174,7 +172,7 @@ export class ComputeParticleSystem {
 
         // Create uniforms
         this.uGravity = uniform(gravity);
-        this.uSpawnCenter = uniform(center);
+        this.uSpawnCenter = uniform(spawnCenter);
 
         this.setupComputeShader();
     }
