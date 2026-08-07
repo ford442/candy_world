@@ -6,6 +6,7 @@
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { AudioSystem } from '../../audio/audio-system';
 import { announce } from '../../ui/announcer.ts';
+import { showToast } from '../../utils/toast.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
@@ -93,9 +94,7 @@ export function initPlaylistManager(
         const songs = audioSystem.getPlaylist();
         if (songs && songs[index]) {
             const trackName = formatSongTitle(songs[index].name);
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                showToast(`Now Playing: ${trackName}`, '🎵');
-            });
+            showToast(`Now Playing: ${trackName}`, '🎵');
 
             // 🎨 Palette: Update "Now Playing" in Pause Menu
             if (nowPlayingContainer && nowPlayingText) {
@@ -180,26 +179,22 @@ export function initPlaylistManager(
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
 
-                    import('../../utils/toast.ts').then(({ showToast }) => {
-                        if (invalidFiles.length > 0) {
-                            const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
-                            showToast(msg, '⚠️');
-                            announce(msg, 'polite');
+                    if (invalidFiles.length > 0) {
+                        const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                        showToast(msg, '⚠️');
+                        announce(msg, 'polite');
+                    } else {
+                        const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                        showToast(msg, '📂');
+                        if (validFiles.length === 1) {
+                            announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
                         } else {
-                            const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
-                            showToast(msg, '📂');
-                            if (validFiles.length === 1) {
-                                announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
-                            } else {
-                                announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
-                            }
+                            announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
                         }
-                    });
+                    }
                 } else {
-                    import('../../utils/toast.ts').then(({ showToast }) => {
-                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-                        announce("Failed to add songs, invalid format.", 'polite');
-                    });
+                    showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                    announce("Failed to add songs, invalid format.", 'polite');
                 }
             }
         });
@@ -245,26 +240,22 @@ function handlePlaylistUpload(e: Event): void {
 
             if (validFiles.length > 0) {
                 audioSystemRef!.addToQueue(validFiles);
-                import('../../utils/toast.ts').then(({ showToast }) => {
-                    if (invalidFiles.length > 0) {
-                        const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
-                        showToast(msg, '⚠️');
-                        announce(msg, 'polite');
+                if (invalidFiles.length > 0) {
+                    const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                    showToast(msg, '⚠️');
+                    announce(msg, 'polite');
+                } else {
+                    const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                    showToast(msg, '📂');
+                    if (validFiles.length === 1) {
+                        announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
                     } else {
-                        const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
-                        showToast(msg, '📂');
-                        if (validFiles.length === 1) {
-                            announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
-                        } else {
-                            announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
-                        }
+                        announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
                     }
-                });
+                }
             } else {
-                import('../../utils/toast.ts').then(({ showToast }) => {
-                    showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-                    announce("Failed to add songs, invalid format.", 'polite');
-                });
+                showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                announce("Failed to add songs, invalid format.", 'polite');
             }
 
             restoreBusy(addSongsBtn, originalAddSongsHtml);
@@ -390,9 +381,7 @@ export function renderPlaylist(): void {
             renderPlaylist();
 
             // 🎨 Palette: Provide explicit feedback for destructive action
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                showToast(`Removed ${displayName}`, '🗑️', 3000);
-            });
+            showToast(`Removed ${displayName}`, '🗑️', 3000);
 
             // UX: Restore Focus to an appropriate element
             requestAnimationFrame(() => {
@@ -726,27 +715,23 @@ export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
                     if (validFiles.length > 0) {
                         audioSystem.addToQueue(validFiles);
 
-                        import('../../utils/toast.ts').then(({ showToast }) => {
-                            if (invalidFiles.length > 0) {
-                                const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
-                                showToast(msg, '⚠️');
-                                announce(msg, 'polite');
+                        if (invalidFiles.length > 0) {
+                            const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                            showToast(msg, '⚠️');
+                            announce(msg, 'polite');
+                        } else {
+                            const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                            showToast(msg, '📂');
+                            if (validFiles.length === 1) {
+                                announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
                             } else {
-                                const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
-                                showToast(msg, '📂');
-                                if (validFiles.length === 1) {
-                                    announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
-                                } else {
-                                    announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
-                                }
+                                announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
                             }
-                        });
+                        }
                     } else {
                         // All files were invalid
-                        import('../../utils/toast.ts').then(({ showToast }) => {
-                            showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-                            announce("Failed to add songs, invalid format.", 'polite');
-                        });
+                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                        announce("Failed to add songs, invalid format.", 'polite');
                     }
 
                     if (musicUploadBtn) {

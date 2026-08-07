@@ -22,6 +22,7 @@ import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
 import { CONFIG } from '../../core/config.ts';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
+import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uStrobeIntensity } from '../../foliage/strobe.ts';
@@ -49,7 +50,7 @@ import { unlockSystem } from '../unlocks.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     foliageTraps, foliageGeysers, foliagePortamentoPines,
-    foliagePanningPads, animatedFoliage
+    foliagePanningPads, animatedFoliage, vineSwings, setActiveVineSwing
 } from '../../world/state.ts';
 import {
     physicsFoliageGrid,
@@ -489,37 +490,32 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
  * Proximity scan uses batchVineInteraction; attach still runs in JS.
  */
 export function checkVineAttachment(_camera: THREE.Camera) {
-    import('../../world/state.ts').then(vineStateModule => {
-        if (!vineStateModule) return;
-        const { vineSwings, setActiveVineSwing } = vineStateModule;
-        if (!vineSwings || vineSwings.length === 0) return;
+    if (!vineSwings || vineSwings.length === 0) return;
 
-        const playerPos = player.position;
-        const playerVel = player.velocity;
-        const vineManagers: unknown[] = [];
-        const { data, count } = packVines(vineSwings, undefined, vineManagers);
-        if (count === 0) return;
+    const playerPos = player.position;
+    const playerVel = player.velocity;
+    const vineManagers: unknown[] = [];
+    const { data, count } = packVines(vineSwings, undefined, vineManagers);
+    if (count === 0) return;
 
-        const prox = batchVineInteraction(
-            playerPos.x, playerPos.y, playerPos.z,
-            playerVel.x, playerVel.y, playerVel.z,
-            data, count
-        );
+    const prox = batchVineInteraction(
+        playerPos.x, playerPos.y, playerPos.z,
+        playerVel.x, playerVel.y, playerVel.z,
+        data, count
+    );
 
-        if (!prox.inAttachZone || prox.candidateIndex < 0) return;
+    if (!prox.inAttachZone || prox.candidateIndex < 0) return;
 
-        // Apply Native WASM outputs to the active swing state
-        const vineManager = vineManagers[prox.candidateIndex] as any;
-        if (vineManager) {
-            vineManager.isPlayerAttached = true;
-            if (vineManager.swingPlane) {
-                vineManager.swingPlane.set(prox.swingPlaneX, 0, prox.swingPlaneZ);
-            }
-            vineManager.swingAngle = prox.swingAngle;
-            vineManager.swingAngularVel = prox.swingAngularVel;
-            setActiveVineSwing(vineManager);
+    const vineManager = vineManagers[prox.candidateIndex] as any;
+    if (vineManager) {
+        vineManager.isPlayerAttached = true;
+        if (vineManager.swingPlane) {
+            vineManager.swingPlane.set(prox.swingPlaneX, 0, prox.swingPlaneZ);
         }
-    });
+        vineManager.swingAngle = prox.swingAngle;
+        vineManager.swingAngularVel = prox.swingAngularVel;
+        setActiveVineSwing(vineManager);
+    }
 }
 
 /**
@@ -573,7 +569,6 @@ export async function initCppPhysics(camera: THREE.Camera) {
         console.log('[Physics] No obstacles to batch-upload (Core mode or empty scene); skipping.');
     }
     initDynamicFoliageBridge(500);
-    const { arpeggioFernBatcher } = await import('../../foliage/arpeggio-batcher.ts');
     const validCaves = filterValidPhysicsObjects(foliageCaves, 'cave');
     const rawFerns = Array.isArray(arpeggioFernBatcher.logicFerns) ? arpeggioFernBatcher.logicFerns : [];
     const validFerns = filterValidPhysicsObjects(rawFerns, 'arpeggio fern');

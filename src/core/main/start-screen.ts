@@ -33,8 +33,11 @@ import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
 import { populateWorld, WorldMode } from '../../world/generation.ts';
+import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
 import { spawnTracker } from '../../world/spawn-tracker.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
+import { announce } from '../../ui/announcer.ts';
+import { showToast } from '../../utils/toast.ts';
 import {
     loadStartupProfile,
     saveStartupProfile,
@@ -133,11 +136,7 @@ export function setupStartScreen(ctx: MainContext): void {
     startButton.removeAttribute('aria-busy');
     startButton.removeAttribute('title');
 
-    import('../../ui/announcer.ts')
-        .then(({ announce }) => {
-            announce('World loaded. Press Enter to enter the world.', 'assertive');
-        })
-        .catch((err) => console.warn('Failed to load announcer:', err));
+    announce('World loaded. Press Enter to enter the world.', 'assertive');
 
     let profile: StartupProfile = loadStartupProfile();
     ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
@@ -337,8 +336,6 @@ export function setupStartScreen(ctx: MainContext): void {
             initCloudPlacer({ scene, camera, weatherSystem: ctx.weatherSystem ?? null });
 
             try {
-                const { initSkyIslandDebug, rebuildSkyIslandDebug } =
-                    await import('../../world/sky-island-graph.ts');
                 initSkyIslandDebug(scene);
                 rebuildSkyIslandDebug();
             } catch (e) {
@@ -357,9 +354,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 statusEl.textContent = 'World generated. Welcome to Candy World.';
             }
 
-            import('../../ui/announcer.ts').then(({ announce }) => {
-                announce('World generated. Welcome to Candy World.', 'assertive');
-            });
+            announce('World generated. Welcome to Candy World.', 'assertive');
         });
 
         if (!worldGenResult.success) {
@@ -370,9 +365,7 @@ export function setupStartScreen(ctx: MainContext): void {
             const instructions = document.getElementById('instructions');
             if (instructions) instructions.style.display = 'none';
 
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                showToast('Click to explore! Press [ESC] for Controls', '🎮', 4000);
-            });
+            showToast('Click to explore! Press [ESC] for Controls', '🎮', 4000);
 
             // Playable milestone — horizon may still be streaming
             markReadinessPlayable();
@@ -430,15 +423,11 @@ export function setupStartScreen(ctx: MainContext): void {
                             `[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`
                         );
                         if (!waitForFullPopulation) {
-                            import('../../utils/toast.ts')
-                                .then(({ showToast }) => {
-                                    showToast(
-                                        `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
-                                        '⚠️',
-                                        5000
-                                    );
-                                })
-                                .catch(() => {});
+                            showToast(
+                                `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
+                                '⚠️',
+                                5000
+                            );
                         }
                     } else if (r.attempted > 0) {
                         console.log(
@@ -456,15 +445,11 @@ export function setupStartScreen(ctx: MainContext): void {
                         ({ validateWorldPopulation }) => {
                             const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
                             if (!health.healthy) {
-                                import('../../utils/toast.ts')
-                                    .then(({ showToast }) => {
-                                        const summary =
-                                            health.warnings.length === 1
-                                                ? health.warnings[0]
-                                                : `${health.warnings.length} world health warnings — see console`;
-                                        showToast(summary, '⚠️', 7000);
-                                    })
-                                    .catch(() => {});
+                                const summary =
+                                    health.warnings.length === 1
+                                        ? health.warnings[0]
+                                        : `${health.warnings.length} world health warnings — see console`;
+                                showToast(summary, '⚠️', 7000);
                             }
                         }
                     );
@@ -512,9 +497,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 });
                 if (modeDescription) modeDescription.style.display = '';
             }
-            import('../../ui/announcer.ts').then(({ announce }) => {
-                announce('World generation failed. Please try again.', 'assertive');
-            });
+            announce('World generation failed. Please try again.', 'assertive');
         } finally {
             ctx.worldGenerationActive = false;
             isGenerating = false;
@@ -523,11 +506,7 @@ export function setupStartScreen(ctx: MainContext): void {
             startButton.removeAttribute('aria-busy');
             startButton.removeAttribute('title');
 
-            import('../../ui/announcer.ts')
-                .then(({ announce }) => {
-                    announce('World loaded. Press Enter to enter the world.', 'assertive');
-                })
-                .catch((err) => console.warn('Failed to load announcer:', err));
+            announce('World loaded. Press Enter to enter the world.', 'assertive');
         }
     }
 
