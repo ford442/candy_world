@@ -265,7 +265,10 @@ export async function armGpuContext(
     armed = true;
     ensurePromise();
 
-    if (mode !== 'webgpu') {
+    const r = renderer as { isWebGPURenderer?: boolean; hasInitialized?: () => boolean; _initialized?: boolean; init?: () => Promise<void>; backend?: { isWebGLBackend?: boolean; isWebGPUBackend?: boolean; device?: GPUDevice } };
+
+    // Legacy THREE.WebGLRenderer (pre-0.171 fallback) — no node backend, no GPU compute.
+    if (!r?.isWebGPURenderer) {
         console.log(`[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl'})`);
         return settle({
             ...UNAVAILABLE,
@@ -274,24 +277,32 @@ export async function armGpuContext(
         });
     }
 
-    const r = renderer as any;
-
     try {
         // `Renderer.init()` throws when called after it has already completed,
         // and shares its in-flight promise otherwise.
         if (typeof r.hasInitialized === 'function' ? !r.hasInitialized() : !r._initialized) {
-            await r.init();
+            await r.init!();
         }
     } catch (err) {
         console.warn('[GPUContext] renderer.init() failed — GPU compute disabled:', err);
         return settle({
             ...UNAVAILABLE,
-            backend: 'webgpu',
+            backend: mode,
             reason: 'renderer-init-failed',
         });
     }
 
     const backend = r.backend;
+
+    if (backend?.isWebGLBackend === true) {
+        console.log(`[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl-node-backend'})`);
+        return settle({
+            ...UNAVAILABLE,
+            backend: 'webgl',
+            reason: reason ?? 'webgl-node-backend',
+        });
+    }
+
     const device: GPUDevice | null = backend?.device ?? null;
 
     if (!device || !backend?.isWebGPUBackend) {
@@ -299,7 +310,7 @@ export async function armGpuContext(
         console.warn('[GPUContext] Renderer has no WebGPU device — GPU compute disabled');
         return settle({
             ...UNAVAILABLE,
-            backend: 'webgpu',
+            backend: 'webgl',
             reason: 'no-webgpu-device',
         });
     }

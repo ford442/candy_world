@@ -43,11 +43,10 @@ export const uShaftScatterBoost = uniform(0.0);
  * @returns An object to manage and render the post-processing pipeline
  */
 export function initPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera, mode: 'webgpu' | 'webgl') {
-    if (mode === 'webgpu') {
+    if (isWebGPUMode(renderer)) {
         return initWebGPUPostProcessing(renderer, scene, camera);
-    } else {
-        return initWebGLPostProcessing(renderer, scene, camera);
     }
+    return initWebGLPostProcessing(renderer, scene, camera);
 }
 
 /**
