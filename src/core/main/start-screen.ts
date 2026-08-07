@@ -21,7 +21,10 @@ import {
     markReadinessReady,
     reportReadinessProgress,
 } from '../../ui/readiness-progress.ts';
-import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../../world/spawn-tracker.ts';
+import {
+    reset as resetSpawnTracker,
+    getReport as getSpawnReport,
+} from '../../world/spawn-tracker.ts';
 import { globalLoadingManager } from '../../systems/loading-manager.ts';
 import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
 import { populatePhysicsGrids } from '../../systems/physics/index.ts';
@@ -449,20 +452,22 @@ export function setupStartScreen(ctx: MainContext): void {
                 document.dispatchEvent(new CustomEvent('worldFullyPopulated'));
 
                 try {
-                    void import('../../world/world-health.ts').then(({ validateWorldPopulation }) => {
-                        const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
-                        if (!health.healthy) {
-                            import('../../utils/toast.ts')
-                                .then(({ showToast }) => {
-                                    const summary =
-                                        health.warnings.length === 1
-                                            ? health.warnings[0]
-                                            : `${health.warnings.length} world health warnings — see console`;
-                                    showToast(summary, '⚠️', 7000);
-                                })
-                                .catch(() => {});
+                    void import('../../world/world-health.ts').then(
+                        ({ validateWorldPopulation }) => {
+                            const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
+                            if (!health.healthy) {
+                                import('../../utils/toast.ts')
+                                    .then(({ showToast }) => {
+                                        const summary =
+                                            health.warnings.length === 1
+                                                ? health.warnings[0]
+                                                : `${health.warnings.length} world health warnings — see console`;
+                                        showToast(summary, '⚠️', 7000);
+                                    })
+                                    .catch(() => {});
+                            }
                         }
-                    });
+                    );
                 } catch (e) {
                     console.warn('[WorldHealth] Validation threw:', e);
                 }

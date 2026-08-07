@@ -662,28 +662,6 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
         return true;
     }
 
-    // Focus Trap Logic for Tab
-    if (event.code === 'Tab') {
-        const focusable = playlistOverlay.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
-        if (focusable.length === 0) return true;
-
-        const first = focusable[0] as HTMLElement;
-        const last = focusable[focusable.length - 1] as HTMLElement;
-
-        if (event.shiftKey) {
-            if (document.activeElement === first) {
-                last.focus({ preventScroll: true });
-                event.preventDefault();
-            }
-        } else {
-            if (document.activeElement === last) {
-                first.focus({ preventScroll: true });
-                event.preventDefault();
-            }
-        }
-        return true;
-    }
-
     // Block game controls while in menu
     return true;
 }
