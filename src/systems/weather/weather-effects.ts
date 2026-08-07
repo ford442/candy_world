@@ -4,7 +4,11 @@ import { CONFIG } from '../../core/config.ts';
 import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
 import { createAurora, uAuroraIntensity } from '../../foliage/aurora.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../../foliage/clouds.ts';
+import {
+    uCloudRainbowIntensity,
+    uCloudLightningStrength,
+    uCloudLightningColor,
+} from '../../foliage/clouds.ts';
 import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
 import { createIntegratedRain } from '../../particles/compute-integration.ts';
 
@@ -20,7 +24,9 @@ import { WeatherState } from '../weather-types.ts';
 let _cachedCloudPaletteKeys: string[] | null = null;
 const getCloudPaletteKeys = () => {
     if (!_cachedCloudPaletteKeys) {
-        _cachedCloudPaletteKeys = Object.keys((CONFIG?.noteColorMap && CONFIG?.noteColorMap?.cloud) || {});
+        _cachedCloudPaletteKeys = Object.keys(
+            (CONFIG?.noteColorMap && CONFIG?.noteColorMap?.cloud) || {}
+        );
     }
     return _cachedCloudPaletteKeys;
 };
@@ -40,7 +46,16 @@ export interface EffectsState {
 
 // ⚡ OPTIMIZATION: Module-scoped variables to eliminate per-frame allocations in weather particle updates
 const _scratchVecZero = new THREE.Vector3(0, 0, 0);
-const _scratchParticleAudioDataRain = { low: 0, mid: 0, high: 0, beat: false, groove: 0, windX: 0, windZ: 0, windSpeed: 0 };
+const _scratchParticleAudioDataRain = {
+    low: 0,
+    mid: 0,
+    high: 0,
+    beat: false,
+    groove: 0,
+    windX: 0,
+    windZ: 0,
+    windSpeed: 0,
+};
 const _scratchParticleAudioDataMist = { kick: 0, low: 0, mid: 0 } as any;
 
 export class EffectsManager {
@@ -53,13 +68,13 @@ export class EffectsManager {
             rainbow: null,
             aurora: null,
             rainbowTimer: 0,
-            lightningLight: new THREE.PointLight(0xFFFFFF, 0, 200),
+            lightningLight: new THREE.PointLight(0xffffff, 0, 200),
             lightningActive: false,
             lightningTimer: 0,
             rainMesh: null,
             mistMesh: null,
             percussionRain: null,
-            melodicMist: null
+            melodicMist: null,
         };
     }
 
@@ -101,8 +116,14 @@ export class EffectsManager {
      */
     setRenderer(renderer: any): void {
         if (!this.state.percussionRain) {
-            this.state.rainMesh = createIntegratedRain({ count: 2000, areaSize: 50, center: new THREE.Vector3(0, 40, 0) }) as THREE.Points;
-            this.state.percussionRain = this.state.rainMesh.userData?.computeParticleSystem as Phase4ComputeSystem || null;
+            this.state.rainMesh = createIntegratedRain({
+                count: 2000,
+                areaSize: 50,
+                center: new THREE.Vector3(0, 40, 0),
+            }) as THREE.Points;
+            this.state.percussionRain =
+                (this.state.rainMesh.userData?.computeParticleSystem as Phase4ComputeSystem) ||
+                null;
             this.state.rainMesh.visible = false;
             this.scene.add(this.state.rainMesh);
         }
@@ -111,7 +132,7 @@ export class EffectsManager {
             this.state.melodicMist = new ComputeParticleSystem(1000, renderer, {
                 type: 'rain',
                 spawnCenter: new THREE.Vector3(0, 5, 0),
-                gravity: new THREE.Vector3(0, 0, 0)
+                gravity: new THREE.Vector3(0, 0, 0),
             });
             this.state.mistMesh = this.state.melodicMist.createMesh();
             this.state.mistMesh.visible = false;
@@ -122,7 +143,12 @@ export class EffectsManager {
     /**
      * Update rainbow fade in/out
      */
-    updateRainbow(dt: number, lastState: WeatherState, currentState: WeatherState, rainbowTimer: number): number {
+    updateRainbow(
+        dt: number,
+        lastState: WeatherState,
+        currentState: WeatherState,
+        rainbowTimer: number
+    ): number {
         // Start rainbow timer when transitioning from STORM to non-STORM
         if (lastState === WeatherState.STORM && currentState !== WeatherState.STORM) {
             rainbowTimer = 45.0;
@@ -149,14 +175,15 @@ export class EffectsManager {
         let targetAurora = 0.0;
         if (twilightIntensity > 0.8) {
             if (state === WeatherState.CLEAR) targetAurora = 0.8;
-            else if (state === WeatherState.STORM) targetAurora = 1.0; // Magic Storm
+            else if (state === WeatherState.STORM)
+                targetAurora = 1.0; // Magic Storm
             else targetAurora = 0.0; // Rain hides it
         }
 
         // Lerp Intensity
         if (uAuroraIntensity) {
-             const current = uAuroraIntensity.value as number;
-             uAuroraIntensity.value = current + (targetAurora - current) * 0.02; // Smooth fade
+            const current = uAuroraIntensity.value as number;
+            uAuroraIntensity.value = current + (targetAurora - current) * 0.02; // Smooth fade
         }
     }
 
@@ -173,7 +200,11 @@ export class EffectsManager {
         let lightningActive = false;
 
         if (state === WeatherState.STORM && (bassIntensity > 0.8 || Math.random() < 0.01)) {
-            try { if (uCloudLightningStrength) uCloudLightningStrength.value = 1.0; } catch (e) { /* ignored */ }
+            try {
+                if (uCloudLightningStrength) uCloudLightningStrength.value = 1.0;
+            } catch (e) {
+                /* ignored */
+            }
 
             const keys = getCloudPaletteKeys();
             if (keys.length > 0) {
@@ -183,18 +214,26 @@ export class EffectsManager {
                     if (uCloudLightningColor) {
                         (uCloudLightningColor.value as unknown as THREE.Color).setHex(colorHex);
                     }
-                } catch (e) { /* ignored */ }
+                } catch (e) {
+                    /* ignored */
+                }
                 lightningLight.color.setHex(colorHex);
                 lightningLight.intensity = 10 * cloudDensity;
-                lightningLight.position.set((Math.random() - 0.5) * 100, 50, (Math.random() - 0.5) * 100);
+                lightningLight.position.set(
+                    (Math.random() - 0.5) * 100,
+                    50,
+                    (Math.random() - 0.5) * 100
+                );
                 lightningActive = true;
             }
         } else {
-            try { 
+            try {
                 if (uCloudLightningStrength) {
                     uCloudLightningStrength.value *= 0.85;
                 }
-            } catch (e) { /* ignored */ }
+            } catch (e) {
+                /* ignored */
+            }
         }
 
         return lightningActive;
@@ -205,11 +244,14 @@ export class EffectsManager {
      */
     updateCloudRainbow(melodyVol: number, highVol: number, cloudDensity: number): void {
         const rainbowTarget = (melodyVol * 0.5 + highVol * 0.5) * cloudDensity;
-        try { 
+        try {
             if (uCloudRainbowIntensity) {
-                uCloudRainbowIntensity.value += (rainbowTarget - uCloudRainbowIntensity.value) * 0.05;
+                uCloudRainbowIntensity.value +=
+                    (rainbowTarget - uCloudRainbowIntensity.value) * 0.05;
             }
-        } catch (e) { /* ignored */ }
+        } catch (e) {
+            /* ignored */
+        }
     }
 
     /**
@@ -248,11 +290,12 @@ export class EffectsManager {
         state: WeatherState
     ): void {
         const { percussionRain, melodicMist, rainMesh, mistMesh } = this.state;
-        
+
         // Update separately to support missing systems in fallback mode
 
         const shouldShowRain = bassIntensity > 0.2 || state !== WeatherState.CLEAR;
-        const shouldShowMist = melodyVol > 0.2 || (weatherType === 'mist' && state === WeatherState.RAIN);
+        const shouldShowMist =
+            melodyVol > 0.2 || (weatherType === 'mist' && state === WeatherState.RAIN);
 
         if (rainMesh) {
             if (rainMesh) rainMesh.visible = shouldShowRain;
@@ -266,7 +309,7 @@ export class EffectsManager {
             _scratchParticleAudioDataRain.mid = melodyVol;
             percussionRain.update(renderer, dt, _scratchVecZero, _scratchParticleAudioDataRain);
         }
-        
+
         if (shouldShowMist && melodicMist) {
             // old CPU update for mist
             _scratchParticleAudioDataMist.kick = bassIntensity;
@@ -276,9 +319,9 @@ export class EffectsManager {
 
             // Dynamic color behavior
             if (weatherType === 'mist') {
-                melodicMist.setBaseColor(0xDDFFDD);
+                melodicMist.setBaseColor(0xddffdd);
             } else {
-                melodicMist.setBaseColor(0xAAFFAA);
+                melodicMist.setBaseColor(0xaaffaa);
             }
         }
     }
@@ -301,8 +344,9 @@ export class EffectsManager {
      * Dispose of all effects
      */
     dispose(): void {
-        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow } = this.state;
-        
+        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow } =
+            this.state;
+
         if (percussionRain) {
             percussionRain.dispose();
             if (rainMesh) {
