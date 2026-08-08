@@ -6,7 +6,6 @@ import {
     mx_noise_float
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { createUnifiedMaterial } from './index.ts';
 
 /**
@@ -234,7 +233,7 @@ export function updateMelodyRibbons(group: THREE.Group, deltaTime: number, audio
             const distSq = dx*dx + dz*dz;
             // ⚡ OPTIMIZATION: Use squared distance dirty check and fast inverse square root to eliminate Math.sqrt()
             if (distSq > 0.000001) {
-                const invLen = fastInvSqrt(distSq);
+                const invLen = 1 / Math.sqrt(distSq);
                 dirX = dx * invLen;
                 dirZ = dz * invLen;
             }
