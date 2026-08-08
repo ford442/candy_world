@@ -436,9 +436,11 @@ export function renderPlaylist(): void {
         const li = document.createElement('li');
         li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
-        li.setAttribute('role', 'status');
-        li.setAttribute('aria-live', 'polite');
-        li.setAttribute('aria-atomic', 'true');
+
+        const statusContainer = document.createElement('div');
+        statusContainer.setAttribute('role', 'status');
+        statusContainer.setAttribute('aria-live', 'polite');
+        statusContainer.setAttribute('aria-atomic', 'true');
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'jukebox-empty-icon-container';
@@ -451,6 +453,9 @@ export function renderPlaylist(): void {
         text.className = 'jukebox-empty-text';
         text.innerText = 'Your playlist is empty — drop some tracks in!';
 
+        statusContainer.appendChild(iconContainer);
+        statusContainer.appendChild(text);
+
         const browseBtn = document.createElement('button');
         browseBtn.type = 'button';
         browseBtn.className = 'cta-button jukebox-browse-btn';
@@ -462,8 +467,7 @@ export function renderPlaylist(): void {
             if (playlistUploadInput) playlistUploadInput.click();
         };
 
-        li.appendChild(iconContainer);
-        li.appendChild(text);
+        li.appendChild(statusContainer);
         li.appendChild(browseBtn);
         playlistList?.appendChild(li);
     }
