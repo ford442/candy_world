@@ -279,10 +279,9 @@ export class ShaderWarmup {
       const renderTarget = new THREE.RenderTarget(this.options.renderSize, this.options.renderSize);
       
       // Force shader compilation by rendering
-      const glRenderer = renderer as THREE.WebGLRenderer;
-      glRenderer.setRenderTarget(renderTarget as THREE.WebGLRenderTarget);
-      glRenderer.render(scene, this.warmupCamera);
-      glRenderer.setRenderTarget(null);
+      renderer.setRenderTarget(renderTarget);
+      renderer.render(scene, this.warmupCamera);
+      renderer.setRenderTarget(null);
       
       // Cleanup
       renderTarget.dispose();
@@ -496,12 +495,11 @@ export async function warmupShader(
   if (scene && camera) {
     // Use provided scene/camera
     const renderTarget = new THREE.RenderTarget(1, 1);
-    const glRenderer = renderer as THREE.WebGLRenderer;
-    const originalTarget = glRenderer.getRenderTarget();
-    
-    glRenderer.setRenderTarget(renderTarget as THREE.WebGLRenderTarget);
-    glRenderer.render(scene, camera);
-    glRenderer.setRenderTarget(originalTarget);
+    const originalTarget = renderer.getRenderTarget();
+
+    renderer.setRenderTarget(renderTarget);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(originalTarget);
     
     renderTarget.dispose();
     warmup.dispose();

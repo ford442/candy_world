@@ -399,9 +399,7 @@ export class DeferredLoader {
           priority: item.priority,
           error: error instanceof Error ? error : new Error(String(error)),
         });
-        import('../world/spawn-tracker.ts').then(({ recordSpawnAttempt }) => {
-          recordSpawnAttempt(`deferred:${item.id}`, false, error);
-        }).catch(() => {});
+        spawnTracker.recordSpawnAttempt(`deferred:${item.id}`, false, error);
         item.loaded = true; // Mark as loaded to skip in future
         this.currentIndex++;
       }
