@@ -46,6 +46,7 @@ export function setupAbilitySlotInputs(): void {
 
         // Pointer / touch support (hold)
         slot.addEventListener('pointerdown', (e) => {
+            if (slot.getAttribute('aria-disabled') === 'true') return;
             const ev = e as PointerEvent;
             if (ev.button !== 0) return; // Only left click / primary touch
             const keyEvent = new KeyboardEvent('keydown', {
@@ -92,6 +93,7 @@ export function setupAbilitySlotInputs(): void {
 
         // Keyboard (Enter/Space)
         slot.addEventListener('keydown', (e) => {
+            if (slot.getAttribute('aria-disabled') === 'true') return;
             const ev = e as KeyboardEvent;
             if (ev.key === 'Enter' || ev.key === ' ') {
                 ev.preventDefault();
