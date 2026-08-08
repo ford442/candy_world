@@ -56,7 +56,7 @@ const _scratch = new THREE.Vector3();
 
 function isPlacerFlagEnabled(): boolean {
     try {
-        // @ts-expect-error
+        // @ts-expect-error import.meta.env missing in standard lib
         if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) return true;
         return (
             new URLSearchParams(window.location.search).get('cloudPlacer') === '1' ||
