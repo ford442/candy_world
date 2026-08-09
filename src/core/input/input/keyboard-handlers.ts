@@ -72,8 +72,13 @@ export function createKeyboardHandlers(
         }
 
         if (event.code === 'Tab') {
-            event.preventDefault();
-            session.exploreCamera.onTabDown();
+            const activeEl = document.activeElement;
+            const isGameFocused = activeEl === document.body || activeEl === session.canvas;
+
+            if (isGameFocused) {
+                event.preventDefault();
+                session.exploreCamera.onTabDown();
+            }
             return;
         }
 
@@ -316,7 +321,12 @@ export function createKeyboardHandlers(
 
     const onKeyUp = function (event: KeyboardEvent) {
         if (event.code === 'Tab') {
-            session.exploreCamera.onTabUp();
+            const activeEl = document.activeElement;
+            const isGameFocused = activeEl === document.body || activeEl === session.canvas;
+
+            if (isGameFocused) {
+                session.exploreCamera.onTabUp();
+            }
             return;
         }
 

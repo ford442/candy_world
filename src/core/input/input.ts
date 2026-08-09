@@ -445,8 +445,13 @@ export function initInput(
         }
 
         if (event.code === 'Tab') {
-            event.preventDefault();
-            exploreCamera.onTabDown();
+            const activeEl = document.activeElement;
+            const isGameFocused = activeEl === document.body || activeEl === canvas;
+
+            if (isGameFocused) {
+                event.preventDefault();
+                exploreCamera.onTabDown();
+            }
             return;
         }
 
@@ -704,7 +709,12 @@ export function initInput(
 
     const onKeyUp = function (event: KeyboardEvent) {
         if (event.code === 'Tab') {
-            exploreCamera.onTabUp();
+            const activeEl = document.activeElement;
+            const isGameFocused = activeEl === document.body || activeEl === canvas;
+
+            if (isGameFocused) {
+                exploreCamera.onTabUp();
+            }
             return;
         }
 
