@@ -436,7 +436,7 @@ export class SimpleFlowerBatcher {
         const i = this.count;
         const { color = 0xFFFFFF } = options;
 
-        if (this._gpuPositions && isGpuFoliagePilotEnabled()) {
+        if (this._gpuPositions) {
             const base = i * 3;
             this._gpuPositions[base] = logicObject.position.x;
             this._gpuPositions[base + 1] = logicObject.position.y;

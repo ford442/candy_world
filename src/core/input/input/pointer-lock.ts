@@ -146,7 +146,7 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
 
                 yieldToPaint(50).then(() => {
                     if (session.instructions && session.instructions.style.display !== 'none') {
-                        session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions);
+                        session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true });
                         if (session.startButton) {
                             session.startButton.focus({ preventScroll: true });
                         }
