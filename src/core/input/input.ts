@@ -444,13 +444,12 @@ export function initInput(
             return;
         }
 
-        if (event.code === 'Tab') {
-            event.preventDefault();
-            exploreCamera.onTabDown();
-            return;
-        }
-
         if (isExploreActive()) {
+            if (event.code === 'Tab') {
+                event.preventDefault();
+                exploreCamera.onTabDown();
+                return;
+            }
             if (event.code === 'Escape') {
                 event.preventDefault();
                 disableExploreMode(true);
@@ -703,7 +702,7 @@ export function initInput(
     };
 
     const onKeyUp = function (event: KeyboardEvent) {
-        if (event.code === 'Tab') {
+        if (isExploreActive() && event.code === 'Tab') {
             exploreCamera.onTabUp();
             return;
         }
