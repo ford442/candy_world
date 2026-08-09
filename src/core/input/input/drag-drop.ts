@@ -1,4 +1,5 @@
 import { filterValidMusicFiles } from '../input-types.ts';
+import { showToast } from '../../../utils/toast.ts';
 import type { InputSession } from './session.ts';
 
 export interface DragDropHandlers {
@@ -52,23 +53,19 @@ export function setupDragDrop(session: InputSession): DragDropHandlers | null {
             if (validFiles.length > 0) {
                 session.audioSystem.addToQueue(validFiles);
 
-                import('../../../utils/toast.ts').then(({ showToast }) => {
-                    if (invalidFiles.length > 0) {
-                        showToast(
-                            `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`,
-                            '⚠️'
-                        );
-                    } else {
-                        showToast(
-                            `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`,
-                            '📂'
-                        );
-                    }
-                });
+                if (invalidFiles.length > 0) {
+                    showToast(
+                        `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`,
+                        '⚠️'
+                    );
+                } else {
+                    showToast(
+                        `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`,
+                        '📂'
+                    );
+                }
             } else {
-                import('../../../utils/toast.ts').then(({ showToast }) => {
-                    showToast('❌ Only .mod, .xm, .it, .s3m allowed!', '🚫');
-                });
+                showToast('❌ Only .mod, .xm, .it, .s3m allowed!', '🚫');
             }
         }
     };

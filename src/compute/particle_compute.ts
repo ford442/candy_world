@@ -1,20 +1,20 @@
 /**
  * @file particle_compute.ts
  * @description GPU Compute-based particle system using Three.js TSL
- * 
+ *
  * This class provides a fully GPU-accelerated particle system with:
  * - Compute shader-based physics updates
  * - Automatic particle respawning
  * - Audio-reactive behavior
  * - WASM offloading for hot loops (optional)
- * 
+ *
  * @example
  * ```ts
  * import { ComputeParticleSystem } from './particle_compute';
- * 
+ *
  * const particles = new ComputeParticleSystem(10000, renderer);
  * scene.add(particles.createMesh());
- * 
+ *
  * // In animation loop:
  * particles.update(deltaTime, { kick: audioState.kickTrigger });
  * ```
@@ -35,7 +35,7 @@ import {
     uv,
     distance,
     smoothstep,
-    vec2
+    vec2,
 } from 'three/tsl';
 import { StorageInstancedBufferAttribute, PointsNodeMaterial } from 'three/webgpu';
 import type { WebGPURenderer } from 'three/webgpu';
@@ -127,7 +127,7 @@ export class ComputeParticleSystem {
 
     /**
      * Creates a new compute particle system.
-     * 
+     *
      * @param count - Number of particles (default: 10000)
      * @param renderer - WebGPU renderer instance
      * @param config - Optional configuration
@@ -142,8 +142,8 @@ export class ComputeParticleSystem {
         this.type = config.type || 'default';
 
         const {
-            center = new THREE.Vector3(0, 5, 0),
-            gravity = new THREE.Vector3(0, -2.0, 0)
+            spawnCenter = new THREE.Vector3(0, 5, 0),
+            gravity = new THREE.Vector3(0, -2.0, 0),
         } = config;
 
         // Initialize buffers
@@ -172,7 +172,7 @@ export class ComputeParticleSystem {
 
         // Create uniforms
         this.uGravity = uniform(gravity);
-        this.uSpawnCenter = uniform(center);
+        this.uSpawnCenter = uniform(spawnCenter);
 
         this.setupComputeShader();
     }
@@ -244,7 +244,9 @@ export class ComputeParticleSystem {
                 velocity.z.assign(driftZ);
 
                 // Slight upward pull
-                velocity.y.assign(float(1.0).add(sin(tOffset).mul(1.5).mul(this.uMelodyVolume.max(0.3))));
+                velocity.y.assign(
+                    float(1.0).add(sin(tOffset).mul(1.5).mul(this.uMelodyVolume.max(0.3)))
+                );
 
                 position.x.addAssign(velocity.x.mul(dt));
                 position.y.addAssign(velocity.y.mul(dt));
@@ -322,31 +324,37 @@ export class ComputeParticleSystem {
 
     /**
      * Set optional WASM module for physics offloading.
-     * 
+     *
      * Note: WASM execution is reserved for future optimization.
      * Currently, the GPU compute shader handles all physics.
      * The WASM module can be used for CPU fallback when WebGPU
      * compute shaders are not available.
-     * 
+     *
      * @param module - WASM module with updateParticlesWASM function
      */
     public setWASMModule(module: WASMParticleModule): void {
         this.wasmModule = module;
         this.useWASM = typeof module.updateParticlesWASM === 'function';
         if (this.useWASM) {
-            console.log('[ComputeParticles] WASM physics module registered (GPU compute primary, WASM fallback available)');
+            console.log(
+                '[ComputeParticles] WASM physics module registered (GPU compute primary, WASM fallback available)'
+            );
         }
     }
 
     /**
      * Update particle system.
      * Runs compute shader on GPU (primary) or uses WASM fallback if GPU compute unavailable.
-     * 
+     *
      * @param deltaTime - Time since last frame in seconds
      * @param audioState - Optional audio state for reactive behavior
      * @param intensity - Weather intensity (0 to 1)
      */
-    public update(deltaTime: number, audioState: ParticleAudioState = {}, intensity: number = 0.0): void {
+    public update(
+        deltaTime: number,
+        audioState: ParticleAudioState = {},
+        intensity: number = 0.0
+    ): void {
         this.uDeltaTime.value = deltaTime;
         this.uTime.value += deltaTime;
         this.uAudioPulse.value = audioState.kick ?? 0;
@@ -364,7 +372,7 @@ export class ComputeParticleSystem {
 
     /**
      * Set the spawn center position.
-     * 
+     *
      * @param position - New spawn center
      */
     public setSpawnCenter(position: THREE.Vector3): void {
@@ -373,7 +381,7 @@ export class ComputeParticleSystem {
 
     /**
      * Set gravity vector.
-     * 
+     *
      * @param gravity - New gravity vector
      */
     public setGravity(gravity: THREE.Vector3): void {
@@ -382,7 +390,7 @@ export class ComputeParticleSystem {
 
     /**
      * Creates a Three.js Points mesh for rendering the particles.
-     * 
+     *
      * @returns A Points mesh using the particle storage buffers
      */
     public createMesh(): THREE.Points {
@@ -395,15 +403,15 @@ export class ComputeParticleSystem {
 
         let size = 0.2;
         let opacity = 0.8;
-        let baseColorHex = 0xFFFFFF;
+        let baseColorHex = 0xffffff;
 
         if (this.type === 'rain') {
             size = 0.3;
-            baseColorHex = 0x88CCFF;
+            baseColorHex = 0x88ccff;
         } else if (this.type === 'mist') {
             size = 0.15;
             opacity = 0.4;
-            baseColorHex = 0xAAFFAA;
+            baseColorHex = 0xaaffaa;
         }
 
         const material = new PointsNodeMaterial({
@@ -412,7 +420,7 @@ export class ComputeParticleSystem {
             transparent: true,
             opacity: opacity,
             blending: THREE.AdditiveBlending,
-            depthWrite: false
+            depthWrite: false,
         });
 
         // Use buffer data in shader

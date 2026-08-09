@@ -6,6 +6,7 @@ import type * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import type { AudioSystem } from '../../../audio/audio-system';
 import { resolveExploreVariant } from '../../camera-modes.ts';
+import { showToast } from '../../../utils/toast.ts';
 import { initAudioControls } from '../audio-controls.ts';
 import type { InitInputResult } from '../input-types.ts';
 import {
@@ -110,10 +111,8 @@ export function initInput(
                     ? '<span aria-hidden="true">☀️</span> Switch to Day <span class="key-badge" aria-hidden="true">N</span>'
                     : '<span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>';
 
-                import('../../../utils/toast.ts').then(({ showToast }) => {
-                    const mode = isPressed ? 'Night Mode Active 🌙' : 'Day Mode Active ☀️';
-                    showToast(mode, isPressed ? '🌙' : '☀️');
-                });
+                const mode = isPressed ? 'Night Mode Active 🌙' : 'Day Mode Active ☀️';
+                showToast(mode, isPressed ? '🌙' : '☀️');
             }
         },
     };

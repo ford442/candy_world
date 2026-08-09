@@ -1,6 +1,6 @@
 # WebGL2 Fallback Renderer
 
-Candy World ships with **WebGPU** as the default renderer and an opt-in **WebGL2** reference path via Three.js `WebGLRenderer`. Both backends share the same scene graph, camera, controls, terrain, materials, animations, and music-reactivity hooks.
+Candy World ships with **WebGPU** as the default renderer and an opt-in **WebGL2** reference path via Three.js `WebGPURenderer` with `forceWebGL: true` (GLSL node backend). Legacy `THREE.WebGLRenderer` is no longer used — TSL node materials require the node renderer backend.
 
 This mirrors the ford442 portfolio pattern used in Tetris_WebGPU, power_gen, mod-player, pachinball, Watershed, and HarborGlow.
 
@@ -94,7 +94,7 @@ const png = await captureCanvasScreenshot(document.querySelector('#glCanvas'));
 | TSL post-processing (bloom, vignette) | ✓ `PostProcessing` + TSL | ✓ `EffectComposer` + `UnrealBloomPass` |
 | GPU compute particles | ✓ | Disabled in `webglLite` / `safeMode` |
 | Music-reactivity uniforms | ✓ TSL batchers | ✓ Same batchers where WebGL-compatible |
-| Shader warmup | Full batched warmup | Skipped (WebGL is more forgiving) |
+| Shader warmup | Full batched warmup | Full batched warmup (GLSL node backend compiles TSL materials) |
 | God rays (sunrise/sunset/moon shafts) | ✓ additive shaft planes + `uShaftOpacity` | ✓ same planes, per-frame `material.opacity` sync |
 | Depth of Field (bokeh) | ✓ TSL `dof()` mixed by `uDofMix` | ✓ `BokehPass`, toggled via `pass.enabled` |
 

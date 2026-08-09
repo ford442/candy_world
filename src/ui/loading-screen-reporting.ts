@@ -1,4 +1,5 @@
 import { log } from '../utils/log.ts';
+import { showToast } from '../utils/toast.ts';
 import { getReport } from '../world/spawn-tracker.ts';
 
 /**
@@ -28,15 +29,7 @@ export function updateSpawnFailureBadge(
                     const r = getReport();
                     const summary = `Spawn failures: ${r.failed}/${r.attempted} (succeeded ${r.succeeded}). By type: ${Object.entries(r.failuresByType).map(([k,v])=>k+':'+v).join(', ') || 'n/a'}`;
                     log.debug('SpawnTracker', 'Failures during population', r.failuresByType, 'Last errors:', r.lastErrors);
-                    import('../utils/toast.ts').then(({ showToast }) => {
-                        showToast(summary + ' — see console for full list', '⚠️', 6000);
-                    }).catch(() => {
-                        const t = document.createElement('div');
-                        t.textContent = summary;
-                        t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#3a2a2a;color:#ffdddd;padding:6px 10px;border-radius:4px;z-index:99999;font-size:12px';
-                        document.body.appendChild(t);
-                        setTimeout(() => t.remove(), 5000);
-                    });
+                    showToast(summary + ' — see console for full list', '⚠️', 6000);
                 } catch (e) { log.warn('Deferred', 'failed to show spawn report', e); }
             };
             failEl.addEventListener('click', handleActivate);

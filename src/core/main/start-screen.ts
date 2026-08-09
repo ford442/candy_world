@@ -14,7 +14,17 @@ import {
     setDeferredProgress,
     setDeferredFailures,
 } from '../../ui/loading-screen.ts';
-import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../../world/spawn-tracker.ts';
+import {
+    installReadinessProgress,
+    showReadinessGenerating,
+    markReadinessPlayable,
+    markReadinessReady,
+    reportReadinessProgress,
+} from '../../ui/readiness-progress.ts';
+import {
+    reset as resetSpawnTracker,
+    getReport as getSpawnReport,
+} from '../../world/spawn-tracker.ts';
 import { globalLoadingManager } from '../../systems/loading-manager.ts';
 import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
 import { populatePhysicsGrids } from '../../systems/physics/index.ts';
@@ -23,217 +33,203 @@ import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
 import { populateWorld, WorldMode } from '../../world/generation.ts';
+import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
 import { spawnTracker } from '../../world/spawn-tracker.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
+import { announce } from '../../ui/announcer.ts';
+import { showToast } from '../../utils/toast.ts';
 import {
-    getLoadMemoryTier,
-    shouldPreferLightWorldLoad,
-} from '../config.ts';
-import { WAIT_FULL_KEY } from './constants.ts';
+    loadStartupProfile,
+    saveStartupProfile,
+    setGraphicsLevel,
+    setMapSize,
+    mapSizeToWorldMode,
+    mapSizeUsesFastPopulation,
+    mapSizeWaitsForFullPopulation,
+    profileDescription,
+    enterButtonLabel,
+    profileLoadHint,
+    type GraphicsLevel,
+    type MapSize,
+    type StartupProfile,
+} from '../startup-profile.ts';
 import type { MainContext } from './context.ts';
 import { camera, renderer, scene } from './exports.ts';
 
-export function setupStartScreen(ctx: MainContext): void {
-    const { loadingScreen, mode } = ctx;
-    let { waitForFullPopulation } = ctx;
+function yieldFrame(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 50));
+}
 
+function setupRadiogroup<T extends string>(
+    buttons: Array<{ btn: HTMLButtonElement; value: T }>,
+    getSelected: () => T,
+    onSelect: (value: T) => void
+): void {
+    const setupButton = (btn: HTMLButtonElement, value: T, index: number) => {
+        btn.addEventListener('click', async () => {
+            btn.setAttribute('aria-busy', 'true');
+            btn.setAttribute('aria-disabled', 'true');
+            try {
+                onSelect(value);
+                await yieldFrame();
+            } finally {
+                btn.removeAttribute('aria-busy');
+                btn.removeAttribute('aria-disabled');
+            }
+        });
+
+        btn.addEventListener('keydown', (e) => {
+            let nextIndex = -1;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                nextIndex = (index + 1) % buttons.length;
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                nextIndex = (index - 1 + buttons.length) % buttons.length;
+            } else if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                btn.classList.add('keyboard-active');
+            }
+
+            if (nextIndex !== -1) {
+                e.preventDefault();
+                const nextBtn = buttons[nextIndex].btn;
+                nextBtn.focus();
+                nextBtn.click();
+            }
+        });
+
+        btn.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                btn.classList.remove('keyboard-active');
+            }
+        });
+
+        btn.addEventListener('blur', () => {
+            btn.classList.remove('keyboard-active');
+        });
+
+        btn.addEventListener('focus', () => {
+            buttons.forEach((mb) => mb.btn.setAttribute('tabindex', '-1'));
+            btn.setAttribute('tabindex', '0');
+            if (btn.getAttribute('aria-checked') !== 'true') {
+                btn.click();
+            }
+        });
+    };
+
+    buttons.forEach((mb, index) => {
+        mb.btn.setAttribute('tabindex', getSelected() === mb.value ? '0' : '-1');
+        setupButton(mb.btn, mb.value, index);
+    });
+}
+
+export function setupStartScreen(ctx: MainContext): void {
+    const { loadingScreen } = ctx;
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     const statusEl = document.getElementById('world-status');
 
     if (!startButton) return;
 
+    installReadinessProgress();
+
     startButton.disabled = false;
     startButton.setAttribute('aria-disabled', 'false');
     startButton.removeAttribute('aria-busy');
     startButton.removeAttribute('title');
-    startButton.innerHTML =
-        'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
 
-    import('../../ui/announcer.ts')
-        .then(({ announce }) => {
-            announce('World loaded. Press Enter to enter the world.', 'assertive');
-        })
-        .catch((err) => console.warn('Failed to load announcer:', err));
+    announce('World loaded. Press Enter to enter the world.', 'assertive');
 
-    let coreOnlyMode = true;
-    let fastFullMode = false;
+    let profile: StartupProfile = loadStartupProfile();
+    ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
 
-    const btnCoreOnly = document.getElementById('btn-core-only') as HTMLButtonElement | null;
-    const btnFullGame = document.getElementById('btn-full-game') as HTMLButtonElement | null;
-    const btnFastFull = document.getElementById('btn-fast-full') as HTMLButtonElement | null;
     const modeSelect = document.getElementById('mode-select');
     const modeDescription = document.getElementById('mode-description');
 
-    const updateStartupMode = (selectedMode: 'CORE' | 'FULL' | 'FAST_FULL') => {
-        coreOnlyMode = selectedMode === 'CORE';
-        fastFullMode = selectedMode === 'FAST_FULL';
+    const gfxButtons: Array<{ btn: HTMLButtonElement; value: GraphicsLevel }> = [
+        { btn: document.getElementById('btn-gfx-low') as HTMLButtonElement, value: 'low' },
+        { btn: document.getElementById('btn-gfx-medium') as HTMLButtonElement, value: 'medium' },
+        { btn: document.getElementById('btn-gfx-high') as HTMLButtonElement, value: 'high' },
+    ].filter((b) => b.btn);
 
-        console.log(`[Startup] Mode selected: ${selectedMode}`);
+    const mapButtons: Array<{ btn: HTMLButtonElement; value: MapSize }> = [
+        { btn: document.getElementById('btn-map-small') as HTMLButtonElement, value: 'small' },
+        { btn: document.getElementById('btn-map-medium') as HTMLButtonElement, value: 'medium' },
+        { btn: document.getElementById('btn-map-large') as HTMLButtonElement, value: 'large' },
+    ].filter((b) => b.btn);
 
-        const isCore = selectedMode === 'CORE';
-        const isFast = selectedMode === 'FAST_FULL';
+    const syncProfileUi = () => {
+        for (const { btn, value } of gfxButtons) {
+            const checked = value === profile.graphics;
+            btn.setAttribute('aria-checked', String(checked));
+            btn.setAttribute('tabindex', checked ? '0' : '-1');
+        }
+        for (const { btn, value } of mapButtons) {
+            const checked = value === profile.mapSize;
+            btn.setAttribute('aria-checked', String(checked));
+            btn.setAttribute('tabindex', checked ? '0' : '-1');
+        }
 
-        if (btnCoreOnly) {
-            btnCoreOnly.setAttribute('aria-checked', String(isCore));
-        }
-        if (btnFullGame) {
-            btnFullGame.setAttribute('aria-checked', String(selectedMode === 'FULL'));
-        }
-        if (btnFastFull) {
-            btnFastFull.setAttribute('aria-checked', String(isFast));
-        }
+        ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
 
         if (modeDescription) {
-            const memHint = shouldPreferLightWorldLoad()
-                ? " (auto-throttled for this device's RAM)"
-                : '';
-            modeDescription.textContent = isCore
-                ? 'Fast startup with classic candy terrain, trees, mushrooms, and clouds.'
-                : isFast
-                  ? `Full musical map with greatly reduced object count for much faster loading${memHint}.`
-                  : shouldPreferLightWorldLoad()
-                    ? 'Full musical map — population will be auto-reduced on this device to avoid load lockups.'
-                    : 'Full game with the complete musical foliage map.';
+            modeDescription.textContent = profileDescription(profile);
         }
 
-        startButton.innerHTML = isCore
-            ? 'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>'
-            : isFast
-              ? 'Enter Fast Dream <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>'
-              : 'Enter Full Dream <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+        const emoji =
+            profile.mapSize === 'small' ? '🍭' : profile.mapSize === 'medium' ? '🌿' : '🌸';
+        startButton.innerHTML = `${enterButtonLabel(profile.mapSize)} <span aria-hidden="true">${emoji}</span> <span class="key-badge" aria-hidden="true">Enter</span>`;
+
+        console.log(
+            `[Startup] Profile: graphics=${profile.graphics} map=${profile.mapSize} (${profileLoadHint(profile)})`
+        );
     };
 
-    const getGenerationLabel = (worldMode: WorldMode) => {
-        if (worldMode === 'CORE') return 'Generating core world...';
-        return fastFullMode
-            ? 'Generating light full world (reduced objects)...'
-            : 'Generating world map...';
+    const applyGraphics = (graphics: GraphicsLevel) => {
+        profile = setGraphicsLevel(graphics);
+        // Expose for Phase 3 (shader/ambient gating) and debug
+        (window as any).__startupProfile = profile;
+        syncProfileUi();
     };
 
-    updateStartupMode('CORE');
-    if (mode === 'webgl' && isWebGLLiteMode()) {
-        console.warn('[Startup] WebGL lite mode — CORE world generation recommended');
+    const applyMapSize = (mapSize: MapSize) => {
+        profile = setMapSize(mapSize);
+        (window as any).__startupProfile = profile;
+        syncProfileUi();
+    };
+
+    if (gfxButtons.length === 3) {
+        setupRadiogroup(gfxButtons, () => profile.graphics, applyGraphics);
+    }
+    if (mapButtons.length === 3) {
+        setupRadiogroup(mapButtons, () => profile.mapSize, applyMapSize);
+    }
+
+    saveStartupProfile(profile);
+    (window as any).__startupProfile = profile;
+    syncProfileUi();
+
+    if (ctx.mode === 'webgl' && isWebGLLiteMode()) {
+        console.warn('[Startup] WebGL lite mode — Small map recommended');
     }
 
     let worldGenerated = false;
     let isGenerating = false;
 
-    function yieldFrame(): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, 50));
-    }
-
-    if (btnCoreOnly && btnFullGame && btnFastFull) {
-        const modeButtons = [
-            { btn: btnCoreOnly, mode: 'CORE' as const },
-            { btn: btnFullGame, mode: 'FULL' as const },
-            { btn: btnFastFull, mode: 'FAST_FULL' as const },
-        ];
-
-        const setupModeButton = (
-            btn: HTMLButtonElement,
-            selectedMode: 'CORE' | 'FULL' | 'FAST_FULL',
-            index: number
-        ) => {
-            btn.addEventListener('click', async () => {
-                btn.setAttribute('aria-busy', 'true');
-                btn.setAttribute('aria-disabled', 'true');
-                try {
-                    updateStartupMode(selectedMode);
-                    await yieldFrame();
-                } finally {
-                    btn.removeAttribute('aria-busy');
-                    btn.removeAttribute('aria-disabled');
-                }
-            });
-
-            btn.addEventListener('keydown', (e) => {
-                let nextIndex = -1;
-                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                    nextIndex = (index + 1) % modeButtons.length;
-                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                    nextIndex = (index - 1 + modeButtons.length) % modeButtons.length;
-                } else if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    btn.classList.add('keyboard-active');
-                }
-
-                if (nextIndex !== -1) {
-                    e.preventDefault();
-                    const nextBtn = modeButtons[nextIndex].btn;
-                    nextBtn.focus();
-                    nextBtn.click();
-                }
-            });
-
-            btn.addEventListener('keyup', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    btn.classList.remove('keyboard-active');
-                }
-            });
-
-            btn.addEventListener('blur', () => {
-                btn.classList.remove('keyboard-active');
-            });
-
-            btn.addEventListener('focus', () => {
-                modeButtons.forEach((mb) => mb.btn.setAttribute('tabindex', '-1'));
-                btn.setAttribute('tabindex', '0');
-                if (btn.getAttribute('aria-checked') !== 'true') {
-                    btn.click();
-                }
-            });
-        };
-
-        modeButtons.forEach((mb, index) => {
-            mb.btn.setAttribute(
-                'tabindex',
-                mb.btn.getAttribute('aria-checked') === 'true' ? '0' : '-1'
-            );
-            setupModeButton(mb.btn, mb.mode, index);
-        });
-    }
-
-    const waitFullCheckbox = document.getElementById(
-        'wait-full-checkbox'
-    ) as HTMLButtonElement | null;
-    if (waitFullCheckbox) {
-        waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
-        waitFullCheckbox.addEventListener('click', (e) => {
-            e.preventDefault();
-            const isChecked = waitFullCheckbox.getAttribute('aria-checked') === 'true';
-            const newCheckedState = !isChecked;
-            waitFullCheckbox.setAttribute('aria-checked', String(newCheckedState));
-            waitForFullPopulation = newCheckedState;
-            ctx.waitForFullPopulation = newCheckedState;
-            localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
-        });
-
-        waitFullCheckbox.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                if (e.repeat) return;
-                waitFullCheckbox.classList.add('keyboard-active');
-                waitFullCheckbox.click();
-            }
-        });
-
-        waitFullCheckbox.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                waitFullCheckbox.classList.remove('keyboard-active');
-            }
-        });
-
-        waitFullCheckbox.addEventListener('blur', () => {
-            waitFullCheckbox.classList.remove('keyboard-active');
-        });
-    }
+    const getGenerationLabel = (worldMode: WorldMode) => {
+        if (worldMode === 'CORE') return 'Generating small world...';
+        if (profile.mapSize === 'medium') return 'Generating medium map (nearby + streaming)...';
+        return 'Generating large map...';
+    };
 
     async function enterWorld() {
         if (isGenerating || !startButton || worldGenerated) return;
 
+        // Re-read in case URL/storage changed
+        profile = loadStartupProfile();
+        syncProfileUi();
+
         isGenerating = true;
         ctx.worldGenerationActive = true;
-        console.log('[Startup] Entering world...');
+        console.log('[Startup] Entering world...', profile);
 
         startButton.disabled = true;
         startButton.setAttribute('aria-busy', 'true');
@@ -242,14 +238,14 @@ export function setupStartScreen(ctx: MainContext): void {
         startButton.innerHTML =
             '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
+        showReadinessGenerating(profileLoadHint(profile));
+
         await yieldFrame();
-        const requestedMode: WorldMode = coreOnlyMode ? 'CORE' : 'FULL';
-        const useFastPopulation = fastFullMode || (!coreOnlyMode && shouldPreferLightWorldLoad());
-        if (useFastPopulation && !fastFullMode && shouldPreferLightWorldLoad()) {
-            console.warn(
-                `[Startup] Low/critical memory tier (${getLoadMemoryTier()}) — enabling reduced Full-mode population to avoid load lockups`
-            );
-        }
+        const requestedMode: WorldMode = mapSizeToWorldMode(profile.mapSize);
+        const useFastPopulation = mapSizeUsesFastPopulation(profile.mapSize);
+        const waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
+        ctx.waitForFullPopulation = waitForFullPopulation;
+
         let activeWorldMode: WorldMode = requestedMode;
 
         const worldGenResult = await StageLoader.loadStage('worldGeneration', async () => {
@@ -262,12 +258,19 @@ export function setupStartScreen(ctx: MainContext): void {
                 if (intIdx > -1) interactiveObjects.splice(intIdx, 1);
             }
 
-            console.log(`[Startup] Enter world requested in ${requestedMode} mode`);
+            console.log(
+                `[Startup] Enter world: graphics=${profile.graphics} map=${profile.mapSize} → ${requestedMode}` +
+                    (useFastPopulation ? ' (fast population)' : '') +
+                    (waitForFullPopulation ? ' (wait for full)' : '')
+            );
 
             if (modeSelect) {
-                modeSelect.style.display = 'none';
+                modeSelect.querySelectorAll('.profile-row').forEach((el) => {
+                    (el as HTMLElement).style.display = 'none';
+                });
+                if (modeDescription) modeDescription.style.display = 'none';
             }
-            showModeBadge(requestedMode);
+            showModeBadge(requestedMode, profile);
 
             loadingScreen.show();
             loadingScreen.startPhase('map-generation');
@@ -286,18 +289,28 @@ export function setupStartScreen(ctx: MainContext): void {
                     const baseLabel = label ?? getGenerationLabel(requestedMode);
                     const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
                     loadingScreen.updateProgress(percent, progressLabel);
+                    reportReadinessProgress(percent, progressLabel);
 
                     if (statusEl) {
                         statusEl.textContent = progressLabel;
                     }
 
-                    startButton.style.background =
-                        requestedMode === 'CORE'
-                            ? `linear-gradient(90deg, #FF9ECD ${percent}%, #FFD4E3 ${percent}%)`
-                            : `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
+                    const accent =
+                        profile.mapSize === 'small'
+                            ? '#FF9ECD'
+                            : profile.mapSize === 'medium'
+                              ? '#A5D6A7'
+                              : '#FF6B6B';
+                    const soft =
+                        profile.mapSize === 'small'
+                            ? '#FFD4E3'
+                            : profile.mapSize === 'medium'
+                              ? '#C8E6C9'
+                              : '#FFB6C1';
+                    startButton.style.background = `linear-gradient(90deg, ${accent} ${percent}%, ${soft} ${percent}%)`;
 
                     if (percent - lastAnnounced >= 10 || percent === 100) {
-                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">${requestedMode === 'CORE' ? '🍭' : '🍭'}</span>`;
+                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">🍭</span>`;
                         lastAnnounced = percent;
                     }
                 },
@@ -306,9 +319,9 @@ export function setupStartScreen(ctx: MainContext): void {
 
             if (activeWorldMode !== requestedMode) {
                 console.warn(
-                    `[Startup] Full mode fallback engaged: booted in ${activeWorldMode} mode instead of ${requestedMode}`
+                    `[Startup] Map fallback: booted in ${activeWorldMode} instead of ${requestedMode}`
                 );
-                showModeBadge(activeWorldMode);
+                showModeBadge(activeWorldMode, profile);
             }
 
             endPhase('Map Generation');
@@ -323,8 +336,6 @@ export function setupStartScreen(ctx: MainContext): void {
             initCloudPlacer({ scene, camera, weatherSystem: ctx.weatherSystem ?? null });
 
             try {
-                const { initSkyIslandDebug, rebuildSkyIslandDebug } =
-                    await import('../../world/sky-island-graph.ts');
                 initSkyIslandDebug(scene);
                 rebuildSkyIslandDebug();
             } catch (e) {
@@ -343,9 +354,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 statusEl.textContent = 'World generated. Welcome to Candy World.';
             }
 
-            import('../../ui/announcer.ts').then(({ announce }) => {
-                announce('World generated. Welcome to Candy World.', 'assertive');
-            });
+            announce('World generated. Welcome to Candy World.', 'assertive');
         });
 
         if (!worldGenResult.success) {
@@ -356,9 +365,10 @@ export function setupStartScreen(ctx: MainContext): void {
             const instructions = document.getElementById('instructions');
             if (instructions) instructions.style.display = 'none';
 
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                showToast('Click to explore! Press [ESC] for Controls', '🎮', 4000);
-            });
+            showToast('Click to explore! Press [ESC] for Controls', '🎮', 4000);
+
+            // Playable milestone — horizon may still be streaming
+            markReadinessPlayable();
 
             showDeferredIndicator();
             setDeferredFailures(0);
@@ -402,6 +412,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 populatePhysicsGrids();
                 finalizeStartupProfile();
                 console.log('[Startup] All deferred background tasks completed.');
+                markReadinessReady();
 
                 try {
                     const r = getSpawnReport();
@@ -412,40 +423,36 @@ export function setupStartScreen(ctx: MainContext): void {
                             `[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`
                         );
                         if (!waitForFullPopulation) {
-                            import('../../utils/toast.ts')
-                                .then(({ showToast }) => {
-                                    showToast(
-                                        `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
-                                        '⚠️',
-                                        5000
-                                    );
-                                })
-                                .catch(() => {});
+                            showToast(
+                                `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
+                                '⚠️',
+                                5000
+                            );
                         }
                     } else if (r.attempted > 0) {
                         console.log(
                             `[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`
                         );
                     }
-                } catch { void 0; }
+                } catch {
+                    void 0;
+                }
 
                 document.dispatchEvent(new CustomEvent('worldFullyPopulated'));
 
                 try {
-                    void import('../../world/world-health.ts').then(({ validateWorldPopulation }) => {
-                        const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
-                        if (!health.healthy) {
-                            import('../../utils/toast.ts')
-                                .then(({ showToast }) => {
-                                    const summary =
-                                        health.warnings.length === 1
-                                            ? health.warnings[0]
-                                            : `${health.warnings.length} world health warnings — see console`;
-                                    showToast(summary, '⚠️', 7000);
-                                })
-                                .catch(() => {});
+                    void import('../../world/world-health.ts').then(
+                        ({ validateWorldPopulation }) => {
+                            const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
+                            if (!health.healthy) {
+                                const summary =
+                                    health.warnings.length === 1
+                                        ? health.warnings[0]
+                                        : `${health.warnings.length} world health warnings — see console`;
+                                showToast(summary, '⚠️', 7000);
+                            }
                         }
-                    });
+                    );
                 } catch (e) {
                     console.warn('[WorldHealth] Validation threw:', e);
                 }
@@ -476,25 +483,21 @@ export function setupStartScreen(ctx: MainContext): void {
 
             worldGenerated = true;
             startButton.style.background = '';
-            const wasFast = !!(window as any).__fastPopulationOverride || fastFullMode;
-            if (activeWorldMode === 'CORE') {
-                startButton.innerHTML =
-                    'Regenerate Core Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
-            } else if (wasFast) {
-                startButton.innerHTML =
-                    'Regenerate Fast Dream <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>';
-            } else {
-                startButton.innerHTML =
-                    'Regenerate Full Dream <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
-            }
+            const emoji =
+                profile.mapSize === 'small' ? '🍭' : profile.mapSize === 'medium' ? '🌿' : '🌸';
+            startButton.innerHTML = `${enterButtonLabel(profile.mapSize, true)} <span aria-hidden="true">${emoji}</span> <span class="key-badge" aria-hidden="true">Enter</span>`;
         } catch (err) {
             console.error('[Init] World generation failed:', err);
             loadingScreen.hide();
             startButton.style.background = '';
             startButton.innerHTML = 'Retry';
-            import('../../ui/announcer.ts').then(({ announce }) => {
-                announce('World generation failed. Please try again.', 'assertive');
-            });
+            if (modeSelect) {
+                modeSelect.querySelectorAll('.profile-row').forEach((el) => {
+                    (el as HTMLElement).style.display = '';
+                });
+                if (modeDescription) modeDescription.style.display = '';
+            }
+            announce('World generation failed. Please try again.', 'assertive');
         } finally {
             ctx.worldGenerationActive = false;
             isGenerating = false;
@@ -503,11 +506,7 @@ export function setupStartScreen(ctx: MainContext): void {
             startButton.removeAttribute('aria-busy');
             startButton.removeAttribute('title');
 
-            import('../../ui/announcer.ts')
-                .then(({ announce }) => {
-                    announce('World loaded. Press Enter to enter the world.', 'assertive');
-                })
-                .catch((err) => console.warn('Failed to load announcer:', err));
+            announce('World loaded. Press Enter to enter the world.', 'assertive');
         }
     }
 
