@@ -436,6 +436,11 @@ export function renderPlaylist(): void {
         const li = document.createElement('li');
         li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
+
+        const statusContainer = document.createElement('div');
+        statusContainer.setAttribute('role', 'status');
+        statusContainer.setAttribute('aria-live', 'polite');
+        statusContainer.setAttribute('aria-atomic', 'true');
         // ♿ Aria: Removed role="status" and aria-live as interactive children shouldn't be inside live regions
 
         const iconContainer = document.createElement('div');
@@ -449,6 +454,9 @@ export function renderPlaylist(): void {
         text.className = 'jukebox-empty-text';
         text.innerText = 'Your playlist is empty — drop some tracks in!';
 
+        statusContainer.appendChild(iconContainer);
+        statusContainer.appendChild(text);
+
         const browseBtn = document.createElement('button');
         browseBtn.type = 'button';
         browseBtn.className = 'cta-button jukebox-browse-btn';
@@ -460,6 +468,7 @@ export function renderPlaylist(): void {
             if (playlistUploadInput) playlistUploadInput.click();
         };
 
+        li.appendChild(statusContainer);
         // ♿ Aria: Keyboard tactile feedback for empty state browse button
         browseBtn.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
