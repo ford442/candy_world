@@ -53,6 +53,27 @@ export interface IWeatherSystem {
 // Caches to prevent repeated lookups (migrated from core idea)
 const _noteNameCache: Record<string | number, string> = {};
 
+// ⚡ OPTIMIZATION: Bypassed regex .replace() to prevent GC spikes
+function stripNoteOctave(str: string): string {
+    let hasNumbers = false;
+    let startIdx = 0;
+
+    for (let i = 0; i < str.length; i++) {
+        const c = str.charCodeAt(i);
+        if ((c >= 48 && c <= 57) || c === 45) {
+            hasNumbers = true;
+            startIdx = i;
+            break;
+        }
+    }
+    if (!hasNumbers) return str;
+
+    // Notes are formatted like "C4", "C#4", "F#-1". The substring before
+    // the first number/hyphen is the note name. .substring() is highly
+    // optimized in JS engines (often a sliced string pointer).
+    return str.substring(0, startIdx);
+}
+
 export class MusicReactivitySystem {
     getActiveWave(): ActiveWave | null { return readActiveWave(); }
 
@@ -199,7 +220,7 @@ export class MusicReactivitySystem {
             result = CHROMATIC_SCALE[note % 12];
         } else if (typeof note === 'string') {
              // Strip octave if present "C4" -> "C"
-            result = note.replace(/[0-9-]/g, '');
+            result = stripNoteOctave(note);
         }
 
         // Cache result (limit size loosely)
@@ -889,7 +910,7 @@ export class MusicReactivitySystem {
                 // Uses the already-loaded _noteNameCache / CHROMATIC_SCALE.
                 const noteStr: string = (chData as any).note || '';
                 if (noteStr) {
-                    const noteName = noteStr.replace(/[0-9-]/g, '');
+                    const noteName = stripNoteOctave(noteStr);
                     const chromaticIdx = CHROMATIC_SCALE.indexOf(noteName);
                     if (chromaticIdx >= 0) {
                         // Map 12 chromatic notes evenly across 128 LUT slots.

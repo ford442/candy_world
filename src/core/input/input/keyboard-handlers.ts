@@ -71,13 +71,12 @@ export function createKeyboardHandlers(
             return;
         }
 
-        if (event.code === 'Tab') {
-            event.preventDefault();
-            session.exploreCamera.onTabDown();
-            return;
-        }
-
         if (isExploreActive()) {
+            if (event.code === 'Tab') {
+                event.preventDefault();
+                session.exploreCamera.onTabDown();
+                return;
+            }
             if (event.code === 'Escape') {
                 event.preventDefault();
                 disableExploreMode(session, true);
@@ -142,7 +141,7 @@ export function createKeyboardHandlers(
 
                     yieldToPaint(50).then(() => {
                         if (session.instructions && session.instructions.style.display !== 'none') {
-                            session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions);
+                            session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true });
                             if (session.startButton) {
                                 session.startButton.focus({ preventScroll: true });
                             }
@@ -315,7 +314,7 @@ export function createKeyboardHandlers(
     };
 
     const onKeyUp = function (event: KeyboardEvent) {
-        if (event.code === 'Tab') {
+        if (isExploreActive() && event.code === 'Tab') {
             session.exploreCamera.onTabUp();
             return;
         }
