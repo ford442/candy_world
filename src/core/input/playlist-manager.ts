@@ -517,7 +517,7 @@ export function togglePlaylist(): void {
             // 🎨 Palette: Wait for paint before intensive DOM manipulations and focus trapping
             yieldToPaint(50).then(() => {
                 if (isPlaylistOpen && playlistOverlay) {
-                    releaseJukeboxFocus = trapFocusInside(playlistOverlay);
+                    releaseJukeboxFocus = trapFocusInside(playlistOverlay, { skipAutoFocus: true });
 
                     // UX: Auto-focus the currently playing track for immediate context
                     if (!audioSystemRef || !playlistList) return;

@@ -209,7 +209,7 @@ export function makeInteractive(group: THREE.Object3D) {
  * @param element - The HTMLElement to trap focus within.
  * @returns A cleanup function to remove the event listener when the modal closes.
  */
-export function trapFocusInside(element: HTMLElement): () => void {
+export function trapFocusInside(element: HTMLElement, options?: { skipAutoFocus?: boolean }): () => void {
     // 1. Select all potentially focusable elements within the modal
     const focusableSelectors = [
         'a[href]', 'button:not([disabled])', 'textarea',
@@ -250,10 +250,12 @@ export function trapFocusInside(element: HTMLElement): () => void {
     // 2. Attach the listener
     element.addEventListener('keydown', handleKeyDown);
 
-    // 3. Auto-focus the first element when triggered
-    const initialFocusableEls = element.querySelectorAll<HTMLElement>(focusableSelectors);
-    if (initialFocusableEls.length > 0) {
-        initialFocusableEls[0].focus({ preventScroll: true });
+    // 3. Auto-focus the first element when triggered (unless skipped)
+    if (!options?.skipAutoFocus) {
+        const initialFocusableEls = element.querySelectorAll<HTMLElement>(focusableSelectors);
+        if (initialFocusableEls.length > 0) {
+            initialFocusableEls[0].focus({ preventScroll: true });
+        }
     }
 
     // 4. Return a cleanup function to prevent memory leaks
