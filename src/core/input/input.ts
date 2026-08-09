@@ -363,7 +363,7 @@ export function initInput(
 
                 yieldToPaint(50).then(() => {
                     if (instructions && instructions.style.display !== 'none') {
-                        releasePauseMenuFocus = trapFocusInside(instructions);
+                        releasePauseMenuFocus = trapFocusInside(instructions, { skipAutoFocus: true });
                         if (startButton) {
                             startButton.focus({ preventScroll: true });
                         }
@@ -520,7 +520,7 @@ export function initInput(
 
                     yieldToPaint(50).then(() => {
                         if (instructions && instructions.style.display !== 'none') {
-                            releasePauseMenuFocus = trapFocusInside(instructions);
+                            releasePauseMenuFocus = trapFocusInside(instructions, { skipAutoFocus: true });
                             if (startButton) {
                                 startButton.focus({ preventScroll: true });
                             }
