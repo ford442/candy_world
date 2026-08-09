@@ -66,6 +66,7 @@ export class GenerativeEngine {
                 activeEffect: 0,
                 effectValue: 0,
                 note: String(this.chromaticBands[i]),
+                notes: this.chromaticBands[i],
             });
         }
 

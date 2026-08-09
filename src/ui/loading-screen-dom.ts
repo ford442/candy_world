@@ -89,8 +89,6 @@ export function createLoadingScreenDOM(
     const overlay = document.createElement('div');
     overlay.id = 'candy-loading-overlay';
     overlay.className = `loading-overlay theme-${options.theme}`;
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
 
     const container = document.createElement('div');
     container.id = 'candy-loading-screen';
