@@ -9,6 +9,7 @@ WebGPU compute path for high-count foliage pose and scalar animation on the **sh
 | URL | `?gpuFoliage=1` (default **OFF** until parity is green) |
 | Disable all GPU compute | `?no_gpu_compute` |
 | DevTools | `window.__gpuFoliageFlag()` → `{ urlEnabled, pilotActive }` |
+*(Note: `getGpuFoliageFlagState().urlEnabled` now means "not opted out", not "user enabled via URL".)*
 | Orchestrator | `window.__gpuFoliageOrchestrator()` → `{ active, disabledByDeviceLoss, animatorReady }` |
 
 Requires `preferGpuCompute()` and a warm shared device (`ensureGpuComputeReady()`). **Zero new `requestDevice` call sites** — all paths borrow via `awaitGpuDevice()`.
