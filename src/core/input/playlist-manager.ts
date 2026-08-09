@@ -436,9 +436,7 @@ export function renderPlaylist(): void {
         const li = document.createElement('li');
         li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
-        li.setAttribute('role', 'status');
-        li.setAttribute('aria-live', 'polite');
-        li.setAttribute('aria-atomic', 'true');
+        // ♿ Aria: Removed role="status" and aria-live as interactive children shouldn't be inside live regions
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'jukebox-empty-icon-container';
@@ -461,6 +459,22 @@ export function renderPlaylist(): void {
             e.stopPropagation();
             if (playlistUploadInput) playlistUploadInput.click();
         };
+
+        // ♿ Aria: Keyboard tactile feedback for empty state browse button
+        browseBtn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (e.repeat) return;
+                browseBtn.classList.add('keyboard-active');
+            }
+        });
+        browseBtn.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                browseBtn.classList.remove('keyboard-active');
+            }
+        });
+        browseBtn.addEventListener('blur', () => {
+            browseBtn.classList.remove('keyboard-active');
+        });
 
         li.appendChild(iconContainer);
         li.appendChild(text);
@@ -521,21 +535,36 @@ export function togglePlaylist(): void {
 
                     // UX: Auto-focus the currently playing track for immediate context
                     if (!audioSystemRef || !playlistList) return;
-                    const currentIdx = audioSystemRef.getCurrentIndex();
-                    const playlistBtns = playlistList.querySelectorAll('.playlist-btn');
 
-                    if (currentIdx >= 0 && playlistBtns[currentIdx]) {
-                        const activeBtn = playlistBtns[currentIdx] as HTMLElement;
-                        activeBtn.focus({ preventScroll: true });
-                        // Ensure the active song is visible in the scrollable list
-                        activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                    } else if (closePlaylistBtn) {
-                        closePlaylistBtn.focus({ preventScroll: true });
+                    if (audioSystemRef.getPlaylist().length === 0) {
+                        const emptyBtn = playlistList.querySelector('.jukebox-browse-btn') as HTMLElement;
+                        const addSongsBtnEl = document.getElementById('addSongsBtn');
+                        if (emptyBtn) {
+                            emptyBtn.focus({ preventScroll: true });
+                        } else if (addSongsBtnEl) {
+                            addSongsBtnEl.focus({ preventScroll: true });
+                        }
+                    } else {
+                        const currentIdx = audioSystemRef.getCurrentIndex();
+                        const playlistBtns = playlistList.querySelectorAll('.playlist-btn');
+
+                        if (currentIdx >= 0 && playlistBtns[currentIdx]) {
+                            const activeBtn = playlistBtns[currentIdx] as HTMLElement;
+                            activeBtn.focus({ preventScroll: true });
+                            // Ensure the active song is visible in the scrollable list
+                            activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                        } else if (closePlaylistBtn) {
+                            closePlaylistBtn.focus({ preventScroll: true });
+                        }
                     }
                 }
             });
 
-            announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
+            if (audioSystemRef && audioSystemRef.getPlaylist().length === 0) {
+                announce('Jukebox opened. Playlist is empty. Use Tab to navigate to Add Songs.', 'polite');
+            } else {
+                announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
+            }
         }
         if (playlistBackdrop) playlistBackdrop.style.display = 'block';
         renderPlaylist();

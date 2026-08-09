@@ -207,9 +207,10 @@ export function makeInteractive(group: THREE.Object3D) {
  * Traps keyboard focus within a specified HTML element.
  * Useful for accessibility in modals and overlay menus.
  * @param element - The HTMLElement to trap focus within.
+ * @param options - Configuration options for the focus trap (e.g., skip auto focus).
  * @returns A cleanup function to remove the event listener when the modal closes.
  */
-export function trapFocusInside(element: HTMLElement, options?: { skipAutoFocus?: boolean }): () => void {
+export function trapFocusInside(element: HTMLElement, options: { skipAutoFocus?: boolean } = {}): () => void {
     // 1. Select all potentially focusable elements within the modal
     const focusableSelectors = [
         'a[href]', 'button:not([disabled])', 'textarea',
@@ -250,8 +251,8 @@ export function trapFocusInside(element: HTMLElement, options?: { skipAutoFocus?
     // 2. Attach the listener
     element.addEventListener('keydown', handleKeyDown);
 
-    // 3. Auto-focus the first element when triggered (unless skipped)
-    if (!options?.skipAutoFocus) {
+    // 3. Auto-focus the first element when triggered
+    if (!options.skipAutoFocus) {
         const initialFocusableEls = element.querySelectorAll<HTMLElement>(focusableSelectors);
         if (initialFocusableEls.length > 0) {
             initialFocusableEls[0].focus({ preventScroll: true });
