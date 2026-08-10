@@ -154,11 +154,10 @@ export function checkHarmonyOrbs() {
         const distSq = dx*dx + dy*dy + dz*dz;
         if (distSq < radiusSq) {
             orb.active = false;
-            // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and matrix math overhead by writing directly to instanceMatrix.array.
-            const te = harmonyOrbSystem.mesh.instanceMatrix.array;
-            const offset = i * 16;
-            te[offset] = 0; te[offset+5] = 0; te[offset+10] = 0;
-            te[offset+12] = 0; te[offset+13] = -9999; te[offset+14] = 0;
+            harmonyOrbSystem.dummy.position.set(0, -9999, 0);
+            harmonyOrbSystem.dummy.scale.setScalar(0);
+            _scratchMatrix.compose(harmonyOrbSystem.dummy.position, harmonyOrbSystem.dummy.quaternion, harmonyOrbSystem.dummy.scale);
+            _scratchMatrix.toArray(harmonyOrbSystem.mesh.instanceMatrix.array, (i) * 16);
             harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
             spawnImpact(orb.position, 'berry', 0x9933FF);
             unlockSystem.harvest('harmony_orb', 1, 'Harmony Orb');

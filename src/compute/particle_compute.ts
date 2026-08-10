@@ -132,11 +132,7 @@ export class ComputeParticleSystem {
      * @param renderer - WebGPU renderer instance
      * @param config - Optional configuration
      */
-    constructor(
-        count: number,
-        renderer: WebGPURenderer,
-        config: ParticleComputeConfig = {}
-    ) {
+    constructor(count: number, renderer: WebGPURenderer, config: ParticleComputeConfig = {}) {
         this.count = count;
         this.renderer = renderer;
         this.type = config.type || 'default';
