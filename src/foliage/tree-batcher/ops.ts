@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { refreshFoliageLodMesh } from '../../systems/batcher-lod.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
-import { batchComposeMatrices_c } from '../../utils/wasm-batch.ts';
-import { isEmscriptenReady } from '../../utils/wasm-loader-core.ts';
+import { writeInstancePose } from '../../utils/wasm-batcher-instance.ts';
 import { getGroundAlignedQuaternion } from '../../world/placement-utils.ts';
 import { foliageGroup } from '../../world/state.ts';
 import { ANIMATION_TYPES } from '../animation-nodes.ts';
@@ -12,10 +11,14 @@ import {
     BATCH_QUEUE_LIMIT,
     MAX_INSTANCES,
     PendingInstance,
-    _batchOutputMatrices,
+    _batchColors,
     _batchPositions,
     _batchQuaternions,
     _batchScales,
+    _gatherColors,
+    _gatherPositions,
+    _gatherQuaternions,
+    _gatherScales,
     _defaultColorGreen,
     _defaultColorOrange,
     _defaultColorWhite,
@@ -414,6 +417,10 @@ export function addInstance(state: TreeBatcherState, mesh: THREE.InstancedMesh, 
         _batchScales[qIndex * 3 + 1] = _scratchScale.y;
         _batchScales[qIndex * 3 + 2] = _scratchScale.z;
 
+        _batchColors[qIndex * 3 + 0] = color.r;
+        _batchColors[qIndex * 3 + 1] = color.g;
+        _batchColors[qIndex * 3 + 2] = color.b;
+
         state._pendingInstances.push({
             mesh,
             index,
@@ -437,92 +444,106 @@ export function flushRegistrations(state: TreeBatcherState) {
         const queueSize = state._pendingInstances.length;
         if (queueSize === 0) return;
 
-        if (isEmscriptenReady()) {
-            batchComposeMatrices_c(
-                _batchPositions,
-                _batchQuaternions,
-                _batchScales,
-                _batchOutputMatrices,
-                queueSize
-            );
+        // Group pending instances by mesh to allow contiguous writeInstancePose
+        const uniqueMeshes = new Set<THREE.InstancedMesh>();
+        for (let i = 0; i < queueSize; i++) {
+            uniqueMeshes.add(state._pendingInstances[i].mesh);
+        }
 
-            // Re-apply to respective mesh buffers
+        for (const mesh of uniqueMeshes) {
+            let gatherCount = 0;
+            let startIdx = -1;
+
+            // Gather instance data for this specific mesh
             for (let i = 0; i < queueSize; i++) {
                 const req = state._pendingInstances[i];
-                const targetArray = req.mesh.instanceMatrix.array as Float32Array;
-                const matrixOffset = req.index * 16;
-                const outOffset = i * 16;
+                if (req.mesh !== mesh) continue;
 
-                // Copy 16 floats
-                for (let j = 0; j < 16; j++) {
-                    targetArray[matrixOffset + j] = _batchOutputMatrices[outOffset + j];
-                }
+                if (startIdx === -1) startIdx = req.index;
+
+                _gatherPositions[gatherCount * 3 + 0] = _batchPositions[i * 3 + 0];
+                _gatherPositions[gatherCount * 3 + 1] = _batchPositions[i * 3 + 1];
+                _gatherPositions[gatherCount * 3 + 2] = _batchPositions[i * 3 + 2];
+
+                _gatherQuaternions[gatherCount * 4 + 0] = _batchQuaternions[i * 4 + 0];
+                _gatherQuaternions[gatherCount * 4 + 1] = _batchQuaternions[i * 4 + 1];
+                _gatherQuaternions[gatherCount * 4 + 2] = _batchQuaternions[i * 4 + 2];
+                _gatherQuaternions[gatherCount * 4 + 3] = _batchQuaternions[i * 4 + 3];
+
+                _gatherScales[gatherCount * 3 + 0] = _batchScales[i * 3 + 0];
+                _gatherScales[gatherCount * 3 + 1] = _batchScales[i * 3 + 1];
+                _gatherScales[gatherCount * 3 + 2] = _batchScales[i * 3 + 2];
+
+                _gatherColors[gatherCount * 3 + 0] = _batchColors[i * 3 + 0];
+                _gatherColors[gatherCount * 3 + 1] = _batchColors[i * 3 + 1];
+                _gatherColors[gatherCount * 3 + 2] = _batchColors[i * 3 + 2];
+
+                gatherCount++;
             }
-        } else {
-            // TS Fallback
-            for (let i = 0; i < queueSize; i++) {
-                const req = state._pendingInstances[i];
-                const targetArray = req.mesh.instanceMatrix.array as Float32Array;
-                const mIdx = req.index * 16;
-                const outOffset = i * 16;
 
-                const qx = _batchQuaternions[i * 4 + 0];
-                const qy = _batchQuaternions[i * 4 + 1];
-                const qz = _batchQuaternions[i * 4 + 2];
-                const qw = _batchQuaternions[i * 4 + 3];
+            if (gatherCount > 0) {
+                // We use scratch contiguous arrays to receive the output from writeInstancePose
+                // instead of passing subarray views of the Mesh's actual arrays because
+                // pending index writes can be sparse.
+                const outMatrices = new Float32Array(gatherCount * 16);
+                const outColors = mesh.instanceColor ? new Float32Array(gatherCount * 3) : null;
 
-                const sx = _batchScales[i * 3 + 0];
-                const sy = _batchScales[i * 3 + 1];
-                const sz = _batchScales[i * 3 + 2];
+                writeInstancePose(
+                    _gatherPositions,
+                    _gatherQuaternions,
+                    _gatherScales,
+                    _gatherColors,
+                    outMatrices,
+                    outColors,
+                    1.0,
+                    gatherCount
+                );
 
-                const x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
-                const xx = qx * x2, xy = qx * y2, xz = qx * z2;
-                const yy = qy * y2, yz = qy * z2, zz = qz * z2;
-                const wx = qw * x2, wy = qw * y2, wz = qw * z2;
+                const matrixArray = mesh.instanceMatrix.array as Float32Array;
+                const colorArray = mesh.instanceColor ? (mesh.instanceColor.array as Float32Array) : null;
 
-                targetArray[mIdx + 0] = (1 - (yy + zz)) * sx;
-                targetArray[mIdx + 1] = (xy + wz) * sx;
-                targetArray[mIdx + 2] = (xz - wy) * sx;
-                targetArray[mIdx + 3] = 0;
+                // Scatter the contiguous outputs back into their correct sparse positions
+                let applyIndex = 0;
+                for (let i = 0; i < queueSize; i++) {
+                    const req = state._pendingInstances[i];
+                    if (req.mesh !== mesh) continue;
 
-                targetArray[mIdx + 4] = (xy - wz) * sy;
-                targetArray[mIdx + 5] = (1 - (xx + zz)) * sy;
-                targetArray[mIdx + 6] = (yz + wx) * sy;
-                targetArray[mIdx + 7] = 0;
+                    const mIdx = req.index * 16;
+                    const srcMIdx = applyIndex * 16;
+                    for (let m = 0; m < 16; m++) {
+                        matrixArray[mIdx + m] = outMatrices[srcMIdx + m];
+                    }
 
-                targetArray[mIdx + 8] = (xz + wy) * sz;
-                targetArray[mIdx + 9] = (yz - wx) * sz;
-                targetArray[mIdx + 10] = (1 - (xx + yy)) * sz;
-                targetArray[mIdx + 11] = 0;
+                    if (colorArray && outColors) {
+                        const cIdx = req.index * 3;
+                        const srcCIdx = applyIndex * 3;
+                        for (let c = 0; c < 3; c++) {
+                            colorArray[cIdx + c] = outColors[srcCIdx + c];
+                        }
+                    }
 
-                targetArray[mIdx + 12] = _batchPositions[i * 3 + 0];
-                targetArray[mIdx + 13] = _batchPositions[i * 3 + 1];
-                targetArray[mIdx + 14] = _batchPositions[i * 3 + 2];
-                targetArray[mIdx + 15] = 1;
+                    applyIndex++;
+                }
+
+                mesh.instanceMatrix.needsUpdate = true;
+                if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
             }
         }
 
-        // Write standard attributes efficiently
-        const updatedMeshes = new Set<THREE.InstancedMesh>();
+        // Write non-pose standard attributes efficiently
         for (let i = 0; i < queueSize; i++) {
             const req = state._pendingInstances[i];
-            updatedMeshes.add(req.mesh);
-
-            // Color hot path
-            const colorArray = req.mesh.instanceColor!.array as Float32Array;
-            const colorOffset = req.index * 3;
-            colorArray[colorOffset] = req.color.r;
-            colorArray[colorOffset + 1] = req.color.g;
-            colorArray[colorOffset + 2] = req.color.b;
 
             // Animation hot path
             const typeAttr = req.mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
             const offsetAttr = req.mesh.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute;
             if (typeAttr?.array) {
                 (typeAttr.array as Float32Array)[req.index] = req.animType;
+                typeAttr.needsUpdate = true;
             }
             if (offsetAttr?.array) {
                 (offsetAttr.array as Float32Array)[req.index] = req.animOffset;
+                offsetAttr.needsUpdate = true;
             }
         }
 
