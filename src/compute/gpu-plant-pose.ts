@@ -14,7 +14,7 @@ import {
     trackGpuBufferBytes,
 } from './compute-orchestrator.ts';
 import { getSharedGPUCompute } from './gpu-compute-library.ts';
-import { isGpuFoliagePilotEnabled } from './gpu-foliage-flag.ts';
+import { isGpuFoliageDefaultPath } from './gpu-foliage-flag.ts';
 
 const PLANT_POSE_WGSL = /* wgsl */ `
 struct Uniforms {
@@ -125,7 +125,7 @@ const UNIFORM_FLOATS = 16; // 64 bytes
 const STATE_FLOATS_PER_INSTANCE = 2; // envelope + currentPose
 
 function shouldRunGpuPlantPose(count: number): boolean {
-    return isGpuFoliagePilotEnabled() && count > 0;
+    return isGpuFoliageDefaultPath() && count > 0;
 }
 
 async function ensurePoseGpu(maxCount: number): Promise<boolean> {
@@ -317,7 +317,7 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
 
 /** Synchronous gate for batchers — async work must be awaited by caller. */
 export function shouldUseGpuPlantPose(count: number): boolean {
-    return shouldRunGpuPlantPose(count);
+    return isGpuFoliageDefaultPath() && count > 0;
 }
 
 export function disposeGpuPlantPose(): void {

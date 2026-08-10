@@ -13,7 +13,7 @@ import {
     trackGpuBufferBytes,
 } from './compute-orchestrator.ts';
 import { getSharedGPUCompute } from './gpu-compute-library.ts';
-import { isGpuFoliagePilotEnabled } from './gpu-foliage-flag.ts';
+import { isGpuFoliageOptedOut } from './gpu-foliage-flag.ts';
 
 const BATCH_SCALAR_WGSL = /* wgsl */ `
 struct Uniforms {
@@ -269,7 +269,7 @@ export function takeFoliageGpuScalarResult(batchKey: string): Float32Array | nul
 /** Sync gate for foliage-batcher: pilot flag + ready + min batch size. */
 export function shouldUseFoliageGpuBatch(count: number): boolean {
     return (
-        isGpuFoliagePilotEnabled() &&
+        !isGpuFoliageOptedOut() &&
         preferGpuCompute() &&
         isGpuComputeReady() &&
         count >= (CONFIG.compute?.foliageGpuBatchMin ?? 8)

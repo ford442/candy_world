@@ -9,6 +9,7 @@ import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import {
     foliageMaterials,
@@ -419,8 +420,10 @@ export class FlowerBatcher {
             case 'spiralCount': this.spiralCount++; mesh.count = this.spiralCount; break;
         }
 
-        mesh.instanceMatrix.needsUpdate = true;
-        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(mesh.count)) {
+            mesh.instanceMatrix.needsUpdate = true;
+            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        }
     }
 
     update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {

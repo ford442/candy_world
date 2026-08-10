@@ -152,7 +152,7 @@ export {
     isGpuComputeReady,
     setLastFrameGpuFoliage,
 } from './compute-orchestrator.ts';
-export { isGpuFoliagePilotEnabled, getGpuFoliageFlagState } from './gpu-foliage-flag.ts';
+export { isGpuFoliageDefaultPath, getGpuFoliageFlagState } from './gpu-foliage-flag.ts';
 export {
     initGpuFoliageOrchestrator,
     getGpuFoliageAnimator,

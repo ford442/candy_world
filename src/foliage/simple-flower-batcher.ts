@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld, uv, distance, vec2, varyingProperty, add } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { isGpuFoliagePilotEnabled } from '../compute/gpu-foliage-flag.ts';
+import { isGpuFoliageDefaultPath } from '../compute/gpu-foliage-flag.ts';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import {
     runGpuPlantPose,
     uploadGpuPlantPositions,
@@ -436,7 +437,7 @@ export class SimpleFlowerBatcher {
         const i = this.count;
         const { color = 0xFFFFFF } = options;
 
-        if (this._gpuPositions && isGpuFoliagePilotEnabled()) {
+        if (this._gpuPositions && isGpuFoliageDefaultPath()) {
             const base = i * 3;
             this._gpuPositions[base] = logicObject.position.x;
             this._gpuPositions[base + 1] = logicObject.position.y;
@@ -551,22 +552,25 @@ export class SimpleFlowerBatcher {
         }
 
         // Mark for update
-        this.stemMesh!.instanceMatrix.needsUpdate = true;
         this.stemMesh!.count = this.count;
-
-        this.petalMesh!.instanceMatrix.needsUpdate = true;
-        if (this.petalMesh!.instanceColor) this.petalMesh!.instanceColor.needsUpdate = true;
         this.petalMesh!.count = this.count;
-
-        this.centerMesh!.instanceMatrix.needsUpdate = true;
         this.centerMesh!.count = this.count;
-
-        this.stamenMesh!.instanceMatrix.needsUpdate = true;
         this.stamenMesh!.count = this.count;
-
-        this.beamMesh!.instanceMatrix.needsUpdate = true;
-        if (this.beamMesh!.instanceColor) this.beamMesh!.instanceColor.needsUpdate = true;
         this.beamMesh!.count = this.count;
+
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.stemMesh!.instanceMatrix.needsUpdate = true;
+
+            this.petalMesh!.instanceMatrix.needsUpdate = true;
+            if (this.petalMesh!.instanceColor) this.petalMesh!.instanceColor.needsUpdate = true;
+
+            this.centerMesh!.instanceMatrix.needsUpdate = true;
+
+            this.stamenMesh!.instanceMatrix.needsUpdate = true;
+
+            this.beamMesh!.instanceMatrix.needsUpdate = true;
+            if (this.beamMesh!.instanceColor) this.beamMesh!.instanceColor.needsUpdate = true;
+        }
 
         // Update Pollen
         if (this.pollenPoints) {

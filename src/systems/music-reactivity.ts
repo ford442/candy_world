@@ -18,6 +18,7 @@ import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { uploadPositionsFlat, batchDistanceCull } from '../utils/wasm-batch.ts';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import {
     updateAtmosphereReactivity,
     registerAtmosphereBeatSync,
@@ -243,6 +244,11 @@ export class MusicReactivitySystem {
     }
 
     private updateFoliageAnimationLoop(time: number, deltaTime: number, audioState: AudioData | null, cpuAnimatedFoliage: FoliageObject[], camera: THREE.Camera, isDay: boolean, isDeepNight: boolean) {
+        // ⚡ OPTIMIZATION: Short-circuit CPU math if the GPU compute shader is handling instances
+        if (shouldUseFoliageGpuBatch(cpuAnimatedFoliage?.length || 0)) {
+            return;
+        }
+
         const isNight = !isDay;
         if (typeof isDay !== 'boolean') {
             console.warn('[Music] isDay parameter missing');

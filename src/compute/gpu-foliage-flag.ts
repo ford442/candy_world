@@ -10,7 +10,7 @@
 import { preferGpuCompute, isGpuComputeReady } from './compute-orchestrator.ts';
 
 /** Returns false only when the user explicitly opts out via URL params. */
-function isGpuFoliageOptedOut(): boolean {
+export function isGpuFoliageOptedOut(): boolean {
     try {
         const params = new URLSearchParams(window.location.search);
         if (params.has('no_gpu_foliage')) return true;
@@ -28,15 +28,10 @@ function isGpuFoliageOptedOut(): boolean {
  * True when the GPU foliage default path is active (device available and not
  * opted out). Previously a pilot requiring `?gpuFoliage=1`; now ON by default.
  */
-export function isGpuFoliagePilotEnabled(): boolean {
+export function isGpuFoliageDefaultPath(): boolean {
     if (typeof window === 'undefined') return false;
     if (isGpuFoliageOptedOut()) return false;
     return preferGpuCompute() && isGpuComputeReady();
-}
-
-/** Convenience alias that clarifies intent at call sites. */
-export function isGpuFoliageDefaultPath(): boolean {
-    return isGpuFoliagePilotEnabled();
 }
 
 /** Exposed for devtools / smoke assertions. */
