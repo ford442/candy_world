@@ -1,4 +1,5 @@
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
 import { log } from '../utils/log.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { announce } from './announcer.ts';
@@ -44,6 +45,7 @@ export class LoadingScreen {
     private onSkipCallbacks: Set<(phaseId: string) => void> = new Set();
     private onCompleteCallbacks: Set<() => void> = new Set();
 
+    private releaseFocusTrap: (() => void) | null = null;
     private lastFocusedElement: HTMLElement | null = null;
 
     private isFCP = false;
@@ -159,8 +161,14 @@ export class LoadingScreen {
 
         this.lastFocusedElement = document.activeElement as HTMLElement;
 
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
+
         if (this.container) {
             this.container.setAttribute('tabindex', '-1');
+            this.container.setAttribute('aria-modal', 'true');
         }
 
         // Trigger reflow for animation
@@ -174,6 +182,12 @@ export class LoadingScreen {
             void this.container.offsetWidth;
             this.container.classList.add('visible');
         }
+
+        yieldToPaint(50).then(() => {
+            if (this.container && this.isVisible) {
+                this.releaseFocusTrap = trapFocusInside(this.container);
+            }
+        });
 
         this.lastTime = performance.now();
         if (this.animationFrameId === null) {
@@ -252,6 +266,11 @@ export class LoadingScreen {
         if (!this.isVisible || this.isComplete) return;
 
         this.isComplete = true;
+
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
 
         if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
             this.lastFocusedElement.focus({ preventScroll: true });
@@ -638,6 +657,10 @@ export class LoadingScreen {
     }
 
     private destroy(): void {
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
         if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
             this.lastFocusedElement.focus({ preventScroll: true });
             this.lastFocusedElement = null;

@@ -17,6 +17,7 @@ const modFloat = (x: any, y: any) => {
 };
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     sharedGeometries, foliageMaterials, uTime,
@@ -387,7 +388,7 @@ export class WaterfallBatcher {
             // ratio = sqrt(scaleXSq) * thicknessScale / sqrt(currentScaleZSq)
             // ratio = sqrt(scaleXSq / currentScaleZSq) * thicknessScale
             // We can compute this with Math.sqrt once, which is better, but since it's a relative thickness ratio we can just use the target
-            const ratio = Math.sqrt(scaleXSq / currentScaleZSq) * thicknessScale;
+            const ratio = (fastInvSqrt(currentScaleZSq) / fastInvSqrt(scaleXSq)) * thicknessScale;
             matrixArray[offset + 8] *= ratio;
             matrixArray[offset + 9] *= ratio;
             matrixArray[offset + 10] *= ratio;

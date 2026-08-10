@@ -32,7 +32,6 @@ let _lastMineReady: boolean | null = null;
 let _currentEnergyPulseScale: number = 1.0;
 let _lastPhaseCount: number | null = null;
 let _lastPhaseActive: boolean | null = null;
-let _lastPhaseReady: boolean | null = null;
 let _lastStrikeState: boolean = false;
 
 // ♿ Aria: Track low energy announcement to prevent spam
@@ -221,12 +220,10 @@ export function updateDashHUD(
             hudDash.setAttribute('aria-disabled', 'false');
             hudDash.title = "Dash (E) - Ready!";
             hudDash.setAttribute('aria-label', "Dash Ability (E) - Ready!");
-            if (_lastDashReady !== null) announce('Dash ready', 'polite');
         } else {
             hudDash.setAttribute('aria-disabled', 'true');
             hudDash.title = "Dash (E) - Recharging...";
             hudDash.setAttribute('aria-label', "Dash Ability (E) - Recharging...");
-            if (_lastDashReady !== null) announce('Dash recharging', 'polite');
         }
         _lastDashReady = isReady;
     }
@@ -259,12 +256,10 @@ export function updateMineHUD(
             hudMine.setAttribute('aria-disabled', 'false');
             hudMine.title = "Jitter Mine (F) - Ready!";
             hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Ready!");
-            if (_lastMineReady !== null) announce('Jitter Mine ready', 'polite');
         } else {
             hudMine.setAttribute('aria-disabled', 'true');
             hudMine.title = "Jitter Mine (F) - Recharging...";
             hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Recharging...");
-            if (_lastMineReady !== null) announce('Jitter Mine recharging', 'polite');
         }
         _lastMineReady = isReady;
     }
@@ -339,14 +334,6 @@ export function updatePhaseHUD(
                 hudPhase.setAttribute('aria-disabled', 'true');
                 hudPhase.title = "Phase Shift (Z) - Need Tremolo Bulb";
                 hudPhase.setAttribute('aria-label', "Phase Shift (Z) - Empty (Need Tremolo Bulb)");
-            }
-            if (isReady !== _lastPhaseReady) {
-                if (isReady) {
-                    if (_lastPhaseReady !== null) announce('Phase Shift ready', 'polite');
-                } else {
-                    if (_lastPhaseReady !== null) announce('Phase Shift empty (need Tremolo Bulb)', 'polite');
-                }
-                _lastPhaseReady = isReady;
             }
         }
 

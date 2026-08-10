@@ -19,7 +19,7 @@
 
 import * as THREE from 'three';
 import { vec3, positionLocal } from 'three/tsl';
-import { MeshStandardNodeMaterial, MeshBasicNodeMaterial, type WebGPURenderer } from 'three/webgpu';
+import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
 import { CONFIG, isCIorHeadless } from '../core/config.ts';
 import { CandyPresets, foliageMaterials } from '../foliage/index.ts';
 import { createTerrainMaterial } from '../foliage/terrain.ts';
@@ -238,7 +238,7 @@ export class ShaderWarmup {
    */
   async warmupSingle(
     material: THREE.Material,
-    renderer: WebGPURenderer,
+    renderer: THREE.Renderer,
     name: string
   ): Promise<boolean> {
     if (this.warmedMaterials.has(name)) {
@@ -343,7 +343,7 @@ export class ShaderWarmup {
    * ```
    */
   async warmAll(
-    renderer: WebGPURenderer,
+    renderer: THREE.Renderer,
     onProgress?: WarmupProgressCallback
   ): Promise<WarmupStats> {
     const targets = this.getTargets();
@@ -383,7 +383,7 @@ export class ShaderWarmup {
    */
   private async warmSequential(
     targets: WarmupTarget[],
-    renderer: WebGPURenderer,
+    renderer: THREE.Renderer,
     onProgress?: WarmupProgressCallback
   ): Promise<void> {
     for (let i = 0; i < targets.length; i++) {
@@ -411,7 +411,7 @@ export class ShaderWarmup {
    */
   private async warmParallel(
     targets: WarmupTarget[],
-    renderer: WebGPURenderer,
+    renderer: THREE.Renderer,
     onProgress?: WarmupProgressCallback
   ): Promise<void> {
     const { batchSize } = this.options;
@@ -486,7 +486,7 @@ export class ShaderWarmup {
  */
 export async function warmupShader(
   material: THREE.Material,
-  renderer: WebGPURenderer,
+  renderer: THREE.Renderer,
   scene?: THREE.Scene,
   camera?: THREE.Camera
 ): Promise<boolean> {
@@ -540,7 +540,7 @@ export async function warmupShader(
  * ```
  */
 export async function warmupAllShaders(
-  renderer: WebGPURenderer,
+  renderer: THREE.Renderer,
   scene?: THREE.Scene | null,
   camera?: THREE.Camera | null,
   onProgress?: WarmupProgressCallback,
