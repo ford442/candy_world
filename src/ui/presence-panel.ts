@@ -190,6 +190,9 @@ export function installPresenceStartScreenUI(): void {
             checkbox.classList.remove('keyboard-active');
         }
     });
+    checkbox.addEventListener('blur', () => {
+        checkbox.classList.remove('keyboard-active');
+    });
 
     copyBtn.addEventListener('click', async () => {
         try {
@@ -211,7 +214,7 @@ export function installPresenceStartScreenUI(): void {
     modeSelect.insertAdjacentElement('afterend', wrapper);
 
     yieldToPaint(50).then(() => {
-        trapFocusInside(wrapper);
+        trapFocusInside(wrapper, { skipAutoFocus: true });
         wrapper.focus();
     });
 }
