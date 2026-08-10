@@ -11,7 +11,9 @@ import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.t
 import { circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
+import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -175,8 +177,10 @@ export class MushroomBatcher {
             this.count
         );
 
-        this.mesh.instanceMatrix.needsUpdate = true;
-        if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh.instanceMatrix.needsUpdate = true;
+            if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+        }
         this._matricesDirty = false;
     }
 
@@ -795,8 +799,10 @@ export class MushroomBatcher {
             this.noteToInstances.get(noteIndex)!.push(i);
         }
 
-        this.mesh!.instanceMatrix.needsUpdate = true;
-        if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh!.instanceMatrix.needsUpdate = true;
+            if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        }
         this.instanceData!.needsUpdate = true;
     }
 
@@ -872,8 +878,10 @@ export class MushroomBatcher {
 
         // 4. Mark Updates
         this.mesh!.count = this.count;
-        this.mesh!.instanceMatrix.needsUpdate = true;
-        if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh!.instanceMatrix.needsUpdate = true;
+            if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        }
         this.instanceData!.needsUpdate = true;
     }
 
@@ -907,7 +915,7 @@ export class MushroomBatcher {
                     // Extract scale Y (magnitude of the second column)
                     const m10 = matrixArray[matOffset + 4], m11 = matrixArray[matOffset + 5], m12 = matrixArray[matOffset + 6];
                     const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
-                    const scaleY = Math.sqrt(scaleYSq);
+                    const scaleY = scaleYSq === 0 ? 0 : scaleYSq * fastInvSqrt(scaleYSq);
 
                     if (this.mesh.instanceColor) {
                         const colorArray = this.mesh.instanceColor.array as Float32Array;

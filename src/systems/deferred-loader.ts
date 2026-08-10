@@ -399,8 +399,7 @@ export class DeferredLoader {
           priority: item.priority,
           error: error instanceof Error ? error : new Error(String(error)),
         });
-        spawnTracker.recordAttempt(`deferred:${item.id}`);
-        spawnTracker.recordFailure(`deferred:${item.id}`, error instanceof Error ? error.message : String(error));
+        spawnTracker.recordSpawnAttempt(`deferred:${item.id}`, false, error);
         item.loaded = true; // Mark as loaded to skip in future
         this.currentIndex++;
       }
