@@ -6,6 +6,7 @@ import { isEmscriptenReady } from '../../utils/wasm-loader-core.ts';
 import { getGroundAlignedQuaternion } from '../../world/placement-utils.ts';
 import { foliageGroup } from '../../world/state.ts';
 import { ANIMATION_TYPES } from '../animation-nodes.ts';
+import { shouldUseFoliageGpuBatch } from '../../compute/foliage-gpu-batch.ts';
 import { copyInstanceLodOnGrow, initInstanceLodAttribute } from '../batcher-lod-utils.ts';
 import {
     BATCH_QUEUE_LIMIT,
@@ -527,8 +528,10 @@ export function flushRegistrations(state: TreeBatcherState) {
 
         // Flag updates
         updatedMeshes.forEach(m => {
-            m.instanceMatrix.needsUpdate = true;
-            if (m.instanceColor) m.instanceColor.needsUpdate = true;
+            if (!shouldUseFoliageGpuBatch(m.count)) {
+                m.instanceMatrix.needsUpdate = true;
+                if (m.instanceColor) m.instanceColor.needsUpdate = true;
+            }
             if (m.geometry.attributes.instanceAnimType) (m.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute).needsUpdate = true;
             if (m.geometry.attributes.instanceAnimOffset) (m.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute).needsUpdate = true;
         });

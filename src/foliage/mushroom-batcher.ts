@@ -13,6 +13,7 @@ import { makeInteractive } from '../utils/interaction-utils.ts';
 import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -176,8 +177,10 @@ export class MushroomBatcher {
             this.count
         );
 
-        this.mesh.instanceMatrix.needsUpdate = true;
-        if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh.instanceMatrix.needsUpdate = true;
+            if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+        }
         this._matricesDirty = false;
     }
 
@@ -796,8 +799,10 @@ export class MushroomBatcher {
             this.noteToInstances.get(noteIndex)!.push(i);
         }
 
-        this.mesh!.instanceMatrix.needsUpdate = true;
-        if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh!.instanceMatrix.needsUpdate = true;
+            if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        }
         this.instanceData!.needsUpdate = true;
     }
 
@@ -873,8 +878,10 @@ export class MushroomBatcher {
 
         // 4. Mark Updates
         this.mesh!.count = this.count;
-        this.mesh!.instanceMatrix.needsUpdate = true;
-        if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh!.instanceMatrix.needsUpdate = true;
+            if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        }
         this.instanceData!.needsUpdate = true;
     }
 
