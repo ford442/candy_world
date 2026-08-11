@@ -324,6 +324,21 @@ export const CONFIG: ConfigType = {
             'A#': 0xd8bfd8,
             B: 0xffd1dc,
         },
+        // Subterranean Sugar Caves (Crystal/Icy tones)
+        sugar_caves: {
+            C: 0x00ffff,
+            'C#': 0x40e0d0,
+            D: 0x8a2be2,
+            'D#': 0x9370db,
+            E: 0xff00ff,
+            F: 0xff69b4,
+            'F#': 0x1e90ff,
+            G: 0x00bfff,
+            'G#': 0x87cefa,
+            A: 0xda70d6,
+            'A#': 0xba55d3,
+            B: 0x00fa9a,
+        },
     },
 
     // Per-species reaction tuning

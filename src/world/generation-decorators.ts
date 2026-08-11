@@ -6,6 +6,7 @@ import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import { createSkyIsland, skyIslandBatcher } from '../foliage/sky-islands.ts';
 import { createIntegratedGemSparks, createIntegratedSpores, registerIntegratedSystem } from '../particles/compute-integration.ts';
 import { getParticles } from '../particles/lazy.ts';
+import { sugarCaveBatcher } from '../foliage/index.ts';
 import {
     registerWalkableIslandPlatform,
     registerWalkableCloudPlatform,
@@ -22,7 +23,7 @@ import {
     getProceduralEntityCount, DEFAULT_PROCEDURAL_CHUNK_SIZE,
     getEntityBudgetMs, WeatherSystem, FoliageGrowthOptions, yieldControl,
     isPositionValid, normalizeMapEntityType,
-    GEM_CANOPY, MYCELIUM_GROVE, CLOUD_ARCHIPELAGO, SKY_ISLANDS
+    GEM_CANOPY, MYCELIUM_GROVE, CLOUD_ARCHIPELAGO, SKY_ISLANDS, SUGAR_CAVES
 } from './generation-utils.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import {
@@ -581,6 +582,46 @@ export async function populateCloudArchipelago(weatherSystem: WeatherSystem): Pr
  * Stacked sky islands — low mist / mid canopy / high nebula (#1363).
  * Absolute Y tiers + vine ladders + cloud ring + panning lift pads.
  */
+export async function populateSugarCaves(weatherSystem: WeatherSystem): Promise<void> {
+    if (!SUGAR_CAVES.enabled) return;
+
+    console.log('[World] Populating Subterranean Sugar Caves...');
+    sugarCaveBatcher.clear();
+
+    const { startX, startZ, endX, endZ, density } = SUGAR_CAVES;
+    const dx = endX - startX;
+    const dz = endZ - startZ;
+    const length = Math.sqrt(dx * dx + dz * dz);
+    const count = Math.floor(length * density);
+
+    const _scratchPos = new THREE.Vector3();
+    const _scratchQuat = new THREE.Quaternion();
+
+    for (let i = 0; i < count; i++) {
+        const t = i / Math.max(1, count - 1);
+        const x = startX + dx * t + (Math.random() - 0.5) * 6.0;
+        const z = startZ + dz * t + (Math.random() - 0.5) * 6.0;
+
+        // Ensure caves are placed underground relative to unified ground height
+        const terrainY = sampleGroundY(x, z);
+        const caveY = terrainY - 5.0 - (Math.random() * 4.0);
+
+        _scratchPos.set(x, caveY, z);
+
+        // Random orientation
+        _scratchQuat.setFromEuler(new THREE.Euler(
+            (Math.random() - 0.5) * Math.PI,
+            Math.random() * Math.PI * 2,
+            (Math.random() - 0.5) * Math.PI
+        ));
+
+        const scale = 0.8 + Math.random() * 0.8;
+        sugarCaveBatcher.add(_scratchPos, _scratchQuat, scale);
+
+        if (i % 20 === 19) await yieldControl();
+    }
+}
+
 export async function populateSkyIslands(weatherSystem: WeatherSystem): Promise<void> {
     if (!SKY_ISLANDS.enabled) return;
 
