@@ -56,7 +56,7 @@ const _scratch = new THREE.Vector3();
 
 function isPlacerFlagEnabled(): boolean {
     try {
-        // @ts-expect-error
+        // @ts-expect-error - Vite env vars are not typed in this file
         if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) return true;
         return (
             new URLSearchParams(window.location.search).get('cloudPlacer') === '1' ||
