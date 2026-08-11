@@ -53,7 +53,17 @@ export function computeWaveTimeSinceArrival(
     const dx = plantWorldPos.x - origin.x;
     const dy = plantWorldPos.y - origin.y;
     const dz = plantWorldPos.z - origin.z;
-    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    // ⚡ OPTIMIZATION: Deferred Math.sqrt(). Early-out if the wave front hasn't reached the plant yet.
+    const distSq = dx * dx + dy * dy + dz * dz;
+    const elapsed = (performance.now() - activeWave.timestamp) / 1000;
+    const waveRadius = elapsed * speed;
+
+    if (waveRadius <= 0 || distSq > waveRadius * waveRadius) {
+        return -1;
+    }
+
+    const distance = Math.sqrt(distSq);
     const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
     return (performance.now() - arrivalTime) / 1000;
 }
