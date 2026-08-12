@@ -144,6 +144,8 @@ export interface LoadedCandyMap {
     entities: LoadedMapEntity[];
     getEntitiesByType(type: string): LoadedMapEntity[];
     getEntitiesByBiome(biome: string): LoadedMapEntity[];
+    getEntityById(id: string): LoadedMapEntity | undefined;
+    getEntitiesByIds(ids: readonly string[], out?: LoadedMapEntity[]): LoadedMapEntity[];
     getEntitiesInBounds(
         bounds: { minX: number; minY?: number; minZ: number; maxX: number; maxY?: number; maxZ: number }
     ): LoadedMapEntity[];
@@ -627,6 +629,7 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
     private cellIndex: Map<string, LoadedMapEntity[]> = new Map();
     private byType: Map<string, LoadedMapEntity[]> = new Map();
     private byBiome: Map<string, LoadedMapEntity[]> = new Map();
+    private byId: Map<string, LoadedMapEntity> = new Map();
     private nearestScratch: NearestScratch[] = [];
     private nearestScratchCount: number = 0;
     private streamScratch: LoadedMapEntity[] = [];
@@ -661,6 +664,8 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
 
     private buildIndexes(): void {
         for (const entity of this.entities) {
+            this.byId.set(entity.id, entity);
+
             const typeList = this.byType.get(entity.type);
             if (typeList) typeList.push(entity);
             else this.byType.set(entity.type, [entity]);
@@ -692,6 +697,19 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
 
     getEntitiesByBiome(biome: string): LoadedMapEntity[] {
         return this.byBiome.get(biome) ?? [];
+    }
+
+    getEntityById(id: string): LoadedMapEntity | undefined {
+        return this.byId.get(id);
+    }
+
+    getEntitiesByIds(ids: readonly string[], out: LoadedMapEntity[] = []): LoadedMapEntity[] {
+        out.length = 0;
+        for (let i = 0; i < ids.length; i++) {
+            const entity = this.byId.get(ids[i]);
+            if (entity) out.push(entity);
+        }
+        return out;
     }
 
     getEntitiesInBounds(
@@ -884,6 +902,56 @@ export async function loadMap(source: string | CandyMapData): Promise<LoadedCand
     };
 
     return new LoadedCandyMapImpl(sourceLabel, data, entities);
+}
+
+// --- Build-time spatial chunk index (assets/map-chunks.json) ---
+// Produced by tools/map-generator/build-chunk-index.ts. Maps "cx,cz" chunk keys
+// (world position divided by chunkSize, floored) to the entity ids inside that
+// chunk, so ChunkStreamer can look up "what's near the spawn tile" without
+// scanning every entity in the map. A reserved "__meta__" key carries the
+// chunk size and total indexed entity count used for the CI parity check.
+export interface MapChunkIndex {
+    chunkSize: number;
+    entityCount: number;
+    chunks: Map<string, string[]>;
+}
+
+interface RawMapChunkIndexFile {
+    __meta__?: { chunkSize?: number; entityCount?: number };
+    [chunkKey: string]: unknown;
+}
+
+const CHUNK_INDEX_META_KEY = '__meta__';
+
+/**
+ * Fetch and parse the build-time chunk index. Returns null (never throws) when
+ * the artifact is missing, stale, or malformed — callers must fall back to
+ * computing chunk membership from the loaded map directly (dev / hot-reload
+ * without a regenerated index).
+ */
+export async function loadMapChunkIndex(
+    source: string = new URL('../../assets/map-chunks.json', import.meta.url).href
+): Promise<MapChunkIndex | null> {
+    try {
+        const raw = (await fetchMapJson(source)) as RawMapChunkIndexFile;
+        if (!raw || typeof raw !== 'object') return null;
+        const meta = raw[CHUNK_INDEX_META_KEY];
+        const chunkSize = typeof meta?.chunkSize === 'number' && meta.chunkSize > 0 ? meta.chunkSize : 32;
+        const entityCount = typeof meta?.entityCount === 'number' ? meta.entityCount : -1;
+
+        const chunks = new Map<string, string[]>();
+        for (const [key, value] of Object.entries(raw)) {
+            if (key === CHUNK_INDEX_META_KEY) continue;
+            if (!Array.isArray(value)) continue;
+            const ids = value.filter((v): v is string => typeof v === 'string');
+            chunks.set(key, ids);
+        }
+        if (chunks.size === 0) return null;
+        return { chunkSize, entityCount, chunks };
+    } catch (error) {
+        console.warn(`[MapLoader] Chunk index unavailable (${source}); falling back to bounding-box queries.`, error);
+        return null;
+    }
 }
 
 export function setupMapHotReload(source: string, onReload: () => void): void {

@@ -22,6 +22,7 @@ import { updateProgress } from '../ui/loading-screen.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
 import { initCollisionSystem } from '../utils/wasm-loader.ts';
+import { ChunkStreamer, setActiveChunkStreamer } from './chunk-streamer.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { safeAddFoliage, processMapEntity } from './generation-entities.ts';
 import {
@@ -43,6 +44,7 @@ import { animatedFoliage, worldGroup } from './state.ts';
 import {
     getMapSourceFromUrl,
     loadMap,
+    loadMapChunkIndex,
     setupMapHotReload,
     type LoadedCandyMap,
 } from './map-loader.ts';
@@ -75,6 +77,19 @@ const STREAMING_PRIORITY_TYPES = [
 
 const VISIBLE_BUBBLE_RADIUS = 80;
 const VISIBLE_BUBBLE_LIMIT = 300;
+
+/**
+ * "play" — chunk-gated boot (#1546/#1548): materialize only the spawn tile
+ * synchronously, stream everything else in via ChunkStreamer as the player
+ * walks. This is the default so "Enter" stays fast without touching the
+ * startup profile / start screen (out of scope for this change — see #1547).
+ * "explore" preserves the pre-existing 80m-bubble + horizon-streaming
+ * behavior for callers that opt in explicitly.
+ */
+export type BootPath = 'play' | 'explore';
+const DEFAULT_BOOT_PATH: BootPath = 'play';
+const PLAY_SPAWN_RADIUS_CHUNKS = 1;
+const PLAY_SPAWN_ENTITY_CAP = 80;
 
 function applyMapPreallocationHints(loadedMap: LoadedCandyMap): void {
     const expected = loadedMap.getExpectedInstanceCounts();
@@ -306,23 +321,97 @@ export async function initWorld(
 export async function generateMap(
     weatherSystem: WeatherSystem,
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
-    onProgress?: WorldProgressCallback
+    onProgress?: WorldProgressCallback,
+    bootPath: BootPath = DEFAULT_BOOT_PATH
 ): Promise<void> {
     worldGenerationToken = Date.now();
     (window as any).__currentWorldGenerationToken = worldGenerationToken;
     const generationToken = worldGenerationToken;
     resetSpawnTracker();
+    setActiveChunkStreamer(null);
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
     const loadedMap = await getLoadedMap();
     applyMapPreallocationHints(loadedMap);
     console.log(
-        `[World] Loading map (${loadedMap.source}) with ${loadedMap.entities.length} entities...`
+        `[World] Loading map (${loadedMap.source}) with ${loadedMap.entities.length} entities... (bootPath=${bootPath})`
     );
 
     // Reset WASM Collision System for Generation Phase
     initCollisionSystem();
 
+    if (bootPath === 'play') {
+        await generateMapPlayPath(loadedMap, weatherSystem, generationToken, chunkSize, onProgress);
+    } else {
+        await generateMapExplorePath(loadedMap, weatherSystem, generationToken, chunkSize, onProgress);
+    }
+
+    performance.mark('candy:map-generation-end');
+    try {
+        performance.measure(
+            'candy:Map Generation',
+            'candy:map-generation-start',
+            'candy:map-generation-end'
+        );
+    } catch (_e) {
+        /* ignore if marks were cleared */
+    }
+
+    console.timeEnd('[World] generateMap total');
+    console.log('[World] Map streaming bootstrap complete. Horizon tasks queued.');
+}
+
+/**
+ * Play boot path (#1548): spawn ONLY the player's spawn tile (+1 ring, ≤80
+ * entities) synchronously so Enter -> pointer-lock stays fast. Everything
+ * else — the rest of the map plus procedural decorators — is handed to
+ * ChunkStreamer / the background processor and streams in as the player
+ * walks, off the critical path entirely.
+ */
+async function generateMapPlayPath(
+    loadedMap: LoadedCandyMap,
+    weatherSystem: WeatherSystem,
+    generationToken: number,
+    chunkSize: number,
+    onProgress?: WorldProgressCallback
+): Promise<void> {
+    startPhase('Map Streaming Phase 1 (Spawn Chunk)');
+    console.time('[World] play-spawn-chunk');
+    const chunkIndex = await loadMapChunkIndex();
+    const streamer = new ChunkStreamer(loadedMap, weatherSystem, chunkIndex);
+    setActiveChunkStreamer(streamer);
+    const spawned = streamer.loadSpawnPlayable(PLAY_SPAWN_RADIUS_CHUNKS, PLAY_SPAWN_ENTITY_CAP);
+    console.timeEnd('[World] play-spawn-chunk');
+    endPhase('Map Streaming Phase 1 (Spawn Chunk)');
+    console.log(
+        `[World] Play boot: spawned ${spawned} entities in spawn chunk ` +
+            `(${chunkIndex ? `indexed, ${chunkIndex.entityCount} total` : 'bounding-box fallback, no index'}).`
+    );
+
+    // NOTE: no initDiscoveryForFoliage() call here — ChunkStreamer registers
+    // each spawned object with the discovery grid itself as it loads it
+    // (dedup'd by object uuid). Calling initDiscoveryForFoliage(animatedFoliage)
+    // here too would double-register the spawn-tile entities.
+
+    if (onProgress) onProgress(spawned, spawned, '[World] Spawn chunk ready');
+
+    queueDecoratorBootstrap(weatherSystem, generationToken, chunkSize);
+}
+
+/**
+ * Explore boot path: the pre-existing 80m visible-bubble + horizon-streaming
+ * behavior, kept for callers that opt in explicitly. Procedural decorators
+ * are still deferred to the background processor (not awaited here) so
+ * generateMap() resolves — and the world is marked playable — right after
+ * phase 1, instead of blocking on the full horizon + decorator population.
+ */
+async function generateMapExplorePath(
+    loadedMap: LoadedCandyMap,
+    weatherSystem: WeatherSystem,
+    generationToken: number,
+    chunkSize: number,
+    onProgress?: WorldProgressCallback
+): Promise<void> {
     const spawnedEntityIds = new Set<string>();
     const phase1Entities = loadedMap.getNearestEntities({
         origin: [0, 0, 0],
@@ -439,21 +528,11 @@ export async function generateMap(
         onProgress(phase1Total, phase1Total, '[World] Visible bubble ready');
     }
 
-    // 3. Queue Procedural Extras (lazy world-content chunk — #1361)
-    console.time('[World] procedural-extras');
-    const {
-        populateProceduralExtras,
-        populateGemCanopyCorridor,
-        populateMyceliumGrove,
-        populateCloudArchipelago,
-        populateSkyIslands,
-    } = await import('./generation-decorators.ts');
-    await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
-    await populateGemCanopyCorridor(weatherSystem);
-    await populateMyceliumGrove(weatherSystem);
-    await populateCloudArchipelago(weatherSystem);
-    await populateSkyIslands(weatherSystem);
-    console.timeEnd('[World] procedural-extras');
+    // 3. Queue Procedural Extras (lazy world-content chunk — #1361).
+    // Deferred to the background processor rather than awaited here — this is
+    // what previously blocked generateMap() (and therefore "playable") on the
+    // full decorator population. See queueDecoratorBootstrap().
+    queueDecoratorBootstrap(weatherSystem, generationToken, chunkSize);
 
     // Keep a lightweight final fallback for any entities excluded from the streaming query.
     let fallbackQueued = 0;
@@ -485,20 +564,50 @@ export async function generateMap(
             `[World] Fallback queued ${fallbackQueued} entities not covered by streaming rings.`
         );
     }
+}
 
-    performance.mark('candy:map-generation-end');
-    try {
-        performance.measure(
-            'candy:Map Generation',
-            'candy:map-generation-start',
-            'candy:map-generation-end'
-        );
-    } catch (_e) {
-        /* ignore if marks were cleared */
-    }
-
-    console.timeEnd('[World] generateMap total');
-    console.log('[World] Map streaming bootstrap complete. Horizon tasks queued.');
+/**
+ * Defers the procedural decorator population (extras, gem canopy, mycelium
+ * grove, cloud archipelago, sky islands) to the background processor instead
+ * of awaiting it inline. This is the piece that previously kept generateMap()
+ * — and therefore "playable" — blocked well past phase 1/2 on both boot paths.
+ */
+function queueDecoratorBootstrap(
+    weatherSystem: WeatherSystem,
+    generationToken: number,
+    chunkSize: number
+): void {
+    globalBackgroundProcessor.enqueue({
+        id: 'world_decorators_bootstrap',
+        priority: 5,
+        execute: async () => {
+            const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+            if (
+                generationToken !== -1 &&
+                generationToken !== currentToken &&
+                !(window as any).__IS_FULL_BOOT_TEST
+            ) {
+                console.warn(
+                    `[Generation] Decorator bootstrap obsoleted (token ${generationToken} !== ${currentToken})`
+                );
+                return;
+            }
+            console.time('[World] procedural-extras (deferred)');
+            const {
+                populateProceduralExtras,
+                populateGemCanopyCorridor,
+                populateMyceliumGrove,
+                populateCloudArchipelago,
+                populateSkyIslands,
+            } = await import('./generation-decorators.ts');
+            await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
+            await populateGemCanopyCorridor(weatherSystem);
+            await populateMyceliumGrove(weatherSystem);
+            await populateCloudArchipelago(weatherSystem);
+            await populateSkyIslands(weatherSystem);
+            console.timeEnd('[World] procedural-extras (deferred)');
+        },
+    });
 }
 
 export async function generateCoreWorld(
@@ -672,7 +781,7 @@ export async function populateWorld(
     weatherSystem: WeatherSystem,
     mode: WorldMode = 'CORE',
     onProgress?: WorldProgressCallback,
-    options?: { fastPopulation?: boolean }
+    options?: { fastPopulation?: boolean; bootPath?: BootPath }
 ): Promise<WorldMode> {
     worldGenerationToken = Date.now();
     const currentToken = worldGenerationToken;
@@ -707,7 +816,7 @@ export async function populateWorld(
         console.log(
             `[World] Full mode: ${loadedMap.entities.length} map entities + ${getProceduralEntityCount()} procedural extras to process (population scale=${getPopulationScale().toFixed(2)}, memory tier=${getLoadMemoryTier()}${options?.fastPopulation ? ', fast-full' : ''})`
         );
-        await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
+        await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress, options?.bootPath ?? DEFAULT_BOOT_PATH);
         console.log('[World] Full mode population complete.');
         console.log('[World] populateWorld() complete in FULL mode');
         return 'FULL';
