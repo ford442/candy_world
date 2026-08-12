@@ -17,7 +17,7 @@ import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
-import { uploadPositionsFlat, batchDistanceCull } from '../utils/wasm-batch.ts';
+import { uploadPositionsFlat, batchDistanceCull, WASM_POSITION_OBJECT_CAPACITY } from '../utils/wasm-batch.ts';
 import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import {
     updateAtmosphereReactivity,
@@ -276,6 +276,7 @@ export class MusicReactivitySystem {
         // Ensure buffer has enough capacity (zero allocation if it's already large enough)
         const n = cpuAnimatedFoliage.length;
         this.ensureBatchPositionsCapacity(n);
+        const wasmCount = Math.min(n, WASM_POSITION_OBJECT_CAPACITY);
 
         // Fill float buffer densely in a tight loop
         const buf = this._batchPositionsBuffer;
@@ -290,19 +291,21 @@ export class MusicReactivitySystem {
             buf[base + 3] = (obj.userData.radius || 2.0) * (obj.scale.x > 1.0 ? obj.scale.x : 1.0);
         }
 
-        // Upload to WASM via flat float array
-        uploadPositionsFlat(buf, n);
+        // Upload to WASM via flat float array (capped to AS position buffer capacity)
+        uploadPositionsFlat(buf, wasmCount);
 
         // ⚡ OPTIMIZATION: Bypassed CPU distance math with WASM batchDistanceCull
-        const { flags } = batchDistanceCull(cx, cy, cz, 250, n);
+        const { flags } = wasmCount > 0
+            ? batchDistanceCull(cx, cy, cz, 250, wasmCount)
+            : { flags: null as Float32Array | null };
 
         for (let i = 0; i < n; i++) {
             const obj = cpuAnimatedFoliage[i];
             if (!obj) continue;
             totalObjects++;
 
-            // Base max distance check (from WASM flags)
-            if (flags && flags[i] === 0) {
+            // Base max distance check (from WASM flags) — only for indices uploaded to WASM
+            if (flags && i < wasmCount && flags[i] === 0) {
                 culledByDistance++;
                 continue;
             }
