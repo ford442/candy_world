@@ -126,6 +126,15 @@ export const CLOUD_ARCHIPELAGO = {
  * Stacked sky islands (#1363) — NW of spawn, above cloud-archipelago approach stairs.
  * Explicit absolute Y tiers validated against unified ground / platform query.
  */
+export const SUGAR_CAVES = {
+    enabled: true,
+    startX: 0,
+    startZ: 0,
+    endX: -40,
+    endZ: 40,
+    density: 1.5,
+};
+
 export const SKY_ISLANDS = {
     enabled: true,
     centerX: -110,
