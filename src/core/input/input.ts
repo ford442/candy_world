@@ -4,8 +4,8 @@
  * Coordinates with playlist-manager and audio-controls modules
  */
 
-export { keyStates } from './input-types.ts';
-export type { KeyStates, InitInputResult } from './input-types.ts';
+import { keyStates } from './input-types.ts';
+import type { KeyStates, InitInputResult } from './input-types.ts';
 
 export function initInput(
     camera: THREE.Camera,

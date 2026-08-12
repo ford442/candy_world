@@ -331,6 +331,10 @@ export async function generateMap(
     setActiveChunkStreamer(null);
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
+    // Kick the chunk-index fetch off in parallel with the map fetch (both are
+    // simple GETs against static assets) so the play path's critical section
+    // only pays for the slower of the two, not both serialized.
+    const chunkIndexPromise = bootPath === 'play' ? loadMapChunkIndex() : null;
     const loadedMap = await getLoadedMap();
     applyMapPreallocationHints(loadedMap);
     console.log(
@@ -341,7 +345,14 @@ export async function generateMap(
     initCollisionSystem();
 
     if (bootPath === 'play') {
-        await generateMapPlayPath(loadedMap, weatherSystem, generationToken, chunkSize, onProgress);
+        await generateMapPlayPath(
+            loadedMap,
+            weatherSystem,
+            generationToken,
+            chunkSize,
+            onProgress,
+            chunkIndexPromise!
+        );
     } else {
         await generateMapExplorePath(
             loadedMap,
@@ -379,11 +390,23 @@ async function generateMapPlayPath(
     weatherSystem: WeatherSystem,
     generationToken: number,
     chunkSize: number,
-    onProgress?: WorldProgressCallback
+    onProgress: WorldProgressCallback | undefined,
+    chunkIndexPromise: ReturnType<typeof loadMapChunkIndex>
 ): Promise<void> {
     startPhase('Map Streaming Phase 1 (Spawn Chunk)');
     console.time('[World] play-spawn-chunk');
-    const chunkIndex = await loadMapChunkIndex();
+    let chunkIndex = await chunkIndexPromise;
+    // A stale index (map.json edited without re-running generate:chunk-index)
+    // silently drops entities whose ids no longer resolve — fall back to the
+    // bounding-box query path instead of trusting a mismatched index.
+    if (chunkIndex && chunkIndex.entityCount !== loadedMap.entities.length) {
+        console.warn(
+            `[World] Chunk index stale (index has ${chunkIndex.entityCount} entities, ` +
+                `loaded map has ${loadedMap.entities.length}) — run "npm run generate:chunk-index". ` +
+                'Falling back to bounding-box chunk queries for this session.'
+        );
+        chunkIndex = null;
+    }
     const streamer = new ChunkStreamer(loadedMap, weatherSystem, chunkIndex);
     setActiveChunkStreamer(streamer);
     const spawned = streamer.loadSpawnPlayable(PLAY_SPAWN_RADIUS_CHUNKS, PLAY_SPAWN_ENTITY_CAP);
@@ -574,9 +597,10 @@ async function generateMapExplorePath(
 
 /**
  * Defers the procedural decorator population (extras, gem canopy, mycelium
- * grove, cloud archipelago, sky islands) to the background processor instead
- * of awaiting it inline. This is the piece that previously kept generateMap()
- * — and therefore "playable" — blocked well past phase 1/2 on both boot paths.
+ * grove, cloud archipelago, sky islands, sugar caves) to the background
+ * processor instead of awaiting it inline. This is the piece that previously
+ * kept generateMap() — and therefore "playable" — blocked well past phase 1/2
+ * on both boot paths.
  */
 function queueDecoratorBootstrap(
     weatherSystem: WeatherSystem,
@@ -599,19 +623,24 @@ function queueDecoratorBootstrap(
                 return;
             }
             console.time('[World] procedural-extras (deferred)');
-            const {
-                populateProceduralExtras,
-                populateGemCanopyCorridor,
-                populateMyceliumGrove,
-                populateCloudArchipelago,
-                populateSkyIslands,
-            } = await import('./generation-decorators.ts');
-            await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
-            await populateGemCanopyCorridor(weatherSystem);
-            await populateMyceliumGrove(weatherSystem);
-            await populateCloudArchipelago(weatherSystem);
-            await populateSkyIslands(weatherSystem);
-            console.timeEnd('[World] procedural-extras (deferred)');
+            try {
+                const {
+                    populateProceduralExtras,
+                    populateGemCanopyCorridor,
+                    populateMyceliumGrove,
+                    populateCloudArchipelago,
+                    populateSkyIslands,
+                    populateSugarCaves,
+                } = await import('./generation-decorators.ts');
+                await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
+                await populateGemCanopyCorridor(weatherSystem);
+                await populateMyceliumGrove(weatherSystem);
+                await populateCloudArchipelago(weatherSystem);
+                await populateSkyIslands(weatherSystem);
+                await populateSugarCaves(weatherSystem);
+            } finally {
+                console.timeEnd('[World] procedural-extras (deferred)');
+            }
         },
     });
 }

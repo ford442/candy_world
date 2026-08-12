@@ -15,9 +15,13 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { loadMap, type CandyMapData } from '../../src/world/map-loader.ts';
+import {
+    DEFAULT_MAP_CHUNK_STREAM_SIZE,
+    loadMap,
+    type CandyMapData,
+} from '../../src/world/map-loader.ts';
 
-const CHUNK_SIZE = 32;
+const CHUNK_SIZE = DEFAULT_MAP_CHUNK_STREAM_SIZE;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -64,10 +68,11 @@ async function main(): Promise<void> {
             chunkSize: CHUNK_SIZE,
             entityCount: loaded.entities.length,
             sourceEntityCount,
-            generatedAt: new Date().toISOString(),
         },
     };
-    // Deterministic key order keeps the diff small across regenerations.
+    // Deterministic key order (and no timestamp) keeps regeneration
+    // byte-identical when map.json hasn't changed — a CI "regenerate and
+    // diff" check depends on this.
     for (const key of [...chunks.keys()].sort()) {
         out[key] = chunks.get(key);
     }
@@ -80,9 +85,14 @@ async function main(): Promise<void> {
             `to ${path.relative(REPO_ROOT, OUTPUT_PATH)}`
     );
     if (duplicateIds > 0) {
-        console.warn(
-            `[build-chunk-index] WARNING: ${duplicateIds} duplicate entity ids encountered.`
+        // A duplicate id means two entities collapsed into one bucket entry —
+        // the shadowed entity silently never spawns at runtime. That's a
+        // broken index, not a warning-level issue.
+        console.error(
+            `[build-chunk-index] ${duplicateIds} duplicate entity ids encountered; ` +
+                'ids must be unique because ChunkStreamer resolves entities by id.'
         );
+        process.exitCode = 1;
     }
 }
 

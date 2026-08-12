@@ -868,7 +868,10 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
         const maxY = bounds.maxY ?? Number.POSITIVE_INFINITY;
         return this.getNearestEntities({
             origin: { x: (bounds.minX + bounds.maxX) * 0.5, z: (bounds.minZ + bounds.maxZ) * 0.5 },
-            radius: Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ),
+            // Half the diagonal covers the box from its center — the exact
+            // filter below keeps results correct either way, this just
+            // trims the number of spatial cells scanned to find them.
+            radius: Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) * 0.5,
             out: [],
         }).filter((entity) => {
             const [x, y, z] = entity.position;
@@ -1078,6 +1081,12 @@ export async function loadMap(source: string | CandyMapData): Promise<LoadedCand
 // chunk, so ChunkStreamer can look up "what's near the spawn tile" without
 // scanning every entity in the map. A reserved "__meta__" key carries the
 // chunk size and total indexed entity count used for the CI parity check.
+//
+// Single source of truth for the chunk grid size — chunk-streamer.ts and
+// build-chunk-index.ts both import this instead of redeclaring "32" so the
+// index and the runtime grid can never silently disagree.
+export const DEFAULT_MAP_CHUNK_STREAM_SIZE = 32;
+
 export interface MapChunkIndex {
     chunkSize: number;
     entityCount: number;
@@ -1105,7 +1114,9 @@ export async function loadMapChunkIndex(
         if (!raw || typeof raw !== 'object') return null;
         const meta = raw[CHUNK_INDEX_META_KEY];
         const chunkSize =
-            typeof meta?.chunkSize === 'number' && meta.chunkSize > 0 ? meta.chunkSize : 32;
+            typeof meta?.chunkSize === 'number' && meta.chunkSize > 0
+                ? meta.chunkSize
+                : DEFAULT_MAP_CHUNK_STREAM_SIZE;
         const entityCount = typeof meta?.entityCount === 'number' ? meta.entityCount : -1;
 
         const chunks = new Map<string, string[]>();

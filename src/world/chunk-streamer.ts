@@ -14,7 +14,7 @@ import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { processMapEntity } from './generation-entities.ts';
 import { CellState, RegionManager, type GridCell } from '../systems/region-manager-core.ts';
-import type { LoadedCandyMap, LoadedMapEntity, MapChunkIndex } from './map-loader.ts';
+import { DEFAULT_MAP_CHUNK_STREAM_SIZE, type LoadedCandyMap, type LoadedMapEntity, type MapChunkIndex } from './map-loader.ts';
 import type { WeatherSystem } from './generation-utils.ts';
 import {
     animatedFoliage,
@@ -33,12 +33,18 @@ import {
     vineSwings,
 } from './state.ts';
 
-/** World-space chunk size (metres). Matches tools/map-generator/build-chunk-index.ts. */
-export const CHUNK_SIZE = 32;
+/** World-space chunk size (metres). Re-exported for callers; canonical value lives in map-loader.ts. */
+export const CHUNK_SIZE = DEFAULT_MAP_CHUNK_STREAM_SIZE;
 
 const DEFAULT_LOAD_RING_CHUNKS = 2;
 const DEFAULT_EVICT_RING_CHUNKS = 4;
 const DEFAULT_SPAWN_ENTITY_CAP = 80;
+// While a burst of chunk entities streams in, each spawn sets physicsDirty —
+// without a floor, a full populatePhysicsGrids() rebuild (scans all of
+// animatedFoliage + friends) could run on nearly every frame. Cap it to at
+// most once per this interval; the flag stays set until the next eligible
+// frame, so a rebuild is never silently dropped, only delayed.
+const PHYSICS_REBUILD_MIN_INTERVAL_MS = 150;
 
 const EMPTY_IDS: readonly string[] = [];
 
@@ -126,6 +132,7 @@ export class ChunkStreamer {
     private lastCx = Number.NaN;
     private lastCz = Number.NaN;
     private physicsDirty = false;
+    private lastPhysicsRebuildAt = 0;
     private disposed = false;
 
     constructor(
@@ -184,7 +191,10 @@ export class ChunkStreamer {
     private getOrRegisterCell(cx: number, cz: number): GridCell {
         const existing = this.region.getCell(cx, cz);
         if (existing) return existing;
-        return this.region.registerCell(cx, cz, this.idsForChunk(cx, cz) as string[]);
+        // Copy rather than cast — idsForChunk can return the shared EMPTY_IDS
+        // constant, and registerCell must never be handed a reference it
+        // (or a future caller) might mutate.
+        return this.region.registerCell(cx, cz, [...this.idsForChunk(cx, cz)]);
     }
 
     /**
@@ -251,9 +261,17 @@ export class ChunkStreamer {
     }
 
     private spawnEntity(entity: LoadedMapEntity, record: ChunkRecord, streamed: boolean): void {
-        this.spawnedIds.add(entity.id);
+        // Mark spawned in `finally` — processMapEntity has its own internal
+        // try/catch so it shouldn't normally throw, but if it ever does, the
+        // id must still be added (dedup on this id is what stops it being
+        // re-enqueued in a loop); an id that never gets marked spawned would
+        // otherwise re-attempt indefinitely without a ChunkRecord to evict it.
         const before = animatedFoliage.length;
-        processMapEntity(entity, this.weatherSystem, { streamed });
+        try {
+            processMapEntity(entity, this.weatherSystem, { streamed });
+        } finally {
+            this.spawnedIds.add(entity.id);
+        }
         if (animatedFoliage.length <= before) return;
 
         for (let i = before; i < animatedFoliage.length; i++) {
@@ -289,21 +307,24 @@ export class ChunkStreamer {
         const cz = Math.floor(position.z / this.chunkSize);
 
         if (cx === this.lastCx && cz === this.lastCz) {
-            if (this.physicsDirty) {
-                this.physicsDirty = false;
-                populatePhysicsGrids();
-            }
+            this.maybeRebuildPhysicsGrids();
             return;
         }
 
         this.lastCx = cx;
         this.lastCz = cz;
         this.onChunkBoundaryCrossed(cx, cz);
+        this.maybeRebuildPhysicsGrids();
+    }
 
-        if (this.physicsDirty) {
-            this.physicsDirty = false;
-            populatePhysicsGrids();
-        }
+    /** Throttled to at most once per PHYSICS_REBUILD_MIN_INTERVAL_MS — see constant comment. */
+    private maybeRebuildPhysicsGrids(): void {
+        if (!this.physicsDirty) return;
+        const now = performance.now();
+        if (now - this.lastPhysicsRebuildAt < PHYSICS_REBUILD_MIN_INTERVAL_MS) return;
+        this.physicsDirty = false;
+        this.lastPhysicsRebuildAt = now;
+        populatePhysicsGrids();
     }
 
     private onChunkBoundaryCrossed(cx: number, cz: number): void {
@@ -347,23 +368,33 @@ export class ChunkStreamer {
                 id: `chunk_stream_${key}_${id}`,
                 priority: 40,
                 execute: () => {
+                    // Every non-disposal path below MUST settle() so `remaining`
+                    // eventually hits 0 and `cell.state` leaves LOADING — a cell
+                    // stuck in LOADING is invisible to both enqueueChunkLoads
+                    // (only picks up UNLOADED) and evictFarChunks (only evicts
+                    // LOADED), leaking its ChunkRecord forever.
                     if (this.disposed) return;
+                    const settle = () => {
+                        remaining--;
+                        if (remaining <= 0) cell.state = CellState.LOADED;
+                    };
                     const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
                     if (
                         generationTokenAtEnqueue !== -1 &&
                         generationTokenAtEnqueue !== currentToken &&
                         !(window as any).__IS_FULL_BOOT_TEST
                     ) {
+                        settle();
                         return;
                     }
-                    if (this.spawnedIds.has(id)) return;
-                    const entity = this.loadedMap.getEntityById(id);
-                    if (entity) {
-                        this.spawnEntity(entity, record, true);
-                        this.physicsDirty = true;
+                    if (!this.spawnedIds.has(id)) {
+                        const entity = this.loadedMap.getEntityById(id);
+                        if (entity) {
+                            this.spawnEntity(entity, record, true);
+                            this.physicsDirty = true;
+                        }
                     }
-                    remaining--;
-                    if (remaining <= 0) cell.state = CellState.LOADED;
+                    settle();
                 },
             });
         }
@@ -449,6 +480,19 @@ export class ChunkStreamer {
 
     dispose(): void {
         this.disposed = true;
+        // Evict every tracked evictable object before dropping the records —
+        // otherwise a regenerated world (new ChunkStreamer replacing this one
+        // via setActiveChunkStreamer) leaves this streamer's stale objects
+        // behind in foliageGroup / the state.ts tracking arrays. Permanent
+        // (never-evictable) objects are intentionally left as-is: there is no
+        // safe removal path for them (see classifyForEviction), consistent
+        // with how they're already handled while the streamer is active.
+        for (const record of this.records.values()) {
+            for (const obj of record.evictable) {
+                this.evictObject(obj);
+            }
+            record.evictable.length = 0;
+        }
         this.records.clear();
     }
 }
