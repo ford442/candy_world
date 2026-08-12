@@ -41,6 +41,7 @@ import {
 import { updateFoliagePhase } from './game-loop-foliage.ts';
 import { updateGameplayPhase } from './game-loop-gameplay.ts';
 import { updateInteractionPhase, updateExploreCameraPhase } from './game-loop-input.ts';
+import { updateStreamingPhase } from './game-loop-streaming.ts';
 import { updateVisualsPhase } from './game-loop-visuals.ts';
 import { updateParticlesPhase } from './game-loop-particles.ts';
 import { updatePostFX, renderPostProcessing } from './game-loop-postfx.ts';
@@ -121,6 +122,10 @@ export function animate() {
     }
 
     updateInteractionPhase(delta);
+
+    // 1b. Chunk streaming (#1546/#1548) — no-op unless the "play" boot path
+    // is active; drives horizon load/evict as the player crosses chunk bounds.
+    updateStreamingPhase(player.position);
 
     const exploreActive = isExploreActive();
 

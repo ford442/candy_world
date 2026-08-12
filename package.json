@@ -46,6 +46,7 @@
         "verify:emcc": "node verification/verify_emcc_exports.js",
         "verify:emcc:manifest": "node scripts/check-emcc-manifest.mjs",
         "generate:map": "tsx tools/map-generator/cli.ts",
+        "generate:chunk-index": "tsx tools/map-generator/build-chunk-index.ts",
         "export:map": "tsx tools/map-generator/export-current-world.ts",
         "release:tag": "node scripts/make-release.mjs",
         "release": "npm run build && node scripts/make-release.mjs",
