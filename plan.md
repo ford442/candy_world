@@ -9,6 +9,8 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
 1. **Foundation** — TS/ESint ratchet gate (#1493), repo hygiene (#1497).
 2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496 ✅).
 3. **Content** — capstone features (#1492, #1494) after gates are green.
+    - **Status: Implemented ✅** (#1492 Workstream A2: Candy Remote Avatar Mesh)
+    -   - Implementation Details: Upgraded the placeholder presence avatar sphere to a low-poly dodecahedron using a TSL `MeshPhysicalNodeMaterial` with clearcoat, and wired up `instanceColor` zero-allocation updates to properly apply the hash-based pastel colors per instance.
     - **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)
     -   - Implementation Details: Implemented the Subterranean Sugar Caves biome layer using a new InstancedMesh batcher (`SugarCaveBatcher`) and TSL materials for crystal ribs, and registered it with the music-bindings for the Part II Door narrative.
 
