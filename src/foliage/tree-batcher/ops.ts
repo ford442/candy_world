@@ -548,7 +548,7 @@ export function flushRegistrations(state: TreeBatcherState) {
         }
 
         // Flag updates
-        updatedMeshes.forEach(m => {
+        uniqueMeshes.forEach(m => {
             if (!shouldUseFoliageGpuBatch(m.count)) {
                 m.instanceMatrix.needsUpdate = true;
                 if (m.instanceColor) m.instanceColor.needsUpdate = true;
