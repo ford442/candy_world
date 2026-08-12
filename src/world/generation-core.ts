@@ -343,7 +343,13 @@ export async function generateMap(
     if (bootPath === 'play') {
         await generateMapPlayPath(loadedMap, weatherSystem, generationToken, chunkSize, onProgress);
     } else {
-        await generateMapExplorePath(loadedMap, weatherSystem, generationToken, chunkSize, onProgress);
+        await generateMapExplorePath(
+            loadedMap,
+            weatherSystem,
+            generationToken,
+            chunkSize,
+            onProgress
+        );
     }
 
     performance.mark('candy:map-generation-end');
@@ -816,7 +822,12 @@ export async function populateWorld(
         console.log(
             `[World] Full mode: ${loadedMap.entities.length} map entities + ${getProceduralEntityCount()} procedural extras to process (population scale=${getPopulationScale().toFixed(2)}, memory tier=${getLoadMemoryTier()}${options?.fastPopulation ? ', fast-full' : ''})`
         );
-        await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress, options?.bootPath ?? DEFAULT_BOOT_PATH);
+        await generateMap(
+            weatherSystem,
+            DEFAULT_MAP_CHUNK_SIZE,
+            onProgress,
+            options?.bootPath ?? DEFAULT_BOOT_PATH
+        );
         console.log('[World] Full mode population complete.');
         console.log('[World] populateWorld() complete in FULL mode');
         return 'FULL';

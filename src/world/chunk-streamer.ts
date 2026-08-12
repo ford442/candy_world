@@ -13,11 +13,7 @@ import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { processMapEntity } from './generation-entities.ts';
-import {
-    CellState,
-    RegionManager,
-    type GridCell,
-} from '../systems/region-manager-core.ts';
+import { CellState, RegionManager, type GridCell } from '../systems/region-manager-core.ts';
 import type { LoadedCandyMap, LoadedMapEntity, MapChunkIndex } from './map-loader.ts';
 import type { WeatherSystem } from './generation-utils.ts';
 import {
@@ -96,7 +92,11 @@ function chunkKey(cx: number, cz: number): string {
 }
 
 /** Spiral cell coordinates, nearest ring first — reused so loadSpawnPlayable stays predictable. */
-function ringCoords(centerCx: number, centerCz: number, radiusChunks: number): Array<{ cx: number; cz: number }> {
+function ringCoords(
+    centerCx: number,
+    centerCz: number,
+    radiusChunks: number
+): Array<{ cx: number; cz: number }> {
     const out: Array<{ cx: number; cz: number }> = [{ cx: centerCx, cz: centerCz }];
     for (let r = 1; r <= radiusChunks; r++) {
         for (let dx = -r; dx <= r; dx++) {
@@ -411,7 +411,8 @@ export class ChunkStreamer {
 
     private evictObject(obj: THREE.Object3D): void {
         try {
-            const evictionClass = (obj.userData as Record<string, unknown>).__evictionClass as EvictionClass;
+            const evictionClass = (obj.userData as Record<string, unknown>)
+                .__evictionClass as EvictionClass;
             if (evictionClass === 'mushroom') {
                 mushroomBatcher.removeInstance(obj);
             }

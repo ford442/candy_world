@@ -80,7 +80,9 @@ async function main(): Promise<void> {
             `to ${path.relative(REPO_ROOT, OUTPUT_PATH)}`
     );
     if (duplicateIds > 0) {
-        console.warn(`[build-chunk-index] WARNING: ${duplicateIds} duplicate entity ids encountered.`);
+        console.warn(
+            `[build-chunk-index] WARNING: ${duplicateIds} duplicate entity ids encountered.`
+        );
     }
 }
 
