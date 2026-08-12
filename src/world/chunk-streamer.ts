@@ -14,7 +14,12 @@ import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { processMapEntity } from './generation-entities.ts';
 import { CellState, RegionManager, type GridCell } from '../systems/region-manager-core.ts';
-import { DEFAULT_MAP_CHUNK_STREAM_SIZE, type LoadedCandyMap, type LoadedMapEntity, type MapChunkIndex } from './map-loader.ts';
+import {
+    DEFAULT_MAP_CHUNK_STREAM_SIZE,
+    type LoadedCandyMap,
+    type LoadedMapEntity,
+    type MapChunkIndex,
+} from './map-loader.ts';
 import type { WeatherSystem } from './generation-utils.ts';
 import {
     animatedFoliage,

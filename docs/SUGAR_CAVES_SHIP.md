@@ -26,13 +26,13 @@ Bindings defined in `assets/music-bindings.json`:
 
 ```json
 {
-  "biomes": {
-    "sugar_caves": {
-      "shimmer": [2, 3],
-      "hueShift": [4],
-      "noteColor": [2]
+    "biomes": {
+        "sugar_caves": {
+            "shimmer": [2, 3],
+            "hueShift": [4],
+            "noteColor": [2]
+        }
     }
-  }
 }
 ```
 
