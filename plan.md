@@ -9,8 +9,8 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
 1. **Foundation** — TS/ESint ratchet gate (#1493), repo hygiene (#1497).
 2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496 ✅).
 3. **Content** — capstone features (#1492, #1494) after gates are green.
-    - **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)
-    -   - Implementation Details: Implemented the Subterranean Sugar Caves biome layer using a new InstancedMesh batcher (`SugarCaveBatcher`) and TSL materials for crystal ribs, and registered it with the music-bindings for the Part II Door narrative.
+   - **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)
+   - * Implementation Details: Implemented the Subterranean Sugar Caves biome layer using a new InstancedMesh batcher (`SugarCaveBatcher`) and TSL materials for crystal ribs, and registered it with the music-bindings for the Part II Door narrative.
 
 ## Mega-module splits (do not split blindly)
 
@@ -20,4 +20,4 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 - `src/core/main/` — boot pipelines + thin `main.ts` orchestrator
 - `game-loop.ts` + `game-loop-*.ts` — tick phase pattern to copy
 
-Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`.
+Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`, `material-core.ts`, `style.css`.

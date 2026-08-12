@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { color, float, mix, positionLocal, normalWorld, smoothstep } from 'three/tsl';
+import {
+    color, float, mix, positionLocal, normalWorld,
+    smoothstep
+} from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getLoadMemoryTier } from '../core/config.ts';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
@@ -52,19 +55,10 @@ export class SugarCaveBatcher {
         const crystalBaseColor = mix(colorCore, colorTip, tipFactor);
 
         const crystalPulse = uAudioLow.mul(1.5).add(0.2);
-        const crystalGlowStrength = tipFactor
-            .mul(crystalPulse)
-            .mul(uTwilight)
-            .mul(3.0)
-            .add(uniforms.shimmer.mul(2.0));
+        const crystalGlowStrength = tipFactor.mul(crystalPulse).mul(uTwilight).mul(3.0).add(uniforms.shimmer.mul(2.0));
         const crystalGlowColor = uniforms.noteColor;
 
-        const crystalRim = createJuicyRimLight(
-            color(0xffffff),
-            float(0.8),
-            float(3.0),
-            normalWorld
-        );
+        const crystalRim = createJuicyRimLight(color(0xffffff), float(0.8), float(3.0), normalWorld);
 
         this._mat.positionNode = applyPlayerInteraction(positionLocal);
         this._mat.colorNode = crystalBaseColor.add(crystalRim);
