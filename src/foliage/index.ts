@@ -184,3 +184,4 @@ export { createNeonPollen } from './pollen.ts';
 export { createTerrainMaterial } from './terrain.ts';
 
 export { createRainbow, uRainbowOpacity } from './rainbow.ts';
+export { SugarCaveBatcher, sugarCaveBatcher } from './sugar-cave-batcher.ts';
