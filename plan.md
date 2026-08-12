@@ -20,4 +20,4 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 - `src/core/main/` — boot pipelines + thin `main.ts` orchestrator
 - `game-loop.ts` + `game-loop-*.ts` — tick phase pattern to copy
 
-Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`, `material-core.ts`, `style.css`.
+Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`.
