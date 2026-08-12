@@ -29,7 +29,8 @@ export {
     batchMushroomSpawnCandidates,
     readSpawnCandidates,
     analyzeMaterials,
-    getUniqueShaderCount
+    getUniqueShaderCount,
+    WASM_POSITION_OBJECT_CAPACITY,
 } from './wasm-batch-core.ts';
 
 // Re-export math/utility functions
