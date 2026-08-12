@@ -4,13 +4,13 @@ export type Quat = [number, number, number, number];
 const ARPEGGIO_GROVE_SETPIECE = {
     centerX: -60,
     centerZ: 60,
-    radius: 15
+    radius: 15,
 };
 
 const LAKE_ISLAND_SETPIECE = {
     centerX: 20,
     centerZ: 20,
-    radius: 12
+    radius: 12,
 };
 
 export interface MapRotation {
@@ -144,9 +144,16 @@ export interface LoadedCandyMap {
     entities: LoadedMapEntity[];
     getEntitiesByType(type: string): LoadedMapEntity[];
     getEntitiesByBiome(biome: string): LoadedMapEntity[];
-    getEntitiesInBounds(
-        bounds: { minX: number; minY?: number; minZ: number; maxX: number; maxY?: number; maxZ: number }
-    ): LoadedMapEntity[];
+    getEntityById(id: string): LoadedMapEntity | undefined;
+    getEntitiesByIds(ids: readonly string[], out?: LoadedMapEntity[]): LoadedMapEntity[];
+    getEntitiesInBounds(bounds: {
+        minX: number;
+        minY?: number;
+        minZ: number;
+        maxX: number;
+        maxY?: number;
+        maxZ: number;
+    }): LoadedMapEntity[];
     getNearestEntities(query: {
         origin: Vec3 | { x: number; z: number };
         radius: number;
@@ -200,7 +207,7 @@ const TYPE_ALIASES: Record<string, string> = {
     vineLadder: 'vine_ladder',
     wisteriaCluster: 'wisteria_cluster',
     silenceSpirit: 'silence_spirit',
-    melodyMirror: 'melody_mirror'
+    melodyMirror: 'melody_mirror',
 };
 
 function normalizeType(type: string): string {
@@ -214,13 +221,20 @@ function isFiniteNumber(value: unknown): value is number {
 
 function asVec3(value: unknown): Vec3 | null {
     if (!Array.isArray(value) || value.length !== 3) return null;
-    if (!isFiniteNumber(value[0]) || !isFiniteNumber(value[1]) || !isFiniteNumber(value[2])) return null;
+    if (!isFiniteNumber(value[0]) || !isFiniteNumber(value[1]) || !isFiniteNumber(value[2]))
+        return null;
     return [value[0], value[1], value[2]];
 }
 
 function asQuat(value: unknown): Quat | null {
     if (!Array.isArray(value) || value.length !== 4) return null;
-    if (!isFiniteNumber(value[0]) || !isFiniteNumber(value[1]) || !isFiniteNumber(value[2]) || !isFiniteNumber(value[3])) return null;
+    if (
+        !isFiniteNumber(value[0]) ||
+        !isFiniteNumber(value[1]) ||
+        !isFiniteNumber(value[2]) ||
+        !isFiniteNumber(value[3])
+    )
+        return null;
     return [value[0], value[1], value[2], value[3]];
 }
 
@@ -244,7 +258,10 @@ function normalizeRotation(rotation: CandyMapEntity['rotation']): MapRotation | 
         return {
             euler: eulerFromObj ?? undefined,
             quat: quatFromObj ?? undefined,
-            order: typeof (rotation as MapRotation).order === 'string' ? (rotation as MapRotation).order : 'YXZ'
+            order:
+                typeof (rotation as MapRotation).order === 'string'
+                    ? (rotation as MapRotation).order
+                    : 'YXZ',
         };
     }
     return undefined;
@@ -268,20 +285,32 @@ function validateMapShape(raw: unknown, source: string): asserts raw is CandyMap
     }
     const expectedCounts = (raw as CandyMapData).metadata?.expectedInstanceCounts;
     if (expectedCounts !== undefined) {
-        if (!expectedCounts || typeof expectedCounts !== 'object' || Array.isArray(expectedCounts)) {
-            throw new Error(`[MapLoader] Invalid map from ${source}: metadata.expectedInstanceCounts must be an object.`);
+        if (
+            !expectedCounts ||
+            typeof expectedCounts !== 'object' ||
+            Array.isArray(expectedCounts)
+        ) {
+            throw new Error(
+                `[MapLoader] Invalid map from ${source}: metadata.expectedInstanceCounts must be an object.`
+            );
         }
         for (const [type, count] of Object.entries(expectedCounts)) {
             if (typeof type !== 'string' || type.trim().length === 0) {
-                throw new Error(`[MapLoader] Invalid expected instance count key "${type}" from ${source}.`);
+                throw new Error(
+                    `[MapLoader] Invalid expected instance count key "${type}" from ${source}.`
+                );
             }
             if (!Number.isInteger(count) || count < 0 || count > 50000) {
-                throw new Error(`[MapLoader] Invalid expected instance count for "${type}" from ${source}: must be integer in [0, 50000].`);
+                throw new Error(
+                    `[MapLoader] Invalid expected instance count for "${type}" from ${source}: must be integer in [0, 50000].`
+                );
             }
         }
     }
     if (entities.length > MAX_MAP_ENTITIES) {
-        throw new Error(`[MapLoader] Invalid map from ${source}: entity cap exceeded (${entities.length}/${MAX_MAP_ENTITIES}).`);
+        throw new Error(
+            `[MapLoader] Invalid map from ${source}: entity cap exceeded (${entities.length}/${MAX_MAP_ENTITIES}).`
+        );
     }
     for (let i = 0; i < entities.length; i++) {
         const entity = entities[i] as CandyMapEntity;
@@ -289,27 +318,40 @@ function validateMapShape(raw: unknown, source: string): asserts raw is CandyMap
             throw new Error(`[MapLoader] Invalid entity at index ${i}: expected object.`);
         }
         if (typeof entity.type !== 'string' || entity.type.trim().length === 0) {
-            throw new Error(`[MapLoader] Invalid entity at index ${i}: "type" must be a non-empty string.`);
+            throw new Error(
+                `[MapLoader] Invalid entity at index ${i}: "type" must be a non-empty string.`
+            );
         }
         const position = asVec3(entity.position);
         if (!position) {
-            throw new Error(`[MapLoader] Invalid entity "${entity.type}" at index ${i}: "position" must be [x,y,z].`);
+            throw new Error(
+                `[MapLoader] Invalid entity "${entity.type}" at index ${i}: "position" must be [x,y,z].`
+            );
         }
         if (entity.scale !== undefined && normalizeScale(entity.scale) === undefined) {
-            throw new Error(`[MapLoader] Invalid entity "${entity.type}" at index ${i}: "scale" must be number or [x,y,z].`);
+            throw new Error(
+                `[MapLoader] Invalid entity "${entity.type}" at index ${i}: "scale" must be number or [x,y,z].`
+            );
         }
         if (entity.rotation !== undefined && normalizeRotation(entity.rotation) === undefined) {
-            throw new Error(`[MapLoader] Invalid entity "${entity.type}" at index ${i}: unsupported rotation shape.`);
+            throw new Error(
+                `[MapLoader] Invalid entity "${entity.type}" at index ${i}: unsupported rotation shape.`
+            );
         }
         if (entity.music !== undefined) {
-            validateMusicHints(entity.music, `[MapLoader] Invalid music hints for entity "${entity.type}" at index ${i}`);
+            validateMusicHints(
+                entity.music,
+                `[MapLoader] Invalid music hints for entity "${entity.type}" at index ${i}`
+            );
         }
     }
 
     const regions = (raw as CandyMapData).regions;
     if (regions !== undefined) {
         if (!Array.isArray(regions)) {
-            throw new Error(`[MapLoader] Invalid map from ${source}: "regions" must be an array when provided.`);
+            throw new Error(
+                `[MapLoader] Invalid map from ${source}: "regions" must be an array when provided.`
+            );
         }
         for (let i = 0; i < regions.length; i++) {
             const region = regions[i];
@@ -317,16 +359,31 @@ function validateMapShape(raw: unknown, source: string): asserts raw is CandyMap
                 throw new Error(`[MapLoader] Invalid region at index ${i}: expected object.`);
             }
             if (typeof region.id !== 'string' || region.id.trim().length === 0) {
-                throw new Error(`[MapLoader] Invalid region at index ${i}: "id" must be a non-empty string.`);
+                throw new Error(
+                    `[MapLoader] Invalid region at index ${i}: "id" must be a non-empty string.`
+                );
             }
-            if (!region.bounds || typeof region.bounds !== 'object' || !Array.isArray(region.bounds.min) || !Array.isArray(region.bounds.max) ||
-                region.bounds.min.length !== 2 || region.bounds.max.length !== 2 ||
-                !isFiniteNumber(region.bounds.min[0]) || !isFiniteNumber(region.bounds.min[1]) ||
-                !isFiniteNumber(region.bounds.max[0]) || !isFiniteNumber(region.bounds.max[1])) {
-                throw new Error(`[MapLoader] Invalid region "${region.id}": bounds must be { min:[x,z], max:[x,z] }.`);
+            if (
+                !region.bounds ||
+                typeof region.bounds !== 'object' ||
+                !Array.isArray(region.bounds.min) ||
+                !Array.isArray(region.bounds.max) ||
+                region.bounds.min.length !== 2 ||
+                region.bounds.max.length !== 2 ||
+                !isFiniteNumber(region.bounds.min[0]) ||
+                !isFiniteNumber(region.bounds.min[1]) ||
+                !isFiniteNumber(region.bounds.max[0]) ||
+                !isFiniteNumber(region.bounds.max[1])
+            ) {
+                throw new Error(
+                    `[MapLoader] Invalid region "${region.id}": bounds must be { min:[x,z], max:[x,z] }.`
+                );
             }
             if (region.music !== undefined) {
-                validateMusicHints(region.music, `[MapLoader] Invalid music hints for region "${region.id}"`);
+                validateMusicHints(
+                    region.music,
+                    `[MapLoader] Invalid music hints for region "${region.id}"`
+                );
             }
         }
     }
@@ -342,7 +399,9 @@ function validateChannelList(value: unknown, context: string): void {
     for (let i = 0; i < value.length; i++) {
         const channel = value[i];
         if (!Number.isInteger(channel) || channel < 0 || channel > 255) {
-            throw new Error(`${context}: channel "${channel}" at index ${i} is out of range (0-255 integer).`);
+            throw new Error(
+                `${context}: channel "${channel}" at index ${i} is out of range (0-255 integer).`
+            );
         }
     }
 }
@@ -351,15 +410,28 @@ function validateMusicHints(raw: unknown, context: string): asserts raw is MapMu
     if (!raw || typeof raw !== 'object') throw new Error(`${context}: expected object.`);
     const hints = raw as MapMusicHints;
     if (hints.channels !== undefined) validateChannelList(hints.channels, `${context}.channels`);
-    if (hints.intensityScale !== undefined && (!isFiniteNumber(hints.intensityScale) || hints.intensityScale < 0 || hints.intensityScale > 10)) {
+    if (
+        hints.intensityScale !== undefined &&
+        (!isFiniteNumber(hints.intensityScale) ||
+            hints.intensityScale < 0 ||
+            hints.intensityScale > 10)
+    ) {
         throw new Error(`${context}.intensityScale must be a finite number in [0, 10].`);
     }
-    if (hints.trackerChannel !== undefined && (!Number.isInteger(hints.trackerChannel) || hints.trackerChannel < 0 || hints.trackerChannel > 255)) {
+    if (
+        hints.trackerChannel !== undefined &&
+        (!Number.isInteger(hints.trackerChannel) ||
+            hints.trackerChannel < 0 ||
+            hints.trackerChannel > 255)
+    ) {
         throw new Error(`${context}.trackerChannel must be an integer in [0, 255].`);
     }
 }
 
-function validateMapMusicOverrides(raw: unknown, context: string): asserts raw is MapMusicOverrides {
+function validateMapMusicOverrides(
+    raw: unknown,
+    context: string
+): asserts raw is MapMusicOverrides {
     if (!raw || typeof raw !== 'object') throw new Error(`${context}: expected object.`);
     const overrides = raw as MapMusicOverrides;
 
@@ -372,13 +444,28 @@ function validateMapMusicOverrides(raw: unknown, context: string): asserts raw i
                 throw new Error(`${context}.biomes.${biome} must be an object.`);
             }
             const candidate = binding as MapMusicChannelBinding;
-            if (candidate.shimmer !== undefined) validateChannelList(candidate.shimmer, `${context}.biomes.${biome}.shimmer`);
-            if (candidate.hueShift !== undefined) validateChannelList(candidate.hueShift, `${context}.biomes.${biome}.hueShift`);
-            if (candidate.noteColor !== undefined) validateChannelList(candidate.noteColor, `${context}.biomes.${biome}.noteColor`);
-            if (candidate.amplitudeScale !== undefined) validateChannelList(candidate.amplitudeScale, `${context}.biomes.${biome}.amplitudeScale`);
-            if (candidate.intensity !== undefined) validateChannelList(candidate.intensity, `${context}.biomes.${biome}.intensity`);
-            if (candidate.intensityScale !== undefined && (!isFiniteNumber(candidate.intensityScale) || candidate.intensityScale < 0 || candidate.intensityScale > 10)) {
-                throw new Error(`${context}.biomes.${biome}.intensityScale must be a finite number in [0, 10].`);
+            if (candidate.shimmer !== undefined)
+                validateChannelList(candidate.shimmer, `${context}.biomes.${biome}.shimmer`);
+            if (candidate.hueShift !== undefined)
+                validateChannelList(candidate.hueShift, `${context}.biomes.${biome}.hueShift`);
+            if (candidate.noteColor !== undefined)
+                validateChannelList(candidate.noteColor, `${context}.biomes.${biome}.noteColor`);
+            if (candidate.amplitudeScale !== undefined)
+                validateChannelList(
+                    candidate.amplitudeScale,
+                    `${context}.biomes.${biome}.amplitudeScale`
+                );
+            if (candidate.intensity !== undefined)
+                validateChannelList(candidate.intensity, `${context}.biomes.${biome}.intensity`);
+            if (
+                candidate.intensityScale !== undefined &&
+                (!isFiniteNumber(candidate.intensityScale) ||
+                    candidate.intensityScale < 0 ||
+                    candidate.intensityScale > 10)
+            ) {
+                throw new Error(
+                    `${context}.biomes.${biome}.intensityScale must be a finite number in [0, 10].`
+                );
             }
         }
     }
@@ -392,10 +479,15 @@ function validateMapMusicOverrides(raw: unknown, context: string): asserts raw i
     if (overrides.luminousPlants?.trackerChannel !== undefined) {
         const channel = overrides.luminousPlants.trackerChannel;
         if (!Number.isInteger(channel) || channel < 0 || channel > 255) {
-            throw new Error(`${context}.luminousPlants.trackerChannel must be an integer in [0, 255].`);
+            throw new Error(
+                `${context}.luminousPlants.trackerChannel must be an integer in [0, 255].`
+            );
         }
     }
-    if (overrides.skyWave?.targetBiomes !== undefined && !Array.isArray(overrides.skyWave.targetBiomes)) {
+    if (
+        overrides.skyWave?.targetBiomes !== undefined &&
+        !Array.isArray(overrides.skyWave.targetBiomes)
+    ) {
         throw new Error(`${context}.skyWave.targetBiomes must be an array of strings.`);
     }
 
@@ -404,13 +496,26 @@ function validateMapMusicOverrides(raw: unknown, context: string): asserts raw i
         for (const [name, binding] of Object.entries(weather)) {
             if (!binding || typeof binding !== 'object') continue;
             const typed = binding as MapWeatherBinding;
-            if (typed.channel !== undefined && (!Number.isInteger(typed.channel) || typed.channel < 0 || typed.channel > 255)) {
-                throw new Error(`${context}.weatherReactivity.${name}.channel must be an integer in [0, 255].`);
+            if (
+                typed.channel !== undefined &&
+                (!Number.isInteger(typed.channel) || typed.channel < 0 || typed.channel > 255)
+            ) {
+                throw new Error(
+                    `${context}.weatherReactivity.${name}.channel must be an integer in [0, 255].`
+                );
             }
-            if (typed.smoothing !== undefined && (!isFiniteNumber(typed.smoothing) || typed.smoothing <= 0 || typed.smoothing > 10)) {
-                throw new Error(`${context}.weatherReactivity.${name}.smoothing must be in (0, 10].`);
+            if (
+                typed.smoothing !== undefined &&
+                (!isFiniteNumber(typed.smoothing) || typed.smoothing <= 0 || typed.smoothing > 10)
+            ) {
+                throw new Error(
+                    `${context}.weatherReactivity.${name}.smoothing must be in (0, 10].`
+                );
             }
-            if (typed.scale !== undefined && (!isFiniteNumber(typed.scale) || typed.scale < 0 || typed.scale > 10)) {
+            if (
+                typed.scale !== undefined &&
+                (!isFiniteNumber(typed.scale) || typed.scale < 0 || typed.scale > 10)
+            ) {
                 throw new Error(`${context}.weatherReactivity.${name}.scale must be in [0, 10].`);
             }
         }
@@ -429,7 +534,9 @@ function isV1Map(data: CandyMapData): boolean {
 }
 
 function hasSetpieceLayer(data: CandyMapData, layer: string): boolean {
-    return data.entities.some(entity => entity.layer === layer || entity.id?.startsWith(`setpiece:${layer}:`));
+    return data.entities.some(
+        (entity) => entity.layer === layer || entity.id?.startsWith(`setpiece:${layer}:`)
+    );
 }
 
 function getEntityPosition(entity: CandyMapEntity): Vec3 | null {
@@ -444,13 +551,13 @@ function hasEntityNear(
     radius: number
 ): boolean {
     const radiusSq = radius * radius;
-    return entities.some(entity => {
+    return entities.some((entity) => {
         if (normalizeType(entity.type) !== type) return false;
         const position = getEntityPosition(entity);
         if (!position) return false;
         const dx = position[0] - centerX;
         const dz = position[2] - centerZ;
-        return (dx * dx + dz * dz) <= radiusSq;
+        return dx * dx + dz * dz <= radiusSq;
     });
 }
 
@@ -462,7 +569,10 @@ function addLegacySetpieces(base: CandyMapData): CandyMapData {
     const lakeLayer = 'setpiece-lake-island';
     const caveLayer = 'setpiece-cave';
 
-    if (!entities.some(entity => normalizeType(entity.type) === 'cave') && !hasSetpieceLayer(base, caveLayer)) {
+    if (
+        !entities.some((entity) => normalizeType(entity.type) === 'cave') &&
+        !hasSetpieceLayer(base, caveLayer)
+    ) {
         entities.push({
             id: 'setpiece:cave:entrance',
             type: 'cave',
@@ -471,13 +581,25 @@ function addLegacySetpieces(base: CandyMapData): CandyMapData {
             biome: 'lake',
             position: [25, 0, 25],
             params: { lookAtOrigin: true, scale: 2.0 },
-            critical: true
+            critical: true,
         });
     }
 
     const hasArpeggioSignature =
-        hasEntityNear(entities, 'subwoofer_lotus', ARPEGGIO_GROVE_SETPIECE.centerX, ARPEGGIO_GROVE_SETPIECE.centerZ, ARPEGGIO_GROVE_SETPIECE.radius * 0.9) ||
-        hasEntityNear(entities, 'arpeggio_fern', ARPEGGIO_GROVE_SETPIECE.centerX, ARPEGGIO_GROVE_SETPIECE.centerZ, ARPEGGIO_GROVE_SETPIECE.radius);
+        hasEntityNear(
+            entities,
+            'subwoofer_lotus',
+            ARPEGGIO_GROVE_SETPIECE.centerX,
+            ARPEGGIO_GROVE_SETPIECE.centerZ,
+            ARPEGGIO_GROVE_SETPIECE.radius * 0.9
+        ) ||
+        hasEntityNear(
+            entities,
+            'arpeggio_fern',
+            ARPEGGIO_GROVE_SETPIECE.centerX,
+            ARPEGGIO_GROVE_SETPIECE.centerZ,
+            ARPEGGIO_GROVE_SETPIECE.radius
+        );
 
     if (!hasSetpieceLayer(base, groveLayer) && !hasArpeggioSignature) {
         const { centerX, centerZ, radius } = ARPEGGIO_GROVE_SETPIECE;
@@ -490,7 +612,7 @@ function addLegacySetpieces(base: CandyMapData): CandyMapData {
             position: [centerX, 0, centerZ],
             scale: 1.5,
             music: { biomeTag: 'arpeggio_grove' },
-            critical: true
+            critical: true,
         });
         const fernCount = 7;
         const fernRadius = radius * 0.4;
@@ -502,11 +624,15 @@ function addLegacySetpieces(base: CandyMapData): CandyMapData {
                 category: 'setpiece',
                 layer: groveLayer,
                 biome: 'arpeggio_grove',
-                position: [centerX + Math.cos(angle) * fernRadius, 0, centerZ + Math.sin(angle) * fernRadius],
+                position: [
+                    centerX + Math.cos(angle) * fernRadius,
+                    0,
+                    centerZ + Math.sin(angle) * fernRadius,
+                ],
                 scale: 1.1,
                 rotation: { euler: [0, angle + Math.PI, 0], order: 'YXZ' },
                 music: { biomeTag: 'arpeggio_grove' },
-                critical: true
+                critical: true,
             });
         }
         const outerCount = 4;
@@ -517,29 +643,45 @@ function addLegacySetpieces(base: CandyMapData): CandyMapData {
                 category: 'setpiece',
                 layer: groveLayer,
                 biome: 'arpeggio_grove',
-                position: [centerX + Math.cos(angle) * outerRadius, 0, centerZ + Math.sin(angle) * outerRadius] as Vec3,
+                position: [
+                    centerX + Math.cos(angle) * outerRadius,
+                    0,
+                    centerZ + Math.sin(angle) * outerRadius,
+                ] as Vec3,
                 music: { biomeTag: 'arpeggio_grove' },
-                critical: true
+                critical: true,
             };
             if (i % 2 === 0) {
                 entities.push({
                     id: `setpiece:arpeggio:geyser:${i}`,
                     type: 'kick_drum_geyser',
-                    ...common
+                    ...common,
                 });
             } else {
                 entities.push({
                     id: `setpiece:arpeggio:violet:${i}`,
                     type: 'vibrato_violet',
-                    ...common
+                    ...common,
                 });
             }
         }
     }
 
     const hasLakeSignature =
-        hasEntityNear(entities, 'retrigger_mushroom', LAKE_ISLAND_SETPIECE.centerX, LAKE_ISLAND_SETPIECE.centerZ, LAKE_ISLAND_SETPIECE.radius * 0.9) ||
-        hasEntityNear(entities, 'kick_drum_geyser', LAKE_ISLAND_SETPIECE.centerX, LAKE_ISLAND_SETPIECE.centerZ, LAKE_ISLAND_SETPIECE.radius);
+        hasEntityNear(
+            entities,
+            'retrigger_mushroom',
+            LAKE_ISLAND_SETPIECE.centerX,
+            LAKE_ISLAND_SETPIECE.centerZ,
+            LAKE_ISLAND_SETPIECE.radius * 0.9
+        ) ||
+        hasEntityNear(
+            entities,
+            'kick_drum_geyser',
+            LAKE_ISLAND_SETPIECE.centerX,
+            LAKE_ISLAND_SETPIECE.centerZ,
+            LAKE_ISLAND_SETPIECE.radius
+        );
 
     if (!hasSetpieceLayer(base, lakeLayer) && !hasLakeSignature) {
         const { centerX, centerZ, radius } = LAKE_ISLAND_SETPIECE;
@@ -551,8 +693,8 @@ function addLegacySetpieces(base: CandyMapData): CandyMapData {
             biome: 'lake',
             position: [centerX, 0, centerZ],
             scale: 1.5,
-            params: { retriggerSpeed: 4, color: 0x00FFFF },
-            critical: true
+            params: { retriggerSpeed: 4, color: 0x00ffff },
+            critical: true,
         });
         const geyserCount = 6;
         for (let i = 0; i < geyserCount; i++) {
@@ -563,15 +705,19 @@ function addLegacySetpieces(base: CandyMapData): CandyMapData {
                 category: 'setpiece',
                 layer: lakeLayer,
                 biome: 'lake',
-                position: [centerX + Math.cos(angle) * radius * 0.7, 0, centerZ + Math.sin(angle) * radius * 0.7],
-                rotation: { euler: [0, angle + Math.PI, 0], order: 'YXZ' }
+                position: [
+                    centerX + Math.cos(angle) * radius * 0.7,
+                    0,
+                    centerZ + Math.sin(angle) * radius * 0.7,
+                ],
+                rotation: { euler: [0, angle + Math.PI, 0], order: 'YXZ' },
             });
         }
     }
 
     return {
         ...base,
-        entities
+        entities,
     };
 }
 
@@ -590,7 +736,7 @@ function normalizeEntity(entity: CandyMapEntity, index: number): LoadedMapEntity
         placement,
         biome,
         music: normalizeMusicHints(entity.music),
-        params
+        params,
     };
 }
 
@@ -627,6 +773,7 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
     private cellIndex: Map<string, LoadedMapEntity[]> = new Map();
     private byType: Map<string, LoadedMapEntity[]> = new Map();
     private byBiome: Map<string, LoadedMapEntity[]> = new Map();
+    private byId: Map<string, LoadedMapEntity> = new Map();
     private nearestScratch: NearestScratch[] = [];
     private nearestScratchCount: number = 0;
     private streamScratch: LoadedMapEntity[] = [];
@@ -661,6 +808,8 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
 
     private buildIndexes(): void {
         for (const entity of this.entities) {
+            this.byId.set(entity.id, entity);
+
             const typeList = this.byType.get(entity.type);
             if (typeList) typeList.push(entity);
             else this.byType.set(entity.type, [entity]);
@@ -694,18 +843,46 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
         return this.byBiome.get(biome) ?? [];
     }
 
-    getEntitiesInBounds(
-        bounds: { minX: number; minY?: number; minZ: number; maxX: number; maxY?: number; maxZ: number }
-    ): LoadedMapEntity[] {
+    getEntityById(id: string): LoadedMapEntity | undefined {
+        return this.byId.get(id);
+    }
+
+    getEntitiesByIds(ids: readonly string[], out: LoadedMapEntity[] = []): LoadedMapEntity[] {
+        out.length = 0;
+        for (let i = 0; i < ids.length; i++) {
+            const entity = this.byId.get(ids[i]);
+            if (entity) out.push(entity);
+        }
+        return out;
+    }
+
+    getEntitiesInBounds(bounds: {
+        minX: number;
+        minY?: number;
+        minZ: number;
+        maxX: number;
+        maxY?: number;
+        maxZ: number;
+    }): LoadedMapEntity[] {
         const minY = bounds.minY ?? Number.NEGATIVE_INFINITY;
         const maxY = bounds.maxY ?? Number.POSITIVE_INFINITY;
         return this.getNearestEntities({
             origin: { x: (bounds.minX + bounds.maxX) * 0.5, z: (bounds.minZ + bounds.maxZ) * 0.5 },
-            radius: Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ),
-            out: []
-        }).filter(entity => {
+            // Half the diagonal covers the box from its center — the exact
+            // filter below keeps results correct either way, this just
+            // trims the number of spatial cells scanned to find them.
+            radius: Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) * 0.5,
+            out: [],
+        }).filter((entity) => {
             const [x, y, z] = entity.position;
-            return x >= bounds.minX && x <= bounds.maxX && y >= minY && y <= maxY && z >= bounds.minZ && z <= bounds.maxZ;
+            return (
+                x >= bounds.minX &&
+                x <= bounds.maxX &&
+                y >= minY &&
+                y <= maxY &&
+                z >= bounds.minZ &&
+                z <= bounds.maxZ
+            );
         });
     }
 
@@ -756,7 +933,11 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
                         const distSq = dx * dx + dz * dz;
                         if (distSq > radiusSq) continue;
                         const rank = priorityMap.get(entity.type) ?? defaultRank;
-                        const slot = this.nearestScratch[this.nearestScratchCount] ?? { entity, priorityRank: rank, distSq };
+                        const slot = this.nearestScratch[this.nearestScratchCount] ?? {
+                            entity,
+                            priorityRank: rank,
+                            distSq,
+                        };
                         slot.entity = entity;
                         slot.priorityRank = rank;
                         slot.distSq = distSq;
@@ -772,7 +953,11 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
                 const dz = entity.position[2] - originZ;
                 const distSq = dx * dx + dz * dz;
                 const rank = priorityMap.get(entity.type) ?? defaultRank;
-                const slot = this.nearestScratch[this.nearestScratchCount] ?? { entity, priorityRank: rank, distSq };
+                const slot = this.nearestScratch[this.nearestScratchCount] ?? {
+                    entity,
+                    priorityRank: rank,
+                    distSq,
+                };
                 slot.entity = entity;
                 slot.priorityRank = rank;
                 slot.distSq = distSq;
@@ -812,7 +997,7 @@ class LoadedCandyMapImpl implements LoadedCandyMap {
             radius: maxRadius,
             priorityTypes,
             excludeIds: options?.excludeIds,
-            out: this.streamScratch
+            out: this.streamScratch,
         });
 
         let currentRing = -1;
@@ -852,12 +1037,16 @@ async function fetchMapJson(source: string): Promise<unknown> {
     }
     const response = await fetch(url.toString(), { credentials: 'same-origin' });
     if (!response.ok) {
-        throw new Error(`[MapLoader] Failed to load map "${source}" (${response.status} ${response.statusText})`);
+        throw new Error(
+            `[MapLoader] Failed to load map "${source}" (${response.status} ${response.statusText})`
+        );
     }
     return response.json();
 }
 
-export function getMapSourceFromUrl(defaultSource: string = new URL('../../assets/map.json', import.meta.url).href): string {
+export function getMapSourceFromUrl(
+    defaultSource: string = new URL('../../assets/map.json', import.meta.url).href
+): string {
     if (typeof window === 'undefined') return defaultSource;
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('map');
@@ -877,13 +1066,75 @@ export async function loadMap(source: string | CandyMapData): Promise<LoadedCand
         ...withSetpieces,
         metadata: {
             ...withSetpieces.metadata,
-            version: withSetpieces.metadata?.version ?? '1.0'
+            version: withSetpieces.metadata?.version ?? '1.0',
         },
         entities,
-        music: withSetpieces.music
+        music: withSetpieces.music,
     };
 
     return new LoadedCandyMapImpl(sourceLabel, data, entities);
+}
+
+// --- Build-time spatial chunk index (assets/map-chunks.json) ---
+// Produced by tools/map-generator/build-chunk-index.ts. Maps "cx,cz" chunk keys
+// (world position divided by chunkSize, floored) to the entity ids inside that
+// chunk, so ChunkStreamer can look up "what's near the spawn tile" without
+// scanning every entity in the map. A reserved "__meta__" key carries the
+// chunk size and total indexed entity count used for the CI parity check.
+//
+// Single source of truth for the chunk grid size — chunk-streamer.ts and
+// build-chunk-index.ts both import this instead of redeclaring "32" so the
+// index and the runtime grid can never silently disagree.
+export const DEFAULT_MAP_CHUNK_STREAM_SIZE = 32;
+
+export interface MapChunkIndex {
+    chunkSize: number;
+    entityCount: number;
+    chunks: Map<string, string[]>;
+}
+
+interface RawMapChunkIndexFile {
+    __meta__?: { chunkSize?: number; entityCount?: number };
+    [chunkKey: string]: unknown;
+}
+
+const CHUNK_INDEX_META_KEY = '__meta__';
+
+/**
+ * Fetch and parse the build-time chunk index. Returns null (never throws) when
+ * the artifact is missing, stale, or malformed — callers must fall back to
+ * computing chunk membership from the loaded map directly (dev / hot-reload
+ * without a regenerated index).
+ */
+export async function loadMapChunkIndex(
+    source: string = new URL('../../assets/map-chunks.json', import.meta.url).href
+): Promise<MapChunkIndex | null> {
+    try {
+        const raw = (await fetchMapJson(source)) as RawMapChunkIndexFile;
+        if (!raw || typeof raw !== 'object') return null;
+        const meta = raw[CHUNK_INDEX_META_KEY];
+        const chunkSize =
+            typeof meta?.chunkSize === 'number' && meta.chunkSize > 0
+                ? meta.chunkSize
+                : DEFAULT_MAP_CHUNK_STREAM_SIZE;
+        const entityCount = typeof meta?.entityCount === 'number' ? meta.entityCount : -1;
+
+        const chunks = new Map<string, string[]>();
+        for (const [key, value] of Object.entries(raw)) {
+            if (key === CHUNK_INDEX_META_KEY) continue;
+            if (!Array.isArray(value)) continue;
+            const ids = value.filter((v): v is string => typeof v === 'string');
+            chunks.set(key, ids);
+        }
+        if (chunks.size === 0) return null;
+        return { chunkSize, entityCount, chunks };
+    } catch (error) {
+        console.warn(
+            `[MapLoader] Chunk index unavailable (${source}); falling back to bounding-box queries.`,
+            error
+        );
+        return null;
+    }
 }
 
 export function setupMapHotReload(source: string, onReload: () => void): void {
@@ -892,7 +1143,7 @@ export function setupMapHotReload(source: string, onReload: () => void): void {
     hot.on('vite:beforeUpdate', (payload: { updates?: Array<{ path?: string }> }) => {
         if (!payload?.updates) return;
         const normalizedSource = source.replace(/^\.\//, '').replace(/^\//, '');
-        const shouldReload = payload.updates.some(update => {
+        const shouldReload = payload.updates.some((update) => {
             const path = update.path ?? '';
             return path.endsWith(normalizedSource) || path.endsWith(source);
         });
