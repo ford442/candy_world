@@ -28,11 +28,11 @@ import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
 import { populateWorld, WorldMode } from '../../world/generation.ts';
 import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
 import { spawnTracker } from '../../world/spawn-tracker.ts';
-import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
 import {
     reset as resetSpawnTracker,
     getReport as getSpawnReport,
 } from '../../world/spawn-tracker.ts';
+import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
 import {
     applyAwakenedPersistenceAfterWorldLoad,
     initDeferredVisuals,

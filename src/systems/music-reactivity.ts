@@ -4,10 +4,6 @@ export { AtmosphereShaftState } from './atmosphere-reactivity.ts';
 export { computeWaveDistSq } from './music-wave.ts';
 import * as THREE from 'three';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
-import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
-import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
-import { uploadPositionsFlat, batchDistanceCull, WASM_POSITION_OBJECT_CAPACITY } from '../utils/wasm-batch.ts';
 import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { getDayNightBias } from '../core/cycle.ts';
@@ -16,8 +12,12 @@ import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { foliageBatcher } from '../foliage/batcher/index.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
+import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
+import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { uTwilight } from '../foliage/sky.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
+import { uploadPositionsFlat, batchDistanceCull, WASM_POSITION_OBJECT_CAPACITY } from '../utils/wasm-batch.ts';
 import {
     updateAtmosphereReactivity,
     registerAtmosphereBeatSync,
