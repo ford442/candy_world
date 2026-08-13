@@ -1,4 +1,4 @@
-import { MRState, syncMapMusicContext, mapNoteToColor, applyArpeggioGroveChannelAccum, WeatherMusicTargets, _frustum, _projScreenMatrix, _scratchSphere, _targetMoonColor, _targetArpeggioColor, _targetNebulaColor, _targetGlobalColor, _targetGemCanopyColor, _targetSkyIslandsColor, _waveColor, _whiteColor, getActiveWave as readActiveWave, setActiveWave } from './music-reactivity-core.ts';
+import { MRState, syncMapMusicContext, mapNoteToColor, applyArpeggioGroveChannelAccum, WeatherMusicTargets, _frustum, _projScreenMatrix, _scratchSphere, _targetMoonColor, _targetArpeggioColor, _targetNebulaColor, _targetGlobalColor, _targetGemCanopyColor, _targetSkyIslandsColor, _targetSugarCavesColor, _waveColor, _whiteColor, getActiveWave as readActiveWave, setActiveWave } from './music-reactivity-core.ts';
 export * from "./music-reactivity-core.ts";
 export { AtmosphereShaftState } from './atmosphere-reactivity.ts';
 export { computeWaveDistSq } from './music-wave.ts';
@@ -419,7 +419,8 @@ export class MusicReactivitySystem {
             ...MRState.globalShimmerCh, ...MRState.globalHueShiftCh, ...MRState.globalNoteColorCh,
             ...MRState.gemCanopyShimmerCh, ...MRState.gemCanopyHueShiftCh, ...MRState.gemCanopyNoteColorCh,
             ...MRState.skyIslandsShimmerCh, ...MRState.skyIslandsHueShiftCh, ...MRState.skyIslandsNoteColorCh,
-            ...MRState.skyIslandsFogCh
+            ...MRState.skyIslandsFogCh,
+            ...MRState.sugarCavesShimmerCh, ...MRState.sugarCavesHueShiftCh, ...MRState.sugarCavesNoteColorCh
             ];
             const maxNeeded = Math.max(0, ...allConfiguredChannels);
             if (maxNeeded >= channels.length) {
@@ -479,6 +480,18 @@ export class MusicReactivitySystem {
             if (idx < channels.length) MRState.skyIslandsFogAccum += channels[idx].volume;
         }
 
+        // --- Sugar Caves: shimmer + hue shift ---
+        MRState.sugarCavesShimmerAccum = 0.0;
+        for (let i = 0; i < MRState.sugarCavesShimmerCh.length; i++) {
+            const idx = MRState.sugarCavesShimmerCh[i];
+            if (idx < channels.length) MRState.sugarCavesShimmerAccum += channels[idx].volume;
+        }
+        MRState.sugarCavesHueShiftAccum = 0.0;
+        for (let i = 0; i < MRState.sugarCavesHueShiftCh.length; i++) {
+            const idx = MRState.sugarCavesHueShiftCh[i];
+            if (idx < channels.length) MRState.sugarCavesHueShiftAccum += channels[idx].volume;
+        }
+
         // --- Crystalline Nebula: shimmer ---
         MRState.nebulaShimmerAccum = 0.0;
         for (let i = 0; i < MRState.nebulaShimmerCh.length; i++) {
@@ -499,6 +512,7 @@ export class MusicReactivitySystem {
         MRState.nebulaNoteVal = 0;
         MRState.gemCanopyNoteVal = 0;
         MRState.skyIslandsNoteVal = 0;
+        MRState.sugarCavesNoteVal = 0;
         // Read Intensity
         for (let i = 0; i < MRState.skyMoonIntensityCh.length; i++) {
             const idx = MRState.skyMoonIntensityCh[i];
@@ -556,6 +570,14 @@ export class MusicReactivitySystem {
             }
         }
 
+        for (let i = 0; i < MRState.sugarCavesNoteColorCh.length; i++) {
+            const idx = MRState.sugarCavesNoteColorCh[i];
+            if (idx < channels.length && channels[idx].volume > 0.05) {
+            MRState.sugarCavesNoteVal = parseInt(channels[idx].note) || 0;
+            break;
+            }
+        }
+
         // Push to TSL uniforms
         // Mutate .value in place: never reassign the uniform node itself.
         // arpeggio_grove shimmer/hueShift already written by applyArpeggioGroveChannelAccum.
@@ -585,6 +607,11 @@ export class MusicReactivitySystem {
             BiomeUniforms.skyIslands.fogDensity.value =
                 BiomeUniforms.skyIslands.fogDensity.value * 0.85 + fogTarget * 0.15;
         }
+
+        BiomeUniforms.sugarCaves.shimmer.value =
+            Math.min(MRState.sugarCavesShimmerAccum / Math.max(MRState.sugarCavesShimmerCh.length, 1), 1.0) * nightGate * MRState.sugarCavesIntensityScale;
+        BiomeUniforms.sugarCaves.hueShift.value =
+            Math.min(MRState.sugarCavesHueShiftAccum / Math.max(MRState.sugarCavesHueShiftCh.length, 1), 1.0) * nightGate * MRState.sugarCavesIntensityScale;
 
         BiomeUniforms.skyMoon.moonIntensity.value =
             Math.min(MRState.skyMoonIntensityAccum / Math.max(MRState.skyMoonIntensityCh.length, 1), 1.0) * nightGate * MRState.skyMoonIntensityScale;
@@ -647,6 +674,14 @@ export class MusicReactivitySystem {
             _targetSkyIslandsColor.setHex(0xffffff);
             BiomeUniforms.skyIslands.noteColor.value.lerp(_targetSkyIslandsColor, 0.05);
         }
+
+        if (MRState.sugarCavesNoteVal > 0) {
+            mapNoteToColor(MRState.sugarCavesNoteVal, _targetSugarCavesColor, 'sugar_caves');
+            BiomeUniforms.sugarCaves.noteColor.value.lerp(_targetSugarCavesColor, 0.12);
+        } else {
+            _targetSugarCavesColor.setHex(0xffffff);
+            BiomeUniforms.sugarCaves.noteColor.value.lerp(_targetSugarCavesColor, 0.05);
+        }
         } else {
         // No audio data — smoothly decay towards resting values (no snapping).
         BiomeUniforms.arpeggioGrove.shimmer.value *= 0.9;
@@ -664,6 +699,8 @@ export class MusicReactivitySystem {
         BiomeUniforms.skyIslands.hueShift.value *= 0.9;
         BiomeUniforms.skyIslands.fogDensity.value =
             BiomeUniforms.skyIslands.fogDensity.value * 0.9 + MRState.skyIslandsFogRest * 0.1;
+        BiomeUniforms.sugarCaves.shimmer.value *= 0.9;
+        BiomeUniforms.sugarCaves.hueShift.value *= 0.9;
 
         BiomeUniforms.skyMoon.moonIntensity.value *= 0.9;
         _targetMoonColor.setHex(0xffffff);
@@ -683,6 +720,9 @@ export class MusicReactivitySystem {
 
         _targetSkyIslandsColor.setHex(0xffffff);
         BiomeUniforms.skyIslands.noteColor.value.lerp(_targetSkyIslandsColor, 0.05);
+
+        _targetSugarCavesColor.setHex(0xffffff);
+        BiomeUniforms.sugarCaves.noteColor.value.lerp(_targetSugarCavesColor, 0.05);
         }
     }
 

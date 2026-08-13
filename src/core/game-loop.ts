@@ -8,6 +8,7 @@ import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
 import { updatePresenceSystem } from '../systems/net/lazy.ts';
+import { updateSugarCavesTraversal } from '../world/sugar-caves-traversal.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { player } from '../systems/physics/index.ts';
 import { profiler } from '../utils/profiler.ts';
@@ -177,6 +178,7 @@ export function animate() {
     updateImpacts(rendererRef, gt + timeOffsetRef.value);
     updateDandelionSeeds(rendererRef);
     updateFaunaSystem(delta, gt + timeOffsetRef.value);
+    updateSugarCavesTraversal(player.position.x, player.position.y, player.position.z);
     updatePresenceSystem(delta, cameraRef, player.position);
 
     // 6. Physics Phase

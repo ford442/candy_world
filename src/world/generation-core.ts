@@ -37,7 +37,10 @@ import {
     WorldProgressCallback,
     isPositionValid,
     yieldControl,
+    SUGAR_CAVES,
+    SKY_ISLANDS,
 } from './generation-utils.ts';
+import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
 import { generateGroundHeightmap } from './ground-heightmap.ts';
 import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { animatedFoliage, worldGroup } from './state.ts';
@@ -88,6 +91,40 @@ const VISIBLE_BUBBLE_LIMIT = 300;
  */
 export type BootPath = 'play' | 'explore';
 const DEFAULT_BOOT_PATH: BootPath = 'play';
+
+function buildProceduralBiomeRegions(): import('./map-loader.ts').MapRegion[] {
+    const regions: import('./map-loader.ts').MapRegion[] = [];
+    if (SKY_ISLANDS.enabled) {
+        regions.push({
+            id: 'sky_islands',
+            name: 'Sky Islands',
+            bounds: {
+                min: [SKY_ISLANDS.centerX - 40, SKY_ISLANDS.centerZ - 40],
+                max: [SKY_ISLANDS.centerX + 40, SKY_ISLANDS.centerZ + 40],
+            },
+            biome: 'sky_islands',
+        });
+    }
+    if (SUGAR_CAVES.enabled) {
+        const minX = Math.min(SUGAR_CAVES.startX, SUGAR_CAVES.endX) - 15;
+        const maxX = Math.max(SUGAR_CAVES.startX, SUGAR_CAVES.endX) + 15;
+        const minZ = Math.min(SUGAR_CAVES.startZ, SUGAR_CAVES.endZ) - 15;
+        const maxZ = Math.max(SUGAR_CAVES.startZ, SUGAR_CAVES.endZ) + 15;
+        regions.push({
+            id: 'sugar_caves',
+            name: 'Sugar Caves',
+            bounds: { min: [minX, minZ], max: [maxX, maxZ] },
+            biome: 'sugar_caves',
+        });
+    }
+    return regions;
+}
+
+function wireBiomeRegions(loadedMap: LoadedCandyMap): void {
+    const mapRegions = loadedMap.data.regions ?? [];
+    const procedural = buildProceduralBiomeRegions();
+    setBiomeRegions([...mapRegions, ...procedural]);
+}
 const PLAY_SPAWN_RADIUS_CHUNKS = 1;
 const PLAY_SPAWN_ENTITY_CAP = 80;
 
@@ -336,6 +373,7 @@ export async function generateMap(
     // only pays for the slower of the two, not both serialized.
     const chunkIndexPromise = bootPath === 'play' ? loadMapChunkIndex() : null;
     const loadedMap = await getLoadedMap();
+    wireBiomeRegions(loadedMap);
     applyMapPreallocationHints(loadedMap);
     console.log(
         `[World] Loading map (${loadedMap.source}) with ${loadedMap.entities.length} entities... (bootPath=${bootPath})`
@@ -638,6 +676,8 @@ function queueDecoratorBootstrap(
                 await populateCloudArchipelago(weatherSystem);
                 await populateSkyIslands(weatherSystem);
                 await populateSugarCaves(weatherSystem);
+                const { installSugarCavesTraversal } = await import('./sugar-caves-traversal.ts');
+                installSugarCavesTraversal();
             } finally {
                 console.timeEnd('[World] procedural-extras (deferred)');
             }

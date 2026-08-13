@@ -115,9 +115,9 @@ _Content / world-building (capstones, after foundation):_
 - [ ] **#1356 Cinematic Photo Mode.**
 - [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [x] **#1352 Living candy fauna** (WASM boids + ECS).
-  - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
+    - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
 - [x] **#1353 Real-time co-presence** (Supabase Realtime). **Status: Implemented ✅**
-  * Implementation Details: Verified the real-time presence components and wired `updatePresenceSystem` and `teardownPresence` to the game loop to ensure proper live-publishing of player poses.
+    - Implementation Details: Verified the real-time presence components and wired `updatePresenceSystem` and `teardownPresence` to the game loop to ensure proper live-publishing of player poses.
 - [ ] **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
     - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
 - [ ] **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**

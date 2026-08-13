@@ -211,6 +211,72 @@ export function installPresenceStartScreenUI(): void {
     wrapper.appendChild(seedRow);
     wrapper.appendChild(linkRow);
     wrapper.appendChild(note);
+
+    const privacyRow = document.createElement('div');
+    privacyRow.style.cssText = 'margin-top:10px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;';
+    const hideSelfBtn = document.createElement('button');
+    hideSelfBtn.type = 'button';
+    hideSelfBtn.className = 'toggle-button';
+    hideSelfBtn.textContent = 'Hide my avatar';
+    hideSelfBtn.style.fontSize = '0.75rem';
+    hideSelfBtn.addEventListener('click', async () => {
+        const { presenceSystem } = await import('../systems/net/presence.ts');
+        const next = !presenceSystem.hideSelf;
+        presenceSystem.setHideSelf(next);
+        hideSelfBtn.textContent = next ? 'Show my avatar' : 'Hide my avatar';
+        hideSelfBtn.setAttribute('aria-pressed', String(next));
+    });
+    privacyRow.appendChild(hideSelfBtn);
+    wrapper.appendChild(privacyRow);
+
+    const peerList = document.createElement('ul');
+    peerList.id = 'presence-peer-list';
+    peerList.setAttribute('role', 'list');
+    peerList.setAttribute('aria-label', 'Explorers in room');
+    peerList.setAttribute('aria-live', 'polite');
+    peerList.style.cssText =
+        'margin:10px 0 0;padding:0;list-style:none;font-size:0.75rem;max-height:120px;overflow:auto;';
+    wrapper.appendChild(peerList);
+
+    const peerStatus = document.createElement('div');
+    peerStatus.id = 'presence-peer-status';
+    peerStatus.className = 'sr-only';
+    peerStatus.setAttribute('aria-live', 'polite');
+    wrapper.appendChild(peerStatus);
+
+    window.addEventListener('candy:presence-peers', (e: Event) => {
+        const detail = (e as CustomEvent).detail as {
+            peers: Array<{ id: string; label: string; emoji: string; muted: boolean }>;
+            peerCount: number;
+            maxPeers: number;
+        };
+        peerList.innerHTML = '';
+        for (const p of detail.peers) {
+            const li = document.createElement('li');
+            li.style.cssText = 'display:flex;align-items:center;gap:6px;margin:4px 0;';
+            const label = document.createElement('span');
+            label.textContent = `${p.emoji} ${p.label}`;
+            li.appendChild(label);
+            const muteBtn = document.createElement('button');
+            muteBtn.type = 'button';
+            muteBtn.className = 'toggle-button';
+            muteBtn.style.fontSize = '0.7rem';
+            muteBtn.textContent = p.muted ? 'Unmute' : 'Mute';
+            muteBtn.setAttribute('aria-label', `${p.muted ? 'Unmute' : 'Mute'} ${p.label}`);
+            muteBtn.addEventListener('click', async () => {
+                const { presenceSystem } = await import('../systems/net/presence.ts');
+                if (p.muted) presenceSystem.unmutePeer(p.id);
+                else presenceSystem.mutePeer(p.id);
+            });
+            li.appendChild(muteBtn);
+            peerList.appendChild(li);
+        }
+        peerStatus.textContent =
+            detail.peerCount === 0
+                ? 'No other explorers in room'
+                : `${detail.peerCount} explorer${detail.peerCount === 1 ? '' : 's'} nearby (max ${detail.maxPeers})`;
+    });
+
     modeSelect.insertAdjacentElement('afterend', wrapper);
 
     yieldToPaint(50).then(() => {

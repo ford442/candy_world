@@ -9,8 +9,17 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
+import { announce } from '../../ui/announcer.ts';
+import { spawnImpact } from '../../foliage/impacts.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
 import { getBiomeAtPosition } from './biome-at-position.ts';
+import {
+    BIOME_DISPLAY_NAMES,
+    detectPeerBiomeEntry,
+    ingestPose,
+    mergePresenceMeta,
+    pruneStalePeers,
+} from './presence-protocol.ts';
 import {
     PRESENCE_BROADCAST_EVENT,
     type PresenceMeta,
@@ -84,6 +93,8 @@ export class PresenceSystem {
     private _peers = new Map<string, RemotePeer>();
     private _localPos = new THREE.Vector3();
     private _shareDiscoveryGlow = false;
+    private _hideSelf = false;
+    private _mutedPeerIds = new Set<string>();
 
     static getInstance(): PresenceSystem {
         if (!PresenceSystem._instance) {
@@ -98,6 +109,32 @@ export class PresenceSystem {
 
     get peerCount(): number {
         return this._peers.size;
+    }
+
+    get peers(): ReadonlyMap<string, RemotePeer> {
+        return this._peers;
+    }
+
+    setHideSelf(hide: boolean): void {
+        this._hideSelf = hide;
+    }
+
+    get hideSelf(): boolean {
+        return this._hideSelf;
+    }
+
+    mutePeer(peerId: string): void {
+        this._mutedPeerIds.add(peerId);
+        remoteAvatars.setMutedPeers(this._mutedPeerIds);
+    }
+
+    unmutePeer(peerId: string): void {
+        this._mutedPeerIds.delete(peerId);
+        remoteAvatars.setMutedPeers(this._mutedPeerIds);
+    }
+
+    isPeerMuted(peerId: string): boolean {
+        return this._mutedPeerIds.has(peerId);
     }
 
     /** Future seam: mirror save-system shareDiscoveryGlowWithPeers */
@@ -219,7 +256,7 @@ export class PresenceSystem {
 
         this._pruneStalePeers(now);
 
-        if (now - this._lastPublish >= tickMs) {
+        if (now - this._lastPublish >= tickMs && !this._hideSelf) {
             this._lastPublish = now;
             camera.getWorldQuaternion(_scratchQuat);
             const biome = getBiomeAtPosition(this._localPos.x, this._localPos.z);
@@ -237,8 +274,41 @@ export class PresenceSystem {
             });
         }
 
+        remoteAvatars.setMutedPeers(this._mutedPeerIds);
         remoteAvatars.syncPeers(this._peers, this._localPos);
         remoteAvatars.updateTags();
+        this._emitPeerListUpdate();
+    }
+
+    private _emitPeerListUpdate(): void {
+        if (typeof window === 'undefined') return;
+        window.dispatchEvent(
+            new CustomEvent('candy:presence-peers', {
+                detail: {
+                    peers: [...this._peers.values()].map((p) => ({
+                        id: p.id,
+                        label: p.label,
+                        emoji: p.emoji,
+                        muted: this._mutedPeerIds.has(p.id),
+                    })),
+                    peerCount: this._peers.size,
+                    maxPeers: CONFIG.presence?.maxPeers ?? 16,
+                },
+            })
+        );
+    }
+
+    private _onPeerBiomeEntry(peer: RemotePeer, biome: string): void {
+        const name = BIOME_DISPLAY_NAMES[biome] ?? biome.replace(/_/g, ' ');
+        announce(`An explorer entered the ${name}`, 'polite');
+        if (peer.snapshots.length > 0) {
+            const snap = peer.snapshots[peer.snapshots.length - 1];
+            spawnImpact(
+                { x: snap.pos[0], y: snap.pos[1], z: snap.pos[2] },
+                'spore',
+                0xffb6e8
+            );
+        }
     }
 
     dispose(): void {
@@ -249,76 +319,21 @@ export class PresenceSystem {
     private _mergePresenceState(): void {
         if (!this._channel) return;
         const state = this._channel.presenceState<PresenceMeta>();
-        // ⚡ OPTIMIZATION: Bypassed Object.keys() array allocation in presence state merge to eliminate GC spikes.
-        for (const key in state) {
-            if (!Object.prototype.hasOwnProperty.call(state, key)) continue;
-            if (key === this._sessionId) continue;
-            const entries = state[key];
-            if (!entries || entries.length === 0) continue;
-            const meta = entries[entries.length - 1];
-            this._upsertPeerMeta(key, meta);
-        }
-    }
-
-    private _upsertPeerMeta(id: string, meta: PresenceMeta): void {
-        let peer = this._peers.get(id);
-        if (!peer) {
-            peer = {
-                id,
-                label: meta.label ?? 'Explorer',
-                emoji: meta.emoji ?? '🍬',
-                shareDiscoveryGlow: meta.shareDiscoveryGlow ?? false,
-                snapshots: [],
-                lastSeen: performance.now(),
-            };
-            this._peers.set(id, peer);
-        } else {
-            peer.label = meta.label ?? peer.label;
-            peer.emoji = meta.emoji ?? peer.emoji;
-            peer.shareDiscoveryGlow = meta.shareDiscoveryGlow ?? peer.shareDiscoveryGlow;
-            peer.lastSeen = performance.now();
-        }
-
-        const maxPeers = CONFIG.presence?.maxPeers ?? 16;
-        if (this._peers.size > maxPeers) {
-            const sorted = [...this._peers.entries()].sort((a, b) => a[1].lastSeen - b[1].lastSeen);
-            while (this._peers.size > maxPeers) {
-                const [dropId] = sorted.shift()!;
-                this._peers.delete(dropId);
-            }
-        }
+        mergePresenceMeta(
+            this._peers,
+            state,
+            this._sessionId,
+            CONFIG.presence?.maxPeers ?? 16
+        );
+        this._emitPeerListUpdate();
     }
 
     private _ingestPose(payload: PresencePose | null | undefined): void {
-        if (!payload?.id || payload.id === this._sessionId) return;
-        if (!Array.isArray(payload.pos) || payload.pos.length < 3) return;
-        if (!Array.isArray(payload.quat) || payload.quat.length < 4) return;
-
-        let peer = this._peers.get(payload.id);
-        if (!peer) {
-            peer = {
-                id: payload.id,
-                label: 'Explorer',
-                emoji: '🍬',
-                shareDiscoveryGlow: false,
-                snapshots: [],
-                lastSeen: performance.now(),
-            };
-            this._peers.set(payload.id, peer);
-        }
-
-        peer.lastSeen = performance.now();
-        peer.snapshots.push({
-            id: payload.id,
-            pos: payload.pos,
-            quat: payload.quat,
-            biome: payload.biome ?? 'global',
-            ts: payload.ts ?? performance.now(),
-            action: payload.action,
-        });
-        if (peer.snapshots.length > MAX_SNAPSHOTS) {
-            peer.snapshots.splice(0, peer.snapshots.length - MAX_SNAPSHOTS);
-        }
+        if (!ingestPose(this._peers, this._sessionId, payload)) return;
+        const peer = this._peers.get(payload!.id);
+        if (!peer) return;
+        const entered = detectPeerBiomeEntry(peer);
+        if (entered) this._onPeerBiomeEntry(peer, entered);
     }
 
     private _removePeer(id: string): void {
@@ -326,15 +341,18 @@ export class PresenceSystem {
     }
 
     private _pruneStalePeers(now: number): void {
-        for (const [id, peer] of this._peers) {
-            if (now - peer.lastSeen > STALE_PEER_MS) {
-                this._peers.delete(id);
-            }
-        }
+        const removed = pruneStalePeers(this._peers, now, STALE_PEER_MS);
+        if (removed.length > 0) this._emitPeerListUpdate();
     }
 }
 
 export const presenceSystem = PresenceSystem.getInstance();
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+        teardownPresence();
+    });
+}
 
 export function initPresenceFromOptIn(
     scene: THREE.Scene,
@@ -351,7 +369,7 @@ export function updatePresenceSystem(
     camera: THREE.PerspectiveCamera,
     playerPosition?: THREE.Vector3
 ): void {
-    if (!presenceSystem.joined) return;
+    if (!FEATURE_FLAGS.presence || !presenceSystem.joined) return;
     presenceSystem.update(delta, camera, playerPosition);
 }
 

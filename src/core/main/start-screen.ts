@@ -314,7 +314,12 @@ export function setupStartScreen(ctx: MainContext): void {
                         lastAnnounced = percent;
                     }
                 },
-                useFastPopulation ? { fastPopulation: true } : undefined
+                useFastPopulation || profile.mapSize !== 'large'
+                    ? {
+                          fastPopulation: useFastPopulation,
+                          chunkStreaming: profile.mapSize !== 'large',
+                      }
+                    : undefined
             );
 
             if (activeWorldMode !== requestedMode) {
