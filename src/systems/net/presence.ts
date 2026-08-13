@@ -9,8 +9,8 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
-import { announce } from '../../ui/announcer.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
+import { announce } from '../../ui/announcer.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
 import { getBiomeAtPosition } from './biome-at-position.ts';
 import {

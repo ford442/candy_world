@@ -3,8 +3,8 @@
  */
 
 import * as THREE from 'three';
-import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { color, float } from 'three/tsl';
+import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../../core/config.ts';
 import { foliageGroup } from '../../world/state.ts';
 import type { RemotePeer } from './presence-types.ts';

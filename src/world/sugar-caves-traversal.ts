@@ -3,11 +3,11 @@
  */
 
 import * as THREE from 'three';
-import { SUGAR_CAVES } from './generation-utils.ts';
-import { isSugarCavesUnlocked, tryUnlockSugarCavesFromProgress } from './part-ii-unlock.ts';
-import { registerPlatform } from '../systems/ground-system.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
 import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
+import { registerPlatform } from '../systems/ground-system.ts';
+import { SUGAR_CAVES } from './generation-utils.ts';
+import { isSugarCavesUnlocked, tryUnlockSugarCavesFromProgress } from './part-ii-unlock.ts';
 
 const LAKE_DESCENT_X = 18;
 const LAKE_DESCENT_Z = 22;

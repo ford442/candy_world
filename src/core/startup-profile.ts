@@ -12,8 +12,8 @@
  * GraphicsLevel is persisted now; Phase 3 will gate shader warmup / ambient systems.
  */
 
-import { getLoadMemoryTier, type LoadMemoryTier } from './config/runtime.ts';
 import type { WorldMode } from '../world/generation-utils.ts';
+import { getLoadMemoryTier, type LoadMemoryTier } from './config/runtime.ts';
 
 export type GraphicsLevel = 'low' | 'medium' | 'high';
 export type MapSize = 'small' | 'medium' | 'large';

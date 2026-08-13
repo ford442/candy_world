@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
@@ -9,7 +10,6 @@ import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
-import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import {
     foliageMaterials,

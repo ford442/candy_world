@@ -2,11 +2,11 @@ import * as THREE from 'three';
 import { color, float, mix, positionLocal, normalWorld, smoothstep } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getLoadMemoryTier } from '../core/config.ts';
-import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
-import { uTwilight } from './sky.ts';
-import { createJuicyRimLight, applyPlayerInteraction, triplanarNoise, uAudioLow } from './index.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { worldGroup } from '../world/state.ts';
+import { createJuicyRimLight, applyPlayerInteraction, triplanarNoise, uAudioLow } from './index.ts';
+import { uTwilight } from './sky.ts';
 
 const _scratchMatrix = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();

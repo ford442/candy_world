@@ -18,11 +18,13 @@ import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { createIntegratedFireflies } from '../particles/index.ts';
 import { getParticles } from '../particles/lazy.ts';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
+import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
 import { updateProgress } from '../ui/loading-screen.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
 import { initCollisionSystem } from '../utils/wasm-loader.ts';
 import { ChunkStreamer, setActiveChunkStreamer } from './chunk-streamer.ts';
+import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { safeAddFoliage, processMapEntity } from './generation-entities.ts';
 import {
@@ -40,10 +42,7 @@ import {
     SUGAR_CAVES,
     SKY_ISLANDS,
 } from './generation-utils.ts';
-import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
 import { generateGroundHeightmap } from './ground-heightmap.ts';
-import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
-import { animatedFoliage, worldGroup } from './state.ts';
 import {
     getMapSourceFromUrl,
     loadMap,
@@ -56,9 +55,10 @@ import {
     deriveMapMusicContext,
     setMapMusicContext,
 } from './map-music-context.ts';
-import { setMapMetadataSeed } from './world-seed.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
-import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
+import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
+import { animatedFoliage, worldGroup } from './state.ts';
+import { setMapMetadataSeed } from './world-seed.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
 
