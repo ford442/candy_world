@@ -212,10 +212,9 @@ export async function initScene(): Promise<SceneInitResult> {
         (window as any).__computeDisabled = true;
     }
 
-    // Adopt the renderer's device as the process-wide GPU context. Deliberately
-    // not awaited: initScene() is synchronous, and every consumer of the shared
-    // device awaits `getGpuContext()` instead. Never rejects.
-    void armGpuContext(renderer, mode, fallbackReason);
+    // Adopt the renderer's device as the process-wide GPU context. Must complete
+    // before setSize so MSAA colorBuffer / swapchain resolve match the canvas.
+    await armGpuContext(renderer, mode, fallbackReason);
 
     const initialFog = getInitialFogDistances();
 
@@ -494,4 +493,13 @@ export async function forceFullSceneWarmup(
     camera.rotation.copy(originalRot);
     renderer.autoClear = originalAutoClear;
     renderer.clear();
+}
+
+/**
+ * Re-sync the WebGPU drawing buffer and MSAA resolve target to the current window
+ * size. Shader warmup renders into 1×1 offscreen targets; calling this after warmup
+ * prevents CopyTextureToTexture validation errors when resolving to the canvas.
+ */
+export function syncDrawingBufferFromWindow(renderer: CandyRenderer): void {
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }

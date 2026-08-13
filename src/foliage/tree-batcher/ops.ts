@@ -95,7 +95,7 @@ export function growTrunkBuffer(state: TreeBatcherState) {
 
         
         state.trunks = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew trunk buffer to ${state.trunkCapacity}`);
     }
 
@@ -145,7 +145,7 @@ export function growSphereBuffer(state: TreeBatcherState) {
 
         
         state.spheres = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew sphere buffer to ${state.sphereCapacity}`);
     }
 
@@ -195,7 +195,7 @@ export function growCapsuleBuffer(state: TreeBatcherState) {
 
         
         state.capsules = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew capsule buffer to ${state.capsuleCapacity}`);
     }
 
@@ -245,7 +245,7 @@ export function growHelixBuffer(state: TreeBatcherState) {
 
         
         state.helices = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew helix buffer to ${state.helixCapacity}`);
     }
 
@@ -295,7 +295,7 @@ export function growRoseBuffer(state: TreeBatcherState) {
 
         
         state.roses = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew rose buffer to ${state.roseCapacity}`);
     }
 
@@ -346,7 +346,7 @@ export function growAccordionLeafBuffer(state: TreeBatcherState) {
         foliageGroup.add(newMesh);
 
         state.accordionLeaves = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew accordion leaf buffer to ${state.accordionLeafCapacity}`);
     }
 
@@ -548,7 +548,7 @@ export function flushRegistrations(state: TreeBatcherState) {
         }
 
         // Flag updates
-        updatedMeshes.forEach(m => {
+        uniqueMeshes.forEach(m => {
             if (!shouldUseFoliageGpuBatch(m.count)) {
                 m.instanceMatrix.needsUpdate = true;
                 if (m.instanceColor) m.instanceColor.needsUpdate = true;
