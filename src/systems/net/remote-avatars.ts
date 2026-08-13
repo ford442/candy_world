@@ -55,10 +55,6 @@ export class RemoteAvatars {
         return RemoteAvatars._instance;
     }
 
-    setMutedPeers(mutedIds: Set<string>): void {
-        this._mutedPeerIds = mutedIds;
-    }
-
     init(_scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.Renderer): void {
         if (this._initialized) return;
 
@@ -78,7 +74,10 @@ export class RemoteAvatars {
 
         this._mesh = new THREE.InstancedMesh(geo, mat, maxPeers);
         this._mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this._mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxPeers * 3), 3);
+        this._mesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(maxPeers * 3),
+            3
+        );
         this._mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
         this._mesh.frustumCulled = false;
         this._mesh.count = 0;
