@@ -531,8 +531,11 @@ export function flushRegistrations(state: TreeBatcherState) {
         }
 
         // Write non-pose standard attributes efficiently
+        const updatedMeshesSet = new Set<THREE.InstancedMesh>();
+
         for (let i = 0; i < queueSize; i++) {
             const req = state._pendingInstances[i];
+            updatedMeshesSet.add(req.mesh);
 
             // Animation hot path
             const typeAttr = req.mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
@@ -548,7 +551,7 @@ export function flushRegistrations(state: TreeBatcherState) {
         }
 
         // Flag updates
-        updatedMeshes.forEach(m => {
+        updatedMeshesSet.forEach((m: THREE.InstancedMesh) => {
             if (!shouldUseFoliageGpuBatch(m.count)) {
                 m.instanceMatrix.needsUpdate = true;
                 if (m.instanceColor) m.instanceColor.needsUpdate = true;
