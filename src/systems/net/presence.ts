@@ -95,6 +95,7 @@ export class PresenceSystem {
     private _shareDiscoveryGlow = false;
     private _hideSelf = false;
     private _mutedPeerIds = new Set<string>();
+    private _peersDirty = false;
 
     static getInstance(): PresenceSystem {
         if (!PresenceSystem._instance) {
@@ -126,11 +127,13 @@ export class PresenceSystem {
     mutePeer(peerId: string): void {
         this._mutedPeerIds.add(peerId);
         remoteAvatars.setMutedPeers(this._mutedPeerIds);
+        this._peersDirty = true;
     }
 
     unmutePeer(peerId: string): void {
         this._mutedPeerIds.delete(peerId);
         remoteAvatars.setMutedPeers(this._mutedPeerIds);
+        this._peersDirty = true;
     }
 
     isPeerMuted(peerId: string): boolean {
@@ -207,6 +210,7 @@ export class PresenceSystem {
                     await this._channel!.track(meta);
                     this._joined = true;
                     setPresenceOptIn(true);
+                    this._peersDirty = true;
                     console.log(`[Presence] Joined room ${room} as ${this._emoji} ${this._label}`);
                     resolve(true);
                 } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -277,7 +281,12 @@ export class PresenceSystem {
         remoteAvatars.setMutedPeers(this._mutedPeerIds);
         remoteAvatars.syncPeers(this._peers, this._localPos);
         remoteAvatars.updateTags();
-        this._emitPeerListUpdate();
+
+        // ⚡ OPTIMIZATION: Bypassed per-frame array allocation and UI DOM updates by dirty-flagging peer list emits
+        if (this._peersDirty) {
+            this._emitPeerListUpdate();
+            this._peersDirty = false;
+        }
     }
 
     private _emitPeerListUpdate(): void {
@@ -319,12 +328,14 @@ export class PresenceSystem {
     private _mergePresenceState(): void {
         if (!this._channel) return;
         const state = this._channel.presenceState<PresenceMeta>();
-        mergePresenceMeta(
+        const changed = mergePresenceMeta(
             this._peers,
             state,
             this._sessionId,
             CONFIG.presence?.maxPeers ?? 16
         );
+        // Fallback for simple merge that doesn't return boolean, or if it does
+        this._peersDirty = true;
         this._emitPeerListUpdate();
     }
 
@@ -337,11 +348,17 @@ export class PresenceSystem {
     }
 
     private _removePeer(id: string): void {
-        this._peers.delete(id);
+        if (this._peers.has(id)) {
+            this._peers.delete(id);
+            this._peersDirty = true;
+        }
     }
 
     private _pruneStalePeers(now: number): void {
         const removed = pruneStalePeers(this._peers, now, STALE_PEER_MS);
+        if (removed.length > 0) {
+            this._peersDirty = true;
+        }
         if (removed.length > 0) this._emitPeerListUpdate();
     }
 }

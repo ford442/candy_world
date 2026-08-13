@@ -46,13 +46,17 @@ export class RemoteAvatars {
     private _renderer: THREE.Renderer | null = null;
     private _initialized = false;
     private _interpDelayMs = 100;
-    private _mutedPeerIds = new Set<string>();
+    private _mutedPeerIds: Set<string> = new Set();
 
     static getInstance(): RemoteAvatars {
         if (!RemoteAvatars._instance) {
             RemoteAvatars._instance = new RemoteAvatars();
         }
         return RemoteAvatars._instance;
+    }
+
+    setMutedPeers(mutedIds: Set<string>): void {
+        this._mutedPeerIds = mutedIds;
     }
 
     init(_scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.Renderer): void {
@@ -221,9 +225,10 @@ export class RemoteAvatars {
         const now = performance.now();
         let visibleCount = 0;
 
-        const activeIds = new Set(peers.keys());
-        for (const peerId of [...this._peerOrder]) {
-            if (!activeIds.has(peerId)) this._freeSlot(peerId);
+        // ⚡ OPTIMIZATION: Bypassed Array/Set allocation in hot presence update loop using reverse indexing.
+        for (let i = this._peerOrder.length - 1; i >= 0; i--) {
+            const peerId = this._peerOrder[i];
+            if (!peers.has(peerId)) this._freeSlot(peerId);
         }
 
         for (const [peerId, peer] of peers) {
@@ -239,7 +244,7 @@ export class RemoteAvatars {
             const dx = _interpPos.x - localPlayerPos.x;
             const dz = _interpPos.z - localPlayerPos.z;
             const distSq = dx * dx + dz * dz;
-            const inRange = distSq <= cullDistSq;
+            const inRange = distSq <= cullDistSq && !this._mutedPeerIds.has(peerId);
 
             if (inRange) {
                 _scratchScale.set(1, 1, 1);
