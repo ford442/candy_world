@@ -55,6 +55,7 @@ export function closeAccessibilityMenu(): void {
 export function createAccessibilityButton(): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
+  btn.classList.add('a11y-floating-button');
   btn.innerHTML = '<span aria-hidden="true">♿</span> Accessibility';
   btn.setAttribute('aria-label', 'Open accessibility settings');
   btn.style.cssText = `
