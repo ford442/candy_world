@@ -153,6 +153,16 @@
       "fov": 55,
       "timeOfDay": "day",
       "waitForStable": 3500
+    },
+    {
+      "name": "sugar_caves",
+      "description": "Subterranean Sugar Caves crystal rib corridor — Part II door viewpoint",
+      "biomeAnchor": "SUGAR_CAVES strip (0,0)→(-40,40) floor Y≈-12",
+      "cameraPosition": { "x": -8, "y": -6, "z": 28 },
+      "cameraTarget": { "x": -20, "y": -10, "z": 20 },
+      "fov": 60,
+      "timeOfDay": "night",
+      "waitForStable": 3000
     }
   ]
 }

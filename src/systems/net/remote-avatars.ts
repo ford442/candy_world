@@ -45,6 +45,7 @@ export class RemoteAvatars {
     private _renderer: THREE.Renderer | null = null;
     private _initialized = false;
     private _interpDelayMs = 100;
+    private _mutedPeerIds = new Set<string>();
 
     static getInstance(): RemoteAvatars {
         if (!RemoteAvatars._instance) {
@@ -57,8 +58,8 @@ export class RemoteAvatars {
         if (this._initialized) return;
 
         const maxPeers = CONFIG.presence?.maxPeers ?? 16;
-        const geo = new THREE.SphereGeometry(0.35, 12, 10);
-        geo.translate(0, 0.35, 0);
+        const geo = new THREE.CapsuleGeometry(0.22, 0.45, 4, 8);
+        geo.translate(0, 0.55, 0);
 
         const mat = new MeshPhysicalMaterial({
             color: 0xff69b4,
@@ -104,6 +105,10 @@ export class RemoteAvatars {
         this._camera = camera;
         this._renderer = renderer;
         this._initialized = true;
+    }
+
+    setMutedPeers(muted: ReadonlySet<string>): void {
+        this._mutedPeerIds = new Set(muted);
     }
 
     dispose(): void {
@@ -212,6 +217,10 @@ export class RemoteAvatars {
         }
 
         for (const [peerId, peer] of peers) {
+            if (this._mutedPeerIds.has(peerId)) {
+                this._freeSlot(peerId);
+                continue;
+            }
             const slot = this._allocateSlot(peerId);
             if (slot === null) continue;
 

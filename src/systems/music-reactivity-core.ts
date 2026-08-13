@@ -12,6 +12,7 @@ import {
     defaultLuminousPlantTrackerChannel, defaultGemCanopyShimmerCh, defaultGemCanopyHueShiftCh,
     defaultGemCanopyNoteColorCh, defaultSkyIslandsShimmerCh, defaultSkyIslandsHueShiftCh,
     defaultSkyIslandsNoteColorCh, defaultSkyIslandsFogCh, defaultSkyIslandsFogRest, defaultSkyIslandsFogPeak,
+    defaultSugarCavesShimmerCh, defaultSugarCavesHueShiftCh, defaultSugarCavesNoteColorCh,
     defaultWeatherBindings,
     defaultSkyWavePropagationMs, defaultSkyWaveDecayMs, defaultSkyWaveTargets,
     CHROMATIC_SCALE
@@ -58,11 +59,15 @@ export const MRState = {
     skyIslandsFogCh: defaultSkyIslandsFogCh as readonly number[],
     skyIslandsFogRest: defaultSkyIslandsFogRest,
     skyIslandsFogPeak: defaultSkyIslandsFogPeak,
+    sugarCavesShimmerCh: defaultSugarCavesShimmerCh as readonly number[],
+    sugarCavesHueShiftCh: defaultSugarCavesHueShiftCh as readonly number[],
+    sugarCavesNoteColorCh: defaultSugarCavesNoteColorCh as readonly number[],
     arpeggioIntensityScale: 1.0,
     nebulaIntensityScale: 1.0,
     globalIntensityScale: 1.0,
     gemCanopyIntensityScale: 1.0,
     skyIslandsIntensityScale: 1.0,
+    sugarCavesIntensityScale: 1.0,
     skyMoonIntensityScale: 1.0,
     luminousIntensityScale: 1.0,
     arpeggioShimmerAccum: 0.0,
@@ -77,12 +82,15 @@ export const MRState = {
     skyIslandsShimmerAccum: 0.0,
     skyIslandsHueShiftAccum: 0.0,
     skyIslandsFogAccum: 0.0,
+    sugarCavesShimmerAccum: 0.0,
+    sugarCavesHueShiftAccum: 0.0,
     skyMoonNoteVal: 0.0,
     arpeggioNoteVal: 0.0,
     nebulaNoteVal: 0.0,
     globalNoteVal: 0.0,
     gemCanopyNoteVal: 0.0,
     skyIslandsNoteVal: 0.0,
+    sugarCavesNoteVal: 0.0,
     skyMoonCh: defaultSkyMoonMelodyCh,
     luminousPlantTrackerChannel: defaultLuminousPlantTrackerChannel,
     smoothedSkyIntensity: 0.0,
@@ -107,6 +115,7 @@ export const _targetNebulaColor = new THREE.Color(0xffffff);
 export const _targetGlobalColor = new THREE.Color(0xffffff);
 export const _targetGemCanopyColor = new THREE.Color(0xffffff);
 export const _targetSkyIslandsColor = new THREE.Color(0xffffff);
+export const _targetSugarCavesColor = new THREE.Color(0xffffff);
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
 export const _frustum = new THREE.Frustum();
@@ -147,12 +156,16 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     MRState.skyIslandsFogCh = defaultSkyIslandsFogCh;
     MRState.skyIslandsFogRest = defaultSkyIslandsFogRest;
     MRState.skyIslandsFogPeak = defaultSkyIslandsFogPeak;
+    MRState.sugarCavesShimmerCh = defaultSugarCavesShimmerCh;
+    MRState.sugarCavesHueShiftCh = defaultSugarCavesHueShiftCh;
+    MRState.sugarCavesNoteColorCh = defaultSugarCavesNoteColorCh;
 
     MRState.arpeggioIntensityScale = 1.0;
     MRState.nebulaIntensityScale = 1.0;
     MRState.globalIntensityScale = 1.0;
     MRState.gemCanopyIntensityScale = 1.0;
     MRState.skyIslandsIntensityScale = 1.0;
+    MRState.sugarCavesIntensityScale = 1.0;
     MRState.skyMoonIntensityScale = 1.0;
     MRState.luminousIntensityScale = 1.0;
 
@@ -179,6 +192,7 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
         const global = biomeOverrides.global;
         const gemCanopy = biomeOverrides.gem_canopy;
         const skyIslands = biomeOverrides.sky_islands;
+        const sugarCaves = biomeOverrides.sugar_caves;
         if (arpeggio) {
             MRState.arpeggioShimmerCh = toChannels(arpeggio.shimmer) ?? MRState.arpeggioShimmerCh;
             MRState.arpeggioHueShiftCh = toChannels(arpeggio.hueShift) ?? MRState.arpeggioHueShiftCh;
@@ -224,6 +238,14 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
             MRState.skyIslandsNoteColorCh = toChannels(skyIslands.noteColor) ?? MRState.skyIslandsNoteColorCh;
             if (typeof skyIslands.intensityScale === 'number' && Number.isFinite(skyIslands.intensityScale)) {
                 MRState.skyIslandsIntensityScale = skyIslands.intensityScale;
+            }
+        }
+        if (sugarCaves) {
+            MRState.sugarCavesShimmerCh = toChannels(sugarCaves.shimmer) ?? MRState.sugarCavesShimmerCh;
+            MRState.sugarCavesHueShiftCh = toChannels(sugarCaves.hueShift) ?? MRState.sugarCavesHueShiftCh;
+            MRState.sugarCavesNoteColorCh = toChannels(sugarCaves.noteColor) ?? MRState.sugarCavesNoteColorCh;
+            if (typeof sugarCaves.intensityScale === 'number' && Number.isFinite(sugarCaves.intensityScale)) {
+                MRState.sugarCavesIntensityScale = sugarCaves.intensityScale;
             }
         }
     }

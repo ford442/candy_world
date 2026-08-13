@@ -44,6 +44,20 @@ export const _hasFlag = hasUrlFlag;
 /** @internal postfx resolution */
 export const _getFlag = getUrlFlag;
 
+export function isPresenceFeatureEnabled(): boolean {
+    if (hasUrlFlag('presence')) return true;
+    const flag = getUrlFlag('presence');
+    if (flag === '1' || flag === '') return true;
+    try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('candy_presence_opt_in') === '1') {
+            return true;
+        }
+    } catch {
+        /* private mode */
+    }
+    return false;
+}
+
 export const FEATURE_FLAGS = {
     luminousPlants: !hasUrlFlag('no_luminous'),
     myceliumRealm: !hasUrlFlag('no_mycelium'),
@@ -62,7 +76,9 @@ export const FEATURE_FLAGS = {
      */
     awakenedPersistence: hasUrlFlag('awakened'),
     /** Shared multiplayer presence UI + networking (opt-in join; no traffic until joined). */
-    presence: hasUrlFlag('presence') || getUrlFlag('presence') === '1',
+    get presence(): boolean {
+        return isPresenceFeatureEnabled();
+    },
     /**
      * In-browser generative soundtrack (?generative=1 or ?music=generative).
      * Drives music-reactivity from sequencer events instead of FFT/VU analysis.

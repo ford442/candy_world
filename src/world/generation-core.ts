@@ -45,6 +45,7 @@ import {
     loadMap,
     setupMapHotReload,
     type LoadedCandyMap,
+    type LoadedMapEntity,
 } from './map-loader.ts';
 import {
     clearMapMusicContext,
@@ -54,6 +55,21 @@ import {
 import { setMapMetadataSeed } from './world-seed.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
+import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
+import { SUGAR_CAVES, SKY_ISLANDS } from './generation-utils.ts';
+import {
+    getBootstrapEntityIds,
+    initChunkStreamer,
+    loadChunkIndex,
+    PLAY_BOOTSTRAP_RING,
+    PLAY_INITIAL_ENTITY_CAP,
+    type MapChunkIndex,
+} from './chunk-streamer.ts';
+import {
+    STREAMING_PRIORITY_TYPES,
+    VISIBLE_BUBBLE_LIMIT,
+    VISIBLE_BUBBLE_RADIUS,
+} from './generation-core-streaming.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
 
@@ -61,20 +77,44 @@ let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
 export let worldGenerationToken = 0;
 registerBuiltinWorldObjectTypes();
 
-const STREAMING_PRIORITY_TYPES = [
-    'cave',
-    'subwoofer_lotus',
-    'instrument_shrine',
-    'retrigger_mushroom',
-    'portamento_pine',
-    'bubble_willow',
-    'mushroom',
-    'cloud',
-    'flower',
-] as const;
+export interface GenerateMapOptions {
+    /** Play path: spawn tile + 1 ring via map-chunks.json (#1548). */
+    chunkStreaming?: boolean;
+}
 
-const VISIBLE_BUBBLE_RADIUS = 80;
-const VISIBLE_BUBBLE_LIMIT = 300;
+function buildProceduralBiomeRegions(): import('./map-loader.ts').MapRegion[] {
+    const regions: import('./map-loader.ts').MapRegion[] = [];
+    if (SKY_ISLANDS.enabled) {
+        regions.push({
+            id: 'sky_islands',
+            name: 'Sky Islands',
+            bounds: {
+                min: [SKY_ISLANDS.centerX - 40, SKY_ISLANDS.centerZ - 40],
+                max: [SKY_ISLANDS.centerX + 40, SKY_ISLANDS.centerZ + 40],
+            },
+            biome: 'sky_islands',
+        });
+    }
+    if (SUGAR_CAVES.enabled) {
+        const minX = Math.min(SUGAR_CAVES.startX, SUGAR_CAVES.endX) - 15;
+        const maxX = Math.max(SUGAR_CAVES.startX, SUGAR_CAVES.endX) + 15;
+        const minZ = Math.min(SUGAR_CAVES.startZ, SUGAR_CAVES.endZ) - 15;
+        const maxZ = Math.max(SUGAR_CAVES.startZ, SUGAR_CAVES.endZ) + 15;
+        regions.push({
+            id: 'sugar_caves',
+            name: 'Sugar Caves',
+            bounds: { min: [minX, minZ], max: [maxX, maxZ] },
+            biome: 'sugar_caves',
+        });
+    }
+    return regions;
+}
+
+function wireBiomeRegions(loadedMap: LoadedCandyMap): void {
+    const mapRegions = loadedMap.data.regions ?? [];
+    const procedural = buildProceduralBiomeRegions();
+    setBiomeRegions([...mapRegions, ...procedural]);
+}
 
 function applyMapPreallocationHints(loadedMap: LoadedCandyMap): void {
     const expected = loadedMap.getExpectedInstanceCounts();
@@ -306,7 +346,8 @@ export async function initWorld(
 export async function generateMap(
     weatherSystem: WeatherSystem,
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
-    onProgress?: WorldProgressCallback
+    onProgress?: WorldProgressCallback,
+    options?: GenerateMapOptions
 ): Promise<void> {
     worldGenerationToken = Date.now();
     (window as any).__currentWorldGenerationToken = worldGenerationToken;
@@ -316,6 +357,7 @@ export async function generateMap(
     console.time('[World] generateMap total');
     const loadedMap = await getLoadedMap();
     applyMapPreallocationHints(loadedMap);
+    wireBiomeRegions(loadedMap);
     console.log(
         `[World] Loading map (${loadedMap.source}) with ${loadedMap.entities.length} entities...`
     );
@@ -324,12 +366,29 @@ export async function generateMap(
     initCollisionSystem();
 
     const spawnedEntityIds = new Set<string>();
-    const phase1Entities = loadedMap.getNearestEntities({
-        origin: [0, 0, 0],
-        radius: VISIBLE_BUBBLE_RADIUS,
-        limit: VISIBLE_BUBBLE_LIMIT,
-        priorityTypes: STREAMING_PRIORITY_TYPES,
-    });
+    let phase1Entities: LoadedMapEntity[];
+    let chunkIndex: MapChunkIndex | null = null;
+
+    if (options?.chunkStreaming) {
+        chunkIndex = await loadChunkIndex();
+        const bootstrapIds = new Set(getBootstrapEntityIds(chunkIndex));
+        const entityById = new Map(loadedMap.entities.map((e) => [e.id, e]));
+        phase1Entities = [];
+        for (const id of bootstrapIds) {
+            const entity = entityById.get(id);
+            if (entity) phase1Entities.push(entity);
+        }
+        console.log(
+            `[World] Chunk streaming bootstrap: ${phase1Entities.length} entities (spawn ${chunkIndex.spawnChunk} + ring ${PLAY_BOOTSTRAP_RING}, cap ${PLAY_INITIAL_ENTITY_CAP})`
+        );
+    } else {
+        phase1Entities = loadedMap.getNearestEntities({
+            origin: [0, 0, 0],
+            radius: VISIBLE_BUBBLE_RADIUS,
+            limit: VISIBLE_BUBBLE_LIMIT,
+            priorityTypes: STREAMING_PRIORITY_TYPES,
+        });
+    }
     const phase1Total = phase1Entities.length;
     const phase1YieldAt = Math.ceil(phase1Total / 2);
     console.log(
@@ -390,46 +449,51 @@ export async function generateMap(
     console.time('[World] phase2-horizon-queue');
     let queuedDeferred = 0;
     let streamBatch = 0;
-    for (const batch of loadedMap.streamEntitiesNear(
-        [0, 0, 0],
-        Number.POSITIVE_INFINITY,
-        STREAMING_PRIORITY_TYPES,
-        { ringSize: 36, chunkSize: 36, excludeIds: spawnedEntityIds }
-    )) {
-        const streamPriority = Math.max(1, 80 - streamBatch);
-        for (const item of batch) {
-            if (spawnedEntityIds.has(item.id)) continue;
-            spawnedEntityIds.add(item.id);
-            const queuedType = item.type;
-            const queuedId = item.id;
-            const taskToken = generationToken;
-            const streamFlag = streamBatch > 0;
-            globalBackgroundProcessor.enqueue({
-                id: `map_stream_${queuedType}_${queuedId}`,
-                priority: streamPriority,
-                execute: () => {
-                    const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
-                    if (
-                        taskToken !== -1 &&
-                        taskToken !== currentToken &&
-                        !(window as any).__IS_FULL_BOOT_TEST
-                    ) {
-                        console.warn(
-                            `[Generation] Map task obsoleted (token ${taskToken} !== ${currentToken})`
-                        );
-                        return;
-                    }
-                    processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
-                },
-            });
-            queuedDeferred++;
-        }
+    if (!options?.chunkStreaming) {
+        for (const batch of loadedMap.streamEntitiesNear(
+            [0, 0, 0],
+            Number.POSITIVE_INFINITY,
+            STREAMING_PRIORITY_TYPES,
+            { ringSize: 36, chunkSize: 36, excludeIds: spawnedEntityIds }
+        )) {
+            const streamPriority = Math.max(1, 80 - streamBatch);
+            for (const item of batch) {
+                if (spawnedEntityIds.has(item.id)) continue;
+                spawnedEntityIds.add(item.id);
+                const queuedType = item.type;
+                const queuedId = item.id;
+                const taskToken = generationToken;
+                const streamFlag = streamBatch > 0;
+                globalBackgroundProcessor.enqueue({
+                    id: `map_stream_${queuedType}_${queuedId}`,
+                    priority: streamPriority,
+                    execute: () => {
+                        const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                        if (
+                            taskToken !== -1 &&
+                            taskToken !== currentToken &&
+                            !(window as any).__IS_FULL_BOOT_TEST
+                        ) {
+                            console.warn(
+                                `[Generation] Map task obsoleted (token ${taskToken} !== ${currentToken})`
+                            );
+                            return;
+                        }
+                        processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
+                    },
+                });
+                queuedDeferred++;
+            }
 
-        streamBatch++;
-        if (streamBatch % 2 === 0) {
-            recordGenerationChunk();
-            await yieldControl();
+            streamBatch++;
+            if (streamBatch % 2 === 0) {
+                recordGenerationChunk();
+                await yieldControl();
+            }
         }
+    } else if (chunkIndex) {
+        initChunkStreamer(loadedMap, chunkIndex, weatherSystem, generationToken);
+        console.log('[World] Chunk streamer active — horizon loads follow player rings.');
     }
     endPhase('Map Streaming Phase 2 (Horizon)');
     console.timeEnd('[World] phase2-horizon-queue');
@@ -455,6 +519,8 @@ export async function generateMap(
     await populateCloudArchipelago(weatherSystem);
     await populateSkyIslands(weatherSystem);
     await populateSugarCaves(weatherSystem);
+    const { installSugarCavesTraversal } = await import('./sugar-caves-traversal.ts');
+    installSugarCavesTraversal();
     console.timeEnd('[World] procedural-extras');
 
     // Keep a lightweight final fallback for any entities excluded from the streaming query.
@@ -674,7 +740,7 @@ export async function populateWorld(
     weatherSystem: WeatherSystem,
     mode: WorldMode = 'CORE',
     onProgress?: WorldProgressCallback,
-    options?: { fastPopulation?: boolean }
+    options?: { fastPopulation?: boolean; chunkStreaming?: boolean }
 ): Promise<WorldMode> {
     worldGenerationToken = Date.now();
     const currentToken = worldGenerationToken;
@@ -709,7 +775,9 @@ export async function populateWorld(
         console.log(
             `[World] Full mode: ${loadedMap.entities.length} map entities + ${getProceduralEntityCount()} procedural extras to process (population scale=${getPopulationScale().toFixed(2)}, memory tier=${getLoadMemoryTier()}${options?.fastPopulation ? ', fast-full' : ''})`
         );
-        await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
+        await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress, {
+            chunkStreaming: options?.chunkStreaming,
+        });
         console.log('[World] Full mode population complete.');
         console.log('[World] populateWorld() complete in FULL mode');
         return 'FULL';
