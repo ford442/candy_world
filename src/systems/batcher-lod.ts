@@ -305,10 +305,18 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
         if (count === 0) continue;
 
         if (smoothed.length < mesh.instanceMatrix.count) {
-            _meshTracks.set(mesh, new Float32Array(mesh.instanceMatrix.count));
-            const maxScales = new Float32Array(mesh.instanceMatrix.count);
-            precomputeMaxScales(mesh, maxScales);
-            _meshMaxScales.set(mesh, maxScales);
+            const reqCount = mesh.instanceMatrix.count;
+            const nextCapacity = Math.max(reqCount, smoothed.length * 2);
+
+            const nextSmoothed = new Float32Array(nextCapacity);
+            nextSmoothed.set(smoothed);
+            _meshTracks.set(mesh, nextSmoothed);
+
+            const oldScales = _meshMaxScales.get(mesh);
+            const nextScales = new Float32Array(nextCapacity);
+            if (oldScales) nextScales.set(oldScales);
+            precomputeMaxScales(mesh, nextScales);
+            _meshMaxScales.set(mesh, nextScales);
             continue;
         }
 
@@ -379,18 +387,43 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
     _stats.impostors = impostorCount;
 }
 
-export function refreshFoliageLodMesh(mesh: THREE.InstancedMesh): void {
+export function refreshFoliageLodMesh(mesh: THREE.InstancedMesh, oldMesh?: THREE.InstancedMesh): void {
     ensureInstanceLodAttribute(mesh);
-    const prev = _meshTracks.get(mesh);
-    const next = new Float32Array(mesh.instanceMatrix.count);
-    if (prev) {
-        next.set(prev);
+    const prev = oldMesh ? _meshTracks.get(oldMesh) : _meshTracks.get(mesh);
+    const prevScales = oldMesh ? _meshMaxScales.get(oldMesh) : _meshMaxScales.get(mesh);
+    const reqCount = mesh.instanceMatrix.count;
+
+    // ⚡ OPTIMIZATION: Bypassed repeated Float32Array allocations by reusing buffers when capacity allows
+    let next: Float32Array;
+    if (prev && prev.length >= reqCount) {
+        next = prev;
+    } else {
+        const nextCapacity = prev ? Math.max(reqCount, prev.length * 2) : reqCount;
+        next = new Float32Array(nextCapacity);
+        if (prev) {
+            next.set(prev);
+        }
     }
+
     _meshTracks.set(mesh, next);
 
-    const nextScales = new Float32Array(mesh.instanceMatrix.count);
+    let nextScales: Float32Array;
+    if (prevScales && prevScales.length >= reqCount) {
+        nextScales = prevScales;
+    } else {
+        const nextCapacity = prevScales ? Math.max(reqCount, prevScales.length * 2) : reqCount;
+        nextScales = new Float32Array(nextCapacity);
+        if (prevScales) {
+            nextScales.set(prevScales);
+        }
+    }
     precomputeMaxScales(mesh, nextScales);
     _meshMaxScales.set(mesh, nextScales);
+
+    if (oldMesh && oldMesh !== mesh) {
+        _meshTracks.delete(oldMesh);
+        _meshMaxScales.delete(oldMesh);
+    }
 }
 
 export function getFoliageLodImpostorMesh(): THREE.InstancedMesh | null {
