@@ -121,6 +121,10 @@ export class RemoteAvatars {
         this._initialized = true;
     }
 
+    setMutedPeers(muted: ReadonlySet<string>): void {
+        this._mutedPeerIds = new Set(muted);
+    }
+
     dispose(): void {
         if (this._mesh) {
             foliageGroup.remove(this._mesh);
@@ -228,6 +232,10 @@ export class RemoteAvatars {
         }
 
         for (const [peerId, peer] of peers) {
+            if (this._mutedPeerIds.has(peerId)) {
+                this._freeSlot(peerId);
+                continue;
+            }
             const slot = this._allocateSlot(peerId);
             if (slot === null) continue;
 

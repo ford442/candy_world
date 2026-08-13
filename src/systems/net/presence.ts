@@ -336,6 +336,7 @@ export class PresenceSystem {
         );
         // Fallback for simple merge that doesn't return boolean, or if it does
         this._peersDirty = true;
+        this._emitPeerListUpdate();
     }
 
     private _ingestPose(payload: PresencePose | null | undefined): void {
@@ -358,6 +359,7 @@ export class PresenceSystem {
         if (removed.length > 0) {
             this._peersDirty = true;
         }
+        if (removed.length > 0) this._emitPeerListUpdate();
     }
 }
 

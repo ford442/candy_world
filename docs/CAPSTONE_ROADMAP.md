@@ -85,12 +85,12 @@ Document the chosen Part II hook in `docs/BIOME_SHIP.md` (new file per biome, sa
 
 ## Epic acceptance (close #1492 later)
 
-- [ ] Presence: opt-in join with env keys; graceful “backend not configured” (no console errors)
-- [ ] ≥1 polished remote avatar + peer list a11y
-- [ ] CI mock test for presence protocol
-- [ ] One new content layer: music-bindings + VR viewpoint + traversal/smoke coverage
-- [ ] `docs/` narrative updated (README + biome ship note)
-- [ ] `weekly_plan.md` sequences Part II door explicitly
+- [x] Presence: opt-in join with env keys; graceful “backend not configured” (no console errors)
+- [x] ≥1 polished remote avatar + peer list a11y
+- [x] CI mock test for presence protocol (`tests/presence-protocol.test.mjs`)
+- [x] One new content layer: music-bindings + VR viewpoint + traversal/smoke coverage (Sugar Caves)
+- [x] `docs/` narrative updated (README + `docs/SUGAR_CAVES_SHIP.md`)
+- [x] `weekly_plan.md` sequences Part II door explicitly
 
 ## Refs
 

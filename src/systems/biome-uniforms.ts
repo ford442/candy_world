@@ -279,7 +279,7 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
                 hueShift: uniform(0.0),
                 noteColor: BiomeUniforms.skyMoon.moonNoteColor as any,
             };
-                case 'musical_flora':
+        case 'musical_flora':
             return BiomeUniforms.musicalFlora;
         case 'lake_features':
             return BiomeUniforms.lakeFeatures;

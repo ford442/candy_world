@@ -30,9 +30,9 @@ Inspired by low-poly nature scenes with a candy twist!
 > [Candy Material Cookbook](./docs/CANDY_MATERIAL_COOKBOOK.md) — reusable glossy-material
 > recipes, copy-paste TSL snippets, and an "adding a reactive plant" tutorial.
 
-**Roadmap:** Part I scaffolds (Sky Islands, fauna, opt-in presence, awakened flora) are landing;
-the **capstone epic** (#1492) sequences Presence polish + the next signature biome toward a Part II door.
-See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md).
+**Roadmap:** Part I scaffolds (Sky Islands, fauna, opt-in presence, awakened flora) are landing.
+The **capstone epic** (#1492) shipped Presence productization + **Subterranean Sugar Caves** as the Part II door — descend from Melody Lake after awakening flora.
+See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md) and [docs/SUGAR_CAVES_SHIP.md](./docs/SUGAR_CAVES_SHIP.md).
 
 ## How to Run
 
