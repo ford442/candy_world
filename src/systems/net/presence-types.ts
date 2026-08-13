@@ -27,6 +27,9 @@ export interface RemotePeer {
     shareDiscoveryGlow: boolean;
     snapshots: PresencePose[];
     lastSeen: number;
+    lastBiome?: string;
+    pendingBiome?: string;
+    pendingBiomeCount?: number;
 }
 
 export const PRESENCE_BROADCAST_EVENT = 'pose';

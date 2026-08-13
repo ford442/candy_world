@@ -9,6 +9,8 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
+import { spawnImpact } from '../../foliage/impacts.ts';
+import { announcePolite } from '../../ui/announcer.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
 import { getBiomeAtPosition } from './biome-at-position.ts';
 import {
@@ -69,6 +71,24 @@ function randomEmoji(): string {
 function randomLabel(): string {
     const n = Math.floor(Math.random() * 900) + 100;
     return `Explorer-${n}`;
+}
+
+const CANDY_COLORS = [0xff69b4, 0x87cefa, 0x98fb98, 0xffd1dc, 0xe6e6fa, 0xffb347];
+
+function hashToColor(id: string): number {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) {
+        h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
+    }
+    return CANDY_COLORS[Math.abs(h) % CANDY_COLORS.length];
+}
+
+function formatBiomeName(biomeId: string): string {
+    if (biomeId === 'global') return 'the open fields';
+    return biomeId
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
 }
 
 export class PresenceSystem {
@@ -170,6 +190,7 @@ export class PresenceSystem {
                     await this._channel!.track(meta);
                     this._joined = true;
                     setPresenceOptIn(true);
+                    // eslint-disable-next-line no-console
                     console.log(`[Presence] Joined room ${room} as ${this._emoji} ${this._label}`);
                     resolve(true);
                 } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -199,6 +220,7 @@ export class PresenceSystem {
         this._joined = false;
         this._peers.clear();
         remoteAvatars.syncPeers(this._peers, this._localPos);
+        // eslint-disable-next-line no-console
         console.log('[Presence] Left room');
     }
 
@@ -308,11 +330,41 @@ export class PresenceSystem {
         }
 
         peer.lastSeen = performance.now();
+        const newBiome = payload.biome ?? 'global';
+
+        if (!peer.lastBiome) {
+            peer.lastBiome = newBiome;
+        } else if (peer.lastBiome !== newBiome) {
+            if (peer.pendingBiome !== newBiome) {
+                peer.pendingBiome = newBiome;
+                peer.pendingBiomeCount = 1;
+            } else {
+                peer.pendingBiomeCount = (peer.pendingBiomeCount || 0) + 1;
+                // Debounce threshold: 3 consecutive matching poses (~300ms at 10Hz)
+                if (peer.pendingBiomeCount >= 3) {
+                    const formattedBiome = formatBiomeName(newBiome);
+                    announcePolite(`${peer.emoji} ${peer.label} wandered into ${formattedBiome}.`);
+                    spawnImpact(
+                        { x: payload.pos[0], y: payload.pos[1], z: payload.pos[2] },
+                        'mist',
+                        hashToColor(peer.id)
+                    );
+                    peer.lastBiome = newBiome;
+                    peer.pendingBiome = undefined;
+                    peer.pendingBiomeCount = 0;
+                }
+            }
+        } else {
+            // Reset debounce if we bounced back to the established biome
+            peer.pendingBiome = undefined;
+            peer.pendingBiomeCount = 0;
+        }
+
         peer.snapshots.push({
             id: payload.id,
             pos: payload.pos,
             quat: payload.quat,
-            biome: payload.biome ?? 'global',
+            biome: newBiome,
             ts: payload.ts ?? performance.now(),
             action: payload.action,
         });
@@ -322,6 +374,12 @@ export class PresenceSystem {
     }
 
     private _removePeer(id: string): void {
+        const peer = this._peers.get(id);
+        if (peer) {
+            peer.lastBiome = undefined;
+            peer.pendingBiome = undefined;
+            peer.pendingBiomeCount = 0;
+        }
         this._peers.delete(id);
     }
 
