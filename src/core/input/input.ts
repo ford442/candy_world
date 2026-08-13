@@ -363,7 +363,7 @@ export function initInput(
 
                 yieldToPaint(50).then(() => {
                     if (instructions && instructions.style.display !== 'none') {
-                        releasePauseMenuFocus = trapFocusInside(instructions);
+                        releasePauseMenuFocus = trapFocusInside(instructions, { skipAutoFocus: true });
                         if (startButton) {
                             startButton.focus({ preventScroll: true });
                         }
@@ -403,6 +403,12 @@ export function initInput(
         }
     };
     document.body.addEventListener('click', onBodyClick);
+
+    function isGameFocused(): boolean {
+        const activeEl = document.activeElement;
+        const currentCanvas = canvas ?? document.getElementById('glCanvas');
+        return activeEl === document.body || activeEl === currentCanvas;
+    }
 
     // Key Handlers
     const onKeyDown = function (event: KeyboardEvent) {
@@ -445,9 +451,11 @@ export function initInput(
         }
 
         if (event.code === 'Tab') {
-            event.preventDefault();
-            exploreCamera.onTabDown();
-            return;
+            if (isGameFocused()) {
+                event.preventDefault();
+                exploreCamera.onTabDown();
+            }
+            return; // inside modals: don't preventDefault — trapFocusInside handles Tab
         }
 
         if (isExploreActive()) {
@@ -520,7 +528,7 @@ export function initInput(
 
                     yieldToPaint(50).then(() => {
                         if (instructions && instructions.style.display !== 'none') {
-                            releasePauseMenuFocus = trapFocusInside(instructions);
+                            releasePauseMenuFocus = trapFocusInside(instructions, { skipAutoFocus: true });
                             if (startButton) {
                                 startButton.focus({ preventScroll: true });
                             }
@@ -703,7 +711,7 @@ export function initInput(
     };
 
     const onKeyUp = function (event: KeyboardEvent) {
-        if (event.code === 'Tab') {
+        if (event.code === 'Tab' && isGameFocused()) {
             exploreCamera.onTabUp();
             return;
         }

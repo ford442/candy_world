@@ -27,6 +27,12 @@ export interface InputKeyboardHandlers {
     onMouseUp: (event: MouseEvent) => void;
 }
 
+function isGameFocused(session: InputSession): boolean {
+    const activeEl = document.activeElement;
+    const canvas = session.canvas ?? document.getElementById('glCanvas');
+    return activeEl === document.body || activeEl === canvas;
+}
+
 export function createKeyboardHandlers(
     session: InputSession,
     buttons: ButtonPressHandlers
@@ -72,9 +78,11 @@ export function createKeyboardHandlers(
         }
 
         if (event.code === 'Tab') {
-            event.preventDefault();
-            session.exploreCamera.onTabDown();
-            return;
+            if (isGameFocused(session)) {
+                event.preventDefault();
+                session.exploreCamera.onTabDown();
+            }
+            return; // inside modals: don't preventDefault — trapFocusInside handles Tab
         }
 
         if (isExploreActive()) {
@@ -315,7 +323,7 @@ export function createKeyboardHandlers(
     };
 
     const onKeyUp = function (event: KeyboardEvent) {
-        if (event.code === 'Tab') {
+        if (event.code === 'Tab' && isGameFocused(session)) {
             session.exploreCamera.onTabUp();
             return;
         }
