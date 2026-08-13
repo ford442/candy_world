@@ -616,7 +616,8 @@ export class AssetStreamer {
         this.stats.activeCells = priorityCells.length;
 
         // Mark cells as active/inactive based on whether they are in the priority set
-        for (const cell of this.regionManager.getAllCells()) {
+        // ⚡ OPTIMIZATION: Bypassed getAllCells() Array.from() allocation to eliminate GC spike in streaming update loop.
+        for (const cell of this.regionManager.cells.values()) {
             const cellKey = `${cell.x},${cell.z}`;
             const isActive = priorityCells.includes(cellKey);
             cell.state = isActive ? CellState.LOADED : CellState.UNLOADED;
