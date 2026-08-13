@@ -2,18 +2,17 @@ import { StageLoader } from '../../debug/index.ts';
 import { initFaunaDebug } from '../../debug/tools-stub.ts';
 import { isWebGLLiteMode } from '../../rendering/webgl-debug.ts';
 import { initFaunaSystem } from '../../systems/fauna/index.ts';
-import {
-    applyAwakenedPersistenceAfterWorldLoad,
-    initDeferredVisuals,
-    runDeferredWarmup,
-} from '../deferred-init.ts';
-import { globalBackgroundProcessor } from '../../utils/background-processor.ts';
+import { globalLoadingManager } from '../../systems/loading-manager.ts';
+import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
+import { populatePhysicsGrids } from '../../systems/physics/index.ts';
+import { announce } from '../../ui/announcer.ts';
 import {
     showDeferredIndicator,
     hideDeferredIndicator,
     setDeferredProgress,
     setDeferredFailures,
 } from '../../ui/loading-screen.ts';
+import { showModeBadge } from '../../ui/mode-badge-lazy.ts';
 import {
     installReadinessProgress,
     showReadinessGenerating,
@@ -21,23 +20,24 @@ import {
     markReadinessReady,
     reportReadinessProgress,
 } from '../../ui/readiness-progress.ts';
-import {
-    reset as resetSpawnTracker,
-    getReport as getSpawnReport,
-} from '../../world/spawn-tracker.ts';
-import { globalLoadingManager } from '../../systems/loading-manager.ts';
-import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
-import { populatePhysicsGrids } from '../../systems/physics/index.ts';
-import { showModeBadge } from '../../ui/mode-badge-lazy.ts';
+import { globalBackgroundProcessor } from '../../utils/background-processor.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
+import { showToast } from '../../utils/toast.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
 import { populateWorld, WorldMode } from '../../world/generation.ts';
 import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
 import { spawnTracker } from '../../world/spawn-tracker.ts';
+import {
+    reset as resetSpawnTracker,
+    getReport as getSpawnReport,
+} from '../../world/spawn-tracker.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
-import { announce } from '../../ui/announcer.ts';
-import { showToast } from '../../utils/toast.ts';
+import {
+    applyAwakenedPersistenceAfterWorldLoad,
+    initDeferredVisuals,
+    runDeferredWarmup,
+} from '../deferred-init.ts';
 import {
     loadStartupProfile,
     saveStartupProfile,

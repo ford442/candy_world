@@ -11,13 +11,13 @@ import { createMushroom } from '../../foliage/mushrooms.ts';
 import { replaceMushroomWithGiant } from '../../foliage/mushrooms.ts';
 import { FoliageGrowthOptions } from '../../foliage/types.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import { getGroundHeight, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../../utils/wasm-loader.ts';
 import { spawnNearbyFoliage } from '../../world/generation.ts';
 import { foliageClouds } from '../../world/state.ts';
 import { cpuAnimatedFoliage } from '../../world/state.ts';
 import { musicReactivitySystem } from '../music-reactivity.ts';
 import type { WeatherSystem } from './weather.ts';
-import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 
 // Scratch objects for optimization
 const _scratchSunDir = new THREE.Vector3();

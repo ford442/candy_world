@@ -7,20 +7,20 @@
 // the game loop. Reuses RegionManager (region-manager-core.ts) for cell
 // bookkeeping/spiral ordering instead of forking a parallel grid.
 import * as THREE from 'three';
-import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { populatePhysicsGrids } from '../systems/physics/index.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
-import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
-import { processMapEntity } from './generation-entities.ts';
+import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
+import { populatePhysicsGrids } from '../systems/physics/index.ts';
 import { CellState, RegionManager, type GridCell } from '../systems/region-manager-core.ts';
+import { globalBackgroundProcessor } from '../utils/background-processor.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { processMapEntity } from './generation-entities.ts';
+import type { WeatherSystem } from './generation-utils.ts';
 import {
     DEFAULT_MAP_CHUNK_STREAM_SIZE,
     type LoadedCandyMap,
     type LoadedMapEntity,
     type MapChunkIndex,
 } from './map-loader.ts';
-import type { WeatherSystem } from './generation-utils.ts';
 import {
     animatedFoliage,
     cpuAnimatedFoliage,

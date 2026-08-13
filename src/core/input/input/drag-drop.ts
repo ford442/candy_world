@@ -1,5 +1,5 @@
-import { filterValidMusicFiles } from '../input-types.ts';
 import { showToast } from '../../../utils/toast.ts';
+import { filterValidMusicFiles } from '../input-types.ts';
 import type { InputSession } from './session.ts';
 
 export interface DragDropHandlers {

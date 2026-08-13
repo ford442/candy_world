@@ -46,7 +46,9 @@
 .a11y-preset-card.keyboard-active,
 .a11y-close-btn:active,
 .a11y-close-btn[aria-pressed="true"],
-.a11y-close-btn.keyboard-active {
+.a11y-close-btn.keyboard-active,
+.a11y-floating-button:active,
+.a11y-floating-button.keyboard-active {
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
