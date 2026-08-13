@@ -46,6 +46,7 @@ export class RemoteAvatars {
     private _renderer: THREE.Renderer | null = null;
     private _initialized = false;
     private _interpDelayMs = 100;
+    private _mutedPeerIds = new Set<string>();
 
     static getInstance(): RemoteAvatars {
         if (!RemoteAvatars._instance) {
@@ -114,6 +115,10 @@ export class RemoteAvatars {
         this._camera = camera;
         this._renderer = renderer;
         this._initialized = true;
+    }
+
+    setMutedPeers(muted: ReadonlySet<string>): void {
+        this._mutedPeerIds = new Set(muted);
     }
 
     dispose(): void {
@@ -222,6 +227,10 @@ export class RemoteAvatars {
         }
 
         for (const [peerId, peer] of peers) {
+            if (this._mutedPeerIds.has(peerId)) {
+                this._freeSlot(peerId);
+                continue;
+            }
             const slot = this._allocateSlot(peerId);
             if (slot === null) continue;
 
