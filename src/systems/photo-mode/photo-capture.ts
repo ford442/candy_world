@@ -101,6 +101,16 @@ export async function capturePhotoPng(options: CaptureOptions): Promise<string> 
 
     try {
         options.renderFrame();
+
+        const backend = (
+            renderer as {
+                backend?: { device?: { queue?: { onSubmittedWorkDone?: () => Promise<void> } } };
+            }
+        ).backend;
+        if (backend?.device?.queue?.onSubmittedWorkDone) {
+            await backend.device.queue.onSubmittedWorkDone();
+        }
+
         let dataUrl = renderer.domElement.toDataURL('image/png');
 
         const stamp: CaptureStamp = options.stamp ?? {

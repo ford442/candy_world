@@ -11,7 +11,7 @@ import { discoverySystem } from '../systems/discovery.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { spawnImpact } from './impacts.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, applyStandardDeformation, calculateWindSway } from './material-core.ts';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, calculateWindSway, calculatePlayerPush } from './material-core.ts';
 import { uTwilight } from './sky.ts';
 
 export interface WisteriaClusterOptions {
@@ -43,27 +43,36 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         // High frequency audio (uAudioHigh) acts as an impulse/energy multiplier.
         const baseSwayFreq = float(2.0);
         // ADSR Style scale + emissive reaction to high frequency
-        const audioEnergy = uAudioHigh.mul(1.5).add(0.5); // Boost reactivity
+        const audioEnergy = uAudioHigh.mul(1.5).add(0.5); // Music Impact: hang amp + glow
 
         // Offset based on positionWorld so multiple clusters aren't perfectly synced
         const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.3));
 
         // Calculate sway amount. The top of the vine (y > 0) shouldn't move as much as the bottom (y < 0).
         // Assuming the geometry is created such that it hangs down from y=0.
-        // If geometry goes from y=0 to y=-length, then normalizedHeight goes from 0 to 1.
+        // If geometry goes from y=0 to y=-length, then hangFactor goes from 0 to 1.
         // Let's use positionLocal.y.
         // Assume cluster is about 4 units long, so positionLocal.y goes from 0 down to -4.
-        const normalizedHeight = positionLocal.y.div(-4.0).clamp(0.0, 1.0);
+        const hangFactor = positionLocal.y.div(-4.0).clamp(0.0, 1.0);
 
-        // X and Z sway
-        const swayX = sin(uTime.mul(baseSwayFreq).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
-        const swayZ = cos(uTime.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
+        // Music Impact: hang sway × audioEnergy
+        const hangSway = vec3(
+            sin(uTime.mul(baseSwayFreq).add(swayPhase)).mul(0.5),
+            float(0.0),
+            cos(uTime.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5)
+        ).mul(audioEnergy).mul(hangFactor);
 
-        // Apply sway to vertex position + night droop (phase→0 at night)
-        const circadianDroop = vec3(0, float(-0.4).mul(float(1.0).sub(uCircadianPhase)).mul(normalizedHeight), 0);
-        const posSwayed = positionLocal.add(vec3(swayX, float(0.0), swayZ)).add(circadianDroop);
-        const posFinal = applyStandardDeformation(posSwayed);
-        mat.positionNode = posFinal;
+        // Apply night droop (phase→0 at night)
+        const circadianDroop = vec3(0, float(-0.4).mul(float(1.0).sub(uCircadianPhase)).mul(hangFactor), 0);
+
+        // Proxy height for wind and player interactions since Wisteria hangs downward (negative Y)
+        const proxyPos = vec3(positionLocal.x, hangFactor.mul(4.0), positionLocal.z);
+
+        const wind = calculateWindSway(proxyPos); // proxy: tip bends more
+        const playerPush = calculatePlayerPush(proxyPos);
+
+        const pos = positionLocal.add(hangSway).add(circadianDroop).add(wind);
+        mat.positionNode = pos.add(playerPush);
 
         // Glow Effect based on audio
         const baseColorNode = color(baseHexColor);

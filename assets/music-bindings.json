@@ -51,6 +51,12 @@
                 "_comment": "Drives BiomeUniforms.skyIslands.fogDensity for mist-layer atmosphere"
             },
             "_comment": "Stacked sky islands (#1363) — low mist / mid canopy / high nebula shimmer + fog atmosphere"
+        },
+        "sugar_caves": {
+            "shimmer": [2, 3],
+            "hueShift": [4],
+            "noteColor": [2],
+            "_comment": "Subterranean Sugar Caves — crystal rib shimmer + muffled tracker hue (#1492)"
         }
     },
     "portamento_pine": {

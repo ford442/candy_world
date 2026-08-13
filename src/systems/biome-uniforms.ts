@@ -97,6 +97,15 @@ export const BiomeUniforms = {
         fogDensity: uniform(0.15),
     },
 
+    /**
+     * Sugar Caves — subterranean crystal ribs; channels in music-bindings.json sugar_caves.
+     */
+    sugarCaves: {
+        shimmer: uniform(0.0),
+        hueShift: uniform(0.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
+    },
+
     global: {
         /** 0–1 shimmer emissive boost for global effects. */
         shimmer: uniform(0.0),
@@ -237,7 +246,7 @@ export const skyIslandsNoteColorNode = BiomeUniforms.skyIslands.noteColor;
  * Add new values here + corresponding entry in BiomeUniforms (or alias) when
  * introducing a new musical biome.
  */
-export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global' | 'musical_flora' | 'lake_features' | 'gem_canopy' | 'sky_islands';
+export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global' | 'musical_flora' | 'lake_features' | 'gem_canopy' | 'sky_islands' | 'sugar_caves';
 
 /**
  * Returns the appropriate uniform group for a given biome tag.
@@ -278,6 +287,8 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
             return BiomeUniforms.gemCanopy;
         case 'sky_islands':
             return BiomeUniforms.skyIslands;
+        case 'sugar_caves':
+            return BiomeUniforms.sugarCaves;
         case 'global':
             return BiomeUniforms.global;
         default:
