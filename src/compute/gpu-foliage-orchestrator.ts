@@ -15,7 +15,7 @@ import {
     type FoliageAudioState,
     type FoliageInstanceData,
 } from './gpu-foliage-animator.ts';
-import { isGpuFoliagePilotEnabled, isGpuFoliageDefaultPath } from './gpu-foliage-flag.ts';
+import { isGpuFoliageDefaultPath } from './gpu-foliage-flag.ts';
 import { disposeGpuPlantPose } from './gpu-plant-pose.ts';
 
 let _animator: GPUFoliageAnimator | null = null;

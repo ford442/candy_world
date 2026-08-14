@@ -33,6 +33,9 @@ import {
 // BATCH UPLOAD FUNCTIONS
 // =============================================================================
 
+/** Max objects the AssemblyScript position buffer can hold (4096 bytes / 16). */
+export const WASM_POSITION_OBJECT_CAPACITY = 256;
+
 /**
  * Upload positions to WASM
  * @param objects - Array of position data
@@ -57,7 +60,9 @@ export function uploadPositions(objects: PositionData[]): void {
  */
 export function uploadPositionsFlat(buf: Float32Array, count: number): void {
     if (!positionView) return;
-    const limit = Math.min(count, 5000); // safety bounds
+    const capacity = Math.floor(positionView.length / 4);
+    const limit = Math.min(count, capacity, WASM_POSITION_OBJECT_CAPACITY);
+    if (limit <= 0) return;
     positionView.set(buf.subarray(0, limit * 4));
 }
 
@@ -128,12 +133,16 @@ export function uploadAnimationData(animData: AnimationData[]): void {
 export function batchDistanceCull(cameraX: number, cameraY: number, cameraZ: number, maxDistance: number, objectCount: number): DistanceCullResult {
     const maxDistSq = maxDistance * maxDistance;
     if (!wasmInstance) return { visibleCount: objectCount, flags: null };
-    if (objectCount > 5000) return { visibleCount: objectCount, flags: null };
+    const wasmCapacity = positionView
+        ? Math.min(Math.floor(positionView.length / 4), WASM_POSITION_OBJECT_CAPACITY)
+        : WASM_POSITION_OBJECT_CAPACITY;
+    const cappedCount = Math.min(objectCount, wasmCapacity);
+    if (cappedCount <= 0) return { visibleCount: objectCount, flags: null };
 
     const exports = wasmInstance.exports as WasmExports;
-    const visibleCount = exports.batchDistanceCull!(cameraX, cameraY, cameraZ, maxDistSq, objectCount);
+    const visibleCount = exports.batchDistanceCull!(cameraX, cameraY, cameraZ, maxDistSq, cappedCount);
 
-    return { visibleCount, flags: outputView!.slice(0, objectCount) };
+    return { visibleCount, flags: outputView!.slice(0, cappedCount) };
 }
 
 // =============================================================================

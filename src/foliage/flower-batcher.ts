@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
@@ -419,8 +420,10 @@ export class FlowerBatcher {
             case 'spiralCount': this.spiralCount++; mesh.count = this.spiralCount; break;
         }
 
-        mesh.instanceMatrix.needsUpdate = true;
-        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(mesh.count)) {
+            mesh.instanceMatrix.needsUpdate = true;
+            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        }
     }
 
     update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {

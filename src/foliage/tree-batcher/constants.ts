@@ -12,7 +12,13 @@ export const BATCH_QUEUE_LIMIT = 500 * 6; // MAX_INSTANCES * (trunks+spheres+cap
 export const _batchPositions = new Float32Array(BATCH_QUEUE_LIMIT * 3);
 export const _batchQuaternions = new Float32Array(BATCH_QUEUE_LIMIT * 4);
 export const _batchScales = new Float32Array(BATCH_QUEUE_LIMIT * 3);
-export const _batchOutputMatrices = new Float32Array(BATCH_QUEUE_LIMIT * 16);
+export const _batchColors = new Float32Array(BATCH_QUEUE_LIMIT * 3);
+
+// Contiguous gather buffers for writeInstancePose
+export const _gatherPositions = new Float32Array(BATCH_QUEUE_LIMIT * 3);
+export const _gatherQuaternions = new Float32Array(BATCH_QUEUE_LIMIT * 4);
+export const _gatherScales = new Float32Array(BATCH_QUEUE_LIMIT * 3);
+export const _gatherColors = new Float32Array(BATCH_QUEUE_LIMIT * 3);
 
 export interface PendingInstance {
     mesh: THREE.InstancedMesh;

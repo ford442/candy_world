@@ -11,14 +11,14 @@ import { triggerGrowth } from '../../foliage/animation.ts';
 import { BerryBatcher } from '../../foliage/berries.ts';
 import { updateCaveWaterLevel } from '../../foliage/cave.ts';
 import { uTwilight } from '../../foliage/sky.ts';
+import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 import { computeAtmosphereFogTargets } from '../atmosphere-fog.ts';
+import { WeatherMusicTargets } from '../music-reactivity.ts';
 import { WeatherState } from '../weather-types.ts';
 import { calculateTimeOfDayBias } from '../weather-utils.ts';
-import { EcosystemManager } from './weather-ecosystem.ts';
 import { AtmosphereManager } from './weather-atmosphere.ts';
+import { EcosystemManager } from './weather-ecosystem.ts';
 import { EffectsManager } from './weather-effects.ts';
-import { WeatherMusicTargets } from '../music-reactivity.ts';
-import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 
 // Scratch objects for optimization
 const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };

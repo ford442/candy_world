@@ -2,6 +2,7 @@ import { StageLoader } from '../../debug/index.ts';
 import { preloadGameplay } from '../../gameplay/lazy.ts';
 import { isCIorHeadless, CONFIG } from '../config.ts';
 import { animate } from '../game-loop.ts';
+import { syncDrawingBufferFromWindow } from '../init.ts';
 import type { MainContext } from './context.ts';
 import { renderer } from './exports.ts';
 
@@ -60,6 +61,11 @@ export function runShaderWarmup(ctx: MainContext): void {
             } catch (err) {
                 console.warn('[Warmup] Shader compilation error (non-fatal):', err);
             }
+
+            // Warmup uses 1×1 offscreen targets; refresh the canvas MSAA buffer before
+            // the animation loop drives full-screen post-processing resolves.
+            syncDrawingBufferFromWindow(renderer);
+            ctx.postProcessing?.syncSize?.();
 
             loadingScreen.updateProgress(90, 'Finalizing scene...');
             console.log('[Startup] Shaders pre-compiled');

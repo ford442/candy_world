@@ -62,6 +62,7 @@ export class PhotoModeManager {
     private savedTimeOffset = 0;
     private readonly opts: PhotoModeInitOptions;
     private reducedMotion = false;
+    private previousFocusElement: HTMLElement | null = null;
 
     constructor(opts: PhotoModeInitOptions) {
         this.opts = opts;
@@ -109,6 +110,14 @@ export class PhotoModeManager {
 
     async enter(): Promise<void> {
         if (this.active) return;
+
+        // ♿ Aria: Store previously focused element to restore it on exit
+        if (document.activeElement instanceof HTMLElement) {
+            this.previousFocusElement = document.activeElement;
+        } else {
+            this.previousFocusElement = null;
+        }
+
         this.active = true;
         this.reducedMotion = prefersReducedMotion();
         (window as Window & { __photoModeActive?: boolean }).__photoModeActive = true;
@@ -171,6 +180,15 @@ export class PhotoModeManager {
 
         this.opts.timeOffset.value = this.savedTimeOffset;
         announcePolite('Photo mode closed');
+
+        // ♿ Aria: Restore focus
+        if (this.previousFocusElement && document.body.contains(this.previousFocusElement)) {
+            this.previousFocusElement.focus({ preventScroll: true });
+        } else {
+            const canvas = document.getElementById('glCanvas');
+            if (canvas) canvas.focus({ preventScroll: true });
+        }
+        this.previousFocusElement = null;
     }
 
     update(delta: number): void {

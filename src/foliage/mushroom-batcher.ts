@@ -5,6 +5,7 @@ import { color, float, vec3, vec4, attribute, positionLocal,
     max, pow, min, cameraPosition, uv, floor, instanceIndex, varyingProperty
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
@@ -176,8 +177,10 @@ export class MushroomBatcher {
             this.count
         );
 
-        this.mesh.instanceMatrix.needsUpdate = true;
-        if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh.instanceMatrix.needsUpdate = true;
+            if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+        }
         this._matricesDirty = false;
     }
 
@@ -796,8 +799,10 @@ export class MushroomBatcher {
             this.noteToInstances.get(noteIndex)!.push(i);
         }
 
-        this.mesh!.instanceMatrix.needsUpdate = true;
-        if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh!.instanceMatrix.needsUpdate = true;
+            if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        }
         this.instanceData!.needsUpdate = true;
     }
 
@@ -873,8 +878,10 @@ export class MushroomBatcher {
 
         // 4. Mark Updates
         this.mesh!.count = this.count;
-        this.mesh!.instanceMatrix.needsUpdate = true;
-        if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh!.instanceMatrix.needsUpdate = true;
+            if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
+        }
         this.instanceData!.needsUpdate = true;
     }
 

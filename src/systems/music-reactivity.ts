@@ -1,29 +1,30 @@
-import { MRState, syncMapMusicContext, mapNoteToColor, applyArpeggioGroveChannelAccum, WeatherMusicTargets, _frustum, _projScreenMatrix, _scratchSphere, _targetMoonColor, _targetArpeggioColor, _targetNebulaColor, _targetGlobalColor, _targetGemCanopyColor, _targetSkyIslandsColor, _waveColor, _whiteColor, getActiveWave as readActiveWave, setActiveWave } from './music-reactivity-core.ts';
+import { MRState, syncMapMusicContext, mapNoteToColor, applyArpeggioGroveChannelAccum, WeatherMusicTargets, _frustum, _projScreenMatrix, _scratchSphere, _targetMoonColor, _targetArpeggioColor, _targetNebulaColor, _targetGlobalColor, _targetGemCanopyColor, _targetSkyIslandsColor, _targetSugarCavesColor, _waveColor, _whiteColor, getActiveWave as readActiveWave, setActiveWave } from './music-reactivity-core.ts';
 export * from "./music-reactivity-core.ts";
 export { AtmosphereShaftState } from './atmosphere-reactivity.ts';
 export { computeWaveDistSq } from './music-wave.ts';
 import * as THREE from 'three';
-import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
-import type { AudioData, FoliageObject } from '../foliage/types.ts';
-import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
-import { uTwilight } from '../foliage/sky.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { getDayNightBias } from '../core/cycle.ts';
 import { animateFoliage } from '../foliage/animation.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { foliageBatcher } from '../foliage/batcher/index.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
-import { uploadPositionsFlat, batchDistanceCull } from '../utils/wasm-batch.ts';
+import { uTwilight } from '../foliage/sky.ts';
+import type { AudioData, FoliageObject } from '../foliage/types.ts';
+import { uploadPositionsFlat, batchDistanceCull, WASM_POSITION_OBJECT_CAPACITY } from '../utils/wasm-batch.ts';
 import {
     updateAtmosphereReactivity,
     registerAtmosphereBeatSync,
     applyAtmosphereMapOverrides,
 } from './atmosphere-reactivity.ts';
 import { awakenedPersistence } from './awakened-persistence-api.ts';
+import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
 import { CHROMATIC_SCALE, skyWaveUniformMap } from './music-reactivity-defaults.ts';
 import type { ActiveWave } from './music-wave.ts';
 
@@ -52,6 +53,27 @@ export interface IWeatherSystem {
 
 // Caches to prevent repeated lookups (migrated from core idea)
 const _noteNameCache: Record<string | number, string> = {};
+
+// ⚡ OPTIMIZATION: Bypassed regex .replace() to prevent GC spikes
+function stripNoteOctave(str: string): string {
+    let hasNumbers = false;
+    let startIdx = 0;
+
+    for (let i = 0; i < str.length; i++) {
+        const c = str.charCodeAt(i);
+        if ((c >= 48 && c <= 57) || c === 45) {
+            hasNumbers = true;
+            startIdx = i;
+            break;
+        }
+    }
+    if (!hasNumbers) return str;
+
+    // Notes are formatted like "C4", "C#4", "F#-1". The substring before
+    // the first number/hyphen is the note name. .substring() is highly
+    // optimized in JS engines (often a sliced string pointer).
+    return str.substring(0, startIdx);
+}
 
 export class MusicReactivitySystem {
     getActiveWave(): ActiveWave | null { return readActiveWave(); }
@@ -199,7 +221,7 @@ export class MusicReactivitySystem {
             result = CHROMATIC_SCALE[note % 12];
         } else if (typeof note === 'string') {
              // Strip octave if present "C4" -> "C"
-            result = note.replace(/[0-9-]/g, '');
+            result = stripNoteOctave(note);
         }
 
         // Cache result (limit size loosely)
@@ -243,6 +265,11 @@ export class MusicReactivitySystem {
     }
 
     private updateFoliageAnimationLoop(time: number, deltaTime: number, audioState: AudioData | null, cpuAnimatedFoliage: FoliageObject[], camera: THREE.Camera, isDay: boolean, isDeepNight: boolean) {
+        // ⚡ OPTIMIZATION: Short-circuit CPU math if the GPU compute shader is handling instances
+        if (shouldUseFoliageGpuBatch(cpuAnimatedFoliage?.length || 0)) {
+            return;
+        }
+
         const isNight = !isDay;
         if (typeof isDay !== 'boolean') {
             console.warn('[Music] isDay parameter missing');
@@ -270,6 +297,7 @@ export class MusicReactivitySystem {
         // Ensure buffer has enough capacity (zero allocation if it's already large enough)
         const n = cpuAnimatedFoliage.length;
         this.ensureBatchPositionsCapacity(n);
+        const wasmCount = Math.min(n, WASM_POSITION_OBJECT_CAPACITY);
 
         // Fill float buffer densely in a tight loop
         const buf = this._batchPositionsBuffer;
@@ -284,19 +312,21 @@ export class MusicReactivitySystem {
             buf[base + 3] = (obj.userData.radius || 2.0) * (obj.scale.x > 1.0 ? obj.scale.x : 1.0);
         }
 
-        // Upload to WASM via flat float array
-        uploadPositionsFlat(buf, n);
+        // Upload to WASM via flat float array (capped to AS position buffer capacity)
+        uploadPositionsFlat(buf, wasmCount);
 
         // ⚡ OPTIMIZATION: Bypassed CPU distance math with WASM batchDistanceCull
-        const { flags } = batchDistanceCull(cx, cy, cz, 250, n);
+        const { flags } = wasmCount > 0
+            ? batchDistanceCull(cx, cy, cz, 250, wasmCount)
+            : { flags: null as Float32Array | null };
 
         for (let i = 0; i < n; i++) {
             const obj = cpuAnimatedFoliage[i];
             if (!obj) continue;
             totalObjects++;
 
-            // Base max distance check (from WASM flags)
-            if (flags && flags[i] === 0) {
+            // Base max distance check (from WASM flags) — only for indices uploaded to WASM
+            if (flags && i < wasmCount && flags[i] === 0) {
                 culledByDistance++;
                 continue;
             }
@@ -410,7 +440,8 @@ export class MusicReactivitySystem {
             ...MRState.globalShimmerCh, ...MRState.globalHueShiftCh, ...MRState.globalNoteColorCh,
             ...MRState.gemCanopyShimmerCh, ...MRState.gemCanopyHueShiftCh, ...MRState.gemCanopyNoteColorCh,
             ...MRState.skyIslandsShimmerCh, ...MRState.skyIslandsHueShiftCh, ...MRState.skyIslandsNoteColorCh,
-            ...MRState.skyIslandsFogCh
+            ...MRState.skyIslandsFogCh,
+            ...MRState.sugarCavesShimmerCh, ...MRState.sugarCavesHueShiftCh, ...MRState.sugarCavesNoteColorCh
             ];
             const maxNeeded = Math.max(0, ...allConfiguredChannels);
             if (maxNeeded >= channels.length) {
@@ -470,6 +501,18 @@ export class MusicReactivitySystem {
             if (idx < channels.length) MRState.skyIslandsFogAccum += channels[idx].volume;
         }
 
+        // --- Sugar Caves: shimmer + hue shift ---
+        MRState.sugarCavesShimmerAccum = 0.0;
+        for (let i = 0; i < MRState.sugarCavesShimmerCh.length; i++) {
+            const idx = MRState.sugarCavesShimmerCh[i];
+            if (idx < channels.length) MRState.sugarCavesShimmerAccum += channels[idx].volume;
+        }
+        MRState.sugarCavesHueShiftAccum = 0.0;
+        for (let i = 0; i < MRState.sugarCavesHueShiftCh.length; i++) {
+            const idx = MRState.sugarCavesHueShiftCh[i];
+            if (idx < channels.length) MRState.sugarCavesHueShiftAccum += channels[idx].volume;
+        }
+
         // --- Crystalline Nebula: shimmer ---
         MRState.nebulaShimmerAccum = 0.0;
         for (let i = 0; i < MRState.nebulaShimmerCh.length; i++) {
@@ -490,6 +533,7 @@ export class MusicReactivitySystem {
         MRState.nebulaNoteVal = 0;
         MRState.gemCanopyNoteVal = 0;
         MRState.skyIslandsNoteVal = 0;
+        MRState.sugarCavesNoteVal = 0;
         // Read Intensity
         for (let i = 0; i < MRState.skyMoonIntensityCh.length; i++) {
             const idx = MRState.skyMoonIntensityCh[i];
@@ -547,6 +591,14 @@ export class MusicReactivitySystem {
             }
         }
 
+        for (let i = 0; i < MRState.sugarCavesNoteColorCh.length; i++) {
+            const idx = MRState.sugarCavesNoteColorCh[i];
+            if (idx < channels.length && channels[idx].volume > 0.05) {
+            MRState.sugarCavesNoteVal = parseInt(channels[idx].note) || 0;
+            break;
+            }
+        }
+
         // Push to TSL uniforms
         // Mutate .value in place: never reassign the uniform node itself.
         // arpeggio_grove shimmer/hueShift already written by applyArpeggioGroveChannelAccum.
@@ -576,6 +628,11 @@ export class MusicReactivitySystem {
             BiomeUniforms.skyIslands.fogDensity.value =
                 BiomeUniforms.skyIslands.fogDensity.value * 0.85 + fogTarget * 0.15;
         }
+
+        BiomeUniforms.sugarCaves.shimmer.value =
+            Math.min(MRState.sugarCavesShimmerAccum / Math.max(MRState.sugarCavesShimmerCh.length, 1), 1.0) * nightGate * MRState.sugarCavesIntensityScale;
+        BiomeUniforms.sugarCaves.hueShift.value =
+            Math.min(MRState.sugarCavesHueShiftAccum / Math.max(MRState.sugarCavesHueShiftCh.length, 1), 1.0) * nightGate * MRState.sugarCavesIntensityScale;
 
         BiomeUniforms.skyMoon.moonIntensity.value =
             Math.min(MRState.skyMoonIntensityAccum / Math.max(MRState.skyMoonIntensityCh.length, 1), 1.0) * nightGate * MRState.skyMoonIntensityScale;
@@ -638,6 +695,14 @@ export class MusicReactivitySystem {
             _targetSkyIslandsColor.setHex(0xffffff);
             BiomeUniforms.skyIslands.noteColor.value.lerp(_targetSkyIslandsColor, 0.05);
         }
+
+        if (MRState.sugarCavesNoteVal > 0) {
+            mapNoteToColor(MRState.sugarCavesNoteVal, _targetSugarCavesColor, 'sugar_caves');
+            BiomeUniforms.sugarCaves.noteColor.value.lerp(_targetSugarCavesColor, 0.12);
+        } else {
+            _targetSugarCavesColor.setHex(0xffffff);
+            BiomeUniforms.sugarCaves.noteColor.value.lerp(_targetSugarCavesColor, 0.05);
+        }
         } else {
         // No audio data — smoothly decay towards resting values (no snapping).
         BiomeUniforms.arpeggioGrove.shimmer.value *= 0.9;
@@ -655,6 +720,8 @@ export class MusicReactivitySystem {
         BiomeUniforms.skyIslands.hueShift.value *= 0.9;
         BiomeUniforms.skyIslands.fogDensity.value =
             BiomeUniforms.skyIslands.fogDensity.value * 0.9 + MRState.skyIslandsFogRest * 0.1;
+        BiomeUniforms.sugarCaves.shimmer.value *= 0.9;
+        BiomeUniforms.sugarCaves.hueShift.value *= 0.9;
 
         BiomeUniforms.skyMoon.moonIntensity.value *= 0.9;
         _targetMoonColor.setHex(0xffffff);
@@ -674,6 +741,9 @@ export class MusicReactivitySystem {
 
         _targetSkyIslandsColor.setHex(0xffffff);
         BiomeUniforms.skyIslands.noteColor.value.lerp(_targetSkyIslandsColor, 0.05);
+
+        _targetSugarCavesColor.setHex(0xffffff);
+        BiomeUniforms.sugarCaves.noteColor.value.lerp(_targetSugarCavesColor, 0.05);
         }
     }
 
@@ -889,7 +959,7 @@ export class MusicReactivitySystem {
                 // Uses the already-loaded _noteNameCache / CHROMATIC_SCALE.
                 const noteStr: string = (chData as any).note || '';
                 if (noteStr) {
-                    const noteName = noteStr.replace(/[0-9-]/g, '');
+                    const noteName = stripNoteOctave(noteStr);
                     const chromaticIdx = CHROMATIC_SCALE.indexOf(noteName);
                     if (chromaticIdx >= 0) {
                         // Map 12 chromatic notes evenly across 128 LUT slots.

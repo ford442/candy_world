@@ -37,6 +37,7 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
     reloadBtn.innerHTML = '<span aria-hidden="true">🔄</span> Reload Page';
     reloadBtn.addEventListener('click', () => window.location.reload());
     reloadBtn.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.repeat) return;
         if (e.key === 'Enter' || e.key === ' ') {
             if (!reloadBtn.classList.contains('keyboard-active')) {
                 reloadBtn.classList.add('keyboard-active');
@@ -63,6 +64,7 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
 export function wireSkipButton(skipButton: HTMLButtonElement, onSkip: () => void): void {
     skipButton.addEventListener('click', onSkip);
     skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.repeat) return;
         if (e.key === 'Enter' || e.key === ' ') {
             if (!skipButton.classList.contains('keyboard-active')) {
                 skipButton.classList.add('keyboard-active');
@@ -101,8 +103,6 @@ export function createLoadingScreenDOM(
     container.setAttribute('aria-valuenow', '0');
     container.setAttribute('aria-valuetext', 'Initializing...');
     container.setAttribute('aria-label', 'Game loading progress');
-    container.setAttribute('aria-live', 'polite');
-    container.setAttribute('aria-atomic', 'true');
 
     const content = document.createElement('div');
     content.className = 'loading-content';

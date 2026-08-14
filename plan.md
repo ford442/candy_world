@@ -11,6 +11,12 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
    - * Implementation Details: Activated GPU foliage animation path by default via `gpu-foliage-flag.ts` and orchestrator modifications.
 3. **Content** — capstone features (#1492, #1494) after gates are green.
 
+    - **Status: Implemented ✅** (#1492 Workstream A2: Candy Remote Avatar Mesh)
+    -   - Implementation Details: Upgraded the placeholder presence avatar sphere to a low-poly dodecahedron using a TSL `MeshPhysicalNodeMaterial` with clearcoat, and wired up `instanceColor` zero-allocation updates to properly apply the hash-based pastel colors per instance.
+    - **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)
+    -   - Implementation Details: Implemented the Subterranean Sugar Caves biome layer using a new InstancedMesh batcher (`SugarCaveBatcher`) and TSL materials for crystal ribs, and registered it with the music-bindings for the Part II Door narrative.
+
+
 ## Mega-module splits (do not split blindly)
 
 Prefer domain barrels over mechanical 700-line cuts. Already landed:

@@ -21,8 +21,8 @@
 import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
 import { CONFIG } from '../../core/config.ts';
-import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
+import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uStrobeIntensity } from '../../foliage/strobe.ts';
@@ -39,19 +39,19 @@ import {
     initPhysics,
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
-import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
-import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { discoverySystem } from '../discovery.ts';
-import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
-import {
-    calculateMovementInput
-} from '../physics.core.ts';
-import { unlockSystem } from '../unlocks.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     foliageTraps, foliageGeysers, foliagePortamentoPines,
     foliagePanningPads, animatedFoliage, vineSwings, setActiveVineSwing
 } from '../../world/state.ts';
+import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
+import { discoverySystem } from '../discovery.ts';
+import { DISCOVERY_MAP } from '../discovery_map.ts';
+import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
+import {
+    calculateMovementInput
+} from '../physics.core.ts';
+import { unlockSystem } from '../unlocks.ts';
 import {
     physicsFoliageGrid,
     physicsDiscoveryGrid,
@@ -154,11 +154,10 @@ export function checkHarmonyOrbs() {
         const distSq = dx*dx + dy*dy + dz*dz;
         if (distSq < radiusSq) {
             orb.active = false;
-            // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and matrix math overhead by writing directly to instanceMatrix.array.
-            const te = harmonyOrbSystem.mesh.instanceMatrix.array;
-            const offset = i * 16;
-            te[offset] = 0; te[offset+5] = 0; te[offset+10] = 0;
-            te[offset+12] = 0; te[offset+13] = -9999; te[offset+14] = 0;
+            harmonyOrbSystem.dummy.position.set(0, -9999, 0);
+            harmonyOrbSystem.dummy.scale.setScalar(0);
+            _scratchMatrix.compose(harmonyOrbSystem.dummy.position, harmonyOrbSystem.dummy.quaternion, harmonyOrbSystem.dummy.scale);
+            _scratchMatrix.toArray(harmonyOrbSystem.mesh.instanceMatrix.array, (i) * 16);
             harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
             spawnImpact(orb.position, 'berry', 0x9933FF);
             unlockSystem.harvest('harmony_orb', 1, 'Harmony Orb');

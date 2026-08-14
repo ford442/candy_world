@@ -2,23 +2,27 @@
 
 ## Today's focus
 
-**2026-08-05 — Foundation landed: #1493 TS + ESLint ratchets green (`tsc` 0, ESLint 1894 / 0 errors). Next: Phase D warning burn-down + #1496 GPU foliage default.**
+**2026-08-12 — Capstone #1492 landed:** Presence productization (opt-in persistence, candy avatars, privacy, biome cues, CI mock test) + Sugar Caves content layer + Part II unlock narrative. Chunk streaming (#1548) integrated via `ChunkStreamer` on Play path.
 
-Ratchet gates are fail-closed in CI (`typecheck.yml` + `lint.yml`). Phase D next: console/`any` warnings → `log.ts` in `startup-profiler.ts`, `generation-core.ts`, `physics-updates.ts` to reach ESLint **<1500**.
+## Part II door sequence (#1492)
 
-**Not Fix First:** last week's #1448 WebGPU single-device landed clean and verified (#1462/#1468/#1464 — build ✅,
-tests ✅, device-lost drill ✅, single `requestDevice` confirmed); no regression. This is **User Idea mode** —
-#1493 is Noah's own priority-high issue, chosen over its 2026-08-01 siblings because #1495 (app-chunk) and #1496
-(GPU foliage default) are _content/perf_ work that a real lint gate should land _before_, and #1497/#1485-#1491
-(hygiene + file splits) are mechanical Copilot/refactor fodder.
+1. **Foundation** — TS/ESLint ratchet ✅, app-chunk ~599 KB ✅, WebGPU single device ✅, GPU foliage default ✅
+2. **Chunk streaming (#1548)** — `ChunkStreamer` + `map-chunks.json`; Play path spawn tile + ring; `updateStreamingPhase` in game loop
+3. **Presence (Workstream A)** — `?presence=1` or `localStorage` opt-in; candy dodecahedron avatars; mute/hide-self; biome entry announcer; `tests/presence-protocol.test.mjs`
+4. **Sugar Caves (Workstream B — Option 1)** — music-bindings + `BiomeUniforms.sugarCaves`; lake descent; `docs/SUGAR_CAVES_SHIP.md`; VR viewpoint `sugar_caves`
+5. **Part II unlock** — `part-ii-unlock.ts` + Melody Lake discovery stamp; README teaser updated
 
-**Scope of the swarm — touch ONLY:** `scripts/tsc-ratchet.mjs`, `scripts/eslint-ratchet.mjs`,
-`scripts/tsc-baseline.json`, `scripts/eslint-baseline.json`, `eslint.config.js`, `.github/workflows/typecheck.yml`,
-`.github/workflows/lint.yml`, `package.json` (scripts only), `src/utils/log.ts`, and — for the burn-down clusters
-only — mechanical `console.*`→`log.ts` / `any` fixes in a **named, bounded** set of leaf files it lists in
-`.swarm-state.md` before editing. **Do NOT touch** foliage/rendering/world/fauna animation paths (Copilot slice
-= #1496), root one-shot scripts / `temp_base.ts` (that's #1497 hygiene — would collide on `package.json`), or any
-feature logic.
+**Content decision:** Option 1 (Sugar Caves) locked over Weather v2 / Festival Market for vertical narrative (Sky Islands up → caves down).
+
+---
+
+**2026-08-11 — USER IDEA mode. Primary: #1548 Spatial chunk loader (spawn tile first, stream rings) — the structural core of the fresh 2026-08-10 startup/streaming epic #1546.**
+
+Kill the multi-minute Enter → playable wait. Build a true **chunk gate** so the Play path only materializes the spawn tile (≤ 80 entities, ≤ 8s to pointer-lock) instead of parsing/iterating all 2,219 `map.json` entities on Enter. New `src/world/chunk-streamer.ts` + build-time `assets/map-chunks.json` index; game-loop ring streaming via `globalBackgroundProcessor`; remove `mapSizeWaitsForFullPopulation` blocking.
+
+**Not Fix First:** last week's #1493 TS/ESLint ratchet foundation landed green (`tsc-baseline.json` = **0**, `eslint-baseline.json` = **1894 / 0 errors**, `typecheck.yml` + `lint.yml` fail-closed in CI — verified). #1496 GPU foliage default landed (#1550/#1537/#1540). No regression on main; the week's bot merges (Bolt/Palette/Aria) are additive. This is **User Idea mode** — the 2026-08-10 epic (#1546 + #1547/#1548/#1549) is Noah's freshest in-context batch and supersedes the 2026-08-01 pool as primary source.
+
+**Scope of the swarm (#1548) — touch ONLY:** `src/world/generation-core.ts`, `src/world/map-loader.ts`, `src/world/generation-decorators.ts`, new `src/world/chunk-streamer.ts`, `src/systems/region-manager-core.ts`, `src/utils/background-processor.ts`, `src/core/game-loop*.ts`, `tools/map-generator/**` (new `build-chunk-index.ts`), new `assets/map-chunks.json`, and its own `package.json` script (`generate:chunk-index` only). **Do NOT touch** `src/core/startup-profile.ts`, `src/core/main/start-screen.ts`, `shader-warmup.ts`, `config/postfx.ts`, `deferred-init.ts`, `index.html`, `tests/smoke-runner.mjs` — those are the Copilot slice (#1547) and would collide. Treat the boot path ("play"/"explore") as an **input parameter**, not something to redesign.
 
 ## Ideas
 
@@ -29,17 +33,24 @@ Format: - [ ] Short description (optional: more context on next line indented)
 Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 
-**User idea pool — GitHub issues filed 2026-08-01 (Noah's FRESHEST in-context batch, 13 open issues — PRIMARY source this run). Two clusters: a Vision/Foundation batch (21:03) and a mechanical file-split batch (20:35). Self-sequences Foundation → Perf → Content.**
+**User idea pool — startup/streaming epic filed 2026-08-10 (Noah's FRESHEST in-context batch — PRIMARY source this run). Epic #1546 collapses ~5 overlapping load knobs to 2 user paths (Play / Explore) and adds spatial chunk streaming. Recommended order in the epic: #1549 → #1547 → #1548. This run partitions by file-decoupling instead: #1548 = kimi (structural core), #1547 = Copilot (UI), #1549 measurement harness = Claude Code. NOTE: sub-issues authored by `cursor[bot]`, not confirmed as Noah's own words — but coherent, well-scoped, and reflect real dev-boot pain; treated as the in-context pool.**
+
+- [ ] **#1546 Epic: Simplify startup to two load paths + chunk streaming** `[in progress — 2026-08-11]` — collapse 3×3 graphics×map matrix → Play (≤8s to pointer-lock, spawn chunk) + Explore (full world, never blocks on horizon). Parent of #1547/#1548/#1549.
+- [x] **#1548 Spatial chunk loader: spawn tile first, stream rings** `[landed — 2026-08-12]` — `ChunkStreamer` + `assets/map-chunks.json` + `generate:chunk-index`; Play path `chunkStreaming` for small/medium maps; game-loop `updateStreamingPhase`.
+- [ ] **#1547 Collapse startup profile UI + wire graphics to runtime** ← **Copilot prep target today** (decoupled: `startup-profile.ts` / `start-screen.ts` / `shader-warmup.ts` / `config/postfx.ts` / `deferred-init.ts` / `index.html` — zero overlap with #1548's world/streaming files). `StartupProfile.graphics` is persisted but unwired; finish Phase 3 gating + one-CTA start screen. Small–medium.
+- [ ] **#1549 Dev fast-boot mode + CI test tiers** — `?boot=instant` auto-enter, `dev:fast` / `test:world` scripts, `tests/boot-timing.mjs` + `boot-budgets.json`, AGENTS/README quick-boot docs. Measurement-harness slice (new test files + docs) routed to Claude Code this run; the `?boot=` start-screen wiring deferred (collides with #1547 start-screen work). Small.
+
+**User idea pool — GitHub issues filed 2026-08-01 (13 issues — prior batch, mostly landed). Two clusters: a Vision/Foundation batch (21:03) and a mechanical file-split batch (20:35). Self-sequences Foundation → Perf → Content.**
 
 - [x] **#1493 Recover TS + ESLint ratchets + make lint a CI gate** — `priority-high` `foundation`. Landed 2026-08-05: `tsc` **0 errors** (baseline ratcheted from dishonest 0/206 drift to honest 0), ESLint **1894** problems (0 errors; baseline down from 2689 via error fixes + `--fix`), `lint.yml` + `typecheck.yml` fail-closed on PRs; unified `ChannelData` via `audio-system-core.ts`; Phase A–C clusters fixed (generative/audio, workers, UI barrels, compute).
 - [x] **#1496 Make GPU foliage instance animation the default path on the shared WebGPU device** — `performance` `rendering` `webgpu` `migration`. Direct successor to the landed #1448 single-device work. **Status: Implemented ✅**
-    - * Implementation Details: Updated `gpu-foliage-flag.ts` so `isGpuFoliagePilotEnabled` returns true by default and modified `gpu-foliage-orchestrator.ts` to enforce the new GPU path.
+    - * Implementation Details: Updated `gpu-foliage-flag.ts` so `isGpuFoliagePilotEnabled` returns true by default and modified `gpu-foliage-orchestrator.ts` to enforce the new GPU path. Made GPU foliage instance animation the default path by inverting the pilot flag logic to an opt-out model, short-circuiting the CPU fallback in music-reactivity to save cycles, and bypassing buffer syncing when GPU batching is active.
     - * Next Step Suggestion: Move on to #1494 Generative music + Cinematic Photo Mode as first-class features.
 - [~] **#1495 Finish app-chunk graph redesign + power-tier loading** — `performance` `foundation`. **Landed ~599 KB `app`** (PR #1522): lazy debug/presence/photo/generative/awakened, `budget:check` 600 KB ceiling. Remaining: stretch 500 KB peel. See `docs/APP_CHUNK_SPLIT.md`.
 - [x] **#1497 Repo hygiene — delete one-shot scripts / `.orig` / root `temp_base`, own mega-modules** — `architecture` `foundation`. Landed 2026-08-05: deleted root codemods/patches/screenshot throwaways, removed `src/**/*.orig`, gitignore scratch patterns, added `plan.md`; config domain modules (`ground`, `audio`, `fauna`, `presence`); `main.ts` already thin via `main/bootstrap.ts` + pipelines.
-- [ ] **#1492 Capstone epic — Presence + Part II door** — `enhancement` `architecture`. Tracker: `docs/CAPSTONE_ROADMAP.md`. Sequence: foundation → Presence productization (A) → one content layer (B, recommend Sugar Caves) → Part II unlock. Not one PR; sub-issues at execution.
+- [x] **#1492 Capstone epic — Presence + Part II door** — `enhancement` `architecture`. Tracker: `docs/CAPSTONE_ROADMAP.md`. Landed 2026-08-12: Presence A2–A5 + Sugar Caves B + Part II unlock. See `docs/SUGAR_CAVES_SHIP.md`.
 - [ ] **#1494 Generative music + Cinematic Photo Mode as first-class features** — `enhancement`. Content capstone.
-- [ ] **Mechanical file-split batch (#1485-#1491)** — split >700-line files into modules: `config.ts` (#1485 **partial — domain barrel landed**), `tree-batcher.ts` (#1486), `input.ts` (#1487 **Status: Implemented ✅**), `main.ts` (#1488 **landed — `main/` pipelines**), `temp_base.ts` (#1489 **absent on main**), `style.css` (#1490), `material-core.ts` (#1491). Pure mechanical — ideal future Copilot fodder, one file per PR.
+- [ ] **Mechanical file-split batch (#1485-#1491)** — split >700-line files into modules: `config.ts` (#1485 **partial — domain barrel landed**), `tree-batcher.ts` (#1486), `input.ts` (#1487 **Status: Implemented ✅**), `main.ts` (#1488 **landed — `main/` pipelines**), `temp_base.ts` (#1489 **absent on main**), `style.css` (#1490 **landed — `styles/` modules + barrel**), `material-core.ts` (#1491 **landed — `material-core/` modules + barrel**). Pure mechanical — ideal future Copilot fodder, one file per PR.
 
 <!-- ARCHIVED — 2026-07-27 batch (resolved). -->
 
@@ -119,9 +130,9 @@ _Content / world-building (capstones, after foundation):_
 - [ ] **#1356 Cinematic Photo Mode.**
 - [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [x] **#1352 Living candy fauna** (WASM boids + ECS).
-  - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
+    - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
 - [x] **#1353 Real-time co-presence** (Supabase Realtime). **Status: Implemented ✅**
-  * Implementation Details: Verified the real-time presence components and wired `updatePresenceSystem` and `teardownPresence` to the game loop to ensure proper live-publishing of player poses.
+    - Implementation Details: Verified the real-time presence components and wired `updatePresenceSystem` and `teardownPresence` to the game loop to ensure proper live-publishing of player poses.
 - [ ] **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
     - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
 - [ ] **#1353 Real-time co-presence** (Supabase Realtime). **#1354 Tier-4 WebGPU compute consolidation. #1355 Generative biome audio. #1356 Cinematic Photo Mode.**
@@ -137,8 +148,8 @@ Routine maintains this automatically — you can add items too.
 - [x] **TS-error baseline (feeds #1347)** — RESOLVED 2026-07-14. `scripts/tsc-ratchet.mjs` + `scripts/tsc-baseline.json` now committed; baseline crushed from 587 → **3 errors**, `typecheck.yml` enforces the ratchet in CI. Remaining 3 are the committed floor; keep ratcheting opportunistically.
 - [x] **Ratchet reconciliation (2026-08-05)** — Ground truth: `tsc-baseline.json` = **0 errors** (full `src/` strict pass). `eslint-baseline.json` = **1894** (0 errors, 1894 warnings). Remaining debt clusters: console/`any` warnings in `startup-profiler.ts`, `generation-core.ts`, `physics-updates.ts` (Phase D → `log.ts`). Targets: ESLint **<1500** then **<800**; keep TS at 0.
 - [x] **Repo hygiene (#1497, 2026-08-05)** — Removed 36 root scratch files (`*-replace.cjs`, `patch*.mjs`, `screenshot-*.mjs`, `test-build*.mjs`, etc.), 4 `*.orig` backups, added `.gitignore` scratch patterns; `temp_base.ts` was already absent; `plan.md` restored as pointer to `weekly_plan.md`.
-- [ ] **Issue-hygiene sweep (2026-08-04)** — Verify + close landed issues still OPEN: #1448 (single-device, landed #1462/#1468) should be CLOSED with `state_reason: completed`. Re-check the older open set (#1358/#1360/#1364/#1363/#1352).
-- [ ] **Open PRs (2026-08-04)** — #1481 `Architect: Implement C++ WASM boids scale-up` (non-draft, ford442, open since 08-01) — decide merge/close vs the already-landed #1478 native boids; may be superseded. #1504 `♿ Aria: Add loading states for Save Menu buttons` (draft) — bot polish, leave to Aria loop.
+- [x] **Issue-hygiene sweep (2026-08-12)** — Reconciled in weekly plan: **#1496** GPU foliage landed (close). **#1495** app-chunk landed ~599 KB via #1522 (narrow to stretch 500 KB peel). **#1448** single WebGPU device landed (#1462). **#1363** Sky Islands landed (9368bab). **#1352** fauna/boids landed (#1478). GitHub issue close is manual follow-up.
+- [ ] **Open PRs (2026-08-11)** — **#1481** `Architect: C++ WASM boids scale-up` (non-draft, open since 08-01, 10 days stale) — decide merge/close vs already-landed #1478 native boids; likely superseded, CLOSE if so. Draft bot PRs (leave to their loops or triage): **#1555** Architect Sugar Caves biome (relevant to #1492 capstone content — review, it may be the "one content layer" the capstone wants), **#1554** Bolt deferred-sqrt/zero-alloc grid, **#1553** Aria Jukebox empty-state.
 - [ ] **⚠️ Tracking-drift reconciliation (2026-07-28)** — The 2026-07-21 focus block claimed `tsc --noEmit` baseline = **3 errors**. That is FALSE on current main: `scripts/tsc-baseline.json` = **396**, and issue #1449 measures **543** live (79 ESLint errors + 2425 warnings). No `scripts/eslint-baseline.json` exists yet despite the ratchet story. Treat the "3 errors" milestone as never-real; #1449 is the real campaign. Also: #1450/#1451 were filed 2026-07-27 against stale perceptions — `game-loop.ts` is already 177 lines (split done) and `sky-island-graph.ts` already exists (#1363 landed). Verify-and-close/narrow both rather than re-doing landed work.
 - [ ] **Issue hygiene: close landed-but-open issues** — #1358, #1360, #1364 all LANDED on main but their GitHub issues are still OPEN. Verify + close with `state_reason: completed`. #1359 landed (emscripten CI) — decide whether #1383 (two-tier refinement) supersedes and close/relabel accordingly. Add #1363 (Sky Islands, landed via 9368bab) and #1352/#1440 (fauna scaffold) to the verify-and-close sweep.
 - [x] **817KB `app` chunk (from #1450)** — Resolved via verify-and-narrow. The app chunk size is accepted by design and within the 850KB soft ceiling per `APP_CHUNK_SPLIT.md` since deep cycle surgery would be fragile and the Vite warning is not a blocker.
@@ -166,6 +177,7 @@ Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
 
+- [x] **2026-08-11** ✅ #1496 GPU FOLIAGE INSTANCE ANIMATION = DEFAULT PATH — **LANDED on main** (#1550 `feat: make GPU foliage instance animation the default path`, building on #1537 `feat(compute): Make GPU foliage instance animation default ON` and #1540 tree-batcher `writeInstancePose` hot-path migration). Pilot flag inverted to opt-out; CPU fallback short-circuited in music-reactivity; buffer syncing bypassed when GPU batching active. Direct successor to the landed #1448 single-device work. GitHub issue #1496 still OPEN — close with `state_reason: completed`. Also landed this week: full ESLint ratchet burn-down #1493 (baseline 2689 → **1894**, tsc held at **0**, `lint.yml`/`typecheck.yml` fail-closed), plus a heavy Bolt perf wave (zero-alloc note parsing #1542, waterfall/tree batcher `writeInstancePose` + Math.sqrt defers #1551/#1540/#1538/#1531, harmony-orb direct instanceMatrix #1536, weather zero-alloc #1517) and an Aria/Palette accessibility sweep (focus-trap DOM-native Tab checks #1545, loading-screen modal-semantics removal #1535, jukebox/save-menu aria-live #1541/#1539/#1534).
 - [x] **2026-08-04** ✅ #1448 WEBGPU SINGLE-DEVICE ARCHITECTURE — **LANDED on main** (#1462 `feat(webgpu): unify GPU device ownership under a single renderer-owned context`, #1468 `feat: implement single-device WebGPU architecture`, plus #1464 ratchet-Phase-1 WebGPU buffer typing fix). New `src/rendering/gpu-context.ts` is the single device owner; `gpu-compute-library.ts` / `compute-particles.ts` / `startup-profiler.ts` / `webgpu-limits.ts` / `init.ts` all adopt it; device-lost banner + fail-closed-to-WASM/CPU wired. `.swarm-state.md` iteration 1 verified: `build:wasm` ✅, `build` ✅, `test:wasm` 3/3 ✅, instrumented Playwright shows **single `requestDevice`** ✅, device-lost drill 0 uncaught errors ✅ (the runner's ❌ verdict is the pre-existing `fonts.googleapis.com` sandbox block, identical on baseline). This was last week's focus — reconciled and closed.
 - [x] **2026-07-28** ✅ #1351 CROSS-TIER PARITY HARNESS — LANDED (#1418, `test(#1351): cross-tier parity harness for matrix compose + arpeggio accumulate`). Reconciled from last week's focus: golden-vector `test:parity` runner guards #1358 matrix/color compose + #1364 arpeggio_grove accumulation across TS↔AS↔C++; widened to mushroom + portamento batchers per `MIGRATION_TRACKER.md` slice 1. Native C++ path SKIPs when `em++` absent; TS fallback always green.
 - [x] **2026-07-28** POST-07-21 WAVE (landed on main, reconciled this run) — #1363 stacked Sky Islands biome (9368bab, `sky-island-graph.ts` + music bindings + traversal), #1352/#1440 Living Candy Fauna (WASM boids ECS + `FaunaBatcher`), circadian coverage extended across batchers (#1362 follow-ups), region-manager WASM distance-cull pre-pass wired to clouds (#1453/#1455), TSL wind sway on cloud batcher (#1447), app-chunk lazy split (#1422), and the ARIA modal-semantics sweep (#1456/#1441/#1446). `game-loop.ts` confirmed thin (177 lines) across 11 phase modules.
@@ -217,6 +229,12 @@ Prune occasionally when this gets long.
 ## Last run
 
 <!-- Routine writes summary here each run. Overwrites previous. -->
+
+Date: 2026-08-11
+Mode: **USER IDEA** — no Fix First trigger. Last week's #1493 TS/ESLint ratchet foundation landed green and verified on main (`tsc-baseline.json` = **0**, `eslint-baseline.json` = **1894 / 0 errors**, `typecheck.yml` + `lint.yml` fail-closed); #1496 GPU foliage default also landed (#1550/#1537/#1540). No regression — the week's Bolt/Palette/Aria bot merges are additive. Noah's freshest in-context batch is the **2026-08-10 startup/streaming epic #1546** (sub-issues #1547/#1548/#1549), which supersedes the 2026-08-01 pool as primary source.
+Focus: **#1548 Spatial chunk loader** — the structural core of the epic. kimi-cli main event = new `src/world/chunk-streamer.ts` + build-time `assets/map-chunks.json` index (`tools/map-generator/build-chunk-index.ts`), Play path loads spawn chunk + 1-ring (≤80 entities, ≤8s to pointer-lock), game-loop ring streaming via `globalBackgroundProcessor` + far-chunk eviction, remove `mapSizeWaitsForFullPopulation` blocking. Copilot prep (decoupled, zero file overlap): **#1547 collapse startup profile UI + wire graphics to runtime** (core/startup UI files only). Claude Code whole-stack: full `npm run build` → `verify:emcc` → `deploy.py` dry-run → cut a fresh `2026-08-11-stable` release tag over the post-08-04 wave, plus the **#1549 measurement harness** (new `tests/boot-timing.mjs` + `boot-budgets.json` + AGENTS/README quick-boot docs) as decoupled hygiene.
+Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Context gap: No `recent_chats` / `conversation_search` in this headless run (confirmed — ToolSearch surfaces neither; reconstruction from git history, 10 open GitHub issues, 4 open PRs, `weekly_plan.md`, `.swarm-state.md`). Could NOT run `tsc`/`eslint`/build locally (no `node_modules`), verify the live site, or confirm current app-chunk KB (#1495 issue says ~778KB vs plan's ~599KB — reconcile). **Flagged:** the 2026-08-10 epic sub-issues were authored by `cursor[bot]`, not confirmed as Noah's own words; #1496 issue still OPEN despite landing (close it); #1481 boids-scaleup PR 10 days stale (likely superseded by #1478). `.swarm-state.md` is stale (shows the 2026-08-04 ratchet iteration, not this week's completed burn-down).
 
 Date: 2026-08-04
 Mode: **USER IDEA** — no Fix First trigger. Last week's #1448 WebGPU single-device landed clean and verified on main (#1462/#1468/#1464; `gpu-context.ts` present, build/tests/device-lost drill all green per `.swarm-state.md`). Noah filed a fresh 13-issue in-context batch on 2026-08-01; that is this run's primary idea pool. Picked the single **`priority-high` + `foundation`** item: **#1493 recover the TS + ESLint ratchets and make lint a real CI gate.**

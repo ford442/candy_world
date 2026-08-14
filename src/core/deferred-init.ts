@@ -19,6 +19,7 @@ import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { animatedFoliage } from '../world/state.ts';
 import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
+import { syncDrawingBufferFromWindow } from './init.ts';
 
 // Deferred visual elements
 let aurora: THREE.Object3D | null = null;
@@ -339,6 +340,9 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
         } catch (e) {
             console.warn('[Warmup] Shader compilation error:', e);
         }
+
+        // Refresh canvas MSAA buffer after 1×1 warmup renders (same as startup shader warmup).
+        syncDrawingBufferFromWindow(renderer);
 
         // Record warmup metrics for the startup profiler report.
         recordWarmupMetrics(warmupBatches, warmupBatchMaxMs);
