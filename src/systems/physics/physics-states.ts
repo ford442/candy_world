@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
-
+import { fastInvSqrt } from '../../utils/wasm-loader.ts';
 import { 
     activeVineSwing, 
     setActiveVineSwing, 
@@ -209,8 +209,8 @@ export function updateSwimmingState(
             spawnImpact(player.position, 'jump');
         } else {
             // Pull towards anchor
-            // ⚡ OPTIMIZATION: Bypassed Math.sqrt overhead using Math.sqrt for vector normalization
-            const invDist = 1 / Math.sqrt(distSq);
+            // ⚡ OPTIMIZATION: Bypassed Math.sqrt overhead using fastInvSqrt for vector normalization
+            const invDist = fastInvSqrt(distSq);
             // Modulate pull speed with kick drum
             const kickBoost = audioState?.kickTrigger ? audioState.kickTrigger * 20.0 : 0;
             const pullSpeed = 30.0 + kickBoost;
