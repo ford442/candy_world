@@ -8,12 +8,13 @@ import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
 import { updatePresenceSystem } from '../systems/net/lazy.ts';
-import { updateSugarCavesTraversal } from '../world/sugar-caves-traversal.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { player } from '../systems/physics/index.ts';
 import { profiler } from '../utils/profiler.ts';
+import { updateSugarCavesTraversal } from '../world/sugar-caves-traversal.ts';
 import { isExploreActive } from './camera-modes.ts';
 import { updateAudioPhase } from './game-loop-audio.ts';
+import { updateComputePhase } from './game-loop-compute.ts';
 import {
     initGameLoopDependencies,
     getGameTime,
@@ -42,12 +43,11 @@ import {
 import { updateFoliagePhase } from './game-loop-foliage.ts';
 import { updateGameplayPhase } from './game-loop-gameplay.ts';
 import { updateInteractionPhase, updateExploreCameraPhase } from './game-loop-input.ts';
+import { updateParticlesPhase } from './game-loop-particles.ts';
+import { updatePhysicsPhase } from './game-loop-physics.ts';
+import { updatePostFX, renderPostProcessing } from './game-loop-postfx.ts';
 import { updateStreamingPhase } from './game-loop-streaming.ts';
 import { updateVisualsPhase } from './game-loop-visuals.ts';
-import { updateParticlesPhase } from './game-loop-particles.ts';
-import { updatePostFX, renderPostProcessing } from './game-loop-postfx.ts';
-import { updateComputePhase } from './game-loop-compute.ts';
-import { updatePhysicsPhase } from './game-loop-physics.ts';
 
 // Re-exports (public surface for main.ts / index.ts)
 export { initGameLoopDependencies, getGameTime, getAudioState, getBeatFlashIntensity };

@@ -31,13 +31,13 @@ Bindings in `assets/music-bindings.json`:
 
 ```json
 {
-  "biomes": {
-    "sugar_caves": {
-      "shimmer": [2, 3],
-      "hueShift": [4],
-      "noteColor": [2]
+    "biomes": {
+        "sugar_caves": {
+            "shimmer": [2, 3],
+            "hueShift": [4],
+            "noteColor": [2]
+        }
     }
-  }
 }
 ```
 
@@ -47,9 +47,9 @@ Bindings in `assets/music-bindings.json`:
 
 ### Tests / viewpoints
 
-| Command | Result |
-|---------|--------|
-| `npm run test:sugar-caves` | unlock + viewpoint harness |
+| Command                                   | Result                        |
+| ----------------------------------------- | ----------------------------- |
+| `npm run test:sugar-caves`                | unlock + viewpoint harness    |
 | `tools/visual-regression/viewpoints.json` | `sugar_caves` night viewpoint |
 
 Color palette (`noteColorMap.sugar_caves`) in `src/core/config/defaults.ts` — icy cyan / magenta crystalline aesthetic.

@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld, uv, distance, vec2, varyingProperty, add } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { isGpuFoliageDefaultPath } from '../compute/gpu-foliage-flag.ts';
 import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
+import { isGpuFoliageDefaultPath } from '../compute/gpu-foliage-flag.ts';
 import {
     runGpuPlantPose,
     uploadGpuPlantPositions,

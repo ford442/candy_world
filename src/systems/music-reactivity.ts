@@ -3,28 +3,28 @@ export * from "./music-reactivity-core.ts";
 export { AtmosphereShaftState } from './atmosphere-reactivity.ts';
 export { computeWaveDistSq } from './music-wave.ts';
 import * as THREE from 'three';
-import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
-import type { AudioData, FoliageObject } from '../foliage/types.ts';
-import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
-import { uTwilight } from '../foliage/sky.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { getDayNightBias } from '../core/cycle.ts';
 import { animateFoliage } from '../foliage/animation.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { foliageBatcher } from '../foliage/batcher/index.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
+import { uTwilight } from '../foliage/sky.ts';
+import type { AudioData, FoliageObject } from '../foliage/types.ts';
 import { uploadPositionsFlat, batchDistanceCull, WASM_POSITION_OBJECT_CAPACITY } from '../utils/wasm-batch.ts';
-import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import {
     updateAtmosphereReactivity,
     registerAtmosphereBeatSync,
     applyAtmosphereMapOverrides,
 } from './atmosphere-reactivity.ts';
 import { awakenedPersistence } from './awakened-persistence-api.ts';
+import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
 import { CHROMATIC_SCALE, skyWaveUniformMap } from './music-reactivity-defaults.ts';
 import type { ActiveWave } from './music-wave.ts';
 

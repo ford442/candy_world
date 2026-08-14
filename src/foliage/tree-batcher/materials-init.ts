@@ -22,6 +22,7 @@ import {
     uWindSpeed,
     createSugarSparkle,
 } from '../index.ts';
+import { applyBaseContactAO, getBaseContactHeight } from '../index.ts';
 import {
     foliageDeformationOffset,
     scaleEmissiveByLod,
@@ -31,7 +32,6 @@ import {
     applyFoliageLodMaterialFade,
 } from '../lod-nodes.ts';
 import { uTwilight } from '../sky.ts';
-import { applyBaseContactAO, getBaseContactHeight } from '../index.ts';
 import type { TreeBatcherState } from './types.ts';
 
 

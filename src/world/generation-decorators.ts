@@ -3,6 +3,7 @@ import { getCIAdjustedCount } from '../core/config.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerCloudPlatform } from '../debug/tools-stub.ts';
+import { sugarCaveBatcher } from '../foliage/index.ts';
 import { createSkyIsland, skyIslandBatcher } from '../foliage/sky-islands.ts';
 import {
     createIntegratedGemSparks,
@@ -10,7 +11,6 @@ import {
     registerIntegratedSystem,
 } from '../particles/compute-integration.ts';
 import { getParticles } from '../particles/lazy.ts';
-import { sugarCaveBatcher } from '../foliage/index.ts';
 import {
     registerWalkableIslandPlatform,
     registerWalkableCloudPlatform,
@@ -22,7 +22,6 @@ import { sampleEntityScale, sampleEntityHeight, biomeNormalizedDistance } from '
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { worldGenerationToken } from './generation-core.ts';
 import { safeAddFoliage } from './generation-entities.ts';
-import { recordSpawnAttempt } from './spawn-tracker.ts';
 import {
     getProceduralEntityCount,
     DEFAULT_PROCEDURAL_CHUNK_SIZE,
@@ -47,6 +46,7 @@ import {
     validateSkyIslandGraph,
     initSkyIslandDebug,
 } from './sky-island-graph.ts';
+import { recordSpawnAttempt } from './spawn-tracker.ts';
 
 registerBuiltinWorldObjectTypes();
 

@@ -2,9 +2,9 @@ import { StageLoader } from '../../debug/index.ts';
 import { preloadGameplay } from '../../gameplay/lazy.ts';
 import { isCIorHeadless, CONFIG } from '../config.ts';
 import { animate } from '../game-loop.ts';
+import { syncDrawingBufferFromWindow } from '../init.ts';
 import type { MainContext } from './context.ts';
 import { renderer } from './exports.ts';
-import { syncDrawingBufferFromWindow } from '../init.ts';
 
 export function runShaderWarmup(ctx: MainContext): void {
     void (async function warmupAndStartLoop() {
