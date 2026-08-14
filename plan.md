@@ -10,6 +10,8 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
 2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496 ✅).
 3. **Content** — capstone features (#1492, #1494) after gates are green.
 
+    - **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)
+    -   - Implementation Details: Wired Generative Biome Audio and Day/Night context into the game loop using zero-allocation updates, allowing the generative audio engine to adapt dynamically to the player's current biome as they explore.
     - **Status: Implemented ✅** (#1492 Workstream A2: Candy Remote Avatar Mesh)
     -   - Implementation Details: Upgraded the placeholder presence avatar sphere to a low-poly dodecahedron using a TSL `MeshPhysicalNodeMaterial` with clearcoat, and wired up `instanceColor` zero-allocation updates to properly apply the hash-based pastel colors per instance.
     - **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)

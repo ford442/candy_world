@@ -48,7 +48,8 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [~] **#1495 Finish app-chunk graph redesign + power-tier loading** — `performance` `foundation`. **Landed ~599 KB `app`** (PR #1522): lazy debug/presence/photo/generative/awakened, `budget:check` 600 KB ceiling. Remaining: stretch 500 KB peel. See `docs/APP_CHUNK_SPLIT.md`.
 - [x] **#1497 Repo hygiene — delete one-shot scripts / `.orig` / root `temp_base`, own mega-modules** — `architecture` `foundation`. Landed 2026-08-05: deleted root codemods/patches/screenshot throwaways, removed `src/**/*.orig`, gitignore scratch patterns, added `plan.md`; config domain modules (`ground`, `audio`, `fauna`, `presence`); `main.ts` already thin via `main/bootstrap.ts` + pipelines.
 - [x] **#1492 Capstone epic — Presence + Part II door** — `enhancement` `architecture`. Tracker: `docs/CAPSTONE_ROADMAP.md`. Landed 2026-08-12: Presence A2–A5 + Sugar Caves B + Part II unlock. See `docs/SUGAR_CAVES_SHIP.md`.
-- [ ] **#1494 Generative music + Cinematic Photo Mode as first-class features** — `enhancement`. Content capstone.
+- [x] **#1494 Generative music + Cinematic Photo Mode as first-class features** — `enhancement`. Content capstone. **Status: Implemented ✅**
+    - Implementation Details: Wired Generative Biome Audio and Day/Night context into the game loop, allowing the generative audio engine to adapt to the player's current biome as they explore.
 - [ ] **Mechanical file-split batch (#1485-#1491)** — split >700-line files into modules: `config.ts` (#1485 **partial — domain barrel landed**), `tree-batcher.ts` (#1486), `input.ts` (#1487), `main.ts` (#1488 **landed — `main/` pipelines**), `temp_base.ts` (#1489 **absent on main**), `style.css` (#1490 **landed — `styles/` modules + barrel**), `material-core.ts` (#1491 **landed — `material-core/` modules + barrel**). Pure mechanical — ideal future Copilot fodder, one file per PR.
 
 <!-- ARCHIVED — 2026-07-27 batch (resolved). -->
