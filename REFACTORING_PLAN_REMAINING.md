@@ -29,6 +29,9 @@ This document tracks the large-file refactoring task. All 5 original monoliths h
 | src/ui/analytics-debug.ts | src/ui/analytics-debug-handlers.ts | 348 | < 700 | ✅ |
 | src/ui/analytics-debug.ts | src/ui/analytics-debug-ui.ts | 669 | < 700 | ✅ |
 | src/ui/analytics-debug.ts | src/ui/analytics-debug.ts (barrel) | 15 | < 50 | ✅ |
+| src/core/input/input.ts | src/core/input/input/init-input.ts | < 700 | < 700 | ✅ |
+| src/core/input/input.ts | src/core/input/input/keyboard-handlers.ts | < 700 | < 700 | ✅ |
+| src/core/input/input.ts | src/core/input/index.ts (barrel) | < 50 | < 50 | ✅ |
 | **TOTAL** | | **~6,397** (excluding barrels) | | **100% under target** |
 
 ## Detailed Refactoring Plans
