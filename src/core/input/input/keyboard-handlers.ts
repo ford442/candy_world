@@ -115,7 +115,7 @@ export function createKeyboardHandlers(
                 const closePlaylistBtn = document.getElementById('closePlaylistBtn');
                 if (closePlaylistBtn) {
                     closePlaylistBtn.classList.add('keyboard-active');
-                    setTimeout(() => closePlaylistBtn.classList.remove('keyboard-active'), 150);
+                    // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
                 }
                 togglePlaylist();
                 return;
@@ -420,6 +420,13 @@ export function createKeyboardHandlers(
             case 'KeyU':
                 triggerButtonPressUp('musicUploadBtn');
                 break;
+            case 'Escape': {
+                const closePlaylistBtn = document.getElementById('closePlaylistBtn');
+                if (closePlaylistBtn) {
+                    closePlaylistBtn.classList.remove('keyboard-active');
+                }
+                break;
+            }
             case 'Equal':
             case 'NumpadAdd':
                 triggerButtonPressUp('volUpBtn');
