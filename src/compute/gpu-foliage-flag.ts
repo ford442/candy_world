@@ -26,7 +26,7 @@ function isGpuFoliageOptedOut(): boolean {
 
 /**
  * True when the GPU foliage default path is active (device available and not
- * opted out). Previously a pilot requiring `?gpuFoliage=1`; now ON by default.
+ * opted out). Now ON by default.
  */
 export function isGpuFoliagePilotEnabled(): boolean {
     if (typeof window === 'undefined') return false;

@@ -145,15 +145,15 @@ export function setupStartScreen(ctx: MainContext): void {
     const modeDescription = document.getElementById('mode-description');
 
     const gfxButtons: Array<{ btn: HTMLButtonElement; value: GraphicsLevel }> = [
-        { btn: document.getElementById('btn-gfx-low') as HTMLButtonElement, value: 'low' },
-        { btn: document.getElementById('btn-gfx-medium') as HTMLButtonElement, value: 'medium' },
-        { btn: document.getElementById('btn-gfx-high') as HTMLButtonElement, value: 'high' },
+        { btn: document.getElementById('btn-gfx-low') as HTMLButtonElement, value: 'low' as GraphicsLevel },
+        { btn: document.getElementById('btn-gfx-medium') as HTMLButtonElement, value: 'medium' as GraphicsLevel },
+        { btn: document.getElementById('btn-gfx-high') as HTMLButtonElement, value: 'high' as GraphicsLevel },
     ].filter((b) => b.btn);
 
     const mapButtons: Array<{ btn: HTMLButtonElement; value: MapSize }> = [
-        { btn: document.getElementById('btn-map-small') as HTMLButtonElement, value: 'small' },
-        { btn: document.getElementById('btn-map-medium') as HTMLButtonElement, value: 'medium' },
-        { btn: document.getElementById('btn-map-large') as HTMLButtonElement, value: 'large' },
+        { btn: document.getElementById('btn-map-small') as HTMLButtonElement, value: 'small' as MapSize },
+        { btn: document.getElementById('btn-map-medium') as HTMLButtonElement, value: 'medium' as MapSize },
+        { btn: document.getElementById('btn-map-large') as HTMLButtonElement, value: 'large' as MapSize },
     ].filter((b) => b.btn);
 
     const syncProfileUi = () => {
@@ -314,7 +314,12 @@ export function setupStartScreen(ctx: MainContext): void {
                         lastAnnounced = percent;
                     }
                 },
-                useFastPopulation ? { fastPopulation: true } : undefined
+                useFastPopulation || profile.mapSize !== 'large'
+                    ? {
+                          fastPopulation: useFastPopulation,
+
+                      }
+                    : undefined
             );
 
             if (activeWorldMode !== requestedMode) {
