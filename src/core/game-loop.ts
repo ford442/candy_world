@@ -13,7 +13,7 @@ import { player } from '../systems/physics/index.ts';
 import { profiler } from '../utils/profiler.ts';
 import { updateSugarCavesTraversal } from '../world/sugar-caves-traversal.ts';
 import { isExploreActive } from './camera-modes.ts';
-import { updateAudioPhase } from './game-loop-audio.ts';
+import { updateAudioPhase, updateGenerativeAudioContext } from './game-loop-audio.ts';
 import { updateComputePhase } from './game-loop-compute.ts';
 import {
     initGameLoopDependencies,
@@ -140,6 +140,8 @@ export function animate() {
         exploreActive,
         player.position
     );
+
+    updateGenerativeAudioContext(player.position, visualsState.dayNightBias);
 
     // 2b. Foliage materials + batcher LOD (after sky/fog uniforms settle)
     updateFoliagePhase(
