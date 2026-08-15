@@ -680,6 +680,13 @@ export function handlePlaylistKeyUp(event: KeyboardEvent): boolean {
         if (isPlaylistOpen && playlistOverlay) handled = true;
     }
 
+    if (event.code === 'Escape') {
+        if (closePlaylistBtn) {
+            closePlaylistBtn.classList.remove('keyboard-active');
+        }
+        if (isPlaylistOpen && playlistOverlay) handled = true;
+    }
+
     return handled;
 }
 
