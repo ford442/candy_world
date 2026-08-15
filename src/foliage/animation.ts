@@ -2,15 +2,15 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
-import { 
-  freqToHue, 
-  isWasmReady,
-  wasmMemory,
-  wasmSmoothWobble,
-  wasmBatchGrowth,
-  wasmBatchBloom,
-  wasmBatchScaleAnimation,
-  OUTPUT_OFFSET
+import {
+    freqToHue,
+    isWasmReady,
+    wasmMemory,
+    wasmSmoothWobble,
+    wasmBatchGrowth,
+    wasmBatchBloom,
+    wasmBatchScaleAnimation,
+    OUTPUT_OFFSET,
 } from '../utils/wasm-loader.ts';
 import { foliageBatcher } from './batcher/index.ts';
 import { spawnImpact } from './impacts.ts';
@@ -27,20 +27,20 @@ let wobbleBufferView: Float32Array | null = null;
  * Initialize WASM memory views for batch operations
  */
 function initWasmViews(): void {
-  if (!wasmMemory) return;
-  const buffer = wasmMemory.buffer;
-  // Allocate views at OUTPUT_OFFSET for batch operations
-  growthDataView = new Float32Array(buffer, OUTPUT_OFFSET, 1024);
-  bloomDataView = new Float32Array(buffer, OUTPUT_OFFSET + 4096, 1024);
-  scaleAnimDataView = new Float32Array(buffer, OUTPUT_OFFSET + 8192, 1024);
-  wobbleBufferView = new Float32Array(buffer, OUTPUT_OFFSET + 12288, 256);
+    if (!wasmMemory) return;
+    const buffer = wasmMemory.buffer;
+    // Allocate views at OUTPUT_OFFSET for batch operations
+    growthDataView = new Float32Array(buffer, OUTPUT_OFFSET, 1024);
+    bloomDataView = new Float32Array(buffer, OUTPUT_OFFSET + 4096, 1024);
+    scaleAnimDataView = new Float32Array(buffer, OUTPUT_OFFSET + 8192, 1024);
+    wobbleBufferView = new Float32Array(buffer, OUTPUT_OFFSET + 12288, 256);
 }
 
 export * from './types.ts';
 
 // ⚡ OPTIMIZATION: Shared scratch variables to prevent GC in hot loops
 const _scratchOne = new THREE.Vector3(1, 1, 1);
-const _scratchWhite = new THREE.Color(0xFFFFFF);
+const _scratchWhite = new THREE.Color(0xffffff);
 const _scratchDarkColor = new THREE.Color(); // For applyWetEffect
 
 export function triggerGrowth(plants: FoliageObject[], intensity: number): void {
@@ -111,7 +111,7 @@ export function triggerGrowth(plants: FoliageObject[], intensity: number): void 
 /** JS fallback for single plant growth */
 function processGrowthJS(plant: FoliageObject, intensity: number): void {
     const ud = plant.userData;
-    
+
     // ⚡ OPTIMIZATION: Bypassed repeated undefined checks and property lookups by caching limits
     if (ud._growthLimitsInit === undefined) {
         if (ud.initialScale === undefined) {
@@ -225,19 +225,27 @@ function applyWetEffect(material: FoliageMaterial, wetAmount: number): void {
         if (material.color) {
             // ⚡ OPTIMIZATION: Avoid allocating a new color on the fly
             if (!material.userData.dryColor) {
-                 material.userData.dryColor = new THREE.Color();
+                material.userData.dryColor = new THREE.Color();
             }
             material.userData.dryColor.copy(material.color);
         }
     }
 
     if (material.roughness !== undefined && material.userData.dryRoughness !== undefined) {
-        const targetRoughness = THREE.MathUtils.lerp(material.userData.dryRoughness, 0.2, wetAmount);
+        const targetRoughness = THREE.MathUtils.lerp(
+            material.userData.dryRoughness,
+            0.2,
+            wetAmount
+        );
         material.roughness = targetRoughness;
     }
 
     if (material.metalness !== undefined && material.userData.dryMetalness !== undefined) {
-        const targetMetalness = THREE.MathUtils.lerp(material.userData.dryMetalness, 0.15, wetAmount);
+        const targetMetalness = THREE.MathUtils.lerp(
+            material.userData.dryMetalness,
+            0.15,
+            wetAmount
+        );
         material.metalness = targetMetalness;
     }
 
@@ -248,7 +256,12 @@ function applyWetEffect(material: FoliageMaterial, wetAmount: number): void {
     }
 }
 
-export function updateFoliageMaterials(audioData: AudioData | null, isNight: boolean, weatherState: string | null = null, weatherIntensity: number = 0): void {
+export function updateFoliageMaterials(
+    audioData: AudioData | null,
+    isNight: boolean,
+    weatherState: string | null = null,
+    weatherIntensity: number = 0
+): void {
     if (!audioData) return;
 
     const channels = audioData.channelData;
@@ -289,7 +302,7 @@ export function updateFoliageMaterials(audioData: AudioData | null, isNight: boo
             const intensity = 0.2 + (ch?.volume || 0) + (ch?.trigger || 0) * 2.0;
 
             if (!(mat as any).isMeshBasicMaterial && mat.emissiveIntensity !== undefined) {
-                 mat.emissiveIntensity = intensity;
+                mat.emissiveIntensity = intensity;
             }
         } else if (!isNight) {
             // Day mode - reset emissive
@@ -307,131 +320,136 @@ export function updateFoliageMaterials(audioData: AudioData | null, isNight: boo
 }
 
 // @perf-migrate {target: "asc", reason: "hot-loop-math", threshold: "3ms", note: "Iterates over thousands of reactive objects every frame"}
-export function animateFoliage(foliageObject: FoliageObject, time: number, audioData: AudioData | null, isDay: boolean, isDeepNight: boolean = false): void {
+export function animateFoliage(
+    foliageObject: FoliageObject,
+    time: number,
+    audioData: AudioData | null,
+    isDay: boolean,
+    isDeepNight: boolean = false
+): void {
     const offset = foliageObject.userData.animationOffset || 0;
     const type = foliageObject.userData.animationType;
 
     // --- Per-note flash application (emissive/color) with automatic fade-back ---
     // This logic handles visual color flashes. It needs to run even if physics/motion is batched.
     const reactive = foliageObject.userData.reactiveMeshes;
-    
+
     // Fast path: skip material updates if no reactive meshes
     if (reactive && reactive.length > 0) {
-        // Check if any child has active flash or needs fade back to avoid unnecessary iteration
-        let hasActiveFlash = false;
-        let needsFadeBack = false;
         for (let i = 0; i < reactive.length; i++) {
             const child = reactive[i];
-            if ((child.userData.flashIntensity || 0) > 0) {
-                hasActiveFlash = true;
-            }
-            if (child.userData._needsFadeBack) {
-                needsFadeBack = true;
-            }
-            if (hasActiveFlash && needsFadeBack) break; // Early exit if we found both
-        }
-        
-        // Only update materials if there's an active flash or we need to fade back
-        if (hasActiveFlash || needsFadeBack) {
-            for (let i = 0; i < reactive.length; i++) {
-                const child = reactive[i];
-                const fi = child.userData.flashIntensity || 0;
-                const decay = child.userData.flashDecay ?? 0.05;
+            const fi = child.userData.flashIntensity || 0;
+            const needsFadeBack = child.userData._needsFadeBack;
 
-                // ⚡ OPTIMIZATION: Removed Array Allocation [child.material] and repeated isArray checks
-                if (child.userData._matCount === undefined) {
-                    child.userData._isArray = Array.isArray(child.material);
-                    child.userData._matCount = child.userData._isArray ? (child.material as FoliageMaterial[]).length : (child.material ? 1 : 0);
+            // ⚡ OPTIMIZATION: Zero-work early continue for inactive objects to skip property lookups and material iteration
+            if (fi <= 0 && !needsFadeBack) continue;
+
+            const decay = child.userData.flashDecay ?? 0.05;
+
+            // ⚡ OPTIMIZATION: Removed Array Allocation [child.material] and repeated isArray checks
+            if (child.userData._matCount === undefined) {
+                child.userData._isArray = Array.isArray(child.material);
+                child.userData._matCount = child.userData._isArray
+                    ? (child.material as FoliageMaterial[]).length
+                    : child.material
+                      ? 1
+                      : 0;
+            }
+            const isArray = child.userData._isArray;
+            const materialCount = child.userData._matCount;
+
+            if (fi > 0) {
+                const fc = child.userData.flashColor || _scratchWhite;
+                for (let m = 0; m < materialCount; m++) {
+                    const mat = isArray
+                        ? (child.material as FoliageMaterial[])[m]
+                        : (child.material as FoliageMaterial);
+                    if (!mat) continue;
+
+                    // ⚡ OPTIMIZATION: Cache property access to avoid dynamic lookups
+                    const matIsMeshBasicMaterial = (mat as any).isMeshBasicMaterial;
+
+                    // stronger blend for higher intensity; immediate override when very strong
+                    const t = Math.min(1, fi * 1.2) * 0.8;
+
+                    if (matIsMeshBasicMaterial && mat.color) {
+                        if (fi > 0.7) mat.color.copy(fc);
+                        else mat.color.lerp(fc, t);
+                    } else if (mat.emissive) {
+                        if (fi > 0.7) mat.emissive.copy(fc);
+                        else mat.emissive.lerp(fc, t);
+                        // ensure visible intensity (min floor) scaled by global flashScale
+                        mat.emissiveIntensity = Math.max(
+                            0.2,
+                            fi * ((CONFIG as any).flashScale || 2.0)
+                        );
+                    }
                 }
-                const isArray = child.userData._isArray;
-                const materialCount = child.userData._matCount;
 
-                if (fi > 0) {
-                    const fc = child.userData.flashColor || _scratchWhite;
-                    for (let m = 0; m < materialCount; m++) {
-                        const mat = isArray ? (child.material as FoliageMaterial[])[m] : (child.material as FoliageMaterial);
-                        if (!mat) continue;
+                // decay flash intensity
+                child.userData.flashIntensity = Math.max(0, fi - decay);
+                if (child.userData.flashIntensity === 0) {
+                    // keep base colors in place and allow fade-back logic to run next frame
+                    // ⚡ OPTIMIZATION: Do not use 'delete' on object properties as it de-optimizes the V8 hidden class and causes GC.
+                    // Setting to undefined or 0 is preferable. In this case, flashIntensity = 0 effectively disables it.
+                    child.userData.flashDecay = 0;
+                    child.userData._needsFadeBack = true; // Mark this specific child for fade-back
+                }
+            } else if (child.userData._needsFadeBack) {
+                // No active flash: smoothly fade materials back to their stored base colors/emissives
+                const fadeT = (CONFIG as any).reactivity?.fadeSpeed ?? 0.06;
+                const snapThreshold = (CONFIG as any).reactivity?.fadeSnapThreshold ?? 0.06;
+                const snapThresholdSq = snapThreshold * snapThreshold; // Avoid sqrt in distance check
+                let allFadedBack = true;
 
-                        // ⚡ OPTIMIZATION: Cache property access to avoid dynamic lookups
-                        const matIsMeshBasicMaterial = (mat as any).isMeshBasicMaterial;
+                for (let m = 0; m < materialCount; m++) {
+                    const mat = isArray
+                        ? (child.material as FoliageMaterial[])[m]
+                        : (child.material as FoliageMaterial);
+                    if (!mat) continue;
 
-                        // stronger blend for higher intensity; immediate override when very strong
-                        const t = Math.min(1, fi * 1.2) * 0.8;
+                    // ⚡ OPTIMIZATION: Cache property access to avoid dynamic lookups
+                    const matIsMeshBasicMaterial = (mat as any).isMeshBasicMaterial;
+                    const matUserData = mat.userData;
 
-                        if (matIsMeshBasicMaterial && mat.color) {
-                            if (fi > 0.7) mat.color.copy(fc);
-                            else mat.color.lerp(fc, t);
-                        } else if (mat.emissive) {
-                            if (fi > 0.7) mat.emissive.copy(fc);
-                            else mat.emissive.lerp(fc, t);
-                            // ensure visible intensity (min floor) scaled by global flashScale
-                            mat.emissiveIntensity = Math.max(0.2, fi * ((CONFIG as any).flashScale || 2.0));
-                        }
-                    }
-
-                    // decay flash intensity
-                    child.userData.flashIntensity = Math.max(0, fi - decay);
-                    if (child.userData.flashIntensity === 0) {
-                        // keep base colors in place and allow fade-back logic to run next frame
-                        // ⚡ OPTIMIZATION: Do not use 'delete' on object properties as it de-optimizes the V8 hidden class and causes GC.
-                        // Setting to undefined or 0 is preferable. In this case, flashIntensity = 0 effectively disables it.
-                        child.userData.flashDecay = 0;
-                        child.userData._needsFadeBack = true; // Mark this specific child for fade-back
-                    }
-                } else if (child.userData._needsFadeBack) {
-                    // No active flash: smoothly fade materials back to their stored base colors/emissives
-                    const fadeT = (CONFIG as any).reactivity?.fadeSpeed ?? 0.06;
-                    const snapThreshold = (CONFIG as any).reactivity?.fadeSnapThreshold ?? 0.06;
-                    const snapThresholdSq = snapThreshold * snapThreshold; // Avoid sqrt in distance check
-                    let allFadedBack = true;
-                    
-                    for (let m = 0; m < materialCount; m++) {
-                        const mat = isArray ? (child.material as FoliageMaterial[])[m] : (child.material as FoliageMaterial);
-                        if (!mat) continue;
-
-                        // ⚡ OPTIMIZATION: Cache property access to avoid dynamic lookups
-                        const matIsMeshBasicMaterial = (mat as any).isMeshBasicMaterial;
-                        const matUserData = mat.userData;
-
-                        if (matIsMeshBasicMaterial) {
-                            if (matUserData && matUserData.baseColor && mat.color) {
-                                // ⚡ OPTIMIZATION: Inline color distance check to avoid method-call overhead
-                                const c = mat.color;
-                                const b = matUserData.baseColor;
-                                const dr = c.r - b.r;
-                                const dg = c.g - b.g;
-                                const db = c.b - b.b;
-                                const distSq = dr * dr + dg * dg + db * db;
-                                if (distSq > snapThresholdSq) {
-                                    mat.color.lerp(matUserData.baseColor, fadeT);
-                                    allFadedBack = false;
-                                } else {
-                                    mat.color.copy(matUserData.baseColor);
-                                }
-                            }
-                        } else if (mat.emissive) {
-                            if (matUserData && matUserData.baseEmissive) {
-                                mat.emissive.lerp(matUserData.baseEmissive, fadeT);
-                            }
-                            // lerp emissiveIntensity back toward 0
-                            const current = mat.emissiveIntensity || 0;
-                            if (current > snapThreshold) {
-                                mat.emissiveIntensity = THREE.MathUtils.lerp(current, 0, fadeT);
+                    if (matIsMeshBasicMaterial) {
+                        if (matUserData && matUserData.baseColor && mat.color) {
+                            // ⚡ OPTIMIZATION: Inline color distance check to avoid method-call overhead
+                            const c = mat.color;
+                            const b = matUserData.baseColor;
+                            const dr = c.r - b.r;
+                            const dg = c.g - b.g;
+                            const db = c.b - b.b;
+                            const distSq = dr * dr + dg * dg + db * db;
+                            if (distSq > snapThresholdSq) {
+                                mat.color.lerp(matUserData.baseColor, fadeT);
                                 allFadedBack = false;
                             } else {
-                                // If intensity is very low, snap back to base to avoid residual tint
-                                if (matUserData && matUserData.baseEmissive) {
-                                    mat.emissive.copy(matUserData.baseEmissive);
-                                }
-                                mat.emissiveIntensity = 0;
+                                mat.color.copy(matUserData.baseColor);
                             }
                         }
+                    } else if (mat.emissive) {
+                        if (matUserData && matUserData.baseEmissive) {
+                            mat.emissive.lerp(matUserData.baseEmissive, fadeT);
+                        }
+                        // lerp emissiveIntensity back toward 0
+                        const current = mat.emissiveIntensity || 0;
+                        if (current > snapThreshold) {
+                            mat.emissiveIntensity = THREE.MathUtils.lerp(current, 0, fadeT);
+                            allFadedBack = false;
+                        } else {
+                            // If intensity is very low, snap back to base to avoid residual tint
+                            if (matUserData && matUserData.baseEmissive) {
+                                mat.emissive.copy(matUserData.baseEmissive);
+                            }
+                            mat.emissiveIntensity = 0;
+                        }
                     }
-                    
-                    // Clear fade back flag when all materials have returned to base
-                    if (allFadedBack) {
-                        child.userData._needsFadeBack = false;
-                    }
+                }
+
+                // Clear fade back flag when all materials have returned to base
+                if (allFadedBack) {
+                    child.userData._needsFadeBack = false;
                 }
             }
         }
@@ -442,7 +460,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     if (foliageObject.userData.glowLight && foliageObject.userData.isBioluminescent) {
         const light = foliageObject.userData.glowLight;
         const baseIntensity = light.userData.baseIntensity || 0.8;
-        
+
         // If there was a recent flash (from note trigger), decay back to base
         if (light.intensity > baseIntensity * 1.2) {
             light.intensity = THREE.MathUtils.lerp(light.intensity, baseIntensity, 0.08);
@@ -460,32 +478,32 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         const elapsed = Date.now() - foliageObject.userData.scaleAnimStart;
         const duration = foliageObject.userData.scaleAnimTime || 0.08;
         const t = Math.min(1.0, elapsed / (duration * 1000));
-        
+
         // Initialize WASM views on first use
         if (isWasmReady() && !scaleAnimDataView) {
             initWasmViews();
         }
-        
+
         if (isWasmReady() && wasmBatchScaleAnimation && scaleAnimDataView && t < 1.0) {
             // Use WASM for scale animation calculation
             const target = foliageObject.userData.scaleTarget || 1.0;
             const lerpFactor = t * 0.5;
-            
+
             // Pack data: [curX, curY, curZ, target, lerpT, ...output]
             scaleAnimDataView[0] = foliageObject.scale.x;
             scaleAnimDataView[1] = foliageObject.scale.y;
             scaleAnimDataView[2] = foliageObject.scale.z;
             scaleAnimDataView[3] = target;
             scaleAnimDataView[4] = lerpFactor;
-            
+
             // Call WASM function
             wasmBatchScaleAnimation(OUTPUT_OFFSET + 8192, 1);
-            
+
             // Apply results
             foliageObject.scale.x = scaleAnimDataView[5];
             foliageObject.scale.y = scaleAnimDataView[6];
             foliageObject.scale.z = scaleAnimDataView[7];
-            
+
             // Check if completed
             if (scaleAnimDataView[8] > 0.5) {
                 foliageObject.scale.setScalar(target);
@@ -512,7 +530,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     // --- Mushroom wobble smoothing (median + lerp) ---
     if (foliageObject.userData.type === 'mushroom') {
         const buf = foliageObject.userData.noteBuffer || [];
-        
+
         // Initialize WASM views on first use
         if (isWasmReady() && !wobbleBufferView) {
             initWasmViews();
@@ -528,10 +546,10 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
 
             const cfg = (CONFIG as any).reactivity?.mushroom || {};
             const currentWobble = foliageObject.userData.wobbleCurrent || 0;
-            
+
             // Call WASM smoothWobble function
             const newWobble = wasmSmoothWobble(
-                OUTPUT_OFFSET + 12288,  // wobbleBuffer location
+                OUTPUT_OFFSET + 12288, // wobbleBuffer location
                 bufferSize,
                 currentWobble,
                 cfg.scale || 1.0,
@@ -539,21 +557,27 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                 cfg.minThreshold ?? 0.01,
                 cfg.smoothingRate || 8
             );
-            
+
             foliageObject.userData.wobbleCurrent = newWobble;
         } else {
             // JS Fallback
             const medianVel = median(buf);
             const cfg = (CONFIG as any).reactivity?.mushroom || {};
             const scale = cfg.scale || 1.0;
-            const target = Math.min(cfg.maxAmplitude ?? 1.0, Math.max(cfg.minThreshold ?? 0.01, medianVel * scale));
+            const target = Math.min(
+                cfg.maxAmplitude ?? 1.0,
+                Math.max(cfg.minThreshold ?? 0.01, medianVel * scale)
+            );
             const cur = foliageObject.userData.wobbleCurrent || 0;
             const lerpT = Math.min(0.25, (cfg.smoothingRate || 8) * 0.02);
             foliageObject.userData.wobbleCurrent = THREE.MathUtils.lerp(cur, target, lerpT);
         }
     }
 
-    let kick = 0, groove = 0, beatPhase = 0, leadVol = 0;
+    let kick = 0,
+        groove = 0,
+        beatPhase = 0,
+        leadVol = 0;
     if (audioData) {
         kick = audioData.kickTrigger || 0;
         groove = audioData.grooveAmount || 0;
@@ -562,14 +586,23 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     }
 
     const isActive = !isDay;
-    const intensity = isActive ? (1.0 + groove * 5.0) : 0.2;
+    const intensity = isActive ? 1.0 + groove * 5.0 : 0.2;
     const animTime = time + beatPhase;
 
     // --- WASM Batching Integration ---
     // ⚡ OPTIMIZATION: Try to queue deeply batched animation first
     // If queued, we skip the CPU transform logic below.
     // NOTE: Material Flash logic (above) still runs because TSL doesn't handle that yet for all types.
-    if (foliageObject.userData.animationType && foliageBatcher.queue(foliageObject, foliageObject.userData.animationType, intensity, animTime, kick)) {
+    if (
+        foliageObject.userData.animationType &&
+        foliageBatcher.queue(
+            foliageObject,
+            foliageObject.userData.animationType,
+            intensity,
+            animTime,
+            kick
+        )
+    ) {
         return; // Handled by batcher
     }
 
@@ -579,7 +612,9 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     // The logic below handles types NOT yet migrated or if the batcher is full.
 
     if (isDeepNight) {
-        const isNightFlower = foliageObject.userData.type === 'flower' && foliageObject.userData.animationType === 'glowPulse';
+        const isNightFlower =
+            foliageObject.userData.type === 'flower' &&
+            foliageObject.userData.animationType === 'glowPulse';
 
         if (!isNightFlower) {
             const sleepSpeed = 0.5;
@@ -606,8 +641,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         foliageObject.scale.y = 1.0 + Math.sin(springTime) * 0.1 * intensity;
         foliageObject.scale.x = 1.0 - Math.sin(springTime) * 0.05 * intensity;
         foliageObject.scale.z = 1.0 - Math.sin(springTime) * 0.05 * intensity;
-    }
-    else if (type === 'vineSway') {
+    } else if (type === 'vineSway') {
         foliageObject.rotation.z = Math.sin(time * 1.5 + offset) * 0.2 * intensity;
         foliageObject.rotation.x = Math.cos(time * 1.2 + offset) * 0.1 * intensity;
     }
@@ -617,16 +651,13 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         const y = foliageObject.userData.originalY ?? foliageObject.position.y;
         foliageObject.userData.originalY = y;
         foliageObject.position.y = y + Math.sin(time * 2 + offset) * 0.5 * intensity;
-    }
-    else if (type === 'spin') {
+    } else if (type === 'spin') {
         foliageObject.rotation.y += 0.01 * intensity;
-    }
-    else if (type === 'glowPulse') {
+    } else if (type === 'glowPulse') {
         const y = foliageObject.userData.originalY ?? foliageObject.position.y;
         foliageObject.userData.originalY = y;
         foliageObject.position.y = y + Math.sin(time * 2 + offset) * 0.1;
-    }
-    else if (type === 'rain') {
+    } else if (type === 'rain') {
         let rainChild: THREE.Points | null = null;
         for (let i = 0; i < foliageObject.children.length; i++) {
             if (foliageObject.children[i].type === 'Points') {
@@ -653,8 +684,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         foliageObject.userData.originalY = y;
         foliageObject.position.y = y + Math.sin(time * 0.5 + offset) * 0.3;
         foliageObject.rotation.y = Math.sin(time * 0.2 + offset * 0.5) * 0.05;
-    }
-    else if (type === 'geyserErupt') {
+    } else if (type === 'geyserErupt') {
         const plume = foliageObject.userData.plume;
         const plumeLight = foliageObject.userData.plumeLight;
         const coreMat = foliageObject.userData.coreMaterial;
@@ -686,7 +716,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             }
 
             if ((plume.material as any).opacity !== undefined) {
-                 (plume.material as any).opacity = 0.5 + eruptionStrength * 0.5;
+                (plume.material as any).opacity = 0.5 + eruptionStrength * 0.5;
             }
         }
 
@@ -696,10 +726,10 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         }
 
         if (coreMat) {
-            coreMat.emissiveIntensity = 0.3 + eruptionStrength * 1.5 + Math.sin(time * 20) * 0.2 * eruptionStrength;
+            coreMat.emissiveIntensity =
+                0.3 + eruptionStrength * 1.5 + Math.sin(time * 20) * 0.2 * eruptionStrength;
         }
-    }
-    else if (type === 'retriggerPulse') {
+    } else if (type === 'retriggerPulse') {
         // Retrigger Mushroom Animation - creates stutter/glitch visual effects
         const cap = foliageObject.userData.cap;
         const capMat = foliageObject.userData.capMaterial;
@@ -712,11 +742,11 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         // Trigger retrigger effect on kick (bass hits)
         const kickThreshold = 0.25;
         let retriggerIntensity = foliageObject.userData.retriggerIntensity || 0;
-        
+
         if (kick > kickThreshold) {
             retriggerIntensity = Math.min(1.0, retriggerIntensity + kick * 0.8);
             foliageObject.userData.retriggerActive = true;
-            
+
             // Trigger callback if set (for audio system integration)
             if (foliageObject.userData.onRetrigger && retriggerIntensity > 0.5) {
                 foliageObject.userData.onRetrigger(retriggerSpeed, retriggerIntensity);
@@ -728,11 +758,11 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             }
         }
         foliageObject.userData.retriggerIntensity = retriggerIntensity;
-        
+
         // Retrigger phase (creates the "stutter" timing)
         const phase = (time * retriggerSpeed * 10) % 1.0;
         foliageObject.userData.retriggerPhase = phase;
-        
+
         // Cap animation - quick scale pulses during retrigger
         if (cap && retriggerIntensity > 0) {
             const stutterPulse = phase < 0.5 ? 1.0 : 0.8;
@@ -741,61 +771,64 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         } else if (cap) {
             cap.scale.setScalar(1.0);
         }
-        
+
         // Ring animation - sequential flashes
         if (rings && rings.length > 0) {
             for (let i = 0; i < rings.length; i++) {
                 const ring = rings[i];
-                const ringPhase = (phase + (i / rings.length)) % 1.0;
+                const ringPhase = (phase + i / rings.length) % 1.0;
                 const ringActive = ringPhase < 0.3 && retriggerIntensity > 0.2;
-                
+
                 // Vertical jitter
                 const baseY = ring.userData.baseY || stemHeight;
                 ring.position.y = baseY + (ringActive ? 0.02 * retriggerIntensity : 0);
-                
+
                 // Material intensity
                 if (ring.material && ring.material.emissiveIntensity !== undefined) {
                     ring.material.emissiveIntensity = ringActive ? 0.8 * retriggerIntensity : 0.1;
                 }
             }
         }
-        
+
         // Particles - visible and jittering during retrigger
         if (particles) {
-            if (particles) particles.visible = retriggerIntensity > 0.3;
-            
-            if (particles.visible && particles.geometry.attributes.position) {
-                const positions = particles.geometry.attributes.position.array as Float32Array;
-                for (let i = 0; i < positions.length / 3; i++) {
-                    // Random jitter based on retrigger phase
-                    if (phase < 0.2) {
-                        positions[i * 3] += (Math.random() - 0.5) * 0.02 * retriggerIntensity;
-                        positions[i * 3 + 2] += (Math.random() - 0.5) * 0.02 * retriggerIntensity;
+            particles.visible = retriggerIntensity > 0.3;
+
+            // ⚡ OPTIMIZATION: Early return/continue for hidden particles to avoid array modification overhead
+            if (particles.visible) {
+                if (particles.geometry.attributes.position) {
+                    const positions = particles.geometry.attributes.position.array as Float32Array;
+                    for (let i = 0; i < positions.length / 3; i++) {
+                        // Random jitter based on retrigger phase
+                        if (phase < 0.2) {
+                            positions[i * 3] += (Math.random() - 0.5) * 0.02 * retriggerIntensity;
+                            positions[i * 3 + 2] +=
+                                (Math.random() - 0.5) * 0.02 * retriggerIntensity;
+                        }
                     }
+                    particles.geometry.attributes.position.needsUpdate = true;
                 }
-                particles.geometry.attributes.position.needsUpdate = true;
-            }
-            
-            if (particles.material && (particles.material as any).opacity !== undefined) {
-                (particles.material as any).opacity = 0.3 + retriggerIntensity * 0.5;
+
+                if (particles.material && (particles.material as any).opacity !== undefined) {
+                    (particles.material as any).opacity = 0.3 + retriggerIntensity * 0.5;
+                }
             }
         }
-        
+
         // Light - flashes with retrigger
         if (light) {
             const lightPulse = phase < 0.3 ? 1.0 : 0.2;
             light.intensity = lightPulse * retriggerIntensity * 1.5;
         }
-        
+
         // Cap material glow
         if (capMat && capMat.emissiveIntensity !== undefined) {
             capMat.emissiveIntensity = 0.2 + retriggerIntensity * 0.8 * (phase < 0.3 ? 1.0 : 0.5);
         }
-        
+
         // Subtle wobble
         foliageObject.rotation.z = Math.sin(time * 3 + offset) * 0.02 * (1 + retriggerIntensity);
-    }
-    else if (type === 'instrumentShrine') {
+    } else if (type === 'instrumentShrine') {
         // --- Instrument Shrine Logic ---
         const targetID = foliageObject.userData.instrumentID;
         const orb = foliageObject.userData.orb;
@@ -810,7 +843,11 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             // Bassline is typically on channel 1 in our 4-channel MODs (0=Drums, 1=Bass, 2=Melody, 3=Chords)
             // We check channel 1 specifically to match the "bassline instrument IDs" puzzle requirement.
             const bassChannel = audioData.channelData[1];
-            if (bassChannel && bassChannel.instrument === targetID && (bassChannel.volume || 0) > 0.05) {
+            if (
+                bassChannel &&
+                bassChannel.instrument === targetID &&
+                (bassChannel.volume || 0) > 0.05
+            ) {
                 isActive = true;
                 matchedVolume = bassChannel.volume || 0;
             }
@@ -822,13 +859,13 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         // Update Text
         if (!isSolved) {
             if (isActive) {
-                foliageObject.userData.interactionText = "Activate Shrine";
+                foliageObject.userData.interactionText = 'Activate Shrine';
             } else {
                 // Reset text if it was previously active but the bassline stopped
                 foliageObject.userData.interactionText = `Tune Shrine (Current: ${targetID})`;
             }
         } else {
-             foliageObject.userData.interactionText = "Shrine Activated";
+            foliageObject.userData.interactionText = 'Shrine Activated';
         }
 
         // Animation
@@ -842,8 +879,8 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
 
             // Orb: Gold Pulse
             if (orb) {
-                 orb.position.y = 3.5 + Math.sin(time * 2.0) * 0.5;
-                 orb.scale.setScalar(0.8);
+                orb.position.y = 3.5 + Math.sin(time * 2.0) * 0.5;
+                orb.scale.setScalar(0.8);
             }
             if (orbMat) {
                 orbMat.emissiveIntensity = 2.0 + Math.sin(time * 3.0) * 0.5;
@@ -860,7 +897,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             if (orbMat) {
                 orbMat.emissiveIntensity = 1.0 + matchedVolume * 2.0; // Bright flash
                 // Color white/default
-                orbMat.emissive.setHex(0xFFFFFF);
+                orbMat.emissive.setHex(0xffffff);
             }
         } else {
             // Dormant: Slow float
