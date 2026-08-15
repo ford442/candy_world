@@ -7,7 +7,8 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
 ## Current sequencing (2026-08-05)
 
 1. **Foundation** — TS/ESint ratchet gate (#1493), repo hygiene (#1497).
-2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496 ✅).
+2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496). **Status: Implemented ✅**
+   - * Implementation Details: Activated GPU foliage animation path by default via `gpu-foliage-flag.ts` and orchestrator modifications.
 3. **Content** — capstone features (#1492, #1494) after gates are green.
 
     - **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)

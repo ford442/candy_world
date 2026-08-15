@@ -62,6 +62,12 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Recent Progress
 
+8. **GPU Foliage Default (#1496)** (Status: Implemented ✅)
+   - *Implementation Details:* Updated `gpu-foliage-flag.ts` so `isGpuFoliagePilotEnabled` returns true by default and modified `gpu-foliage-orchestrator.ts` to enforce the new GPU path.
+
+9. **Mechanical File Splits (#1487)** (Status: Implemented ✅)
+   - *Implementation Details:* Split `src/core/input/input.ts` into smaller modules and deleted the large monolith file.
+
 1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage A — Compute Shaders (GPGPU)** (Status: Implemented ✅)
    - *Implementation Details:* Implemented the GPGPU compute passes for particle updates and transitioned the particle systems (fireflies, pollen, berries, rain, sparks) entirely to WebGPU Compute Shaders to realize Phase 4 Stage A objectives.
 

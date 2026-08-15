@@ -38,8 +38,7 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
         ctx.inputSystem = {
             controls: null,
             updateReticleState: () => {},
-            setPlaylistMode: () => {},
-            getPlaylistIndex: () => -1,
+
         };
     }
 
