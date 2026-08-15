@@ -420,13 +420,6 @@ export function createKeyboardHandlers(
             case 'KeyU':
                 triggerButtonPressUp('musicUploadBtn');
                 break;
-            case 'Escape': {
-                const closePlaylistBtn = document.getElementById('closePlaylistBtn');
-                if (closePlaylistBtn) {
-                    closePlaylistBtn.classList.remove('keyboard-active');
-                }
-                break;
-            }
             case 'Equal':
             case 'NumpadAdd':
                 triggerButtonPressUp('volUpBtn');
