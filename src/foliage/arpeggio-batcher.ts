@@ -553,9 +553,9 @@ export class ArpeggioFernBatcher {
             let wave = null;
             if (activeWave) {
                 wave = {
-                    originX: activeWave.origin.x,
-                    originY: activeWave.origin.y,
-                    originZ: activeWave.origin.z,
+                    originX: activeWave.origin?.x ?? cameraPos?.x ?? 0,
+                    originY: activeWave.origin?.y ?? cameraPos?.y ?? 0,
+                    originZ: activeWave.origin?.z ?? cameraPos?.z ?? 0,
                     radiusSq: Math.max(0, (performance.now() - activeWave.timestamp) / 1000 * (activeWave.speed || 25.0)) ** 2,
                 };
             }
