@@ -46,7 +46,7 @@ co-presence.
 | Step | Deliverable | Notes |
 |------|-------------|-------|
 | A1 | Lazy net stack | Done when flags off — `presence` chunk + `net/lazy.ts` |
-| A2 | Candy remote avatar mesh | Instanced low-poly clearcoat pastel; replace placeholders in `remote-avatars.ts` |
+| A2 | Candy remote avatar mesh | **Status: Implemented ✅** Instanced low-poly clearcoat pastel; replace placeholders in `remote-avatars.ts` <br/> * Implementation Details: Replaced `THREE.SphereGeometry` with a merged `CapsuleGeometry` + `SphereGeometry` low-poly explorer shape and added per-peer `instanceColor` tinting. |
 | A3 | Rate limits / privacy | Mute remote, hide self, `CONFIG.presence.maxPeers`, stale GC (partial) |
 | A4 | Biome ambient cue | Peer enters region → announcer + soft particle (`getBiomeAtPosition`) |
 | A5 | CI mock test | Mock Realtime channel; no live Supabase in CI |

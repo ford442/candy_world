@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { MeshPhysicalMaterial } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from '../../core/config.ts';
 import { foliageGroup } from '../../world/state.ts';
 import type { RemotePeer } from './presence-types.ts';
@@ -57,11 +58,17 @@ export class RemoteAvatars {
         if (this._initialized) return;
 
         const maxPeers = CONFIG.presence?.maxPeers ?? 16;
-        const geo = new THREE.SphereGeometry(0.35, 12, 10);
-        geo.translate(0, 0.35, 0);
+        // Low-poly candy explorer shape
+        const bodyGeo = new THREE.CapsuleGeometry(0.2, 0.5, 4, 8);
+        bodyGeo.translate(0, 0.45, 0); // Lift up so base is at ~0.15
+
+        const headGeo = new THREE.SphereGeometry(0.25, 8, 8);
+        headGeo.translate(0, 0.85, 0); // Rest on top of the capsule
+
+        const geo = mergeGeometries([bodyGeo, headGeo], false);
 
         const mat = new MeshPhysicalMaterial({
-            color: 0xff69b4,
+            color: 0xffffff,
             roughness: 0.25,
             metalness: 0,
             clearcoat: 0.85,
@@ -70,6 +77,11 @@ export class RemoteAvatars {
 
         this._mesh = new THREE.InstancedMesh(geo, mat, maxPeers);
         this._mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+        // Explicitly create instanceColor buffer for use with instance color updates
+        this._mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxPeers * 3), 3);
+        this._mesh.geometry.setAttribute('instanceColor', this._mesh.instanceColor);
+
         this._mesh.frustumCulled = false;
         this._mesh.count = 0;
         this._mesh.name = 'remote-presence-avatars';
@@ -81,8 +93,14 @@ export class RemoteAvatars {
         for (let i = 0; i < maxPeers; i++) {
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
             _scratchHide.toArray(this._mesh.instanceMatrix.array, i * 16);
+
+            // Initialize color to white
+            this._mesh!.instanceColor!.array[i * 3] = 1.0;
+            this._mesh!.instanceColor!.array[i * 3 + 1] = 1.0;
+            this._mesh!.instanceColor!.array[i * 3 + 2] = 1.0;
         }
         this._mesh.instanceMatrix.needsUpdate = true;
+        this._mesh!.instanceColor!.needsUpdate = true;
 
         this._tagRoot = document.createElement('div');
         this._tagRoot.id = 'presence-tags';
@@ -227,10 +245,17 @@ export class RemoteAvatars {
                 _scratchMat.compose(_interpPos, _interpQuat, _scratchScale);
                 // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
                 _scratchMat.toArray(this._mesh.instanceMatrix.array, slot * 16);
+
+                const tint = hashToColor(peerId);
+
+                // ⚡ OPTIMIZATION: Write directly to instanceColor array
+                this._mesh!.instanceColor!.array[slot * 3] = ((tint >> 16) & 255) / 255.0;
+                this._mesh!.instanceColor!.array[slot * 3 + 1] = ((tint >> 8) & 255) / 255.0;
+                this._mesh!.instanceColor!.array[slot * 3 + 2] = (tint & 255) / 255.0;
+
                 visibleCount++;
 
                 const tag = this._tags[slot];
-                const tint = hashToColor(peerId);
                 if (tag) {
                     tag.peerId = peerId;
                     tag.visible = true;
@@ -251,6 +276,7 @@ export class RemoteAvatars {
 
         this._mesh.count = Math.max(visibleCount, this._peerToSlot.size);
         this._mesh.instanceMatrix.needsUpdate = true;
+        if (this._mesh.instanceColor) this._mesh.instanceColor.needsUpdate = true;
     }
 
     updateTags(): void {

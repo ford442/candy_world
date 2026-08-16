@@ -5,6 +5,7 @@
 
 import { AudioSystem } from '../../audio/audio-system';
 import { announce, announceValueChange, announcePolite } from '../../ui/announcer.ts';
+import { showToast } from '../../utils/toast.ts';
 import { keyStates } from './input-types.ts';
 
 let audioSystemRef: AudioSystem | null = null;
@@ -84,9 +85,7 @@ export const toggleMute = () => {
     const isMuted = audioSystemRef.toggleMute();
     updateMuteUI(isMuted);
 
-    import('../../utils/toast.ts').then(({ showToast }) => {
-        showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
-    });
+    showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
     
     announce(isMuted ? "Audio Muted" : "Audio Unmuted", "polite");
 
@@ -128,9 +127,7 @@ export const adjustVolume = (delta: number) => {
 
     const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
 
-    import('../../utils/toast.ts').then(({ showToast }) => {
-        showToast(`Volume: ${percentage}% ${icon}`, icon);
-    });
+    showToast(`Volume: ${percentage}% ${icon}`, icon);
 
     if (isMin) {
         announcePolite('Volume at minimum');

@@ -22,9 +22,10 @@ import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
 import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
 
 /**
- * Type union for supported renderers (WebGPU or WebGL fallback)
+ * Candy World always uses WebGPURenderer. WebGL2 fallback is the internal
+ * GLSL node backend (`forceWebGL` / getFallback), not legacy THREE.WebGLRenderer.
  */
-export type CandyRenderer = WebGPURenderer | THREE.WebGLRenderer;
+export type CandyRenderer = WebGPURenderer;
 
 /**
  * Type guard to check if renderer is in WebGPU mode
@@ -106,23 +107,24 @@ declare global {
     }
 }
 
-function createWebGLRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
-    // Context options kept at parity with the WebGPU path (see gpu-context.ts):
-    // same power preference and the same MSAA choice. `alpha` is deliberately
-    // left at the WebGL default (opaque) — unlike WebGPU, where Three's default
-    // is already premultiplied — so this path's compositing is unchanged.
-    // colorSpace stays the 'srgb' string literal; the Three enum regression is
-    // tracked separately.
-    const renderer = new THREE.WebGLRenderer({
+/** True when the renderer is running Three's GLSL node backend (WebGL2). */
+export function isWebGLNodeBackend(renderer: CandyRenderer): boolean {
+    const backend = (renderer as WebGPURenderer & { backend?: { isWebGLBackend?: boolean } }).backend;
+    return backend?.isWebGLBackend === true;
+}
+
+function createNodeRenderer(canvas: HTMLCanvasElement, forceWebGL = false): WebGPURenderer {
+    if (!forceWebGL) {
+        captureAdapterRequests();
+    }
+    return new WebGPURenderer({
         canvas,
         antialias: GPU_ANTIALIAS,
+        alpha: GPU_ALPHA,
         powerPreference: GPU_POWER_PREFERENCE,
+        requiredLimits: GPU_REQUIRED_LIMITS,
+        forceWebGL,
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.outputColorSpace = 'srgb';
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
-    return renderer;
 }
 
 export interface CreateRendererResult {
@@ -136,8 +138,8 @@ export interface CreateRendererResult {
  * Create a renderer from an explicit preference.
  *
  * Priority:
- *   - `webgl`  → always WebGLRenderer (reference / debug / CI path)
- *   - `webgpu` → WebGPURenderer when available; falls back to WebGL on failure
+ *   - `webgl`  → WebGPURenderer with `forceWebGL` (GLSL node backend)
+ *   - `webgpu` → WebGPURenderer when available; falls back to GLSL backend on failure
  *
  * @param canvas The canvas element to render to
  * @param preference Resolved renderer preference from URL/localStorage
@@ -147,9 +149,9 @@ export async function createRenderer(
     preference: RendererBackend = resolveRendererBackend(),
 ): Promise<CreateRendererResult> {
     if (preference === 'webgl') {
-        console.log('[Init] WebGL requested — creating WebGLRenderer');
+        console.log('[Init] WebGL requested — creating WebGPURenderer (GLSL node backend)');
         return {
-            renderer: createWebGLRenderer(canvas),
+            renderer: createNodeRenderer(canvas, true),
             mode: 'webgl',
             requested: 'webgl',
             fallbackReason: 'explicit-webgl',
@@ -159,28 +161,17 @@ export async function createRenderer(
     if (WebGPU.isAvailable()) {
         try {
             console.log('[Init] WebGPU available, creating WebGPURenderer');
-            // The renderer owns the one and only GPUDevice for the page.
-            // Capture the adapter it requests first (no extra requestAdapter),
-            // then hand it explicit context options instead of relying on
-            // Three's implicit defaults. See docs/WEBGPU_CONTEXT.md.
-            captureAdapterRequests();
-            const renderer = new WebGPURenderer({
-                canvas,
-                antialias: GPU_ANTIALIAS,
-                alpha: GPU_ALPHA,
-                powerPreference: GPU_POWER_PREFERENCE,
-                requiredLimits: GPU_REQUIRED_LIMITS,
-            });
+            const renderer = createNodeRenderer(canvas, false);
             return { renderer, mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime
             // (e.g. requestAdapter returns null on Safari 17.4 / Chrome with
-            // disabled GPU).  Fall through to the WebGL path instead of crashing.
-            console.warn('[Init] WebGPURenderer creation failed — falling back to WebGLRenderer:', err);
+            // disabled GPU). Fall through to the GLSL node backend instead of crashing.
+            console.warn('[Init] WebGPURenderer creation failed — falling back to GLSL node backend:', err);
         }
     }
 
-    console.warn('[Init] WebGPU unavailable — falling back to WebGLRenderer');
+    console.warn('[Init] WebGPU unavailable — falling back to WebGPURenderer (GLSL node backend)');
     const warning = WebGPU.getErrorMessage();
     if (warning && !document.getElementById('webgpu-warning')) {
         // Only append if not already present (avoid duplicates)
@@ -190,7 +181,7 @@ export async function createRenderer(
     }
 
     return {
-        renderer: createWebGLRenderer(canvas),
+        renderer: createNodeRenderer(canvas, true),
         mode: 'webgl',
         requested: 'webgpu',
         fallbackReason: 'webgpu-unavailable',
@@ -217,6 +208,10 @@ export async function initScene(): Promise<SceneInitResult> {
     const requested = resolveRendererBackend();
     const { renderer, mode, fallbackReason } = await createRenderer(canvas, requested);
 
+    if (mode === 'webgl') {
+        (window as any).__computeDisabled = true;
+    }
+
     // Adopt the renderer's device as the process-wide GPU context. Deliberately
     // not awaited: initScene() is synchronous, and every consumer of the shared
     // device awaits `getGpuContext()` instead. Never rejects.
@@ -224,8 +219,8 @@ export async function initScene(): Promise<SceneInitResult> {
 
     const initialFog = getInitialFogDistances();
 
-    // TSL-driven Crescendo Fog initialization (WebGPU only)
-    if (mode === 'webgpu') {
+    // TSL-driven Crescendo Fog (WebGPURenderer — WGSL or GLSL node backend)
+    if (isWebGPUMode(renderer)) {
         scene.fogNode = createCrescendoFogNode(color(PALETTE.day.fog));
     }
     // Standard fog kept for all renderers — distances derived from camera constants
@@ -241,8 +236,8 @@ export async function initScene(): Promise<SceneInitResult> {
     );
     camera.position.set(0, CONFIG.player.spawnEyeHeightY, 0);
 
-    // WebGPU-specific fixes and configuration
-    if (mode === 'webgpu') {
+    // WebGPURenderer configuration (WGSL or GLSL node backend)
+    if (isWebGPUMode(renderer)) {
         // Fix: WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if this is undefined
         const webgpuRenderer = renderer as WebGPURenderer;
         webgpuRenderer.clippingPlanes = [];
@@ -256,9 +251,9 @@ export async function initScene(): Promise<SceneInitResult> {
             console.log('[Init] WebGPU attributeUtils.get polyfill applied.');
         }
 
-        // HDR Configuration (WebGPU only)
-        // Attempt to enable wide color gamut and extended tone mapping for brighter visuals
-        const supportsHDR = window.matchMedia && window.matchMedia('(dynamic-range: high)').matches;
+        // HDR Configuration (WebGPU backend only — Display P3 is not meaningful on GLSL fallback)
+        const onWebGpuBackend = !isWebGLNodeBackend(renderer);
+        const supportsHDR = onWebGpuBackend && window.matchMedia && window.matchMedia('(dynamic-range: high)').matches;
         if (supportsHDR) {
             console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
             try {
@@ -270,7 +265,11 @@ export async function initScene(): Promise<SceneInitResult> {
             // Extended tone mapping for values > 1.0
             webgpuRenderer.toneMapping = THREE.LinearToneMapping;
         } else {
-            console.log('[Init] HDR not supported, using standard SDR configuration.');
+            if (!onWebGpuBackend) {
+                console.log('[Init] GLSL node backend — using standard SDR configuration.');
+            } else {
+                console.log('[Init] HDR not supported, using standard SDR configuration.');
+            }
             webgpuRenderer.outputColorSpace = 'srgb';
             webgpuRenderer.toneMapping = THREE.ACESFilmicToneMapping;
         }
@@ -337,7 +336,7 @@ export async function initScene(): Promise<SceneInitResult> {
     const uShaftOpacity = window.uShaftOpacity || (window.uShaftOpacity = uniform(0.0));
     let shaftMaterial: THREE.MeshBasicMaterial | MeshBasicNodeMaterial;
     
-    if (mode === 'webgpu') {
+    if (isWebGPUMode(renderer)) {
         // ⚡ OPTIMIZATION: Use a shared TSL material instead of looping over 12 clones in JS
         shaftMaterial = new MeshBasicNodeMaterial({
             color: 0xFFE5A0,
