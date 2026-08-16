@@ -5,7 +5,7 @@ import { getLoadMemoryTier } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { worldGroup } from '../world/state.ts';
-import { createJuicyRimLight, applyPlayerInteraction, triplanarNoise, uAudioLow } from './index.ts';
+import { createJuicyRimLight, applyStandardDeformation, triplanarNoise, uAudioLow } from './index.ts';
 import { uTwilight } from './sky.ts';
 
 const _scratchMatrix = new THREE.Matrix4();
@@ -66,7 +66,7 @@ export class SugarCaveBatcher {
             normalWorld
         );
 
-        this._mat.positionNode = applyPlayerInteraction(positionLocal);
+        this._mat.positionNode = applyStandardDeformation(positionLocal);
         this._mat.colorNode = crystalBaseColor.add(crystalRim);
         this._mat.emissiveNode = crystalGlowColor.mul(crystalGlowStrength);
         this._mat.roughnessNode = float(0.2).add(crystalNoise.mul(0.1));
