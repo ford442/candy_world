@@ -19,6 +19,7 @@ import { foliageMotionPosition, scaleEmissiveByLod, applyFoliageLodMaterialFade 
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom, applyStandardDeformation } from './material-core.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';
+import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 
 const MAX_FLOWERS = getCIAdjustedCount(1000, 0.05, 50); // Reduced from 5000 for WebGPU uniform buffer limits
 const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)
@@ -57,6 +58,8 @@ export class FlowerBatcher {
     private spiralCount = 0;
 
     private _poseMachine!: PlantPoseMachine;
+    private _lastGpuPoses: Float32Array | null = null;
+    private _gpuPoseInFlight = false;
 
     private constructor() {
         // Deferred init
@@ -454,13 +457,46 @@ export class FlowerBatcher {
             out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
         };
 
-        // Step the state machine
-        this._poseMachine.update(MAX_PETALS, deltaTime, kick, dayNightBias, config, activeWave, getPlantPos, cameraPos);
+        const useGpuPose = shouldUseGpuPlantPose(MAX_PETALS);
 
+        if (useGpuPose && this._lastGpuPoses && this._lastGpuPoses.length >= MAX_PETALS) {
+            this._applyPoseState(this._lastGpuPoses);
+        } else {
+            // Step the state machine
+            this._poseMachine.update(MAX_PETALS, deltaTime, kick, dayNightBias, config, activeWave, getPlantPos, cameraPos);
+            this._applyPoseState(this._poseMachine.currentPoses);
+        }
+
+        if (useGpuPose && !this._gpuPoseInFlight) {
+            let wave = null;
+            if (activeWave) {
+                wave = {
+                    originX: activeWave.origin.x,
+                    originY: activeWave.origin.y,
+                    originZ: activeWave.origin.z,
+                    radiusSq: Math.max(0, (performance.now() - activeWave.timestamp) / 1000 * (activeWave.speed || 25.0)) ** 2,
+                };
+            }
+
+            this._gpuPoseInFlight = true;
+            void runGpuPlantPose({
+                count: MAX_PETALS,
+                delta: deltaTime,
+                channelIntensity: kick,
+                dayNightBias,
+                config,
+                wave,
+            }).then((poses) => {
+                if (poses) this._lastGpuPoses = poses;
+            }).finally(() => {
+                this._gpuPoseInFlight = false;
+            });
+        }
+    }
+
+    private _applyPoseState(poses: Float32Array) {
         // Update aPoseState for all active instances across all meshes
         const meshes = [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];
-        // ⚡ OPTIMIZATION: Get reference to the entire pose array once instead of calling getPose(i) in the inner loop
-        const poses = this._poseMachine.currentPoses;
         for (const mesh of meshes) {
             if (!mesh || mesh.count === 0) continue;
             const attr = mesh.geometry.attributes.aPoseState as THREE.InstancedBufferAttribute;

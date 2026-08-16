@@ -35,6 +35,7 @@ import {
     getBaseContactHeight,
 } from './index.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 
 const MAX_FERNS = getCIAdjustedCount(500, 0.1, 50); // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
@@ -75,6 +76,8 @@ export class ArpeggioFernBatcher {
      * Uses a Float32Array of capacity 1; no per-frame allocations.
      */
     private _poseMachine!: PlantPoseMachine;
+    private _lastGpuPoses: Float32Array | null = null;
+    private _gpuPoseInFlight = false;
 
     constructor() {
         this.initialized = false;
@@ -536,12 +539,44 @@ export class ArpeggioFernBatcher {
             out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
         };
 
-        this._poseMachine.update(1, 0.016, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
+        let dnBaseline = 0;
+        const useGpuPose = shouldUseGpuPlantPose(1);
+
+        if (useGpuPose && this._lastGpuPoses && this._lastGpuPoses.length >= 1) {
+            dnBaseline = this._lastGpuPoses[0];
+        } else {
+            this._poseMachine.update(1, 0.016, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
+            dnBaseline = this._poseMachine.getPose(0);
+        }
+
+        if (useGpuPose && !this._gpuPoseInFlight) {
+            let wave = null;
+            if (activeWave) {
+                wave = {
+                    originX: activeWave.origin.x,
+                    originY: activeWave.origin.y,
+                    originZ: activeWave.origin.z,
+                    radiusSq: Math.max(0, (performance.now() - activeWave.timestamp) / 1000 * (activeWave.speed || 25.0)) ** 2,
+                };
+            }
+
+            this._gpuPoseInFlight = true;
+            void runGpuPlantPose({
+                count: 1,
+                delta: 0.016,
+                channelIntensity,
+                dayNightBias,
+                config: poseConfig,
+                wave,
+            }).then((poses) => {
+                if (poses) this._lastGpuPoses = poses;
+            }).finally(() => {
+                this._gpuPoseInFlight = false;
+            });
+        }
 
         // Day/night baseline from pose machine (0 = night-closed, up to nightTarget/dayTarget).
         // Blends a gentle partial-open bias from daylight into the step-driven unfurl.
-        const dnBaseline = this._poseMachine.getPose(0);
-
         // Final unfurl: day/night baseline + step-driven contribution in the remaining range.
         const stepUnfurl = this.currentUnfurlValue / maxSteps;
         const unfurl = dnBaseline + stepUnfurl * (1.0 - dnBaseline);
