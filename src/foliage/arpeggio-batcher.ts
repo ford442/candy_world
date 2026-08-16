@@ -1,21 +1,21 @@
 import * as THREE from 'three';
-import { foliageGroup } from '../world/state.ts';
 import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
     smoothstep, attribute, positionWorld, If, vec4, varyingProperty
 } from 'three/tsl';
-
-const ARPEGGIO_BIOME: BiomeId = 'arpeggio_grove';
-const arpeggioUniforms = getBiomeUniforms(ARPEGGIO_BIOME); // Future-proof: adding new biomes only requires updating the helper + JSON
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { camera } from '../core/camera-ref.ts';
-import { CONFIG } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-wave.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import { dynamicRadiiView } from '../utils/wasm-physics.ts';
+import { foliageGroup } from '../world/state.ts';
+
+const ARPEGGIO_BIOME: BiomeId = 'arpeggio_grove';
+const arpeggioUniforms = getBiomeUniforms(ARPEGGIO_BIOME); // Future-proof: adding new biomes only requires updating the helper + JSON
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { applyAerialPerspective } from './aerial-perspective.ts';
 import { applyGlitch } from './glitch.ts';

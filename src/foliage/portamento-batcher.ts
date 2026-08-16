@@ -11,6 +11,7 @@ import {
   sin,
   instanceIndex
 } from 'three/tsl';
+import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
@@ -31,7 +32,6 @@ import {
 } from './index.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';
-import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 
 const MAX_PINES = 200; // conservative default for performance
 /** Default melody channel index used when config does not specify channelIndex. */
@@ -333,30 +333,6 @@ export class PortamentoPineBatcher {
         this._applyPoseState(this._poseMachine.currentPoses, dt);
     }
 
-  private _applyPoseState(poses: Float32Array, dt: number) {
-    for (let i = 0; i < this.count; i++) {
-        const pine = this.logicPines[i];
-        if (!pine || !pine.userData.reactivityState) continue;
-
-        const state = pine.userData.reactivityState; // { currentBend, velocity }
-
-        // --- Spring rest position driven by ADSR pose ---
-        // At day with no music: pose ≈ 0   (straight)
-        // At night:             pose ≈ -0.05 (gentle droop)
-        // Music active:         pose ramps toward dayTarget * sustainLevel (visible forward lean)
-        const poseTarget = poses[i];
-
-        // Spring Physics (Hooke's Law + Damping) toward ADSR target
-        const k = 10.0;     // Stiffness
-        const damp = 0.92;  // Friction
-
-        const force = -k * (state.currentBend - poseTarget);
-        state.velocity += force * dt;
-        state.velocity *= damp;
-        state.currentBend += state.velocity * dt;
-    }
-  }
-
     if (useGpuPose && !this._gpuPoseInFlight) {
         let wave = null;
         if (activeWave) {
@@ -397,6 +373,30 @@ export class PortamentoPineBatcher {
 
     if (needsUpdate) {
         this.bendAttribute!.needsUpdate = true;
+    }
+  }
+
+  private _applyPoseState(poses: Float32Array, dt: number) {
+    for (let i = 0; i < this.count; i++) {
+        const pine = this.logicPines[i];
+        if (!pine || !pine.userData.reactivityState) continue;
+
+        const state = pine.userData.reactivityState; // { currentBend, velocity }
+
+        // --- Spring rest position driven by ADSR pose ---
+        // At day with no music: pose ≈ 0   (straight)
+        // At night:             pose ≈ -0.05 (gentle droop)
+        // Music active:         pose ramps toward dayTarget * sustainLevel (visible forward lean)
+        const poseTarget = poses[i];
+
+        // Spring Physics (Hooke's Law + Damping) toward ADSR target
+        const k = 10.0;     // Stiffness
+        const damp = 0.92;  // Friction
+
+        const force = -k * (state.currentBend - poseTarget);
+        state.velocity += force * dt;
+        state.velocity *= damp;
+        state.currentBend += state.velocity * dt;
     }
   }
 

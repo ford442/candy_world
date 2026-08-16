@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
 import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
+import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
@@ -19,7 +20,6 @@ import { foliageMotionPosition, scaleEmissiveByLod, applyFoliageLodMaterialFade 
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom, applyStandardDeformation } from './material-core.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';
-import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 
 const MAX_FLOWERS = getCIAdjustedCount(1000, 0.05, 50); // Reduced from 5000 for WebGPU uniform buffer limits
 const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)
