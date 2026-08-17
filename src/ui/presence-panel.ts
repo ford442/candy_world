@@ -280,7 +280,15 @@ export function installPresenceStartScreenUI(): void {
     modeSelect.insertAdjacentElement('afterend', wrapper);
 
     yieldToPaint(50).then(() => {
-        trapFocusInside(wrapper, { skipAutoFocus: true });
+        const releaseTrap = trapFocusInside(wrapper, { skipAutoFocus: true });
+
+        // Presence panel lives on the start screen; when start screen hides, we should release
+        const cleanup = () => {
+            releaseTrap();
+            window.removeEventListener('candy:start-screen-hidden', cleanup);
+        };
+        window.addEventListener('candy:start-screen-hidden', cleanup);
+
         wrapper.focus();
     });
 }
