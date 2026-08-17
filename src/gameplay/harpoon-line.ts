@@ -95,7 +95,13 @@ export function updateHarpoonLine(
     const dx = playerPos.x - anchor.x;
     const dy = playerPos.y - anchor.y;
     const dz = playerPos.z - anchor.z;
-    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const distSq = dx * dx + dy * dy + dz * dz;
+
+    // ⚡ OPTIMIZATION: Use squared tolerance check to early-out of expensive Math.sqrt() and scale matrix writes.
+    const currentDist = line.scale.z;
+    if (Math.abs(distSq - currentDist * currentDist) > 0.0001) {
+        line.scale.set(1, 1, Math.sqrt(distSq));
+    }
 
     // Start slightly below player center for visual alignment
     _scratchPos.copy(playerPos);
@@ -107,7 +113,4 @@ export function updateHarpoonLine(
 
     // Look at anchor
     line.lookAt(anchor);
-
-    // Scale Z to distance
-    line.scale.set(1, 1, distance);
 }
