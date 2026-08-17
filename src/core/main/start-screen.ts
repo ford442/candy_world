@@ -317,7 +317,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 useFastPopulation || profile.mapSize !== 'large'
                     ? {
                           fastPopulation: useFastPopulation,
-                          chunkStreaming: profile.mapSize !== 'large',
+                          bootPath: profile.mapSize !== 'large' ? 'play' as const : undefined,
                       }
                     : undefined
             );

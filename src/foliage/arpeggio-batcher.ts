@@ -1,21 +1,21 @@
 import * as THREE from 'three';
-import { foliageGroup } from '../world/state.ts';
 import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
     smoothstep, attribute, positionWorld, If, vec4, varyingProperty
 } from 'three/tsl';
-
-const ARPEGGIO_BIOME: BiomeId = 'arpeggio_grove';
-const arpeggioUniforms = getBiomeUniforms(ARPEGGIO_BIOME); // Future-proof: adding new biomes only requires updating the helper + JSON
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { camera } from '../core/camera-ref.ts';
-import { CONFIG } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-wave.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import { dynamicRadiiView } from '../utils/wasm-physics.ts';
+import { foliageGroup } from '../world/state.ts';
+
+const ARPEGGIO_BIOME: BiomeId = 'arpeggio_grove';
+const arpeggioUniforms = getBiomeUniforms(ARPEGGIO_BIOME); // Future-proof: adding new biomes only requires updating the helper + JSON
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { applyAerialPerspective } from './aerial-perspective.ts';
 import { applyGlitch } from './glitch.ts';
@@ -35,6 +35,7 @@ import {
     getBaseContactHeight,
 } from './index.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 
 const MAX_FERNS = getCIAdjustedCount(500, 0.1, 50); // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
@@ -75,6 +76,8 @@ export class ArpeggioFernBatcher {
      * Uses a Float32Array of capacity 1; no per-frame allocations.
      */
     private _poseMachine!: PlantPoseMachine;
+    private _lastGpuPoses: Float32Array | null = null;
+    private _gpuPoseInFlight = false;
 
     constructor() {
         this.initialized = false;
@@ -536,12 +539,44 @@ export class ArpeggioFernBatcher {
             out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
         };
 
-        this._poseMachine.update(1, 0.016, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
+        let dnBaseline = 0;
+        const useGpuPose = shouldUseGpuPlantPose(1);
+
+        if (useGpuPose && this._lastGpuPoses && this._lastGpuPoses.length >= 1) {
+            dnBaseline = this._lastGpuPoses[0];
+        } else {
+            this._poseMachine.update(1, 0.016, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
+            dnBaseline = this._poseMachine.getPose(0);
+        }
+
+        if (useGpuPose && !this._gpuPoseInFlight) {
+            let wave = null;
+            if (activeWave) {
+                wave = {
+                    originX: activeWave.origin?.x ?? cameraPos?.x ?? 0,
+                    originY: activeWave.origin?.y ?? cameraPos?.y ?? 0,
+                    originZ: activeWave.origin?.z ?? cameraPos?.z ?? 0,
+                    radiusSq: Math.max(0, (performance.now() - activeWave.timestamp) / 1000 * (activeWave.speed || 25.0)) ** 2,
+                };
+            }
+
+            this._gpuPoseInFlight = true;
+            void runGpuPlantPose({
+                count: 1,
+                delta: 0.016,
+                channelIntensity,
+                dayNightBias,
+                config: poseConfig,
+                wave,
+            }).then((poses) => {
+                if (poses) this._lastGpuPoses = poses;
+            }).finally(() => {
+                this._gpuPoseInFlight = false;
+            });
+        }
 
         // Day/night baseline from pose machine (0 = night-closed, up to nightTarget/dayTarget).
         // Blends a gentle partial-open bias from daylight into the step-driven unfurl.
-        const dnBaseline = this._poseMachine.getPose(0);
-
         // Final unfurl: day/night baseline + step-driven contribution in the remaining range.
         const stepUnfurl = this.currentUnfurlValue / maxSteps;
         const unfurl = dnBaseline + stepUnfurl * (1.0 - dnBaseline);

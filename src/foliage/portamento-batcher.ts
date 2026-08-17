@@ -11,6 +11,7 @@ import {
   sin,
   instanceIndex
 } from 'three/tsl';
+import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
@@ -31,7 +32,6 @@ import {
 } from './index.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';
-
 
 const MAX_PINES = 200; // conservative default for performance
 /** Default melody channel index used when config does not specify channelIndex. */
@@ -57,6 +57,8 @@ export class PortamentoPineBatcher {
    * Allocated once with MAX_PINES capacity; no per-frame allocations.
    */
   private _poseMachine!: PlantPoseMachine;
+  private _lastGpuPoses: Float32Array | null = null;
+  private _gpuPoseInFlight = false;
 
   // scratch / batch pose buffers
   private _batchPositions = new Float32Array(MAX_PINES * 3);
@@ -322,8 +324,59 @@ export class PortamentoPineBatcher {
         out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
     };
 
-    this._poseMachine.update(this.count, dt, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
+    const useGpuPose = shouldUseGpuPlantPose(this.count);
 
+    if (useGpuPose && this._lastGpuPoses && this._lastGpuPoses.length >= this.count) {
+        this._applyPoseState(this._lastGpuPoses, dt);
+    } else {
+        this._poseMachine.update(this.count, dt, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
+        this._applyPoseState(this._poseMachine.currentPoses, dt);
+    }
+
+    if (useGpuPose && !this._gpuPoseInFlight) {
+        let wave = null;
+        if (activeWave) {
+            wave = {
+                originX: activeWave.origin?.x ?? cameraPos?.x ?? 0,
+                originY: activeWave.origin?.y ?? cameraPos?.y ?? 0,
+                originZ: activeWave.origin?.z ?? cameraPos?.z ?? 0,
+                radiusSq: Math.max(0, (performance.now() - activeWave.timestamp) / 1000 * (activeWave.speed || 25.0)) ** 2,
+            };
+        }
+
+        this._gpuPoseInFlight = true;
+        void runGpuPlantPose({
+            count: this.count,
+            delta: dt,
+            channelIntensity,
+            dayNightBias,
+            config: poseConfig,
+            wave,
+        }).then((poses) => {
+            if (poses) this._lastGpuPoses = poses;
+        }).finally(() => {
+            this._gpuPoseInFlight = false;
+        });
+    }
+
+    for (let i = 0; i < this.count; i++) {
+        const pine = this.logicPines[i];
+        if (!pine || !pine.userData.reactivityState) continue;
+        const state = pine.userData.reactivityState;
+        const last = pine.userData._lastUploadedBend || 0;
+        if (Math.abs(state.currentBend - last) > 0.001) {
+             this.bendAttribute!.array[i] = state.currentBend;
+             pine.userData._lastUploadedBend = state.currentBend;
+             needsUpdate = true;
+        }
+    }
+
+    if (needsUpdate) {
+        this.bendAttribute!.needsUpdate = true;
+    }
+  }
+
+  private _applyPoseState(poses: Float32Array, dt: number) {
     for (let i = 0; i < this.count; i++) {
         const pine = this.logicPines[i];
         if (!pine || !pine.userData.reactivityState) continue;
@@ -334,7 +387,7 @@ export class PortamentoPineBatcher {
         // At day with no music: pose ≈ 0   (straight)
         // At night:             pose ≈ -0.05 (gentle droop)
         // Music active:         pose ramps toward dayTarget * sustainLevel (visible forward lean)
-        const poseTarget = this._poseMachine.getPose(i);
+        const poseTarget = poses[i];
 
         // Spring Physics (Hooke's Law + Damping) toward ADSR target
         const k = 10.0;     // Stiffness
@@ -344,19 +397,6 @@ export class PortamentoPineBatcher {
         state.velocity += force * dt;
         state.velocity *= damp;
         state.currentBend += state.velocity * dt;
-
-        // If significant change, update attribute
-        const last = pine.userData._lastUploadedBend || 0;
-        if (Math.abs(state.currentBend - last) > 0.001) {
-             // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setX overhead by writing directly to typed array
-             this.bendAttribute!.array[i] = state.currentBend;
-             pine.userData._lastUploadedBend = state.currentBend;
-             needsUpdate = true;
-        }
-    }
-
-    if (needsUpdate) {
-        this.bendAttribute!.needsUpdate = true;
     }
   }
 
