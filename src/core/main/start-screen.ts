@@ -2,18 +2,17 @@ import { StageLoader } from '../../debug/index.ts';
 import { initFaunaDebug } from '../../debug/tools-stub.ts';
 import { isWebGLLiteMode } from '../../rendering/webgl-debug.ts';
 import { initFaunaSystem } from '../../systems/fauna/index.ts';
-import {
-    applyAwakenedPersistenceAfterWorldLoad,
-    initDeferredVisuals,
-    runDeferredWarmup,
-} from '../deferred-init.ts';
-import { globalBackgroundProcessor } from '../../utils/background-processor.ts';
+import { globalLoadingManager } from '../../systems/loading-manager.ts';
+import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
+import { populatePhysicsGrids } from '../../systems/physics/index.ts';
+import { announce } from '../../ui/announcer.ts';
 import {
     showDeferredIndicator,
     hideDeferredIndicator,
     setDeferredProgress,
     setDeferredFailures,
 } from '../../ui/loading-screen.ts';
+import { showModeBadge } from '../../ui/mode-badge-lazy.ts';
 import {
     installReadinessProgress,
     showReadinessGenerating,
@@ -21,6 +20,14 @@ import {
     markReadinessReady,
     reportReadinessProgress,
 } from '../../ui/readiness-progress.ts';
+import { globalBackgroundProcessor } from '../../utils/background-processor.ts';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
+import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
+import { showToast } from '../../utils/toast.ts';
+import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
+import { populateWorld, WorldMode } from '../../world/generation.ts';
+import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
+import { spawnTracker } from '../../world/spawn-tracker.ts';
 import {
     reset as resetSpawnTracker,
     getReport as getSpawnReport,
@@ -34,10 +41,14 @@ import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startu
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
 import { populateWorld, WorldMode } from '../../world/generation.ts';
 import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
-import { spawnTracker } from '../../world/spawn-tracker.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
 import { announce } from '../../ui/announcer.ts';
 import { showToast } from '../../utils/toast.ts';
+import {
+    applyAwakenedPersistenceAfterWorldLoad,
+    initDeferredVisuals,
+    runDeferredWarmup,
+} from '../deferred-init.ts';
 import {
     loadStartupProfile,
     saveStartupProfile,
@@ -145,15 +156,15 @@ export function setupStartScreen(ctx: MainContext): void {
     const modeDescription = document.getElementById('mode-description');
 
     const gfxButtons: Array<{ btn: HTMLButtonElement; value: GraphicsLevel }> = [
-        { btn: document.getElementById('btn-gfx-low') as HTMLButtonElement, value: 'low' },
-        { btn: document.getElementById('btn-gfx-medium') as HTMLButtonElement, value: 'medium' },
-        { btn: document.getElementById('btn-gfx-high') as HTMLButtonElement, value: 'high' },
+        { btn: document.getElementById('btn-gfx-low') as HTMLButtonElement, value: 'low' as GraphicsLevel },
+        { btn: document.getElementById('btn-gfx-medium') as HTMLButtonElement, value: 'medium' as GraphicsLevel },
+        { btn: document.getElementById('btn-gfx-high') as HTMLButtonElement, value: 'high' as GraphicsLevel },
     ].filter((b) => b.btn);
 
     const mapButtons: Array<{ btn: HTMLButtonElement; value: MapSize }> = [
-        { btn: document.getElementById('btn-map-small') as HTMLButtonElement, value: 'small' },
-        { btn: document.getElementById('btn-map-medium') as HTMLButtonElement, value: 'medium' },
-        { btn: document.getElementById('btn-map-large') as HTMLButtonElement, value: 'large' },
+        { btn: document.getElementById('btn-map-small') as HTMLButtonElement, value: 'small' as MapSize },
+        { btn: document.getElementById('btn-map-medium') as HTMLButtonElement, value: 'medium' as MapSize },
+        { btn: document.getElementById('btn-map-large') as HTMLButtonElement, value: 'large' as MapSize },
     ].filter((b) => b.btn);
 
     const syncProfileUi = () => {
@@ -314,7 +325,12 @@ export function setupStartScreen(ctx: MainContext): void {
                         lastAnnounced = percent;
                     }
                 },
-                useFastPopulation ? { fastPopulation: true } : undefined
+                useFastPopulation || profile.mapSize !== 'large'
+                    ? {
+                          fastPopulation: useFastPopulation,
+                          bootPath: profile.mapSize !== 'large' ? 'play' as const : undefined,
+                      }
+                    : undefined
             );
 
             if (activeWorldMode !== requestedMode) {

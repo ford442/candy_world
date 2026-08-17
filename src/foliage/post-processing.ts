@@ -147,18 +147,22 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
     // 5. Set Final Output Node
     postProcessing.outputNode = colorCorrection();
 
-    // Resize handler
-    window.addEventListener('resize', () => {
+    const syncSize = () => {
         const width = window.innerWidth;
         const height = window.innerHeight;
-        // PostProcessing handles resizing internally
-    });
+        renderer.setSize(width, height);
+        postProcessing.needsUpdate = true;
+    };
+
+    // Resize handler — PostProcessing does not auto-resize PassNode/Bloom internals.
+    window.addEventListener('resize', syncSize);
 
     return {
         render: () => {
             // Note: renderer.render() should NOT be called before this if we want post processing to handle the main pass
             postProcessing.render();
         },
+        syncSize,
         // Expose uniforms for manual tweaking if needed
         uniforms: {
             bloomStrength: uBloomStrength,
@@ -235,6 +239,7 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
             }
             composer.render();
         },
+        syncSize: handleResize,
         // Expose uniforms for compatibility
         uniforms: {
             bloomStrength: uBloomStrength,  // Same uniform as WebGPU; manual sync required

@@ -8,6 +8,7 @@ import { AudioSystem } from '../../audio/audio-system';
 import { announce } from '../../ui/announcer.ts';
 import { showToast } from '../../utils/toast.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
 
@@ -436,9 +437,6 @@ export function renderPlaylist(): void {
         const li = document.createElement('li');
         li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
-        li.setAttribute('role', 'status');
-        li.setAttribute('aria-live', 'polite');
-        li.setAttribute('aria-atomic', 'true');
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'jukebox-empty-icon-container';
@@ -450,6 +448,9 @@ export function renderPlaylist(): void {
         const text = document.createElement('div');
         text.className = 'jukebox-empty-text';
         text.innerText = 'Your playlist is empty — drop some tracks in!';
+        text.setAttribute('role', 'status');
+        text.setAttribute('aria-live', 'polite');
+        text.setAttribute('aria-atomic', 'true');
 
         const browseBtn = document.createElement('button');
         browseBtn.type = 'button';
@@ -676,6 +677,13 @@ export function handlePlaylistKeyUp(event: KeyboardEvent): boolean {
         const addSongsBtnEl = document.getElementById('addSongsBtn');
         if (addSongsBtnEl) {
             addSongsBtnEl.classList.remove('keyboard-active');
+        }
+        if (isPlaylistOpen && playlistOverlay) handled = true;
+    }
+
+    if (event.code === 'Escape') {
+        if (closePlaylistBtn) {
+            closePlaylistBtn.classList.remove('keyboard-active');
         }
         if (isPlaylistOpen && playlistOverlay) handled = true;
     }

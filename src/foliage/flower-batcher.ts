@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
+import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
@@ -56,6 +58,8 @@ export class FlowerBatcher {
     private spiralCount = 0;
 
     private _poseMachine!: PlantPoseMachine;
+    private _lastGpuPoses: Float32Array | null = null;
+    private _gpuPoseInFlight = false;
 
     private constructor() {
         // Deferred init
@@ -419,8 +423,10 @@ export class FlowerBatcher {
             case 'spiralCount': this.spiralCount++; mesh.count = this.spiralCount; break;
         }
 
-        mesh.instanceMatrix.needsUpdate = true;
-        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        if (!shouldUseFoliageGpuBatch(mesh.count)) {
+            mesh.instanceMatrix.needsUpdate = true;
+            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        }
     }
 
     update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {
@@ -451,13 +457,46 @@ export class FlowerBatcher {
             out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
         };
 
-        // Step the state machine
-        this._poseMachine.update(MAX_PETALS, deltaTime, kick, dayNightBias, config, activeWave, getPlantPos, cameraPos);
+        const useGpuPose = shouldUseGpuPlantPose(MAX_PETALS);
 
+        if (useGpuPose && this._lastGpuPoses && this._lastGpuPoses.length >= MAX_PETALS) {
+            this._applyPoseState(this._lastGpuPoses);
+        } else {
+            // Step the state machine
+            this._poseMachine.update(MAX_PETALS, deltaTime, kick, dayNightBias, config, activeWave, getPlantPos, cameraPos);
+            this._applyPoseState(this._poseMachine.currentPoses);
+        }
+
+        if (useGpuPose && !this._gpuPoseInFlight) {
+            let wave = null;
+            if (activeWave) {
+                wave = {
+                    originX: activeWave.origin?.x ?? cameraPos?.x ?? 0,
+                    originY: activeWave.origin?.y ?? cameraPos?.y ?? 0,
+                    originZ: activeWave.origin?.z ?? cameraPos?.z ?? 0,
+                    radiusSq: Math.max(0, (performance.now() - activeWave.timestamp) / 1000 * (activeWave.speed || 25.0)) ** 2,
+                };
+            }
+
+            this._gpuPoseInFlight = true;
+            void runGpuPlantPose({
+                count: MAX_PETALS,
+                delta: deltaTime,
+                channelIntensity: kick,
+                dayNightBias,
+                config,
+                wave,
+            }).then((poses) => {
+                if (poses) this._lastGpuPoses = poses;
+            }).finally(() => {
+                this._gpuPoseInFlight = false;
+            });
+        }
+    }
+
+    private _applyPoseState(poses: Float32Array) {
         // Update aPoseState for all active instances across all meshes
         const meshes = [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];
-        // ⚡ OPTIMIZATION: Get reference to the entire pose array once instead of calling getPose(i) in the inner loop
-        const poses = this._poseMachine.currentPoses;
         for (const mesh of meshes) {
             if (!mesh || mesh.count === 0) continue;
             const attr = mesh.geometry.attributes.aPoseState as THREE.InstancedBufferAttribute;

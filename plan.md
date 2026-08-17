@@ -7,8 +7,17 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
 ## Current sequencing (2026-08-05)
 
 1. **Foundation** — TS/ESint ratchet gate (#1493), repo hygiene (#1497).
-2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496).
+2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496). **Status: Implemented ✅**
+   - * Implementation Details: Activated GPU foliage animation path by default via `gpu-foliage-flag.ts` and orchestrator modifications.
 3. **Content** — capstone features (#1492, #1494) after gates are green.
+
+    - **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)
+    -   - Implementation Details: Wired Generative Biome Audio and Day/Night context into the game loop using zero-allocation updates, allowing the generative audio engine to adapt dynamically to the player's current biome as they explore.
+    - **Status: Implemented ✅** (#1492 Workstream A2: Candy Remote Avatar Mesh)
+    -   - Implementation Details: Upgraded the placeholder presence avatar sphere to a low-poly dodecahedron using a TSL `MeshPhysicalNodeMaterial` with clearcoat, and wired up `instanceColor` zero-allocation updates to properly apply the hash-based pastel colors per instance.
+    - **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)
+    -   - Implementation Details: Implemented the Subterranean Sugar Caves biome layer using a new InstancedMesh batcher (`SugarCaveBatcher`) and TSL materials for crystal ribs, and registered it with the music-bindings for the Part II Door narrative.
+
 
 ## Mega-module splits (do not split blindly)
 

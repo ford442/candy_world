@@ -3,7 +3,8 @@
  */
 
 import * as THREE from 'three';
-import { MeshPhysicalMaterial } from 'three';
+import { color } from 'three/tsl';
+import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from '../../core/config.ts';
 import { foliageGroup } from '../../world/state.ts';
@@ -46,6 +47,7 @@ export class RemoteAvatars {
     private _renderer: THREE.Renderer | null = null;
     private _initialized = false;
     private _interpDelayMs = 100;
+    private _mutedPeerIds: Set<string> = new Set();
 
     static getInstance(): RemoteAvatars {
         if (!RemoteAvatars._instance) {
@@ -67,21 +69,23 @@ export class RemoteAvatars {
 
         const geo = mergeGeometries([bodyGeo, headGeo], false);
 
-        const mat = new MeshPhysicalMaterial({
-            color: 0xffffff,
+        const mat = new MeshPhysicalNodeMaterial({
             roughness: 0.25,
             metalness: 0,
             clearcoat: 0.85,
             clearcoatRoughness: 0.15,
         });
 
+        // Base color is white, will be multiplied by instanceColor
+        mat.colorNode = color(0xffffff);
+
         this._mesh = new THREE.InstancedMesh(geo, mat, maxPeers);
         this._mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-
-        // Explicitly create instanceColor buffer for use with instance color updates
-        this._mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxPeers * 3), 3);
-        this._mesh.geometry.setAttribute('instanceColor', this._mesh.instanceColor);
-
+        this._mesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(maxPeers * 3),
+            3
+        );
+        this._mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
         this._mesh.frustumCulled = false;
         this._mesh.count = 0;
         this._mesh.name = 'remote-presence-avatars';
@@ -93,14 +97,13 @@ export class RemoteAvatars {
         for (let i = 0; i < maxPeers; i++) {
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
             _scratchHide.toArray(this._mesh.instanceMatrix.array, i * 16);
-
-            // Initialize color to white
-            this._mesh!.instanceColor!.array[i * 3] = 1.0;
-            this._mesh!.instanceColor!.array[i * 3 + 1] = 1.0;
-            this._mesh!.instanceColor!.array[i * 3 + 2] = 1.0;
+            // Initialize colors to white (or anything, they will be overwritten when slot is allocated)
+            this._mesh.instanceColor.array[i * 3 + 0] = 1;
+            this._mesh.instanceColor.array[i * 3 + 1] = 1;
+            this._mesh.instanceColor.array[i * 3 + 2] = 1;
         }
         this._mesh.instanceMatrix.needsUpdate = true;
-        this._mesh!.instanceColor!.needsUpdate = true;
+        this._mesh.instanceColor.needsUpdate = true;
 
         this._tagRoot = document.createElement('div');
         this._tagRoot.id = 'presence-tags';
@@ -122,6 +125,10 @@ export class RemoteAvatars {
         this._camera = camera;
         this._renderer = renderer;
         this._initialized = true;
+    }
+
+    setMutedPeers(muted: ReadonlySet<string>): void {
+        this._mutedPeerIds = new Set(muted);
     }
 
     dispose(): void {
@@ -224,12 +231,17 @@ export class RemoteAvatars {
         const now = performance.now();
         let visibleCount = 0;
 
-        const activeIds = new Set(peers.keys());
-        for (const peerId of [...this._peerOrder]) {
-            if (!activeIds.has(peerId)) this._freeSlot(peerId);
+        // ⚡ OPTIMIZATION: Bypassed Array/Set allocation in hot presence update loop using reverse indexing.
+        for (let i = this._peerOrder.length - 1; i >= 0; i--) {
+            const peerId = this._peerOrder[i];
+            if (!peers.has(peerId)) this._freeSlot(peerId);
         }
 
         for (const [peerId, peer] of peers) {
+            if (this._mutedPeerIds.has(peerId)) {
+                this._freeSlot(peerId);
+                continue;
+            }
             const slot = this._allocateSlot(peerId);
             if (slot === null) continue;
 
@@ -238,7 +250,7 @@ export class RemoteAvatars {
             const dx = _interpPos.x - localPlayerPos.x;
             const dz = _interpPos.z - localPlayerPos.z;
             const distSq = dx * dx + dz * dz;
-            const inRange = distSq <= cullDistSq;
+            const inRange = distSq <= cullDistSq && !this._mutedPeerIds.has(peerId);
 
             if (inRange) {
                 _scratchScale.set(1, 1, 1);
@@ -276,7 +288,7 @@ export class RemoteAvatars {
 
         this._mesh.count = Math.max(visibleCount, this._peerToSlot.size);
         this._mesh.instanceMatrix.needsUpdate = true;
-        if (this._mesh.instanceColor) this._mesh.instanceColor.needsUpdate = true;
+        this._mesh.instanceColor!.needsUpdate = true;
     }
 
     updateTags(): void {

@@ -279,9 +279,10 @@ export class ShaderWarmup {
       const renderTarget = new THREE.RenderTarget(this.options.renderSize, this.options.renderSize);
       
       // Force shader compilation by rendering
-      renderer.setRenderTarget(renderTarget);
+      const previousTarget = (renderer as any).getRenderTarget();
+      (renderer as any).setRenderTarget(renderTarget);
       renderer.render(scene, this.warmupCamera);
-      renderer.setRenderTarget(null);
+      (renderer as any).setRenderTarget(previousTarget);
       
       // Cleanup
       renderTarget.dispose();
@@ -495,11 +496,11 @@ export async function warmupShader(
   if (scene && camera) {
     // Use provided scene/camera
     const renderTarget = new THREE.RenderTarget(1, 1);
-    const originalTarget = renderer.getRenderTarget();
+    const originalTarget = (renderer as any).getRenderTarget();
 
-    renderer.setRenderTarget(renderTarget);
+    (renderer as any).setRenderTarget(renderTarget);
     renderer.render(scene, camera);
-    renderer.setRenderTarget(originalTarget);
+    (renderer as any).setRenderTarget(originalTarget);
     
     renderTarget.dispose();
     warmup.dispose();

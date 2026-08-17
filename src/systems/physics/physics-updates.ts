@@ -21,6 +21,7 @@
 import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
 import { CONFIG } from '../../core/config.ts';
+import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
@@ -39,19 +40,19 @@ import {
     initPhysics,
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
-import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
-import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { discoverySystem } from '../discovery.ts';
-import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
-import {
-    calculateMovementInput
-} from '../physics.core.ts';
-import { unlockSystem } from '../unlocks.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     foliageTraps, foliageGeysers, foliagePortamentoPines,
     foliagePanningPads, animatedFoliage, vineSwings, setActiveVineSwing
 } from '../../world/state.ts';
+import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
+import { discoverySystem } from '../discovery.ts';
+import { DISCOVERY_MAP } from '../discovery_map.ts';
+import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
+import {
+    calculateMovementInput
+} from '../physics.core.ts';
+import { unlockSystem } from '../unlocks.ts';
 import {
     physicsFoliageGrid,
     physicsDiscoveryGrid,

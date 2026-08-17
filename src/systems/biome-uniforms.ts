@@ -97,6 +97,15 @@ export const BiomeUniforms = {
         fogDensity: uniform(0.15),
     },
 
+    /**
+     * Sugar Caves — subterranean crystal ribs; channels in music-bindings.json sugar_caves.
+     */
+    sugarCaves: {
+        shimmer: uniform(0.0),
+        hueShift: uniform(0.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
+    },
+
     global: {
         /** 0–1 shimmer emissive boost for global effects. */
         shimmer: uniform(0.0),
@@ -104,7 +113,6 @@ export const BiomeUniforms = {
         hueShift: uniform(0.0),
         noteColor: uniform(new THREE.Color(0xffffff)),
     },
-
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -139,7 +147,7 @@ export const SkyUniforms = {
  * Shared between GPU DataTexture (skyNoteColorNode) and CPU moon lerp.
  *
  * Uses chromatic colors mapped from CONFIG.noteColorMap.sky
- */const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+ */ const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 export const skyLutData = new Float32Array(128 * 4);
 
@@ -155,7 +163,7 @@ export const skyLutData = new Float32Array(128 * 4);
         const pitchClass = chromaticIdx % 12;
         const noteName = CHROMATIC_SCALE[pitchClass];
 
-        const hexColor = noteColorMap[noteName] || 0xFFFFFF;
+        const hexColor = noteColorMap[noteName] || 0xffffff;
 
         c.setHex(hexColor);
 
@@ -183,7 +191,10 @@ _skyLutTex.needsUpdate = true;
  * strictly within the 128-slot range and avoids edge/wrap artefacts.
  * Safe to use in both the sky dome colorNode and the moon emissiveNode.
  */
-export const skyNoteColorNode = texture(_skyLutTex, vec2(SkyUniforms.noteIndex.add(0.5).div(128.0), 0.5)).rgb;
+export const skyNoteColorNode = texture(
+    _skyLutTex,
+    vec2(SkyUniforms.noteIndex.add(0.5).div(128.0), 0.5)
+).rgb;
 
 /**
  * 128-slot RGBA-float LUT: maps note index -> hue colour for Luminous Plants.
@@ -208,8 +219,15 @@ export const luminousPlantsLutData = new Float32Array(128 * 4);
 })();
 
 const _luminousPlantsLutHalf = new Uint16Array(128 * 4);
-for (let i = 0; i < 128 * 4; i++) _luminousPlantsLutHalf[i] = DataUtils.toHalfFloat(luminousPlantsLutData[i]);
-const _luminousPlantsLutTex = new DataTexture(_luminousPlantsLutHalf, 128, 1, RGBAFormat, HalfFloatType);
+for (let i = 0; i < 128 * 4; i++)
+    _luminousPlantsLutHalf[i] = DataUtils.toHalfFloat(luminousPlantsLutData[i]);
+const _luminousPlantsLutTex = new DataTexture(
+    _luminousPlantsLutHalf,
+    128,
+    1,
+    RGBAFormat,
+    HalfFloatType
+);
 _luminousPlantsLutTex.minFilter = NearestFilter;
 _luminousPlantsLutTex.magFilter = NearestFilter;
 _luminousPlantsLutTex.needsUpdate = true;
@@ -217,7 +235,10 @@ _luminousPlantsLutTex.needsUpdate = true;
 /**
  * TSL node: samples the note-colour LUT for the current LuminousPlantUniforms.noteIndex.
  */
-export const luminousPlantsNoteColorNode = texture(_luminousPlantsLutTex, vec2(LuminousPlantUniforms.noteIndex.add(0.5).div(128.0), 0.5)).rgb;
+export const luminousPlantsNoteColorNode = texture(
+    _luminousPlantsLutTex,
+    vec2(LuminousPlantUniforms.noteIndex.add(0.5).div(128.0), 0.5)
+).rgb;
 
 /** Gem canopy note tint — driven by music-reactivity noteColor lerp (same pattern as arpeggio grove). */
 export const gemCanopyNoteColorNode = BiomeUniforms.gemCanopy.noteColor;
@@ -237,7 +258,17 @@ export const skyIslandsNoteColorNode = BiomeUniforms.skyIslands.noteColor;
  * Add new values here + corresponding entry in BiomeUniforms (or alias) when
  * introducing a new musical biome.
  */
-export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global' | 'musical_flora' | 'lake_features' | 'gem_canopy' | 'sky_islands';
+export type BiomeId =
+    | 'arpeggio_grove'
+    | 'crystalline_nebula'
+    | 'luminous_plants'
+    | 'sky_moon'
+    | 'global'
+    | 'musical_flora'
+    | 'lake_features'
+    | 'gem_canopy'
+    | 'sky_islands'
+    | 'sugar_caves';
 
 /**
  * Returns the appropriate uniform group for a given biome tag.
@@ -270,7 +301,7 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
                 hueShift: uniform(0.0),
                 noteColor: BiomeUniforms.skyMoon.moonNoteColor as any,
             };
-                case 'musical_flora':
+        case 'musical_flora':
             return BiomeUniforms.musicalFlora;
         case 'lake_features':
             return BiomeUniforms.lakeFeatures;
@@ -278,6 +309,8 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
             return BiomeUniforms.gemCanopy;
         case 'sky_islands':
             return BiomeUniforms.skyIslands;
+        case 'sugar_caves':
+            return BiomeUniforms.sugarCaves;
         case 'global':
             return BiomeUniforms.global;
         default:

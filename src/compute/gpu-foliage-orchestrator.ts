@@ -1,6 +1,6 @@
 /**
  * @file gpu-foliage-orchestrator.ts
- * @brief Lifecycle for GPU foliage pilot paths on the shared renderer-owned device.
+ * @brief Lifecycle for GPU foliage default paths on the shared renderer-owned device.
  *
  * Owns `GPUFoliageAnimator` init/teardown and reacts to device loss without
  * taking down the render canvas (policy in `gpu-context.ts`).
@@ -15,7 +15,7 @@ import {
     type FoliageAudioState,
     type FoliageInstanceData,
 } from './gpu-foliage-animator.ts';
-import { isGpuFoliagePilotEnabled, isGpuFoliageDefaultPath } from './gpu-foliage-flag.ts';
+import { isGpuFoliageDefaultPath } from './gpu-foliage-flag.ts';
 import { disposeGpuPlantPose } from './gpu-plant-pose.ts';
 
 let _animator: GPUFoliageAnimator | null = null;

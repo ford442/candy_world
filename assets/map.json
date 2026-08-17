@@ -36752,6 +36752,30 @@
         "biomeTag": "sky_islands",
         "intensityScale": 1.0
       }
+    },
+    {
+      "id": "sugar_caves",
+      "name": "Sugar Caves",
+      "bounds": {
+        "min": [
+          -55,
+          -15
+        ],
+        "max": [
+          15,
+          55
+        ]
+      },
+      "biome": "sugar_caves",
+      "tags": [
+        "subterranean",
+        "vertical",
+        "part_ii"
+      ],
+      "music": {
+        "biomeTag": "sugar_caves",
+        "intensityScale": 0.85
+      }
     }
   ]
 }

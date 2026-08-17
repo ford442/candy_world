@@ -5,6 +5,7 @@
 import type * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import type { AudioSystem } from '../../../audio/audio-system';
+import { showToast } from '../../../utils/toast.ts';
 import { resolveExploreVariant } from '../../camera-modes.ts';
 import { showToast } from '../../../utils/toast.ts';
 import { initAudioControls } from '../audio-controls.ts';

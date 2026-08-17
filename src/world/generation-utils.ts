@@ -4,7 +4,7 @@ import {
     LAKE_BOUNDS,
     LAKE_BOTTOM,
     LAKE_ISLAND,
-    getGroundHeight
+    getGroundHeight,
 } from '../systems/ground-system.ts';
 import { checkPositionValidity } from '../utils/wasm-loader.ts';
 
@@ -88,7 +88,7 @@ export const ARPEGGIO_GROVE = {
     centerX: -60,
     centerZ: 60,
     radius: 15,
-    enabled: true
+    enabled: true,
 };
 
 export const GEM_CANOPY = {
@@ -109,7 +109,7 @@ export const MYCELIUM_GROVE = {
     centerZ: 78,
     radius: 16,
     mushroomCount: 28, // glass mushrooms scattered through the grove
-    sporeCount: 260,   // ambient compute spores drifting in the misty air
+    sporeCount: 260, // ambient compute spores drifting in the misty air
 };
 
 export const CLOUD_ARCHIPELAGO = {
@@ -126,6 +126,15 @@ export const CLOUD_ARCHIPELAGO = {
  * Stacked sky islands (#1363) — NW of spawn, above cloud-archipelago approach stairs.
  * Explicit absolute Y tiers validated against unified ground / platform query.
  */
+export const SUGAR_CAVES = {
+    enabled: true,
+    startX: 0,
+    startZ: 0,
+    endX: -40,
+    endZ: 40,
+    density: 1.5,
+};
+
 export const SKY_ISLANDS = {
     enabled: true,
     centerX: -110,
@@ -133,9 +142,33 @@ export const SKY_ISLANDS = {
     // Lateral offsets keep walkable decks from overlapping in XZ so each tier
     // remains independently queryable via highest-maxY platform override.
     layers: [
-        { id: 'low_mist', y: 18, radius: 9, height: 3.2, kind: 'mist' as const, offsetX: 0, offsetZ: 0 },
-        { id: 'mid_canopy', y: 32, radius: 11, height: 3.6, kind: 'canopy' as const, offsetX: 26, offsetZ: -18 },
-        { id: 'high_nebula', y: 48, radius: 8, height: 3.0, kind: 'nebula' as const, offsetX: -22, offsetZ: 24 },
+        {
+            id: 'low_mist',
+            y: 18,
+            radius: 9,
+            height: 3.2,
+            kind: 'mist' as const,
+            offsetX: 0,
+            offsetZ: 0,
+        },
+        {
+            id: 'mid_canopy',
+            y: 32,
+            radius: 11,
+            height: 3.6,
+            kind: 'canopy' as const,
+            offsetX: 26,
+            offsetZ: -18,
+        },
+        {
+            id: 'high_nebula',
+            y: 48,
+            radius: 8,
+            height: 3.0,
+            kind: 'nebula' as const,
+            offsetX: -22,
+            offsetZ: 24,
+        },
     ],
     cloudRingCount: 4,
     panningPadCount: 3,
@@ -145,7 +178,7 @@ export const SKY_ISLANDS = {
 // Note: Actual fern/outer counts for the grove now come from
 // CONFIG.world.population (see above) and are consumed in generation-decorators.ts.
 
-export const obstaclesData: {x: number, y: number, z: number, radius: number}[] = [];
+export const obstaclesData: { x: number; y: number; z: number; radius: number }[] = [];
 
 // Types
 export interface MapEntity {
@@ -156,11 +189,15 @@ export interface MapEntity {
     persistentId?: string;
     variant?: string;
     scale?: number | [number, number, number];
-    rotation?: number | [number, number, number] | [number, number, number, number] | {
-        euler?: [number, number, number];
-        quat?: [number, number, number, number];
-        order?: string;
-    };
+    rotation?:
+        | number
+        | [number, number, number]
+        | [number, number, number, number]
+        | {
+              euler?: [number, number, number];
+              quat?: [number, number, number, number];
+              order?: string;
+          };
     size?: number | string;
     note?: string;
     noteIndex?: number;
@@ -221,12 +258,15 @@ export interface FoliageGrowthOptions {
 }
 
 // Helpers
-export const yieldControl = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0));
+export const yieldControl = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 export function shouldLogYieldProgress(current: number, total: number): boolean {
-    return current === YIELD_ENTITY_BATCH_SIZE || current === total || current % YIELD_LOG_INTERVAL === 0;
+    return (
+        current === YIELD_ENTITY_BATCH_SIZE ||
+        current === total ||
+        current % YIELD_LOG_INTERVAL === 0
+    );
 }
-
 
 // --- HELPER: Position Validation ---
 export function isPositionValid(x: number, z: number, radius: number): boolean {
@@ -279,7 +319,7 @@ const TYPE_ALIASES: Record<string, string> = {
     vineLadder: 'vine_ladder',
     wisteriaCluster: 'wisteria_cluster',
     silenceSpirit: 'silence_spirit',
-    melodyMirror: 'melody_mirror'
+    melodyMirror: 'melody_mirror',
 };
 
 export function normalizeMapEntityType(type: string): string {
@@ -290,21 +330,23 @@ export function normalizeMapEntityType(type: string): string {
 /**
  * Determine if an entity is critical for initial load (collision, physics, interaction)
  */
-export function isCriticalEntity(item: MapEntity | { type: string, isObstacle?: boolean }): boolean {
+export function isCriticalEntity(
+    item: MapEntity | { type: string; isObstacle?: boolean }
+): boolean {
     const criticalTypes = [
         'mushroom', // Often giant / bouncy
-        'tree',     // usually has collision
+        'tree', // usually has collision
         'arpeggio_fern',
         'portamento_pine',
         'snare_trap',
         'kick_drum_geyser',
         'trap',
         'panning_pad',
-        'cloud',    // can be Walkable
+        'cloud', // can be Walkable
         'vine_ladder',
         'sky_island',
         'instrument_shrine',
-        'waterfall'
+        'waterfall',
     ];
 
     if (criticalTypes.includes(normalizeMapEntityType(item.type))) return true;

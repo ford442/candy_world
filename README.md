@@ -17,6 +17,7 @@ A 3D world of rudimentary, but sharp graphically nature - featuring smooth, glos
 ## Visual Style
 
 The world features:
+
 - **Mushroom-style trees** with rounded caps and brown trunks
 - **Smooth rocks** in pastel purple and pink tones
 - **Colorful mushrooms** with soft caps
@@ -30,9 +31,9 @@ Inspired by low-poly nature scenes with a candy twist!
 > [Candy Material Cookbook](./docs/CANDY_MATERIAL_COOKBOOK.md) — reusable glossy-material
 > recipes, copy-paste TSL snippets, and an "adding a reactive plant" tutorial.
 
-**Roadmap:** Part I scaffolds (Sky Islands, fauna, opt-in presence, awakened flora) are landing;
-the **capstone epic** (#1492) sequences Presence polish + the next signature biome toward a Part II door.
-See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md).
+**Roadmap:** Part I scaffolds (Sky Islands, fauna, opt-in presence, awakened flora) are landing.
+The **capstone epic** (#1492) shipped Presence productization + **Subterranean Sugar Caves** as the Part II door — descend from Melody Lake after awakening flora.
+See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md) and [docs/SUGAR_CAVES_SHIP.md](./docs/SUGAR_CAVES_SHIP.md).
 
 ## How to Run
 
@@ -41,28 +42,32 @@ See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md).
 ### Development
 
 1. Install dependencies:
-   ```bash
-   npm install
-   ```
+
+    ```bash
+    npm install
+    ```
 
 2. Start the development server:
-   ```bash
-   npm run dev
-   ```
+
+    ```bash
+    npm run dev
+    ```
 
 3. Open your browser to `http://localhost:5173`
 
-   For WebGL2 debugging or CI screenshots, use `http://localhost:5173/?renderer=webgl`.
-   See [docs/webgl-fallback.md](./docs/webgl-fallback.md) for full renderer toggle and porting notes.
+    For WebGL2 debugging or CI screenshots, use `http://localhost:5173/?renderer=webgl`.
+    See [docs/webgl-fallback.md](./docs/webgl-fallback.md) for full renderer toggle and porting notes.
 
 ### Production Build
 
 Build the project for production:
+
 ```bash
 npm run build
 ```
 
 The built files will be in the `dist/` directory. You can preview the production build with:
+
 ```bash
 npm run preview
 ```
@@ -77,6 +82,7 @@ npm run preview
 ## Controls
 
 ### First-person
+
 - **Click / Mouse** - Enter pointer-lock and look around in first-person
 - **W / A / S / D** - Move
 - **Shift** - Sprint
@@ -85,6 +91,7 @@ npm run preview
 - **Esc** - Pause and release cursor
 
 ### Cinematic Explore / Wander
+
 - **Tab (hold)** - Temporary orbit camera (release Tab to return to first-person)
 - **Pause menu → Explore Mode** or **`?explore=1`** - Toggle persistent explore (saved in `localStorage`)
 - **`?explore=hybrid`** - First-person with right-mouse orbit + WASD pan while orbiting
@@ -96,14 +103,14 @@ npm run preview
 - Built with Three.js ^0.171 (`three/webgpu` + `three/tsl`) and WebGPU-first rendering (opt-in WebGL2 fallback)
 - WebGPU in evergreen browsers; `WebGPURenderer` falls back to WebGL2 automatically when needed
 - Advanced materials:
-  - MeshPhysicalMaterial with clearcoat for candy surfaces
-  - MeshStandardMaterial for ground and other elements
-  - Transparent materials for clouds
+    - MeshPhysicalMaterial with clearcoat for candy surfaces
+    - MeshStandardMaterial for ground and other elements
+    - Transparent materials for clouds
 - Procedurally generated geometry:
-  - Smooth spheres for tree canopies and mushroom faces
-  - Domed caps (hemisphere geometry) for mushroom caps
-  - Cylinders for tree and mushroom stems
-  - Rolling hills with sine wave displacement
+    - Smooth spheres for tree canopies and mushroom faces
+    - Domed caps (hemisphere geometry) for mushroom caps
+    - Cylinders for tree and mushroom stems
+    - Rolling hills with sine wave displacement
 - 30 trees, 20 animated mushrooms with faces, and 15 floating clouds
 - 300x300 unit terrain with fog effects
 - PointerLockControls for immersive first-person camera movement
