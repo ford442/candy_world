@@ -14,6 +14,8 @@ function setupAbilityKeyboardInteractions(
     element.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.code === 'Space') {
             e.preventDefault();
+            if (e.repeat) return;
+            element.classList.add('keyboard-active');
             onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
         }
     });
@@ -21,6 +23,7 @@ function setupAbilityKeyboardInteractions(
     element.addEventListener('keyup', (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.code === 'Space') {
             e.preventDefault();
+            element.classList.remove('keyboard-active');
             onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
         }
     });
@@ -49,6 +52,7 @@ function setupAbilityKeyboardInteractions(
     });
 
     element.addEventListener('blur', () => {
+        element.classList.remove('keyboard-active');
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
     });
 }
