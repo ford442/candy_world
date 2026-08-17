@@ -144,68 +144,35 @@ export function setupStartScreen(ctx: MainContext): void {
     const modeSelect = document.getElementById('mode-select');
     const modeDescription = document.getElementById('mode-description');
 
-    const gfxButtons: Array<{ btn: HTMLButtonElement; value: GraphicsLevel }> = [
-        { btn: document.getElementById('btn-gfx-low') as HTMLButtonElement, value: 'low' as GraphicsLevel },
-        { btn: document.getElementById('btn-gfx-medium') as HTMLButtonElement, value: 'medium' as GraphicsLevel },
-        { btn: document.getElementById('btn-gfx-high') as HTMLButtonElement, value: 'high' as GraphicsLevel },
-    ].filter((b) => b.btn);
-
-    const mapButtons: Array<{ btn: HTMLButtonElement; value: MapSize }> = [
-        { btn: document.getElementById('btn-map-small') as HTMLButtonElement, value: 'small' as MapSize },
-        { btn: document.getElementById('btn-map-medium') as HTMLButtonElement, value: 'medium' as MapSize },
-        { btn: document.getElementById('btn-map-large') as HTMLButtonElement, value: 'large' as MapSize },
-    ].filter((b) => b.btn);
-
-    const syncProfileUi = () => {
-        for (const { btn, value } of gfxButtons) {
-            const checked = value === profile.graphics;
-            btn.setAttribute('aria-checked', String(checked));
-            btn.setAttribute('tabindex', checked ? '0' : '-1');
-        }
-        for (const { btn, value } of mapButtons) {
-            const checked = value === profile.mapSize;
-            btn.setAttribute('aria-checked', String(checked));
-            btn.setAttribute('tabindex', checked ? '0' : '-1');
-        }
-
-        ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
-
-        if (modeDescription) {
-            modeDescription.textContent = profileDescription(profile);
-        }
-
-        const emoji =
-            profile.mapSize === 'small' ? '🍭' : profile.mapSize === 'medium' ? '🌿' : '🌸';
-        startButton.innerHTML = `${enterButtonLabel(profile.mapSize)} <span aria-hidden="true">${emoji}</span> <span class="key-badge" aria-hidden="true">Enter</span>`;
-
-        console.log(
-            `[Startup] Profile: graphics=${profile.graphics} map=${profile.mapSize} (${profileLoadHint(profile)})`
-        );
-    };
-
-    const applyGraphics = (graphics: GraphicsLevel) => {
-        profile = setGraphicsLevel(graphics);
-        // Expose for Phase 3 (shader/ambient gating) and debug
-        (window as any).__startupProfile = profile;
-        syncProfileUi();
-    };
-
-    const applyMapSize = (mapSize: MapSize) => {
-        profile = setMapSize(mapSize);
-        (window as any).__startupProfile = profile;
-        syncProfileUi();
-    };
-
-    if (gfxButtons.length === 3) {
-        setupRadiogroup(gfxButtons, () => profile.graphics, applyGraphics);
-    }
-    if (mapButtons.length === 3) {
-        setupRadiogroup(mapButtons, () => profile.mapSize, applyMapSize);
-    }
+    const btnPlayFast = document.getElementById('btn-play-fast') as HTMLButtonElement;
+    const btnPlayExplore = document.getElementById('btn-play-explore') as HTMLButtonElement;
 
     saveStartupProfile(profile);
     (window as any).__startupProfile = profile;
-    syncProfileUi();
+
+    if (btnPlayFast) {
+        btnPlayFast.addEventListener('click', () => {
+            profile = setMapSize('small');
+            (window as any).__startupProfile = profile;
+            ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
+
+            if (modeSelect) modeSelect.style.display = 'none';
+            startButton.style.display = 'inline-block';
+            void enterWorld();
+        });
+    }
+
+    if (btnPlayExplore) {
+        btnPlayExplore.addEventListener('click', () => {
+            profile = setMapSize('large');
+            (window as any).__startupProfile = profile;
+            ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
+
+            if (modeSelect) modeSelect.style.display = 'none';
+            startButton.style.display = 'inline-block';
+            void enterWorld();
+        });
+    }
 
     if (ctx.mode === 'webgl' && isWebGLLiteMode()) {
         console.warn('[Startup] WebGL lite mode — Small map recommended');
@@ -220,12 +187,36 @@ export function setupStartScreen(ctx: MainContext): void {
         return 'Generating large map...';
     };
 
+    // Enable the buttons once assets have loaded
+    const unlockButtons = () => {
+        if (btnPlayFast) {
+            btnPlayFast.disabled = false;
+            btnPlayFast.textContent = 'Play (Fast Start)';
+        }
+        if (btnPlayExplore) {
+            btnPlayExplore.disabled = false;
+            btnPlayExplore.textContent = 'Explore (Full Map)';
+        }
+    };
+
+    if (!startButton.disabled) {
+        unlockButtons();
+    } else {
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'disabled' && !startButton.disabled) {
+                    unlockButtons();
+                }
+            });
+        });
+        observer.observe(startButton, { attributes: true });
+    }
+
     async function enterWorld() {
         if (isGenerating || !startButton || worldGenerated) return;
 
         // Re-read in case URL/storage changed
         profile = loadStartupProfile();
-        syncProfileUi();
 
         isGenerating = true;
         ctx.worldGenerationActive = true;
