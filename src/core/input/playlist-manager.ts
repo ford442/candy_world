@@ -8,7 +8,6 @@ import { AudioSystem } from '../../audio/audio-system';
 import { announce } from '../../ui/announcer.ts';
 import { showToast } from '../../utils/toast.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
-import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
 
