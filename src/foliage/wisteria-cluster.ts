@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { ShaderNodeObject, Node } from 'three/tsl';
 import {
-    time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
+    time, positionLocal, sin, cos, positionWorld, color, vec3, float
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
@@ -72,7 +72,7 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         mat.positionNode = positionLocal.add(hangSway).add(circadianDroop).add(standardDef);
 
         // Glow Effect based on audio
-        const baseColorNode = color(baseHexColor);
+
         const glowColor = color(0xFF66FF); // Neon pink glow
         // Emissive boost driven by uAudioHigh, fading in smoothly — nocturnal gate
         const nightGlow = circadianNightGlowMult();
