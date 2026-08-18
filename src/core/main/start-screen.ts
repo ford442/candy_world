@@ -41,16 +41,12 @@ import {
 import {
     loadStartupProfile,
     saveStartupProfile,
-    setGraphicsLevel,
     setMapSize,
     mapSizeToWorldMode,
     mapSizeUsesFastPopulation,
     mapSizeWaitsForFullPopulation,
-    profileDescription,
     enterButtonLabel,
     profileLoadHint,
-    type GraphicsLevel,
-    type MapSize,
     type StartupProfile,
 } from '../startup-profile.ts';
 import type { MainContext } from './context.ts';
@@ -58,68 +54,6 @@ import { camera, renderer, scene } from './exports.ts';
 
 function yieldFrame(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 50));
-}
-
-function setupRadiogroup<T extends string>(
-    buttons: Array<{ btn: HTMLButtonElement; value: T }>,
-    getSelected: () => T,
-    onSelect: (value: T) => void
-): void {
-    const setupButton = (btn: HTMLButtonElement, value: T, index: number) => {
-        btn.addEventListener('click', async () => {
-            btn.setAttribute('aria-busy', 'true');
-            btn.setAttribute('aria-disabled', 'true');
-            try {
-                onSelect(value);
-                await yieldFrame();
-            } finally {
-                btn.removeAttribute('aria-busy');
-                btn.removeAttribute('aria-disabled');
-            }
-        });
-
-        btn.addEventListener('keydown', (e) => {
-            let nextIndex = -1;
-            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                nextIndex = (index + 1) % buttons.length;
-            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                nextIndex = (index - 1 + buttons.length) % buttons.length;
-            } else if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                btn.classList.add('keyboard-active');
-            }
-
-            if (nextIndex !== -1) {
-                e.preventDefault();
-                const nextBtn = buttons[nextIndex].btn;
-                nextBtn.focus();
-                nextBtn.click();
-            }
-        });
-
-        btn.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                btn.classList.remove('keyboard-active');
-            }
-        });
-
-        btn.addEventListener('blur', () => {
-            btn.classList.remove('keyboard-active');
-        });
-
-        btn.addEventListener('focus', () => {
-            buttons.forEach((mb) => mb.btn.setAttribute('tabindex', '-1'));
-            btn.setAttribute('tabindex', '0');
-            if (btn.getAttribute('aria-checked') !== 'true') {
-                btn.click();
-            }
-        });
-    };
-
-    buttons.forEach((mb, index) => {
-        mb.btn.setAttribute('tabindex', getSelected() === mb.value ? '0' : '-1');
-        setupButton(mb.btn, mb.value, index);
-    });
 }
 
 export function setupStartScreen(ctx: MainContext): void {
@@ -487,12 +421,8 @@ export function setupStartScreen(ctx: MainContext): void {
             loadingScreen.hide();
             startButton.style.background = '';
             startButton.innerHTML = 'Retry';
-            if (modeSelect) {
-                modeSelect.querySelectorAll('.profile-row').forEach((el) => {
-                    (el as HTMLElement).style.display = '';
-                });
-                if (modeDescription) modeDescription.style.display = '';
-            }
+            if (modeSelect) modeSelect.style.display = '';
+            startButton.style.display = 'none';
             announce('World generation failed. Please try again.', 'assertive');
         } finally {
             ctx.worldGenerationActive = false;

@@ -1,5 +1,6 @@
 import { CONFIG } from './defaults.ts';
 import { isCIorHeadless } from './runtime.ts';
+import { loadStartupProfile } from '../startup-profile.ts';
 import { _hasFlag, _getFlag } from './url-flags.ts';
 
 // ---------------------------------------------------------------------------
@@ -7,11 +8,12 @@ import { _hasFlag, _getFlag } from './url-flags.ts';
 // Defined after CONFIG so they can reference it; only ever called at runtime.
 // ---------------------------------------------------------------------------
 
-/** Effective post-FX quality tier (URL ?postfx= wins over CONFIG default). */
+/** Effective post-FX quality tier (URL ?postfx= wins over profile default). */
 export function resolvePostfxQuality(): 'off' | 'low' | 'high' {
     const q = _getFlag('postfx');
     if (q === 'off' || q === 'low' || q === 'high') return q;
-    return CONFIG.postfx.quality;
+    const profileGraphics = loadStartupProfile().graphics;
+    return profileGraphics === 'medium' ? 'low' : profileGraphics;
 }
 
 /** Whether sunrise/sunset/moon god-ray shafts should render this session. */
