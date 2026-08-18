@@ -387,7 +387,10 @@ export function setupStartScreen(ctx: MainContext): void {
             }
 
             const instructions = document.getElementById('instructions');
-            if (instructions) instructions.style.display = 'none';
+            if (instructions) {
+                instructions.style.display = 'none';
+                window.dispatchEvent(new CustomEvent('candy:start-screen-hidden'));
+            }
 
             showToast('Click to explore! Press [ESC] for Controls', '🎮', 4000);
 

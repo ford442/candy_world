@@ -5,6 +5,7 @@ import { getLoadMemoryTier } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { worldGroup } from '../world/state.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { createJuicyRimLight, applyStandardDeformation, triplanarNoise, uAudioLow } from './index.ts';
 import { uTwilight } from './sky.ts';
 
@@ -111,8 +112,7 @@ export class SugarCaveBatcher {
 
     dispose(): void {
         if (this._mesh) {
-            worldGroup.remove(this._mesh);
-            this._mesh.dispose();
+            safeRemoveAndDispose(worldGroup, this._mesh);
             this._mesh = null;
         }
         if (this._geo) {

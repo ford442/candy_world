@@ -10,6 +10,9 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
 2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496). **Status: Implemented ✅**
    - * Implementation Details: Activated GPU foliage animation path by default via `gpu-foliage-flag.ts` and orchestrator modifications.
 3. **Content** — capstone features (#1492, #1494) after gates are green.
+4. **Epic: Simplify startup (#1546)** — collapse startup to Play/Explore paths + chunk streaming.
+   - **Status: Implemented ✅** (#1547 Collapse startup profile UI + wire graphics to runtime)
+   - * Implementation Details: Refactored the UI to use a single-CTA start screen, completely removing the legacy 3x3 graphics/map-size grid, and wired `StartupProfile.graphics` to properly control post-processing settings via `resolvePostfxQuality`.
 
     - **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)
     -   - Implementation Details: Wired Generative Biome Audio and Day/Night context into the game loop using zero-allocation updates, allowing the generative audio engine to adapt dynamically to the player's current biome as they explore.

@@ -3,10 +3,12 @@
  */
 
 import * as THREE from 'three';
-import { color, float } from 'three/tsl';
+import { color } from 'three/tsl';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from '../../core/config.ts';
 import { foliageGroup } from '../../world/state.ts';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import type { RemotePeer } from './presence-types.ts';
 
 const _scratchPos = new THREE.Vector3();
@@ -59,8 +61,14 @@ export class RemoteAvatars {
         if (this._initialized) return;
 
         const maxPeers = CONFIG.presence?.maxPeers ?? 16;
-        const geo = new THREE.DodecahedronGeometry(0.35, 0);
-        geo.translate(0, 0.35, 0);
+        // Low-poly candy explorer shape
+        const bodyGeo = new THREE.CapsuleGeometry(0.2, 0.5, 4, 8);
+        bodyGeo.translate(0, 0.45, 0); // Lift up so base is at ~0.15
+
+        const headGeo = new THREE.SphereGeometry(0.25, 8, 8);
+        headGeo.translate(0, 0.85, 0); // Rest on top of the capsule
+
+        const geo = mergeGeometries([bodyGeo, headGeo], false);
 
         const mat = new MeshPhysicalNodeMaterial({
             roughness: 0.25,
@@ -126,9 +134,7 @@ export class RemoteAvatars {
 
     dispose(): void {
         if (this._mesh) {
-            foliageGroup.remove(this._mesh);
-            this._mesh.geometry.dispose();
-            (this._mesh.material as THREE.Material).dispose();
+            safeRemoveAndDispose(foliageGroup, this._mesh);
             this._mesh = null;
         }
         if (this._tagRoot?.parentNode) {
@@ -250,17 +256,15 @@ export class RemoteAvatars {
                 _scratchMat.compose(_interpPos, _interpQuat, _scratchScale);
                 // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
                 _scratchMat.toArray(this._mesh.instanceMatrix.array, slot * 16);
-                visibleCount++;
 
                 const tint = hashToColor(peerId);
 
-                // Write directly to instanceColor array to avoid allocation/overhead
-                const r = ((tint >> 16) & 255) / 255.0;
-                const g = ((tint >> 8) & 255) / 255.0;
-                const b = (tint & 255) / 255.0;
-                this._mesh.instanceColor!.array[slot * 3 + 0] = r;
-                this._mesh.instanceColor!.array[slot * 3 + 1] = g;
-                this._mesh.instanceColor!.array[slot * 3 + 2] = b;
+                // ⚡ OPTIMIZATION: Write directly to instanceColor array
+                this._mesh!.instanceColor!.array[slot * 3] = ((tint >> 16) & 255) / 255.0;
+                this._mesh!.instanceColor!.array[slot * 3 + 1] = ((tint >> 8) & 255) / 255.0;
+                this._mesh!.instanceColor!.array[slot * 3 + 2] = (tint & 255) / 255.0;
+
+                visibleCount++;
 
                 const tag = this._tags[slot];
                 if (tag) {
