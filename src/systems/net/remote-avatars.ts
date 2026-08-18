@@ -7,6 +7,7 @@ import { color, float } from 'three/tsl';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../../core/config.ts';
 import { foliageGroup } from '../../world/state.ts';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import type { RemotePeer } from './presence-types.ts';
 
 const _scratchPos = new THREE.Vector3();
@@ -126,9 +127,7 @@ export class RemoteAvatars {
 
     dispose(): void {
         if (this._mesh) {
-            foliageGroup.remove(this._mesh);
-            this._mesh.geometry.dispose();
-            (this._mesh.material as THREE.Material).dispose();
+            safeRemoveAndDispose(foliageGroup, this._mesh);
             this._mesh = null;
         }
         if (this._tagRoot?.parentNode) {
