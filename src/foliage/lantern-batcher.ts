@@ -34,6 +34,11 @@ export class LanternBatcher {
     private initialized = false;
     private count = 0;
 
+    // Memory/Slot Management for Streaming
+    private freeList: number[] = [];
+    private logicIdToInstance = new Map<number, number>();
+    private instanceToLogicId: Record<number, number> = {};
+
     // Meshes
     public stemMesh: THREE.InstancedMesh | null = null;
     public topMesh: THREE.InstancedMesh | null = null;
@@ -312,10 +317,17 @@ export class LanternBatcher {
 
     register(dummy: THREE.Object3D, options: any) {
         if (!this.initialized) this.init();
-        if (this.count >= MAX_LANTERNS) return;
 
-        const i = this.count;
-        this.count++;
+        let i: number;
+        if (this.freeList.length > 0) {
+            i = this.freeList.pop()!;
+        } else {
+            if (this.count >= MAX_LANTERNS) return;
+            i = this.count++;
+        }
+
+        this.logicIdToInstance.set(dummy.id, i);
+        this.instanceToLogicId[i] = dummy.id;
 
         // ⚡ OPTIMIZATION: Mark as batched
         dummy.userData.isBatched = true;
@@ -360,7 +372,38 @@ export class LanternBatcher {
         if (this.topMesh!.instanceColor) this.topMesh!.instanceColor.needsUpdate = true;
     }
 
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.initialized || !logicObject) return;
+
+        const id = logicObject.id;
+        if (!this.logicIdToInstance.has(id)) return;
+
+        const i = this.logicIdToInstance.get(id)!;
+        this.logicIdToInstance.delete(id);
+        delete this.instanceToLogicId[i];
+        this.freeList.push(i);
+
+        // Scale instance to 0 to hide it
+        _scratchMatrixBatch.identity();
+        _scratchV.set(0, 0, 0);
+        _scratchMatrixBatch.scale(_scratchV);
+
+        if (this.stemMesh) {
+            _scratchMatrixBatch.toArray(this.stemMesh.instanceMatrix.array, i * 16);
+            this.stemMesh.instanceMatrix.needsUpdate = true;
+        }
+        if (this.topMesh) {
+            _scratchMatrixBatch.toArray(this.topMesh.instanceMatrix.array, i * 16);
+            this.topMesh.instanceMatrix.needsUpdate = true;
+        }
+    }
+
     dispose(): void {
+        this.freeList = [];
+        this.logicIdToInstance.clear();
+        this.instanceToLogicId = {};
+        this.count = 0;
+
         const meshes = [
             this.stemMesh,
             this.topMesh
