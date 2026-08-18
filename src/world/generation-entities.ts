@@ -381,8 +381,11 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
             if (entityType === 'cave' && caveNeedsWaterfallProxy && obj.userData.gatePosition) {
                 const waterfallProxy = new THREE.Object3D();
                 // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy by doing pure math composition
-                obj.updateMatrix();
-                waterfallProxy.position.copy(obj.userData.gatePosition).applyMatrix4(obj.matrix);
+                // Write directly using the position/scale properties instead of updateMatrix overhead
+                waterfallProxy.position.copy(obj.userData.gatePosition)
+                    .multiply(obj.scale)
+                    .applyQuaternion(obj.quaternion)
+                    .add(obj.position);
                 waterfallProxy.userData.type = 'waterfall';
                 animatedFoliage.push(waterfallProxy as any);
             }
