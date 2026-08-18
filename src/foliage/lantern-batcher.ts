@@ -315,7 +315,7 @@ export class LanternBatcher {
         return geo;
     }
 
-    register(dummy: THREE.Object3D, options: any) {
+    register(dummy: THREE.Object3D, options: Record<string, unknown>) {
         if (!this.initialized) this.init();
 
         let i: number;
@@ -343,9 +343,9 @@ export class LanternBatcher {
         _scratchMatrixBatch.toArray(this.topMesh!.instanceMatrix.array, (i) * 16);
 
         // Params
-        const height = options.height || 2.5;
-        const colorHex = options.color || 0xFFA500;
-        const spawnTime = options.spawnTime !== undefined ? options.spawnTime : -100.0;
+        const height = (options.height as number) || 2.5;
+        const colorHex = (options.color as number) || 0xFFA500;
+        const spawnTime = options.spawnTime !== undefined ? (options.spawnTime as number) : -100.0;
         // ⚡ OPTIMIZATION: Reuse module-scoped scratch color to avoid GC
         const c = _scratchColor.set(colorHex);
 
