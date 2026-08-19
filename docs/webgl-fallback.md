@@ -114,6 +114,28 @@ through `resolvePostfxQuality()` / `areGodRaysEnabled()` / `isDofEnabled()`:
   manual `dofEnabled` mode) and snaps back to a sharp world instantly. `uDofFocus` follows the
   player's look distance. WebGL uses `BokehPass` as a degraded-but-functional equivalent.
 
+## Shadows: CSM is WebGPU-only
+
+Cascaded Shadow Maps ride Three's TSL node graph (`CSMShadowNode` sets
+`light.shadow.shadowNode`, which only `AnalyticLightNode` — the WebGPU light
+path — ever reads). The WebGL renderer never builds that graph, so
+`initSunCascades()` checks `renderer.isWebGPURenderer` and returns `null` on
+WebGL. The caller then keeps the legacy single player-following ortho map
+configured in `configureSunShadows()`; nothing throws and nothing is skipped.
+
+In practice WebGL rarely reaches either path: `resolveStartupCapabilities()`
+forces `graphics='low'` whenever `forceWebGL` is set, and the `low` tier turns
+shadows off entirely. The single-map fallback exists for the case where that
+clamp is relaxed, and so that flipping `CONFIG.lighting.shadows.cascadesEnabled`
+to `false` restores the old rig on either backend.
+
+Boot check both paths after touching shadow code:
+
+```bash
+RENDERER=webgl npm run test   # must still reach __sceneReady
+npm run test                  # WebGPU default
+```
+
 ## WebGL → WebGPU Porting Checklist
 
 When iterating a visual feature in WebGL first:
@@ -132,3 +154,4 @@ When iterating a visual feature in WebGL first:
 - `src/core/init.ts` — renderer creation and mode-specific setup
 - `src/foliage/post-processing.ts` — dual post-processing pipelines
 - `src/debug/panel.ts` — debug UI renderer toggle
+- `src/systems/shadow-cascades.ts` — CSM rig, WebGPU guard, single-map fallback

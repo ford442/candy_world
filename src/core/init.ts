@@ -19,6 +19,12 @@ import {
     type RendererBackend,
 } from '../rendering/renderer-mode.ts';
 import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
+import {
+    initSunCascades,
+    attachCascadeDebug,
+    getCascadeMapSizes,
+} from '../systems/shadow-cascades.ts';
+import type { ShadowSettings } from './config/postfx.ts';
 import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
 
 /**
@@ -41,13 +47,13 @@ function configureSunShadows(
     sunLight: THREE.DirectionalLight,
     renderer: CandyRenderer,
     scene: THREE.Scene,
-): boolean {
+): ShadowSettings {
     const settings = resolveShadowSettings();
 
     if (!settings.enabled) {
         sunLight.castShadow = false;
         renderer.shadowMap.enabled = false;
-        return false;
+        return settings;
     }
 
     const cfg = CONFIG.lighting.shadows;
@@ -73,7 +79,7 @@ function configureSunShadows(
 
     // DirectionalLight aims position → target; target must be in the scene graph.
     scene.add(sunLight.target);
-    return true;
+    return settings;
 }
 
 /**
@@ -289,14 +295,25 @@ export async function initScene(): Promise<SceneInitResult> {
     const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.9);
     sunLight.position.set(50, 80, 30);
 
-    const shadowsActive = configureSunShadows(sunLight, renderer, scene);
-    if (shadowsActive) {
-        console.log(`[Init] Sun shadows enabled (map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u)`);
-    } else {
-        console.log('[Init] Sun shadows disabled (quality tier / CONFIG)');
-    }
+    const shadowSettings = configureSunShadows(sunLight, renderer, scene);
 
     scene.add(sunLight);
+
+    // CSM parents its per-cascade light proxies to sunLight.parent, so this must
+    // run after the light joins the scene graph. Returns null on the WebGL path
+    // (node graph is WebGPU-only) — we then keep the single follow map.
+    const cascades = shadowSettings.enabled
+        ? initSunCascades(sunLight, renderer, camera, shadowSettings)
+        : null;
+
+    if (cascades) attachCascadeDebug(scene);
+
+    const shadowSummary = !shadowSettings.enabled
+        ? 'disabled (quality tier / CONFIG)'
+        : cascades
+          ? `CSM ${cascades.cascades} cascades, maps ${getCascadeMapSizes().join('/')}, maxFar ${Math.min(CONFIG.lighting.shadows.cascadeMaxFar, camera.far)}u`
+          : `single follow map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u`;
+    console.log(`[Init] Sun shadows ${shadowSummary}`);
 
     // Enhanced Sun Glow with dynamic corona effect
     const sunGlowMat = new THREE.MeshBasicMaterial({

@@ -3,6 +3,10 @@ import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processi
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { AtmosphereShaftState } from '../systems/music-reactivity.ts';
 import { player } from '../systems/physics/index.ts';
+import {
+    areSunCascadesActive,
+    updateSunCascadeDirection,
+} from '../systems/shadow-cascades.ts';
 import { CONFIG, areGodRaysEnabled, isDofEnabled, isDofManual } from './config.ts';
 import { isCIorHeadless } from './config.ts';
 import {
@@ -40,6 +44,15 @@ export function updateSunShadowFollow(
     normalizedSunDir: THREE.Vector3,
 ): void {
     if (!sunLight.castShadow) return;
+
+    // CSM derives every cascade camera from the light direction and does its own
+    // per-cascade texel snap each frame. Running the single-map follow rig on top
+    // would fight it for the same shadow camera and shimmer, so hand over the
+    // direction and stop there.
+    if (areSunCascadesActive()) {
+        updateSunCascadeDirection(sunLight, playerPos, normalizedSunDir);
+        return;
+    }
 
     const cfg = CONFIG.lighting.shadows;
     const renderRadius = cfg.followRadius + cfg.snapHeadroom;

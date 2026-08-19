@@ -134,6 +134,35 @@ export interface ConfigType {
             normalBias: number;
             /** PCF soft shadow filter radius. */
             pcfRadius: number;
+
+            // --- Cascaded Shadow Maps (WebGPU only; WebGL keeps the single follow map) ---
+            /** Master switch for CSM. False → the legacy single player-following ortho map. */
+            cascadesEnabled: boolean;
+            /** Visual Impact: cascade count at default quality. Clamped to 2–4. */
+            cascadeCount: number;
+            /** Visual Impact: cascade count when the shadow tier is high. Clamped to 2–4. */
+            cascadeCountHigh: number;
+            /** Split scheme across the camera frustum. 'practical' blends uniform + logarithmic. */
+            cascadeMode: 'practical' | 'uniform' | 'logarithmic';
+            /**
+             * Visual Impact: far clip for cascade splits, in world units. Bounds how much of
+             * the (very long) camera frustum the cascades cover — keep near the fog far plane
+             * so the last cascade does not waste texels past visible range.
+             */
+            cascadeMaxFar: number;
+            /** Distance the cascade light is pushed back along the sun direction. */
+            cascadeLightMargin: number;
+            /** Cross-fade cascade seams. Slightly softer, slightly more expensive. */
+            cascadeFade: boolean;
+            /**
+             * Halve the shadow map for each successive (farther) cascade, floored at
+             * `cascadeMapSizeMin`. Near cascade keeps the full `mapSize`, so the
+             * high tier spends 2048 only where the player actually looks. Roughly
+             * halves total shadow VRAM versus a flat allocation.
+             */
+            cascadeMapSizeTaper: boolean;
+            /** Lower bound for tapered far-cascade shadow maps. */
+            cascadeMapSizeMin: number;
         };
     };
 

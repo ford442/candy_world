@@ -38,6 +38,7 @@
         "test:wasm-loader": "node tests/wasm-loader-reliability.mjs",
         "test:startup": "node tests/startup-bootstrap.mjs",
         "test:capabilities": "tsx tests/startup-capabilities.test.mjs",
+        "test:cascades": "tsx tests/shadow-cascades.test.mjs",
         "test:boot": "npm run test",
         "test:world": "BOOT_PATH=explore npm run test",
         "test:boot:timing": "node tests/boot-timing.mjs",
