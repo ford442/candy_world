@@ -10,6 +10,7 @@ import { installWorldExportTools } from '../../world/map-exporter.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
 import { setCameraRef } from '../camera-ref.ts';
 import { resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from '../config.ts';
+import { refreshStartupCapabilities } from '../startup/capabilities.ts';
 import { initScene } from '../init.ts';
 import { POST_PROCESSING_PROGRESS } from './constants.ts';
 import type { MainContext } from './context.ts';
@@ -57,6 +58,12 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
         interactiveObjects,
     };
     installWorldExportTools();
+
+    // GPU is armed — re-resolve capabilities with isFallbackAdapter / WebGL now known
+    // so postfx/warmup/deferred gates match the actual adapter before the TSL graph builds.
+    refreshStartupCapabilities({
+        forceWebGL: mode === 'webgl',
+    });
 
     if (mode === 'webgl') {
         console.warn('[Startup] WebGL fallback mode active. Some visual features may be limited.');

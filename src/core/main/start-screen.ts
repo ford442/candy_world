@@ -26,7 +26,8 @@ import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { showToast } from '../../utils/toast.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
-import { populateWorld, WorldMode } from '../../world/generation.ts';
+import { populateWorld } from '../../world/generation.ts';
+import type { WorldMode } from '../../world/generation-utils.ts';
 import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
 import { spawnTracker } from '../../world/spawn-tracker.ts';
 import {
@@ -41,13 +42,12 @@ import {
 } from '../deferred-init.ts';
 import {
     loadStartupProfile,
-    saveStartupProfile,
-    setMapSize,
-    mapSizeToWorldMode,
-    mapSizeUsesFastPopulation,
-    mapSizeWaitsForFullPopulation,
+    setStartupPath,
+    isBootInstant,
+    profileDescription,
     enterButtonLabel,
     profileLoadHint,
+    type StartupPath,
     type StartupProfile,
 } from '../startup-profile.ts';
 import type { MainContext } from './context.ts';
@@ -55,6 +55,38 @@ import { camera, renderer, scene } from './exports.ts';
 
 function yieldFrame(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 50));
+}
+
+function whenSceneReady(): Promise<void> {
+    try {
+        if ((window as any).__sceneReady === true) return Promise.resolve();
+    } catch {
+        /* ignore */
+    }
+    return new Promise((resolve) => {
+        const started = performance.now();
+        const tick = () => {
+            try {
+                if ((window as any).__sceneReady === true || performance.now() - started > 30000) {
+                    resolve();
+                    return;
+                }
+            } catch {
+                resolve();
+                return;
+            }
+            setTimeout(tick, 50);
+        };
+        tick();
+    });
+}
+
+function pathToWorldMode(path: StartupPath): WorldMode {
+    return path === 'core' ? 'CORE' : 'FULL';
+}
+
+function pathEmoji(path: StartupPath): string {
+    return path === 'explore' ? '🌸' : '🍭';
 }
 
 export function setupStartScreen(ctx: MainContext): void {
@@ -87,84 +119,72 @@ export function setupStartScreen(ctx: MainContext): void {
     announce('World loaded. Press Enter to enter the world.', 'assertive');
 
     let profile: StartupProfile = loadStartupProfile();
-    ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
-
-    const modeSelect = document.getElementById('mode-select');
+    
     const modeDescription = document.getElementById('mode-description');
+    const fullWorldToggle = document.getElementById('toggleFullWorld') as HTMLButtonElement | null;
 
-    const btnPlayFast = document.getElementById('btn-play-fast') as HTMLButtonElement;
-    const btnPlayExplore = document.getElementById('btn-play-explore') as HTMLButtonElement;
+    const syncProfileUi = () => {
+        
+        if (fullWorldToggle) {
+            const explore = profile.path === 'explore';
+            fullWorldToggle.setAttribute('aria-checked', String(explore));
+        }
 
-    saveStartupProfile(profile);
+        if (modeDescription) {
+            modeDescription.textContent = profileDescription(profile);
+        }
+
+        startButton.innerHTML = `${enterButtonLabel(profile.path)} <span aria-hidden="true">${pathEmoji(profile.path)}</span> <span class="key-badge" aria-hidden="true">Enter</span>`;
+
+        console.log(
+            `[Startup] Profile: path=${profile.path} graphics=${profile.graphics} (${profileLoadHint(profile)})`
+        );
+    };
+
+    const applyPath = (path: StartupPath) => {
+        // Keep the in-memory session path even when URL would re-force it on load.
+        profile = { ...profile, path };
+        if (path === 'play' || path === 'explore') {
+            setStartupPath(path);
+        }
+        (window as any).__startupProfile = profile;
+        syncProfileUi();
+    };
+
+    if (fullWorldToggle) {
+        fullWorldToggle.addEventListener('click', () => {
+            const next = profile.path === 'explore' ? 'play' : 'explore';
+            applyPath(next);
+        });
+        fullWorldToggle.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fullWorldToggle.click();
+            }
+        });
+    }
+
     (window as any).__startupProfile = profile;
-
-    if (btnPlayFast) {
-        btnPlayFast.addEventListener('click', () => {
-            profile = setMapSize('small');
-            (window as any).__startupProfile = profile;
-            ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
-
-            if (modeSelect) modeSelect.style.display = 'none';
-            startButton.style.display = 'inline-block';
-            void enterWorld();
-        });
-    }
-
-    if (btnPlayExplore) {
-        btnPlayExplore.addEventListener('click', () => {
-            profile = setMapSize('large');
-            (window as any).__startupProfile = profile;
-            ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
-
-            if (modeSelect) modeSelect.style.display = 'none';
-            startButton.style.display = 'inline-block';
-            void enterWorld();
-        });
-    }
+    syncProfileUi();
 
     if (ctx.mode === 'webgl' && isWebGLLiteMode()) {
-        console.warn('[Startup] WebGL lite mode — Small map recommended');
+        console.warn('[Startup] WebGL lite mode — Play path (spawn chunk) recommended');
     }
 
     let worldGenerated = false;
     let isGenerating = false;
 
-    const getGenerationLabel = (worldMode: WorldMode) => {
-        if (worldMode === 'CORE') return 'Generating small world...';
-        if (profile.mapSize === 'medium') return 'Generating medium map (nearby + streaming)...';
-        return 'Generating large map...';
+    const getGenerationLabel = (path: StartupPath) => {
+        if (path === 'core') return 'Generating core world...';
+        if (path === 'explore') return 'Generating full world (nearby + streaming)...';
+        return 'Generating spawn area...';
     };
-
-    // Enable the buttons once assets have loaded
-    const unlockButtons = () => {
-        if (btnPlayFast) {
-            btnPlayFast.disabled = false;
-            btnPlayFast.textContent = 'Play (Fast Start)';
-        }
-        if (btnPlayExplore) {
-            btnPlayExplore.disabled = false;
-            btnPlayExplore.textContent = 'Explore (Full Map)';
-        }
-    };
-
-    if (!startButton.disabled) {
-        unlockButtons();
-    } else {
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.attributeName === 'disabled' && !startButton.disabled) {
-                    unlockButtons();
-                }
-            });
-        });
-        observer.observe(startButton, { attributes: true });
-    }
 
     async function enterWorld() {
         if (isGenerating || !startButton || worldGenerated) return;
 
-        // Re-read in case URL/storage changed
-        profile = loadStartupProfile();
+        profile = { ...profile, graphics: loadStartupProfile().graphics };
+        syncProfileUi();
 
         isGenerating = true;
         ctx.worldGenerationActive = true;
@@ -180,10 +200,8 @@ export function setupStartScreen(ctx: MainContext): void {
         showReadinessGenerating(profileLoadHint(profile));
 
         await yieldFrame();
-        const requestedMode: WorldMode = mapSizeToWorldMode(profile.mapSize);
-        const useFastPopulation = mapSizeUsesFastPopulation(profile.mapSize);
-        const waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
-        ctx.waitForFullPopulation = waitForFullPopulation;
+        const requestedMode: WorldMode = pathToWorldMode(profile.path);
+                const bootPath = profile.path === 'explore' ? ('explore' as const) : ('play' as const);
 
         let activeWorldMode: WorldMode = requestedMode;
 
@@ -198,22 +216,18 @@ export function setupStartScreen(ctx: MainContext): void {
             }
 
             console.log(
-                `[Startup] Enter world: graphics=${profile.graphics} map=${profile.mapSize} → ${requestedMode}` +
-                    (useFastPopulation ? ' (fast population)' : '') +
-                    (waitForFullPopulation ? ' (wait for full)' : '')
+                `[Startup] Enter world: graphics=${profile.graphics} path=${profile.path} → ${requestedMode}` +
+                    (profile.path !== 'core' ? ` (bootPath=${bootPath})` : '') +
+                    ''
             );
 
-            if (modeSelect) {
-                modeSelect.querySelectorAll('.profile-row').forEach((el) => {
-                    (el as HTMLElement).style.display = 'none';
-                });
-                if (modeDescription) modeDescription.style.display = 'none';
-            }
+            if (fullWorldToggle) fullWorldToggle.style.display = 'none';
+            if (modeDescription) modeDescription.style.display = 'none';
             showModeBadge(requestedMode, profile);
 
             loadingScreen.show();
             loadingScreen.startPhase('map-generation');
-            loadingScreen.updateProgress(0, getGenerationLabel(requestedMode));
+            loadingScreen.updateProgress(0, getGenerationLabel(profile.path));
             resetSpawnTracker();
 
             let lastAnnounced = -1;
@@ -225,7 +239,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 requestedMode,
                 (current: number, total: number, label?: string, entityType?: string) => {
                     const percent = Math.floor((current / total) * 100);
-                    const baseLabel = label ?? getGenerationLabel(requestedMode);
+                    const baseLabel = label ?? getGenerationLabel(profile.path);
                     const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
                     loadingScreen.updateProgress(percent, progressLabel);
                     reportReadinessProgress(percent, progressLabel);
@@ -234,18 +248,8 @@ export function setupStartScreen(ctx: MainContext): void {
                         statusEl.textContent = progressLabel;
                     }
 
-                    const accent =
-                        profile.mapSize === 'small'
-                            ? '#FF9ECD'
-                            : profile.mapSize === 'medium'
-                              ? '#A5D6A7'
-                              : '#FF6B6B';
-                    const soft =
-                        profile.mapSize === 'small'
-                            ? '#FFD4E3'
-                            : profile.mapSize === 'medium'
-                              ? '#C8E6C9'
-                              : '#FFB6C1';
+                    const accent = profile.path === 'explore' ? '#A5D6A7' : '#FF9ECD';
+                    const soft = profile.path === 'explore' ? '#C8E6C9' : '#FFD4E3';
                     startButton.style.background = `linear-gradient(90deg, ${accent} ${percent}%, ${soft} ${percent}%)`;
 
                     if (percent - lastAnnounced >= 10 || percent === 100) {
@@ -253,12 +257,7 @@ export function setupStartScreen(ctx: MainContext): void {
                         lastAnnounced = percent;
                     }
                 },
-                useFastPopulation || profile.mapSize !== 'large'
-                    ? {
-                          fastPopulation: useFastPopulation,
-                          bootPath: profile.mapSize !== 'large' ? 'play' as const : undefined,
-                      }
-                    : undefined
+                requestedMode === 'FULL' ? { bootPath } : undefined
             );
 
             if (activeWorldMode !== requestedMode) {
@@ -319,7 +318,6 @@ export function setupStartScreen(ctx: MainContext): void {
 
             showToast('Click to explore! Press [ESC] for Controls', '🎮', 4000);
 
-            // Playable milestone — horizon may still be streaming
             markReadinessPlayable();
 
             showDeferredIndicator();
@@ -329,22 +327,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 setDeferredFailures(spawnTracker.getReport().failCount);
             });
             globalBackgroundProcessor.resetCounters();
-
-            if (waitForFullPopulation) {
-                if (!globalLoadingManager.getTask('deferred-population')) {
-                    globalLoadingManager.registerTask({
-                        id: 'deferred-population',
-                        name: 'World Population',
-                        weight: 0.2,
-                        description: 'Populating horizon...',
-                        isDeferred: true,
-                    });
-                }
-                loadingScreen.markPhaseNonSkippable('deferred-population');
-                loadingScreen.startPhase('deferred-population');
-            } else {
-                showDeferredIndicator();
-            }
+            showDeferredIndicator();
 
             globalBackgroundProcessor.onProgress((completed, total) => {
                 const failedSoFar = globalBackgroundProcessor.getFailedCount();
@@ -353,13 +336,7 @@ export function setupStartScreen(ctx: MainContext): void {
             });
 
             globalBackgroundProcessor.onComplete((completed, total, bgFailed) => {
-                if (waitForFullPopulation) {
-                    globalLoadingManager.reportDeferredProgress(completed, total, bgFailed);
-                    globalLoadingManager.completeTask('deferred-population');
-                    loadingScreen.completePhase('deferred-population');
-                } else {
-                    hideDeferredIndicator();
-                }
+                hideDeferredIndicator();
 
                 populatePhysicsGrids();
                 finalizeStartupProfile();
@@ -374,13 +351,11 @@ export function setupStartScreen(ctx: MainContext): void {
                         console.warn(
                             `[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`
                         );
-                        if (!waitForFullPopulation) {
-                            showToast(
+                        showToast(
                                 `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
                                 '⚠️',
                                 5000
                             );
-                        }
                     } else if (r.attempted > 0) {
                         console.log(
                             `[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`
@@ -435,16 +410,14 @@ export function setupStartScreen(ctx: MainContext): void {
 
             worldGenerated = true;
             startButton.style.background = '';
-            const emoji =
-                profile.mapSize === 'small' ? '🍭' : profile.mapSize === 'medium' ? '🌿' : '🌸';
-            startButton.innerHTML = `${enterButtonLabel(profile.mapSize, true)} <span aria-hidden="true">${emoji}</span> <span class="key-badge" aria-hidden="true">Enter</span>`;
+            startButton.innerHTML = `${enterButtonLabel(profile.path, true)} <span aria-hidden="true">${pathEmoji(profile.path)}</span> <span class="key-badge" aria-hidden="true">Enter</span>`;
         } catch (err) {
             console.error('[Init] World generation failed:', err);
             loadingScreen.hide();
             startButton.style.background = '';
             startButton.innerHTML = 'Retry';
-            if (modeSelect) modeSelect.style.display = '';
-            startButton.style.display = 'none';
+            if (fullWorldToggle) fullWorldToggle.style.display = '';
+            if (modeDescription) modeDescription.style.display = '';
             announce('World generation failed. Please try again.', 'assertive');
         } finally {
             ctx.worldGenerationActive = false;
@@ -463,4 +436,16 @@ export function setupStartScreen(ctx: MainContext): void {
             void enterWorld();
         }
     });
+
+    if (isBootInstant()) {
+        try {
+            (window as any).__bootInstant = true;
+        } catch {
+            /* ignore */
+        }
+        console.log('[Startup] ?boot=instant — auto-entering Play path after scene ready');
+        void whenSceneReady().then(() => {
+            if (!isGenerating && !worldGenerated) void enterWorld();
+        });
+    }
 }

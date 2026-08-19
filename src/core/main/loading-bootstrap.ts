@@ -8,18 +8,20 @@ import { enableStartupProfiler } from '../../utils/startup-profiler.ts';
 import {
     isCIorHeadless,
     getDeviceMemoryGB,
-    getLoadMemoryScale,
-    getLoadMemoryTier,
-    shouldPreferLightWorldLoad,
     CONFIG,
 } from '../config.ts';
-import { loadStartupProfile, mapSizeWaitsForFullPopulation } from '../startup-profile.ts';
+import {
+    applyStartupCapabilities,
+    formatStartupLogLine,
+    gatherStartupCapabilityInputs,
+    resolveStartupCapabilities,
+} from '../startup/capabilities.ts';
+import { loadStartupProfile } from '../startup-profile.ts';
 import type { LoadingScreen } from './context.ts';
 
 export interface LoadingBootstrapResult {
     loadingScreen: LoadingScreen;
-    waitForFullPopulation: boolean;
-}
+    }
 
 export function runLoadingBootstrap(): LoadingBootstrapResult {
     if (CONFIG.safeMode || isCIorHeadless()) {
@@ -29,11 +31,8 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
 
     const profile = loadStartupProfile();
     (window as any).__startupProfile = profile;
-    // Large map implies wait-for-full; URL ?waitForFull still forces it for smoke/debug.
-    const waitForFullPopulation =
-        new URLSearchParams(location.search).has('waitForFull') ||
-        mapSizeWaitsForFullPopulation(profile.mapSize);
-
+    const caps = applyStartupCapabilities(resolveStartupCapabilities(gatherStartupCapabilityInputs()));
+    
     const loadingScreen = initLoadingScreen({ theme: 'candy', showEstimatedTime: true });
     loadingScreen.show();
     installLegacyAPI();
@@ -74,17 +73,13 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
     });
 
     {
-        const tier = getLoadMemoryTier();
-        const gb = getDeviceMemoryGB();
+        const ctx = gatherStartupCapabilityInputs();
         console.log(
-            `[Startup] Memory tier: ${tier}` +
-                (typeof gb === 'number' ? ` (~${gb} GB deviceMemory)` : '') +
-                ` · population scale=${getLoadMemoryScale().toFixed(2)}` +
-                (shouldPreferLightWorldLoad() ? ' · preferring lighter Full-mode population' : '')
-        );
-        console.log(
-            `[Startup] Profile: graphics=${profile.graphics} map=${profile.mapSize}` +
-                (waitForFullPopulation ? ' · wait-for-full' : '')
+            formatStartupLogLine(caps, {
+                deviceTier: ctx.deviceTier,
+                deviceMemoryGB: getDeviceMemoryGB(),
+                fallbackAdapter: ctx.isFallbackAdapter,
+            }) 
         );
     }
 
@@ -94,5 +89,5 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
     void initAnalyticsDebugIfNeeded();
     initializeSaveSystemIntegration();
 
-    return { loadingScreen, waitForFullPopulation };
+    return { loadingScreen };
 }

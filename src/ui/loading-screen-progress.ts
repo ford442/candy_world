@@ -1,4 +1,3 @@
-import { getAccessibilitySystem } from '../systems/accessibility.ts';
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
 import { log } from '../utils/log.ts';
 import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types.ts';
@@ -184,7 +183,11 @@ export class LoadingScreenProgress {
      */
     tick(deltaSeconds: number): boolean {
         let needsVisualUpdate = false;
-        const reduceMotion = getAccessibilitySystem().shouldReduceMotion();
+        const reduceMotion =
+            (typeof document !== 'undefined' &&
+                document.body.classList.contains('a11y-motion-reduced')) ||
+            (typeof window !== 'undefined' &&
+                window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
         // Dampen the displayed phase progress towards target
         const phaseDiff = this.phaseProgress - this.displayedPhaseProgress;

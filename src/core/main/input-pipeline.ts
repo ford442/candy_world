@@ -1,13 +1,29 @@
 import * as THREE from 'three';
 import { StageLoader } from '../../debug/index.ts';
+import {
+    initExploreCamera,
+    getExploreCamera,
+    setExploreOrbitFlag,
+} from '../camera-modes.ts';
+import { CONFIG, CYCLE_DURATION } from '../config.ts';
+import {
+    uBloomStrength,
+    uColorSaturation,
+    uColorContrast,
+    uVignetteStrength,
+    uDofFocus,
+    uDofMix,
+    uShaftScatterBoost,
+} from '../../foliage/post-processing.ts';
 import { ensureGameplay } from '../../gameplay/lazy.ts';
 import { getGroundHeight } from '../../systems/ground-system.ts';
 import { InteractionSystem } from '../../systems/interaction.ts';
 import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
 import { player } from '../../systems/physics/index.ts';
+import { announcePolite } from '../../ui/announcer.ts';
 import { profiler } from '../../utils/profiler.ts';
 import { toggleOverlay } from '../../utils/startup-profiler.ts';
-import { CONFIG } from '../config.ts';
+import { getWorldSeed } from '../../world/world-seed.ts';
 import {
     initDeferredVisualsDependencies,
 } from '../deferred-init.ts';
@@ -99,6 +115,23 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
                 renderer,
                 renderFrame: () => ctx.postProcessing.render(),
                 getGameTime,
+                cycleDuration: CYCLE_DURATION,
+                postFx: {
+                    uBloomStrength,
+                    uColorSaturation,
+                    uColorContrast,
+                    uVignetteStrength,
+                    uDofFocus,
+                    uDofMix,
+                    uShaftScatterBoost,
+                },
+                explore: {
+                    getExploreCamera,
+                    initExploreCamera,
+                    setExploreOrbitFlag,
+                },
+                getWorldSeed,
+                announcePolite,
             });
         }
     });

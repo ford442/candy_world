@@ -18,7 +18,7 @@ Make WebGPU a hard requirement to enter the world. Today the boot path can silen
 
 ## Part II door sequence (#1492)
 
-1. **Foundation** — TS/ESLint ratchet ✅, app-chunk ~599 KB ✅, WebGPU single device ✅, GPU foliage default ✅
+1. **Foundation** — TS/ESLint ratchet ✅, app-chunk ~617 KB / 620 KB ceiling ✅, WebGPU single device ✅, GPU foliage default ✅
 2. **Chunk streaming (#1548)** — `ChunkStreamer` + `map-chunks.json`; Play path spawn tile + ring; `updateStreamingPhase` in game loop
 3. **Presence (Workstream A)** — `?presence=1` or `localStorage` opt-in; candy dodecahedron avatars; mute/hide-self; biome entry announcer; `tests/presence-protocol.test.mjs`
 4. **Sugar Caves (Workstream B — Option 1)** — music-bindings + `BiomeUniforms.sugarCaves`; lake descent; `docs/SUGAR_CAVES_SHIP.md`; VR viewpoint `sugar_caves`
@@ -54,10 +54,10 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 **User idea pool — startup/streaming epic filed 2026-08-10 (largely LANDED — was PRIMARY source 2026-08-11). Epic #1546 collapses ~5 overlapping load knobs to 2 user paths (Play / Explore) and adds spatial chunk streaming. Recommended order in the epic: #1549 → #1547 → #1548. This run partitions by file-decoupling instead: #1548 = kimi (structural core), #1547 = Copilot (UI), #1549 measurement harness = Claude Code. NOTE: sub-issues authored by `cursor[bot]`, not confirmed as Noah's own words — but coherent, well-scoped, and reflect real dev-boot pain; treated as the in-context pool.**
 
-- [ ] **#1546 Epic: Simplify startup to two load paths + chunk streaming** `[in progress — 2026-08-11]` — collapse 3×3 graphics×map matrix → Play (≤8s to pointer-lock, spawn chunk) + Explore (full world, never blocks on horizon). Parent of #1547/#1548/#1549.
-- [x] **#1548 Spatial chunk loader: spawn tile first, stream rings** `[landed — 2026-08-12]` — `ChunkStreamer` + `assets/map-chunks.json` + `generate:chunk-index`; Play path `chunkStreaming` for small/medium maps; game-loop `updateStreamingPhase`.
-- [x] **#1547 Collapse startup profile UI + wire graphics to runtime** ← **Copilot prep target today** (decoupled: `startup-profile.ts` / `start-screen.ts` / `shader-warmup.ts` / `config/postfx.ts` / `deferred-init.ts` / `index.html` — zero overlap with #1548's world/streaming files). `StartupProfile.graphics` is persisted but unwired; finish Phase 3 gating + one-CTA start screen. Small–medium.
-- [ ] **#1549 Dev fast-boot mode + CI test tiers** — `?boot=instant` auto-enter, `dev:fast` / `test:world` scripts, `tests/boot-timing.mjs` + `boot-budgets.json`, AGENTS/README quick-boot docs. Measurement-harness slice (new test files + docs) routed to Claude Code this run; the `?boot=` start-screen wiring deferred (collides with #1547 start-screen work). Small.
+- [ ] **#1546 Epic: Simplify startup to two load paths + chunk streaming** `[in progress — 2026-08-19]` — collapse 3×3 graphics×map matrix → Play (≤8s to pointer-lock, spawn chunk) + Explore (full world, never blocks on horizon). Parent of #1547/#1548/#1549/#1558.
+- [x] **#1548 Spatial chunk loader: spawn tile first, stream rings** `[landed — 2026-08-12]` — `ChunkStreamer` + `assets/map-chunks.json` + `generate:chunk-index`; Play path spawn tile + 1-ring; game-loop `updateStreamingPhase`.
+- [ ] **#1558 Collapse startup profile UI + wire graphics** — real remaining UI work (#1547 was a docs-only false close). `StartupCapabilities` resolver; start screen is one CTA + Full World toggle; graphics in Settings.
+- [x] **#1549 Dev fast-boot mode + CI test tiers** — `?boot=instant` auto-enter, `dev:fast` / `test:world` / `test:boot:timing`, `tests/boot-timing.mjs` + `boot-budgets.json`.
 
 **User idea pool — GitHub issues filed 2026-08-01 (13 issues — prior batch, mostly landed). Two clusters: a Vision/Foundation batch (21:03) and a mechanical file-split batch (20:35). Self-sequences Foundation → Perf → Content.**
 
@@ -65,7 +65,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [x] **#1496 Make GPU foliage instance animation the default path on the shared WebGPU device** — `performance` `rendering` `webgpu` `migration`. Direct successor to the landed #1448 single-device work. **Status: Implemented ✅**
     - * Implementation Details: Updated `gpu-foliage-flag.ts` so `isGpuFoliagePilotEnabled` returns true by default and modified `gpu-foliage-orchestrator.ts` to enforce the new GPU path. Made GPU foliage instance animation the default path by inverting the pilot flag logic to an opt-out model, short-circuiting the CPU fallback in music-reactivity to save cycles, and bypassing buffer syncing when GPU batching is active.
     - * Next Step Suggestion: Move on to #1494 Generative music + Cinematic Photo Mode as first-class features.
-- [~] **#1495 Finish app-chunk graph redesign + power-tier loading** — `performance` `foundation`. **Landed ~599 KB `app`** (PR #1522): lazy debug/presence/photo/generative/awakened, `budget:check` 600 KB ceiling. Remaining: stretch 500 KB peel. See `docs/APP_CHUNK_SPLIT.md`.
+- [x] **#1495 Finish app-chunk graph redesign + power-tier loading** — `performance` `foundation`. **`app` ~617 KB**, `budget:check` 620 KB (600 KB extra peels TDZ at boot). Presence/photo/generative/map-loader async. Stretch 500 KB remains. See `docs/APP_CHUNK_SPLIT.md`.
 - [x] **#1497 Repo hygiene — delete one-shot scripts / `.orig` / root `temp_base`, own mega-modules** — `architecture` `foundation`. Landed 2026-08-05: deleted root codemods/patches/screenshot throwaways, removed `src/**/*.orig`, gitignore scratch patterns, added `plan.md`; config domain modules (`ground`, `audio`, `fauna`, `presence`); `main.ts` already thin via `main/bootstrap.ts` + pipelines.
 - [x] **#1492 Capstone epic — Presence + Part II door** — `enhancement` `architecture`. Tracker: `docs/CAPSTONE_ROADMAP.md`. Landed 2026-08-12: Presence A2–A5 + Sugar Caves B + Part II unlock. See `docs/SUGAR_CAVES_SHIP.md`.
 - [x] **#1494 Generative music + Cinematic Photo Mode as first-class features** — `enhancement`. Content capstone. **Status: Implemented ✅**

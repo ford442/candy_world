@@ -11,8 +11,7 @@ export type LoadingScreen = ReturnType<typeof initLoadingScreen>;
 /** Mutable runtime state shared across bootstrap pipeline modules. */
 export interface MainContext {
     loadingScreen: LoadingScreen;
-    waitForFullPopulation: boolean;
-    worldGenerationActive: boolean;
+        worldGenerationActive: boolean;
     sceneInitResult?: SceneInitResult;
     mode: SceneInitResult['mode'];
     postProcessing: any;

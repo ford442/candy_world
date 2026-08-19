@@ -54,8 +54,6 @@ export {
     // Legacy wrappers
     createClayMaterial,
     createCandyMaterial,
-    createTexturedClay,
-    createSugaredMaterial,
     createGradientMaterial,
     createStandardNodeMaterial,
     createTransparentNodeMaterial,

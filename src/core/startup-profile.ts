@@ -1,43 +1,49 @@
 /**
- * Startup profile — Graphics level × Map size.
+ * Startup profile — Play / Explore path + graphics quality.
  *
- * Replaces the old CORE / FULL / FAST_FULL mode picker. Choices persist in
- * localStorage and can be overridden via URL (?graphics= / ?map=).
+ * User-facing: one Play path (default) and an opt-in Explore (Full World) path.
+ * Graphics is persisted here and in the save-menu Quality setting; runtime
+ * behaviour is decided by `resolveStartupCapabilities()` in
+ * `src/core/startup/capabilities.ts`.
  *
- * Phase 1 maps MapSize onto the existing populateWorld paths as a compat shim:
- *   small  → CORE
- *   medium → FULL + fastPopulation (reduced procedural extras)
- *   large  → FULL + wait for deferred horizon
- *
- * GraphicsLevel is persisted now; Phase 3 will gate shader warmup / ambient systems.
+ * URL flags (`?boot=`, `?graphics=`, `?map=`) never overwrite persisted values.
+ * Leftover `candy.mapSize` migrates onto `path` once and is no longer written.
  */
 
-import type { WorldMode } from '../world/generation-utils.ts';
-import { getLoadMemoryTier, type LoadMemoryTier } from './config/runtime.ts';
+import { getLoadMemoryTier, shouldPreferLightWorldLoad, type LoadMemoryTier } from './config/runtime.ts';
 
-export type GraphicsLevel = 'low' | 'medium' | 'high';
-export type MapSize = 'small' | 'medium' | 'large';
+export type GraphicsLevel = 'low' | 'medium' | 'high' | 'ultra';
+/** User/session path. `core` is the old CORE sandbox (URL / migration / fallback only). */
+export type StartupPath = 'play' | 'explore' | 'core';
 
 export interface StartupProfile {
+    path: StartupPath;
     graphics: GraphicsLevel;
-    mapSize: MapSize;
 }
 
 export const GRAPHICS_STORAGE_KEY = 'candy.graphicsLevel';
+export const PATH_STORAGE_KEY = 'candy.bootPath';
+/** @deprecated Read-only migration from the old 3×3 map picker. */
 export const MAP_STORAGE_KEY = 'candy.mapSize';
 
-const GRAPHICS_LEVELS: readonly GraphicsLevel[] = ['low', 'medium', 'high'];
-const MAP_SIZES: readonly MapSize[] = ['small', 'medium', 'large'];
+const GRAPHICS_LEVELS: readonly GraphicsLevel[] = ['low', 'medium', 'high', 'ultra'];
+const STARTUP_PATHS: readonly StartupPath[] = ['play', 'explore', 'core'];
+
+export type UrlBootFlag = 'instant' | 'play' | 'explore' | 'core';
 
 function isGraphicsLevel(v: string | null | undefined): v is GraphicsLevel {
     return !!v && (GRAPHICS_LEVELS as readonly string[]).includes(v);
 }
 
-function isMapSize(v: string | null | undefined): v is MapSize {
-    return !!v && (MAP_SIZES as readonly string[]).includes(v);
+function isStartupPath(v: string | null | undefined): v is StartupPath {
+    return !!v && (STARTUP_PATHS as readonly string[]).includes(v);
 }
 
-function readUrlParams(): URLSearchParams | null {
+function isUrlBootFlag(v: string | null | undefined): v is UrlBootFlag {
+    return v === 'instant' || v === 'play' || v === 'explore' || v === 'core';
+}
+
+export function readUrlParams(): URLSearchParams | null {
     try {
         if (typeof window === 'undefined') return null;
         return new URLSearchParams(window.location.search);
@@ -64,78 +70,122 @@ function writeStorage(key: string, value: string): void {
     }
 }
 
-/** Device-tier defaults — avoid surprising first-timers with Large. */
-export function resolveDefaultProfile(tier?: LoadMemoryTier): StartupProfile {
-    const t = tier ?? getLoadMemoryTier();
-    switch (t) {
-        case 'critical':
-        case 'low':
-            return { graphics: 'low', mapSize: 'small' };
+/** Map leftover `candy.mapSize` / `?map=` onto a startup path. */
+export function mapSizeToStartupPath(mapSize: string | null | undefined): StartupPath | null {
+    switch (mapSize) {
+        case 'small':
+            return 'core';
         case 'medium':
-            return { graphics: 'medium', mapSize: 'medium' };
+            return 'play';
+        case 'large':
+            return 'explore';
         default:
-            return { graphics: 'medium', mapSize: 'medium' };
+            return null;
     }
 }
 
 /**
- * Load profile: URL wins, then localStorage, then device-tier default.
+ * Persisted-map migration: Small used to mean CORE, but Play is now the
+ * product default (spawn chunk of the real map). Large → Explore.
+ * `?map=small` still forces the CORE sandbox via {@link resolveBootPathFromUrl}.
+ */
+function migrateStoredMapSize(mapSize: string | null | undefined): StartupPath | null {
+    switch (mapSize) {
+        case 'small':
+        case 'medium':
+            return 'play';
+        case 'large':
+            return 'explore';
+        default:
+            return null;
+    }
+}
+
+/** Device-tier default graphics. Lite / low-RAM GPUs default to CORE unless URL/storage set a path. */
+export function resolveDefaultProfile(tier?: LoadMemoryTier): StartupProfile {
+    const t = tier ?? getLoadMemoryTier();
+    if (shouldPreferLightWorldLoad() || t === 'critical' || t === 'low') {
+        return { graphics: 'low', path: 'core' };
+    }
+    return { graphics: 'medium', path: 'play' };
+}
+
+/** `?boot=instant|play|explore|core` wins; else `?map=` compat. Does not read storage. */
+export function resolveBootPathFromUrl(params?: URLSearchParams | null): StartupPath | null {
+    const search = params ?? readUrlParams();
+    const boot = search?.get('boot');
+    if (isUrlBootFlag(boot)) {
+        return boot === 'instant' ? 'play' : boot;
+    }
+    return mapSizeToStartupPath(search?.get('map') ?? search?.get('mapSize'));
+}
+
+export function isBootInstant(params?: URLSearchParams | null): boolean {
+    const search = params ?? readUrlParams();
+    return search?.get('boot') === 'instant';
+}
+
+export function isWaitForFullRequested(params?: URLSearchParams | null): boolean {
+    const search = params ?? readUrlParams();
+    return !!search?.has('waitForFull');
+}
+
+
+
+/**
+ * Load profile: URL wins for this session, then localStorage, then device default.
+ * URL values are not written back to storage.
  */
 export function loadStartupProfile(): StartupProfile {
     const defaults = resolveDefaultProfile();
     const params = readUrlParams();
 
     const urlGraphics = params?.get('graphics') ?? params?.get('gfx') ?? null;
-    const urlMap = params?.get('map') ?? params?.get('mapSize') ?? null;
-
     const graphics = isGraphicsLevel(urlGraphics)
         ? urlGraphics
         : isGraphicsLevel(readStorage(GRAPHICS_STORAGE_KEY))
           ? (readStorage(GRAPHICS_STORAGE_KEY) as GraphicsLevel)
           : defaults.graphics;
 
-    const mapSize = isMapSize(urlMap)
-        ? urlMap
-        : isMapSize(readStorage(MAP_STORAGE_KEY))
-          ? (readStorage(MAP_STORAGE_KEY) as MapSize)
-          : defaults.mapSize;
+    const urlPath = resolveBootPathFromUrl(params);
+    let path: StartupPath;
+    if (urlPath) {
+        path = urlPath;
+    } else if (isStartupPath(readStorage(PATH_STORAGE_KEY))) {
+        path = readStorage(PATH_STORAGE_KEY) as StartupPath;
+    } else {
+        path = migrateStoredMapSize(readStorage(MAP_STORAGE_KEY)) ?? defaults.path;
+    }
 
-    return { graphics, mapSize };
+    if (isWaitForFullRequested(params)) {
+        path = 'explore';
+    }
+
+    return { graphics, path };
 }
 
 export function saveStartupProfile(profile: StartupProfile): void {
     writeStorage(GRAPHICS_STORAGE_KEY, profile.graphics);
-    writeStorage(MAP_STORAGE_KEY, profile.mapSize);
+    writeStorage(PATH_STORAGE_KEY, profile.path);
 }
 
 export function setGraphicsLevel(graphics: GraphicsLevel): StartupProfile {
-    const next = { ...loadStartupProfile(), graphics };
-    saveStartupProfile(next);
+    const current = loadStartupProfile();
+    const next = { ...current, graphics };
+    writeStorage(GRAPHICS_STORAGE_KEY, graphics);
     return next;
 }
 
-export function setMapSize(mapSize: MapSize): StartupProfile {
-    const next = { ...loadStartupProfile(), mapSize };
-    saveStartupProfile(next);
+export function setStartupPath(path: StartupPath): StartupProfile {
+    const current = loadStartupProfile();
+    const next = { ...current, path };
+    writeStorage(PATH_STORAGE_KEY, path);
     return next;
 }
 
-/** Compat: map size → existing WorldMode for populateWorld(). */
-export function mapSizeToWorldMode(mapSize: MapSize): WorldMode {
-    return mapSize === 'small' ? 'CORE' : 'FULL';
-}
-
-/** Compat: medium uses the old FAST_FULL procedural scale override. */
-export function mapSizeUsesFastPopulation(mapSize: MapSize): boolean {
-    return mapSize === 'medium';
-}
-
-/**
- * Large map waits for deferred horizon before treating the world as "fully ready".
- * Replaces the old wait-for-full checkbox.
- */
-export function mapSizeWaitsForFullPopulation(mapSize: MapSize): boolean {
-    return mapSize === 'large';
+/** Clamp Settings-only `ultra` to `high` for the start-path resolver. */
+export function clampGraphicsForStart(graphics: GraphicsLevel): 'low' | 'medium' | 'high' {
+    return graphics === 'ultra' ? 'high' : graphics;
 }
 
 export function graphicsLabel(graphics: GraphicsLevel): string {
@@ -146,62 +196,53 @@ export function graphicsLabel(graphics: GraphicsLevel): string {
             return 'Medium';
         case 'high':
             return 'High';
+        case 'ultra':
+            return 'Ultra';
     }
 }
 
-export function mapSizeLabel(mapSize: MapSize): string {
-    switch (mapSize) {
-        case 'small':
-            return 'Small';
-        case 'medium':
-            return 'Medium';
-        case 'large':
-            return 'Large';
+export function pathLabel(path: StartupPath): string {
+    switch (path) {
+        case 'play':
+            return 'Play';
+        case 'explore':
+            return 'Explore';
+        case 'core':
+            return 'Core';
     }
 }
 
 export function profileDescription(profile: StartupProfile): string {
-    const g = graphicsLabel(profile.graphics);
-    switch (profile.mapSize) {
-        case 'small':
-            return `${g} graphics · Small map — classic candy terrain near spawn. Fastest start.`;
-        case 'medium':
-            return `${g} graphics · Medium map — musical foliage nearby; horizon fills in while you explore.`;
-        case 'large':
-            return `${g} graphics · Large map — complete world; waits until horizon is fully populated.`;
+    switch (profile.path) {
+        case 'explore':
+            return 'Full World — nearby map loads first; the horizon fills in as you walk.';
+        case 'core':
+            return 'Core sandbox — classic candy terrain near spawn. Dev / CI only.';
+        default:
+            return 'Spawn area loads first; the horizon fills in as you walk.';
     }
 }
 
 export function profileBadgeLabel(profile: StartupProfile): string {
-    return `${graphicsLabel(profile.graphics).toUpperCase()} · ${mapSizeLabel(profile.mapSize).toUpperCase()} MAP`;
+    return `${pathLabel(profile.path).toUpperCase()} · ${graphicsLabel(clampGraphicsForStart(profile.graphics)).toUpperCase()}`;
 }
 
-/** Enter-button label for the current map size. */
-export function enterButtonLabel(mapSize: MapSize, regenerating = false): string {
-    const verb = regenerating ? 'Regenerate' : 'Enter';
-    switch (mapSize) {
-        case 'small':
-            return `${verb} Dream`;
-        case 'medium':
-            return `${verb} Medium Dream`;
-        case 'large':
-            return `${verb} Full Dream`;
-    }
+export function enterButtonLabel(_path?: StartupPath, regenerating = false): string {
+    return regenerating ? 'Regenerate Dream' : 'Enter Dream';
 }
 
-/** Rough expected load character for ETA copy (Phase 4 skeleton). */
 export function profileLoadHint(profile: StartupProfile): string {
     const g =
         profile.graphics === 'low'
             ? 'lighter shaders'
-            : profile.graphics === 'high'
+            : profile.graphics === 'ultra' || profile.graphics === 'high'
               ? 'full visual polish'
               : 'balanced visuals';
     const m =
-        profile.mapSize === 'small'
+        profile.path === 'core'
             ? 'quick sandbox'
-            : profile.mapSize === 'medium'
+            : profile.path === 'explore'
               ? 'nearby map + streaming horizon'
-              : 'complete map (longest)';
+              : 'spawn chunk + streaming horizon';
     return `${g}, ${m}`;
 }

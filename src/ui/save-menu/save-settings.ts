@@ -166,6 +166,18 @@ export function handleSettingChange(
     // Update local settings
     (settings as any)[setting] = value;
 
+    if (setting === 'graphicsQuality') {
+        void import('../../core/startup-profile.ts').then(({ setGraphicsLevel }) => {
+            const level = String(value);
+            if (level === 'low' || level === 'medium' || level === 'high' || level === 'ultra') {
+                setGraphicsLevel(level);
+                showToast('Graphics apply the next time you enter.', '🎨', 3500);
+            }
+        }).catch(() => {
+            /* start-path wiring unavailable */
+        });
+    }
+
     // Update display value for sliders
     if (target.type === 'range') {
         const valueEl = target.parentElement?.querySelector('.candy-settings-row__value');

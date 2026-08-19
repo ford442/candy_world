@@ -12,6 +12,7 @@ export {
     getLoadMemoryTier,
     getLoadMemoryScale,
     shouldPreferLightWorldLoad,
+    setGpuPrefersLightWorldLoad,
     getCIAdjustedCount,
     type LoadMemoryTier,
 } from './runtime.ts';

@@ -347,7 +347,7 @@ export class LoadingScreen {
 
     /**
      * Mark a phase as non-skippable so the skip button won't appear when it is active.
-     * Call before startPhase when the caller wants to enforce completion (e.g. waitForFull mode).
+     * Call before startPhase when the caller wants to enforce completion (e.g. explore mode).
      */
     markPhaseNonSkippable(phaseId: string): void {
         this.progress.markPhaseNonSkippable(phaseId);

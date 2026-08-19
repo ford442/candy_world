@@ -90,7 +90,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'deferred-population',
         name: 'World Population',
-        weight: 0,   // 0 in normal mode; set to >0 in waitForFull mode before registering
+        weight: 0,   // 0 in normal mode; set to >0 in explore mode before registering
         description: 'Populating horizon...',
         isDeferred: true,
         onStart: () => log.debug('Loading', 'Starting deferred world population'),

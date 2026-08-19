@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { getWorldSeed } from '../../world/world-seed.ts';
 
 export interface CaptureStamp {
     seed: number;
@@ -114,7 +113,7 @@ export async function capturePhotoPng(options: CaptureOptions): Promise<string> 
         let dataUrl = renderer.domElement.toDataURL('image/png');
 
         const stamp: CaptureStamp = options.stamp ?? {
-            seed: getWorldSeed(),
+            seed: 0,
             x: 0,
             y: 0,
             z: 0,

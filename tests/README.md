@@ -74,21 +74,25 @@ npm run test:smoke:webgl
 
 Boots with `?renderer=webgl&webglLite=1` and asserts `window.usingWebGL === true`. See [docs/webgl-fallback.md](../docs/webgl-fallback.md).
 
-#### Full-Boot Smoke Test (`FULL_BOOT=1`)
+#### Explore-path smoke (`BOOT_PATH=explore`)
 
-You can run the smoke test in **FULL** or **FAST_FULL** mode to verify the complete world population path (the same path that regressed in #1133):
+Default `npm run test` is the **Play** path: wait for `__sceneReady` + jukebox, do **not** click Enter.
+
+To exercise world population (Explore):
 
 ```bash
-# Full map population (~60-90s additional wait)
-FULL_BOOT=1 npm run test
+BOOT_PATH=explore npm run test
+# or
+npm run test:world
 
-# Fast-full (lighter population)
+# Deprecated aliases (same Explore URL, no wait-for-full):
+FULL_BOOT=1 npm run test
 FULL_BOOT=fast npm run test
 ```
 
-In full-boot mode the smoke runner:
-1. Clicks the **Full Game** (or **Fast Full**) mode button
-2. Clicks **Enter the Dream**
+In Explore mode the smoke runner:
+1. Opens `?boot=explore`
+2. Clicks **Enter Dream**
 3. Waits up to **60 seconds** for deferred background population to finish
 4. Asserts (hard failures):
    - `window.__worldHealth.healthy === true`
@@ -98,7 +102,15 @@ In full-boot mode the smoke runner:
    - `window.__worldHealth.batchers.totalInstances >= 100`
    - `window.game.animatedFoliage.length >= 50`
 
-Keep **CORE** as the default for fast CI feedback; use `FULL_BOOT=1` for integration / nightly runs.
+Keep default Play as the PR gate; use `test:world` for integration / nightly runs.
+
+#### Boot timing (`npm run test:boot:timing`)
+
+Playwright preview + `?boot=instant&graphics=low`. Records phase durations and asserts spawn count ≤ 80. Default budgets in `tests/boot-budgets.json` are generous for headless CI; `STRICT_BOOT_TIMING=1` uses the 8s product target. **Not** a required PR check.
+
+#### Startup capabilities (`npm run test:capabilities`)
+
+Pure Node test of `resolveStartupCapabilities()` (graphics × fallback × URL). No browser.
 
 ### `npm run test:integration` — Full Test Chain
 
@@ -187,9 +199,10 @@ npm run build:wasm     # Compile WASM
 npm run test:wasm      # Verify bounds
 npm run test           # Verify boot (auto-builds dist if needed)
 
-# Full-world population smoke tests (requires GPU; see "FULL BOOT in headless" note above)
-npm run test:smoke:full   # FULL_BOOT=1
-npm run test:smoke:fast   # FULL_BOOT=fast
+# Explore-path population smoke (requires GPU; see headless WebGPU note above)
+npm run test:world        # BOOT_PATH=explore
+npm run test:smoke:full   # deprecated alias of Explore
+npm run test:capabilities # startup graphics resolver (no browser)
 ```
 
 All commands exit with:

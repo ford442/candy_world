@@ -120,8 +120,17 @@
 # Standard development (runs dev.sh; attempts Emscripten build, then Vite)
 npm run dev
 
+# Instant Play — auto-enters spawn chunk after scene ready (low graphics)
+npm run dev:fast
+
 # If you do not have Emscripten installed, the Emscripten step skips gracefully
 ```
+
+## Quick dev boot
+- Default: `npm run dev` → click Enter (Play path)
+- Instant: `npm run dev:fast` → auto-enters spawn chunk
+- Full world QA: `?boot=explore` or `BOOT_PATH=explore npm run test:world`
+
 
 ### Production Build
 ```bash
@@ -546,6 +555,9 @@ These notes are for agents running in the Cursor Cloud VM. The startup update sc
 - Do not expect pixel-perfect 3D screenshots from the cloud VM. Treat `npm run test` (the smoke runner) as the canonical end-to-end check — it boots the full app, verifies scene readiness, and asserts the jukebox UI, and it **passes headless**.
 
 ### Running the app and tests
-- Dev server: `npm run dev` → http://localhost:5173 (Vite default; emits required COOP/COEP headers).
-- Smoke test: `npm run test` builds nothing itself but runs `vite preview` on port 4173, so it needs a `dist/` first — run `npm run build:ci` (WASM + Vite, no Emscripten) before the first smoke run. `dist/` is gitignored.
-- Fast checks that need no browser/GPU: `npm run test:wasm` (physics bounds, ~1s).
+- Dev server: `npm run dev` → http://localhost:5173 (Vite default; emits required COOP/COEP headers). Click **Enter Dream** (Play path: spawn chunk, horizon streams).
+- Instant Play: `npm run dev:fast` → opens `?boot=instant&graphics=low` and auto-enters after `__sceneReady`.
+- Full World QA: `http://localhost:5173/?boot=explore` (or toggle Full World on the start screen).
+- CORE sandbox (dev only): `?boot=core` or `?map=small`.
+- Smoke test: `npm run test` builds nothing itself but runs `vite preview` on port 4173, so it needs a `dist/` first — run `npm run build:ci` (WASM + Vite, no Emscripten) before the first smoke run. `dist/` is gitignored. Default smoke is Play (`__sceneReady` + jukebox); `BOOT_PATH=explore npm run test` (alias `test:world`) clicks Enter. `FULL_BOOT=1` is a deprecated alias of Explore.
+- Fast checks that need no browser/GPU: `npm run test:wasm` (physics bounds, ~1s), `npm run test:capabilities` (startup graphics resolver).

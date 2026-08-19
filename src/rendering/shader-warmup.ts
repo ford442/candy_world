@@ -21,9 +21,33 @@ import * as THREE from 'three';
 import { vec3, positionLocal } from 'three/tsl';
 import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
 import { CONFIG, isCIorHeadless } from '../core/config.ts';
+import { getStartupCapabilities, type MaterialSubset } from '../core/startup/capabilities.ts';
 import { CandyPresets, foliageMaterials } from '../foliage/index.ts';
 import { createTerrainMaterial } from '../foliage/terrain.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+
+const MINIMAL_TARGET_NAMES = new Set([
+  'TerrainMaterial',
+  'CandyPresets.Clay',
+  'mushroomCap',
+  'stem',
+  'flowerPetal',
+  'flowerStem',
+]);
+
+const BATCHED_EXCLUDED_NAMES = new Set([
+  'CandyPresets.OilSlick',
+  'CandyPresets.Velvet',
+]);
+
+function filterTargetsBySubset(targets: WarmupTarget[], subset: MaterialSubset): WarmupTarget[] {
+  if (subset === 'none') return [];
+  if (subset === 'full') return targets;
+  if (subset === 'minimal') {
+    return targets.filter((t) => MINIMAL_TARGET_NAMES.has(t.name));
+  }
+  return targets.filter((t) => !BATCHED_EXCLUDED_NAMES.has(t.name));
+}
 
 // Warm-up target types
 export type WarmupTarget = {
@@ -218,17 +242,20 @@ export class ShaderWarmup {
   }
   
   /**
-   * Gets all warm-up targets sorted by priority
+   * Gets warm-up targets sorted by priority, filtered by graphics subset.
    */
-  getTargets(): WarmupTarget[] {
+  getTargets(subset?: MaterialSubset): WarmupTarget[] {
+    const resolved = subset ?? getStartupCapabilities().warmup.materialSubset;
     const allTargets = [
       ...getPresetTargets(),
       ...getSpecialTargets(),
       ...getFoliageMaterialTargets(),
     ];
-    
-    // Sort by priority (lower = first)
-    return allTargets.sort((a, b) => a.priority - b.priority);
+
+    return filterTargetsBySubset(
+      allTargets.sort((a, b) => a.priority - b.priority),
+      resolved
+    );
   }
   
   /**

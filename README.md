@@ -55,8 +55,15 @@ See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md) and [docs/SUGAR_CAVES
 
 3. Open your browser to `http://localhost:5173`
 
+    ## Quick dev boot
+    - Default: `npm run dev` → click Enter (Play path)
+    - Instant: `npm run dev:fast` → auto-enters spawn chunk
+    - Full world QA: `?boot=explore` or `BOOT_PATH=explore npm run test:world`
+
     For WebGL2 debugging or CI screenshots, use `http://localhost:5173/?renderer=webgl`.
     See [docs/webgl-fallback.md](./docs/webgl-fallback.md) for full renderer toggle and porting notes.
+
+    Graphics quality lives in **Settings** (save menu). It applies the next time you enter.
 
 ### Production Build
 

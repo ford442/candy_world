@@ -1,15 +1,6 @@
 /**
- * Sugar Caves traversal regression (#1492).
- * Run: node tests/sugar-caves-traversal.test.mjs
- */
-
-import { SUGAR_CAVES } from '../src/world/generation-utils.ts';
-import {
-    SUGAR_CAVES_TRAVERSAL,
-    getSugarCavesViewpoint,
-} from '../src/world/sugar-caves-traversal.ts';
  * Sugar Caves traversal + Part II unlock regression (#1492).
- * Pure Node harness — no browser/WASM boot required.
+ * Pure Node harness — no browser/WASM boot, no Three.js world import.
  *
  * Run: npm run test:sugar-caves
  */
@@ -48,9 +39,8 @@ function assert(cond, msg) {
 }
 
 assert(SUGAR_CAVES.enabled === true, 'sugar caves config enabled');
-assert(typeof SUGAR_CAVES_TRAVERSAL.caveFloorY === 'number', 'cave floor Y exported');
-assert(getSugarCavesViewpoint().cameraPosition.y > SUGAR_CAVES_TRAVERSAL.caveFloorY, 'viewpoint above floor');
 assert(typeof CAVE_FLOOR_Y === 'number', 'cave floor Y constant');
+assert(getSugarCavesViewpoint().cameraPosition.y > CAVE_FLOOR_Y, 'viewpoint above floor');
 assert(LAKE_DESCENT_X === 18 && LAKE_DESCENT_Z === 22, 'lake descent anchor');
 
 const unlockedBefore = isSugarCavesUnlocked();

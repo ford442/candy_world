@@ -11,8 +11,7 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
    - * Implementation Details: Activated GPU foliage animation path by default via `gpu-foliage-flag.ts` and orchestrator modifications.
 3. **Content** — capstone features (#1492, #1494) after gates are green.
 4. **Epic: Simplify startup (#1546)** — collapse startup to Play/Explore paths + chunk streaming.
-   - **Status: Implemented ✅** (#1547 Collapse startup profile UI + wire graphics to runtime)
-   - * Implementation Details: Refactored the UI to use a single-CTA start screen, completely removing the legacy 3x3 graphics/map-size grid, and wired `StartupProfile.graphics` to properly control post-processing settings via `resolvePostfxQuality`.
+   - **Status: In progress** — #1548 chunk streamer landed; #1547 was a docs-only false close. Real remaining work: #1558 (UI + `StartupCapabilities`) + #1549 (fast-boot / timing).
 
     - **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)
 n4. **Epic: Simplify startup to two load paths + chunk streaming** (#1546)
@@ -37,5 +36,7 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 - `src/core/config/` — domain modules + `config.ts` barrel
 - `src/core/main/` — boot pipelines + thin `main.ts` orchestrator
 - `game-loop.ts` + `game-loop-*.ts` — tick phase pattern to copy
+- `style.css` — `#1490` barrel + `styles/` modules (each well under 700 lines)
+- `src/foliage/material-core.ts` — `#1491` barrel + `material-core/` modules (each well under 700 lines)
 
-Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`, `material-core.ts`, `style.css`.
+Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`.

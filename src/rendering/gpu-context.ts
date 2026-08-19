@@ -32,6 +32,7 @@
  */
 
 import type { RendererBackend } from './renderer-mode.ts';
+import { setGpuPrefersLightWorldLoad } from '../core/config/runtime.ts';
 
 // =============================================================================
 // CONTEXT OPTIONS (the single source of truth for renderer construction)
@@ -166,6 +167,24 @@ function ensurePromise(): Promise<GpuContext> {
     return contextPromise;
 }
 
+function applyGpuLoadHint(ctx: GpuContext): void {
+    const storage = ctx.limits?.maxStorageBufferBindingSize ?? 0;
+    const fallback = Boolean((ctx.adapter as GPUAdapter & { isFallbackAdapter?: boolean })?.isFallbackAdapter);
+    const blob = [
+        ctx.adapterInfo?.vendor,
+        ctx.adapterInfo?.architecture,
+        ctx.adapterInfo?.device,
+        ctx.adapterInfo?.description,
+    ]
+        .join(' ')
+        .toLowerCase();
+    const integrated =
+        /intel|uhd|iris|mali|adreno|swiftshader|llvmpipe|microsoft basic/.test(blob);
+    // Spec default is 128 MiB; discrete adapters usually grant more.
+    const lowStorage = storage > 0 && storage <= GPU_REQUIRED_LIMITS.maxStorageBufferBindingSize;
+    setGpuPrefersLightWorldLoad(fallback || integrated || lowStorage);
+}
+
 function settle(next: GpuContext): GpuContext {
     context = next;
     ensurePromise();
@@ -173,6 +192,7 @@ function settle(next: GpuContext): GpuContext {
         resolveContext(context);
         resolveContext = null;
     }
+    applyGpuLoadHint(context);
     publishGpuContext();
     return context;
 }

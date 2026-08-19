@@ -16,12 +16,8 @@ import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { processMapEntity } from './generation-entities.ts';
 import type { WeatherSystem } from './generation-utils.ts';
-import {
-    DEFAULT_MAP_CHUNK_STREAM_SIZE,
-    type LoadedCandyMap,
-    type LoadedMapEntity,
-    type MapChunkIndex,
-} from './map-loader.ts';
+import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
+import type { LoadedCandyMap, LoadedMapEntity, MapChunkIndex } from './map-loader.ts';
 import {
     animatedFoliage,
     cpuAnimatedFoliage,

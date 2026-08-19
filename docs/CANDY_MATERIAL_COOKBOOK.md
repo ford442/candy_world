@@ -5,8 +5,8 @@ factory or copy a shipping batcher** before hand-rolling a material.
 
 | Canonical source | Path |
 |------------------|------|
-| Presets & TSL helpers | [`src/foliage/material-core.ts`](../src/foliage/material-core.ts) |
-| Standard deformation chain | [`material-core.ts` → `applyStandardDeformation`](../src/foliage/material-core.ts) (≈ L818) |
+| Presets & TSL helpers | [`src/foliage/material-core.ts`](../src/foliage/material-core.ts) barrel → [`material-core/`](../src/foliage/material-core/) |
+| Standard deformation chain | [`applyStandardDeformation`](../src/foliage/material-core/deformation.ts) |
 | LOD batcher deformation | [`src/foliage/lod-nodes.ts`](../src/foliage/lod-nodes.ts) → `applyStandardDeformationWithLod` |
 | Biome / music uniforms | [`src/systems/biome-uniforms.ts`](../src/systems/biome-uniforms.ts) |
 | Per-frame binding update | [`src/systems/music-reactivity.ts`](../src/systems/music-reactivity.ts) |
@@ -42,7 +42,7 @@ import { color, float, mix, attribute, positionLocal } from 'three/tsl';
 
 ## `CandyPresets` — all seven factories
 
-Defined in [`material-core.ts`](../src/foliage/material-core.ts) (≈ L633–711).
+Defined in [`material-core/presets.ts`](../src/foliage/material-core/presets.ts).
 Each takes `(hex, opts?)` → `MeshStandardNodeMaterial`; spread `opts` to override.
 
 | Preset | Feel | Key opts | Used in |
@@ -100,12 +100,12 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 ### Juicy rim light
 
 `createJuicyRimLight(baseColor, intensity, power, normalNode | null)` — see
-[`material-core.ts`](../src/foliage/material-core.ts) ≈ L171. Reference usage:
+[`material-core/tsl-nodes.ts`](../src/foliage/material-core/tsl-nodes.ts). Reference usage:
 [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts).
 
 ### Vertex deformation — one canonical order
 
-**Source of truth:** [`applyStandardDeformation`](../src/foliage/material-core.ts) composes
+**Source of truth:** [`applyStandardDeformation`](../src/foliage/material-core/deformation.ts) composes
 **wind sway on the base position, then player push** on that sum:
 
 ```ts
@@ -138,7 +138,7 @@ Examples: [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts) (`aPhase
 ### Cache procedural materials
 
 `getCachedProceduralMaterial(key, colorHint, factory)` — one graph per archetype.
-See [`material-core.ts`](../src/foliage/material-core.ts). Inside the factory callback,
+See [`getCachedProceduralMaterial`](../src/foliage/material-core/shared-resources.ts). Inside the factory callback,
 still use `applyStandardDeformation(positionLocal)` for displacement.
 
 ### Twilight / circadian glow

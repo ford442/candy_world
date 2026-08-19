@@ -1,19 +1,22 @@
 import { CONFIG } from './defaults.ts';
 import { isCIorHeadless } from './runtime.ts';
-import { loadStartupProfile } from '../startup-profile.ts';
 import { _hasFlag, _getFlag } from './url-flags.ts';
+import { getStartupCapabilities } from '../startup/capabilities.ts';
 
 // ---------------------------------------------------------------------------
-// Post-FX resolution helpers — read URL overrides on top of CONFIG.postfx.
-// Defined after CONFIG so they can reference it; only ever called at runtime.
+// Post-FX resolution helpers — URL ?postfx= wins, then StartupCapabilities,
+// then CONFIG.postfx.quality. Never read raw profile.graphics here.
 // ---------------------------------------------------------------------------
 
-/** Effective post-FX quality tier (URL ?postfx= wins over profile default). */
+/** Effective post-FX quality tier (URL ?postfx= wins over capabilities). */
 export function resolvePostfxQuality(): 'off' | 'low' | 'high' {
     const q = _getFlag('postfx');
     if (q === 'off' || q === 'low' || q === 'high') return q;
-    const profileGraphics = loadStartupProfile().graphics;
-    return profileGraphics === 'medium' ? 'low' : profileGraphics;
+    try {
+        return getStartupCapabilities().postfx.quality;
+    } catch {
+        return CONFIG.postfx.quality;
+    }
 }
 
 /** Whether sunrise/sunset/moon god-ray shafts should render this session. */

@@ -42,6 +42,16 @@ declare global {
     __sceneReady?: boolean;
     __devOrbitActive?: boolean;
     __exploreActive?: boolean;
+    __bootInstant?: boolean;
+    __playSpawnCount?: number;
+    __startupCapabilities?: {
+      path: string;
+      graphics: string;
+      warmup: { materialSubset: string };
+      postfx: { quality: string };
+      deferred: { aurora: boolean; fluidFog: boolean };
+      shadows: { enabled: boolean; resolution: string };
+    };
 
     // Renderer breadcrumbs (Playwright / agents)
     rendererType?: 'webgpu' | 'webgl';

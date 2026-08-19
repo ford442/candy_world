@@ -43,13 +43,7 @@ import {
     SKY_ISLANDS,
 } from './generation-utils.ts';
 import { generateGroundHeightmap } from './ground-heightmap.ts';
-import {
-    getMapSourceFromUrl,
-    loadMap,
-    loadMapChunkIndex,
-    setupMapHotReload,
-    type LoadedCandyMap,
-} from './map-loader.ts';
+import type { LoadedCandyMap } from './map-loader.ts';
 import {
     clearMapMusicContext,
     deriveMapMusicContext,
@@ -152,6 +146,7 @@ function invalidateLoadedMap(): void {
 
 async function getLoadedMap(): Promise<LoadedCandyMap> {
     if (!loadedMapPromise) {
+        const { getMapSourceFromUrl, loadMap } = await import('./map-loader.ts');
         const defaultSource = new URL('../../assets/map.json', import.meta.url).href;
         const source = getMapSourceFromUrl(defaultSource);
         loadedMapPromise = loadMap(source)
@@ -173,9 +168,11 @@ async function getLoadedMap(): Promise<LoadedCandyMap> {
 }
 
 if (typeof window !== 'undefined') {
-    setupMapHotReload(getMapSourceFromUrl('./assets/map.json'), () => {
-        invalidateLoadedMap();
-        console.log('[MapLoader] Map asset changed, cache invalidated.');
+    void import('./map-loader.ts').then(({ getMapSourceFromUrl, setupMapHotReload }) => {
+        setupMapHotReload(getMapSourceFromUrl('./assets/map.json'), () => {
+            invalidateLoadedMap();
+            console.log('[MapLoader] Map asset changed, cache invalidated.');
+        });
     });
 }
 
@@ -371,7 +368,10 @@ export async function generateMap(
     // Kick the chunk-index fetch off in parallel with the map fetch (both are
     // simple GETs against static assets) so the play path's critical section
     // only pays for the slower of the two, not both serialized.
-    const chunkIndexPromise = bootPath === 'play' ? loadMapChunkIndex() : null;
+    const chunkIndexPromise =
+        bootPath === 'play'
+            ? import('./map-loader.ts').then((m) => m.loadMapChunkIndex())
+            : null;
     const loadedMap = await getLoadedMap();
     wireBiomeRegions(loadedMap);
     applyMapPreallocationHints(loadedMap);
@@ -429,7 +429,7 @@ async function generateMapPlayPath(
     generationToken: number,
     chunkSize: number,
     onProgress: WorldProgressCallback | undefined,
-    chunkIndexPromise: ReturnType<typeof loadMapChunkIndex>
+    chunkIndexPromise: Promise<import('./map-loader.ts').MapChunkIndex | null>
 ): Promise<void> {
     startPhase('Map Streaming Phase 1 (Spawn Chunk)');
     console.time('[World] play-spawn-chunk');
@@ -450,6 +450,11 @@ async function generateMapPlayPath(
     const spawned = streamer.loadSpawnPlayable(PLAY_SPAWN_RADIUS_CHUNKS, PLAY_SPAWN_ENTITY_CAP);
     console.timeEnd('[World] play-spawn-chunk');
     endPhase('Map Streaming Phase 1 (Spawn Chunk)');
+    try {
+        (window as any).__playSpawnCount = spawned;
+    } catch {
+        /* non-browser */
+    }
     console.log(
         `[World] Play boot: spawned ${spawned} entities in spawn chunk ` +
             `(${chunkIndex ? `indexed, ${chunkIndex.entityCount} total` : 'bounding-box fallback, no index'}).`

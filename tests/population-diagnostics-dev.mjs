@@ -20,24 +20,20 @@ async function run() {
     page.on('pageerror', (err) => console.error(`[PAGE ERROR] ${err.message}\n${err.stack}`));
 
     try {
-        await page.goto('http://localhost:5175', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.goto('http://localhost:5175/?boot=explore', {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000,
+        });
         console.log('Page loaded');
 
         await page.waitForFunction(() => window.__sceneReady === true, { timeout: 25000 });
         console.log('Scene ready');
 
-        // Select Large map and click start
-        await page.evaluate(() => {
-            const btnLarge = document.getElementById('btn-map-large');
-            if (btnLarge) btnLarge.click();
-        });
-        await new Promise((r) => setTimeout(r, 300));
-
         await page.evaluate(() => {
             const startBtn = document.getElementById('startButton');
             if (startBtn) startBtn.click();
         });
-        console.log('Clicked start (Large map)');
+        console.log('Clicked start (Explore path)');
 
         // Poll for spawn report over 90s
         let lastReport = null;

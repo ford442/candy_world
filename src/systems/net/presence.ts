@@ -9,7 +9,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
-import { spawnImpact } from '../../foliage/impacts.ts';
 import { announce } from '../../ui/announcer.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
 import { getBiomeAtPosition } from './biome-at-position.ts';
@@ -27,6 +26,16 @@ import {
     type RemotePeer,
 } from './presence-types.ts';
 import { remoteAvatars } from './remote-avatars.ts';
+
+export type PresenceSpawnImpact = (
+    pos: { x: number; y: number; z: number },
+    type: string,
+    color?: number
+) => void;
+
+export interface PresenceInitHooks {
+    spawnImpact?: PresenceSpawnImpact;
+}
 
 const PRESENCE_OPT_IN_KEY = 'candy_presence_opt_in';
 const STALE_PEER_MS = 15_000;
@@ -96,6 +105,7 @@ export class PresenceSystem {
     private _hideSelf = false;
     private _mutedPeerIds = new Set<string>();
     private _peersDirty = false;
+    private _spawnImpact: PresenceSpawnImpact | null = null;
 
     static getInstance(): PresenceSystem {
         if (!PresenceSystem._instance) {
@@ -145,7 +155,13 @@ export class PresenceSystem {
         this._shareDiscoveryGlow = enabled;
     }
 
-    bindScene(scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.Renderer): void {
+    bindScene(
+        scene: THREE.Scene,
+        camera: THREE.PerspectiveCamera,
+        renderer: THREE.Renderer,
+        hooks?: PresenceInitHooks
+    ): void {
+        if (hooks?.spawnImpact) this._spawnImpact = hooks.spawnImpact;
         remoteAvatars.init(scene, camera, renderer);
     }
 
@@ -312,7 +328,7 @@ export class PresenceSystem {
         announce(`An explorer entered the ${name}`, 'polite');
         if (peer.snapshots.length > 0) {
             const snap = peer.snapshots[peer.snapshots.length - 1];
-            spawnImpact(
+            this._spawnImpact?.(
                 { x: snap.pos[0], y: snap.pos[1], z: snap.pos[2] },
                 'spore',
                 0xffb6e8
@@ -374,10 +390,11 @@ if (typeof window !== 'undefined') {
 export function initPresenceFromOptIn(
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
-    renderer: THREE.Renderer
+    renderer: THREE.Renderer,
+    hooks?: PresenceInitHooks
 ): void {
     if (!FEATURE_FLAGS.presence || !isPresenceOptedIn()) return;
-    presenceSystem.bindScene(scene, camera, renderer);
+    presenceSystem.bindScene(scene, camera, renderer, hooks);
     void presenceSystem.join();
 }
 

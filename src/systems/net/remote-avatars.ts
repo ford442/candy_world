@@ -7,7 +7,6 @@ import { color } from 'three/tsl';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from '../../core/config.ts';
-import { foliageGroup } from '../../world/state.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import type { RemotePeer } from './presence-types.ts';
 
@@ -46,6 +45,7 @@ export class RemoteAvatars {
     private _tagRoot: HTMLDivElement | null = null;
     private _camera: THREE.PerspectiveCamera | null = null;
     private _renderer: THREE.Renderer | null = null;
+    private _parent: THREE.Object3D | null = null;
     private _initialized = false;
     private _interpDelayMs = 100;
     private _mutedPeerIds: Set<string> = new Set();
@@ -91,7 +91,8 @@ export class RemoteAvatars {
         this._mesh.count = 0;
         this._mesh.name = 'remote-presence-avatars';
 
-        foliageGroup.add(this._mesh);
+        this._parent = _scene;
+        this._parent.add(this._mesh);
 
         _scratchHide.makeScale(0, 0, 0);
         this._slotPeer = new Array(maxPeers).fill(null);
@@ -134,9 +135,14 @@ export class RemoteAvatars {
 
     dispose(): void {
         if (this._mesh) {
-            safeRemoveAndDispose(foliageGroup, this._mesh);
+            if (this._parent) {
+                safeRemoveAndDispose(this._parent, this._mesh);
+            } else {
+                this._mesh.parent?.remove(this._mesh);
+            }
             this._mesh = null;
         }
+        this._parent = null;
         if (this._tagRoot?.parentNode) {
             this._tagRoot.parentNode.removeChild(this._tagRoot);
         }

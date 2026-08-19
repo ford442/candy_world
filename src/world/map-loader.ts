@@ -1,3 +1,7 @@
+import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
+
+export { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
+
 export type Vec3 = [number, number, number];
 export type Quat = [number, number, number, number];
 
@@ -1082,10 +1086,7 @@ export async function loadMap(source: string | CandyMapData): Promise<LoadedCand
 // scanning every entity in the map. A reserved "__meta__" key carries the
 // chunk size and total indexed entity count used for the CI parity check.
 //
-// Single source of truth for the chunk grid size — chunk-streamer.ts and
-// build-chunk-index.ts both import this instead of redeclaring "32" so the
-// index and the runtime grid can never silently disagree.
-export const DEFAULT_MAP_CHUNK_STREAM_SIZE = 32;
+// Canonical chunk size: src/world/map-chunk-size.ts (re-exported above).
 
 export interface MapChunkIndex {
     chunkSize: number;

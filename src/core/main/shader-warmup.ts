@@ -12,7 +12,7 @@ export function runShaderWarmup(ctx: MainContext): void {
 
         await StageLoader.loadStage('shaderWarmup', async () => {
             if (CONFIG.safeMode || isCIorHeadless()) {
-                console.warn('[Startup] safeMode active — skipping shader warmup and compileAsync');
+                console.warn('[Startup] safeMode active — skipping shader warmup');
                 return;
             }
             loadingScreen.startPhase('shader-warmup');

@@ -11,12 +11,10 @@ import { runWasmPipeline } from './wasm-pipeline.ts';
 
 function createInitialContext(
     loadingScreen: MainContext['loadingScreen'],
-    waitForFullPopulation: boolean
-): MainContext {
+    ): MainContext {
     return {
         loadingScreen,
-        waitForFullPopulation,
-        worldGenerationActive: false,
+                worldGenerationActive: false,
         mode: 'webgpu',
         postProcessing: null,
         timeOffset: { value: 0 },
@@ -31,8 +29,8 @@ function createInitialContext(
 }
 
 export async function runBootstrap(): Promise<void> {
-    const { loadingScreen, waitForFullPopulation } = runLoadingBootstrap();
-    const ctx = createInitialContext(loadingScreen, waitForFullPopulation);
+    const { loadingScreen } = runLoadingBootstrap();
+    const ctx = createInitialContext(loadingScreen);
 
     await runScenePipeline(ctx);
     await runAudioWorldPipeline(ctx);

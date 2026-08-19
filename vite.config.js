@@ -90,9 +90,41 @@ export default defineConfig({
                     ) {
                         return 'debug';
                     }
-                    // camera-modes, hud-ui, interaction, playlist-ui, presence, photo-mode:
-                    // co-located in `app` — separate chunks created Rollup circular-chunk
-                    // warnings (app ↔ chunk) without reducing first-paint bytes.
+                    // Presence (Supabase + avatars + start-screen panel). Stubs stay in app.
+                    if (
+                        (id.includes('/src/systems/net/') &&
+                            !id.endsWith('/net/lazy.ts') &&
+                            !id.endsWith('/net/biome-at-position.ts')) ||
+                        id.includes('/src/ui/presence-panel.ts')
+                    ) {
+                        return 'presence';
+                    }
+                    // Photo mode (except thin lazy stub)
+                    if (
+                        id.includes('/src/systems/photo-mode/') &&
+                        !id.endsWith('/photo-mode/lazy.ts')
+                    ) {
+                        return 'photo-mode';
+                    }
+                    if (id.includes('/src/world/map-loader.ts')) {
+                        return 'map-loader';
+                    }
+                    if (id.includes('/src/core/input/playlist-manager.ts')) {
+                        return 'playlist-ui';
+                    }
+                    if (id.includes('/src/utils/startup-profiler')) {
+                        return 'profiler';
+                    }
+                    // Analytics core only used by debug overlay + awakened persistence
+                    if (id.includes('/src/systems/analytics')) {
+                        return 'analytics-debug';
+                    }
+                    // Accessibility engine — menu is already lazy; keep off boot path
+                    if (id.endsWith('/systems/accessibility.ts')) {
+                        return 'accessibility-ui';
+                    }
+                    // camera-modes, hud-ui, interaction, playlist-ui stay in `app`
+                    // (separate chunks created Rollup circular-chunk graphs).
                     if (id.includes('/src/systems/loading-manager.ts')) {
                         return 'loading-ui';
                     }
@@ -127,7 +159,8 @@ export default defineConfig({
                     if (
                         id.includes('/src/systems/weather/') ||
                         id.includes('/src/particles/') ||
-                        id.includes('/src/compute/')
+                        id.includes('/src/compute/') ||
+                        id.includes('/src/foliage/berries.ts')
                     ) {
                         return 'weather';
                     }
@@ -170,6 +203,7 @@ export default defineConfig({
     esbuild: {
         // ensure esbuild treats code as modern so top-level await is preserved
         target: 'es2022',
+        legalComments: 'none',
     },
     // Ensure optimizeDeps only scans the app root entry (index.html) and targets
     // modern JS (esnext) so top-level await in dependencies is preserved.

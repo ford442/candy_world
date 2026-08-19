@@ -19,6 +19,7 @@ import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { animatedFoliage } from '../world/state.ts';
 import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
+import { getStartupCapabilities } from './startup/capabilities.ts';
 import { syncDrawingBufferFromWindow } from './init.ts';
 
 // Deferred visual elements
@@ -92,26 +93,28 @@ export function initDeferredVisuals() {
 
     // Group 1: Environmental effects (order matters for layering)
     console.time('Environmental Effects');
-    if (!fluidFog) {
+    const deferredCaps = getStartupCapabilities().deferred;
+
+    if (deferredCaps.fluidFog && !fluidFog) {
         fluidFog = createFluidFog(200, 200); // 200x200 patch at center
         sceneRef.add(fluidFog);
         console.log('[Deferred] Fluid Fog initialized');
     }
 
-    if (!aurora) {
+    if (deferredCaps.aurora && !aurora) {
         aurora = createAurora();
         sceneRef.add(aurora);
         harmonyOrbSystem.addToScene(sceneRef); // Add Harmony Orbs
         console.log('[Deferred] Aurora & Systems initialized');
     }
 
-    if (!chromaticPulse) {
+    if (deferredCaps.aurora && !chromaticPulse) {
         chromaticPulse = createChromaticPulse();
         cameraRef.add(chromaticPulse);
         console.log('[Deferred] Chromatic Pulse initialized');
     }
 
-    if (!strobePulse) {
+    if (deferredCaps.aurora && !strobePulse) {
         strobePulse = createStrobePulse();
         cameraRef.add(strobePulse);
         console.log('[Deferred] Strobe Pulse initialized');
@@ -209,10 +212,10 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
         performance.mark('candy:shader-warmup-start');
         console.log('[Deferred] Starting incremental shader pre-compilation...');
 
-        // Check CI bypass here
-        if (isCIorHeadless()) {
+        // Check CI and instant-boot bypass here
+        if (isCIorHeadless() || (typeof window !== 'undefined' && (window as any).__bootInstant === true)) {
             console.log(
-                '[Deferred] Skipping incremental shader pre-compilation in CI mode to prevent WebGPU Device Lost'
+                '[Deferred] Skipping incremental shader pre-compilation in CI / instant-boot mode to prevent WebGPU Device Lost or dev stalls'
             );
             endPhase('Shader Warmup');
             return;

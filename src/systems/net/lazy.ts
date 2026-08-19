@@ -1,21 +1,46 @@
 /**
- * Lazy presence / net loader — keeps Supabase + avatars off the critical path
- * unless FEATURE_FLAGS.presence (?presence=1).
+ * Lazy presence / net loader — keeps Supabase + avatars off the parse path
+ * unless FEATURE_FLAGS.presence (?presence=1 / localStorage opt-in).
+ *
+ * Heavy modules live in the `presence` Rollup chunk (see vite.config.js).
  */
 import type * as THREE from 'three';
 import { FEATURE_FLAGS } from '../../core/config.ts';
-import * as netModule from './index.ts';
+import { spawnImpact } from '../../foliage/impacts.ts';
+import type { PresenceInitHooks } from './presence.ts';
 
-type NetModule = typeof netModule;
+type NetModule = typeof import('./presence.ts');
 
 let _mod: NetModule | null = null;
+let _load: Promise<NetModule | null> | null = null;
+let _pendingInit: {
+    scene: THREE.Scene;
+    camera: THREE.PerspectiveCamera;
+    renderer: THREE.Renderer;
+} | null = null;
+let _tornDown = false;
 
-function ensureNet(): NetModule | null {
-    if (!FEATURE_FLAGS.presence) return null;
-    if (!_mod) {
-        _mod = netModule;
+const presenceHooks: PresenceInitHooks = { spawnImpact };
+
+function ensureNet(): Promise<NetModule | null> {
+    if (!FEATURE_FLAGS.presence) return Promise.resolve(null);
+    if (_mod) return Promise.resolve(_mod);
+    if (!_load) {
+        _load = import('./presence.ts').then((m) => {
+            _mod = m;
+            if (_pendingInit && !_tornDown) {
+                m.initPresenceFromOptIn(
+                    _pendingInit.scene,
+                    _pendingInit.camera,
+                    _pendingInit.renderer,
+                    presenceHooks
+                );
+                _pendingInit = null;
+            }
+            return m;
+        });
     }
-    return _mod;
+    return _load;
 }
 
 export function initPresenceFromOptIn(
@@ -23,8 +48,15 @@ export function initPresenceFromOptIn(
     camera: THREE.PerspectiveCamera,
     renderer: THREE.Renderer
 ): void {
-    const m = ensureNet();
-    m?.initPresenceFromOptIn(scene, camera, renderer);
+    if (!FEATURE_FLAGS.presence) return;
+    _tornDown = false;
+    _pendingInit = { scene, camera, renderer };
+    if (_mod) {
+        _mod.initPresenceFromOptIn(scene, camera, renderer, presenceHooks);
+        _pendingInit = null;
+        return;
+    }
+    void ensureNet();
 }
 
 export function updatePresenceSystem(
@@ -32,13 +64,15 @@ export function updatePresenceSystem(
     camera: THREE.PerspectiveCamera,
     playerPosition?: THREE.Vector3
 ): void {
-    const m = ensureNet();
-    if (!m) return;
-    m.updatePresenceSystem(delta, camera, playerPosition);
+    if (!_mod) {
+        if (FEATURE_FLAGS.presence) void ensureNet();
+        return;
+    }
+    _mod.updatePresenceSystem(delta, camera, playerPosition);
 }
 
 export function teardownPresence(): void {
-    const m = ensureNet();
-    if (!m) return;
-    m.teardownPresence();
+    _tornDown = true;
+    _pendingInit = null;
+    _mod?.teardownPresence();
 }
