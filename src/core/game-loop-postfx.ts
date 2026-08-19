@@ -3,10 +3,7 @@ import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processi
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { AtmosphereShaftState } from '../systems/music-reactivity.ts';
 import { player } from '../systems/physics/index.ts';
-import {
-    areSunCascadesActive,
-    updateSunCascadeDirection,
-} from '../systems/shadow-cascades.ts';
+import { areSunCascadesActive, updateSunCascadeDirection } from '../systems/shadow-cascades.ts';
 import { CONFIG, areGodRaysEnabled, isDofEnabled, isDofManual } from './config.ts';
 import { isCIorHeadless } from './config.ts';
 import {
@@ -27,7 +24,7 @@ import {
     setShadowSnapCellX,
     _shadowSnapCellZ,
     setShadowSnapCellZ,
-    postProcessingRef
+    postProcessingRef,
 } from './game-loop-core.ts';
 
 const _godRaysEnabled = areGodRaysEnabled();
@@ -41,7 +38,7 @@ const _dofManual = _dofEnabled && isDofManual();
 export function updateSunShadowFollow(
     sunLight: THREE.DirectionalLight,
     playerPos: THREE.Vector3,
-    normalizedSunDir: THREE.Vector3,
+    normalizedSunDir: THREE.Vector3
 ): void {
     if (!sunLight.castShadow) return;
 
@@ -73,11 +70,7 @@ export function updateSunShadowFollow(
 
     const snappedX = Math.floor(_shadowLightView.x / texelWorld) * texelWorld;
     const snappedY = Math.floor(_shadowLightView.y / texelWorld) * texelWorld;
-    _shadowSnap.set(
-        snappedX - _shadowLightView.x,
-        snappedY - _shadowLightView.y,
-        0,
-    );
+    _shadowSnap.set(snappedX - _shadowLightView.x, snappedY - _shadowLightView.y, 0);
     _shadowSnap.applyQuaternion(cam.quaternion);
     cam.position.add(_shadowSnap);
     cam.updateMatrixWorld();
@@ -88,9 +81,13 @@ export function updateSunShadowFollow(
     if (cellX !== _shadowSnapCellX || cellZ !== _shadowSnapCellZ) {
         setShadowSnapCellX(cellX);
         setShadowSnapCellZ(cellZ);
-        if (sunLight.shadow && sunLight.shadow.map) { (sunLight.shadow.map as any).autoUpdate = true; }
+        if (sunLight.shadow && sunLight.shadow.map) {
+            (sunLight.shadow.map as any).autoUpdate = true;
+        }
     } else {
-        if (sunLight.shadow && sunLight.shadow.map) { (sunLight.shadow.map as any).autoUpdate = false; }
+        if (sunLight.shadow && sunLight.shadow.map) {
+            (sunLight.shadow.map as any).autoUpdate = false;
+        }
     }
 }
 
@@ -101,23 +98,27 @@ export function _celestialInView(direction: THREE.Vector3): boolean {
 }
 
 /** Night shaft tint: cool silver by default; purple when crystalline_nebula channels are active. */
-export function _applyShaftColor(shaftMat: THREE.MeshBasicMaterial | undefined, isNight: boolean): void {
+export function _applyShaftColor(
+    shaftMat: THREE.MeshBasicMaterial | undefined,
+    isNight: boolean
+): void {
     if (!shaftMat?.color) return;
     if (!isNight) {
-        shaftMat.color.setHex(0xFFE5A0);
+        shaftMat.color.setHex(0xffe5a0);
         return;
     }
     const nebulaShimmer = BiomeUniforms.crystallineNebula.shimmer.value as number;
     const nebulaAmp = BiomeUniforms.crystallineNebula.amplitudeScale.value as number;
     // Music Impact: purple moonbeams during crystalline_nebula tracker passages
     const nebulaPassage = nebulaShimmer > 0.12 || nebulaAmp > 1.15;
-    shaftMat.color.setHex(nebulaPassage ? 0xB388FF : 0xC8E0FF);
+    shaftMat.color.setHex(nebulaPassage ? 0xb388ff : 0xc8e0ff);
 }
 
 export function _setShaftOpacity(opacity: number): void {
     if (!uShaftOpacityRef) return;
     uShaftOpacityRef.value = opacity;
-    const shaftMat = lightShaftGroupRef?.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+    const shaftMat = lightShaftGroupRef?.userData?.shaftMaterial as
+        THREE.MeshBasicMaterial | undefined;
     if (shaftMat && typeof shaftMat.opacity === 'number') {
         shaftMat.opacity = opacity;
     }
@@ -146,13 +147,24 @@ export function applyMusicReactiveLightShafts(delta: number): void {
         shaftVisible = _celestialInView(_scratchSunVector) && shaftOpacity > 0.01;
     } else if (_shaftIsNightMode) {
         // Visual Impact: moonbeam cap — soft silver/purple rays, not blinding
-        shaftOpacity = Math.min(_SHAFT_OPACITY_CAP * 0.875, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
+        shaftOpacity = Math.min(
+            _SHAFT_OPACITY_CAP * 0.875,
+            AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer
+        );
         const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
-        shaftVisible = (strongMelody || _celestialInView(_scratchSunVector) || AtmosphereShaftState.nightMoonbeam) && shaftOpacity > 0.01;
-        const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+        shaftVisible =
+            (strongMelody ||
+                _celestialInView(_scratchSunVector) ||
+                AtmosphereShaftState.nightMoonbeam) &&
+            shaftOpacity > 0.01;
+        const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as
+            THREE.MeshBasicMaterial | undefined;
         _applyShaftColor(shaftMat, true);
     } else if (AtmosphereShaftState.musicOpacity > 0.01) {
-        shaftOpacity = Math.min(_SHAFT_OPACITY_CAP * 0.875, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
+        shaftOpacity = Math.min(
+            _SHAFT_OPACITY_CAP * 0.875,
+            AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer
+        );
         const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
         shaftVisible = strongMelody && shaftOpacity > 0.01;
     }
@@ -208,7 +220,7 @@ export function _updateDepthOfField(delta: number): void {
     const proxMix = 1.0 - THREE.MathUtils.smoothstep(nearest, prox - 2.0, prox + 6.0);
 
     // TSL Volumetric God Rays: boost DoF when shafts are highly visible
-    const shaftBoost = uShaftOpacityRef ? (uShaftOpacityRef.value * 2.0) : 0.0;
+    const shaftBoost = uShaftOpacityRef ? uShaftOpacityRef.value * 2.0 : 0.0;
     const combinedMix = THREE.MathUtils.clamp(proxMix + shaftBoost, 0.0, 1.0);
 
     const targetMix = _dofManual ? 1.0 : combinedMix;
@@ -224,7 +236,6 @@ export function _updateDepthOfField(delta: number): void {
     uDofMix.value += (targetMix - uDofMix.value) * k;
     uDofFocus.value += (targetFocus - uDofFocus.value) * k;
 }
-
 
 export function updatePostFX(delta: number) {
     applyMusicReactiveLightShafts(delta);

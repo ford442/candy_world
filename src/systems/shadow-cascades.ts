@@ -74,7 +74,7 @@ export function initSunCascades(
     sunLight: THREE.DirectionalLight,
     renderer: THREE.Renderer,
     camera: THREE.PerspectiveCamera,
-    settings: ShadowSettings,
+    settings: ShadowSettings
 ): SunCascades | null {
     if (!settings.enabled || settings.cascades <= 0) return null;
     if (!isCascadeSupported(renderer)) return null;
@@ -132,7 +132,7 @@ export function initSunCascades(
 export function updateSunCascadeDirection(
     sunLight: THREE.DirectionalLight,
     playerPos: THREE.Vector3,
-    normalizedSunDir: THREE.Vector3,
+    normalizedSunDir: THREE.Vector3
 ): void {
     if (!_active) return;
 

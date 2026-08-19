@@ -291,18 +291,18 @@ clearcoat. All knobs live under `CONFIG.lighting.shadows`
 (`src/core/config/defaults.ts`); the tier is chosen by
 `resolveShadowSettings()` from `StartupCapabilities`, never from raw graphics.
 
-| Knob | Default | Visual Impact |
-|---|---|---|
-| `cascadesEnabled` | `true` | `false` restores the single player-following ortho map |
-| `cascadeCount` / `cascadeCountHigh` | `2` / `3` | Cascades at default / high tier. Clamped 2–4 |
-| `cascadeMode` | `practical` | Split scheme. `uniform` wastes near texels; `logarithmic` starves the far cascade |
-| `cascadeMaxFar` | `160` | How far cascades reach, in world units. Tracks the fog far plane — raising it spreads the same texels thinner |
-| `cascadeMapSizeTaper` | `true` | Halves the map for each farther cascade (2048/1024/512). Near sharpness is unchanged; roughly halves shadow VRAM |
-| `cascadeMapSizeMin` | `512` | Floor for tapered far cascades |
-| `cascadeFade` | `true` | Cross-fades cascade seams. Off = visible resolution step lines |
-| `cascadeLightMargin` | `120` | Pullback along the sun direction. Too low clips tall casters (sky islands) out of their cascade |
-| `bias` / `normalBias` | `-0.0005` / `0.02` | **Acne control on glossy `MeshPhysicalMaterial`.** CSM scales `bias` per cascade (×cascade index), so tune the base value here and let the far cascades follow |
-| `pcfRadius` | `2` | PCF softness — the candy "contact shadow" read |
+| Knob                                | Default            | Visual Impact                                                                                                                                                  |
+| ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cascadesEnabled`                   | `true`             | `false` restores the single player-following ortho map                                                                                                         |
+| `cascadeCount` / `cascadeCountHigh` | `2` / `3`          | Cascades at default / high tier. Clamped 2–4                                                                                                                   |
+| `cascadeMode`                       | `practical`        | Split scheme. `uniform` wastes near texels; `logarithmic` starves the far cascade                                                                              |
+| `cascadeMaxFar`                     | `160`              | How far cascades reach, in world units. Tracks the fog far plane — raising it spreads the same texels thinner                                                  |
+| `cascadeMapSizeTaper`               | `true`             | Halves the map for each farther cascade (2048/1024/512). Near sharpness is unchanged; roughly halves shadow VRAM                                               |
+| `cascadeMapSizeMin`                 | `512`              | Floor for tapered far cascades                                                                                                                                 |
+| `cascadeFade`                       | `true`             | Cross-fades cascade seams. Off = visible resolution step lines                                                                                                 |
+| `cascadeLightMargin`                | `120`              | Pullback along the sun direction. Too low clips tall casters (sky islands) out of their cascade                                                                |
+| `bias` / `normalBias`               | `-0.0005` / `0.02` | **Acne control on glossy `MeshPhysicalMaterial`.** CSM scales `bias` per cascade (×cascade index), so tune the base value here and let the far cascades follow |
+| `pcfRadius`                         | `2`                | PCF softness — the candy "contact shadow" read                                                                                                                 |
 
 Tier mapping: `low` / `forceDisable` / CI → no shadow pass at all; default →
 2 cascades at `mapSize`; high → 3 cascades at `mapSizeHigh`.
