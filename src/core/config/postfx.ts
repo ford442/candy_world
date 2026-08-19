@@ -103,3 +103,82 @@ export function resolveShadowSettings(): ShadowSettings {
 
     return { enabled: true, mapSize, cascades };
 }
+
+// ---------------------------------------------------------------------------
+// Lightweight GI (irradiance probe volume) — see docs/IRRADIANCE_PROBES.md
+// ---------------------------------------------------------------------------
+
+export interface GiSettings {
+    enabled: boolean;
+    /** Probe counts per axis. 0 on every axis when `enabled` is false. */
+    gridX: number;
+    gridY: number;
+    gridZ: number;
+    /** World units between probes. */
+    cellSize: number;
+    /** Bake budget per frame, nearest-to-camera first. */
+    probesPerFrame: number;
+}
+
+const GI_OFF: GiSettings = {
+    enabled: false,
+    gridX: 0,
+    gridY: 0,
+    gridZ: 0,
+    cellSize: 0,
+    probesPerFrame: 0,
+};
+
+/**
+ * Probe-volume density for this session.
+ *
+ * Off on the `low` graphics tier (WebGL and CI/headless both clamp to `low`),
+ * off for `?gi=off` / `?postfx=off`, low-res on `medium`, denser on `high`.
+ * Like `resolveShadowSettings()` this reads `StartupCapabilities`, never the
+ * raw persisted profile.
+ */
+export function resolveGiSettings(): GiSettings {
+    const cfg = CONFIG.lighting.gi;
+    // CONFIG is the only switch no URL flag can talk out of.
+    if (!cfg.enabled || cfg.forceDisable) return GI_OFF;
+
+    const flag = _getFlag('gi');
+    if (flag === 'off') return GI_OFF;
+
+    // QA escape hatch: ?gi=on / ?gi=high / ?gi=debug force the volume on so the
+    // bounce can be inspected on a headless capture or a low-tier machine,
+    // where it would otherwise be skipped.
+    const forced = flag === 'on' || flag === 'high' || flag === 'debug';
+
+    if (!forced) {
+        if (isCIorHeadless()) return GI_OFF;
+        if (_getFlag('postfx') === 'off') return GI_OFF;
+    }
+
+    let graphics: 'low' | 'medium' | 'high';
+    try {
+        graphics = getStartupCapabilities().graphics;
+    } catch {
+        // Pre-boot / non-browser: infer from the post-FX tier.
+        const q = resolvePostfxQuality();
+        graphics = q === 'off' ? 'low' : q === 'high' ? 'high' : 'medium';
+    }
+
+    if (!forced && cfg.disableOnLow && graphics === 'low') return GI_OFF;
+
+    const high = flag === 'high' || (graphics === 'high' && flag !== 'on');
+    return {
+        enabled: true,
+        gridX: clampGridAxis(high ? cfg.gridXHigh : cfg.gridX),
+        gridY: clampGridAxis(high ? cfg.gridYHigh : cfg.gridY),
+        gridZ: clampGridAxis(high ? cfg.gridZHigh : cfg.gridZ),
+        cellSize: Math.max(1, high ? cfg.cellSizeHigh : cfg.cellSize),
+        probesPerFrame: Math.max(1, Math.round(high ? cfg.probesPerFrameHigh : cfg.probesPerFrame)),
+    };
+}
+
+/** Keep a probe axis in the 2–32 band: below 2 there is nothing to interpolate. */
+export function clampGridAxis(count: number): number {
+    if (!Number.isFinite(count)) return 2;
+    return Math.max(2, Math.min(32, Math.round(count)));
+}

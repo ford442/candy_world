@@ -206,6 +206,65 @@ export interface ConfigType {
             localShadowNear: number;
             localShadowFar: number;
         };
+        /**
+         * Lightweight GI — a player-following SH-L1 irradiance probe volume,
+         * baked on the CPU from sky openness, ground bounce and the local-light
+         * registry, then added to unified materials as a soft coloured bounce.
+         * @see docs/IRRADIANCE_PROBES.md
+         */
+        gi: {
+            enabled: boolean;
+            /** Hard off switch that beats every tier / URL flag. */
+            forceDisable: boolean;
+            /** Skip the volume on the `low` graphics tier (WebGL / CI clamp to it). */
+            disableOnLow: boolean;
+
+            /** Probe count per axis at default quality. Clamped to 2–32. */
+            gridX: number;
+            gridY: number;
+            gridZ: number;
+            /** Probe count per axis when the graphics tier is high. */
+            gridXHigh: number;
+            gridYHigh: number;
+            gridZHigh: number;
+            /** Visual Impact: world units between probes. Extent = grid * cellSize. */
+            cellSize: number;
+            cellSizeHigh: number;
+            /** Bake budget per frame, nearest-to-camera first. */
+            probesPerFrame: number;
+            probesPerFrameHigh: number;
+            /** Local lights considered as bounce donors per bake pass. */
+            maxDonors: number;
+
+            /** Visual Impact: master gain on the bounce term. 0 restores the pre-GI look. */
+            intensity: number;
+            /** Visual Impact: how much of the directional (L1) band reaches the surface. */
+            directionality: number;
+            /** Largest irradiance the RGBA8 probe textures can encode. */
+            range: number;
+            /** Visual Impact: weight of the overhead sky term. */
+            skyStrength: number;
+            /** Visual Impact: weight of the sun-off-terrain bounce. */
+            groundBounce: number;
+            /** Candy ground albedo used by that bounce (hex). */
+            groundAlbedo: number;
+            /** Height in world units over which ground bounce falls off. */
+            groundFalloff: number;
+            /** Visual Impact: weight of registered local lights as bounce donors. */
+            donorStrength: number;
+            /** Donors reach a little past their light radius — bounce is not a light. */
+            donorRadiusScale: number;
+
+            /** Blend toward `pastelSaturation` so bounce never reads as grey dirt. */
+            pastelBias: number;
+            /** Visual Impact: saturation floor the pastel guard pulls bounce toward. */
+            pastelSaturation: number;
+            /** Visual Impact: icy fill so sugar-cave interiors are dim, not black (hex). */
+            caveFill: number;
+            caveFillStrength: number;
+            /** Fraction of the volume used to fade GI out at its border. */
+            edgeFade: number;
+        };
     };
 
     atmosphere: {

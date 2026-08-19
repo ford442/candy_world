@@ -105,7 +105,7 @@ export class ClusteredLightingSystem {
                 if (snap.gpu && snap.kind === 'point') {
                     vPos.setFromMatrixPosition(snap.parent.matrixWorld);
                 } else if (!snap.gpu) {
-                    vPos.set((snap as any).localX ?? 0, (snap as any).localY ?? 0, (snap as any).localZ ?? 0);
+                    vPos.set(snap.localX, snap.localY, snap.localZ);
                     vPos.applyMatrix4(snap.parent.matrixWorld);
                 } else {
                      vPos.setFromMatrixPosition(snap.parent.matrixWorld);

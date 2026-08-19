@@ -75,6 +75,14 @@ export interface LocalLightSnapshot {
     decay: number;
     color: number;
     parent: THREE.Object3D | null;
+    /**
+     * Decorative descriptors only: offset from `parent` in its local space.
+     * GPU lights are their own object, so consumers read `parent.matrixWorld`
+     * directly and these stay 0.
+     */
+    localX: number;
+    localY: number;
+    localZ: number;
 }
 
 interface GpuSlot {
@@ -383,6 +391,9 @@ export function forEachLocalLight(fn: (snap: LocalLightSnapshot) => void): void 
             decay: L.decay,
             color: L.color.getHex(),
             parent: L.parent,
+            localX: 0,
+            localY: 0,
+            localZ: 0,
         });
     }
     for (let i = 0; i < _spotPool.length; i++) {
@@ -400,6 +411,9 @@ export function forEachLocalLight(fn: (snap: LocalLightSnapshot) => void): void 
             decay: L.decay,
             color: L.color.getHex(),
             parent: L.parent,
+            localX: 0,
+            localY: 0,
+            localZ: 0,
         });
     }
     for (let i = 0; i < _decorPool.length; i++) {
@@ -416,6 +430,9 @@ export function forEachLocalLight(fn: (snap: LocalLightSnapshot) => void): void 
             decay: s.decay,
             color: s.color,
             parent: s.parent,
+            localX: s.localX,
+            localY: s.localY,
+            localZ: s.localZ,
         });
     }
 }

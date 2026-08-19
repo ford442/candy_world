@@ -19,6 +19,7 @@ import {
 import { uStarOpacity } from '../foliage/stars.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { globalClusteredLighting } from '../rendering/clustered-lighting.ts';
+import { updateIrradianceProbes } from '../rendering/irradiance-probes.ts';
 import { cameraRef } from './game-loop-core.ts';
 import { profiler } from '../utils/profiler.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
@@ -331,6 +332,18 @@ export function updateVisualsPhase(
     updateLocalLightHelpers();
     if (cameraRef) {
         profiler.measure('ClusteredLighting', () => { globalClusteredLighting.update(cameraRef as THREE.PerspectiveCamera); });
+        // Lightweight GI: bake a slice of the probe volume against the sky/sun
+        // state we just resolved, so the bounce tracks the day cycle. No-op
+        // when the volume was never allocated (`low` tier, CI, ?gi=off).
+        profiler.measure('IrradianceProbes', () => {
+            updateIrradianceProbes((cameraRef as THREE.PerspectiveCamera).position, {
+                sky: _scratchBaseSkyTop,
+                ground: _scratchBaseFog,
+                sun: sunLightRef?.color,
+                sunIntensity: sunLightRef?.intensity ?? 0,
+                sunDirection: _scratchNormalizedSunDir,
+            });
+        });
     }
     return {
         cyclePos,

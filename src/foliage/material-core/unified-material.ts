@@ -24,6 +24,7 @@ import {
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
 import { globalClusteredLighting } from '../../rendering/clustered-lighting.ts';
+import { getIrradianceNode } from '../../rendering/irradiance-probes.ts';
 import { applyGlitch } from '../glitch.ts';
 import {
     uTime,
@@ -265,6 +266,17 @@ export function createUnifiedMaterial(
         const clusterLight = globalClusteredLighting.getLightingNode(positionWorld,
     positionView, normalWorld, $sn(material.colorNode));
         material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(clusterLight);
+    }
+
+    // Lightweight GI: a soft bounce term from the irradiance probe volume,
+    // multiplied by albedo so it tints the material rather than washing it out.
+    // Null (and therefore free) whenever the volume was not allocated — `low`
+    // tier, CI, `?gi=off`. See docs/IRRADIANCE_PROBES.md.
+    const bounce = getIrradianceNode(positionWorld, normalWorld);
+    if (bounce) {
+        material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(
+            $sn(bounce).mul($sn(material.colorNode))
+        );
     }
 
     material.userData.isUnified = true;
