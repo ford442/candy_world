@@ -19,8 +19,8 @@ import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { animatedFoliage } from '../world/state.ts';
 import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
-import { getStartupCapabilities } from './startup/capabilities.ts';
 import { syncDrawingBufferFromWindow } from './init.ts';
+import { getStartupCapabilities } from './startup/capabilities.ts';
 
 // Deferred visual elements
 let aurora: THREE.Object3D | null = null;

@@ -11,6 +11,7 @@
 
 import * as THREE from 'three';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
+import { showToast } from '../utils/toast.ts';
 import { create } from '../world/foliage-registry.ts';
 import { plantOnSurface } from '../world/placement-utils.ts';
 
@@ -38,12 +39,32 @@ let _currentScale = 1.0;
 let _currentRotation = 0.0;
 
 const ENTITY_TYPES = [
-    'mushroom', 'flower', 'tree', 'shrub', 'portamento_pine',
-    'bubble_willow', 'balloon_bush', 'helix_plant', 'gem_canopy_tree',
-    'arpeggio_fern', 'luminous_plant', 'glowing_flower', 'starflower',
-    'vibrato_violet', 'tremolo_tulip', 'cymbal_dandelion', 'rock', 'grass',
-    'kick_drum_geyser', 'snare_trap', 'subwoofer_lotus', 'panning_pad',
-    'instrument_shrine', 'wisteria_cluster', 'glass_mushroom', 'sky_island'
+    'mushroom',
+    'flower',
+    'tree',
+    'shrub',
+    'portamento_pine',
+    'bubble_willow',
+    'balloon_bush',
+    'helix_plant',
+    'gem_canopy_tree',
+    'arpeggio_fern',
+    'luminous_plant',
+    'glowing_flower',
+    'starflower',
+    'vibrato_violet',
+    'tremolo_tulip',
+    'cymbal_dandelion',
+    'rock',
+    'grass',
+    'kick_drum_geyser',
+    'snare_trap',
+    'subwoofer_lotus',
+    'panning_pad',
+    'instrument_shrine',
+    'wisteria_cluster',
+    'glass_mushroom',
+    'sky_island',
 ];
 
 export function isPlacementDebugEnabled(): boolean {
@@ -59,7 +80,7 @@ function updatePanel() {
     if (scaleEl) scaleEl.textContent = _currentScale.toFixed(2);
 
     const rotEl = _panel.querySelector('#debug-place-rot');
-    if (rotEl) rotEl.textContent = (_currentRotation * 180 / Math.PI).toFixed(0);
+    if (rotEl) rotEl.textContent = ((_currentRotation * 180) / Math.PI).toFixed(0);
 }
 
 export function initPlacementDebug(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
@@ -71,17 +92,26 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
     _panel = document.createElement('div');
     _panel.id = 'debug-place-panel';
     _panel.style.cssText = [
-        'position:fixed', 'left:8px', 'top:8px', 'z-index:10000',
+        'position:fixed',
+        'left:8px',
+        'top:8px',
+        'z-index:10000',
         'font:12px/1.4 ui-monospace, SFMono-Regular, monospace',
-        'color:#fff', 'background:rgba(20,20,30,0.85)',
-        'padding:10px', 'border-radius:6px', 'pointer-events:auto',
-        'backdrop-filter:blur(4px)', 'border:1px solid rgba(255,255,255,0.2)',
-        'display:flex', 'flex-direction:column', 'gap:6px'
+        'color:#fff',
+        'background:rgba(20,20,30,0.85)',
+        'padding:10px',
+        'border-radius:6px',
+        'pointer-events:auto',
+        'backdrop-filter:blur(4px)',
+        'border:1px solid rgba(255,255,255,0.2)',
+        'display:flex',
+        'flex-direction:column',
+        'gap:6px',
     ].join(';');
 
     const typeSelect = document.createElement('select');
     typeSelect.style.cssText = 'background:#000;color:#fff;border:1px solid #555;padding:2px;';
-    ENTITY_TYPES.forEach(type => {
+    ENTITY_TYPES.forEach((type) => {
         const opt = document.createElement('option');
         opt.value = type;
         opt.textContent = type;
@@ -121,7 +151,7 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
         // Don't intercept if mouse is over the panel
         if (_panel && _panel.contains(e.target as Node)) return;
 
-        _currentScale += (e.deltaY < 0 ? 0.1 : -0.1);
+        _currentScale += e.deltaY < 0 ? 0.1 : -0.1;
         _currentScale = Math.max(0.1, Math.min(10.0, _currentScale));
         updatePanel();
     });
@@ -152,7 +182,9 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
 
         const obj = create(_currentType, { scale: _currentScale });
         if (obj) {
-            plantOnSurface(obj, _reticle.position.x, _reticle.position.z, { groundY: _reticle.position.y });
+            plantOnSurface(obj, _reticle.position.x, _reticle.position.z, {
+                groundY: _reticle.position.y,
+            });
 
             // Re-apply the normal alignment and local rotation
             obj.quaternion.copy(_reticle.quaternion);
@@ -172,8 +204,8 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
                 position: [parseFloat(px), parseFloat(py), parseFloat(pz)],
                 rotation: [0, _currentRotation, 0],
                 params: {
-                    scale: parseFloat(_currentScale.toFixed(2))
-                }
+                    scale: parseFloat(_currentScale.toFixed(2)),
+                },
             };
 
             console.log(`[DebugPlace] Spawned ${_currentType}`);

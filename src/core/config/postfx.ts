@@ -1,7 +1,7 @@
+import { getStartupCapabilities, type ShadowResolution } from '../startup/capabilities.ts';
 import { CONFIG } from './defaults.ts';
 import { isCIorHeadless } from './runtime.ts';
 import { _hasFlag, _getFlag } from './url-flags.ts';
-import { getStartupCapabilities } from '../startup/capabilities.ts';
 
 // ---------------------------------------------------------------------------
 // Post-FX resolution helpers — URL ?postfx= wins, then StartupCapabilities,
@@ -52,7 +52,10 @@ export interface ShadowSettings {
 
 /**
  * Whether directional sun shadows are active and at what map resolution.
- * Disabled on CI/headless, postfx=off, or CONFIG.lighting.shadows.enabled=false.
+ *
+ * The shadow tier comes from `StartupCapabilities.shadows` — the single source
+ * of truth — not from the post-FX tier. CONFIG force-disable and CI/headless
+ * remain hard escapes on top of it.
  */
 export function resolveShadowSettings(): ShadowSettings {
     const cfg = CONFIG.lighting.shadows;
@@ -60,14 +63,27 @@ export function resolveShadowSettings(): ShadowSettings {
         return { enabled: false, mapSize: 0 };
     }
 
-    const quality = resolvePostfxQuality();
-    if (quality === 'off') {
-        return { enabled: false, mapSize: 0 };
-    }
-    if (quality === 'low' && cfg.disableOnLowPostfx) {
+    // ?postfx=off remains a hard debug escape for shadows too.
+    if (_getFlag('postfx') === 'off') {
         return { enabled: false, mapSize: 0 };
     }
 
-    const mapSize = quality === 'high' ? cfg.mapSizeHigh : cfg.mapSize;
-    return { enabled: true, mapSize };
+    let resolution: ShadowResolution;
+    try {
+        const caps = getStartupCapabilities().shadows;
+        resolution = caps.enabled ? caps.resolution : 'off';
+    } catch {
+        // Pre-boot / non-browser: fall back to the post-FX tier.
+        const q = resolvePostfxQuality();
+        resolution = q === 'off' ? 'off' : q === 'high' ? 'high' : 'low';
+    }
+
+    if (resolution === 'off') {
+        return { enabled: false, mapSize: 0 };
+    }
+    if (resolution === 'low' && cfg.disableOnLowPostfx) {
+        return { enabled: false, mapSize: 0 };
+    }
+
+    return { enabled: true, mapSize: resolution === 'high' ? cfg.mapSizeHigh : cfg.mapSize };
 }

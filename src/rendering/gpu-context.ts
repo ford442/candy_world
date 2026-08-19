@@ -31,8 +31,8 @@
  * @see docs/WEBGPU_CONTEXT.md
  */
 
-import type { RendererBackend } from './renderer-mode.ts';
 import { setGpuPrefersLightWorldLoad } from '../core/config/runtime.ts';
+import type { RendererBackend } from './renderer-mode.ts';
 
 // =============================================================================
 // CONTEXT OPTIONS (the single source of truth for renderer construction)
