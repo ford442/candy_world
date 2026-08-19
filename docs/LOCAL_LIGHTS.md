@@ -1,7 +1,7 @@
 # Local point and spot lights
 
 Candy World is still lit as **hemisphere ambient + one directional sun**. Local
-point and spot lights are first-class *fills*: physically plausible inverse-square
+point and spot lights are first-class _fills_: physically plausible inverse-square
 falloff (`decay = 2`), pastel PALETTE tints, optional cone/cookie, and at most
 one extra shadow map.
 
@@ -12,14 +12,14 @@ should consume this registry rather than walking the scene graph.
 
 Call `initLocalLights(scene, renderer)` once from scene init (already wired).
 
-| Function | GPU light? | Use |
-| --- | --- | --- |
-| `createPointLight(opts)` | yes | Authored / weather fills. Reuses a fixed pool. |
-| `createSpotLight(opts)` | yes | Cone + optional `map` cookie. Optional `castShadow`. |
-| `registerDecorativeFill(opts)` | **no** | Flower heads, orbs, generation loops. Descriptor only. |
-| `releaseLocalLight(id)` | — | Returns the pool slot. No per-frame alloc. |
-| `forEachLocalLight(fn)` | — | Snapshot walk for clustered culling. |
-| `localShadowsAllowed()` | — | False on `low`, CI, WebGL. |
+| Function                       | GPU light? | Use                                                    |
+| ------------------------------ | ---------- | ------------------------------------------------------ |
+| `createPointLight(opts)`       | yes        | Authored / weather fills. Reuses a fixed pool.         |
+| `createSpotLight(opts)`        | yes        | Cone + optional `map` cookie. Optional `castShadow`.   |
+| `registerDecorativeFill(opts)` | **no**     | Flower heads, orbs, generation loops. Descriptor only. |
+| `releaseLocalLight(id)`        | —          | Returns the pool slot. No per-frame alloc.             |
+| `forEachLocalLight(fn)`        | —          | Snapshot walk for clustered culling.                   |
+| `localShadowsAllowed()`        | —          | False on `low`, CI, WebGL.                             |
 
 Ids are stable. Creating the same `id` twice returns the existing handle.
 
@@ -27,28 +27,28 @@ Ids are stable. Creating the same `id` twice returns the existing handle.
 
 ```ts
 createPointLight({
-  id: 'authored-crystal-fill',
-  role: 'authored',          // authored | weather | debug
-  color: 0x7fe8ff,           // candy cyan
-  intensity: 0.9,
-  distance: 14,
-  decay: 2,
-  castShadow: false,
-  parent: scene,
-  position: [6, 2.8, -10],
+    id: 'authored-crystal-fill',
+    role: 'authored', // authored | weather | debug
+    color: 0x7fe8ff, // candy cyan
+    intensity: 0.9,
+    distance: 14,
+    decay: 2,
+    castShadow: false,
+    parent: scene,
+    position: [6, 2.8, -10],
 });
 
 createSpotLight({
-  id: 'authored-mushroom-spot',
-  role: 'authored',
-  color: 0xffb3d9,           // candy pink
-  angle: Math.PI / 5,
-  penumbra: 0.5,
-  castShadow: true,          // honored only if a shadow slot remains
-  parent: scene,
-  position: [0, 5.5, 3],
-  target: [0, 0, 0],
-  map: cookieTexture,        // optional; no IES
+    id: 'authored-mushroom-spot',
+    role: 'authored',
+    color: 0xffb3d9, // candy pink
+    angle: Math.PI / 5,
+    penumbra: 0.5,
+    castShadow: true, // honored only if a shadow slot remains
+    parent: scene,
+    position: [0, 5.5, 3],
+    target: [0, 0, 0],
+    map: cookieTexture, // optional; no IES
 });
 ```
 

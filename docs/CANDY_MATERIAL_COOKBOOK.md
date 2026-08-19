@@ -318,14 +318,14 @@ The hemisphere + sun pair is the lighting model. Extra **point** and **spot**
 lights are pastel fills registered through `src/rendering/lights.ts` so quality
 tiers, the shadow budget, and a future clustered cull share one list.
 
-| Knob | Default | Visual Impact |
-| --- | --- | --- |
-| `pointColor` / `spotColor` | `#7fe8ff` / `#ffb3d9` | Candy cyan fill and pink cone — never a harsh white bulb |
-| `pointDecay` / `spotDecay` | `2` | Inverse-square falloff |
-| `pointDistance` / `spotDistance` | `14` / `16` | Cutoff in world units |
-| `spotAngle` / `spotPenumbra` | `π/5` / `0.5` | Soft mushroom-cap cone |
-| `maxLocalShadowLights` | `1` | Extra maps on top of the sun. `0` = illumination only |
-| `disableOnLow` | `true` | Skip extra maps on `low` / CI. WebGL stays directional-only |
+| Knob                             | Default               | Visual Impact                                               |
+| -------------------------------- | --------------------- | ----------------------------------------------------------- |
+| `pointColor` / `spotColor`       | `#7fe8ff` / `#ffb3d9` | Candy cyan fill and pink cone — never a harsh white bulb    |
+| `pointDecay` / `spotDecay`       | `2`                   | Inverse-square falloff                                      |
+| `pointDistance` / `spotDistance` | `14` / `16`           | Cutoff in world units                                       |
+| `spotAngle` / `spotPenumbra`     | `π/5` / `0.5`         | Soft mushroom-cap cone                                      |
+| `maxLocalShadowLights`           | `1`                   | Extra maps on top of the sun. `0` = illumination only       |
+| `disableOnLow`                   | `true`                | Skip extra maps on `low` / CI. WebGL stays directional-only |
 
 API: `createPointLight`, `createSpotLight`, `registerDecorativeFill`.
 Generation loops must **not** `new THREE.PointLight`. Flower heads and orbs

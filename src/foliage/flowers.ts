@@ -2,20 +2,41 @@
 
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { color as tslColor, mix, float, positionLocal, uv, vec2, sub, mul, add, sin, length, atan, atan2, smoothstep, vec3 } from 'three/tsl';
+import {
+    color as tslColor,
+    mix,
+    float,
+    positionLocal,
+    uv,
+    vec2,
+    sub,
+    mul,
+    add,
+    sin,
+    length,
+    atan,
+    atan2,
+    smoothstep,
+    vec3,
+} from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { modulateDecorativeLight, registerDecorativeFill } from '../rendering/lights.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { getCircleGeometry, getCylinderGeometry, getTorusGeometry, getSphereGeometry } from '../utils/geometry-dedup.ts';
+import {
+    getCircleGeometry,
+    getCylinderGeometry,
+    getTorusGeometry,
+    getSphereGeometry,
+} from '../utils/geometry-dedup.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { flowerBatcher } from './flower-batcher.ts'; // ⚡ OPTIMIZATION: New Unified Batcher
 import { spawnImpact } from './impacts.ts';
-import { 
-    foliageMaterials, 
-    registerReactiveMaterial, 
-    attachReactivity, 
-    pickAnimation, 
-    createClayMaterial, 
+import {
+    foliageMaterials,
+    registerReactiveMaterial,
+    attachReactivity,
+    pickAnimation,
+    createClayMaterial,
     createStandardNodeMaterial,
     createTransparentNodeMaterial,
     createJuicyRimLight,
@@ -27,7 +48,7 @@ import {
     getCachedProceduralMaterial,
     uTime,
     uAudioHigh,
-    uAudioLow
+    uAudioLow,
 } from './index.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
@@ -45,7 +66,7 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
 
     const group = new THREE.Group();
     group.userData.type = 'flower';
-    group.userData.interactionText = "🌸 Flower";
+    group.userData.interactionText = '🌸 Flower';
     group.userData.isFlower = true; // Signal MusicReactivitySystem to skip CPU animation if handled by batcher
     group.userData.radius = 0.3;
 
@@ -58,8 +79,8 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
 
     // Deferred Placement
     group.userData.onPlacement = () => {
-         flowerBatcher.register(group, shape, options);
-         group.userData.onPlacement = null;
+        flowerBatcher.register(group, shape, options);
+        group.userData.onPlacement = null;
     };
 
     // Attach Reactivity Metadata (for systems that query it, even if batcher handles visuals)
@@ -75,7 +96,10 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
     reactiveGroup.traverse((child: any) => {
         if (child.isMesh && child.geometry) {
             if (!child.geometry.attributes.aPoseState) {
-                child.geometry.setAttribute('aPoseState', new THREE.BufferAttribute(new Float32Array([1,1,1]), 1));
+                child.geometry.setAttribute(
+                    'aPoseState',
+                    new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 1)
+                );
             }
         }
     });
@@ -91,7 +115,7 @@ interface GlowingFlowerOptions {
 
 // ⚡ OPTIMIZATION: Instanced Glowing Flower (Batched)
 export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.Group {
-    const { color = 0xFFD700 } = options;
+    const { color = 0xffd700 } = options;
     const group = new THREE.Group();
 
     // 1. Create Proxy Logic Object
@@ -103,7 +127,7 @@ export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.G
     group.userData.type = 'flower';
     group.userData.isFlower = true; // Signals MusicReactivitySystem to skip CPU updates
     group.userData.radius = 0.3;
-    group.userData.interactionText = "✨ Glow Flower";
+    group.userData.interactionText = '✨ Glow Flower';
 
     // Deferred Registration to Batcher
     group.userData.onPlacement = () => {
@@ -122,13 +146,17 @@ export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.G
     return group;
 }
 
-export function createStarflower(options: { color?: number | string | THREE.Color } = {}): THREE.Group {
-    const { color: hexColor = 0xFF6EC7 } = options;
+export function createStarflower(
+    options: { color?: number | string | THREE.Color } = {}
+): THREE.Group {
+    const { color: hexColor = 0xff6ec7 } = options;
     const group = new THREE.Group();
 
     const stemH = 0.7 + Math.random() * 0.4;
     // ⚡ OPTIMIZATION: Cache Stem
-    const stemMat = getCachedProceduralMaterial('starflower_stem', 0x228B22, () => createClayMaterial(0x228B22));
+    const stemMat = getCachedProceduralMaterial('starflower_stem', 0x228b22, () =>
+        createClayMaterial(0x228b22)
+    );
     const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.04, stemH, 0.04);
     stem.castShadow = true;
@@ -144,7 +172,7 @@ export function createStarflower(options: { color?: number | string | THREE.Colo
         const mat = createStandardNodeMaterial({
             color: hexColor,
             roughness: 0.4,
-            metalness: 0.2
+            metalness: 0.2,
         });
 
         const baseColorNode = tslColor(hexColor);
@@ -189,13 +217,17 @@ export function createStarflower(options: { color?: number | string | THREE.Colo
     return attachReactivity(group, { minLight: 0.0, maxLight: 0.4 });
 }
 
-export function createBellBloom(options: { color?: number | string | THREE.Color } = {}): THREE.Group {
-    const { color = 0xFFD27F } = options;
+export function createBellBloom(
+    options: { color?: number | string | THREE.Color } = {}
+): THREE.Group {
+    const { color = 0xffd27f } = options;
     const group = new THREE.Group();
 
     const stemH = 0.4 + Math.random() * 0.2;
     // ⚡ OPTIMIZATION: Cache Stem
-    const stemMat = getCachedProceduralMaterial('bellbloom_stem', 0x2E8B57, () => createClayMaterial(0x2E8B57));
+    const stemMat = getCachedProceduralMaterial('bellbloom_stem', 0x2e8b57, () =>
+        createClayMaterial(0x2e8b57)
+    );
     const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.03, stemH, 0.03);
     stem.castShadow = true;
@@ -207,7 +239,7 @@ export function createBellBloom(options: { color?: number | string | THREE.Color
         const mat = createStandardNodeMaterial({
             color: color,
             roughness: 0.5,
-            metalness: 0.1
+            metalness: 0.1,
         });
 
         const baseColorNode = tslColor(color);
@@ -236,17 +268,19 @@ export function createBellBloom(options: { color?: number | string | THREE.Color
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
     group.userData.radius = 0.3;
-    
+
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
 export function createPuffballFlower(options: { color?: number } = {}): THREE.Group {
-    const { color = 0xFF69B4 } = options;
+    const { color = 0xff69b4 } = options;
     const group = new THREE.Group();
 
     const stemH = 1.0 + Math.random() * 0.5;
     // ⚡ OPTIMIZATION: Cache Stem
-    const stemMat = getCachedProceduralMaterial('puffball_stem', 0x6B8E23, () => createClayMaterial(0x6B8E23));
+    const stemMat = getCachedProceduralMaterial('puffball_stem', 0x6b8e23, () =>
+        createClayMaterial(0x6b8e23)
+    );
     const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.1, stemH, 0.1);
     stem.position.y = 0;
@@ -259,7 +293,7 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
         const mat = createStandardNodeMaterial({
             color: color,
             roughness: 0.6,
-            metalness: 0.1
+            metalness: 0.1,
         });
 
         const baseColorNode = tslColor(color);
@@ -310,7 +344,7 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
     group.userData.bounceHeight = stemH;
     group.userData.bounceRadius = headR + 0.3;
     group.userData.bounceForce = 12 + Math.random() * 5;
-    group.userData.interactionText = "🚀 Bounce";
+    group.userData.interactionText = '🚀 Bounce';
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
@@ -319,7 +353,9 @@ export function createPrismRoseBush(options = {}): THREE.Group {
     const group = new THREE.Group();
 
     // ⚡ OPTIMIZATION: Cache Stem
-    const stemsMat = getCachedProceduralMaterial('prism_stem', 0x5D4037, () => createClayMaterial(0x5D4037));
+    const stemsMat = getCachedProceduralMaterial('prism_stem', 0x5d4037, () =>
+        createClayMaterial(0x5d4037)
+    );
     const baseHeight = 1.0 + Math.random() * 0.5;
 
     const trunk = new THREE.Mesh(sharedGeometries.unitCylinder, stemsMat);
@@ -328,7 +364,7 @@ export function createPrismRoseBush(options = {}): THREE.Group {
     group.add(trunk);
 
     const branchCount = 3 + Math.floor(Math.random() * 3);
-    const roseColors = [0xFF0055, 0xFFAA00, 0x00CCFF, 0xFF00FF, 0x00FF88];
+    const roseColors = [0xff0055, 0xffaa00, 0x00ccff, 0xff00ff, 0x00ff88];
 
     for (let i = 0; i < branchCount; i++) {
         const branchGroup = new THREE.Group();
@@ -345,7 +381,7 @@ export function createPrismRoseBush(options = {}): THREE.Group {
         roseGroup.position.y = branchLen;
 
         const hexColor = roseColors[Math.floor(Math.random() * roseColors.length)];
-        
+
         // --- PALETTE: Juicy TSL for Prism Rose Bush ---
         // ⚡ OPTIMIZATION: Cache Petals with Juicy TSL logic preserved
         const petalMat = getCachedProceduralMaterial('prism_petal', hexColor, () => {
@@ -353,11 +389,13 @@ export function createPrismRoseBush(options = {}): THREE.Group {
                 color: hexColor,
                 roughness: 0.4, // Shinier to look like hard candy
                 emissive: hexColor,
-                emissiveIntensity: 0.0 // Managed by TSL below
+                emissiveIntensity: 0.0, // Managed by TSL below
             });
 
             // Apply deformation
-            const breathScale = float(1.0).add(sin(uTime.mul(2.0)).mul(0.05)).add(uAudioLow.mul(0.2));
+            const breathScale = float(1.0)
+                .add(sin(uTime.mul(2.0)).mul(0.05))
+                .add(uAudioLow.mul(0.2));
             const animatedPos = positionLocal.mul(breathScale);
 
             // 🎨 PALETTE: TSL Juice - Wind sway and player interaction
@@ -400,7 +438,7 @@ export function createPrismRoseBush(options = {}): THREE.Group {
     group.userData.animationType = pickAnimation(['sway', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
-    
+
     // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
     group.userData.radius = 1.5; // Prism rose bush is larger
 
@@ -413,13 +451,17 @@ export function createPrismRoseBush(options = {}): THREE.Group {
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createVibratoViolet(options: { color?: number, intensity?: number } = {}): THREE.Group {
-    const { color = 0x8A2BE2, intensity = 1.0 } = options;
+export function createVibratoViolet(
+    options: { color?: number; intensity?: number } = {}
+): THREE.Group {
+    const { color = 0x8a2be2, intensity = 1.0 } = options;
     const group = new THREE.Group();
 
     const stemH = 0.5 + Math.random() * 0.3;
     // ⚡ OPTIMIZATION: Cache Stem
-    const stemMat = getCachedProceduralMaterial('violet_stem', 0x228B22, () => createClayMaterial(0x228B22));
+    const stemMat = getCachedProceduralMaterial('violet_stem', 0x228b22, () =>
+        createClayMaterial(0x228b22)
+    );
     const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.03, stemH, 0.03);
     stem.castShadow = true;
@@ -435,7 +477,7 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
             color: color,
             emissive: color,
             emissiveIntensity: 0.8 * intensity,
-            roughness: 0.3
+            roughness: 0.3,
         });
         registerReactiveMaterial(mat);
         return mat;
@@ -457,7 +499,7 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
             emissiveIntensity: 0.4 * intensity,
             roughness: 0.4,
             opacity: 0.7,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
         });
         registerReactiveMaterial(mat);
         return mat;
@@ -485,50 +527,55 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'vibratoViolet';
     group.userData.headGroup = headGroup;
-    group.userData.interactionText = "Harvest Nectar";
+    group.userData.interactionText = 'Harvest Nectar';
 
     // Interaction Logic for Harvesting
     group.userData.onInteract = () => {
         if (!group.userData.harvested) {
-             unlockSystem.harvest('vibrato_nectar', 1, 'Vibrato Nectar');
-             group.userData.harvested = true;
+            unlockSystem.harvest('vibrato_nectar', 1, 'Vibrato Nectar');
+            group.userData.harvested = true;
 
-             // Visual feedback
-             if (group.userData.headGroup) {
-                 // Trigger TSL/render-loop scale animation for juice on the main group
-                 group.userData.scaleAnimStart = Date.now();
-                 group.userData.scaleAnimTime = 0.15; // 150ms bounce
-                 group.userData.scaleTarget = 0.8; // Final shrunken size
+            // Visual feedback
+            if (group.userData.headGroup) {
+                // Trigger TSL/render-loop scale animation for juice on the main group
+                group.userData.scaleAnimStart = Date.now();
+                group.userData.scaleAnimTime = 0.15; // 150ms bounce
+                group.userData.scaleTarget = 0.8; // Final shrunken size
 
-                 // Instantaneous squash before the lerp takes over
-                 group.scale.set(1.4, 0.4, 1.4);
+                // Instantaneous squash before the lerp takes over
+                group.scale.set(1.4, 0.4, 1.4);
 
-                 const decoId = group.userData.localLightId as string | undefined;
-                 if (decoId) modulateDecorativeLight(decoId, 0.2);
-             }
+                const decoId = group.userData.localLightId as string | undefined;
+                if (decoId) modulateDecorativeLight(decoId, 0.2);
+            }
 
-             // --- PALETTE: Spore burst on harvest ---
-             spawnImpact(group.position, 'spore', color);
+            // --- PALETTE: Spore burst on harvest ---
+            spawnImpact(group.position, 'spore', color);
 
-             group.userData.interactionText = "Harvested";
+            group.userData.interactionText = 'Harvested';
 
-             // Play sound if available via audioSystem
-             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                 (window as any).AudioSystem.playSound('pickup', { position: group.position, pitch: 1.5 });
-             }
+            // Play sound if available via audioSystem
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('pickup', {
+                    position: group.position,
+                    pitch: 1.5,
+                });
+            }
         }
     };
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createTremoloTulip(options: { color?: number, size?: number } = {}): THREE.Group {
-    const { color = 0xFF6347, size = 1.0 } = options;
+export function createTremoloTulip(options: { color?: number; size?: number } = {}): THREE.Group {
+    const { color = 0xff6347, size = 1.0 } = options;
     const group = new THREE.Group();
 
     const stemH = (0.8 + Math.random() * 0.4) * size;
     // ⚡ OPTIMIZATION: Cache Stem
-    const stemMat = getCachedProceduralMaterial('tulip_stem', 0x228B22, () => createClayMaterial(0x228B22));
+    const stemMat = getCachedProceduralMaterial('tulip_stem', 0x228b22, () =>
+        createClayMaterial(0x228b22)
+    );
     const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.04 * size, stemH, 0.04 * size);
     stem.castShadow = true;
@@ -540,14 +587,14 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
 
     const bellGeo = getCylinderGeometry(0.2 * size, 0.05 * size, 0.25 * size, 12, 1, true);
     bellGeo.translate(0, -0.125 * size, 0);
-    
+
     // ⚡ OPTIMIZATION: Cache Bell
     const bellMat = getCachedProceduralMaterial('tulip_bell', color, () => {
         const mat = createTransparentNodeMaterial({
             color: color,
             roughness: 0.5,
             opacity: 0.9,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
         });
 
         // --- PALETTE: Juicy Rim Light for Tremolo Tulip ---
@@ -569,12 +616,12 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
 
     // --- PALETTE: Juicy TSL Vortex ---
     // ⚡ OPTIMIZATION: Cache Vortex (Color is static white for the base calculation)
-    const vortexMat = getCachedProceduralMaterial('tulip_vortex', 0xFFFFFF, () => {
+    const vortexMat = getCachedProceduralMaterial('tulip_vortex', 0xffffff, () => {
         const mat = new MeshStandardNodeMaterial({
             blending: THREE.AdditiveBlending,
             depthWrite: false,
             transparent: true,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
         });
 
         // Vortex Shader Logic
@@ -592,7 +639,7 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
         const edgeFade = float(1.0).sub(smoothstep(0.3, 0.5, dist));
 
         // Audio Reactive Color (Cyan <-> Magenta)
-        const baseColor = mix(tslColor(0x00FFFF), tslColor(0xFF00FF), dist.mul(2.0));
+        const baseColor = mix(tslColor(0x00ffff), tslColor(0xff00ff), dist.mul(2.0));
         const pulseIntensity = float(1.0).add(uAudioHigh.mul(3.0));
 
         mat.colorNode = baseColor;
@@ -616,7 +663,7 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
         return createTransparentNodeMaterial({
             color: color,
             opacity: 0.6,
-            blending: THREE.AdditiveBlending
+            blending: THREE.AdditiveBlending,
         });
     });
 
@@ -630,47 +677,52 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     group.userData.type = 'tremoloTulip';
     group.userData.headGroup = headGroup;
     group.userData.bellMaterial = bellMat;
-    group.userData.interactionText = "Harvest Tremolo Bulb";
+    group.userData.interactionText = 'Harvest Tremolo Bulb';
 
     // Interaction Logic for Harvesting
     group.userData.onInteract = () => {
         if (!group.userData.harvested) {
-             unlockSystem.harvest('tremolo_bulb', 1, 'Tremolo Bulb');
-             group.userData.harvested = true;
+            unlockSystem.harvest('tremolo_bulb', 1, 'Tremolo Bulb');
+            group.userData.harvested = true;
 
-             // Visual feedback
-             if (group.userData.headGroup) {
-                 // Trigger TSL/render-loop scale animation for juice on the main group
-                 group.userData.scaleAnimStart = Date.now();
-                 group.userData.scaleAnimTime = 0.15; // 150ms bounce
-                 group.userData.scaleTarget = 0.5; // Final shrunken size
+            // Visual feedback
+            if (group.userData.headGroup) {
+                // Trigger TSL/render-loop scale animation for juice on the main group
+                group.userData.scaleAnimStart = Date.now();
+                group.userData.scaleAnimTime = 0.15; // 150ms bounce
+                group.userData.scaleTarget = 0.5; // Final shrunken size
 
-                 // Instantaneous squash before the lerp takes over
-                 group.scale.set(1.4, 0.4, 1.4);
+                // Instantaneous squash before the lerp takes over
+                group.scale.set(1.4, 0.4, 1.4);
 
-                 // Dim material
-                 if (group.userData.bellMaterial) {
-                     group.userData.bellMaterial.emissiveIntensity = 0.1;
-                 }
-             }
+                // Dim material
+                if (group.userData.bellMaterial) {
+                    group.userData.bellMaterial.emissiveIntensity = 0.1;
+                }
+            }
 
-             // --- PALETTE: Spore burst on harvest ---
-             spawnImpact(group.position, 'spore', color);
+            // --- PALETTE: Spore burst on harvest ---
+            spawnImpact(group.position, 'spore', color);
 
-             group.userData.interactionText = "Harvested";
+            group.userData.interactionText = 'Harvested';
 
-             // Play sound if available via audioSystem
-             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                 (window as any).AudioSystem.playSound('pickup', { position: group.position, pitch: 1.2 });
-             }
+            // Play sound if available via audioSystem
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('pickup', {
+                    position: group.position,
+                    pitch: 1.2,
+                });
+            }
         }
     };
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createLanternFlower(options: { color?: number, height?: number } = {}): THREE.Group {
-    const { color = 0xFFA500, height = 2.5 } = options;
+export function createLanternFlower(
+    options: { color?: number; height?: number } = {}
+): THREE.Group {
+    const { color = 0xffa500, height = 2.5 } = options;
     const group = new THREE.Group();
 
     // ⚡ OPTIMIZATION: Use Batcher for Lanterns
@@ -680,7 +732,7 @@ export function createLanternFlower(options: { color?: number, height?: number }
 
     // Metadata
     group.userData.type = 'lanternFlower';
-    group.userData.interactionText = "🏮 Lantern";
+    group.userData.interactionText = '🏮 Lantern';
     group.userData.height = height;
     group.userData.color = color;
 

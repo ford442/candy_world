@@ -1,5 +1,23 @@
 import * as THREE from 'three';
-import { time, vec3, vec4, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld, normalWorld, floor } from 'three/tsl';
+import {
+    time,
+    vec3,
+    vec4,
+    positionLocal,
+    length,
+    sin,
+    cos,
+    color as tslColor,
+    attribute,
+    float,
+    uniform,
+    mix,
+    smoothstep,
+    color,
+    positionWorld,
+    normalWorld,
+    floor,
+} from 'three/tsl';
 import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
@@ -10,7 +28,16 @@ const modFloat = (x: any, y: any) => {
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
 import { registerDecorativeFill } from '../rendering/lights.ts';
-import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight, createSugarSparkle } from './index.ts';
+import {
+    registerReactiveMaterial,
+    attachReactivity,
+    CandyPresets,
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    createJuicyRimLight,
+    createSugarSparkle,
+} from './index.ts';
 import { uTwilight, uHorizonColor } from './sky.ts';
 
 export interface FloatingOrbOptions {
@@ -57,8 +84,8 @@ export function createMelodyLake(width = 200, depth = 200) {
     // The crests of the waves glow bright cyan/neon, the troughs are deep blue
     const normalizedHeight = smoothstep(float(-0.5), float(0.8), totalWaveHeight);
 
-    const deepColor = color(0x0A2E3F); // Deep water
-    const crestColor = color(0x00FFFF); // Neon Cyan crests
+    const deepColor = color(0x0a2e3f); // Deep water
+    const crestColor = color(0x00ffff); // Neon Cyan crests
 
     // Mix color based on wave height
     const baseWaterColor = mix(deepColor, crestColor, normalizedHeight);
@@ -91,7 +118,7 @@ export function createMelodyLake(width = 200, depth = 200) {
 }
 
 export function createFloatingOrb(options: FloatingOrbOptions = {}) {
-    const { color: hexColor = 0x87CEEB, size = 0.5 } = options;
+    const { color: hexColor = 0x87ceeb, size = 0.5 } = options;
     const geo = new THREE.SphereGeometry(size, 8, 8);
 
     // Base Gummy Material

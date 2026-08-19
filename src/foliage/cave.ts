@@ -1,13 +1,14 @@
 // src/foliage/cave.ts
 
 import * as THREE from 'three';
-import {
-    color, float, mix, positionLocal, normalWorld,
-    smoothstep, abs
-} from 'three/tsl';
+import { color, float, mix, positionLocal, normalWorld, smoothstep, abs } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    uAudioLow, createJuicyRimLight, applyPlayerInteraction, triplanarNoise, perturbNormal
+    uAudioLow,
+    createJuicyRimLight,
+    applyPlayerInteraction,
+    triplanarNoise,
+    perturbNormal,
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { tryAttachAuthoredCaveFill } from '../rendering/lights.ts';
@@ -29,7 +30,8 @@ for (let i = 0; i < _conePos.count; i++) {
     const x = _conePos.getX(i);
     const y = _conePos.getY(i);
     const z = _conePos.getZ(i);
-    if (y < 1.4) { // keep tip relatively sharp
+    if (y < 1.4) {
+        // keep tip relatively sharp
         _conePos.setX(i, x + (Math.random() - 0.5) * 0.3);
         _conePos.setZ(i, z + (Math.random() - 0.5) * 0.3);
     }
@@ -62,10 +64,15 @@ function getSharedCrystalMat() {
         // Pulse with Bass (AudioLow)
         const crystalPulse = uAudioLow.mul(1.5).add(0.2); // Pulse harder on beat
         const crystalGlowStrength = tipFactor.mul(crystalPulse).mul(uTwilight).mul(5.0); // Tip glows strongest
-        const crystalGlowColor = color(0x00FFFF); // Cyan glow
+        const crystalGlowColor = color(0x00ffff); // Cyan glow
 
         // 3. Rim Light (Edge Definition)
-        const crystalRim = createJuicyRimLight(color(0xffffff), float(0.8), float(3.0), normalWorld);
+        const crystalRim = createJuicyRimLight(
+            color(0xffffff),
+            float(0.8),
+            float(3.0),
+            normalWorld
+        );
         _sharedCrystalMat.positionNode = applyPlayerInteraction(positionLocal);
 
         // Combine Colors
@@ -106,7 +113,7 @@ function getSharedRockMat() {
         // Glows stronger at night (Twilight)
         const pulse = uAudioLow.mul(0.8).add(0.2); // Always some glow, pulse harder on beat
         const glowStrength = veinMask.mul(pulse).mul(uTwilight).mul(3.0);
-        const veinColor = color(0x00FFFF); // Cyan glow
+        const veinColor = color(0x00ffff); // Cyan glow
 
         // 3. Rim Light (Edge Definition)
         const rim = createJuicyRimLight(color(0x444455), float(0.5), float(2.0), normalWorld);
@@ -122,18 +129,18 @@ function getSharedRockMat() {
         _sharedRockMat.metalnessNode = float(0.1);
 
         // Bump Map for detail
-        _sharedRockMat.normalNode = perturbNormal(positionLocal, normalWorld, float(8.0), float(0.5));
+        _sharedRockMat.normalNode = perturbNormal(
+            positionLocal,
+            normalWorld,
+            float(8.0),
+            float(0.5)
+        );
     }
     return _sharedRockMat;
 }
 
 export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
-    const {
-        scale = 1.0,
-        depth = 20.0,
-        width = 8.0,
-        height = 6.0
-    } = options;
+    const { scale = 1.0, depth = 20.0, width = 8.0, height = 6.0 } = options;
 
     const group = new THREE.Group();
     group.userData.type = 'cave';
@@ -146,21 +153,21 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
         new THREE.Vector3(0, 0, 0),
         new THREE.Vector3(0, -2, -depth * 0.3),
         new THREE.Vector3(4, -4, -depth * 0.6),
-        new THREE.Vector3(10, -6, -depth)
+        new THREE.Vector3(10, -6, -depth),
     ]);
 
-    const tubeGeo = new THREE.TubeGeometry(tunnelCurve, 12, width/2, 8, false);
+    const tubeGeo = new THREE.TubeGeometry(tunnelCurve, 12, width / 2, 8, false);
 
     // FIX: Iterate i++ (not i+=3) to displace EVERY vertex
     const positions = tubeGeo.attributes.position;
-    for(let i = 0; i < positions.count; i++) {
+    for (let i = 0; i < positions.count; i++) {
         const x = positions.getX(i);
         const y = positions.getY(i);
         const z = positions.getZ(i);
         // Simple noise displacement
-        positions.setX(i, x + (Math.random()-0.5) * 0.5);
-        positions.setY(i, y + (Math.random()-0.5) * 0.5);
-        positions.setZ(i, z + (Math.random()-0.5) * 0.5);
+        positions.setX(i, x + (Math.random() - 0.5) * 0.5);
+        positions.setY(i, y + (Math.random() - 0.5) * 0.5);
+        positions.setZ(i, z + (Math.random() - 0.5) * 0.5);
     }
     tubeGeo.computeVertexNormals();
 
@@ -184,7 +191,7 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
     formationsMesh.receiveShadow = true;
 
     for (let i = 0; i < formationCount; i++) {
-        const t = 0.1 + (Math.random() * 0.8); // Avoid very ends of tunnel
+        const t = 0.1 + Math.random() * 0.8; // Avoid very ends of tunnel
         tunnelCurve.getPoint(t, _scratchPos);
         tunnelCurve.getTangent(t, _scratchTangent);
 
@@ -198,9 +205,9 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
         // For simplicity, we can just use the curve point, and add an offset.
 
         const radius = (width / 2) * 0.8; // slightly inside
-        const angle = isCeiling ?
-            (-Math.PI/4 + Math.random() * Math.PI/2) : // Ceiling arc
-            (Math.PI*3/4 + Math.random() * Math.PI/2); // Floor arc
+        const angle = isCeiling
+            ? -Math.PI / 4 + (Math.random() * Math.PI) / 2 // Ceiling arc
+            : (Math.PI * 3) / 4 + (Math.random() * Math.PI) / 2; // Floor arc
 
         // Simple local offset based on angle
         const offsetX = Math.cos(angle) * radius;
@@ -222,7 +229,7 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
         _scratchObj.scale.set(s * 0.5, s, s * 0.5);
         _scratchMatrix.compose(_scratchObj.position, _scratchObj.quaternion, _scratchObj.scale);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(formationsMesh.instanceMatrix.array, (i) * 16);
+        _scratchMatrix.toArray(formationsMesh.instanceMatrix.array, i * 16);
     }
     group.add(formationsMesh);
 
