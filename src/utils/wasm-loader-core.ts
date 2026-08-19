@@ -10,7 +10,6 @@
  * - getNativeFunc() helper
  */
 
-import { announce } from '../ui/announcer.ts';
 import { updateProgress, setWasmPhase, setWasmError } from '../ui/loading-screen.ts';
 import { announce } from '../ui/announcer.ts';
 import {
