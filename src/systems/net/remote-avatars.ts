@@ -3,9 +3,9 @@
  */
 
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { color } from 'three/tsl';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from '../../core/config.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import type { RemotePeer } from './presence-types.ts';

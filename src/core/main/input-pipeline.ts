@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 import { StageLoader } from '../../debug/index.ts';
-import { initExploreCamera, getExploreCamera, setExploreOrbitFlag } from '../camera-modes.ts';
-import { CONFIG, CYCLE_DURATION } from '../config.ts';
 import {
     uBloomStrength,
     uColorSaturation,
@@ -20,6 +18,8 @@ import { announcePolite } from '../../ui/announcer.ts';
 import { profiler } from '../../utils/profiler.ts';
 import { toggleOverlay } from '../../utils/startup-profiler.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
+import { initExploreCamera, getExploreCamera, setExploreOrbitFlag } from '../camera-modes.ts';
+import { CONFIG, CYCLE_DURATION } from '../config.ts';
 import { initDeferredVisualsDependencies } from '../deferred-init.ts';
 import { animate, initGameLoopDependencies, getGameTime } from '../game-loop.ts';
 import { toggleDayNight, setInputSystem } from '../hud.ts';

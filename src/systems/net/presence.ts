@@ -9,6 +9,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
+import type { ImpactType } from '../../foliage/impacts.ts';
 import { announce } from '../../ui/announcer.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
 import { getBiomeAtPosition } from './biome-at-position.ts';
@@ -29,7 +30,7 @@ import { remoteAvatars } from './remote-avatars.ts';
 
 export type PresenceSpawnImpact = (
     pos: { x: number; y: number; z: number },
-    type: string,
+    type?: ImpactType,
     color?: number
 ) => void;
 

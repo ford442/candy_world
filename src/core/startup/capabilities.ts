@@ -7,12 +7,13 @@
  * `profile.graphics`.
  */
 
-import { isCIorHeadless, getLoadMemoryTier, type LoadMemoryTier } from '../config/runtime.ts';
-import { CONFIG } from '../config/defaults.ts';
 import { getGpuContextSync } from '../../rendering/gpu-context.ts';
 import { resolveRendererBackend } from '../../rendering/renderer-mode.ts';
+import { CONFIG } from '../config/defaults.ts';
+import { isCIorHeadless, getLoadMemoryTier, type LoadMemoryTier } from '../config/runtime.ts';
 import {
     clampGraphicsForStart,
+    isWaitForFullRequested,
     loadStartupProfile,
     readUrlParams,
     type GraphicsLevel,
@@ -42,6 +43,8 @@ export interface ResolveStartupCapabilitiesInput {
     url: {
         postfx?: string | null;
         boot?: string | null;
+        /** QA-only `?waitForFull=1` — forces the Explore path. */
+        waitForFull?: boolean;
     };
 }
 
@@ -79,6 +82,7 @@ const GRAPHICS_TABLE: Record<
 };
 
 function applyUrlPath(path: StartupPath, url: ResolveStartupCapabilitiesInput['url']): StartupPath {
+    if (url.waitForFull) return 'explore';
     const boot = url.boot;
     if (boot === 'instant' || boot === 'play') return 'play';
     if (boot === 'explore') return 'explore';
@@ -169,6 +173,7 @@ export function gatherStartupCapabilityInputs(): ResolveStartupCapabilitiesInput
         url: {
             postfx: params?.get('postfx') ?? null,
             boot: params?.get('boot') ?? null,
+            waitForFull: isWaitForFullRequested(params),
         },
     };
 }

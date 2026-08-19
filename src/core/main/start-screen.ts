@@ -26,8 +26,8 @@ import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { showToast } from '../../utils/toast.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
-import { populateWorld } from '../../world/generation.ts';
 import type { WorldMode } from '../../world/generation-utils.ts';
+import { populateWorld } from '../../world/generation.ts';
 import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
 import { spawnTracker } from '../../world/spawn-tracker.ts';
 import {
