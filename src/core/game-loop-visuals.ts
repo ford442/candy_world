@@ -18,6 +18,9 @@ import {
 } from '../foliage/sky.ts';
 import { uStarOpacity } from '../foliage/stars.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { globalClusteredLighting } from '../rendering/clustered-lighting.ts';
+import { cameraRef } from './game-loop-core.ts';
+import { profiler } from '../utils/profiler.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
 import { WeatherState } from '../systems/weather-types.ts';
 import {
@@ -326,6 +329,9 @@ export function updateVisualsPhase(
 
     // Foliage materials / batcher LOD run in updateFoliagePhase (game-loop-foliage.ts).
     updateLocalLightHelpers();
+    if (cameraRef) {
+        profiler.measure('ClusteredLighting', () => { globalClusteredLighting.update(cameraRef as THREE.PerspectiveCamera); });
+    }
     return {
         cyclePos,
         isNightNow,

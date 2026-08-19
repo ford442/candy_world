@@ -11,6 +11,7 @@ import {
     mx_noise_float,
     positionLocal,
     positionWorld,
+    positionView,
     normalWorld,
     normalLocal,
     cameraPosition,
@@ -22,6 +23,7 @@ import {
 } from 'three/tsl';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
+import { globalClusteredLighting } from '../../rendering/clustered-lighting.ts';
 import { applyGlitch } from '../glitch.ts';
 import {
     uTime,
@@ -32,6 +34,7 @@ import {
 } from './shared-resources.ts';
 import { triplanarNoise, perturbNormal, createRimLight } from './tsl-nodes.ts';
 import { $sn } from './tsl-types.ts';
+import { getLocalLightStats } from '../../rendering/lights.ts';
 
 export interface UnifiedMaterialOptions {
     colorNode?: Node;
@@ -256,6 +259,12 @@ export function createUnifiedMaterial(
         );
 
         material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(rimEffect);
+    }
+
+    if (!getLocalLightStats().webgl) {
+        const clusterLight = globalClusteredLighting.getLightingNode(positionWorld,
+    positionView, normalWorld, $sn(material.colorNode));
+        material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(clusterLight);
     }
 
     material.userData.isUnified = true;

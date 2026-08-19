@@ -557,6 +557,8 @@ export const CONFIG: ConfigType = {
             cascadeMapSizeMin: 512,
         },
         // --- LOCAL POINT / SPOT (pastel fill; sun remains the shadow hero) ---
+        maxClusterLights: 128,
+        maxLightsPerCluster: 32,
         local: {
             // Visual Impact: soft candy fill, not a harsh white bulb
             pointIntensity: 0.9,

@@ -170,6 +170,8 @@ export interface ConfigType {
          * see every extra light. Decorative fills (flower heads, orbs) are
          * descriptors only — they do not allocate GPU lights.
          */
+        maxClusterLights?: number;
+        maxLightsPerCluster?: number;
         local: {
             /** Visual Impact: pastel point fill intensity (candela-ish). */
             pointIntensity: number;
