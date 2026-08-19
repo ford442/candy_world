@@ -11,7 +11,6 @@
 
 import * as THREE from 'three';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
-import { showToast } from '../utils/toast.ts';
 import { create } from '../world/foliage-registry.ts';
 import { plantOnSurface } from '../world/placement-utils.ts';
 

@@ -8,6 +8,7 @@
 // bookkeeping/spiral ordering instead of forking a parallel grid.
 import * as THREE from 'three';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { populatePhysicsGrids } from '../systems/physics/index.ts';
 import { CellState, RegionManager, type GridCell } from '../systems/region-manager-core.ts';
@@ -71,7 +72,6 @@ function isKnownBatchedType(obj: THREE.Object3D): boolean {
     const t = obj.userData?.type;
     return !!(
         obj.userData?.isBatched ||
-        t === 'lanternFlower' ||
         t === 'arpeggio_fern' ||
         t === 'portamento_pine' ||
         t === 'gem_canopy_tree' ||
@@ -81,11 +81,12 @@ function isKnownBatchedType(obj: THREE.Object3D): boolean {
     );
 }
 
-type EvictionClass = 'full' | 'mushroom' | 'never';
+type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     const t = obj.userData?.type;
     if (t === 'mushroom') return 'mushroom';
+    if (t === 'lanternFlower') return 'lantern';
     // Caves register with the WASM collision system (registerPhysicsCave) and
     // weatherSystem, neither of which support removal — never evict.
     if (t === 'cave') return 'never';
@@ -451,6 +452,8 @@ export class ChunkStreamer {
                 .__evictionClass as EvictionClass;
             if (evictionClass === 'mushroom') {
                 mushroomBatcher.removeInstance(obj);
+            } else if (evictionClass === 'lantern') {
+                lanternBatcher.removeInstance(obj);
             }
             // Free the entity id so walking back into range re-spawns it.
             // Discovery registration is intentionally left in place — the
