@@ -14,7 +14,7 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
     - **Status: In progress** — #1548 chunk streamer landed; #1547 was a docs-only false close. Real remaining work: #1558 (UI + `StartupCapabilities`) + #1549 (fast-boot / timing).
 
     - **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)
-n4. **Epic: Simplify startup to two load paths + chunk streaming** (#1546)
+      n4. **Epic: Simplify startup to two load paths + chunk streaming** (#1546)
     - **Status: Implemented ✅** (#1547 Collapse startup profile UI + wire graphics to runtime)
     -   - Implementation Details: Replaced Graphics/Map Size UI selectors with Play and Explore buttons, updated start-screen to dynamically set map size, and wired config to derive graphics from the profile dynamically.
 
