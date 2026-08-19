@@ -1,7 +1,13 @@
 import type * as THREE from 'three';
 import { getBiomeAtPosition } from '../systems/net/biome-at-position.ts';
 import { profiler } from '../utils/profiler.ts';
-import { audioSystemRef, beatSyncRef, setAudioState, setBeatFlashIntensity, setCameraZoomPulse } from './game-loop-core.ts';
+import {
+    audioSystemRef,
+    beatSyncRef,
+    setAudioState,
+    setBeatFlashIntensity,
+    setCameraZoomPulse,
+} from './game-loop-core.ts';
 
 let _genAudioFrameCount = 0;
 

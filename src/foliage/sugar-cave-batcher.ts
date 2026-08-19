@@ -6,7 +6,12 @@ import { getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { worldGroup } from '../world/state.ts';
-import { createJuicyRimLight, applyStandardDeformation, triplanarNoise, uAudioLow } from './index.ts';
+import {
+    createJuicyRimLight,
+    applyStandardDeformation,
+    triplanarNoise,
+    uAudioLow,
+} from './index.ts';
 import { uTwilight } from './sky.ts';
 
 const _scratchMatrix = new THREE.Matrix4();

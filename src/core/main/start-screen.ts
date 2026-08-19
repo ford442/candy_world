@@ -109,9 +109,17 @@ export function setupStartScreen(ctx: MainContext): void {
         }
 
         const instructions = document.getElementById('instructions');
-        if (instructions && instructions.style.display !== 'none' && ctx.inputSystem && ctx.inputSystem.session) {
+        if (
+            instructions &&
+            instructions.style.display !== 'none' &&
+            ctx.inputSystem &&
+            ctx.inputSystem.session
+        ) {
             if (!ctx.inputSystem.session.focus.releasePauseMenuFocus) {
-                ctx.inputSystem.session.focus.releasePauseMenuFocus = trapFocusInside(instructions, { skipAutoFocus: true });
+                ctx.inputSystem.session.focus.releasePauseMenuFocus = trapFocusInside(
+                    instructions,
+                    { skipAutoFocus: true }
+                );
             }
         }
     });
@@ -304,7 +312,11 @@ export function setupStartScreen(ctx: MainContext): void {
         }
 
         try {
-            if (ctx.inputSystem && ctx.inputSystem.session && ctx.inputSystem.session.focus.releasePauseMenuFocus) {
+            if (
+                ctx.inputSystem &&
+                ctx.inputSystem.session &&
+                ctx.inputSystem.session.focus.releasePauseMenuFocus
+            ) {
                 ctx.inputSystem.session.focus.releasePauseMenuFocus();
                 ctx.inputSystem.session.focus.releasePauseMenuFocus = null;
             }
