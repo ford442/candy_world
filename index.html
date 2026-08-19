@@ -753,58 +753,29 @@
         <div id="nowPlayingContainer" class="now-playing-info" role="status" aria-live="polite" aria-atomic="true" style="display: none;">
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
-        <button id="startButton" class="cta-button" disabled title="Please wait while game assets load...">
+        <button id="startButton" class="cta-button" disabled title="Please wait while game assets load..." style="display: none;">
             <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
         </button>
 
-        <div id="mode-select" style="margin: 20px 0; text-align: center;">
-            <p id="mode-description" style="margin-bottom: 8px; opacity: 0.9;" aria-live="polite" aria-atomic="true">Choose graphics and map size:</p>
+        <div id="mode-select" style="margin: 20px 0; text-align: center; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+            <button id="btn-play-fast" class="cta-button mode-btn" disabled>Loading assets...</button>
+            <button id="btn-play-explore" class="cta-button mode-btn" disabled>Loading assets...</button>
+        </div>
 
-            <div class="profile-row" role="radiogroup" aria-label="Graphics level" aria-describedby="mode-description">
-                <span class="profile-row-label" id="graphics-label">Graphics</span>
-                <div class="profile-row-buttons">
-                    <button id="btn-gfx-low" type="button" role="radio" aria-checked="false" tabindex="-1" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Low
-                    </button>
-                    <button id="btn-gfx-medium" type="button" role="radio" aria-checked="true" tabindex="0" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Medium
-                    </button>
-                    <button id="btn-gfx-high" type="button" role="radio" aria-checked="false" tabindex="-1" class="cta-button mode-btn" aria-describedby="mode-description">
-                        High
-                    </button>
-                </div>
+        <div id="readiness-progress"
+             role="progressbar"
+             aria-valuemin="0"
+             aria-valuemax="100"
+             aria-valuenow="0"
+             aria-valuetext="Waiting"
+             aria-label="World readiness"
+             hidden>
+            <div class="readiness-track">
+                <span id="readiness-progress-fill"></span>
             </div>
-
-            <div class="profile-row" role="radiogroup" aria-label="Map size" aria-describedby="mode-description">
-                <span class="profile-row-label" id="map-label">Map size</span>
-                <div class="profile-row-buttons">
-                    <button id="btn-map-small" type="button" role="radio" aria-checked="true" tabindex="0" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Small
-                    </button>
-                    <button id="btn-map-medium" type="button" role="radio" aria-checked="false" tabindex="-1" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Medium
-                    </button>
-                    <button id="btn-map-large" type="button" role="radio" aria-checked="false" tabindex="-1" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Large
-                    </button>
-                </div>
-            </div>
-
-            <div id="readiness-progress"
-                 role="progressbar"
-                 aria-valuemin="0"
-                 aria-valuemax="100"
-                 aria-valuenow="0"
-                 aria-valuetext="Waiting"
-                 aria-label="World readiness"
-                 hidden>
-                <div class="readiness-track">
-                    <span id="readiness-progress-fill"></span>
-                </div>
-                <div class="readiness-meta">
-                    <span id="readiness-progress-label">Ready when you are</span>
-                    <span id="readiness-progress-eta"></span>
-                </div>
+            <div class="readiness-meta">
+                <span id="readiness-progress-label">Ready when you are</span>
+                <span id="readiness-progress-eta"></span>
             </div>
         </div>
 

@@ -42,16 +42,12 @@ import {
 import {
     loadStartupProfile,
     saveStartupProfile,
-    setGraphicsLevel,
     setMapSize,
     mapSizeToWorldMode,
     mapSizeUsesFastPopulation,
     mapSizeWaitsForFullPopulation,
-    profileDescription,
     enterButtonLabel,
     profileLoadHint,
-    type GraphicsLevel,
-    type MapSize,
     type StartupProfile,
 } from '../startup-profile.ts';
 import type { MainContext } from './context.ts';
@@ -59,68 +55,6 @@ import { camera, renderer, scene } from './exports.ts';
 
 function yieldFrame(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 50));
-}
-
-function setupRadiogroup<T extends string>(
-    buttons: Array<{ btn: HTMLButtonElement; value: T }>,
-    getSelected: () => T,
-    onSelect: (value: T) => void
-): void {
-    const setupButton = (btn: HTMLButtonElement, value: T, index: number) => {
-        btn.addEventListener('click', async () => {
-            btn.setAttribute('aria-busy', 'true');
-            btn.setAttribute('aria-disabled', 'true');
-            try {
-                onSelect(value);
-                await yieldFrame();
-            } finally {
-                btn.removeAttribute('aria-busy');
-                btn.removeAttribute('aria-disabled');
-            }
-        });
-
-        btn.addEventListener('keydown', (e) => {
-            let nextIndex = -1;
-            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                nextIndex = (index + 1) % buttons.length;
-            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                nextIndex = (index - 1 + buttons.length) % buttons.length;
-            } else if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                btn.classList.add('keyboard-active');
-            }
-
-            if (nextIndex !== -1) {
-                e.preventDefault();
-                const nextBtn = buttons[nextIndex].btn;
-                nextBtn.focus();
-                nextBtn.click();
-            }
-        });
-
-        btn.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                btn.classList.remove('keyboard-active');
-            }
-        });
-
-        btn.addEventListener('blur', () => {
-            btn.classList.remove('keyboard-active');
-        });
-
-        btn.addEventListener('focus', () => {
-            buttons.forEach((mb) => mb.btn.setAttribute('tabindex', '-1'));
-            btn.setAttribute('tabindex', '0');
-            if (btn.getAttribute('aria-checked') !== 'true') {
-                btn.click();
-            }
-        });
-    };
-
-    buttons.forEach((mb, index) => {
-        mb.btn.setAttribute('tabindex', getSelected() === mb.value ? '0' : '-1');
-        setupButton(mb.btn, mb.value, index);
-    });
 }
 
 export function setupStartScreen(ctx: MainContext): void {
@@ -158,68 +92,35 @@ export function setupStartScreen(ctx: MainContext): void {
     const modeSelect = document.getElementById('mode-select');
     const modeDescription = document.getElementById('mode-description');
 
-    const gfxButtons: Array<{ btn: HTMLButtonElement; value: GraphicsLevel }> = [
-        { btn: document.getElementById('btn-gfx-low') as HTMLButtonElement, value: 'low' as GraphicsLevel },
-        { btn: document.getElementById('btn-gfx-medium') as HTMLButtonElement, value: 'medium' as GraphicsLevel },
-        { btn: document.getElementById('btn-gfx-high') as HTMLButtonElement, value: 'high' as GraphicsLevel },
-    ].filter((b) => b.btn);
-
-    const mapButtons: Array<{ btn: HTMLButtonElement; value: MapSize }> = [
-        { btn: document.getElementById('btn-map-small') as HTMLButtonElement, value: 'small' as MapSize },
-        { btn: document.getElementById('btn-map-medium') as HTMLButtonElement, value: 'medium' as MapSize },
-        { btn: document.getElementById('btn-map-large') as HTMLButtonElement, value: 'large' as MapSize },
-    ].filter((b) => b.btn);
-
-    const syncProfileUi = () => {
-        for (const { btn, value } of gfxButtons) {
-            const checked = value === profile.graphics;
-            btn.setAttribute('aria-checked', String(checked));
-            btn.setAttribute('tabindex', checked ? '0' : '-1');
-        }
-        for (const { btn, value } of mapButtons) {
-            const checked = value === profile.mapSize;
-            btn.setAttribute('aria-checked', String(checked));
-            btn.setAttribute('tabindex', checked ? '0' : '-1');
-        }
-
-        ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
-
-        if (modeDescription) {
-            modeDescription.textContent = profileDescription(profile);
-        }
-
-        const emoji =
-            profile.mapSize === 'small' ? '🍭' : profile.mapSize === 'medium' ? '🌿' : '🌸';
-        startButton.innerHTML = `${enterButtonLabel(profile.mapSize)} <span aria-hidden="true">${emoji}</span> <span class="key-badge" aria-hidden="true">Enter</span>`;
-
-        console.log(
-            `[Startup] Profile: graphics=${profile.graphics} map=${profile.mapSize} (${profileLoadHint(profile)})`
-        );
-    };
-
-    const applyGraphics = (graphics: GraphicsLevel) => {
-        profile = setGraphicsLevel(graphics);
-        // Expose for Phase 3 (shader/ambient gating) and debug
-        (window as any).__startupProfile = profile;
-        syncProfileUi();
-    };
-
-    const applyMapSize = (mapSize: MapSize) => {
-        profile = setMapSize(mapSize);
-        (window as any).__startupProfile = profile;
-        syncProfileUi();
-    };
-
-    if (gfxButtons.length === 3) {
-        setupRadiogroup(gfxButtons, () => profile.graphics, applyGraphics);
-    }
-    if (mapButtons.length === 3) {
-        setupRadiogroup(mapButtons, () => profile.mapSize, applyMapSize);
-    }
+    const btnPlayFast = document.getElementById('btn-play-fast') as HTMLButtonElement;
+    const btnPlayExplore = document.getElementById('btn-play-explore') as HTMLButtonElement;
 
     saveStartupProfile(profile);
     (window as any).__startupProfile = profile;
-    syncProfileUi();
+
+    if (btnPlayFast) {
+        btnPlayFast.addEventListener('click', () => {
+            profile = setMapSize('small');
+            (window as any).__startupProfile = profile;
+            ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
+
+            if (modeSelect) modeSelect.style.display = 'none';
+            startButton.style.display = 'inline-block';
+            void enterWorld();
+        });
+    }
+
+    if (btnPlayExplore) {
+        btnPlayExplore.addEventListener('click', () => {
+            profile = setMapSize('large');
+            (window as any).__startupProfile = profile;
+            ctx.waitForFullPopulation = mapSizeWaitsForFullPopulation(profile.mapSize);
+
+            if (modeSelect) modeSelect.style.display = 'none';
+            startButton.style.display = 'inline-block';
+            void enterWorld();
+        });
+    }
 
     if (ctx.mode === 'webgl' && isWebGLLiteMode()) {
         console.warn('[Startup] WebGL lite mode — Small map recommended');
@@ -234,12 +135,36 @@ export function setupStartScreen(ctx: MainContext): void {
         return 'Generating large map...';
     };
 
+    // Enable the buttons once assets have loaded
+    const unlockButtons = () => {
+        if (btnPlayFast) {
+            btnPlayFast.disabled = false;
+            btnPlayFast.textContent = 'Play (Fast Start)';
+        }
+        if (btnPlayExplore) {
+            btnPlayExplore.disabled = false;
+            btnPlayExplore.textContent = 'Explore (Full Map)';
+        }
+    };
+
+    if (!startButton.disabled) {
+        unlockButtons();
+    } else {
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'disabled' && !startButton.disabled) {
+                    unlockButtons();
+                }
+            });
+        });
+        observer.observe(startButton, { attributes: true });
+    }
+
     async function enterWorld() {
         if (isGenerating || !startButton || worldGenerated) return;
 
         // Re-read in case URL/storage changed
         profile = loadStartupProfile();
-        syncProfileUi();
 
         isGenerating = true;
         ctx.worldGenerationActive = true;
@@ -518,12 +443,8 @@ export function setupStartScreen(ctx: MainContext): void {
             loadingScreen.hide();
             startButton.style.background = '';
             startButton.innerHTML = 'Retry';
-            if (modeSelect) {
-                modeSelect.querySelectorAll('.profile-row').forEach((el) => {
-                    (el as HTMLElement).style.display = '';
-                });
-                if (modeDescription) modeDescription.style.display = '';
-            }
+            if (modeSelect) modeSelect.style.display = '';
+            startButton.style.display = 'none';
             announce('World generation failed. Please try again.', 'assertive');
         } finally {
             ctx.worldGenerationActive = false;
