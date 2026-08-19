@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { sharedGeometries } from './index.ts';
+import { tryAttachAuthoredMushroomSpot } from '../rendering/lights.ts';
 import { mushroomBatcher } from './mushroom-batcher.ts';
 
 // Interface for Note Definition
@@ -16,18 +17,18 @@ export interface MushroomNote {
 // 12 Chromatic Notes with their corresponding colors
 // Colors are defined here to match CONFIG.noteColorMap.mushroom palette
 export const MUSHROOM_NOTES: MushroomNote[] = [
-    { note: 'C',  color: 0xFF0000, name: 'C Red' },
-    { note: 'C#', color: 0xFF7F00, name: 'C# Orange-Red' },
-    { note: 'D',  color: 0xFFFF00, name: 'D Yellow' },
-    { note: 'D#', color: 0x7FFF00, name: 'D# Yellow-Green' },
-    { note: 'E',  color: 0x00FF00, name: 'E Green' },
-    { note: 'F',  color: 0x00FF7F, name: 'F Spring Green' },
-    { note: 'F#', color: 0x00FFFF, name: 'F# Cyan' },
-    { note: 'G',  color: 0x007FFF, name: 'G Azure' },
-    { note: 'G#', color: 0x0000FF, name: 'G# Blue' },
-    { note: 'A',  color: 0x7F00FF, name: 'A Violet' },
-    { note: 'A#', color: 0xFF00FF, name: 'A# Magenta' },
-    { note: 'B',  color: 0xFF007F, name: 'B Rose' }
+    { note: 'C', color: 0xff0000, name: 'C Red' },
+    { note: 'C#', color: 0xff7f00, name: 'C# Orange-Red' },
+    { note: 'D', color: 0xffff00, name: 'D Yellow' },
+    { note: 'D#', color: 0x7fff00, name: 'D# Yellow-Green' },
+    { note: 'E', color: 0x00ff00, name: 'E Green' },
+    { note: 'F', color: 0x00ff7f, name: 'F Spring Green' },
+    { note: 'F#', color: 0x00ffff, name: 'F# Cyan' },
+    { note: 'G', color: 0x007fff, name: 'G Azure' },
+    { note: 'G#', color: 0x0000ff, name: 'G# Blue' },
+    { note: 'A', color: 0x7f00ff, name: 'A Violet' },
+    { note: 'A#', color: 0xff00ff, name: 'A# Magenta' },
+    { note: 'B', color: 0xff007f, name: 'B Rose' },
 ];
 
 // ⚡ PERFORMANCE: Material cache size (Mocked as we use Batcher now)
@@ -57,7 +58,7 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
         note = null,
         noteIndex = -1,
         spawnTime = -100.0, // Allow overriding spawn time (for pop-in)
-        isBioluminescent = false
+        isBioluminescent = false,
     } = options;
 
     const group = new THREE.Group();
@@ -73,7 +74,7 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
         musicalNote = MUSHROOM_NOTES[noteIndex].note;
         noteColor = MUSHROOM_NOTES[noteIndex].color;
     } else if (note) {
-        const found = MUSHROOM_NOTES.find(n => n.note === note);
+        const found = MUSHROOM_NOTES.find((n) => n.note === note);
         if (found) {
             actualNoteIndex = MUSHROOM_NOTES.indexOf(found);
             musicalNote = found.note;
@@ -104,7 +105,7 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
     group.userData.type = 'mushroom';
     group.userData.size = size;
     group.userData.isTrampoline = isGiant || isBouncy;
-    
+
     if (musicalNote) {
         group.userData.musicalNote = musicalNote;
         group.userData.noteColor = noteColor;
@@ -120,15 +121,19 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
             noteIndex: actualNoteIndex,
             size: size,
             noteColor: noteColor,
-            spawnTime: spawnTime
+            spawnTime: spawnTime,
         };
 
         // If no note color but colorIndex provided, pick a color?
         // Current batcher implementation expects `noteColor` (hex) or defaults.
         // We can map `colorIndex` to a color if needed, but for now we stick to Note Colors or default.
-        
+
         // ⚡ OPTIMIZATION: Register instance to Batcher (Visuals)
         mushroomBatcher.register(group, batchOptions);
+
+        if (isGiant) {
+            tryAttachAuthoredMushroomSpot(group);
+        }
 
         // Clear callback to avoid re-registration
         group.userData.onPlacement = null;
@@ -157,24 +162,27 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
 
     // 🎨 Palette: Contextual Interaction Hints
     if (isGiant || isBouncy) {
-        group.userData.interactionText = "🚀 Jump!";
+        group.userData.interactionText = '🚀 Jump!';
     } else if (actualNoteIndex >= 0) {
-        group.userData.interactionText = "🎵 Play Note";
+        group.userData.interactionText = '🎵 Play Note';
         group.userData.onInteract = () => {
-             // Visual & Audio Feedback
-             if (mushroomBatcher) {
-                 mushroomBatcher.handleNote(actualNoteIndex, 127);
-             }
-             // Optional: Play sound directly?
-             // Currently audio system plays sound from sequence, but we can perhaps trigger it?
-             // For now, visual feedback is enough "Play Note" implies triggering the visual.
+            // Visual & Audio Feedback
+            if (mushroomBatcher) {
+                mushroomBatcher.handleNote(actualNoteIndex, 127);
+            }
+            // Optional: Play sound directly?
+            // Currently audio system plays sound from sequence, but we can perhaps trigger it?
+            // For now, visual feedback is enough "Play Note" implies triggering the visual.
         };
     }
 
     return group;
 }
 
-export function replaceMushroomWithGiant(scene: THREE.Scene, oldMushroom: THREE.Object3D): THREE.Object3D | null {
+export function replaceMushroomWithGiant(
+    scene: THREE.Scene,
+    oldMushroom: THREE.Object3D
+): THREE.Object3D | null {
     if (!oldMushroom || !oldMushroom.parent) return null;
 
     const position = oldMushroom.position.clone();
@@ -196,7 +204,7 @@ export function replaceMushroomWithGiant(scene: THREE.Scene, oldMushroom: THREE.
         noteIndex: noteIndex,
         hasFace: true,
         isBouncy: true,
-        spawnTime: now // Trigger pop-in animation
+        spawnTime: now, // Trigger pop-in animation
     });
 
     newGiant.position.copy(position);
