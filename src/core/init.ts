@@ -29,6 +29,8 @@ import {
 import type { ShadowSettings } from './config/postfx.ts';
 import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
 import { initLocalLights } from '../rendering/lights.ts';
+import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-probes.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 
 /**
  * Candy World always uses WebGPURenderer. WebGL2 fallback is the internal
@@ -325,6 +327,11 @@ export async function initScene(): Promise<SceneInitResult> {
     // Local point/spot registry (sun remains the shadow hero). Authored
     // candy fills mount here so quality tiers and clustered culling share one list.
     initLocalLights(scene, renderer);
+
+    // Lightweight GI. Must precede world generation: unified materials sample
+    // the probe volume at build time, and a material compiled without the term
+    // can never gain it. No-op on `low` / CI / ?gi=off.
+    if (initIrradianceProbes(scene, getGroundHeight)) attachProbeDebug(scene);
 
     // Enhanced Sun Glow with dynamic corona effect
     const sunGlowMat = new THREE.MeshBasicMaterial({

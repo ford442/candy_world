@@ -580,6 +580,61 @@ export const CONFIG: ConfigType = {
             localShadowNear: 0.4,
             localShadowFar: 20,
         },
+
+        // --- LIGHTWEIGHT GI (irradiance probe volume; see docs/IRRADIANCE_PROBES.md)
+        // A player-following SH-L1 probe grid baked on the CPU from sky openness,
+        // ground bounce and the local-light registry. Candy-first: the bake keeps
+        // its chroma (pastelSaturation) so interiors leak colour instead of grey.
+        gi: {
+            enabled: true,
+            /** Hard off switch that beats every tier / URL flag. */
+            forceDisable: false,
+            /** Skipped on the `low` graphics tier (which WebGL and CI clamp to). */
+            disableOnLow: true,
+
+            // --- Volume ---
+            gridX: 10,
+            gridY: 5,
+            gridZ: 10,
+            gridXHigh: 14,
+            gridYHigh: 7,
+            gridZHigh: 14,
+            /** World units between probes. Volume extent = grid * cellSize. */
+            cellSize: 10,
+            cellSizeHigh: 8,
+            /** Probes re-baked per frame, nearest-to-camera first. */
+            probesPerFrame: 24,
+            probesPerFrameHigh: 40,
+            /** Local lights considered as bounce donors per bake pass. */
+            maxDonors: 128,
+
+            // --- Energy ---
+            /** Master multiplier on the irradiance term added to unified materials. */
+            intensity: 0.55,
+            /** How much of the L1 (directional) band reaches the surface. 0 = flat fill. */
+            directionality: 0.6,
+            /** Largest irradiance the RGBA8 probe textures can encode. */
+            range: 2.0,
+            skyStrength: 0.35,
+            groundBounce: 0.5,
+            /** Candy ground albedo — matches createGroundMaterial()'s pale mint. */
+            groundAlbedo: 0x98fb98,
+            /** Height (world units) over which ground bounce falls off. */
+            groundFalloff: 6,
+            donorStrength: 0.85,
+            /** Donors reach a little past their light radius — bounce is not a light. */
+            donorRadiusScale: 1.15,
+
+            // --- Candy guardrails ---
+            /** Blend toward `pastelSaturation` so bounce never reads as grey dirt. */
+            pastelBias: 0.45,
+            pastelSaturation: 0.55,
+            /** Icy cyan fill so sugar-cave interiors are dim, not black. */
+            caveFill: 0x6ad9e8,
+            caveFillStrength: 0.3,
+            /** Fraction of the volume used to fade GI out at its border. */
+            edgeFade: 0.12,
+        },
     },
 
     // --- ATMOSPHERIC FOG (camera-derived distances) ---
