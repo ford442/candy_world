@@ -37,11 +37,7 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     ctx.sceneInitResult = sceneInitResult;
     ctx.mode = sceneInitResult.mode;
 
-    const {
-        mode,
-        requested,
-        fallbackReason,
-    } = sceneInitResult;
+    const { mode, requested, fallbackReason } = sceneInitResult;
 
     assignCoreExports(sceneInitResult.scene, sceneInitResult.camera, sceneInitResult.renderer);
     setCameraRef(sceneInitResult.camera);

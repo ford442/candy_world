@@ -109,7 +109,9 @@ async function main() {
             { timeout: playableBudget + 5000 }
         );
         report.playableAfterEnterMs = Date.now() - enterAt;
-        console.log(`✓ start-screen hidden (playable) in ${report.playableAfterEnterMs}ms after ready`);
+        console.log(
+            `✓ start-screen hidden (playable) in ${report.playableAfterEnterMs}ms after ready`
+        );
 
         report.playSpawnCount = await page.evaluate(() => window.__playSpawnCount ?? null);
         console.log(`  spawn count: ${report.playSpawnCount}`);
@@ -125,14 +127,17 @@ async function main() {
             for (const name of names) {
                 const entries = performance.getEntriesByName(name);
                 const last = entries[entries.length - 1];
-                if (last && typeof last.duration === 'number') out[name] = Math.round(last.duration);
+                if (last && typeof last.duration === 'number')
+                    out[name] = Math.round(last.duration);
             }
             return out;
         });
         console.log('  phases:', report.phases);
 
         if (report.sceneReadyMs > budgets.sceneReadyMs) {
-            report.failures.push(`__sceneReady ${report.sceneReadyMs}ms > ${budgets.sceneReadyMs}ms`);
+            report.failures.push(
+                `__sceneReady ${report.sceneReadyMs}ms > ${budgets.sceneReadyMs}ms`
+            );
         }
         if (report.playableAfterEnterMs > playableBudget) {
             report.failures.push(
@@ -148,11 +153,14 @@ async function main() {
             );
         }
         report.ok = report.failures.length === 0;
-        
-        
+
         const fs = await import('fs');
-        fs.writeFileSync(join(__dirname, 'boot-timing-report.json'), JSON.stringify(report, null, 2), 'utf8');
-        
+        fs.writeFileSync(
+            join(__dirname, 'boot-timing-report.json'),
+            JSON.stringify(report, null, 2),
+            'utf8'
+        );
+
         console.log('\n' + JSON.stringify(report, null, 2));
         if (!report.ok) {
             console.error('\n❌ boot-timing failed:\n  • ' + report.failures.join('\n  • '));

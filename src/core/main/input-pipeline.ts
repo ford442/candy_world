@@ -1,10 +1,6 @@
 import * as THREE from 'three';
 import { StageLoader } from '../../debug/index.ts';
-import {
-    initExploreCamera,
-    getExploreCamera,
-    setExploreOrbitFlag,
-} from '../camera-modes.ts';
+import { initExploreCamera, getExploreCamera, setExploreOrbitFlag } from '../camera-modes.ts';
 import { CONFIG, CYCLE_DURATION } from '../config.ts';
 import {
     uBloomStrength,
@@ -24,9 +20,7 @@ import { announcePolite } from '../../ui/announcer.ts';
 import { profiler } from '../../utils/profiler.ts';
 import { toggleOverlay } from '../../utils/startup-profiler.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
-import {
-    initDeferredVisualsDependencies,
-} from '../deferred-init.ts';
+import { initDeferredVisualsDependencies } from '../deferred-init.ts';
 import { animate, initGameLoopDependencies, getGameTime } from '../game-loop.ts';
 import { toggleDayNight, setInputSystem } from '../hud.ts';
 import { initInput } from '../input/index.ts';
@@ -54,7 +48,6 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
         ctx.inputSystem = {
             controls: null,
             updateReticleState: () => {},
-
         };
     }
 
@@ -150,7 +143,11 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
                 if (document.pointerLockElement) {
                     camera.getWorldDirection(_scratchClickDir);
                     void ensureGameplay().then((gp) => {
-                        gp.glitchGrenadeSystem.throwGrenade(scene, camera.position, _scratchClickDir);
+                        gp.glitchGrenadeSystem.throwGrenade(
+                            scene,
+                            camera.position,
+                            _scratchClickDir
+                        );
                     });
                 }
             }
@@ -165,7 +162,9 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
                 const handled = ctx.interactionSystem?.triggerClick?.() ?? false;
                 if (!handled) {
                     camera.getWorldDirection(_scratchClickDir);
-                    _scratchClickOrigin.copy(camera.position).addScaledVector(_scratchClickDir, 1.0);
+                    _scratchClickOrigin
+                        .copy(camera.position)
+                        .addScaledVector(_scratchClickDir, 1.0);
                     _scratchClickOrigin.y -= 0.2;
                     void ensureGameplay().then((gp) => {
                         gp.fireRainbow(scene, _scratchClickOrigin, _scratchClickDir);

@@ -60,15 +60,18 @@ export function initDeferredVisuals() {
     // Arm the GPU compute library in the background so MeshDeformationGPU,
     // NoiseGeneratorGPU, and GPUCullingSystem find a warm device on first use.
     // Resolves silently when WebGPU is unavailable; CPU/WASM fallbacks stay active.
-    void import('../compute/compute-init.ts').then(({ initGPUCompute }) => {
-        initGPUCompute();
-        return import('../compute/compute-orchestrator.ts');
-    }).then(({ ensureGpuComputeReady }) => {
-        void ensureGpuComputeReady().then(async () => {
-            const { initGpuFoliageOrchestrator } = await import('../compute/gpu-foliage-orchestrator.ts');
-            void initGpuFoliageOrchestrator();
+    void import('../compute/compute-init.ts')
+        .then(({ initGPUCompute }) => {
+            initGPUCompute();
+            return import('../compute/compute-orchestrator.ts');
+        })
+        .then(({ ensureGpuComputeReady }) => {
+            void ensureGpuComputeReady().then(async () => {
+                const { initGpuFoliageOrchestrator } =
+                    await import('../compute/gpu-foliage-orchestrator.ts');
+                void initGpuFoliageOrchestrator();
+            });
         });
-    });
 
     // Prefetch gameplay chunk in parallel with visual init (#1361)
     void preloadGameplay().then((gp) => {
@@ -213,7 +216,10 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
         console.log('[Deferred] Starting incremental shader pre-compilation...');
 
         // Check CI and instant-boot bypass here
-        if (isCIorHeadless() || (typeof window !== 'undefined' && (window as any).__bootInstant === true)) {
+        if (
+            isCIorHeadless() ||
+            (typeof window !== 'undefined' && (window as any).__bootInstant === true)
+        ) {
             console.log(
                 '[Deferred] Skipping incremental shader pre-compilation in CI / instant-boot mode to prevent WebGPU Device Lost or dev stalls'
             );

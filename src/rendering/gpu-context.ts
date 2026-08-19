@@ -169,7 +169,9 @@ function ensurePromise(): Promise<GpuContext> {
 
 function applyGpuLoadHint(ctx: GpuContext): void {
     const storage = ctx.limits?.maxStorageBufferBindingSize ?? 0;
-    const fallback = Boolean((ctx.adapter as GPUAdapter & { isFallbackAdapter?: boolean })?.isFallbackAdapter);
+    const fallback = Boolean(
+        (ctx.adapter as GPUAdapter & { isFallbackAdapter?: boolean })?.isFallbackAdapter
+    );
     const blob = [
         ctx.adapterInfo?.vendor,
         ctx.adapterInfo?.architecture,
@@ -178,8 +180,7 @@ function applyGpuLoadHint(ctx: GpuContext): void {
     ]
         .join(' ')
         .toLowerCase();
-    const integrated =
-        /intel|uhd|iris|mali|adreno|swiftshader|llvmpipe|microsoft basic/.test(blob);
+    const integrated = /intel|uhd|iris|mali|adreno|swiftshader|llvmpipe|microsoft basic/.test(blob);
     // Spec default is 128 MiB; discrete adapters usually grant more.
     const lowStorage = storage > 0 && storage <= GPU_REQUIRED_LIMITS.maxStorageBufferBindingSize;
     setGpuPrefersLightWorldLoad(fallback || integrated || lowStorage);
@@ -229,7 +230,7 @@ export function captureAdapterRequests(): void {
 
 async function readAdapterInfo(
     adapter: GPUAdapter | null,
-    device: GPUDevice | null,
+    device: GPUDevice | null
 ): Promise<GpuAdapterInfo | null> {
     // `GPUDevice.adapterInfo` (newer Chrome) → `GPUAdapter.info` → legacy
     // `requestAdapterInfo()`. All three are best-effort; a masked adapter
@@ -279,17 +280,25 @@ function snapshotLimits(limits: GPUSupportedLimits | undefined): Record<string, 
 export async function armGpuContext(
     renderer: unknown,
     mode: RendererBackend,
-    reason: string | null = null,
+    reason: string | null = null
 ): Promise<GpuContext> {
     if (armed) return ensurePromise();
     armed = true;
     ensurePromise();
 
-    const r = renderer as { isWebGPURenderer?: boolean; hasInitialized?: () => boolean; _initialized?: boolean; init?: () => Promise<void>; backend?: { isWebGLBackend?: boolean; isWebGPUBackend?: boolean; device?: GPUDevice } };
+    const r = renderer as {
+        isWebGPURenderer?: boolean;
+        hasInitialized?: () => boolean;
+        _initialized?: boolean;
+        init?: () => Promise<void>;
+        backend?: { isWebGLBackend?: boolean; isWebGPUBackend?: boolean; device?: GPUDevice };
+    };
 
     // Legacy THREE.WebGLRenderer (pre-0.171 fallback) — no node backend, no GPU compute.
     if (!r?.isWebGPURenderer) {
-        console.log(`[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl'})`);
+        console.log(
+            `[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl'})`
+        );
         return settle({
             ...UNAVAILABLE,
             backend: 'webgl',
@@ -315,7 +324,9 @@ export async function armGpuContext(
     const backend = r.backend;
 
     if (backend?.isWebGLBackend === true) {
-        console.log(`[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl-node-backend'})`);
+        console.log(
+            `[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl-node-backend'})`
+        );
         return settle({
             ...UNAVAILABLE,
             backend: 'webgl',
@@ -586,8 +597,8 @@ function logGpuContext(ctx: GpuContext): void {
 
     console.log(
         `[GPUContext] Single WebGPU device owned by the renderer · ` +
-        `adapter=${describeAdapter(ctx.adapterInfo)} · ` +
-        `powerPreference=${ctx.powerPreference} · ${notable}`
+            `adapter=${describeAdapter(ctx.adapterInfo)} · ` +
+            `powerPreference=${ctx.powerPreference} · ${notable}`
     );
 }
 

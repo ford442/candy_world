@@ -10,7 +10,11 @@
  * Leftover `candy.mapSize` migrates onto `path` once and is no longer written.
  */
 
-import { getLoadMemoryTier, shouldPreferLightWorldLoad, type LoadMemoryTier } from './config/runtime.ts';
+import {
+    getLoadMemoryTier,
+    shouldPreferLightWorldLoad,
+    type LoadMemoryTier,
+} from './config/runtime.ts';
 
 export type GraphicsLevel = 'low' | 'medium' | 'high' | 'ultra';
 /** User/session path. `core` is the old CORE sandbox (URL / migration / fallback only). */
@@ -129,8 +133,6 @@ export function isWaitForFullRequested(params?: URLSearchParams | null): boolean
     const search = params ?? readUrlParams();
     return !!search?.has('waitForFull');
 }
-
-
 
 /**
  * Load profile: URL wins for this session, then localStorage, then device default.

@@ -1,13 +1,13 @@
 {
-  "description": "Play-path boot budgets. Default values are generous for headless CI (SwiftShader). Set STRICT_BOOT_TIMING=1 for the 8s product target on a real GPU.",
-  "playableAfterEnterMs": 20000,
-  "playableAfterEnterMsStrict": 8000,
-  "sceneReadyMs": 15000,
-  "maxPlaySpawnCount": 80,
-  "phases": {
-    "Core Scene Setup": 8000,
-    "Shader Warmup": 12000,
-    "Map Generation": 8000,
-    "Map Streaming Phase 1 (Spawn Chunk)": 4000
-  }
+    "description": "Play-path boot budgets. Default values are generous for headless CI (SwiftShader). Set STRICT_BOOT_TIMING=1 for the 8s product target on a real GPU.",
+    "playableAfterEnterMs": 20000,
+    "playableAfterEnterMsStrict": 8000,
+    "sceneReadyMs": 15000,
+    "maxPlaySpawnCount": 80,
+    "phases": {
+        "Core Scene Setup": 8000,
+        "Shader Warmup": 12000,
+        "Map Generation": 8000,
+        "Map Streaming Phase 1 (Spawn Chunk)": 4000
+    }
 }

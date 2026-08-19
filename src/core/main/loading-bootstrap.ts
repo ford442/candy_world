@@ -5,11 +5,7 @@ import { initLoadingScreen, installLegacyAPI } from '../../ui/loading-screen.ts'
 import { installPresenceStartScreenUI } from '../../ui/presence-lazy.ts';
 import { installSaveMenuGlobals } from '../../ui/save-menu/lazy.ts';
 import { enableStartupProfiler } from '../../utils/startup-profiler.ts';
-import {
-    isCIorHeadless,
-    getDeviceMemoryGB,
-    CONFIG,
-} from '../config.ts';
+import { isCIorHeadless, getDeviceMemoryGB, CONFIG } from '../config.ts';
 import {
     applyStartupCapabilities,
     formatStartupLogLine,
@@ -21,7 +17,7 @@ import type { LoadingScreen } from './context.ts';
 
 export interface LoadingBootstrapResult {
     loadingScreen: LoadingScreen;
-    }
+}
 
 export function runLoadingBootstrap(): LoadingBootstrapResult {
     if (CONFIG.safeMode || isCIorHeadless()) {
@@ -31,8 +27,10 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
 
     const profile = loadStartupProfile();
     (window as any).__startupProfile = profile;
-    const caps = applyStartupCapabilities(resolveStartupCapabilities(gatherStartupCapabilityInputs()));
-    
+    const caps = applyStartupCapabilities(
+        resolveStartupCapabilities(gatherStartupCapabilityInputs())
+    );
+
     const loadingScreen = initLoadingScreen({ theme: 'candy', showEstimatedTime: true });
     loadingScreen.show();
     installLegacyAPI();
@@ -79,7 +77,7 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
                 deviceTier: ctx.deviceTier,
                 deviceMemoryGB: getDeviceMemoryGB(),
                 fallbackAdapter: ctx.isFallbackAdapter,
-            }) 
+            })
         );
     }
 

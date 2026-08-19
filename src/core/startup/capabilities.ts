@@ -41,7 +41,7 @@ export interface ResolveStartupCapabilitiesInput {
     isHeadlessOrCI: boolean;
     url: {
         postfx?: string | null;
-                boot?: string | null;
+        boot?: string | null;
     };
 }
 
@@ -83,7 +83,7 @@ function applyUrlPath(path: StartupPath, url: ResolveStartupCapabilitiesInput['u
     if (boot === 'instant' || boot === 'play') return 'play';
     if (boot === 'explore') return 'explore';
     if (boot === 'core') return 'core';
-        return path;
+    return path;
 }
 
 function applyUrlPostfx(
@@ -168,7 +168,7 @@ export function gatherStartupCapabilityInputs(): ResolveStartupCapabilitiesInput
         isHeadlessOrCI: isCIorHeadless() || CONFIG.safeMode,
         url: {
             postfx: params?.get('postfx') ?? null,
-                        boot: params?.get('boot') ?? null,
+            boot: params?.get('boot') ?? null,
         },
     };
 }
@@ -190,13 +190,10 @@ export function formatStartupLogLine(
     caps: StartupCapabilities,
     extras?: { deviceTier?: LoadMemoryTier; deviceMemoryGB?: number; fallbackAdapter?: boolean }
 ): string {
-    const gb =
-        typeof extras?.deviceMemoryGB === 'number' ? `, ${extras.deviceMemoryGB}GB` : '';
+    const gb = typeof extras?.deviceMemoryGB === 'number' ? `, ${extras.deviceMemoryGB}GB` : '';
     const tier = extras?.deviceTier ? `device tier=${extras.deviceTier}${gb}` : '';
     const fallback =
-        extras?.fallbackAdapter === undefined
-            ? ''
-            : `, fallbackAdapter=${extras.fallbackAdapter}`;
+        extras?.fallbackAdapter === undefined ? '' : `, fallbackAdapter=${extras.fallbackAdapter}`;
     const detail = tier || fallback ? ` (${tier}${fallback})` : '';
     return `[Startup] path=${caps.path} graphics=${caps.graphics}${detail}`;
 }

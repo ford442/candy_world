@@ -1,62 +1,62 @@
 {
-  "timestamp": "2026-08-19T09:51:40.471Z",
-  "config": {
-    "budgets": {
-      "main": "300kb",
-      "app": "620kb",
-      "vendor": "1500kb",
-      "wasm": "600kb",
-      "total": "20mb"
+    "timestamp": "2026-08-19T09:51:40.471Z",
+    "config": {
+        "budgets": {
+            "main": "300kb",
+            "app": "620kb",
+            "vendor": "1500kb",
+            "wasm": "600kb",
+            "total": "20mb"
+        },
+        "thresholds": {
+            "warning": 0.8,
+            "error": 1
+        }
     },
-    "thresholds": {
-      "warning": 0.8,
-      "error": 1
-    }
-  },
-  "results": [
-    {
-      "name": "main",
-      "budget": 307200,
-      "actual": 1203,
-      "status": "pass",
-      "percentage": 0.003916015625
+    "results": [
+        {
+            "name": "main",
+            "budget": 307200,
+            "actual": 1203,
+            "status": "pass",
+            "percentage": 0.003916015625
+        },
+        {
+            "name": "app",
+            "budget": 634880,
+            "actual": 616516,
+            "status": "warning",
+            "percentage": 0.9710748487903226
+        },
+        {
+            "name": "vendor",
+            "budget": 1536000,
+            "actual": 955303,
+            "status": "pass",
+            "percentage": 0.6219420572916666
+        },
+        {
+            "name": "wasm",
+            "budget": 614400,
+            "actual": 528306,
+            "status": "warning",
+            "percentage": 0.859873046875
+        },
+        {
+            "name": "total",
+            "budget": 20971520,
+            "actual": 14896478,
+            "status": "pass",
+            "percentage": 0.7103194236755371
+        }
+    ],
+    "overall": {
+        "status": "warning",
+        "totalSize": 16997806,
+        "totalBudget": 24064000
     },
-    {
-      "name": "app",
-      "budget": 634880,
-      "actual": 616516,
-      "status": "warning",
-      "percentage": 0.9710748487903226
-    },
-    {
-      "name": "vendor",
-      "budget": 1536000,
-      "actual": 955303,
-      "status": "pass",
-      "percentage": 0.6219420572916666
-    },
-    {
-      "name": "wasm",
-      "budget": 614400,
-      "actual": 528306,
-      "status": "warning",
-      "percentage": 0.859873046875
-    },
-    {
-      "name": "total",
-      "budget": 20971520,
-      "actual": 14896478,
-      "status": "pass",
-      "percentage": 0.7103194236755371
-    }
-  ],
-  "overall": {
-    "status": "warning",
-    "totalSize": 16997806,
-    "totalBudget": 24064000
-  },
-  "recommendations": [
-    "APP approaching budget (97%). Monitor closely.",
-    "WASM approaching budget (86%). Monitor closely."
-  ]
+    "recommendations": [
+        "APP approaching budget (97%). Monitor closely.",
+        "WASM approaching budget (86%). Monitor closely."
+    ]
 }

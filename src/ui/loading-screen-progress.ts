@@ -1,6 +1,15 @@
-import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
+import {
+    globalLoadingManager,
+    GlobalProgressState,
+    TaskState,
+} from '../systems/loading-manager.ts';
 import { log } from '../utils/log.ts';
-import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types.ts';
+import {
+    LoadingPhase,
+    LoadingProgress,
+    LoadingScreenOptions,
+    DEFAULT_LOADING_PHASES,
+} from './loading-screen-types.ts';
 import type { LoadingScreen } from './loading-screen-ui.ts';
 
 let LoadingScreenCtor: typeof LoadingScreen | null = null;
@@ -36,44 +45,64 @@ export class LoadingScreenProgress {
         this.setPhases([...DEFAULT_LOADING_PHASES]);
     }
 
-    getPhases(): LoadingPhase[] { return this.phases; }
-    getCurrentPhaseIndex(): number { return this.currentPhaseIndex; }
-    getCurrentPhase(): LoadingPhase | undefined { return this.phases[this.currentPhaseIndex]; }
-    getPhaseProgress(): number { return this.phaseProgress; }
-    getTargetOverallProgress(): number { return this.targetOverallProgress; }
-    getDisplayedOverallProgress(): number { return this.displayedOverallProgress; }
-    getDisplayedPhaseProgress(): number { return this.displayedPhaseProgress; }
-    getSkippedPhases(): Set<string> { return this.skippedPhases; }
+    getPhases(): LoadingPhase[] {
+        return this.phases;
+    }
+    getCurrentPhaseIndex(): number {
+        return this.currentPhaseIndex;
+    }
+    getCurrentPhase(): LoadingPhase | undefined {
+        return this.phases[this.currentPhaseIndex];
+    }
+    getPhaseProgress(): number {
+        return this.phaseProgress;
+    }
+    getTargetOverallProgress(): number {
+        return this.targetOverallProgress;
+    }
+    getDisplayedOverallProgress(): number {
+        return this.displayedOverallProgress;
+    }
+    getDisplayedPhaseProgress(): number {
+        return this.displayedPhaseProgress;
+    }
+    getSkippedPhases(): Set<string> {
+        return this.skippedPhases;
+    }
 
     setPhases(phases: LoadingPhase[]): void {
         this.phases = [...phases];
         this.currentPhaseIndex = -1;
 
         // Register default phases to the manager if they aren't already
-        this.phases.forEach(p => {
+        this.phases.forEach((p) => {
             if (!globalLoadingManager.getTask(p.id)) {
                 globalLoadingManager.registerTask({
                     id: p.id,
                     name: p.name,
                     weight: p.weight,
                     description: p.description,
-                    isDeferred: p.isDeferred
+                    isDeferred: p.isDeferred,
                 });
             }
         });
 
         if (this.options.debug) {
-            log.debug('LoadingScreen', 'Phases registered:', this.phases.map(p => p.id));
+            log.debug(
+                'LoadingScreen',
+                'Phases registered:',
+                this.phases.map((p) => p.id)
+            );
         }
     }
 
     markPhaseNonSkippable(phaseId: string): void {
-        const phase = this.phases.find(p => p.id === phaseId);
+        const phase = this.phases.find((p) => p.id === phaseId);
         if (phase) phase.nonSkippable = true;
     }
 
     startPhase(phaseId: string): LoadingPhase | undefined {
-        const phaseIndex = this.phases.findIndex(p => p.id === phaseId);
+        const phaseIndex = this.phases.findIndex((p) => p.id === phaseId);
         if (phaseIndex === -1) {
             log.warn('LoadingScreen', `Unknown phase: ${phaseId}`);
             return undefined;
@@ -107,18 +136,22 @@ export class LoadingScreenProgress {
             percent: this.phaseProgress,
             overallPercent: this.targetOverallProgress,
             taskDescription: description,
-            estimatedTimeRemaining: this.calculateEstimatedTimeRemaining()
+            estimatedTimeRemaining: this.calculateEstimatedTimeRemaining(),
         };
 
-        this.onProgressCallbacks.forEach(cb => cb(progress));
+        this.onProgressCallbacks.forEach((cb) => cb(progress));
         return progress;
     }
 
-    completePhase(phaseId?: string): { phase?: LoadingPhase; shouldHide: boolean; duration?: number } {
+    completePhase(phaseId?: string): {
+        phase?: LoadingPhase;
+        shouldHide: boolean;
+        duration?: number;
+    } {
         const targetPhaseId = phaseId || this.phases[this.currentPhaseIndex]?.id;
         if (!targetPhaseId) return { shouldHide: false };
 
-        const phase = this.phases.find(p => p.id === targetPhaseId);
+        const phase = this.phases.find((p) => p.id === targetPhaseId);
         let duration: number | undefined;
         if (phase) {
             // Record phase duration
@@ -140,13 +173,16 @@ export class LoadingScreenProgress {
         // The deferred-population phase is isDeferred:true, so skipping it also hides.
         const isLastPhase = this.currentPhaseIndex >= this.phases.length - 1;
         const currentPhaseIsDeferred = this.phases[this.currentPhaseIndex]?.isDeferred;
-        const shouldHide = globalLoadingManager.getOverallProgress() >= 99 || isLastPhase || !!currentPhaseIsDeferred;
+        const shouldHide =
+            globalLoadingManager.getOverallProgress() >= 99 ||
+            isLastPhase ||
+            !!currentPhaseIsDeferred;
 
         return { phase, shouldHide, duration };
     }
 
     skipPhase(phaseId: string): { success: boolean; phase?: LoadingPhase } {
-        const phase = this.phases.find(p => p.id === phaseId);
+        const phase = this.phases.find((p) => p.id === phaseId);
         if (!phase?.isDeferred) {
             return { success: false };
         }
@@ -160,7 +196,10 @@ export class LoadingScreenProgress {
         return () => this.onProgressCallbacks.delete(callback);
     }
 
-    handleManagerProgress(state: GlobalProgressState, tasks: Map<string, TaskState>): { taskDescription?: string } {
+    handleManagerProgress(
+        state: GlobalProgressState,
+        tasks: Map<string, TaskState>
+    ): { taskDescription?: string } {
         this.targetOverallProgress = state.overallPercent;
 
         let taskDescription: string | undefined;
@@ -231,14 +270,14 @@ export class LoadingScreenProgress {
             percent: this.phaseProgress,
             overallPercent: this.targetOverallProgress,
             taskDescription: currentPhase?.description || 'Loading...',
-            estimatedTimeRemaining: this.calculateEstimatedTimeRemaining()
+            estimatedTimeRemaining: this.calculateEstimatedTimeRemaining(),
         };
     }
 
     getTimingStats(): { phaseDurations: Map<string, number>; averagePhaseTime: number } {
         return {
             phaseDurations: new Map(this.phaseDurations),
-            averagePhaseTime: this.averagePhaseTime
+            averagePhaseTime: this.averagePhaseTime,
         };
     }
 
@@ -253,7 +292,7 @@ export class LoadingScreenProgress {
         let totalWeight = 0;
 
         for (const [phaseId, duration] of this.phaseDurations) {
-            const phase = this.phases.find(p => p.id === phaseId);
+            const phase = this.phases.find((p) => p.id === phaseId);
             if (phase) {
                 totalTime += duration / phase.weight;
                 totalWeight += 1;
@@ -280,7 +319,9 @@ export function initLoadingScreen(options?: LoadingScreenOptions): LoadingScreen
     }
 
     if (!LoadingScreenCtor) {
-        throw new Error('[LoadingScreen] LoadingScreen class has not been registered. Ensure loading-screen-ui.ts is imported before calling initLoadingScreen().');
+        throw new Error(
+            '[LoadingScreen] LoadingScreen class has not been registered. Ensure loading-screen-ui.ts is imported before calling initLoadingScreen().'
+        );
     }
 
     if (!globalLoadingScreen) {
@@ -327,7 +368,12 @@ export function hideDeferredIndicator(): void {
 /**
  * Set progress on the deferred indicator
  */
-export function setDeferredProgress(completed: number, total: number, failed?: number, etaMs?: number): void {
+export function setDeferredProgress(
+    completed: number,
+    total: number,
+    failed?: number,
+    etaMs?: number
+): void {
     globalLoadingScreen?.setDeferredProgress(completed, total, failed, etaMs);
 }
 

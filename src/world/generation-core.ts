@@ -369,9 +369,7 @@ export async function generateMap(
     // simple GETs against static assets) so the play path's critical section
     // only pays for the slower of the two, not both serialized.
     const chunkIndexPromise =
-        bootPath === 'play'
-            ? import('./map-loader.ts').then((m) => m.loadMapChunkIndex())
-            : null;
+        bootPath === 'play' ? import('./map-loader.ts').then((m) => m.loadMapChunkIndex()) : null;
     const loadedMap = await getLoadedMap();
     wireBiomeRegions(loadedMap);
     applyMapPreallocationHints(loadedMap);

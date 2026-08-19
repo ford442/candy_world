@@ -25,13 +25,14 @@ npm run test:integration
 **Purpose**: Verify AssemblyScript particle physics stays within documented world bounds
 
 This test:
+
 1. Loads `src/wasm/candy_physics.wasm` (built by `npm run build:wasm`)
 2. Spawns test particles with various velocities and initial conditions
 3. Steps the physics simulation 50-100 frames at a time
 4. Asserts all particles remain within documented world AABB:
-   - X bounds: `[-128, 128]`
-   - Y bounds: `[-100, 500]` (allows fall below ground, reach into sky)
-   - Z bounds: `[-128, 128]`
+    - X bounds: `[-128, 128]`
+    - Y bounds: `[-100, 500]` (allows fall below ground, reach into sky)
+    - Z bounds: `[-128, 128]`
 
 **Exit code**: `0` on pass, `1` on fail
 
@@ -45,20 +46,21 @@ This test:
 **Purpose**: Verify the game boots without errors and initializes WebGPU renderer
 
 This test:
+
 1. Builds dist folder (if not present) via `npm run build`
 2. Starts Vite preview server on `http://localhost:4173`
 3. Launches Chromium with WebGPU flags enabled
 4. Navigates to the game and waits for `window.__sceneReady` flag
 5. Asserts:
-   - No console errors occurred during boot
-   - WebGPU is available (`navigator.gpu !== undefined`)
-   - Canvas element exists and is sized (`width > 0`, `height > 0`)
+    - No console errors occurred during boot
+    - WebGPU is available (`navigator.gpu !== undefined`)
+    - Canvas element exists and is sized (`width > 0`, `height > 0`)
 
 **Pointer-lock note**: current smoke coverage validates boot readiness (`window.__sceneReady`) but does not synthesize browser pointer-lock interactions in CI. For first-person flow checks, run manual verification in dev (`npm run dev`), click the world once to lock look, then press `Esc` and click canvas to relock.
 
 **Required browser flags**: `--enable-unsafe-webgpu`, `--enable-features=Vulkan,WebGPU`
 
-**Exit code**: `0` on pass, `1` on fail  
+**Exit code**: `0` on pass, `1` on fail
 
 **Note**: Warnings (e.g., `CloudBatcher` capacity warnings) are OK and don't cause failure. Only errors fail the test.
 
@@ -91,16 +93,17 @@ FULL_BOOT=fast npm run test
 ```
 
 In Explore mode the smoke runner:
+
 1. Opens `?boot=explore`
 2. Clicks **Enter Dream**
 3. Waits up to **60 seconds** for deferred background population to finish
 4. Asserts (hard failures):
-   - `window.__worldHealth.healthy === true`
-   - `window.__spawnReport.failed === 0`
-   - `window.__worldHealth.succeeded >= 1000`
-   - `window.__worldHealth.sceneObjects.animatedFoliage >= 50`
-   - `window.__worldHealth.batchers.totalInstances >= 100`
-   - `window.game.animatedFoliage.length >= 50`
+    - `window.__worldHealth.healthy === true`
+    - `window.__spawnReport.failed === 0`
+    - `window.__worldHealth.succeeded >= 1000`
+    - `window.__worldHealth.sceneObjects.animatedFoliage >= 50`
+    - `window.__worldHealth.batchers.totalInstances >= 100`
+    - `window.game.animatedFoliage.length >= 50`
 
 Keep default Play as the PR gate; use `test:world` for integration / nightly runs.
 
@@ -115,6 +118,7 @@ Pure Node test of `resolveStartupCapabilities()` (graphics × fallback × URL). 
 ### `npm run test:integration` — Full Test Chain
 
 Runs the complete verification pipeline:
+
 1. `npm run build:wasm` — Compile AssemblyScript physics module
 2. `npm run test:wasm` — Verify particle bounds
 3. `npm run test` — Verify boot sequence (implied via smoke test)
@@ -137,14 +141,16 @@ Runs the complete verification pipeline:
 If `npm run test:wasm` fails:
 
 1. Verify `src/wasm/candy_physics.wasm` exists:
-   ```bash
-   ls -lh src/wasm/candy_physics.wasm
-   ```
+
+    ```bash
+    ls -lh src/wasm/candy_physics.wasm
+    ```
 
 2. Rebuild WASM if needed:
-   ```bash
-   npm run build:wasm
-   ```
+
+    ```bash
+    npm run build:wasm
+    ```
 
 3. Run test with more verbose output (edit `tests/wasm.mjs` to add `console.log` statements)
 
@@ -155,28 +161,31 @@ If `npm run test:wasm` fails:
 If `npm run test` fails:
 
 1. Verify dist folder is built:
-   ```bash
-   ls -la dist/index.html
-   ```
+
+    ```bash
+    ls -la dist/index.html
+    ```
 
 2. Rebuild dist if needed:
-   ```bash
-   npm run build
-   ```
+
+    ```bash
+    npm run build
+    ```
 
 3. Try running the preview server manually to debug:
-   ```bash
-   npm run preview
-   # In another terminal:
-   open http://localhost:4173
-   ```
+
+    ```bash
+    npm run preview
+    # In another terminal:
+    open http://localhost:4173
+    ```
 
 4. Check browser console for errors (the smoke test will report them)
 
 5. Verify Chromium is installed:
-   ```bash
-   npx playwright install chromium
-   ```
+    ```bash
+    npx playwright install chromium
+    ```
 
 ### WebGPU Not Available
 
@@ -206,6 +215,7 @@ npm run test:capabilities # startup graphics resolver (no browser)
 ```
 
 All commands exit with:
+
 - `0` on success
 - `1` on failure
 
@@ -232,7 +242,7 @@ pnpm run test:visual -- \
 
 **CI** (`.github/workflows/visual-regression.yml`): WebGL2 path (`?renderer=webgl&webglLite=1`), `medium` quality, threshold **5%**. Required spatial viewpoints: `slope_foot`, `horizon_lod` (plus `lake_edge`, `gem_corridor_scale`).
 
-See [`tools/visual-regression/README.md`](../tools/visual-regression/README.md) → *Spatial coherence regression* for the full checklist and `viewpoints.json` camera poses.
+See [`tools/visual-regression/README.md`](../tools/visual-regression/README.md) → _Spatial coherence regression_ for the full checklist and `viewpoints.json` camera poses.
 
 ## Known Issues
 
@@ -247,6 +257,7 @@ The smoke test may show warnings about audio processor script loading. These are
 ### Slow startup on first run
 
 On the first run after `npm run build`, the smoke test may take 3+ minutes. This includes:
+
 - Shader compilation and warmup (~30-60s)
 - World generation (~20-30s)
 - Initial WASM initialization (~5-10s)

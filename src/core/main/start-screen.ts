@@ -119,12 +119,11 @@ export function setupStartScreen(ctx: MainContext): void {
     announce('World loaded. Press Enter to enter the world.', 'assertive');
 
     let profile: StartupProfile = loadStartupProfile();
-    
+
     const modeDescription = document.getElementById('mode-description');
     const fullWorldToggle = document.getElementById('toggleFullWorld') as HTMLButtonElement | null;
 
     const syncProfileUi = () => {
-        
         if (fullWorldToggle) {
             const explore = profile.path === 'explore';
             fullWorldToggle.setAttribute('aria-checked', String(explore));
@@ -201,7 +200,7 @@ export function setupStartScreen(ctx: MainContext): void {
 
         await yieldFrame();
         const requestedMode: WorldMode = pathToWorldMode(profile.path);
-                const bootPath = profile.path === 'explore' ? ('explore' as const) : ('play' as const);
+        const bootPath = profile.path === 'explore' ? ('explore' as const) : ('play' as const);
 
         let activeWorldMode: WorldMode = requestedMode;
 
@@ -352,10 +351,10 @@ export function setupStartScreen(ctx: MainContext): void {
                             `[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`
                         );
                         showToast(
-                                `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
-                                '⚠️',
-                                5000
-                            );
+                            `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
+                            '⚠️',
+                            5000
+                        );
                     } else if (r.attempted > 0) {
                         console.log(
                             `[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`
