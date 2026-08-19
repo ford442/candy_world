@@ -14,6 +14,7 @@
 //   ?presence=1           — show shared-presence opt-in UI (still requires explicit join)
 //   ?generative=1         — in-browser generative soundtrack (or ?music=generative)
 //   ?photo=1              — cinematic photo mode (or ?mode=photo)
+//   ?lights=1             — show local point/spot helpers (also implied by ?debug=1)
 //   ?no_gpu_compute       — force WASM/JS fallback for batch LOD + foliage scalar batches
 //   ?nativeMusicAccum=0   — force TS arpeggio_grove channel accumulate (A/B vs AS)
 //   ?nativeMusicAccum=1   — prefer AS accumulate when candy_physics export present (default)

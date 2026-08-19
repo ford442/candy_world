@@ -28,6 +28,7 @@ import {
 } from '../systems/shadow-cascades.ts';
 import type { ShadowSettings } from './config/postfx.ts';
 import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
+import { initLocalLights } from '../rendering/lights.ts';
 
 /**
  * Candy World always uses WebGPURenderer. WebGL2 fallback is the internal
@@ -320,6 +321,10 @@ export async function initScene(): Promise<SceneInitResult> {
           ? `CSM ${cascades.cascades} cascades, maps ${getCascadeMapSizes().join('/')}, maxFar ${Math.min(CONFIG.lighting.shadows.cascadeMaxFar, camera.far)}u`
           : `single follow map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u`;
     console.log(`[Init] Sun shadows ${shadowSummary}`);
+
+    // Local point/spot registry (sun remains the shadow hero). Authored
+    // candy fills mount here so quality tiers and clustered culling share one list.
+    initLocalLights(scene, renderer);
 
     // Enhanced Sun Glow with dynamic corona effect
     const sunGlowMat = new THREE.MeshBasicMaterial({

@@ -26,6 +26,7 @@ import {
     setShaftIsGoldenHour, setShaftIsNightMode, setShaftGoldenHourBase
 } from './game-loop-core.ts';
 import { updateSunShadowFollow } from './game-loop-postfx.ts';
+import { updateLocalLightHelpers } from '../rendering/lights.ts';
 import { updateTheme, getLastIsNight, setLastIsNight, setIsNight } from './hud.ts';
 
 export function updateVisualsPhase(delta: number, t: number, gameTime: number, audioState: any, beatFlashIntensity: number, _exploreActive: boolean, _playerPos: THREE.Vector3) {
@@ -236,6 +237,7 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
     else if (weatherState === WeatherState.RAIN) weatherStateStr = 'rain';
 
     // Foliage materials / batcher LOD run in updateFoliagePhase (game-loop-foliage.ts).
+    updateLocalLightHelpers();
     return {
         cyclePos, isNightNow, weatherStateStr, weatherIntensity, dayNightBias
     };

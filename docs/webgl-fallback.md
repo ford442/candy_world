@@ -129,6 +129,11 @@ shadows off entirely. The single-map fallback exists for the case where that
 clamp is relaxed, and so that flipping `CONFIG.lighting.shadows.cascadesEnabled`
 to `false` restores the old rig on either backend.
 
+Local point/spot lights still **illuminate** on WebGL. Extra local shadow maps
+are skipped (`src/rendering/lights.ts` treats the WebGL backend as
+directional-only). Tune fills via `CONFIG.lighting.local`; see
+`docs/LOCAL_LIGHTS.md`.
+
 Boot check both paths after touching shadow code:
 
 ```bash
@@ -155,3 +160,4 @@ When iterating a visual feature in WebGL first:
 - `src/foliage/post-processing.ts` — dual post-processing pipelines
 - `src/debug/panel.ts` — debug UI renderer toggle
 - `src/systems/shadow-cascades.ts` — CSM rig, WebGPU guard, single-map fallback
+- `src/rendering/lights.ts` — local point/spot registry (WebGL illuminates, extra maps skipped)

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { sharedGeometries } from './index.ts';
+import { tryAttachAuthoredMushroomSpot } from '../rendering/lights.ts';
 import { mushroomBatcher } from './mushroom-batcher.ts';
 
 // Interface for Note Definition
@@ -129,6 +130,10 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
         
         // ⚡ OPTIMIZATION: Register instance to Batcher (Visuals)
         mushroomBatcher.register(group, batchOptions);
+
+        if (isGiant) {
+            tryAttachAuthoredMushroomSpot(group);
+        }
 
         // Clear callback to avoid re-registration
         group.userData.onPlacement = null;

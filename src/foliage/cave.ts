@@ -10,6 +10,7 @@ import {
     uAudioLow, createJuicyRimLight, applyPlayerInteraction, triplanarNoise, perturbNormal
 } from './index.ts';
 import { uTwilight } from './sky.ts';
+import { tryAttachAuthoredCaveFill } from '../rendering/lights.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
 
 const _scratchMatrix = new THREE.Matrix4();
@@ -236,6 +237,9 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
     group.userData.waterfallActive = false;
 
     group.scale.setScalar(scale);
+
+    // One authored cyan fill inside the first cave only (registry-capped).
+    tryAttachAuthoredCaveFill(group, [0, 0.5, -depth * 0.35]);
 
     return group;
 }

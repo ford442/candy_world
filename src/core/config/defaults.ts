@@ -556,6 +556,28 @@ export const CONFIG: ConfigType = {
             cascadeMapSizeTaper: true,
             cascadeMapSizeMin: 512,
         },
+        // --- LOCAL POINT / SPOT (pastel fill; sun remains the shadow hero) ---
+        local: {
+            // Visual Impact: soft candy fill, not a harsh white bulb
+            pointIntensity: 0.9,
+            pointDistance: 14,
+            pointDecay: 2,
+            pointColor: 0x7fe8ff,
+            // Visual Impact: mushroom-cap cone — warm pink, wide penumbra
+            spotIntensity: 1.15,
+            spotDistance: 16,
+            spotDecay: 2,
+            spotAngle: Math.PI / 5,
+            spotPenumbra: 0.5,
+            spotColor: 0xffb3d9,
+            maxLocalShadowLights: 1,
+            localShadowMapSize: 512,
+            disableOnLow: true,
+            localShadowBias: -0.0002,
+            localShadowNormalBias: 0.04,
+            localShadowNear: 0.4,
+            localShadowFar: 20,
+        },
     },
 
     // --- ATMOSPHERIC FOG (camera-derived distances) ---

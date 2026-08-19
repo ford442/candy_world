@@ -126,6 +126,14 @@ declare global {
             dayNightBias: number;
             playerY: number;
         };
+        __localLights?: {
+            gpu: number;
+            decorative: number;
+            shadows: number;
+            maxShadows: number;
+            webgl: boolean;
+            allowedShadows: boolean;
+        };
     }
 
     // Loading Screen instance interface

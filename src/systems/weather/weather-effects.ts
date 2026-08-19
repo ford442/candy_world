@@ -11,6 +11,11 @@ import {
 } from '../../foliage/clouds.ts';
 import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
 import { createIntegratedRain } from '../../particles/compute-integration.ts';
+import {
+    createPointLight,
+    getLightningLightId,
+    releaseLocalLight,
+} from '../../rendering/lights.ts';
 
 // src/systems/weather/weather-effects.ts
 // Visual effects management: rainbow, aurora, lightning, plant growth
@@ -68,7 +73,23 @@ export class EffectsManager {
             rainbow: null,
             aurora: null,
             rainbowTimer: 0,
-            lightningLight: new THREE.PointLight(0xffffff, 0, 200),
+            lightningLight: (() => {
+                const handle = createPointLight({
+                    id: getLightningLightId(),
+                    role: 'weather',
+                    parent: scene,
+                    position: [0, 50, 0],
+                    color: 0xffe6ff,
+                    intensity: 0,
+                    distance: 200,
+                    decay: 2,
+                    castShadow: false,
+                });
+                if (!handle?.light || !(handle.light as THREE.PointLight).isPointLight) {
+                    throw new Error('[Lights] weather lightning requires a point-pool slot');
+                }
+                return handle.light as THREE.PointLight;
+            })(),
             lightningActive: false,
             lightningTimer: 0,
             rainMesh: null,
@@ -107,8 +128,9 @@ export class EffectsManager {
      * Initialize lightning light
      */
     initLightning(): void {
-        this.state.lightningLight.position.set(0, 50, 0);
-        this.scene.add(this.state.lightningLight);
+        const light = this.state.lightningLight;
+        light.position.set(0, 50, 0);
+        if (!light.parent) this.scene.add(light);
     }
 
     /**
@@ -360,8 +382,7 @@ export class EffectsManager {
             }
         }
         if (lightningLight) {
-            // ⚡ OPTIMIZATION: Ensure temporary lights are disposed before removal to prevent VRAM leaks.
-            safeRemoveAndDispose(this.scene, lightningLight);
+            releaseLocalLight(getLightningLightId());
         }
         if (rainbow) {
             safeRemoveAndDispose(this.scene, rainbow);

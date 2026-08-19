@@ -164,6 +164,46 @@ export interface ConfigType {
             /** Lower bound for tapered far-cascade shadow maps. */
             cascadeMapSizeMin: number;
         };
+        /**
+         * First-class local point/spot lights (not the sun). Generation must
+         * register through `src/rendering/lights.ts` so clustered culling can
+         * see every extra light. Decorative fills (flower heads, orbs) are
+         * descriptors only — they do not allocate GPU lights.
+         */
+        local: {
+            /** Visual Impact: pastel point fill intensity (candela-ish). */
+            pointIntensity: number;
+            /** Visual Impact: inverse-square cutoff distance, world units. */
+            pointDistance: number;
+            /** Physical decay exponent. 2 = inverse-square. */
+            pointDecay: number;
+            /** Visual Impact: default candy cyan fill (hex). */
+            pointColor: number;
+            /** Visual Impact: mushroom-cap / cone fill intensity. */
+            spotIntensity: number;
+            /** Visual Impact: spot range, world units. */
+            spotDistance: number;
+            spotDecay: number;
+            /** Visual Impact: cone half-angle in radians. */
+            spotAngle: number;
+            /** Visual Impact: cone edge softness 0–1. */
+            spotPenumbra: number;
+            /** Visual Impact: default candy pink cone (hex). */
+            spotColor: number;
+            /**
+             * Extra shadow-casting local lights on top of the sun. 0–2.
+             * Clustered lighting will consume the rest as unshadowed.
+             */
+            maxLocalShadowLights: number;
+            /** Visual Impact: local (point/spot) shadow map resolution. */
+            localShadowMapSize: number;
+            /** Skip extra local shadow maps on the `low` graphics tier / CI. */
+            disableOnLow: boolean;
+            localShadowBias: number;
+            localShadowNormalBias: number;
+            localShadowNear: number;
+            localShadowFar: number;
+        };
     };
 
     atmosphere: {

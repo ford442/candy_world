@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { color as tslColor, mix, float, positionLocal, uv, vec2, sub, mul, add, sin, length, atan, atan2, smoothstep, vec3 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { modulateDecorativeLight, registerDecorativeFill } from '../rendering/lights.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { getCircleGeometry, getCylinderGeometry, getTorusGeometry, getSphereGeometry } from '../utils/geometry-dedup.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
@@ -472,9 +473,13 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
         headGroup.add(petal);
     }
 
-    const light = new THREE.PointLight(color, 0.3 * intensity, 2.0);
-    light.position.y = 0;
-    headGroup.add(light);
+    const deco = registerDecorativeFill({
+        color,
+        intensity: 0.3 * intensity,
+        distance: 2.0,
+        parent: headGroup,
+    });
+    if (deco) group.userData.localLightId = deco.id;
 
     group.userData.animationType = 'vibratoShake';
     group.userData.animationOffset = Math.random() * 10;
@@ -498,9 +503,8 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
                  // Instantaneous squash before the lerp takes over
                  group.scale.set(1.4, 0.4, 1.4);
 
-                 // Dim light
-                 const light = group.userData.headGroup.children.find((c:any) => c.isPointLight);
-                 if (light) light.intensity *= 0.2;
+                 const decoId = group.userData.localLightId as string | undefined;
+                 if (decoId) modulateDecorativeLight(decoId, 0.2);
              }
 
              // --- PALETTE: Spore burst on harvest ---

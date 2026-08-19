@@ -9,6 +9,7 @@ const modFloat = (x: any, y: any) => {
     const yf = float(y);
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
+import { registerDecorativeFill } from '../rendering/lights.ts';
 import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight, createSugarSparkle } from './index.ts';
 import { uTwilight, uHorizonColor } from './sky.ts';
 
@@ -140,8 +141,13 @@ export function createFloatingOrb(options: FloatingOrbOptions = {}) {
     orb.userData.animationOffset = Math.random() * 10;
     orb.userData.type = 'orb';
 
-    const light = new THREE.PointLight(hexColor, 0.5, 4.0);
-    orb.add(light);
+    const deco = registerDecorativeFill({
+        color: hexColor,
+        intensity: 0.5,
+        distance: 4.0,
+        parent: orb,
+    });
+    if (deco) orb.userData.localLightId = deco.id;
 
     return attachReactivity(orb);
 }
