@@ -144,7 +144,8 @@ export function setupHudControls(session: InputSession, handlers: InputKeyboardH
                  activeElement.classList.contains('cta-button') ||
                  activeElement.classList.contains('secondary-button') ||
                  activeElement.classList.contains('file-label') ||
-                 activeElement.classList.contains('mode-btn'))
+                 activeElement.classList.contains('mode-btn') ||
+                 activeElement.classList.contains('ability-slot'))
             ) {
                 activeElement.classList.add('keyboard-active');
 
