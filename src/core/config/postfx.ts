@@ -48,6 +48,17 @@ export function isDofManual(): boolean {
 export interface ShadowSettings {
     enabled: boolean;
     mapSize: number;
+    /**
+     * Cascade count for CSM, or 0 when cascades are off (legacy single follow map).
+     * Always 0 when `enabled` is false.
+     */
+    cascades: number;
+}
+
+/** Clamp a configured cascade count into the supported 2–4 range. */
+export function clampCascadeCount(count: number): number {
+    if (!Number.isFinite(count)) return 2;
+    return Math.max(2, Math.min(4, Math.round(count)));
 }
 
 /**
@@ -60,12 +71,12 @@ export interface ShadowSettings {
 export function resolveShadowSettings(): ShadowSettings {
     const cfg = CONFIG.lighting.shadows;
     if (!cfg.enabled || cfg.forceDisable || isCIorHeadless()) {
-        return { enabled: false, mapSize: 0 };
+        return { enabled: false, mapSize: 0, cascades: 0 };
     }
 
     // ?postfx=off remains a hard debug escape for shadows too.
     if (_getFlag('postfx') === 'off') {
-        return { enabled: false, mapSize: 0 };
+        return { enabled: false, mapSize: 0, cascades: 0 };
     }
 
     let resolution: ShadowResolution;
@@ -79,11 +90,16 @@ export function resolveShadowSettings(): ShadowSettings {
     }
 
     if (resolution === 'off') {
-        return { enabled: false, mapSize: 0 };
+        return { enabled: false, mapSize: 0, cascades: 0 };
     }
     if (resolution === 'low' && cfg.disableOnLowPostfx) {
-        return { enabled: false, mapSize: 0 };
+        return { enabled: false, mapSize: 0, cascades: 0 };
     }
 
-    return { enabled: true, mapSize: resolution === 'high' ? cfg.mapSizeHigh : cfg.mapSize };
+    const mapSize = resolution === 'high' ? cfg.mapSizeHigh : cfg.mapSize;
+    const cascades = cfg.cascadesEnabled
+        ? clampCascadeCount(resolution === 'high' ? cfg.cascadeCountHigh : cfg.cascadeCount)
+        : 0;
+
+    return { enabled: true, mapSize, cascades };
 }

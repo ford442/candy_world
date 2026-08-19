@@ -541,6 +541,20 @@ export const CONFIG: ConfigType = {
             bias: -0.0005,
             normalBias: 0.02,
             pcfRadius: 2,
+
+            // --- Cascaded Shadow Maps ---
+            // Candy look: soft contact shadows near the player, cheap coverage out to the
+            // fog line. cascadeMaxFar tracks atmosphere fog far (~100u) plus headroom so
+            // sky islands and the forest horizon still receive a cascade.
+            cascadesEnabled: true,
+            cascadeCount: 2,
+            cascadeCountHigh: 3,
+            cascadeMode: 'practical',
+            cascadeMaxFar: 160,
+            cascadeLightMargin: 120,
+            cascadeFade: true,
+            cascadeMapSizeTaper: true,
+            cascadeMapSizeMin: 512,
         },
     },
 
