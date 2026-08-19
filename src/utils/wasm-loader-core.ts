@@ -11,7 +11,6 @@
  */
 
 import { updateProgress, setWasmPhase, setWasmError } from '../ui/loading-screen.ts';
-import { announce } from '../ui/announcer.ts';
 import {
     parallelWasmLoad,
     LOADING_PHASES,

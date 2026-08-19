@@ -33,18 +33,7 @@ import {
     reset as resetSpawnTracker,
     getReport as getSpawnReport,
 } from '../../world/spawn-tracker.ts';
-import { globalLoadingManager } from '../../systems/loading-manager.ts';
-import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
-import { populatePhysicsGrids } from '../../systems/physics/index.ts';
-import { showModeBadge } from '../../ui/mode-badge-lazy.ts';
-import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
-import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
-import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
-import { populateWorld, WorldMode } from '../../world/generation.ts';
-import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
-import { announce } from '../../ui/announcer.ts';
-import { showToast } from '../../utils/toast.ts';
 import {
     applyAwakenedPersistenceAfterWorldLoad,
     initDeferredVisuals,

@@ -7,7 +7,6 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import type { AudioSystem } from '../../../audio/audio-system';
 import { showToast } from '../../../utils/toast.ts';
 import { resolveExploreVariant } from '../../camera-modes.ts';
-import { showToast } from '../../../utils/toast.ts';
 import { initAudioControls } from '../audio-controls.ts';
 import type { InitInputResult } from '../input-types.ts';
 import {

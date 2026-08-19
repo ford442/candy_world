@@ -23,7 +23,6 @@ import { addCameraShake } from '../../core/camera-shake.ts';
 import { CONFIG } from '../../core/config.ts';
 import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
-import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uStrobeIntensity } from '../../foliage/strobe.ts';

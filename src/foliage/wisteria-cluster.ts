@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { ShaderNodeObject, Node } from 'three/tsl';
 import {
-    time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
+    time, positionLocal, sin, cos, positionWorld, color, vec3, float
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
@@ -11,7 +11,7 @@ import { discoverySystem } from '../systems/discovery.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { spawnImpact } from './impacts.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, calculateWindSway, calculatePlayerPush } from './material-core.ts';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyStandardDeformation } from './material-core.ts';
 import { uTwilight } from './sky.ts';
 
 export interface WisteriaClusterOptions {
@@ -68,14 +68,11 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         // Proxy height for wind and player interactions since Wisteria hangs downward (negative Y)
         const proxyPos = vec3(positionLocal.x, hangFactor.mul(4.0), positionLocal.z);
 
-        const wind = calculateWindSway(proxyPos); // proxy: tip bends more
-        const playerPush = calculatePlayerPush(proxyPos);
-
-        const pos = positionLocal.add(hangSway).add(circadianDroop).add(wind);
-        mat.positionNode = pos.add(playerPush);
+        const standardDef = applyStandardDeformation(proxyPos).sub(proxyPos); // proxy: tip bends more
+        mat.positionNode = positionLocal.add(hangSway).add(circadianDroop).add(standardDef);
 
         // Glow Effect based on audio
-        const baseColorNode = color(baseHexColor);
+
         const glowColor = color(0xFF66FF); // Neon pink glow
         // Emissive boost driven by uAudioHigh, fading in smoothly — nocturnal gate
         const nightGlow = circadianNightGlowMult();
