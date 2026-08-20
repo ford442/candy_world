@@ -215,7 +215,9 @@ export function createUnifiedMaterial(
         material.sheenRoughnessNode = float(sheenRoughness);
     }
 
-    const basePos: ShaderNodeObject<Node> = $sn(deformationNode ?? material.positionNode ?? positionLocal);
+    const basePos: ShaderNodeObject<Node> = $sn(
+        deformationNode ?? material.positionNode ?? positionLocal
+    );
 
     const distToGlitch = positionWorld.distance(uGlitchExplosionCenter);
     const localGlitchFactor = float(1.0).sub(
@@ -263,8 +265,12 @@ export function createUnifiedMaterial(
     }
 
     if (!getLocalLightStats().webgl) {
-        const clusterLight = globalClusteredLighting.getLightingNode(positionWorld,
-    positionView, normalWorld, $sn(material.colorNode));
+        const clusterLight = globalClusteredLighting.getLightingNode(
+            positionWorld,
+            positionView,
+            normalWorld,
+            $sn(material.colorNode)
+        );
         material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(clusterLight);
     }
 

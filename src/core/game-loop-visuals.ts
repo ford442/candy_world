@@ -331,7 +331,9 @@ export function updateVisualsPhase(
     // Foliage materials / batcher LOD run in updateFoliagePhase (game-loop-foliage.ts).
     updateLocalLightHelpers();
     if (cameraRef) {
-        profiler.measure('ClusteredLighting', () => { globalClusteredLighting.update(cameraRef as THREE.PerspectiveCamera); });
+        profiler.measure('ClusteredLighting', () => {
+            globalClusteredLighting.update(cameraRef as THREE.PerspectiveCamera);
+        });
         // Lightweight GI: bake a slice of the probe volume against the sky/sun
         // state we just resolved, so the bounce tracks the day cycle. No-op
         // when the volume was never allocated (`low` tier, CI, ?gi=off).
