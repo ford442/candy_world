@@ -21,7 +21,7 @@ import {
     smoothstep,
     int,
     log,
-    clamp
+    clamp,
 } from 'three/tsl';
 import { CONFIG } from '../core/config/defaults.ts';
 import { forEachLocalLight, getLocalLightStats, type LocalLightSnapshot } from './lights.ts';
@@ -33,13 +33,13 @@ export class ClusteredLightingSystem {
     public gridX: number;
     public gridY: number;
     public gridZ: number;
-    
+
     private lightData: Float32Array;
     private lightBuffer: StorageInstancedBufferAttribute;
-    
+
     private clusterData: Uint32Array;
     private clusterBuffer: StorageInstancedBufferAttribute;
-    
+
     private numLightsUniform: any;
     private nearUniform: any;
     private farUniform: any;
@@ -47,13 +47,7 @@ export class ClusteredLightingSystem {
 
     private activeLights: LocalLightSnapshot[] = [];
 
-    constructor(
-        maxLights = 128,
-        maxLightsPerCluster = 32,
-        gridX = 16,
-        gridY = 8,
-        gridZ = 16
-    ) {
+    constructor(maxLights = 128, maxLightsPerCluster = 32, gridX = 16, gridY = 8, gridZ = 16) {
         this.maxLights = maxLights;
         this.maxLightsPerCluster = maxLightsPerCluster;
         this.gridX = gridX;
@@ -79,7 +73,7 @@ export class ClusteredLightingSystem {
     public update(camera: THREE.PerspectiveCamera) {
         const stats = getLocalLightStats();
         // If WebGL or zero lights, do nothing.
-        if (stats.webgl || (stats.gpu + stats.decorative) === 0) {
+        if (stats.webgl || stats.gpu + stats.decorative === 0) {
             this.numLightsUniform.value = 0;
             return;
         }
@@ -108,7 +102,7 @@ export class ClusteredLightingSystem {
                     vPos.set(snap.localX, snap.localY, snap.localZ);
                     vPos.applyMatrix4(snap.parent.matrixWorld);
                 } else {
-                     vPos.setFromMatrixPosition(snap.parent.matrixWorld);
+                    vPos.setFromMatrixPosition(snap.parent.matrixWorld);
                 }
             } else {
                 vPos.set(0, 0, 0);
@@ -140,10 +134,10 @@ export class ClusteredLightingSystem {
                 this.lightData[offset + 8] = 0;
                 this.lightData[offset + 9] = 0;
                 this.lightData[offset + 10] = 0;
-                this.lightData[offset + 11] = -1.0; 
+                this.lightData[offset + 11] = -1.0;
             }
         }
-        
+
         // Notify buffer changed
         if (numLights > 0) {
             // Re-creating the buffer is usually required if we modify backing array and want to upload in standard Three.js?
@@ -167,11 +161,15 @@ export class ClusteredLightingSystem {
 
         const viewMatrix = camera.matrixWorldInverse;
         const pView = new THREE.Vector3();
-        
+
         for (let i = 0; i < numLights; i++) {
             const offset = i * 12;
             const radius = this.lightData[offset + 3];
-            pView.set(this.lightData[offset + 0], this.lightData[offset + 1], this.lightData[offset + 2]);
+            pView.set(
+                this.lightData[offset + 0],
+                this.lightData[offset + 1],
+                this.lightData[offset + 2]
+            );
             pView.applyMatrix4(viewMatrix);
 
             const minZ = -(pView.z + radius);
@@ -179,10 +177,19 @@ export class ClusteredLightingSystem {
 
             if (maxZ < near || minZ > far) continue;
 
-            const sliceMin = Math.max(0, Math.min(this.gridZ - 1, Math.floor(Math.log(Math.max(near, minZ) / near) * scaleZ)));
-            const sliceMax = Math.max(0, Math.min(this.gridZ - 1, Math.floor(Math.log(Math.max(near, maxZ) / near) * scaleZ)));
+            const sliceMin = Math.max(
+                0,
+                Math.min(this.gridZ - 1, Math.floor(Math.log(Math.max(near, minZ) / near) * scaleZ))
+            );
+            const sliceMax = Math.max(
+                0,
+                Math.min(this.gridZ - 1, Math.floor(Math.log(Math.max(near, maxZ) / near) * scaleZ))
+            );
 
-            let minX = 1, minY = 1, maxX = -1, maxY = -1;
+            let minX = 1,
+                minY = 1,
+                maxX = -1,
+                maxY = -1;
             const corners = [
                 new THREE.Vector3(pView.x - radius, pView.y - radius, pView.z + radius),
                 new THREE.Vector3(pView.x + radius, pView.y - radius, pView.z + radius),
@@ -191,11 +198,11 @@ export class ClusteredLightingSystem {
                 new THREE.Vector3(pView.x - radius, pView.y - radius, pView.z - radius),
                 new THREE.Vector3(pView.x + radius, pView.y - radius, pView.z - radius),
                 new THREE.Vector3(pView.x - radius, pView.y + radius, pView.z - radius),
-                new THREE.Vector3(pView.x + radius, pView.y + radius, pView.z - radius)
+                new THREE.Vector3(pView.x + radius, pView.y + radius, pView.z - radius),
             ];
 
             for (const c of corners) {
-                if (c.z > 0) c.z = -0.001; 
+                if (c.z > 0) c.z = -0.001;
                 const p = c.clone().applyMatrix4(camera.projectionMatrix);
                 minX = Math.min(minX, p.x);
                 minY = Math.min(minY, p.y);
@@ -203,10 +210,22 @@ export class ClusteredLightingSystem {
                 maxY = Math.max(maxY, p.y);
             }
 
-            const tMinX = Math.max(0, Math.min(this.gridX - 1, Math.floor((minX * 0.5 + 0.5) * this.gridX)));
-            const tMinY = Math.max(0, Math.min(this.gridY - 1, Math.floor((minY * 0.5 + 0.5) * this.gridY)));
-            const tMaxX = Math.max(0, Math.min(this.gridX - 1, Math.floor((maxX * 0.5 + 0.5) * this.gridX)));
-            const tMaxY = Math.max(0, Math.min(this.gridY - 1, Math.floor((maxY * 0.5 + 0.5) * this.gridY)));
+            const tMinX = Math.max(
+                0,
+                Math.min(this.gridX - 1, Math.floor((minX * 0.5 + 0.5) * this.gridX))
+            );
+            const tMinY = Math.max(
+                0,
+                Math.min(this.gridY - 1, Math.floor((minY * 0.5 + 0.5) * this.gridY))
+            );
+            const tMaxX = Math.max(
+                0,
+                Math.min(this.gridX - 1, Math.floor((maxX * 0.5 + 0.5) * this.gridX))
+            );
+            const tMaxY = Math.max(
+                0,
+                Math.min(this.gridY - 1, Math.floor((maxY * 0.5 + 0.5) * this.gridY))
+            );
 
             for (let z = sliceMin; z <= sliceMax; z++) {
                 for (let y = tMinY; y <= tMaxY; y++) {
@@ -222,7 +241,7 @@ export class ClusteredLightingSystem {
                 }
             }
         }
-        
+
         if (numLights > 0) {
             (this.clusterBuffer as any).needsUpdate = true;
         }
@@ -230,10 +249,16 @@ export class ClusteredLightingSystem {
 
     public getLightingNode(worldPos: any, viewPos: any, worldNormal: any, baseColor: any) {
         const sLightData = storage(this.lightBuffer, 'vec4', this.maxLights * 3);
-        const sClusterData = storage(this.clusterBuffer, 'uint', this.gridX * this.gridY * this.gridZ * (1 + this.maxLightsPerCluster));
+        const sClusterData = storage(
+            this.clusterBuffer,
+            'uint',
+            this.gridX * this.gridY * this.gridZ * (1 + this.maxLightsPerCluster)
+        );
 
         const vZ = viewPos.z.negate();
-        const zSlice = log(max(this.nearUniform, vZ).div(this.nearUniform)).mul(this.scaleZUniform).floor();
+        const zSlice = log(max(this.nearUniform, vZ).div(this.nearUniform))
+            .mul(this.scaleZUniform)
+            .floor();
         const zClamped = clamp(zSlice, 0.0, float(this.gridZ - 1));
 
         const clipPos = vec4(viewPos, 1.0).mul(cameraProjectionMatrix);
@@ -242,9 +267,10 @@ export class ClusteredLightingSystem {
         const xSlice = clamp(screenUv.x.mul(float(this.gridX)).floor(), 0.0, float(this.gridX - 1));
         const ySlice = clamp(screenUv.y.mul(float(this.gridY)).floor(), 0.0, float(this.gridY - 1));
 
-        const clusterIdx = zClamped.mul(float(this.gridX * this.gridY))
-                            .add(ySlice.mul(float(this.gridX)))
-                            .add(xSlice);
+        const clusterIdx = zClamped
+            .mul(float(this.gridX * this.gridY))
+            .add(ySlice.mul(float(this.gridX)))
+            .add(xSlice);
 
         const stride = this.maxLightsPerCluster + 1;
         const clusterOffset = uint(clusterIdx).mul(uint(stride));
@@ -254,7 +280,7 @@ export class ClusteredLightingSystem {
 
         Loop({ start: uint(0), end: lightCount, type: 'uint', condition: '<' }, ({ i }: any) => {
             const lightIdx = sClusterData.element(clusterOffset.add(1).add(i));
-            
+
             const v0 = sLightData.element(lightIdx.mul(3));
             const v1 = sLightData.element(lightIdx.mul(3).add(1));
             // v2 skipped for now to save lookups if we only do point lights
@@ -268,9 +294,11 @@ export class ClusteredLightingSystem {
             const dist = lightVector.length();
             const lightDir = lightVector.div(dist);
 
-            const attenuation = clamp(float(1.0).sub(pow(dist.div(lDist), 4.0)), 0.0, 1.0).pow(2.0).div(dist.mul(dist).add(1.0));
+            const attenuation = clamp(float(1.0).sub(pow(dist.div(lDist), 4.0)), 0.0, 1.0)
+                .pow(2.0)
+                .div(dist.mul(dist).add(1.0));
             const NdotL = max(dot(worldNormal, lightDir), 0.0);
-            
+
             totalIllum.addAssign(lColor.mul(lIntensity).mul(attenuation).mul(NdotL));
         });
 
