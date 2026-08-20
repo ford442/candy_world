@@ -177,15 +177,16 @@ export async function createRenderer(
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime
             // (e.g. requestAdapter returns null on Safari 17.4 / Chrome with
-            // disabled GPU). Fall through to the GLSL node backend instead of crashing.
+            // disabled GPU).
             console.warn(
-                '[Init] WebGPURenderer creation failed — falling back to GLSL node backend:',
+                '[Init] WebGPURenderer creation failed — WebGPU hard-fail boot probe triggered:',
                 err
             );
+            throw new Error(`WebGPU is required but initialization failed: ${err}`);
         }
     }
 
-    console.warn('[Init] WebGPU unavailable — falling back to WebGPURenderer (GLSL node backend)');
+    console.warn('[Init] WebGPU unavailable — WebGPU hard-fail boot probe triggered.');
     const warning = WebGPU.getErrorMessage();
     if (warning && !document.getElementById('webgpu-warning')) {
         // Only append if not already present (avoid duplicates)
@@ -194,12 +195,7 @@ export async function createRenderer(
         document.body.appendChild(warning);
     }
 
-    return {
-        renderer: createNodeRenderer(canvas, true),
-        mode: 'webgl',
-        requested: 'webgpu',
-        fallbackReason: 'webgpu-unavailable',
-    };
+    throw new Error('WebGPU is required but unavailable on this browser/device.');
 }
 
 /**
