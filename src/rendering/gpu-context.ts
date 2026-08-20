@@ -557,12 +557,19 @@ export function getGpuLimit(name: string): number {
 declare global {
     interface Window {
         __gpuContext?: Record<string, unknown>;
+        webgpuProbe?: Record<string, unknown>;
     }
 }
 
 /** Mirror the context onto `window.__gpuContext` for tests and the debug panel. */
 export function publishGpuContext(): void {
     if (typeof window === 'undefined') return;
+
+    window.webgpuProbe = {
+        browser: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        adapter: context.adapterInfo,
+        reason: context.reason || context.lostReason,
+    };
 
     window.__gpuContext = {
         backend: context.backend,
