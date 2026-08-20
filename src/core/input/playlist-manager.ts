@@ -96,6 +96,9 @@ export function initPlaylistManager(
             const trackName = formatSongTitle(songs[index].name);
             showToast(`Now Playing: ${trackName}`, '🎵');
 
+            // ♿ Aria: Use unified announcer instead of DOM live regions
+            announce(`Now playing: ${trackName}`, 'polite');
+
             // 🎨 Palette: Update "Now Playing" in Pause Menu
             if (nowPlayingContainer && nowPlayingText) {
                 nowPlayingText.innerText = trackName;
