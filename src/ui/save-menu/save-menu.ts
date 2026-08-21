@@ -462,6 +462,7 @@ export class SaveMenu {
 
         // ♿ Aria: Keyboard tactile feedback for interactive elements
         if (e.key === 'Enter' || e.key === ' ') {
+            if (e.repeat) return;
             const activeElement = document.activeElement as HTMLElement;
             if (activeElement && !activeElement.classList.contains('keyboard-active') && (
                 activeElement.classList.contains('candy-save-menu__tab') ||
