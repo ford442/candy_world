@@ -5,6 +5,7 @@ import { initFaunaSystem } from '../../systems/fauna/index.ts';
 import { globalLoadingManager } from '../../systems/loading-manager.ts';
 import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
 import { populatePhysicsGrids } from '../../systems/physics/index.ts';
+import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { announce } from '../../ui/announcer.ts';
 import {
     showDeferredIndicator,
@@ -279,6 +280,8 @@ export function setupStartScreen(ctx: MainContext): void {
             delete (window as any).__fastPopulationOverride;
 
             populatePhysicsGrids();
+            // Platforms (caves / clouds) register during populate — snap again on solid shore.
+            placePlayerAtConfiguredSpawn(camera);
 
             initFaunaSystem();
             initFaunaDebug(scene);

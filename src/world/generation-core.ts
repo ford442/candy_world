@@ -710,7 +710,7 @@ export async function generateCoreWorld(
     if (onProgress) onProgress(0, 4, '[World] Generating core world');
 
     // --- Near-player "seed ring": spawn decorative items within ~16–30 units of the
-    // player spawn (origin) so the world feels immediately populated right after the
+    // player spawn so the world feels immediately populated right after the
     // loading screen hides.  These are purely visual (no physics obstacles) so the
     // 15-unit hard-exclusion zone for obstacles doesn't apply.  We place them at
     // evenly-spaced angles around the spawn point, alternating between an inner ring
@@ -734,8 +734,8 @@ export async function generateCoreWorld(
         const angle = (i / SEED_RING_COUNT) * Math.PI * 2;
         // Even indices → inner ring; odd indices → outer ring for staggered depth.
         const ringRadius = SEED_RING_INNER + (i % 2) * (SEED_RING_OUTER - SEED_RING_INNER);
-        const sx = Math.cos(angle) * ringRadius;
-        const sz = Math.sin(angle) * ringRadius;
+        const sx = CONFIG.player.spawnX + Math.cos(angle) * ringRadius;
+        const sz = CONFIG.player.spawnZ + Math.sin(angle) * ringRadius;
         const sy = sampleGroundY(sx, sz);
         const seedObj = seedFactories[i % seedFactories.length]();
         if (!seedObj) continue;
