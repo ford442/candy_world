@@ -298,10 +298,13 @@ export interface ConfigType {
      * Player avatar / first-person camera height tuning.
      * eyeHeight is added to the authoritative ground height to place the camera.
      * spawnEyeHeightY is the transient starting height before the first ground snap.
+     * spawnX / spawnZ is the Play-path start on solid shore (not Melody Lake / cave floor).
      */
     player: {
         eyeHeight: number;
         spawnEyeHeightY: number;
+        spawnX: number;
+        spawnZ: number;
     };
 
     /**

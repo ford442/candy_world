@@ -243,7 +243,7 @@ export async function initScene(): Promise<SceneInitResult> {
         0.1,
         2000
     );
-    camera.position.set(0, CONFIG.player.spawnEyeHeightY, 0);
+    camera.position.set(CONFIG.player.spawnX, CONFIG.player.spawnEyeHeightY, CONFIG.player.spawnZ);
 
     // WebGPURenderer configuration (WGSL or GLSL node backend)
     if (isWebGPUMode(renderer)) {

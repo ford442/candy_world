@@ -10,8 +10,9 @@ import * as THREE from 'three';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
+import { CONFIG } from '../core/config.ts';
 import { populatePhysicsGrids } from '../systems/physics/index.ts';
-import { CellState, RegionManager, type GridCell } from '../systems/region-manager-core.ts';
+import { CellState, RegionManager, worldToCell, type GridCell } from '../systems/region-manager-core.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { processMapEntity } from './generation-entities.ts';
@@ -200,13 +201,14 @@ export class ChunkStreamer {
     }
 
     /**
-     * Synchronously spawns the spawn chunk (0,0) plus `radiusChunks` ring,
+     * Synchronously spawns the player's spawn tile plus `radiusChunks` ring,
      * capped at `maxEntities` total. Entities beyond the cap (or in chunks that
      * don't fully fit the remaining budget) are left for the runtime streamer
      * to pick up on the very next update() tick — nothing is silently dropped.
      */
     loadSpawnPlayable(radiusChunks = 1, maxEntities = DEFAULT_SPAWN_ENTITY_CAP): number {
-        const coords = ringCoords(0, 0, radiusChunks);
+        const spawnCell = worldToCell(CONFIG.player.spawnX, CONFIG.player.spawnZ, this.chunkSize);
+        const coords = ringCoords(spawnCell.x, spawnCell.z, radiusChunks);
         let spawned = 0;
 
         for (const { cx, cz } of coords) {
@@ -229,12 +231,12 @@ export class ChunkStreamer {
             spawned += this.spawnChunkSync(cx, cz, cell, ids);
         }
 
-        this.lastCx = 0;
-        this.lastCz = 0;
+        this.lastCx = spawnCell.x;
+        this.lastCz = spawnCell.z;
         // Anything that didn't fit the synchronous boot budget still needs to
         // load even if the player never moves — background-enqueue it now
         // rather than waiting for a chunk-boundary crossing that may not come.
-        this.enqueueChunkLoads(0, 0);
+        this.enqueueChunkLoads(spawnCell.x, spawnCell.z);
         return spawned;
     }
 

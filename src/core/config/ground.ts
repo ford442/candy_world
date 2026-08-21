@@ -4,6 +4,10 @@ import type { ConfigType } from './types.ts';
 export const PLAYER_DEFAULTS: ConfigType['player'] = {
     eyeHeight: 1.8,
     spawnEyeHeightY: 5.0,
+    // South shore of Melody Lake (bounds x(-38,78) z(-28,68)). Origin (0,0) is
+    // inside the carved basin — spawning there drops the player through the map.
+    spawnX: 0,
+    spawnZ: -36,
 };
 
 /** Ground sampling, footprint radii, and camera follow smoothing. */
