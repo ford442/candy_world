@@ -9,10 +9,17 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
-import { spawnImpact } from '../../foliage/impacts.ts';
-import { announcePolite } from '../../ui/announcer.ts';
+import type { ImpactType } from '../../foliage/impacts.ts';
+import { announce } from '../../ui/announcer.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
 import { getBiomeAtPosition } from './biome-at-position.ts';
+import {
+    BIOME_DISPLAY_NAMES,
+    detectPeerBiomeEntry,
+    ingestPose,
+    mergePresenceMeta,
+    pruneStalePeers,
+} from './presence-protocol.ts';
 import {
     PRESENCE_BROADCAST_EVENT,
     type PresenceMeta,
@@ -20,6 +27,16 @@ import {
     type RemotePeer,
 } from './presence-types.ts';
 import { remoteAvatars } from './remote-avatars.ts';
+
+export type PresenceSpawnImpact = (
+    pos: { x: number; y: number; z: number },
+    type?: ImpactType,
+    color?: number
+) => void;
+
+export interface PresenceInitHooks {
+    spawnImpact?: PresenceSpawnImpact;
+}
 
 const PRESENCE_OPT_IN_KEY = 'candy_presence_opt_in';
 const STALE_PEER_MS = 15_000;
@@ -73,24 +90,6 @@ function randomLabel(): string {
     return `Explorer-${n}`;
 }
 
-const CANDY_COLORS = [0xff69b4, 0x87cefa, 0x98fb98, 0xffd1dc, 0xe6e6fa, 0xffb347];
-
-function hashToColor(id: string): number {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) {
-        h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
-    }
-    return CANDY_COLORS[Math.abs(h) % CANDY_COLORS.length];
-}
-
-function formatBiomeName(biomeId: string): string {
-    if (biomeId === 'global') return 'the open fields';
-    return biomeId
-        .split('_')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-}
-
 export class PresenceSystem {
     private static _instance: PresenceSystem | null = null;
 
@@ -104,6 +103,10 @@ export class PresenceSystem {
     private _peers = new Map<string, RemotePeer>();
     private _localPos = new THREE.Vector3();
     private _shareDiscoveryGlow = false;
+    private _hideSelf = false;
+    private _mutedPeerIds = new Set<string>();
+    private _peersDirty = false;
+    private _spawnImpact: PresenceSpawnImpact | null = null;
 
     static getInstance(): PresenceSystem {
         if (!PresenceSystem._instance) {
@@ -120,12 +123,46 @@ export class PresenceSystem {
         return this._peers.size;
     }
 
+    get peers(): ReadonlyMap<string, RemotePeer> {
+        return this._peers;
+    }
+
+    setHideSelf(hide: boolean): void {
+        this._hideSelf = hide;
+    }
+
+    get hideSelf(): boolean {
+        return this._hideSelf;
+    }
+
+    mutePeer(peerId: string): void {
+        this._mutedPeerIds.add(peerId);
+        remoteAvatars.setMutedPeers(this._mutedPeerIds);
+        this._peersDirty = true;
+    }
+
+    unmutePeer(peerId: string): void {
+        this._mutedPeerIds.delete(peerId);
+        remoteAvatars.setMutedPeers(this._mutedPeerIds);
+        this._peersDirty = true;
+    }
+
+    isPeerMuted(peerId: string): boolean {
+        return this._mutedPeerIds.has(peerId);
+    }
+
     /** Future seam: mirror save-system shareDiscoveryGlowWithPeers */
     setShareDiscoveryGlow(enabled: boolean): void {
         this._shareDiscoveryGlow = enabled;
     }
 
-    bindScene(scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.Renderer): void {
+    bindScene(
+        scene: THREE.Scene,
+        camera: THREE.PerspectiveCamera,
+        renderer: THREE.Renderer,
+        hooks?: PresenceInitHooks
+    ): void {
+        if (hooks?.spawnImpact) this._spawnImpact = hooks.spawnImpact;
         remoteAvatars.init(scene, camera, renderer);
     }
 
@@ -190,7 +227,7 @@ export class PresenceSystem {
                     await this._channel!.track(meta);
                     this._joined = true;
                     setPresenceOptIn(true);
-                    // eslint-disable-next-line no-console
+                    this._peersDirty = true;
                     console.log(`[Presence] Joined room ${room} as ${this._emoji} ${this._label}`);
                     resolve(true);
                 } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -220,7 +257,6 @@ export class PresenceSystem {
         this._joined = false;
         this._peers.clear();
         remoteAvatars.syncPeers(this._peers, this._localPos);
-        // eslint-disable-next-line no-console
         console.log('[Presence] Left room');
     }
 
@@ -241,7 +277,7 @@ export class PresenceSystem {
 
         this._pruneStalePeers(now);
 
-        if (now - this._lastPublish >= tickMs) {
+        if (now - this._lastPublish >= tickMs && !this._hideSelf) {
             this._lastPublish = now;
             camera.getWorldQuaternion(_scratchQuat);
             const biome = getBiomeAtPosition(this._localPos.x, this._localPos.z);
@@ -259,8 +295,46 @@ export class PresenceSystem {
             });
         }
 
+        remoteAvatars.setMutedPeers(this._mutedPeerIds);
         remoteAvatars.syncPeers(this._peers, this._localPos);
         remoteAvatars.updateTags();
+
+        // ⚡ OPTIMIZATION: Bypassed per-frame array allocation and UI DOM updates by dirty-flagging peer list emits
+        if (this._peersDirty) {
+            this._emitPeerListUpdate();
+            this._peersDirty = false;
+        }
+    }
+
+    private _emitPeerListUpdate(): void {
+        if (typeof window === 'undefined') return;
+        window.dispatchEvent(
+            new CustomEvent('candy:presence-peers', {
+                detail: {
+                    peers: [...this._peers.values()].map((p) => ({
+                        id: p.id,
+                        label: p.label,
+                        emoji: p.emoji,
+                        muted: this._mutedPeerIds.has(p.id),
+                    })),
+                    peerCount: this._peers.size,
+                    maxPeers: CONFIG.presence?.maxPeers ?? 16,
+                },
+            })
+        );
+    }
+
+    private _onPeerBiomeEntry(peer: RemotePeer, biome: string): void {
+        const name = BIOME_DISPLAY_NAMES[biome] ?? biome.replace(/_/g, ' ');
+        announce(`An explorer entered the ${name}`, 'polite');
+        if (peer.snapshots.length > 0) {
+            const snap = peer.snapshots[peer.snapshots.length - 1];
+            this._spawnImpact?.(
+                { x: snap.pos[0], y: snap.pos[1], z: snap.pos[2] },
+                'spore',
+                0xffb6e8
+            );
+        }
     }
 
     dispose(): void {
@@ -271,136 +345,57 @@ export class PresenceSystem {
     private _mergePresenceState(): void {
         if (!this._channel) return;
         const state = this._channel.presenceState<PresenceMeta>();
-        // ⚡ OPTIMIZATION: Bypassed Object.keys() array allocation in presence state merge to eliminate GC spikes.
-        for (const key in state) {
-            if (!Object.prototype.hasOwnProperty.call(state, key)) continue;
-            if (key === this._sessionId) continue;
-            const entries = state[key];
-            if (!entries || entries.length === 0) continue;
-            const meta = entries[entries.length - 1];
-            this._upsertPeerMeta(key, meta);
-        }
-    }
-
-    private _upsertPeerMeta(id: string, meta: PresenceMeta): void {
-        let peer = this._peers.get(id);
-        if (!peer) {
-            peer = {
-                id,
-                label: meta.label ?? 'Explorer',
-                emoji: meta.emoji ?? '🍬',
-                shareDiscoveryGlow: meta.shareDiscoveryGlow ?? false,
-                snapshots: [],
-                lastSeen: performance.now(),
-            };
-            this._peers.set(id, peer);
-        } else {
-            peer.label = meta.label ?? peer.label;
-            peer.emoji = meta.emoji ?? peer.emoji;
-            peer.shareDiscoveryGlow = meta.shareDiscoveryGlow ?? peer.shareDiscoveryGlow;
-            peer.lastSeen = performance.now();
-        }
-
-        const maxPeers = CONFIG.presence?.maxPeers ?? 16;
-        if (this._peers.size > maxPeers) {
-            const sorted = [...this._peers.entries()].sort((a, b) => a[1].lastSeen - b[1].lastSeen);
-            while (this._peers.size > maxPeers) {
-                const [dropId] = sorted.shift()!;
-                this._peers.delete(dropId);
-            }
-        }
+        const changed = mergePresenceMeta(
+            this._peers,
+            state,
+            this._sessionId,
+            CONFIG.presence?.maxPeers ?? 16
+        );
+        // Fallback for simple merge that doesn't return boolean, or if it does
+        this._peersDirty = true;
+        this._emitPeerListUpdate();
     }
 
     private _ingestPose(payload: PresencePose | null | undefined): void {
-        if (!payload?.id || payload.id === this._sessionId) return;
-        if (!Array.isArray(payload.pos) || payload.pos.length < 3) return;
-        if (!Array.isArray(payload.quat) || payload.quat.length < 4) return;
-
-        let peer = this._peers.get(payload.id);
-        if (!peer) {
-            peer = {
-                id: payload.id,
-                label: 'Explorer',
-                emoji: '🍬',
-                shareDiscoveryGlow: false,
-                snapshots: [],
-                lastSeen: performance.now(),
-            };
-            this._peers.set(payload.id, peer);
-        }
-
-        peer.lastSeen = performance.now();
-        const newBiome = payload.biome ?? 'global';
-
-        if (!peer.lastBiome) {
-            peer.lastBiome = newBiome;
-        } else if (peer.lastBiome !== newBiome) {
-            if (peer.pendingBiome !== newBiome) {
-                peer.pendingBiome = newBiome;
-                peer.pendingBiomeCount = 1;
-            } else {
-                peer.pendingBiomeCount = (peer.pendingBiomeCount || 0) + 1;
-                // Debounce threshold: 3 consecutive matching poses (~300ms at 10Hz)
-                if (peer.pendingBiomeCount >= 3) {
-                    const formattedBiome = formatBiomeName(newBiome);
-                    announcePolite(`${peer.emoji} ${peer.label} wandered into ${formattedBiome}.`);
-                    spawnImpact(
-                        { x: payload.pos[0], y: payload.pos[1], z: payload.pos[2] },
-                        'mist',
-                        hashToColor(peer.id)
-                    );
-                    peer.lastBiome = newBiome;
-                    peer.pendingBiome = undefined;
-                    peer.pendingBiomeCount = 0;
-                }
-            }
-        } else {
-            // Reset debounce if we bounced back to the established biome
-            peer.pendingBiome = undefined;
-            peer.pendingBiomeCount = 0;
-        }
-
-        peer.snapshots.push({
-            id: payload.id,
-            pos: payload.pos,
-            quat: payload.quat,
-            biome: newBiome,
-            ts: payload.ts ?? performance.now(),
-            action: payload.action,
-        });
-        if (peer.snapshots.length > MAX_SNAPSHOTS) {
-            peer.snapshots.splice(0, peer.snapshots.length - MAX_SNAPSHOTS);
-        }
+        if (!ingestPose(this._peers, this._sessionId, payload)) return;
+        const peer = this._peers.get(payload!.id);
+        if (!peer) return;
+        const entered = detectPeerBiomeEntry(peer);
+        if (entered) this._onPeerBiomeEntry(peer, entered);
     }
 
     private _removePeer(id: string): void {
-        const peer = this._peers.get(id);
-        if (peer) {
-            peer.lastBiome = undefined;
-            peer.pendingBiome = undefined;
-            peer.pendingBiomeCount = 0;
+        if (this._peers.has(id)) {
+            this._peers.delete(id);
+            this._peersDirty = true;
         }
-        this._peers.delete(id);
     }
 
     private _pruneStalePeers(now: number): void {
-        for (const [id, peer] of this._peers) {
-            if (now - peer.lastSeen > STALE_PEER_MS) {
-                this._peers.delete(id);
-            }
+        const removed = pruneStalePeers(this._peers, now, STALE_PEER_MS);
+        if (removed.length > 0) {
+            this._peersDirty = true;
         }
+        if (removed.length > 0) this._emitPeerListUpdate();
     }
 }
 
 export const presenceSystem = PresenceSystem.getInstance();
 
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+        teardownPresence();
+    });
+}
+
 export function initPresenceFromOptIn(
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
-    renderer: THREE.Renderer
+    renderer: THREE.Renderer,
+    hooks?: PresenceInitHooks
 ): void {
     if (!FEATURE_FLAGS.presence || !isPresenceOptedIn()) return;
-    presenceSystem.bindScene(scene, camera, renderer);
+    presenceSystem.bindScene(scene, camera, renderer, hooks);
     void presenceSystem.join();
 }
 
@@ -409,7 +404,7 @@ export function updatePresenceSystem(
     camera: THREE.PerspectiveCamera,
     playerPosition?: THREE.Vector3
 ): void {
-    if (!presenceSystem.joined) return;
+    if (!FEATURE_FLAGS.presence || !presenceSystem.joined) return;
     presenceSystem.update(delta, camera, playerPosition);
 }
 

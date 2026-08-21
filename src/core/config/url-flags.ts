@@ -14,6 +14,10 @@
 //   ?presence=1           — show shared-presence opt-in UI (still requires explicit join)
 //   ?generative=1         — in-browser generative soundtrack (or ?music=generative)
 //   ?photo=1              — cinematic photo mode (or ?mode=photo)
+//   ?lights=1             — show local point/spot helpers (also implied by ?debug=1)
+//   ?gi=off|on|high|debug — lightweight GI probe volume: skip / force on / force
+//                           on at high density / force on with probe gizmos
+//                           (gizmos also implied by ?debug=1)
 //   ?no_gpu_compute       — force WASM/JS fallback for batch LOD + foliage scalar batches
 //   ?nativeMusicAccum=0   — force TS arpeggio_grove channel accumulate (A/B vs AS)
 //   ?nativeMusicAccum=1   — prefer AS accumulate when candy_physics export present (default)
@@ -44,6 +48,23 @@ export const _hasFlag = hasUrlFlag;
 /** @internal postfx resolution */
 export const _getFlag = getUrlFlag;
 
+export function isPresenceFeatureEnabled(): boolean {
+    if (hasUrlFlag('presence')) return true;
+    const flag = getUrlFlag('presence');
+    if (flag === '1' || flag === '') return true;
+    try {
+        if (
+            typeof localStorage !== 'undefined' &&
+            localStorage.getItem('candy_presence_opt_in') === '1'
+        ) {
+            return true;
+        }
+    } catch {
+        /* private mode */
+    }
+    return false;
+}
+
 export const FEATURE_FLAGS = {
     luminousPlants: !hasUrlFlag('no_luminous'),
     myceliumRealm: !hasUrlFlag('no_mycelium'),
@@ -62,7 +83,9 @@ export const FEATURE_FLAGS = {
      */
     awakenedPersistence: hasUrlFlag('awakened'),
     /** Shared multiplayer presence UI + networking (opt-in join; no traffic until joined). */
-    presence: hasUrlFlag('presence') || getUrlFlag('presence') === '1',
+    get presence(): boolean {
+        return isPresenceFeatureEnabled();
+    },
     /**
      * In-browser generative soundtrack (?generative=1 or ?music=generative).
      * Drives music-reactivity from sequencer events instead of FFT/VU analysis.
@@ -81,4 +104,3 @@ if (typeof window !== 'undefined') {
         console.warn(`[FeatureFlags] Disabled via URL: ${disabled.join(', ')}`);
     }
 }
-

@@ -5,8 +5,8 @@ export interface LoadingPhase {
     name: string;
     weight: number; // Relative time cost (0-1)
     description: string;
-    isDeferred?: boolean;    // Eligible for the skip button
-    nonSkippable?: boolean;  // Override: hide skip button even when isDeferred
+    isDeferred?: boolean; // Eligible for the skip button
+    nonSkippable?: boolean; // Override: hide skip button even when isDeferred
     onStart?: () => void;
     onComplete?: () => void;
 }
@@ -45,7 +45,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
         weight: 0.15,
         description: 'Initializing 3D renderer and scene...',
         onStart: () => log.debug('Loading', 'Starting Core Scene Setup'),
-        onComplete: () => log.debug('Loading', 'Core Scene Setup complete')
+        onComplete: () => log.debug('Loading', 'Core Scene Setup complete'),
     },
     {
         id: 'audio-init',
@@ -53,15 +53,15 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
         weight: 0.05,
         description: 'Starting audio worklet and effects...',
         onStart: () => log.debug('Loading', 'Starting Audio System Init'),
-        onComplete: () => log.debug('Loading', 'Audio System Init complete')
+        onComplete: () => log.debug('Loading', 'Audio System Init complete'),
     },
     {
         id: 'world-generation',
         name: 'World Build',
-        weight: 0.20,
+        weight: 0.2,
         description: 'Building sky, terrain and base world...',
         onStart: () => log.debug('Loading', 'Starting World Generation'),
-        onComplete: () => log.debug('Loading', 'World Generation complete')
+        onComplete: () => log.debug('Loading', 'World Generation complete'),
     },
     {
         id: 'wasm-init',
@@ -69,31 +69,31 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
         weight: 0.35,
         description: 'Loading physics engine and native modules...',
         onStart: () => log.debug('Loading', 'Starting WASM Initialization'),
-        onComplete: () => log.debug('Loading', 'WASM Initialization complete')
+        onComplete: () => log.debug('Loading', 'WASM Initialization complete'),
     },
     {
         id: 'shader-warmup',
         name: 'Shader Warmup',
-        weight: 0.30,
+        weight: 0.3,
         description: 'Pre-compiling shaders for smooth gameplay...',
         onStart: () => log.debug('Loading', 'Starting Shader Warmup'),
-        onComplete: () => log.debug('Loading', 'Shader Warmup complete')
+        onComplete: () => log.debug('Loading', 'Shader Warmup complete'),
     },
     {
         id: 'map-generation',
         name: 'Map Generation',
-        weight: 0.30,
+        weight: 0.3,
         description: 'Placing entities, foliage and discoveries...',
         onStart: () => log.debug('Loading', 'Starting Map Generation'),
-        onComplete: () => log.debug('Loading', 'Map Generation complete')
+        onComplete: () => log.debug('Loading', 'Map Generation complete'),
     },
     {
         id: 'deferred-population',
         name: 'World Population',
-        weight: 0,   // 0 in normal mode; set to >0 in waitForFull mode before registering
+        weight: 0, // 0 in normal mode; set to >0 in explore mode before registering
         description: 'Populating horizon...',
         isDeferred: true,
         onStart: () => log.debug('Loading', 'Starting deferred world population'),
-        onComplete: () => log.debug('Loading', 'Deferred world population complete')
-    }
+        onComplete: () => log.debug('Loading', 'Deferred world population complete'),
+    },
 ];

@@ -31,6 +31,7 @@
  * @see docs/WEBGPU_CONTEXT.md
  */
 
+import { setGpuPrefersLightWorldLoad } from '../core/config/runtime.ts';
 import type { RendererBackend } from './renderer-mode.ts';
 
 // =============================================================================
@@ -166,6 +167,25 @@ function ensurePromise(): Promise<GpuContext> {
     return contextPromise;
 }
 
+function applyGpuLoadHint(ctx: GpuContext): void {
+    const storage = ctx.limits?.maxStorageBufferBindingSize ?? 0;
+    const fallback = Boolean(
+        (ctx.adapter as GPUAdapter & { isFallbackAdapter?: boolean })?.isFallbackAdapter
+    );
+    const blob = [
+        ctx.adapterInfo?.vendor,
+        ctx.adapterInfo?.architecture,
+        ctx.adapterInfo?.device,
+        ctx.adapterInfo?.description,
+    ]
+        .join(' ')
+        .toLowerCase();
+    const integrated = /intel|uhd|iris|mali|adreno|swiftshader|llvmpipe|microsoft basic/.test(blob);
+    // Spec default is 128 MiB; discrete adapters usually grant more.
+    const lowStorage = storage > 0 && storage <= GPU_REQUIRED_LIMITS.maxStorageBufferBindingSize;
+    setGpuPrefersLightWorldLoad(fallback || integrated || lowStorage);
+}
+
 function settle(next: GpuContext): GpuContext {
     context = next;
     ensurePromise();
@@ -173,6 +193,7 @@ function settle(next: GpuContext): GpuContext {
         resolveContext(context);
         resolveContext = null;
     }
+    applyGpuLoadHint(context);
     publishGpuContext();
     return context;
 }
@@ -209,7 +230,7 @@ export function captureAdapterRequests(): void {
 
 async function readAdapterInfo(
     adapter: GPUAdapter | null,
-    device: GPUDevice | null,
+    device: GPUDevice | null
 ): Promise<GpuAdapterInfo | null> {
     // `GPUDevice.adapterInfo` (newer Chrome) → `GPUAdapter.info` → legacy
     // `requestAdapterInfo()`. All three are best-effort; a masked adapter
@@ -259,17 +280,25 @@ function snapshotLimits(limits: GPUSupportedLimits | undefined): Record<string, 
 export async function armGpuContext(
     renderer: unknown,
     mode: RendererBackend,
-    reason: string | null = null,
+    reason: string | null = null
 ): Promise<GpuContext> {
     if (armed) return ensurePromise();
     armed = true;
     ensurePromise();
 
-    const r = renderer as { isWebGPURenderer?: boolean; hasInitialized?: () => boolean; _initialized?: boolean; init?: () => Promise<void>; backend?: { isWebGLBackend?: boolean; isWebGPUBackend?: boolean; device?: GPUDevice } };
+    const r = renderer as {
+        isWebGPURenderer?: boolean;
+        hasInitialized?: () => boolean;
+        _initialized?: boolean;
+        init?: () => Promise<void>;
+        backend?: { isWebGLBackend?: boolean; isWebGPUBackend?: boolean; device?: GPUDevice };
+    };
 
     // Legacy THREE.WebGLRenderer (pre-0.171 fallback) — no node backend, no GPU compute.
     if (!r?.isWebGPURenderer) {
-        console.log(`[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl'})`);
+        console.log(
+            `[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl'})`
+        );
         return settle({
             ...UNAVAILABLE,
             backend: 'webgl',
@@ -295,7 +324,9 @@ export async function armGpuContext(
     const backend = r.backend;
 
     if (backend?.isWebGLBackend === true) {
-        console.log(`[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl-node-backend'})`);
+        console.log(
+            `[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl-node-backend'})`
+        );
         return settle({
             ...UNAVAILABLE,
             backend: 'webgl',
@@ -526,12 +557,19 @@ export function getGpuLimit(name: string): number {
 declare global {
     interface Window {
         __gpuContext?: Record<string, unknown>;
+        webgpuProbe?: Record<string, unknown>;
     }
 }
 
 /** Mirror the context onto `window.__gpuContext` for tests and the debug panel. */
 export function publishGpuContext(): void {
     if (typeof window === 'undefined') return;
+
+    window.webgpuProbe = {
+        browser: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        adapter: context.adapterInfo,
+        reason: context.reason || context.lostReason,
+    };
 
     window.__gpuContext = {
         backend: context.backend,
@@ -566,8 +604,8 @@ function logGpuContext(ctx: GpuContext): void {
 
     console.log(
         `[GPUContext] Single WebGPU device owned by the renderer · ` +
-        `adapter=${describeAdapter(ctx.adapterInfo)} · ` +
-        `powerPreference=${ctx.powerPreference} · ${notable}`
+            `adapter=${describeAdapter(ctx.adapterInfo)} · ` +
+            `powerPreference=${ctx.powerPreference} · ${notable}`
     );
 }
 

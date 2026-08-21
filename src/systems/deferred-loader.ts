@@ -92,7 +92,7 @@
  * ```
  */
 
-import { spawnTracker } from '../world/spawn-tracker.ts';
+import { spawnTracker, recordSpawnAttempt } from '../world/spawn-tracker.ts';
 
 export enum LoadPriority {
   CRITICAL = 0,  // Player sees immediately - load first
@@ -399,7 +399,7 @@ export class DeferredLoader {
           priority: item.priority,
           error: error instanceof Error ? error : new Error(String(error)),
         });
-        spawnTracker.recordSpawnAttempt(`deferred:${item.id}`, false, error);
+        recordSpawnAttempt(`deferred:${item.id}`, false, error);
         item.loaded = true; // Mark as loaded to skip in future
         this.currentIndex++;
       }

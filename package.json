@@ -5,6 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "bash dev.sh",
+        "dev:fast": "vite --open '?boot=instant&graphics=low&map=small'",
         "preview": "vite preview",
         "build:wasm": "asc assembly/index.ts --outFile src/wasm/candy_physics.wasm --textFile src/wasm/candy_physics.wat --sourceMap --shrinkLevel 0 --optimize --converge --optimizeLevel 3 --enable simd --enable bulk-memory --initialMemory 5 --maximumMemory 256 --target wasm-gc --enable reference-types --enable gc --exportRuntime --bindings esm",
         "build:emcc": "bash emscripten/build.sh",
@@ -28,24 +29,35 @@
         "test:ground": "node tests/ground-system.test.mjs",
         "test:ground-unified": "node tests/ground-unified-parity.mjs",
         "test:sky-islands": "node tests/sky-islands-traversal.test.mjs",
+        "test:presence": "tsx tests/presence-protocol.test.mjs",
+        "test:sugar-caves": "tsx tests/sugar-caves-traversal.test.mjs",
         "test:foliage-interact": "node tests/foliage-interact.test.mjs",
         "test:cookbook-presets": "node scripts/check-cookbook-presets.mjs",
         "test:spawn-tracker": "node tests/spawn-tracker.test.mjs",
         "test:world-health": "node tests/world-health.test.mjs",
         "test:wasm-loader": "node tests/wasm-loader-reliability.mjs",
         "test:startup": "node tests/startup-bootstrap.mjs",
+        "test:capabilities": "tsx tests/startup-capabilities.test.mjs",
+        "test:cascades": "tsx tests/shadow-cascades.test.mjs",
+        "test:lights": "tsx tests/local-lights.test.mjs",
+        "test:gi": "tsx tests/irradiance-probes.test.mjs",
+        "test:boot": "npm run test",
+        "test:world": "BOOT_PATH=explore npm run test",
+        "test:boot:timing": "node tests/boot-timing.mjs",
         "test:atmosphere": "node tests/atmosphere-reactivity.test.mjs",
         "test:explore": "node tests/explore-camera.test.mjs",
         "test:batcher-lod": "node tests/batcher-lod.test.mjs",
-        "test:integration": "npm run build:wasm && npm run test:wasm && npm run test:parity && npm run test:cookbook-presets && npm run test:spawn-tracker && npm run test:world-health && npm run test",
+        "test:integration": "npm run build:wasm && npm run test:wasm && npm run test:parity && npm run test:cookbook-presets && npm run test:spawn-tracker && npm run test:world-health && npm run test:presence && npm run test:sugar-caves && npm run test:capabilities && npm run test:lights && npm run test:gi && npm run test",
         "test:smoke:full": "FULL_BOOT=1 npm run test",
         "test:smoke:fast": "FULL_BOOT=fast npm run test",
         "test:smoke:webgl": "RENDERER=webgl npm run test",
         "test:visual": "cd tools/visual-regression && pnpm run test:visual",
         "test:visual:typecheck": "cd tools/visual-regression && pnpm run typecheck",
+        "verify:chunk-index": "node scripts/verify-chunk-index.mjs",
         "verify:emcc": "node verification/verify_emcc_exports.js",
         "verify:emcc:manifest": "node scripts/check-emcc-manifest.mjs",
         "generate:map": "tsx tools/map-generator/cli.ts",
+        "generate:chunk-index": "tsx tools/map-generator/build-chunk-index.ts",
         "export:map": "tsx tools/map-generator/export-current-world.ts",
         "release:tag": "node scripts/make-release.mjs",
         "release": "npm run build && node scripts/make-release.mjs",
@@ -87,5 +99,15 @@
     },
     "simple-git-hooks": {
         "pre-commit": "node scripts/prettier-staged.mjs"
+    },
+    "pnpm": {
+        "overrides": {
+            "@swc/core": "1.15.47",
+            "@swc/wasm": "1.15.47"
+        }
+    },
+    "overrides": {
+        "@swc/core": "1.15.47",
+        "@swc/wasm": "1.15.47"
     }
 }

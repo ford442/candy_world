@@ -3,36 +3,100 @@ import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/tools-st
 import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import {
-    uWindSpeed, uWindDirection, uAudioLow, uAudioHigh, uGlitchIntensity, uTime,
+    uWindSpeed,
+    uWindDirection,
+    uAudioLow,
+    uAudioHigh,
+    uGlitchIntensity,
+    uTime,
 } from '../foliage/index.ts';
-import { uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity } from '../foliage/sky.ts';
+import {
+    uSkyTopColor,
+    uSkyBottomColor,
+    uHorizonColor,
+    uAtmosphereIntensity,
+} from '../foliage/sky.ts';
 import { uStarOpacity } from '../foliage/stars.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { globalClusteredLighting } from '../rendering/clustered-lighting.ts';
+import { updateIrradianceProbes } from '../rendering/irradiance-probes.ts';
+import { cameraRef } from './game-loop-core.ts';
+import { profiler } from '../utils/profiler.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
 import { WeatherState } from '../systems/weather-types.ts';
-import { DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './config.ts';
+import {
+    DURATION_SUNRISE,
+    DURATION_DAY,
+    DURATION_SUNSET,
+    DURATION_DUSK_NIGHT,
+    DURATION_DEEP_NIGHT,
+} from './config.ts';
 import { getDayNightBias } from './cycle.ts';
 import {
-    _scratchBaseSkyTop, _scratchBaseSkyBot, _scratchBaseFog,
-    COLOR_STORM_SKY_TOP, COLOR_STORM_SKY_BOT, COLOR_STORM_FOG, COLOR_RAIN, COLOR_RAIN_FOG,
-    COLOR_NIGHT_SKY_TOP, COLOR_NIGHT_SKY_BOT, COLOR_NIGHT_FOG,
-    COLOR_DAY_SKY_TOP, COLOR_DAY_SKY_BOT, COLOR_DAY_FOG,
-    COLOR_SUNRISE_SKY_BOT, COLOR_SUNRISE_FOG,
-    COLOR_SUNSET_SKY_TOP, COLOR_SUNSET_SKY_BOT, COLOR_SUNSET_FOG,
-    COLOR_DEEP_NIGHT_SKY_TOP, COLOR_DEEP_NIGHT_SKY_BOT, COLOR_DEEP_NIGHT_FOG,
-    _scratchSunVector, _scratchLightDir, _scratchNormalizedSunDir, _scratchMoonVector, _scratchAuroraColor,
-    sceneRef, weatherSystemRef, sunLightRef, ambientLightRef,
-    sunGlowRef, sunCoronaRef, sunGlowMatRef, coronaMatRef, moonRef, timeOffsetRef,
-    setShaftIsGoldenHour, setShaftIsNightMode, setShaftGoldenHourBase
+    _scratchBaseSkyTop,
+    _scratchBaseSkyBot,
+    _scratchBaseFog,
+    COLOR_STORM_SKY_TOP,
+    COLOR_STORM_SKY_BOT,
+    COLOR_STORM_FOG,
+    COLOR_RAIN,
+    COLOR_RAIN_FOG,
+    COLOR_NIGHT_SKY_TOP,
+    COLOR_NIGHT_SKY_BOT,
+    COLOR_NIGHT_FOG,
+    COLOR_DAY_SKY_TOP,
+    COLOR_DAY_SKY_BOT,
+    COLOR_DAY_FOG,
+    COLOR_SUNRISE_SKY_BOT,
+    COLOR_SUNRISE_FOG,
+    COLOR_SUNSET_SKY_TOP,
+    COLOR_SUNSET_SKY_BOT,
+    COLOR_SUNSET_FOG,
+    COLOR_DEEP_NIGHT_SKY_TOP,
+    COLOR_DEEP_NIGHT_SKY_BOT,
+    COLOR_DEEP_NIGHT_FOG,
+    _scratchSunVector,
+    _scratchLightDir,
+    _scratchNormalizedSunDir,
+    _scratchMoonVector,
+    _scratchAuroraColor,
+    sceneRef,
+    weatherSystemRef,
+    sunLightRef,
+    ambientLightRef,
+    sunGlowRef,
+    sunCoronaRef,
+    sunGlowMatRef,
+    coronaMatRef,
+    moonRef,
+    timeOffsetRef,
+    setShaftIsGoldenHour,
+    setShaftIsNightMode,
+    setShaftGoldenHourBase,
 } from './game-loop-core.ts';
 import { updateSunShadowFollow } from './game-loop-postfx.ts';
+import { updateLocalLightHelpers } from '../rendering/lights.ts';
 import { updateTheme, getLastIsNight, setLastIsNight, setIsNight } from './hud.ts';
 
-export function updateVisualsPhase(delta: number, t: number, gameTime: number, audioState: any, beatFlashIntensity: number, _exploreActive: boolean, _playerPos: THREE.Vector3) {
-    const cyclePos = (gameTime + timeOffsetRef.value) % (DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT + DURATION_DEEP_NIGHT);
+export function updateVisualsPhase(
+    delta: number,
+    t: number,
+    gameTime: number,
+    audioState: any,
+    beatFlashIntensity: number,
+    _exploreActive: boolean,
+    _playerPos: THREE.Vector3
+) {
+    const cyclePos =
+        (gameTime + timeOffsetRef.value) %
+        (DURATION_SUNRISE +
+            DURATION_DAY +
+            DURATION_SUNSET +
+            DURATION_DUSK_NIGHT +
+            DURATION_DEEP_NIGHT);
     const dayNightBias = getDayNightBias(gameTime + timeOffsetRef.value);
 
-    const isNightNow = cyclePos >= (DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET);
+    const isNightNow = cyclePos >= DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET;
     setIsNight(isNightNow);
     if (isNightNow !== getLastIsNight()) {
         updateTheme(isNightNow);
@@ -109,9 +173,9 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
         _scratchBaseFog.lerp(COLOR_RAIN_FOG, weatherIntensity);
     }
 
-    const tslSkyTop = (uSkyTopColor.value as unknown) as THREE.Color;
-    const tslSkyBot = (uSkyBottomColor.value as unknown) as THREE.Color;
-    const tslHorizon = (uHorizonColor.value as unknown) as THREE.Color;
+    const tslSkyTop = uSkyTopColor.value as unknown as THREE.Color;
+    const tslSkyBot = uSkyBottomColor.value as unknown as THREE.Color;
+    const tslHorizon = uHorizonColor.value as unknown as THREE.Color;
     tslSkyTop.copy(_scratchBaseSkyTop);
     tslSkyBot.copy(_scratchBaseSkyBot);
     tslHorizon.copy(_scratchBaseFog);
@@ -123,17 +187,29 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
         }
     }
 
-    const timeOfDay = Math.PI * 2 * (cyclePos / (DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT + DURATION_DEEP_NIGHT));
-    _scratchSunVector.set(Math.cos(timeOfDay - Math.PI / 2), Math.sin(timeOfDay - Math.PI / 2), 0.5).normalize();
+    const timeOfDay =
+        Math.PI *
+        2 *
+        (cyclePos /
+            (DURATION_SUNRISE +
+                DURATION_DAY +
+                DURATION_SUNSET +
+                DURATION_DUSK_NIGHT +
+                DURATION_DEEP_NIGHT));
+    _scratchSunVector
+        .set(Math.cos(timeOfDay - Math.PI / 2), Math.sin(timeOfDay - Math.PI / 2), 0.5)
+        .normalize();
     _scratchLightDir.copy(_scratchSunVector).multiplyScalar(-1);
 
     if (sunLightRef) {
         const isSunUp = _scratchSunVector.y > -0.2;
-        sunLightRef.intensity = isSunUp ? THREE.MathUtils.lerp(0, 1.5, (_scratchSunVector.y + 0.2) / 0.4) : 0;
+        sunLightRef.intensity = isSunUp
+            ? THREE.MathUtils.lerp(0, 1.5, (_scratchSunVector.y + 0.2) / 0.4)
+            : 0;
         if (weatherState === WeatherState.STORM) {
-            sunLightRef.intensity *= (1.0 - weatherIntensity * 0.8);
+            sunLightRef.intensity *= 1.0 - weatherIntensity * 0.8;
         } else if (weatherState === WeatherState.RAIN) {
-            sunLightRef.intensity *= (1.0 - weatherIntensity * 0.4);
+            sunLightRef.intensity *= 1.0 - weatherIntensity * 0.4;
         }
 
         _scratchNormalizedSunDir.copy(_scratchSunVector).normalize();
@@ -157,8 +233,11 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
         sunGlowRef.lookAt(0, 0, 0);
         sunGlowRef.visible = _scratchSunVector.y > -0.1;
         if (sunGlowMatRef && 'opacity' in sunGlowMatRef) {
-            (sunGlowMatRef as THREE.Material & { opacity: number }).opacity =
-                THREE.MathUtils.lerp(0, 0.8, (_scratchSunVector.y + 0.1) / 0.2);
+            (sunGlowMatRef as THREE.Material & { opacity: number }).opacity = THREE.MathUtils.lerp(
+                0,
+                0.8,
+                (_scratchSunVector.y + 0.1) / 0.2
+            );
         }
     }
 
@@ -167,8 +246,11 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
         sunCoronaRef.lookAt(0, 0, 0);
         sunCoronaRef.visible = _scratchSunVector.y > -0.05;
         if (coronaMatRef && 'opacity' in coronaMatRef) {
-            (coronaMatRef as THREE.Material & { opacity: number }).opacity =
-                THREE.MathUtils.lerp(0, 0.5, (_scratchSunVector.y + 0.05) / 0.15);
+            (coronaMatRef as THREE.Material & { opacity: number }).opacity = THREE.MathUtils.lerp(
+                0,
+                0.5,
+                (_scratchSunVector.y + 0.05) / 0.15
+            );
         }
     }
 
@@ -195,9 +277,16 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
     const baseStarVis = THREE.MathUtils.clamp(-_scratchSunVector.y * 2.0, 0.0, 1.0);
     uStarOpacity.value = baseStarVis * (1.0 - weatherIntensity * 0.9);
 
-    const baseAuroraVis = isNightNow ? THREE.MathUtils.clamp(-_scratchSunVector.y, 0.0, 1.0) * (1.0 - weatherIntensity) : 0;
+    const baseAuroraVis = isNightNow
+        ? THREE.MathUtils.clamp(-_scratchSunVector.y, 0.0, 1.0) * (1.0 - weatherIntensity)
+        : 0;
 
-    if (BiomeUniforms && (BiomeUniforms as any).glitch_woods && (BiomeUniforms as any).glitch_woods.shimmer && (BiomeUniforms as any).glitch_woods.shimmer.value) {
+    if (
+        BiomeUniforms &&
+        (BiomeUniforms as any).glitch_woods &&
+        (BiomeUniforms as any).glitch_woods.shimmer &&
+        (BiomeUniforms as any).glitch_woods.shimmer.value
+    ) {
         const glitchTrigger = audioState?.kickTrigger || 0;
         if (glitchTrigger > 0.5) {
             uGlitchIntensity.value = glitchTrigger * 0.5;
@@ -222,7 +311,11 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
     }
 
     const targetAuroraInt = baseAuroraVis * (0.3 + auroraAudioBoost * 0.7);
-    uAuroraIntensity.value = THREE.MathUtils.lerp(uAuroraIntensity.value, targetAuroraInt, delta * 2);
+    uAuroraIntensity.value = THREE.MathUtils.lerp(
+        uAuroraIntensity.value,
+        targetAuroraInt,
+        delta * 2
+    );
 
     const hue = (t * 0.05) % 1.0;
     _scratchAuroraColor.setHSL(hue, 1.0, 0.5);
@@ -236,7 +329,29 @@ export function updateVisualsPhase(delta: number, t: number, gameTime: number, a
     else if (weatherState === WeatherState.RAIN) weatherStateStr = 'rain';
 
     // Foliage materials / batcher LOD run in updateFoliagePhase (game-loop-foliage.ts).
+    updateLocalLightHelpers();
+    if (cameraRef) {
+        profiler.measure('ClusteredLighting', () => {
+            globalClusteredLighting.update(cameraRef as THREE.PerspectiveCamera);
+        });
+        // Lightweight GI: bake a slice of the probe volume against the sky/sun
+        // state we just resolved, so the bounce tracks the day cycle. No-op
+        // when the volume was never allocated (`low` tier, CI, ?gi=off).
+        profiler.measure('IrradianceProbes', () => {
+            updateIrradianceProbes((cameraRef as THREE.PerspectiveCamera).position, {
+                sky: _scratchBaseSkyTop,
+                ground: _scratchBaseFog,
+                sun: sunLightRef?.color,
+                sunIntensity: sunLightRef?.intensity ?? 0,
+                sunDirection: _scratchNormalizedSunDir,
+            });
+        });
+    }
     return {
-        cyclePos, isNightNow, weatherStateStr, weatherIntensity, dayNightBias
+        cyclePos,
+        isNightNow,
+        weatherStateStr,
+        weatherIntensity,
+        dayNightBias,
     };
 }

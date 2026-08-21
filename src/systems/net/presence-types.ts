@@ -27,9 +27,8 @@ export interface RemotePeer {
     shareDiscoveryGlow: boolean;
     snapshots: PresencePose[];
     lastSeen: number;
+    /** Last known biome tag (for region-entry cues). */
     lastBiome?: string;
-    pendingBiome?: string;
-    pendingBiomeCount?: number;
 }
 
 export const PRESENCE_BROADCAST_EVENT = 'pose';

@@ -159,35 +159,12 @@
             padding: 10px 18px; margin: 0 6px; font-size: 0.95em; border-radius: 12px; border: 2px solid transparent; cursor: pointer; color: white;
             transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        .profile-row { margin: 14px 0 6px; }
-        .profile-row-label {
-            display: block; font-size: 0.85em; letter-spacing: 0.04em; text-transform: uppercase;
-            opacity: 0.85; margin-bottom: 8px; font-weight: 600;
+        #toggleFullWorld {
+            margin: 8px auto 4px;
         }
-        .profile-row-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
-        #btn-gfx-low, #btn-map-small { background: #ff9ecd; }
-        #btn-gfx-medium, #btn-map-medium { background: #a5d6a7; color: #1b3a1b; }
-        #btn-gfx-high, #btn-map-large { background: #7dd3fc; color: #0f2a3a; }
-        #btn-gfx-low:hover, #btn-gfx-low:focus-visible,
-        #btn-map-small:hover, #btn-map-small:focus-visible { background: #ff75b8; }
-        #btn-gfx-medium:hover, #btn-gfx-medium:focus-visible,
-        #btn-map-medium:hover, #btn-map-medium:focus-visible { background: #81c784; }
-        #btn-gfx-high:hover, #btn-gfx-high:focus-visible,
-        #btn-map-large:hover, #btn-map-large:focus-visible { background: #38bdf8; }
-
-        .mode-btn[aria-checked="true"] {
-            border-color: #fff;
-            transform: scale(1.08);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        #btn-gfx-low[aria-checked="true"], #btn-map-small[aria-checked="true"] {
-            box-shadow: 0 5px 18px rgba(255, 158, 205, 0.7);
-        }
-        #btn-gfx-medium[aria-checked="true"], #btn-map-medium[aria-checked="true"] {
-            box-shadow: 0 5px 18px rgba(165, 214, 167, 0.7);
-        }
-        #btn-gfx-high[aria-checked="true"], #btn-map-large[aria-checked="true"] {
-            box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55);
+        #toggleFullWorld[aria-checked="true"] {
+            background: #a5d6a7;
+            color: #1b3a1b;
         }
 
         #readiness-progress {
@@ -733,9 +710,9 @@
 
 <body>
     <!-- ♿ Aria: Added aria-live to broadcast toast notifications to screen readers -->
-    <div id="now-playing-toast" role="status" aria-live="polite" aria-atomic="true">
+    <div id="now-playing-toast" role="status" aria-hidden="true">
         <span class="icon" aria-hidden="true">🎵</span>
-        <span id="now-playing-text">Now Playing...</span>
+        <span id="now-playing-text"></span>
     </div>
 
     <div id="drag-overlay" aria-hidden="true">
@@ -750,7 +727,7 @@
         <h1 id="instructions-title"><span aria-hidden="true">🍭</span> Candy World</h1>
         <p class="dream-subtitle">Click to enter the dream. Press <kbd class="key">Esc</kbd> any time to pause.</p>
         <!-- ♿ Aria: Added aria-live to broadcast Now Playing changes to screen readers -->
-        <div id="nowPlayingContainer" class="now-playing-info" role="status" aria-live="polite" aria-atomic="true" style="display: none;">
+        <div id="nowPlayingContainer" class="now-playing-info" role="status" style="display: none;">
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
         <button id="startButton" class="cta-button" disabled title="Please wait while game assets load...">
@@ -758,37 +735,10 @@
         </button>
 
         <div id="mode-select" style="margin: 20px 0; text-align: center;">
-            <p id="mode-description" style="margin-bottom: 8px; opacity: 0.9;" aria-live="polite" aria-atomic="true">Choose graphics and map size:</p>
-
-            <div class="profile-row" role="radiogroup" aria-label="Graphics level" aria-describedby="mode-description">
-                <span class="profile-row-label" id="graphics-label">Graphics</span>
-                <div class="profile-row-buttons">
-                    <button id="btn-gfx-low" type="button" role="radio" aria-checked="false" tabindex="-1" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Low
-                    </button>
-                    <button id="btn-gfx-medium" type="button" role="radio" aria-checked="true" tabindex="0" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Medium
-                    </button>
-                    <button id="btn-gfx-high" type="button" role="radio" aria-checked="false" tabindex="-1" class="cta-button mode-btn" aria-describedby="mode-description">
-                        High
-                    </button>
-                </div>
-            </div>
-
-            <div class="profile-row" role="radiogroup" aria-label="Map size" aria-describedby="mode-description">
-                <span class="profile-row-label" id="map-label">Map size</span>
-                <div class="profile-row-buttons">
-                    <button id="btn-map-small" type="button" role="radio" aria-checked="true" tabindex="0" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Small
-                    </button>
-                    <button id="btn-map-medium" type="button" role="radio" aria-checked="false" tabindex="-1" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Medium
-                    </button>
-                    <button id="btn-map-large" type="button" role="radio" aria-checked="false" tabindex="-1" class="cta-button mode-btn" aria-describedby="mode-description">
-                        Large
-                    </button>
-                </div>
-            </div>
+            <p id="mode-description" style="margin-bottom: 8px; opacity: 0.9;" aria-live="polite" aria-atomic="true">Spawn area loads first; the horizon fills in as you walk.</p>
+            <button type="button" role="switch" aria-checked="false" id="toggleFullWorld" class="toggle-button" aria-describedby="mode-description" aria-label="Full World — load the nearby map first and stream the horizon">
+                <span aria-hidden="true">🌸</span> Full World
+            </button>
 
             <div id="readiness-progress"
                  role="progressbar"
@@ -945,7 +895,7 @@
     <!-- ♿ Aria: Make reticle labels discoverable for screen readers as they look around the world -->
     <div id="reticle-label" role="status" aria-live="polite" aria-atomic="true"></div>
 
-    <div id="tracker-status" role="region" aria-label="Tracker Status" aria-live="polite" aria-atomic="true" style="position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; color: #FFF; font-family: monospace; display: flex; flex-direction: column; gap: 5px; pointer-events: none; z-index: 100; border: 2px solid #ff69b4;">
+    <div id="tracker-status" role="region" aria-label="Tracker Status" style="position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; color: #FFF; font-family: monospace; display: flex; flex-direction: column; gap: 5px; pointer-events: none; z-index: 100; border: 2px solid #ff69b4;">
         <div style="font-weight: bold; color: #ff69b4; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px;">Tracker Status</div>
         <div>Pattern: <span id="tracker-pattern">00</span></div>
         <div>Row: <span id="tracker-row">00</span></div>
@@ -994,7 +944,7 @@
         </button>
     </div>
 
-    <canvas id="glCanvas" role="img" aria-label="Immersive pastel candy forest world with glowing mushrooms, floating clouds, and music-reactive elements" tabindex="0" aria-live="polite" aria-describedby="world-status"></canvas>
+    <canvas id="glCanvas" role="img" aria-label="Immersive pastel candy forest world with glowing mushrooms, floating clouds, and music-reactive elements" tabindex="0" aria-describedby="world-status"></canvas>
     <div id="world-status" aria-live="polite" class="visually-hidden">Loading candy world...</div>
 
     <!-- Deferred HUD Indicator -->

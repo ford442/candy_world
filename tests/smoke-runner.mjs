@@ -6,33 +6,28 @@
 //   2. npx playwright install chromium – downloads the browser binary required by Playwright
 //
 // ENVIRONMENT VARIABLES:
-//   FULL_BOOT=1      Run smoke test with Large map (full population assertions)
-//   FULL_BOOT=fast   Run smoke test with Medium map (lighter full map / streaming)
-//   (default)        Run smoke test with Small map (fast boot, no population assertions)
+//   BOOT_PATH=explore   Explore path: click Enter, run population assertions
+//   FULL_BOOT=1         Deprecated alias of BOOT_PATH=explore
+//   FULL_BOOT=fast      Same Explore URL (no wait-for-full)
+//   (default)           Play path: wait for __sceneReady + jukebox, no Enter click
 //
-// Profile URL params (?graphics=&map=) replace the old CORE/FULL/FAST_FULL buttons.
+// URL flags: ?boot=play|explore|core|instant  ?graphics=low|medium|high
 
 import { spawn } from 'child_process';
 import { chromium } from '@playwright/test';
 import { request } from 'http';
 
 const FULL_BOOT = process.env.FULL_BOOT;
-const IS_FULL_BOOT = FULL_BOOT && FULL_BOOT !== '0' && FULL_BOOT !== 'false';
+const BOOT_PATH = process.env.BOOT_PATH;
+const IS_FULL_BOOT =
+    BOOT_PATH === 'explore' || (FULL_BOOT && FULL_BOOT !== '0' && FULL_BOOT !== 'false');
 const IS_FAST_FULL = FULL_BOOT === 'fast';
 const RENDERER = process.env.RENDERER?.toLowerCase();
 const USE_WEBGL_BOOT = RENDERER === 'webgl' || RENDERER === 'webgl2';
 
-/** Map size button id for the current FULL_BOOT setting. */
-function mapButtonId() {
-    if (IS_FAST_FULL) return 'btn-map-medium';
-    if (IS_FULL_BOOT) return 'btn-map-large';
-    return 'btn-map-small';
-}
-
-function mapModeLabel() {
-    if (IS_FAST_FULL) return 'MEDIUM';
-    if (IS_FULL_BOOT) return 'LARGE';
-    return 'SMALL';
+function bootPathLabel() {
+    if (IS_FULL_BOOT) return 'EXPLORE';
+    return 'PLAY';
 }
 
 /**
@@ -97,7 +92,7 @@ async function runSmokeTest() {
 
     if (IS_FULL_BOOT) {
         console.log(
-            `🌸 FULL BOOT enabled (map=${mapModeLabel()}) — population assertions will run\n`
+            `🌸 Explore path enabled (${bootPathLabel()}) — population assertions will run\n`
         );
     }
 
@@ -242,10 +237,11 @@ async function runSmokeTest() {
             localStorage.setItem('__IS_FULL_BOOT_TEST', 'true');
         });
 
-        // Navigate to localhost:4173 with profile URL params (graphics × map)
-        const mapParam = IS_FAST_FULL ? 'medium' : IS_FULL_BOOT ? 'large' : 'small';
+        // Navigate to localhost:4173 with boot-path URL params
         const gfxParam = IS_FULL_BOOT && !IS_FAST_FULL ? 'medium' : 'low';
-        const profileQs = `graphics=${gfxParam}&map=${mapParam}`;
+        const profileQs = IS_FULL_BOOT
+            ? `boot=explore&graphics=${gfxParam}`
+            : `graphics=${gfxParam}`;
         const bootUrl = USE_WEBGL_BOOT
             ? `http://localhost:4173/?renderer=webgl&webglLite=1&${profileQs}`
             : `http://localhost:4173/?${profileQs}`;
@@ -373,21 +369,8 @@ async function runSmokeTest() {
         // FULL BOOT path: select map size, click start, wait for population, assert
         // -------------------------------------------------------------------------
         if (IS_FULL_BOOT) {
-            const modeLabel = mapModeLabel();
-            const modeBtnId = mapButtonId();
-
-            console.log(`\n🌸 Selecting ${modeLabel} map...`);
-            try {
-                await page.evaluate((btnId) => {
-                    const btn = document.getElementById(btnId);
-                    if (btn) btn.click();
-                }, modeBtnId);
-                await page.waitForTimeout(200);
-                console.log(`✓ ${modeLabel} map selected`);
-            } catch (e) {
-                console.error(`❌ Failed to select ${modeLabel} map:`, e.message);
-                hasError = true;
-            }
+            const modeLabel = bootPathLabel();
+            console.log(`\n🌸 Explore path (${modeLabel}) — clicking Enter...`);
 
             if (!hasError) {
                 console.log('🚀 Clicking start button...');
