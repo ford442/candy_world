@@ -5,6 +5,8 @@
 import type { PresenceMeta, PresencePose, RemotePeer } from './presence-types.ts';
 
 export const PRESENCE_STALE_MS = 15_000;
+/** Consecutive poses required before a biome-entry cue fires (~300ms at 10Hz). */
+export const BIOME_ENTRY_CONFIRM = 3;
 
 export function isValidPose(payload: unknown): payload is PresencePose {
     if (!payload || typeof payload !== 'object') return false;
@@ -110,17 +112,34 @@ export function ingestPose(
     return true;
 }
 
-/** Returns biome id when a peer enters a new region (for announcer / VFX). */
+/**
+ * Returns biome id when a peer enters a new region (for announcer / VFX).
+ * Debounces boundary noise: BIOME_ENTRY_CONFIRM consecutive poses in the new
+ * biome are required. Skips 'global' (no announcement when leaving a region).
+ */
 export function detectPeerBiomeEntry(peer: RemotePeer): string | null {
     if (peer.snapshots.length === 0) return null;
     const latest = peer.snapshots[peer.snapshots.length - 1].biome ?? 'global';
-    const prev = peer.lastBiome ?? 'global';
-    if (latest !== prev && latest !== 'global') {
+    if (!peer.lastBiome) {
         peer.lastBiome = latest;
-        return latest;
+        return null;
     }
+    if (peer.lastBiome === latest) {
+        peer.pendingBiome = undefined;
+        peer.pendingBiomeCount = 0;
+        return null;
+    }
+    if (peer.pendingBiome !== latest) {
+        peer.pendingBiome = latest;
+        peer.pendingBiomeCount = 1;
+        return null;
+    }
+    peer.pendingBiomeCount = (peer.pendingBiomeCount ?? 0) + 1;
+    if (peer.pendingBiomeCount < BIOME_ENTRY_CONFIRM) return null;
     peer.lastBiome = latest;
-    return null;
+    peer.pendingBiome = undefined;
+    peer.pendingBiomeCount = 0;
+    return latest === 'global' ? null : latest;
 }
 
 export const BIOME_DISPLAY_NAMES: Record<string, string> = {
