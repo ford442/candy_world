@@ -21,7 +21,7 @@ import {
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { processMapEntity } from './generation-entities.ts';
-import type { WeatherSystem } from './generation-utils.ts';
+import { yieldControl, type WeatherSystem } from './generation-utils.ts';
 import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
 import {
     PLAY_EVICT_RADIUS_M,
@@ -225,10 +225,10 @@ export class ChunkStreamer {
      * don't fully fit the remaining budget) are left for the runtime streamer
      * to pick up on the very next update() tick — nothing is silently dropped.
      */
-    loadSpawnPlayable(
+    async loadSpawnPlayable(
         radiusChunks = PLAY_SPAWN_RADIUS_CHUNKS,
         maxEntities = DEFAULT_SPAWN_ENTITY_CAP
-    ): number {
+    ): Promise<number> {
         const spawnCell = worldToCell(CONFIG.player.spawnX, CONFIG.player.spawnZ, this.chunkSize);
         const coords = ringCoords(spawnCell.x, spawnCell.z, radiusChunks);
         let spawned = 0;
@@ -243,6 +243,7 @@ export class ChunkStreamer {
                 continue;
             }
             spawned += this.spawnChunkSync(cx, cz, cell, ids);
+            await yieldControl();
         }
 
         if (spawned > maxEntities) {

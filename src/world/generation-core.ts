@@ -40,8 +40,6 @@ import {
     SKY_ISLANDS,
 } from './generation-utils.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
-import { initDecoratorStreamer, resetDecoratorStreamer } from './decorator-streamer.ts';
-import { createPathTerrain } from './terrain-mesh.ts';
 import type { LoadedCandyMap } from './map-loader.ts';
 import {
     clearMapMusicContext,
@@ -55,6 +53,16 @@ import { setMapMetadataSeed } from './world-seed.ts';
 import { PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
+
+type DecoratorStreamerMod = typeof import('./decorator-streamer.ts');
+let decoratorStreamerMod: DecoratorStreamerMod | null = null;
+
+async function decoratorStreamer(): Promise<DecoratorStreamerMod> {
+    if (!decoratorStreamerMod) {
+        decoratorStreamerMod = await import('./decorator-streamer.ts');
+    }
+    return decoratorStreamerMod;
+}
 
 // Single source of truth. Used to invalidate stale procedural generation tasks.
 export let worldGenerationToken = 0;
@@ -201,6 +209,7 @@ export async function initWorld(
 
     // Visual terrain sized to the boot path (Play ~180, Explore ~400, CORE ~120).
     await yieldControl();
+    const { createPathTerrain } = await import('./terrain-mesh.ts');
     const ground = await createPathTerrain();
     scene.add(ground);
 
@@ -300,6 +309,7 @@ export async function generateMap(
     const generationToken = worldGenerationToken;
     resetSpawnTracker();
     setActiveChunkStreamer(null);
+    const { resetDecoratorStreamer } = await decoratorStreamer();
     resetDecoratorStreamer();
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
@@ -383,7 +393,7 @@ async function generateMapPlayPath(
     }
     const streamer = new ChunkStreamer(loadedMap, weatherSystem, chunkIndex);
     setActiveChunkStreamer(streamer);
-    const spawned = streamer.loadSpawnPlayable(PLAY_SPAWN_RADIUS_CHUNKS, PLAY_SPAWN_ENTITY_CAP);
+    const spawned = await streamer.loadSpawnPlayable(PLAY_SPAWN_RADIUS_CHUNKS, PLAY_SPAWN_ENTITY_CAP);
     console.timeEnd('[World] play-spawn-chunk');
     endPhase('Map Streaming Phase 1 (Spawn Chunk)');
     try {
@@ -403,6 +413,7 @@ async function generateMapPlayPath(
 
     if (onProgress) onProgress(spawned, spawned, '[World] Spawn chunk ready');
 
+    const { initDecoratorStreamer } = await decoratorStreamer();
     initDecoratorStreamer(weatherSystem, generationToken, chunkSize, {
         extrasRange: PLAY_WORLD_SIZE,
         eagerAll: false,
@@ -541,6 +552,7 @@ async function generateMapExplorePath(
 
     // 3. Stream procedural setpieces (lazy world-content — #1361).
     // Deferred so generateMap() resolves after phase 1.
+    const { initDecoratorStreamer } = await decoratorStreamer();
     initDecoratorStreamer(weatherSystem, generationToken, chunkSize, {
         extrasRange: 300,
         eagerAll: true,
