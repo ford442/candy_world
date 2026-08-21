@@ -40,10 +40,7 @@ import {
     SKY_ISLANDS,
 } from './generation-utils.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
-import {
-    initDecoratorStreamer,
-    resetDecoratorStreamer,
-} from './decorator-streamer.ts';
+import { initDecoratorStreamer, resetDecoratorStreamer } from './decorator-streamer.ts';
 import { createPathTerrain } from './terrain-mesh.ts';
 import type { LoadedCandyMap } from './map-loader.ts';
 import {

@@ -12,7 +12,12 @@ import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
 import { populatePhysicsGrids } from '../systems/physics/index.ts';
-import { CellState, RegionManager, worldToCell, type GridCell } from '../systems/region-manager-core.ts';
+import {
+    CellState,
+    RegionManager,
+    worldToCell,
+    type GridCell,
+} from '../systems/region-manager-core.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { processMapEntity } from './generation-entities.ts';

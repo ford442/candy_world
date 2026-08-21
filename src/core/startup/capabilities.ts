@@ -20,10 +20,7 @@ import {
     type StartupPath,
     type StartupProfile,
 } from '../startup-profile.ts';
-import {
-    worldExtentForPath,
-    type WorldExtentConfig,
-} from '../../world/world-extent.ts';
+import { worldExtentForPath, type WorldExtentConfig } from '../../world/world-extent.ts';
 
 export type MaterialSubset = 'none' | 'minimal' | 'batched' | 'full';
 export type PostfxQuality = 'off' | 'low' | 'high';

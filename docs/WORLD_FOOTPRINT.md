@@ -4,11 +4,11 @@ Play no longer full-loads the ~400×400 visual world. The default path boots a c
 
 ## Sizes
 
-| Path | Visual terrain | Heightmap | Why |
-|------|----------------|-----------|-----|
-| **Play** (default) | **180×180 (±90)** | 128 | 150×150 (±75) clips Melody Lake’s east shore (~x=80) and the mycelium grove (~78,78). 180 stays in the 120–180 band. |
-| **Explore** | 400×400 (±200) | 256 | Existing full-world mesh. |
-| **CORE** | 120×120 | 64 | Sandbox (`?boot=core` / `?map=small`). |
+| Path               | Visual terrain    | Heightmap | Why                                                                                                                  |
+| ------------------ | ----------------- | --------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Play** (default) | **180×180 (±90)** | 128       | 150×150 (±75) clips Melody Lake’s east shore (~x=80) and the mycelium grove (~78,78). 180 stays in the 120–180 band. |
+| **Explore**        | 400×400 (±200)    | 256       | Existing full-world mesh.                                                                                            |
+| **CORE**           | 120×120           | 64        | Sandbox (`?boot=core` / `?map=small`).                                                                               |
 
 Map JSON still spans ~±250. Distant entities are **not** deleted — they stream in.
 

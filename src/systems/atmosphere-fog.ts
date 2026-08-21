@@ -45,11 +45,7 @@ export function getFogTelemetry(): Readonly<FogTelemetry> {
 
 /** Boot-time defaults (full day, spawn height). */
 export function getInitialFogDistances(): FogDistanceTargets {
-    return computeAtmosphereFogTargets(
-        { far: 2000, fov: 60 },
-        CONFIG.player.spawnEyeHeightY,
-        1.0,
-    );
+    return computeAtmosphereFogTargets({ far: 2000, fov: 60 }, CONFIG.player.spawnEyeHeightY, 1.0);
 }
 
 /**
@@ -59,7 +55,7 @@ export function getInitialFogDistances(): FogDistanceTargets {
 export function computeAtmosphereFogTargets(
     camera: Pick<THREE.PerspectiveCamera, 'far' | 'fov'>,
     playerY: number,
-    dayNightBias: number,
+    dayNightBias: number
 ): FogDistanceTargets {
     const cfg = CONFIG.atmosphere.fog;
 

@@ -80,7 +80,10 @@ assert.ok(
     spawnRingCount <= 96,
     `spawn tile + 1-ring has ${spawnRingCount} entities (budget 96; full ring must be ready)`
 );
-assert.ok(spawnRingCount <= 90, `keep spawn ring lean (${spawnRingCount}); investigate if this jumps`);
+assert.ok(
+    spawnRingCount <= 90,
+    `keep spawn ring lean (${spawnRingCount}); investigate if this jumps`
+);
 assert.ok(spawnRingCount > 0, 'spawn ring should contain map entities');
 
 console.log(

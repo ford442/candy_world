@@ -172,9 +172,8 @@ function enqueueSection(section: DecoratorSection): void {
                 case 'sugar_caves':
                     await populateSugarCaves(weatherSystem);
                     {
-                        const { installSugarCavesTraversal } = await import(
-                            './sugar-caves-traversal.ts'
-                        );
+                        const { installSugarCavesTraversal } =
+                            await import('./sugar-caves-traversal.ts');
                         installSugarCavesTraversal();
                     }
                     break;

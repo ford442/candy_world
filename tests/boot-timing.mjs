@@ -119,7 +119,10 @@ async function main() {
 
         report.playSpawnCount = await page.evaluate(() => window.__playSpawnCount ?? null);
         report.worldSize = await page.evaluate(
-            () => window.__startupCapabilities?.world?.size ?? window.__streamingTelemetry?.worldSize ?? null
+            () =>
+                window.__startupCapabilities?.world?.size ??
+                window.__streamingTelemetry?.worldSize ??
+                null
         );
         report.streaming = await page.evaluate(() => window.__streamingTelemetry ?? null);
         console.log(`  spawn count: ${report.playSpawnCount}`);
@@ -135,7 +138,9 @@ async function main() {
         const afterWalk = await page.evaluate(() => window.__streamingTelemetry ?? null);
         report.walkPopEvents = afterWalk?.popEvents ?? null;
         report.walkHitchCount = afterWalk?.hitchCount ?? null;
-        console.log(`  after walk: popEvents=${report.walkPopEvents} hitchCount=${report.walkHitchCount}`);
+        console.log(
+            `  after walk: popEvents=${report.walkPopEvents} hitchCount=${report.walkHitchCount}`
+        );
 
         report.phases = await page.evaluate(() => {
             const names = [
