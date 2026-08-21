@@ -99,5 +99,15 @@
     },
     "simple-git-hooks": {
         "pre-commit": "node scripts/prettier-staged.mjs"
+    },
+    "pnpm": {
+        "overrides": {
+            "@swc/core": "1.15.47",
+            "@swc/wasm": "1.15.47"
+        }
+    },
+    "overrides": {
+        "@swc/core": "1.15.47",
+        "@swc/wasm": "1.15.47"
     }
 }
