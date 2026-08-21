@@ -10,8 +10,8 @@ import { installWorldExportTools } from '../../world/map-exporter.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
 import { setCameraRef } from '../camera-ref.ts';
 import { resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from '../config.ts';
-import { refreshStartupCapabilities } from '../startup/capabilities.ts';
 import { initScene } from '../init.ts';
+import { refreshStartupCapabilities } from '../startup/capabilities.ts';
 import { POST_PROCESSING_PROGRESS } from './constants.ts';
 import type { MainContext } from './context.ts';
 import { assignCoreExports } from './exports.ts';
@@ -37,11 +37,7 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     ctx.sceneInitResult = sceneInitResult;
     ctx.mode = sceneInitResult.mode;
 
-    const {
-        mode,
-        requested,
-        fallbackReason,
-    } = sceneInitResult;
+    const { mode, requested, fallbackReason } = sceneInitResult;
 
     assignCoreExports(sceneInitResult.scene, sceneInitResult.camera, sceneInitResult.renderer);
     setCameraRef(sceneInitResult.camera);

@@ -1,8 +1,11 @@
 import { StageLoader } from '../../debug/index.ts';
 import { fluidSystem } from '../../systems/fluid_system.ts';
+import { invalidateHeightCache } from '../../systems/ground-system.ts';
+import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { recordWASMInit } from '../../utils/startup-profiler.ts';
 import { initWasm } from '../../utils/wasm-loader.ts';
 import type { MainContext } from './context.ts';
+import { camera } from './exports.ts';
 
 export async function runWasmPipeline(ctx: MainContext): Promise<void> {
     const { loadingScreen } = ctx;
@@ -23,6 +26,9 @@ export async function runWasmPipeline(ctx: MainContext): Promise<void> {
             recordWASMInit(performance.now(), false, false);
         }
         fluidSystem.init();
+        // Ground queries before WASM used the JS fallback; re-snap now that AS is live.
+        invalidateHeightCache();
+        placePlayerAtConfiguredSpawn(camera);
     });
     loadingScreen.completePhase('wasm-init');
 }

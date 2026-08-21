@@ -1,27 +1,23 @@
 /**
  * Save Settings Module
- * 
+ *
  * Contains settings tab rendering and keybind management
  * for the save menu UI component.
  */
 
-import { 
-    saveSystem, 
-    SettingsSaveData,
-    KeyBindings
-} from '../../systems/save-system/index.ts';
+import { saveSystem, SettingsSaveData, KeyBindings } from '../../systems/save-system/index.ts';
 import { showToast } from '../../utils/toast.ts';
 
 /** Key map for displaying keys */
 const KEY_MAP: Record<string, string> = {
     ' ': 'Space',
-    'control': 'Ctrl',
-    'shift': 'Shift',
-    'alt': 'Alt',
-    'arrowup': '↑',
-    'arrowdown': '↓',
-    'arrowleft': '←',
-    'arrowright': '→'
+    control: 'Ctrl',
+    shift: 'Shift',
+    alt: 'Alt',
+    arrowup: '↑',
+    arrowdown: '↓',
+    arrowleft: '←',
+    arrowright: '→',
 };
 
 /**
@@ -37,7 +33,7 @@ export function formatKey(key: string): string {
 export function formatKeybindAction(action: string): string {
     return action
         .split('_')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
 }
 
@@ -49,7 +45,7 @@ export function renderSettingsTab(
     listeningKeybind: keyof KeyBindings | null
 ): string {
     const s = settings;
-    
+
     return `
         <div class="candy-settings-group">
             <div class="candy-settings-group__title"><span aria-hidden="true">🎮</span> Graphics</div>
@@ -57,9 +53,13 @@ export function renderSettingsTab(
                 <span class="candy-settings-row__label" id="setting-label-graphicsQuality">Quality</span>
                 <div class="candy-settings-row__control">
                     <select class="candy-select" data-setting="graphicsQuality" aria-labelledby="setting-label-graphicsQuality">
-                        ${['low', 'medium', 'high', 'ultra'].map(q => `
+                        ${['low', 'medium', 'high', 'ultra']
+                            .map(
+                                (q) => `
                             <option value="${q}" ${s.graphicsQuality === q ? 'selected' : ''}>${q.charAt(0).toUpperCase() + q.slice(1)}</option>
-                        `).join('')}
+                        `
+                            )
+                            .join('')}
                     </select>
                 </div>
             </div>
@@ -122,7 +122,9 @@ export function renderSettingsTab(
         
         <div class="candy-settings-group">
             <div class="candy-settings-group__title"><span aria-hidden="true">⌨️</span> Key Bindings (Click to change)</div>
-            ${Object.entries(s.keyBindings).map(([action, key]) => `
+            ${Object.entries(s.keyBindings)
+                .map(
+                    ([action, key]) => `
                 <div class="candy-settings-row">
                     <span class="candy-settings-row__label" id="setting-label-keybind-${action}">${formatKeybindAction(action)}</span>
                     <div class="candy-settings-row__control">
@@ -132,7 +134,9 @@ export function renderSettingsTab(
                         </button>
                     </div>
                 </div>
-            `).join('')}
+            `
+                )
+                .join('')}
         </div>
         
         <div class="candy-save-menu__actions">
@@ -167,15 +171,22 @@ export function handleSettingChange(
     (settings as any)[setting] = value;
 
     if (setting === 'graphicsQuality') {
-        void import('../../core/startup-profile.ts').then(({ setGraphicsLevel }) => {
-            const level = String(value);
-            if (level === 'low' || level === 'medium' || level === 'high' || level === 'ultra') {
-                setGraphicsLevel(level);
-                showToast('Graphics apply the next time you enter.', '🎨', 3500);
-            }
-        }).catch(() => {
-            /* start-path wiring unavailable */
-        });
+        void import('../../core/startup-profile.ts')
+            .then(({ setGraphicsLevel }) => {
+                const level = String(value);
+                if (
+                    level === 'low' ||
+                    level === 'medium' ||
+                    level === 'high' ||
+                    level === 'ultra'
+                ) {
+                    setGraphicsLevel(level);
+                    showToast('Graphics apply the next time you enter.', '🎨', 3500);
+                }
+            })
+            .catch(() => {
+                /* start-path wiring unavailable */
+            });
     }
 
     // Update display value for sliders
@@ -183,8 +194,11 @@ export function handleSettingChange(
         const valueEl = target.parentElement?.querySelector('.candy-settings-row__value');
         if (valueEl) {
             const suffix = setting === 'drawDistance' ? 'm' : setting === 'fov' ? '°' : '%';
-            const displayValue = ['audioVolume', 'musicVolume', 'sfxVolume'].includes(setting) 
-                ? Math.round((value as number) * (setting === 'drawDistance' || setting === 'fov' ? 1 : 100))
+            const displayValue = ['audioVolume', 'musicVolume', 'sfxVolume'].includes(setting)
+                ? Math.round(
+                      (value as number) *
+                          (setting === 'drawDistance' || setting === 'fov' ? 1 : 100)
+                  )
                 : value;
             valueEl.textContent = `${displayValue}${suffix}`;
         }
@@ -194,10 +208,7 @@ export function handleSettingChange(
 /**
  * Handle setting click (for toggle buttons)
  */
-export function handleSettingClick(
-    e: Event,
-    settings: SettingsSaveData
-): void {
+export function handleSettingClick(e: Event, settings: SettingsSaveData): void {
     const target = e.currentTarget as HTMLElement;
     const setting = target.dataset.setting;
     if (setting && target.classList.contains('candy-toggle')) {
@@ -220,12 +231,14 @@ export function handleKeybindClick(
 ): void {
     const target = e.currentTarget as HTMLElement;
     const action = target.dataset.keybind as keyof KeyBindings;
-    
+
     // Cancel previous listener
     if (listeningKeybind) {
-        container?.querySelector(`[data-keybind="${listeningKeybind}"]`)?.classList.remove('candy-keybind--listening');
+        container
+            ?.querySelector(`[data-keybind="${listeningKeybind}"]`)
+            ?.classList.remove('candy-keybind--listening');
     }
-    
+
     // Start listening
     setListeningKeybind(action);
     target.classList.add('candy-keybind--listening');

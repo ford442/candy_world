@@ -66,6 +66,10 @@ async function main() {
         sceneReadyMs: null,
         playableAfterEnterMs: null,
         playSpawnCount: null,
+        worldSize: null,
+        streaming: null,
+        walkPopEvents: null,
+        walkHitchCount: null,
         phases: {},
         ok: true,
         failures: [],
@@ -109,10 +113,34 @@ async function main() {
             { timeout: playableBudget + 5000 }
         );
         report.playableAfterEnterMs = Date.now() - enterAt;
-        console.log(`✓ start-screen hidden (playable) in ${report.playableAfterEnterMs}ms after ready`);
+        console.log(
+            `✓ start-screen hidden (playable) in ${report.playableAfterEnterMs}ms after ready`
+        );
 
         report.playSpawnCount = await page.evaluate(() => window.__playSpawnCount ?? null);
+        report.worldSize = await page.evaluate(
+            () =>
+                window.__startupCapabilities?.world?.size ??
+                window.__streamingTelemetry?.worldSize ??
+                null
+        );
+        report.streaming = await page.evaluate(() => window.__streamingTelemetry ?? null);
         console.log(`  spawn count: ${report.playSpawnCount}`);
+        console.log(`  world size: ${report.worldSize}`);
+        console.log('  streaming:', report.streaming);
+
+        // Walk east across a few 32 m chunks to record pop/hitch telemetry.
+        await page.evaluate(() => {
+            const walk = window.__updateChunkStreamer;
+            if (typeof walk !== 'function') return;
+            for (let x = 16; x <= 96; x += 32) walk(x, -36);
+        });
+        const afterWalk = await page.evaluate(() => window.__streamingTelemetry ?? null);
+        report.walkPopEvents = afterWalk?.popEvents ?? null;
+        report.walkHitchCount = afterWalk?.hitchCount ?? null;
+        console.log(
+            `  after walk: popEvents=${report.walkPopEvents} hitchCount=${report.walkHitchCount}`
+        );
 
         report.phases = await page.evaluate(() => {
             const names = [
@@ -125,14 +153,17 @@ async function main() {
             for (const name of names) {
                 const entries = performance.getEntriesByName(name);
                 const last = entries[entries.length - 1];
-                if (last && typeof last.duration === 'number') out[name] = Math.round(last.duration);
+                if (last && typeof last.duration === 'number')
+                    out[name] = Math.round(last.duration);
             }
             return out;
         });
         console.log('  phases:', report.phases);
 
         if (report.sceneReadyMs > budgets.sceneReadyMs) {
-            report.failures.push(`__sceneReady ${report.sceneReadyMs}ms > ${budgets.sceneReadyMs}ms`);
+            report.failures.push(
+                `__sceneReady ${report.sceneReadyMs}ms > ${budgets.sceneReadyMs}ms`
+            );
         }
         if (report.playableAfterEnterMs > playableBudget) {
             report.failures.push(
@@ -148,11 +179,14 @@ async function main() {
             );
         }
         report.ok = report.failures.length === 0;
-        
-        
+
         const fs = await import('fs');
-        fs.writeFileSync(join(__dirname, 'boot-timing-report.json'), JSON.stringify(report, null, 2), 'utf8');
-        
+        fs.writeFileSync(
+            join(__dirname, 'boot-timing-report.json'),
+            JSON.stringify(report, null, 2),
+            'utf8'
+        );
+
         console.log('\n' + JSON.stringify(report, null, 2));
         if (!report.ok) {
             console.error('\n❌ boot-timing failed:\n  • ' + report.failures.join('\n  • '));

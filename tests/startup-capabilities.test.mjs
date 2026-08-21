@@ -83,12 +83,15 @@ function resolve(overrides = {}) {
 {
     const instant = resolve({ url: { boot: 'instant' } });
     assert.equal(instant.path, 'play');
+    assert.equal(instant.world.size, 180);
 
     const explore = resolve({ profile: { path: 'play' }, url: { boot: 'explore' } });
     assert.equal(explore.path, 'explore');
+    assert.equal(explore.world.size, 400);
 
     const core = resolve({ url: { boot: 'core' } });
     assert.equal(core.path, 'core');
+    assert.equal(core.world.size, 120);
 
     const wait = resolve({ profile: { path: 'play' }, url: { waitForFull: true } });
     assert.equal(wait.path, 'explore');

@@ -5,6 +5,7 @@ import { initFaunaSystem } from '../../systems/fauna/index.ts';
 import { globalLoadingManager } from '../../systems/loading-manager.ts';
 import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
 import { populatePhysicsGrids } from '../../systems/physics/index.ts';
+import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { announce } from '../../ui/announcer.ts';
 import {
     showDeferredIndicator,
@@ -26,8 +27,8 @@ import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { showToast } from '../../utils/toast.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
-import { populateWorld } from '../../world/generation.ts';
 import type { WorldMode } from '../../world/generation-utils.ts';
+import { populateWorld } from '../../world/generation.ts';
 import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
 import { spawnTracker } from '../../world/spawn-tracker.ts';
 import {
@@ -109,9 +110,17 @@ export function setupStartScreen(ctx: MainContext): void {
         }
 
         const instructions = document.getElementById('instructions');
-        if (instructions && instructions.style.display !== 'none' && ctx.inputSystem && ctx.inputSystem.session) {
+        if (
+            instructions &&
+            instructions.style.display !== 'none' &&
+            ctx.inputSystem &&
+            ctx.inputSystem.session
+        ) {
             if (!ctx.inputSystem.session.focus.releasePauseMenuFocus) {
-                ctx.inputSystem.session.focus.releasePauseMenuFocus = trapFocusInside(instructions, { skipAutoFocus: true });
+                ctx.inputSystem.session.focus.releasePauseMenuFocus = trapFocusInside(
+                    instructions,
+                    { skipAutoFocus: true }
+                );
             }
         }
     });
@@ -119,12 +128,11 @@ export function setupStartScreen(ctx: MainContext): void {
     announce('World loaded. Press Enter to enter the world.', 'assertive');
 
     let profile: StartupProfile = loadStartupProfile();
-    
+
     const modeDescription = document.getElementById('mode-description');
     const fullWorldToggle = document.getElementById('toggleFullWorld') as HTMLButtonElement | null;
 
     const syncProfileUi = () => {
-        
         if (fullWorldToggle) {
             const explore = profile.path === 'explore';
             fullWorldToggle.setAttribute('aria-checked', String(explore));
@@ -201,7 +209,7 @@ export function setupStartScreen(ctx: MainContext): void {
 
         await yieldFrame();
         const requestedMode: WorldMode = pathToWorldMode(profile.path);
-                const bootPath = profile.path === 'explore' ? ('explore' as const) : ('play' as const);
+        const bootPath = profile.path === 'explore' ? ('explore' as const) : ('play' as const);
 
         let activeWorldMode: WorldMode = requestedMode;
 
@@ -272,6 +280,8 @@ export function setupStartScreen(ctx: MainContext): void {
             delete (window as any).__fastPopulationOverride;
 
             populatePhysicsGrids();
+            // Platforms (caves / clouds) register during populate — snap again on solid shore.
+            placePlayerAtConfiguredSpawn(camera);
 
             initFaunaSystem();
             initFaunaDebug(scene);
@@ -305,7 +315,11 @@ export function setupStartScreen(ctx: MainContext): void {
         }
 
         try {
-            if (ctx.inputSystem && ctx.inputSystem.session && ctx.inputSystem.session.focus.releasePauseMenuFocus) {
+            if (
+                ctx.inputSystem &&
+                ctx.inputSystem.session &&
+                ctx.inputSystem.session.focus.releasePauseMenuFocus
+            ) {
                 ctx.inputSystem.session.focus.releasePauseMenuFocus();
                 ctx.inputSystem.session.focus.releasePauseMenuFocus = null;
             }
@@ -352,10 +366,10 @@ export function setupStartScreen(ctx: MainContext): void {
                             `[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`
                         );
                         showToast(
-                                `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
-                                '⚠️',
-                                5000
-                            );
+                            `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
+                            '⚠️',
+                            5000
+                        );
                     } else if (r.attempted > 0) {
                         console.log(
                             `[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`

@@ -9,12 +9,10 @@ import { runShaderWarmup } from './shader-warmup.ts';
 import { setupStartScreen } from './start-screen.ts';
 import { runWasmPipeline } from './wasm-pipeline.ts';
 
-function createInitialContext(
-    loadingScreen: MainContext['loadingScreen'],
-    ): MainContext {
+function createInitialContext(loadingScreen: MainContext['loadingScreen']): MainContext {
     return {
         loadingScreen,
-                worldGenerationActive: false,
+        worldGenerationActive: false,
         mode: 'webgpu',
         postProcessing: null,
         timeOffset: { value: 0 },

@@ -77,7 +77,10 @@ export default defineConfig({
                         return 'analytics-debug';
                     }
                     // World content decorators (procedural extras, gem canopy, mycelium)
-                    if (id.includes('/src/world/generation-decorators.ts')) {
+                    if (
+                        id.includes('/src/world/generation-decorators.ts') ||
+                        id.includes('/src/world/decorator-streamer.ts')
+                    ) {
                         return 'world-content';
                     }
                     // Debug tools (panel, gizmos, ground/placement/circadian/fauna overlays)

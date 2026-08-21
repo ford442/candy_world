@@ -76,7 +76,9 @@ export function runShaderWarmup(ctx: MainContext): void {
         renderer.setAnimationLoop(animate);
         try {
             (window as any).__sceneReady = true;
-        } catch (e) { void e; }
+        } catch (e) {
+            void e;
+        }
         void preloadGameplay();
 
         if (!worldGenerationActive) {

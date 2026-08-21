@@ -7,12 +7,14 @@
  * `profile.graphics`.
  */
 
-import { isCIorHeadless, getLoadMemoryTier, type LoadMemoryTier } from '../config/runtime.ts';
-import { CONFIG } from '../config/defaults.ts';
 import { getGpuContextSync } from '../../rendering/gpu-context.ts';
 import { resolveRendererBackend } from '../../rendering/renderer-mode.ts';
+import { worldExtentForPath, type WorldExtentConfig } from '../../world/world-extent.ts';
+import { CONFIG } from '../config/defaults.ts';
+import { isCIorHeadless, getLoadMemoryTier, type LoadMemoryTier } from '../config/runtime.ts';
 import {
     clampGraphicsForStart,
+    isWaitForFullRequested,
     loadStartupProfile,
     readUrlParams,
     type GraphicsLevel,
@@ -31,6 +33,8 @@ export interface StartupCapabilities {
     postfx: { quality: PostfxQuality };
     deferred: { aurora: boolean; fluidFog: boolean };
     shadows: { enabled: boolean; resolution: ShadowResolution };
+    /** Visual terrain / population envelope for this path. */
+    world: WorldExtentConfig;
 }
 
 export interface ResolveStartupCapabilitiesInput {
@@ -41,7 +45,9 @@ export interface ResolveStartupCapabilitiesInput {
     isHeadlessOrCI: boolean;
     url: {
         postfx?: string | null;
-                boot?: string | null;
+        boot?: string | null;
+        /** QA-only `?waitForFull=1` — forces the Explore path. */
+        waitForFull?: boolean;
     };
 }
 
@@ -79,11 +85,12 @@ const GRAPHICS_TABLE: Record<
 };
 
 function applyUrlPath(path: StartupPath, url: ResolveStartupCapabilitiesInput['url']): StartupPath {
+    if (url.waitForFull) return 'explore';
     const boot = url.boot;
     if (boot === 'instant' || boot === 'play') return 'play';
     if (boot === 'explore') return 'explore';
     if (boot === 'core') return 'core';
-        return path;
+    return path;
 }
 
 function applyUrlPostfx(
@@ -123,6 +130,7 @@ export function resolveStartupCapabilities(
             enabled: !forceLite && row.shadows !== 'off',
             resolution: forceLite ? 'off' : row.shadows,
         },
+        world: worldExtentForPath(path),
     };
 }
 
@@ -168,7 +176,8 @@ export function gatherStartupCapabilityInputs(): ResolveStartupCapabilitiesInput
         isHeadlessOrCI: isCIorHeadless() || CONFIG.safeMode,
         url: {
             postfx: params?.get('postfx') ?? null,
-                        boot: params?.get('boot') ?? null,
+            boot: params?.get('boot') ?? null,
+            waitForFull: isWaitForFullRequested(params),
         },
     };
 }
@@ -190,15 +199,12 @@ export function formatStartupLogLine(
     caps: StartupCapabilities,
     extras?: { deviceTier?: LoadMemoryTier; deviceMemoryGB?: number; fallbackAdapter?: boolean }
 ): string {
-    const gb =
-        typeof extras?.deviceMemoryGB === 'number' ? `, ${extras.deviceMemoryGB}GB` : '';
+    const gb = typeof extras?.deviceMemoryGB === 'number' ? `, ${extras.deviceMemoryGB}GB` : '';
     const tier = extras?.deviceTier ? `device tier=${extras.deviceTier}${gb}` : '';
     const fallback =
-        extras?.fallbackAdapter === undefined
-            ? ''
-            : `, fallbackAdapter=${extras.fallbackAdapter}`;
+        extras?.fallbackAdapter === undefined ? '' : `, fallbackAdapter=${extras.fallbackAdapter}`;
     const detail = tier || fallback ? ` (${tier}${fallback})` : '';
-    return `[Startup] path=${caps.path} graphics=${caps.graphics}${detail}`;
+    return `[Startup] path=${caps.path} graphics=${caps.graphics} world=${caps.world.size}×${caps.world.size}${detail}`;
 }
 
 /** @internal tests */

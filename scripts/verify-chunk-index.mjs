@@ -11,7 +11,9 @@ const chunksData = JSON.parse(readFileSync(chunksPath, 'utf8'));
 const indexedLength = chunksData.__meta__ ? chunksData.__meta__.sourceEntityCount : 0;
 
 if (mapLength !== indexedLength) {
-    console.error(`Chunk index is out of date! map.json has ${mapLength} entities, but map-chunks.json has sourceEntityCount ${indexedLength}. Run 'npm run generate:chunk-index' to fix.`);
+    console.error(
+        `Chunk index is out of date! map.json has ${mapLength} entities, but map-chunks.json has sourceEntityCount ${indexedLength}. Run 'npm run generate:chunk-index' to fix.`
+    );
     process.exit(1);
 }
 

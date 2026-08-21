@@ -10,13 +10,26 @@ import * as THREE from 'three';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
+import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
 import { populatePhysicsGrids } from '../systems/physics/index.ts';
-import { CellState, RegionManager, type GridCell } from '../systems/region-manager-core.ts';
+import {
+    CellState,
+    RegionManager,
+    worldToCell,
+    type GridCell,
+} from '../systems/region-manager-core.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { processMapEntity } from './generation-entities.ts';
-import type { WeatherSystem } from './generation-utils.ts';
+import { yieldControl, type WeatherSystem } from './generation-utils.ts';
 import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
+import {
+    PLAY_EVICT_RADIUS_M,
+    PLAY_EVICT_RADIUS_PRESSURE_M,
+    PLAY_LOAD_RADIUS_M,
+    PLAY_SPAWN_RADIUS_CHUNKS,
+    metersToChunkRadius,
+} from './world-extent.ts';
 import type { LoadedCandyMap, LoadedMapEntity, MapChunkIndex } from './map-loader.ts';
 import {
     animatedFoliage,
@@ -38,9 +51,12 @@ import {
 /** World-space chunk size (metres). Re-exported for callers; canonical value lives in map-loader.ts. */
 export const CHUNK_SIZE = DEFAULT_MAP_CHUNK_STREAM_SIZE;
 
-const DEFAULT_LOAD_RING_CHUNKS = 2;
-const DEFAULT_EVICT_RING_CHUNKS = 4;
-const DEFAULT_SPAWN_ENTITY_CAP = 80;
+const DEFAULT_LOAD_RING_CHUNKS = metersToChunkRadius(PLAY_LOAD_RADIUS_M);
+const DEFAULT_EVICT_RING_CHUNKS = metersToChunkRadius(PLAY_EVICT_RADIUS_M);
+const PRESSURE_EVICT_RING_CHUNKS = metersToChunkRadius(PLAY_EVICT_RADIUS_PRESSURE_M);
+const DEFAULT_SPAWN_ENTITY_CAP = 96;
+const STREAM_HITCH_MS = 16;
+const HEAP_PRESSURE_RATIO = 0.7;
 // While a burst of chunk entities streams in, each spawn sets physicsDirty —
 // without a floor, a full populatePhysicsGrids() rebuild (scans all of
 // animatedFoliage + friends) could run on nearly every frame. Cap it to at
@@ -136,6 +152,10 @@ export class ChunkStreamer {
     private physicsDirty = false;
     private lastPhysicsRebuildAt = 0;
     private disposed = false;
+    private spawnReadyCount = 0;
+    private maxStreamSpawnMs = 0;
+    private hitchCount = 0;
+    private popEvents = 0;
 
     constructor(
         loadedMap: LoadedCandyMap,
@@ -200,41 +220,46 @@ export class ChunkStreamer {
     }
 
     /**
-     * Synchronously spawns the spawn chunk (0,0) plus `radiusChunks` ring,
+     * Synchronously spawns the player's spawn tile plus `radiusChunks` ring,
      * capped at `maxEntities` total. Entities beyond the cap (or in chunks that
      * don't fully fit the remaining budget) are left for the runtime streamer
      * to pick up on the very next update() tick — nothing is silently dropped.
      */
-    loadSpawnPlayable(radiusChunks = 1, maxEntities = DEFAULT_SPAWN_ENTITY_CAP): number {
-        const coords = ringCoords(0, 0, radiusChunks);
+    async loadSpawnPlayable(
+        radiusChunks = PLAY_SPAWN_RADIUS_CHUNKS,
+        maxEntities = DEFAULT_SPAWN_ENTITY_CAP
+    ): Promise<number> {
+        const spawnCell = worldToCell(CONFIG.player.spawnX, CONFIG.player.spawnZ, this.chunkSize);
+        const coords = ringCoords(spawnCell.x, spawnCell.z, radiusChunks);
         let spawned = 0;
 
         for (const { cx, cz } of coords) {
-            if (spawned >= maxEntities) break;
             const cell = this.getOrRegisterCell(cx, cz);
             if (cell.state !== CellState.UNLOADED) continue;
 
             const ids = cell.assetIds;
-            const remaining = maxEntities - spawned;
             if (ids.length === 0) {
                 cell.state = CellState.LOADED;
                 continue;
             }
-            if (ids.length > remaining) {
-                // Whole chunk doesn't fit the boot budget — leave it UNLOADED so
-                // the runtime streamer finishes it on the first update() tick.
-                continue;
-            }
-
             spawned += this.spawnChunkSync(cx, cz, cell, ids);
+            await yieldControl();
         }
 
-        this.lastCx = 0;
-        this.lastCz = 0;
+        if (spawned > maxEntities) {
+            console.warn(
+                `[ChunkStreamer] Spawn ring spawned ${spawned} entities (cap telemetry ${maxEntities}). Ring is fully ready before control.`
+            );
+        }
+
+        this.lastCx = spawnCell.x;
+        this.lastCz = spawnCell.z;
         // Anything that didn't fit the synchronous boot budget still needs to
         // load even if the player never moves — background-enqueue it now
         // rather than waiting for a chunk-boundary crossing that may not come.
-        this.enqueueChunkLoads(0, 0);
+        this.enqueueChunkLoads(spawnCell.x, spawnCell.z);
+        this.spawnReadyCount = spawned;
+        this.publishTelemetry();
         return spawned;
     }
 
@@ -269,10 +294,16 @@ export class ChunkStreamer {
         // re-enqueued in a loop); an id that never gets marked spawned would
         // otherwise re-attempt indefinitely without a ChunkRecord to evict it.
         const before = animatedFoliage.length;
+        const t0 = streamed ? performance.now() : 0;
         try {
             processMapEntity(entity, this.weatherSystem, { streamed });
         } finally {
             this.spawnedIds.add(entity.id);
+        }
+        if (streamed) {
+            const dt = performance.now() - t0;
+            if (dt > this.maxStreamSpawnMs) this.maxStreamSpawnMs = dt;
+            if (dt > STREAM_HITCH_MS) this.hitchCount++;
         }
         if (animatedFoliage.length <= before) return;
 
@@ -309,14 +340,21 @@ export class ChunkStreamer {
         const cz = Math.floor(position.z / this.chunkSize);
 
         if (cx === this.lastCx && cz === this.lastCz) {
+            this.maybeEvictUnderPressure(cx, cz);
             this.maybeRebuildPhysicsGrids();
             return;
+        }
+
+        const entered = this.region.getCell(cx, cz);
+        if (entered && entered.state !== CellState.LOADED) {
+            this.popEvents++;
         }
 
         this.lastCx = cx;
         this.lastCz = cz;
         this.onChunkBoundaryCrossed(cx, cz);
         this.maybeRebuildPhysicsGrids();
+        this.publishTelemetry();
     }
 
     /** Throttled to at most once per PHYSICS_REBUILD_MIN_INTERVAL_MS — see constant comment. */
@@ -329,9 +367,17 @@ export class ChunkStreamer {
         populatePhysicsGrids();
     }
 
+    private maybeEvictUnderPressure(cx: number, cz: number): void {
+        if (getJsHeapUsageRatio() < HEAP_PRESSURE_RATIO) return;
+        this.evictFarChunks(cx, cz, PRESSURE_EVICT_RING_CHUNKS);
+    }
+
     private onChunkBoundaryCrossed(cx: number, cz: number): void {
         this.enqueueChunkLoads(cx, cz);
-        this.evictFarChunks(cx, cz);
+        const heap = getJsHeapUsageRatio();
+        const evictRings =
+            heap >= HEAP_PRESSURE_RATIO ? PRESSURE_EVICT_RING_CHUNKS : this.evictRingChunks;
+        this.evictFarChunks(cx, cz, evictRings);
     }
 
     private enqueueChunkLoads(cx: number, cz: number): void {
@@ -413,8 +459,8 @@ export class ChunkStreamer {
      * for cell state bookkeeping (forceUnloadCell) so getCellsToLoad stays
      * consistent afterward.
      */
-    private evictFarChunks(cx: number, cz: number): void {
-        const evictRadiusSq = this.evictRingChunks * this.evictRingChunks;
+    private evictFarChunks(cx: number, cz: number, evictRingChunks = this.evictRingChunks): void {
+        const evictRadiusSq = evictRingChunks * evictRingChunks;
         for (const [key, record] of this.records) {
             if (record.evictable.length === 0) continue;
             const parsed = parseChunkKey(key);
@@ -482,6 +528,26 @@ export class ChunkStreamer {
         return this.spawnedIds.size;
     }
 
+    private publishTelemetry(): void {
+        try {
+            const prev = ((window as any).__streamingTelemetry ?? {}) as Record<string, unknown>;
+            (window as any).__streamingTelemetry = {
+                ...prev,
+                spawnedCount: this.spawnedIds.size,
+                spawnReadyCount: this.spawnReadyCount,
+                loadRingChunks: this.loadRingChunks,
+                evictRingChunks: this.evictRingChunks,
+                lastStreamSpawnMs: this.maxStreamSpawnMs,
+                maxStreamSpawnMs: this.maxStreamSpawnMs,
+                hitchCount: this.hitchCount,
+                popEvents: this.popEvents,
+            };
+            (window as any).__playSpawnCount = this.spawnReadyCount;
+        } catch {
+            /* non-browser */
+        }
+    }
+
     dispose(): void {
         this.disposed = true;
         // Evict every tracked evictable object before dropping the records —
@@ -518,6 +584,13 @@ export function setActiveChunkStreamer(streamer: ChunkStreamer | null): void {
         activeStreamer.dispose();
     }
     activeStreamer = streamer;
+    try {
+        (window as any).__updateChunkStreamer = streamer
+            ? (x: number, z: number) => streamer.update({ x, z })
+            : undefined;
+    } catch {
+        /* non-browser */
+    }
 }
 
 export function getActiveChunkStreamer(): ChunkStreamer | null {

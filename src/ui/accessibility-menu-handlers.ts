@@ -26,6 +26,7 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
 
     // ♿ Aria: Keyboard tactile feedback for interactive elements
     if (event.key === 'Enter' || event.key === ' ') {
+      if (event.repeat) return;
       const activeElement = document.activeElement as HTMLElement;
       if (activeElement && (
         activeElement.classList.contains('a11y-tab') ||

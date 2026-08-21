@@ -11,6 +11,7 @@ import {
     mx_noise_float,
     positionLocal,
     positionWorld,
+    positionView,
     normalWorld,
     normalLocal,
     cameraPosition,
@@ -22,6 +23,8 @@ import {
 } from 'three/tsl';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
+import { globalClusteredLighting } from '../../rendering/clustered-lighting.ts';
+import { getIrradianceNode } from '../../rendering/irradiance-probes.ts';
 import { applyGlitch } from '../glitch.ts';
 import {
     uTime,
@@ -32,6 +35,7 @@ import {
 } from './shared-resources.ts';
 import { triplanarNoise, perturbNormal, createRimLight } from './tsl-nodes.ts';
 import { $sn } from './tsl-types.ts';
+import { getLocalLightStats } from '../../rendering/lights.ts';
 
 export interface UnifiedMaterialOptions {
     colorNode?: Node;
@@ -211,7 +215,9 @@ export function createUnifiedMaterial(
         material.sheenRoughnessNode = float(sheenRoughness);
     }
 
-    const basePos: ShaderNodeObject<Node> = $sn(deformationNode ?? material.positionNode ?? positionLocal);
+    const basePos: ShaderNodeObject<Node> = $sn(
+        deformationNode ?? material.positionNode ?? positionLocal
+    );
 
     const distToGlitch = positionWorld.distance(uGlitchExplosionCenter);
     const localGlitchFactor = float(1.0).sub(
@@ -256,6 +262,27 @@ export function createUnifiedMaterial(
         );
 
         material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(rimEffect);
+    }
+
+    if (!getLocalLightStats().webgl) {
+        const clusterLight = globalClusteredLighting.getLightingNode(
+            positionWorld,
+            positionView,
+            normalWorld,
+            $sn(material.colorNode)
+        );
+        material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(clusterLight);
+    }
+
+    // Lightweight GI: a soft bounce term from the irradiance probe volume,
+    // multiplied by albedo so it tints the material rather than washing it out.
+    // Null (and therefore free) whenever the volume was not allocated — `low`
+    // tier, CI, `?gi=off`. See docs/IRRADIANCE_PROBES.md.
+    const bounce = getIrradianceNode(positionWorld, normalWorld);
+    if (bounce) {
+        material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(
+            $sn(bounce).mul($sn(material.colorNode))
+        );
     }
 
     material.userData.isUnified = true;

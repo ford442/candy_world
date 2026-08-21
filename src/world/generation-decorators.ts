@@ -243,7 +243,8 @@ export async function populateMyceliumGrove(weatherSystem: WeatherSystem): Promi
 export async function populateProceduralExtras(
     weatherSystem: WeatherSystem,
     taskToken: number = -1,
-    chunkSize: number = DEFAULT_PROCEDURAL_CHUNK_SIZE
+    chunkSize: number = DEFAULT_PROCEDURAL_CHUNK_SIZE,
+    scatterRange: number = 150
 ): Promise<void> {
     if (!FEATURE_FLAGS.proceduralExtras) {
         console.log('[World] Procedural extras skipped (no_procedural flag)');
@@ -251,7 +252,7 @@ export async function populateProceduralExtras(
     }
     console.log('[World] Populating procedural extras (Critical + Deferred)...');
     const extrasCount = getProceduralEntityCount();
-    const range = 150;
+    const range = scatterRange;
 
     // We no longer block the main thread for non-critical procedural objects.
     // Instead, we immediately calculate their positions and types.
