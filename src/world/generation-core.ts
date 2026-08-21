@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS, getLoadMemoryTier } from '../core/config.ts';
+import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import {
     createSky,
     createStars,
@@ -39,8 +40,6 @@ import {
     SUGAR_CAVES,
     SKY_ISLANDS,
 } from './generation-utils.ts';
-import { getStartupCapabilities } from '../core/startup/capabilities.ts';
-import { createPathTerrain } from './terrain-mesh.ts';
 import type { LoadedCandyMap } from './map-loader.ts';
 import {
     clearMapMusicContext,
@@ -50,8 +49,9 @@ import {
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { animatedFoliage, worldGroup } from './state.ts';
-import { setMapMetadataSeed } from './world-seed.ts';
+import { createPathTerrain } from './terrain-mesh.ts';
 import { PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
+import { setMapMetadataSeed } from './world-seed.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
 

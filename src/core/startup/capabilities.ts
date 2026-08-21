@@ -9,6 +9,7 @@
 
 import { getGpuContextSync } from '../../rendering/gpu-context.ts';
 import { resolveRendererBackend } from '../../rendering/renderer-mode.ts';
+import { worldExtentForPath, type WorldExtentConfig } from '../../world/world-extent.ts';
 import { CONFIG } from '../config/defaults.ts';
 import { isCIorHeadless, getLoadMemoryTier, type LoadMemoryTier } from '../config/runtime.ts';
 import {
@@ -20,7 +21,6 @@ import {
     type StartupPath,
     type StartupProfile,
 } from '../startup-profile.ts';
-import { worldExtentForPath, type WorldExtentConfig } from '../../world/world-extent.ts';
 
 export type MaterialSubset = 'none' | 'minimal' | 'batched' | 'full';
 export type PostfxQuality = 'off' | 'low' | 'high';

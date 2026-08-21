@@ -7,9 +7,9 @@ import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import { createTerrainMaterial } from '../foliage/index.ts';
+import { yieldControl } from './generation-utils.ts';
 import { generateGroundHeightmap } from './ground-heightmap.ts';
 import { sampleGroundY } from './placement-utils.ts';
-import { yieldControl } from './generation-utils.ts';
 import {
     EXPLORE_WORLD_SIZE,
     PLAY_WORLD_HALF,
@@ -54,11 +54,11 @@ async function buildTerrainMesh(size: number, resolution: number): Promise<THREE
     let groundMat: THREE.Material;
 
     if (useGpu) {
-        console.log(`[World] GPU heightmap ${size}×${size} @ ${resolution}`);
+        console.warn(`[World] GPU heightmap ${size}×${size} @ ${resolution}`);
         groundGeo = new THREE.PlaneGeometry(size, size, resolution, resolution);
         const startParams = performance.now();
         const { heightTexture, normalTexture } = await generateGroundHeightmap(size, resolution);
-        console.log(
+        console.warn(
             `[World] Generated heightmap in ${(performance.now() - startParams).toFixed(2)}ms`
         );
         groundMat = createTerrainMaterial(
@@ -68,7 +68,7 @@ async function buildTerrainMesh(size: number, resolution: number): Promise<THREE
             normalTexture
         );
     } else {
-        console.log(`[World] CPU vertex displacement ${size}×${size} @ ${resolution}`);
+        console.warn(`[World] CPU vertex displacement ${size}×${size} @ ${resolution}`);
         groundGeo = new THREE.PlaneGeometry(size, size, resolution, resolution);
         const posAttribute = groundGeo.attributes.position;
         const vertexCount = posAttribute.count;
@@ -112,7 +112,7 @@ export function maybeExpandTerrain(playerX: number, playerZ: number, scene: THRE
 
     expandInFlight = true;
     const explore = worldExtentForPath('explore');
-    console.log(
+    console.warn(
         `[World] Expanding terrain ${activeTerrainSize} → ${explore.size} (player ${playerX.toFixed(1)}, ${playerZ.toFixed(1)})`
     );
     void (async () => {
@@ -126,7 +126,7 @@ export function maybeExpandTerrain(playerX: number, playerZ: number, scene: THRE
             activeTerrainSize = explore.size;
             expandedToExplore = true;
             publishTerrainFlag();
-            console.log('[World] Terrain expanded to Explore footprint');
+            console.warn('[World] Terrain expanded to Explore footprint');
         } catch (err) {
             console.warn('[World] Terrain expand failed:', err);
         } finally {
@@ -147,9 +147,23 @@ function disposeTerrainMesh(mesh: THREE.Mesh): void {
 
 function publishTerrainFlag(): void {
     try {
-        const tel = ((window as any).__streamingTelemetry ??= {});
-        tel.terrainExpanded = expandedToExplore;
-        tel.worldSize = activeTerrainSize;
+        const prev = window.__streamingTelemetry ?? {
+            spawnedCount: 0,
+            spawnReadyCount: 0,
+            worldSize: 0,
+            loadRingChunks: 0,
+            evictRingChunks: 0,
+            lastStreamSpawnMs: 0,
+            maxStreamSpawnMs: 0,
+            hitchCount: 0,
+            popEvents: 0,
+            terrainExpanded: false,
+        };
+        window.__streamingTelemetry = {
+            ...prev,
+            terrainExpanded: expandedToExplore,
+            worldSize: activeTerrainSize,
+        };
     } catch {
         /* non-browser */
     }

@@ -44,6 +44,8 @@ declare global {
         __exploreActive?: boolean;
         __bootInstant?: boolean;
         __playSpawnCount?: number;
+        __currentWorldGenerationToken?: number;
+        __IS_FULL_BOOT_TEST?: boolean;
         __startupCapabilities?: {
             path: string;
             graphics: string;

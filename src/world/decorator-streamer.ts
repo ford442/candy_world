@@ -132,11 +132,11 @@ function enqueueSection(section: DecoratorSection): void {
         id: `world_decorator_${section.id}`,
         priority,
         execute: async () => {
-            const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+            const currentToken = window.__currentWorldGenerationToken ?? 0;
             if (
                 generationToken !== -1 &&
                 generationToken !== currentToken &&
-                !(window as any).__IS_FULL_BOOT_TEST
+                !window.__IS_FULL_BOOT_TEST
             ) {
                 return;
             }
