@@ -9,6 +9,7 @@
 
 import { getGpuContextSync } from '../../rendering/gpu-context.ts';
 import { resolveRendererBackend } from '../../rendering/renderer-mode.ts';
+import { worldExtentForPath, type WorldExtentConfig } from '../../world/world-extent.ts';
 import { CONFIG } from '../config/defaults.ts';
 import { isCIorHeadless, getLoadMemoryTier, type LoadMemoryTier } from '../config/runtime.ts';
 import {
@@ -32,6 +33,8 @@ export interface StartupCapabilities {
     postfx: { quality: PostfxQuality };
     deferred: { aurora: boolean; fluidFog: boolean };
     shadows: { enabled: boolean; resolution: ShadowResolution };
+    /** Visual terrain / population envelope for this path. */
+    world: WorldExtentConfig;
 }
 
 export interface ResolveStartupCapabilitiesInput {
@@ -127,6 +130,7 @@ export function resolveStartupCapabilities(
             enabled: !forceLite && row.shadows !== 'off',
             resolution: forceLite ? 'off' : row.shadows,
         },
+        world: worldExtentForPath(path),
     };
 }
 
@@ -200,7 +204,7 @@ export function formatStartupLogLine(
     const fallback =
         extras?.fallbackAdapter === undefined ? '' : `, fallbackAdapter=${extras.fallbackAdapter}`;
     const detail = tier || fallback ? ` (${tier}${fallback})` : '';
-    return `[Startup] path=${caps.path} graphics=${caps.graphics}${detail}`;
+    return `[Startup] path=${caps.path} graphics=${caps.graphics} world=${caps.world.size}×${caps.world.size}${detail}`;
 }
 
 /** @internal tests */

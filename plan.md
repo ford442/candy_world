@@ -11,7 +11,7 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
     -   - Implementation Details: Activated GPU foliage animation path by default via `gpu-foliage-flag.ts` and orchestrator modifications.
 3. **Content** — capstone features (#1492, #1494) after gates are green.
 4. **Epic: Simplify startup (#1546)** — collapse startup to Play/Explore paths + chunk streaming.
-    - **Status: In progress** — #1548 chunk streamer landed; #1547 was a docs-only false close. Real remaining work: #1558 (UI + `StartupCapabilities`) + #1549 (fast-boot / timing).
+    - **Status: In progress** — #1548 chunk streamer landed; Play default visual footprint is now 180×180 with progressive section load (Explore keeps 400×400). Remaining: any leftover #1558 wiring.
 
     - **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)
       n4. **Epic: Simplify startup to two load paths + chunk streaming** (#1546)

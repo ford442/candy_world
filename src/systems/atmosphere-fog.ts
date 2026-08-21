@@ -4,7 +4,9 @@
  */
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
+import { loadStartupProfile } from '../core/startup-profile.ts';
 import { uFogNear, uFogFar } from '../foliage/sky.ts';
+import { worldExtentForPath } from '../world/world-extent.ts';
 
 export interface FogDistanceTargets {
     near: number;
@@ -43,11 +45,7 @@ export function getFogTelemetry(): Readonly<FogTelemetry> {
 
 /** Boot-time defaults (full day, spawn height). */
 export function getInitialFogDistances(): FogDistanceTargets {
-    return computeAtmosphereFogTargets(
-        { far: 2000, fov: 60 },
-        CONFIG.player.spawnEyeHeightY,
-        1.0,
-    );
+    return computeAtmosphereFogTargets({ far: 2000, fov: 60 }, CONFIG.player.spawnEyeHeightY, 1.0);
 }
 
 /**
@@ -57,7 +55,7 @@ export function getInitialFogDistances(): FogDistanceTargets {
 export function computeAtmosphereFogTargets(
     camera: Pick<THREE.PerspectiveCamera, 'far' | 'fov'>,
     playerY: number,
-    dayNightBias: number,
+    dayNightBias: number
 ): FogDistanceTargets {
     const cfg = CONFIG.atmosphere.fog;
 
@@ -77,6 +75,12 @@ export function computeAtmosphereFogTargets(
 
     near = THREE.MathUtils.clamp(near, cfg.minNear, cfg.maxNear);
     far = THREE.MathUtils.clamp(far, cfg.minFar, cfg.maxFar);
+
+    const cap = worldExtentForPath(loadStartupProfile().path).fogFarCap;
+    if (Number.isFinite(cap) && cap > 0) {
+        far = Math.min(far, cap);
+        if (far <= near + 20) near = Math.max(8, far - 40);
+    }
 
     // Foreground clarity — no milky haze at the player's feet
     near = Math.min(near, cfg.maxForegroundNear, far * 0.22);
