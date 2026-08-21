@@ -27,6 +27,12 @@ import { CONFIG } from '../core/config/defaults.ts';
 import { forEachLocalLight, getLocalLightStats, type LocalLightSnapshot } from './lights.ts';
 import { StorageInstancedBufferAttribute } from 'three/webgpu';
 
+const _scratchVPos = new THREE.Vector3();
+const _scratchVDir = new THREE.Vector3();
+const _scratchPView = new THREE.Vector3();
+const _scratchP = new THREE.Vector3();
+const _scratchCorners = Array.from({ length: 8 }, () => new THREE.Vector3());
+
 export class ClusteredLightingSystem {
     public maxLights: number;
     public maxLightsPerCluster: number;
@@ -94,8 +100,6 @@ export class ClusteredLightingSystem {
         const numLights = this.activeLights.length;
         this.numLightsUniform.value = numLights;
 
-        const vPos = new THREE.Vector3();
-        const vDir = new THREE.Vector3();
         for (let i = 0; i < numLights; i++) {
             const snap = this.activeLights[i];
             const offset = i * 12;
@@ -103,20 +107,20 @@ export class ClusteredLightingSystem {
             if (snap.parent) {
                 snap.parent.updateMatrixWorld();
                 if (snap.gpu && snap.kind === 'point') {
-                    vPos.setFromMatrixPosition(snap.parent.matrixWorld);
+                    _scratchVPos.setFromMatrixPosition(snap.parent.matrixWorld);
                 } else if (!snap.gpu) {
-                    vPos.set(snap.localX, snap.localY, snap.localZ);
-                    vPos.applyMatrix4(snap.parent.matrixWorld);
+                    _scratchVPos.set(snap.localX, snap.localY, snap.localZ);
+                    _scratchVPos.applyMatrix4(snap.parent.matrixWorld);
                 } else {
-                     vPos.setFromMatrixPosition(snap.parent.matrixWorld);
+                     _scratchVPos.setFromMatrixPosition(snap.parent.matrixWorld);
                 }
             } else {
-                vPos.set(0, 0, 0);
+                _scratchVPos.set(0, 0, 0);
             }
 
-            this.lightData[offset + 0] = vPos.x;
-            this.lightData[offset + 1] = vPos.y;
-            this.lightData[offset + 2] = vPos.z;
+            this.lightData[offset + 0] = _scratchVPos.x;
+            this.lightData[offset + 1] = _scratchVPos.y;
+            this.lightData[offset + 2] = _scratchVPos.z;
             this.lightData[offset + 3] = snap.distance || 10.0;
 
             const r = ((snap.color >> 16) & 255) / 255.0;
@@ -128,13 +132,13 @@ export class ClusteredLightingSystem {
             this.lightData[offset + 7] = snap.intensity;
 
             if (snap.kind === 'spot') {
-                vDir.set(0, -1, 0);
+                _scratchVDir.set(0, -1, 0);
                 if (snap.parent) {
-                    vDir.transformDirection(snap.parent.matrixWorld).normalize();
+                    _scratchVDir.transformDirection(snap.parent.matrixWorld).normalize();
                 }
-                this.lightData[offset + 8] = vDir.x;
-                this.lightData[offset + 9] = vDir.y;
-                this.lightData[offset + 10] = vDir.z;
+                this.lightData[offset + 8] = _scratchVDir.x;
+                this.lightData[offset + 9] = _scratchVDir.y;
+                this.lightData[offset + 10] = _scratchVDir.z;
                 this.lightData[offset + 11] = Math.cos(Math.PI / 4); // Fake cone angle for now
             } else {
                 this.lightData[offset + 8] = 0;
@@ -166,16 +170,15 @@ export class ClusteredLightingSystem {
         }
 
         const viewMatrix = camera.matrixWorldInverse;
-        const pView = new THREE.Vector3();
         
         for (let i = 0; i < numLights; i++) {
             const offset = i * 12;
             const radius = this.lightData[offset + 3];
-            pView.set(this.lightData[offset + 0], this.lightData[offset + 1], this.lightData[offset + 2]);
-            pView.applyMatrix4(viewMatrix);
+            _scratchPView.set(this.lightData[offset + 0], this.lightData[offset + 1], this.lightData[offset + 2]);
+            _scratchPView.applyMatrix4(viewMatrix);
 
-            const minZ = -(pView.z + radius);
-            const maxZ = -(pView.z - radius);
+            const minZ = -(_scratchPView.z + radius);
+            const maxZ = -(_scratchPView.z - radius);
 
             if (maxZ < near || minZ > far) continue;
 
@@ -183,24 +186,24 @@ export class ClusteredLightingSystem {
             const sliceMax = Math.max(0, Math.min(this.gridZ - 1, Math.floor(Math.log(Math.max(near, maxZ) / near) * scaleZ)));
 
             let minX = 1, minY = 1, maxX = -1, maxY = -1;
-            const corners = [
-                new THREE.Vector3(pView.x - radius, pView.y - radius, pView.z + radius),
-                new THREE.Vector3(pView.x + radius, pView.y - radius, pView.z + radius),
-                new THREE.Vector3(pView.x - radius, pView.y + radius, pView.z + radius),
-                new THREE.Vector3(pView.x + radius, pView.y + radius, pView.z + radius),
-                new THREE.Vector3(pView.x - radius, pView.y - radius, pView.z - radius),
-                new THREE.Vector3(pView.x + radius, pView.y - radius, pView.z - radius),
-                new THREE.Vector3(pView.x - radius, pView.y + radius, pView.z - radius),
-                new THREE.Vector3(pView.x + radius, pView.y + radius, pView.z - radius)
-            ];
 
-            for (const c of corners) {
+            // ⚡ OPTIMIZATION: Bypassed multiple Vector3 allocations and .clone() in high-frequency lighting update loop.
+            _scratchCorners[0].set(_scratchPView.x - radius, _scratchPView.y - radius, _scratchPView.z + radius);
+            _scratchCorners[1].set(_scratchPView.x + radius, _scratchPView.y - radius, _scratchPView.z + radius);
+            _scratchCorners[2].set(_scratchPView.x - radius, _scratchPView.y + radius, _scratchPView.z + radius);
+            _scratchCorners[3].set(_scratchPView.x + radius, _scratchPView.y + radius, _scratchPView.z + radius);
+            _scratchCorners[4].set(_scratchPView.x - radius, _scratchPView.y - radius, _scratchPView.z - radius);
+            _scratchCorners[5].set(_scratchPView.x + radius, _scratchPView.y - radius, _scratchPView.z - radius);
+            _scratchCorners[6].set(_scratchPView.x - radius, _scratchPView.y + radius, _scratchPView.z - radius);
+            _scratchCorners[7].set(_scratchPView.x + radius, _scratchPView.y + radius, _scratchPView.z - radius);
+
+            for (const c of _scratchCorners) {
                 if (c.z > 0) c.z = -0.001; 
-                const p = c.clone().applyMatrix4(camera.projectionMatrix);
-                minX = Math.min(minX, p.x);
-                minY = Math.min(minY, p.y);
-                maxX = Math.max(maxX, p.x);
-                maxY = Math.max(maxY, p.y);
+                _scratchP.copy(c).applyMatrix4(camera.projectionMatrix);
+                minX = Math.min(minX, _scratchP.x);
+                minY = Math.min(minY, _scratchP.y);
+                maxX = Math.max(maxX, _scratchP.x);
+                maxY = Math.max(maxY, _scratchP.y);
             }
 
             const tMinX = Math.max(0, Math.min(this.gridX - 1, Math.floor((minX * 0.5 + 0.5) * this.gridX)));
@@ -277,6 +280,15 @@ export class ClusteredLightingSystem {
         // Mix clustered illumination onto baseColor
         // Candy style: add to color
         return totalIllum.mul(baseColor);
+    }
+
+    public dispose() {
+        if (this.lightBuffer) {
+            this.lightBuffer.dispose();
+        }
+        if (this.clusterBuffer) {
+            this.clusterBuffer.dispose();
+        }
     }
 }
 
