@@ -393,7 +393,10 @@ async function generateMapPlayPath(
     }
     const streamer = new ChunkStreamer(loadedMap, weatherSystem, chunkIndex);
     setActiveChunkStreamer(streamer);
-    const spawned = await streamer.loadSpawnPlayable(PLAY_SPAWN_RADIUS_CHUNKS, PLAY_SPAWN_ENTITY_CAP);
+    const spawned = await streamer.loadSpawnPlayable(
+        PLAY_SPAWN_RADIUS_CHUNKS,
+        PLAY_SPAWN_ENTITY_CAP
+    );
     console.timeEnd('[World] play-spawn-chunk');
     endPhase('Map Streaming Phase 1 (Spawn Chunk)');
     try {
