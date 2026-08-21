@@ -79,8 +79,7 @@ export default defineConfig({
                     // World content decorators (procedural extras, gem canopy, mycelium)
                     if (
                         id.includes('/src/world/generation-decorators.ts') ||
-                        id.includes('/src/world/decorator-streamer.ts') ||
-                        id.includes('/src/world/terrain-mesh.ts')
+                        id.includes('/src/world/decorator-streamer.ts')
                     ) {
                         return 'world-content';
                     }

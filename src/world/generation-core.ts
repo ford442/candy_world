@@ -40,6 +40,7 @@ import {
     SKY_ISLANDS,
 } from './generation-utils.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
+import { createPathTerrain } from './terrain-mesh.ts';
 import type { LoadedCandyMap } from './map-loader.ts';
 import {
     clearMapMusicContext,
@@ -209,7 +210,6 @@ export async function initWorld(
 
     // Visual terrain sized to the boot path (Play ~180, Explore ~400, CORE ~120).
     await yieldControl();
-    const { createPathTerrain } = await import('./terrain-mesh.ts');
     const ground = await createPathTerrain();
     scene.add(ground);
 
