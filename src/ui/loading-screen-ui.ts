@@ -1,9 +1,18 @@
-import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager.ts';
+import {
+    globalLoadingManager,
+    GlobalProgressState,
+    TaskState,
+} from '../systems/loading-manager.ts';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
 import { log } from '../utils/log.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { announce } from './announcer.ts';
-import { createDeferredIndicator, createLoadingScreenDOM, addFatalErrorReloadButton, wireSkipButton } from './loading-screen-dom.ts';
+import {
+    createDeferredIndicator,
+    createLoadingScreenDOM,
+    addFatalErrorReloadButton,
+    wireSkipButton,
+} from './loading-screen-dom.ts';
 import { LoadingScreenProgress, setLoadingScreenClass } from './loading-screen-progress.ts';
 import { updateSpawnFailureBadge } from './loading-screen-reporting.ts';
 import { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
@@ -58,7 +67,7 @@ export class LoadingScreen {
             allowSkipDeferred: true,
             fadeOutDuration: 500,
             theme: 'candy',
-            ...options
+            ...options,
         };
 
         this.progress = new LoadingScreenProgress({ debug: this.options.debug });
@@ -93,7 +102,7 @@ export class LoadingScreen {
                 {
                     theme: this.options.theme,
                     showEstimatedTime: this.options.showEstimatedTime,
-                    allowSkipDeferred: this.options.allowSkipDeferred
+                    allowSkipDeferred: this.options.allowSkipDeferred,
                 },
                 this.progress.getPhases(),
                 () => this.skipCurrentPhase()
@@ -113,7 +122,9 @@ export class LoadingScreen {
             this.spinner = this.container.querySelector('.loading-spinner') as HTMLElement;
             this.progressBar = this.container.querySelector('.progress-bar') as HTMLElement;
             this.progressFill = this.container.querySelector('.progress-fill') as HTMLElement;
-            this.percentageText = this.container.querySelector('.progress-percentage') as HTMLElement;
+            this.percentageText = this.container.querySelector(
+                '.progress-percentage'
+            ) as HTMLElement;
             this.taskText = this.container.querySelector('.progress-task') as HTMLElement;
             this.timeText = this.container.querySelector('.time-remaining') as HTMLElement;
             this.skipButton = this.container.querySelector('.skip-button') as HTMLButtonElement;
@@ -223,11 +234,21 @@ export class LoadingScreen {
         updateSpawnFailureBadge(this.deferredIndicator, failed);
     }
 
-    setDeferredProgress(completed: number, total: number, failedHint?: number, etaMs: number = -1): void {
+    setDeferredProgress(
+        completed: number,
+        total: number,
+        failedHint?: number,
+        etaMs: number = -1
+    ): void {
         if (!this.deferredIndicator) return;
         const pct = total > 0 ? Math.min(100, Math.max(0, (completed / total) * 100)) : 0;
-        const fill = this.deferredIndicator.querySelector('.deferred-bar-fill') as HTMLElement | null;
-        if (fill) { fill.style.transform = `scaleX(${pct / 100})`; fill.style.transformOrigin = 'left'; }
+        const fill = this.deferredIndicator.querySelector(
+            '.deferred-bar-fill'
+        ) as HTMLElement | null;
+        if (fill) {
+            fill.style.transform = `scaleX(${pct / 100})`;
+            fill.style.transformOrigin = 'left';
+        }
         const count = this.deferredIndicator.querySelector('.deferred-count') as HTMLElement | null;
         if (count) count.textContent = `${completed} / ${total}`;
         this.deferredIndicator.setAttribute('aria-valuenow', String(Math.round(pct)));
@@ -322,7 +343,7 @@ export class LoadingScreen {
                     }
                     this.destroy();
                     this.isVisible = false;
-                    this.onCompleteCallbacks.forEach(cb => cb());
+                    this.onCompleteCallbacks.forEach((cb) => cb());
                 }
             }, this.options.fadeOutDuration);
         }, 10);
@@ -347,7 +368,7 @@ export class LoadingScreen {
 
     /**
      * Mark a phase as non-skippable so the skip button won't appear when it is active.
-     * Call before startPhase when the caller wants to enforce completion (e.g. waitForFull mode).
+     * Call before startPhase when the caller wants to enforce completion (e.g. explore mode).
      */
     markPhaseNonSkippable(phaseId: string): void {
         this.progress.markPhaseNonSkippable(phaseId);
@@ -366,7 +387,8 @@ export class LoadingScreen {
 
         // Show skip button for deferred phases that haven't been marked non-skippable
         if (this.skipButton) {
-            const showSkip = phase.isDeferred && !phase.nonSkippable && this.options.allowSkipDeferred;
+            const showSkip =
+                phase.isDeferred && !phase.nonSkippable && this.options.allowSkipDeferred;
             this.skipButton.style.display = showSkip ? 'block' : 'none';
         }
     }
@@ -404,7 +426,7 @@ export class LoadingScreen {
             return;
         }
 
-        this.onSkipCallbacks.forEach(cb => cb(currentPhase.id));
+        this.onSkipCallbacks.forEach((cb) => cb(currentPhase.id));
 
         if (this.options.debug) {
             log.debug('LoadingScreen', `Skipped phase: ${currentPhase.name}`);
@@ -464,7 +486,9 @@ export class LoadingScreen {
     /**
      * Register callback for progress updates
      */
-    onProgress(callback: (progress: import('./loading-screen-types.ts').LoadingProgress) => void): () => void {
+    onProgress(
+        callback: (progress: import('./loading-screen-types.ts').LoadingProgress) => void
+    ): () => void {
         return this.progress.onProgress(callback);
     }
 
@@ -541,7 +565,7 @@ export class LoadingScreen {
         }
 
         this.animationFrameId = requestAnimationFrame(this.animateProgress);
-    }
+    };
 
     private updateUIVisuals(): void {
         if (!this.container) return;
@@ -567,12 +591,20 @@ export class LoadingScreen {
         }
 
         // Update ARIA
-        this.container.setAttribute('aria-valuenow', Math.round(displayedOverallProgress).toString());
+        this.container.setAttribute(
+            'aria-valuenow',
+            Math.round(displayedOverallProgress).toString()
+        );
         const currentPhaseName = this.progress.getCurrentPhase()?.name || 'Loading';
-        this.container.setAttribute('aria-valuetext', `${currentPhaseName}: ${Math.round(displayedOverallProgress)}%`);
+        this.container.setAttribute(
+            'aria-valuetext',
+            `${currentPhaseName}: ${Math.round(displayedOverallProgress)}%`
+        );
 
         // Update active phase indicator progress
-        const activeIndicator = this.container.querySelector('.phase-indicator.active') as HTMLElement;
+        const activeIndicator = this.container.querySelector(
+            '.phase-indicator.active'
+        ) as HTMLElement;
         if (activeIndicator) {
             activeIndicator.style.setProperty('--phase-progress', `${displayedPhaseProgress}%`);
         }
@@ -582,8 +614,10 @@ export class LoadingScreen {
         // Always update the deferred indicator from manager state, even after loading screen hides.
         if (state.deferredTotal > 0) {
             this.setDeferredProgress(
-                state.deferredCompleted, state.deferredTotal,
-                state.deferredFailed, state.deferredEtaMs
+                state.deferredCompleted,
+                state.deferredTotal,
+                state.deferredFailed,
+                state.deferredEtaMs
             );
         }
 

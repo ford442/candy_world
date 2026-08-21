@@ -14,12 +14,12 @@ This mirrors the ford442 portfolio pattern used in Tetris_WebGPU, power_gen, mod
 
 Priority (first match wins):
 
-| Source | Example | Result |
-|--------|---------|--------|
-| URL param | `?renderer=webgl` | Force WebGL2 |
-| URL param | `?renderer=webgpu` | Prefer WebGPU (fallback if unavailable) |
-| localStorage | `candy.renderer` = `webgl` \| `webgpu` | Persisted preference |
-| Default | *(none)* | WebGPU when available |
+| Source       | Example                                | Result                                  |
+| ------------ | -------------------------------------- | --------------------------------------- |
+| URL param    | `?renderer=webgl`                      | Force WebGL2                            |
+| URL param    | `?renderer=webgpu`                     | Prefer WebGPU (fallback if unavailable) |
+| localStorage | `candy.renderer` = `webgl` \| `webgpu` | Persisted preference                    |
+| Default      | _(none)_                               | WebGPU when available                   |
 
 ### Quick start
 
@@ -31,7 +31,7 @@ npm run dev
 ### Hot-switch (full reload)
 
 ```js
-window.setRenderer('webgl');  // or 'webgpu'
+window.setRenderer('webgl'); // or 'webgpu'
 ```
 
 The debug panel (`?debug=1`, press **D**) also exposes **WebGPU / WebGL2** buttons.
@@ -40,11 +40,11 @@ The debug panel (`?debug=1`, press **D**) also exposes **WebGPU / WebGL2** butto
 
 Available when `?renderer=webgl`:
 
-| Param / shortcut | Effect |
-|------------------|--------|
-| `?wireframe=1` / **G** | Scene-wide wireframe overlay |
-| `?matDebug=1` / **M** | `MeshNormalMaterial` override |
-| `?webglLite=1` | Disable GPU compute + recommend CORE world |
+| Param / shortcut       | Effect                                     |
+| ---------------------- | ------------------------------------------ |
+| `?wireframe=1` / **G** | Scene-wide wireframe overlay               |
+| `?matDebug=1` / **M**  | `MeshNormalMaterial` override              |
+| `?webglLite=1`         | Disable GPU compute + recommend CORE world |
 
 Programmatic API:
 
@@ -71,11 +71,11 @@ RENDERER=webgl npm run test
 Window breadcrumbs exposed for assertions:
 
 ```js
-window.rendererType        // 'webgl' | 'webgpu'
-window.usingWebGL          // boolean
-window.usingWebGPU         // boolean
-window.rendererFallbackReason  // null | 'explicit-webgl' | 'webgpu-unavailable'
-document.querySelector('#glCanvas').dataset.renderer
+window.rendererType; // 'webgl' | 'webgpu'
+window.usingWebGL; // boolean
+window.usingWebGPU; // boolean
+window.rendererFallbackReason; // null | 'explicit-webgl' | 'webgpu-unavailable'
+document.querySelector('#glCanvas').dataset.renderer;
 ```
 
 Screenshot capture:
@@ -87,16 +87,16 @@ const png = await captureCanvasScreenshot(document.querySelector('#glCanvas'));
 
 ## Visual Parity Notes
 
-| Feature | WebGPU | WebGL2 |
-|---------|--------|--------|
-| MeshPhysicalMaterial (candy gloss) | ✓ TSL + node path | ✓ Standard GLSL |
-| TSL fog node (`scene.fogNode`) | ✓ | Uses `THREE.Fog` fallback |
-| TSL post-processing (bloom, vignette) | ✓ `PostProcessing` + TSL | ✓ `EffectComposer` + `UnrealBloomPass` |
-| GPU compute particles | ✓ | Disabled in `webglLite` / `safeMode` |
-| Music-reactivity uniforms | ✓ TSL batchers | ✓ Same batchers where WebGL-compatible |
-| Shader warmup | Full batched warmup | Full batched warmup (GLSL node backend compiles TSL materials) |
-| God rays (sunrise/sunset/moon shafts) | ✓ additive shaft planes + `uShaftOpacity` | ✓ same planes, per-frame `material.opacity` sync |
-| Depth of Field (bokeh) | ✓ TSL `dof()` mixed by `uDofMix` | ✓ `BokehPass`, toggled via `pass.enabled` |
+| Feature                               | WebGPU                                    | WebGL2                                                         |
+| ------------------------------------- | ----------------------------------------- | -------------------------------------------------------------- |
+| MeshPhysicalMaterial (candy gloss)    | ✓ TSL + node path                         | ✓ Standard GLSL                                                |
+| TSL fog node (`scene.fogNode`)        | ✓                                         | Uses `THREE.Fog` fallback                                      |
+| TSL post-processing (bloom, vignette) | ✓ `PostProcessing` + TSL                  | ✓ `EffectComposer` + `UnrealBloomPass`                         |
+| GPU compute particles                 | ✓                                         | Disabled in `webglLite` / `safeMode`                           |
+| Music-reactivity uniforms             | ✓ TSL batchers                            | ✓ Same batchers where WebGL-compatible                         |
+| Shader warmup                         | Full batched warmup                       | Full batched warmup (GLSL node backend compiles TSL materials) |
+| God rays (sunrise/sunset/moon shafts) | ✓ additive shaft planes + `uShaftOpacity` | ✓ same planes, per-frame `material.opacity` sync               |
+| Depth of Field (bokeh)                | ✓ TSL `dof()` mixed by `uDofMix`          | ✓ `BokehPass`, toggled via `pass.enabled`                      |
 
 ## Atmospheric Post-FX (god rays + DoF)
 
@@ -108,11 +108,38 @@ through `resolvePostfxQuality()` / `areGodRaysEnabled()` / `isDofEnabled()`:
 - **God rays** — live in `game-loop.ts` (`applyMusicReactiveLightShafts`): golden-hour
   shafts + cool moonbeams whose opacity is driven by the melody/beat channels, frustum-gated
   and opacity-capped. `?postfx=off` (or `CONFIG.postfx.godRays = false`) hides them at zero cost.
-- **Depth of Field** — `?dof` / `?no_dof`, or implied by the `high` tier. DoF is only *built
-  into* the render graph when enabled at boot, so the default tier carries no DoF cost. Within a
+- **Depth of Field** — `?dof` / `?no_dof`, or implied by the `high` tier. DoF is only _built
+  into_ the render graph when enabled at boot, so the default tier carries no DoF cost. Within a
   DoF-enabled session, `uDofMix` fades the effect in near luminous/mycelium flora (or always, in
   manual `dofEnabled` mode) and snaps back to a sharp world instantly. `uDofFocus` follows the
   player's look distance. WebGL uses `BokehPass` as a degraded-but-functional equivalent.
+
+## Shadows: CSM is WebGPU-only
+
+Cascaded Shadow Maps ride Three's TSL node graph (`CSMShadowNode` sets
+`light.shadow.shadowNode`, which only `AnalyticLightNode` — the WebGPU light
+path — ever reads). The WebGL renderer never builds that graph, so
+`initSunCascades()` checks `renderer.isWebGPURenderer` and returns `null` on
+WebGL. The caller then keeps the legacy single player-following ortho map
+configured in `configureSunShadows()`; nothing throws and nothing is skipped.
+
+In practice WebGL rarely reaches either path: `resolveStartupCapabilities()`
+forces `graphics='low'` whenever `forceWebGL` is set, and the `low` tier turns
+shadows off entirely. The single-map fallback exists for the case where that
+clamp is relaxed, and so that flipping `CONFIG.lighting.shadows.cascadesEnabled`
+to `false` restores the old rig on either backend.
+
+Local point/spot lights still **illuminate** on WebGL. Extra local shadow maps
+are skipped (`src/rendering/lights.ts` treats the WebGL backend as
+directional-only). Tune fills via `CONFIG.lighting.local`; see
+`docs/LOCAL_LIGHTS.md`.
+
+Boot check both paths after touching shadow code:
+
+```bash
+RENDERER=webgl npm run test   # must still reach __sceneReady
+npm run test                  # WebGPU default
+```
 
 ## WebGL → WebGPU Porting Checklist
 
@@ -132,3 +159,5 @@ When iterating a visual feature in WebGL first:
 - `src/core/init.ts` — renderer creation and mode-specific setup
 - `src/foliage/post-processing.ts` — dual post-processing pipelines
 - `src/debug/panel.ts` — debug UI renderer toggle
+- `src/systems/shadow-cascades.ts` — CSM rig, WebGPU guard, single-map fallback
+- `src/rendering/lights.ts` — local point/spot registry (WebGL illuminates, extra maps skipped)

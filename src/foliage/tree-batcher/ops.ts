@@ -1,11 +1,11 @@
 import * as THREE from 'three';
+import { shouldUseFoliageGpuBatch } from '../../compute/foliage-gpu-batch.ts';
 import { refreshFoliageLodMesh } from '../../systems/batcher-lod.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import { writeInstancePose } from '../../utils/wasm-batcher-instance.ts';
 import { getGroundAlignedQuaternion } from '../../world/placement-utils.ts';
 import { foliageGroup } from '../../world/state.ts';
 import { ANIMATION_TYPES } from '../animation-nodes.ts';
-import { shouldUseFoliageGpuBatch } from '../../compute/foliage-gpu-batch.ts';
 import { copyInstanceLodOnGrow, initInstanceLodAttribute } from '../batcher-lod-utils.ts';
 import {
     BATCH_QUEUE_LIMIT,
@@ -95,7 +95,7 @@ export function growTrunkBuffer(state: TreeBatcherState) {
 
         
         state.trunks = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew trunk buffer to ${state.trunkCapacity}`);
     }
 
@@ -145,7 +145,7 @@ export function growSphereBuffer(state: TreeBatcherState) {
 
         
         state.spheres = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew sphere buffer to ${state.sphereCapacity}`);
     }
 
@@ -195,7 +195,7 @@ export function growCapsuleBuffer(state: TreeBatcherState) {
 
         
         state.capsules = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew capsule buffer to ${state.capsuleCapacity}`);
     }
 
@@ -245,7 +245,7 @@ export function growHelixBuffer(state: TreeBatcherState) {
 
         
         state.helices = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew helix buffer to ${state.helixCapacity}`);
     }
 
@@ -295,7 +295,7 @@ export function growRoseBuffer(state: TreeBatcherState) {
 
         
         state.roses = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew rose buffer to ${state.roseCapacity}`);
     }
 
@@ -346,7 +346,7 @@ export function growAccordionLeafBuffer(state: TreeBatcherState) {
         foliageGroup.add(newMesh);
 
         state.accordionLeaves = newMesh;
-        refreshFoliageLodMesh(newMesh);
+        refreshFoliageLodMesh(newMesh, oldMesh);
         console.log(`[TreeBatcher] Grew accordion leaf buffer to ${state.accordionLeafCapacity}`);
     }
 
@@ -531,8 +531,11 @@ export function flushRegistrations(state: TreeBatcherState) {
         }
 
         // Write non-pose standard attributes efficiently
+        const updatedMeshesSet = new Set<THREE.InstancedMesh>();
+
         for (let i = 0; i < queueSize; i++) {
             const req = state._pendingInstances[i];
+            updatedMeshesSet.add(req.mesh);
 
             // Animation hot path
             const typeAttr = req.mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
@@ -548,7 +551,7 @@ export function flushRegistrations(state: TreeBatcherState) {
         }
 
         // Flag updates
-        updatedMeshes.forEach(m => {
+        updatedMeshesSet.forEach((m: THREE.InstancedMesh) => {
             if (!shouldUseFoliageGpuBatch(m.count)) {
                 m.instanceMatrix.needsUpdate = true;
                 if (m.instanceColor) m.instanceColor.needsUpdate = true;

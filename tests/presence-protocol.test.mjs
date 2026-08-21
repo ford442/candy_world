@@ -27,128 +27,71 @@ function assert(cond, msg) {
 const peers = new Map();
 const now = 10_000;
 
-assert(isValidPose({
-    id: 'a',
-    pos: [0, 1, 2],
-    quat: [0, 0, 0, 1],
-    biome: 'global',
-    ts: now,
-}), 'valid pose accepted');
+assert(
+    isValidPose({
+        id: 'a',
+        pos: [0, 1, 2],
+        quat: [0, 0, 0, 1],
+        biome: 'global',
+        ts: now,
+    }),
+    'valid pose accepted'
+);
 
 assert(!isValidPose({ id: 'bad' }), 'invalid pose rejected');
 
-mergePresenceMeta(peers, {
-    peer1: [{ id: 'peer1', label: 'Alpha', emoji: '🍬' }],
-}, 'self', 16);
+mergePresenceMeta(
+    peers,
+    {
+        peer1: [{ id: 'peer1', label: 'Alpha', emoji: '🍬' }],
+    },
+    'self',
+    16
+);
 assert(peers.size === 1 && peers.get('peer1')?.label === 'Alpha', 'presence meta merged');
 
-ingestPose(peers, 'self', {
-    id: 'peer1',
-    pos: [1, 2, 3],
-    quat: [0, 0, 0, 1],
-    biome: 'gem_canopy',
-    ts: now,
-});
+function pose(id, biome, ts, pos = [1, 2, 3]) {
+    return { id, pos, quat: [0, 0, 0, 1], biome, ts };
+}
+
+ingestPose(peers, 'self', pose('peer1', 'gem_canopy', now));
 const peer = peers.get('peer1');
 assert(peer && peer.snapshots.length === 1, 'pose ingested');
 
-// Test 1: First pose does not trigger biome entry
 let entered = detectPeerBiomeEntry(peer);
 assert(entered === null, 'first different pose does not trigger entry (debounce 1/3)');
 
-// Test 2: Second consecutive pose with same biome does not trigger
-ingestPose(peers, 'self', {
-    id: 'peer1',
-    pos: [2, 3, 4],
-    quat: [0, 0, 0, 1],
-    biome: 'gem_canopy',
-    ts: now + 100,
-});
+ingestPose(peers, 'self', pose('peer1', 'gem_canopy', now + 100, [2, 3, 4]));
 entered = detectPeerBiomeEntry(peer);
 assert(entered === null, 'second consecutive pose does not trigger entry (debounce 2/3)');
 
-// Test 3: Third consecutive pose with same biome DOES trigger
-ingestPose(peers, 'self', {
-    id: 'peer1',
-    pos: [3, 4, 5],
-    quat: [0, 0, 0, 1],
-    biome: 'gem_canopy',
-    ts: now + 200,
-});
+ingestPose(peers, 'self', pose('peer1', 'gem_canopy', now + 200, [3, 4, 5]));
 entered = detectPeerBiomeEntry(peer);
 assert(entered === 'gem_canopy', 'third consecutive pose triggers entry (debounce 3/3)');
 
-// Test 4: Global biome does not trigger entry
 peers.clear();
-ingestPose(peers, 'self', {
-    id: 'peer2',
-    pos: [0, 0, 0],
-    quat: [0, 0, 0, 1],
-    biome: 'arpeggio_grove',
-    ts: now,
-});
+ingestPose(peers, 'self', pose('peer2', 'arpeggio_grove', now, [0, 0, 0]));
 const peer2 = peers.get('peer2');
-detectPeerBiomeEntry(peer2); // Initialize lastBiome
-ingestPose(peers, 'self', {
-    id: 'peer2',
-    pos: [1, 0, 0],
-    quat: [0, 0, 0, 1],
-    biome: 'global',
-    ts: now + 100,
-});
 detectPeerBiomeEntry(peer2);
-ingestPose(peers, 'self', {
-    id: 'peer2',
-    pos: [2, 0, 0],
-    quat: [0, 0, 0, 1],
-    biome: 'global',
-    ts: now + 200,
-});
-detectPeerBiomeEntry(peer2);
-ingestPose(peers, 'self', {
-    id: 'peer2',
-    pos: [3, 0, 0],
-    quat: [0, 0, 0, 1],
-    biome: 'global',
-    ts: now + 300,
-});
-entered = detectPeerBiomeEntry(peer2);
+for (let i = 1; i <= 3; i++) {
+    ingestPose(peers, 'self', pose('peer2', 'global', now + i * 100, [i, 0, 0]));
+    entered = detectPeerBiomeEntry(peer2);
+}
 assert(entered === null, 'global biome does not trigger entry');
 
-// Test 5: Biome bounce resets debounce
 peers.clear();
-ingestPose(peers, 'self', {
-    id: 'peer3',
-    pos: [0, 0, 0],
-    quat: [0, 0, 0, 1],
-    biome: 'global',
-    ts: now,
-});
+ingestPose(peers, 'self', pose('peer3', 'global', now, [0, 0, 0]));
 const peer3 = peers.get('peer3');
-detectPeerBiomeEntry(peer3); // Initialize lastBiome to 'global'
-ingestPose(peers, 'self', {
-    id: 'peer3',
-    pos: [1, 0, 0],
-    quat: [0, 0, 0, 1],
-    biome: 'sky_islands',
-    ts: now + 100,
-});
+detectPeerBiomeEntry(peer3);
+ingestPose(peers, 'self', pose('peer3', 'sky_islands', now + 100, [1, 0, 0]));
 entered = detectPeerBiomeEntry(peer3);
 assert(entered === null && peer3.pendingBiome === 'sky_islands', 'debounce starts (1/3)');
-ingestPose(peers, 'self', {
-    id: 'peer3',
-    pos: [0, 0, 0],
-    quat: [0, 0, 0, 1],
-    biome: 'global',
-    ts: now + 200,
-});
+ingestPose(peers, 'self', pose('peer3', 'global', now + 200, [0, 0, 0]));
 entered = detectPeerBiomeEntry(peer3);
 assert(entered === null && peer3.pendingBiome === undefined, 'bounce back resets debounce');
 
-// Test 6: Stale peer pruning
 peers.clear();
-peers.get = () => null;
-peers.set('stale_peer', { lastSeen: now - PRESENCE_STALE_MS - 1, id: 'stale_peer' });
+peers.set('stale_peer', { id: 'stale_peer', lastSeen: now - PRESENCE_STALE_MS - 1, snapshots: [] });
 const removed = pruneStalePeers(peers, now, PRESENCE_STALE_MS);
 assert(removed.length === 1 && peers.size === 0, 'stale peer pruned');
 

@@ -73,12 +73,25 @@ export function getLoadMemoryScale(): number {
     }
 }
 
+let _gpuPrefersLite = false;
+
+/**
+ * Called from gpu-context after the shared device is armed.
+ * Seeds light-world preference for first-boot graphics defaults; it does not
+ * change the Play/Explore path.
+ */
+export function setGpuPrefersLightWorldLoad(value: boolean): void {
+    _gpuPrefersLite = value;
+}
+
 /** True when the device should prefer lighter world modes on first paint. */
 export function shouldPreferLightWorldLoad(): boolean {
+    if (_gpuPrefersLite) return true;
     const tier = getLoadMemoryTier();
     if (tier === 'critical' || tier === 'low') return true;
     try {
-        if (new URLSearchParams(window.location.search).has('lite')) return true;
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('lite') || params.has('webglLite')) return true;
     } catch {
         /* non-browser */
     }

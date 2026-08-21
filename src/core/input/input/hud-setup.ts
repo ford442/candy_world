@@ -14,6 +14,8 @@ function setupAbilityKeyboardInteractions(
     element.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.code === 'Space') {
             e.preventDefault();
+            if (e.repeat) return;
+            element.classList.add('keyboard-active');
             onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
         }
     });
@@ -21,6 +23,7 @@ function setupAbilityKeyboardInteractions(
     element.addEventListener('keyup', (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.code === 'Space') {
             e.preventDefault();
+            element.classList.remove('keyboard-active');
             onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
         }
     });
@@ -49,6 +52,7 @@ function setupAbilityKeyboardInteractions(
     });
 
     element.addEventListener('blur', () => {
+        element.classList.remove('keyboard-active');
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
     });
 }
@@ -127,6 +131,41 @@ export function setupHudControls(session: InputSession, handlers: InputKeyboardH
             openAccessibilityMenu();
         });
     }
+
+    // ♿ Aria: Generic tactile keyboard feedback for HUD buttons
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.repeat) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            const activeElement = document.activeElement as HTMLElement;
+            if (
+                activeElement &&
+                !activeElement.classList.contains('keyboard-active') &&
+                (activeElement.classList.contains('toggle-button') ||
+                 activeElement.classList.contains('cta-button') ||
+                 activeElement.classList.contains('secondary-button') ||
+                 activeElement.classList.contains('file-label') ||
+                 activeElement.classList.contains('mode-btn') ||
+                 activeElement.classList.contains('ability-slot'))
+            ) {
+                activeElement.classList.add('keyboard-active');
+
+                const cleanup = () => {
+                    activeElement.classList.remove('keyboard-active');
+                    activeElement.removeEventListener('keyup', keyupHandler);
+                    activeElement.removeEventListener('blur', cleanup);
+                };
+
+                const keyupHandler = (ev: KeyboardEvent) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                        cleanup();
+                    }
+                };
+
+                activeElement.addEventListener('keyup', keyupHandler);
+                activeElement.addEventListener('blur', cleanup);
+            }
+        }
+    });
 
     return releaseDpadAll;
 }

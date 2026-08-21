@@ -28,12 +28,6 @@ import {
 } from './presence-types.ts';
 import { remoteAvatars } from './remote-avatars.ts';
 
-const PRESENCE_OPT_IN_KEY = 'candy_presence_opt_in';
-const STALE_PEER_MS = 15_000;
-const MAX_SNAPSHOTS = 8;
-
-const _scratchQuat = new THREE.Quaternion();
-
 export type PresenceSpawnImpact = (
     pos: { x: number; y: number; z: number },
     type?: ImpactType,
@@ -43,6 +37,12 @@ export type PresenceSpawnImpact = (
 export interface PresenceInitHooks {
     spawnImpact?: PresenceSpawnImpact;
 }
+
+const PRESENCE_OPT_IN_KEY = 'candy_presence_opt_in';
+const STALE_PEER_MS = 15_000;
+const MAX_SNAPSHOTS = 8;
+
+const _scratchQuat = new THREE.Quaternion();
 
 type SupabaseClient = import('@supabase/supabase-js').SupabaseClient;
 
@@ -156,7 +156,12 @@ export class PresenceSystem {
         this._shareDiscoveryGlow = enabled;
     }
 
-    bindScene(scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.Renderer, hooks?: PresenceInitHooks): void {
+    bindScene(
+        scene: THREE.Scene,
+        camera: THREE.PerspectiveCamera,
+        renderer: THREE.Renderer,
+        hooks?: PresenceInitHooks
+    ): void {
         if (hooks?.spawnImpact) this._spawnImpact = hooks.spawnImpact;
         remoteAvatars.init(scene, camera, renderer);
     }
@@ -252,7 +257,6 @@ export class PresenceSystem {
         this._joined = false;
         this._peers.clear();
         remoteAvatars.syncPeers(this._peers, this._localPos);
-        // eslint-disable-next-line no-console
         console.log('[Presence] Left room');
     }
 
@@ -302,11 +306,6 @@ export class PresenceSystem {
         }
     }
 
-    dispose(): void {
-        void this.leave();
-        remoteAvatars.dispose();
-    }
-
     private _emitPeerListUpdate(): void {
         if (typeof window === 'undefined') return;
         window.dispatchEvent(
@@ -336,6 +335,11 @@ export class PresenceSystem {
                 0xffb6e8
             );
         }
+    }
+
+    dispose(): void {
+        void this.leave();
+        remoteAvatars.dispose();
     }
 
     private _mergePresenceState(): void {

@@ -102,11 +102,11 @@ export function showModeBadge(mode: WorldMode, profile?: StartupProfile) {
     });
 
     if (profile) {
-        const map = profile.mapSize;
-        if (map === 'small') {
+        const path = profile.path;
+        if (path === 'core') {
             modeBadge.style.background = 'rgba(255, 158, 205, 0.92)';
             modeBadge.style.color = '#2b0f1c';
-        } else if (map === 'medium') {
+        } else if (path === 'play') {
             modeBadge.style.background = 'rgba(165, 214, 167, 0.92)';
             modeBadge.style.color = '#1b3a1b';
         } else {

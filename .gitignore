@@ -56,3 +56,4 @@ candy-world-*.tar.gz
 /test-audio-compatibility.mjs
 # Vendored OpenMP archive required by emscripten/build.sh (-L vendor -lomp)
 !emscripten/vendor/libomp.a
+tests/boot-timing-report.json

@@ -2,6 +2,7 @@ import { StageLoader } from '../../debug/index.ts';
 import { preloadGameplay } from '../../gameplay/lazy.ts';
 import { isCIorHeadless, CONFIG } from '../config.ts';
 import { animate } from '../game-loop.ts';
+import { syncDrawingBufferFromWindow } from '../init.ts';
 import type { MainContext } from './context.ts';
 import { renderer } from './exports.ts';
 
@@ -11,7 +12,7 @@ export function runShaderWarmup(ctx: MainContext): void {
 
         await StageLoader.loadStage('shaderWarmup', async () => {
             if (CONFIG.safeMode || isCIorHeadless()) {
-                console.warn('[Startup] safeMode active — skipping shader warmup and compileAsync');
+                console.warn('[Startup] safeMode active — skipping shader warmup');
                 return;
             }
             loadingScreen.startPhase('shader-warmup');
@@ -61,6 +62,11 @@ export function runShaderWarmup(ctx: MainContext): void {
                 console.warn('[Warmup] Shader compilation error (non-fatal):', err);
             }
 
+            // Warmup uses 1×1 offscreen targets; refresh the canvas MSAA buffer before
+            // the animation loop drives full-screen post-processing resolves.
+            syncDrawingBufferFromWindow(renderer);
+            ctx.postProcessing?.syncSize?.();
+
             loadingScreen.updateProgress(90, 'Finalizing scene...');
             console.log('[Startup] Shaders pre-compiled');
             loadingScreen.updateProgress(100, 'Scene ready!');
@@ -70,7 +76,9 @@ export function runShaderWarmup(ctx: MainContext): void {
         renderer.setAnimationLoop(animate);
         try {
             (window as any).__sceneReady = true;
-        } catch (e) { void e; }
+        } catch (e) {
+            void e;
+        }
         void preloadGameplay();
 
         if (!worldGenerationActive) {

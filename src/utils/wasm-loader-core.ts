@@ -11,7 +11,6 @@
  */
 
 import { updateProgress, setWasmPhase, setWasmError } from '../ui/loading-screen.ts';
-import { announce } from '../ui/announcer.ts';
 import {
     parallelWasmLoad,
     LOADING_PHASES,
@@ -831,8 +830,11 @@ export async function initWasm(): Promise<boolean> {
         startButton.textContent = 'Start Exploration 🚀';
         startButton.style.cursor = 'pointer';
 
-        // ♿ Aria: Announce that the loading is complete and the button is ready
-        announce('Game ready. Press Enter to start exploration.', 'assertive');
+        // ♿ Aria: Announce that the loading is complete and the button is ready.
+        // Dynamic import keeps the announcer chunk off the WASM boot path.
+        void import('../ui/announcer.ts').then(({ announce }) => {
+            announce('Game ready. Press Enter to start exploration.', 'assertive');
+        });
     }
 
     if (!loaded && lastError) {

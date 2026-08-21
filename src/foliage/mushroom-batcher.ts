@@ -5,6 +5,7 @@ import { color, float, vec3, vec4, attribute, positionLocal,
     max, pow, min, cameraPosition, uv, floor, instanceIndex, varyingProperty
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
@@ -13,7 +14,6 @@ import { makeInteractive } from '../utils/interaction-utils.ts';
 import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
-import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats

@@ -134,6 +134,136 @@ export interface ConfigType {
             normalBias: number;
             /** PCF soft shadow filter radius. */
             pcfRadius: number;
+
+            // --- Cascaded Shadow Maps (WebGPU only; WebGL keeps the single follow map) ---
+            /** Master switch for CSM. False → the legacy single player-following ortho map. */
+            cascadesEnabled: boolean;
+            /** Visual Impact: cascade count at default quality. Clamped to 2–4. */
+            cascadeCount: number;
+            /** Visual Impact: cascade count when the shadow tier is high. Clamped to 2–4. */
+            cascadeCountHigh: number;
+            /** Split scheme across the camera frustum. 'practical' blends uniform + logarithmic. */
+            cascadeMode: 'practical' | 'uniform' | 'logarithmic';
+            /**
+             * Visual Impact: far clip for cascade splits, in world units. Bounds how much of
+             * the (very long) camera frustum the cascades cover — keep near the fog far plane
+             * so the last cascade does not waste texels past visible range.
+             */
+            cascadeMaxFar: number;
+            /** Distance the cascade light is pushed back along the sun direction. */
+            cascadeLightMargin: number;
+            /** Cross-fade cascade seams. Slightly softer, slightly more expensive. */
+            cascadeFade: boolean;
+            /**
+             * Halve the shadow map for each successive (farther) cascade, floored at
+             * `cascadeMapSizeMin`. Near cascade keeps the full `mapSize`, so the
+             * high tier spends 2048 only where the player actually looks. Roughly
+             * halves total shadow VRAM versus a flat allocation.
+             */
+            cascadeMapSizeTaper: boolean;
+            /** Lower bound for tapered far-cascade shadow maps. */
+            cascadeMapSizeMin: number;
+        };
+        /**
+         * First-class local point/spot lights (not the sun). Generation must
+         * register through `src/rendering/lights.ts` so clustered culling can
+         * see every extra light. Decorative fills (flower heads, orbs) are
+         * descriptors only — they do not allocate GPU lights.
+         */
+        maxClusterLights?: number;
+        maxLightsPerCluster?: number;
+        local: {
+            /** Visual Impact: pastel point fill intensity (candela-ish). */
+            pointIntensity: number;
+            /** Visual Impact: inverse-square cutoff distance, world units. */
+            pointDistance: number;
+            /** Physical decay exponent. 2 = inverse-square. */
+            pointDecay: number;
+            /** Visual Impact: default candy cyan fill (hex). */
+            pointColor: number;
+            /** Visual Impact: mushroom-cap / cone fill intensity. */
+            spotIntensity: number;
+            /** Visual Impact: spot range, world units. */
+            spotDistance: number;
+            spotDecay: number;
+            /** Visual Impact: cone half-angle in radians. */
+            spotAngle: number;
+            /** Visual Impact: cone edge softness 0–1. */
+            spotPenumbra: number;
+            /** Visual Impact: default candy pink cone (hex). */
+            spotColor: number;
+            /**
+             * Extra shadow-casting local lights on top of the sun. 0–2.
+             * Clustered lighting will consume the rest as unshadowed.
+             */
+            maxLocalShadowLights: number;
+            /** Visual Impact: local (point/spot) shadow map resolution. */
+            localShadowMapSize: number;
+            /** Skip extra local shadow maps on the `low` graphics tier / CI. */
+            disableOnLow: boolean;
+            localShadowBias: number;
+            localShadowNormalBias: number;
+            localShadowNear: number;
+            localShadowFar: number;
+        };
+        /**
+         * Lightweight GI — a player-following SH-L1 irradiance probe volume,
+         * baked on the CPU from sky openness, ground bounce and the local-light
+         * registry, then added to unified materials as a soft coloured bounce.
+         * @see docs/IRRADIANCE_PROBES.md
+         */
+        gi: {
+            enabled: boolean;
+            /** Hard off switch that beats every tier / URL flag. */
+            forceDisable: boolean;
+            /** Skip the volume on the `low` graphics tier (WebGL / CI clamp to it). */
+            disableOnLow: boolean;
+
+            /** Probe count per axis at default quality. Clamped to 2–32. */
+            gridX: number;
+            gridY: number;
+            gridZ: number;
+            /** Probe count per axis when the graphics tier is high. */
+            gridXHigh: number;
+            gridYHigh: number;
+            gridZHigh: number;
+            /** Visual Impact: world units between probes. Extent = grid * cellSize. */
+            cellSize: number;
+            cellSizeHigh: number;
+            /** Bake budget per frame, nearest-to-camera first. */
+            probesPerFrame: number;
+            probesPerFrameHigh: number;
+            /** Local lights considered as bounce donors per bake pass. */
+            maxDonors: number;
+
+            /** Visual Impact: master gain on the bounce term. 0 restores the pre-GI look. */
+            intensity: number;
+            /** Visual Impact: how much of the directional (L1) band reaches the surface. */
+            directionality: number;
+            /** Largest irradiance the RGBA8 probe textures can encode. */
+            range: number;
+            /** Visual Impact: weight of the overhead sky term. */
+            skyStrength: number;
+            /** Visual Impact: weight of the sun-off-terrain bounce. */
+            groundBounce: number;
+            /** Candy ground albedo used by that bounce (hex). */
+            groundAlbedo: number;
+            /** Height in world units over which ground bounce falls off. */
+            groundFalloff: number;
+            /** Visual Impact: weight of registered local lights as bounce donors. */
+            donorStrength: number;
+            /** Donors reach a little past their light radius — bounce is not a light. */
+            donorRadiusScale: number;
+
+            /** Blend toward `pastelSaturation` so bounce never reads as grey dirt. */
+            pastelBias: number;
+            /** Visual Impact: saturation floor the pastel guard pulls bounce toward. */
+            pastelSaturation: number;
+            /** Visual Impact: icy fill so sugar-cave interiors are dim, not black (hex). */
+            caveFill: number;
+            caveFillStrength: number;
+            /** Fraction of the volume used to fade GI out at its border. */
+            edgeFade: number;
         };
     };
 

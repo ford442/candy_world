@@ -116,6 +116,17 @@ export const BIOME_PROFILES: Record<string, BiomeMusicProfile> = {
         channelDensity: [0.6, 0.65, 0.75, 0.7, 0.65, 0.5, 0.4, 0.35],
         mood: 'reflective',
     },
+    sugar_caves: {
+        id: 'sugar_caves',
+        root: 'E',
+        scale: SCALES.dorian,
+        tempo: 78,
+        nightTempoScale: 0.95,
+        brightness: 0.4,
+        groove: 0.05,
+        channelDensity: [0.55, 0.7, 0.85, 0.65, 0.5, 0.45, 0.4, 0.35],
+        mood: 'muffled-crystal',
+    },
 };
 
 export function getBiomeProfile(biomeId: string): BiomeMusicProfile {

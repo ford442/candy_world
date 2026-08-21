@@ -54,8 +54,6 @@ export {
     // Legacy wrappers
     createClayMaterial,
     createCandyMaterial,
-    createTexturedClay,
-    createSugaredMaterial,
     createGradientMaterial,
     createStandardNodeMaterial,
     createTransparentNodeMaterial,
@@ -67,9 +65,7 @@ export {
 // =============================================================================
 // FOLIAGE MATERIALS - Pre-configured material instances
 // =============================================================================
-export {
-    foliageMaterials,
-} from './foliage-materials.ts';
+export { foliageMaterials } from './foliage-materials.ts';
 
 // =============================================================================
 // FOLIAGE REACTIVITY - Reactivity registry and validation helpers
@@ -97,7 +93,7 @@ export {
 // Note: UnifiedMaterialOptions is already exported above via './material-core.ts'
 
 // Keep the FoliageMaterial type available
-export {  } from './types';
+export {} from './types';
 
 // Re-export glitch functionality
 export { applyGlitch } from './glitch.ts';
@@ -106,9 +102,9 @@ export { applyGlitch } from './glitch.ts';
 export { updateFoliageMaterials } from './animation.ts';
 
 // Re-export wind compute
-export { 
+export {
     windComputeSystem as defaultWindComputeSystem,
-    getWindTextureData as defaultGetWindTextureData 
+    getWindTextureData as defaultGetWindTextureData,
 } from './wind-compute.ts';
 
 // =============================================================================
@@ -118,9 +114,9 @@ export { createCrescendoFogNode, createSky } from './sky.ts';
 export { createStars } from './stars.ts';
 export { createMoon } from './moon.ts';
 export { createMushroom } from './mushrooms.ts';
-export { 
-    createFlower, 
-    createGlowingFlower, 
+export {
+    createFlower,
+    createGlowingFlower,
     createStarflower,
     createBellBloom,
     createPuffballFlower,
@@ -128,12 +124,12 @@ export {
     createVibratoViolet,
     createTremoloTulip,
     createLanternFlower,
-    createGlowingFlowerPatch
+    createGlowingFlowerPatch,
 } from './flowers.ts';
-export { 
-    createFloweringTree, 
-    createShrub, 
-    createVine, 
+export {
+    createFloweringTree,
+    createShrub,
+    createVine,
     createLeafParticle,
     createBubbleWillow,
     createHelixPlant,
@@ -143,7 +139,7 @@ export {
     createFiberOpticWillow,
     createSwingableVine,
     createVineLadder,
-    VineSwing
+    VineSwing,
 } from './trees.ts';
 
 export { createLuminousPlant } from './luminous-plant.ts';
@@ -154,12 +150,12 @@ export { createWaveformWater } from './water.ts';
 export { createFireflies } from './fireflies.ts';
 export { initFallingBerries } from './berries.ts';
 export { initGrassSystem, addGrassInstance } from './grass.ts';
-export { 
-    createArpeggioFern, 
-    createPortamentoPine, 
-    createCymbalDandelion, 
+export {
+    createArpeggioFern,
+    createPortamentoPine,
+    createCymbalDandelion,
     createSnareTrap,
-    createRetriggerMushroom
+    createRetriggerMushroom,
 } from './musical_flora.ts';
 export { createWisteriaCluster } from './wisteria-cluster.ts';
 export { createPanningPad } from './panning-pads.ts';
@@ -184,3 +180,4 @@ export { createNeonPollen } from './pollen.ts';
 export { createTerrainMaterial } from './terrain.ts';
 
 export { createRainbow, uRainbowOpacity } from './rainbow.ts';
+export { SugarCaveBatcher, sugarCaveBatcher } from './sugar-cave-batcher.ts';

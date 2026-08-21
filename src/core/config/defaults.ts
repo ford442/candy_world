@@ -3,10 +3,6 @@ import { FAUNA_DEFAULTS } from './fauna.ts';
 import { GROUND_DEFAULTS, PLAYER_DEFAULTS } from './ground.ts';
 import { PRESENCE_DEFAULTS } from './presence.ts';
 import type { ConfigType } from './types.ts';
-import { AUDIO_DEFAULTS } from './audio.ts';
-import { FAUNA_DEFAULTS } from './fauna.ts';
-import { GROUND_DEFAULTS, PLAYER_DEFAULTS } from './ground.ts';
-import { PRESENCE_DEFAULTS } from './presence.ts';
 
 export const CONFIG: ConfigType = {
     safeMode:
@@ -324,6 +320,21 @@ export const CONFIG: ConfigType = {
             'A#': 0xd8bfd8,
             B: 0xffd1dc,
         },
+        // Subterranean Sugar Caves (Crystal/Icy tones)
+        sugar_caves: {
+            C: 0x00ffff,
+            'C#': 0x40e0d0,
+            D: 0x8a2be2,
+            'D#': 0x9370db,
+            E: 0xff00ff,
+            F: 0xff69b4,
+            'F#': 0x1e90ff,
+            G: 0x00bfff,
+            'G#': 0x87cefa,
+            A: 0xda70d6,
+            'A#': 0xba55d3,
+            B: 0x00fa9a,
+        },
     },
 
     // Per-species reaction tuning
@@ -530,6 +541,99 @@ export const CONFIG: ConfigType = {
             bias: -0.0005,
             normalBias: 0.02,
             pcfRadius: 2,
+
+            // --- Cascaded Shadow Maps ---
+            // Candy look: soft contact shadows near the player, cheap coverage out to the
+            // fog line. cascadeMaxFar tracks atmosphere fog far (~100u) plus headroom so
+            // sky islands and the forest horizon still receive a cascade.
+            cascadesEnabled: true,
+            cascadeCount: 2,
+            cascadeCountHigh: 3,
+            cascadeMode: 'practical',
+            cascadeMaxFar: 160,
+            cascadeLightMargin: 120,
+            cascadeFade: true,
+            cascadeMapSizeTaper: true,
+            cascadeMapSizeMin: 512,
+        },
+        // --- LOCAL POINT / SPOT (pastel fill; sun remains the shadow hero) ---
+        maxClusterLights: 128,
+        maxLightsPerCluster: 32,
+        local: {
+            // Visual Impact: soft candy fill, not a harsh white bulb
+            pointIntensity: 0.9,
+            pointDistance: 14,
+            pointDecay: 2,
+            pointColor: 0x7fe8ff,
+            // Visual Impact: mushroom-cap cone — warm pink, wide penumbra
+            spotIntensity: 1.15,
+            spotDistance: 16,
+            spotDecay: 2,
+            spotAngle: Math.PI / 5,
+            spotPenumbra: 0.5,
+            spotColor: 0xffb3d9,
+            maxLocalShadowLights: 1,
+            localShadowMapSize: 512,
+            disableOnLow: true,
+            localShadowBias: -0.0002,
+            localShadowNormalBias: 0.04,
+            localShadowNear: 0.4,
+            localShadowFar: 20,
+        },
+
+        // --- LIGHTWEIGHT GI (irradiance probe volume; see docs/IRRADIANCE_PROBES.md)
+        // A player-following SH-L1 probe grid baked on the CPU from sky openness,
+        // ground bounce and the local-light registry. Candy-first: the bake keeps
+        // its chroma (pastelSaturation) so interiors leak colour instead of grey.
+        gi: {
+            enabled: true,
+            /** Hard off switch that beats every tier / URL flag. */
+            forceDisable: false,
+            /** Skipped on the `low` graphics tier (which WebGL and CI clamp to). */
+            disableOnLow: true,
+
+            // --- Volume ---
+            gridX: 10,
+            gridY: 5,
+            gridZ: 10,
+            gridXHigh: 14,
+            gridYHigh: 7,
+            gridZHigh: 14,
+            /** World units between probes. Volume extent = grid * cellSize. */
+            cellSize: 10,
+            cellSizeHigh: 8,
+            /** Probes re-baked per frame, nearest-to-camera first. */
+            probesPerFrame: 24,
+            probesPerFrameHigh: 40,
+            /** Local lights considered as bounce donors per bake pass. */
+            maxDonors: 128,
+
+            // --- Energy ---
+            /** Master multiplier on the irradiance term added to unified materials. */
+            intensity: 0.55,
+            /** How much of the L1 (directional) band reaches the surface. 0 = flat fill. */
+            directionality: 0.6,
+            /** Largest irradiance the RGBA8 probe textures can encode. */
+            range: 2.0,
+            skyStrength: 0.35,
+            groundBounce: 0.5,
+            /** Candy ground albedo — matches createGroundMaterial()'s pale mint. */
+            groundAlbedo: 0x98fb98,
+            /** Height (world units) over which ground bounce falls off. */
+            groundFalloff: 6,
+            donorStrength: 0.85,
+            /** Donors reach a little past their light radius — bounce is not a light. */
+            donorRadiusScale: 1.15,
+
+            // --- Candy guardrails ---
+            /** Blend toward `pastelSaturation` so bounce never reads as grey dirt. */
+            pastelBias: 0.45,
+            pastelSaturation: 0.55,
+            /** Icy cyan fill so sugar-cave interiors are dim, not black. */
+            caveFill: 0x6ad9e8,
+            caveFillStrength: 0.3,
+            /** Fraction of the volume used to fade GI out at its border. */
+            edgeFade: 0.12,
         },
     },
 

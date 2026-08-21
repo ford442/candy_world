@@ -27,8 +27,11 @@ export interface RemotePeer {
     shareDiscoveryGlow: boolean;
     snapshots: PresencePose[];
     lastSeen: number;
+    /** Last known biome tag (for region-entry cues). */
     lastBiome?: string;
+    /** Candidate biome while debounce is accumulating. */
     pendingBiome?: string;
+    /** Consecutive poses observed in `pendingBiome`. */
     pendingBiomeCount?: number;
 }
 

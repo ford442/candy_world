@@ -1,25 +1,39 @@
 import * as THREE from 'three';
 import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import {
-    initExploreCamera,
-    getExploreCamera,
-    setExploreOrbitFlag,
-} from '../../core/camera-modes.ts';
-import { CYCLE_DURATION } from '../../core/config.ts';
-import {
-    uBloomStrength,
-    uColorSaturation,
-    uColorContrast,
-    uVignetteStrength,
-    uDofFocus,
-    uDofMix,
-    uShaftScatterBoost,
-} from '../../foliage/post-processing.ts';
-import { announcePolite } from '../../ui/announcer.ts';
-import { getWorldSeed } from '../../world/world-seed.ts';
 import { capturePhotoPng } from './photo-capture.ts';
 import { PhotoControlsOverlay, type PhotoControlValues } from './photo-controls.ts';
 import { defaultPhotoSettings } from './photo-presets.ts';
+
+export interface PhotoModeUniform {
+    value: number;
+}
+
+export interface PhotoModePostFxUniforms {
+    uBloomStrength: PhotoModeUniform;
+    uColorSaturation: PhotoModeUniform;
+    uColorContrast: PhotoModeUniform;
+    uVignetteStrength: PhotoModeUniform;
+    uDofFocus: PhotoModeUniform;
+    uDofMix: PhotoModeUniform;
+    uShaftScatterBoost: PhotoModeUniform;
+}
+
+export interface PhotoModeExploreCamera {
+    enter: (opts: { fromToggle?: boolean }) => Promise<void>;
+    exitToFirstPerson: (relock?: boolean) => void;
+    update: (delta: number) => void;
+}
+
+export interface PhotoModeExploreApi {
+    getExploreCamera: () => PhotoModeExploreCamera | null;
+    initExploreCamera: (opts: {
+        camera: THREE.PerspectiveCamera;
+        canvas: HTMLCanvasElement;
+        controls: PointerLockControls;
+        variant: 'orbit';
+    }) => PhotoModeExploreCamera | null;
+    setExploreOrbitFlag: (active: boolean) => void;
+}
 
 export interface PhotoModeInitOptions {
     camera: THREE.PerspectiveCamera;
@@ -37,6 +51,11 @@ export interface PhotoModeInitOptions {
           };
     renderFrame: () => void;
     getGameTime?: () => number;
+    cycleDuration: number;
+    postFx: PhotoModePostFxUniforms;
+    explore: PhotoModeExploreApi;
+    getWorldSeed: () => number;
+    announcePolite: (msg: string) => void;
 }
 
 const HUD_SELECTORS = [
@@ -62,6 +81,7 @@ export class PhotoModeManager {
     private savedTimeOffset = 0;
     private readonly opts: PhotoModeInitOptions;
     private reducedMotion = false;
+    private previousFocusElement: HTMLElement | null = null;
 
     constructor(opts: PhotoModeInitOptions) {
         this.opts = opts;
@@ -98,30 +118,38 @@ export class PhotoModeManager {
 
     applyPostFx(): void {
         if (!this.active) return;
-        uDofFocus.value = this.values.focusDistance;
-        uDofMix.value = this.values.dofMix;
-        uBloomStrength.value = this.values.bloomStrength;
-        uColorSaturation.value = this.values.saturation;
-        uColorContrast.value = this.values.contrast;
-        uVignetteStrength.value = this.values.vignette;
-        uShaftScatterBoost.value = CONFIG_SHAFT_SCATTER * this.values.godRayStrength;
+        const u = this.opts.postFx;
+        u.uDofFocus.value = this.values.focusDistance;
+        u.uDofMix.value = this.values.dofMix;
+        u.uBloomStrength.value = this.values.bloomStrength;
+        u.uColorSaturation.value = this.values.saturation;
+        u.uColorContrast.value = this.values.contrast;
+        u.uVignetteStrength.value = this.values.vignette;
+        u.uShaftScatterBoost.value = CONFIG_SHAFT_SCATTER * this.values.godRayStrength;
     }
 
     async enter(): Promise<void> {
         if (this.active) return;
+
+        if (document.activeElement instanceof HTMLElement) {
+            this.previousFocusElement = document.activeElement;
+        } else {
+            this.previousFocusElement = null;
+        }
+
         this.active = true;
         this.reducedMotion = prefersReducedMotion();
         (window as Window & { __photoModeActive?: boolean }).__photoModeActive = true;
 
         this.savedTimeOffset = this.opts.timeOffset.value;
         const gameTime = this.opts.getGameTime?.() ?? 0;
-        this.values.cycleTime = (gameTime + this.opts.timeOffset.value) % CYCLE_DURATION;
+        this.values.cycleTime = (gameTime + this.opts.timeOffset.value) % this.opts.cycleDuration;
 
         this.opts.controls.unlock();
 
-        let explore = getExploreCamera();
+        let explore = this.opts.explore.getExploreCamera();
         if (!explore) {
-            explore = initExploreCamera({
+            explore = this.opts.explore.initExploreCamera({
                 camera: this.opts.camera,
                 canvas: this.opts.canvas,
                 controls: this.opts.controls,
@@ -132,7 +160,7 @@ export class PhotoModeManager {
         if (explore) {
             await explore.enter({ fromToggle: true });
         } else {
-            setExploreOrbitFlag(true);
+            this.opts.explore.setExploreOrbitFlag(true);
         }
 
         document.body.classList.add('photo-mode-active');
@@ -152,7 +180,9 @@ export class PhotoModeManager {
         });
         this.overlay.show();
         this.applyPostFx();
-        announcePolite('Photo mode — simulation paused. Use sliders to compose, Enter to capture.');
+        this.opts.announcePolite(
+            'Photo mode — simulation paused. Use sliders to compose, Enter to capture.'
+        );
     }
 
     async exit(): Promise<void> {
@@ -163,19 +193,27 @@ export class PhotoModeManager {
         this.overlay?.dispose();
         this.overlay = null;
 
-        getExploreCamera()?.exitToFirstPerson(true);
-        setExploreOrbitFlag(false);
+        this.opts.explore.getExploreCamera()?.exitToFirstPerson(true);
+        this.opts.explore.setExploreOrbitFlag(false);
 
         document.body.classList.remove('photo-mode-active');
         this.setHudVisible(true);
 
         this.opts.timeOffset.value = this.savedTimeOffset;
-        announcePolite('Photo mode closed');
+        this.opts.announcePolite('Photo mode closed');
+
+        if (this.previousFocusElement && document.body.contains(this.previousFocusElement)) {
+            this.previousFocusElement.focus({ preventScroll: true });
+        } else {
+            const canvas = document.getElementById('glCanvas');
+            if (canvas) canvas.focus({ preventScroll: true });
+        }
+        this.previousFocusElement = null;
     }
 
     update(delta: number): void {
         if (!this.active) return;
-        getExploreCamera()?.update(this.reducedMotion ? 0 : delta);
+        this.opts.explore.getExploreCamera()?.update(this.reducedMotion ? 0 : delta);
         this.syncTimeOfDay(this.opts.getGameTime?.() ?? 0);
         this.applyPostFx();
     }
@@ -201,17 +239,17 @@ export class PhotoModeManager {
                 scale: this.values.captureScale,
                 watermark: this.values.watermark,
                 stamp: {
-                    seed: getWorldSeed(),
+                    seed: this.opts.getWorldSeed(),
                     x: pos.x,
                     y: pos.y,
                     z: pos.z,
                     preset: this.values.activePresetId ?? undefined,
                 },
             });
-            announcePolite('Photo saved');
+            this.opts.announcePolite('Photo saved');
         } catch (err) {
             console.error('[PhotoMode] Capture failed', err);
-            announcePolite('Photo capture failed');
+            this.opts.announcePolite('Photo capture failed');
         }
     }
 

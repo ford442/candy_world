@@ -4,7 +4,12 @@ import * as THREE from 'three';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import { color, uniform, uv, float, smoothstep } from 'three/tsl';
-import { WebGPURenderer, MeshBasicNodeMaterial, StorageInstancedBufferAttribute, StorageBufferAttribute } from 'three/webgpu';
+import {
+    WebGPURenderer,
+    MeshBasicNodeMaterial,
+    StorageInstancedBufferAttribute,
+    StorageBufferAttribute,
+} from 'three/webgpu';
 import { createCrescendoFogNode, uFogNear, uFogFar } from '../foliage/sky.ts';
 import {
     armGpuContext,
@@ -14,12 +19,18 @@ import {
     GPU_POWER_PREFERENCE,
     GPU_REQUIRED_LIMITS,
 } from '../rendering/gpu-context.ts';
-import {
-    resolveRendererBackend,
-    type RendererBackend,
-} from '../rendering/renderer-mode.ts';
+import { resolveRendererBackend, type RendererBackend } from '../rendering/renderer-mode.ts';
 import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
+import {
+    initSunCascades,
+    attachCascadeDebug,
+    getCascadeMapSizes,
+} from '../systems/shadow-cascades.ts';
+import type { ShadowSettings } from './config/postfx.ts';
 import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
+import { initLocalLights } from '../rendering/lights.ts';
+import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-probes.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 
 /**
  * Candy World always uses WebGPURenderer. WebGL2 fallback is the internal
@@ -30,8 +41,7 @@ export type CandyRenderer = WebGPURenderer;
 /**
  * Type guard to check if renderer is in WebGPU mode
  */
-export const isWebGPUMode = (r: CandyRenderer): r is WebGPURenderer =>
-    r instanceof WebGPURenderer;
+export const isWebGPUMode = (r: CandyRenderer): r is WebGPURenderer => r instanceof WebGPURenderer;
 
 /**
  * Configure sun shadow map, tight ortho frustum, and renderer shadow pass.
@@ -40,14 +50,14 @@ export const isWebGPUMode = (r: CandyRenderer): r is WebGPURenderer =>
 function configureSunShadows(
     sunLight: THREE.DirectionalLight,
     renderer: CandyRenderer,
-    scene: THREE.Scene,
-): boolean {
+    scene: THREE.Scene
+): ShadowSettings {
     const settings = resolveShadowSettings();
 
     if (!settings.enabled) {
         sunLight.castShadow = false;
         renderer.shadowMap.enabled = false;
-        return false;
+        return settings;
     }
 
     const cfg = CONFIG.lighting.shadows;
@@ -73,7 +83,7 @@ function configureSunShadows(
 
     // DirectionalLight aims position → target; target must be in the scene graph.
     scene.add(sunLight.target);
-    return true;
+    return settings;
 }
 
 /**
@@ -109,7 +119,8 @@ declare global {
 
 /** True when the renderer is running Three's GLSL node backend (WebGL2). */
 export function isWebGLNodeBackend(renderer: CandyRenderer): boolean {
-    const backend = (renderer as WebGPURenderer & { backend?: { isWebGLBackend?: boolean } }).backend;
+    const backend = (renderer as WebGPURenderer & { backend?: { isWebGLBackend?: boolean } })
+        .backend;
     return backend?.isWebGLBackend === true;
 }
 
@@ -146,7 +157,7 @@ export interface CreateRendererResult {
  */
 export async function createRenderer(
     canvas: HTMLCanvasElement,
-    preference: RendererBackend = resolveRendererBackend(),
+    preference: RendererBackend = resolveRendererBackend()
 ): Promise<CreateRendererResult> {
     if (preference === 'webgl') {
         console.log('[Init] WebGL requested — creating WebGPURenderer (GLSL node backend)');
@@ -166,31 +177,30 @@ export async function createRenderer(
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime
             // (e.g. requestAdapter returns null on Safari 17.4 / Chrome with
-            // disabled GPU). Fall through to the GLSL node backend instead of crashing.
-            console.warn('[Init] WebGPURenderer creation failed — falling back to GLSL node backend:', err);
+            // disabled GPU).
+            console.warn(
+                '[Init] WebGPURenderer creation failed — WebGPU hard-fail boot probe triggered:',
+                err
+            );
+            throw new Error(`WebGPU is required but initialization failed: ${err}`);
         }
     }
 
-    console.warn('[Init] WebGPU unavailable — falling back to WebGPURenderer (GLSL node backend)');
+    console.warn('[Init] WebGPU unavailable — WebGPU hard-fail boot probe triggered.');
     const warning = WebGPU.getErrorMessage();
     if (warning && !document.getElementById('webgpu-warning')) {
         // Only append if not already present (avoid duplicates)
         warning.id = 'webgpu-warning';
-        warning.style.zIndex = '1';  // Behind loading screen
+        warning.style.zIndex = '1'; // Behind loading screen
         document.body.appendChild(warning);
     }
 
-    return {
-        renderer: createNodeRenderer(canvas, true),
-        mode: 'webgl',
-        requested: 'webgpu',
-        fallbackReason: 'webgpu-unavailable',
-    };
+    throw new Error('WebGPU is required but unavailable on this browser/device.');
 }
 
 /**
  * Initialize the Three.js scene with renderer (WebGPU with WebGL fallback), lighting, fog, and visual effects.
- * 
+ *
  * Creates:
  * - WebGPU renderer with automatic WebGL fallback if unavailable
  * - Scene with TSL-driven fog node (WebGPU) and legacy fallback fog (all)
@@ -198,7 +208,7 @@ export async function createRenderer(
  * - Hemisphere ambient light + directional sunlight with shadows
  * - Sun glow, corona, and volumetric light shafts
  * - Resize event handler
- * 
+ *
  * @returns Promise<SceneInitResult> containing all scene objects, lights, materials, uniforms, and mode
  */
 export async function initScene(): Promise<SceneInitResult> {
@@ -212,10 +222,9 @@ export async function initScene(): Promise<SceneInitResult> {
         (window as any).__computeDisabled = true;
     }
 
-    // Adopt the renderer's device as the process-wide GPU context. Deliberately
-    // not awaited: initScene() is synchronous, and every consumer of the shared
-    // device awaits `getGpuContext()` instead. Never rejects.
-    void armGpuContext(renderer, mode, fallbackReason);
+    // Adopt the renderer's device as the process-wide GPU context. Must complete
+    // before setSize so MSAA colorBuffer / swapchain resolve match the canvas.
+    await armGpuContext(renderer, mode, fallbackReason);
 
     const initialFog = getInitialFogDistances();
 
@@ -229,9 +238,9 @@ export async function initScene(): Promise<SceneInitResult> {
     uFogFar.value = initialFog.far;
 
     const camera = new THREE.PerspectiveCamera(
-        60, 
-        window.innerWidth / window.innerHeight, 
-        0.1, 
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
         2000
     );
     camera.position.set(0, CONFIG.player.spawnEyeHeightY, 0);
@@ -253,9 +262,14 @@ export async function initScene(): Promise<SceneInitResult> {
 
         // HDR Configuration (WebGPU backend only — Display P3 is not meaningful on GLSL fallback)
         const onWebGpuBackend = !isWebGLNodeBackend(renderer);
-        const supportsHDR = onWebGpuBackend && window.matchMedia && window.matchMedia('(dynamic-range: high)').matches;
+        const supportsHDR =
+            onWebGpuBackend &&
+            window.matchMedia &&
+            window.matchMedia('(dynamic-range: high)').matches;
         if (supportsHDR) {
-            console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
+            console.log(
+                '[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.'
+            );
             try {
                 webgpuRenderer.outputColorSpace = 'display-p3';
             } catch (e) {
@@ -280,33 +294,49 @@ export async function initScene(): Promise<SceneInitResult> {
     renderer.toneMappingExposure = 1.0;
 
     // --- Lighting ---
-    const ambientLight = new THREE.HemisphereLight(
-        PALETTE.day.skyTop, 
-        CONFIG.colors.ground, 
-        1.1
-    );
+    const ambientLight = new THREE.HemisphereLight(PALETTE.day.skyTop, CONFIG.colors.ground, 1.1);
     scene.add(ambientLight);
 
     const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.9);
     sunLight.position.set(50, 80, 30);
 
-    const shadowsActive = configureSunShadows(sunLight, renderer, scene);
-    if (shadowsActive) {
-        console.log(`[Init] Sun shadows enabled (map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u)`);
-    } else {
-        console.log('[Init] Sun shadows disabled (quality tier / CONFIG)');
-    }
+    const shadowSettings = configureSunShadows(sunLight, renderer, scene);
 
     scene.add(sunLight);
 
+    // CSM parents its per-cascade light proxies to sunLight.parent, so this must
+    // run after the light joins the scene graph. Returns null on the WebGL path
+    // (node graph is WebGPU-only) — we then keep the single follow map.
+    const cascades = shadowSettings.enabled
+        ? initSunCascades(sunLight, renderer, camera, shadowSettings)
+        : null;
+
+    if (cascades) attachCascadeDebug(scene);
+
+    const shadowSummary = !shadowSettings.enabled
+        ? 'disabled (quality tier / CONFIG)'
+        : cascades
+          ? `CSM ${cascades.cascades} cascades, maps ${getCascadeMapSizes().join('/')}, maxFar ${Math.min(CONFIG.lighting.shadows.cascadeMaxFar, camera.far)}u`
+          : `single follow map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u`;
+    console.log(`[Init] Sun shadows ${shadowSummary}`);
+
+    // Local point/spot registry (sun remains the shadow hero). Authored
+    // candy fills mount here so quality tiers and clustered culling share one list.
+    initLocalLights(scene, renderer);
+
+    // Lightweight GI. Must precede world generation: unified materials sample
+    // the probe volume at build time, and a material compiled without the term
+    // can never gain it. No-op on `low` / CI / ?gi=off.
+    if (initIrradianceProbes(scene, getGroundHeight)) attachProbeDebug(scene);
+
     // Enhanced Sun Glow with dynamic corona effect
     const sunGlowMat = new THREE.MeshBasicMaterial({
-        color: 0xFFE599,  // Warmer golden glow
+        color: 0xffe599, // Warmer golden glow
         transparent: true,
         opacity: 0.25,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
-        depthWrite: false
+        depthWrite: false,
     });
     const sunGlow = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), sunGlowMat);
     sunGlow.position.copy(sunLight.position.clone().normalize().multiplyScalar(400));
@@ -315,12 +345,12 @@ export async function initScene(): Promise<SceneInitResult> {
 
     // Add additional corona layer for more dramatic effect
     const coronaMat = new THREE.MeshBasicMaterial({
-        color: 0xFFF4D6,  // Soft cream white
+        color: 0xfff4d6, // Soft cream white
         transparent: true,
         opacity: 0.15,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
-        depthWrite: false
+        depthWrite: false,
     });
     const sunCorona = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), coronaMat);
     sunCorona.position.copy(sunLight.position.clone().normalize().multiplyScalar(390));
@@ -335,15 +365,15 @@ export async function initScene(): Promise<SceneInitResult> {
     // Create light shaft material based on renderer mode
     const uShaftOpacity = window.uShaftOpacity || (window.uShaftOpacity = uniform(0.0));
     let shaftMaterial: THREE.MeshBasicMaterial | MeshBasicNodeMaterial;
-    
+
     if (isWebGPUMode(renderer)) {
         // ⚡ OPTIMIZATION: Use a shared TSL material instead of looping over 12 clones in JS
         shaftMaterial = new MeshBasicNodeMaterial({
-            color: 0xFFE5A0,
+            color: 0xffe5a0,
             transparent: true,
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
-            depthWrite: false
+            depthWrite: false,
         });
 
         // TSL Volumetric God Rays:
@@ -355,7 +385,9 @@ export async function initScene(): Promise<SceneInitResult> {
         const fadeX = leftFade.mul(rightFade);
 
         // Fade vertically to give a sense of scattering/dissipation (invert correctly)
-        const fadeY = float(1.0).sub(smoothstep(0.0, 1.0, uvNode.y)).pow(float(1.5));
+        const fadeY = float(1.0)
+            .sub(smoothstep(0.0, 1.0, uvNode.y))
+            .pow(float(1.5));
 
         // Link combined soft edges to global TSL uniform
         const softOpacity = fadeX.mul(fadeY).mul(uShaftOpacity);
@@ -365,12 +397,12 @@ export async function initScene(): Promise<SceneInitResult> {
         // Note: Opacity is updated dynamically in game-loop.ts based on sunrise/sunset.
         // Default starts at 0.0 (invisible) and matches uShaftOpacity uniform behavior.
         shaftMaterial = new THREE.MeshBasicMaterial({
-            color: 0xFFE5A0,
+            color: 0xffe5a0,
             transparent: true,
-            opacity: 0.0,  // See game-loop.ts for dynamic updates
+            opacity: 0.0, // See game-loop.ts for dynamic updates
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
-            depthWrite: false
+            depthWrite: false,
         });
     }
 
@@ -406,28 +438,28 @@ export async function initScene(): Promise<SceneInitResult> {
         lightShaftGroup,
         sunGlowMat,
         coronaMat,
-        uShaftOpacity
+        uShaftOpacity,
     };
 }
 
 /**
  * Force a full scene warmup render to prevent shader compilation stutter.
- * 
+ *
  * Only applies to WebGPU renderer. WebGL renderer returns immediately without
  * performing warmup, as WebGL is generally more stable during first render.
- * 
+ *
  * Temporarily disables frustum culling, moves camera to capture all objects,
  * renders a 1x1 pixel frame to trigger shader compilation, then restores
  * all original states.
- * 
+ *
  * @param renderer - The renderer instance (WebGPU or WebGL)
  * @param scene - The Three.js scene to warm up
  * @param camera - The camera to use for warmup rendering
  * @returns Promise that resolves when warmup is complete (immediate for WebGL)
  */
 export async function forceFullSceneWarmup(
-    renderer: CandyRenderer, 
-    scene: THREE.Scene, 
+    renderer: CandyRenderer,
+    scene: THREE.Scene,
     camera: THREE.PerspectiveCamera
 ): Promise<void> {
     // Only warmup WebGPU renderer; WebGL is more forgiving
@@ -454,10 +486,13 @@ export async function forceFullSceneWarmup(
         // Their TSL materials can crash the renderer if compiled in a generic context.
         if (isRenderable && obj.visible) {
             const geo = obj.geometry;
-            const hasStorageAttr = geo && Object.values(geo.attributes).some((attr: any) =>
-                attr instanceof StorageInstancedBufferAttribute ||
-                attr instanceof StorageBufferAttribute
-            );
+            const hasStorageAttr =
+                geo &&
+                Object.values(geo.attributes).some(
+                    (attr: any) =>
+                        attr instanceof StorageInstancedBufferAttribute ||
+                        attr instanceof StorageBufferAttribute
+                );
             if (hasStorageAttr) {
                 obj.visible = false;
                 visibleRestoreList.push(obj);
@@ -476,14 +511,14 @@ export async function forceFullSceneWarmup(
 
     try {
         renderer.render(scene, camera);
-    } catch (e) { 
-        console.warn("Warmup error", e); 
+    } catch (e) {
+        console.warn('Warmup error', e);
     }
 
     // 4. Restore
     renderer.setViewport(scissor.x, scissor.y, scissor.z, scissor.w);
-    restoreList.forEach(o => o.frustumCulled = true);
-    visibleRestoreList.forEach(o => {
+    restoreList.forEach((o) => (o.frustumCulled = true));
+    visibleRestoreList.forEach((o) => {
         if (o && typeof o.visible !== 'undefined') {
             o.visible = true;
         }
@@ -494,4 +529,13 @@ export async function forceFullSceneWarmup(
     camera.rotation.copy(originalRot);
     renderer.autoClear = originalAutoClear;
     renderer.clear();
+}
+
+/**
+ * Re-sync the WebGPU drawing buffer and MSAA resolve target to the current window
+ * size. Shader warmup renders into 1×1 offscreen targets; calling this after warmup
+ * prevents CopyTextureToTexture validation errors when resolving to the canvas.
+ */
+export function syncDrawingBufferFromWindow(renderer: CandyRenderer): void {
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }

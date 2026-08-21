@@ -30,6 +30,9 @@ jobs:
             - name: ESLint ratchet (fail-closed gate)
               run: npm run lint
 
+            - name: Verify Map Chunk Index
+              run: npm run verify:chunk-index
+
             - name: ESLint (human-readable report)
               if: always()
               run: npx eslint src 2>&1 | tee eslint-report.txt || true

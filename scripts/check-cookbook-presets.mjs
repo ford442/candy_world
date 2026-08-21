@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const FOLIAGE_DIR = join(ROOT, 'src/foliage');
 const COOKBOOK = join(ROOT, 'docs/CANDY_MATERIAL_COOKBOOK.md');
-const MATERIAL_CORE = join(ROOT, 'src/foliage/material-core.ts');
+const MATERIAL_CORE = join(ROOT, 'src/foliage/material-core/presets.ts');
 
 const PRESET_RE = /CandyPresets\.([A-Z][a-zA-Z0-9]*)/g;
 
@@ -40,7 +40,7 @@ function collectPresetsFromFiles(files) {
 function collectDefinedPresets() {
     const text = readFileSync(MATERIAL_CORE, 'utf8');
     const block = text.match(/export const CandyPresets[\s\S]*?^};/m);
-    if (!block) throw new Error('Could not find CandyPresets block in material-core.ts');
+    if (!block) throw new Error('Could not find CandyPresets block in material-core/presets.ts');
     const defined = new Set();
     const keyRe = /^\s+([A-Z][a-zA-Z0-9]*)\s*:/gm;
     let m;
@@ -61,7 +61,9 @@ function collectDocumentedPresets() {
     // Also accept backtick mentions in the "all seven" list
     const inlineRe = /`([A-Z][a-zA-Z0-9]*)`/g;
     while ((m = inlineRe.exec(text)) !== null) {
-        if (['Clay', 'Sugar', 'Gummy', 'SeaJelly', 'Crystal', 'Velvet', 'OilSlick'].includes(m[1])) {
+        if (
+            ['Clay', 'Sugar', 'Gummy', 'SeaJelly', 'Crystal', 'Velvet', 'OilSlick'].includes(m[1])
+        ) {
             documented.add(m[1]);
         }
     }
@@ -79,22 +81,33 @@ const missingFromCookbook = [...usedInFoliage].filter((p) => !documented.has(p))
 let failed = false;
 
 if (unknownDefined.length > 0) {
-    console.error('[cookbook-presets] Unknown CandyPresets keys in foliage:', unknownDefined.join(', '));
+    console.error(
+        '[cookbook-presets] Unknown CandyPresets keys in foliage:',
+        unknownDefined.join(', ')
+    );
     failed = true;
 }
 
 if (missingFromCookbook.length > 0) {
-    console.error('[cookbook-presets] Used in src/foliage/ but missing from cookbook table:', missingFromCookbook.join(', '));
+    console.error(
+        '[cookbook-presets] Used in src/foliage/ but missing from cookbook table:',
+        missingFromCookbook.join(', ')
+    );
     failed = true;
 }
 
 const unusedDefined = [...defined].filter((p) => !usedInFoliage.has(p) && p !== 'Clay');
 if (unusedDefined.length > 0) {
-    console.warn('[cookbook-presets] Defined but unused in foliage (info):', unusedDefined.join(', '));
+    console.warn(
+        '[cookbook-presets] Defined but unused in foliage (info):',
+        unusedDefined.join(', ')
+    );
 }
 
 if (failed) {
     process.exit(1);
 }
 
-console.log(`[cookbook-presets] OK — ${usedInFoliage.size} presets used in foliage, all documented (${[...usedInFoliage].sort().join(', ')})`);
+console.log(
+    `[cookbook-presets] OK — ${usedInFoliage.size} presets used in foliage, all documented (${[...usedInFoliage].sort().join(', ')})`
+);

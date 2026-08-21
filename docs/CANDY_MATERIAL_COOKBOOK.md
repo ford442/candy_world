@@ -3,16 +3,16 @@
 Recipes for Candy World's glossy, music-reactive surfaces. **Reuse a `CandyPresets.*`
 factory or copy a shipping batcher** before hand-rolling a material.
 
-| Canonical source | Path |
-|------------------|------|
-| Presets & TSL helpers | [`src/foliage/material-core.ts`](../src/foliage/material-core.ts) |
-| Standard deformation chain | [`material-core.ts` → `applyStandardDeformation`](../src/foliage/material-core.ts) (≈ L818) |
-| LOD batcher deformation | [`src/foliage/lod-nodes.ts`](../src/foliage/lod-nodes.ts) → `applyStandardDeformationWithLod` |
-| Biome / music uniforms | [`src/systems/biome-uniforms.ts`](../src/systems/biome-uniforms.ts) |
-| Per-frame binding update | [`src/systems/music-reactivity.ts`](../src/systems/music-reactivity.ts) |
-| Music map overrides | [`docs/MUSIC_MAP_BINDING.md`](./MUSIC_MAP_BINDING.md) |
-| Binding conventions (authoritative) | [`AGENTS.md`](../AGENTS.md) → "Music Reactivity & Biome / Channel-to-Shader Binding Conventions" |
-| Palette & note colors | [`src/core/config.ts`](../src/core/config.ts) (`PALETTE`, `noteColorMap`) |
+| Canonical source                    | Path                                                                                                                         |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Presets & TSL helpers               | [`src/foliage/material-core.ts`](../src/foliage/material-core.ts) barrel → [`material-core/`](../src/foliage/material-core/) |
+| Standard deformation chain          | [`applyStandardDeformation`](../src/foliage/material-core/deformation.ts)                                                    |
+| LOD batcher deformation             | [`src/foliage/lod-nodes.ts`](../src/foliage/lod-nodes.ts) → `applyStandardDeformationWithLod`                                |
+| Biome / music uniforms              | [`src/systems/biome-uniforms.ts`](../src/systems/biome-uniforms.ts)                                                          |
+| Per-frame binding update            | [`src/systems/music-reactivity.ts`](../src/systems/music-reactivity.ts)                                                      |
+| Music map overrides                 | [`docs/MUSIC_MAP_BINDING.md`](./MUSIC_MAP_BINDING.md)                                                                        |
+| Binding conventions (authoritative) | [`AGENTS.md`](../AGENTS.md) → "Music Reactivity & Biome / Channel-to-Shader Binding Conventions"                             |
+| Palette & note colors               | [`src/core/config.ts`](../src/core/config.ts) (`PALETTE`, `noteColorMap`)                                                    |
 
 > **Maintenance model:** This file is a curated index with deep-links — not a second
 > copy of the code. Prefer linking to the source over pasting snippets that will drift.
@@ -42,40 +42,40 @@ import { color, float, mix, attribute, positionLocal } from 'three/tsl';
 
 ## `CandyPresets` — all seven factories
 
-Defined in [`material-core.ts`](../src/foliage/material-core.ts) (≈ L633–711).
+Defined in [`material-core/presets.ts`](../src/foliage/material-core/presets.ts).
 Each takes `(hex, opts?)` → `MeshStandardNodeMaterial`; spread `opts` to override.
 
-| Preset | Feel | Key opts | Used in |
-|--------|------|----------|---------|
-| `Clay` | Matte, tactile ground | roughness 0.8, bump, rim 0.3 | terrain, trunks, stems — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts) |
-| `Sugar` | Frosted crust, micro-bumps | sheen 1.0, noiseScale 60 | snow, rose caps — [`tree-batcher.ts`](../src/foliage/tree-batcher.ts) |
-| `Gummy` | Translucent, inner glow | transmission 0.9, ior 1.4, SSS | fruit, canopies — [`berries.ts`](../src/foliage/berries.ts) |
+| Preset     | Feel                          | Key opts                                       | Used in                                                                                                                  |
+| ---------- | ----------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `Clay`     | Matte, tactile ground         | roughness 0.8, bump, rim 0.3                   | terrain, trunks, stems — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts)                                   |
+| `Sugar`    | Frosted crust, micro-bumps    | sheen 1.0, noiseScale 60                       | snow, rose caps — [`tree-batcher.ts`](../src/foliage/tree-batcher.ts)                                                    |
+| `Gummy`    | Translucent, inner glow       | transmission 0.9, ior 1.4, SSS                 | fruit, canopies — [`berries.ts`](../src/foliage/berries.ts)                                                              |
 | `SeaJelly` | Wet, wobbly, very translucent | transmission 0.95, ior 1.33, `animateMoisture` | water, waterfalls — [`water.ts`](../src/foliage/water.ts), [`waterfall-batcher.ts`](../src/foliage/waterfall-batcher.ts) |
-| `Crystal` | Refractive gem / glass | transmission 1.0, ior 2.0, iridescence | gems, glass mycelium — [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts) |
-| `Velvet` | Soft sheen, no specular | roughness 1.0, colored sheen | petals — [`simple-flower-batcher.ts`](../src/foliage/simple-flower-batcher.ts) |
-| `OilSlick` | Dark base, rainbow edges | metalness 0.8, iridescence 1.0 | rare accents — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts) `mushroomPalette` |
+| `Crystal`  | Refractive gem / glass        | transmission 1.0, ior 2.0, iridescence         | gems, glass mycelium — [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts)                                     |
+| `Velvet`   | Soft sheen, no specular       | roughness 1.0, colored sheen                   | petals — [`simple-flower-batcher.ts`](../src/foliage/simple-flower-batcher.ts)                                           |
+| `OilSlick` | Dark base, rainbow edges      | metalness 0.8, iridescence 1.0                 | rare accents — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts) `mushroomPalette`                           |
 
 ```ts
 import { CandyPresets } from '../foliage/material-core.ts';
 
-const cap    = CandyPresets.Gummy(0xFF69B4);
-const water  = CandyPresets.SeaJelly(0x44AAFF);
-const gem    = CandyPresets.Crystal(0xE0115F, { side: THREE.DoubleSide });
-const ground = CandyPresets.Clay(0xBFA76F);
-const slick  = CandyPresets.OilSlick();
+const cap = CandyPresets.Gummy(0xff69b4);
+const water = CandyPresets.SeaJelly(0x44aaff);
+const gem = CandyPresets.Crystal(0xe0115f, { side: THREE.DoubleSide });
+const ground = CandyPresets.Clay(0xbfa76f);
+const slick = CandyPresets.OilSlick();
 ```
 
 ---
 
 ## Recipe table (music-reactive surfaces)
 
-| Recipe | Preset / approach | Music hook | Live example |
-|--------|-------------------|------------|--------------|
-| Glossy mushroom cap | clearcoat + rim | `getBiomeUniforms('crystalline_nebula').noteColor` | [`mushroom-batcher.ts`](../src/foliage/mushroom-batcher.ts) |
-| Crystal gem corridor | `CandyPresets.Crystal` + rim | `getBiomeUniforms('gem_canopy')` + `gemCanopyNoteColorNode` | [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts) |
-| Glass mycelium | `Crystal` + vein emissive | `LuminousPlantUniforms.intensity` + `uAudioLow` | [`glass-mushroom-batcher.ts`](../src/foliage/glass-mushroom-batcher.ts) |
-| Luminous plant glow | stem TSL + circadian | `luminousPlantsNoteColorNode` (LUT) + `uCircadianPhase` | [`luminous-plant-batcher.ts`](../src/foliage/luminous-plant-batcher.ts) |
-| Twilight emissive (any) | preset emissive × `uTwilight` | circadian gate | most `*-batcher.ts` under `src/foliage/` |
+| Recipe                  | Preset / approach             | Music hook                                                  | Live example                                                            |
+| ----------------------- | ----------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Glossy mushroom cap     | clearcoat + rim               | `getBiomeUniforms('crystalline_nebula').noteColor`          | [`mushroom-batcher.ts`](../src/foliage/mushroom-batcher.ts)             |
+| Crystal gem corridor    | `CandyPresets.Crystal` + rim  | `getBiomeUniforms('gem_canopy')` + `gemCanopyNoteColorNode` | [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts)           |
+| Glass mycelium          | `Crystal` + vein emissive     | `LuminousPlantUniforms.intensity` + `uAudioLow`             | [`glass-mushroom-batcher.ts`](../src/foliage/glass-mushroom-batcher.ts) |
+| Luminous plant glow     | stem TSL + circadian          | `luminousPlantsNoteColorNode` (LUT) + `uCircadianPhase`     | [`luminous-plant-batcher.ts`](../src/foliage/luminous-plant-batcher.ts) |
+| Twilight emissive (any) | preset emissive × `uTwilight` | circadian gate                                              | most `*-batcher.ts` under `src/foliage/`                                |
 
 Full channel→uniform mapping: [`assets/music-bindings.json`](../assets/music-bindings.json)
 and [`MUSIC_MAP_BINDING.md`](./MUSIC_MAP_BINDING.md).
@@ -88,10 +88,15 @@ Import surface — see [`material-core.ts` exports](../src/foliage/material-core
 
 ```ts
 import {
-  CandyPresets, getCachedProceduralMaterial,
-  createJuicyRimLight, createRimLight, createSugarSparkle,
-  applyStandardDeformation,
-  uTime, uAudioLow, uAudioHigh,
+    CandyPresets,
+    getCachedProceduralMaterial,
+    createJuicyRimLight,
+    createRimLight,
+    createSugarSparkle,
+    applyStandardDeformation,
+    uTime,
+    uAudioLow,
+    uAudioHigh,
 } from '../foliage/material-core.ts';
 import { color, float, mix, positionLocal, attribute } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
@@ -100,12 +105,12 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 ### Juicy rim light
 
 `createJuicyRimLight(baseColor, intensity, power, normalNode | null)` — see
-[`material-core.ts`](../src/foliage/material-core.ts) ≈ L171. Reference usage:
+[`material-core/tsl-nodes.ts`](../src/foliage/material-core/tsl-nodes.ts). Reference usage:
 [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts).
 
 ### Vertex deformation — one canonical order
 
-**Source of truth:** [`applyStandardDeformation`](../src/foliage/material-core.ts) composes
+**Source of truth:** [`applyStandardDeformation`](../src/foliage/material-core/deformation.ts) composes
 **wind sway on the base position, then player push** on that sum:
 
 ```ts
@@ -138,20 +143,20 @@ Examples: [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts) (`aPhase
 ### Cache procedural materials
 
 `getCachedProceduralMaterial(key, colorHint, factory)` — one graph per archetype.
-See [`material-core.ts`](../src/foliage/material-core.ts). Inside the factory callback,
+See [`getCachedProceduralMaterial`](../src/foliage/material-core/shared-resources.ts). Inside the factory callback,
 still use `applyStandardDeformation(positionLocal)` for displacement.
 
 ### Twilight / circadian glow
 
-| Uniform | Export | Written by |
-|---------|--------|------------|
-| `uTwilight` | [`src/foliage/sky.ts`](../src/foliage/sky.ts) (`export const uTwilight`) | day/night cycle + music reactivity |
-| `uCircadianPhase` | [`src/systems/biome-uniforms.ts`](../src/systems/biome-uniforms.ts) | 0 = night, 1 = day |
+| Uniform           | Export                                                                   | Written by                         |
+| ----------------- | ------------------------------------------------------------------------ | ---------------------------------- |
+| `uTwilight`       | [`src/foliage/sky.ts`](../src/foliage/sky.ts) (`export const uTwilight`) | day/night cycle + music reactivity |
+| `uCircadianPhase` | [`src/systems/biome-uniforms.ts`](../src/systems/biome-uniforms.ts)      | 0 = night, 1 = day                 |
 
 Verified import (batchers, weather, music-reactivity all use this path):
 
 ```ts
-import { uTwilight } from '../foliage/sky.ts';           // from src/foliage/*
+import { uTwilight } from '../foliage/sky.ts'; // from src/foliage/*
 import { uCircadianPhase } from '../systems/biome-uniforms.ts';
 ```
 
@@ -238,11 +243,11 @@ For vertex displacement in step 4, use `applyStandardDeformationWithLod` (batche
 
 ## Comment tags for tunable values
 
-| Tag | Where | Purpose |
-|-----|-------|---------|
-| `// PALETTE:` / `// 🎨 PALETTE:` | `src/foliage/*` (dominant) | Aesthetic tuning in materials & batchers |
-| `// Visual Impact:` | systems, newer batchers, `config.ts` | Cross-cutting visual constants |
-| `// Music Impact:` | batchers + `music-reactivity.ts` | Channel / uniform tuning |
+| Tag                              | Where                                | Purpose                                  |
+| -------------------------------- | ------------------------------------ | ---------------------------------------- |
+| `// PALETTE:` / `// 🎨 PALETTE:` | `src/foliage/*` (dominant)           | Aesthetic tuning in materials & batchers |
+| `// Visual Impact:`              | systems, newer batchers, `config.ts` | Cross-cutting visual constants           |
+| `// Music Impact:`               | batchers + `music-reactivity.ts`     | Channel / uniform tuning                 |
 
 `grep -rn "PALETTE:" src/foliage/` for foliage examples;
 `grep -rn "Visual Impact:" src/` for systems-level knobs. Convention detail: **AGENTS.md**.
@@ -255,15 +260,15 @@ Canonical scale ranges live in [`CONFIG.world.scaleTable`](../src/core/config.ts
 sampled via [`sampleEntityScale` / `sampleEntityHeight`](../src/world/entity-scale.ts).
 Hand-placed `map.json` entities keep explicit `scale` overrides.
 
-| Archetype | refHeight @ base | Typical range | Notes |
-|-----------|------------------|---------------|-------|
-| Tree (bubble_willow, portamento_pine) | 4.5–5.5 u | 0.9–1.1× | Tallest grounded flora |
-| Mushroom / glass_mushroom | 1.2–1.4 u | 0.85–1.15× | Cap diameter ≈ 1–2 u |
-| Arpeggio fern | 1.5 u | 0.9–1.1× | Musical flora, grove-tuned |
-| Cymbal dandelion | 0.9 u | 0.8–1.0× | Ground-cover scale |
-| Luminous plant | 1.8 u | 0.85–1.15× | Lake-shore biolum |
-| Gem fruit | 0.25 u | 0.85–1.15× | Hanging from canopy trees |
-| Cloud (tier 1 / 2) | 12–35 u float | tier-specific | Uses `size` param |
+| Archetype                             | refHeight @ base | Typical range | Notes                      |
+| ------------------------------------- | ---------------- | ------------- | -------------------------- |
+| Tree (bubble_willow, portamento_pine) | 4.5–5.5 u        | 0.9–1.1×      | Tallest grounded flora     |
+| Mushroom / glass_mushroom             | 1.2–1.4 u        | 0.85–1.15×    | Cap diameter ≈ 1–2 u       |
+| Arpeggio fern                         | 1.5 u            | 0.9–1.1×      | Musical flora, grove-tuned |
+| Cymbal dandelion                      | 0.9 u            | 0.8–1.0×      | Ground-cover scale         |
+| Luminous plant                        | 1.8 u            | 0.85–1.15×    | Lake-shore biolum          |
+| Gem fruit                             | 0.25 u           | 0.85–1.15×    | Hanging from canopy trees  |
+| Cloud (tier 1 / 2)                    | 12–35 u float    | tier-specific | Uses `size` param          |
 
 Variance is clamped to **0.7×–1.5× of `base`** unless a biome override widens it.
 Optional `scaleDistanceBias` shrinks instances ~8% toward biome outer radius.
@@ -275,6 +280,56 @@ Optional `scaleDistanceBias` shrinks instances ~8% toward biome outer radius.
 - **MeshPhysicalNodeMaterial** (via presets): clearcoat + transmission for the candy look.
 - **Clearcoat** high (0.8–1.0), **metalness** ~0 (except `OilSlick`), **roughness** low–mid for gloss.
 - **Transmission** for gummy / jelly / crystal / glass reads.
+
+---
+
+## Sun shadows (Cascaded Shadow Maps)
+
+Candy World wants **soft contact shadows**, not razor silhouettes — shadows that
+ground a mushroom on the terrain without carving hard edges across a glossy
+clearcoat. All knobs live under `CONFIG.lighting.shadows`
+(`src/core/config/defaults.ts`); the tier is chosen by
+`resolveShadowSettings()` from `StartupCapabilities`, never from raw graphics.
+
+| Knob                                | Default            | Visual Impact                                                                                                                                                  |
+| ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cascadesEnabled`                   | `true`             | `false` restores the single player-following ortho map                                                                                                         |
+| `cascadeCount` / `cascadeCountHigh` | `2` / `3`          | Cascades at default / high tier. Clamped 2–4                                                                                                                   |
+| `cascadeMode`                       | `practical`        | Split scheme. `uniform` wastes near texels; `logarithmic` starves the far cascade                                                                              |
+| `cascadeMaxFar`                     | `160`              | How far cascades reach, in world units. Tracks the fog far plane — raising it spreads the same texels thinner                                                  |
+| `cascadeMapSizeTaper`               | `true`             | Halves the map for each farther cascade (2048/1024/512). Near sharpness is unchanged; roughly halves shadow VRAM                                               |
+| `cascadeMapSizeMin`                 | `512`              | Floor for tapered far cascades                                                                                                                                 |
+| `cascadeFade`                       | `true`             | Cross-fades cascade seams. Off = visible resolution step lines                                                                                                 |
+| `cascadeLightMargin`                | `120`              | Pullback along the sun direction. Too low clips tall casters (sky islands) out of their cascade                                                                |
+| `bias` / `normalBias`               | `-0.0005` / `0.02` | **Acne control on glossy `MeshPhysicalMaterial`.** CSM scales `bias` per cascade (×cascade index), so tune the base value here and let the far cascades follow |
+| `pcfRadius`                         | `2`                | PCF softness — the candy "contact shadow" read                                                                                                                 |
+
+Tier mapping: `low` / `forceDisable` / CI → no shadow pass at all; default →
+2 cascades at `mapSize`; high → 3 cascades at `mapSizeHigh`.
+
+Debug with `?debug=1` (or `?csm=debug`) to draw cascade frusta and per-cascade
+ortho boxes. CSM is WebGPU-only — see `docs/webgl-fallback.md`.
+
+---
+
+## Local point / spot lights
+
+The hemisphere + sun pair is the lighting model. Extra **point** and **spot**
+lights are pastel fills registered through `src/rendering/lights.ts` so quality
+tiers, the shadow budget, and a future clustered cull share one list.
+
+| Knob                             | Default               | Visual Impact                                               |
+| -------------------------------- | --------------------- | ----------------------------------------------------------- |
+| `pointColor` / `spotColor`       | `#7fe8ff` / `#ffb3d9` | Candy cyan fill and pink cone — never a harsh white bulb    |
+| `pointDecay` / `spotDecay`       | `2`                   | Inverse-square falloff                                      |
+| `pointDistance` / `spotDistance` | `14` / `16`           | Cutoff in world units                                       |
+| `spotAngle` / `spotPenumbra`     | `π/5` / `0.5`         | Soft mushroom-cap cone                                      |
+| `maxLocalShadowLights`           | `1`                   | Extra maps on top of the sun. `0` = illumination only       |
+| `disableOnLow`                   | `true`                | Skip extra maps on `low` / CI. WebGL stays directional-only |
+
+API: `createPointLight`, `createSpotLight`, `registerDecorativeFill`.
+Generation loops must **not** `new THREE.PointLight`. Flower heads and orbs
+register decorative descriptors only. See `docs/LOCAL_LIGHTS.md`.
 
 ---
 
