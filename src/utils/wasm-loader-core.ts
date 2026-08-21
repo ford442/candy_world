@@ -831,7 +831,7 @@ export async function initWasm(): Promise<boolean> {
         startButton.style.cursor = 'pointer';
 
         // ♿ Aria: Announce that the loading is complete and the button is ready
-        announce('Game ready. Press Enter to start exploration.', 'assertive');
+        console.log('Game ready. Press Enter to start exploration.');
     }
 
     if (!loaded && lastError) {
