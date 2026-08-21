@@ -283,11 +283,11 @@ export class ClusteredLightingSystem {
     }
 
     public dispose() {
-        if (this.lightBuffer) {
-            this.lightBuffer.dispose();
+        if (this.lightBuffer && typeof (this.lightBuffer as any).dispose === 'function') {
+            (this.lightBuffer as any).dispose();
         }
-        if (this.clusterBuffer) {
-            this.clusterBuffer.dispose();
+        if (this.clusterBuffer && typeof (this.clusterBuffer as any).dispose === 'function') {
+            (this.clusterBuffer as any).dispose();
         }
     }
 }
