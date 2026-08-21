@@ -66,6 +66,10 @@ async function main() {
         sceneReadyMs: null,
         playableAfterEnterMs: null,
         playSpawnCount: null,
+        worldSize: null,
+        streaming: null,
+        walkPopEvents: null,
+        walkHitchCount: null,
         phases: {},
         ok: true,
         failures: [],
@@ -114,7 +118,24 @@ async function main() {
         );
 
         report.playSpawnCount = await page.evaluate(() => window.__playSpawnCount ?? null);
+        report.worldSize = await page.evaluate(
+            () => window.__startupCapabilities?.world?.size ?? window.__streamingTelemetry?.worldSize ?? null
+        );
+        report.streaming = await page.evaluate(() => window.__streamingTelemetry ?? null);
         console.log(`  spawn count: ${report.playSpawnCount}`);
+        console.log(`  world size: ${report.worldSize}`);
+        console.log('  streaming:', report.streaming);
+
+        // Walk east across a few 32 m chunks to record pop/hitch telemetry.
+        await page.evaluate(() => {
+            const walk = window.__updateChunkStreamer;
+            if (typeof walk !== 'function') return;
+            for (let x = 16; x <= 96; x += 32) walk(x, -36);
+        });
+        const afterWalk = await page.evaluate(() => window.__streamingTelemetry ?? null);
+        report.walkPopEvents = afterWalk?.popEvents ?? null;
+        report.walkHitchCount = afterWalk?.hitchCount ?? null;
+        console.log(`  after walk: popEvents=${report.walkPopEvents} hitchCount=${report.walkHitchCount}`);
 
         report.phases = await page.evaluate(() => {
             const names = [

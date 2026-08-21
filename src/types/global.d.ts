@@ -51,6 +51,27 @@ declare global {
             postfx: { quality: string };
             deferred: { aurora: boolean; fluidFog: boolean };
             shadows: { enabled: boolean; resolution: string };
+            world?: {
+                size: number;
+                halfExtent: number;
+                heightmapResolution: number;
+                grassCapacity: number;
+                luminousPlantCount: number;
+                fogFarCap: number;
+            };
+        };
+        __updateChunkStreamer?: (x: number, z: number) => void;
+        __streamingTelemetry?: {
+            spawnedCount: number;
+            spawnReadyCount: number;
+            worldSize: number;
+            loadRingChunks: number;
+            evictRingChunks: number;
+            lastStreamSpawnMs: number;
+            maxStreamSpawnMs: number;
+            hitchCount: number;
+            popEvents: number;
+            terrainExpanded: boolean;
         };
 
         // Renderer breadcrumbs (Playwright / agents)

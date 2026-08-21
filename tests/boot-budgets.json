@@ -3,7 +3,8 @@
     "playableAfterEnterMs": 20000,
     "playableAfterEnterMsStrict": 8000,
     "sceneReadyMs": 15000,
-    "maxPlaySpawnCount": 80,
+    "maxPlaySpawnCount": 96,
+    "playWorldSize": 180,
     "phases": {
         "Core Scene Setup": 8000,
         "Shader Warmup": 12000,

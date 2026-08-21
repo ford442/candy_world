@@ -4,7 +4,9 @@
  */
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
+import { loadStartupProfile } from '../core/startup-profile.ts';
 import { uFogNear, uFogFar } from '../foliage/sky.ts';
+import { worldExtentForPath } from '../world/world-extent.ts';
 
 export interface FogDistanceTargets {
     near: number;
@@ -77,6 +79,12 @@ export function computeAtmosphereFogTargets(
 
     near = THREE.MathUtils.clamp(near, cfg.minNear, cfg.maxNear);
     far = THREE.MathUtils.clamp(far, cfg.minFar, cfg.maxFar);
+
+    const cap = worldExtentForPath(loadStartupProfile().path).fogFarCap;
+    if (Number.isFinite(cap) && cap > 0) {
+        far = Math.min(far, cap);
+        if (far <= near + 20) near = Math.max(8, far - 40);
+    }
 
     // Foreground clarity — no milky haze at the player's feet
     near = Math.min(near, cfg.maxForegroundNear, far * 0.22);

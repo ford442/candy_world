@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
-import { getLoadMemoryTier } from '../core/config.ts';
+import { CONFIG, FEATURE_FLAGS, getLoadMemoryTier } from '../core/config.ts';
 import {
     createSky,
     createStars,
@@ -9,14 +8,12 @@ import {
     initFallingBerries,
     initGrassSystem,
     createIsland,
-    createTerrainMaterial,
     luminousPlantBatcher,
 } from '../foliage/index.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { createIntegratedFireflies } from '../particles/index.ts';
-import { getParticles } from '../particles/lazy.ts';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
 import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
 import { updateProgress } from '../ui/loading-screen.ts';
@@ -42,7 +39,12 @@ import {
     SUGAR_CAVES,
     SKY_ISLANDS,
 } from './generation-utils.ts';
-import { generateGroundHeightmap } from './ground-heightmap.ts';
+import { getStartupCapabilities } from '../core/startup/capabilities.ts';
+import {
+    initDecoratorStreamer,
+    resetDecoratorStreamer,
+} from './decorator-streamer.ts';
+import { createPathTerrain } from './terrain-mesh.ts';
 import type { LoadedCandyMap } from './map-loader.ts';
 import {
     clearMapMusicContext,
@@ -53,6 +55,7 @@ import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { animatedFoliage, worldGroup } from './state.ts';
 import { setMapMetadataSeed } from './world-seed.ts';
+import { PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
 
@@ -119,10 +122,9 @@ function wireBiomeRegions(loadedMap: LoadedCandyMap): void {
     const procedural = buildProceduralBiomeRegions();
     setBiomeRegions([...mapRegions, ...procedural]);
 }
-const PLAY_SPAWN_RADIUS_CHUNKS = 1;
-const PLAY_SPAWN_ENTITY_CAP = 80;
+const PLAY_SPAWN_ENTITY_CAP = 96;
 
-function applyMapPreallocationHints(loadedMap: LoadedCandyMap): void {
+function applyMapPreallocationHints(loadedMap: LoadedCandyMap, bootPath: BootPath): void {
     const expected = loadedMap.getExpectedInstanceCounts();
     const explicitTreeHint = expected.tree;
     const derivedTreeHint =
@@ -133,7 +135,11 @@ function applyMapPreallocationHints(loadedMap: LoadedCandyMap): void {
         (expected.fiber_optic_willow ?? 0) +
         (expected.portamento_pine ?? 0) +
         (expected.prism_rose_bush ?? 0);
-    const treeHint = Math.max(explicitTreeHint ?? 0, derivedTreeHint);
+    let treeHint = Math.max(explicitTreeHint ?? 0, derivedTreeHint);
+    // Play only materializes the spawn ring up front — don't GPU-alloc the full map.
+    if (bootPath === 'play') {
+        treeHint = Math.min(treeHint, 96);
+    }
     if (treeHint > 0) {
         treeBatcher.setInitialCapacity(treeHint);
     }
@@ -196,75 +202,9 @@ export async function initWorld(
     moon.position.set(-50, 60, -30); // High up
     scene.add(moon);
 
-    // Ground - SHRUNK from 2000 to 400 for tighter feel
-    let groundGeo: THREE.PlaneGeometry;
-    let groundMat: THREE.Material;
-
-    // Parse URL parameter for quick toggle
-    const urlParams = new URLSearchParams(window.location.search);
-    const forceGpuTerrain = urlParams.has('gpuTerrain');
-
-    // Yield before the heavy terrain generation so the loading screen can paint.
+    // Visual terrain sized to the boot path (Play ~180, Explore ~400, CORE ~120).
     await yieldControl();
-
-    if (CONFIG.terrain?.useGpuHeightmap || forceGpuTerrain) {
-        console.log('[World] Using GPU Heightmap Displacement');
-
-        const resolution = CONFIG.terrain?.heightmapResolution || 256;
-        groundGeo = new THREE.PlaneGeometry(400, 400, resolution, resolution);
-
-        // generateGroundHeightmap is now async and yields internally every 32 rows
-        const startParams = performance.now();
-        const { heightTexture, normalTexture } = await generateGroundHeightmap(400, resolution);
-        console.log(
-            `[World] Generated heightmap in ${(performance.now() - startParams).toFixed(2)}ms`
-        );
-
-        groundMat = createTerrainMaterial(
-            CONFIG.colors.ground,
-            {
-                roughness: 0.9,
-                bumpStrength: 0.15,
-                noiseScale: 20.0,
-            },
-            heightTexture,
-            normalTexture
-        );
-    } else {
-        console.log('[World] Using CPU Vertex Displacement');
-
-        groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
-        const posAttribute = groundGeo.attributes.position;
-        const vertexCount = posAttribute.count;
-        const cpuYieldEvery = 2000; // yield every ~2k vertices to stay responsive
-
-        for (let i = 0; i < vertexCount; i++) {
-            const x = posAttribute.getX(i);
-            const y = posAttribute.getY(i); // Plane is on XY
-            const zWorld = -y;
-
-            // Use the Unified Height that accounts for the Lake
-            const height = sampleGroundY(x, zWorld);
-            posAttribute.setZ(i, height);
-
-            if (i % cpuYieldEvery === cpuYieldEvery - 1) {
-                await yieldControl();
-            }
-        }
-
-        groundGeo.computeVertexNormals();
-
-        // Replaced MeshPhysicalMaterial with Audio-Reactive TSL Material
-        groundMat = createTerrainMaterial(CONFIG.colors.ground, {
-            roughness: 0.9,
-            bumpStrength: 0.15,
-            noiseScale: 20.0,
-        });
-    }
-
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
+    const ground = await createPathTerrain();
     scene.add(ground);
 
     // 2. Update fog colour for compact world.
@@ -280,7 +220,7 @@ export async function initWorld(
     // Initialize Vegetation Systems (yield first so browser can breathe)
     await yieldControl();
     if (FEATURE_FLAGS.grass) {
-        initGrassSystem(scene, 10000);
+        initGrassSystem(scene, getStartupCapabilities().world.grassCapacity);
     }
 
     // Use CPU fallback for fireflies during startup. GPU compute init is async but can hang
@@ -307,7 +247,7 @@ export async function initWorld(
 
     // Add Luminous Plants around Lake Island (yield every 30 plants to stay responsive)
     if (FEATURE_FLAGS.luminousPlants) {
-        const luminousCount = CONFIG.luminousPlants.density;
+        const luminousCount = getStartupCapabilities().world.luminousPlantCount;
         await yieldControl();
         for (let i = 0; i < luminousCount; i++) {
             const angle = Math.random() * Math.PI * 2;
@@ -363,6 +303,7 @@ export async function generateMap(
     const generationToken = worldGenerationToken;
     resetSpawnTracker();
     setActiveChunkStreamer(null);
+    resetDecoratorStreamer();
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
     // Kick the chunk-index fetch off in parallel with the map fetch (both are
@@ -372,7 +313,7 @@ export async function generateMap(
         bootPath === 'play' ? import('./map-loader.ts').then((m) => m.loadMapChunkIndex()) : null;
     const loadedMap = await getLoadedMap();
     wireBiomeRegions(loadedMap);
-    applyMapPreallocationHints(loadedMap);
+    applyMapPreallocationHints(loadedMap, bootPath);
     console.log(
         `[World] Loading map (${loadedMap.source}) with ${loadedMap.entities.length} entities... (bootPath=${bootPath})`
     );
@@ -465,7 +406,10 @@ async function generateMapPlayPath(
 
     if (onProgress) onProgress(spawned, spawned, '[World] Spawn chunk ready');
 
-    queueDecoratorBootstrap(weatherSystem, generationToken, chunkSize);
+    initDecoratorStreamer(weatherSystem, generationToken, chunkSize, {
+        extrasRange: PLAY_WORLD_SIZE,
+        eagerAll: false,
+    });
 }
 
 /**
@@ -598,11 +542,12 @@ async function generateMapExplorePath(
         onProgress(phase1Total, phase1Total, '[World] Visible bubble ready');
     }
 
-    // 3. Queue Procedural Extras (lazy world-content chunk — #1361).
-    // Deferred to the background processor rather than awaited here — this is
-    // what previously blocked generateMap() (and therefore "playable") on the
-    // full decorator population. See queueDecoratorBootstrap().
-    queueDecoratorBootstrap(weatherSystem, generationToken, chunkSize);
+    // 3. Stream procedural setpieces (lazy world-content — #1361).
+    // Deferred so generateMap() resolves after phase 1.
+    initDecoratorStreamer(weatherSystem, generationToken, chunkSize, {
+        extrasRange: 300,
+        eagerAll: true,
+    });
 
     // Keep a lightweight final fallback for any entities excluded from the streaming query.
     let fallbackQueued = 0;
@@ -634,58 +579,6 @@ async function generateMapExplorePath(
             `[World] Fallback queued ${fallbackQueued} entities not covered by streaming rings.`
         );
     }
-}
-
-/**
- * Defers the procedural decorator population (extras, gem canopy, mycelium
- * grove, cloud archipelago, sky islands, sugar caves) to the background
- * processor instead of awaiting it inline. This is the piece that previously
- * kept generateMap() — and therefore "playable" — blocked well past phase 1/2
- * on both boot paths.
- */
-function queueDecoratorBootstrap(
-    weatherSystem: WeatherSystem,
-    generationToken: number,
-    chunkSize: number
-): void {
-    globalBackgroundProcessor.enqueue({
-        id: 'world_decorators_bootstrap',
-        priority: 5,
-        execute: async () => {
-            const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
-            if (
-                generationToken !== -1 &&
-                generationToken !== currentToken &&
-                !(window as any).__IS_FULL_BOOT_TEST
-            ) {
-                console.warn(
-                    `[Generation] Decorator bootstrap obsoleted (token ${generationToken} !== ${currentToken})`
-                );
-                return;
-            }
-            console.time('[World] procedural-extras (deferred)');
-            try {
-                const {
-                    populateProceduralExtras,
-                    populateGemCanopyCorridor,
-                    populateMyceliumGrove,
-                    populateCloudArchipelago,
-                    populateSkyIslands,
-                    populateSugarCaves,
-                } = await import('./generation-decorators.ts');
-                await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
-                await populateGemCanopyCorridor(weatherSystem);
-                await populateMyceliumGrove(weatherSystem);
-                await populateCloudArchipelago(weatherSystem);
-                await populateSkyIslands(weatherSystem);
-                await populateSugarCaves(weatherSystem);
-                const { installSugarCavesTraversal } = await import('./sugar-caves-traversal.ts');
-                installSugarCavesTraversal();
-            } finally {
-                console.timeEnd('[World] procedural-extras (deferred)');
-            }
-        },
-    });
 }
 
 export async function generateCoreWorld(
