@@ -830,6 +830,8 @@ export async function initWasm(): Promise<boolean> {
         startButton.textContent = 'Start Exploration 🚀';
         startButton.style.cursor = 'pointer';
 
+        // ♿ Aria: Announce that the loading is complete and the button is ready
+        console.log('Game ready. Press Enter to start exploration.');
         // ♿ Aria: Announce that the loading is complete and the button is ready.
         // Dynamic import keeps the announcer chunk off the WASM boot path.
         void import('../ui/announcer.ts').then(({ announce }) => {

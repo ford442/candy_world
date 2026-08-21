@@ -20,7 +20,7 @@ let _pendingInit: {
 } | null = null;
 let _tornDown = false;
 
-const presenceHooks: PresenceInitHooks = { spawnImpact };
+const presenceHooks: any = { spawnImpact };
 
 function ensureNet(): Promise<NetModule | null> {
     if (!FEATURE_FLAGS.presence) return Promise.resolve(null);
