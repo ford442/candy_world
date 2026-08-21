@@ -48,9 +48,9 @@ export function placePlayerAtConfiguredSpawn(camera: THREE.Camera): number {
     const { x, z } = getConfiguredSpawnXZ();
     if (isUnsafeSpawnXZ(x, z)) {
         console.warn(
-            `[Spawn] Configured spawn (${x}, ${z}) is inside Melody Lake — using shore fallback (0, -36)`
+            `[Spawn] Configured spawn (${x}, ${z}) is inside Melody Lake — using shore fallback (8, -36)`
         );
-        return placePlayerOnGround(camera, 0, -36);
+        return placePlayerOnGround(camera, 8, -36);
     }
     return placePlayerOnGround(camera, x, z);
 }
