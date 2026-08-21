@@ -13,13 +13,13 @@ import { foliageGroup } from '../world/state.ts';
 const _scratchLODMatrix = new THREE.Matrix4();
 import {
     CandyPresets,
-    calculateWindSway,
     applyPlayerInteraction,
     uTime,
     uAudioLow,
     uAudioHigh,
     uWindSpeed
 } from './index.ts';
+import { applyStandardDeformationWithLod } from './lod-nodes.ts';
 
 // --- Configuration ---
 
@@ -188,7 +188,7 @@ function createLOD1Material(geometryType: string, baseMaterial: THREE.Material):
                 roughness: 0.8,
                 bumpStrength: 0.1, // Reduced bump for LOD1
                 rimStrength: 0.2,
-                deformationNode: calculateWindSway(positionLocal), // Wind only, no interaction
+                deformationNode: applyStandardDeformationWithLod(positionLocal), // Wind only, no interaction
                 triplanar: true
             });
         }
@@ -196,7 +196,7 @@ function createLOD1Material(geometryType: string, baseMaterial: THREE.Material):
         case 'sphere':
         case 'leaf': {
             // Simple wind sway without flutter or squash
-            const sphereDeform = calculateWindSway(positionLocal);
+            const sphereDeform = applyStandardDeformationWithLod(positionLocal);
             return CandyPresets.Gummy(0x228B22, {
                 colorNode: instanceColor,
                 roughness: 0.4,
@@ -210,7 +210,7 @@ function createLOD1Material(geometryType: string, baseMaterial: THREE.Material):
 
         case 'capsule':
         case 'branch': {
-            const capsuleDeform = calculateWindSway(positionLocal);
+            const capsuleDeform = applyStandardDeformationWithLod(positionLocal);
             return CandyPresets.Clay(0x8B4513, {
                 colorNode: instanceColor,
                 roughness: 0.7,
@@ -224,7 +224,7 @@ function createLOD1Material(geometryType: string, baseMaterial: THREE.Material):
             const angle = t.mul(float(Math.PI * 6.0));
             const radius = t.mul(0.3);
             const spiralPos = vec3(cos(angle).mul(radius), t, sin(angle).mul(radius));
-            const helixDeform = calculateWindSway(spiralPos);
+            const helixDeform = applyStandardDeformationWithLod(spiralPos);
 
             return CandyPresets.Gummy(0x00FA9A, {
                 colorNode: instanceColor,
@@ -238,7 +238,7 @@ function createLOD1Material(geometryType: string, baseMaterial: THREE.Material):
 
         case 'rose':
         case 'torusKnot': {
-            const roseDeform = calculateWindSway(positionLocal);
+            const roseDeform = applyStandardDeformationWithLod(positionLocal);
             return CandyPresets.Sugar(0xFF69B4, {
                 colorNode: instanceColor,
                 roughness: 0.4,
