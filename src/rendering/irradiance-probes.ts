@@ -747,7 +747,8 @@ function updateProbeDebug(): void {
             _volume.origin.z + z * cell
         );
         _scratchMatrix.makeTranslation(_scratchProbePos.x, _scratchProbePos.y, _scratchProbePos.z);
-        _debugMesh.setMatrixAt(index, _scratchMatrix);
+        // ⚡ OPTIMIZATION: Bypassed setMatrixAt overhead by writing directly to instanceMatrix.array
+        _scratchMatrix.toArray(_debugMesh.instanceMatrix.array as Float32Array, index * 16);
 
         const o = index * 4;
         // Normalised back out of the encoding, then scaled so a dim probe is
