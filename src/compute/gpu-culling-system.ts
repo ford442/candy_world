@@ -19,9 +19,9 @@
  * ```
  */
 
+import { GPUChoresLibrary } from './chores/gpu-chores.js';
 import { GPUComputeLibrary } from './gpu-compute-library.js';
 import { FRUSTUM_CULL_WGSL, LOD_SELECT_WGSL } from './gpu-compute-shaders.js';
-import { GPUChoresLibrary } from './chores/gpu-chores.js';
 
 // =============================================================================
 // TYPES
