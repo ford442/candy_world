@@ -341,7 +341,7 @@ export abstract class AudioSystemCore {
                     console.warn('[AudioSystem] Rewrote import specifiers in worklet to absolute URLs to avoid blob-relative resolution issues.');
                 }
             } catch (_err) {
-                console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text', err);
+                console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text', _err);
             }
 
             const blobUrl = URL.createObjectURL(new Blob([rewritten], { type: 'application/javascript' }));
@@ -409,7 +409,7 @@ export abstract class AudioSystemCore {
                     ),
                 ]);
             } catch (_err) {
-                console.warn('[AudioSystem] WASM failed, starting in Silent Mode:', err);
+                console.warn('[AudioSystem] WASM failed, starting in Silent Mode:', _err);
                 window.libopenmpt = undefined;
                 this.isReady = true;
                 return;

@@ -15,7 +15,7 @@ import type { GenerativeEngine } from './generative/generative-engine.ts';
 import { resolveMusicMode, type MusicSourceMode } from './generative/music-mode.ts';
 
 export class AudioSystem extends AudioSystemCore {
-    private _scratchChannelData?: Float32Array[] | Float64Array[] | number[][];
+    private _scratchChannelData?: Array<{ volume: number; note: string; instrument: number; activeEffect: number; effectValue: number }>;
     generativeEngine: GenerativeEngine | null = null;
     musicSourceMode: MusicSourceMode;
     private _generativeAttached = false;
@@ -473,7 +473,7 @@ export class AudioSystem extends AudioSystemCore {
             // Start playback (worklet will decode/play once module loaded, or ScriptProcessor is already ready)
             await this.play();
         } catch (_e) {
-            console.error('Error loading file:', e);
+            console.error('Error loading file:', _e);
             this.playNext();
         }
     }
@@ -522,7 +522,7 @@ export class AudioSystem extends AudioSystemCore {
             this.preCachePatternData(modPtr);
             this.play();
         } catch (_e) {
-            console.error('Failed to load module:', e);
+            console.error('Failed to load module:', _e);
             this.playNext(); // Skip broken files
         }
     }
@@ -562,7 +562,7 @@ export class AudioSystem extends AudioSystemCore {
                 this.patternMatrices[o] = { rows: matrixRows, numRows, numChannels };
             }
         } catch (_e) {
-            console.error('Pattern caching error:', e);
+            console.error('Pattern caching error:', _e);
         }
     }
 
@@ -582,7 +582,7 @@ export class AudioSystem extends AudioSystemCore {
                 try {
                     await this.init();
                 } catch (_e) {
-                    console.warn('ScriptProcessor init failed in play()', e);
+                    console.warn('ScriptProcessor init failed in play()', _e);
                 }
             }
         } else {
@@ -590,7 +590,7 @@ export class AudioSystem extends AudioSystemCore {
                 try {
                     await this.init();
                 } catch (_e) {
-                    console.warn('Worklet init failed in play()', e);
+                    console.warn('Worklet init failed in play()', _e);
                 }
             }
         }
@@ -614,7 +614,7 @@ export class AudioSystem extends AudioSystemCore {
             if (this.workletNode && this.workletNode.port)
                 this.workletNode.port.postMessage({ type: 'STOP' });
         } catch (_e) {
-            console.warn('Failed to signal STOP to worklet', e);
+            console.warn('Failed to signal STOP to worklet', _e);
         }
 
         // Disconnect audio graph parts
@@ -640,7 +640,7 @@ export class AudioSystem extends AudioSystemCore {
             }
             this._generativeAttached = false;
         } catch (_e) {
-            console.warn('Error disconnecting audio nodes:', e);
+            console.warn('Error disconnecting audio nodes:', _e);
         }
 
         // Clean up module and buffers for ScriptProcessorNode mode
@@ -684,7 +684,7 @@ export class AudioSystem extends AudioSystemCore {
     }
 
     handleVisualUpdate(data: unknown): void {
-        const { bpm, channelData, anyTrigger, order, row } = data as { bpm: number; channelData: number[][]; anyTrigger: boolean; order: number; row: number }; // Ensure Worklet sends order/row!
+        const { bpm, channelData, anyTrigger, order, row } = data as { bpm: number; channelData: any[]; anyTrigger: boolean; order: number; row: number }; // Ensure Worklet sends order/row!
         this.visualState.bpm = bpm || 120;
 
         // Update Pattern Index (using order as proxy for global pattern progress)
