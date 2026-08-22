@@ -1,17 +1,17 @@
 // src/foliage/cave.ts
 
 import * as THREE from 'three';
-import { color, float, mix, positionLocal, normalWorld, smoothstep, abs } from 'three/tsl';
+import { abs, color, float, mix, normalWorld, positionLocal, smoothstep } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { tryAttachAuthoredCaveFill } from '../rendering/lights.ts';
 import {
-    uAudioLow,
-    createJuicyRimLight,
     applyStandardDeformation,
-    triplanarNoise,
+    createJuicyRimLight,
     perturbNormal,
+    triplanarNoise,
+    uAudioLow,
 } from './index.ts';
 import { uTwilight } from './sky.ts';
-import { tryAttachAuthoredCaveFill } from '../rendering/lights.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
 
 const _scratchMatrix = new THREE.Matrix4();
