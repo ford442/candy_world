@@ -48,7 +48,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 **User idea pool — GitHub issues filed 2026-08-14 by `ford442` (Noah's OWN words — FRESHEST + strongest signal this run; PRIMARY source). Coherent WebGPU device-discipline theme. Not previously transcribed here.**
 
 - [x] **#1598 WebGPU required: hard-fail boot probe (Chrome/Edge) — no WebGL / webglLite fallback** `[landed — 2026-08-18]` — probe through `gpu-context.ts` only; `window.webgpuProbe` JSON; blocking boot error on failure; disable auto WebGL/`?webglLite` rescue this phase; keep WASM/JS _compute_ fallbacks.
-- [ ] **#1597 gpu-chores: consume shared hist/reduce/compact — keep particle/foliage sim local** — Tier-B cross-app rollout: adopt shared `reduce_f32` / `prefix_sum`/compact on the _existing_ renderer device (no second `GPUDevice`); wire compact into GPU culling/LOD index build; keep domain sim (particles/foliage pose) app-local; document Tier 4a vs 4b. Natural sequel to #1598 once the probe is the single device gate. Medium–multi-day; next pick after #1598.
+
 
 **User idea pool — `cursor[bot]` "Feature Completeness" milestone filed 2026-08-13 (epic #1590 + #1568–#1589). Bot-authored, NOT Noah's own words — treat as a menu of well-scoped one-session tickets, secondary to the #1597/#1598 Noah pool.** Visual foundation (CSM #1568, soft shadows #1569, lights #1570, clustered cull #1571, GI #1572, post-FX AO/SSR #1573, materials SSS/env #1574), interactive systems (rigid bodies #1575, joints #1576, character controller #1577, soft-body #1578, skeletal clips #1579, GPU particle API #1580, candy debris #1581, wind unify #1582), polish (HUD kit #1583, ECS behaviors #1584, entity snapshots #1585, fauna framework #1586, perf budgets #1587), docs (compute playbook #1588, aesthetic guardrails #1589). Docs #1588/#1589 + budgets #1587 unblock the look/compute discipline and can land immediately.
 
@@ -204,6 +204,9 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+
+- [x] **#1597 gpu-chores: consume shared hist/reduce/compact — keep particle/foliage sim local** — Tier-B cross-app rollout: adopt shared `reduce_f32` / `prefix_sum`/compact on the _existing_ renderer device (no second `GPUDevice`); wire compact into GPU culling/LOD index build; keep domain sim (particles/foliage pose) app-local; document Tier 4a vs 4b. Natural sequel to #1598 once the probe is the single device gate. Medium–multi-day; next pick after #1598. **Status: Implemented ✅**
+    - Implementation Details: Wired shared `reduce_f32` / `prefix_sum` / compact on the existing renderer device in GPUCullingSystem.
 
 - [x] **2026-08-21** ✅ Vite production build: pin `@swc/core` / `@swc/wasm` to 1.15.x so `vite-plugin-top-level-await@1.6.0` does not hit SWC 1.16 `printSync` (`missing field type`; Menci#79). `package.json` pnpm/npm overrides.
 - [x] **2026-08-18** ✅ #1598 WebGPU required: hard-fail boot probe (Chrome/Edge) — **LANDED.** Enforced WebGPU device discipline by requiring the WebGPU context at boot. Implemented a hard-fail probe in `src/rendering/gpu-context.ts` that triggers `loadingScreen.showFatalError` on failure rather than silently degrading to the WebGL rendering path. Populated `window.webgpuProbe` with diagnostic information (browser, adapter, failure reason) for visibility. Disabled `?webglLite` / URL boot rescue during this phase while maintaining CPU/WASM compute fallbacks. **Next step suggestion: #1597 gpu-chores: consume shared hist/reduce/compact.**

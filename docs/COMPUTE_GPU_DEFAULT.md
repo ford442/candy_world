@@ -43,3 +43,8 @@ GPU foliage scalar shaders mirror `assembly/foliage.ts` `computeSway` / `compute
 - `src/compute/foliage-gpu-batch.ts` — pipelined WASM replacement for simple batches
 - `src/core/game-loop.ts` — `tickComputeOrchestrator()` each frame
 - `src/core/deferred-init.ts` — `ensureGpuComputeReady()` at boot
+
+## GPU Chores (Tier 4a vs 4b)
+
+*   **Tier 4a (Shared Core Primitives)**: Operations that are broadly reusable across many systems (e.g., `prefix_sum`, `reduce_f32`, `compact`). These live in `GPUChoresLibrary` and are executed on the shared renderer device, minimizing context switching and maximizing buffer reuse across the frame.
+*   **Tier 4b (Domain-Specific Sim)**: Highly specialized physics or simulation logic (e.g., foliage pose updates, particle kinematics). These remain tightly scoped to their respective modules (e.g., `PlantPoseMachine`, `ComputeParticles`) rather than polluting the shared chores library, while still running on the primary GPU device.

@@ -19,9 +19,9 @@
  * ```
  */
 
+import { GPUChoresLibrary } from './chores/gpu-chores.js';
 import { GPUComputeLibrary } from './gpu-compute-library.js';
 import { FRUSTUM_CULL_WGSL, LOD_SELECT_WGSL } from './gpu-compute-shaders.js';
-import { GPUChoresLibrary } from './chores/gpu-chores.js';
 
 // =============================================================================
 // TYPES
@@ -469,6 +469,11 @@ export class GPUCullingSystem {
         lodPass.setBindGroup(0, this.lodBindGroup!);
         lodPass.dispatchWorkgroups(Math.ceil(this.sphereCount / 256));
         lodPass.end();
+
+        if (this.choresLib && this.scanBg && this.addBg && this.compactBg) {
+            this.choresLib.encodePrefixSum(commandEncoder, this.scanBg, this.addBg, this.sphereCount);
+            this.choresLib.encodeCompact(commandEncoder, this.compactBg, this.sphereCount);
+        }
 
         device.queue.submit([commandEncoder.finish()]);
 
