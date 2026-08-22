@@ -470,6 +470,11 @@ export class GPUCullingSystem {
         lodPass.dispatchWorkgroups(Math.ceil(this.sphereCount / 256));
         lodPass.end();
 
+        if (this.choresLib && this.scanBg && this.addBg && this.compactBg) {
+            this.choresLib.encodePrefixSum(commandEncoder, this.scanBg, this.addBg, this.sphereCount);
+            this.choresLib.encodeCompact(commandEncoder, this.compactBg, this.sphereCount);
+        }
+
         device.queue.submit([commandEncoder.finish()]);
 
         // Clean up temporary buffer
