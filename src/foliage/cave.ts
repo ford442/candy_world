@@ -6,7 +6,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     uAudioLow,
     createJuicyRimLight,
-    applyPlayerInteraction,
+    applyStandardDeformation,
     triplanarNoise,
     perturbNormal,
 } from './index.ts';
@@ -73,7 +73,7 @@ function getSharedCrystalMat() {
             float(3.0),
             normalWorld
         );
-        _sharedCrystalMat.positionNode = applyPlayerInteraction(positionLocal);
+        _sharedCrystalMat.positionNode = applyStandardDeformation(positionLocal);
 
         // Combine Colors
         _sharedCrystalMat.colorNode = crystalBaseColor.add(crystalRim);
@@ -117,7 +117,7 @@ function getSharedRockMat() {
 
         // 3. Rim Light (Edge Definition)
         const rim = createJuicyRimLight(color(0x444455), float(0.5), float(2.0), normalWorld);
-        _sharedRockMat.positionNode = applyPlayerInteraction(positionLocal);
+        _sharedRockMat.positionNode = applyStandardDeformation(positionLocal);
 
         // Combine Colors
         _sharedRockMat.colorNode = baseColor.add(rim);
