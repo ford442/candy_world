@@ -316,7 +316,7 @@ export abstract class AudioSystemCore {
                     if (!spec.startsWith('.') && !spec.startsWith('/')) return spec;
                     try {
                         return new URL(spec, workletUrl).href;
-                    } catch (err) {
+                    } catch (_err) {
                         return spec;
                     }
                 };
@@ -340,8 +340,8 @@ export abstract class AudioSystemCore {
                 if (rewritten !== text) {
                     console.warn('[AudioSystem] Rewrote import specifiers in worklet to absolute URLs to avoid blob-relative resolution issues.');
                 }
-            } catch (err) {
-                console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text', err);
+            } catch (_err) {
+                console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text', _err);
             }
 
             const blobUrl = URL.createObjectURL(new Blob([rewritten], { type: 'application/javascript' }));
@@ -408,8 +408,8 @@ export abstract class AudioSystemCore {
                         setTimeout(() => reject(new Error('libopenmpt init timeout')), 5000)
                     ),
                 ]);
-            } catch (err) {
-                console.warn('[AudioSystem] WASM failed, starting in Silent Mode:', err);
+            } catch (_err) {
+                console.warn('[AudioSystem] WASM failed, starting in Silent Mode:', _err);
                 window.libopenmpt = undefined;
                 this.isReady = true;
                 return;
@@ -459,7 +459,7 @@ export abstract class AudioSystemCore {
     }
 
     // Abstract methods to be implemented by child class
-    abstract handleVisualUpdate(data: any): void;
+    abstract handleVisualUpdate(data: unknown): void;
     abstract playNext(forceIndex?: number | null): Promise<void>;
     abstract processAudioScriptProcessor(event: AudioProcessingEvent): void;
 }
