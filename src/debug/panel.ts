@@ -1,8 +1,8 @@
 // src/debug/panel.ts
 // Debug UI panel for toggling initialization stages
 
-import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
 import { setIrradianceEnabled } from '../rendering/irradiance-probes.ts';
+import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
 import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import {
