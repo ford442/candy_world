@@ -91,11 +91,13 @@ export function initSunCascades(
     try {
         // Cascade ortho extents are derived from the camera frustum, so the shadow
         // camera's own near/far are irrelevant here — but mapSize and bias are
-        // cloned per cascade by init(), so they must be set first.
+        // cloned per cascade by init(), so they must be set first. filterNode is
+        // *not* cloned by LightShadow.copy() — applyShadowSoftness() binds it
+        // after this returns.
         sunLight.shadow.mapSize.set(settings.mapSize, settings.mapSize);
         sunLight.shadow.bias = cfg.bias;
         sunLight.shadow.normalBias = cfg.normalBias;
-        sunLight.shadow.radius = cfg.pcfRadius;
+        sunLight.shadow.radius = settings.radius;
 
         const node = new CSMShadowNode(sunLight, {
             cascades,

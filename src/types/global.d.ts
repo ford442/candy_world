@@ -157,6 +157,15 @@ declare global {
             webgl: boolean;
             allowedShadows: boolean;
         };
+        __shadowSoftness?: {
+            softness: number;
+            radius: number;
+            kernel: number;
+            pcssEnabled: boolean;
+            pcssLightSize: number;
+            tapsPerCascade: number;
+            cascades: number;
+        };
     }
 
     // Loading Screen instance interface
