@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import { createTerrainMaterial } from '../foliage/index.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { yieldControl } from './generation-utils.ts';
 import { generateGroundHeightmap } from './ground-heightmap.ts';
 import { sampleGroundY } from './placement-utils.ts';
@@ -120,8 +121,10 @@ export function maybeExpandTerrain(playerX: number, playerZ: number, scene: THRE
             const next = await buildTerrainMesh(explore.size, explore.heightmapResolution);
             next.position.copy(activeGround!.position);
             scene.add(next);
-            scene.remove(activeGround!);
-            disposeTerrainMesh(activeGround!);
+
+            // ⚡ OPTIMIZATION: Replaced manual scene.remove with safeRemoveAndDispose to prevent VRAM leaks.
+            safeRemoveAndDispose(scene, activeGround!);
+
             activeGround = next;
             activeTerrainSize = explore.size;
             expandedToExplore = true;
@@ -133,16 +136,6 @@ export function maybeExpandTerrain(playerX: number, playerZ: number, scene: THRE
             expandInFlight = false;
         }
     })();
-}
-
-function disposeTerrainMesh(mesh: THREE.Mesh): void {
-    mesh.geometry?.dispose();
-    const mat = mesh.material;
-    if (Array.isArray(mat)) {
-        for (const m of mat) m.dispose();
-    } else if (mat) {
-        mat.dispose();
-    }
 }
 
 function publishTerrainFlag(): void {
