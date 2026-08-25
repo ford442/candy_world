@@ -88,7 +88,9 @@ function createCandyPcfFilter(kernel: 3 | 5): FilterFn {
                 .add(depthCompare(uv.add(texelSize.mul(vec2(0.5, 0.5)).mul(radius)), z))
                 .mul(0.25);
 
-            const edgeAmt = float(1).sub(abs(ring.sub(0.5)).mul(2)).clamp(0, 1);
+            const edgeAmt = float(1)
+                .sub(abs(ring.sub(0.5)).mul(2))
+                .clamp(0, 1);
             const contactRadius = mix(float(0.4), radius, edgeAmt);
             const effective = mix(radius, contactRadius, clamp(lightSize, 0, 1));
 
@@ -113,7 +115,11 @@ function filterForKernel(kernel: ShadowKernel): FilterFn {
     return CandyPcf3Filter;
 }
 
-function bindShadow(shadow: SoftLightShadow, settings: ShadowSettings, radiusOverride?: number): void {
+function bindShadow(
+    shadow: SoftLightShadow,
+    settings: ShadowSettings,
+    radiusOverride?: number
+): void {
     shadow.filterNode = filterForKernel(settings.kernel);
     shadow.radius = radiusOverride ?? settings.radius;
     shadow.pcssLightSize = settings.pcssLightSize;

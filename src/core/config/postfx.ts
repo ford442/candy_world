@@ -160,9 +160,7 @@ export function resolveShadowSettings(): ShadowSettings {
 
     const softnessFlag = _getFlag('shadowSoft');
     const softnessParsed = softnessFlag !== null ? Number.parseFloat(softnessFlag) : Number.NaN;
-    const softness = clampSoftness(
-        Number.isFinite(softnessParsed) ? softnessParsed : cfg.softness
-    );
+    const softness = clampSoftness(Number.isFinite(softnessParsed) ? softnessParsed : cfg.softness);
 
     const pcssFlag = _getFlag('pcss');
     const pcssForcedOn = pcssFlag === '1' || pcssFlag === 'on' || pcssFlag === '';

@@ -12,14 +12,14 @@ should consume this registry rather than walking the scene graph.
 
 Call `initLocalLights(scene, renderer)` once from scene init (already wired).
 
-| Function                       | GPU light? | Use                                                    |
-| ------------------------------ | ---------- | ------------------------------------------------------ |
-| `createPointLight(opts)`       | yes        | Authored / weather fills. Reuses a fixed pool.         |
+| Function                       | GPU light? | Use                                                                     |
+| ------------------------------ | ---------- | ----------------------------------------------------------------------- |
+| `createPointLight(opts)`       | yes        | Authored / weather fills. Reuses a fixed pool.                          |
 | `createSpotLight(opts)`        | yes        | Cone + optional `map` cookie. Optional `castShadow` / `shadowSoftness`. |
-| `registerDecorativeFill(opts)` | **no**     | Flower heads, orbs, generation loops. Descriptor only. |
-| `releaseLocalLight(id)`        | —          | Returns the pool slot. No per-frame alloc.             |
-| `forEachLocalLight(fn)`        | —          | Snapshot walk for clustered culling.                   |
-| `localShadowsAllowed()`        | —          | False on `low`, CI, WebGL.                             |
+| `registerDecorativeFill(opts)` | **no**     | Flower heads, orbs, generation loops. Descriptor only.                  |
+| `releaseLocalLight(id)`        | —          | Returns the pool slot. No per-frame alloc.                              |
+| `forEachLocalLight(fn)`        | —          | Snapshot walk for clustered culling.                                    |
+| `localShadowsAllowed()`        | —          | False on `low`, CI, WebGL.                                              |
 
 Ids are stable. Creating the same `id` twice returns the existing handle.
 

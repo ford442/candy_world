@@ -9,12 +9,12 @@ shader recode.
 Three r171's WebGPU/node shadow path picks a filter from
 `renderer.shadowMap.type`:
 
-| Type | Filter | `shadow.radius` |
-| ---- | ------ | ---------------- |
-| `BasicShadowMap` (0) | 1-tap compare | ignored |
-| `PCFShadowMap` (1) | 17-tap PCF | **read** |
-| `PCFSoftShadowMap` (2) | bilinear 3×3, **1 texel** | **ignored** |
-| `VSMShadowMap` (3) | variance | used as blur |
+| Type                   | Filter                    | `shadow.radius` |
+| ---------------------- | ------------------------- | --------------- |
+| `BasicShadowMap` (0)   | 1-tap compare             | ignored         |
+| `PCFShadowMap` (1)     | 17-tap PCF                | **read**        |
+| `PCFSoftShadowMap` (2) | bilinear 3×3, **1 texel** | **ignored**     |
+| `VSMShadowMap` (3)     | variance                  | used as blur    |
 
 We used to request `PCFSoftShadowMap` and set `pcfRadius: 2`. On the node path
 that filter never samples `radius`, so contacts stayed hard. The candy filter
@@ -29,13 +29,13 @@ does not get a `filterNode`.
 All under `CONFIG.lighting.shadows` (`src/core/config/defaults.ts`), resolved
 by `resolveShadowSettings()`:
 
-| Knob | Default | Live? |
-| ---- | ------- | ----- |
-| `softness` | `0.6` | **Yes** — writes `shadow.radius` |
-| `pcfRadius` | `4` | radius at softness `1` |
-| `pcssEnabled` | `false` | **Yes** — writes `pcssLightSize` (0 = off) |
-| `pcssLightSize` | `0.4` | with the toggle |
-| `bias` / `normalBias` | `-0.0005` / `0.02` | boot (acne) |
+| Knob                  | Default            | Live?                                      |
+| --------------------- | ------------------ | ------------------------------------------ |
+| `softness`            | `0.6`              | **Yes** — writes `shadow.radius`           |
+| `pcfRadius`           | `4`                | radius at softness `1`                     |
+| `pcssEnabled`         | `false`            | **Yes** — writes `pcssLightSize` (0 = off) |
+| `pcssLightSize`       | `0.4`              | with the toggle                            |
+| `bias` / `normalBias` | `-0.0005` / `0.02` | boot (acne)                                |
 
 `setShadowSoftness(0..1)` / `setShadowPcssEnabled(bool)` are the runtime API.
 The `?debug=1` panel exposes a slider. URL: `?shadowSoft=0.8`, `?pcss=1`.
@@ -44,11 +44,11 @@ Per-light optional override: `createPointLight({ castShadow: true, shadowSoftnes
 
 ## Quality tiers
 
-| Shadow resolution | Kernel | Notes |
-| ----------------- | ------ | ----- |
-| `off` (`low` graphics / CI) | — | no shadow pass, no filter cost |
-| `low` (default / medium) | 3×3 PCF | 13 compares / fragment / cascade |
-| `high` | 5×5 PCF | 29 compares / fragment / cascade; PCSS allowed |
+| Shadow resolution           | Kernel  | Notes                                          |
+| --------------------------- | ------- | ---------------------------------------------- |
+| `off` (`low` graphics / CI) | —       | no shadow pass, no filter cost                 |
+| `low` (default / medium)    | 3×3 PCF | 13 compares / fragment / cascade               |
+| `high`                      | 5×5 PCF | 29 compares / fragment / cascade; PCSS allowed |
 
 Kernel size is **boot-time** (unrolled TSL). Softness is **not**.
 
@@ -73,11 +73,11 @@ past ~0.8 and speckles return, raise `normalBias` toward `0.03` before touching
 
 ## Cost
 
-| Path | Taps / fragment / map | Default session (2 cascades) | High (3 cascades) |
-| ---- | --------------------- | ---------------------------- | ----------------- |
-| Old `PCFSoft` (1-texel 3×3) | 9 | 18 | 27 |
-| Default candy 3×3 + ring | 13 | 26 | — |
-| High 5×5 + ring | 29 | — | 87 |
+| Path                        | Taps / fragment / map | Default session (2 cascades) | High (3 cascades) |
+| --------------------------- | --------------------- | ---------------------------- | ----------------- |
+| Old `PCFSoft` (1-texel 3×3) | 9                     | 18                           | 27                |
+| Default candy 3×3 + ring    | 13                    | 26                           | —                 |
+| High 5×5 + ring             | 29                    | —                            | 87                |
 
 CI / headless / `low` graphics skip the shadow pass entirely, so smoke boot
 does not pay the high kernel. The 5×5 path is gated to the high shadow tier.

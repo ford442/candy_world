@@ -177,4 +177,3 @@ function restore() {
 }
 
 console.log('shadow-cascades: all assertions passed');
-
