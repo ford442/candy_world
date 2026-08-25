@@ -202,10 +202,12 @@ fetches in the unified material — is exercised by the boot smoke test.
 | Bake runs in the real game loop                                          | `window.__candyGI` reaches `baked: 500 / 500` with the authored crystal fill and mushroom spot picked up as donors |
 | Bake cost                                                                | Benchmarked at the shipping config — see [Frame budget](#frame-budget)                                             |
 
-Not yet measured: the visual magnitude of the bounce at a named staging
-viewpoint. That needs the visual-regression harness
-(`tools/visual-regression/viewpoints.json`) against a production build; the
-`sugar_caves` night viewpoint is the obvious one to add.
+Not yet measured: pixel-level GI on/off diffs in CI (the cloud VM does not
+rasterize 3D). Staging pose is `sugar_caves` in
+`tools/visual-regression/viewpoints.json` (night, floor Y≈-12). Run locally with
+`?boot=explore&gi=on` vs `?gi=off`. Aesthetic guardrails issue #1589 has not
+landed; the candy-first rules live in this file and
+`docs/CANDY_MATERIAL_COOKBOOK.md` → Lightweight GI.
 
 ## Related
 
