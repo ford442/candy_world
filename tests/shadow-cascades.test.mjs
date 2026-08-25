@@ -7,7 +7,14 @@
  */
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/core/config/defaults.ts';
-import { clampCascadeCount, resolveShadowSettings } from '../src/core/config/postfx.ts';
+import {
+    clampCascadeCount,
+    clampSoftness,
+    resolveShadowSettings,
+    shadowFilterTapCount,
+    shadowKernelForResolution,
+    softnessToRadius,
+} from '../src/core/config/postfx.ts';
 import { cascadeMapSizes } from '../src/systems/shadow-cascades.ts';
 import {
     applyStartupCapabilities,
@@ -130,4 +137,44 @@ function restore() {
     restore();
 }
 
+// Softness maps onto a live texel radius without requiring a kernel recode
+{
+    assert.equal(clampSoftness(-1), 0);
+    assert.equal(clampSoftness(2), 1);
+    assert.equal(clampSoftness(Number.NaN), 0);
+    assert.equal(softnessToRadius(0, 4), 0.25, 'hard contact stays sub-texel');
+    assert.equal(softnessToRadius(1, 4), 4, 'max hits pcfRadius');
+    assert.equal(softnessToRadius(0.6, 4), 0.25 + 3.75 * 0.6);
+    assert.equal(shadowKernelForResolution('off'), 1);
+    assert.equal(shadowKernelForResolution('low'), 3);
+    assert.equal(shadowKernelForResolution('high'), 5);
+    assert.equal(shadowFilterTapCount(1), 1);
+    assert.equal(shadowFilterTapCount(3), 13, '3×3 PCF + 4-tap contact ring');
+    assert.equal(shadowFilterTapCount(5), 29, '5×5 PCF + 4-tap contact ring');
+}
+
+// Default shadow tier uses 3×3 PCF; PCSS stays off even if CONFIG asks
+{
+    shadowCfg.pcssEnabled = true;
+    withCaps({ enabled: true, resolution: 'low' });
+    const s = resolveShadowSettings();
+    assert.equal(s.kernel, 3);
+    assert.equal(s.pcssEnabled, false, 'PCSS is high-tier only');
+    assert.equal(s.pcssLightSize, 0);
+    assert.ok(s.radius > 1, 'default softness is wider than the old 1-texel PCFSoft');
+    restore();
+}
+
+// High tier: 5×5 kernel; PCSS only when CONFIG (or ?pcss) enables it
+{
+    shadowCfg.pcssEnabled = true;
+    withCaps({ enabled: true, resolution: 'high' });
+    const s = resolveShadowSettings();
+    assert.equal(s.kernel, 5);
+    assert.equal(s.pcssEnabled, true);
+    assert.equal(s.pcssLightSize, shadowCfg.pcssLightSize);
+    restore();
+}
+
 console.log('shadow-cascades: all assertions passed');
+

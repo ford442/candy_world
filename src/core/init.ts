@@ -26,6 +26,7 @@ import {
     attachCascadeDebug,
     getCascadeMapSizes,
 } from '../systems/shadow-cascades.ts';
+import { applyShadowSoftness } from '../rendering/shadow-softness.ts';
 import type { ShadowSettings } from './config/postfx.ts';
 import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
 import { initLocalLights } from '../rendering/lights.ts';
@@ -64,13 +65,16 @@ function configureSunShadows(
     const renderRadius = cfg.followRadius + cfg.snapHeadroom;
 
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // PCFSoftShadowMap's node filter ignores `shadow.radius` (fixed 1-texel 3×3).
+    // PCFShadowMap honors radius; we still attach a quality-gated TSL kernel via
+    // `shadow.filterNode` in applyShadowSoftness() after CSM clones exist.
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(settings.mapSize, settings.mapSize);
     sunLight.shadow.bias = cfg.bias;
     sunLight.shadow.normalBias = cfg.normalBias;
-    sunLight.shadow.radius = cfg.pcfRadius;
+    sunLight.shadow.radius = settings.radius;
 
     const cam = sunLight.shadow.camera as THREE.OrthographicCamera;
     cam.left = -renderRadius;
@@ -312,12 +316,13 @@ export async function initScene(): Promise<SceneInitResult> {
         : null;
 
     if (cascades) attachCascadeDebug(scene);
+    applyShadowSoftness(sunLight, shadowSettings, cascades);
 
     const shadowSummary = !shadowSettings.enabled
         ? 'disabled (quality tier / CONFIG)'
         : cascades
-          ? `CSM ${cascades.cascades} cascades, maps ${getCascadeMapSizes().join('/')}, maxFar ${Math.min(CONFIG.lighting.shadows.cascadeMaxFar, camera.far)}u`
-          : `single follow map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u`;
+          ? `CSM ${cascades.cascades} cascades, maps ${getCascadeMapSizes().join('/')}, maxFar ${Math.min(CONFIG.lighting.shadows.cascadeMaxFar, camera.far)}u, ${shadowSettings.kernel}×${shadowSettings.kernel} PCF softness ${shadowSettings.softness.toFixed(2)}`
+          : `single follow map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u, ${shadowSettings.kernel}×${shadowSettings.kernel} PCF softness ${shadowSettings.softness.toFixed(2)}`;
     console.log(`[Init] Sun shadows ${shadowSummary}`);
 
     // Local point/spot registry (sun remains the shadow hero). Authored

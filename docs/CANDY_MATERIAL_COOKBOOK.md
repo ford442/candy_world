@@ -49,9 +49,9 @@ Each takes `(hex, opts?)` → `MeshStandardNodeMaterial`; spread `opts` to overr
 | ---------- | ----------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `Clay`     | Matte, tactile ground         | roughness 0.8, bump, rim 0.3                   | terrain, trunks, stems — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts)                                   |
 | `Sugar`    | Frosted crust, micro-bumps    | sheen 1.0, noiseScale 60                       | snow, rose caps — [`tree-batcher.ts`](../src/foliage/tree-batcher.ts)                                                    |
-| `Gummy`    | Translucent, inner glow       | transmission 0.9, ior 1.4, SSS                 | fruit, canopies — [`berries.ts`](../src/foliage/berries.ts)                                                              |
+| `Gummy`    | Translucent, inner glow       | transmission 0.9, ior 1.4, SSS. Pair with `lighting.shadows.bias` / `normalBias` so contacts don't acne. | fruit, canopies — [`berries.ts`](../src/foliage/berries.ts)                                                              |
 | `SeaJelly` | Wet, wobbly, very translucent | transmission 0.95, ior 1.33, `animateMoisture` | water, waterfalls — [`water.ts`](../src/foliage/water.ts), [`waterfall-batcher.ts`](../src/foliage/waterfall-batcher.ts) |
-| `Crystal`  | Refractive gem / glass        | transmission 1.0, ior 2.0, iridescence         | gems, glass mycelium — [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts)                                     |
+| `Crystal`  | Refractive gem / glass        | transmission 1.0, ior 2.0, iridescence. Same shadow-bias pairing as Gummy. | gems, glass mycelium — [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts)                                     |
 | `Velvet`   | Soft sheen, no specular       | roughness 1.0, colored sheen                   | petals — [`simple-flower-batcher.ts`](../src/foliage/simple-flower-batcher.ts)                                           |
 | `OilSlick` | Dark base, rainbow edges      | metalness 0.8, iridescence 1.0                 | rare accents — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts) `mushroomPalette`                           |
 
@@ -301,14 +301,18 @@ clearcoat. All knobs live under `CONFIG.lighting.shadows`
 | `cascadeMapSizeMin`                 | `512`              | Floor for tapered far cascades                                                                                                                                 |
 | `cascadeFade`                       | `true`             | Cross-fades cascade seams. Off = visible resolution step lines                                                                                                 |
 | `cascadeLightMargin`                | `120`              | Pullback along the sun direction. Too low clips tall casters (sky islands) out of their cascade                                                                |
-| `bias` / `normalBias`               | `-0.0005` / `0.02` | **Acne control on glossy `MeshPhysicalMaterial`.** CSM scales `bias` per cascade (×cascade index), so tune the base value here and let the far cascades follow |
-| `pcfRadius`                         | `2`                | PCF softness — the candy "contact shadow" read                                                                                                                 |
+| `bias` / `normalBias`               | `-0.0005` / `0.02` | **Acne control on glossy `MeshPhysicalMaterial`.** Pair with `CandyPresets.Gummy` / `Crystal` (transmission + low roughness). CSM scales `bias` per cascade (× cascade index). If softness > ~0.8 speckles, raise `normalBias` toward `0.03` first |
+| `softness`                          | `0.6`              | Visual Impact: 0–1 candy contact. Live via `setShadowSoftness` / `?debug=1` slider / `?shadowSoft=` — **does not recode** the TSL graph                                                                                                          |
+| `pcfRadius`                         | `4`                | Texel radius at `softness = 1`. r171 `PCFSoftShadowMap` ignored this; we attach a 3×3 / 5×5 `shadow.filterNode` that actually reads `shadow.radius`                                                                                            |
+| `pcssEnabled` / `pcssLightSize`     | `false` / `0.4`    | Cheap edge-aware contact (high tier). Not production blocker-search PCSS. `?pcss=1`                                                                                                                                                           |
 
-Tier mapping: `low` / `forceDisable` / CI → no shadow pass at all; default →
-2 cascades at `mapSize`; high → 3 cascades at `mapSizeHigh`.
+Tier mapping: `low` graphics / `forceDisable` / CI → no shadow pass at all;
+default (`shadows.resolution = low`) → **3×3 PCF** (13 compares / cascade);
+high → **5×5** (29 compares / cascade) and optional PCSS. See
+[`docs/SHADOW_SOFTNESS.md`](./SHADOW_SOFTNESS.md).
 
-Debug with `?debug=1` (or `?csm=debug`) to draw cascade frusta and per-cascade
-ortho boxes. CSM is WebGPU-only — see `docs/webgl-fallback.md`.
+Debug with `?debug=1` (softness slider + cascade overlay) or `?csm=debug` for
+frusta only. CSM is WebGPU-only — see `docs/webgl-fallback.md`.
 
 ---
 

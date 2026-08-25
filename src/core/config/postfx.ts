@@ -45,6 +45,9 @@ export function isDofManual(): boolean {
     return _hasFlag('dof') || CONFIG.postfx.dofEnabled;
 }
 
+/** TSL PCF kernel width. 1 = hard compare; 3 = default; 5 = high-tier. */
+export type ShadowKernel = 1 | 3 | 5;
+
 export interface ShadowSettings {
     enabled: boolean;
     mapSize: number;
@@ -53,6 +56,60 @@ export interface ShadowSettings {
      * Always 0 when `enabled` is false.
      */
     cascades: number;
+    /** PCF kernel. Boot-time — changing it recodes the shadow filter. */
+    kernel: ShadowKernel;
+    /** Artist softness 0–1. Live via `shadow.radius`. */
+    softness: number;
+    /** Texel radius derived from softness × `pcfRadius`. */
+    radius: number;
+    /** Cheap PCSS-style contact term. High tier only. */
+    pcssEnabled: boolean;
+    /** 0–1 light size mixed into the contact term. 0 disables it without recoding. */
+    pcssLightSize: number;
+}
+
+const SHADOW_OFF: ShadowSettings = {
+    enabled: false,
+    mapSize: 0,
+    cascades: 0,
+    kernel: 1,
+    softness: 0,
+    radius: 0,
+    pcssEnabled: false,
+    pcssLightSize: 0,
+};
+
+/** Clamp artist softness into 0–1. */
+export function clampSoftness(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(1, value));
+}
+
+/**
+ * Map 0–1 softness onto a texel radius. 0 stays just under a texel (hard contact);
+ * 1 hits `pcfRadius`.
+ */
+export function softnessToRadius(softness: number, pcfRadius: number): number {
+    const s = clampSoftness(softness);
+    const maxR = Number.isFinite(pcfRadius) && pcfRadius > 0 ? pcfRadius : 4;
+    const minR = 0.25;
+    return minR + (maxR - minR) * s;
+}
+
+/** Kernel for a shadow-resolution tier. `low` graphics already turns shadows off. */
+export function shadowKernelForResolution(resolution: ShadowResolution): ShadowKernel {
+    if (resolution === 'high') return 5;
+    if (resolution === 'low') return 3;
+    return 1;
+}
+
+/**
+ * Hardware compare taps per fragment per cascade. The 3×3 / 5×5 kernels always
+ * include a 4-tap edge ring so `pcssLightSize` can be live-toggled.
+ */
+export function shadowFilterTapCount(kernel: ShadowKernel): number {
+    if (kernel <= 1) return 1;
+    return kernel * kernel + 4;
 }
 
 /** Clamp a configured cascade count into the supported 2–4 range. */
@@ -71,12 +128,12 @@ export function clampCascadeCount(count: number): number {
 export function resolveShadowSettings(): ShadowSettings {
     const cfg = CONFIG.lighting.shadows;
     if (!cfg.enabled || cfg.forceDisable || isCIorHeadless()) {
-        return { enabled: false, mapSize: 0, cascades: 0 };
+        return { ...SHADOW_OFF };
     }
 
     // ?postfx=off remains a hard debug escape for shadows too.
     if (_getFlag('postfx') === 'off') {
-        return { enabled: false, mapSize: 0, cascades: 0 };
+        return { ...SHADOW_OFF };
     }
 
     let resolution: ShadowResolution;
@@ -90,10 +147,10 @@ export function resolveShadowSettings(): ShadowSettings {
     }
 
     if (resolution === 'off') {
-        return { enabled: false, mapSize: 0, cascades: 0 };
+        return { ...SHADOW_OFF };
     }
     if (resolution === 'low' && cfg.disableOnLowPostfx) {
-        return { enabled: false, mapSize: 0, cascades: 0 };
+        return { ...SHADOW_OFF };
     }
 
     const mapSize = resolution === 'high' ? cfg.mapSizeHigh : cfg.mapSize;
@@ -101,7 +158,28 @@ export function resolveShadowSettings(): ShadowSettings {
         ? clampCascadeCount(resolution === 'high' ? cfg.cascadeCountHigh : cfg.cascadeCount)
         : 0;
 
-    return { enabled: true, mapSize, cascades };
+    const softnessFlag = _getFlag('shadowSoft');
+    const softnessParsed = softnessFlag !== null ? Number.parseFloat(softnessFlag) : Number.NaN;
+    const softness = clampSoftness(
+        Number.isFinite(softnessParsed) ? softnessParsed : cfg.softness
+    );
+
+    const pcssFlag = _getFlag('pcss');
+    const pcssForcedOn = pcssFlag === '1' || pcssFlag === 'on' || pcssFlag === '';
+    const pcssForcedOff = pcssFlag === '0' || pcssFlag === 'off';
+    const pcssEnabled =
+        resolution === 'high' && !pcssForcedOff && (cfg.pcssEnabled || pcssForcedOn);
+
+    return {
+        enabled: true,
+        mapSize,
+        cascades,
+        kernel: shadowKernelForResolution(resolution),
+        softness,
+        radius: softnessToRadius(softness, cfg.pcfRadius),
+        pcssEnabled,
+        pcssLightSize: pcssEnabled ? clampSoftness(cfg.pcssLightSize) : 0,
+    };
 }
 
 // ---------------------------------------------------------------------------

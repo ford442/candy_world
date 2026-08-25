@@ -129,11 +129,35 @@ export interface ConfigType {
             sunDistance: number;
             cameraNear: number;
             cameraFar: number;
-            /** Depth bias — reduces acne on glossy MeshPhysicalMaterial. */
+            /**
+             * Depth bias — pairs with `normalBias` to hold acne down on glossy
+             * `CandyPresets.Gummy` / `Crystal` (transmission + low roughness + clearcoat).
+             * Raise `normalBias` slightly if `softness` is pushed past ~0.8.
+             */
             bias: number;
             normalBias: number;
-            /** PCF soft shadow filter radius. */
+            /**
+             * Visual Impact: max PCF radius in shadow-map texels at `softness = 1`.
+             * Live softness scales between a hard 0.25 texel and this cap.
+             */
             pcfRadius: number;
+            /**
+             * Visual Impact: 0–1 artist softness. 0 reads as a hard contact; default
+             * is a buttery candy edge. Mutating this (or `setShadowSoftness`) updates
+             * `shadow.radius` without rebuilding the TSL graph.
+             */
+            softness: number;
+            /**
+             * Basic PCSS-style contact term (edge-aware radius). Default off — extra
+             * taps are already in the kernel, but the term is a no-op while light-size
+             * is 0. High shadow tier only; ignored on `low`.
+             */
+            pcssEnabled: boolean;
+            /**
+             * Visual Impact: area-light size 0–1 mixed into the contact term when
+             * `pcssEnabled` is on. Larger = wider penumbra on the shadow edge only.
+             */
+            pcssLightSize: number;
 
             // --- Cascaded Shadow Maps (WebGPU only; WebGL keeps the single follow map) ---
             /** Master switch for CSM. False → the legacy single player-following ortho map. */
