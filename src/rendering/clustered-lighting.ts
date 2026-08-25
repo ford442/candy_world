@@ -284,43 +284,44 @@ export class ClusteredLightingSystem {
 
         const totalIllum = vec3(0.0).toVar();
 
-        Loop({ start: uint(0), end: lightCount, type: 'uint', condition: '<' }, ({
-            i,
-        }: {
-            i: ReturnType<typeof uint>;
-        }) => {
-            const lightIdx = sClusterData.element(clusterOffset.add(1).add(i));
-            const v0 = sLightData.element(lightIdx.mul(3));
-            const v1 = sLightData.element(lightIdx.mul(3).add(1));
-            const v2 = sLightData.element(lightIdx.mul(3).add(2));
+        Loop(
+            { start: uint(0), end: lightCount, type: 'uint', condition: '<' },
+            ({ i }: { i: ReturnType<typeof uint> }) => {
+                const lightIdx = sClusterData.element(clusterOffset.add(1).add(i));
+                const v0 = sLightData.element(lightIdx.mul(3));
+                const v1 = sLightData.element(lightIdx.mul(3).add(1));
+                const v2 = sLightData.element(lightIdx.mul(3).add(2));
 
-            const lPos = v0.xyz;
-            const lDist = v0.w;
-            const lColor = v1.xyz;
-            const lIntensity = v1.w;
-            const spotDir = v2.xyz;
-            const coneCos = v2.w;
+                const lPos = v0.xyz;
+                const lDist = v0.w;
+                const lColor = v1.xyz;
+                const lIntensity = v1.w;
+                const spotDir = v2.xyz;
+                const coneCos = v2.w;
 
-            const lightVector = lPos.sub(worldPos as never);
-            const dist = lightVector.length();
-            const lightDir = lightVector.div(dist);
+                const lightVector = lPos.sub(worldPos as never);
+                const dist = lightVector.length();
+                const lightDir = lightVector.div(dist);
 
-            // Windowed inverse-square — candy fill, not a hard bulb.
-            const attenuation = clamp(float(1.0).sub(pow(dist.div(lDist), 4.0)), 0.0, 1.0)
-                .pow(2.0)
-                .div(dist.mul(dist).add(1.0));
+                // Windowed inverse-square — candy fill, not a hard bulb.
+                const attenuation = clamp(float(1.0).sub(pow(dist.div(lDist), 4.0)), 0.0, 1.0)
+                    .pow(2.0)
+                    .div(dist.mul(dist).add(1.0));
 
-            // Wrapped diffuse keeps Gummy/Crystal from reading as metallic-rough.
-            const nDotL = max(dot(worldNormal as never, lightDir), 0.0);
-            const wrap = nDotL.mul(0.65).add(0.35);
+                // Wrapped diffuse keeps Gummy/Crystal from reading as metallic-rough.
+                const nDotL = max(dot(worldNormal as never, lightDir), 0.0);
+                const wrap = nDotL.mul(0.65).add(0.35);
 
-            const toSurface = lightDir.negate();
-            const spotDot = dot(toSurface, spotDir);
-            const inCone = smoothstep(coneCos.sub(0.12), coneCos, spotDot);
-            const spotMask = mix(float(1.0), inCone, step(float(0.0), coneCos));
+                const toSurface = lightDir.negate();
+                const spotDot = dot(toSurface, spotDir);
+                const inCone = smoothstep(coneCos.sub(0.12), coneCos, spotDot);
+                const spotMask = mix(float(1.0), inCone, step(float(0.0), coneCos));
 
-            totalIllum.addAssign(lColor.mul(lIntensity).mul(attenuation).mul(wrap).mul(spotMask));
-        });
+                totalIllum.addAssign(
+                    lColor.mul(lIntensity).mul(attenuation).mul(wrap).mul(spotMask)
+                );
+            }
+        );
 
         // Albedo tint — pastel fill, not a second specular lobe.
         return totalIllum.mul(baseColor as never).mul(0.55);

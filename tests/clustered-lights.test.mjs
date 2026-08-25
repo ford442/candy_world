@@ -178,7 +178,9 @@ function makeProj() {
         ms < 50,
         `32-light CPU pack+bin should stay well under desktop 2ms budget; got ${ms.toFixed(2)}ms (CI ceiling 50ms)`
     );
-    console.log(`32-light pack+bin: ${ms.toFixed(3)}ms (desktop budget ${CLUSTER_BIN_BUDGET_MS_32}ms)`);
+    console.log(
+        `32-light pack+bin: ${ms.toFixed(3)}ms (desktop budget ${CLUSTER_BIN_BUDGET_MS_32}ms)`
+    );
 }
 
 console.log('clustered-lights tests passed');
