@@ -48,6 +48,7 @@ tools and tests that boot outside `initScene`).
 | `src/particles/compute-particles.ts` | `initWebGPU()` rejects; constructor catch installs `CPUParticleSystem` |
 | `src/utils/startup-profiler.ts` | telemetry hooks simply never attach |
 | `src/rendering/webgpu-limits.ts` | reports WebGPU spec defaults |
+| `src/rendering/clustered-lighting.ts` | CPU-bins lights; uploads via Three `StorageInstancedBufferAttribute` on the renderer device. No extra `requestDevice`. Device-lost zeros the light count and unmutes analytic lights. |
 
 Neither consumer calls `device.destroy()` in `dispose()` any more — they release their own buffers
 and leave the device to the renderer.

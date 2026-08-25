@@ -15,6 +15,7 @@
 //   ?generative=1         — in-browser generative soundtrack (or ?music=generative)
 //   ?photo=1              — cinematic photo mode (or ?mode=photo)
 //   ?lights=1             — show local point/spot helpers (also implied by ?debug=1)
+//   ?no_clustered         — skip Forward+ clustered local lights (tiny Three.js pool only)
 //   ?gi=off|on|high|debug — lightweight GI probe volume: skip / force on / force
 //                           on at high density / force on with probe gizmos
 //                           (gizmos also implied by ?debug=1)
@@ -93,6 +94,8 @@ export const FEATURE_FLAGS = {
     generativeMusic: hasUrlFlag('generative') || getUrlFlag('music') === 'generative',
     /** Cinematic photo mode (?photo=1 or ?mode=photo). */
     photoMode: hasUrlFlag('photo') || getUrlFlag('mode') === 'photo',
+    /** Forward+ clustered local lights. Off via `?no_clustered` or graphics `low`. */
+    clusteredLights: !hasUrlFlag('no_clustered'),
 } as const;
 
 // Log active overrides once at startup so the console makes the state obvious.

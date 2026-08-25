@@ -1,37 +1,97 @@
+/**
+ * Forward+ clustered local lights on the shared WebGPU device.
+ *
+ * v1 bins on the CPU into a 16×8×16 view-space grid and uploads two storage
+ * buffers the renderer already owns — no second `requestDevice()`. Compute
+ * binning is a follow-up if the `ClusteredLighting` profiler mark exceeds
+ * CLUSTER_BIN_BUDGET_MS_*.
+ *
+ * @see docs/CLUSTERED_LIGHTS.md
+ */
 import * as THREE from 'three';
 import {
     uniform,
     storage,
     float,
     vec3,
-    color,
     positionView,
     Loop,
     uint,
     cameraProjectionMatrix,
     vec4,
-    vec2,
     max,
     dot,
-    normalize,
     pow,
     mix,
-    sin,
-    cos,
-    smoothstep,
-    int,
     log,
-    clamp
+    clamp,
+    smoothstep,
+    step,
 } from 'three/tsl';
-import { CONFIG } from '../core/config/defaults.ts';
-import { forEachLocalLight, getLocalLightStats, type LocalLightSnapshot } from './lights.ts';
 import { StorageInstancedBufferAttribute } from 'three/webgpu';
+import { CONFIG } from '../core/config/defaults.ts';
+import { FEATURE_FLAGS, hasUrlFlag } from '../core/config/url-flags.ts';
+import { getStartupCapabilities } from '../core/startup/capabilities.ts';
+import { isGpuComputeAvailable, onGpuDeviceLost } from './gpu-context.ts';
+import {
+    forEachLocalLight,
+    getLocalLightStats,
+    muteAnalyticLocalLights,
+} from './lights.ts';
+import {
+    CLUSTER_GRID_X,
+    CLUSTER_GRID_Y,
+    CLUSTER_GRID_Z,
+    LIGHT_FLOATS,
+    binLightViewSphere,
+    clusterCount,
+    clusterStride,
+    packLight,
+    resetClusterCounts,
+} from './clustered-bin.ts';
 
-const _scratchVPos = new THREE.Vector3();
-const _scratchVDir = new THREE.Vector3();
-const _scratchPView = new THREE.Vector3();
-const _scratchP = new THREE.Vector3();
-const _scratchCorners = Array.from({ length: 8 }, () => new THREE.Vector3());
+const _worldPos = new THREE.Vector3();
+const _viewPos = new THREE.Vector3();
+
+export interface ClusteredLightingStats {
+    enabled: boolean;
+    reason: string;
+    lights: number;
+    clustersWritten: number;
+    lastBinMs: number;
+    maxLights: number;
+    maxLightsPerCluster: number;
+    budgetMs: number;
+}
+
+function clampMaxLights(n: number | undefined): number {
+    if (!Number.isFinite(n)) return 128;
+    return Math.max(8, Math.min(128, Math.round(n as number)));
+}
+
+function clampPerCluster(n: number | undefined): number {
+    if (!Number.isFinite(n)) return 32;
+    return Math.max(4, Math.min(32, Math.round(n as number)));
+}
+
+/**
+ * Shader + CPU path. WebGL / `low` / `?no_clustered` stay on hemisphere+sun
+ * plus the tiny Three.js local pool.
+ */
+export function areClusteredLightsEnabled(): boolean {
+    if (!FEATURE_FLAGS.clusteredLights || hasUrlFlag('no_clustered')) return false;
+    try {
+        if (getLocalLightStats().webgl) return false;
+    } catch {
+        return false;
+    }
+    try {
+        if (getStartupCapabilities().graphics === 'low') return false;
+    } catch {
+        /* non-browser tests */
+    }
+    return true;
+}
 
 export class ClusteredLightingSystem {
     public maxLights: number;
@@ -39,40 +99,34 @@ export class ClusteredLightingSystem {
     public gridX: number;
     public gridY: number;
     public gridZ: number;
-    
+
     private lightData: Float32Array;
     private lightBuffer: StorageInstancedBufferAttribute;
-    
     private clusterData: Uint32Array;
     private clusterBuffer: StorageInstancedBufferAttribute;
-    
-    private numLightsUniform: any;
-    private nearUniform: any;
-    private farUniform: any;
-    private scaleZUniform: any;
 
-    private activeLights: LocalLightSnapshot[] = [];
+    private numLightsUniform: { value: number };
+    private nearUniform: { value: number };
+    private farUniform: { value: number };
+    private scaleZUniform: { value: number };
 
-    constructor(
-        maxLights = 128,
-        maxLightsPerCluster = 32,
-        gridX = 16,
-        gridY = 8,
-        gridZ = 16
-    ) {
-        this.maxLights = maxLights;
-        this.maxLightsPerCluster = maxLightsPerCluster;
-        this.gridX = gridX;
-        this.gridY = gridY;
-        this.gridZ = gridZ;
+    private lastLights = 0;
+    private lastClustersWritten = 0;
+    private lastBinMs = 0;
+    private lastReason = 'init';
 
-        // 12 floats per light
-        this.lightData = new Float32Array(this.maxLights * 12);
-        this.lightBuffer = new StorageInstancedBufferAttribute(this.lightData, 12);
+    constructor() {
+        this.maxLights = clampMaxLights(CONFIG.lighting.maxClusterLights);
+        this.maxLightsPerCluster = clampPerCluster(CONFIG.lighting.maxLightsPerCluster);
+        this.gridX = CLUSTER_GRID_X;
+        this.gridY = CLUSTER_GRID_Y;
+        this.gridZ = CLUSTER_GRID_Z;
 
-        // clusterData: (count + maxLightsPerCluster indices) per cluster
-        const numClusters = this.gridX * this.gridY * this.gridZ;
-        const stride = 1 + this.maxLightsPerCluster;
+        this.lightData = new Float32Array(this.maxLights * LIGHT_FLOATS);
+        this.lightBuffer = new StorageInstancedBufferAttribute(this.lightData, LIGHT_FLOATS);
+
+        const numClusters = clusterCount(this.gridX, this.gridY, this.gridZ);
+        const stride = clusterStride(this.maxLightsPerCluster);
         this.clusterData = new Uint32Array(numClusters * stride);
         this.clusterBuffer = new StorageInstancedBufferAttribute(this.clusterData, stride);
 
@@ -80,174 +134,148 @@ export class ClusteredLightingSystem {
         this.nearUniform = uniform(1.0);
         this.farUniform = uniform(200.0);
         this.scaleZUniform = uniform(1.0);
+
+        onGpuDeviceLost(() => {
+            this.numLightsUniform.value = 0;
+            muteAnalyticLocalLights(false);
+            this.lastReason = 'device-lost';
+            publishStats(this.snapshot());
+        });
     }
 
-    public update(camera: THREE.PerspectiveCamera) {
-        const stats = getLocalLightStats();
-        // If WebGL or zero lights, do nothing.
-        if (stats.webgl || (stats.gpu + stats.decorative) === 0) {
+    public update(camera: THREE.PerspectiveCamera): void {
+        const t0 = performance.now();
+        if (!areClusteredLightsEnabled()) {
             this.numLightsUniform.value = 0;
+            muteAnalyticLocalLights(false);
+            this.lastLights = 0;
+            this.lastClustersWritten = 0;
+            this.lastBinMs = performance.now() - t0;
+            this.lastReason = 'disabled';
+            publishStats(this.snapshot());
+            return;
+        }
+        if (!isGpuComputeAvailable()) {
+            this.numLightsUniform.value = 0;
+            muteAnalyticLocalLights(false);
+            this.lastReason = 'no-device';
+            this.lastBinMs = performance.now() - t0;
+            publishStats(this.snapshot());
             return;
         }
 
-        this.activeLights.length = 0;
+        muteAnalyticLocalLights(true);
+
+        const near = Math.max(0.1, camera.near);
+        const far = Math.max(near + 1, camera.far);
+        this.nearUniform.value = near;
+        this.farUniform.value = far;
+        this.scaleZUniform.value = this.gridZ / Math.log(far / near);
+
+        const numClusters = clusterCount(this.gridX, this.gridY, this.gridZ);
+        const stride = clusterStride(this.maxLightsPerCluster);
+        resetClusterCounts(this.clusterData, numClusters, stride);
+
+        const viewMatrix = camera.matrixWorldInverse;
+        let numLights = 0;
+        let clustersWritten = 0;
+
         forEachLocalLight((snap) => {
-            if (this.activeLights.length < this.maxLights) {
-                this.activeLights.push(snap);
-            }
-        });
-
-        const numLights = this.activeLights.length;
-        this.numLightsUniform.value = numLights;
-
-        for (let i = 0; i < numLights; i++) {
-            const snap = this.activeLights[i];
-            const offset = i * 12;
+            if (numLights >= this.maxLights) return;
+            if (snap.intensity <= 0) return;
 
             if (snap.parent) {
                 snap.parent.updateMatrixWorld();
-                if (snap.gpu && snap.kind === 'point') {
-                    _scratchVPos.setFromMatrixPosition(snap.parent.matrixWorld);
-                } else if (!snap.gpu) {
-                    _scratchVPos.set(snap.localX, snap.localY, snap.localZ);
-                    _scratchVPos.applyMatrix4(snap.parent.matrixWorld);
+                if (snap.gpu) {
+                    _worldPos.setFromMatrixPosition(snap.parent.matrixWorld);
                 } else {
-                     _scratchVPos.setFromMatrixPosition(snap.parent.matrixWorld);
+                    _worldPos.set(snap.localX, snap.localY, snap.localZ);
+                    _worldPos.applyMatrix4(snap.parent.matrixWorld);
                 }
             } else {
-                _scratchVPos.set(0, 0, 0);
+                _worldPos.set(0, 0, 0);
             }
 
-            this.lightData[offset + 0] = _scratchVPos.x;
-            this.lightData[offset + 1] = _scratchVPos.y;
-            this.lightData[offset + 2] = _scratchVPos.z;
-            this.lightData[offset + 3] = snap.distance || 10.0;
+            packLight(
+                this.lightData,
+                numLights,
+                _worldPos,
+                snap.distance || 10,
+                snap.color,
+                snap.intensity,
+                snap.dirX,
+                snap.dirY,
+                snap.dirZ,
+                snap.coneCos
+            );
 
-            const r = ((snap.color >> 16) & 255) / 255.0;
-            const g = ((snap.color >> 8) & 255) / 255.0;
-            const b = (snap.color & 255) / 255.0;
-            this.lightData[offset + 4] = r;
-            this.lightData[offset + 5] = g;
-            this.lightData[offset + 6] = b;
-            this.lightData[offset + 7] = snap.intensity;
+            _viewPos.copy(_worldPos).applyMatrix4(viewMatrix);
+            clustersWritten += binLightViewSphere(
+                this.clusterData,
+                numLights,
+                _viewPos,
+                snap.distance || 10,
+                near,
+                far,
+                camera.projectionMatrix,
+                this.gridX,
+                this.gridY,
+                this.gridZ,
+                this.maxLightsPerCluster
+            );
+            numLights += 1;
+        });
 
-            if (snap.kind === 'spot') {
-                _scratchVDir.set(0, -1, 0);
-                if (snap.parent) {
-                    _scratchVDir.transformDirection(snap.parent.matrixWorld).normalize();
-                }
-                this.lightData[offset + 8] = _scratchVDir.x;
-                this.lightData[offset + 9] = _scratchVDir.y;
-                this.lightData[offset + 10] = _scratchVDir.z;
-                this.lightData[offset + 11] = Math.cos(Math.PI / 4); // Fake cone angle for now
-            } else {
-                this.lightData[offset + 8] = 0;
-                this.lightData[offset + 9] = 0;
-                this.lightData[offset + 10] = 0;
-                this.lightData[offset + 11] = -1.0; 
-            }
-        }
-        
-        // Notify buffer changed
+        this.numLightsUniform.value = numLights;
+        this.lastLights = numLights;
+        this.lastClustersWritten = clustersWritten;
+        this.lastReason = 'ok';
         if (numLights > 0) {
-            // Re-creating the buffer is usually required if we modify backing array and want to upload in standard Three.js?
-            // WebGPU node backend in three.js typically syncs buffer if needsUpdate = true; wait, no, StorageInstancedBufferAttribute doesn't have needsUpdate, BufferAttribute does.
-            // Let's set it.
-            (this.lightBuffer as any).needsUpdate = true;
+            (this.lightBuffer as THREE.BufferAttribute).needsUpdate = true;
+            (this.clusterBuffer as THREE.BufferAttribute).needsUpdate = true;
         }
-
-        const near = Math.max(0.1, camera.near);
-        const far = camera.far;
-        this.nearUniform.value = near;
-        this.farUniform.value = far;
-        const scaleZ = this.gridZ / Math.log(far / near);
-        this.scaleZUniform.value = scaleZ;
-
-        const numClusters = this.gridX * this.gridY * this.gridZ;
-        const stride = 1 + this.maxLightsPerCluster;
-        for (let i = 0; i < numClusters; i++) {
-            this.clusterData[i * stride] = 0;
-        }
-
-        const viewMatrix = camera.matrixWorldInverse;
-        
-        for (let i = 0; i < numLights; i++) {
-            const offset = i * 12;
-            const radius = this.lightData[offset + 3];
-            _scratchPView.set(this.lightData[offset + 0], this.lightData[offset + 1], this.lightData[offset + 2]);
-            _scratchPView.applyMatrix4(viewMatrix);
-
-            const minZ = -(_scratchPView.z + radius);
-            const maxZ = -(_scratchPView.z - radius);
-
-            if (maxZ < near || minZ > far) continue;
-
-            const sliceMin = Math.max(0, Math.min(this.gridZ - 1, Math.floor(Math.log(Math.max(near, minZ) / near) * scaleZ)));
-            const sliceMax = Math.max(0, Math.min(this.gridZ - 1, Math.floor(Math.log(Math.max(near, maxZ) / near) * scaleZ)));
-
-            let minX = 1, minY = 1, maxX = -1, maxY = -1;
-
-            // ⚡ OPTIMIZATION: Bypassed multiple Vector3 allocations and .clone() in high-frequency lighting update loop.
-            _scratchCorners[0].set(_scratchPView.x - radius, _scratchPView.y - radius, _scratchPView.z + radius);
-            _scratchCorners[1].set(_scratchPView.x + radius, _scratchPView.y - radius, _scratchPView.z + radius);
-            _scratchCorners[2].set(_scratchPView.x - radius, _scratchPView.y + radius, _scratchPView.z + radius);
-            _scratchCorners[3].set(_scratchPView.x + radius, _scratchPView.y + radius, _scratchPView.z + radius);
-            _scratchCorners[4].set(_scratchPView.x - radius, _scratchPView.y - radius, _scratchPView.z - radius);
-            _scratchCorners[5].set(_scratchPView.x + radius, _scratchPView.y - radius, _scratchPView.z - radius);
-            _scratchCorners[6].set(_scratchPView.x - radius, _scratchPView.y + radius, _scratchPView.z - radius);
-            _scratchCorners[7].set(_scratchPView.x + radius, _scratchPView.y + radius, _scratchPView.z - radius);
-
-            for (const c of _scratchCorners) {
-                if (c.z > 0) c.z = -0.001; 
-                _scratchP.copy(c).applyMatrix4(camera.projectionMatrix);
-                minX = Math.min(minX, _scratchP.x);
-                minY = Math.min(minY, _scratchP.y);
-                maxX = Math.max(maxX, _scratchP.x);
-                maxY = Math.max(maxY, _scratchP.y);
-            }
-
-            const tMinX = Math.max(0, Math.min(this.gridX - 1, Math.floor((minX * 0.5 + 0.5) * this.gridX)));
-            const tMinY = Math.max(0, Math.min(this.gridY - 1, Math.floor((minY * 0.5 + 0.5) * this.gridY)));
-            const tMaxX = Math.max(0, Math.min(this.gridX - 1, Math.floor((maxX * 0.5 + 0.5) * this.gridX)));
-            const tMaxY = Math.max(0, Math.min(this.gridY - 1, Math.floor((maxY * 0.5 + 0.5) * this.gridY)));
-
-            for (let z = sliceMin; z <= sliceMax; z++) {
-                for (let y = tMinY; y <= tMaxY; y++) {
-                    for (let x = tMinX; x <= tMaxX; x++) {
-                        const clusterIdx = z * (this.gridX * this.gridY) + y * this.gridX + x;
-                        const cOffset = clusterIdx * stride;
-                        const count = this.clusterData[cOffset];
-                        if (count < this.maxLightsPerCluster) {
-                            this.clusterData[cOffset + 1 + count] = i;
-                            this.clusterData[cOffset] = count + 1;
-                        }
-                    }
-                }
-            }
-        }
-        
-        if (numLights > 0) {
-            (this.clusterBuffer as any).needsUpdate = true;
-        }
+        this.lastBinMs = performance.now() - t0;
+        publishStats(this.snapshot());
     }
 
-    public getLightingNode(worldPos: any, viewPos: any, worldNormal: any, baseColor: any) {
-        const sLightData = storage(this.lightBuffer, 'vec4', this.maxLights * 3);
-        const sClusterData = storage(this.clusterBuffer, 'uint', this.gridX * this.gridY * this.gridZ * (1 + this.maxLightsPerCluster));
+    public snapshot(): ClusteredLightingStats {
+        const budgetMs = this.lastLights <= 32 ? 2 : 6;
+        return {
+            enabled: this.lastReason === 'ok',
+            reason: this.lastReason,
+            lights: this.lastLights,
+            clustersWritten: this.lastClustersWritten,
+            lastBinMs: this.lastBinMs,
+            maxLights: this.maxLights,
+            maxLightsPerCluster: this.maxLightsPerCluster,
+            budgetMs,
+        };
+    }
 
-        const vZ = viewPos.z.negate();
-        const zSlice = log(max(this.nearUniform, vZ).div(this.nearUniform)).mul(this.scaleZUniform).floor();
+    public getLightingNode(worldPos: unknown, viewPos: unknown, worldNormal: unknown, baseColor: unknown) {
+        const sLightData = storage(this.lightBuffer, 'vec4', this.maxLights * 3);
+        const sClusterData = storage(
+            this.clusterBuffer,
+            'uint',
+            this.gridX * this.gridY * this.gridZ * clusterStride(this.maxLightsPerCluster)
+        );
+
+        const vZ = (viewPos as { z: { negate: () => unknown } }).z.negate();
+        const zSlice = log(max(this.nearUniform, vZ).div(this.nearUniform))
+            .mul(this.scaleZUniform)
+            .floor();
         const zClamped = clamp(zSlice, 0.0, float(this.gridZ - 1));
 
-        const clipPos = vec4(viewPos, 1.0).mul(cameraProjectionMatrix);
+        const clipPos = vec4(viewPos as never, 1.0).mul(cameraProjectionMatrix);
         const ndc = clipPos.xyz.div(clipPos.w);
         const screenUv = ndc.xy.mul(0.5).add(0.5);
         const xSlice = clamp(screenUv.x.mul(float(this.gridX)).floor(), 0.0, float(this.gridX - 1));
         const ySlice = clamp(screenUv.y.mul(float(this.gridY)).floor(), 0.0, float(this.gridY - 1));
 
-        const clusterIdx = zClamped.mul(float(this.gridX * this.gridY))
-                            .add(ySlice.mul(float(this.gridX)))
-                            .add(xSlice);
+        const clusterIdx = zClamped
+            .mul(float(this.gridX * this.gridY))
+            .add(ySlice.mul(float(this.gridX)))
+            .add(xSlice);
 
         const stride = this.maxLightsPerCluster + 1;
         const clusterOffset = uint(clusterIdx).mul(uint(stride));
@@ -255,41 +283,67 @@ export class ClusteredLightingSystem {
 
         const totalIllum = vec3(0.0).toVar();
 
-        Loop({ start: uint(0), end: lightCount, type: 'uint', condition: '<' }, ({ i }: any) => {
+        Loop({ start: uint(0), end: lightCount, type: 'uint', condition: '<' }, ({ i }) => {
             const lightIdx = sClusterData.element(clusterOffset.add(1).add(i));
-            
             const v0 = sLightData.element(lightIdx.mul(3));
             const v1 = sLightData.element(lightIdx.mul(3).add(1));
-            // v2 skipped for now to save lookups if we only do point lights
+            const v2 = sLightData.element(lightIdx.mul(3).add(2));
 
             const lPos = v0.xyz;
             const lDist = v0.w;
             const lColor = v1.xyz;
             const lIntensity = v1.w;
+            const spotDir = v2.xyz;
+            const coneCos = v2.w;
 
-            const lightVector = lPos.sub(worldPos);
+            const lightVector = lPos.sub(worldPos as never);
             const dist = lightVector.length();
             const lightDir = lightVector.div(dist);
 
-            const attenuation = clamp(float(1.0).sub(pow(dist.div(lDist), 4.0)), 0.0, 1.0).pow(2.0).div(dist.mul(dist).add(1.0));
-            const NdotL = max(dot(worldNormal, lightDir), 0.0);
-            
-            totalIllum.addAssign(lColor.mul(lIntensity).mul(attenuation).mul(NdotL));
+            // Windowed inverse-square — candy fill, not a hard bulb.
+            const attenuation = clamp(float(1.0).sub(pow(dist.div(lDist), 4.0)), 0.0, 1.0)
+                .pow(2.0)
+                .div(dist.mul(dist).add(1.0));
+
+            // Wrapped diffuse keeps Gummy/Crystal from reading as metallic-rough.
+            const nDotL = max(dot(worldNormal as never, lightDir), 0.0);
+            const wrap = nDotL.mul(0.65).add(0.35);
+
+            const toSurface = lightDir.negate();
+            const spotDot = dot(toSurface, spotDir);
+            const inCone = smoothstep(coneCos.sub(0.12), coneCos, spotDot);
+            const spotMask = mix(float(1.0), inCone, step(float(0.0), coneCos));
+
+            totalIllum.addAssign(
+                lColor.mul(lIntensity).mul(attenuation).mul(wrap).mul(spotMask)
+            );
         });
 
-        // Mix clustered illumination onto baseColor
-        // Candy style: add to color
-        return totalIllum.mul(baseColor);
+        // Albedo tint — pastel fill, not a second specular lobe.
+        return totalIllum.mul(baseColor as never).mul(0.55);
     }
 
-    public dispose() {
-        if (this.lightBuffer && typeof (this.lightBuffer as any).dispose === 'function') {
-            (this.lightBuffer as any).dispose();
-        }
-        if (this.clusterBuffer && typeof (this.clusterBuffer as any).dispose === 'function') {
-            (this.clusterBuffer as any).dispose();
-        }
+    public dispose(): void {
+        muteAnalyticLocalLights(false);
+        const lb = this.lightBuffer as unknown as { dispose?: () => void };
+        const cb = this.clusterBuffer as unknown as { dispose?: () => void };
+        lb.dispose?.();
+        cb.dispose?.();
     }
 }
 
 export const globalClusteredLighting = new ClusteredLightingSystem();
+
+function publishStats(state: ClusteredLightingStats): void {
+    try {
+        if (typeof window !== 'undefined') {
+            window.__clusteredLighting = state;
+        }
+    } catch {
+        /* non-browser */
+    }
+}
+
+export function getClusteredLightingStats(): ClusteredLightingStats {
+    return globalClusteredLighting.snapshot();
+}
