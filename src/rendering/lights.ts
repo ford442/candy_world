@@ -14,11 +14,11 @@
  * @see docs/LOCAL_LIGHTS.md
  */
 import * as THREE from 'three';
-import { isCIorHeadless } from '../core/config/runtime.ts';
 import { CONFIG } from '../core/config/defaults.ts';
+import { resolveShadowSettings } from '../core/config/postfx.ts';
+import { isCIorHeadless } from '../core/config/runtime.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
-import { resolveShadowSettings } from '../core/config/postfx.ts';
 import { applyLocalShadowSoftness } from './shadow-softness.ts';
 
 export type LocalLightKind = 'point' | 'spot';

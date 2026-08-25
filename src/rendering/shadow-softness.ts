@@ -14,6 +14,7 @@
  */
 import * as THREE from 'three';
 import { Fn, texture, vec2, float, reference, abs, mix, clamp, renderGroup } from 'three/tsl';
+import { CONFIG } from '../core/config/defaults.ts';
 import {
     clampSoftness,
     softnessToRadius,
@@ -21,7 +22,6 @@ import {
     type ShadowKernel,
     type ShadowSettings,
 } from '../core/config/postfx.ts';
-import { CONFIG } from '../core/config/defaults.ts';
 import type { SunCascades } from '../systems/shadow-cascades.ts';
 
 export type SoftLightShadow = THREE.LightShadow & {
@@ -44,72 +44,87 @@ const _bound: SoftLightShadow[] = [];
 let _kernel: ShadowKernel = 3;
 let _cascades = 0;
 
-type FilterFn = ReturnType<typeof Fn>;
+/** r171 `Fn` types the callback as `{ [key: string]: unknown }` — keep that shape. */
+type TslFnFactory = (js: (args: Record<string, unknown>) => unknown) => unknown;
 
-const CandyHardShadowFilter = /*@__PURE__*/ Fn(
-    ({
-        depthTexture,
-        shadowCoord,
-    }: {
-        depthTexture: THREE.DepthTexture;
-        shadowCoord: { xy: unknown; z: unknown };
-    }) => texture(depthTexture, shadowCoord.xy as never).compare(shadowCoord.z as never)
-);
+const tslFn = Fn as unknown as TslFnFactory;
 
-function createCandyPcfFilter(kernel: 3 | 5): FilterFn {
+type GroupedRef = {
+    add: (...args: unknown[]) => GroupedRef;
+    sub: (...args: unknown[]) => GroupedRef;
+    mul: (...args: unknown[]) => GroupedRef;
+    div: (...args: unknown[]) => GroupedRef;
+    clamp: (...args: unknown[]) => GroupedRef;
+};
+
+function groupedRef(name: string, type: string, object: object): GroupedRef {
+    const node = reference(name, type, object) as unknown as {
+        setGroup: (group: typeof renderGroup) => GroupedRef;
+    };
+    return node.setGroup(renderGroup);
+}
+
+type UvNode = { add: (offset: unknown) => unknown };
+
+function candyHardShadowFilter() {
+    return tslFn((args) => {
+        const depthTexture = args['depthTexture'];
+        const shadowCoord = args['shadowCoord'] as { xy: unknown; z: unknown };
+        return texture(depthTexture as never, shadowCoord.xy as never).compare(
+            shadowCoord.z as never
+        );
+    });
+}
+
+function createCandyPcfFilter(kernel: 3 | 5) {
     const half = (kernel - 1) / 2;
     const taps = kernel * kernel;
 
-    return Fn(
-        ({
-            depthTexture,
-            shadowCoord,
-            shadow,
-        }: {
-            depthTexture: THREE.DepthTexture;
-            shadowCoord: { xy: unknown; z: unknown };
-            shadow: SoftLightShadow;
-        }) => {
-            const depthCompare = (uv: unknown, compare: unknown) =>
-                texture(depthTexture, uv as never).compare(compare as never);
+    return tslFn((args) => {
+        const depthTexture = args['depthTexture'];
+        const shadowCoord = args['shadowCoord'] as { xy: UvNode; z: unknown };
+        const shadow = args['shadow'] as SoftLightShadow;
 
-            const mapSize = reference('mapSize', 'vec2', shadow).setGroup(renderGroup);
-            const radius = reference('radius', 'float', shadow).setGroup(renderGroup);
-            const lightSize = reference('pcssLightSize', 'float', shadow).setGroup(renderGroup);
+        const depthCompare = (uv: unknown, compare: unknown) =>
+            texture(depthTexture as never, uv as never).compare(compare as never);
 
-            const texelSize = vec2(1).div(mapSize);
-            const uv = shadowCoord.xy;
-            const z = shadowCoord.z;
+        const mapSize = groupedRef('mapSize', 'vec2', shadow);
+        const radius = groupedRef('radius', 'float', shadow);
+        const lightSize = groupedRef('pcssLightSize', 'float', shadow);
 
-            // 4-tap ring: detect umbra vs penumbra so interiors stay readable.
-            const ring = depthCompare(uv.add(texelSize.mul(vec2(-0.5, -0.5)).mul(radius)), z)
-                .add(depthCompare(uv.add(texelSize.mul(vec2(0.5, -0.5)).mul(radius)), z))
-                .add(depthCompare(uv.add(texelSize.mul(vec2(-0.5, 0.5)).mul(radius)), z))
-                .add(depthCompare(uv.add(texelSize.mul(vec2(0.5, 0.5)).mul(radius)), z))
-                .mul(0.25);
+        const texelSize = vec2(1).div(mapSize as never);
+        const uv = shadowCoord.xy;
+        const z = shadowCoord.z;
 
-            const edgeAmt = float(1)
-                .sub(abs(ring.sub(0.5)).mul(2))
-                .clamp(0, 1);
-            const contactRadius = mix(float(0.4), radius, edgeAmt);
-            const effective = mix(radius, contactRadius, clamp(lightSize, 0, 1));
+        // 4-tap ring: detect umbra vs penumbra so interiors stay readable.
+        const ring = depthCompare(uv.add(texelSize.mul(vec2(-0.5, -0.5)).mul(radius as never)), z)
+            .add(depthCompare(uv.add(texelSize.mul(vec2(0.5, -0.5)).mul(radius as never)), z))
+            .add(depthCompare(uv.add(texelSize.mul(vec2(-0.5, 0.5)).mul(radius as never)), z))
+            .add(depthCompare(uv.add(texelSize.mul(vec2(0.5, 0.5)).mul(radius as never)), z))
+            .mul(0.25);
 
-            let sum = float(0);
-            for (let y = -half; y <= half; y++) {
-                for (let x = -half; x <= half; x++) {
-                    const offset = texelSize.mul(vec2(x, y)).mul(effective);
-                    sum = sum.add(depthCompare(uv.add(offset), z));
-                }
+        const edgeAmt = float(1)
+            .sub(abs(ring.sub(0.5)).mul(2))
+            .clamp(0, 1);
+        const contactRadius = mix(float(0.4), radius as never, edgeAmt);
+        const effective = mix(radius as never, contactRadius, clamp(lightSize as never, 0, 1));
+
+        let sum = float(0);
+        for (let y = -half; y <= half; y++) {
+            for (let x = -half; x <= half; x++) {
+                const offset = texelSize.mul(vec2(x, y)).mul(effective);
+                sum = sum.add(depthCompare(uv.add(offset), z));
             }
-            return sum.mul(1 / taps);
         }
-    );
+        return sum.mul(1 / taps);
+    });
 }
 
+const CandyHardShadowFilter = /*@__PURE__*/ candyHardShadowFilter();
 const CandyPcf3Filter = /*@__PURE__*/ createCandyPcfFilter(3);
 const CandyPcf5Filter = /*@__PURE__*/ createCandyPcfFilter(5);
 
-function filterForKernel(kernel: ShadowKernel): FilterFn {
+function filterForKernel(kernel: ShadowKernel): unknown {
     if (kernel >= 5) return CandyPcf5Filter;
     if (kernel <= 1) return CandyHardShadowFilter;
     return CandyPcf3Filter;
@@ -186,8 +201,8 @@ export function setShadowSoftness(softness: number): ShadowSoftnessState {
     const next = clampSoftness(softness);
     cfg.softness = next;
     const radius = softnessToRadius(next, cfg.pcfRadius);
-    for (const shadow of _bound) {
-        shadow.radius = radius;
+    for (const bound of _bound) {
+        bound.radius = radius;
     }
     return publishState();
 }
@@ -197,8 +212,8 @@ export function setShadowPcssEnabled(enabled: boolean): ShadowSoftnessState {
     const cfg = CONFIG.lighting.shadows;
     cfg.pcssEnabled = enabled;
     const size = enabled ? clampSoftness(cfg.pcssLightSize) : 0;
-    for (const shadow of _bound) {
-        shadow.pcssLightSize = size;
+    for (const bound of _bound) {
+        bound.pcssLightSize = size;
     }
     return publishState();
 }

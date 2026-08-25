@@ -144,6 +144,11 @@ export default defineConfig({
                     if (id.includes('/src/rendering/shader-warmup.ts')) {
                         return 'shader-warmup';
                     }
+                    // TSL PCF/PCSS filter — keep out of the app ceiling (softness is
+                    // attached after CSM init; debug panel shares this chunk).
+                    if (id.includes('/src/rendering/shadow-softness.ts')) {
+                        return 'shadow-softness';
+                    }
                     // Awakened flora persistence (feature-flagged ?awakened)
                     if (id.includes('/src/systems/awakened-persistence.ts')) {
                         return 'awakened';

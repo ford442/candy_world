@@ -19,19 +19,19 @@ import {
     GPU_POWER_PREFERENCE,
     GPU_REQUIRED_LIMITS,
 } from '../rendering/gpu-context.ts';
+import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-probes.ts';
+import { initLocalLights } from '../rendering/lights.ts';
 import { resolveRendererBackend, type RendererBackend } from '../rendering/renderer-mode.ts';
+import { applyShadowSoftness } from '../rendering/shadow-softness.ts';
 import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 import {
     initSunCascades,
     attachCascadeDebug,
     getCascadeMapSizes,
 } from '../systems/shadow-cascades.ts';
-import { applyShadowSoftness } from '../rendering/shadow-softness.ts';
 import type { ShadowSettings } from './config/postfx.ts';
 import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
-import { initLocalLights } from '../rendering/lights.ts';
-import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-probes.ts';
-import { getGroundHeight } from '../systems/ground-system.ts';
 
 /**
  * Candy World always uses WebGPURenderer. WebGL2 fallback is the internal
