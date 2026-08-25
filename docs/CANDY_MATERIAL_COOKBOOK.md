@@ -333,6 +333,26 @@ register decorative descriptors only. See `docs/LOCAL_LIGHTS.md`.
 
 ---
 
+## Lightweight GI (irradiance probes)
+
+Candy World does **not** run SSGI, RSM, or a second GI technique. Indirect light
+is one player-following SH-L1 probe volume — pastel leak, not grey dirt.
+
+The term is added on unified materials as `irradiance × albedo` (`emissiveNode`).
+Albedo is never desaturated. Interiors get an icy cave fill instead of black.
+
+| Tier | Behaviour |
+| --- | --- |
+| `low` / CI / WebGL | Volume never allocated — shader is the pre-GI graph |
+| `medium` | 10×5×10, 10u cells, 24 probes/frame |
+| `high` | 14×7×14, 8u cells, 40 probes/frame |
+
+Toggle: `?gi=off` (compile-out) or `setIrradianceEnabled(false)` / debug-panel **GI off**.
+Staging viewpoint: `sugar_caves` in `tools/visual-regression/viewpoints.json`.
+Full write-up: [`docs/IRRADIANCE_PROBES.md`](./IRRADIANCE_PROBES.md).
+
+---
+
 ## Appendix: preset coverage guard
 
 `npm run test:cookbook-presets` greps `CandyPresets.<Name>` usage under `src/foliage/`

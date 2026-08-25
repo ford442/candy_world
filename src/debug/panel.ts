@@ -2,6 +2,7 @@
 // Debug UI panel for toggling initialization stages
 
 import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
+import { setIrradianceEnabled } from '../rendering/irradiance-probes.ts';
 import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import {
@@ -100,6 +101,11 @@ export class DebugPanel {
       <div style="display:flex;gap:6px;">
         <button id="debug-wireframe" style="flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">Wireframe (G)</button>
         <button id="debug-matdebug" style="flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">Mat Debug (M)</button>
+      </div>
+      <div style="color:#0f0;font-weight:bold;font-size:11px;">Lightweight GI</div>
+      <div style="display:flex;gap:6px;">
+        <button id="debug-gi-on" style="flex:1;background:#103018;border:1px solid #7dffb3;color:#b8ffd4;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">GI on</button>
+        <button id="debug-gi-off" style="flex:1;background:#301010;border:1px solid #ff8888;color:#ffd0d0;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">GI off</button>
       </div>
     `;
     panel.appendChild(rendererControls);
@@ -230,6 +236,8 @@ export class DebugPanel {
       <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">O</kbd> - Toggle Startup Overlay</div>
       <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">G</kbd> - Wireframe (WebGL)</div>
       <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">M</kbd> - Material debug (WebGL)</div>
+      <div style="margin-top: 6px; color: #0f0;">GI:</div>
+      <div>Probe gizmos when <code>?debug=1</code> / <code>?gi=debug</code>. Off restores hemisphere+sun.</div>
       <div style="margin-top: 6px; color: #0f0;">Status Legend:</div>
       <div>⏳ Loading • ✅ Success • ❌ Failed • ⏭️ Skipped</div>
     `;
@@ -362,6 +370,11 @@ export class DebugPanel {
     };
     setRendererBtn('debug-renderer-webgpu', 'webgpu');
     setRendererBtn('debug-renderer-webgl', 'webgl');
+
+    const giOn = document.getElementById('debug-gi-on');
+    const giOff = document.getElementById('debug-gi-off');
+    giOn?.addEventListener('click', () => setIrradianceEnabled(true));
+    giOff?.addEventListener('click', () => setIrradianceEnabled(false));
 
     const wireframeBtn = document.getElementById('debug-wireframe');
     if (wireframeBtn) {
