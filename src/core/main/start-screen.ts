@@ -165,9 +165,22 @@ export function setupStartScreen(ctx: MainContext): void {
             applyPath(next);
         });
         fullWorldToggle.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 fullWorldToggle.click();
+                if (!fullWorldToggle.classList.contains('keyboard-active')) {
+                    fullWorldToggle.classList.add('keyboard-active');
+
+                    const removeFeedback = () => {
+                        fullWorldToggle.classList.remove('keyboard-active');
+                        fullWorldToggle.removeEventListener('keyup', removeFeedback);
+                        fullWorldToggle.removeEventListener('blur', removeFeedback);
+                    };
+
+                    fullWorldToggle.addEventListener('keyup', removeFeedback);
+                    fullWorldToggle.addEventListener('blur', removeFeedback);
+                }
             }
         });
     }
