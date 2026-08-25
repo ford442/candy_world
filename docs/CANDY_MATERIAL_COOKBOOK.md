@@ -341,11 +341,11 @@ is one player-following SH-L1 probe volume — pastel leak, not grey dirt.
 The term is added on unified materials as `irradiance × albedo` (`emissiveNode`).
 Albedo is never desaturated. Interiors get an icy cave fill instead of black.
 
-| Tier | Behaviour |
-| --- | --- |
+| Tier               | Behaviour                                           |
+| ------------------ | --------------------------------------------------- |
 | `low` / CI / WebGL | Volume never allocated — shader is the pre-GI graph |
-| `medium` | 10×5×10, 10u cells, 24 probes/frame |
-| `high` | 14×7×14, 8u cells, 40 probes/frame |
+| `medium`           | 10×5×10, 10u cells, 24 probes/frame                 |
+| `high`             | 14×7×14, 8u cells, 40 probes/frame                  |
 
 Toggle: `?gi=off` (compile-out) or `setIrradianceEnabled(false)` / debug-panel **GI off**.
 Staging viewpoint: `sugar_caves` in `tools/visual-regression/viewpoints.json`.
