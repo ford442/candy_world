@@ -156,6 +156,17 @@ declare global {
             maxShadows: number;
             webgl: boolean;
             allowedShadows: boolean;
+            analyticMuted?: boolean;
+        };
+        __clusteredLighting?: {
+            enabled: boolean;
+            reason: string;
+            lights: number;
+            clustersWritten: number;
+            lastBinMs: number;
+            maxLights: number;
+            maxLightsPerCluster: number;
+            budgetMs: number;
         };
         __shadowSoftness?: {
             softness: number;
