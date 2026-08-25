@@ -3,6 +3,11 @@
 
 import { setIrradianceEnabled } from '../rendering/irradiance-probes.ts';
 import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
+import {
+    getShadowSoftnessState,
+    setShadowPcssEnabled,
+    setShadowSoftness,
+} from '../rendering/shadow-softness.ts';
 import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import {
@@ -109,6 +114,8 @@ export class DebugPanel {
       </div>
     `;
         panel.appendChild(rendererControls);
+
+        this.mountShadowSoftnessControls(panel);
 
         // Stage list
         const stageList = document.createElement('div');
@@ -254,6 +261,76 @@ export class DebugPanel {
         this.startStatusUpdates();
 
         console.log('[DebugPanel] Panel created');
+    }
+
+    private mountShadowSoftnessControls(panel: HTMLElement): void {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = `
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #0f0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    `;
+
+        const title = document.createElement('div');
+        title.style.cssText = 'color:#f9e2af;font-weight:bold;font-size:11px;';
+        title.textContent = 'Shadow softness';
+        wrap.appendChild(title);
+
+        const readout = document.createElement('div');
+        readout.id = 'debug-shadow-soft-readout';
+        readout.style.cssText = 'color:#ddd;font-size:10px;line-height:1.35;';
+        wrap.appendChild(readout);
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '0';
+        slider.max = '1';
+        slider.step = '0.05';
+        slider.id = 'debug-shadow-soft';
+        slider.style.cssText = 'width:100%;accent-color:#f9e2af;';
+        slider.addEventListener('input', () => {
+            setShadowSoftness(Number.parseFloat(slider.value));
+            this.paintShadowSoftness(slider, readout);
+        });
+        wrap.appendChild(slider);
+
+        const pcssRow = document.createElement('label');
+        pcssRow.style.cssText =
+            'display:flex;align-items:center;gap:6px;color:#ddd;font-size:10px;cursor:pointer;';
+        const pcss = document.createElement('input');
+        pcss.type = 'checkbox';
+        pcss.id = 'debug-shadow-pcss';
+        pcss.addEventListener('change', () => {
+            setShadowPcssEnabled(pcss.checked);
+            this.paintShadowSoftness(slider, readout);
+        });
+        pcssRow.appendChild(pcss);
+        pcssRow.appendChild(document.createTextNode('PCSS contact term (cheap)'));
+        wrap.appendChild(pcssRow);
+
+        panel.appendChild(wrap);
+        this.paintShadowSoftness(slider, readout);
+    }
+
+    private paintShadowSoftness(slider?: HTMLInputElement, readout?: HTMLElement): void {
+        const state = window.__shadowSoftness ?? getShadowSoftnessState();
+        const sliderEl =
+            slider ?? (this.panel?.querySelector('#debug-shadow-soft') as HTMLInputElement | null);
+        const readoutEl =
+            readout ??
+            (this.panel?.querySelector('#debug-shadow-soft-readout') as HTMLElement | null);
+        const pcssEl = this.panel?.querySelector('#debug-shadow-pcss') as HTMLInputElement | null;
+        if (sliderEl) sliderEl.value = String(state.softness);
+        if (pcssEl) pcssEl.checked = state.pcssEnabled;
+        if (readoutEl) {
+            const maps = Math.max(1, state.cascades || 1);
+            readoutEl.textContent =
+                `${state.kernel}×${state.kernel}  radius ${state.radius.toFixed(2)} tex  ` +
+                `${state.tapsPerCascade} taps × ${maps} maps`;
+        }
     }
 
     /**
@@ -470,6 +547,7 @@ export class DebugPanel {
         this.updateBatcherStats();
         this.updateFogStats();
         this.updateLodStats();
+        this.paintShadowSoftness();
     }
 
     private updateLodStats(): void {

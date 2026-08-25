@@ -540,7 +540,11 @@ export const CONFIG: ConfigType = {
             cameraFar: 200,
             bias: -0.0005,
             normalBias: 0.02,
-            pcfRadius: 2,
+            pcfRadius: 4,
+            // Visual Impact: buttery candy contact, still readable (not a muddy blob)
+            softness: 0.6,
+            pcssEnabled: false,
+            pcssLightSize: 0.4,
 
             // --- Cascaded Shadow Maps ---
             // Candy look: soft contact shadows near the player, cheap coverage out to the

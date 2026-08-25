@@ -14,10 +14,12 @@
  * @see docs/LOCAL_LIGHTS.md
  */
 import * as THREE from 'three';
-import { isCIorHeadless } from '../core/config/runtime.ts';
 import { CONFIG } from '../core/config/defaults.ts';
+import { resolveShadowSettings } from '../core/config/postfx.ts';
+import { isCIorHeadless } from '../core/config/runtime.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
+import { applyLocalShadowSoftness } from './shadow-softness.ts';
 
 export type LocalLightKind = 'point' | 'spot';
 /** `authored` / `weather` allocate GPU lights; `decorative` is a descriptor only. */
@@ -41,6 +43,8 @@ export interface PointLightOptions {
     distance?: number;
     decay?: number;
     castShadow?: boolean;
+    /** Optional 0–1 softness for this light's map. Falls back to the sun session value. */
+    shadowSoftness?: number;
     parent?: THREE.Object3D;
     position?: THREE.Vector3 | readonly [number, number, number];
 }
@@ -83,6 +87,12 @@ export interface LocalLightSnapshot {
     localX: number;
     localY: number;
     localZ: number;
+    /** World-space spot aim. Unused when coneCos < 0 (point). */
+    dirX: number;
+    dirY: number;
+    dirZ: number;
+    /** cos(cone half-angle). Negative ⇒ point light. */
+    coneCos: number;
 }
 
 interface GpuSlot {
@@ -93,6 +103,8 @@ interface GpuSlot {
     light: THREE.PointLight | THREE.SpotLight;
     helper: THREE.Object3D | null;
     castsShadow: boolean;
+    /** Authored intensity — clustered lighting may zero the Three.js light. */
+    authoredIntensity: number;
 }
 
 interface DecorSlot {
@@ -123,12 +135,35 @@ let _shadowsUsed = 0;
 let _warnedPool = false;
 let _helpersVisible = false;
 let _autoId = 0;
+/** When clustered Forward+ is packing GPU lights, mute analytic contribution. */
+let _analyticMuted = false;
 /** `undefined` = production policy; tests pin true/false so CI user agents don't leak. */
 let _testAllowShadows: boolean | undefined;
 
 const _pointPool: GpuSlot[] = [];
 const _spotPool: GpuSlot[] = [];
 const _decorPool: DecorSlot[] = [];
+const _spotFrom = new THREE.Vector3();
+const _spotAt = new THREE.Vector3();
+const _scratchSnap: LocalLightSnapshot = {
+    id: '',
+    kind: 'point',
+    role: 'authored',
+    gpu: false,
+    castsShadow: false,
+    intensity: 0,
+    distance: 0,
+    decay: 2,
+    color: 0,
+    parent: null,
+    localX: 0,
+    localY: 0,
+    localZ: 0,
+    dirX: 0,
+    dirY: 0,
+    dirZ: 0,
+    coneCos: -1,
+};
 
 function cfg() {
     return CONFIG.lighting.local;
@@ -162,6 +197,7 @@ function ensurePools(): void {
             light,
             helper: null,
             castsShadow: false,
+            authoredIntensity: 0,
         });
     }
     for (let i = 0; i < SPOT_POOL; i++) {
@@ -176,6 +212,7 @@ function ensurePools(): void {
             light,
             helper: null,
             castsShadow: false,
+            authoredIntensity: 0,
         });
     }
     for (let i = 0; i < DECOR_POOL; i++) {
@@ -253,7 +290,11 @@ export function remainingLocalShadowSlots(): number {
     return Math.max(0, cfg().maxLocalShadowLights - _shadowsUsed);
 }
 
-function applyLocalShadow(light: THREE.PointLight | THREE.SpotLight, enable: boolean): boolean {
+function applyLocalShadow(
+    light: THREE.PointLight | THREE.SpotLight,
+    enable: boolean,
+    softnessOverride?: number
+): boolean {
     const local = cfg();
     const want = enable && remainingLocalShadowSlots() > 0;
     light.castShadow = want;
@@ -265,6 +306,7 @@ function applyLocalShadow(light: THREE.PointLight | THREE.SpotLight, enable: boo
     cam.near = local.localShadowNear;
     cam.far = Math.min(local.localShadowFar, light.distance || local.localShadowFar);
     cam.updateProjectionMatrix();
+    applyLocalShadowSoftness(light.shadow, resolveShadowSettings(), softnessOverride);
     _shadowsUsed += 1;
     return true;
 }
@@ -362,6 +404,7 @@ export function getLocalLightStats(): {
     maxShadows: number;
     webgl: boolean;
     allowedShadows: boolean;
+    analyticMuted: boolean;
 } {
     return {
         gpu: countGpu(),
@@ -370,70 +413,99 @@ export function getLocalLightStats(): {
         maxShadows: localShadowsAllowed() ? cfg().maxLocalShadowLights : 0,
         webgl: _webglBackend,
         allowedShadows: localShadowsAllowed(),
+        analyticMuted: _analyticMuted,
     };
 }
 
-/** Snapshot for clustered culling (follow-up). Walks the reusable registry — no alloc of lights. */
+/**
+ * Clustered Forward+ already applies GPU-pool lights in the fragment shader.
+ * Zero the Three.js analytic intensity so we don't double-light — except
+ * `castShadow` lights, which stay live so the 1–2 extra maps still work.
+ */
+export function muteAnalyticLocalLights(muted: boolean): void {
+    _analyticMuted = muted;
+    const apply = (slot: GpuSlot) => {
+        if (!slot.used) return;
+        if (muted && !slot.castsShadow) {
+            slot.light.intensity = 0;
+        } else {
+            slot.light.intensity = slot.authoredIntensity;
+        }
+    };
+    for (let i = 0; i < POINT_POOL; i++) apply(_pointPool[i]);
+    for (let i = 0; i < SPOT_POOL; i++) apply(_spotPool[i]);
+}
+
+function fillGpuSnap(slot: GpuSlot): LocalLightSnapshot {
+    const L = slot.light;
+    L.updateMatrixWorld();
+    _scratchSnap.id = slot.id;
+    _scratchSnap.kind = slot.kind;
+    _scratchSnap.role = slot.role;
+    _scratchSnap.gpu = true;
+    _scratchSnap.castsShadow = slot.castsShadow;
+    _scratchSnap.intensity = slot.authoredIntensity;
+    _scratchSnap.distance = L.distance;
+    _scratchSnap.decay = L.decay;
+    _scratchSnap.color = L.color.getHex();
+    _scratchSnap.parent = L;
+    _scratchSnap.localX = 0;
+    _scratchSnap.localY = 0;
+    _scratchSnap.localZ = 0;
+    if (slot.kind === 'spot') {
+        const spot = L as THREE.SpotLight;
+        spot.target.updateMatrixWorld();
+        _spotFrom.setFromMatrixPosition(spot.matrixWorld);
+        _spotAt.setFromMatrixPosition(spot.target.matrixWorld);
+        _spotAt.sub(_spotFrom);
+        const len = _spotAt.length();
+        if (len > 1e-6) _spotAt.multiplyScalar(1 / len);
+        else _spotAt.set(0, -1, 0);
+        _scratchSnap.dirX = _spotAt.x;
+        _scratchSnap.dirY = _spotAt.y;
+        _scratchSnap.dirZ = _spotAt.z;
+        _scratchSnap.coneCos = Math.cos(spot.angle);
+    } else {
+        _scratchSnap.dirX = 0;
+        _scratchSnap.dirY = -1;
+        _scratchSnap.dirZ = 0;
+        _scratchSnap.coneCos = -1;
+    }
+    return _scratchSnap;
+}
+
+/** Snapshot for clustered culling. Reuses one object — do not stash the snap. */
 export function forEachLocalLight(fn: (snap: LocalLightSnapshot) => void): void {
     ensurePools();
     for (let i = 0; i < _pointPool.length; i++) {
-        const s = _pointPool[i];
-        if (!s.used) continue;
-        const L = s.light as THREE.PointLight;
-        fn({
-            id: s.id,
-            kind: 'point',
-            role: s.role,
-            gpu: true,
-            castsShadow: s.castsShadow,
-            intensity: L.intensity,
-            distance: L.distance,
-            decay: L.decay,
-            color: L.color.getHex(),
-            parent: L.parent,
-            localX: 0,
-            localY: 0,
-            localZ: 0,
-        });
+        if (!_pointPool[i].used) continue;
+        fn(fillGpuSnap(_pointPool[i]));
     }
     for (let i = 0; i < _spotPool.length; i++) {
-        const s = _spotPool[i];
-        if (!s.used) continue;
-        const L = s.light as THREE.SpotLight;
-        fn({
-            id: s.id,
-            kind: 'spot',
-            role: s.role,
-            gpu: true,
-            castsShadow: s.castsShadow,
-            intensity: L.intensity,
-            distance: L.distance,
-            decay: L.decay,
-            color: L.color.getHex(),
-            parent: L.parent,
-            localX: 0,
-            localY: 0,
-            localZ: 0,
-        });
+        if (!_spotPool[i].used) continue;
+        fn(fillGpuSnap(_spotPool[i]));
     }
     for (let i = 0; i < _decorPool.length; i++) {
         const s = _decorPool[i];
         if (!s.used) continue;
-        fn({
-            id: s.id,
-            kind: 'point',
-            role: 'decorative',
-            gpu: false,
-            castsShadow: false,
-            intensity: s.intensity,
-            distance: s.distance,
-            decay: s.decay,
-            color: s.color,
-            parent: s.parent,
-            localX: s.localX,
-            localY: s.localY,
-            localZ: s.localZ,
-        });
+        _scratchSnap.id = s.id;
+        _scratchSnap.kind = 'point';
+        _scratchSnap.role = 'decorative';
+        _scratchSnap.gpu = false;
+        _scratchSnap.castsShadow = false;
+        _scratchSnap.intensity = s.intensity;
+        _scratchSnap.distance = s.distance;
+        _scratchSnap.decay = s.decay;
+        _scratchSnap.color = s.color;
+        _scratchSnap.parent = s.parent;
+        _scratchSnap.localX = s.localX;
+        _scratchSnap.localY = s.localY;
+        _scratchSnap.localZ = s.localZ;
+        _scratchSnap.dirX = 0;
+        _scratchSnap.dirY = -1;
+        _scratchSnap.dirZ = 0;
+        _scratchSnap.coneCos = -1;
+        fn(_scratchSnap);
     }
 }
 
@@ -471,7 +543,9 @@ export function createPointLight(options: PointLightOptions = {}): LocalLightHan
     slot.used = true;
     slot.id = id;
     slot.role = options.role ?? 'authored';
+    slot.authoredIntensity = light.intensity;
     slot.castsShadow = applyLocalShadow(light, options.castShadow === true);
+    if (_analyticMuted && !slot.castsShadow) light.intensity = 0;
     attachHelper(slot);
     publishBreadcrumb();
     return {
@@ -522,7 +596,9 @@ export function createSpotLight(options: SpotLightOptions = {}): LocalLightHandl
     slot.used = true;
     slot.id = id;
     slot.role = options.role ?? 'authored';
+    slot.authoredIntensity = light.intensity;
     slot.castsShadow = applyLocalShadow(light, options.castShadow === true);
+    if (_analyticMuted && !slot.castsShadow) light.intensity = 0;
     attachHelper(slot);
     publishBreadcrumb();
     return {
@@ -727,6 +803,7 @@ export function __resetLocalLightsForTests(): void {
     _helpersVisible = false;
     _autoId = 0;
     _testAllowShadows = undefined;
+    _analyticMuted = false;
 }
 
 /** @internal tests — bind without mounting authored examples. */
