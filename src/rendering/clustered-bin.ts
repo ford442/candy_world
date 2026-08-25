@@ -20,7 +20,11 @@ export function clusterStride(maxLightsPerCluster: number): number {
     return 1 + Math.max(1, maxLightsPerCluster);
 }
 
-export function clusterCount(gridX = CLUSTER_GRID_X, gridY = CLUSTER_GRID_Y, gridZ = CLUSTER_GRID_Z): number {
+export function clusterCount(
+    gridX = CLUSTER_GRID_X,
+    gridY = CLUSTER_GRID_Y,
+    gridZ = CLUSTER_GRID_Z
+): number {
     return gridX * gridY * gridZ;
 }
 

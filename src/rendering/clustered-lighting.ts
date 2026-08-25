@@ -33,11 +33,7 @@ import { CONFIG } from '../core/config/defaults.ts';
 import { FEATURE_FLAGS, hasUrlFlag } from '../core/config/url-flags.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import { isGpuComputeAvailable, onGpuDeviceLost } from './gpu-context.ts';
-import {
-    forEachLocalLight,
-    getLocalLightStats,
-    muteAnalyticLocalLights,
-} from './lights.ts';
+import { forEachLocalLight, getLocalLightStats, muteAnalyticLocalLights } from './lights.ts';
 import {
     CLUSTER_GRID_X,
     CLUSTER_GRID_Y,
@@ -105,10 +101,10 @@ export class ClusteredLightingSystem {
     private clusterData: Uint32Array;
     private clusterBuffer: StorageInstancedBufferAttribute;
 
-    private numLightsUniform: { value: number };
-    private nearUniform: { value: number };
-    private farUniform: { value: number };
-    private scaleZUniform: { value: number };
+    private numLightsUniform: ReturnType<typeof uniform>;
+    private nearUniform: ReturnType<typeof uniform>;
+    private farUniform: ReturnType<typeof uniform>;
+    private scaleZUniform: ReturnType<typeof uniform>;
 
     private lastLights = 0;
     private lastClustersWritten = 0;
@@ -252,7 +248,12 @@ export class ClusteredLightingSystem {
         };
     }
 
-    public getLightingNode(worldPos: unknown, viewPos: unknown, worldNormal: unknown, baseColor: unknown) {
+    public getLightingNode(
+        worldPos: unknown,
+        viewPos: unknown,
+        worldNormal: unknown,
+        baseColor: unknown
+    ) {
         const sLightData = storage(this.lightBuffer, 'vec4', this.maxLights * 3);
         const sClusterData = storage(
             this.clusterBuffer,
@@ -261,7 +262,7 @@ export class ClusteredLightingSystem {
         );
 
         const vZ = (viewPos as { z: { negate: () => unknown } }).z.negate();
-        const zSlice = log(max(this.nearUniform, vZ).div(this.nearUniform))
+        const zSlice = log(max(this.nearUniform, vZ as never).div(this.nearUniform))
             .mul(this.scaleZUniform)
             .floor();
         const zClamped = clamp(zSlice, 0.0, float(this.gridZ - 1));
@@ -283,7 +284,11 @@ export class ClusteredLightingSystem {
 
         const totalIllum = vec3(0.0).toVar();
 
-        Loop({ start: uint(0), end: lightCount, type: 'uint', condition: '<' }, ({ i }) => {
+        Loop({ start: uint(0), end: lightCount, type: 'uint', condition: '<' }, ({
+            i,
+        }: {
+            i: ReturnType<typeof uint>;
+        }) => {
             const lightIdx = sClusterData.element(clusterOffset.add(1).add(i));
             const v0 = sLightData.element(lightIdx.mul(3));
             const v1 = sLightData.element(lightIdx.mul(3).add(1));
@@ -314,9 +319,7 @@ export class ClusteredLightingSystem {
             const inCone = smoothstep(coneCos.sub(0.12), coneCos, spotDot);
             const spotMask = mix(float(1.0), inCone, step(float(0.0), coneCos));
 
-            totalIllum.addAssign(
-                lColor.mul(lIntensity).mul(attenuation).mul(wrap).mul(spotMask)
-            );
+            totalIllum.addAssign(lColor.mul(lIntensity).mul(attenuation).mul(wrap).mul(spotMask));
         });
 
         // Albedo tint — pastel fill, not a second specular lobe.

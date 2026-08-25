@@ -148,4 +148,37 @@ function makeProj() {
     __resetLocalLightsForTests();
 }
 
+{
+    const maxPer = CONFIG.lighting.maxLightsPerCluster;
+    const stride = clusterStride(maxPer);
+    const clusterData = new Uint32Array(clusterCount() * stride);
+    const lightData = new Float32Array(32 * LIGHT_FLOATS);
+    const proj = makeProj();
+    const t0 = performance.now();
+    resetClusterCounts(clusterData, clusterCount(), stride);
+    for (let i = 0; i < 32; i++) {
+        const pos = new THREE.Vector3((i % 8) - 4, 0, -6 - (i % 5));
+        packLight(lightData, i, pos, 8, 0xff69b4, 2, 0, -1, 0, -1);
+        binLightViewSphere(
+            clusterData,
+            i,
+            pos,
+            8,
+            0.5,
+            100,
+            proj,
+            CLUSTER_GRID_X,
+            CLUSTER_GRID_Y,
+            CLUSTER_GRID_Z,
+            maxPer
+        );
+    }
+    const ms = performance.now() - t0;
+    assert.ok(
+        ms < 50,
+        `32-light CPU pack+bin should stay well under desktop 2ms budget; got ${ms.toFixed(2)}ms (CI ceiling 50ms)`
+    );
+    console.log(`32-light pack+bin: ${ms.toFixed(3)}ms (desktop budget ${CLUSTER_BIN_BUDGET_MS_32}ms)`);
+}
+
 console.log('clustered-lights tests passed');

@@ -35,19 +35,19 @@ Consumers never construct a device. They await the shared one and **fail closed*
 import { awaitGpuDevice } from '../rendering/gpu-context.ts';
 
 const device = await awaitGpuDevice();
-if (!device) return this.initCPUFallback();   // WASM / CPU tier, never a throw
+if (!device) return this.initCPUFallback(); // WASM / CPU tier, never a throw
 ```
 
 `awaitGpuDevice()` resolves `null` — never rejects, never hangs — when the backend is WebGL, when
 WebGPU init failed, after device loss, or when no context was armed at all (a 10 s guard covers
 tools and tests that boot outside `initScene`).
 
-| Consumer | Behaviour without the shared device |
-|---|---|
-| `src/compute/gpu-compute-library.ts` | `initDevice()` rejects; `compute-init.ts` swallows it and the CPU/WASM path stays active |
-| `src/particles/compute-particles.ts` | `initWebGPU()` rejects; constructor catch installs `CPUParticleSystem` |
-| `src/utils/startup-profiler.ts` | telemetry hooks simply never attach |
-| `src/rendering/webgpu-limits.ts` | reports WebGPU spec defaults |
+| Consumer                              | Behaviour without the shared device                                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/compute/gpu-compute-library.ts`  | `initDevice()` rejects; `compute-init.ts` swallows it and the CPU/WASM path stays active                                                                                              |
+| `src/particles/compute-particles.ts`  | `initWebGPU()` rejects; constructor catch installs `CPUParticleSystem`                                                                                                                |
+| `src/utils/startup-profiler.ts`       | telemetry hooks simply never attach                                                                                                                                                   |
+| `src/rendering/webgpu-limits.ts`      | reports WebGPU spec defaults                                                                                                                                                          |
 | `src/rendering/clustered-lighting.ts` | CPU-bins lights; uploads via Three `StorageInstancedBufferAttribute` on the renderer device. No extra `requestDevice`. Device-lost zeros the light count and unmutes analytic lights. |
 
 Neither consumer calls `device.destroy()` in `dispose()` any more — they release their own buffers
@@ -57,13 +57,13 @@ and leave the device to the renderer.
 
 Set explicitly in `src/core/init.ts`, with the values defined in `gpu-context.ts`:
 
-| Option | Value | Rationale |
-|---|---|---|
-| `powerPreference` | `'high-performance'` | The compute devices already asked for it; the main renderer did not. On a hybrid laptop that could put the renderer on the iGPU and compute on the dGPU — two heaps and cross-adapter copies. One device, one preference. |
-| `antialias` | `true` | Unchanged from before. The post chain has no full-screen AA resolve of its own, so swap-chain MSAA is still the only geometric AA. Swapping to post-AA is a visual change and out of scope. |
-| `alpha` | `true` → `alphaMode: 'premultiplied'` | Three's default, pinned explicitly. HUD, loading screen, badges, and the accessibility menu are DOM layers composited over the canvas and depend on premultiplied blending. |
-| `requiredLimits` | see below | Aligns the renderer's device with the compute tier's ceilings. |
-| `outputColorSpace` | `'display-p3'` / `'srgb'` string literals | Untouched. The Three enum regression is tracked separately — do not "fix" it here. |
+| Option             | Value                                     | Rationale                                                                                                                                                                                                                 |
+| ------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `powerPreference`  | `'high-performance'`                      | The compute devices already asked for it; the main renderer did not. On a hybrid laptop that could put the renderer on the iGPU and compute on the dGPU — two heaps and cross-adapter copies. One device, one preference. |
+| `antialias`        | `true`                                    | Unchanged from before. The post chain has no full-screen AA resolve of its own, so swap-chain MSAA is still the only geometric AA. Swapping to post-AA is a visual change and out of scope.                               |
+| `alpha`            | `true` → `alphaMode: 'premultiplied'`     | Three's default, pinned explicitly. HUD, loading screen, badges, and the accessibility menu are DOM layers composited over the canvas and depend on premultiplied blending.                                               |
+| `requiredLimits`   | see below                                 | Aligns the renderer's device with the compute tier's ceilings.                                                                                                                                                            |
+| `outputColorSpace` | `'display-p3'` / `'srgb'` string literals | Untouched. The Three enum regression is tracked separately — do not "fix" it here.                                                                                                                                        |
 
 ### Limits matrix
 
@@ -71,12 +71,12 @@ Every requested value is exactly a **WebGPU spec default**, so `requestDevice` c
 for asking too much — including on SwiftShader in CI. They are requested explicitly because compute
 shaders bind against these ceilings.
 
-| Limit | Requested | Why | Granted (SwiftShader CI) |
-|---|---|---|---|
-| `maxStorageBufferBindingSize` | 134 217 728 (128 MiB) | Identical to what `gpu-compute-library.ts` and `compute-particles.ts` used to request from their own devices, so moving them onto the renderer's device cannot shrink a binding that used to fit | 134 217 728 |
-| `maxComputeWorkgroupSizeX` | 256 | Workgroup size declared by the particle and culling WGSL kernels | 256 |
-| `maxComputeInvocationsPerWorkgroup` | 256 | Same kernels, single-dimension dispatch | 256 |
-| `maxComputeWorkgroupStorageSize` | 16 384 (16 KiB) | Headroom for tiled kernels | 16 384 |
+| Limit                               | Requested             | Why                                                                                                                                                                                              | Granted (SwiftShader CI) |
+| ----------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| `maxStorageBufferBindingSize`       | 134 217 728 (128 MiB) | Identical to what `gpu-compute-library.ts` and `compute-particles.ts` used to request from their own devices, so moving them onto the renderer's device cannot shrink a binding that used to fit | 134 217 728              |
+| `maxComputeWorkgroupSizeX`          | 256                   | Workgroup size declared by the particle and culling WGSL kernels                                                                                                                                 | 256                      |
+| `maxComputeInvocationsPerWorkgroup` | 256                   | Same kernels, single-dimension dispatch                                                                                                                                                          | 256                      |
+| `maxComputeWorkgroupStorageSize`    | 16 384 (16 KiB)       | Headroom for tiled kernels                                                                                                                                                                       | 16 384                   |
 
 Adapters usually grant more. Read what was actually granted rather than assuming the request:
 

@@ -22,11 +22,11 @@ WebGL has no storage-buffer TSL path here. Extra lights stay on the tiny Three.j
 
 CPU writes a reused `Float32Array` (`maxClusterLights * 12` floats). No per-frame allocations.
 
-| Offset | Fields |
-| --- | --- |
-| 0–3 | world `position.xyz`, `radius` (attenuation cutoff) |
-| 4–7 | `color.rgb` (0–1), `intensity` |
-| 8–11 | spot `dir.xyz` (world), `coneCos` — **negative ⇒ point** |
+| Offset | Fields                                                   |
+| ------ | -------------------------------------------------------- |
+| 0–3    | world `position.xyz`, `radius` (attenuation cutoff)      |
+| 4–7    | `color.rgb` (0–1), `intensity`                           |
+| 8–11   | spot `dir.xyz` (world), `coneCos` — **negative ⇒ point** |
 
 Cluster buffer: `Uint32Array`, stride `1 + maxLightsPerCluster`. Slot 0 is the count; the rest are light indices.
 
@@ -45,12 +45,12 @@ GPU-pool Three.js lights are **muted** (`intensity = 0`) while clustered is acti
 
 ## Fail closed
 
-| Condition | Behaviour |
-| --- | --- |
-| `?no_clustered` / `FEATURE_FLAGS.clusteredLights === false` | Shader skip; analytic pool restored |
-| graphics `low` | Same (CI / smoke-friendly) |
-| WebGL backend | Same; decorative fills stay dark |
-| `isGpuComputeAvailable() === false` or device-lost | Light count uniform → 0; unmute analytics; no crash |
+| Condition                                                   | Behaviour                                           |
+| ----------------------------------------------------------- | --------------------------------------------------- |
+| `?no_clustered` / `FEATURE_FLAGS.clusteredLights === false` | Shader skip; analytic pool restored                 |
+| graphics `low`                                              | Same (CI / smoke-friendly)                          |
+| WebGL backend                                               | Same; decorative fills stay dark                    |
+| `isGpuComputeAvailable() === false` or device-lost          | Light count uniform → 0; unmute analytics; no crash |
 
 `onGpuDeviceLost` is the only device hook — **no `requestDevice`**.
 
@@ -58,10 +58,10 @@ GPU-pool Three.js lights are **muted** (`intensity = 0`) while clustered is acti
 
 Mark: `ClusteredLighting` in `src/core/game-loop-visuals.ts`.
 
-| Lights packed | CPU bin + pack budget |
-| --- | --- |
-| ≤32 | **2.0 ms** (`CLUSTER_BIN_BUDGET_MS_32`) |
-| ≤128 | **6.0 ms** (`CLUSTER_BIN_BUDGET_MS_128`) |
+| Lights packed | CPU bin + pack budget                    |
+| ------------- | ---------------------------------------- |
+| ≤32           | **2.0 ms** (`CLUSTER_BIN_BUDGET_MS_32`)  |
+| ≤128          | **6.0 ms** (`CLUSTER_BIN_BUDGET_MS_128`) |
 
 `window.__clusteredLighting` exposes `{ enabled, reason, lights, lastBinMs, budgetMs, … }`.
 
