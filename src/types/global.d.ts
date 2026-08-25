@@ -168,6 +168,15 @@ declare global {
             maxLightsPerCluster: number;
             budgetMs: number;
         };
+        __shadowSoftness?: {
+            softness: number;
+            radius: number;
+            kernel: number;
+            pcssEnabled: boolean;
+            pcssLightSize: number;
+            tapsPerCascade: number;
+            cascades: number;
+        };
     }
 
     // Loading Screen instance interface

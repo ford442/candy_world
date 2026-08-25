@@ -14,10 +14,12 @@
  * @see docs/LOCAL_LIGHTS.md
  */
 import * as THREE from 'three';
-import { isCIorHeadless } from '../core/config/runtime.ts';
 import { CONFIG } from '../core/config/defaults.ts';
+import { resolveShadowSettings } from '../core/config/postfx.ts';
+import { isCIorHeadless } from '../core/config/runtime.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
+import { applyLocalShadowSoftness } from './shadow-softness.ts';
 
 export type LocalLightKind = 'point' | 'spot';
 /** `authored` / `weather` allocate GPU lights; `decorative` is a descriptor only. */
@@ -41,6 +43,8 @@ export interface PointLightOptions {
     distance?: number;
     decay?: number;
     castShadow?: boolean;
+    /** Optional 0–1 softness for this light's map. Falls back to the sun session value. */
+    shadowSoftness?: number;
     parent?: THREE.Object3D;
     position?: THREE.Vector3 | readonly [number, number, number];
 }
@@ -286,7 +290,11 @@ export function remainingLocalShadowSlots(): number {
     return Math.max(0, cfg().maxLocalShadowLights - _shadowsUsed);
 }
 
-function applyLocalShadow(light: THREE.PointLight | THREE.SpotLight, enable: boolean): boolean {
+function applyLocalShadow(
+    light: THREE.PointLight | THREE.SpotLight,
+    enable: boolean,
+    softnessOverride?: number
+): boolean {
     const local = cfg();
     const want = enable && remainingLocalShadowSlots() > 0;
     light.castShadow = want;
@@ -298,6 +306,7 @@ function applyLocalShadow(light: THREE.PointLight | THREE.SpotLight, enable: boo
     cam.near = local.localShadowNear;
     cam.far = Math.min(local.localShadowFar, light.distance || local.localShadowFar);
     cam.updateProjectionMatrix();
+    applyLocalShadowSoftness(light.shadow, resolveShadowSettings(), softnessOverride);
     _shadowsUsed += 1;
     return true;
 }
