@@ -1,17 +1,17 @@
 // src/foliage/cave.ts
 
 import * as THREE from 'three';
-import { color, float, mix, positionLocal, normalWorld, smoothstep, abs } from 'three/tsl';
+import { abs, color, float, mix, normalWorld, positionLocal, smoothstep } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { tryAttachAuthoredCaveFill } from '../rendering/lights.ts';
 import {
-    uAudioLow,
+    applyStandardDeformation,
     createJuicyRimLight,
-    applyPlayerInteraction,
-    triplanarNoise,
     perturbNormal,
+    triplanarNoise,
+    uAudioLow,
 } from './index.ts';
 import { uTwilight } from './sky.ts';
-import { tryAttachAuthoredCaveFill } from '../rendering/lights.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
 
 const _scratchMatrix = new THREE.Matrix4();
@@ -73,7 +73,7 @@ function getSharedCrystalMat() {
             float(3.0),
             normalWorld
         );
-        _sharedCrystalMat.positionNode = applyPlayerInteraction(positionLocal);
+        _sharedCrystalMat.positionNode = applyStandardDeformation(positionLocal);
 
         // Combine Colors
         _sharedCrystalMat.colorNode = crystalBaseColor.add(crystalRim);
@@ -117,7 +117,7 @@ function getSharedRockMat() {
 
         // 3. Rim Light (Edge Definition)
         const rim = createJuicyRimLight(color(0x444455), float(0.5), float(2.0), normalWorld);
-        _sharedRockMat.positionNode = applyPlayerInteraction(positionLocal);
+        _sharedRockMat.positionNode = applyStandardDeformation(positionLocal);
 
         // Combine Colors
         _sharedRockMat.colorNode = baseColor.add(rim);

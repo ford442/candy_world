@@ -135,4 +135,18 @@ test('triggerAbility does not throw when element is undefined', () => {
 // Run
 // ============================================================================
 
+
+test('triggerAbility does not apply aria-pressed to non-toggles like dash or mine', () => {
+  const el = createMockElement();
+
+  triggerAbility('dash', el as unknown as HTMLElement);
+  assertEqual(el.getAttribute('aria-pressed'), null, 'Dash should not use aria-pressed as a toggle');
+
+  triggerAbility('action', el as unknown as HTMLElement); // Mine
+  assertEqual(el.getAttribute('aria-pressed'), null, 'Mine should not use aria-pressed as a toggle');
+
+  keyStates.dash = false;
+  keyStates.action = false;
+});
+
 runTests();

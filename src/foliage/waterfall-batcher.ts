@@ -17,7 +17,6 @@ const modFloat = (x: any, y: any) => {
 };
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     sharedGeometries, foliageMaterials, uTime,
