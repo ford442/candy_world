@@ -221,6 +221,11 @@ export function updateDashHUD(
             hudDash.setAttribute('aria-disabled', 'false');
             hudDash.title = "Dash (E) - Ready!";
             hudDash.setAttribute('aria-label', "Dash Ability (E) - Ready!");
+
+            // ♿ Aria: Announce ability readiness specifically when pointer-locked
+            if (_lastDashReady === false) {
+                announce('Dash ready', 'polite');
+            }
         } else {
             hudDash.setAttribute('aria-disabled', 'true');
             hudDash.title = "Dash (E) - Recharging...";
@@ -257,6 +262,11 @@ export function updateMineHUD(
             hudMine.setAttribute('aria-disabled', 'false');
             hudMine.title = "Jitter Mine (F) - Ready!";
             hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Ready!");
+
+            // ♿ Aria: Announce ability readiness specifically when pointer-locked
+            if (_lastMineReady === false) {
+                announce('Jitter Mine ready', 'polite');
+            }
         } else {
             hudMine.setAttribute('aria-disabled', 'true');
             hudMine.title = "Jitter Mine (F) - Recharging...";
