@@ -122,6 +122,10 @@ path — ever reads). The WebGL renderer never builds that graph, so
 `initSunCascades()` checks `renderer.isWebGPURenderer` and returns `null` on
 WebGL. The caller then keeps the legacy single player-following ortho map
 configured in `configureSunShadows()`; nothing throws and nothing is skipped.
+Shadow softness (`shadow.filterNode`, 3×3 / 5×5 PCF) attaches after CSM init
+and also lands on the single follow map when cascades are off. r171
+`PCFSoftShadowMap` ignores `shadow.radius` on the node path — we use
+`PCFShadowMap` plus the candy filter. See `docs/SHADOW_SOFTNESS.md`.
 
 In practice WebGL rarely reaches either path: `resolveStartupCapabilities()`
 forces `graphics='low'` whenever `forceWebGL` is set, and the `low` tier turns
@@ -160,4 +164,5 @@ When iterating a visual feature in WebGL first:
 - `src/foliage/post-processing.ts` — dual post-processing pipelines
 - `src/debug/panel.ts` — debug UI renderer toggle
 - `src/systems/shadow-cascades.ts` — CSM rig, WebGPU guard, single-map fallback
+- `src/rendering/shadow-softness.ts` — TSL PCF / cheap PCSS, live softness API
 - `src/rendering/lights.ts` — local point/spot registry (WebGL illuminates, extra maps skipped)

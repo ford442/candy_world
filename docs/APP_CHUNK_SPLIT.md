@@ -170,6 +170,6 @@ A 600 KB ceiling was attempted; `world-gen`, loading-screen DOM, and
 
 ## Refs
 
-- `vite.config.js` `manualChunks`
+- `vite.config.js` `manualChunks` (`clustered-bin.ts` → `clustered-lights` chunk so Forward+ packing stays under the 630 KB `app` ceiling)
 - Prior: #1361, #1450, #1495
 - `FEATURE_FLAGS` in `src/core/config/url-flags.ts`

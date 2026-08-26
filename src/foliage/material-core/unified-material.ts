@@ -23,7 +23,10 @@ import {
 } from 'three/tsl';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
-import { globalClusteredLighting } from '../../rendering/clustered-lighting.ts';
+import {
+    areClusteredLightsEnabled,
+    globalClusteredLighting,
+} from '../../rendering/clustered-lighting.ts';
 import { getIrradianceNode } from '../../rendering/irradiance-probes.ts';
 import { applyGlitch } from '../glitch.ts';
 import {
@@ -35,7 +38,6 @@ import {
 } from './shared-resources.ts';
 import { triplanarNoise, perturbNormal, createRimLight } from './tsl-nodes.ts';
 import { $sn } from './tsl-types.ts';
-import { getLocalLightStats } from '../../rendering/lights.ts';
 
 export interface UnifiedMaterialOptions {
     colorNode?: Node;
@@ -264,7 +266,7 @@ export function createUnifiedMaterial(
         material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(rimEffect);
     }
 
-    if (!getLocalLightStats().webgl) {
+    if (areClusteredLightsEnabled()) {
         const clusterLight = globalClusteredLighting.getLightingNode(
             positionWorld,
             positionView,
