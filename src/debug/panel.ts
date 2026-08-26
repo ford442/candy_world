@@ -8,6 +8,15 @@ import {
     setShadowPcssEnabled,
     setShadowSoftness,
 } from '../rendering/shadow-softness.ts';
+import { CONFIG } from '../core/config.ts';
+import {
+    setAoStrength,
+    setBloomRadius,
+    setBloomThreshold,
+    uAoStrength,
+    uBloomRadius,
+    uBloomThreshold,
+} from '../foliage/post-processing.ts';
 import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import {
@@ -116,6 +125,7 @@ export class DebugPanel {
         panel.appendChild(rendererControls);
 
         this.mountShadowSoftnessControls(panel);
+        this.mountPostfxControls(panel);
 
         // Stage list
         const stageList = document.createElement('div');
@@ -331,6 +341,59 @@ export class DebugPanel {
                 `${state.kernel}×${state.kernel}  radius ${state.radius.toFixed(2)} tex  ` +
                 `${state.tapsPerCascade} taps × ${maps} maps`;
         }
+    }
+
+    private mountPostfxControls(panel: HTMLElement): void {
+        const wrap = document.createElement('div');
+        wrap.style.cssText =
+            'margin-top:10px;padding:8px;background:rgba(40,20,50,0.35);border:1px solid rgba(255,180,220,0.35);border-radius:4px;';
+        const title = document.createElement('div');
+        title.style.cssText = 'color:#ffb3d9;font-weight:bold;font-size:11px;';
+        title.textContent = 'Bloom / AO';
+        wrap.appendChild(title);
+
+        const addSlider = (
+            label: string,
+            id: string,
+            value: number,
+            onInput: (n: number) => void
+        ) => {
+            const row = document.createElement('label');
+            row.style.cssText = 'display:block;color:#ddd;font-size:10px;margin-top:6px;';
+            row.textContent = label;
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = '0';
+            slider.max = '1';
+            slider.step = '0.01';
+            slider.value = String(value);
+            slider.id = id;
+            slider.style.cssText = 'width:100%;accent-color:#ffb3d9;';
+            slider.addEventListener('input', () => onInput(Number.parseFloat(slider.value)));
+            wrap.appendChild(row);
+            wrap.appendChild(slider);
+        };
+
+        addSlider('Threshold', 'debug-bloom-threshold', uBloomThreshold.value, setBloomThreshold);
+        addSlider('Radius', 'debug-bloom-radius', uBloomRadius.value, setBloomRadius);
+        addSlider('AO strength', 'debug-ao-strength', uAoStrength.value || CONFIG.postfx.aoStrength, setAoStrength);
+
+        const aoRow = document.createElement('div');
+        aoRow.style.cssText = 'display:flex;gap:6px;margin-top:6px;';
+        const aoOn = document.createElement('button');
+        aoOn.textContent = 'AO on';
+        aoOn.style.cssText =
+            'flex:1;background:#103018;border:1px solid #7dffb3;color:#b8ffd4;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;';
+        aoOn.addEventListener('click', () => setAoStrength(CONFIG.postfx.aoStrength));
+        const aoOff = document.createElement('button');
+        aoOff.textContent = 'AO off';
+        aoOff.style.cssText =
+            'flex:1;background:#301010;border:1px solid #ff8888;color:#ffd0d0;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;';
+        aoOff.addEventListener('click', () => setAoStrength(0));
+        aoRow.appendChild(aoOn);
+        aoRow.appendChild(aoOff);
+        wrap.appendChild(aoRow);
+        panel.appendChild(wrap);
     }
 
     /**

@@ -31,7 +31,7 @@ import {
     getCascadeMapSizes,
 } from '../systems/shadow-cascades.ts';
 import type { ShadowSettings } from './config/postfx.ts';
-import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
+import { PALETTE, CONFIG, resolveShadowSettings, areGodRaysEnabled, resolvePostfxQuality } from './config.ts';
 
 /**
  * Candy World always uses WebGPURenderer. WebGL2 fallback is the internal
@@ -364,7 +364,11 @@ export async function initScene(): Promise<SceneInitResult> {
 
     // Add light shafts/god rays for sunrise/sunset drama
     const lightShaftGroup = new THREE.Group();
-    const shaftCount = 12;
+    const shaftCount = !areGodRaysEnabled()
+        ? 0
+        : resolvePostfxQuality() === 'high'
+          ? 16
+          : 8;
     const shaftGeometry = new THREE.PlaneGeometry(8, 200);
 
     // Create light shaft material based on renderer mode
@@ -385,14 +389,14 @@ export async function initScene(): Promise<SceneInitResult> {
         // Fade out horizontally at edges to prevent hard intersections
         const uvNode = uv();
         // Use proper boundaries: edge0 < edge1, then invert the result for the right side
-        const leftFade = smoothstep(0.0, 0.4, uvNode.x);
-        const rightFade = float(1.0).sub(smoothstep(0.6, 1.0, uvNode.x));
+        const leftFade = smoothstep(0.0, 0.35, uvNode.x);
+        const rightFade = float(1.0).sub(smoothstep(0.65, 1.0, uvNode.x));
         const fadeX = leftFade.mul(rightFade);
 
-        // Fade vertically to give a sense of scattering/dissipation (invert correctly)
+        // Visual Impact: longer falloff so beams dissipate instead of a hard quad edge
         const fadeY = float(1.0)
             .sub(smoothstep(0.0, 1.0, uvNode.y))
-            .pow(float(1.5));
+            .pow(float(2.2));
 
         // Link combined soft edges to global TSL uniform
         const softOpacity = fadeX.mul(fadeY).mul(uShaftOpacity);

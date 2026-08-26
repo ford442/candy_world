@@ -1,3 +1,14 @@
+/**
+ * Candy World post-FX.
+ *
+ * WebGPU: scene pass + bloom + optional DoF + optional GTAO + color grade.
+ * WebGL: EffectComposer + UnrealBloomPass (and optional BokehPass).
+ *
+ * SSR is **deferred**: mirrors already use `getDreamEnvTexture()` in
+ * `src/foliage/mirrors.ts`. A screen-space reflection pass would add another
+ * full-screen depth/normal fetch on top of GTAO + GI probes — skip on `low`,
+ * and not in this PR. See docs/POSTFX_STACK.md.
+ */
 import * as THREE from 'three';
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -5,14 +16,18 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
 import { dof } from 'three/examples/jsm/tsl/display/DepthOfFieldNode.js';
+import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
 import { PostProcessing } from 'three/webgpu';
-import { CONFIG, isDofEnabled } from '../core/config.ts';
+import { CONFIG, isAoEnabled, isDofEnabled } from '../core/config.ts';
 import type { CandyRenderer } from '../core/init.ts';
 import { isWebGPUMode } from '../core/init.ts';
 
 // Global uniforms for reactivity
 export const uBloomStrength = uniform(1.0);
+export const uBloomThreshold = uniform(CONFIG.postfx.bloomThreshold);
+export const uBloomRadius = uniform(CONFIG.postfx.bloomRadius);
+export const uAoStrength = uniform(0.0);
 export const uColorSaturation = uniform(1.1); // Slightly boosted by default
 export const uColorContrast = uniform(1.05);
 export const uVignetteStrength = uniform(0.5);
@@ -26,6 +41,32 @@ export const uDofFocus = uniform(CONFIG.postfx.dofFocusDistance);
 export const uDofMix = uniform(0.0);
 /** 0–1 bloom swell driven by visible god-ray opacity (screen-space scatter companion). */
 export const uShaftScatterBoost = uniform(0.0);
+
+let _webglBloomPass: UnrealBloomPass | null = null;
+
+function clamp01(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(1, value));
+}
+
+/** Live bloom cutoff. Also syncs the WebGL UnrealBloomPass. */
+export function setBloomThreshold(value: number): void {
+    const n = clamp01(value);
+    uBloomThreshold.value = n;
+    if (_webglBloomPass) _webglBloomPass.threshold = n;
+}
+
+/** Live bloom spread. Also syncs the WebGL UnrealBloomPass. */
+export function setBloomRadius(value: number): void {
+    const n = clamp01(value);
+    uBloomRadius.value = n;
+    if (_webglBloomPass) _webglBloomPass.radius = n;
+}
+
+/** Live GTAO mix. No-op if the pass was not built this session. */
+export function setAoStrength(value: number): void {
+    uAoStrength.value = clamp01(value);
+}
 
 /**
  * Initializes the Post-Processing pipeline for Candy World.
@@ -44,7 +85,7 @@ export const uShaftScatterBoost = uniform(0.0);
  */
 export function initPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera, mode: 'webgpu' | 'webgl') {
     if (isWebGPUMode(renderer)) {
-        return initWebGPUPostProcessing(renderer, scene, camera);
+        return initWebGPUPostProcessing(renderer, scene, camera, mode);
     }
     return initWebGLPostProcessing(renderer, scene, camera);
 }
@@ -52,7 +93,12 @@ export function initPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, 
 /**
  * WebGPU-specific post-processing pipeline using TSL
  */
-function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+function initWebGPUPostProcessing(
+    renderer: CandyRenderer,
+    scene: THREE.Scene,
+    camera: THREE.Camera,
+    mode: 'webgpu' | 'webgl'
+) {
     if (!isWebGPUMode(renderer)) {
         throw new Error('Expected WebGPU renderer for WebGPU post-processing');
     }
@@ -63,17 +109,12 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
     // 2. Base Pass
     const scenePass = pass(scene, camera);
 
-    // 3. Bloom Pass
-    // threshold: 0.85 - only bright spots (neon/emissive) bloom
-    // radius: 0.5 - smooth, wide spread for "Cute Clay" soft glow
-    const threshold = uniform(0.85);
-    const radius = uniform(0.5);
-
+    // 3. Bloom — knobs live in CONFIG.postfx; strength stays audio-driven.
     const bloomPass = bloom(
         scenePass,
         uBloomStrength as unknown as number,
-        radius as unknown as number,
-        threshold as unknown as number,
+        uBloomRadius as unknown as number,
+        uBloomThreshold as unknown as number
     );
 
     // 3b. Depth of Field (bokeh) — only built into the graph when enabled at boot,
@@ -94,15 +135,33 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
         console.log('[PostFX] Depth of Field enabled (WebGPU TSL bokeh)');
     }
 
+    // GTAO — half-res, few samples, pastel cavity (not grey dirt). Off on low.
+    // SSR is not in this graph (env-map mirrors; see file header).
+    let aoPass: ReturnType<typeof ao> | null = null;
+    if (isAoEnabled() && mode === 'webgpu' && camera instanceof THREE.PerspectiveCamera) {
+        aoPass = ao(scenePass.getTextureNode('depth'), null as never, camera);
+        aoPass.resolutionScale = 0.5;
+        aoPass.samples.value = 8;
+        aoPass.radius.value = 0.4;
+        aoPass.scale.value = 0.65;
+        uAoStrength.value = CONFIG.postfx.aoStrength;
+        console.log('[PostFX] GTAO enabled (WebGPU, candy-soft, half-res)');
+    } else {
+        uAoStrength.value = 0;
+    }
+
     // 4. Color Correction Logic
     const colorCorrection = Fn(() => {
         // Very subtle, soft chromatic aberration (mostly disabled by default for candy aesthetic)
         // The old hard RGB split has been replaced by the much prettier "Candy Glow Pulse" in chromatic.ts
         const caOffset = uAberrationStrength.mul(0.3); // even softer than before
         const uvNode = uv();
-        const uvR = uvNode.add(vec2(caOffset, 0.0));
-        const uvG = uvNode;
-        const uvB = uvNode.sub(vec2(caOffset, 0.0));
+        // Sunrise-gated radial scatter companion (zero when shafts are hidden).
+        const scatterAmt = uShaftScatterBoost.mul(0.018);
+        const uvScatter = mix(uvNode, vec2(0.5, 0.5), scatterAmt);
+        const uvR = uvScatter.add(vec2(caOffset, 0.0));
+        const uvG = uvScatter;
+        const uvB = uvScatter.sub(vec2(caOffset, 0.0));
 
         const sceneTex = scenePass.getTextureNode() as unknown as { uv: (coords: ReturnType<typeof vec2>) => ReturnType<typeof vec3> };
         const r = sceneTex.uv(uvR).r;
@@ -115,6 +174,12 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
         // the sharp (chromatic-aberrated) scene; uDofMix=1 is full DoF.
         if (dofColorNode) {
             caColor = mix(caColor, dofColorNode.rgb, uDofMix);
+        }
+
+        if (aoPass) {
+            // Visual Impact: pink-cocoa cavity, keep chroma — never a grey SSAO wash
+            const cavity = float(1.0).sub(aoPass.r).mul(uAoStrength);
+            caColor = mix(caColor, caColor.mul(vec3(0.88, 0.74, 0.84)), cavity);
         }
 
         // Base color + Bloom (shaft scatter boost swells bloom when god rays are visible)
@@ -166,6 +231,9 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
         // Expose uniforms for manual tweaking if needed
         uniforms: {
             bloomStrength: uBloomStrength,
+            bloomThreshold: uBloomThreshold,
+            bloomRadius: uBloomRadius,
+            aoStrength: uAoStrength,
             saturation: uColorSaturation,
             contrast: uColorContrast,
             vignetteStrength: uVignetteStrength,
@@ -210,10 +278,11 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
     const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
     const bloomPass = new UnrealBloomPass(
         resolution,
-        1.0,    // strength (maps to uBloomStrength)
-        0.5,    // radius (soft glow spread)
-        0.85    // threshold (only bright spots bloom)
+        1.0, // strength (maps to uBloomStrength)
+        CONFIG.postfx.bloomRadius,
+        CONFIG.postfx.bloomThreshold
     );
+    _webglBloomPass = bloomPass;
     composer.addPass(bloomPass);
 
     // Resize handler
@@ -232,6 +301,8 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
             // manual synchronization on every frame. This is an acceptable trade-off for fallback support.
             const scatter = uShaftScatterBoost.value || 0;
             bloomPass.strength = (uBloomStrength.value || 1.0) * (1.0 + scatter);
+            bloomPass.threshold = uBloomThreshold.value;
+            bloomPass.radius = uBloomRadius.value;
             // Sync DoF: enable only while mixed in, and track the focal plane.
             if (bokehPass) {
                 bokehPass.enabled = uDofMix.value > 0.01;
@@ -242,7 +313,10 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
         syncSize: handleResize,
         // Expose uniforms for compatibility
         uniforms: {
-            bloomStrength: uBloomStrength,  // Same uniform as WebGPU; manual sync required
+            bloomStrength: uBloomStrength, // Same uniform as WebGPU; manual sync required
+            bloomThreshold: uBloomThreshold,
+            bloomRadius: uBloomRadius,
+            aoStrength: uAoStrength,
             saturation: uColorSaturation,
             contrast: uColorContrast,
             vignetteStrength: uVignetteStrength,

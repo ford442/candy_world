@@ -45,6 +45,21 @@ export function isDofManual(): boolean {
     return _hasFlag('dof') || CONFIG.postfx.dofEnabled;
 }
 
+/**
+ * WebGPU GTAO. Off on `low` / `off` / CI unless `?ao`. `?no_ao` always wins.
+ * WebGL never builds this pass (EffectComposer keeps bloom-only).
+ */
+export function isAoEnabled(): boolean {
+    if (_hasFlag('no_ao')) return false;
+    const aoFlag = _getFlag('ao');
+    if (aoFlag === 'off' || aoFlag === '0') return false;
+    const forcedOn = _hasFlag('ao') || aoFlag === '1' || aoFlag === 'on' || aoFlag === '';
+    if (!forcedOn && isCIorHeadless()) return false;
+    if (forcedOn) return true;
+    if (CONFIG.postfx.aoEnabled) return true;
+    return resolvePostfxQuality() === 'high';
+}
+
 /** TSL PCF kernel width. 1 = hard compare; 3 = default; 5 = high-tier. */
 export type ShadowKernel = 1 | 3 | 5;
 

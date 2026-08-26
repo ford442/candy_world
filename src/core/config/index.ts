@@ -47,6 +47,7 @@ export {
     areGodRaysEnabled,
     isDofEnabled,
     isDofManual,
+    isAoEnabled,
     resolveShadowSettings,
     clampSoftness,
     softnessToRadius,

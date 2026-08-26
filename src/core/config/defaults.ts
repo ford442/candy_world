@@ -508,6 +508,14 @@ export const CONFIG: ConfigType = {
         shaftFrustumDot: 0.28,
         /** Screen-space bloom swell when shafts are visible (radial-scatter feel without a second pass). */
         shaftScatterBoost: 0.45,
+        // Visual Impact: neon/emissive only — do not bloom the whole meadow
+        bloomThreshold: 0.85,
+        // Visual Impact: Cute Clay soft halo
+        bloomRadius: 0.5,
+        /** Off until `high` postfx or `?ao` — low/CI stay cheap. */
+        aoEnabled: false,
+        // Visual Impact: candy contact, not dirty SSAO corners
+        aoStrength: 0.35,
         /**
          * Force-enable DoF independent of tier (also ?dof / ?no_dof URL flags).
          * Resolved via isDofEnabled(); 'high' tier implies DoF on.
