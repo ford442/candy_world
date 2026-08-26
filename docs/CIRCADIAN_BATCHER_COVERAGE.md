@@ -21,6 +21,7 @@ Helpers (prefer these over hand-rolled `mix`):
 | Batcher | Pose path | Glow gate | Rhythm |
 |---------|-----------|-----------|--------|
 | `simple-flower-batcher` | **PlantPoseMachine** → `aPoseState` | dayGlow + uTwilight | diurnal |
+| `dandelion-batcher` | `uCircadianPoseOffset` droop & tuck | dayGlow + uTwilight | diurnal |
 | `flower-batcher` | PlantPoseMachine → `aPoseState` | uTwilight | diurnal |
 | `dandelion-batcher` | `uCircadianPhase` close/droop | dayGlow + uTwilight | diurnal |
 | `arpeggio-batcher` | PlantPoseMachine | (pose-driven) | diurnal |
