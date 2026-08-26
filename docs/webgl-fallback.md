@@ -151,7 +151,7 @@ When iterating a visual feature in WebGL first:
 
 1. **Materials** — confirm `MeshPhysicalMaterial` clearcoat/roughness in WebGL; port TSL node graphs in batchers for WebGPU
 2. **Fog** — WebGL uses `scene.fog`; WebGPU adds `scene.fogNode` via `createCrescendoFogNode()`
-3. **Post-processing** — mirror bloom threshold (0.85), radius (0.5), and saturation in both pipelines (`src/foliage/post-processing.ts`)
+3. **Post-processing** — bloom threshold/radius come from `CONFIG.postfx` on both pipelines. GTAO is WebGPU-only (skipped on `?renderer=webgl`).
 4. **Uniforms** — mutate `.value` in place; never reassign TSL uniform nodes
 5. **Compute** — gate with `window.__computeDisabled`; provide JS fallback
 6. **Test both paths** — `?renderer=webgl` and default WebGPU before merging

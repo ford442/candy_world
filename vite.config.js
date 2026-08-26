@@ -109,6 +109,9 @@ export default defineConfig({
                     ) {
                         return 'photo-mode';
                     }
+                    if (id.includes('/src/rendering/webgl-debug.ts')) {
+                        return 'webgl-debug';
+                    }
                     if (id.includes('/src/world/map-loader.ts')) {
                         return 'map-loader';
                     }
@@ -139,6 +142,14 @@ export default defineConfig({
                     }
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
+                    }
+                    // Graphs only. The stub stays in `app` and must not live in this
+                    // chunk: postfx → app TLA + app awaiting postfx deadlocks boot.
+                    if (
+                        id.includes('/src/foliage/post-processing-webgpu.ts') ||
+                        id.includes('/src/foliage/post-processing-webgl.ts')
+                    ) {
+                        return 'postfx-webgpu';
                     }
                     // Shader warmup (loading-screen phase — not first-paint brain)
                     if (id.includes('/src/rendering/shader-warmup.ts')) {

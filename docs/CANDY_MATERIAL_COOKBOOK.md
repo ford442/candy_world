@@ -357,6 +357,14 @@ Full write-up: [`docs/IRRADIANCE_PROBES.md`](./IRRADIANCE_PROBES.md).
 
 ---
 
+## Post-FX (bloom, AO, shafts)
+
+Knobs live in `CONFIG.postfx`. Bloom **strength** stays audio-driven (`uBloomStrength`); **threshold** / **radius** are artist-tunable (`bloomThreshold` 0.85, `bloomRadius` 0.5) without editing TSL literals.
+
+GTAO is optional, **off on `low`**, candy-soft (pink-cocoa cavity, not grey dirt). SSR is **not** in the stack — mirrors use `getDreamEnvTexture()`. See [`docs/POSTFX_STACK.md`](./POSTFX_STACK.md).
+
+---
+
 ## Appendix: preset coverage guard
 
 `npm run test:cookbook-presets` greps `CandyPresets.<Name>` usage under `src/foliage/`

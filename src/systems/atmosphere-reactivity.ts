@@ -3,7 +3,7 @@
 
 import musicBindings from '../../assets/music-bindings.json';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { uBloomStrength } from '../foliage/post-processing.ts';
+import { uBloomStrength } from '../foliage/post-processing-uniforms.ts';
 import { uCrescendoFogDensity } from '../foliage/sky.ts';
 import type { AudioData } from '../foliage/types.ts';
 import { MRState, toChannels } from './music-reactivity-core.ts';
