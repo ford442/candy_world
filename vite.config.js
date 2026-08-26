@@ -144,6 +144,10 @@ export default defineConfig({
                     if (id.includes('/src/rendering/shader-warmup.ts')) {
                         return 'shader-warmup';
                     }
+                    // CPU cluster bin (no app imports — peeling avoids a clustered ↔ app cycle)
+                    if (id.includes('/src/rendering/clustered-bin.ts')) {
+                        return 'clustered-lights';
+                    }
                     // Awakened flora persistence (feature-flagged ?awakened)
                     if (id.includes('/src/systems/awakened-persistence.ts')) {
                         return 'awakened';
