@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processing.ts';
+import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processing-uniforms.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { AtmosphereShaftState } from '../systems/music-reactivity.ts';
 import { player } from '../systems/physics/index.ts';

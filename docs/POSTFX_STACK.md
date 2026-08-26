@@ -17,7 +17,7 @@ GI is **irradiance probes**, not screen-space, so GTAO is the only extra depth f
 
 ## Bloom knobs
 
-`CONFIG.postfx.bloomThreshold` (default 0.85) and `bloomRadius` (0.5). Strength stays audio-driven (`uBloomStrength`). Live: `setBloomThreshold` / `setBloomRadius`, `?debug=1` sliders.
+`CONFIG.postfx.bloomThreshold` (default 0.85) and `bloomRadius` (0.5). Strength stays audio-driven (`uBloomStrength`). Live uniforms `uBloomThreshold` / `uBloomRadius` (`?debug=1` sliders).
 
 ## AO (candy-soft)
 

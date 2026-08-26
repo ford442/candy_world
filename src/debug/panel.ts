@@ -9,14 +9,7 @@ import {
     setShadowSoftness,
 } from '../rendering/shadow-softness.ts';
 import { CONFIG } from '../core/config.ts';
-import {
-    setAoStrength,
-    setBloomRadius,
-    setBloomThreshold,
-    uAoStrength,
-    uBloomRadius,
-    uBloomThreshold,
-} from '../foliage/post-processing.ts';
+import { uAoStrength, uBloomRadius, uBloomThreshold } from '../foliage/post-processing-uniforms.ts';
 import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import {
@@ -374,13 +367,19 @@ export class DebugPanel {
             wrap.appendChild(slider);
         };
 
-        addSlider('Threshold', 'debug-bloom-threshold', uBloomThreshold.value, setBloomThreshold);
-        addSlider('Radius', 'debug-bloom-radius', uBloomRadius.value, setBloomRadius);
+        addSlider('Threshold', 'debug-bloom-threshold', uBloomThreshold.value, (n) => {
+            uBloomThreshold.value = n;
+        });
+        addSlider('Radius', 'debug-bloom-radius', uBloomRadius.value, (n) => {
+            uBloomRadius.value = n;
+        });
         addSlider(
             'AO strength',
             'debug-ao-strength',
             uAoStrength.value || CONFIG.postfx.aoStrength,
-            setAoStrength
+            (n) => {
+                uAoStrength.value = n;
+            }
         );
 
         const aoRow = document.createElement('div');
@@ -389,12 +388,16 @@ export class DebugPanel {
         aoOn.textContent = 'AO on';
         aoOn.style.cssText =
             'flex:1;background:#103018;border:1px solid #7dffb3;color:#b8ffd4;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;';
-        aoOn.addEventListener('click', () => setAoStrength(CONFIG.postfx.aoStrength));
+        aoOn.addEventListener('click', () => {
+            uAoStrength.value = CONFIG.postfx.aoStrength;
+        });
         const aoOff = document.createElement('button');
         aoOff.textContent = 'AO off';
         aoOff.style.cssText =
             'flex:1;background:#301010;border:1px solid #ff8888;color:#ffd0d0;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;';
-        aoOff.addEventListener('click', () => setAoStrength(0));
+        aoOff.addEventListener('click', () => {
+            uAoStrength.value = 0;
+        });
         aoRow.appendChild(aoOn);
         aoRow.appendChild(aoOff);
         wrap.appendChild(aoRow);
