@@ -142,6 +142,33 @@ export function initPlaylistManager(
         });
     }
 
+    // ♿ Aria: Delegated keyboard active listeners for all playlist buttons
+    if (playlistOverlay) {
+        playlistOverlay.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (e.repeat) return;
+                const target = e.target as HTMLElement;
+                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
+                    target.classList.add('keyboard-active');
+                }
+            }
+        });
+        playlistOverlay.addEventListener('keyup', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                const target = e.target as HTMLElement;
+                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
+                    target.classList.remove('keyboard-active');
+                }
+            }
+        });
+        playlistOverlay.addEventListener('blur', (e: FocusEvent) => {
+            const target = e.target as HTMLElement;
+            if (target && target.matches && target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
+                target.classList.remove('keyboard-active');
+            }
+        }, true); // Use capture to ensure we catch blur events on dynamically added children
+    }
+
     // 🎨 Palette: Improve Drag & Drop Feedback in Jukebox
     if (playlistOverlay) {
         const dropZoneText = document.createElement('div');
@@ -360,21 +387,6 @@ export function renderPlaylist(): void {
             });
         };
 
-        // ♿ Aria: Keyboard tactile feedback for play button
-        btn.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                if (e.repeat) return;
-                btn.classList.add('keyboard-active');
-            }
-        });
-        btn.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                btn.classList.remove('keyboard-active');
-            }
-        });
-        btn.addEventListener('blur', () => {
-            btn.classList.remove('keyboard-active');
-        });
         // Remove Button (UX Improvement)
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -422,21 +434,6 @@ export function renderPlaylist(): void {
             });
         };
 
-        // ♿ Aria: Keyboard tactile feedback for remove button
-        removeBtn.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                if (e.repeat) return;
-                removeBtn.classList.add('keyboard-active');
-            }
-        });
-        removeBtn.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                removeBtn.classList.remove('keyboard-active');
-            }
-        });
-        removeBtn.addEventListener('blur', () => {
-            removeBtn.classList.remove('keyboard-active');
-        });
         li.appendChild(btn);
         li.appendChild(removeBtn);
         playlistList?.appendChild(li);
