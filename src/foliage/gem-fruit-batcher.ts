@@ -157,7 +157,12 @@ export class GemFruitBatcher {
         treeGroup: THREE.Object3D,
         options: { height?: number; gemCount?: number } = {}
     ): { placed: number; refs: BatcherInstanceRef[] } {
-        treeGroup.updateWorldMatrix(true, true);
+        // ⚡ OPTIMIZATION: Bypassed expensive treeGroup.updateWorldMatrix() recursion.
+        // We compose the world matrix directly assuming the parent (if any) is the scene root or has an up-to-date matrix.
+        treeGroup.matrixWorld.compose(treeGroup.position, treeGroup.quaternion, treeGroup.scale);
+        if (treeGroup.parent) {
+            treeGroup.matrixWorld.multiplyMatrices(treeGroup.parent.matrixWorld, treeGroup.matrixWorld);
+        }
         const treeScale = treeGroup.scale.y || 1;
         const height = (options.height ?? 4.0) * treeScale;
         const targetGems = options.gemCount ?? (5 + Math.floor(Math.random() * 4));
@@ -165,6 +170,7 @@ export class GemFruitBatcher {
         let placed = 0;
         const refs: BatcherInstanceRef[] = [];
 
+        const updatedMeshes = new Set<THREE.InstancedMesh>();
         for (let b = 0; b < branchCount && placed < targetGems; b++) {
             const angle = (b / branchCount) * Math.PI * 2 + Math.random() * 0.4;
             const radius = 0.35 + Math.random() * 0.55;
@@ -193,9 +199,17 @@ export class GemFruitBatcher {
                 if (instanceIndex >= 0) {
                     placed++;
                     refs.push({ batcher: 'gem_fruit', instanceIndex, gemType });
+                    updatedMeshes.add(this.meshes[gemType]);
                 }
             }
         }
+        // ⚡ OPTIMIZATION: Hoisted buffer needsUpdate flags outside the registration loop to eliminate redundant WebGPU uploads
+        updatedMeshes.forEach(mesh => {
+            mesh.instanceMatrix.needsUpdate = true;
+            if (mesh.geometry.getAttribute('aPhase')) (mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute).needsUpdate = true;
+            if (mesh.geometry.getAttribute('aArmLen')) (mesh.geometry.getAttribute('aArmLen') as THREE.InstancedBufferAttribute).needsUpdate = true;
+        });
+
         return { placed, refs };
     }
 
@@ -230,9 +244,7 @@ export class GemFruitBatcher {
 
         this._counts[type] = idx + 1;
         mesh.count = idx + 1;
-        mesh.instanceMatrix.needsUpdate = true;
-        phaseAttr.needsUpdate = true;
-        armAttr.needsUpdate = true;
+        // ⚡ OPTIMIZATION: Removed needsUpdate=true inside the loop. Flagged externally.
         return idx;
     }
 
