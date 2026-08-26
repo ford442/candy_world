@@ -157,10 +157,20 @@ export function setupStartScreen(ctx: MainContext): void {
             applyPath(next);
         });
         fullWorldToggle.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
+                fullWorldToggle.classList.add('keyboard-active');
                 fullWorldToggle.click();
             }
+        });
+        fullWorldToggle.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                fullWorldToggle.classList.remove('keyboard-active');
+            }
+        });
+        fullWorldToggle.addEventListener('blur', () => {
+            fullWorldToggle.classList.remove('keyboard-active');
         });
     }
 
@@ -435,6 +445,21 @@ export function setupStartScreen(ctx: MainContext): void {
         if (!isGenerating) {
             void enterWorld();
         }
+    });
+
+    startButton.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            startButton.classList.add('keyboard-active');
+        }
+    });
+    startButton.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            startButton.classList.remove('keyboard-active');
+        }
+    });
+    startButton.addEventListener('blur', () => {
+        startButton.classList.remove('keyboard-active');
     });
 
     if (isBootInstant()) {
