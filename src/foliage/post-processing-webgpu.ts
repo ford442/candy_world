@@ -1,39 +1,44 @@
 /**
  * WebGPU TSL post graph (bloom, optional DoF, optional GTAO).
- * Loaded via dynamic import so GTAO/Bloom nodes stay out of the app chunk.
+ * No imports from the app chunk — bootstrap TLA would deadlock.
+ * SSR is not in this graph (env-map mirrors; see docs/POSTFX_STACK.md).
  */
 import * as THREE from 'three';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
 import { dof } from 'three/examples/jsm/tsl/display/DepthOfFieldNode.js';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
-import { PostProcessing } from 'three/webgpu';
-import { CONFIG, isAoEnabled, isDofEnabled } from '../core/config.ts';
-import type { CandyRenderer } from '../core/init.ts';
-import { isWebGPUMode } from '../core/init.ts';
-import {
-    uAberrationStrength,
-    uAoStrength,
-    uBloomRadius,
-    uBloomStrength,
-    uBloomThreshold,
-    uColorContrast,
-    uColorSaturation,
-    uDofFocus,
-    uDofMix,
-    uShaftScatterBoost,
-    uVignetteStrength,
-} from './post-processing-uniforms.ts';
+import { PostProcessing, WebGPURenderer } from 'three/webgpu';
+import type * as postFxUniforms from './post-processing-uniforms.ts';
+
+type U = typeof postFxUniforms;
 
 export function initWebGPUPostProcessing(
-    renderer: CandyRenderer,
+    renderer: WebGPURenderer,
     scene: THREE.Scene,
     camera: THREE.Camera,
-    mode: 'webgpu' | 'webgl'
-) {
-    if (!isWebGPUMode(renderer)) {
-        throw new Error('Expected WebGPU renderer for WebGPU post-processing');
+    opts: {
+        aoEnabled: boolean;
+        dofEnabled: boolean;
+        dofAperture: number;
+        dofMaxBlur: number;
+        aoStrength: number;
+        u: U;
     }
+) {
+    const {
+        uAberrationStrength,
+        uAoStrength,
+        uBloomRadius,
+        uBloomStrength,
+        uBloomThreshold,
+        uColorContrast,
+        uColorSaturation,
+        uDofFocus,
+        uDofMix,
+        uShaftScatterBoost,
+        uVignetteStrength,
+    } = opts.u;
 
     const postProcessing = new PostProcessing(renderer);
     const scenePass = pass(scene, camera);
@@ -45,30 +50,27 @@ export function initWebGPUPostProcessing(
         uBloomThreshold as unknown as number
     );
 
-    const dofActive = isDofEnabled();
     let dofColorNode: ReturnType<typeof dof> | null = null;
-    if (dofActive) {
+    if (opts.dofEnabled) {
         const viewZ = scenePass.getViewZNode();
         dofColorNode = dof(
             scenePass,
             viewZ,
             uDofFocus,
-            uniform(CONFIG.postfx.dofAperture),
-            uniform(CONFIG.postfx.dofMaxBlur)
+            uniform(opts.dofAperture),
+            uniform(opts.dofMaxBlur)
         );
         console.log('[PostFX] Depth of Field enabled (WebGPU TSL bokeh)');
     }
 
-    // GTAO — half-res, few samples, pastel cavity (not grey dirt). Off on low.
-    // SSR is not in this graph (env-map mirrors; see docs/POSTFX_STACK.md).
     let aoPass: ReturnType<typeof ao> | null = null;
-    if (isAoEnabled() && mode === 'webgpu' && camera instanceof THREE.PerspectiveCamera) {
+    if (opts.aoEnabled && camera instanceof THREE.PerspectiveCamera) {
         aoPass = ao(scenePass.getTextureNode('depth'), null as never, camera);
         aoPass.resolutionScale = 0.5;
         aoPass.samples.value = 8;
         aoPass.radius.value = 0.4;
         aoPass.scale.value = 0.65;
-        uAoStrength.value = CONFIG.postfx.aoStrength;
+        uAoStrength.value = opts.aoStrength;
         console.log('[PostFX] GTAO enabled (WebGPU, candy-soft, half-res)');
     } else {
         uAoStrength.value = 0;
@@ -97,7 +99,6 @@ export function initWebGPUPostProcessing(
         }
 
         if (aoPass) {
-            // Visual Impact: pink-cocoa cavity, keep chroma — never a grey SSAO wash
             const cavity = float(1.0).sub(aoPass.r).mul(uAoStrength);
             caColor = mix(caColor, caColor.mul(vec3(0.88, 0.74, 0.84)), cavity);
         }

@@ -143,9 +143,9 @@ export default defineConfig({
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
                     }
-                    // Loaded via dynamic import() from scene-pipeline (not a static app edge).
+                    // Graphs only. The stub stays in `app` and must not live in this
+                    // chunk: postfx → app TLA + app awaiting postfx deadlocks boot.
                     if (
-                        id.includes('/src/foliage/post-processing.ts') ||
                         id.includes('/src/foliage/post-processing-webgpu.ts') ||
                         id.includes('/src/foliage/post-processing-webgl.ts')
                     ) {

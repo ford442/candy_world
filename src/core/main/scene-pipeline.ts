@@ -1,4 +1,5 @@
 import { StageLoader } from '../../debug/index.ts';
+import { initPostProcessing } from '../../foliage/post-processing.ts';
 import {
     publishRendererBreadcrumbs,
     installRendererHotSwitch,
@@ -68,7 +69,6 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     }
 
     await StageLoader.loadStage('postProcessing', async () => {
-        const { initPostProcessing } = await import('../../foliage/post-processing.ts');
         ctx.postProcessing = await initPostProcessing(
             sceneInitResult!.renderer,
             sceneInitResult!.scene,
