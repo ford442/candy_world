@@ -1,3 +1,4 @@
+import { announce } from '../../../ui/announcer.ts';
 /**
  * Visual reticle + ability-slot pointer/keyboard forwarding.
  */
@@ -29,6 +30,7 @@ export function createUpdateReticleState(): (
 
         if (reticleLabel) {
             if (state === 'hover' && label) {
+                announce(label, 'polite');
                 reticleLabel.innerText = label;
                 reticleLabel.classList.add('visible');
             } else if (state === 'idle') {
