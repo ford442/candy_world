@@ -52,7 +52,7 @@ function resolve(overrides = {}) {
     assert.equal(ultra.warmup.materialSubset, 'full');
 }
 
-// Fallback / WebGL / CI force lite
+// Software adapter + CI force lite graphics (not renderer WebGL rescue)
 {
     const fallback = resolve({ isFallbackAdapter: true, profile: { graphics: 'high' } });
     assert.equal(fallback.graphics, 'low');

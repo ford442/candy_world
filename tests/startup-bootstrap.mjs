@@ -278,67 +278,38 @@ test('startup progress: entity type is appended to loading label when present', 
 });
 
 // ============================================================================
-// Issue #2 — WebGPU renderer fallback
-// Tests that the renderer creation falls back to WebGL when WebGPURenderer
-// throws (e.g. adapter returned null on Safari 17.4).
+// Issue #2 — WebGPU renderer fallback removed
+// Tests that the renderer creation fails when WebGPURenderer throws.
 // ============================================================================
 
-test('webgpu fallback: falls back to webgl when WebGPURenderer constructor throws', () => {
-  // Replicate the logic from init.ts createRenderer()
-  let mode = null;
-
+test('webgpu: throws when WebGPURenderer constructor throws', () => {
   function simulateCreateRenderer(webgpuAvailable, webgpuThrows) {
     if (webgpuAvailable) {
-      try {
         if (webgpuThrows) throw new Error('GPUAdapter is null');
-        mode = 'webgpu';
         return { mode: 'webgpu' };
-      } catch (err) {
-        console.warn('WebGPU failed, falling back:', err.message);
-        // fall through
-      }
     }
-    mode = 'webgl';
-    return { mode: 'webgl' };
+    throw new Error('WebGPU is required');
   }
 
-  const result = simulateCreateRenderer(true, true);
-  assert(result.mode === 'webgl', 'Should fall back to webgl when WebGPURenderer throws');
-  assert(mode === 'webgl', 'mode variable should be webgl');
+  try {
+    simulateCreateRenderer(true, true);
+    assert(false, 'Should have thrown an error');
+  } catch(err) {
+    assert(err.message === 'GPUAdapter is null', 'Should throw inner error');
+  }
 });
 
-test('webgpu fallback: uses webgpu when available and constructor succeeds', () => {
+test('webgpu: uses webgpu when available and constructor succeeds', () => {
   function simulateCreateRenderer(webgpuAvailable, webgpuThrows) {
     if (webgpuAvailable) {
-      try {
         if (webgpuThrows) throw new Error('GPUAdapter is null');
         return { mode: 'webgpu' };
-      } catch (err) {
-        // fall through
-      }
     }
-    return { mode: 'webgl' };
+    throw new Error('WebGPU is required');
   }
 
   const result = simulateCreateRenderer(true, false);
   assert(result.mode === 'webgpu', 'Should use webgpu when available and working');
-});
-
-test('webgpu fallback: uses webgl when webgpu not available', () => {
-  function simulateCreateRenderer(webgpuAvailable, webgpuThrows) {
-    if (webgpuAvailable) {
-      try {
-        if (webgpuThrows) throw new Error('GPUAdapter is null');
-        return { mode: 'webgpu' };
-      } catch (err) {
-        // fall through
-      }
-    }
-    return { mode: 'webgl' };
-  }
-
-  const result = simulateCreateRenderer(false, false);
-  assert(result.mode === 'webgl', 'Should use webgl when webgpu not available');
 });
 
 // ============================================================================
@@ -354,28 +325,13 @@ function simulateResolveRendererBackend(search = '') {
 }
 
 function simulateCreateRendererWithPreference(preference, webgpuAvailable, webgpuThrows) {
-  if (preference === 'webgl') {
-    return { mode: 'webgl', requested: 'webgl', fallbackReason: 'explicit-webgl' };
-  }
-
   if (webgpuAvailable) {
-    try {
       if (webgpuThrows) throw new Error('GPUAdapter is null');
-      return { mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
-    } catch (_err) {
-      // fall through
-    }
+      return { mode: 'webgpu', requested: 'webgpu' };
   }
 
-  return { mode: 'webgl', requested: 'webgpu', fallbackReason: 'webgpu-unavailable' };
+  throw new Error('WebGPU is required');
 }
-
-test('renderer preference: URL ?renderer=webgl forces webgl path', () => {
-  assert(simulateResolveRendererBackend('?renderer=webgl') === 'webgl', 'URL should force webgl');
-  const result = simulateCreateRendererWithPreference('webgl', true, false);
-  assert(result.mode === 'webgl', 'Explicit webgl should skip WebGPU even when available');
-  assert(result.fallbackReason === 'explicit-webgl', 'Should record explicit webgl reason');
-});
 
 test('renderer preference: URL ?renderer=webgpu selects webgpu when available', () => {
   assert(simulateResolveRendererBackend('?renderer=webgpu') === 'webgpu', 'URL should request webgpu');
