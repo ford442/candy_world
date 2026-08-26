@@ -316,7 +316,7 @@ export abstract class AudioSystemCore {
                     if (!spec.startsWith('.') && !spec.startsWith('/')) return spec;
                     try {
                         return new URL(spec, workletUrl).href;
-                    } catch (_err) {
+                    } catch {
                         return spec;
                     }
                 };
@@ -340,8 +340,8 @@ export abstract class AudioSystemCore {
                 if (rewritten !== text) {
                     console.warn('[AudioSystem] Rewrote import specifiers in worklet to absolute URLs to avoid blob-relative resolution issues.');
                 }
-            } catch (_err) {
-                console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text', _err);
+            } catch {
+                console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text');
             }
 
             const blobUrl = URL.createObjectURL(new Blob([rewritten], { type: 'application/javascript' }));
@@ -408,8 +408,8 @@ export abstract class AudioSystemCore {
                         setTimeout(() => reject(new Error('libopenmpt init timeout')), 5000)
                     ),
                 ]);
-            } catch (_err) {
-                console.warn('[AudioSystem] WASM failed, starting in Silent Mode:', _err);
+            } catch {
+                console.warn('[AudioSystem] WASM failed, starting in Silent Mode:');
                 window.libopenmpt = undefined;
                 this.isReady = true;
                 return;

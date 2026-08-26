@@ -307,7 +307,7 @@ export class AudioSystem extends AudioSystemCore {
             const time = this.audioContext ? this.audioContext.currentTime : 0;
             try {
                 this.gainNode.gain.setTargetAtTime(this.volume, time, 0.1);
-            } catch (_e) {
+            } catch {
                 this.gainNode.gain.value = this.volume;
             }
         }
@@ -448,7 +448,7 @@ export class AudioSystem extends AudioSystemCore {
                             { type: 'LOAD', fileData: arrayBuffer, fileName: file.name },
                             [arrayBuffer]
                         );
-                    } catch (_e) {
+                    } catch {
                         // Some browsers may not accept transferred buffer if already neutered; fall back to structured clone
                         this.workletNode.port.postMessage({
                             type: 'LOAD',
@@ -472,8 +472,8 @@ export class AudioSystem extends AudioSystemCore {
 
             // Start playback (worklet will decode/play once module loaded, or ScriptProcessor is already ready)
             await this.play();
-        } catch (_e) {
-            console.error('Error loading file:', _e);
+        } catch {
+            console.error('Error loading file:');
             this.playNext();
         }
     }
@@ -521,8 +521,8 @@ export class AudioSystem extends AudioSystemCore {
             this.moduleInfo.title = title;
             this.preCachePatternData(modPtr);
             this.play();
-        } catch (_e) {
-            console.error('Failed to load module:', _e);
+        } catch {
+            console.error('Failed to load module:');
             this.playNext(); // Skip broken files
         }
     }
@@ -561,8 +561,8 @@ export class AudioSystem extends AudioSystemCore {
                 }
                 this.patternMatrices[o] = { rows: matrixRows, numRows, numChannels };
             }
-        } catch (_e) {
-            console.error('Pattern caching error:', _e);
+        } catch {
+            console.error('Pattern caching error:');
         }
     }
 
@@ -581,16 +581,16 @@ export class AudioSystem extends AudioSystemCore {
             if (!this.scriptProcessorNode) {
                 try {
                     await this.init();
-                } catch (_e) {
-                    console.warn('ScriptProcessor init failed in play()', _e);
+                } catch {
+                    console.warn('ScriptProcessor init failed in play()');
                 }
             }
         } else {
             if (!this.workletNode) {
                 try {
                     await this.init();
-                } catch (_e) {
-                    console.warn('Worklet init failed in play()', _e);
+                } catch {
+                    console.warn('Worklet init failed in play()');
                 }
             }
         }
@@ -598,7 +598,7 @@ export class AudioSystem extends AudioSystemCore {
         this.isPlaying = true;
     }
 
-    stop(fullReset: boolean = true): void {
+    stop(_fullReset: boolean = true): void {
         // Guard against concurrent calls
         if (this.isStopping) {
             return;
@@ -613,8 +613,8 @@ export class AudioSystem extends AudioSystemCore {
         try {
             if (this.workletNode && this.workletNode.port)
                 this.workletNode.port.postMessage({ type: 'STOP' });
-        } catch (_e) {
-            console.warn('Failed to signal STOP to worklet', _e);
+        } catch {
+            console.warn('Failed to signal STOP to worklet');
         }
 
         // Disconnect audio graph parts
@@ -622,25 +622,25 @@ export class AudioSystem extends AudioSystemCore {
             if (this.workletNode) {
                 try {
                     this.workletNode.disconnect();
-                } catch (_e) { /* noop */ }
+                } catch { /* noop */ }
                 this.workletNode = null;
             }
             if (this.scriptProcessorNode) {
                 try {
                     this.scriptProcessorNode.disconnect();
                     this.scriptProcessorNode.onaudioprocess = null;
-                } catch (_e) { /* noop */ }
+                } catch { /* noop */ }
                 this.scriptProcessorNode = null;
             }
             if (this.gainNode) {
                 try {
                     this.gainNode.disconnect();
-                } catch (_e) { /* noop */ }
+                } catch { /* noop */ }
                 this.gainNode = null;
             }
             this._generativeAttached = false;
-        } catch (_e) {
-            console.warn('Error disconnecting audio nodes:', _e);
+        } catch {
+            console.warn('Error disconnecting audio nodes:');
         }
 
         // Clean up module and buffers for ScriptProcessorNode mode
@@ -658,7 +658,7 @@ export class AudioSystem extends AudioSystemCore {
                     this.libopenmpt._free(this.rightBufferPtr);
                     this.rightBufferPtr = 0;
                 }
-            } catch (_e) {
+            } catch {
                 /* ignore */
             }
         } else if (this.libopenmpt) {
@@ -672,7 +672,7 @@ export class AudioSystem extends AudioSystemCore {
                     this.libopenmpt._free(this.rightBufferPtr);
                     this.rightBufferPtr = 0;
                 }
-            } catch (_e) {
+            } catch {
                 /* ignore */
             }
         }
@@ -684,6 +684,7 @@ export class AudioSystem extends AudioSystemCore {
     }
 
     handleVisualUpdate(data: unknown): void {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { bpm, channelData, anyTrigger, order, row } = data as { bpm: number; channelData: any[]; anyTrigger: boolean; order: number; row: number }; // Ensure Worklet sends order/row!
         this.visualState.bpm = bpm || 120;
 
