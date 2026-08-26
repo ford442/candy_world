@@ -121,8 +121,10 @@ export function maybeExpandTerrain(playerX: number, playerZ: number, scene: THRE
             const next = await buildTerrainMesh(explore.size, explore.heightmapResolution);
             next.position.copy(activeGround!.position);
             scene.add(next);
-            // ⚡ OPTIMIZATION: Prevent VRAM leaks by replacing raw scene.remove and partial disposal with safeRemoveAndDispose
+
+            // ⚡ OPTIMIZATION: Replaced manual scene.remove with safeRemoveAndDispose to prevent VRAM leaks.
             safeRemoveAndDispose(scene, activeGround!);
+
             activeGround = next;
             activeTerrainSize = explore.size;
             expandedToExplore = true;

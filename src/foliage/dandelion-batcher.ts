@@ -5,7 +5,7 @@ import {
     instanceIndex, normalLocal, step, length
 } from 'three/tsl';
 import { CONFIG } from '../core/config.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -197,6 +197,7 @@ export class DandelionBatcher {
             const sparkle = createSugarSparkle(normalLocal, float(40.0), float(0.5), float(2.0));
 
             // Emission: Only on Gold Tips
+            const dayGlow = circadianDayGlowMult(0.0);
             const goldEmission = vColor.mul(float(0.2).add(pulse)).add(sparkle);
 
             // 🎨 PALETTE: Add Juicy Rim Light to dandelion tips
@@ -211,10 +212,10 @@ export class DandelionBatcher {
                 .mul(float(CONFIG.glow.glowIntensityMax))
                 .mul(float(0.3).add(idlePulse));
             const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.3));
-            const goldEmissionWithTwilight = goldEmission.add(twilightGlowTint).add(biomeTint);
+            const goldEmissionWithTwilight = goldEmission.add(twilightGlowTint).add(biomeTint).mul(dayGlow);
 
             // Mix: If Gold, use Emission. Else Black.
-            m.emissiveNode = mix(vec3(0.0), goldEmissionWithTwilight.add(rim), isGold);
+            m.emissiveNode = mix(vec3(0.0), goldEmissionWithTwilight.add(rim.mul(dayGlow)), isGold);
 
             // Roughness: Gold is shiny (0.2), others are matte (0.8)
             m.roughnessNode = mix(float(0.8), float(0.2), isGold);
@@ -223,18 +224,27 @@ export class DandelionBatcher {
             // 3. Animation Logic (Puff + Shake + Sway + Push)
 
             // A. Puff (Breathing) - Expand along aPuffDir
-            const puffOffset = vPuffDir.mul(uAudioLow).mul(0.3);
+            const seedFactor = step(0.1, length(vPuffDir)); // 1.0 if seed, 0.0 if stem
+            const basePuffOffset = vPuffDir.mul(uAudioLow).mul(0.3);
+
+            // Circadian tuck: Close puff at night using negative offset along puff dir
+            const nightPuffTuck = vPuffDir.mul(uCircadianPoseOffset.mul(-0.5)).mul(seedFactor);
+            const puffOffset = basePuffOffset.add(nightPuffTuck);
 
             // B. Shake (High Freq Vibration) - Only for seeds
-            // Use length(vPuffDir) to detect seeds (non-zero puff dir)
-            const seedFactor = step(0.1, length(vPuffDir)); // 1.0 if seed, 0.0 if stem
-
             const shakePhase = float(instanceIndex).add(uTime.mul(20.0));
             const shakeAmt = sin(shakePhase).mul(0.02).mul(uAudioHigh);
             const shakeOffset = vPuffDir.mul(shakeAmt).mul(seedFactor);
 
+            // Circadian droop: Stem bends down at night
+            const stemHeightFactor = positionLocal.y.clamp(0.0, 5.0).div(5.0);
+            const nightDroop = vec3(0.0, uCircadianPoseOffset.mul(-0.8).mul(stemHeightFactor), 0.0);
+
             // Apply Local Deformations
-            const posPuffed = positionLocal.add(puffOffset).add(shakeOffset);
+            const posPuffed = positionLocal.add(puffOffset).add(shakeOffset).add(nightDroop);
+            const circadianClose = vPuffDir.mul(float(1.0).sub(uCircadianPhase)).mul(-0.1).mul(seedFactor);
+            const circadianDroop = vec3(0, float(-0.3).mul(float(1.0).sub(uCircadianPhase)).mul(seedFactor), 0);
+
 
             // C. Global Sway & Player Interaction
             // Apply to the *entire* geometry (Stem + Seeds)
