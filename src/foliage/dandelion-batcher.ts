@@ -5,7 +5,7 @@ import {
     instanceIndex, normalLocal, step, length
 } from 'three/tsl';
 import { CONFIG } from '../core/config.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, circadianDayGlowMult, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -214,7 +214,7 @@ export class DandelionBatcher {
             const goldEmissionWithTwilight = goldEmission.add(twilightGlowTint).add(biomeTint);
 
             // Mix: If Gold, use Emission. Else Black.
-            m.emissiveNode = mix(vec3(0.0), goldEmissionWithTwilight.add(rim), isGold);
+            m.emissiveNode = mix(vec3(0.0), goldEmissionWithTwilight.add(rim).mul(circadianDayGlowMult(0.1)), isGold);
 
             // Roughness: Gold is shiny (0.2), others are matte (0.8)
             m.roughnessNode = mix(float(0.8), float(0.2), isGold);
@@ -233,8 +233,11 @@ export class DandelionBatcher {
             const shakeAmt = sin(shakePhase).mul(0.02).mul(uAudioHigh);
             const shakeOffset = vPuffDir.mul(shakeAmt).mul(seedFactor);
 
+            const circadianClose = vPuffDir.mul(float(1.0).sub(uCircadianPhase)).mul(-0.1).mul(seedFactor);
+            const circadianDroop = vec3(0, float(-0.3).mul(float(1.0).sub(uCircadianPhase)).mul(seedFactor), 0);
+
             // Apply Local Deformations
-            const posPuffed = positionLocal.add(puffOffset).add(shakeOffset);
+            const posPuffed = positionLocal.add(puffOffset).add(shakeOffset).add(circadianClose).add(circadianDroop);
 
             // C. Global Sway & Player Interaction
             // Apply to the *entire* geometry (Stem + Seeds)
