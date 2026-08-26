@@ -5,7 +5,7 @@ import {
     instanceIndex, normalLocal, step, length
 } from 'three/tsl';
 import { CONFIG } from '../core/config.ts';
-import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -242,6 +242,9 @@ export class DandelionBatcher {
 
             // Apply Local Deformations
             const posPuffed = positionLocal.add(puffOffset).add(shakeOffset).add(nightDroop);
+            const circadianClose = vPuffDir.mul(float(1.0).sub(uCircadianPhase)).mul(-0.1).mul(seedFactor);
+            const circadianDroop = vec3(0, float(-0.3).mul(float(1.0).sub(uCircadianPhase)).mul(seedFactor), 0);
+
 
             // C. Global Sway & Player Interaction
             // Apply to the *entire* geometry (Stem + Seeds)
