@@ -376,7 +376,12 @@ export class DebugPanel {
 
         addSlider('Threshold', 'debug-bloom-threshold', uBloomThreshold.value, setBloomThreshold);
         addSlider('Radius', 'debug-bloom-radius', uBloomRadius.value, setBloomRadius);
-        addSlider('AO strength', 'debug-ao-strength', uAoStrength.value || CONFIG.postfx.aoStrength, setAoStrength);
+        addSlider(
+            'AO strength',
+            'debug-ao-strength',
+            uAoStrength.value || CONFIG.postfx.aoStrength,
+            setAoStrength
+        );
 
         const aoRow = document.createElement('div');
         aoRow.style.cssText = 'display:flex;gap:6px;margin-top:6px;';

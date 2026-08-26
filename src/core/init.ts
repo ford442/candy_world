@@ -31,7 +31,13 @@ import {
     getCascadeMapSizes,
 } from '../systems/shadow-cascades.ts';
 import type { ShadowSettings } from './config/postfx.ts';
-import { PALETTE, CONFIG, resolveShadowSettings, areGodRaysEnabled, resolvePostfxQuality } from './config.ts';
+import {
+    PALETTE,
+    CONFIG,
+    resolveShadowSettings,
+    areGodRaysEnabled,
+    resolvePostfxQuality,
+} from './config.ts';
 
 /**
  * Candy World always uses WebGPURenderer. WebGL2 fallback is the internal
@@ -364,11 +370,7 @@ export async function initScene(): Promise<SceneInitResult> {
 
     // Add light shafts/god rays for sunrise/sunset drama
     const lightShaftGroup = new THREE.Group();
-    const shaftCount = !areGodRaysEnabled()
-        ? 0
-        : resolvePostfxQuality() === 'high'
-          ? 16
-          : 8;
+    const shaftCount = !areGodRaysEnabled() ? 0 : resolvePostfxQuality() === 'high' ? 16 : 8;
     const shaftGeometry = new THREE.PlaneGeometry(8, 200);
 
     // Create light shaft material based on renderer mode

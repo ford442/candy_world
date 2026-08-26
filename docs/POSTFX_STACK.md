@@ -4,14 +4,14 @@ Owner: [`src/foliage/post-processing.ts`](../src/foliage/post-processing.ts)
 
 ## What ships
 
-| Pass | WebGPU (TSL) | WebGL (`forceWebGL` / EffectComposer) | Gate |
-| --- | --- | --- | --- |
-| Scene | `pass(scene, camera)` | `RenderPass` | always |
-| Bloom | `BloomNode` | `UnrealBloomPass` | always (cheap) |
-| DoF | `dof()` | `BokehPass` | `high` / `?dof` |
-| GTAO | half-res `ao()` | **skipped** | `high` / `?ao`; never `low` / CI |
-| Shafts | additive planes + radial UV scatter via `uShaftScatterBoost` | same planes, bloom swell | sunrise/sunset/moon + frustum; `?postfx=off` hides |
-| SSR | **not in this PR** | — | env-map mirrors (`getDreamEnvTexture`) |
+| Pass   | WebGPU (TSL)                                                 | WebGL (`forceWebGL` / EffectComposer) | Gate                                               |
+| ------ | ------------------------------------------------------------ | ------------------------------------- | -------------------------------------------------- |
+| Scene  | `pass(scene, camera)`                                        | `RenderPass`                          | always                                             |
+| Bloom  | `BloomNode`                                                  | `UnrealBloomPass`                     | always (cheap)                                     |
+| DoF    | `dof()`                                                      | `BokehPass`                           | `high` / `?dof`                                    |
+| GTAO   | half-res `ao()`                                              | **skipped**                           | `high` / `?ao`; never `low` / CI                   |
+| Shafts | additive planes + radial UV scatter via `uShaftScatterBoost` | same planes, bloom swell              | sunrise/sunset/moon + frustum; `?postfx=off` hides |
+| SSR    | **not in this PR**                                           | —                                     | env-map mirrors (`getDreamEnvTexture`)             |
 
 GI is **irradiance probes**, not screen-space, so GTAO is the only extra depth fetch. Do not add SSR on top without a budget pass.
 

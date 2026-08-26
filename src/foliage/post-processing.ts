@@ -71,7 +71,7 @@ export function setAoStrength(value: number): void {
 /**
  * Initializes the Post-Processing pipeline for Candy World.
  * Automatically selects WebGPU TSL pipeline or WebGL EffectComposer based on renderer.
- * 
+ *
  * Features:
  * - Base Scene Render
  * - Bloom (Audio-reactive via uBloomStrength)
@@ -83,7 +83,12 @@ export function setAoStrength(value: number): void {
  * @param mode The renderer mode ('webgpu' or 'webgl')
  * @returns An object to manage and render the post-processing pipeline
  */
-export function initPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera, mode: 'webgpu' | 'webgl') {
+export function initPostProcessing(
+    renderer: CandyRenderer,
+    scene: THREE.Scene,
+    camera: THREE.Camera,
+    mode: 'webgpu' | 'webgl'
+) {
     if (isWebGPUMode(renderer)) {
         return initWebGPUPostProcessing(renderer, scene, camera, mode);
     }
@@ -102,7 +107,7 @@ function initWebGPUPostProcessing(
     if (!isWebGPUMode(renderer)) {
         throw new Error('Expected WebGPU renderer for WebGPU post-processing');
     }
-    
+
     // 1. Initialize PostProcessing
     const postProcessing = new PostProcessing(renderer);
 
@@ -163,7 +168,9 @@ function initWebGPUPostProcessing(
         const uvG = uvScatter;
         const uvB = uvScatter.sub(vec2(caOffset, 0.0));
 
-        const sceneTex = scenePass.getTextureNode() as unknown as { uv: (coords: ReturnType<typeof vec2>) => ReturnType<typeof vec3> };
+        const sceneTex = scenePass.getTextureNode() as unknown as {
+            uv: (coords: ReturnType<typeof vec2>) => ReturnType<typeof vec3>;
+        };
         const r = sceneTex.uv(uvR).r;
         const g = sceneTex.uv(uvG).g;
         const b = sceneTex.uv(uvB).b;
@@ -198,7 +205,10 @@ function initWebGPUPostProcessing(
         // Contrast
         // smoothstep-like contrast adjustment or simple centering
         const midPoint = vec3(0.5);
-        satColor = satColor.sub(midPoint).mul(uColorContrast).add(midPoint) as unknown as ReturnType<typeof mix>;
+        satColor = satColor
+            .sub(midPoint)
+            .mul(uColorContrast)
+            .add(midPoint) as unknown as ReturnType<typeof mix>;
 
         // Vignette
         const dist = distance(uvNode, vec2(0.5, 0.5));
@@ -237,20 +247,24 @@ function initWebGPUPostProcessing(
             saturation: uColorSaturation,
             contrast: uColorContrast,
             vignetteStrength: uVignetteStrength,
-            aberrationStrength: uAberrationStrength
-        }
+            aberrationStrength: uAberrationStrength,
+        },
     };
 }
 
 /**
  * WebGL-specific post-processing pipeline using EffectComposer
  */
-function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+function initWebGLPostProcessing(
+    renderer: CandyRenderer,
+    scene: THREE.Scene,
+    camera: THREE.Camera
+) {
     if (isWebGPUMode(renderer)) {
         throw new Error('Expected WebGL renderer for WebGL post-processing, got WebGPU');
     }
     const webglRenderer = renderer as THREE.WebGLRenderer;
-    
+
     // 1. Initialize EffectComposer
     const composer = new EffectComposer(webglRenderer);
 
@@ -320,9 +334,9 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
             saturation: uColorSaturation,
             contrast: uColorContrast,
             vignetteStrength: uVignetteStrength,
-            aberrationStrength: uAberrationStrength
+            aberrationStrength: uAberrationStrength,
         },
         // Expose bloom pass for manual control and synchronization
-        bloomPass: bloomPass
+        bloomPass: bloomPass,
     };
 }
