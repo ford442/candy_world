@@ -88,9 +88,15 @@ export function validateSkyIslandGraph(): { ok: boolean; errors: string[] } {
  * Used by unit tests as a #1265 regression guard (platform Y preserved).
  */
 export function buildTraversalWaypoints(): Array<{ x: number; y: number; z: number; id: string }> {
-    const islands = Array.from(_nodes.values())
-        .filter(n => n.kind === 'island' || n.kind === 'cloud')
-        .sort((a, b) => a.y - b.y);
+    // ⚡ OPTIMIZATION: Bypassed Array.from().filter() to prevent GC spikes in graph processing.
+    const islands: SkyIslandNode[] = [];
+    for (const n of _nodes.values()) {
+        if (n.kind === 'island' || n.kind === 'cloud') {
+            islands.push(n);
+        }
+    }
+    islands.sort((a, b) => a.y - b.y);
+
     if (islands.length === 0) return [];
     const path: Array<{ x: number; y: number; z: number; id: string }> = [
         { x: islands[0].x, y: 2.0, z: islands[0].z, id: 'spawn_ground' },

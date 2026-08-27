@@ -291,15 +291,22 @@ export class PresenceSystem {
 
     private _emitPeerListUpdate(): void {
         if (typeof window === 'undefined') return;
+
+        // ⚡ OPTIMIZATION: Bypassed array spread and .map() to prevent GC spikes in peer list emits.
+        const mappedPeers = [];
+        for (const p of this._peers.values()) {
+            mappedPeers.push({
+                id: p.id,
+                label: p.label,
+                emoji: p.emoji,
+                muted: this._mutedPeerIds.has(p.id),
+            });
+        }
+
         window.dispatchEvent(
             new CustomEvent('candy:presence-peers', {
                 detail: {
-                    peers: [...this._peers.values()].map((p) => ({
-                        id: p.id,
-                        label: p.label,
-                        emoji: p.emoji,
-                        muted: this._mutedPeerIds.has(p.id),
-                    })),
+                    peers: mappedPeers,
                     peerCount: this._peers.size,
                     maxPeers: CONFIG.presence?.maxPeers ?? 16,
                 },
