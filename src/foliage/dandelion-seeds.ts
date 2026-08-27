@@ -8,6 +8,7 @@ import {
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { isCIorHeadless } from '../core/config.ts';
 import { uTime, uAudioHigh, uWindSpeed, uWindDirection, createSugarSparkle } from './index.ts';
+import { createJuicyRimLight } from './material-core.ts';
 
 const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
 const MAX_SPAWNS_PER_FRAME = 200; // Allow multiple explosions in a single frame
@@ -171,8 +172,11 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     const sparkle = createSugarSparkle(normalLocal, float(40.0), float(0.5), float(2.0));
     const emission = vColor.mul(sparkle).mul(isGold);
 
+    // 🎨 PALETTE: Juicy Rim Light for visual pop
+    const rim = createJuicyRimLight(vColor, float(2.0), float(3.0), normalLocal);
+
     mat.colorNode = vColor;
-    mat.emissiveNode = emission;
+    mat.emissiveNode = emission.add(rim);
 
     // Fade Out
     const opacity = float(1.0).sub(smoothstep(0.7, 1.0, lifeProgress));
