@@ -380,9 +380,14 @@ export class RegionManager {
         const queuedCells = this.getCellsByState(CellState.QUEUED);
         const unloadingCells = this.getCellsByState(CellState.UNLOADING);
 
-        const avgLoadTime = this.loadTimes.length > 0
-            ? this.loadTimes.reduce((a, b) => a + b, 0) / this.loadTimes.length
-            : 0;
+        let avgLoadTime = 0;
+        if (this.loadTimes.length > 0) {
+            let totalTime = 0;
+            for (let i = 0; i < this.loadTimes.length; i++) {
+                totalTime += this.loadTimes[i];
+            }
+            avgLoadTime = totalTime / this.loadTimes.length;
+        }
 
         let memoryEstimate = 0;
         for (const cell of loadedCells) {

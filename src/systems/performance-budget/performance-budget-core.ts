@@ -309,7 +309,13 @@ export class PerformanceBudget {
   getAverageFrameTime(frames = 60): number {
     const recent = this.frameTimeHistory.slice(-frames);
     if (recent.length === 0) return 0;
-    return recent.reduce((a, b) => a + b, 0) / recent.length;
+
+    // ⚡ OPTIMIZATION: Bypassed .reduce() to prevent GC spikes in performance metric collection.
+    let totalTime = 0;
+    for (let i = 0; i < recent.length; i++) {
+        totalTime += recent[i];
+    }
+    return totalTime / recent.length;
   }
 
   /**

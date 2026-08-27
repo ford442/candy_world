@@ -59,10 +59,18 @@ export class FluidSystem {
         // --- Input Injection ---
 
         const kick = audio.kickTrigger ?? 0;
-        const high =
-            audio.channelData?.reduce((max, ch) => Math.max(max, ch.volume ?? 0), 0) ??
-            audio.grooveAmount ??
-            0;
+        // ⚡ OPTIMIZATION: Bypassed .reduce() array allocation in hot per-frame fluid simulation loop.
+        let high = 0;
+        if (audio.channelData) {
+            for (let i = 0; i < audio.channelData.length; i++) {
+                const vol = audio.channelData[i].volume ?? 0;
+                if (vol > high) {
+                    high = vol;
+                }
+            }
+        } else {
+            high = audio.grooveAmount ?? 0;
+        }
 
         // 1. Kick Drum: Upward blast from bottom center
         if (kick > 0.1) {
