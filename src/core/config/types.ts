@@ -443,6 +443,10 @@ export interface ConfigType {
         shaftFrustumDot: number;
         /** Bloom scatter boost at full shaft opacity (0 = off). Pairs with additive shaft planes. */
         shaftScatterBoost: number;
+        bloomThreshold: number;
+        bloomRadius: number;
+        aoEnabled: boolean;
+        aoStrength: number;
         dofEnabled: boolean;
         dofFocusFollow: boolean;
         dofFocusDistance: number;

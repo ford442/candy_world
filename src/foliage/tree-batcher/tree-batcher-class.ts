@@ -87,13 +87,16 @@ export class TreeBatcher implements TreeBatcherState {
         if (!this.initialized) this.init();
 
         const slopeQ = group.userData.groundSlopeQuaternion as THREE.Quaternion | undefined;
+        // ⚡ OPTIMIZATION: Bypassed expensive group.updateWorldMatrix() recursion.
+        // We know these groups are spawned at the root level or have an up-to-date parent matrix,
+        // so we can compose their matrixWorld directly to save CPU in the hot spawn path.
         if (slopeQ) {
             _scratchTreeOriginalQuaternion.copy(group.quaternion);
             group.quaternion.copy(getGroundAlignedQuaternion(group, _scratchTreeFinalQuaternion));
-            group.updateWorldMatrix(false, false);
+            group.matrixWorld.compose(group.position, group.quaternion, group.scale);
             group.quaternion.copy(_scratchTreeOriginalQuaternion);
         } else {
-            group.updateWorldMatrix(false, false);
+            group.matrixWorld.compose(group.position, group.quaternion, group.scale);
         }
 
         let animTypeEnum = ANIMATION_TYPES.STATIC;

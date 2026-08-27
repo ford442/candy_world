@@ -21,6 +21,7 @@
 //                           (gizmos also implied by ?debug=1)
 //   ?shadowSoft=0..1      — live-tunable sun shadow softness (also a ?debug=1 slider)
 //   ?pcss=1|0             — force the cheap PCSS-style contact term on/off (high tier)
+//   ?ao / ?ao=1 / ?no_ao  — WebGPU GTAO (off on low; high postfx implies on)
 //   ?no_gpu_compute       — force WASM/JS fallback for batch LOD + foliage scalar batches
 //   ?nativeMusicAccum=0   — force TS arpeggio_grove channel accumulate (A/B vs AS)
 //   ?nativeMusicAccum=1   — prefer AS accumulate when candy_physics export present (default)

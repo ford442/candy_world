@@ -8,7 +8,7 @@ import {
     uDofFocus,
     uDofMix,
     uShaftScatterBoost,
-} from '../../foliage/post-processing.ts';
+} from '../../foliage/post-processing-uniforms.ts';
 import { ensureGameplay } from '../../gameplay/lazy.ts';
 import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { InteractionSystem } from '../../systems/interaction.ts';
