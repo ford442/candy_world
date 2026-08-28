@@ -201,6 +201,12 @@ export function initializeTreeBatcherMeshes(state: TreeBatcherState, getLODMeshe
             rimStrength: 0.4
         });
 
+        // 🎨 PALETTE: Juicy Rim Light for tree branches
+        capsuleMat.emissiveNode = add(
+            capsuleMat.emissiveNode ?? color(0x000000),
+            createJuicyRimLight(color(0x8B4513), float(0.8).add(uAudioLow.mul(0.3)), float(3.0), null)
+        );
+
         applyFoliageLodMaterialFade(capsuleMat);
 
         state.capsules = new THREE.InstancedMesh(sharedGeometries.capsule, capsuleMat, state.capsuleCapacity);
@@ -247,7 +253,13 @@ export function initializeTreeBatcherMeshes(state: TreeBatcherState, getLODMeshe
             emissiveIntensity: 1.0,
             rimStrength: 0.8
         });
-        helixMat.emissiveNode = color(0xFFFFFF).mul(pulse.mul(0.5).add(audioBoost));
+
+        // 🎨 PALETTE: Juicy Rim Light for helix vines
+        helixMat.emissiveNode = add(
+            color(0xFFFFFF).mul(pulse.mul(0.5).add(audioBoost)).mul(circadianDayGlowMult(0.35)),
+            createJuicyRimLight(color(0x7FFFD4), float(1.4).add(uAudioHigh.mul(0.6)), float(2.8), null),
+            createSugarSparkle(normalWorld, float(15.0), float(0.4), float(2.0)).mul(lodHeroGate())
+        );
 
         applyFoliageLodMaterialFade(helixMat);
 
