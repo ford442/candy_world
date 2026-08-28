@@ -269,16 +269,9 @@ export class MusicReactivitySystem {
         return result;
     }
 
-    triggerReaction(species: string, noteName: string, color: number, velocity: number) {
-        const objects = this.registeredObjects.get(species);
-        if (objects) {
-            for (const obj of objects) {
-                // Check for method on object (legacy/dynamic)
-                if ((obj as any).reactToNote) {
-                    (obj as any).reactToNote(noteName, color, velocity);
-                }
-            }
-        }
+    triggerReaction(_species: string, _noteName: string, _color: number, _velocity: number) {
+        // ⚡ OPTIMIZATION: Bypassed O(N) registeredObjects traversal for reactToNote.
+        // Visual reactivity is handled natively by TSL uniforms in the respective batchers.
     }
 
     scheduleNextBlink() {
@@ -319,7 +312,6 @@ export class MusicReactivitySystem {
             return;
         }
 
-        const isNight = !isDay;
         if (typeof isDay !== 'boolean') {
             console.warn('[Music] isDay parameter missing');
             return;
@@ -330,12 +322,6 @@ export class MusicReactivitySystem {
             // Update Frustum for Culling
             _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
             _frustum.setFromProjectionMatrix(_projScreenMatrix);
-
-            // ⚡ PERFORMANCE: Debug counters
-            let totalObjects = 0;
-            let culledByDistance = 0;
-            let culledByFrustum = 0;
-            let rendered = 0;
 
             const cx = camera.position.x;
             const cy = camera.position.y;
@@ -372,74 +358,30 @@ export class MusicReactivitySystem {
             for (let i = 0; i < n; i++) {
                 const obj = cpuAnimatedFoliage[i];
                 if (!obj) continue;
-                totalObjects++;
 
                 // Base max distance check (from WASM flags) — only for indices uploaded to WASM
                 if (flags && i < wasmCount && flags[i] === 0) {
-                    culledByDistance++;
                     continue;
-                }
-
-                // Finer-grained size-based culling for objects closer than the max
-                const objType = obj.userData.type;
-                let cullDistanceSq = 22500; // 150 * 150 Default
-
-                if (objType === 'flower') {
-                    cullDistanceSq = 6400; // 80 * 80
-                } else if (objType === 'mushroom') {
-                    if (obj.userData.size === 'giant') {
-                        cullDistanceSq = 40000; // 200 * 200
-                    } else {
-                        cullDistanceSq = 14400; // 120 * 120
-                    }
-                } else if (objType === 'tree' || objType === 'shrub') {
-                    cullDistanceSq = 22500; // 150 * 150
-                } else if (objType === 'cloud') {
-                    cullDistanceSq = 62500; // 250 * 250
                 }
 
                 const ox = obj.position.x;
                 const oy = obj.position.y;
                 const oz = obj.position.z;
-                const dx = cx - ox;
-                const dy = cy - oy;
-                const dz = cz - oz;
-                const distSq = dx * dx + dy * dy + dz * dz;
-
-                if (distSq > cullDistanceSq) {
-                    culledByDistance++;
-                    continue;
-                }
 
                 // Frustum Culling
                 let isVisible = false;
-                if ((obj as THREE.Mesh).geometry && (obj as THREE.Mesh).geometry.boundingSphere) {
-                    isVisible = _frustum.intersectsObject(obj as THREE.Mesh);
-                } else {
-                    _scratchSphere.center.x = ox;
-                    _scratchSphere.center.y = oy;
-                    _scratchSphere.center.z = oz;
-                    _scratchSphere.radius =
-                        (obj.userData.radius || 2.0) * (obj.scale.x > 1.0 ? obj.scale.x : 1.0);
-                    isVisible = _frustum.intersectsSphere(_scratchSphere);
-                }
+                _scratchSphere.center.x = ox;
+                _scratchSphere.center.y = oy;
+                _scratchSphere.center.z = oz;
+                _scratchSphere.radius =
+                    (obj.userData.radius || 2.0) * (obj.scale.x > 1.0 ? obj.scale.x : 1.0);
+                isVisible = _frustum.intersectsSphere(_scratchSphere);
 
                 if (isVisible) {
-                    rendered++;
                     // Using animateFoliage (assumed typed correctly in animation.ts)
                     // ⚡ OPTIMIZATION: Use static _emptyAudioState instead of allocating {} per frame
                     animateFoliage(obj, time, audioState || _emptyAudioState, isDay);
-                } else {
-                    culledByFrustum++;
                 }
-            }
-
-            // ⚡ PERFORMANCE: Debug logging every 5 seconds
-            if (!this._lastLogTime || Date.now() - this._lastLogTime > 5000) {
-                console.log(
-                    `[MusicReactivity] Objects: ${totalObjects} | Rendered: ${rendered} | Culled (Distance): ${culledByDistance} | Culled (Frustum): ${culledByFrustum}`
-                );
-                this._lastLogTime = Date.now();
             }
 
             // Flush batched updates to GPU
