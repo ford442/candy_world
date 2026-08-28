@@ -269,7 +269,7 @@ export class MusicReactivitySystem {
         return result;
     }
 
-    triggerReaction(species: string, noteName: string, color: number, velocity: number) {
+    triggerReaction(_species: string, _noteName: string, _color: number, _velocity: number) {
         // ⚡ OPTIMIZATION: Bypassed O(N) registeredObjects traversal for reactToNote.
         // Visual reactivity is handled natively by TSL uniforms in the respective batchers.
     }
@@ -312,7 +312,6 @@ export class MusicReactivitySystem {
             return;
         }
 
-        const isNight = !isDay;
         if (typeof isDay !== 'boolean') {
             console.warn('[Music] isDay parameter missing');
             return;
@@ -323,12 +322,6 @@ export class MusicReactivitySystem {
             // Update Frustum for Culling
             _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
             _frustum.setFromProjectionMatrix(_projScreenMatrix);
-
-            // ⚡ PERFORMANCE: Debug counters
-            let totalObjects = 0;
-            let culledByDistance = 0;
-            let culledByFrustum = 0;
-            let rendered = 0;
 
             const cx = camera.position.x;
             const cy = camera.position.y;
@@ -365,11 +358,9 @@ export class MusicReactivitySystem {
             for (let i = 0; i < n; i++) {
                 const obj = cpuAnimatedFoliage[i];
                 if (!obj) continue;
-                totalObjects++;
 
                 // Base max distance check (from WASM flags) — only for indices uploaded to WASM
                 if (flags && i < wasmCount && flags[i] === 0) {
-                    culledByDistance++;
                     continue;
                 }
 
@@ -387,12 +378,9 @@ export class MusicReactivitySystem {
                 isVisible = _frustum.intersectsSphere(_scratchSphere);
 
                 if (isVisible) {
-                    rendered++;
                     // Using animateFoliage (assumed typed correctly in animation.ts)
                     // ⚡ OPTIMIZATION: Use static _emptyAudioState instead of allocating {} per frame
                     animateFoliage(obj, time, audioState || _emptyAudioState, isDay);
-                } else {
-                    culledByFrustum++;
                 }
             }
 
