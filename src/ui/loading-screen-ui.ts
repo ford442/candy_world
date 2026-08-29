@@ -644,6 +644,7 @@ export class LoadingScreen {
             this.container.setAttribute('aria-valuenow', '0');
             this.container.setAttribute('aria-label', 'Game initialization failed');
             this.container.removeAttribute('aria-busy');
+            this.container.setAttribute('aria-live', 'assertive');
         }
 
         if (typeof document !== 'undefined') {
@@ -665,6 +666,7 @@ export class LoadingScreen {
         if (this.taskText) {
             this.taskText.textContent = message;
             this.taskText.classList.add('fatal-error');
+            this.taskText.setAttribute('aria-live', 'assertive');
         }
 
         // Stop the "Calculating time…" ticker
@@ -685,6 +687,12 @@ export class LoadingScreen {
         // Add a reload button so the user has a clear recovery path
         if (this.container) {
             addFatalErrorReloadButton(this.container);
+
+            // Explicitly grab focus now that elements are hidden
+            const reloadBtn = this.container.querySelector('.fatal-error-reload');
+            if (reloadBtn) {
+                (reloadBtn as HTMLElement).focus({ preventScroll: true });
+            }
         }
 
         log.error('LoadingScreen', 'Fatal error displayed:', message);
