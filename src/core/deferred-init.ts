@@ -19,7 +19,7 @@ import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { animatedFoliage } from '../world/state.ts';
 import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
-import { syncDrawingBufferFromWindow } from './init.ts';
+import { isWebGLNodeBackend, syncDrawingBufferFromWindow } from './init.ts';
 import { getStartupCapabilities } from './startup/capabilities.ts';
 
 // Deferred visual elements
@@ -111,16 +111,24 @@ export function initDeferredVisuals() {
         console.log('[Deferred] Aurora & Systems initialized');
     }
 
-    if (deferredCaps.aurora && !chromaticPulse) {
+    // WebGPU HDR post uses rgba16float. Camera overlays that call
+    // viewportSharedTexture() copy into a default rgba8unorm FramebufferTexture
+    // and fail CopyTextureToTexture validation. Pulses live in the TSL post
+    // graph instead; keep overlays on the GLSL node backend only.
+    const useViewportPulseOverlays = Boolean(
+        rendererRef && isWebGLNodeBackend(rendererRef)
+    );
+
+    if (deferredCaps.aurora && !chromaticPulse && useViewportPulseOverlays) {
         chromaticPulse = createChromaticPulse();
         cameraRef.add(chromaticPulse);
-        console.log('[Deferred] Chromatic Pulse initialized');
+        console.log('[Deferred] Chromatic Pulse overlay initialized (WebGL)');
     }
 
-    if (deferredCaps.aurora && !strobePulse) {
+    if (deferredCaps.aurora && !strobePulse && useViewportPulseOverlays) {
         strobePulse = createStrobePulse();
         cameraRef.add(strobePulse);
-        console.log('[Deferred] Strobe Pulse initialized');
+        console.log('[Deferred] Strobe Pulse overlay initialized (WebGL)');
     }
     console.timeEnd('Environmental Effects');
 

@@ -9,7 +9,9 @@ import { dof } from 'three/examples/jsm/tsl/display/DepthOfFieldNode.js';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
 import { PostProcessing, WebGPURenderer } from 'three/webgpu';
+import { candyPulseWarpUv, gradeCandyGlowPulse } from './chromatic.ts';
 import type * as postFxUniforms from './post-processing-uniforms.ts';
+import { mixStrobeFlash } from './strobe.ts';
 
 type U = typeof postFxUniforms;
 
@@ -79,20 +81,28 @@ export function initWebGPUPostProcessing(
     const colorCorrection = Fn(() => {
         const caOffset = uAberrationStrength.mul(0.3);
         const uvNode = uv();
+        const warpedUV = candyPulseWarpUv(uvNode as ReturnType<typeof vec2>);
         const scatterAmt = uShaftScatterBoost.mul(0.018);
-        const uvScatter = mix(uvNode, vec2(0.5, 0.5), scatterAmt);
-        const uvR = uvScatter.add(vec2(caOffset, 0.0));
-        const uvG = uvScatter;
-        const uvB = uvScatter.sub(vec2(caOffset, 0.0));
 
         const sceneTex = scenePass.getTextureNode() as unknown as {
             uv: (coords: ReturnType<typeof vec2>) => ReturnType<typeof vec3>;
         };
-        const r = sceneTex.uv(uvR).r;
-        const g = sceneTex.uv(uvG).g;
-        const b = sceneTex.uv(uvB).b;
+        const sampleScene = (coords: ReturnType<typeof vec2>) => {
+            const uvScatter = mix(coords, vec2(0.5, 0.5), scatterAmt);
+            const sampledR = sceneTex.uv(uvScatter.add(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>).r;
+            const sampledG = sceneTex.uv(uvScatter as ReturnType<typeof vec2>).g;
+            const sampledB = sceneTex.uv(
+                uvScatter.sub(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>
+            ).b;
+            return vec3(sampledR, sampledG, sampledB);
+        };
 
-        let caColor = vec3(r, g, b);
+        const pulseDist = warpedUV.sub(0.5).length();
+        let caColor = gradeCandyGlowPulse(
+            sampleScene,
+            warpedUV,
+            pulseDist as ReturnType<typeof float>
+        );
 
         if (dofColorNode) {
             caColor = mix(caColor, dofColorNode.rgb, uDofMix);
@@ -122,7 +132,7 @@ export function initWebGPUPostProcessing(
         const vignetteMultiplier = mix(float(1.0), vig, uVignetteStrength);
         satColor = satColor.mul(vignetteMultiplier) as unknown as ReturnType<typeof mix>;
 
-        return satColor;
+        return mixStrobeFlash(satColor as ReturnType<typeof vec3>);
     });
 
     postProcessing.outputNode = colorCorrection();

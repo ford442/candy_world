@@ -325,20 +325,26 @@ export class ShaderWarmup {
                 scene.add(new THREE.AmbientLight(0x404040));
             }
 
-            // Create 1x1 render target
+            // 1×1 HDR target matching the WebGPU drawing buffer (rgba16float).
+            // UnsignedByteType here leaves a 1×1 rgba8unorm that later full-size
+            // CopyTextureToTexture calls try to read as the current framebuffer.
             const renderTarget = new THREE.RenderTarget(
                 this.options.renderSize,
-                this.options.renderSize
+                this.options.renderSize,
+                { type: THREE.HalfFloatType, depthBuffer: false }
             );
 
-            // Force shader compilation by rendering
-            const previousTarget = (renderer as any).getRenderTarget();
-            (renderer as any).setRenderTarget(renderTarget);
-            renderer.render(scene, this.warmupCamera);
-            (renderer as any).setRenderTarget(previousTarget);
-
-            // Cleanup
-            renderTarget.dispose();
+            const gpuRenderer = renderer as THREE.Renderer & {
+                getRenderTarget?: () => THREE.RenderTarget | null;
+                setRenderTarget?: (target: THREE.RenderTarget | null) => void;
+            };
+            try {
+                gpuRenderer.setRenderTarget?.(renderTarget);
+                renderer.render(scene, this.warmupCamera);
+            } finally {
+                gpuRenderer.setRenderTarget?.(null);
+                renderTarget.dispose();
+            }
 
             // ⚡ OPTIMIZATION: Explicitly dispose temporary warmup meshes to prevent VRAM leaks.
             if (mesh.geometry && mesh.geometry !== this.warmupGeometry) {
@@ -553,14 +559,21 @@ export async function warmupShader(
 
     if (scene && camera) {
         // Use provided scene/camera
-        const renderTarget = new THREE.RenderTarget(1, 1);
-        const originalTarget = (renderer as any).getRenderTarget();
+        const renderTarget = new THREE.RenderTarget(1, 1, {
+            type: THREE.HalfFloatType,
+            depthBuffer: false,
+        });
+        const gpuRenderer = renderer as THREE.Renderer & {
+            setRenderTarget?: (target: THREE.RenderTarget | null) => void;
+        };
 
-        (renderer as any).setRenderTarget(renderTarget);
-        renderer.render(scene, camera);
-        (renderer as any).setRenderTarget(originalTarget);
-
-        renderTarget.dispose();
+        try {
+            gpuRenderer.setRenderTarget?.(renderTarget);
+            renderer.render(scene, camera);
+        } finally {
+            gpuRenderer.setRenderTarget?.(null);
+            renderTarget.dispose();
+        }
         warmup.dispose();
         return true;
     }
