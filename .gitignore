@@ -71,3 +71,12 @@ tests/boot-timing-report.json
 /fix_grass.sh
 /wait_and_run.sh
 /dev.sh
+
+# Scratch files
+all-eslint.json
+current-eslint-baseline.json
+eslint-output.json
+typecheck_output.txt
+fix_errors.sh
+patch_*.cjs
+patch_*.diff
