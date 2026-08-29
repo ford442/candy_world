@@ -3,6 +3,8 @@
  * Displays a temporary notification to the user
  */
 
+import { announce } from '../ui/announcer.ts';
+
 /**
  * Shows a toast notification
  * @param message - The message to display
@@ -29,4 +31,7 @@ export function showToast(message: string, icon: string = '✨', duration: numbe
             toast.classList.remove('visible');
         }, duration);
     }
+
+    // Explicitly call announce to decouple the visual overlay from the accessibility announcement
+    announce(message, 'polite');
 }
