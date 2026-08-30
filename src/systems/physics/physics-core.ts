@@ -295,12 +295,6 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     _lastInputState.clap = keyStates.clap;
     _lastInputState.forward = keyStates.forward;
 
-    // 5. Check Flora Discovery (Throttled)
-    const frameCount = Math.floor(Date.now() / 16);
-    if (frameCount % 10 === 0) {
-        checkFloraDiscovery(player.position);
-    }
-
     // Sync back
     camera.position.x = player.position.x;
     camera.position.z = player.position.z;
@@ -326,6 +320,12 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // ⚡ OPTIMIZATION: Caching time to avoid multiple Date.now() calls
     const now = performance.now(); // More precise than Date.now()
+
+    // 5. Check Flora Discovery (Throttled)
+    const frameCount = Math.floor(now / 16);
+    if (frameCount % 10 === 0) {
+        checkFloraDiscovery(player.position);
+    }
 
     // ⚡ OPTIMIZATION: Only update vines if they are somewhat near the player.
     for (let i = 0; i < vineSwings.length; i++) {
@@ -372,7 +372,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // Decay Chromatic Pulse (Hack for now, ideally moved to a proper FX system)
     // If Phasing, keep intensity high
     if (player.isPhasing) {
-        if (uChromaticIntensity) uChromaticIntensity.value = 0.8 + Math.sin(Date.now() * 0.01) * 0.1;
+        if (uChromaticIntensity) uChromaticIntensity.value = 0.8 + Math.sin(now * 0.01) * 0.1;
     } else {
         if (uChromaticIntensity && uChromaticIntensity.value > 0) {
             uChromaticIntensity.value = Math.max(0, uChromaticIntensity.value - delta * 2.0);

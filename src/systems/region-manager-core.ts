@@ -96,6 +96,8 @@ export function getCellKey(x: number, z: number): string {
 }
 
 const _scratchCellCoord = { x: 0, z: 0 };
+const _scratchPlayerCell = { x: 0, z: 0 };
+const _scratchPlayerPos = { x: 0, z: 0 };
 const _scratchCells: GridCell[] = [];
 
 export function parseCellKey(key: string): { x: number; z: number } {
@@ -110,10 +112,10 @@ export function worldToCell(
     worldZ: number,
     cellSize: number
 ): { x: number; z: number } {
-    return {
-        x: Math.floor(worldX / cellSize),
-        z: Math.floor(worldZ / cellSize)
-    };
+    // ⚡ OPTIMIZATION: Reusing module-level scratch object to prevent GC spikes in hot update loops.
+    _scratchCellCoord.x = Math.floor(worldX / cellSize);
+    _scratchCellCoord.z = Math.floor(worldZ / cellSize);
+    return _scratchCellCoord;
 }
 
 export function cellToBounds(
@@ -209,11 +211,17 @@ export class RegionManager {
     }
 
     getPlayerCell(): { x: number; z: number } {
-        return { x: this.playerCellX, z: this.playerCellZ };
+        // ⚡ OPTIMIZATION: Bypassed object literal allocation to prevent GC spikes
+        _scratchPlayerCell.x = this.playerCellX;
+        _scratchPlayerCell.z = this.playerCellZ;
+        return _scratchPlayerCell;
     }
 
     getPlayerPosition(): { x: number; z: number } {
-        return { x: this.playerWorldX, z: this.playerWorldZ };
+        // ⚡ OPTIMIZATION: Bypassed object literal allocation to prevent GC spikes
+        _scratchPlayerPos.x = this.playerWorldX;
+        _scratchPlayerPos.z = this.playerWorldZ;
+        return _scratchPlayerPos;
     }
 
     registerCell(cellX: number, cellZ: number, assetIds: string[] = []): GridCell {
@@ -375,10 +383,24 @@ export class RegionManager {
     }
 
     getStats(): RegionStats {
-        const loadedCells = this.getCellsByState(CellState.LOADED);
-        const loadingCells = this.getCellsByState(CellState.LOADING);
-        const queuedCells = this.getCellsByState(CellState.QUEUED);
-        const unloadingCells = this.getCellsByState(CellState.UNLOADING);
+        let loadedCellsCount = 0;
+        let loadingCellsCount = 0;
+        let queuedCellsCount = 0;
+        let unloadingCellsCount = 0;
+        let memoryEstimate = 0;
+
+        for (const cell of this.cells.values()) {
+            if (cell.state === CellState.LOADED) {
+                loadedCellsCount++;
+                memoryEstimate += cell.assetIds.length * 1024 * 1024;
+            } else if (cell.state === CellState.LOADING) {
+                loadingCellsCount++;
+            } else if (cell.state === CellState.QUEUED) {
+                queuedCellsCount++;
+            } else if (cell.state === CellState.UNLOADING) {
+                unloadingCellsCount++;
+            }
+        }
 
         let avgLoadTime = 0;
         if (this.loadTimes.length > 0) {
@@ -389,17 +411,12 @@ export class RegionManager {
             avgLoadTime = totalTime / this.loadTimes.length;
         }
 
-        let memoryEstimate = 0;
-        for (const cell of loadedCells) {
-            memoryEstimate += cell.assetIds.length * 1024 * 1024;
-        }
-
         return {
             totalCells: this.cells.size,
-            loadedCells: loadedCells.length,
-            loadingCells: loadingCells.length,
-            queuedCells: queuedCells.length,
-            unloadingCells: unloadingCells.length,
+            loadedCells: loadedCellsCount,
+            loadingCells: loadingCellsCount,
+            queuedCells: queuedCellsCount,
+            unloadingCells: unloadingCellsCount,
             currentPlayerCellX: this.playerCellX,
             currentPlayerCellZ: this.playerCellZ,
             avgLoadTime,
