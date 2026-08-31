@@ -801,7 +801,10 @@ export class LODTreeBatcher {
         const componentIds: { [geometryType: string]: number } = {};
 
         // ⚡ OPTIMIZATION: Ensure world matrix is ready without deep traversal
-        group.updateWorldMatrix(false, false);
+        group.matrixWorld.compose(group.position, group.quaternion, group.scale);
+        if (group.parent) {
+            group.matrixWorld.multiplyMatrices(group.parent.matrixWorld, group.matrixWorld);
+        }
 
         // Traverse and register each mesh component
         group.traverse((child) => {
