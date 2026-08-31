@@ -4,7 +4,6 @@
  */
 
 import { announce } from '../systems/accessibility';
-import { MenuSection } from './accessibility-menu-core';
 import { AccessibilityMenuRendering } from './accessibility-menu-rendering';
 
 /**
@@ -12,90 +11,90 @@ import { AccessibilityMenuRendering } from './accessibility-menu-rendering';
  * These methods handle keyboard navigation and keybinding management.
  */
 export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
-  
-  // ============================================================================
-  // Event Handlers
-  // ============================================================================
+    // ============================================================================
+    // Event Handlers
+    // ============================================================================
 
-  protected handleKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
-      this.close();
-      event.preventDefault();
-      return;
+    protected handleKeyDown(event: KeyboardEvent): void {
+        if (event.key === 'Escape') {
+            this.close();
+            event.preventDefault();
+            return;
+        }
+
+        // ♿ Aria: Keyboard tactile feedback for interactive elements
+        if (event.key === 'Enter' || event.key === ' ') {
+            if (event.repeat) return;
+            const activeElement = document.activeElement as HTMLElement;
+            if (
+                activeElement &&
+                (activeElement.classList.contains('a11y-tab') ||
+                    activeElement.classList.contains('a11y-button') ||
+                    activeElement.classList.contains('a11y-preset-card') ||
+                    activeElement.classList.contains('a11y-close-btn'))
+            ) {
+                if (!activeElement.classList.contains('keyboard-active')) {
+                    activeElement.classList.add('keyboard-active');
+                }
+            }
+        }
+
+        // ♿ Aria: Keyboard navigation for Tabs (Up/Down/Left/Right Arrows)
+        if (
+            event.key === 'ArrowUp' ||
+            event.key === 'ArrowDown' ||
+            event.key === 'ArrowLeft' ||
+            event.key === 'ArrowRight'
+        ) {
+            const activeElement = document.activeElement as HTMLElement;
+            if (activeElement && activeElement.getAttribute('role') === 'tab') {
+                event.preventDefault();
+                const tabs = Array.from(
+                    this.container?.querySelectorAll('[role="tab"]') || []
+                ) as HTMLElement[];
+                const currentIndex = tabs.indexOf(activeElement);
+                if (currentIndex >= 0) {
+                    let nextIndex =
+                        event.key === 'ArrowDown' || event.key === 'ArrowRight'
+                            ? currentIndex + 1
+                            : currentIndex - 1;
+                    if (nextIndex >= tabs.length) nextIndex = 0;
+                    if (nextIndex < 0) nextIndex = tabs.length - 1;
+
+                    const nextTab = tabs[nextIndex];
+                    nextTab.focus({ preventScroll: true });
+                    nextTab.click(); // Selection follows focus
+                }
+            }
+        }
     }
 
-    // ♿ Aria: Keyboard tactile feedback for interactive elements
-    if (event.key === 'Enter' || event.key === ' ') {
-      if (event.repeat) return;
-      const activeElement = document.activeElement as HTMLElement;
-      if (activeElement && (
-        activeElement.classList.contains('a11y-tab') ||
-        activeElement.classList.contains('a11y-button') ||
-        activeElement.classList.contains('a11y-preset-card') ||
-        activeElement.classList.contains('a11y-close-btn')
-      )) {
-        if (!activeElement.classList.contains('keyboard-active')) {
-          activeElement.classList.add('keyboard-active');
+    protected startKeyRebind(action: string, button: HTMLButtonElement): void {
+        button.textContent = 'Press key...';
+        button.style.background = 'var(--menu-active, #4a4a4a)';
 
-          // ♿ Aria: Remove class on keyup and blur to match tactile hold duration
-          const removeFeedback = () => {
-            activeElement.classList.remove('keyboard-active');
-            activeElement.removeEventListener('keyup', removeFeedback);
-            activeElement.removeEventListener('blur', removeFeedback);
-          };
+        const handler = (e: KeyboardEvent) => {
+            e.preventDefault();
 
-          activeElement.addEventListener('keyup', removeFeedback);
-          activeElement.addEventListener('blur', removeFeedback);
-        }
-      }
+            if (e.key === 'Escape') {
+                button.textContent = 'Cancelled';
+                setTimeout(() => this.refreshMainPanel(), 500);
+            } else {
+                // Update keybinding
+                const keybindings = new Map(this.a11y.getSettings().input.keybindings);
+                const existing = keybindings.get(action);
+                if (existing) {
+                    keybindings.set(action, { ...existing, key: e.key });
+                    this.a11y.updateInputSettings({ keybindings });
+                }
+                button.textContent = `Set to ${e.key}`;
+                announce(`${this.formatActionName(action)} bound to ${e.key}`, 'polite');
+                setTimeout(() => this.refreshMainPanel(), 500);
+            }
+
+            document.removeEventListener('keydown', handler);
+        };
+
+        document.addEventListener('keydown', handler);
     }
-
-    // ♿ Aria: Keyboard navigation for Tabs (Up/Down/Left/Right Arrows)
-    if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-      const activeElement = document.activeElement as HTMLElement;
-      if (activeElement && activeElement.getAttribute('role') === 'tab') {
-        event.preventDefault();
-        const tabs = Array.from(this.container?.querySelectorAll('[role="tab"]') || []) as HTMLElement[];
-        const currentIndex = tabs.indexOf(activeElement);
-        if (currentIndex >= 0) {
-          let nextIndex = (event.key === 'ArrowDown' || event.key === 'ArrowRight') ? currentIndex + 1 : currentIndex - 1;
-          if (nextIndex >= tabs.length) nextIndex = 0;
-          if (nextIndex < 0) nextIndex = tabs.length - 1;
-
-          const nextTab = tabs[nextIndex];
-          nextTab.focus({ preventScroll: true });
-          nextTab.click(); // Selection follows focus
-        }
-      }
-    }
-  }
-
-  protected startKeyRebind(action: string, button: HTMLButtonElement): void {
-    button.textContent = 'Press key...';
-    button.style.background = 'var(--menu-active, #4a4a4a)';
-    
-    const handler = (e: KeyboardEvent) => {
-      e.preventDefault();
-      
-      if (e.key === 'Escape') {
-        button.textContent = 'Cancelled';
-        setTimeout(() => this.refreshMainPanel(), 500);
-      } else {
-        // Update keybinding
-        const keybindings = new Map(this.a11y.getSettings().input.keybindings);
-        const existing = keybindings.get(action);
-        if (existing) {
-          keybindings.set(action, { ...existing, key: e.key });
-          this.a11y.updateInputSettings({ keybindings });
-        }
-        button.textContent = `Set to ${e.key}`;
-        announce(`${this.formatActionName(action)} bound to ${e.key}`, 'polite');
-        setTimeout(() => this.refreshMainPanel(), 500);
-      }
-      
-      document.removeEventListener('keydown', handler);
-    };
-
-    document.addEventListener('keydown', handler);
-  }
 }

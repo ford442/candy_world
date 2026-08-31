@@ -8,6 +8,8 @@ import '../../style.css';
 
 export { scene, camera, renderer, player, addCameraShake } from './main/exports.ts';
 
+import { setupGlobalKeyboardTactileFeedback } from '../utils/interaction-utils.ts';
 import { runBootstrap } from './main/bootstrap.ts';
 
+setupGlobalKeyboardTactileFeedback();
 await runBootstrap();
