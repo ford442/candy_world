@@ -20,8 +20,8 @@ export class AudioSystem extends AudioSystemCore {
     musicSourceMode: MusicSourceMode;
     private _generativeAttached = false;
 
-    constructor(useScriptProcessorNode: boolean = false) {
-        super(useScriptProcessorNode);
+    constructor(useScriptProcessorNode: boolean = false, deferWorklet: boolean = false) {
+        super(useScriptProcessorNode, deferWorklet);
         this.musicSourceMode = resolveMusicMode();
     }
 
