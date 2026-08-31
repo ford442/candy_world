@@ -425,7 +425,29 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     const smoothing = Math.min(1.0, 15.0 * delta);
     player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
     player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
-    player.velocity.y -= player.gravity * delta;
+
+    // Spawn-protection: freeze gravity for a few frames after placement so the
+    // ground-height query can return a valid value before physics takes over.
+    if (player.spawnProtectFrames > 0) {
+        player.spawnProtectFrames--;
+        player.velocity.y = 0;
+        // On the last protected frame re-snap to the authoritative terrain height
+        // (both up and down) so probe over-estimates don't leave the player floating.
+        if (player.spawnProtectFrames === 0) {
+            const snapGroundY = getGroundHeight(player.position.x, player.position.z);
+            const snapEyeY = snapGroundY + CONFIG.player.eyeHeight;
+            if (Number.isFinite(snapEyeY)) {
+                player.position.y = Math.max(player.position.y, snapEyeY);
+                // Only snap downward if clearly floating (> 1 m above terrain eye).
+                if (player.position.y > snapEyeY + 1.0) {
+                    player.position.y = snapEyeY;
+                }
+            }
+        }
+    } else {
+        player.velocity.y -= player.gravity * delta;
+    }
+
     player.position.x += player.velocity.x * delta;
     player.position.z += player.velocity.z * delta;
     player.position.y += player.velocity.y * delta;
