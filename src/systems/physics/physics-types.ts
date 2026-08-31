@@ -41,6 +41,8 @@ export interface PlayerExtended extends CorePlayerState {
     };
     climbTarget: THREE.Object3D | null;
     climbTopY: number;
+    /** Frames remaining where gravity is frozen after a spawn/teleport. */
+    spawnProtectFrames: number;
 }
 
 // --- Configuration ---
@@ -94,6 +96,9 @@ export const player: PlayerExtended = {
     // Flags for external systems to query
     isGrounded: false,
     isUnderwater: false,
+
+    // Spawn protection: gravity is frozen for this many frames after placement.
+    spawnProtectFrames: 0,
 
     harpoon: {
         active: false,
