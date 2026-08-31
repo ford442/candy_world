@@ -16,7 +16,7 @@ const _vA = new THREE.Vector3();
 export function makeInteractiveCylinder(group: THREE.Object3D, height: number, radius: number) {
     // We override the raycast method on this specific instance
     // THREE.Object3D.prototype.raycast is usually empty
-    group.raycast = function(raycaster: THREE.Raycaster, intersects: THREE.Intersection[]) {
+    group.raycast = function (raycaster: THREE.Raycaster, intersects: THREE.Intersection[]) {
         const matrixWorld = this.matrixWorld;
         _inverseMatrix.copy(matrixWorld).invert();
         _ray.copy(raycaster.ray).applyMatrix4(_inverseMatrix);
@@ -37,12 +37,12 @@ export function makeInteractiveCylinder(group: THREE.Object3D, height: number, r
             // Usually we can ignore exact parallel unless looking straight down
             // If inside radius, it hits top/bottom cap?
             if (C <= 0) {
-                 // Inside infinite cylinder. Check Y bounds.
-                 // Entry at -Infinity, Exit at +Infinity
-                 // Just check if ray intersects [0, height] interval
-                 // Intersects top cap at y=height?
-                 // t = (height - oy) / dy
-                 // This is getting complex for parallel case. Skip for now.
+                // Inside infinite cylinder. Check Y bounds.
+                // Entry at -Infinity, Exit at +Infinity
+                // Just check if ray intersects [0, height] interval
+                // Intersects top cap at y=height?
+                // t = (height - oy) / dy
+                // This is getting complex for parallel case. Skip for now.
             }
             return;
         }
@@ -81,20 +81,21 @@ export function makeInteractiveCylinder(group: THREE.Object3D, height: number, r
         }
 
         if (tHit !== -1) {
-             // Calculate World Intersection Point
-             _vA.copy(_ray.direction).multiplyScalar(tHit).add(_ray.origin);
-             _vA.applyMatrix4(matrixWorld);
+            // Calculate World Intersection Point
+            _vA.copy(_ray.direction).multiplyScalar(tHit).add(_ray.origin);
+            _vA.applyMatrix4(matrixWorld);
 
-             // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
-             const distSq = raycaster.ray.origin.distanceToSquared(_vA);
-             if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far) return;
+            // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
+            const distSq = raycaster.ray.origin.distanceToSquared(_vA);
+            if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far)
+                return;
 
-             intersects.push({
-                 distance: Math.sqrt(distSq),
-                 point: _vA.clone(),
-                 object: this,
-                 uv: undefined
-             });
+            intersects.push({
+                distance: Math.sqrt(distSq),
+                point: _vA.clone(),
+                object: this,
+                uv: undefined,
+            });
         }
     };
 }
@@ -105,8 +106,12 @@ export function makeInteractiveCylinder(group: THREE.Object3D, height: number, r
  *
  * Supports a Sphere centered at local (0, height, 0) with radius R.
  */
-export function makeInteractiveSphere(group: THREE.Object3D, radius: number, heightOffset: number = 0) {
-    group.raycast = function(raycaster: THREE.Raycaster, intersects: THREE.Intersection[]) {
+export function makeInteractiveSphere(
+    group: THREE.Object3D,
+    radius: number,
+    heightOffset: number = 0
+) {
+    group.raycast = function (raycaster: THREE.Raycaster, intersects: THREE.Intersection[]) {
         const matrixWorld = this.matrixWorld;
         _inverseMatrix.copy(matrixWorld).invert();
         _ray.copy(raycaster.ray).applyMatrix4(_inverseMatrix);
@@ -143,19 +148,20 @@ export function makeInteractiveSphere(group: THREE.Object3D, radius: number, hei
         else if (t2 >= 0) tHit = t2;
 
         if (tHit !== -1) {
-             _vA.copy(_ray.direction).multiplyScalar(tHit).add(_ray.origin);
-             _vA.applyMatrix4(matrixWorld);
+            _vA.copy(_ray.direction).multiplyScalar(tHit).add(_ray.origin);
+            _vA.applyMatrix4(matrixWorld);
 
-             // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
-             const distSq = raycaster.ray.origin.distanceToSquared(_vA);
-             if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far) return;
+            // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
+            const distSq = raycaster.ray.origin.distanceToSquared(_vA);
+            if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far)
+                return;
 
-             intersects.push({
-                 distance: Math.sqrt(distSq),
-                 point: _vA.clone(),
-                 object: this,
-                 uv: undefined
-             });
+            intersects.push({
+                distance: Math.sqrt(distSq),
+                point: _vA.clone(),
+                object: this,
+                uv: undefined,
+            });
         }
     };
 }
@@ -210,13 +216,20 @@ export function makeInteractive(group: THREE.Object3D) {
  * @param options - Options for focus trapping.
  * @returns A cleanup function to remove the event listener when the modal closes.
  */
-export function trapFocusInside(element: HTMLElement, options?: { skipAutoFocus?: boolean }): () => void {
+export function trapFocusInside(
+    element: HTMLElement,
+    options?: { skipAutoFocus?: boolean }
+): () => void {
     // 1. Select all potentially focusable elements within the modal
     const focusableSelectors = [
-        'a[href]', 'button:not([disabled])', 'textarea',
-        'input[type="text"]:not([disabled])', 'input[type="radio"]:not([disabled])',
-        'input[type="checkbox"]:not([disabled])', 'select:not([disabled])',
-        '[tabindex]:not([tabindex="-1"])'
+        'a[href]',
+        'button:not([disabled])',
+        'textarea',
+        'input[type="text"]:not([disabled])',
+        'input[type="radio"]:not([disabled])',
+        'input[type="checkbox"]:not([disabled])',
+        'select:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
     ].join(', ');
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -227,8 +240,9 @@ export function trapFocusInside(element: HTMLElement, options?: { skipAutoFocus?
         }
 
         // Get current focusable elements (queried on keydown in case the DOM changed)
-        const focusableEls = Array.from(element.querySelectorAll<HTMLElement>(focusableSelectors))
-            .filter(el => el.offsetParent !== null); // Ensure they are visibly rendered
+        const focusableEls = Array.from(
+            element.querySelectorAll<HTMLElement>(focusableSelectors)
+        ).filter((el) => el.offsetParent !== null); // Ensure they are visibly rendered
 
         if (focusableEls.length === 0) return;
 
@@ -263,4 +277,60 @@ export function trapFocusInside(element: HTMLElement, options?: { skipAutoFocus?
     return function cleanup() {
         element.removeEventListener('keydown', handleKeyDown);
     };
+}
+
+// --- Global Tactile Keyboard Feedback ---
+
+/**
+ * Sets up global event delegation for tactile keyboard feedback (adding `.keyboard-active`)
+ * for Enter and Space key presses on interactive DOM elements, mirroring mouse interactions.
+ * This prevents stuck states and reduces redundant event listeners on dynamic UI components.
+ */
+export function setupGlobalKeyboardTactileFeedback() {
+    if (typeof document === 'undefined') return;
+
+    // ♿ Aria: Generic tactile keyboard feedback for interactive elements
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.repeat) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            const activeElement = document.activeElement as HTMLElement;
+            if (activeElement && !activeElement.classList.contains('keyboard-active')) {
+                if (
+                    activeElement.matches(
+                        '.toggle-button, .cta-button, .secondary-button, .file-label, ' +
+                            '.mode-btn, .a11y-tab, .a11y-button, .a11y-preset-card, ' +
+                            '.a11y-close-btn, .skip-button, .fatal-error-reload, .analytics-debug-close, ' +
+                            '.analytics-debug-button, .analytics-debug-toggle-switch, ' +
+                            '.candy-save-menu__close, .candy-save-menu__tab, .candy-save-slot, ' +
+                            '.candy-save-slot__btn, .candy-save-menu__btn, .candy-keybind, ' +
+                            '.candy-file-label'
+                    )
+                ) {
+                    activeElement.classList.add('keyboard-active');
+                }
+            }
+        }
+    });
+
+    // Remove feedback globally on keyup
+    document.addEventListener('keyup', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            const activeElements = document.querySelectorAll('.keyboard-active');
+            activeElements.forEach((el) => {
+                if (!el.classList.contains('ability-slot')) {
+                    el.classList.remove('keyboard-active');
+                }
+            });
+        }
+    });
+
+    // Ensure feedback is removed when focus is lost before keyup
+    document.addEventListener('focusout', (e: FocusEvent) => {
+        const target = e.target as HTMLElement;
+        if (target && target.classList && target.classList.contains('keyboard-active')) {
+            if (!target.classList.contains('ability-slot')) {
+                target.classList.remove('keyboard-active');
+            }
+        }
+    });
 }

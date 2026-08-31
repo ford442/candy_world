@@ -172,25 +172,8 @@ export function setupStartScreen(ctx: MainContext): void {
                 fullWorldToggle.click();
                 if (!fullWorldToggle.classList.contains('keyboard-active')) {
                     fullWorldToggle.classList.add('keyboard-active');
-
-                    const removeFeedback = () => {
-                        fullWorldToggle.classList.remove('keyboard-active');
-                        fullWorldToggle.removeEventListener('keyup', removeFeedback);
-                        fullWorldToggle.removeEventListener('blur', removeFeedback);
-                    };
-
-                    fullWorldToggle.addEventListener('keyup', removeFeedback);
-                    fullWorldToggle.addEventListener('blur', removeFeedback);
                 }
             }
-        });
-        fullWorldToggle.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                fullWorldToggle.classList.remove('keyboard-active');
-            }
-        });
-        fullWorldToggle.addEventListener('blur', () => {
-            fullWorldToggle.classList.remove('keyboard-active');
         });
     }
 
@@ -479,15 +462,6 @@ export function setupStartScreen(ctx: MainContext): void {
             startButton.classList.add('keyboard-active');
         }
     });
-    startButton.addEventListener('keyup', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            startButton.classList.remove('keyboard-active');
-        }
-    });
-    startButton.addEventListener('blur', () => {
-        startButton.classList.remove('keyboard-active');
-    });
-
     if (isBootInstant()) {
         try {
             (window as any).__bootInstant = true;

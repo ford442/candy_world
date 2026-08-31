@@ -19,7 +19,8 @@ export function createDeferredIndicator(): HTMLElement {
     indicator.id = 'candy-deferred-indicator';
     indicator.className = 'deferred-indicator';
     indicator.setAttribute('aria-hidden', 'true');
-    indicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-eta" aria-hidden="true"></span><span class="deferred-fail" aria-hidden="true" role="button" tabindex="0" style="display:none;color:#ff6b6b;font-weight:600;margin-left:6px;cursor:pointer;">⚠ <span class="fail-count">0</span></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
+    indicator.innerHTML =
+        '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-eta" aria-hidden="true"></span><span class="deferred-fail" aria-hidden="true" role="button" tabindex="0" style="display:none;color:#ff6b6b;font-weight:600;margin-left:6px;cursor:pointer;">⚠ <span class="fail-count">0</span></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
     document.body.appendChild(indicator);
     return indicator;
 }
@@ -41,16 +42,6 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
         if (e.key === 'Enter' || e.key === ' ') {
             if (!reloadBtn.classList.contains('keyboard-active')) {
                 reloadBtn.classList.add('keyboard-active');
-
-                // ♿ Aria: Remove class on keyup and blur to match tactile hold duration
-                const removeFeedback = () => {
-                    reloadBtn.classList.remove('keyboard-active');
-                    reloadBtn.removeEventListener('keyup', removeFeedback);
-                    reloadBtn.removeEventListener('blur', removeFeedback);
-                };
-
-                reloadBtn.addEventListener('keyup', removeFeedback);
-                reloadBtn.addEventListener('blur', removeFeedback);
             }
         }
     });
@@ -68,23 +59,15 @@ export function wireSkipButton(skipButton: HTMLButtonElement, onSkip: () => void
         if (e.key === 'Enter' || e.key === ' ') {
             if (!skipButton.classList.contains('keyboard-active')) {
                 skipButton.classList.add('keyboard-active');
-
-                // ♿ Aria: Remove class on keyup and blur to match tactile hold duration
-                const removeFeedback = () => {
-                    skipButton.classList.remove('keyboard-active');
-                    skipButton.removeEventListener('keyup', removeFeedback);
-                    skipButton.removeEventListener('blur', removeFeedback);
-                };
-
-                skipButton.addEventListener('keyup', removeFeedback);
-                skipButton.addEventListener('blur', removeFeedback);
             }
         }
     });
 }
 
 export function createLoadingScreenDOM(
-    options: Required<Pick<LoadingScreenOptions, 'theme' | 'showEstimatedTime' | 'allowSkipDeferred'>>,
+    options: Required<
+        Pick<LoadingScreenOptions, 'theme' | 'showEstimatedTime' | 'allowSkipDeferred'>
+    >,
     phases: LoadingPhase[],
     onSkip: () => void
 ): LoadingScreenElements {
@@ -159,7 +142,8 @@ export function createLoadingScreenDOM(
     if (options.allowSkipDeferred) {
         skipButton = document.createElement('button');
         skipButton.className = 'skip-button';
-        skipButton.innerHTML = '<span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>';
+        skipButton.innerHTML =
+            '<span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>';
         skipButton.style.display = 'none';
         wireSkipButton(skipButton, onSkip);
         content.appendChild(skipButton);
@@ -192,5 +176,15 @@ export function createLoadingScreenDOM(
     overlay.appendChild(container);
     document.body.appendChild(overlay);
 
-    return { container, overlay, spinner, progressBar, progressFill, percentageText, taskText, timeText, skipButton };
+    return {
+        container,
+        overlay,
+        spinner,
+        progressBar,
+        progressFill,
+        percentageText,
+        taskText,
+        timeText,
+        skipButton,
+    };
 }
