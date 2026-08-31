@@ -425,7 +425,29 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     const smoothing = Math.min(1.0, 15.0 * delta);
     player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
     player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
-    player.velocity.y -= player.gravity * delta;
+
+    // Spawn-protection: freeze gravity for a few frames after placement so the
+    // ground-height query can return a valid value before physics takes over.
+    if (player.spawnProtectFrames > 0) {
+        player.spawnProtectFrames--;
+        player.velocity.y = 0;
+        // On the last protected frame re-snap to the authoritative terrain height
+        // (both up and down) so probe over-estimates don't leave the player floating.
+        if (player.spawnProtectFrames === 0) {
+            const snapGroundY = getGroundHeight(player.position.x, player.position.z);
+            const snapEyeY = snapGroundY + CONFIG.player.eyeHeight;
+            if (Number.isFinite(snapEyeY)) {
+                player.position.y = Math.max(player.position.y, snapEyeY);
+                // Only snap downward if clearly floating (> 1 m above terrain eye).
+                if (player.position.y > snapEyeY + 1.0) {
+                    player.position.y = snapEyeY;
+                }
+            }
+        }
+    } else {
+        player.velocity.y -= player.gravity * delta;
+    }
+
     player.position.x += player.velocity.x * delta;
     player.position.z += player.velocity.z * delta;
     player.position.y += player.velocity.y * delta;
@@ -526,48 +548,9 @@ export async function initCppPhysics(camera: THREE.Camera) {
     const validMushrooms = filterValidPhysicsObjects(foliageMushrooms, 'mushroom');
     const validClouds = filterValidPhysicsObjects(foliageClouds, 'cloud');
     const validTrampolines = filterValidPhysicsObjects(foliageTrampolines, 'trampoline');
-    const totalCount = validMushrooms.length + validClouds.length + validTrampolines.length;
-    console.log(`[Physics] Uploading obstacle batch: ${validMushrooms.length} mushrooms, ${validClouds.length} clouds, ${validTrampolines.length} trampolines (total: ${totalCount})`);
-    if (totalCount > 0) {
-        const batchData = new Float32Array(totalCount * 9);
-        let ptr = 0;
-        for (const m of validMushrooms) {
-            batchData[ptr++] = 0;
-            batchData[ptr++] = m.position.x;
-            batchData[ptr++] = m.position.y;
-            batchData[ptr++] = m.position.z;
-            batchData[ptr++] = 0;
-            batchData[ptr++] = (m.userData as any).capHeight || 3;
-            batchData[ptr++] = (m.userData as any).stemRadius || 0.5;
-            batchData[ptr++] = (m.userData as any).capRadius || 2;
-            batchData[ptr++] = (m.userData as any).isTrampoline ? 1 : 0;
-        }
-        for (const c of validClouds) {
-            batchData[ptr++] = 1;
-            batchData[ptr++] = c.position.x;
-            batchData[ptr++] = c.position.y;
-            batchData[ptr++] = c.position.z;
-            batchData[ptr++] = (c.scale.x || 1) * 2.0;
-            batchData[ptr++] = (c.scale.y || 1) * 0.8;
-            batchData[ptr++] = 0;
-            batchData[ptr++] = (c.userData as any).tier || 1;
-            batchData[ptr++] = 0;
-        }
-        for (const t of validTrampolines) {
-            batchData[ptr++] = 2;
-            batchData[ptr++] = t.position.x;
-            batchData[ptr++] = t.position.y;
-            batchData[ptr++] = t.position.z;
-            batchData[ptr++] = (t.userData as any).bounceRadius || 0.5;
-            batchData[ptr++] = (t.userData as any).bounceHeight || 0.5;
-            batchData[ptr++] = (t.userData as any).bounceForce || 12;
-            batchData[ptr++] = 0;
-            batchData[ptr++] = 0;
-        }
-    } else {
-        // Core mode or early startup: no physics obstacles yet — safe to skip batch upload.
-        console.log('[Physics] No obstacles to batch-upload (Core mode or empty scene); skipping.');
-    }
+    // ⚡ OPTIMIZATION: Removed unused batchData allocation to prevent GC spikes.
+    // C++ obstacles are intentionally unused because AssemblyScript owns collision.
+
     initDynamicFoliageBridge(500);
     const validCaves = filterValidPhysicsObjects(foliageCaves, 'cave');
     const rawFerns = Array.isArray(arpeggioFernBatcher.logicFerns) ? arpeggioFernBatcher.logicFerns : [];

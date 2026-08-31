@@ -28,6 +28,7 @@
         "test:awakened": "node tests/awakened-persistence.mjs",
         "test:ground": "node tests/ground-system.test.mjs",
         "test:ground-unified": "node tests/ground-unified-parity.mjs",
+        "test:player-spawn": "tsx tests/player-spawn.test.mjs",
         "test:sky-islands": "node tests/sky-islands-traversal.test.mjs",
         "test:presence": "tsx tests/presence-protocol.test.mjs",
         "test:sugar-caves": "tsx tests/sugar-caves-traversal.test.mjs",
@@ -38,15 +39,19 @@
         "test:wasm-loader": "node tests/wasm-loader-reliability.mjs",
         "test:startup": "node tests/startup-bootstrap.mjs",
         "test:capabilities": "tsx tests/startup-capabilities.test.mjs",
+        "test:world-extent": "tsx tests/world-extent.test.mjs",
         "test:cascades": "tsx tests/shadow-cascades.test.mjs",
         "test:lights": "tsx tests/local-lights.test.mjs",
+        "test:clustered": "tsx tests/clustered-lights.test.mjs",
+        "test:gi": "tsx tests/irradiance-probes.test.mjs",
+        "test:postfx": "tsx tests/postfx.test.mjs",
         "test:boot": "npm run test",
         "test:world": "BOOT_PATH=explore npm run test",
         "test:boot:timing": "node tests/boot-timing.mjs",
         "test:atmosphere": "node tests/atmosphere-reactivity.test.mjs",
         "test:explore": "node tests/explore-camera.test.mjs",
         "test:batcher-lod": "node tests/batcher-lod.test.mjs",
-        "test:integration": "npm run build:wasm && npm run test:wasm && npm run test:parity && npm run test:cookbook-presets && npm run test:spawn-tracker && npm run test:world-health && npm run test:presence && npm run test:sugar-caves && npm run test:capabilities && npm run test:lights && npm run test",
+        "test:integration": "npm run build:wasm && npm run test:wasm && npm run test:parity && npm run test:cookbook-presets && npm run test:spawn-tracker && npm run test:player-spawn && npm run test:world-health && npm run test:presence && npm run test:sugar-caves && npm run test:capabilities && npm run test:world-extent && npm run test:lights && npm run test:clustered && npm run test:gi && npm run test:postfx && npm run test",
         "test:smoke:full": "FULL_BOOT=1 npm run test",
         "test:smoke:fast": "FULL_BOOT=fast npm run test",
         "test:smoke:webgl": "RENDERER=webgl npm run test",
@@ -98,5 +103,15 @@
     },
     "simple-git-hooks": {
         "pre-commit": "node scripts/prettier-staged.mjs"
+    },
+    "pnpm": {
+        "overrides": {
+            "@swc/core": "1.15.47",
+            "@swc/wasm": "1.15.47"
+        }
+    },
+    "overrides": {
+        "@swc/core": "1.15.47",
+        "@swc/wasm": "1.15.47"
     }
 }

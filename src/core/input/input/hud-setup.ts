@@ -12,7 +12,8 @@ function setupAbilityKeyboardInteractions(
     const { onKeyDown, onKeyUp } = handlers;
 
     element.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.code === 'Space') {
+        // ♿ Aria: Support native keyboard activation (Enter/Space) for non-semantic role="button" elements
+        if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             if (e.repeat) return;
             element.classList.add('keyboard-active');
@@ -21,7 +22,7 @@ function setupAbilityKeyboardInteractions(
     });
 
     element.addEventListener('keyup', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.code === 'Space') {
+        if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             element.classList.remove('keyboard-active');
             onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
@@ -29,22 +30,33 @@ function setupAbilityKeyboardInteractions(
     });
 
     element.addEventListener('pointerdown', (e: PointerEvent) => {
+        if (e.button !== 0) return; // Only left click / primary touch
         e.preventDefault();
         e.stopPropagation();
         element.setPointerCapture(e.pointerId);
+        element.classList.add('keyboard-active');
         onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
     });
 
     element.addEventListener('pointerup', (e: PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        element.classList.remove('keyboard-active');
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
     });
 
     element.addEventListener('pointercancel', (e: PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        element.classList.remove('keyboard-active');
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+    });
+
+    element.addEventListener('pointerout', () => {
+        if (element.classList.contains('keyboard-active')) {
+            element.classList.remove('keyboard-active');
+            onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        }
     });
 
     element.addEventListener('contextmenu', (e: MouseEvent) => {
@@ -144,25 +156,31 @@ export function setupHudControls(session: InputSession, handlers: InputKeyboardH
                  activeElement.classList.contains('cta-button') ||
                  activeElement.classList.contains('secondary-button') ||
                  activeElement.classList.contains('file-label') ||
-                 activeElement.classList.contains('mode-btn') ||
-                 activeElement.classList.contains('ability-slot'))
+                 activeElement.classList.contains('mode-btn'))
             ) {
                 activeElement.classList.add('keyboard-active');
+            }
+        }
+    });
 
-                const cleanup = () => {
-                    activeElement.classList.remove('keyboard-active');
-                    activeElement.removeEventListener('keyup', keyupHandler);
-                    activeElement.removeEventListener('blur', cleanup);
-                };
+    document.addEventListener('keyup', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            const activeElements = document.querySelectorAll('.keyboard-active');
+            activeElements.forEach(el => {
+                // ability-slots manage their own state to trigger onKeyUp logic
+                if (!el.classList.contains('ability-slot')) {
+                    el.classList.remove('keyboard-active');
+                }
+            });
+        }
+    });
 
-                const keyupHandler = (ev: KeyboardEvent) => {
-                    if (ev.key === 'Enter' || ev.key === ' ') {
-                        cleanup();
-                    }
-                };
-
-                activeElement.addEventListener('keyup', keyupHandler);
-                activeElement.addEventListener('blur', cleanup);
+    document.addEventListener('focusout', (e: FocusEvent) => {
+        const target = e.target as HTMLElement;
+        if (target && target.classList && target.classList.contains('keyboard-active')) {
+            // ability-slots manage their own state
+            if (!target.classList.contains('ability-slot')) {
+                target.classList.remove('keyboard-active');
             }
         }
     });

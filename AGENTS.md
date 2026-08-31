@@ -502,7 +502,7 @@ Cross-Origin-Embedder-Policy: require-corp
 - `vite` (^5.0.0) — Build tool and dev server
 - `typescript` (^5.9.3) — Type checking
 - `vite-plugin-wasm` — WASM support in Vite
-- `vite-plugin-top-level-await` — Top-level await support
+- `vite-plugin-top-level-await` — Top-level await support. Pin `@swc/core` / `@swc/wasm` to `1.15.47` (`package.json` overrides): 1.16+ breaks the plugin (`missing field type` in `printSync`; Menci/vite-plugin-top-level-await#79).
 
 ### Development / Testing
 

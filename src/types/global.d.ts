@@ -44,6 +44,8 @@ declare global {
         __exploreActive?: boolean;
         __bootInstant?: boolean;
         __playSpawnCount?: number;
+        __currentWorldGenerationToken?: number;
+        __IS_FULL_BOOT_TEST?: boolean;
         __startupCapabilities?: {
             path: string;
             graphics: string;
@@ -51,6 +53,27 @@ declare global {
             postfx: { quality: string };
             deferred: { aurora: boolean; fluidFog: boolean };
             shadows: { enabled: boolean; resolution: string };
+            world?: {
+                size: number;
+                halfExtent: number;
+                heightmapResolution: number;
+                grassCapacity: number;
+                luminousPlantCount: number;
+                fogFarCap: number;
+            };
+        };
+        __updateChunkStreamer?: (x: number, z: number) => void;
+        __streamingTelemetry?: {
+            spawnedCount: number;
+            spawnReadyCount: number;
+            worldSize: number;
+            loadRingChunks: number;
+            evictRingChunks: number;
+            lastStreamSpawnMs: number;
+            maxStreamSpawnMs: number;
+            hitchCount: number;
+            popEvents: number;
+            terrainExpanded: boolean;
         };
 
         // Renderer breadcrumbs (Playwright / agents)
@@ -133,6 +156,26 @@ declare global {
             maxShadows: number;
             webgl: boolean;
             allowedShadows: boolean;
+            analyticMuted?: boolean;
+        };
+        __clusteredLighting?: {
+            enabled: boolean;
+            reason: string;
+            lights: number;
+            clustersWritten: number;
+            lastBinMs: number;
+            maxLights: number;
+            maxLightsPerCluster: number;
+            budgetMs: number;
+        };
+        __shadowSoftness?: {
+            softness: number;
+            radius: number;
+            kernel: number;
+            pcssEnabled: boolean;
+            pcssLightSize: number;
+            tapsPerCascade: number;
+            cascades: number;
         };
     }
 

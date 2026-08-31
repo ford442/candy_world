@@ -47,6 +47,12 @@ export {
     areGodRaysEnabled,
     isDofEnabled,
     isDofManual,
+    isAoEnabled,
     resolveShadowSettings,
+    clampSoftness,
+    softnessToRadius,
+    shadowKernelForResolution,
+    shadowFilterTapCount,
     type ShadowSettings,
+    type ShadowKernel,
 } from './postfx.ts';

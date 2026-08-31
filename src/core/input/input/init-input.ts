@@ -20,7 +20,7 @@ import { setupHudControls } from './hud-setup.ts';
 import { createKeyboardHandlers } from './keyboard-handlers.ts';
 import { initExploreCameraForSession } from './menu-helpers.ts';
 import { setupPointerLock } from './pointer-lock.ts';
-import { ensureGameReticle, createUpdateReticleState, setupAbilitySlotInputs } from './reticle.ts';
+import { ensureGameReticle, createUpdateReticleState } from './reticle.ts';
 import type { InputSession } from './session.ts';
 
 export function initInput(
@@ -60,7 +60,6 @@ export function initInput(
 
     ensureGameReticle();
     const updateReticleState = createUpdateReticleState();
-    setupAbilitySlotInputs();
 
     initPlaylistManager(audioSystem, controls, session.instructions);
     initAudioControls(audioSystem);

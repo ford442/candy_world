@@ -12,7 +12,6 @@ import { BiomeUniforms, uCircadianPoseOffset } from '../systems/biome-uniforms.t
 import { circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
-import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
@@ -915,7 +914,7 @@ export class MushroomBatcher {
                     // Extract scale Y (magnitude of the second column)
                     const m10 = matrixArray[matOffset + 4], m11 = matrixArray[matOffset + 5], m12 = matrixArray[matOffset + 6];
                     const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
-                    const scaleY = scaleYSq === 0 ? 0 : scaleYSq * fastInvSqrt(scaleYSq);
+                    const scaleY = scaleYSq > 0.0001 ? Math.sqrt(scaleYSq) : 0;
 
                     if (this.mesh.instanceColor) {
                         const colorArray = this.mesh.instanceColor.array as Float32Array;

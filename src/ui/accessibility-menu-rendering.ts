@@ -106,6 +106,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       this.close();
     };
     closeBtn.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
       if (e.key === 'Enter' || e.key === ' ') {
         if (!closeBtn.classList.contains('keyboard-active')) {
           closeBtn.classList.add('keyboard-active');
@@ -189,6 +190,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         this.switchSection(section);
       };
       tab.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
         if (e.key === 'Enter' || e.key === ' ') {
           if (!tab.classList.contains('keyboard-active')) {
             tab.classList.add('keyboard-active');
@@ -381,6 +383,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         this.startKeyRebind(action, btn);
       };
       btn.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
         if (e.key === 'Enter' || e.key === ' ') {
           if (!btn.classList.contains('keyboard-active')) {
             btn.classList.add('keyboard-active');

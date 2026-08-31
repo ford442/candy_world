@@ -32,6 +32,7 @@ let _lastMineReady: boolean | null = null;
 let _currentEnergyPulseScale: number = 1.0;
 let _lastPhaseCount: number | null = null;
 let _lastPhaseActive: boolean | null = null;
+let _lastPhaseAnnouncedSecond = -1;
 let _lastStrikeState: boolean = false;
 
 // ♿ Aria: Track low energy announcement to prevent spam
@@ -220,6 +221,11 @@ export function updateDashHUD(
             hudDash.setAttribute('aria-disabled', 'false');
             hudDash.title = "Dash (E) - Ready!";
             hudDash.setAttribute('aria-label', "Dash Ability (E) - Ready!");
+
+            // ♿ Aria: Announce ability readiness specifically when pointer-locked
+            if (_lastDashReady === false) {
+                announce('Dash ready', 'polite');
+            }
         } else {
             hudDash.setAttribute('aria-disabled', 'true');
             hudDash.title = "Dash (E) - Recharging...";
@@ -256,6 +262,11 @@ export function updateMineHUD(
             hudMine.setAttribute('aria-disabled', 'false');
             hudMine.title = "Jitter Mine (F) - Ready!";
             hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Ready!");
+
+            // ♿ Aria: Announce ability readiness specifically when pointer-locked
+            if (_lastMineReady === false) {
+                announce('Jitter Mine ready', 'polite');
+            }
         } else {
             hudMine.setAttribute('aria-disabled', 'true');
             hudMine.title = "Jitter Mine (F) - Recharging...";
@@ -294,7 +305,7 @@ export function updatePhaseHUD(
         countChanged = true;
     }
 
-    // Handle State
+// Handle State
     if (isPhasing) {
         const duration = 5.0; // From physics.ts
         const remaining = Math.max(0, phaseTimer);
@@ -307,11 +318,20 @@ export function updatePhaseHUD(
             hudPhase.setAttribute('aria-pressed', 'true');
             hudPhase.setAttribute('aria-disabled', 'false');
             _lastPhaseActive = isPhasing;
+            announce('Phase shift active', 'polite');
+            _lastPhaseAnnouncedSecond = Math.ceil(remaining);
         }
 
         // Dynamic ARIA label for screen readers (maybe throttle this?)
         // For now, let's update title for hover
         hudPhase.title = `Phase Shift Active: ${remaining.toFixed(1)}s left`;
+
+        // ♿ Aria: Throttle aria-label updates to integer seconds to avoid screen reader spam
+        const currentSecond = Math.ceil(remaining);
+        if (currentSecond !== _lastPhaseAnnouncedSecond) {
+            hudPhase.setAttribute('aria-label', `Phase Shift active, ${currentSecond} seconds remaining`);
+            _lastPhaseAnnouncedSecond = currentSecond;
+        }
 
     } else {
         // Not Active - Show Availability
@@ -319,8 +339,13 @@ export function updatePhaseHUD(
 
         const stateChanged = (isPhasing !== _lastPhaseActive);
         if (stateChanged) {
+            const wasActive = _lastPhaseActive;
             hudPhase.setAttribute('aria-pressed', 'false');
             _lastPhaseActive = isPhasing;
+            // Only announce if we actually transitioned from true to false
+            if (wasActive === true && _lastPhaseCount !== null) {
+                announce(`Phase shift ended. ${phaseCount} bulb${phaseCount !== 1 ? 's' : ''} remaining`, 'polite');
+            }
         }
 
         // Check Availability (Ammo) - Update only on state change or count change

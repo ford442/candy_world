@@ -15,13 +15,13 @@ import type { GenerativeEngine } from './generative/generative-engine.ts';
 import { resolveMusicMode, type MusicSourceMode } from './generative/music-mode.ts';
 
 export class AudioSystem extends AudioSystemCore {
-    private _scratchChannelData?: any[];
+    private _scratchChannelData?: Array<{ volume: number; note: string; instrument: number; activeEffect: number; effectValue: number }>;
     generativeEngine: GenerativeEngine | null = null;
     musicSourceMode: MusicSourceMode;
     private _generativeAttached = false;
 
-    constructor(useScriptProcessorNode: boolean = false) {
-        super(useScriptProcessorNode);
+    constructor(useScriptProcessorNode: boolean = false, deferWorklet: boolean = false) {
+        super(useScriptProcessorNode, deferWorklet);
         this.musicSourceMode = resolveMusicMode();
     }
 
@@ -74,7 +74,7 @@ export class AudioSystem extends AudioSystemCore {
         this.isPlaying = true;
         this.moduleInfo.title = engine.getTitle();
         this.isReady = true;
-        console.log('[AudioSystem] Generative music mode active');
+        // console.log('[AudioSystem] Generative music mode active');
     }
 
     /** Switch back to tracker / user-upload mode. */
@@ -112,7 +112,7 @@ export class AudioSystem extends AudioSystemCore {
      */
     playSound(
         name: string,
-        options: { volume?: number; pitch?: number; position?: any } = {}
+        options: { volume?: number; pitch?: number; position?: unknown } = {}
     ): void {
         if (!this.audioContext) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -225,7 +225,7 @@ export class AudioSystem extends AudioSystemCore {
         );
 
         if (frames === 0) {
-            console.log('AudioSystem: Song finished (ScriptProcessor).');
+            // console.log('AudioSystem: Song finished (ScriptProcessor).');
             this.playNext();
             return;
         }
@@ -307,7 +307,7 @@ export class AudioSystem extends AudioSystemCore {
             const time = this.audioContext ? this.audioContext.currentTime : 0;
             try {
                 this.gainNode.gain.setTargetAtTime(this.volume, time, 0.1);
-            } catch (e) {
+            } catch {
                 this.gainNode.gain.value = this.volume;
             }
         }
@@ -335,7 +335,7 @@ export class AudioSystem extends AudioSystemCore {
         const initialLength = this.playlist.length;
         for (let i = 0; i < fileList.length; i++) {
             this.playlist.push(fileList[i]);
-            console.log(`Added to queue: ${fileList[i].name}`);
+            // console.log(`Added to queue: ${fileList[i].name}`);
         }
 
         // Notify UI
@@ -353,7 +353,7 @@ export class AudioSystem extends AudioSystemCore {
         let nextIndex = forceIndex !== null ? forceIndex : this.currentIndex + 1;
 
         if (nextIndex >= this.playlist.length) {
-            console.log('Playlist finished. Looping to start.');
+            // console.log('Playlist finished. Looping to start.');
             nextIndex = 0;
         }
 
@@ -363,7 +363,7 @@ export class AudioSystem extends AudioSystemCore {
         if (this.onTrackChange) this.onTrackChange(this.currentIndex);
 
         const file = this.playlist[this.currentIndex];
-        console.log(`Loading track ${this.currentIndex + 1}/${this.playlist.length}: ${file.name}`);
+        // console.log(`Loading track ${this.currentIndex + 1}/${this.playlist.length}: ${file.name}`);
         await this.loadModule(file);
     }
 
@@ -377,7 +377,7 @@ export class AudioSystem extends AudioSystemCore {
     removeTrack(index: number): void {
         if (index < 0 || index >= this.playlist.length) return;
 
-        console.log(`[AudioSystem] Removing track ${index}: ${this.playlist[index].name}`);
+        // console.log(`[AudioSystem] Removing track ${index}: ${this.playlist[index].name}`);
 
         const isCurrent = index === this.currentIndex;
 
@@ -448,7 +448,7 @@ export class AudioSystem extends AudioSystemCore {
                             { type: 'LOAD', fileData: arrayBuffer, fileName: file.name },
                             [arrayBuffer]
                         );
-                    } catch (e) {
+                    } catch {
                         // Some browsers may not accept transferred buffer if already neutered; fall back to structured clone
                         this.workletNode.port.postMessage({
                             type: 'LOAD',
@@ -472,8 +472,8 @@ export class AudioSystem extends AudioSystemCore {
 
             // Start playback (worklet will decode/play once module loaded, or ScriptProcessor is already ready)
             await this.play();
-        } catch (e) {
-            console.error('Error loading file:', e);
+        } catch {
+            console.error('Error loading file:');
             this.playNext();
         }
     }
@@ -521,8 +521,8 @@ export class AudioSystem extends AudioSystemCore {
             this.moduleInfo.title = title;
             this.preCachePatternData(modPtr);
             this.play();
-        } catch (e) {
-            console.error('Failed to load module:', e);
+        } catch {
+            console.error('Failed to load module:');
             this.playNext(); // Skip broken files
         }
     }
@@ -561,8 +561,8 @@ export class AudioSystem extends AudioSystemCore {
                 }
                 this.patternMatrices[o] = { rows: matrixRows, numRows, numChannels };
             }
-        } catch (e) {
-            console.error('Pattern caching error:', e);
+        } catch {
+            console.error('Pattern caching error:');
         }
     }
 
@@ -581,16 +581,16 @@ export class AudioSystem extends AudioSystemCore {
             if (!this.scriptProcessorNode) {
                 try {
                     await this.init();
-                } catch (e) {
-                    console.warn('ScriptProcessor init failed in play()', e);
+                } catch {
+                    console.warn('ScriptProcessor init failed in play()');
                 }
             }
         } else {
             if (!this.workletNode) {
                 try {
                     await this.init();
-                } catch (e) {
-                    console.warn('Worklet init failed in play()', e);
+                } catch {
+                    console.warn('Worklet init failed in play()');
                 }
             }
         }
@@ -598,7 +598,7 @@ export class AudioSystem extends AudioSystemCore {
         this.isPlaying = true;
     }
 
-    stop(fullReset: boolean = true): void {
+    stop(_fullReset: boolean = true): void {
         // Guard against concurrent calls
         if (this.isStopping) {
             return;
@@ -613,8 +613,8 @@ export class AudioSystem extends AudioSystemCore {
         try {
             if (this.workletNode && this.workletNode.port)
                 this.workletNode.port.postMessage({ type: 'STOP' });
-        } catch (e) {
-            console.warn('Failed to signal STOP to worklet', e);
+        } catch {
+            console.warn('Failed to signal STOP to worklet');
         }
 
         // Disconnect audio graph parts
@@ -622,25 +622,25 @@ export class AudioSystem extends AudioSystemCore {
             if (this.workletNode) {
                 try {
                     this.workletNode.disconnect();
-                } catch (e) { /* noop */ }
+                } catch { /* noop */ }
                 this.workletNode = null;
             }
             if (this.scriptProcessorNode) {
                 try {
                     this.scriptProcessorNode.disconnect();
                     this.scriptProcessorNode.onaudioprocess = null;
-                } catch (e) { /* noop */ }
+                } catch { /* noop */ }
                 this.scriptProcessorNode = null;
             }
             if (this.gainNode) {
                 try {
                     this.gainNode.disconnect();
-                } catch (e) { /* noop */ }
+                } catch { /* noop */ }
                 this.gainNode = null;
             }
             this._generativeAttached = false;
-        } catch (e) {
-            console.warn('Error disconnecting audio nodes:', e);
+        } catch {
+            console.warn('Error disconnecting audio nodes:');
         }
 
         // Clean up module and buffers for ScriptProcessorNode mode
@@ -658,7 +658,7 @@ export class AudioSystem extends AudioSystemCore {
                     this.libopenmpt._free(this.rightBufferPtr);
                     this.rightBufferPtr = 0;
                 }
-            } catch (e) {
+            } catch {
                 /* ignore */
             }
         } else if (this.libopenmpt) {
@@ -672,7 +672,7 @@ export class AudioSystem extends AudioSystemCore {
                     this.libopenmpt._free(this.rightBufferPtr);
                     this.rightBufferPtr = 0;
                 }
-            } catch (e) {
+            } catch {
                 /* ignore */
             }
         }
@@ -683,8 +683,9 @@ export class AudioSystem extends AudioSystemCore {
         // There's no longer a main-thread module pointer we reset here in AudioWorkletNode mode; Worklet handles its own reset
     }
 
-    handleVisualUpdate(data: any): void {
-        const { bpm, channelData, anyTrigger, order, row } = data; // Ensure Worklet sends order/row!
+    handleVisualUpdate(data: unknown): void {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { bpm, channelData, anyTrigger, order, row } = data as { bpm: number; channelData: any[]; anyTrigger: boolean; order: number; row: number }; // Ensure Worklet sends order/row!
         this.visualState.bpm = bpm || 120;
 
         // Update Pattern Index (using order as proxy for global pattern progress)

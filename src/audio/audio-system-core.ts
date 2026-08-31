@@ -159,13 +159,19 @@ export abstract class AudioSystemCore {
     // Audio mode
     useScriptProcessorNode: boolean;
 
+    // When true the constructor skips calling init(); caller must call initDeferred() later.
+    private deferWorklet: boolean;
+
+    // Guard: tracks whether init() has already been called (or is in flight).
+    private _initCalled: boolean;
+
     // ScriptProcessor visual update counter
     protected scriptProcessorCallbackCount: number;
 
     // Stop guard flag to prevent concurrent calls
     protected isStopping: boolean;
 
-    constructor(useScriptProcessorNode: boolean = false) {
+    constructor(useScriptProcessorNode: boolean = false, deferWorklet: boolean = false) {
         this.libopenmpt = null;
         this.currentModulePtr = 0;
         this.audioContext = null;
@@ -212,10 +218,28 @@ export abstract class AudioSystemCore {
 
         // Audio mode
         this.useScriptProcessorNode = useScriptProcessorNode;
+        this.deferWorklet = deferWorklet;
+        this._initCalled = false;
         this.scriptProcessorCallbackCount = 0;
         this.isStopping = false;
 
-        this.init();
+        if (!deferWorklet) {
+            this._initCalled = true;
+            this.init();
+        }
+    }
+
+    /**
+     * Start the full audio init (AudioContext + worklet/ScriptProcessor).
+     * Called automatically by the constructor unless deferWorklet=true, in
+     * which case the caller is responsible for calling initDeferred() at an
+     * appropriate time (e.g. after the first rendered frame).
+     * Safe to call only once; subsequent calls are ignored.
+     */
+    async initDeferred(): Promise<void> {
+        if (this._initCalled) return;
+        this._initCalled = true;
+        await this.init();
     }
 
     async init(): Promise<void> {
@@ -316,7 +340,7 @@ export abstract class AudioSystemCore {
                     if (!spec.startsWith('.') && !spec.startsWith('/')) return spec;
                     try {
                         return new URL(spec, workletUrl).href;
-                    } catch (err) {
+                    } catch {
                         return spec;
                     }
                 };
@@ -340,8 +364,8 @@ export abstract class AudioSystemCore {
                 if (rewritten !== text) {
                     console.warn('[AudioSystem] Rewrote import specifiers in worklet to absolute URLs to avoid blob-relative resolution issues.');
                 }
-            } catch (err) {
-                console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text', err);
+            } catch {
+                console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text');
             }
 
             const blobUrl = URL.createObjectURL(new Blob([rewritten], { type: 'application/javascript' }));
@@ -408,8 +432,8 @@ export abstract class AudioSystemCore {
                         setTimeout(() => reject(new Error('libopenmpt init timeout')), 5000)
                     ),
                 ]);
-            } catch (err) {
-                console.warn('[AudioSystem] WASM failed, starting in Silent Mode:', err);
+            } catch {
+                console.warn('[AudioSystem] WASM failed, starting in Silent Mode:');
                 window.libopenmpt = undefined;
                 this.isReady = true;
                 return;
@@ -459,7 +483,7 @@ export abstract class AudioSystemCore {
     }
 
     // Abstract methods to be implemented by child class
-    abstract handleVisualUpdate(data: any): void;
+    abstract handleVisualUpdate(data: unknown): void;
     abstract playNext(forceIndex?: number | null): Promise<void>;
     abstract processAudioScriptProcessor(event: AudioProcessingEvent): void;
 }

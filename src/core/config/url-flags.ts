@@ -15,6 +15,13 @@
 //   ?generative=1         — in-browser generative soundtrack (or ?music=generative)
 //   ?photo=1              — cinematic photo mode (or ?mode=photo)
 //   ?lights=1             — show local point/spot helpers (also implied by ?debug=1)
+//   ?no_clustered         — skip Forward+ clustered local lights (tiny Three.js pool only)
+//   ?gi=off|on|high|debug — lightweight GI probe volume: skip / force on / force
+//                           on at high density / force on with probe gizmos
+//                           (gizmos also implied by ?debug=1)
+//   ?shadowSoft=0..1      — live-tunable sun shadow softness (also a ?debug=1 slider)
+//   ?pcss=1|0             — force the cheap PCSS-style contact term on/off (high tier)
+//   ?ao / ?ao=1 / ?no_ao  — WebGPU GTAO (off on low; high postfx implies on)
 //   ?no_gpu_compute       — force WASM/JS fallback for batch LOD + foliage scalar batches
 //   ?nativeMusicAccum=0   — force TS arpeggio_grove channel accumulate (A/B vs AS)
 //   ?nativeMusicAccum=1   — prefer AS accumulate when candy_physics export present (default)
@@ -90,6 +97,8 @@ export const FEATURE_FLAGS = {
     generativeMusic: hasUrlFlag('generative') || getUrlFlag('music') === 'generative',
     /** Cinematic photo mode (?photo=1 or ?mode=photo). */
     photoMode: hasUrlFlag('photo') || getUrlFlag('mode') === 'photo',
+    /** Forward+ clustered local lights. Off via `?no_clustered` or graphics `low`. */
+    clusteredLights: !hasUrlFlag('no_clustered'),
 } as const;
 
 // Log active overrides once at startup so the console makes the state obvious.

@@ -19,16 +19,25 @@ import {
     GPU_POWER_PREFERENCE,
     GPU_REQUIRED_LIMITS,
 } from '../rendering/gpu-context.ts';
+import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-probes.ts';
+import { initLocalLights } from '../rendering/lights.ts';
 import { resolveRendererBackend, type RendererBackend } from '../rendering/renderer-mode.ts';
+import { applyShadowSoftness } from '../rendering/shadow-softness.ts';
 import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 import {
     initSunCascades,
     attachCascadeDebug,
     getCascadeMapSizes,
 } from '../systems/shadow-cascades.ts';
 import type { ShadowSettings } from './config/postfx.ts';
-import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
-import { initLocalLights } from '../rendering/lights.ts';
+import {
+    PALETTE,
+    CONFIG,
+    resolveShadowSettings,
+    areGodRaysEnabled,
+    resolvePostfxQuality,
+} from './config.ts';
 
 /**
  * Candy World always uses WebGPURenderer. WebGL2 fallback is the internal
@@ -62,13 +71,16 @@ function configureSunShadows(
     const renderRadius = cfg.followRadius + cfg.snapHeadroom;
 
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // PCFSoftShadowMap's node filter ignores `shadow.radius` (fixed 1-texel 3×3).
+    // PCFShadowMap honors radius; we still attach a quality-gated TSL kernel via
+    // `shadow.filterNode` in applyShadowSoftness() after CSM clones exist.
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(settings.mapSize, settings.mapSize);
     sunLight.shadow.bias = cfg.bias;
     sunLight.shadow.normalBias = cfg.normalBias;
-    sunLight.shadow.radius = cfg.pcfRadius;
+    sunLight.shadow.radius = settings.radius;
 
     const cam = sunLight.shadow.camera as THREE.OrthographicCamera;
     cam.left = -renderRadius;
@@ -175,15 +187,16 @@ export async function createRenderer(
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime
             // (e.g. requestAdapter returns null on Safari 17.4 / Chrome with
-            // disabled GPU). Fall through to the GLSL node backend instead of crashing.
+            // disabled GPU).
             console.warn(
-                '[Init] WebGPURenderer creation failed — falling back to GLSL node backend:',
+                '[Init] WebGPURenderer creation failed — WebGPU hard-fail boot probe triggered:',
                 err
             );
+            throw new Error(`WebGPU is required but initialization failed: ${err}`);
         }
     }
 
-    console.warn('[Init] WebGPU unavailable — falling back to WebGPURenderer (GLSL node backend)');
+    console.warn('[Init] WebGPU unavailable — WebGPU hard-fail boot probe triggered.');
     const warning = WebGPU.getErrorMessage();
     if (warning && !document.getElementById('webgpu-warning')) {
         // Only append if not already present (avoid duplicates)
@@ -192,12 +205,7 @@ export async function createRenderer(
         document.body.appendChild(warning);
     }
 
-    return {
-        renderer: createNodeRenderer(canvas, true),
-        mode: 'webgl',
-        requested: 'webgpu',
-        fallbackReason: 'webgpu-unavailable',
-    };
+    throw new Error('WebGPU is required but unavailable on this browser/device.');
 }
 
 /**
@@ -245,7 +253,7 @@ export async function initScene(): Promise<SceneInitResult> {
         0.1,
         2000
     );
-    camera.position.set(0, CONFIG.player.spawnEyeHeightY, 0);
+    camera.position.set(CONFIG.player.spawnX, CONFIG.player.spawnEyeHeightY, CONFIG.player.spawnZ);
 
     // WebGPURenderer configuration (WGSL or GLSL node backend)
     if (isWebGPUMode(renderer)) {
@@ -314,17 +322,23 @@ export async function initScene(): Promise<SceneInitResult> {
         : null;
 
     if (cascades) attachCascadeDebug(scene);
+    applyShadowSoftness(sunLight, shadowSettings, cascades);
 
     const shadowSummary = !shadowSettings.enabled
         ? 'disabled (quality tier / CONFIG)'
         : cascades
-          ? `CSM ${cascades.cascades} cascades, maps ${getCascadeMapSizes().join('/')}, maxFar ${Math.min(CONFIG.lighting.shadows.cascadeMaxFar, camera.far)}u`
-          : `single follow map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u`;
+          ? `CSM ${cascades.cascades} cascades, maps ${getCascadeMapSizes().join('/')}, maxFar ${Math.min(CONFIG.lighting.shadows.cascadeMaxFar, camera.far)}u, ${shadowSettings.kernel}×${shadowSettings.kernel} PCF softness ${shadowSettings.softness.toFixed(2)}`
+          : `single follow map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u, ${shadowSettings.kernel}×${shadowSettings.kernel} PCF softness ${shadowSettings.softness.toFixed(2)}`;
     console.log(`[Init] Sun shadows ${shadowSummary}`);
 
     // Local point/spot registry (sun remains the shadow hero). Authored
     // candy fills mount here so quality tiers and clustered culling share one list.
     initLocalLights(scene, renderer);
+
+    // Lightweight GI. Must precede world generation: unified materials sample
+    // the probe volume at build time, and a material compiled without the term
+    // can never gain it. No-op on `low` / CI / ?gi=off.
+    if (initIrradianceProbes(scene, getGroundHeight)) attachProbeDebug(scene);
 
     // Enhanced Sun Glow with dynamic corona effect
     const sunGlowMat = new THREE.MeshBasicMaterial({
@@ -356,7 +370,7 @@ export async function initScene(): Promise<SceneInitResult> {
 
     // Add light shafts/god rays for sunrise/sunset drama
     const lightShaftGroup = new THREE.Group();
-    const shaftCount = 12;
+    const shaftCount = !areGodRaysEnabled() ? 0 : resolvePostfxQuality() === 'high' ? 16 : 8;
     const shaftGeometry = new THREE.PlaneGeometry(8, 200);
 
     // Create light shaft material based on renderer mode
@@ -377,14 +391,14 @@ export async function initScene(): Promise<SceneInitResult> {
         // Fade out horizontally at edges to prevent hard intersections
         const uvNode = uv();
         // Use proper boundaries: edge0 < edge1, then invert the result for the right side
-        const leftFade = smoothstep(0.0, 0.4, uvNode.x);
-        const rightFade = float(1.0).sub(smoothstep(0.6, 1.0, uvNode.x));
+        const leftFade = smoothstep(0.0, 0.35, uvNode.x);
+        const rightFade = float(1.0).sub(smoothstep(0.65, 1.0, uvNode.x));
         const fadeX = leftFade.mul(rightFade);
 
-        // Fade vertically to give a sense of scattering/dissipation (invert correctly)
+        // Visual Impact: longer falloff so beams dissipate instead of a hard quad edge
         const fadeY = float(1.0)
             .sub(smoothstep(0.0, 1.0, uvNode.y))
-            .pow(float(1.5));
+            .pow(float(2.2));
 
         // Link combined soft edges to global TSL uniform
         const softOpacity = fadeX.mul(fadeY).mul(uShaftOpacity);

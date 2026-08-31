@@ -571,14 +571,21 @@ export class WorkerPool {
    * Get worker pool statistics
    */
   getStats(): WorkerStats {
+    // ⚡ OPTIMIZATION: Bypassed .reduce() array allocation in worker stats gathering
+    let pendingRequests = 0;
+    for (let i = 0; i < this.physicsWorkers.length; i++) {
+        pendingRequests += this.physicsWorkers[i].pendingRequests.size;
+    }
+    for (let i = 0; i < this.worldGenWorkers.length; i++) {
+        pendingRequests += this.worldGenWorkers[i].pendingRequests.size;
+    }
+
     return {
       ...this.stats,
       physicsWorkers: this.physicsWorkers.length,
       worldGenWorkers: this.worldGenWorkers.length,
       isUsingWorkers: this.useWorkers,
-      pendingRequests: 
-        this.physicsWorkers.reduce((sum, w) => sum + w.pendingRequests.size, 0) +
-        this.worldGenWorkers.reduce((sum, w) => sum + w.pendingRequests.size, 0)
+      pendingRequests
     };
   }
 

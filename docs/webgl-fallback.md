@@ -122,6 +122,10 @@ path — ever reads). The WebGL renderer never builds that graph, so
 `initSunCascades()` checks `renderer.isWebGPURenderer` and returns `null` on
 WebGL. The caller then keeps the legacy single player-following ortho map
 configured in `configureSunShadows()`; nothing throws and nothing is skipped.
+Shadow softness (`shadow.filterNode`, 3×3 / 5×5 PCF) attaches after CSM init
+and also lands on the single follow map when cascades are off. r171
+`PCFSoftShadowMap` ignores `shadow.radius` on the node path — we use
+`PCFShadowMap` plus the candy filter. See `docs/SHADOW_SOFTNESS.md`.
 
 In practice WebGL rarely reaches either path: `resolveStartupCapabilities()`
 forces `graphics='low'` whenever `forceWebGL` is set, and the `low` tier turns
@@ -147,7 +151,7 @@ When iterating a visual feature in WebGL first:
 
 1. **Materials** — confirm `MeshPhysicalMaterial` clearcoat/roughness in WebGL; port TSL node graphs in batchers for WebGPU
 2. **Fog** — WebGL uses `scene.fog`; WebGPU adds `scene.fogNode` via `createCrescendoFogNode()`
-3. **Post-processing** — mirror bloom threshold (0.85), radius (0.5), and saturation in both pipelines (`src/foliage/post-processing.ts`)
+3. **Post-processing** — bloom threshold/radius come from `CONFIG.postfx` on both pipelines. GTAO is WebGPU-only (skipped on `?renderer=webgl`).
 4. **Uniforms** — mutate `.value` in place; never reassign TSL uniform nodes
 5. **Compute** — gate with `window.__computeDisabled`; provide JS fallback
 6. **Test both paths** — `?renderer=webgl` and default WebGPU before merging
@@ -160,4 +164,5 @@ When iterating a visual feature in WebGL first:
 - `src/foliage/post-processing.ts` — dual post-processing pipelines
 - `src/debug/panel.ts` — debug UI renderer toggle
 - `src/systems/shadow-cascades.ts` — CSM rig, WebGPU guard, single-map fallback
+- `src/rendering/shadow-softness.ts` — TSL PCF / cheap PCSS, live softness API
 - `src/rendering/lights.ts` — local point/spot registry (WebGL illuminates, extra maps skipped)

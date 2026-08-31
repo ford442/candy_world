@@ -4,7 +4,6 @@ import {
     publishRendererBreadcrumbs,
     installRendererHotSwitch,
 } from '../../rendering/renderer-mode.ts';
-import { initWebGLDebug } from '../../rendering/webgl-debug.ts';
 import { showRendererBadge } from '../../ui/mode-badge-lazy.ts';
 import { installWorldExportTools } from '../../world/map-exporter.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
@@ -39,13 +38,14 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
 
     const { mode, requested, fallbackReason } = sceneInitResult;
 
-    assignCoreExports(sceneInitResult.scene, sceneInitResult.camera, sceneInitResult.renderer);
+    const scene = sceneInitResult.scene;
+    assignCoreExports(scene, sceneInitResult.camera, sceneInitResult.renderer);
     setCameraRef(sceneInitResult.camera);
 
     installRendererHotSwitch();
     publishRendererBreadcrumbs(requested, mode, fallbackReason);
     showRendererBadge(mode, requested, fallbackReason);
-    initWebGLDebug(sceneInitResult.scene, mode);
+    void import('../../rendering/webgl-debug.ts').then((m) => m.initWebGLDebug(scene, mode));
 
     (window as any).game = {
         camera: sceneInitResult.camera,
@@ -68,8 +68,8 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
         loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Initializing post-processing...');
     }
 
-    await StageLoader.loadStage('postProcessing', () => {
-        ctx.postProcessing = initPostProcessing(
+    await StageLoader.loadStage('postProcessing', async () => {
+        ctx.postProcessing = await initPostProcessing(
             sceneInitResult!.renderer,
             sceneInitResult!.scene,
             sceneInitResult!.camera,

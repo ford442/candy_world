@@ -36,10 +36,12 @@ export function resolveRendererBackend(search: string = window.location.search):
   const params = new URLSearchParams(search);
   const explicit = params.get('renderer')?.toLowerCase();
 
-  if (explicit === 'webgl' || explicit === 'webgl2' || params.has('webgl')) return 'webgl';
-  if (explicit === 'webgpu' || params.has('webgpu')) return 'webgpu';
+  if (explicit === 'webgl' || explicit === 'webgl2' || params.has('webgl')) {
+    console.warn('[RendererMode] WebGL URL flags are disabled during this phase to enforce WebGPU device probe discipline.');
+  }
 
-  return getStoredRendererPreference() ?? 'webgpu';
+  // Always force WebGPU resolution for the current probe phase.
+  return 'webgpu';
 }
 
 export function publishRendererBreadcrumbs(

@@ -211,7 +211,7 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
             console.log(`[DebugPlace] Spawned ${_currentType}`);
             console.log(JSON.stringify(jsonSnippet, null, 2) + ',');
 
-            showToast(`Placed ${_currentType}. JSON logged.`, '🏗️');
+            console.log(`Placed ${_currentType}. JSON logged.`);
         } else {
             console.warn(`[DebugPlace] Could not create type ${_currentType}`);
         }

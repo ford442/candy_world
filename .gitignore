@@ -57,3 +57,26 @@ candy-world-*.tar.gz
 # Vendored OpenMP archive required by emscripten/build.sh (-L vendor -lomp)
 !emscripten/vendor/libomp.a
 tests/boot-timing-report.json
+
+# Output artifacts
+/all-eslint.json
+/current-eslint-baseline.json
+/eslint-output.json
+/typecheck_output.txt
+
+# Patches and temporary scripts
+/*.cjs
+/*.diff
+/fix_errors.sh
+/fix_grass.sh
+/wait_and_run.sh
+/dev.sh
+
+# Scratch files
+all-eslint.json
+current-eslint-baseline.json
+eslint-output.json
+typecheck_output.txt
+fix_errors.sh
+patch_*.cjs
+patch_*.diff

@@ -7,51 +7,11 @@ import {
     texture, uniform
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { attachReactivity, createRimLight, uAudioHigh, uTime } from './index.ts';
+import { attachReactivity, createRimLight, getDreamEnvTexture, uAudioHigh, uTime } from './index.ts';
 
-// Global texture for the "Dream Reflection"
-// Since we don't have a real cubemap, we generate a static noise/gradient texture
-let _dreamEnvTexture: THREE.DataTexture | null = null;
-
-function getDreamEnvTexture(): THREE.DataTexture {
-    if (_dreamEnvTexture) return _dreamEnvTexture;
-
-    const size = 512;
-    const data = new Uint8Array(size * size * 4);
-
-    for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-            const idx = (i * size + j) * 4;
-
-            // Normalized coords
-            const u = j / size;
-            const v = i / size;
-
-            // Sky gradient (top is blue/purple, bottom is pink/orange)
-            const skyColor = new THREE.Color().setHSL(0.6 + u * 0.1, 0.8, 0.2 + v * 0.6);
-
-            // Add some "cloud" noise
-            const noise = Math.sin(u * 20.0 + v * 15.0) * 0.5 + 0.5;
-            const cloudColor = new THREE.Color(0xFFFFFF);
-
-            skyColor.lerp(cloudColor, noise * 0.3 * (1.0 - v)); // More clouds at bottom
-
-            data[idx] = Math.floor(skyColor.r * 255);
-            data[idx + 1] = Math.floor(skyColor.g * 255);
-            data[idx + 2] = Math.floor(skyColor.b * 255);
-            data[idx + 3] = 255;
-        }
-    }
-
-    _dreamEnvTexture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
-    _dreamEnvTexture.wrapS = THREE.RepeatWrapping;
-    _dreamEnvTexture.wrapT = THREE.RepeatWrapping;
-    _dreamEnvTexture.minFilter = THREE.LinearFilter;
-    _dreamEnvTexture.magFilter = THREE.LinearFilter;
-    _dreamEnvTexture.needsUpdate = true;
-
-    return _dreamEnvTexture;
-}
+// The "Dream Reflection" sky. Generated once in material-core and shared with
+// every preset that opts into `useDreamEnv`, so the mirrors and the candy
+// highlights are demonstrably the same sky. See material-core/env-map.ts.
 
 export interface MirrorOptions {
     scale?: number;

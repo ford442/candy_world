@@ -8,9 +8,9 @@ import {
     uDofFocus,
     uDofMix,
     uShaftScatterBoost,
-} from '../../foliage/post-processing.ts';
+} from '../../foliage/post-processing-uniforms.ts';
 import { ensureGameplay } from '../../gameplay/lazy.ts';
-import { getGroundHeight } from '../../systems/ground-system.ts';
+import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { InteractionSystem } from '../../systems/interaction.ts';
 import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
 import { player } from '../../systems/physics/index.ts';
@@ -174,9 +174,8 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
         }
     });
 
-    const initialGroundY = getGroundHeight(camera.position.x, camera.position.z);
-    camera.position.y = initialGroundY + CONFIG.player.eyeHeight;
-    player.position.copy(camera.position);
-    player.velocity.set(0, 0, 0);
-    console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
+    const spawnY = placePlayerAtConfiguredSpawn(camera);
+    console.log(
+        `[Startup] Camera positioned at spawn (${CONFIG.player.spawnX}, ${spawnY.toFixed(2)}, ${CONFIG.player.spawnZ})`
+    );
 }

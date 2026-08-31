@@ -395,7 +395,12 @@ export class World {
         const type = this.cpp!.registerComponent(1, 65536);
         if (type < 0) {
             // C++ out of slots; use a stable hash mod 32 as best-effort fallback
-            const fallback = componentName.split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) & 0x7FFFFFFF, 0) % 32;
+            // ⚡ OPTIMIZATION: Bypassed .split().reduce() to prevent GC spikes in ECS component registration
+            let h = 0;
+            for (let i = 0; i < componentName.length; i++) {
+                h = (h * 31 + componentName.charCodeAt(i)) & 0x7FFFFFFF;
+            }
+            const fallback = h % 32;
             this.cppTypeMap.set(componentName, fallback);
             return fallback;
         }

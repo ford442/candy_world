@@ -5,6 +5,7 @@ import { initFaunaSystem } from '../../systems/fauna/index.ts';
 import { globalLoadingManager } from '../../systems/loading-manager.ts';
 import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
 import { populatePhysicsGrids } from '../../systems/physics/index.ts';
+import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { announce } from '../../ui/announcer.ts';
 import {
     showDeferredIndicator,
@@ -164,10 +165,32 @@ export function setupStartScreen(ctx: MainContext): void {
             applyPath(next);
         });
         fullWorldToggle.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
+                fullWorldToggle.classList.add('keyboard-active');
                 fullWorldToggle.click();
+                if (!fullWorldToggle.classList.contains('keyboard-active')) {
+                    fullWorldToggle.classList.add('keyboard-active');
+
+                    const removeFeedback = () => {
+                        fullWorldToggle.classList.remove('keyboard-active');
+                        fullWorldToggle.removeEventListener('keyup', removeFeedback);
+                        fullWorldToggle.removeEventListener('blur', removeFeedback);
+                    };
+
+                    fullWorldToggle.addEventListener('keyup', removeFeedback);
+                    fullWorldToggle.addEventListener('blur', removeFeedback);
+                }
             }
+        });
+        fullWorldToggle.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                fullWorldToggle.classList.remove('keyboard-active');
+            }
+        });
+        fullWorldToggle.addEventListener('blur', () => {
+            fullWorldToggle.classList.remove('keyboard-active');
         });
     }
 
@@ -279,6 +302,8 @@ export function setupStartScreen(ctx: MainContext): void {
             delete (window as any).__fastPopulationOverride;
 
             populatePhysicsGrids();
+            // Platforms (caves / clouds) register during populate — snap again on solid shore.
+            placePlayerAtConfiguredSpawn(camera);
 
             initFaunaSystem();
             initFaunaDebug(scene);
@@ -446,6 +471,21 @@ export function setupStartScreen(ctx: MainContext): void {
         if (!isGenerating) {
             void enterWorld();
         }
+    });
+
+    startButton.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            startButton.classList.add('keyboard-active');
+        }
+    });
+    startButton.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            startButton.classList.remove('keyboard-active');
+        }
+    });
+    startButton.addEventListener('blur', () => {
+        startButton.classList.remove('keyboard-active');
     });
 
     if (isBootInstant()) {

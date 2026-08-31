@@ -77,7 +77,10 @@ export default defineConfig({
                         return 'analytics-debug';
                     }
                     // World content decorators (procedural extras, gem canopy, mycelium)
-                    if (id.includes('/src/world/generation-decorators.ts')) {
+                    if (
+                        id.includes('/src/world/generation-decorators.ts') ||
+                        id.includes('/src/world/decorator-streamer.ts')
+                    ) {
                         return 'world-content';
                     }
                     // Debug tools (panel, gizmos, ground/placement/circadian/fauna overlays)
@@ -105,6 +108,9 @@ export default defineConfig({
                         !id.endsWith('/photo-mode/lazy.ts')
                     ) {
                         return 'photo-mode';
+                    }
+                    if (id.includes('/src/rendering/webgl-debug.ts')) {
+                        return 'webgl-debug';
                     }
                     if (id.includes('/src/world/map-loader.ts')) {
                         return 'map-loader';
@@ -137,9 +143,21 @@ export default defineConfig({
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
                     }
+                    // Graphs only. The stub stays in `app` and must not live in this
+                    // chunk: postfx → app TLA + app awaiting postfx deadlocks boot.
+                    if (
+                        id.includes('/src/foliage/post-processing-webgpu.ts') ||
+                        id.includes('/src/foliage/post-processing-webgl.ts')
+                    ) {
+                        return 'postfx-webgpu';
+                    }
                     // Shader warmup (loading-screen phase — not first-paint brain)
                     if (id.includes('/src/rendering/shader-warmup.ts')) {
                         return 'shader-warmup';
+                    }
+                    // CPU cluster bin (no app imports — peeling avoids a clustered ↔ app cycle)
+                    if (id.includes('/src/rendering/clustered-bin.ts')) {
+                        return 'clustered-lights';
                     }
                     // Awakened flora persistence (feature-flagged ?awakened)
                     if (id.includes('/src/systems/awakened-persistence.ts')) {
