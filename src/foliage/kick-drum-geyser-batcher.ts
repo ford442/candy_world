@@ -119,7 +119,10 @@ export class KickDrumGeyserBatcher {
 
         // Apply Transform
         // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix
-        proxy.updateWorldMatrix(false, false);
+        proxy.matrixWorld.compose(proxy.position, proxy.quaternion, proxy.scale);
+        if (proxy.parent) {
+            proxy.matrixWorld.multiplyMatrices(proxy.parent.matrixWorld, proxy.matrixWorld);
+        }
         const matrixArray = proxy.matrixWorld.elements;
 
         for (let j = 0; j < 16; j++) {
