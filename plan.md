@@ -37,3 +37,6 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 - `src/foliage/material-core.ts` — `#1491` barrel + `material-core/` modules (each well under 700 lines)
 
 Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`.
+
+- **Status: Implemented ✅** (Palette: Add keyboard-active tactile feedback to settings toggles)
+    - Implementation Details: Added a scale-down animation (.95 scale) to `.candy-toggle` switches in the Settings Menu whenever they receive a `.keyboard-active` class or a native `:active` state to match mouse interaction tactile feedback.
