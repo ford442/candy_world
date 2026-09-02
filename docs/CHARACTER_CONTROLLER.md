@@ -63,7 +63,10 @@ separately (see `.swarm-state.md` for the exact reasoning).
 
 ## The controller
 
-`src/systems/physics/character-controller.ts` exports one pure function:
+`src/systems/physics/character-controller.ts` exports one stateful resolver —
+it is not a pure function: it mutates the `player` argument in place
+(position, velocity, isGrounded, and the coyote/buffer clock fields) rather
+than returning a new state:
 
 ```ts
 resolveCharacterMovement(

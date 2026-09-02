@@ -215,6 +215,9 @@ export function resolveCharacterMovement(
     if (canJump && wantsJump) {
         player.velocity.y = jumpVelocity;
         grounded = false;
+        // Consume coyote eligibility so a held jump key doesn't keep
+        // re-firing every frame for the rest of the original coyote window.
+        player.lastGroundedTime = -Infinity;
         // Consume the buffered press so it can't refire on a later landing.
         player.jumpPressedTime = -Infinity;
     }

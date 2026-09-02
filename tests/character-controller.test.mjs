@@ -195,6 +195,29 @@ test('coyote time: jump does not fire once CONFIG.player.coyoteTimeMs has expire
     assert.ok(player.velocity.y < 0, 'still falling under gravity');
 });
 
+test('coyote time: a held jump does not refire on the next airborne frame', () => {
+    // Regression test: firing a coyote-window jump must consume
+    // lastGroundedTime, otherwise a held jump key keeps resetting
+    // velocity.y to jumpVelocity every frame for the rest of the original
+    // coyote window instead of a single impulse.
+    const player = makePlayer({
+        position: new THREE.Vector3(0, 50, 0),
+        velocity: new THREE.Vector3(0, -5, 0),
+        isGrounded: false,
+        controllerClock: 1.0,
+        lastGroundedTime: 1.0 - (CONFIG.player.coyoteTimeMs / 1000) * 0.5,
+    });
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, true, true, unreachableGroundQuery());
+    assert.equal(player.velocity.y, CONFIG.player.jumpVelocity, 'first frame: coyote jump fires');
+
+    // Still well within the original coyote window, and jump is still held.
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, true, false, unreachableGroundQuery());
+    assert.ok(
+        player.velocity.y < CONFIG.player.jumpVelocity,
+        'second frame: gravity should have reduced velocity, not refired the jump'
+    );
+});
+
 test('jump buffer: a press shortly before landing fires on contact', () => {
     const player = makePlayer({
         position: new THREE.Vector3(0, CONFIG.player.eyeHeight + 0.001, 0),
