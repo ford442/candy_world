@@ -47,7 +47,7 @@ import {
 import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { getGroundHeight, reconcileGroundedEyeY, sampleGroundFootprint, sampleGroundNormal } from '../ground-system.ts';
+import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
 import {
     calculateMovementInput
 } from '../physics.core.ts';
@@ -407,11 +407,8 @@ export function checkPanningPads() {
     }
 }
 
-const _tangent = new THREE.Vector3();
-
 /**
  * JavaScript fallback movement (used for Lake Basin).
- * Implements a kinematic character controller with slope limits, step up, coyote time, and air control.
  */
 export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, moveSpeed: number) {
     const camDir = _scratchCamDir;
@@ -419,38 +416,29 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     camDir.y = 0;
     camDir.normalize();
     const camRight = _scratchCamRight.crossVectors(camDir, _scratchUp);
-
     const _targetVelocity = _scratchTargetVel.set(0, 0, 0);
     if (keyStates.forward) _targetVelocity.add(camDir);
     if (keyStates.backward) _targetVelocity.sub(camDir);
     if (keyStates.right) _targetVelocity.add(camRight);
     if (keyStates.left) _targetVelocity.sub(camRight);
     if (_targetVelocity.lengthSq() > 0) _targetVelocity.normalize().multiplyScalar(moveSpeed);
+    const smoothing = Math.min(1.0, 15.0 * delta);
+    player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
+    player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
 
-    const wasGrounded = player.isGrounded;
-    const { stepHeight, skinWidth, airAccel, coyoteTimeMs, jumpBufferMs, slopeLimit } = CONFIG.player;
-
-    if (wasGrounded) {
-        const smoothing = Math.min(1.0, 15.0 * delta);
-        player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
-        player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
-    } else {
-        const airSmoothing = Math.min(1.0, airAccel * delta);
-        player.velocity.x += (_targetVelocity.x - player.velocity.x) * airSmoothing;
-        player.velocity.z += (_targetVelocity.z - player.velocity.z) * airSmoothing;
-    }
-
-    const now = performance.now();
-
-    // Spawn-protection: freeze gravity for a few frames after placement
+    // Spawn-protection: freeze gravity for a few frames after placement so the
+    // ground-height query can return a valid value before physics takes over.
     if (player.spawnProtectFrames > 0) {
         player.spawnProtectFrames--;
         player.velocity.y = 0;
+        // On the last protected frame re-snap to the authoritative terrain height
+        // (both up and down) so probe over-estimates don't leave the player floating.
         if (player.spawnProtectFrames === 0) {
             const snapGroundY = getGroundHeight(player.position.x, player.position.z);
             const snapEyeY = snapGroundY + CONFIG.player.eyeHeight;
             if (Number.isFinite(snapEyeY)) {
                 player.position.y = Math.max(player.position.y, snapEyeY);
+                // Only snap downward if clearly floating (> 1 m above terrain eye).
                 if (player.position.y > snapEyeY + 1.0) {
                     player.position.y = snapEyeY;
                 }
@@ -460,118 +448,62 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
         player.velocity.y -= player.gravity * delta;
     }
 
-    const nextX = player.position.x + player.velocity.x * delta;
-    const nextZ = player.position.z + player.velocity.z * delta;
-    const nextYRaw = player.position.y + player.velocity.y * delta;
-
-    const radius = CONFIG.ground.footprintRadius['player'] ?? 0.3; // Default player radius if undefined
-    const samples = CONFIG.ground.footprintSamples;
-
-    // Sample footprint at destination
-    const footprint = sampleGroundFootprint(nextX, nextZ, radius, samples);
-    const destGroundY = footprint.minY; // min contact y
-    const eyeY = destGroundY + CONFIG.player.eyeHeight;
-
-    let acceptedX = nextX;
-    let acceptedZ = nextZ;
-    let acceptedY = nextYRaw;
-    let newlyGrounded = false;
-
-    if (nextYRaw <= eyeY + skinWidth && player.velocity.y <= 0) {
-        // Attempting to snap to ground or step up
-        const rise = destGroundY - (player.position.y - CONFIG.player.eyeHeight);
-
-        if (rise > 0) {
-            // Need to step up
-            if (rise <= stepHeight && player.velocity.y > -15.0) {
-                // Valid step up
-                acceptedY = eyeY;
-                newlyGrounded = true;
-            } else {
-                // Step too high, block forward movement
-                acceptedX = player.position.x;
-                acceptedZ = player.position.z;
-
-                // Re-evaluate ground at current position
-                const curFootprint = sampleGroundFootprint(acceptedX, acceptedZ, radius, samples);
-                const curEyeY = curFootprint.minY + CONFIG.player.eyeHeight;
-
-                if (nextYRaw <= curEyeY + skinWidth) {
-                    acceptedY = curEyeY;
-                    newlyGrounded = true;
-                }
-            }
-        } else {
-            // Flat or stepping down
-            acceptedY = eyeY;
-            newlyGrounded = true;
+    player.position.x += player.velocity.x * delta;
+    player.position.z += player.velocity.z * delta;
+    player.position.y += player.velocity.y * delta;
+    const groundY = getGroundHeight(player.position.x, player.position.z);
+    const eyeY = groundY + CONFIG.player.eyeHeight;
+    const wasGrounded = player.isGrounded;
+    if (player.position.y < eyeY && player.velocity.y <= 0) {
+        player.position.y = eyeY;
+        player.velocity.y = 0;
+        player.isGrounded = true;
+        if (!wasGrounded) {
+             const fallSpeed = Math.abs(player.velocity.y);
+             if (fallSpeed > 15.0) {
+                 spawnImpact(player.position, 'land');
+                 spawnImpact(player.position, 'dash');
+                 addCameraShake(0.4);
+                 if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                     (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
+                 }
+             } else if (fallSpeed > 8.0) {
+                 spawnImpact(player.position, 'land');
+                 addCameraShake(0.15);
+                 if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                     (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
+                 }
+             } else {
+                 spawnImpact(player.position, 'jump');
+                 if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
+                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                     (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
+                 }
+             }
         }
-    } else if (wasGrounded && nextYRaw <= eyeY + stepHeight + skinWidth) {
-         // Keep grounded when moving downstairs (step down)
-         acceptedY = eyeY;
-         newlyGrounded = true;
+    } else {
+        player.isGrounded = false;
     }
 
-    if (newlyGrounded) {
-        // Check slope limit
-        const normal = sampleGroundNormal(acceptedX, acceptedZ);
-        const angle = Math.acos(THREE.MathUtils.clamp(normal.y, -1, 1));
-
-        if (angle > slopeLimit) {
-            // Slide down slope
-            newlyGrounded = false;
-            _tangent.copy(_scratchUp).cross(normal).cross(_scratchUp).normalize();
-            const slideAccel = player.gravity * Math.sin(angle);
-            player.velocity.addScaledVector(_tangent, slideAccel * delta);
-            // Recalculate Y after slide addition
-            acceptedY = player.position.y + player.velocity.y * delta;
-        } else {
+    if (player.isGrounded) {
+        const smoothedY = reconcileGroundedEyeY(
+            player.position.y,
+            player.position.x,
+            player.position.z,
+            delta,
+            { isGrounded: true, velocityY: player.velocity.y }
+        );
+        if (smoothedY !== player.position.y) {
+            player.position.y = smoothedY;
             player.velocity.y = 0;
-            player.lastGroundedTime = now;
         }
     }
 
-    // Apply movement
-    player.position.set(acceptedX, acceptedY, acceptedZ);
-    player.isGrounded = newlyGrounded;
-
-    // Jump Evaluation (Buffer & Coyote Time)
-    const canJump = newlyGrounded || (now - player.lastGroundedTime <= coyoteTimeMs);
-    const wantsJump = keyStates.jump || (now - player.jumpBufferTime <= jumpBufferMs);
-
-    if (canJump && wantsJump) {
+    if (player.isGrounded && keyStates.jump) {
         player.velocity.y = 8.0;
         player.isGrounded = false;
-        player.lastGroundedTime = 0; // Consume coyote time
-        player.jumpBufferTime = 0; // Consume jump buffer
-        keyStates.jump = false; // consume key state
-    }
-
-    // Impact FX (only trigger when transitioning from airborne to properly grounded)
-    if (!wasGrounded && player.isGrounded) {
-         const fallSpeed = Math.abs(player.velocity.y);
-         if (fallSpeed > 15.0) {
-             spawnImpact(player.position, 'land');
-             spawnImpact(player.position, 'dash');
-             addCameraShake(0.4);
-             if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                 (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
-             }
-         } else if (fallSpeed > 8.0) {
-             spawnImpact(player.position, 'land');
-             addCameraShake(0.15);
-             if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
-             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                 (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
-             }
-         } else {
-             spawnImpact(player.position, 'jump');
-             if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
-             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                 (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
-             }
-         }
     }
 }
 

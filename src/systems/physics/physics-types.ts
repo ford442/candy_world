@@ -43,8 +43,6 @@ export interface PlayerExtended extends CorePlayerState {
     climbTopY: number;
     /** Frames remaining where gravity is frozen after a spawn/teleport. */
     spawnProtectFrames: number;
-    lastGroundedTime: number;
-    jumpBufferTime: number;
 }
 
 // --- Configuration ---
@@ -101,8 +99,6 @@ export const player: PlayerExtended = {
 
     // Spawn protection: gravity is frozen for this many frames after placement.
     spawnProtectFrames: 0,
-    lastGroundedTime: 0,
-    jumpBufferTime: 0,
 
     harpoon: {
         active: false,

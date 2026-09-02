@@ -8,12 +8,6 @@ export const PLAYER_DEFAULTS: ConfigType['player'] = {
     // inside the carved basin — spawning there drops the player through the map.
     spawnX: 8,
     spawnZ: -36,
-    coyoteTimeMs: 100,
-    jumpBufferMs: 100,
-    stepHeight: 0.35,
-    skinWidth: 0.05,
-    airAccel: 5.0,
-    slopeLimit: 25 * Math.PI / 180,
 };
 
 /** Ground sampling, footprint radii, and camera follow smoothing. */
