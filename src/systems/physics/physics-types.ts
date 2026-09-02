@@ -43,6 +43,17 @@ export interface PlayerExtended extends CorePlayerState {
     climbTopY: number;
     /** Frames remaining where gravity is frozen after a spawn/teleport. */
     spawnProtectFrames: number;
+    /**
+     * Accumulated simulation clock (sum of physics deltas), used by the
+     * character controller for coyote time / jump buffering (#1577).
+     * Deliberately NOT wall-clock time — stays correct under frame stalls
+     * and the game's own time scaling.
+     */
+    controllerClock: number;
+    /** controllerClock value at the last frame the player was grounded. */
+    lastGroundedTime: number;
+    /** controllerClock value at the last rising-edge jump input. */
+    jumpPressedTime: number;
 }
 
 // --- Configuration ---
@@ -105,7 +116,11 @@ export const player: PlayerExtended = {
         anchor: new THREE.Vector3()
     },
     climbTarget: null,
-    climbTopY: 0
+    climbTopY: 0,
+
+    controllerClock: 0,
+    lastGroundedTime: -Infinity,
+    jumpPressedTime: -Infinity
 };
 
 // Internal input tracking for edge detection

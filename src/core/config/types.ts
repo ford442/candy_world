@@ -319,7 +319,8 @@ export interface ConfigType {
     };
 
     /**
-     * Player avatar / first-person camera height tuning.
+     * Player avatar / first-person camera height tuning, and kinematic
+     * character-controller constants (#1577).
      * eyeHeight is added to the authoritative ground height to place the camera.
      * spawnEyeHeightY is the transient starting height before the first ground snap.
      * spawnX / spawnZ is the Play-path start on solid shore (not Melody Lake / cave floor).
@@ -329,6 +330,30 @@ export interface ConfigType {
         spawnEyeHeightY: number;
         spawnX: number;
         spawnZ: number;
+        /** Footprint sampling radius (world units) used for ground-contact queries. */
+        radius: number;
+        /** Horizontal velocity smoothing rate (1/s) while grounded. */
+        groundAccel: number;
+        /** Horizontal velocity smoothing rate (1/s) while airborne — slower for candy-floaty air control. */
+        airAccel: number;
+        /** Vertical speed applied when a grounded/coyote/buffered jump fires. */
+        jumpVelocity: number;
+        /** Max ledge height (world units) the controller steps up automatically; taller ledges block forward motion. */
+        stepHeight: number;
+        /** Margin (world units) added to ground-snap checks so isGrounded doesn't chatter across frames. */
+        skinWidth: number;
+        /** Grace window (ms) after leaving the ground during which a jump input still fires (coyote time). */
+        coyoteTimeMs: number;
+        /** Window (ms) a jump press is buffered before landing so it still fires on contact. */
+        jumpBufferMs: number;
+        /**
+         * Player-owned walkable slope limit (radians), measured from the ground
+         * normal to world-up. Steeper surfaces slide instead of holding footing.
+         * Deliberately NOT the same constant as CONFIG.ground.maxSlopeAngle,
+         * which is the #1302 prop-placement limit — coupling player locomotion
+         * to tree/prop placement tuning would be a bug, not a simplification.
+         */
+        slopeLimit: number;
     };
 
     /**

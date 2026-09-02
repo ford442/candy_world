@@ -20,7 +20,6 @@
 
 import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
-import { CONFIG } from '../../core/config.ts';
 import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
@@ -47,11 +46,12 @@ import {
 import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
+import { getGroundHeight, reconcileGroundedEyeY, sampleGroundFootprint } from '../ground-system.ts';
 import {
     calculateMovementInput
 } from '../physics.core.ts';
 import { unlockSystem } from '../unlocks.ts';
+import { resolveCharacterMovement } from './character-controller.ts';
 import {
     physicsFoliageGrid,
     physicsDiscoveryGrid,
@@ -71,6 +71,7 @@ import {
     _scratchCamRight,
     _scratchTargetVel,
     _scratchUp,
+    _lastInputState,
     foliageCaves
 } from './physics-types.ts';
 
@@ -409,6 +410,11 @@ export function checkPanningPads() {
 
 /**
  * JavaScript fallback movement (used for Lake Basin).
+ *
+ * Camera-relative target velocity is computed here; the kinematic resolve
+ * itself (ground/air acceleration, footprint-based ground contact, step-up,
+ * slope sliding, coyote time, jump buffering) is delegated to the formal
+ * character controller (#1577) — see character-controller.ts.
  */
 export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, moveSpeed: number) {
     const camDir = _scratchCamDir;
@@ -422,69 +428,45 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     if (keyStates.right) _targetVelocity.add(camRight);
     if (keyStates.left) _targetVelocity.sub(camRight);
     if (_targetVelocity.lengthSq() > 0) _targetVelocity.normalize().multiplyScalar(moveSpeed);
-    const smoothing = Math.min(1.0, 15.0 * delta);
-    player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
-    player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
 
-    // Spawn-protection: freeze gravity for a few frames after placement so the
-    // ground-height query can return a valid value before physics takes over.
-    if (player.spawnProtectFrames > 0) {
-        player.spawnProtectFrames--;
-        player.velocity.y = 0;
-        // On the last protected frame re-snap to the authoritative terrain height
-        // (both up and down) so probe over-estimates don't leave the player floating.
-        if (player.spawnProtectFrames === 0) {
-            const snapGroundY = getGroundHeight(player.position.x, player.position.z);
-            const snapEyeY = snapGroundY + CONFIG.player.eyeHeight;
-            if (Number.isFinite(snapEyeY)) {
-                player.position.y = Math.max(player.position.y, snapEyeY);
-                // Only snap downward if clearly floating (> 1 m above terrain eye).
-                if (player.position.y > snapEyeY + 1.0) {
-                    player.position.y = snapEyeY;
-                }
+    // Rising-edge jump detection: _lastInputState.jump still holds the
+    // previous frame's value here (physics-core.ts updates it after this
+    // state's update runs), matching the pattern used in physics-abilities.ts.
+    const jumpTriggered = keyStates.jump && !_lastInputState.jump;
+
+    const outcome = resolveCharacterMovement(
+        delta,
+        player,
+        _targetVelocity,
+        keyStates.jump,
+        jumpTriggered,
+        { sampleFootprint: sampleGroundFootprint, getGroundHeight }
+    );
+
+    if (outcome.justLanded) {
+        const fallSpeed = outcome.fallSpeed;
+        if (fallSpeed > 15.0) {
+            spawnImpact(player.position, 'land');
+            spawnImpact(player.position, 'dash');
+            addCameraShake(0.4);
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
+            }
+        } else if (fallSpeed > 8.0) {
+            spawnImpact(player.position, 'land');
+            addCameraShake(0.15);
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
+            }
+        } else {
+            spawnImpact(player.position, 'jump');
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
             }
         }
-    } else {
-        player.velocity.y -= player.gravity * delta;
-    }
-
-    player.position.x += player.velocity.x * delta;
-    player.position.z += player.velocity.z * delta;
-    player.position.y += player.velocity.y * delta;
-    const groundY = getGroundHeight(player.position.x, player.position.z);
-    const eyeY = groundY + CONFIG.player.eyeHeight;
-    const wasGrounded = player.isGrounded;
-    if (player.position.y < eyeY && player.velocity.y <= 0) {
-        player.position.y = eyeY;
-        player.velocity.y = 0;
-        player.isGrounded = true;
-        if (!wasGrounded) {
-             const fallSpeed = Math.abs(player.velocity.y);
-             if (fallSpeed > 15.0) {
-                 spawnImpact(player.position, 'land');
-                 spawnImpact(player.position, 'dash');
-                 addCameraShake(0.4);
-                 if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                     (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
-                 }
-             } else if (fallSpeed > 8.0) {
-                 spawnImpact(player.position, 'land');
-                 addCameraShake(0.15);
-                 if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
-                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                     (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
-                 }
-             } else {
-                 spawnImpact(player.position, 'jump');
-                 if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
-                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                     (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
-                 }
-             }
-        }
-    } else {
-        player.isGrounded = false;
     }
 
     if (player.isGrounded) {
@@ -499,11 +481,6 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
             player.position.y = smoothedY;
             player.velocity.y = 0;
         }
-    }
-
-    if (player.isGrounded && keyStates.jump) {
-        player.velocity.y = 8.0;
-        player.isGrounded = false;
     }
 }
 
