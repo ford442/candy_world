@@ -35,7 +35,12 @@ export interface GroundFootprintSample {
 
 export interface CharacterGroundQuery {
     /** Circular footprint ground sample (ground-system.ts: sampleGroundFootprint). */
-    sampleFootprint: (x: number, z: number, radius: number, points: number) => GroundFootprintSample;
+    sampleFootprint: (
+        x: number,
+        z: number,
+        radius: number,
+        points: number
+    ) => GroundFootprintSample;
     /** Single-point terrain height (ground-system.ts: getGroundHeight) — spawn-protect re-snap only. */
     getGroundHeight: (x: number, z: number) => number;
 }
@@ -154,7 +159,12 @@ export function resolveCharacterMovement(
             // permits it.
             acceptedX = player.position.x;
             acceptedZ = player.position.z;
-            const curFootprint = groundQuery.sampleFootprint(acceptedX, acceptedZ, radius, footprintSamples);
+            const curFootprint = groundQuery.sampleFootprint(
+                acceptedX,
+                acceptedZ,
+                radius,
+                footprintSamples
+            );
             const curEyeY = curFootprint.minY + eyeHeight;
             if (nextYRaw <= curEyeY + skinWidth && player.velocity.y <= 0) {
                 acceptedY = curEyeY + skinWidth;
@@ -199,8 +209,8 @@ export function resolveCharacterMovement(
     // --- Coyote time + jump buffering ---
     const coyoteSec = coyoteTimeMs / 1000;
     const bufferSec = jumpBufferMs / 1000;
-    const canJump = grounded || (player.controllerClock - player.lastGroundedTime <= coyoteSec);
-    const wantsJump = jumpHeld || (player.controllerClock - player.jumpPressedTime <= bufferSec);
+    const canJump = grounded || player.controllerClock - player.lastGroundedTime <= coyoteSec;
+    const wantsJump = jumpHeld || player.controllerClock - player.jumpPressedTime <= bufferSec;
 
     if (canJump && wantsJump) {
         player.velocity.y = jumpVelocity;

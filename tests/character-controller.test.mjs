@@ -44,7 +44,12 @@ function flatGroundQuery() {
 /** Ground query the player never reaches (used to isolate coyote/jump logic from ground contact). */
 function unreachableGroundQuery() {
     return {
-        sampleFootprint: () => ({ minY: -1000, avgY: -1000, maxY: -1000, normal: FLAT_NORMAL.clone() }),
+        sampleFootprint: () => ({
+            minY: -1000,
+            avgY: -1000,
+            maxY: -1000,
+            normal: FLAT_NORMAL.clone(),
+        }),
         getGroundHeight: () => -1000,
     };
 }
@@ -68,7 +73,12 @@ test('walkable slope holds footing (angle under CONFIG.player.slopeLimit)', () =
         isGrounded: false,
     });
     const groundQuery = {
-        sampleFootprint: () => ({ minY: 0, avgY: 0, maxY: 0, normal: new THREE.Vector3(nx, ny, 0).normalize() }),
+        sampleFootprint: () => ({
+            minY: 0,
+            avgY: 0,
+            maxY: 0,
+            normal: new THREE.Vector3(nx, ny, 0).normalize(),
+        }),
         getGroundHeight: () => 0,
     };
     resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, groundQuery);
@@ -86,11 +96,20 @@ test('steep slope past CONFIG.player.slopeLimit slides instead of holding footin
         isGrounded: false,
     });
     const groundQuery = {
-        sampleFootprint: () => ({ minY: 0, avgY: 0, maxY: 0, normal: new THREE.Vector3(nx, ny, 0).normalize() }),
+        sampleFootprint: () => ({
+            minY: 0,
+            avgY: 0,
+            maxY: 0,
+            normal: new THREE.Vector3(nx, ny, 0).normalize(),
+        }),
         getGroundHeight: () => 0,
     };
     resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, groundQuery);
-    assert.equal(player.isGrounded, false, 'surface steeper than slopeLimit does not grant footing');
+    assert.equal(
+        player.isGrounded,
+        false,
+        'surface steeper than slopeLimit does not grant footing'
+    );
     assert.ok(player.velocity.y < 0, 'still falling, not snapped to the slope');
     assert.ok(player.velocity.x !== 0, 'gravity-along-slope impulse pushes the player downhill');
 });
@@ -103,16 +122,18 @@ test('step under CONFIG.player.stepHeight climbs the ledge', () => {
         isGrounded: true,
     });
     const groundQuery = {
-        sampleFootprint: (x) => (x > 0.01
-            ? { minY: rise, avgY: rise, maxY: rise, normal: FLAT_NORMAL.clone() }
-            : { minY: 0, avgY: 0, maxY: 0, normal: FLAT_NORMAL.clone() }),
+        sampleFootprint: (x) =>
+            x > 0.01
+                ? { minY: rise, avgY: rise, maxY: rise, normal: FLAT_NORMAL.clone() }
+                : { minY: 0, avgY: 0, maxY: 0, normal: FLAT_NORMAL.clone() },
         getGroundHeight: () => 0,
     };
     resolveCharacterMovement(DELTA, player, { x: 5, z: 0 }, false, false, groundQuery);
     assert.ok(player.position.x > 0, 'forward motion is accepted');
     assert.equal(player.isGrounded, true);
     assert.ok(
-        Math.abs(player.position.y - (rise + CONFIG.player.eyeHeight + CONFIG.player.skinWidth)) < 1e-6,
+        Math.abs(player.position.y - (rise + CONFIG.player.eyeHeight + CONFIG.player.skinWidth)) <
+            1e-6,
         'snaps up onto the ledge'
     );
 });
@@ -126,13 +147,18 @@ test('ledge over CONFIG.player.stepHeight blocks forward motion', () => {
         isGrounded: true,
     });
     const groundQuery = {
-        sampleFootprint: (x) => (Math.abs(x - startX) > 0.01
-            ? { minY: rise, avgY: rise, maxY: rise, normal: FLAT_NORMAL.clone() }
-            : { minY: 0, avgY: 0, maxY: 0, normal: FLAT_NORMAL.clone() }),
+        sampleFootprint: (x) =>
+            Math.abs(x - startX) > 0.01
+                ? { minY: rise, avgY: rise, maxY: rise, normal: FLAT_NORMAL.clone() }
+                : { minY: 0, avgY: 0, maxY: 0, normal: FLAT_NORMAL.clone() },
         getGroundHeight: () => 0,
     };
     resolveCharacterMovement(DELTA, player, { x: 5, z: 0 }, false, false, groundQuery);
-    assert.equal(player.position.x, startX, 'a wall taller than stepHeight rejects forward motion (movement resolve, not a teleport)');
+    assert.equal(
+        player.position.x,
+        startX,
+        'a wall taller than stepHeight rejects forward motion (movement resolve, not a teleport)'
+    );
     assert.equal(player.isGrounded, true, 'still standing on the ground it started on');
 });
 
@@ -145,7 +171,11 @@ test('coyote time: jump fires within CONFIG.player.coyoteTimeMs of leaving groun
         lastGroundedTime: 1.0 - (CONFIG.player.coyoteTimeMs / 1000) * 0.5,
     });
     resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, true, true, unreachableGroundQuery());
-    assert.equal(player.velocity.y, CONFIG.player.jumpVelocity, 'coyote window still allows the jump to fire');
+    assert.equal(
+        player.velocity.y,
+        CONFIG.player.jumpVelocity,
+        'coyote window still allows the jump to fire'
+    );
 });
 
 test('coyote time: jump does not fire once CONFIG.player.coyoteTimeMs has expired', () => {
@@ -154,10 +184,14 @@ test('coyote time: jump does not fire once CONFIG.player.coyoteTimeMs has expire
         velocity: new THREE.Vector3(0, -5, 0),
         isGrounded: false,
         controllerClock: 1.0,
-        lastGroundedTime: 1.0 - (CONFIG.player.coyoteTimeMs / 1000) - 0.05,
+        lastGroundedTime: 1.0 - CONFIG.player.coyoteTimeMs / 1000 - 0.05,
     });
     resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, true, true, unreachableGroundQuery());
-    assert.notEqual(player.velocity.y, CONFIG.player.jumpVelocity, 'expired coyote window does not grant a jump');
+    assert.notEqual(
+        player.velocity.y,
+        CONFIG.player.jumpVelocity,
+        'expired coyote window does not grant a jump'
+    );
     assert.ok(player.velocity.y < 0, 'still falling under gravity');
 });
 
@@ -172,7 +206,11 @@ test('jump buffer: a press shortly before landing fires on contact', () => {
     // jumpHeld=false: the key may already be released — only the earlier
     // buffered press should matter.
     resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, flatGroundQuery());
-    assert.equal(player.velocity.y, CONFIG.player.jumpVelocity, 'buffered jump fires immediately on ground contact');
+    assert.equal(
+        player.velocity.y,
+        CONFIG.player.jumpVelocity,
+        'buffered jump fires immediately on ground contact'
+    );
     assert.equal(player.isGrounded, false, 'the fired jump leaves the player airborne again');
 });
 
@@ -182,10 +220,14 @@ test('jump buffer: a press outside CONFIG.player.jumpBufferMs does not carry ove
         velocity: new THREE.Vector3(0, -0.5, 0),
         isGrounded: false,
         controllerClock: 1.0,
-        jumpPressedTime: 1.0 - (CONFIG.player.jumpBufferMs / 1000) - 0.05,
+        jumpPressedTime: 1.0 - CONFIG.player.jumpBufferMs / 1000 - 0.05,
     });
     resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, flatGroundQuery());
-    assert.notEqual(player.velocity.y, CONFIG.player.jumpVelocity, 'stale buffered press is not consumed');
+    assert.notEqual(
+        player.velocity.y,
+        CONFIG.player.jumpVelocity,
+        'stale buffered press is not consumed'
+    );
     assert.equal(player.isGrounded, true, 'lands normally instead');
 });
 
@@ -194,6 +236,10 @@ test('isGrounded does not chatter across frames on flat ground (skinWidth hyster
     const groundQuery = flatGroundQuery();
     for (let frame = 0; frame < 30; frame++) {
         resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, groundQuery);
-        assert.equal(player.isGrounded, true, `frame ${frame}: isGrounded flickered on stable flat ground`);
+        assert.equal(
+            player.isGrounded,
+            true,
+            `frame ${frame}: isGrounded flickered on stable flat ground`
+        );
     }
 });

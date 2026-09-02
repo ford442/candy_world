@@ -51,7 +51,7 @@ have changed the whole approach). It does not:
   — no coyote time, no jump buffering, no skin-width hysteresis.
 
 So architecturally the "right" long-term shape is a controller that owns
-ground-contact resolution for *both* paths, with C++ reduced to raw
+ground-contact resolution for _both_ paths, with C++ reduced to raw
 integration. That is not what shipped here: extending `emscripten/physics.cpp`
 would require rebuilding the WASM binary (`npm run build:emcc`) and touching
 `verification/verify_emcc_exports.js`, none of which were in scope for the
@@ -83,7 +83,7 @@ this issue) and passes the real ground-sampling functions as `groundQuery`:
 ```ts
 resolveCharacterMovement(delta, player, _targetVelocity, keyStates.jump, jumpTriggered, {
     sampleFootprint: sampleGroundFootprint, // ground-system.ts
-    getGroundHeight,                        // ground-system.ts
+    getGroundHeight, // ground-system.ts
 });
 ```
 
@@ -109,7 +109,7 @@ ground queries, the same way `physics-updates.ts` drives it with real ones.
    `footprint.normal` (computed internally by `ground-system.ts` via
    `sampleGroundNormal` at the footprint centroid) drives the slope check.
 2. **Slope limit + downhill slide.** If the footprint normal's angle from
-   world-up exceeds `CONFIG.player.slopeLimit`, the player is *not* grounded
+   world-up exceeds `CONFIG.player.slopeLimit`, the player is _not_ grounded
    — instead, a horizontal downhill impulse (`gravity * sin(angle)` along the
    slope's downhill tangent) is added to velocity and the player keeps
    falling. `CONFIG.player.slopeLimit` is a **new, player-owned constant** —
@@ -138,7 +138,7 @@ ground queries, the same way `physics-updates.ts` drives it with real ones.
    a later landing.
 6. **Separate ground vs. air acceleration.** Horizontal velocity smooths
    toward the target at `CONFIG.player.groundAccel` while grounded (using
-   the *previous* frame's grounded state) or `CONFIG.player.airAccel` while
+   the _previous_ frame's grounded state) or `CONFIG.player.airAccel` while
    airborne — replacing the old flat `15.0 * delta` smoothing that made no
    distinction, which was the single biggest correctness gap this issue
    existed to close.
@@ -150,17 +150,17 @@ ground queries, the same way `physics-updates.ts` drives it with real ones.
 
 ### CONFIG.player (src/core/config/types.ts, defaults in src/core/config/ground.ts)
 
-| Field | Default | Meaning |
-|---|---|---|
-| `radius` | `0.4` | Footprint sampling radius (world units) for ground-contact queries. |
-| `groundAccel` | `15.0` | Horizontal velocity smoothing rate (1/s) while grounded. |
-| `airAccel` | `5.0` | Horizontal velocity smoothing rate (1/s) while airborne. |
-| `jumpVelocity` | `8.0` | Vertical speed applied when a jump fires. |
-| `stepHeight` | `0.35` | Max ledge height auto-stepped without jumping. |
-| `skinWidth` | `0.05` | Ground-snap margin to prevent isGrounded chatter. |
-| `coyoteTimeMs` | `100` | Grace window after leaving ground during which jump still fires. |
-| `jumpBufferMs` | `100` | Window a jump press is buffered before landing. |
-| `slopeLimit` | `45°` (radians) | Player-owned walkable slope limit — not `CONFIG.ground.maxSlopeAngle`. |
+| Field          | Default         | Meaning                                                                |
+| -------------- | --------------- | ---------------------------------------------------------------------- |
+| `radius`       | `0.4`           | Footprint sampling radius (world units) for ground-contact queries.    |
+| `groundAccel`  | `15.0`          | Horizontal velocity smoothing rate (1/s) while grounded.               |
+| `airAccel`     | `5.0`           | Horizontal velocity smoothing rate (1/s) while airborne.               |
+| `jumpVelocity` | `8.0`           | Vertical speed applied when a jump fires.                              |
+| `stepHeight`   | `0.35`          | Max ledge height auto-stepped without jumping.                         |
+| `skinWidth`    | `0.05`          | Ground-snap margin to prevent isGrounded chatter.                      |
+| `coyoteTimeMs` | `100`           | Grace window after leaving ground during which jump still fires.       |
+| `jumpBufferMs` | `100`           | Window a jump press is buffered before landing.                        |
+| `slopeLimit`   | `45°` (radians) | Player-owned walkable slope limit — not `CONFIG.ground.maxSlopeAngle`. |
 
 ## Preserved, unchanged behaviour
 
@@ -173,14 +173,14 @@ ground queries, the same way `physics-updates.ts` drives it with real ones.
 - **`reconcileGroundedEyeY` (#1265):** still runs in `physics-updates.ts`
   after the controller resolves the frame, smoothing camera Y toward the
   authoritative ground height while grounded. It now checks `isGrounded`
-  *after* the controller's own jump resolution, so on a frame where a jump
+  _after_ the controller's own jump resolution, so on a frame where a jump
   fires it correctly no longer also tries to smooth-lerp Y toward the
   ground on the same frame — a minor, accepted behaviour change (the final
   jump velocity and landing FX are unaffected either way).
 - **Landing impact/audio/camera shake:** unchanged FX thresholds and calls,
   now driven by `resolveCharacterMovement`'s returned `justLanded`/`fallSpeed`.
   Note: this carries forward a pre-existing quirk — `fallSpeed` is read
-  *after* `velocity.y` has already been zeroed on the ground-snap path, so
+  _after_ `velocity.y` has already been zeroed on the ground-snap path, so
   it is always `0` and the "soft landing" FX branch always fires regardless
   of actual fall speed. This was true in the code before this issue too;
   fixing it wasn't part of #1577's scope, so it was left as-is rather than
