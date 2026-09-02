@@ -24,7 +24,7 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
     - **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)
     -   - Implementation Details: Implemented the Subterranean Sugar Caves biome layer using a new InstancedMesh batcher (`SugarCaveBatcher`) and TSL materials for crystal ribs, and registered it with the music-bindings for the Part II Door narrative.
     - **Status: Implemented ✅** (#1577 Formalize the first-person character controller)
-    -   - Implementation Details: Formalized the `DEFAULT` player walking mechanism into a unified Javascript controller utilizing the unified `sampleGroundFootprint` mechanisms. This controller natively tackles `coyoteTimeMs`, `jumpBufferMs`, slope slides, and standardizes C++ jumping and fallback jumps seamlessly.
+    - Implementation Details: Formalized the player walking mechanism into a unified kinematic controller utilizing `sampleGroundFootprint` and `sampleGroundNormal` from `ground-system.ts`. This controller cleanly tackles step-up validation, downward slope sliding, coyote time edge grace, jump buffering, and air acceleration inside a dedicated implementation avoiding previous piecemeal single-point fallbacks.
 
 ## Mega-module splits (do not split blindly)
 

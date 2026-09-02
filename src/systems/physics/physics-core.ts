@@ -266,6 +266,11 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     // 2. Check Triggers & State Transitions
     updateStateTransitions(camera, keyStates);
 
+    // Check Jump Buffering Input
+    if (keyStates.jump && !_lastInputState.jump) {
+        player.jumpBufferTime = performance.now();
+    }
+
     // 3. Execute State Logic
     switch (player.currentState) {
         case PlayerState.DANCING:

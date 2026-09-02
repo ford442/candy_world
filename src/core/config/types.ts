@@ -329,6 +329,12 @@ export interface ConfigType {
         spawnEyeHeightY: number;
         spawnX: number;
         spawnZ: number;
+        coyoteTimeMs: number;
+        jumpBufferMs: number;
+        stepHeight: number;
+        skinWidth: number;
+        airAccel: number;
+        slopeLimit: number;
     };
 
     /**
