@@ -1,8 +1,8 @@
 /**
  * physics-updates.ts
- * 
+ *
  * Physics calculation and update functions.
- * 
+ *
  * - checkFloraDiscovery(): Flora proximity detection
  * - checkHarmonyOrbs(): Collectible orb interactions
  * - checkRetriggerMushrooms(): Strobe effect triggers
@@ -14,13 +14,12 @@
  * - updateJSFallbackMovement(): JavaScript physics fallback
  * - checkVineAttachment(): Vine swing attachment
  * - initCppPhysics(): C++ engine initialization
- * 
+ *
  * No external dependencies on physics-core.ts (avoids circular deps).
  */
 
 import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
-import { CONFIG } from '../../core/config.ts';
 import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
@@ -37,28 +36,35 @@ import {
 } from '../../utils/wasm-foliage-interact.ts';
 import {
     initPhysics,
-    uploadCollisionObjects, initDynamicFoliageBridge
+    uploadCollisionObjects,
+    initDynamicFoliageBridge,
 } from '../../utils/wasm-loader.ts';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds,
-    foliageTraps, foliageGeysers, foliagePortamentoPines,
-    foliagePanningPads, animatedFoliage, vineSwings, setActiveVineSwing
+    foliageMushrooms,
+    foliageTrampolines,
+    foliageClouds,
+    foliageTraps,
+    foliageGeysers,
+    foliagePortamentoPines,
+    foliagePanningPads,
+    animatedFoliage,
+    vineSwings,
+    setActiveVineSwing,
 } from '../../world/state.ts';
 import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
-import {
-    calculateMovementInput
-} from '../physics.core.ts';
+import { getGroundHeight, reconcileGroundedEyeY, sampleGroundFootprint } from '../ground-system.ts';
+import { calculateMovementInput } from '../physics.core.ts';
 import { unlockSystem } from '../unlocks.ts';
+import { resolveCharacterMovement } from './character-controller.ts';
 import {
     physicsFoliageGrid,
     physicsDiscoveryGrid,
     physicsTrapsGrid,
     physicsGeysersGrid,
     physicsPinesGrid,
-    physicsPanningPadsGrid
+    physicsPanningPadsGrid,
 } from './physics-core.ts';
 import {
     player,
@@ -70,7 +76,8 @@ import {
     _scratchCamRight,
     _scratchTargetVel,
     _scratchUp,
-    foliageCaves
+    _lastInputState,
+    foliageCaves,
 } from './physics-types.ts';
 
 interface PhysicsSyncObject {
@@ -83,10 +90,15 @@ interface PhysicsSyncObject {
 
 function hasFinitePosition(obj: PhysicsSyncObject): boolean {
     const position = obj?.position;
-    return Number.isFinite(position?.x) && Number.isFinite(position?.y) && Number.isFinite(position?.z);
+    return (
+        Number.isFinite(position?.x) && Number.isFinite(position?.y) && Number.isFinite(position?.z)
+    );
 }
 
-function filterValidPhysicsObjects<T extends PhysicsSyncObject>(objects: T[] | undefined, label: string): T[] {
+function filterValidPhysicsObjects<T extends PhysicsSyncObject>(
+    objects: T[] | undefined,
+    label: string
+): T[] {
     if (!Array.isArray(objects) || objects.length === 0) {
         return [];
     }
@@ -99,7 +111,9 @@ function filterValidPhysicsObjects<T extends PhysicsSyncObject>(objects: T[] | u
     }
 
     if (validObjects.length !== objects.length) {
-        console.warn(`[Physics] Skipping ${objects.length - validObjects.length} invalid ${label} objects during WASM collision sync.`);
+        console.warn(
+            `[Physics] Skipping ${objects.length - validObjects.length} invalid ${label} objects during WASM collision sync.`
+        );
     }
     return validObjects;
 }
@@ -125,7 +139,7 @@ export function checkFloraDiscovery(playerPos: THREE.Vector3) {
                 const dx = playerPos.x - obj.position.x;
                 const dy = playerPos.y - obj.position.y;
                 const dz = playerPos.z - obj.position.z;
-                const distSq = dx*dx + dy*dy + dz*dz;
+                const distSq = dx * dx + dy * dy + dz * dz;
 
                 if (distSq < DISCOVERY_RADIUS_SQ) {
                     discoverySystem.discover(type, discoveryInfo.name, discoveryInfo.icon);
@@ -150,7 +164,7 @@ export function checkHarmonyOrbs() {
         const dx = orb.position.x - playerPos.x;
         const dy = orb.position.y - playerPos.y;
         const dz = orb.position.z - playerPos.z;
-        const distSq = dx*dx + dy*dy + dz*dz;
+        const distSq = dx * dx + dy * dy + dz * dz;
         if (distSq < radiusSq) {
             orb.active = false;
             // Zero-scale + translate-far-below hides the instance without an
@@ -163,7 +177,7 @@ export function checkHarmonyOrbs() {
             matrixArray[offset + 13] = -9999;
             matrixArray[offset + 15] = 1;
             harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
-            spawnImpact(orb.position, 'berry', 0x9933FF);
+            spawnImpact(orb.position, 'berry', 0x9933ff);
             unlockSystem.harvest('harmony_orb', 1, 'Harmony Orb');
             if (uChromaticIntensity) {
                 uChromaticIntensity.value = Math.max(uChromaticIntensity.value, 0.4);
@@ -200,7 +214,7 @@ export function checkRetriggerMushrooms(delta: number, audioState: AudioState | 
                 const distSq = dx * dx + dz * dz;
                 if (distSq < 15.0 * 15.0) {
                     inStrobeField = true;
-                    const localIntensity = 1.0 - (distSq / 225.0);
+                    const localIntensity = 1.0 - distSq / 225.0;
                     if (localIntensity > maxIntensity) {
                         maxIntensity = localIntensity;
                     }
@@ -249,7 +263,7 @@ export function checkVibratoViolets(delta: number, audioState: AudioState | null
             if (distSq < 20.0 * 20.0) {
                 inDistortionField = true;
                 if (typeof uChromaticIntensity !== 'undefined' && uChromaticIntensity.value < 0.3) {
-                     uChromaticIntensity.value += delta * 1.5;
+                    uChromaticIntensity.value += delta * 1.5;
                 }
                 break;
             }
@@ -268,7 +282,7 @@ export function checkPortamentoPines(delta: number) {
         const pine = nearbyPines[i];
         const dx = playerPos.x - pine.position.x;
         const dz = playerPos.z - pine.position.z;
-        const distSq = dx*dx + dz*dz;
+        const distSq = dx * dx + dz * dz;
         const interactRadius = 1.2;
         if (distSq < interactRadius * interactRadius) {
             const dy = playerPos.y - pine.position.y;
@@ -284,24 +298,23 @@ export function checkPortamentoPines(delta: number) {
                 if (now - (pine.userData.lastLaunchTime || 0) < 1000) continue;
                 if (bend > 0.5) {
                     if (player.velocity.y < 5.0) {
-                         player.velocity.y = 25.0 * (Math.abs(bend) / 1.0);
-                         player.velocity.addScaledVector(bendDir, 10.0);
-                         spawnImpact(playerPos, 'jump');
-                         discoverySystem.discover('portamento_pine', 'Portamento Pine', '🌲');
-                         player.airJumpsLeft = 1;
-                         player.isGrounded = false;
-                         pine.userData.lastLaunchTime = now;
+                        player.velocity.y = 25.0 * (Math.abs(bend) / 1.0);
+                        player.velocity.addScaledVector(bendDir, 10.0);
+                        spawnImpact(playerPos, 'jump');
+                        discoverySystem.discover('portamento_pine', 'Portamento Pine', '🌲');
+                        player.airJumpsLeft = 1;
+                        player.isGrounded = false;
+                        pine.userData.lastLaunchTime = now;
                     }
-                }
-                else if (bend < -0.5) {
+                } else if (bend < -0.5) {
                     if (state.velocity > 5.0) {
-                         player.velocity.addScaledVector(bendDir, 40.0 * Math.abs(bend));
-                         player.velocity.y = 15.0;
-                         spawnImpact(playerPos, 'dash');
-                         discoverySystem.discover('portamento_pine', 'Portamento Pine', '🌲');
-                         player.airJumpsLeft = 1;
-                         player.isGrounded = false;
-                         pine.userData.lastLaunchTime = now;
+                        player.velocity.addScaledVector(bendDir, 40.0 * Math.abs(bend));
+                        player.velocity.y = 15.0;
+                        spawnImpact(playerPos, 'dash');
+                        discoverySystem.discover('portamento_pine', 'Portamento Pine', '🌲');
+                        player.airJumpsLeft = 1;
+                        player.isGrounded = false;
+                        pine.userData.lastLaunchTime = now;
                     }
                 }
             }
@@ -325,24 +338,27 @@ export function checkSnareTraps(delta: number) {
             if (dy > -0.5 && dy < 1.5) {
                 const snapState = trap.userData.snapState || 0;
                 if (snapState < 0.2) {
-                     trap.userData.snapState = 1.0;
-                     spawnImpact(trap.position, 'snare');
+                    trap.userData.snapState = 1.0;
+                    spawnImpact(trap.position, 'snare');
                 }
                 if (trap.userData.snapState > 0.5) {
-                     const pushDir = _scratchMoveVec.set(dx, 0, dz).normalize();
-                     if (pushDir.lengthSq() === 0) pushDir.set(1, 0, 0);
-                     player.velocity.addScaledVector(pushDir, 60.0 * delta * snapState);
-                     player.velocity.y = Math.max(player.velocity.y, 15.0 * snapState);
-                     player.isGrounded = false;
-                     if (Math.random() < 0.2) {
-                         if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-                         spawnImpact(player.position, 'snare');
-                         addCameraShake(0.6);
-                         if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                             (window as any).AudioSystem.playSound('impact', { pitch: 0.4, volume: 1.0 });
-                         }
-                         showToast("Snared! 🪤", "⚠️");
-                     }
+                    const pushDir = _scratchMoveVec.set(dx, 0, dz).normalize();
+                    if (pushDir.lengthSq() === 0) pushDir.set(1, 0, 0);
+                    player.velocity.addScaledVector(pushDir, 60.0 * delta * snapState);
+                    player.velocity.y = Math.max(player.velocity.y, 15.0 * snapState);
+                    player.isGrounded = false;
+                    if (Math.random() < 0.2) {
+                        if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+                        spawnImpact(player.position, 'snare');
+                        addCameraShake(0.6);
+                        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                            (window as any).AudioSystem.playSound('impact', {
+                                pitch: 0.4,
+                                volume: 1.0,
+                            });
+                        }
+                        showToast('Snared! 🪤', '⚠️');
+                    }
                 }
             }
         }
@@ -381,7 +397,11 @@ export function checkGeysers(delta: number) {
  * Hot path: batchPadForces (C++ when available, JS fallback otherwise).
  */
 export function checkPanningPads() {
-    const nearbyPads = physicsPanningPadsGrid.findNearby(player.position.x, player.position.z, 10.0);
+    const nearbyPads = physicsPanningPadsGrid.findNearby(
+        player.position.x,
+        player.position.z,
+        10.0
+    );
     if (nearbyPads.length === 0) return;
 
     const { data, count } = packPads(nearbyPads);
@@ -413,8 +433,19 @@ export function checkPanningPads() {
 
 /**
  * JavaScript fallback movement (used for Lake Basin).
+ *
+ * Camera-relative target velocity is computed here; the kinematic resolve
+ * itself (ground/air acceleration, footprint-based ground contact, step-up,
+ * slope sliding, coyote time, jump buffering) is delegated to the formal
+ * character controller (#1577) — see character-controller.ts.
  */
-export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, moveSpeed: number) {
+export function updateJSFallbackMovement(
+    delta: number,
+    camera: THREE.Camera,
+    controls: any,
+    keyStates: KeyStates,
+    moveSpeed: number
+) {
     const camDir = _scratchCamDir;
     camera.getWorldDirection(camDir);
     camDir.y = 0;
@@ -426,69 +457,45 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     if (keyStates.right) _targetVelocity.add(camRight);
     if (keyStates.left) _targetVelocity.sub(camRight);
     if (_targetVelocity.lengthSq() > 0) _targetVelocity.normalize().multiplyScalar(moveSpeed);
-    const smoothing = Math.min(1.0, 15.0 * delta);
-    player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
-    player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
 
-    // Spawn-protection: freeze gravity for a few frames after placement so the
-    // ground-height query can return a valid value before physics takes over.
-    if (player.spawnProtectFrames > 0) {
-        player.spawnProtectFrames--;
-        player.velocity.y = 0;
-        // On the last protected frame re-snap to the authoritative terrain height
-        // (both up and down) so probe over-estimates don't leave the player floating.
-        if (player.spawnProtectFrames === 0) {
-            const snapGroundY = getGroundHeight(player.position.x, player.position.z);
-            const snapEyeY = snapGroundY + CONFIG.player.eyeHeight;
-            if (Number.isFinite(snapEyeY)) {
-                player.position.y = Math.max(player.position.y, snapEyeY);
-                // Only snap downward if clearly floating (> 1 m above terrain eye).
-                if (player.position.y > snapEyeY + 1.0) {
-                    player.position.y = snapEyeY;
-                }
+    // Rising-edge jump detection: _lastInputState.jump still holds the
+    // previous frame's value here (physics-core.ts updates it after this
+    // state's update runs), matching the pattern used in physics-abilities.ts.
+    const jumpTriggered = keyStates.jump && !_lastInputState.jump;
+
+    const outcome = resolveCharacterMovement(
+        delta,
+        player,
+        _targetVelocity,
+        keyStates.jump,
+        jumpTriggered,
+        { sampleFootprint: sampleGroundFootprint, getGroundHeight }
+    );
+
+    if (outcome.justLanded) {
+        const fallSpeed = outcome.fallSpeed;
+        if (fallSpeed > 15.0) {
+            spawnImpact(player.position, 'land');
+            spawnImpact(player.position, 'dash');
+            addCameraShake(0.4);
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
+            }
+        } else if (fallSpeed > 8.0) {
+            spawnImpact(player.position, 'land');
+            addCameraShake(0.15);
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
+            }
+        } else {
+            spawnImpact(player.position, 'jump');
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
             }
         }
-    } else {
-        player.velocity.y -= player.gravity * delta;
-    }
-
-    player.position.x += player.velocity.x * delta;
-    player.position.z += player.velocity.z * delta;
-    player.position.y += player.velocity.y * delta;
-    const groundY = getGroundHeight(player.position.x, player.position.z);
-    const eyeY = groundY + CONFIG.player.eyeHeight;
-    const wasGrounded = player.isGrounded;
-    if (player.position.y < eyeY && player.velocity.y <= 0) {
-        player.position.y = eyeY;
-        player.velocity.y = 0;
-        player.isGrounded = true;
-        if (!wasGrounded) {
-             const fallSpeed = Math.abs(player.velocity.y);
-             if (fallSpeed > 15.0) {
-                 spawnImpact(player.position, 'land');
-                 spawnImpact(player.position, 'dash');
-                 addCameraShake(0.4);
-                 if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                     (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
-                 }
-             } else if (fallSpeed > 8.0) {
-                 spawnImpact(player.position, 'land');
-                 addCameraShake(0.15);
-                 if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
-                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                     (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
-                 }
-             } else {
-                 spawnImpact(player.position, 'jump');
-                 if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
-                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                     (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
-                 }
-             }
-        }
-    } else {
-        player.isGrounded = false;
     }
 
     if (player.isGrounded) {
@@ -503,11 +510,6 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
             player.position.y = smoothedY;
             player.velocity.y = 0;
         }
-    }
-
-    if (player.isGrounded && keyStates.jump) {
-        player.velocity.y = 8.0;
-        player.isGrounded = false;
     }
 }
 
@@ -525,9 +527,14 @@ export function checkVineAttachment(_camera: THREE.Camera) {
     if (count === 0) return;
 
     const prox = batchVineInteraction(
-        playerPos.x, playerPos.y, playerPos.z,
-        playerVel.x, playerVel.y, playerVel.z,
-        data, count
+        playerPos.x,
+        playerPos.y,
+        playerPos.z,
+        playerVel.x,
+        playerVel.y,
+        playerVel.z,
+        data,
+        count
     );
 
     if (!prox.inAttachZone || prox.candidateIndex < 0) return;
@@ -557,17 +564,33 @@ export async function initCppPhysics(camera: THREE.Camera) {
 
     initDynamicFoliageBridge(500);
     const validCaves = filterValidPhysicsObjects(foliageCaves, 'cave');
-    const rawFerns = Array.isArray(arpeggioFernBatcher.logicFerns) ? arpeggioFernBatcher.logicFerns : [];
+    const rawFerns = Array.isArray(arpeggioFernBatcher.logicFerns)
+        ? arpeggioFernBatcher.logicFerns
+        : [];
     const validFerns = filterValidPhysicsObjects(rawFerns, 'arpeggio fern');
     const fernCount = validFerns.length;
     if (rawFerns.length === 0) {
-        console.log('[Physics] Arpeggio fern batcher is empty or uninitialized; skipping dynamic foliage collision sync.');
+        console.log(
+            '[Physics] Arpeggio fern batcher is empty or uninitialized; skipping dynamic foliage collision sync.'
+        );
     }
     if (fernCount > 0) {
-        uploadCollisionObjects(validCaves as any, validMushrooms as any, validClouds as any, validTrampolines as any, validFerns);
+        uploadCollisionObjects(
+            validCaves as any,
+            validMushrooms as any,
+            validClouds as any,
+            validTrampolines as any,
+            validFerns
+        );
     } else {
         // No arpeggio ferns yet (Core mode): upload only structural collision objects.
-        uploadCollisionObjects(validCaves as any, validMushrooms as any, validClouds as any, validTrampolines as any, []);
+        uploadCollisionObjects(
+            validCaves as any,
+            validMushrooms as any,
+            validClouds as any,
+            validTrampolines as any,
+            []
+        );
     }
     console.log('[Physics] Engines Initialized (C++ & ASC).');
 }
