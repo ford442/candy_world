@@ -99,7 +99,6 @@ interface HarmonyOrb {
 
 class HarmonyOrbSystem {
     mesh: THREE.InstancedMesh;
-    dummy: THREE.Object3D;
     orbs: HarmonyOrb[];
     dropCooldown: number = 0;
 
@@ -126,7 +125,6 @@ class HarmonyOrbSystem {
         const geometry = getSphereGeometry(0.3, 32, 32);
 
         // Initialize CPU-side orb tracking
-        this.dummy = new THREE.Object3D();
         this.orbs = [];
         for (let i = 0; i < MAX_ORBS; i++) {
             this.orbs.push({
