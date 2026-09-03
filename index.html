@@ -709,8 +709,8 @@
 </head>
 
 <body>
-    <!-- ♿ Aria: Added aria-live to broadcast toast notifications to screen readers -->
-    <div id="now-playing-toast" role="status" aria-live="polite">
+    <!-- ♿ Aria: Hidden from screen readers because toast.ts calls announce() -->
+    <div id="now-playing-toast" aria-hidden="true">
         <span class="icon" aria-hidden="true">🎵</span>
         <span id="now-playing-text"></span>
     </div>

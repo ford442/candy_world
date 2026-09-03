@@ -467,6 +467,12 @@ export const MENU_STYLES = `
     z-index: 10;
 }
 
+.candy-toggle:active,
+.candy-toggle.keyboard-active {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
+
 .candy-toggle--active {
     background: #ff69b4;
 }
