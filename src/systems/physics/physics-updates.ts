@@ -65,7 +65,6 @@ import {
     _scratchPlayerState,
     _scratchCamDir,
     _scratchMoveVec,
-    _scratchMatrix,
     KeyStates,
     AudioState,
     _scratchCamRight,
@@ -154,10 +153,15 @@ export function checkHarmonyOrbs() {
         const distSq = dx*dx + dy*dy + dz*dz;
         if (distSq < radiusSq) {
             orb.active = false;
-            harmonyOrbSystem.dummy.position.set(0, -9999, 0);
-            harmonyOrbSystem.dummy.scale.setScalar(0);
-            _scratchMatrix.compose(harmonyOrbSystem.dummy.position, harmonyOrbSystem.dummy.quaternion, harmonyOrbSystem.dummy.scale);
-            _scratchMatrix.toArray(harmonyOrbSystem.mesh.instanceMatrix.array, (i) * 16);
+            // Zero-scale + translate-far-below hides the instance without an
+            // Object3D dummy or a Matrix4.compose() allocation (#1694): a
+            // zero-scale transform collapses rotation, so only the
+            // translation and homogeneous row need writing.
+            const matrixArray = harmonyOrbSystem.mesh.instanceMatrix.array as Float32Array;
+            const offset = i * 16;
+            matrixArray.fill(0, offset, offset + 16);
+            matrixArray[offset + 13] = -9999;
+            matrixArray[offset + 15] = 1;
             harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
             spawnImpact(orb.position, 'berry', 0x9933FF);
             unlockSystem.harvest('harmony_orb', 1, 'Harmony Orb');
