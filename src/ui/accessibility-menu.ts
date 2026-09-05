@@ -85,6 +85,7 @@ export function createAccessibilityButton(): HTMLButtonElement {
   });
   
   btn.addEventListener('click', () => openAccessibilityMenu());
+
   
   return btn;
 }
