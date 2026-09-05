@@ -1,6 +1,6 @@
 import type { ConfigType } from './types.ts';
 
-/** Player eye height and ground-follow tuning (#1265). */
+/** Player eye height, ground-follow tuning (#1265), and character-controller constants (#1577). */
 export const PLAYER_DEFAULTS: ConfigType['player'] = {
     eyeHeight: 1.8,
     spawnEyeHeightY: 5.0,
@@ -8,6 +8,15 @@ export const PLAYER_DEFAULTS: ConfigType['player'] = {
     // inside the carved basin — spawning there drops the player through the map.
     spawnX: 8,
     spawnZ: -36,
+    radius: 0.4,
+    groundAccel: 15.0,
+    airAccel: 5.0,
+    jumpVelocity: 8.0,
+    stepHeight: 0.35,
+    skinWidth: 0.05,
+    coyoteTimeMs: 100,
+    jumpBufferMs: 100,
+    slopeLimit: (45 * Math.PI) / 180,
 };
 
 /** Ground sampling, footprint radii, and camera follow smoothing. */
