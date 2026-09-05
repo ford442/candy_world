@@ -85,23 +85,6 @@ export function createAccessibilityButton(): HTMLButtonElement {
   });
   
   btn.addEventListener('click', () => openAccessibilityMenu());
-  
-  btn.addEventListener('keydown', (e) => {
-    if (e.repeat) return;
-    if (e.key === ' ' || e.key === 'Enter') {
-      btn.classList.add('keyboard-active');
-    }
-  });
-
-  btn.addEventListener('keyup', (e) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      btn.classList.remove('keyboard-active');
-    }
-  });
-
-  btn.addEventListener('blur', () => {
-    btn.classList.remove('keyboard-active');
-  });
 
   return btn;
 }
