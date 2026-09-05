@@ -142,10 +142,6 @@ export function initPlaylistManager(
         });
     }
 
-    // ♿ Aria: Delegated keyboard active listeners for all playlist buttons
-    if (playlistOverlay) {
-    }
-
     // 🎨 Palette: Improve Drag & Drop Feedback in Jukebox
     if (playlistOverlay) {
         const dropZoneText = document.createElement('div');
