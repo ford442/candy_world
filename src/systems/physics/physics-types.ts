@@ -67,6 +67,72 @@ export const DANCE_KICK_THRESHOLD = 0.5; // Threshold for kick-triggered camera 
 // Movement constants
 export const MOVE_ACCEL = 15.0;
 
+// --- Kinematic Character Controller (#1577) ---
+
+export interface CharacterControllerConfig {
+    capsuleRadius: number;
+    skinWidth: number;
+    maxSlopeDeg: number;
+    maxStepHeight: number;
+    coyoteMs: number;
+    jumpBufferMs: number;
+    airControl: number;
+    terminalFallSpeed: number;
+    moveAccel: number;
+    jumpVelocity: number;
+    slopeSlideAccel: number;
+    stepProbeDistance: number;
+    footprintSamples: number;
+}
+
+export const CHARACTER_CONTROLLER: CharacterControllerConfig = {
+    capsuleRadius: 0.35,
+    skinWidth: 0.08,
+    maxSlopeDeg: 42,
+    maxStepHeight: 0.4,
+    coyoteMs: 120,
+    jumpBufferMs: 120,
+    airControl: 0.35,
+    terminalFallSpeed: 55,
+    moveAccel: MOVE_ACCEL,
+    jumpVelocity: 8.0,
+    slopeSlideAccel: 12,
+    stepProbeDistance: 0.45,
+    footprintSamples: 4,
+};
+
+export interface CharacterIntent {
+    wishDir: THREE.Vector3;
+    moveSpeed: number;
+    jumpPressed: boolean;
+    jumpTriggered: boolean;
+}
+
+export interface CharacterStepResult {
+    jumped: boolean;
+    landed: boolean;
+    fallSpeed: number;
+}
+
+export const _characterControllerState = {
+    coyoteTimer: 0,
+    jumpBufferTimer: 0,
+};
+
+export function resetCharacterControllerState(): void {
+    _characterControllerState.coyoteTimer = 0;
+    _characterControllerState.jumpBufferTimer = 0;
+}
+
+// Character controller scratch (zero-alloc hot path)
+export const _scratchGroundNormal = new THREE.Vector3(0, 1, 0);
+export const _scratchSlideDir = new THREE.Vector3();
+export const _scratchProbePos = new THREE.Vector3();
+export const _scratchWishOnPlane = new THREE.Vector3();
+export const _scratchDownhill = new THREE.Vector3();
+export const _scratchInputVel = new THREE.Vector3();
+export const _scratchCapsuleProbe = { supportY: 0, normal: _scratchGroundNormal };
+
 // --- State Definitions ---
 export const PlayerState = {
     DEFAULT: 'default', // Grounded or Airborne (Standard Physics)

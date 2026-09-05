@@ -54,8 +54,14 @@ import {
 import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { getGroundHeight, reconcileGroundedEyeY, sampleGroundFootprint } from '../ground-system.ts';
-import { calculateMovementInput } from '../physics.core.ts';
+import { CONFIG } from '../../core/config.ts';
+import {
+    getGroundHeight,
+    reconcileGroundedEyeY,
+    sampleGroundFootprint,
+    sampleGroundNormal,
+} from '../ground-system.ts';
+import { getUnifiedGroundHeightTyped } from '../physics.core.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { resolveCharacterMovement } from './character-controller.ts';
 import {
@@ -78,6 +84,16 @@ import {
     _scratchUp,
     _lastInputState,
     foliageCaves,
+    CHARACTER_CONTROLLER,
+    CharacterIntent,
+    CharacterStepResult,
+    _characterControllerState,
+    _scratchGroundNormal,
+    _scratchSlideDir,
+    _scratchWishOnPlane,
+    _scratchDownhill,
+    _scratchInputVel,
+    _scratchCapsuleProbe,
 } from './physics-types.ts';
 
 interface PhysicsSyncObject {
@@ -431,6 +447,27 @@ export function checkPanningPads() {
     }
 }
 
+// --- Kinematic Character Controller (#1577) ---
+
+export interface GroundQuery {
+    heightAt: (x: number, z: number) => number;
+    normalAt: (x: number, z: number, out: THREE.Vector3) => THREE.Vector3;
+}
+
+export const defaultGroundQuery: GroundQuery = {
+    heightAt: getUnifiedGroundHeightTyped,
+    normalAt: sampleGroundNormal,
+};
+
+const _stepResult: CharacterStepResult = { jumped: false, landed: false, fallSpeed: 0 };
+const _ringOffsets = [
+    [0, 0],
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+    [0, -1],
+];
+
 /**
  * JavaScript fallback movement (used for Lake Basin).
  *
@@ -511,6 +548,182 @@ export function updateJSFallbackMovement(
             player.velocity.y = 0;
         }
     }
+}
+
+/**
+ * Sample ground height under a capsule footprint (center + ring samples).
+ * Returns the highest support Y and a surface normal at the probe center.
+ */
+export function probeCapsuleGround(
+    x: number,
+    z: number,
+    query: GroundQuery = defaultGroundQuery,
+    out = _scratchCapsuleProbe
+): typeof _scratchCapsuleProbe {
+    const cc = CHARACTER_CONTROLLER;
+    const radius = cc.capsuleRadius;
+    const samples = Math.min(Math.max(cc.footprintSamples, 1), 4);
+
+    let supportY = query.heightAt(x, z);
+    for (let i = 0; i < samples; i++) {
+        const [ox, oz] = _ringOffsets[i + 1];
+        const sy = query.heightAt(x + ox * radius, z + oz * radius);
+        if (sy > supportY) supportY = sy;
+    }
+
+    query.normalAt(x, z, out.normal);
+    out.supportY = supportY;
+    return out;
+}
+
+/**
+ * Single kinematic character controller step: horizontal move, gravity, jump,
+ * slope slide, step-up, coyote time, jump buffer, and air control.
+ */
+export function stepCharacter(
+    delta: number,
+    intent: CharacterIntent,
+    groundQuery: GroundQuery = defaultGroundQuery
+): CharacterStepResult {
+    const cc = CHARACTER_CONTROLLER;
+    const eyeHeight = CONFIG.player.eyeHeight;
+    const wasGrounded = player.isGrounded;
+    const preFallVy = player.velocity.y;
+
+    _stepResult.jumped = false;
+    _stepResult.landed = false;
+    _stepResult.fallSpeed = 0;
+
+    if (intent.jumpPressed) {
+        _characterControllerState.jumpBufferTimer = cc.jumpBufferMs * 0.001;
+    } else if (_characterControllerState.jumpBufferTimer > 0) {
+        _characterControllerState.jumpBufferTimer = Math.max(0, _characterControllerState.jumpBufferTimer - delta);
+    }
+
+    const probe = probeCapsuleGround(player.position.x, player.position.z, groundQuery);
+    const supportY = probe.supportY;
+    const normal = probe.normal;
+    const feetY = player.position.y - eyeHeight;
+
+    const groundedNow = feetY <= supportY + cc.skinWidth && player.velocity.y <= 0.05;
+
+    if (groundedNow) {
+        _characterControllerState.coyoteTimer = cc.coyoteMs * 0.001;
+    } else if (_characterControllerState.coyoteTimer > 0) {
+        _characterControllerState.coyoteTimer = Math.max(0, _characterControllerState.coyoteTimer - delta);
+    }
+
+    const coyoteActive = _characterControllerState.coyoteTimer > 0;
+    const bufferActive = _characterControllerState.jumpBufferTimer > 0;
+
+    if ((groundedNow || coyoteActive) && (intent.jumpTriggered || bufferActive)) {
+        player.velocity.y = cc.jumpVelocity;
+        player.isGrounded = false;
+        _characterControllerState.jumpBufferTimer = 0;
+        _characterControllerState.coyoteTimer = 0;
+        _stepResult.jumped = true;
+    }
+
+    // --- Horizontal wish with slope handling ---
+    const maxSlopeRad = cc.maxSlopeDeg * (Math.PI / 180);
+    const slopeAngleRad = Math.acos(Math.min(1, Math.max(-1, normal.y)));
+    const wishOnPlane = _scratchWishOnPlane.set(0, 0, 0);
+
+    if (intent.wishDir.lengthSq() > 0.0001) {
+        if (slopeAngleRad <= maxSlopeRad) {
+            const dotN = intent.wishDir.x * normal.x + intent.wishDir.z * normal.z;
+            wishOnPlane.set(
+                intent.wishDir.x - normal.x * dotN,
+                0,
+                intent.wishDir.z - normal.z * dotN
+            );
+            if (wishOnPlane.lengthSq() > 0.0001) {
+                wishOnPlane.normalize();
+            } else {
+                wishOnPlane.copy(intent.wishDir);
+            }
+        } else {
+            // Steep slope: slide downhill, block uphill input
+            _scratchDownhill.copy(normal).cross(_scratchUp).cross(normal);
+            if (_scratchDownhill.lengthSq() < 0.0001) {
+                _scratchDownhill.set(0, -1, 0);
+            } else {
+                _scratchDownhill.normalize();
+                if (_scratchDownhill.y > 0) _scratchDownhill.negate();
+            }
+            const uphillDot = intent.wishDir.x * _scratchDownhill.x + intent.wishDir.z * _scratchDownhill.z;
+            if (uphillDot < 0) {
+                wishOnPlane.copy(_scratchDownhill).multiplyScalar(-uphillDot);
+            }
+            player.velocity.addScaledVector(_scratchDownhill, cc.slopeSlideAccel * delta);
+        }
+    }
+
+    const wishVel = _scratchInputVel.copy(wishOnPlane).multiplyScalar(intent.moveSpeed);
+    const onGround = groundedNow && !_stepResult.jumped;
+    const accelFactor = Math.min(1, cc.moveAccel * delta * (onGround ? 1 : cc.airControl));
+
+    if (onGround) {
+        player.velocity.x += (wishVel.x - player.velocity.x) * accelFactor;
+        player.velocity.z += (wishVel.z - player.velocity.z) * accelFactor;
+    } else if (intent.wishDir.lengthSq() > 0.0001) {
+        player.velocity.x += wishVel.x * accelFactor;
+        player.velocity.z += wishVel.z * accelFactor;
+    }
+
+    // --- Gravity + terminal fall ---
+    player.velocity.y -= player.gravity * delta;
+    if (player.velocity.y < -cc.terminalFallSpeed) {
+        player.velocity.y = -cc.terminalFallSpeed;
+    }
+
+    // --- Integrate horizontal, then step-up if needed ---
+    const nextX = player.position.x + player.velocity.x * delta;
+    const nextZ = player.position.z + player.velocity.z * delta;
+    let currentSupportY = supportY;
+
+    if (onGround && (Math.abs(player.velocity.x) > 0.01 || Math.abs(player.velocity.z) > 0.01 || intent.wishDir.lengthSq() > 0.0001)) {
+        const moveDir = _scratchSlideDir.set(
+            intent.wishDir.lengthSq() > 0.0001 ? intent.wishDir.x : player.velocity.x,
+            0,
+            intent.wishDir.lengthSq() > 0.0001 ? intent.wishDir.z : player.velocity.z
+        );
+        if (moveDir.lengthSq() > 0.0001) {
+            moveDir.normalize();
+            const fwdX = player.position.x + moveDir.x * cc.stepProbeDistance;
+            const fwdZ = player.position.z + moveDir.z * cc.stepProbeDistance;
+            const fwdProbe = probeCapsuleGround(fwdX, fwdZ, groundQuery);
+            const stepDelta = fwdProbe.supportY - currentSupportY;
+            if (stepDelta > cc.skinWidth && stepDelta <= cc.maxStepHeight) {
+                player.position.y += stepDelta;
+                currentSupportY = fwdProbe.supportY;
+            }
+        }
+    }
+
+    player.position.x = nextX;
+    player.position.z = nextZ;
+
+    // --- Integrate vertical ---
+    player.position.y += player.velocity.y * delta;
+
+    // --- Ground snap ---
+    const finalProbe = probeCapsuleGround(player.position.x, player.position.z, groundQuery);
+    const finalFeetY = player.position.y - eyeHeight;
+
+    if (player.velocity.y <= 0.05 && finalFeetY <= finalProbe.supportY + cc.skinWidth) {
+        if (!wasGrounded && preFallVy < -1.0) {
+            _stepResult.landed = true;
+            _stepResult.fallSpeed = Math.abs(preFallVy);
+        }
+        player.position.y = finalProbe.supportY + eyeHeight;
+        player.velocity.y = 0;
+        player.isGrounded = true;
+    } else {
+        player.isGrounded = false;
+    }
+
+    return _stepResult;
 }
 
 /**

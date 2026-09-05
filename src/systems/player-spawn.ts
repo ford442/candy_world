@@ -10,7 +10,7 @@
 import type * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { getEyeTargetY, getGroundHeight, isInLakeBasin } from './ground-system.ts';
-import { player } from './physics/physics-types.ts';
+import { player, resetCharacterControllerState } from './physics/physics-types.ts';
 
 /** Number of physics frames gravity is frozen after a spawn/teleport. */
 const SPAWN_PROTECT_FRAMES = 8;
@@ -74,6 +74,7 @@ export function placePlayerOnGround(
     player.position.set(spawnX, y, spawnZ);
     player.velocity.set(0, 0, 0);
     player.isGrounded = true;
+    resetCharacterControllerState();
     // Freeze gravity so WASM terrain queries settle before physics pulls the
     // player down. The last protected frame issues a re-snap.
     player.spawnProtectFrames = SPAWN_PROTECT_FRAMES;
