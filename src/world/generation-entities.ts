@@ -9,7 +9,8 @@ import { recordSpawnAttempt } from './spawn-tracker.ts';
 import {
     animatedFoliage, cpuAnimatedFoliage, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers,
-    foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders
+    foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders,
+    computeFoliageObjects
 } from './state.ts';
 
 registerBuiltinWorldObjectTypes();
@@ -49,6 +50,7 @@ export function safeAddFoliage(
 
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
+    if (obj.userData.computeNode) computeFoliageObjects.push(obj as any);
     if (!isBatched) cpuAnimatedFoliage.push(obj);
 
     if (isObstacle) {
@@ -388,6 +390,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                     .add(obj.position);
                 waterfallProxy.userData.type = 'waterfall';
                 animatedFoliage.push(waterfallProxy as any);
+                if (waterfallProxy.userData.computeNode) computeFoliageObjects.push(waterfallProxy as any);
             }
         }
 
