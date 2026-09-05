@@ -50,6 +50,7 @@ export function safeAddFoliage(
 
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (obj.userData.computeNode) computeFoliageObjects.push(obj as any);
     if (!isBatched) cpuAnimatedFoliage.push(obj);
 
@@ -389,7 +390,9 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                     .applyQuaternion(obj.quaternion)
                     .add(obj.position);
                 waterfallProxy.userData.type = 'waterfall';
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 animatedFoliage.push(waterfallProxy as any);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if (waterfallProxy.userData.computeNode) computeFoliageObjects.push(waterfallProxy as any);
             }
         }
