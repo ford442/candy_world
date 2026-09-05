@@ -35,6 +35,29 @@ export interface SerializableVector3 {
 }
 
 /**
+ * Entity Snapshot for save data and editor round-tripping
+ */
+export interface EntitySnapshot {
+    id?: string;
+    type: string;
+    position: [number, number, number];
+    rotation?: [number, number, number, number]; // Quaternion x,y,z,w
+    scale?: number | [number, number, number];
+    persistentId?: string;
+    variant?: string;
+    note?: string;
+    noteIndex?: number;
+    hasFace?: boolean;
+    category?: string;
+    layer?: string;
+    biome?: string;
+    music?: Record<string, unknown>;
+    placement?: string;
+    params?: Record<string, unknown>;
+}
+
+
+/**
  * Player state for save data
  */
 export interface PlayerSaveData {
@@ -62,6 +85,7 @@ export interface WorldSaveData {
     season: string;
     seasonProgress: number;
     moonPhase: number;
+    entitySnapshots?: EntitySnapshot[];
 }
 
 /**

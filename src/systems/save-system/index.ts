@@ -68,3 +68,12 @@ export {
 // =============================================================================
 
 export { saveSystem as default } from './save-system.ts';
+
+// =============================================================================
+// ENTITY SNAPSHOT EXPORTS
+// =============================================================================
+
+export {
+    serializeEntitySnapshots,
+    applyEntitySnapshots
+} from './entity-snapshot.ts';
