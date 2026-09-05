@@ -70,8 +70,8 @@ importers:
   tools/visual-regression:
     dependencies:
       '@playwright/test':
-        specifier: ^1.62.1
-        version: 1.62.1
+        specifier: ^1.63.0
+        version: 1.63.0
       archiver:
         specifier: ^6.0.1
         version: 6.0.2
@@ -489,11 +489,6 @@ packages:
     cpu: [x64]
     os: [linux]
     libc: [glibc]
-
-  '@playwright/test@1.62.1':
-    resolution: {integrity: sha512-DTcUc8qii+cpHvtOwggMtBRMjKZHXYWdw8syRYu2vtzuq4Wxphqq4NfCs5Zt44L6mA8rfDfj+PHnxFc/FeK6mQ==}
-    engines: {node: '>=20'}
-    hasBin: true
 
   '@playwright/test@1.63.0':
     resolution: {integrity: sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ==}
@@ -2612,10 +2607,6 @@ snapshots:
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
-
-  '@playwright/test@1.62.1':
-    dependencies:
-      playwright: 1.62.1
 
   '@playwright/test@1.63.0':
     dependencies:
