@@ -3,6 +3,8 @@
  * Displays a temporary notification to the user
  */
 
+import { announce } from '../ui/announcer.ts';
+
 /**
  * Shows a toast notification
  * @param message - The message to display
@@ -19,6 +21,7 @@ export function showToast(message: string, icon: string = '✨', duration: numbe
         if (toastIcon) toastIcon.innerText = icon;
 
         toast.classList.add('visible');
+        toast.setAttribute('aria-hidden', 'true'); // Ensure it stays hidden even when visible class is toggled
 
         // Clear existing timeout if any
         if ((toast as HTMLElement & { timeout?: number }).timeout) {
@@ -27,6 +30,10 @@ export function showToast(message: string, icon: string = '✨', duration: numbe
         
         (toast as HTMLElement & { timeout?: number }).timeout = window.setTimeout(() => {
             toast.classList.remove('visible');
+            toast.setAttribute('aria-hidden', 'true'); // Maintain hidden state
         }, duration);
     }
+
+    // Explicitly call announce to decouple the visual overlay from the accessibility announcement
+    announce(message, 'polite');
 }

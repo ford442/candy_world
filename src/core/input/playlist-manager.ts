@@ -454,6 +454,7 @@ export function renderPlaylist(): void {
 
         const text = document.createElement('div');
         text.className = 'jukebox-empty-text';
+        text.id = 'jukebox-empty-desc';
         text.innerText = 'Your playlist is empty — drop some tracks in!';
         text.setAttribute('role', 'status');
         text.setAttribute('aria-live', 'polite');
@@ -464,6 +465,7 @@ export function renderPlaylist(): void {
         browseBtn.className = 'cta-button jukebox-browse-btn';
         browseBtn.innerHTML = 'Browse Music <span aria-hidden="true">📂</span>';
         browseBtn.setAttribute('aria-label', 'Browse for music files to add to playlist');
+        browseBtn.setAttribute('aria-describedby', 'jukebox-empty-desc');
 
         browseBtn.onclick = (e) => {
             e.stopPropagation();
@@ -542,8 +544,13 @@ export function togglePlaylist(): void {
                         activeBtn.focus({ preventScroll: true });
                         // Ensure the active song is visible in the scrollable list
                         activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                    } else if (closePlaylistBtn) {
-                        closePlaylistBtn.focus({ preventScroll: true });
+                    } else {
+                        const emptyBtn = playlistList.querySelector('.jukebox-browse-btn');
+                        if (emptyBtn) {
+                            (emptyBtn as HTMLElement).focus({ preventScroll: true });
+                        } else if (closePlaylistBtn) {
+                            closePlaylistBtn.focus({ preventScroll: true });
+                        }
                     }
                 }
             });

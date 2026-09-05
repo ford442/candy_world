@@ -45,15 +45,15 @@ import { color, float, mix, attribute, positionLocal } from 'three/tsl';
 Defined in [`material-core/presets.ts`](../src/foliage/material-core/presets.ts).
 Each takes `(hex, opts?)` → `MeshStandardNodeMaterial`; spread `opts` to override.
 
-| Preset     | Feel                          | Key opts                                                                                                 | Used in                                                                                                                  |
-| ---------- | ----------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `Clay`     | Matte, tactile ground         | roughness 0.8, bump, rim 0.3                                                                             | terrain, trunks, stems — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts)                                   |
-| `Sugar`    | Frosted crust, micro-bumps    | sheen 1.0, noiseScale 60                                                                                 | snow, rose caps — [`tree-batcher.ts`](../src/foliage/tree-batcher.ts)                                                    |
-| `Gummy`    | Translucent, inner glow       | transmission 0.9, ior 1.4, SSS. Pair with `lighting.shadows.bias` / `normalBias` so contacts don't acne. | fruit, canopies — [`berries.ts`](../src/foliage/berries.ts)                                                              |
-| `SeaJelly` | Wet, wobbly, very translucent | transmission 0.95, ior 1.33, `animateMoisture`                                                           | water, waterfalls — [`water.ts`](../src/foliage/water.ts), [`waterfall-batcher.ts`](../src/foliage/waterfall-batcher.ts) |
-| `Crystal`  | Refractive gem / glass        | transmission 1.0, ior 2.0, iridescence. Same shadow-bias pairing as Gummy.                               | gems, glass mycelium — [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts)                                     |
-| `Velvet`   | Soft sheen, no specular       | roughness 1.0, colored sheen                                                                             | petals — [`simple-flower-batcher.ts`](../src/foliage/simple-flower-batcher.ts)                                           |
-| `OilSlick` | Dark base, rainbow edges      | metalness 0.8, iridescence 1.0                                                                           | rare accents — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts) `mushroomPalette`                           |
+| Preset     | Feel                          | Key opts                                                                                                                                                         | Used in                                                                                                                  |
+| ---------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `Clay`     | Matte, tactile ground         | roughness 0.8, bump, rim 0.3                                                                                                                                     | terrain, trunks, stems — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts)                                   |
+| `Sugar`    | Frosted crust, glazed coat    | sheen 1.0, noiseScale 60, **clearcoat 0.7**                                                                                                                      | snow, rose caps — [`tree-batcher.ts`](../src/foliage/tree-batcher.ts)                                                    |
+| `Gummy`    | Translucent, inner glow       | transmission 0.9, ior 1.4, wrapped translucency, **dream env @ 0.6**. Clearcoat opt-in. Pair with `lighting.shadows.bias` / `normalBias` so contacts don't acne. | fruit, canopies — [`berries.ts`](../src/foliage/berries.ts)                                                              |
+| `SeaJelly` | Wet, wobbly, very translucent | transmission 0.95, ior 1.33, `animateMoisture`                                                                                                                   | water, waterfalls — [`water.ts`](../src/foliage/water.ts), [`waterfall-batcher.ts`](../src/foliage/waterfall-batcher.ts) |
+| `Crystal`  | Refractive gem / glass        | transmission 1.0, ior 2.0, iridescence, **dream env @ 1.0**. Same shadow-bias pairing as Gummy.                                                                  | gems, glass mycelium — [`gem-fruit-batcher.ts`](../src/foliage/gem-fruit-batcher.ts)                                     |
+| `Velvet`   | Soft sheen, no specular       | roughness 1.0, colored sheen                                                                                                                                     | petals — [`simple-flower-batcher.ts`](../src/foliage/simple-flower-batcher.ts)                                           |
+| `OilSlick` | Dark base, rainbow edges      | metalness 0.8, iridescence 1.0                                                                                                                                   | rare accents — [`foliage-materials.ts`](../src/foliage/foliage-materials.ts) `mushroomPalette`                           |
 
 ```ts
 import { CandyPresets } from '../foliage/material-core.ts';
@@ -278,8 +278,114 @@ Optional `scaleDistanceBias` shrinks instances ~8% toward biome outer radius.
 ## Core material foundations
 
 - **MeshPhysicalNodeMaterial** (via presets): clearcoat + transmission for the candy look.
-- **Clearcoat** high (0.8–1.0), **metalness** ~0 (except `OilSlick`), **roughness** low–mid for gloss.
+- **Clearcoat** is opt-in per preset — `Sugar` ships `0.7`, everything else defaults to `0`.
+  See [Surface knobs](#surface-knobs-clearcoat-dream-env-translucency).
+- **Metalness** ~0 (except `OilSlick`), **roughness** low–mid for gloss.
 - **Transmission** for gummy / jelly / crystal / glass reads.
+- **Environment**: no HDRI and no `scene.environment`. Reflections come from the shared
+  procedural dream sky, opted into with `useDreamEnv`.
+
+---
+
+## Surface knobs: clearcoat, dream env, translucency
+
+Three cross-cutting options on `UnifiedMaterialOptions`
+([`unified-material.ts`](../src/foliage/material-core/unified-material.ts)). All three
+are ordinary node/property assignments — none of them forks a second shader variant, so
+`shader-warmup.ts` compiles the same program count it did before they existed.
+
+### Before / after
+
+**Before.** `Crystal` was `roughness: 0` with nothing in the scene to reflect —
+`scene.environment` is null and no material carried an `envMap` — so a gem's entire
+specular response was one sun dot on an otherwise flat facet. It read as grey studio
+plastic that happened to be see-through. `Sugar` had sheen but no coat, so frosted
+crust came out powdery rather than glazed. And `subsurfaceStrength` ran
+`(1 - max(0, N·L))²`, which is _brightest on the faces pointing away from the light_ and
+consults neither the view direction nor `thickness` — a gummy glowed hardest exactly
+where it should have been in shadow, and a 4-unit-thick slab glowed as hard as a 0.2-unit
+sliver.
+
+**After.** `Crystal` and `Gummy` sample one shared procedural sky, so their highlights
+carry candy hues; `Sugar` gets a real second specular lobe; translucency is a wrap term
+plus a view-dependent back-scatter lobe, both extinguished by thickness. Net cost is one
+512² `DataTexture`, one PMREM chain (shared, see below), the clearcoat lobe on `Sugar`,
+and roughly a dozen ALU ops on the translucency path.
+
+### `clearcoat` / `clearcoatRoughness` — a real second lobe
+
+The genuine `MeshPhysicalNodeMaterial` clearcoat (r171 `clearcoatNode` /
+`clearcoatRoughnessNode`, driving `PhysicalLightingModel`'s clearcoat branch), not a
+fresnel fake.
+
+| Knob                    | Default | Visual Impact                                                                                                 |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------- |
+| `clearcoat`             | `0`     | **Opt-in.** `0` compiles nothing (`useClearcoat` is false). `Sugar` ships `0.7`; ~1.0 shrink-wraps the crust  |
+| `clearcoatRoughness`    | `0.1`   | `0` reads as wet plastic. Track the base surface — `Sugar` uses `0.25` to keep the highlight broad and soft   |
+| `clearcoatTint`         | `null`  | **Stylized, not physical.** glTF clearcoat has no colour; this is a fresnel-weighted tint added to _emissive_ |
+| `clearcoatTintStrength` | `0.2`   | Scales the tint (also multiplied by `clearcoat`). Emissive, so it feeds bloom — keep it small                 |
+
+```ts
+// Wrapper-fresh gummy: the bare preset stays matte-surfaced on purpose.
+const wrapped = CandyPresets.Gummy(0xff69b4, { clearcoat: 0.8, clearcoatRoughness: 0.1 });
+```
+
+### `useDreamEnv` / `envMapIntensity` — one shared sky
+
+[`material-core/env-map.ts`](../src/foliage/material-core/env-map.ts) generates the
+procedural dream sky once and hands the _same texture object_ to every opted-in material.
+Three's `EnvironmentNode` keys its PMREM cache on the texture, so one PMREM chain serves
+every instance — **batchers are unaffected**: nothing is per-instance, no extra render
+target per archetype, and instanced meshes share the material as before.
+
+| Knob              | Default | Notes                                                                       |
+| ----------------- | ------- | --------------------------------------------------------------------------- |
+| `useDreamEnv`     | `false` | On by default for `Crystal` and `Gummy`. Subject to the session gate below  |
+| `envMapIntensity` | `1.0`   | `Gummy` uses `0.6` so it stays a diffuse-ish blob rather than a chrome bead |
+
+Gated like GI (`resolveGiSettings()`): **off on CI / headless and on the `low` graphics
+tier**, forced either way with `?env=on` / `?env=off`, or from code with
+`setDreamEnvEnabled()`. Like GI, the gate is read at material-construction time — a
+material compiled without the env term can never gain it, so toggling only affects
+materials built afterwards.
+
+> **Why `envMap`, not `envNode`.** r171's `EnvironmentNode.setup()` only reads
+> `envMapIntensity` when `material.envMap` is truthy, falling back to
+> `scene.environmentIntensity` otherwise. Routing through `envNode` would silently make
+> the intensity knob a no-op.
+
+The same texture backs [`mirrors.ts`](../src/foliage/mirrors.ts) (sampled with explicit
+UVs), so mirrors and candy highlights demonstrably reflect one sky.
+
+### `subsurface*` — wrapped translucency, _not_ SSS
+
+Named honestly: there is **no diffusion profile and no multi-bounce** here. True
+subsurface scattering wants a screen-space blur pass this project has no budget for.
+What ships is a wrap term plus a Frostbite-style back-scatter lobe, thickness-extinguished:
+
+| Knob                         | Default | Visual Impact                                                                    |
+| ---------------------------- | ------- | -------------------------------------------------------------------------------- |
+| `subsurfaceStrength`         | `0`     | Master gain. `0` compiles the whole term out                                     |
+| `subsurfaceWrap`             | `0.5`   | How far light wraps past the terminator. `0` = plain Lambert, ~0.6 = gummy       |
+| `subsurfaceDistortion`       | `0.2`   | Bends the exit vector along N. Higher = softer; `0` reads as a hard specular dot |
+| `subsurfacePower`            | `3.0`   | Lobe tightness. Higher = a thin candied rim only                                 |
+| `subsurfaceThicknessFalloff` | `0.35`  | Per-unit extinction. Uses the same thickness node as transmission, so            |
+|                              |         | `thicknessDistortion` makes a lumpy gummy glow through its thin spots            |
+| `subsurfaceAlbedoTint`       | `0.5`   | Pulls the scatter colour toward albedo. **This is the pastel guard** — at `0` a  |
+|                              |         | saturated `subsurfaceColor` pushes the term to white                             |
+
+The term is added to **albedo, not emissive**, on purpose: it stays under the lighting and
+the GI multiply, so it tints the candy rather than blooming it out.
+
+### `attenuationColor` / `attenuationDistance`
+
+Real Beer-Lambert volume tint for `transmission`, via r171's `materialAttenuationColor` /
+`materialAttenuationDistance` — plain properties, zero extra shader instructions.
+
+Setting `attenuationColor` **replaces** the legacy albedo-darkening fudge
+(`exp(-thickness × 0.5) + 0.2`) that every transmissive preset has been tuned against.
+Leave it unset to keep the shipped look; set it when you want physically-shaped
+absorption and are ready to retune.
 
 ---
 

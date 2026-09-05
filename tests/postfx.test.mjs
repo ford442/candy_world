@@ -2,6 +2,9 @@
  * Post-FX resolution: AO gate + bloom knobs.
  * Run: pnpm run test:postfx
  */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/core/config/defaults.ts';
 import { isAoEnabled, isDofEnabled, resolvePostfxQuality } from '../src/core/config/postfx.ts';
@@ -50,6 +53,24 @@ function withGraphics(graphics) {
     assert.equal(resolvePostfxQuality(), 'high');
     assert.equal(isAoEnabled(), true, 'AO on when postfx is high');
     __resetStartupCapabilitiesForTests();
+}
+
+{
+    const root = dirname(fileURLToPath(import.meta.url));
+    const webgpuPost = readFileSync(join(root, '../src/foliage/post-processing-webgpu.ts'), 'utf8');
+    const deferred = readFileSync(join(root, '../src/core/deferred-init.ts'), 'utf8');
+    const warmup = readFileSync(join(root, '../src/rendering/shader-warmup.ts'), 'utf8');
+
+    assert.match(webgpuPost, /gradeCandyGlowPulse/);
+    assert.match(webgpuPost, /mixStrobeFlash/);
+    assert.doesNotMatch(
+        webgpuPost,
+        /viewportSharedTexture/,
+        'WebGPU post graph must sample the scene pass, not copyFramebufferToTexture'
+    );
+    assert.match(deferred, /isWebGLNodeBackend/);
+    assert.match(deferred, /useViewportPulseOverlays/);
+    assert.match(warmup, /HalfFloatType/);
 }
 
 console.log('postfx tests passed');

@@ -48,6 +48,12 @@ export {
     windComputeSystem,
     // Material factory
     createUnifiedMaterial,
+    // Shared dream-sky environment (see material-core/env-map.ts)
+    getDreamEnvTexture,
+    applyDreamEnv,
+    isDreamEnvEnabled,
+    setDreamEnvEnabled,
+    disposeDreamEnv,
 
     // Presets
     CandyPresets,

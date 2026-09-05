@@ -199,10 +199,16 @@ export class LuminousPlantBatcher {
         if (slopeQ) {
             _scratchOriginalQuaternion.copy(group.quaternion);
             group.quaternion.copy(getGroundAlignedQuaternion(group, _scratchFinalQuaternion));
-            group.updateWorldMatrix(false, false);
+            group.matrixWorld.compose(group.position, group.quaternion, group.scale);
+            if (group.parent) {
+                group.matrixWorld.multiplyMatrices(group.parent.matrixWorld, group.matrixWorld);
+            }
             group.quaternion.copy(_scratchOriginalQuaternion);
         } else {
-            group.updateWorldMatrix(false, false);
+            group.matrixWorld.compose(group.position, group.quaternion, group.scale);
+            if (group.parent) {
+                group.matrixWorld.multiplyMatrices(group.parent.matrixWorld, group.matrixWorld);
+            }
         }
         group.matrixWorld.toArray(this.mesh.instanceMatrix.array, id * 16);
 

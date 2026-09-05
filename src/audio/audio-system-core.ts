@@ -159,13 +159,19 @@ export abstract class AudioSystemCore {
     // Audio mode
     useScriptProcessorNode: boolean;
 
+    // When true the constructor skips calling init(); caller must call initDeferred() later.
+    private deferWorklet: boolean;
+
+    // Guard: tracks whether init() has already been called (or is in flight).
+    private _initCalled: boolean;
+
     // ScriptProcessor visual update counter
     protected scriptProcessorCallbackCount: number;
 
     // Stop guard flag to prevent concurrent calls
     protected isStopping: boolean;
 
-    constructor(useScriptProcessorNode: boolean = false) {
+    constructor(useScriptProcessorNode: boolean = false, deferWorklet: boolean = false) {
         this.libopenmpt = null;
         this.currentModulePtr = 0;
         this.audioContext = null;
@@ -212,10 +218,28 @@ export abstract class AudioSystemCore {
 
         // Audio mode
         this.useScriptProcessorNode = useScriptProcessorNode;
+        this.deferWorklet = deferWorklet;
+        this._initCalled = false;
         this.scriptProcessorCallbackCount = 0;
         this.isStopping = false;
 
-        this.init();
+        if (!deferWorklet) {
+            this._initCalled = true;
+            this.init();
+        }
+    }
+
+    /**
+     * Start the full audio init (AudioContext + worklet/ScriptProcessor).
+     * Called automatically by the constructor unless deferWorklet=true, in
+     * which case the caller is responsible for calling initDeferred() at an
+     * appropriate time (e.g. after the first rendered frame).
+     * Safe to call only once; subsequent calls are ignored.
+     */
+    async initDeferred(): Promise<void> {
+        if (this._initCalled) return;
+        this._initCalled = true;
+        await this.init();
     }
 
     async init(): Promise<void> {

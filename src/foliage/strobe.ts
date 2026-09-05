@@ -17,11 +17,21 @@ import { MeshBasicNodeMaterial } from 'three/webgpu';
 export const uStrobeIntensity = uniform(0.0);
 
 /**
+ * Mix a scene color toward a white flicker. Used by the WebGPU post graph
+ * (no framebuffer copy) and the WebGL camera overlay.
+ */
+export function mixStrobeFlash(sceneRgb: ReturnType<typeof vec3>): ReturnType<typeof vec3> {
+    const strobeFreq = float(40.0);
+    const strobeOscillation = sin(time.mul(strobeFreq)).mul(0.5).add(0.5);
+    const flashColor = vec3(1.0, 1.0, 1.0);
+    const effectiveStrength = uStrobeIntensity.mul(strobeOscillation);
+    return mix(sceneRgb, flashColor, effectiveStrength) as ReturnType<typeof vec3>;
+}
+
+/**
  * Creates a Strobe Sickness HUD Flicker effect.
- * This function returns a mesh that should be added to the camera or scene
- * to create a full-screen strobe effect (HUD flicker).
- *
- * It uses `viewportSharedTexture` to sample the scene behind the object.
+ * WebGL / GLSL-node path only — WebGPU applies `mixStrobeFlash` in the TSL
+ * post graph to avoid rgba16float → rgba8unorm framebuffer copies.
  *
  * @returns {THREE.Mesh} The full-screen quad mesh.
  */
@@ -34,24 +44,8 @@ export function createStrobePulse(): THREE.Mesh {
         // Base UVs for screen sampling
         const baseUV = screenUV; // Use screenUV for viewport-correct sampling
 
-        // Sample the viewport texture
         const baseColor = viewportSharedTexture(baseUV);
-
-        // Calculate high-frequency flicker using time
-        // sin(time * freq) gives a value between -1 and 1
-        // We remap it to 0.0 -> 1.0
-        const strobeFreq = float(40.0);
-        const strobeOscillation = sin(time.mul(strobeFreq)).mul(0.5).add(0.5);
-
-        // The target strobe color is white (intense flash)
-        const flashColor = vec3(1.0, 1.0, 1.0);
-
-        // The effective strength combines the global uStrobeIntensity and the oscillation
-        const effectiveStrength = uStrobeIntensity.mul(strobeOscillation);
-
-        // Mix the original color with the flash color
-        const finalColor = mix(baseColor.xyz, flashColor, effectiveStrength);
-
+        const finalColor = mixStrobeFlash(baseColor.xyz);
         return vec4(finalColor, 1.0);
     });
 

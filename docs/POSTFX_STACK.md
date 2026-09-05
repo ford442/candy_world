@@ -10,10 +10,15 @@ Owner: [`src/foliage/post-processing.ts`](../src/foliage/post-processing.ts)
 | Bloom  | `BloomNode`                                                  | `UnrealBloomPass`                     | always (cheap)                                     |
 | DoF    | `dof()`                                                      | `BokehPass`                           | `high` / `?dof`                                    |
 | GTAO   | half-res `ao()`                                              | **skipped**                           | `high` / `?ao`; never `low` / CI                   |
+| Pulse  | Candy glow + strobe in TSL graph (no viewport copy)          | Camera overlay (`viewportSharedTexture`) | WebGPU: always in graph; overlay skipped |
 | Shafts | additive planes + radial UV scatter via `uShaftScatterBoost` | same planes, bloom swell              | sunrise/sunset/moon + frustum; `?postfx=off` hides |
 | SSR    | **not in this PR**                                           | —                                     | env-map mirrors (`getDreamEnvTexture`)             |
 
 GI is **irradiance probes**, not screen-space, so GTAO is the only extra depth fetch. Do not add SSR on top without a budget pass.
+
+## Viewport copies (WebGPU)
+
+Do **not** attach `viewportSharedTexture()` overlays to the camera on the WGSL backend. Three's shared `FramebufferTexture` is `rgba8unorm` and often 1×1 until resize; the scene pass is `rgba16float`. `copyFramebufferToTexture` then fails (`Source and destination formats do not match. rgba16float rgba8unorm`) and can copy a 1572×1070 rectangle out of a 1×1 source. Candy glow / strobe uniforms still drive gameplay; the TSL post graph samples `scenePass.getTextureNode()`.
 
 ## Bloom knobs
 
