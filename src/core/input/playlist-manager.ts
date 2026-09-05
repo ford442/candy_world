@@ -333,11 +333,15 @@ export function renderPlaylist(): void {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'playlist-btn';
-        // 🎨 Palette: Use formatted title for tooltip and screen readers
-        btn.title = displayName;
-        btn.setAttribute('aria-label', `Play ${displayName}`);
+
+        // ♿ Aria: Improve accessibility labels and state for the active music track
         if (index === currentIdx) {
+            btn.title = `Currently playing: ${displayName}`;
+            btn.setAttribute('aria-label', `Currently playing: ${displayName}`);
             btn.setAttribute('aria-current', 'true');
+        } else {
+            btn.title = `Play ${displayName}`;
+            btn.setAttribute('aria-label', `Play ${displayName}`);
         }
 
         btn.innerHTML = `
