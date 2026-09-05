@@ -78,6 +78,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 **User idea pool — GitHub issue filed 2026-08-27 by `ford442` (Noah's OWN words — FRESHEST this run, filed after the 2026-08-25 routine). Not picked today only because Fix First outranks it; it is the standing head of the queue for 2026-09-08.**
 
 - [x] **#1669 Systems: Entity snapshot save/load helpers (serialize world objects for reload + future editor)** — Noah's own refile of the #1585 territory the 2026-08-25 run drafted as Copilot prep. Serialization/systems lane, fully file-decoupled from rendering, physics and materials. **Status: Implemented ✅**
+    - Implementation Details: Created `EntitySnapshot` type and `entity-snapshot.ts` helper to serialize dynamic world entities safely away from TSL/physics, integrated via `SaveSystem` to capture entity states for reload and editor round-tripping.
     - Implementation Details: Created a new core systems serialization module `src/systems/entity-snapshot.ts` that provides `exportEntitySnapshot` and `importEntitySnapshot` functions to convert live `THREE.Object3D` instances into JSON-serializable `EntitySnapshot` objects, decoupling mapping data from runtime models and paving the way for the in-world editor and dynamic save reloaders.
 
 **User idea pool — GitHub issues filed 2026-08-14 by `ford442` (Noah's OWN words — FRESHEST + strongest signal this run; PRIMARY source). Coherent WebGPU device-discipline theme. Not previously transcribed here.**

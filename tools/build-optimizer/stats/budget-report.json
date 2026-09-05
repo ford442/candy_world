@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-01T08:51:21.160Z",
+  "timestamp": "2026-09-05T11:49:47.002Z",
   "config": {
     "budgets": {
       "main": "300kb",
@@ -17,45 +17,43 @@
     {
       "name": "main",
       "budget": 307200,
-      "actual": 1384,
+      "actual": 0,
       "status": "pass",
-      "percentage": 0.004505208333333333
+      "percentage": 0
     },
     {
       "name": "app",
       "budget": 665600,
-      "actual": 648323,
-      "status": "warning",
-      "percentage": 0.97404296875
+      "actual": 0,
+      "status": "pass",
+      "percentage": 0
     },
     {
       "name": "vendor",
       "budget": 1536000,
-      "actual": 975588,
+      "actual": 0,
       "status": "pass",
-      "percentage": 0.6351484375
+      "percentage": 0
     },
     {
       "name": "wasm",
       "budget": 614400,
-      "actual": 45794,
+      "actual": 0,
       "status": "pass",
-      "percentage": 0.07453450520833334
+      "percentage": 0
     },
     {
       "name": "total",
       "budget": 20971520,
-      "actual": 14343230,
+      "actual": 0,
       "status": "pass",
-      "percentage": 0.6839385032653809
+      "percentage": 0
     }
   ],
   "overall": {
-    "status": "warning",
-    "totalSize": 16014319,
+    "status": "pass",
+    "totalSize": 0,
     "totalBudget": 24094720
   },
-  "recommendations": [
-    "APP approaching budget (97%). Monitor closely."
-  ]
+  "recommendations": []
 }
