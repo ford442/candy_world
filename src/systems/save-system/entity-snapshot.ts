@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { animatedFoliage } from '../../world/state.ts';
 import type { EntitySnapshot } from './save-types.ts';
 
@@ -65,7 +64,7 @@ export function serializeEntitySnapshots(): EntitySnapshot[] {
  */
 export function applyEntitySnapshots(snapshots: EntitySnapshot[]): void {
     if (!snapshots || snapshots.length === 0) return;
-    console.log(`[SaveSystem] applyEntitySnapshots received ${snapshots.length} entities to restore.`);
+    console.warn(`[SaveSystem] applyEntitySnapshots received ${snapshots.length} entities to restore.`);
     // TODO: Connect this to the actual procedural generation / batcher pipeline
     // to respawn entities from snapshots. Currently a no-op as the scene
     // re-generates via deterministic map.json and seeds on load.

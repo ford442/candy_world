@@ -51,7 +51,7 @@ export interface EntitySnapshot {
     category?: string;
     layer?: string;
     biome?: string;
-    music?: Record<string, any>;
+    music?: Record<string, unknown>;
     placement?: string;
     params?: Record<string, unknown>;
 }
