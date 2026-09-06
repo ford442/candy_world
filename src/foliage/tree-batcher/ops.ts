@@ -350,7 +350,7 @@ export function growAccordionLeafBuffer(state: TreeBatcherState) {
         console.log(`[TreeBatcher] Grew accordion leaf buffer to ${state.accordionLeafCapacity}`);
     }
 
-export function addInstance(state: TreeBatcherState, mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color, countProp: 'trunkCount' | 'sphereCount' | 'capsuleCount' | 'helixCount' | 'roseCount' | 'accordionLeafCount', animType: number = 0, animOffset: number = 0, logicObjectId?: number) {
+export function addInstance(state: TreeBatcherState, mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color, countProp: 'trunkCount' | 'sphereCount' | 'capsuleCount' | 'helixCount' | 'roseCount' | 'accordionLeafCount', animType: number = 0, animOffset: number = 0) {
         let index = 0;
 
         switch (countProp) {
@@ -438,104 +438,7 @@ export function addInstance(state: TreeBatcherState, mesh: THREE.InstancedMesh, 
             case 'roseCount': state.roseCount++; mesh.count = state.roseCount; break;
             case 'accordionLeafCount': state.accordionLeafCount++; mesh.count = state.accordionLeafCount; break;
         }
-
-        if (logicObjectId !== undefined) {
-            let instances = state.logicIdToInstances.get(logicObjectId);
-            if (!instances) {
-                instances = [];
-                state.logicIdToInstances.set(logicObjectId, instances);
-            }
-            instances.push({ countProp, index });
-            state.instanceToLogicId.set(countProp + '_' + index, logicObjectId);
-        }
     }
-
-const _scratchMatrixBatch = new THREE.Matrix4();
-const _scratchV = new THREE.Vector3();
-
-export function removeInstance(state: TreeBatcherState, logicObject: THREE.Object3D) {
-    if (!state.initialized || !logicObject) return;
-
-    const logicId = logicObject.id;
-    const instances = state.logicIdToInstances.get(logicId);
-    if (!instances) return; // Object not managed by this batcher
-
-    for (const { countProp, index } of instances) {
-        let mesh: THREE.InstancedMesh;
-        switch (countProp) {
-            case 'trunkCount': mesh = state.trunks; break;
-            case 'sphereCount': mesh = state.spheres; break;
-            case 'capsuleCount': mesh = state.capsules; break;
-            case 'helixCount': mesh = state.helices; break;
-            case 'roseCount': mesh = state.roses; break;
-            case 'accordionLeafCount': mesh = state.accordionLeaves; break;
-            default: continue;
-        }
-
-        const lastIndex = state[countProp] - 1;
-
-        // If the instance to remove is not the last one, swap it with the last one
-        if (index !== lastIndex) {
-            // Swap matrices
-            const matrixArray = mesh.instanceMatrix.array as Float32Array;
-            for (let j = 0; j < 16; j++) {
-                matrixArray[index * 16 + j] = matrixArray[lastIndex * 16 + j];
-            }
-
-            // Swap colors
-            if (mesh.instanceColor) {
-                const colorArray = mesh.instanceColor.array as Float32Array;
-                for (let j = 0; j < 3; j++) {
-                    colorArray[index * 3 + j] = colorArray[lastIndex * 3 + j];
-                }
-                mesh.instanceColor.needsUpdate = true;
-            }
-
-            // Swap animation attributes
-            const animTypeAttr = mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
-            if (animTypeAttr) {
-                animTypeAttr.array[index] = animTypeAttr.array[lastIndex];
-                animTypeAttr.needsUpdate = true;
-            }
-
-            const animOffsetAttr = mesh.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute;
-            if (animOffsetAttr) {
-                animOffsetAttr.array[index] = animOffsetAttr.array[lastIndex];
-                animOffsetAttr.needsUpdate = true;
-            }
-
-            // Update mapping for the swapped instance
-            const lastLogicId = state.instanceToLogicId.get(countProp + '_' + lastIndex);
-            if (lastLogicId !== undefined) {
-                const lastLogicInstances = state.logicIdToInstances.get(lastLogicId);
-                if (lastLogicInstances) {
-                    const swappedInstance = lastLogicInstances.find(i => i.countProp === countProp && i.index === lastIndex);
-                    if (swappedInstance) {
-                        swappedInstance.index = index;
-                        state.instanceToLogicId.set(countProp + '_' + index, lastLogicId);
-                    }
-                }
-            }
-        }
-
-        // Clean up the last slot mapping
-        state.instanceToLogicId.delete(countProp + '_' + lastIndex);
-
-        // Hide the removed instance (now at lastIndex or we just zeroed it out implicitly by reducing count)
-        _scratchMatrixBatch.identity();
-        _scratchV.set(0, 0, 0);
-        _scratchMatrixBatch.scale(_scratchV);
-        _scratchMatrixBatch.toArray(mesh.instanceMatrix.array, lastIndex * 16);
-
-        mesh.instanceMatrix.needsUpdate = true;
-
-        // Decrease count
-        state[countProp]--;
-        mesh.count = state[countProp];
-    }
-
-    state.logicIdToInstances.delete(logicId);
-}
 
 export function flushRegistrations(state: TreeBatcherState) {
         const queueSize = state._pendingInstances.length;
@@ -674,10 +577,10 @@ export function registerBubbleWillow(state: TreeBatcherState, group: THREE.Group
                 _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
-                     addInstance(state, state.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset, group.id);
+                     addInstance(state, state.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
                      if (mesh) if (mesh) mesh.visible = false;
                 } else if (mesh.geometry.type === 'CapsuleGeometry') {
-                     addInstance(state, state.capsules, _scratchTreeMatrix, col, 'capsuleCount', animType, animOffset, group.id);
+                     addInstance(state, state.capsules, _scratchTreeMatrix, col, 'capsuleCount', animType, animOffset);
                      if (mesh) if (mesh) mesh.visible = false;
                 }
             }
@@ -696,7 +599,7 @@ export function registerBalloonBush(state: TreeBatcherState, group: THREE.Group,
                 _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
 
                 if (mesh.geometry.type === 'SphereGeometry') {
-                    addInstance(state, state.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset, group.id);
+                    addInstance(state, state.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
                     if (mesh) if (mesh) mesh.visible = false;
                 }
             }
@@ -715,10 +618,10 @@ export function registerHelixPlant(state: TreeBatcherState, group: THREE.Group, 
                 _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
 
                 if (mesh.geometry.type === 'TubeGeometry') {
-                    addInstance(state, state.helices, _scratchTreeMatrix, col, 'helixCount', animType, animOffset, group.id);
+                    addInstance(state, state.helices, _scratchTreeMatrix, col, 'helixCount', animType, animOffset);
                     if (mesh) if (mesh) mesh.visible = false;
                 } else if (mesh.geometry.type === 'SphereGeometry') {
-                    addInstance(state, state.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset, group.id);
+                    addInstance(state, state.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
                     if (mesh) if (mesh) mesh.visible = false;
                 }
             }
@@ -738,7 +641,7 @@ export function registerAccordionPalm(state: TreeBatcherState, group: THREE.Grou
                         const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                         const col = mat.color || _defaultColorOrange;
                         _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
-                        addInstance(state, state.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset, group.id);
+                        addInstance(state, state.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
                     } else if (trunkChild.type === 'Group') {
                         const headGroup = trunkChild as THREE.Group;
                         for (let k = 0; k < headGroup.children.length; k++) {
@@ -749,7 +652,7 @@ export function registerAccordionPalm(state: TreeBatcherState, group: THREE.Grou
                                 const col = mat.color || _defaultColorGreen;
                                 _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, headGroup.matrix);
                                 _scratchTreeMatrix.multiply(mesh.matrix);
-                                addInstance(state, state.accordionLeaves, _scratchTreeMatrix, col, 'accordionLeafCount', animType, animOffset, group.id);
+                                addInstance(state, state.accordionLeaves, _scratchTreeMatrix, col, 'accordionLeafCount', animType, animOffset);
                             }
                         }
                     }
@@ -770,11 +673,11 @@ export function registerFloweringTree(state: TreeBatcherState, group: THREE.Grou
                 _scratchTreeMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
-                    addInstance(state, state.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset, group.id);
+                    addInstance(state, state.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
                 } else if (mesh.geometry.type === 'SphereGeometry') {
-                    addInstance(state, state.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset, group.id);
+                    addInstance(state, state.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
                 } else if (mesh.geometry.type === 'TorusKnotGeometry') {
-                    addInstance(state, state.roses, _scratchTreeMatrix, col, 'roseCount', animType, animOffset, group.id);
+                    addInstance(state, state.roses, _scratchTreeMatrix, col, 'roseCount', animType, animOffset);
                 }
                 if (mesh) if (mesh) mesh.visible = false;
             }

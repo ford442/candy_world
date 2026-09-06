@@ -12,14 +12,13 @@ import { foliageGroup } from '../../world/state.ts';
 import {
     disposeInstancedMesh,
     flushRegistrations,
-    removeInstance,
     registerAccordionPalm,
     registerBalloonBush,
     registerBubbleWillow,
     registerFloweringTree,
     registerHelixPlant,
 } from './ops.ts';
-import type { TreeBatcherState, InstanceCountProp } from './types.ts';
+import type { TreeBatcherState } from './types.ts';
 
 export class TreeBatcher implements TreeBatcherState {
     private static instance: TreeBatcher;
@@ -51,8 +50,6 @@ export class TreeBatcher implements TreeBatcherState {
 
     // Batch queue for WASM matrix composition
     _pendingInstances: PendingInstance[] = [];
-    logicIdToInstances = new Map<number, { countProp: InstanceCountProp, index: number }[]>();
-    instanceToLogicId = new Map<string, number>();
 
     private constructor() {
         // Deferred initialization
@@ -145,10 +142,6 @@ export class TreeBatcher implements TreeBatcherState {
         flushRegistrations(this);
     }
 
-    removeInstance(logicObject: THREE.Object3D) {
-        removeInstance(this, logicObject);
-    }
-
     getStats() {
         return {
             trunks: { count: this.trunkCount, capacity: this.trunkCapacity },
@@ -176,8 +169,6 @@ export class TreeBatcher implements TreeBatcherState {
         this.roseCount = 0;
         this.accordionLeafCount = 0;
         this._pendingInstances = [];
-        this.logicIdToInstances.clear();
-        this.instanceToLogicId.clear();
         this.initialized = false;
     }
 }
