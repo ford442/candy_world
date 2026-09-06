@@ -22,8 +22,8 @@ importers:
         specifier: ^9.39.5
         version: 9.39.5
       '@playwright/test':
-        specifier: ^1.60.0
-        version: 1.62.1
+        specifier: 1.63.0
+        version: 1.63.0
       '@types/three':
         specifier: ^0.171.0
         version: 0.171.0
@@ -40,8 +40,8 @@ importers:
         specifier: ^2.32.0
         version: 2.32.0(@typescript-eslint/parser@8.69.0(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3))(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)
       playwright:
-        specifier: ^1.60.0
-        version: 1.62.1
+        specifier: 1.63.0
+        version: 1.63.0
       prettier:
         specifier: ^3.9.5
         version: 3.9.6
@@ -70,7 +70,7 @@ importers:
   tools/visual-regression:
     dependencies:
       '@playwright/test':
-        specifier: ^1.63.0
+        specifier: 1.63.0
         version: 1.63.0
       archiver:
         specifier: ^6.0.1
@@ -79,8 +79,8 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       playwright:
-        specifier: ^1.62.1
-        version: 1.62.1
+        specifier: 1.63.0
+        version: 1.63.0
       pngjs:
         specifier: ^7.0.0
         version: 7.0.0
@@ -1922,13 +1922,8 @@ packages:
     resolution: {integrity: sha512-o8mkY4E/+LNUf6LzX96ht6k6CEDi65k9G2rjMtBe9Oo+VPKSvl+0GKHuH/AlG+GA5LPG/i5hrekkxUc3s2HU+Q==}
     hasBin: true
 
-  playwright-core@1.62.1:
-    resolution: {integrity: sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==}
-    engines: {node: '>=20'}
-    hasBin: true
-
-  playwright-core@1.62.1:
-    resolution: {integrity: sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==}
+  playwright-core@1.63.0:
+    resolution: {integrity: sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -4173,21 +4168,19 @@ snapshots:
     dependencies:
       pngjs: 6.0.0
 
-  playwright-core@1.62.1: {}
-
   playwright-core@1.63.0: {}
 
-  playwright-core@1.62.1: {}
+
 
   playwright@1.60.0:
     dependencies:
-      playwright-core: 1.62.1
+      playwright-core: 1.63.0
     optionalDependencies:
       fsevents: 2.3.2
 
   playwright@1.62.1:
     dependencies:
-      playwright-core: 1.62.1
+      playwright-core: 1.63.0
     optionalDependencies:
       fsevents: 2.3.2
 
