@@ -40,9 +40,7 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
     reloadBtn.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.repeat) return;
         if (e.key === 'Enter' || e.key === ' ') {
-            if (!reloadBtn.classList.contains('keyboard-active')) {
-                reloadBtn.classList.add('keyboard-active');
-            }
+
         }
     });
     container.querySelector('.loading-content')?.appendChild(reloadBtn);
@@ -57,9 +55,7 @@ export function wireSkipButton(skipButton: HTMLButtonElement, onSkip: () => void
     skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.repeat) return;
         if (e.key === 'Enter' || e.key === ' ') {
-            if (!skipButton.classList.contains('keyboard-active')) {
-                skipButton.classList.add('keyboard-active');
-            }
+
         }
     });
 }

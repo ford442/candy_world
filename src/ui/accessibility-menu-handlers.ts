@@ -33,9 +33,7 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
                     activeElement.classList.contains('a11y-preset-card') ||
                     activeElement.classList.contains('a11y-close-btn'))
             ) {
-                if (!activeElement.classList.contains('keyboard-active')) {
-                    activeElement.classList.add('keyboard-active');
-                }
+
             }
         }
 

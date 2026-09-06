@@ -36,18 +36,14 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
             session.startButton.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     if (e.repeat) return;
-                    session.startButton!.classList.add('keyboard-active');
                 }
             });
 
-            const cleanupStartBtn = () => session.startButton!.classList.remove('keyboard-active');
 
             session.startButton.addEventListener('keyup', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
-                    cleanupStartBtn();
                 }
             });
-            session.startButton.addEventListener('blur', cleanupStartBtn);
         }
     }
 

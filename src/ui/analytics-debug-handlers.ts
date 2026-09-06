@@ -109,16 +109,7 @@ export class AnalyticsDebugOverlay {
              target.classList.contains('analytics-debug-close') ||
              target.classList.contains('analytics-debug-toggle-switch'))
           ) {
-            if (!target.classList.contains('keyboard-active')) {
-              target.classList.add('keyboard-active');
-              const removeFeedback = () => {
-                target.classList.remove('keyboard-active');
-                target.removeEventListener('keyup', removeFeedback);
-                target.removeEventListener('blur', removeFeedback);
-              };
-              target.addEventListener('keyup', removeFeedback);
-              target.addEventListener('blur', removeFeedback);
-            }
+
           }
         }
       });

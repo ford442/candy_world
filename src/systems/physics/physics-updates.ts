@@ -154,9 +154,8 @@ export function checkHarmonyOrbs() {
         const distSq = dx*dx + dy*dy + dz*dz;
         if (distSq < radiusSq) {
             orb.active = false;
-            harmonyOrbSystem.dummy.position.set(0, -9999, 0);
-            harmonyOrbSystem.dummy.scale.setScalar(0);
-            _scratchMatrix.compose(harmonyOrbSystem.dummy.position, harmonyOrbSystem.dummy.quaternion, harmonyOrbSystem.dummy.scale);
+            _scratchMatrix.makeTranslation(0, -9999, 0);
+            _scratchMatrix.scale(new THREE.Vector3(0, 0, 0));
             _scratchMatrix.toArray(harmonyOrbSystem.mesh.instanceMatrix.array, (i) * 16);
             harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
             spawnImpact(orb.position, 'berry', 0x9933FF);

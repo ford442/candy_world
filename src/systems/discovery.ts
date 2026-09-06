@@ -199,20 +199,8 @@ class DiscoverySystem {
         closeBtn.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 if (e.repeat) return;
-                closeBtn.classList.add('keyboard-active');
             }
         });
-
-        const cleanupKeyboardActive = () => {
-            closeBtn.classList.remove('keyboard-active');
-        };
-
-        closeBtn.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                cleanupKeyboardActive();
-            }
-        });
-        closeBtn.addEventListener('blur', cleanupKeyboardActive);
 
         logContainer.appendChild(closeBtn);
 

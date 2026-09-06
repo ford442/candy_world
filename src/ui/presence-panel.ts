@@ -181,17 +181,14 @@ export function installPresenceStartScreenUI(): void {
         if (e.repeat) return;
         if (e.key === ' ' || e.key === 'Enter') {
             e.preventDefault();
-            checkbox.classList.add('keyboard-active');
             toggleCheckbox();
         }
     });
     checkbox.addEventListener('keyup', (e) => {
         if (e.key === ' ' || e.key === 'Enter') {
-            checkbox.classList.remove('keyboard-active');
         }
     });
     checkbox.addEventListener('blur', () => {
-        checkbox.classList.remove('keyboard-active');
     });
 
     copyBtn.addEventListener('click', async () => {
