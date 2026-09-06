@@ -114,7 +114,6 @@ export function createKeyboardHandlers(
                 event.preventDefault();
                 const closePlaylistBtn = document.getElementById('closePlaylistBtn');
                 if (closePlaylistBtn) {
-                    closePlaylistBtn.classList.add('keyboard-active');
                     // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
                 }
                 togglePlaylist();
@@ -241,13 +240,11 @@ export function createKeyboardHandlers(
             case 'KeyF':
                 if (isExploreActive()) break;
                 keyStates.action = true;
-                if (session.hudMine) session.hudMine.classList.add('keyboard-active');
                 break;
             case 'KeyE':
             case 'e':
                 if (isExploreActive()) break;
                 keyStates.dash = true;
-                if (session.hudDash) session.hudDash.classList.add('keyboard-active');
                 break;
             case 'KeyX':
             case 'x':
@@ -258,7 +255,6 @@ export function createKeyboardHandlers(
             case 'z':
                 if (isExploreActive()) break;
                 keyStates.phase = true;
-                if (session.hudPhase) session.hudPhase.classList.add('keyboard-active');
                 break;
             case 'KeyC':
             case 'c':
@@ -369,12 +365,10 @@ export function createKeyboardHandlers(
                 break;
             case 'KeyF':
                 keyStates.action = false;
-                if (session.hudMine) session.hudMine.classList.remove('keyboard-active');
                 break;
             case 'KeyE':
             case 'e':
                 keyStates.dash = false;
-                if (session.hudDash) session.hudDash.classList.remove('keyboard-active');
                 break;
             case 'KeyX':
             case 'x':
@@ -383,7 +377,6 @@ export function createKeyboardHandlers(
             case 'KeyZ':
             case 'z':
                 keyStates.phase = false;
-                if (session.hudPhase) session.hudPhase.classList.remove('keyboard-active');
                 break;
             case 'KeyR':
             case 'r':

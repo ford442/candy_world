@@ -142,32 +142,7 @@ export function initPlaylistManager(
         });
     }
 
-    // ♿ Aria: Delegated keyboard active listeners for all playlist buttons
-    if (playlistOverlay) {
-        playlistOverlay.addEventListener('keydown', (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                if (e.repeat) return;
-                const target = e.target as HTMLElement;
-                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                    target.classList.add('keyboard-active');
-                }
-            }
-        });
-        playlistOverlay.addEventListener('keyup', (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                const target = e.target as HTMLElement;
-                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                    target.classList.remove('keyboard-active');
-                }
-            }
-        });
-        playlistOverlay.addEventListener('blur', (e: FocusEvent) => {
-            const target = e.target as HTMLElement;
-            if (target && target.matches && target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                target.classList.remove('keyboard-active');
-            }
-        }, true); // Use capture to ensure we catch blur events on dynamically added children
-    }
+
 
     // 🎨 Palette: Improve Drag & Drop Feedback in Jukebox
     if (playlistOverlay) {
@@ -456,9 +431,6 @@ export function renderPlaylist(): void {
         text.className = 'jukebox-empty-text';
         text.id = 'jukebox-empty-desc';
         text.innerText = 'Your playlist is empty — drop some tracks in!';
-        text.setAttribute('role', 'status');
-        text.setAttribute('aria-live', 'polite');
-        text.setAttribute('aria-atomic', 'true');
 
         const browseBtn = document.createElement('button');
         browseBtn.type = 'button';
@@ -633,7 +605,6 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
     if (event.code === 'KeyQ') {
         event.preventDefault();
         if (closePlaylistBtn) {
-            closePlaylistBtn.classList.add('keyboard-active');
             // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
         }
         togglePlaylist();
@@ -645,7 +616,6 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
         const playlistInput = document.getElementById('playlistUploadInput') as HTMLInputElement;
         const addSongsBtnEl = document.getElementById('addSongsBtn');
         if (addSongsBtnEl) {
-            addSongsBtnEl.classList.add('keyboard-active');
             // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
         }
         if (playlistInput) playlistInput.click();
@@ -691,7 +661,6 @@ export function handlePlaylistKeyUp(event: KeyboardEvent): boolean {
 
     if (event.code === 'KeyQ') {
         if (closePlaylistBtn) {
-            closePlaylistBtn.classList.remove('keyboard-active');
         }
         // If playlist is currently open, we consider this key handled by the playlist
         if (isPlaylistOpen && playlistOverlay) handled = true;
@@ -700,14 +669,12 @@ export function handlePlaylistKeyUp(event: KeyboardEvent): boolean {
     if (event.code === 'KeyU') {
         const addSongsBtnEl = document.getElementById('addSongsBtn');
         if (addSongsBtnEl) {
-            addSongsBtnEl.classList.remove('keyboard-active');
         }
         if (isPlaylistOpen && playlistOverlay) handled = true;
     }
 
     if (event.code === 'Escape') {
         if (closePlaylistBtn) {
-            closePlaylistBtn.classList.remove('keyboard-active');
         }
         if (isPlaylistOpen && playlistOverlay) handled = true;
     }
