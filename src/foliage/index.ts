@@ -148,6 +148,7 @@ export {
     VineSwing,
 } from './trees.ts';
 
+export { TreeBatcher, treeBatcher } from './tree-batcher/index.ts';
 export { createLuminousPlant } from './luminous-plant.ts';
 export { LuminousPlantBatcher, luminousPlantBatcher } from './luminous-plant-batcher.ts';
 export { createFloatingOrb, createFloatingOrbCluster } from './environment.ts';
