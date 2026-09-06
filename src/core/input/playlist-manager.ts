@@ -142,32 +142,7 @@ export function initPlaylistManager(
         });
     }
 
-    // ♿ Aria: Delegated keyboard active listeners for all playlist buttons
-    if (playlistOverlay) {
-        playlistOverlay.addEventListener('keydown', (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                if (e.repeat) return;
-                const target = e.target as HTMLElement;
-                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                    target.classList.add('keyboard-active');
-                }
-            }
-        });
-        playlistOverlay.addEventListener('keyup', (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                const target = e.target as HTMLElement;
-                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                    target.classList.remove('keyboard-active');
-                }
-            }
-        });
-        playlistOverlay.addEventListener('blur', (e: FocusEvent) => {
-            const target = e.target as HTMLElement;
-            if (target && target.matches && target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                target.classList.remove('keyboard-active');
-            }
-        }, true); // Use capture to ensure we catch blur events on dynamically added children
-    }
+
 
     // 🎨 Palette: Improve Drag & Drop Feedback in Jukebox
     if (playlistOverlay) {
@@ -360,11 +335,13 @@ export function renderPlaylist(): void {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'playlist-btn';
-        // 🎨 Palette: Use formatted title for tooltip and screen readers
-        btn.title = displayName;
-        btn.setAttribute('aria-label', `Play ${displayName}`);
         if (index === currentIdx) {
+            btn.title = `Currently playing: ${displayName}`;
+            btn.setAttribute('aria-label', `Currently playing: ${displayName}`);
             btn.setAttribute('aria-current', 'true');
+        } else {
+            btn.title = `Play ${displayName}`;
+            btn.setAttribute('aria-label', `Play ${displayName}`);
         }
 
         btn.innerHTML = `
@@ -455,6 +432,9 @@ export function renderPlaylist(): void {
         const text = document.createElement('div');
         text.className = 'jukebox-empty-text';
         text.id = 'jukebox-empty-desc';
+        text.setAttribute('role', 'status');
+        text.setAttribute('aria-live', 'polite');
+        text.setAttribute('aria-atomic', 'true');
         text.innerText = 'Your playlist is empty — drop some tracks in!';
 
         const browseBtn = document.createElement('button');

@@ -37,14 +37,8 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
     reloadBtn.setAttribute('aria-label', 'Reload page to try again');
     reloadBtn.innerHTML = '<span aria-hidden="true">🔄</span> Reload Page';
     reloadBtn.addEventListener('click', () => window.location.reload());
-    reloadBtn.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.repeat) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-            if (!reloadBtn.classList.contains('keyboard-active')) {
-                reloadBtn.classList.add('keyboard-active');
-            }
-        }
-    });
+
+
     container.querySelector('.loading-content')?.appendChild(reloadBtn);
 
     yieldToPaint(50).then(() => {
@@ -54,14 +48,8 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
 
 export function wireSkipButton(skipButton: HTMLButtonElement, onSkip: () => void): void {
     skipButton.addEventListener('click', onSkip);
-    skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.repeat) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-            if (!skipButton.classList.contains('keyboard-active')) {
-                skipButton.classList.add('keyboard-active');
-            }
-        }
-    });
+
+
 }
 
 export function createLoadingScreenDOM(
@@ -141,6 +129,7 @@ export function createLoadingScreenDOM(
     let skipButton: HTMLButtonElement | null = null;
     if (options.allowSkipDeferred) {
         skipButton = document.createElement('button');
+        skipButton.type = 'button';
         skipButton.className = 'skip-button';
         skipButton.innerHTML =
             '<span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>';
@@ -151,6 +140,7 @@ export function createLoadingScreenDOM(
 
     const statusIndicators = document.createElement('div');
     statusIndicators.className = 'status-indicators';
+    statusIndicators.setAttribute('aria-hidden', 'true');
 
     phases.forEach((phase, index) => {
         const indicator = document.createElement('div');

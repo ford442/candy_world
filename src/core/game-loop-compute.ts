@@ -1,6 +1,6 @@
 import { harmonyOrbSystem } from '../foliage/aurora.ts';
 import { windComputeSystem } from '../foliage/wind-compute.ts';
-import { animatedFoliage } from '../world/state.ts';
+import { computeFoliageObjects } from '../world/state.ts';
 import { isCIorHeadless } from './config.ts';
 import { rendererRef } from './game-loop-core.ts';
 
@@ -16,7 +16,9 @@ export function updateComputePhase() {
                 if (!isCIorHeadless()) { rendererRef.compute(harmonyOrbSystem.computeNode); }
             }
 
-            for (const obj of animatedFoliage) {
+            // ⚡ OPTIMIZATION: Bypassed checking the massive animatedFoliage array.
+            // computeFoliageObjects only contains objects that have WebGPU compute nodes.
+            for (const obj of computeFoliageObjects) {
                 if (obj.userData.computeNode) {
                     if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
                         if (!isCIorHeadless()) { rendererRef.compute(obj.userData.computeNode); }
