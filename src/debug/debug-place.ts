@@ -10,6 +10,7 @@
  */
 
 import * as THREE from 'three';
+import { snapshotEntity } from '../systems/entity-snapshot.ts';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
 import { showToast } from '../utils/toast.ts';
 import { create } from '../world/foliage-registry.ts';
@@ -37,6 +38,7 @@ let _reticle: THREE.Mesh | null = null;
 let _currentType = 'mushroom';
 let _currentScale = 1.0;
 let _currentRotation = 0.0;
+let _lastSpawnedObject: THREE.Object3D | null = null;
 
 const ENTITY_TYPES = [
     'mushroom',
@@ -136,6 +138,30 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
 
     const flexRow = _panel.children[1] as HTMLElement;
     flexRow.appendChild(typeSelect);
+    const snapshotBtn = document.createElement('button');
+    snapshotBtn.textContent = 'Capture Snapshot';
+    snapshotBtn.style.cssText = 'background:#1a4;color:#fff;border:1px solid #3c6;padding:2px 6px;margin-left:4px;cursor:pointer;';
+    snapshotBtn.addEventListener('click', () => {
+        if (!_lastSpawnedObject) {
+            showToast('No recent object to capture', '⚠️', 2000);
+            return;
+        }
+        try {
+            const snap = snapshotEntity(_lastSpawnedObject, `snap_${Date.now()}`);
+            if (snap) {
+                console.log('[DebugPlace] Entity Snapshot:');
+                console.log(JSON.stringify(snap, null, 2));
+                showToast('Snapshot captured to console', '✅', 2000);
+            } else {
+                showToast('Failed to capture snapshot', '❌', 2000);
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Error capturing snapshot', '❌', 2000);
+        }
+    });
+    flexRow.appendChild(snapshotBtn);
+
 
     document.body.appendChild(_panel);
 
@@ -182,6 +208,7 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
 
         const obj = create(_currentType, { scale: _currentScale });
         if (obj) {
+            _lastSpawnedObject = obj;
             plantOnSurface(obj, _reticle.position.x, _reticle.position.z, {
                 groundY: _reticle.position.y,
             });

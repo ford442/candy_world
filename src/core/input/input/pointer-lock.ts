@@ -31,6 +31,8 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
             }
         });
 
+
+
     }
 
     session.controls.addEventListener('lock', () => {
