@@ -16,6 +16,7 @@ function setupAbilityKeyboardInteractions(
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             if (e.repeat) return;
+            element.classList.add('keyboard-active');
             onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
         }
     });
@@ -23,6 +24,7 @@ function setupAbilityKeyboardInteractions(
     element.addEventListener('keyup', (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
+            element.classList.remove('keyboard-active');
             onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
         }
     });
@@ -32,18 +34,21 @@ function setupAbilityKeyboardInteractions(
         e.preventDefault();
         e.stopPropagation();
         element.setPointerCapture(e.pointerId);
+        element.classList.add('keyboard-active');
         onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
     });
 
     element.addEventListener('pointerup', (e: PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        element.classList.remove('keyboard-active');
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
     });
 
     element.addEventListener('pointercancel', (e: PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        element.classList.remove('keyboard-active');
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
     });
 
@@ -52,6 +57,7 @@ function setupAbilityKeyboardInteractions(
     });
 
     element.addEventListener('blur', () => {
+        element.classList.remove('keyboard-active');
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
     });
 }
