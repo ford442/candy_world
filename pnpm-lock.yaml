@@ -26,7 +26,7 @@ importers:
         specifier: ^9.39.5
         version: 9.39.5
       '@playwright/test':
-        specifier: 1.63.0
+        specifier: ^1.63.0
         version: 1.63.0
       '@types/three':
         specifier: ^0.171.0
