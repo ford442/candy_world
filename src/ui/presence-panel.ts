@@ -48,6 +48,7 @@ export function installPresenceStartScreenUI(): void {
 
     const checkbox = document.createElement('button');
     checkbox.type = 'button';
+    checkbox.className = 'toggle-button';
     checkbox.setAttribute('role', 'switch');
     checkbox.id = 'presence-join-checkbox';
 
@@ -176,22 +177,13 @@ export function installPresenceStartScreenUI(): void {
         }
     });
 
-    // Keyboard active state matching tactile feedback rule
+    // Tactile feedback is handled globally by setupGlobalKeyboardTactileFeedback in interaction-utils.ts
     checkbox.addEventListener('keydown', (e) => {
         if (e.repeat) return;
         if (e.key === ' ' || e.key === 'Enter') {
             e.preventDefault();
-            checkbox.classList.add('keyboard-active');
             toggleCheckbox();
         }
-    });
-    checkbox.addEventListener('keyup', (e) => {
-        if (e.key === ' ' || e.key === 'Enter') {
-            checkbox.classList.remove('keyboard-active');
-        }
-    });
-    checkbox.addEventListener('blur', () => {
-        checkbox.classList.remove('keyboard-active');
     });
 
     copyBtn.addEventListener('click', async () => {

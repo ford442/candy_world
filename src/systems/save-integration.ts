@@ -8,6 +8,8 @@ import { awakenedPersistence } from './awakened-persistence-api.ts';
 import { discoverySystem } from './discovery.ts';
 import { player } from './physics/index.ts';
 import {
+    serializeEntitySnapshots,
+    applyEntitySnapshots,
     saveSystem,
     createPlayerSaveData,
     createWorldSaveData,
@@ -68,11 +70,13 @@ function gatherPlayerData(): SaveData['player'] {
 }
 
 function gatherWorldData(): SaveData['world'] {
-    return createWorldSaveData(
+    const worldData = createWorldSaveData(
         0.5,
         { state: 'clear', intensity: 0, stormCharge: 0 },
         { season: 'spring', progress: 0, moonPhase: 0 }
     );
+    worldData.entitySnapshots = serializeEntitySnapshots();
+    return worldData;
 }
 
 function gatherProgressData(playtime: number): SaveData['progress'] {
@@ -94,6 +98,9 @@ function gatherProgressData(playtime: number): SaveData['progress'] {
 }
 
 export function applyLoadedData(data: SaveData): void {
+    if (data.world && data.world.entitySnapshots) {
+        applyEntitySnapshots(data.world.entitySnapshots);
+    }
     if (data.player.position) {
         player.position.set(data.player.position.x, data.player.position.y, data.player.position.z);
     }

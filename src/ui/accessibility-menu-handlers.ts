@@ -22,23 +22,6 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
             return;
         }
 
-        // ♿ Aria: Keyboard tactile feedback for interactive elements
-        if (event.key === 'Enter' || event.key === ' ') {
-            if (event.repeat) return;
-            const activeElement = document.activeElement as HTMLElement;
-            if (
-                activeElement &&
-                (activeElement.classList.contains('a11y-tab') ||
-                    activeElement.classList.contains('a11y-button') ||
-                    activeElement.classList.contains('a11y-preset-card') ||
-                    activeElement.classList.contains('a11y-close-btn'))
-            ) {
-                if (!activeElement.classList.contains('keyboard-active')) {
-                    activeElement.classList.add('keyboard-active');
-                }
-            }
-        }
-
         // ♿ Aria: Keyboard navigation for Tabs (Up/Down/Left/Right Arrows)
         if (
             event.key === 'ArrowUp' ||

@@ -142,33 +142,6 @@ export function initPlaylistManager(
         });
     }
 
-    // ♿ Aria: Delegated keyboard active listeners for all playlist buttons
-    if (playlistOverlay) {
-        playlistOverlay.addEventListener('keydown', (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                if (e.repeat) return;
-                const target = e.target as HTMLElement;
-                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                    target.classList.add('keyboard-active');
-                }
-            }
-        });
-        playlistOverlay.addEventListener('keyup', (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                const target = e.target as HTMLElement;
-                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                    target.classList.remove('keyboard-active');
-                }
-            }
-        });
-        playlistOverlay.addEventListener('blur', (e: FocusEvent) => {
-            const target = e.target as HTMLElement;
-            if (target && target.matches && target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                target.classList.remove('keyboard-active');
-            }
-        }, true); // Use capture to ensure we catch blur events on dynamically added children
-    }
-
     // 🎨 Palette: Improve Drag & Drop Feedback in Jukebox
     if (playlistOverlay) {
         const dropZoneText = document.createElement('div');

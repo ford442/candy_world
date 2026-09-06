@@ -160,6 +160,7 @@ class DiscoverySystem {
         logContainer.appendChild(title);
 
         const closeBtn = document.createElement('button');
+        closeBtn.className = 'discovery-close-btn';
         closeBtn.innerText = '✕';
         closeBtn.setAttribute('aria-label', 'Close discovery log');
         closeBtn.style.position = 'absolute';
@@ -194,25 +195,6 @@ class DiscoverySystem {
                 closeOverlay();
             }
         });
-
-        // ♿ Aria: Keyboard tactile feedback for interactive elements
-        closeBtn.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                if (e.repeat) return;
-                closeBtn.classList.add('keyboard-active');
-            }
-        });
-
-        const cleanupKeyboardActive = () => {
-            closeBtn.classList.remove('keyboard-active');
-        };
-
-        closeBtn.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                cleanupKeyboardActive();
-            }
-        });
-        closeBtn.addEventListener('blur', cleanupKeyboardActive);
 
         logContainer.appendChild(closeBtn);
 
