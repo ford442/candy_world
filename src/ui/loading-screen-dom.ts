@@ -37,6 +37,8 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
     reloadBtn.setAttribute('aria-label', 'Reload page to try again');
     reloadBtn.innerHTML = '<span aria-hidden="true">🔄</span> Reload Page';
     reloadBtn.addEventListener('click', () => window.location.reload());
+
+
     container.querySelector('.loading-content')?.appendChild(reloadBtn);
 
     yieldToPaint(50).then(() => {
@@ -46,6 +48,8 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
 
 export function wireSkipButton(skipButton: HTMLButtonElement, onSkip: () => void): void {
     skipButton.addEventListener('click', onSkip);
+
+
 }
 
 export function createLoadingScreenDOM(

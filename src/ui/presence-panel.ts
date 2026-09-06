@@ -186,6 +186,8 @@ export function installPresenceStartScreenUI(): void {
         }
     });
 
+
+
     copyBtn.addEventListener('click', async () => {
         try {
             await navigator.clipboard.writeText(shareInput.value);

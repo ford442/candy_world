@@ -183,6 +183,7 @@ export function checkHarmonyOrbs() {
         const distSq = dx * dx + dy * dy + dz * dz;
         if (distSq < radiusSq) {
             orb.active = false;
+
             // Zero-scale + translate-far-below hides the instance without an
             // Object3D dummy or a Matrix4.compose() allocation (#1694): a
             // zero-scale transform collapses rotation, so only the
@@ -192,6 +193,7 @@ export function checkHarmonyOrbs() {
             matrixArray.fill(0, offset, offset + 16);
             matrixArray[offset + 13] = -9999;
             matrixArray[offset + 15] = 1;
+
             harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
             spawnImpact(orb.position, 'berry', 0x9933ff);
             unlockSystem.harvest('harmony_orb', 1, 'Harmony Orb');

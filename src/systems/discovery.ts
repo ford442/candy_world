@@ -196,6 +196,8 @@ class DiscoverySystem {
             }
         });
 
+
+
         logContainer.appendChild(closeBtn);
 
         const grid = document.createElement('div');
