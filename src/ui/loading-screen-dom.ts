@@ -125,6 +125,7 @@ export function createLoadingScreenDOM(
     let skipButton: HTMLButtonElement | null = null;
     if (options.allowSkipDeferred) {
         skipButton = document.createElement('button');
+        skipButton.type = 'button';
         skipButton.className = 'skip-button';
         skipButton.innerHTML =
             '<span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>';
@@ -135,6 +136,7 @@ export function createLoadingScreenDOM(
 
     const statusIndicators = document.createElement('div');
     statusIndicators.className = 'status-indicators';
+    statusIndicators.setAttribute('aria-hidden', 'true');
 
     phases.forEach((phase, index) => {
         const indicator = document.createElement('div');

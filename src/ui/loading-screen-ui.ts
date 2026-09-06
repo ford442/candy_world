@@ -534,12 +534,20 @@ export class LoadingScreen {
     }
 
     private updatePhaseIndicators(): void {
-        const indicators = document.querySelectorAll('.phase-indicator');
+        if (!this.container) return;
+        const indicators = this.container.querySelectorAll('.phase-indicator');
         indicators.forEach((indicator, index) => {
             indicator.classList.remove('active', 'complete', 'skipped');
 
+            const phase = this.progress.getPhases()[index];
+            if (phase && phase.isDeferred && phase.weight === 0) {
+                (indicator as HTMLElement).style.display = 'none';
+            } else {
+                (indicator as HTMLElement).style.display = '';
+            }
+
             if (index < this.progress.getCurrentPhaseIndex()) {
-                const phaseId = this.progress.getPhases()[index]?.id;
+                const phaseId = phase?.id;
                 if (phaseId && this.progress.getSkippedPhases().has(phaseId)) {
                     indicator.classList.add('skipped');
                 } else {
