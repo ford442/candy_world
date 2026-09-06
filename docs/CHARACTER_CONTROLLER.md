@@ -22,14 +22,12 @@ imports it.
 There are two movement paths, selected in `physics-core.ts`'s
 `updateDefaultState`:
 
-- **C++ path (off-lake):** `updatePhysicsCPP` (`emscripten/physics.cpp`),
-  called across the WASM boundary whenever the player is outside the Melody
-  Lake basin.
-- **JS-fallback path (in-lake, or on C++ failure):** `updateJSFallbackMovement`
-  (`src/systems/physics/physics-updates.ts`), used explicitly inside the
-  Melody Lake basin (the C++ engine doesn't know about the visual lake
-  carving and would return the wrong ground height there) and whenever
-  `updatePhysicsCPP` returns a failure sentinel.
+- **Off-lake + native present:** `updatePhysicsCPP` (`emscripten/physics.cpp`)
+  is called across the WASM boundary as the C++ integrator (no #1577 behaviours).
+- **In lake, or updatePhysicsCPP < 0:** `updateJSFallbackMovement` is called,
+  which delegates to `resolveCharacterMovement` using `CONFIG.player` tuning.
+- **Honest note:** this VM / JS-fallback-mode clients always take the JS path
+  off-lake because the compiled WASM module is missing or falls back to `-1`.
 
 **The character controller described below owns the JS-fallback path only.**
 It does not touch, and is not reachable from, the C++ path.
