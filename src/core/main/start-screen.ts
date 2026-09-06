@@ -170,6 +170,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 e.preventDefault();
                 fullWorldToggle.click();
 
+
             }
         });
     }
@@ -453,11 +454,7 @@ export function setupStartScreen(ctx: MainContext): void {
         }
     });
 
-    startButton.addEventListener('keydown', (e) => {
-        if (e.repeat) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-        }
-    });
+
     if (isBootInstant()) {
         try {
             (window as any).__bootInstant = true;

@@ -31,20 +31,8 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
             }
         });
 
-        if (session.startButton) {
-            // ♿ Aria: Keyboard tactile feedback for start button
-            session.startButton.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    if (e.repeat) return;
-                }
-            });
 
 
-            session.startButton.addEventListener('keyup', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                }
-            });
-        }
     }
 
     session.controls.addEventListener('lock', () => {

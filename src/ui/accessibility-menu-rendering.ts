@@ -103,12 +103,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         closeBtn.onclick = () => {
             this.close();
         };
-        closeBtn.addEventListener('keydown', (e) => {
-            if (e.repeat) return;
-            if (e.key === 'Enter' || e.key === ' ') {
 
-            }
-        });
+
         closeBtn.setAttribute('aria-label', 'Close accessibility menu');
 
         header.appendChild(title);
@@ -185,12 +181,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             tab.onclick = () => {
                 this.switchSection(section);
             };
-            tab.addEventListener('keydown', (e) => {
-                if (e.repeat) return;
-                if (e.key === 'Enter' || e.key === ' ') {
 
-                }
-            });
+
 
             sidebar.appendChild(tab);
         }
@@ -390,12 +382,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             btn.onclick = () => {
                 this.startKeyRebind(action, btn);
             };
-            btn.addEventListener('keydown', (e) => {
-                if (e.repeat) return;
-                if (e.key === 'Enter' || e.key === ' ') {
 
-                }
-            });
+
 
             row.appendChild(label);
             row.appendChild(btn);
