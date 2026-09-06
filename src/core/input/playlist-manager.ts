@@ -142,6 +142,8 @@ export function initPlaylistManager(
         });
     }
 
+
+
     // 🎨 Palette: Improve Drag & Drop Feedback in Jukebox
     if (playlistOverlay) {
         const dropZoneText = document.createElement('div');
@@ -603,7 +605,6 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
     if (event.code === 'KeyQ') {
         event.preventDefault();
         if (closePlaylistBtn) {
-            closePlaylistBtn.classList.add('keyboard-active');
             // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
         }
         togglePlaylist();
@@ -615,7 +616,6 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
         const playlistInput = document.getElementById('playlistUploadInput') as HTMLInputElement;
         const addSongsBtnEl = document.getElementById('addSongsBtn');
         if (addSongsBtnEl) {
-            addSongsBtnEl.classList.add('keyboard-active');
             // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
         }
         if (playlistInput) playlistInput.click();
@@ -661,7 +661,6 @@ export function handlePlaylistKeyUp(event: KeyboardEvent): boolean {
 
     if (event.code === 'KeyQ') {
         if (closePlaylistBtn) {
-            closePlaylistBtn.classList.remove('keyboard-active');
         }
         // If playlist is currently open, we consider this key handled by the playlist
         if (isPlaylistOpen && playlistOverlay) handled = true;
@@ -670,14 +669,12 @@ export function handlePlaylistKeyUp(event: KeyboardEvent): boolean {
     if (event.code === 'KeyU') {
         const addSongsBtnEl = document.getElementById('addSongsBtn');
         if (addSongsBtnEl) {
-            addSongsBtnEl.classList.remove('keyboard-active');
         }
         if (isPlaylistOpen && playlistOverlay) handled = true;
     }
 
     if (event.code === 'Escape') {
         if (closePlaylistBtn) {
-            closePlaylistBtn.classList.remove('keyboard-active');
         }
         if (isPlaylistOpen && playlistOverlay) handled = true;
     }
