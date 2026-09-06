@@ -47,10 +47,6 @@ function setupAbilityKeyboardInteractions(
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
     });
 
-    element.addEventListener('pointerout', () => {
-        onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
-    });
-
     element.addEventListener('contextmenu', (e: MouseEvent) => {
         e.preventDefault();
     });
