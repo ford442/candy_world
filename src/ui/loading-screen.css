@@ -602,7 +602,7 @@
   }
   
   .phase-label {
-    font-size: 0.6rem;
+    display: none;
   }
 }
 
