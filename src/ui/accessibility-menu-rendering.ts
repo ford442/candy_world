@@ -103,6 +103,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         closeBtn.onclick = () => {
             this.close();
         };
+
+
         closeBtn.setAttribute('aria-label', 'Close accessibility menu');
 
         header.appendChild(title);
@@ -179,6 +181,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             tab.onclick = () => {
                 this.switchSection(section);
             };
+
+
 
             sidebar.appendChild(tab);
         }
@@ -378,6 +382,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             btn.onclick = () => {
                 this.startKeyRebind(action, btn);
             };
+
+
 
             row.appendChild(label);
             row.appendChild(btn);
