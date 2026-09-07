@@ -1,0 +1,7 @@
+npm warn Unknown project config "approve-builds". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> candy_world@1.0.0 preview
+> vite preview
+
+  ➜  Local:   http://localhost:4173/
+  ➜  Network: use --host to expose
