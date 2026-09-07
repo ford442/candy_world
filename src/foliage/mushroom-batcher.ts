@@ -24,7 +24,7 @@ const modFloat = (x: any, y: any) => {
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { applyAerialPerspective, aerialPerspectiveLodBoost } from './aerial-perspective.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
-import { uChromaticIntensity } from './chromatic.ts';
+import { uChromaticIntensity } from './chromatic-nodes.ts';
 import { spawnImpact } from './impacts.ts';
 import {
     sharedGeometries, foliageMaterials, uTime,

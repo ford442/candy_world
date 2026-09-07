@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/tools-stub.ts';
 import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
-import { uChromaticIntensity } from '../foliage/chromatic.ts';
+import { uChromaticIntensity, uGlobalNoteColor, uGlobalShimmer } from '../foliage/chromatic-nodes.ts';
 import {
     uWindSpeed,
     uWindDirection,
@@ -301,6 +301,12 @@ export function updateVisualsPhase(
             uChromaticIntensity.value *= 0.85;
             if (uChromaticIntensity.value < 0.01) uChromaticIntensity.value = 0;
         }
+    }
+
+    // Sync globals used by the post-fx pipeline
+    if (BiomeUniforms && BiomeUniforms.arpeggioGrove) {
+        (uGlobalNoteColor.value as any).copy(BiomeUniforms.arpeggioGrove.noteColor.value);
+        uGlobalShimmer.value = BiomeUniforms.arpeggioGrove.shimmer.value;
     }
 
     let auroraAudioBoost = 0.0;

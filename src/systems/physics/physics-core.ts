@@ -20,7 +20,7 @@
 import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
 import { CONFIG } from '../../core/config.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/index.ts';
 import { showToast } from '../../utils/toast.ts';
@@ -322,6 +322,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     if (!cppPhysicsInitialized) {
         initCppPhysics(camera);
         setCppPhysicsInitialized(true);
+        console.log('[PhysicsDiag] updateDefaultState: initCppPhysics returned');
     }
 
     // ⚡ OPTIMIZATION: Caching time to avoid multiple Date.now() calls
@@ -348,8 +349,18 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         checkVineAttachment(camera);
     }
 
+    if (!cppPhysicsInitialized || (window as any).__diagPhysicsCount === undefined) {
+        (window as any).__diagPhysicsCount = 1;
+        console.log('[PhysicsDiag] updateDefaultState: vines loop finished');
+    }
+
     // --- ABILITIES & MOVEMENT ---
     handleAbilities(delta, camera, keyStates);
+
+    if ((window as any).__diagPhysicsCount === 1) {
+        (window as any).__diagPhysicsCount = 2;
+        console.log('[PhysicsDiag] updateDefaultState: handleAbilities finished');
+    }
 
     // Update Phase Shift Timer
     if (player.isPhasing) {
@@ -431,6 +442,11 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         discoverySystem.discover('wind_anchor', 'Wind Anchor', '⚓');
     }
 
+    if ((window as any).__diagPhysicsCount === 2) {
+        (window as any).__diagPhysicsCount = 3;
+        console.log('[PhysicsDiag] updateDefaultState: Calling updatePhysicsCPP (LakeBasin=' + inLakeBasin + ')');
+    }
+
     if (!inLakeBasin) {
         onGround = updatePhysicsCPP(
             delta,
@@ -442,6 +458,11 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
             keyStates.sneak,
             grooveGravity.multiplier
         );
+    }
+
+    if ((window as any).__diagPhysicsCount === 3) {
+        (window as any).__diagPhysicsCount = 4;
+        console.log('[PhysicsDiag] updateDefaultState: updatePhysicsCPP returned');
     }
 
     if (onGround >= 0) {
@@ -507,6 +528,11 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         player.position.z += windForceZ;
     }
 
+    if ((window as any).__diagPhysicsCount === 4) {
+        (window as any).__diagPhysicsCount = 5;
+        console.log('[PhysicsDiag] updateDefaultState: Reconcile Y begin');
+    }
+
     // Issue #1265: Reconcile C++ / fallback Y with the authoritative ground query.
     // Smoothly tracks terrain when grounded; preserves platform elevation when high.
     if (player.isGrounded || player.velocity.y <= 0) {
@@ -526,10 +552,25 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         }
     }
 
+    if ((window as any).__diagPhysicsCount === 5) {
+        (window as any).__diagPhysicsCount = 6;
+        console.log('[PhysicsDiag] updateDefaultState: WASM collision resolver begin');
+    }
+
     // --- WASM COLLISION RESOLVER (New) ---
     // Try WASM resolution first
     const kickTrigger = audioState?.kickTrigger || 0.0;
-    const wasmResolved = resolveGameCollisionsWASM(player, kickTrigger);
+    let wasmResolved = false;
+    try {
+        wasmResolved = resolveGameCollisionsWASM(player, kickTrigger);
+    } catch (e) {
+        console.error('[PhysicsDiag] WASM crash', e);
+    }
+
+    if ((window as any).__diagPhysicsCount === 6) {
+        (window as any).__diagPhysicsCount = 7;
+        console.log('[PhysicsDiag] updateDefaultState: WASM collision resolver returned');
+    }
 
     // Check discovery flags based on what happened?
     if (wasmResolved) {
@@ -560,6 +601,11 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
          }
     }
 
+    if ((window as any).__diagPhysicsCount === 7) {
+        (window as any).__diagPhysicsCount = 8;
+        console.log('[PhysicsDiag] updateDefaultState: Entering JS physics checks');
+    }
+
     // --- Panning Pads (JS Physics) --
     // Explicit check for dynamic panning pads (bobbing platforms)
     checkPanningPads();
@@ -581,4 +627,9 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // --- Harmony Orbs (Collection) ---
     checkHarmonyOrbs();
+
+    if ((window as any).__diagPhysicsCount === 8) {
+        (window as any).__diagPhysicsCount = 9;
+        console.log('[PhysicsDiag] updateDefaultState: FINISHED ENTIRELY');
+    }
 }

@@ -38,5 +38,8 @@ export const GRID_NEXT_OFFSET: i32 = GRID_HEADS_OFFSET + (GRID_COLS * GRID_ROWS 
 export const MAX_DYNAMIC_PLANTS: i32 = 512;
 export const DYNAMIC_RADII_OFFSET: i32 = GRID_NEXT_OFFSET + (MAX_COLLISION_OBJECTS * 4);
 
+// Batch Upload Buffer (Supports max objects * 8 floats per object * 4 bytes = 128KB)
+export const BATCH_UPLOAD_OFFSET: i32 = DYNAMIC_RADII_OFFSET + (MAX_DYNAMIC_PLANTS * 4);
+
 // Discovery System (shared with emscripten/discovery.cpp)
 export const MAX_DISCOVERY_OBJECTS: i32 = 3000;
