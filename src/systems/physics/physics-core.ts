@@ -60,15 +60,8 @@ import {
     cppPhysicsInitialized,
     AudioState,
     KeyStates,
-    CharacterIntent,
 } from './physics-types.ts';
 
-const _characterIntent: CharacterIntent = {
-    wishDir: _scratchMoveVec,
-    moveSpeed: 0,
-    jumpPressed: false,
-    jumpTriggered: false,
-};
 
 // Re-export player and types for external use
 export { player, PlayerState };
@@ -229,8 +222,7 @@ import {
     checkPanningPads,
     checkVineAttachment,
     initCppPhysics,
-    stepCharacter,
-    defaultGroundQuery,
+    updateJSFallbackMovement
 } from './physics-updates.ts';
 
 /**
@@ -420,53 +412,10 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     }
 
     // --- Kinematic character controller (#1577) ---
-    const isJumpTriggered = keyStates.jump && !_lastInputState.jump;
-    _characterIntent.wishDir.copy(moveInput);
-    _characterIntent.moveSpeed = moveSpeed;
-    _characterIntent.jumpPressed = keyStates.jump;
-    _characterIntent.jumpTriggered = isJumpTriggered;
-
-    const stepResult = stepCharacter(delta, _characterIntent, defaultGroundQuery);
+    updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
 
     player.position.x += windForceX;
     player.position.z += windForceZ;
-
-    if (stepResult.jumped) {
-        keyStates.jump = false;
-        spawnImpact(player.position, 'jump');
-        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-            (window as any).AudioSystem.playSound('jump', { pitch: Math.random() * 0.2 + 0.9, volume: 0.5 });
-        }
-        if (typeof uChromaticIntensity !== 'undefined') {
-            uChromaticIntensity.value = 0.2;
-        }
-    }
-
-    if (stepResult.landed) {
-        const fallSpeed = stepResult.fallSpeed;
-        if (fallSpeed > 15.0) {
-            spawnImpact(player.position, 'land');
-            spawnImpact(player.position, 'dash');
-            addCameraShake(0.4);
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
-            }
-        } else if (fallSpeed > 8.0) {
-            spawnImpact(player.position, 'land');
-            addCameraShake(0.15);
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
-            }
-        } else {
-            spawnImpact(player.position, 'jump');
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
-            }
-        }
-    }
 
     // --- WASM COLLISION RESOLVER (New) ---
     // Try WASM resolution first
