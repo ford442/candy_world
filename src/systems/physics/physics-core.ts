@@ -60,15 +60,8 @@ import {
     cppPhysicsInitialized,
     AudioState,
     KeyStates,
-    CharacterIntent,
 } from './physics-types.ts';
 
-const _characterIntent: CharacterIntent = {
-    wishDir: _scratchMoveVec,
-    moveSpeed: 0,
-    jumpPressed: false,
-    jumpTriggered: false,
-};
 
 // Re-export player and types for external use
 export { player, PlayerState };
@@ -229,8 +222,7 @@ import {
     checkPanningPads,
     checkVineAttachment,
     initCppPhysics,
-    stepCharacter,
-    defaultGroundQuery,
+    updateJSFallbackMovement
 } from './physics-updates.ts';
 
 /**
@@ -473,13 +465,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
              }
         }
     // --- Kinematic character controller (#1577) ---
-    const isJumpTriggered = keyStates.jump && !_lastInputState.jump;
-    _characterIntent.wishDir.copy(moveInput);
-    _characterIntent.moveSpeed = moveSpeed;
-    _characterIntent.jumpPressed = keyStates.jump;
-    _characterIntent.jumpTriggered = isJumpTriggered;
-
-    const stepResult = stepCharacter(delta, _characterIntent, defaultGroundQuery);
+    updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
 
     player.position.x += windForceX;
     player.position.z += windForceZ;
