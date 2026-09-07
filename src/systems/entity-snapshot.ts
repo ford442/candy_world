@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+import { create } from '../world/foliage-registry.ts';
 import { processMapEntity } from '../world/generation-entities.ts';
 import type { WeatherSystem, MapEntity } from '../world/generation-utils.ts';
 import { migrateSnapshot, type EntitySnapshot } from './entity-snapshot-core.ts';
@@ -14,8 +16,7 @@ export function restoreEntity(
     const current = migrateSnapshot(snapshot);
     // processMapEntity expects MapEntity type, which is mostly compatible with CandyMapEntity
     processMapEntity(current.entity as unknown as MapEntity, weatherSystem);
-import * as THREE from 'three';
-import { create } from '../world/foliage-registry.ts';
+}
 
 export interface EntitySnapshot {
     id: string;
