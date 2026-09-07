@@ -212,9 +212,13 @@ export function checkDiscoverySpatial(
 
             const gridIdx = row * GRID_COLS + col;
             let objId = load<i32>(DISCOVERY_GRID_HEADS_OFFSET + (gridIdx * 4));
+            let loopCount = 0;
 
             // Iterate all objects in this grid cell
             while (objId != -1) {
+                if (objId < 0 || objId >= discoveryObjectCount || loopCount >= discoveryObjectCount) break;
+                loopCount++;
+
                 const base = DISCOVERY_BUFFER_OFFSET + (objId * DISCOVERY_STRIDE * 4);
 
                 // Load flags and check if discoverable

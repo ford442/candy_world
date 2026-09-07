@@ -3,7 +3,7 @@ import { ComputeParticleSystem } from '../../compute/particle_compute.ts';
 import { CONFIG } from '../../core/config.ts';
 import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
 import { createAurora, uAuroraIntensity } from '../../foliage/aurora.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
 import {
     uCloudRainbowIntensity,
     uCloudLightningStrength,
