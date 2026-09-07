@@ -7,7 +7,10 @@ import { ANIMATION_TYPES } from '../animation-nodes.ts';
 import { INITIAL_INSTANCES, MAX_INSTANCES, _scratchTreeOriginalQuaternion, _scratchTreeFinalQuaternion } from './constants.ts';
 import type { PendingInstance } from './constants.ts';
 import { initializeTreeBatcherMeshes } from './materials-init.ts';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
+import { foliageGroup } from '../../world/state.ts';
 import {
+    disposeInstancedMesh,
     flushRegistrations,
     registerAccordionPalm,
     registerBalloonBush,
@@ -147,5 +150,25 @@ export class TreeBatcher implements TreeBatcherState {
             helices: { count: this.helixCount, capacity: this.helixCapacity },
             roses: { count: this.roseCount, capacity: this.roseCapacity },
         };
+    }
+
+    dispose() {
+        if (!this.initialized) return;
+        const meshes = [this.trunks, this.spheres, this.capsules, this.helices, this.roses, this.accordionLeaves];
+        for (const mesh of meshes) {
+            if (mesh) {
+                disposeInstancedMesh(mesh);
+                safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
+            }
+        }
+
+        this.trunkCount = 0;
+        this.sphereCount = 0;
+        this.capsuleCount = 0;
+        this.helixCount = 0;
+        this.roseCount = 0;
+        this.accordionLeafCount = 0;
+        this._pendingInstances = [];
+        this.initialized = false;
     }
 }

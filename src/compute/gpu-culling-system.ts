@@ -113,6 +113,14 @@ export class GPUCullingSystem {
     private gpu: GPUComputeLibrary;
     private config: Required<CullingConfig>;
 
+    // Size of the frustum uniform buffer:
+    //   6 × vec4<f32> planes (96 bytes) + instanceCount u32 + 3 × u32 padding (16 bytes)
+    private static readonly FRUSTUM_UNIFORM_BUFFER_SIZE = 112;
+
+    // Size of the minimal indirect draw buffer for drawIndexedIndirect:
+    //   5 × u32 (indexCount, instanceCount, firstIndex, baseVertex, firstInstance)
+    private static readonly INDIRECT_BUFFER_SIZE = 20;
+
     // GPU Resources
     private sphereBuffer: GPUBuffer | null = null;
     private planeBuffer: GPUBuffer | null = null;
@@ -138,7 +146,8 @@ export class GPUCullingSystem {
     private addBg: GPUBindGroup | null = null;
     private compactBg: GPUBindGroup | null = null;
 
-
+    // Persistent frustum uniform buffer (reused each frame)
+    private frustumUniformBuffer: GPUBuffer | null = null;
 
     // CPU staging
     private spheres: Float32Array;
@@ -241,19 +250,7 @@ export class GPUCullingSystem {
             label: 'lod-select',
         });
 
-        // Create bind groups
-        if (this.frustumPipeline && this.sphereBuffer && this.visibleBuffer && this.planeBuffer) {
-            this.frustumBindGroup = device.createBindGroup({
-                layout: this.frustumPipeline.getBindGroupLayout(0),
-                entries: [
-                    { binding: 0, resource: { buffer: this.sphereBuffer } },
-                    { binding: 1, resource: { buffer: this.visibleBuffer } },
-                    { binding: 2, resource: { buffer: this.planeBuffer } },
-                ],
-                label: 'frustum-bind-group',
-            });
-        }
-
+        // Create LOD bind group
         if (this.lodPipeline && this.sphereBuffer && this.lodBuffer && this.cameraBuffer) {
             this.lodBindGroup = device.createBindGroup({
                 layout: this.lodPipeline.getBindGroupLayout(0),
@@ -266,44 +263,91 @@ export class GPUCullingSystem {
             });
         }
 
+        // Persistent frustum uniform buffer (reused each frame via writeBuffer)
+        this.frustumUniformBuffer = device.createBuffer({
+            size: GPUCullingSystem.FRUSTUM_UNIFORM_BUFFER_SIZE,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            label: 'frustum-uniforms',
+            mappedAtCreation: false,
+        });
 
-        const d = this.gpu.getDevice() as unknown as GPUDevice;
-        if (d) {
-            this.choresLib = new GPUChoresLibrary(d);
-            await this.choresLib.initialize();
-
-            const blocksCount = Math.ceil(this.config.maxObjects / 256);
-            this.blockSumsBuffer = d.createBuffer({
-                size: blocksCount * 4,
-                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-                label: 'culling-block-sums'
+        // Re-create frustum bind group using the persistent uniform buffer
+        if (this.frustumPipeline && this.sphereBuffer && this.visibleBuffer && this.frustumUniformBuffer) {
+            this.frustumBindGroup = device.createBindGroup({
+                layout: this.frustumPipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: this.sphereBuffer } },
+                    { binding: 1, resource: { buffer: this.visibleBuffer } },
+                    { binding: 2, resource: { buffer: this.frustumUniformBuffer } },
+                ],
+                label: 'frustum-bind-group',
             });
-
-            this.countBuffer = d.createBuffer({
-                size: 4,
-                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-                label: 'culling-count'
-            });
-
-            this.compactIndicesBuffer = d.createBuffer({
-                size: Math.max(16, this.config.maxObjects * 4),
-                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-                label: 'culling-compact-indices'
-            });
-
-            this.compactLodsBuffer = d.createBuffer({
-                size: Math.max(16, this.config.maxObjects * 4),
-                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-                label: 'culling-compact-lods'
-            });
-
-            if ('trackGpuBufferBytes' in this.gpu && typeof (this.gpu as any).trackGpuBufferBytes === 'function') {
-                (this.gpu as any).trackGpuBufferBytes(blocksCount * 4);
-                (this.gpu as any).trackGpuBufferBytes(4);
-                (this.gpu as any).trackGpuBufferBytes(Math.max(16, this.config.maxObjects * 4));
-                (this.gpu as any).trackGpuBufferBytes(Math.max(16, this.config.maxObjects * 4));
-            }
         }
+
+        this.choresLib = new GPUChoresLibrary(device);
+        await this.choresLib.initialize();
+
+        const blocksCount = Math.ceil(this.config.maxObjects / 256);
+        this.blockSumsBuffer = device.createBuffer({
+            size: blocksCount * 4,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+            label: 'culling-block-sums',
+        });
+
+        this.countBuffer = device.createBuffer({
+            size: 4,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+            label: 'culling-count',
+        });
+
+        this.compactIndicesBuffer = device.createBuffer({
+            size: Math.max(16, this.config.maxObjects * 4),
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+            label: 'culling-compact-indices',
+        });
+
+        this.compactLodsBuffer = device.createBuffer({
+            size: Math.max(16, this.config.maxObjects * 4),
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+            label: 'culling-compact-lods',
+        });
+
+        this.offsetBuffer = device.createBuffer({
+            size: this.config.maxObjects * 4,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+            label: 'culling-offsets',
+        });
+
+        // Ensure an indirect buffer exists for the compact bind group
+        if (!this.indirectBuffer) {
+            this.indirectBuffer = device.createBuffer({
+                size: GPUCullingSystem.INDIRECT_BUFFER_SIZE,
+                usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                label: 'culling-indirect-dummy',
+            });
+        }
+
+        this.scanBg = this.choresLib.createPrefixSumBindGroup(
+            this.visibleBuffer!, this.offsetBuffer, this.blockSumsBuffer);
+        this.addBg = this.choresLib.createPrefixSumAddBindGroup(
+            this.offsetBuffer, this.blockSumsBuffer);
+        this.compactBg = this.choresLib.createCompactBindGroup(
+            this.visibleBuffer!,
+            this.lodBuffer!,
+            this.offsetBuffer,
+            this.compactIndicesBuffer,
+            this.compactLodsBuffer,
+            this.countBuffer,
+            this.indirectBuffer
+        );
+
+        this.trackBytes(
+            blocksCount * 4 +
+            4 +
+            Math.max(16, this.config.maxObjects * 4) * 2 +
+            this.config.maxObjects * 4 +
+            GPUCullingSystem.FRUSTUM_UNIFORM_BUFFER_SIZE
+        );
 
         this.isInitialized = true;
         console.log(`[GPUCullingSystem] Initialized for ${this.config.maxObjects} objects`);
@@ -360,6 +404,10 @@ export class GPUCullingSystem {
 
     /**
      * GPU-accelerated culling implementation.
+     * Encodes frustum cull + LOD select + prefix-sum compact into one command buffer.
+     * GPU compact work is a side effect for indirect draw / next-frame readback.
+     * This method always returns last-frame CPU results synchronously; callers
+     * that need GPU compact output should call readbackResults() asynchronously.
      */
     private gpuCull(frustum: Frustum, cameraPosition: [number, number, number]): CullingResult {
         if (this.sphereCount === 0) {
@@ -372,7 +420,8 @@ export class GPUCullingSystem {
 
         const device = this.gpu.getDevice()!;
 
-        // Upload frustum planes (packed as vec4: normal.xyz, distance)
+        // Upload frustum planes (packed as vec4: normal.xyz, distance) to the
+        // persistent frustum uniform buffer — no per-frame allocation.
         const planeData = new Float32Array(24);
         for (let i = 0; i < 6; i++) {
             planeData[i * 4] = frustum.planes[i].normal[0];
@@ -380,11 +429,19 @@ export class GPUCullingSystem {
             planeData[i * 4 + 2] = frustum.planes[i].normal[2];
             planeData[i * 4 + 3] = frustum.planes[i].distance;
         }
-        device.queue.writeBuffer(this.planeBuffer!, 0, planeData);
 
-        // Upload camera position and LOD distances
-        // Note: LOD_SELECT_WGSL expects vec3 positions, but we use spheres (vec4)
-        // The shader will read .xyz from the vec4
+        // Frustum uniform: 6 planes (96 bytes) + instanceCount + 3× padding (16 bytes)
+        const frustumUniformData = new Float32Array([
+            ...planeData,
+            this.sphereCount, 0, 0, 0,
+        ]);
+        device.queue.writeBuffer(this.frustumUniformBuffer!, 0, frustumUniformData);
+
+        // Upload camera position and all three LOD thresholds + sphere count
+        // to the camera uniform buffer consumed by LOD_SELECT_WGSL.
+        // Layout matches LOD_SELECT_WGSL Uniforms struct (32 bytes):
+        //   [0-2] camPos.xyz, [3] lod0Dist, [4] lod1Dist, [5] lod2Dist,
+        //   [6] objectCount, [7] _pad0
         const cameraData = new Float32Array([
             cameraPosition[0], cameraPosition[1], cameraPosition[2], 0,
             this.config.lodDistances[0],
@@ -394,82 +451,24 @@ export class GPUCullingSystem {
         ]);
         device.queue.writeBuffer(this.cameraBuffer!, 0, cameraData);
 
-        // Create uniform buffer for frustum pass instance count
-        const frustumUniformData = new Float32Array([
-            ...planeData,
-            this.sphereCount, 0, 0, 0, // instanceCount + padding
-        ]);
-        const frustumUniformBuffer = device.createBuffer({
-            size: 112, // 6*16 + 16 bytes
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-            label: 'frustum-uniforms',
-            mappedAtCreation: false,
-        });
-        device.queue.writeBuffer(frustumUniformBuffer, 0, frustumUniformData);
-
-        // Update bind group with new uniform buffer
-        const frustumBindGroup = device.createBindGroup({
-            layout: this.frustumPipeline!.getBindGroupLayout(0),
-            entries: [
-                { binding: 0, resource: { buffer: this.sphereBuffer! } },
-                { binding: 1, resource: { buffer: this.visibleBuffer! } },
-                { binding: 2, resource: { buffer: frustumUniformBuffer } },
-            ],
-            label: 'frustum-bind-group-dynamic',
-        });
-
-        // Dispatch compute passes
-        const workgroups = Math.ceil(this.sphereCount / 64);
-
         const commandEncoder = device.createCommandEncoder({ label: 'culling-encoder' });
 
         // Frustum cull pass
+        const workgroups = Math.ceil(this.sphereCount / 64);
         const frustumPass = commandEncoder.beginComputePass({ label: 'frustum-pass' });
         frustumPass.setPipeline(this.frustumPipeline!);
-        frustumPass.setBindGroup(0, frustumBindGroup);
+        frustumPass.setBindGroup(0, this.frustumBindGroup!);
         frustumPass.dispatchWorkgroups(workgroups);
         frustumPass.end();
 
-        if (!this.offsetBuffer && this.gpu.getDevice()) {
-            this.offsetBuffer = this.gpu.getDevice()!.createBuffer({
-                size: this.config.maxObjects * 4,
-                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-                label: 'culling-offsets'
-            });
-            if ('trackGpuBufferBytes' in this.gpu && typeof (this.gpu as any).trackGpuBufferBytes === 'function') {
-                (this.gpu as any).trackGpuBufferBytes(this.config.maxObjects * 4);
-            }
-
-            if (this.choresLib && this.indirectBuffer) {
-                this.scanBg = this.choresLib.createPrefixSumBindGroup(this.visibleBuffer!, this.offsetBuffer, this.blockSumsBuffer!);
-                this.addBg = this.choresLib.createPrefixSumAddBindGroup(this.offsetBuffer, this.blockSumsBuffer!);
-                this.compactBg = this.choresLib.createCompactBindGroup(
-                    this.visibleBuffer!,
-                    this.lodBuffer!,
-                    this.offsetBuffer,
-                    this.compactIndicesBuffer!,
-                    this.compactLodsBuffer!,
-                    this.countBuffer!,
-                    this.indirectBuffer
-                );
-            }
-        }
-
-        // LOD select pass - reuse camera buffer with proper uniform layout
-        const lodUniformData = new Float32Array([
-            cameraPosition[0], cameraPosition[1], cameraPosition[2], 0,
-            this.config.lodDistances[0],
-            this.config.lodDistances[1],
-            this.sphereCount, 0,
-        ]);
-        device.queue.writeBuffer(this.cameraBuffer!, 0, lodUniformData);
-
+        // LOD select pass
         const lodPass = commandEncoder.beginComputePass({ label: 'lod-pass' });
         lodPass.setPipeline(this.lodPipeline!);
         lodPass.setBindGroup(0, this.lodBindGroup!);
         lodPass.dispatchWorkgroups(Math.ceil(this.sphereCount / 256));
         lodPass.end();
 
+        // Prefix-sum + compact (GPU side effect; drives indirect draw / readbackResults)
         if (this.choresLib && this.scanBg && this.addBg && this.compactBg) {
             this.choresLib.encodePrefixSum(commandEncoder, this.scanBg, this.addBg, this.sphereCount);
             this.choresLib.encodeCompact(commandEncoder, this.compactBg, this.sphereCount);
@@ -477,11 +476,8 @@ export class GPUCullingSystem {
 
         device.queue.submit([commandEncoder.finish()]);
 
-        // Clean up temporary buffer
-        frustumUniformBuffer.destroy();
-
-        // Read back results (async - for now return CPU-calculated)
-        // In a real implementation, you'd use GPU readback with proper fencing
+        // GPU compact drives indirect draws on the next frame.
+        // Return CPU results synchronously so current callers are unaffected.
         return this.cpuCull(frustum, cameraPosition);
     }
 
@@ -544,30 +540,22 @@ export class GPUCullingSystem {
      * @returns Promise resolving to culling results
      */
     async readbackResults(): Promise<CullingResult> {
-        if (!this.gpu.isReady() || !this.visibleBuffer || !this.lodBuffer) {
+        if (!this.gpu.isReady() || !this.visibleBuffer || !this.lodBuffer || !this.countBuffer || !this.compactIndicesBuffer || !this.compactLodsBuffer) {
             throw new Error('[GPUCullingSystem] GPU not available for readback');
         }
 
-        const countArray = await this.gpu.readBufferU32(this.countBuffer!, 4);
-        const visibleCount = countArray[0];
-
-        let visibleIndicesData = new Uint32Array(0) as unknown as any;
-        let lodLevelsData = new Uint32Array(0) as unknown as any;
-
-        if (visibleCount > 0) {
-            const [vData, lData] = await Promise.all([
-                this.gpu.readBufferU32(this.compactIndicesBuffer!, visibleCount * 4),
-                this.gpu.readBufferU32(this.compactLodsBuffer!, visibleCount * 4),
-            ]);
-            visibleIndicesData = vData as unknown as Uint32Array;
-            lodLevelsData = lData as unknown as Uint32Array;
+        const countArray = await this.gpu.readBufferU32(this.countBuffer, 4);
+        const visibleCount = countArray[0] ?? 0;
+        if (visibleCount === 0) {
+            return { visibleIndices: new Uint32Array(0), lodLevels: new Uint32Array(0), visibleCount: 0 };
         }
 
-        return {
-            visibleIndices: visibleIndicesData as unknown as Uint32Array,
-            lodLevels: lodLevelsData as unknown as Uint32Array,
-            visibleCount: visibleCount,
-        };
+        const [visibleIndices, lodLevels] = await Promise.all([
+            this.gpu.readBufferU32(this.compactIndicesBuffer, visibleCount * 4),
+            this.gpu.readBufferU32(this.compactLodsBuffer, visibleCount * 4),
+        ]);
+
+        return { visibleIndices, lodLevels, visibleCount };
     }
 
     /**
@@ -631,19 +619,74 @@ export class GPUCullingSystem {
         this.cameraBuffer?.destroy();
         this.indirectBuffer?.destroy();
 
+        const blocksCount = Math.ceil(this.config.maxObjects / 256);
+        let freed = 0;
+
+        if (this.frustumUniformBuffer) {
+            this.frustumUniformBuffer.destroy();
+            freed += GPUCullingSystem.FRUSTUM_UNIFORM_BUFFER_SIZE;
+        }
+
+        if (this.offsetBuffer) {
+            this.offsetBuffer.destroy();
+            freed += this.config.maxObjects * 4;
+        }
+
+        if (this.blockSumsBuffer) {
+            this.blockSumsBuffer.destroy();
+            freed += blocksCount * 4;
+        }
+
+        if (this.countBuffer) {
+            this.countBuffer.destroy();
+            freed += 4;
+        }
+
+        if (this.compactIndicesBuffer) {
+            this.compactIndicesBuffer.destroy();
+            freed += Math.max(16, this.config.maxObjects * 4);
+        }
+
+        if (this.compactLodsBuffer) {
+            this.compactLodsBuffer.destroy();
+            freed += Math.max(16, this.config.maxObjects * 4);
+        }
+
+        if (freed > 0) {
+            this.trackBytes(-freed);
+        }
+
         this.sphereBuffer = null;
         this.planeBuffer = null;
         this.visibleBuffer = null;
         this.lodBuffer = null;
         this.cameraBuffer = null;
         this.indirectBuffer = null;
+        this.frustumUniformBuffer = null;
+        this.offsetBuffer = null;
+        this.blockSumsBuffer = null;
+        this.countBuffer = null;
+        this.compactIndicesBuffer = null;
+        this.compactLodsBuffer = null;
         this.frustumPipeline = null;
         this.lodPipeline = null;
         this.frustumBindGroup = null;
         this.lodBindGroup = null;
+        this.scanBg = null;
+        this.addBg = null;
+        this.compactBg = null;
         this.isInitialized = false;
 
         console.log('[GPUCullingSystem] Destroyed');
+    }
+
+    /**
+     * Tracks GPU buffer memory via the gpu library hook when available.
+     * @param delta - Positive to add, negative to subtract bytes.
+     */
+    private trackBytes(delta: number): void {
+        const g = this.gpu as { trackGpuBufferBytes?: (n: number) => void };
+        g.trackGpuBufferBytes?.(delta);
     }
 }
 

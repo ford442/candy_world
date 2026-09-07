@@ -117,6 +117,8 @@ export class GPUChoresLibrary {
         addBg: GPUBindGroup,
         elementCount: number
     ): void {
+        if (elementCount === 0) return;
+
         const workgroups = Math.ceil(elementCount / 256);
 
         const scanPass = encoder.beginComputePass({ label: 'prefix-sum-scan-pass' });
@@ -139,6 +141,8 @@ export class GPUChoresLibrary {
         compactBg: GPUBindGroup,
         elementCount: number
     ): void {
+        if (elementCount === 0) return;
+
         const workgroups = Math.ceil(elementCount / 256);
 
         const pass = encoder.beginComputePass({ label: 'compact-pass' });

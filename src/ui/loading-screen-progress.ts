@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import {
     globalLoadingManager,
     GlobalProgressState,
@@ -236,7 +237,7 @@ export class LoadingScreenProgress {
                 needsVisualUpdate = true;
             }
         } else if (Math.abs(phaseDiff) > 0.1) {
-            this.displayedPhaseProgress += phaseDiff * (1.0 - Math.exp(-5.0 * deltaSeconds));
+            this.displayedPhaseProgress = THREE.MathUtils.damp(this.displayedPhaseProgress, this.phaseProgress, 5.0, deltaSeconds);
             needsVisualUpdate = true;
         } else if (this.displayedPhaseProgress !== this.phaseProgress) {
             this.displayedPhaseProgress = this.phaseProgress;
@@ -251,7 +252,7 @@ export class LoadingScreenProgress {
                 needsVisualUpdate = true;
             }
         } else if (Math.abs(diff) > 0.1) {
-            this.displayedOverallProgress += diff * (1.0 - Math.exp(-5.0 * deltaSeconds));
+            this.displayedOverallProgress = THREE.MathUtils.damp(this.displayedOverallProgress, this.targetOverallProgress, 5.0, deltaSeconds);
             needsVisualUpdate = true;
         } else if (this.displayedOverallProgress !== this.targetOverallProgress) {
             this.displayedOverallProgress = this.targetOverallProgress;

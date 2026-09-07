@@ -709,7 +709,7 @@
 </head>
 
 <body>
-    <!-- ♿ Aria: Added aria-live to broadcast toast notifications to screen readers -->
+    <!-- ♿ Aria: Hidden from screen readers because toast.ts calls announce() -->
     <div id="now-playing-toast" aria-hidden="true">
         <span class="icon" aria-hidden="true">🎵</span>
         <span id="now-playing-text"></span>
@@ -726,8 +726,14 @@
         <div class="instructions-content">
         <h1 id="instructions-title"><span aria-hidden="true">🍭</span> Candy World</h1>
         <p class="dream-subtitle">Click to enter the dream. Press <kbd class="key">Esc</kbd> any time to pause.</p>
-        <!-- ♿ Aria: Added aria-live to broadcast Now Playing changes to screen readers -->
-        <div id="nowPlayingContainer" class="now-playing-info" aria-hidden="true" style="display: none;">
+        <div
+            id="nowPlayingContainer"
+            class="now-playing-info"
+            style="display: none;"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+        >
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
         <button id="startButton" class="cta-button" disabled title="Please wait while game assets load...">
@@ -974,25 +980,37 @@
                     </div>
                 </div>
                 <div class="time-remaining">Calculating time...</div>
-                <button class="skip-button" style="display: none;">
+                <button type="button" class="skip-button" style="display: none;">
                     <span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>
                 </button>
-                <div class="status-indicators">
-                    <div class="phase-indicator" data-phase-id="init" data-phase-index="0">
+                <div class="status-indicators" aria-hidden="true">
+                    <div class="phase-indicator" data-phase-id="core-scene" data-phase-index="0">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">Boot Sequence</span>
+                        <span class="phase-label">Scene Setup</span>
                     </div>
-                    <div class="phase-indicator" data-phase-id="assets" data-phase-index="1">
+                    <div class="phase-indicator" data-phase-id="audio-init" data-phase-index="1">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">Asset Pipeline</span>
+                        <span class="phase-label">Audio System</span>
                     </div>
-                    <div class="phase-indicator" data-phase-id="world" data-phase-index="2">
+                    <div class="phase-indicator" data-phase-id="world-generation" data-phase-index="2">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">World Generation</span>
+                        <span class="phase-label">World Build</span>
                     </div>
-                    <div class="phase-indicator" data-phase-id="deferred-population" data-phase-index="3">
+                    <div class="phase-indicator" data-phase-id="wasm-init" data-phase-index="3">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">Population</span>
+                        <span class="phase-label">Physics Engine</span>
+                    </div>
+                    <div class="phase-indicator" data-phase-id="shader-warmup" data-phase-index="4">
+                        <span class="phase-dot"></span>
+                        <span class="phase-label">Shader Warmup</span>
+                    </div>
+                    <div class="phase-indicator" data-phase-id="map-generation" data-phase-index="5">
+                        <span class="phase-dot"></span>
+                        <span class="phase-label">Map Generation</span>
+                    </div>
+                    <div class="phase-indicator" data-phase-id="deferred-population" data-phase-index="6">
+                        <span class="phase-dot"></span>
+                        <span class="phase-label">World Population</span>
                     </div>
                 </div>
             </div>

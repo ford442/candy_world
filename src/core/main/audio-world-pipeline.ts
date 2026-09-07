@@ -16,9 +16,11 @@ export async function runAudioWorldPipeline(ctx: MainContext): Promise<void> {
     console.time('Audio & Systems Init');
 
     await StageLoader.loadStage('audio', () => {
-        ctx.audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
+        // deferWorklet=true: skip worklet fetch during the loading screen critical
+        // path.  initDeferred() is called after the first rendered frame below.
+        ctx.audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode, true);
         (window as any).AudioSystem = ctx.audioSystem;
-        loadingScreen.updateProgress(40, 'Creating audio system...');
+        loadingScreen.updateProgress(40, 'Creating audio context...');
         ctx.beatSync = new BeatSync(ctx.audioSystem!);
     });
 
@@ -31,6 +33,19 @@ export async function runAudioWorldPipeline(ctx: MainContext): Promise<void> {
     console.timeEnd('Audio & Systems Init');
     loadingScreen.updateProgress(100);
     loadingScreen.completePhase('audio-init');
+
+    // Kick off worklet init after the first rendered frame so it does not
+    // compete with shader compilation on the critical loading path.
+    const audioSystem = ctx.audioSystem;
+    if (audioSystem) {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                audioSystem.initDeferred().catch((err) => {
+                    console.warn('[AudioSystem] Deferred worklet init failed:', err);
+                });
+            });
+        });
+    }
 
     loadingScreen.startPhase('world-generation');
     console.time('World Generation');

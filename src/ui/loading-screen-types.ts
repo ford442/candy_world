@@ -34,15 +34,19 @@ export interface LoadingScreenOptions {
 // =============================================================================
 
 // Weights are calibrated to observed wall-clock costs after Wave 1:
-// - WASM runs in the background (not on the critical path) — removed from phases.
-// - Heightmap deform uses batchGroundHeight() — world-generation is now cheap.
-// - Shader compileAsync() + forceFullSceneWarmup() dominates the critical path on first run.
+// - WASM runs in the background (not on the critical path) — small weight.
+// - Audio worklet is deferred to after first frame — not on critical path.
+// - Heightmap deform uses batchGroundHeight() — world-generation is cheap.
+// - Shader compileAsync() + forceFullSceneWarmup() dominates the critical path on first
+//   run (20–60 s on slow/mobile GPUs). It must hold the majority of the weight budget so
+//   the bar visibly advances during warmup instead of sitting at ~56 % while worklet
+//   polyfills and WASM modules resolve in parallel.
 // - map-generation runs after "Enter World" and is its own bar segment.
 export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'core-scene',
         name: 'Scene Setup',
-        weight: 0.15,
+        weight: 0.08,
         description: 'Initializing 3D renderer and scene...',
         onStart: () => log.debug('Loading', 'Starting Core Scene Setup'),
         onComplete: () => log.debug('Loading', 'Core Scene Setup complete'),
@@ -50,15 +54,15 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'audio-init',
         name: 'Audio System',
-        weight: 0.05,
-        description: 'Starting audio worklet and effects...',
+        weight: 0.03,
+        description: 'Setting up audio context...',
         onStart: () => log.debug('Loading', 'Starting Audio System Init'),
         onComplete: () => log.debug('Loading', 'Audio System Init complete'),
     },
     {
         id: 'world-generation',
         name: 'World Build',
-        weight: 0.2,
+        weight: 0.12,
         description: 'Building sky, terrain and base world...',
         onStart: () => log.debug('Loading', 'Starting World Generation'),
         onComplete: () => log.debug('Loading', 'World Generation complete'),
@@ -66,7 +70,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'wasm-init',
         name: 'Physics Engine',
-        weight: 0.35,
+        weight: 0.07,
         description: 'Loading physics engine and native modules...',
         onStart: () => log.debug('Loading', 'Starting WASM Initialization'),
         onComplete: () => log.debug('Loading', 'WASM Initialization complete'),
@@ -74,7 +78,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'shader-warmup',
         name: 'Shader Warmup',
-        weight: 0.3,
+        weight: 0.55,
         description: 'Pre-compiling shaders for smooth gameplay...',
         onStart: () => log.debug('Loading', 'Starting Shader Warmup'),
         onComplete: () => log.debug('Loading', 'Shader Warmup complete'),
@@ -82,7 +86,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'map-generation',
         name: 'Map Generation',
-        weight: 0.3,
+        weight: 0.15,
         description: 'Placing entities, foliage and discoveries...',
         onStart: () => log.debug('Loading', 'Starting Map Generation'),
         onComplete: () => log.debug('Loading', 'Map Generation complete'),

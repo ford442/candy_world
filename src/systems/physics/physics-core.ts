@@ -25,8 +25,7 @@ import { spawnImpact } from '../../foliage/impacts.ts';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/index.ts';
 import { showToast } from '../../utils/toast.ts';
 import {
-    initPhysics, setPlayerState, getPlayerState, updatePhysicsCPP,
-    uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
+    initPhysics, uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
@@ -35,7 +34,7 @@ import {
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { isInLakeBasin, reconcileGroundedEyeY } from '../ground-system.ts';
+import { reconcileGroundedEyeY } from '../ground-system.ts';
 import {
     calculateMovementInput
 } from '../physics.core.ts';
@@ -53,19 +52,23 @@ import {
     player, 
     PlayerState,
     _lastInputState,
-    _scratchPlayerState,
-    _scratchCamDir,
     _scratchMoveVec,
     grooveGravity,
     bpmWind,
     foliageCaves,
     setCppPhysicsInitialized,
-    _scratchMatrix,
     cppPhysicsInitialized,
     AudioState,
-    KeyStates
+    KeyStates,
+    CharacterIntent,
 } from './physics-types.ts';
-import { updateJSFallbackMovement } from './physics-updates.ts';
+
+const _characterIntent: CharacterIntent = {
+    wishDir: _scratchMoveVec,
+    moveSpeed: 0,
+    jumpPressed: false,
+    jumpTriggered: false,
+};
 
 // Re-export player and types for external use
 export { player, PlayerState };
@@ -225,7 +228,9 @@ import {
     checkGeysers,
     checkPanningPads,
     checkVineAttachment,
-    initCppPhysics
+    initCppPhysics,
+    stepCharacter,
+    defaultGroundQuery,
 } from './physics-updates.ts';
 
 /**
@@ -295,12 +300,6 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     _lastInputState.clap = keyStates.clap;
     _lastInputState.forward = keyStates.forward;
 
-    // 5. Check Flora Discovery (Throttled)
-    const frameCount = Math.floor(Date.now() / 16);
-    if (frameCount % 10 === 0) {
-        checkFloraDiscovery(player.position);
-    }
-
     // Sync back
     camera.position.x = player.position.x;
     camera.position.z = player.position.z;
@@ -327,6 +326,12 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // ⚡ OPTIMIZATION: Caching time to avoid multiple Date.now() calls
     const now = performance.now(); // More precise than Date.now()
+
+    // 5. Check Flora Discovery (Throttled)
+    const frameCount = Math.floor(now / 16);
+    if (frameCount % 10 === 0) {
+        checkFloraDiscovery(player.position);
+    }
 
     // ⚡ OPTIMIZATION: Only update vines if they are somewhat near the player.
     for (let i = 0; i < vineSwings.length; i++) {
@@ -383,7 +388,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // Decay Chromatic Pulse (Hack for now, ideally moved to a proper FX system)
     // If Phasing, keep intensity high
     if (player.isPhasing) {
-        if (uChromaticIntensity) uChromaticIntensity.value = 0.8 + Math.sin(Date.now() * 0.01) * 0.1;
+        if (uChromaticIntensity) uChromaticIntensity.value = 0.8 + Math.sin(now * 0.01) * 0.1;
     } else {
         if (uChromaticIntensity && uChromaticIntensity.value > 0) {
             uChromaticIntensity.value = Math.max(0, uChromaticIntensity.value - delta * 2.0);
@@ -413,29 +418,12 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         spawnImpact(player.position, 'trail');
     }
 
-    // 3. Sync State with C++
-    setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
-
-    // 4. Run C++ Update (Pass World Space Vectors)
-    // CRITICAL FIX: If we are in the Lake Basin, we MUST use JS Physics.
-    // The C++ WASM engine does not know about the visual carving and will return the wrong ground height (floating player).
-    const px = player.position.x;
-    const pz = player.position.z;
-    const inLakeBasin = isInLakeBasin(px, pz);
-
-    let onGround = -1; // Default to failure/fallback
-
-    // Prevent C++ from applying jump force if we are doing an Air Jump (which isn't grounded)
-    const effectiveJumpInput = (player.isGrounded && keyStates.jump) ? 1 : 0;
-
     // --- BPM Wind Player Impact ---
     const hasWindAnchor = unlockSystem.isUnlocked('wind_anchor');
     let windForceX = 0;
     let windForceZ = 0;
     if (!hasWindAnchor && bpmWind.strength > 0) {
-        // Apply wind force scaled by strength
-        // The strength ranges [0, 1]. Apply a constant push velocity.
-        const windPushForce = 25.0; // units/sec max
+        const windPushForce = 25.0;
         windForceX = bpmWind.direction.x * bpmWind.strength * windPushForce * delta;
         windForceZ = bpmWind.direction.z * bpmWind.strength * windPushForce * delta;
     } else if (hasWindAnchor && bpmWind.strength > 0.5) {
@@ -484,48 +472,27 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
                  uChromaticIntensity.value = 0.2;
              }
         }
+    // --- Kinematic character controller (#1577) ---
+    const isJumpTriggered = keyStates.jump && !_lastInputState.jump;
+    _characterIntent.wishDir.copy(moveInput);
+    _characterIntent.moveSpeed = moveSpeed;
+    _characterIntent.jumpPressed = keyStates.jump;
+    _characterIntent.jumpTriggered = isJumpTriggered;
 
-        const wasGrounded = player.isGrounded;
-        player.isGrounded = (onGround === 1);
+    const stepResult = stepCharacter(delta, _characterIntent, defaultGroundQuery);
 
-        if (!wasGrounded && player.isGrounded && player.velocity.y < -1.0) {
-            // 🎨 PALETTE: Make landing feedback dynamic based on fall velocity
-            const fallSpeed = Math.abs(player.velocity.y);
+    player.position.x += windForceX;
+    player.position.z += windForceZ;
 
-            if (fallSpeed > 15.0) {
-                // Hard fall -> Big splash, heavy screen distortion
-                spawnImpact(player.position, 'land');
-                spawnImpact(player.position, 'dash'); // Extra particles
-                addCameraShake(0.4); // 🎨 Palette: Heavy landing shake
-                if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-                // 🎨 Palette: Heavy impact audio
-                if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                    (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
-                }
-            } else if (fallSpeed > 8.0) {
-                // Medium fall
-                spawnImpact(player.position, 'land');
-                addCameraShake(0.15); // 🎨 Palette: Medium landing shake
-                if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
-                // 🎨 Palette: Medium impact audio
-                if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                    (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
-                }
-            } else {
-                // Soft landing
-                spawnImpact(player.position, 'jump'); // Lighter particle burst
-                if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
-                // 🎨 Palette: Soft impact audio
-                if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                    (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
-                }
-            }
+    if (stepResult.jumped) {
+        keyStates.jump = false;
+        spawnImpact(player.position, 'jump');
+        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+            (window as any).AudioSystem.playSound('jump', { pitch: Math.random() * 0.2 + 0.9, volume: 0.5 });
         }
-    } else {
-        // JS Fallback (Used for Lake Basin or C++ Failure)
-        updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
-        player.position.x += windForceX;
-        player.position.z += windForceZ;
+        if (typeof uChromaticIntensity !== 'undefined') {
+            uChromaticIntensity.value = 0.2;
+        }
     }
 
     if ((window as any).__diagPhysicsCount === 4) {
@@ -548,6 +515,28 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
             player.position.y = nextY;
             if (player.isGrounded) {
                 player.velocity.y = 0;
+    if (stepResult.landed) {
+        const fallSpeed = stepResult.fallSpeed;
+        if (fallSpeed > 15.0) {
+            spawnImpact(player.position, 'land');
+            spawnImpact(player.position, 'dash');
+            addCameraShake(0.4);
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
+            }
+        } else if (fallSpeed > 8.0) {
+            spawnImpact(player.position, 'land');
+            addCameraShake(0.15);
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
+            }
+        } else {
+            spawnImpact(player.position, 'jump');
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
             }
         }
     }
@@ -604,6 +593,20 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     if ((window as any).__diagPhysicsCount === 7) {
         (window as any).__diagPhysicsCount = 8;
         console.log('[PhysicsDiag] updateDefaultState: Entering JS physics checks');
+    // Platform-preservation: reconcile Y after WASM; skips elevated platforms internally.
+    if (player.isGrounded && player.velocity.y <= 0) {
+        const prevY = player.position.y;
+        const nextY = reconcileGroundedEyeY(
+            prevY,
+            player.position.x,
+            player.position.z,
+            delta,
+            { isGrounded: player.isGrounded, velocityY: player.velocity.y }
+        );
+        if (nextY !== prevY) {
+            player.position.y = nextY;
+            player.velocity.y = 0;
+        }
     }
 
     // --- Panning Pads (JS Physics) --

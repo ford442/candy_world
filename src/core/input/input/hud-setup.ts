@@ -52,7 +52,10 @@ function setupAbilityKeyboardInteractions(
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
     });
 
-    element.addEventListener('pointerout', () => {
+    element.addEventListener('pointerout', (e: PointerEvent) => {
+        const nextTarget = e.relatedTarget;
+        if (nextTarget instanceof Node && element.contains(nextTarget)) return;
+        if (element.hasPointerCapture(e.pointerId)) return;
         if (element.classList.contains('keyboard-active')) {
             element.classList.remove('keyboard-active');
             onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
@@ -69,7 +72,10 @@ function setupAbilityKeyboardInteractions(
     });
 }
 
-export function setupHudControls(session: InputSession, handlers: InputKeyboardHandlers): () => void {
+export function setupHudControls(
+    session: InputSession,
+    handlers: InputKeyboardHandlers
+): () => void {
     session.toggleDayNightBtn = document.getElementById('toggleDayNight');
     if (session.toggleDayNightBtn && session.toggleDayNightCallback) {
         session.toggleDayNightBtn.addEventListener('click', session.toggleDayNightCallback);
@@ -143,47 +149,6 @@ export function setupHudControls(session: InputSession, handlers: InputKeyboardH
             openAccessibilityMenu();
         });
     }
-
-    // ♿ Aria: Generic tactile keyboard feedback for HUD buttons
-    document.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.repeat) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-            const activeElement = document.activeElement as HTMLElement;
-            if (
-                activeElement &&
-                !activeElement.classList.contains('keyboard-active') &&
-                (activeElement.classList.contains('toggle-button') ||
-                 activeElement.classList.contains('cta-button') ||
-                 activeElement.classList.contains('secondary-button') ||
-                 activeElement.classList.contains('file-label') ||
-                 activeElement.classList.contains('mode-btn'))
-            ) {
-                activeElement.classList.add('keyboard-active');
-            }
-        }
-    });
-
-    document.addEventListener('keyup', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            const activeElements = document.querySelectorAll('.keyboard-active');
-            activeElements.forEach(el => {
-                // ability-slots manage their own state to trigger onKeyUp logic
-                if (!el.classList.contains('ability-slot')) {
-                    el.classList.remove('keyboard-active');
-                }
-            });
-        }
-    });
-
-    document.addEventListener('focusout', (e: FocusEvent) => {
-        const target = e.target as HTMLElement;
-        if (target && target.classList && target.classList.contains('keyboard-active')) {
-            // ability-slots manage their own state
-            if (!target.classList.contains('ability-slot')) {
-                target.classList.remove('keyboard-active');
-            }
-        }
-    });
 
     return releaseDpadAll;
 }

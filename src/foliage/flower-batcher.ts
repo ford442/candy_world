@@ -261,7 +261,10 @@ export class FlowerBatcher {
 
         // Ensure world matrix is up to date
         // ⚡ OPTIMIZATION: Bypassed deep THREE.Object3D proxy traversals
-        group.updateWorldMatrix(false, false);
+        group.matrixWorld.compose(group.position, group.quaternion, group.scale);
+        if (group.parent) {
+            group.matrixWorld.multiplyMatrices(group.parent.matrixWorld, group.matrixWorld);
+        }
         const rootMatrix = group.matrixWorld;
 
         // Parse options
