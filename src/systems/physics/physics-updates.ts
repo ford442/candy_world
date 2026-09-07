@@ -22,9 +22,9 @@ import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
 import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
-import { uStrobeIntensity } from '../../foliage/strobe.ts';
+import { uStrobeIntensity } from '../../foliage/strobe-nodes.ts';
 import { showToast } from '../../utils/toast.ts';
 import {
     batchGeyserLaunch,

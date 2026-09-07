@@ -143,6 +143,13 @@ export default defineConfig({
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
                     }
+                    // Shared nodes for post-processing and app chunks.
+                    if (
+                        id.includes('/src/foliage/chromatic-nodes.ts') ||
+                        id.includes('/src/foliage/strobe-nodes.ts')
+                    ) {
+                        return 'postfx-shared';
+                    }
                     // Graphs only. The stub stays in `app` and must not live in this
                     // chunk: postfx → app TLA + app awaiting postfx deadlocks boot.
                     if (

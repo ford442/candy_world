@@ -142,8 +142,12 @@ export function checkPositionValidity(x: f32, z: f32, radius: f32): i32 {
 
       const gridIdx = row * GRID_COLS + col;
       let objId = load<i32>(GRID_HEADS_OFFSET + (gridIdx * 4));
+      let loopCount = 0;
 
       while (objId != -1) {
+        if (objId < 0 || objId >= collisionObjectCount || loopCount >= collisionObjectCount) break;
+        loopCount++;
+
         const ptr = COLLISION_OFFSET + (objId * COLLISION_STRIDE);
         // We only care about position (offsets 4, 12) and radius (offset 16)
         // Format: type(0), x(4), y(8), z(12), r(16), h(20)...
@@ -196,8 +200,12 @@ export function resolveGameCollisions(kickTrigger: f32): i32 {
 
       const gridIdx = row * GRID_COLS + col;
       let objId = load<i32>(GRID_HEADS_OFFSET + (gridIdx * 4));
+      let loopCount = 0;
 
       while (objId != -1) {
+        if (objId < 0 || objId >= collisionObjectCount || loopCount >= collisionObjectCount) break;
+        loopCount++;
+
         const objPtr = COLLISION_OFFSET + (objId * COLLISION_STRIDE);
 
         const type = i32(load<f32>(objPtr));

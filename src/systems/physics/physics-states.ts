@@ -2,7 +2,7 @@
 // State handlers: Swimming, Vine, Climbing, Dancing, Default
 
 import * as THREE from 'three';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { 
     activeVineSwing, 

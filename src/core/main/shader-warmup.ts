@@ -73,11 +73,13 @@ export function runShaderWarmup(ctx: MainContext): void {
             loadingScreen.completePhase('shader-warmup');
         });
 
+        console.log('[Startup] About to call renderer.setAnimationLoop(animate)');
         renderer.setAnimationLoop(animate);
         try {
             (window as any).__sceneReady = true;
+            console.log('[Startup] Successfully set __sceneReady = true');
         } catch (e) {
-            void e;
+            console.log('[Startup] Error setting __sceneReady', e);
         }
         void preloadGameplay();
 
