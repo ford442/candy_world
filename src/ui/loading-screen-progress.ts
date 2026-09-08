@@ -42,7 +42,9 @@ export class LoadingScreenProgress {
     private averagePhaseTime = 0;
     private onProgressCallbacks: Set<(progress: LoadingProgress) => void> = new Set();
 
-    constructor(private options: Pick<LoadingScreenOptions, 'debug'> = {}) {
+    private options: Pick<LoadingScreenOptions, 'debug'>;
+    constructor(options: Pick<LoadingScreenOptions, 'debug'> = {}) {
+        this.options = options;
         this.setPhases([...DEFAULT_LOADING_PHASES]);
     }
 

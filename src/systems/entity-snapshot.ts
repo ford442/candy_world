@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+import { create } from '../world/foliage-registry.ts';
 import { processMapEntity } from '../world/generation-entities.ts';
 import type { WeatherSystem, MapEntity } from '../world/generation-utils.ts';
 import { migrateSnapshot, type EntitySnapshot } from './entity-snapshot-core.ts';
