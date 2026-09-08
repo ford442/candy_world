@@ -48,20 +48,20 @@ Generation currently uses this hint to pre-size `TreeBatcher` capacity before in
 # Dynamic Rigid Bodies
 
 The dynamic rigid-body layer (`assembly/rigidbody.ts` +
-`src/systems/physics/rigid-bodies.ts`) simulates a *small* number of bumpable
+`src/systems/physics/rigid-bodies.ts`) simulates a _small_ number of bumpable
 interactive props. It is deliberately not a general-purpose physics world.
 
 ## Budget
 
-| Knob | Value | Where |
-|---|---|---|
-| `MAX_DYNAMIC_BODIES` | **64** | `assembly/constants.ts`, mirrored in `src/systems/physics/rigid-body-types.ts` |
-| Bytes per body | 64 (16 × f32) | `RIGID_BODY_STRIDE` |
-| Total pool | 4 KB | managed `StaticArray`, allocated once |
-| Substep | 1/120 s, max 8 per frame | `MAX_SUBSTEP` / `MAX_SUBSTEPS` |
-| Frame delta clamp | 0.1 s | `MAX_FRAME_DT` — a tab-restore hitch cannot tunnel a body |
-| Speed clamp | 80 u/s | `MAX_SPEED` |
-| Sleep threshold | 0.28 u/s for 0.6 s while grounded | `SLEEP_LINEAR_SPEED` / `SLEEP_TIME` |
+| Knob                 | Value                             | Where                                                                          |
+| -------------------- | --------------------------------- | ------------------------------------------------------------------------------ |
+| `MAX_DYNAMIC_BODIES` | **64**                            | `assembly/constants.ts`, mirrored in `src/systems/physics/rigid-body-types.ts` |
+| Bytes per body       | 64 (16 × f32)                     | `RIGID_BODY_STRIDE`                                                            |
+| Total pool           | 4 KB                              | managed `StaticArray`, allocated once                                          |
+| Substep              | 1/120 s, max 8 per frame          | `MAX_SUBSTEP` / `MAX_SUBSTEPS`                                                 |
+| Frame delta clamp    | 0.1 s                             | `MAX_FRAME_DT` — a tab-restore hitch cannot tunnel a body                      |
+| Speed clamp          | 80 u/s                            | `MAX_SPEED`                                                                    |
+| Sleep threshold      | 0.28 u/s for 0.6 s while grounded | `SLEEP_LINEAR_SPEED` / `SLEEP_TIME`                                            |
 
 64 is the cap because body-body collision is an O(n²) sweep over the high-water
 mark: at 64 bodies that is ~2016 f32 pairs per substep, cheaper than maintaining
@@ -138,14 +138,14 @@ world.
 
 ## Budget
 
-| Knob | Value | Where |
-|---|---|---|
-| `MAX_JOINTS` | **64** | `assembly/constants.ts`, mirrored in `src/systems/physics/joint-types.ts` |
-| Bytes per joint | 64 (16 × f32) | `JOINT_STRIDE` |
-| Total pool | 4 KB | managed `StaticArray`, allocated once |
-| Projection passes | 4 per substep | `JOINT_ITERATIONS` |
-| Correction clamp | 2 units per pass | `MAX_CORRECTION` |
-| Joint speed clamp | 60 u/s | `MAX_JOINT_SPEED` — under the body layer's 80 |
+| Knob              | Value            | Where                                                                     |
+| ----------------- | ---------------- | ------------------------------------------------------------------------- |
+| `MAX_JOINTS`      | **64**           | `assembly/constants.ts`, mirrored in `src/systems/physics/joint-types.ts` |
+| Bytes per joint   | 64 (16 × f32)    | `JOINT_STRIDE`                                                            |
+| Total pool        | 4 KB             | managed `StaticArray`, allocated once                                     |
+| Projection passes | 4 per substep    | `JOINT_ITERATIONS`                                                        |
+| Correction clamp  | 2 units per pass | `MAX_CORRECTION`                                                          |
+| Joint speed clamp | 60 u/s           | `MAX_JOINT_SPEED` — under the body layer's 80                             |
 
 The solve is O(joints × iterations) with no islands and no graph colouring: at
 64 joints × 4 passes that is 256 constraint projections per substep, which is
@@ -155,7 +155,7 @@ cheaper than the body layer's own O(n²) contact sweep sitting next to it.
 `solveJoints()` early-outs while the joint count is 0. Nothing in the default
 boot path creates a joint.
 
-## What a joint *is* here
+## What a joint _is_ here
 
 The body layer carries no angular state, so a constraint relates two **points**,
 not two frames:
@@ -184,10 +184,10 @@ contact still gets the last word on penetration.
 
 ## Spring range
 
-| Knob | Documented range | Behaviour outside it |
-|---|---|---|
-| stiffness `k` | 10 .. 4000 | clamped at 4000; below ~10 the body just sags a long way (gravity is 22 u/s²) |
-| damping | 0 .. 400 | clamped at 400; 0 oscillates forever, which is stable, not divergent |
+| Knob          | Documented range | Behaviour outside it                                                          |
+| ------------- | ---------------- | ----------------------------------------------------------------------------- |
+| stiffness `k` | 10 .. 4000       | clamped at 4000; below ~10 the body just sags a long way (gravity is 22 u/s²) |
+| damping       | 0 .. 400         | clamped at 400; 0 oscillates forever, which is stable, not divergent          |
 
 Springs are an explicit damped force applied at the velocity level, and both
 coefficients are additionally capped per substep at the explicit-integration
@@ -236,3 +236,91 @@ Covers pool lifecycle and the capacity cap, settling + sleep, 20 s of 4000-unit
 impulses staying in bounds and finite, radial-impulse wake, the one-way player
 proxy, determinism over a 30 s run, and degenerate deltas (zero, negative, and a
 5 s hitch).
+
+---
+
+# Soft Bodies (experimental)
+
+`src/systems/physics/soft-body.ts` is a **prototype**, not a system: one
+position-based cloth grid, opt-in behind a URL flag, used by exactly one demo
+object (`src/debug/soft-body-demo.ts`). It does not feed foliage, it does not
+replace the TSL wind deform in `src/foliage/material-core/deformation.ts`, and
+nothing in the default boot path loads it.
+
+## Trying it
+
+```
+http://localhost:5173/?softBody=1
+```
+
+A candy banner hangs on a rod near the player spawn. Walk through it; `H`
+resets it to the bind pose. `window.__softBody` exposes `particles()`,
+`constraints()`, `resets()` and `finite()` for console inspection.
+
+## Gating
+
+| Condition                    | Behaviour                                         |
+| ---------------------------- | ------------------------------------------------- |
+| No flag                      | Module is never imported — zero bundle, zero cost |
+| `?softBody=1`, `low` tier    | **Refused.** WebGL and CI/headless clamp to `low` |
+| `?softBody=1`, medium / high | Runs                                              |
+| `?softBody=force`            | Runs on any tier — local A/B only                 |
+
+The smoke test therefore never simulates cloth, even if the flag leaks into a
+run configuration.
+
+## Budget
+
+| Knob                 | Value                            |
+| -------------------- | -------------------------------- |
+| Grid                 | 14 × 10 = **140 particles**      |
+| Constraints          | ~700 (structural + shear + bend) |
+| Substep              | 1/120 s, max 4 per frame         |
+| Frame delta clamp    | 0.1 s                            |
+| Relaxation passes    | 6 per substep                    |
+| Speed clamp          | 24 u/s                           |
+| Allocation per frame | none (flat typed arrays)         |
+
+Measured cost: **~0.6 ms/frame** for a 12 × 9 sheet under continuous player
+contact (Node + tsx, single-threaded; the browser JIT does better). That is
+~4% of a 60 fps frame for a single decorative object — which is exactly why it
+is flag-gated and capped at one instance. Scaling this to many props means
+moving the solve to a compute shader first; the JS solver is the prototype, not
+the plan.
+
+The whole cost is the constraint loop: substeps × iterations × links
+(4 × 6 × 700 ≈ 17k projections/frame). Lowering `iterations` is the first knob
+if the sheet needs to get cheaper; lowering it too far makes the cloth rubbery.
+
+## Why it stays candy
+
+- **Overdamped.** Velocity retention is 0.86/s, so motion reads as slow jelly
+  wobble rather than a snapping flag.
+- **Stretch is hard-clamped** at 1.12× rest per link, above and beyond the
+  stiffness solve. The sheet physically cannot draw out into thin strings, no
+  matter how hard it is shoved — no uncanny taffy stretch.
+- **Contacts only repel.** Terrain height field and the player capsule push
+  particles out; nothing pins, grabs or tears. The player capsule is one-way,
+  exactly like the rigid-body layer's — cloth can never affect movement.
+- **Wind is a slow sine**, per-row phase-shifted into a travelling ripple,
+  rather than turbulence noise.
+
+## Stability
+
+Every step ends with a finite check. A non-finite particle resets the whole
+sheet to its bind pose and increments `resetCount`; the demo logs a
+`console.error` when that happens, so a divergence is impossible to miss.
+`tests/soft-body.test.mjs` asserts `resetCount === 0` after 10 s of continuous
+player bumps through the sheet.
+
+## Non-goals
+
+Production cloth for foliage, tearing, self-collision, cloth-vs-rigid-body
+contacts, and replacing the TSL wind deform. If this graduates, it graduates as
+a compute shader.
+
+## Tests
+
+```bash
+npm run test:softbody   # tests/soft-body.test.mjs — also part of test:integration
+```

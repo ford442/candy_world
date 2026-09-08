@@ -204,9 +204,16 @@ export function spawnRigidBody(desc: RigidBodyDesc): RigidBodyHandle | null {
     let id: number;
     if (_useWasm && _exports?.rbSpawn) {
         id = _exports.rbSpawn(
-            shape, desc.x, desc.y, desc.z,
-            mass, restitution, friction,
-            radius, halfHeight, halfDepth,
+            shape,
+            desc.x,
+            desc.y,
+            desc.z,
+            mass,
+            restitution,
+            friction,
+            radius,
+            halfHeight,
+            halfDepth,
             0
         );
     } else {
@@ -446,9 +453,14 @@ export function setRigidBodyPlayerProxy(
 
     if (_useWasm && _exports?.rbSetPlayerProxy) {
         _exports.rbSetPlayerProxy(
-            position.x, position.y, position.z,
-            radius, height,
-            velocity.x, velocity.y, velocity.z
+            position.x,
+            position.y,
+            position.z,
+            radius,
+            height,
+            velocity.x,
+            velocity.y,
+            velocity.z
         );
     }
 }

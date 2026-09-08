@@ -9,15 +9,11 @@ export {
     registerPhysicsCave,
     triggerHarpoon,
     player,
-    PlayerState
+    PlayerState,
 } from './physics.ts';
 
 // Type exports
-export type {
-    AudioState,
-    PlayerExtended,
-    KeyStates
-} from './physics-types.ts';
+export type { AudioState, PlayerExtended, KeyStates } from './physics-types.ts';
 
 // Re-export specific types/constants if needed by external modules
 export {
@@ -27,7 +23,7 @@ export {
     PLAYER_HEIGHT_OFFSET,
     DANCE_KICK_THRESHOLD,
     bpmWind,
-    grooveGravity
+    grooveGravity,
 } from './physics-types.ts';
 
 // Dynamic rigid bodies (lightweight interactive-prop solver)

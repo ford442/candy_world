@@ -14,7 +14,13 @@
  * behave sensibly without WASM, just without landing on platforms.
  */
 
-import { RB_BOUNDS, RB_FIELD as F, RB_FLAG, RB_FLOATS_PER_BODY, RB_SHAPE } from './rigid-body-types.ts';
+import {
+    RB_BOUNDS,
+    RB_FIELD as F,
+    RB_FLAG,
+    RB_FLOATS_PER_BODY,
+    RB_SHAPE,
+} from './rigid-body-types.ts';
 
 const GRAVITY = -22.0;
 const LINEAR_DAMPING = 0.06;
@@ -253,7 +259,12 @@ function resolveBodyPairs(pool: Float32Array, highWater: number): void {
         const fi = pool[bi + F.FLAGS];
         if (!(fi & RB_FLAG.ACTIVE)) continue;
 
-        const ri = boundingRadius(pool[bi + F.SHAPE], pool[bi + F.D1], pool[bi + F.D2], pool[bi + F.D3]);
+        const ri = boundingRadius(
+            pool[bi + F.SHAPE],
+            pool[bi + F.D1],
+            pool[bi + F.D2],
+            pool[bi + F.D3]
+        );
 
         for (let j = i + 1; j < highWater; j++) {
             const bj = j * RB_FLOATS_PER_BODY;
@@ -266,7 +277,12 @@ function resolveBodyPairs(pool: Float32Array, highWater: number): void {
             const invSum = invI + invJ;
             if (invSum <= 0) continue;
 
-            const rj = boundingRadius(pool[bj + F.SHAPE], pool[bj + F.D1], pool[bj + F.D2], pool[bj + F.D3]);
+            const rj = boundingRadius(
+                pool[bj + F.SHAPE],
+                pool[bj + F.D1],
+                pool[bj + F.D2],
+                pool[bj + F.D3]
+            );
 
             const dx = pool[bj + F.PX] - pool[bi + F.PX];
             const dy = pool[bj + F.PY] - pool[bi + F.PY];

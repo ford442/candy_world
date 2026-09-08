@@ -27,6 +27,11 @@
 //   ?nativeMusicAccum=1   — prefer AS accumulate when candy_physics export present (default)
 //   ?debugPhysics=1       — dynamic rigid-body staging area + collider gizmos
 //                           (G respawns props, B fires a radial blast)
+//   ?softBody=1           — EXPERIMENTAL cloth banner prototype (H resets it).
+//                           Default off; refused on the `low` graphics tier
+//                           (WebGL / CI) unless forced with ?softBody=force
+//   ?heroAnim=1           — hero clip animation staging area: one glTF rig on a
+//                           pedestal near spawn (J cycles clips, K stop/start)
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).

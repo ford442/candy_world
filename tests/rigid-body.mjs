@@ -13,9 +13,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Mirrors RB_* in assembly/constants.ts
 const BOUNDS = {
-    minX: -128.0, maxX: 128.0,
-    minY: -100.0, maxY: 500.0,
-    minZ: -128.0, maxZ: 128.0,
+    minX: -128.0,
+    maxX: 128.0,
+    minY: -100.0,
+    maxY: 500.0,
+    minZ: -128.0,
+    maxZ: 128.0,
 };
 
 const MAX_DYNAMIC_BODIES = 64;
@@ -70,12 +73,17 @@ function assertInBounds(view, id, testName, tick) {
     const y = field(view, id, F.PY);
     const z = field(view, id, F.PZ);
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
-        throw new Error(`${testName}: body ${id} became non-finite at tick ${tick}: (${x}, ${y}, ${z})`);
+        throw new Error(
+            `${testName}: body ${id} became non-finite at tick ${tick}: (${x}, ${y}, ${z})`
+        );
     }
     if (
-        x < BOUNDS.minX || x > BOUNDS.maxX ||
-        y < BOUNDS.minY || y > BOUNDS.maxY ||
-        z < BOUNDS.minZ || z > BOUNDS.maxZ
+        x < BOUNDS.minX ||
+        x > BOUNDS.maxX ||
+        y < BOUNDS.minY ||
+        y > BOUNDS.maxY ||
+        z < BOUNDS.minZ ||
+        z > BOUNDS.maxZ
     ) {
         throw new Error(
             `${testName}: body ${id} left world bounds at tick ${tick}: (${x}, ${y}, ${z})`
@@ -89,8 +97,10 @@ function testSpawnDespawn(exports) {
     console.log('Test 1: spawn / despawn / capacity cap');
     exports.initRigidBodySystem();
 
-    check(exports.rbCapacity() === MAX_DYNAMIC_BODIES,
-        `capacity should be ${MAX_DYNAMIC_BODIES}, got ${exports.rbCapacity()}`);
+    check(
+        exports.rbCapacity() === MAX_DYNAMIC_BODIES,
+        `capacity should be ${MAX_DYNAMIC_BODIES}, got ${exports.rbCapacity()}`
+    );
     check(exports.rbCount() === 0, 'pool should start empty');
 
     const ids = [];
@@ -132,23 +142,42 @@ function testGravitySettleAndSleep(exports) {
 
     const ids = [];
     for (let i = 0; i < 8; i++) {
-        ids.push(exports.rbSpawn(
-            SHAPE_SPHERE, -12 + i * 3.5, 40 + i, 6, 1.5, 0.35, 0.5, 0.6, 0.6, 0.6, i
-        ));
+        ids.push(
+            exports.rbSpawn(
+                SHAPE_SPHERE,
+                -12 + i * 3.5,
+                40 + i,
+                6,
+                1.5,
+                0.35,
+                0.5,
+                0.6,
+                0.6,
+                0.6,
+                i
+            )
+        );
     }
 
     const dt = 1 / 60;
-    for (let tick = 0; tick < 900; tick++) { // 15 simulated seconds
+    for (let tick = 0; tick < 900; tick++) {
+        // 15 simulated seconds
         exports.stepRigidBodies(dt, tick * dt * 1000);
         for (const id of ids) assertInBounds(view, id, 'settle', tick);
     }
 
-    check(exports.rbAwakeCount() === 0,
-        `all bodies should sleep after settling, ${exports.rbAwakeCount()} still awake`);
+    check(
+        exports.rbAwakeCount() === 0,
+        `all bodies should sleep after settling, ${exports.rbAwakeCount()} still awake`
+    );
 
     for (const id of ids) {
         check(exports.rbIsSleeping(id) === 1, `body ${id} should be asleep`);
-        const speed = Math.hypot(field(view, id, F.VX), field(view, id, F.VY), field(view, id, F.VZ));
+        const speed = Math.hypot(
+            field(view, id, F.VX),
+            field(view, id, F.VY),
+            field(view, id, F.VZ)
+        );
         check(speed === 0, `sleeping body ${id} should have zero velocity, got ${speed}`);
     }
 
@@ -163,10 +192,21 @@ function testExtremeImpulses(exports) {
     const shapes = [SHAPE_SPHERE, SHAPE_CAPSULE, SHAPE_BOX];
     const ids = [];
     for (let i = 0; i < 24; i++) {
-        ids.push(exports.rbSpawn(
-            shapes[i % 3], (i % 6) * 2 - 6, 5 + i * 0.5, Math.floor(i / 6) * 2 - 3,
-            0.5 + (i % 4), 0.6, 0.25, 0.5, 0.5, 0.5, i
-        ));
+        ids.push(
+            exports.rbSpawn(
+                shapes[i % 3],
+                (i % 6) * 2 - 6,
+                5 + i * 0.5,
+                Math.floor(i / 6) * 2 - 3,
+                0.5 + (i % 4),
+                0.6,
+                0.25,
+                0.5,
+                0.5,
+                0.5,
+                i
+            )
+        );
     }
 
     const dt = 1 / 60;
@@ -249,7 +289,8 @@ function testPlayerProxyIsOneWay(exports) {
     check(Math.abs(field(view, id, F.PZ) - restZ) < 2.0, 'body should not fly sideways');
 
     exports.rbDisablePlayerProxy();
-    if (failures === 0) console.log(`  ✓ body pushed ${movedX.toFixed(2)} units by the player capsule`);
+    if (failures === 0)
+        console.log(`  ✓ body pushed ${movedX.toFixed(2)} units by the player capsule`);
 }
 
 function testDeterminismAndEnergyDecay(exports) {
@@ -261,16 +302,32 @@ function testDeterminismAndEnergyDecay(exports) {
         const view = makeView(exports, ptr);
         const ids = [];
         for (let i = 0; i < 12; i++) {
-            ids.push(exports.rbSpawn(SHAPE_SPHERE, i * 1.1 - 6, 20 + i, i * 0.7 - 4,
-                1 + i * 0.1, 0.5, 0.4, 0.6, 0.6, 0.6, i));
+            ids.push(
+                exports.rbSpawn(
+                    SHAPE_SPHERE,
+                    i * 1.1 - 6,
+                    20 + i,
+                    i * 0.7 - 4,
+                    1 + i * 0.1,
+                    0.5,
+                    0.4,
+                    0.6,
+                    0.6,
+                    0.6,
+                    i
+                )
+            );
         }
         for (const id of ids) exports.rbApplyImpulse(id, 12 - id * 0.5, 9, -7 + id * 0.5);
-        for (let tick = 0; tick < 1800; tick++) { // 30 simulated seconds
+        for (let tick = 0; tick < 1800; tick++) {
+            // 30 simulated seconds
             exports.stepRigidBodies(dt, tick * dt * 1000);
             for (const id of ids) assertInBounds(view, id, 'long-run', tick);
         }
         return ids.map((id) => [
-            field(view, id, F.PX), field(view, id, F.PY), field(view, id, F.PZ),
+            field(view, id, F.PX),
+            field(view, id, F.PY),
+            field(view, id, F.PZ),
         ]);
     };
 
@@ -278,14 +335,18 @@ function testDeterminismAndEnergyDecay(exports) {
     const b = run();
     for (let i = 0; i < a.length; i++) {
         for (let k = 0; k < 3; k++) {
-            check(a[i][k] === b[i][k],
-                `run should be deterministic — body ${i} axis ${k}: ${a[i][k]} vs ${b[i][k]}`);
+            check(
+                a[i][k] === b[i][k],
+                `run should be deterministic — body ${i} axis ${k}: ${a[i][k]} vs ${b[i][k]}`
+            );
         }
     }
 
     // After 30s everything must have come to rest: no energy injection.
-    check(exports.rbAwakeCount() === 0,
-        `long run should end fully asleep, ${exports.rbAwakeCount()} awake`);
+    check(
+        exports.rbAwakeCount() === 0,
+        `long run should end fully asleep, ${exports.rbAwakeCount()} awake`
+    );
 
     if (failures === 0) console.log('  ✓ 12 bodies, 30s, deterministic and fully settled');
 }
@@ -319,9 +380,18 @@ async function runAllTests() {
         const exports = instance.exports;
 
         const required = [
-            'initRigidBodySystem', 'rbSpawn', 'rbDespawn', 'rbClear', 'stepRigidBodies',
-            'rbApplyImpulse', 'rbApplyRadialImpulse', 'rbSetPlayerProxy', 'rbCount',
-            'rbCapacity', 'rbAwakeCount', 'rbIsSleeping',
+            'initRigidBodySystem',
+            'rbSpawn',
+            'rbDespawn',
+            'rbClear',
+            'stepRigidBodies',
+            'rbApplyImpulse',
+            'rbApplyRadialImpulse',
+            'rbSetPlayerProxy',
+            'rbCount',
+            'rbCapacity',
+            'rbAwakeCount',
+            'rbIsSleeping',
         ];
         const missing = required.filter((n) => typeof exports[n] !== 'function');
         if (missing.length) throw new Error(`missing WASM exports: ${missing.join(', ')}`);

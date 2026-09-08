@@ -9,15 +9,15 @@
 
 ## Recently completed (2026-07 batch)
 
-| Issue | Slice | Landing |
-|-------|-------|---------|
-| [#1326](https://github.com/ford442/candy_world/issues/1326) | `.ts` import hygiene | No local `.js` specifiers for TS modules |
-| [#1327](https://github.com/ford442/candy_world/issues/1327) | Unified ground height | `assembly/ground.ts`, `emscripten/ground.cpp`, `wasm-ground.ts` |
-| [#1328](https://github.com/ford442/candy_world/issues/1328) | Foliage physics batches | `emscripten/foliage_interact.cpp`, `wasm-foliage-interact.ts` |
-| [#1329](https://github.com/ford442/candy_world/issues/1329) | CPU particle sim kernel | `cpu-particle-simulate.ts`, `updateCpuParticlesWASM` |
-| [#1330](https://github.com/ford442/candy_world/issues/1330) | Migration docs refresh | `MIGRATION_STATUS.md` (this tracker) |
-| [#1364](https://github.com/ford442/candy_world/issues/1364) | arpeggio_grove channel accum → AS | `assembly/music_reactivity.ts`, `wasm-music-reactivity.ts`, `applyArpeggioGroveChannelAccum` (wired + `?nativeMusicAccum`) |
-| — | Dynamic rigid bodies (native-first, no TS predecessor) | `assembly/rigidbody.ts`, `src/systems/physics/rigid-bodies.ts`, JS mirror in `rigid-body-fallback.ts`, demo behind `?debugPhysics=1` |
+| Issue                                                       | Slice                                                  | Landing                                                                                                                              |
+| ----------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [#1326](https://github.com/ford442/candy_world/issues/1326) | `.ts` import hygiene                                   | No local `.js` specifiers for TS modules                                                                                             |
+| [#1327](https://github.com/ford442/candy_world/issues/1327) | Unified ground height                                  | `assembly/ground.ts`, `emscripten/ground.cpp`, `wasm-ground.ts`                                                                      |
+| [#1328](https://github.com/ford442/candy_world/issues/1328) | Foliage physics batches                                | `emscripten/foliage_interact.cpp`, `wasm-foliage-interact.ts`                                                                        |
+| [#1329](https://github.com/ford442/candy_world/issues/1329) | CPU particle sim kernel                                | `cpu-particle-simulate.ts`, `updateCpuParticlesWASM`                                                                                 |
+| [#1330](https://github.com/ford442/candy_world/issues/1330) | Migration docs refresh                                 | `MIGRATION_STATUS.md` (this tracker)                                                                                                 |
+| [#1364](https://github.com/ford442/candy_world/issues/1364) | arpeggio_grove channel accum → AS                      | `assembly/music_reactivity.ts`, `wasm-music-reactivity.ts`, `applyArpeggioGroveChannelAccum` (wired + `?nativeMusicAccum`)           |
+| —                                                           | Dynamic rigid bodies (native-first, no TS predecessor) | `assembly/rigidbody.ts`, `src/systems/physics/rigid-bodies.ts`, JS mirror in `rigid-body-fallback.ts`, demo behind `?debugPhysics=1` |
 
 ---
 
@@ -31,7 +31,7 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 **Why:** `arpeggio-batcher.ts`, `tree-batcher.ts`, `mushroom-batcher.ts`, etc. used to write `instanceMatrix.array` / `instanceColor.array` per plant per frame in TS after `PlantPoseMachine.update`. This has now been moved fully to WASM C++ wrappers via `writeInstancePose`.
 
-**15% scope:** Extract *only* the matrix/color write loop for one batcher species (suggest `arpeggio-batcher`) into `emscripten/lod_batch.cpp` or a new `batcher_instance.cpp` batch export.
+**15% scope:** Extract _only_ the matrix/color write loop for one batcher species (suggest `arpeggio-batcher`) into `emscripten/lod_batch.cpp` or a new `batcher_instance.cpp` batch export.
 
 **Files:** `src/foliage/*-batcher.ts`, `src/foliage/plant-pose-machine.ts`, `emscripten/batcher_instance.cpp`, `src/utils/wasm-batcher-instance.ts`
 
@@ -84,6 +84,7 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 **Why:** `emscripten/exports.txt` was drifting from `build.sh` because most agents lack `em++`.
 
 **Shipped:**
+
 - Tier 1: `scripts/check-emcc-manifest.mjs` + `.github/workflows/emscripten-ci.yml` (path-filtered, no emsdk)
 - Tier 2: `.github/workflows/emscripten-verify.yml` (`CANDY_DEBUG=0 build:emcc` + `verify:emcc --strict` on tags / nightly / dispatch)
 - Untracked `math.o` / `*.cpp.bak`; relocated `libomp.a` → `emscripten/vendor/libomp.a`
@@ -94,13 +95,13 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 ## Backlog (not yet prioritized)
 
-| Topic | Hint |
-|-------|------|
-| GPU foliage default-on | Pilot behind `?gpuFoliage=1` — see `docs/GPU_FOLIAGE.md`; flip default after VR + parity |
-| Discovery batch on AS vs C++ dedup | Both `assembly/discovery.ts` and `emscripten/discovery.cpp` exist |
-| World gen micro-opts | `generation-entities.ts` — profile first |
-| Stub removal | Delete `shared-buffer-example.js` after confirming no external imports |
-| Move `PERFORMANCE_MIGRATION_STRATEGY.md` to repo root | Docs currently under `docs/archive/` but linked from `AGENTS.md` |
+| Topic                                                 | Hint                                                                                     |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| GPU foliage default-on                                | Pilot behind `?gpuFoliage=1` — see `docs/GPU_FOLIAGE.md`; flip default after VR + parity |
+| Discovery batch on AS vs C++ dedup                    | Both `assembly/discovery.ts` and `emscripten/discovery.cpp` exist                        |
+| World gen micro-opts                                  | `generation-entities.ts` — profile first                                                 |
+| Stub removal                                          | Delete `shared-buffer-example.js` after confirming no external imports                   |
+| Move `PERFORMANCE_MIGRATION_STRATEGY.md` to repo root | Docs currently under `docs/archive/` but linked from `AGENTS.md`                         |
 
 ---
 
@@ -126,17 +127,17 @@ Refs: MIGRATION_TRACKER.md slice N, PERFORMANCE_MIGRATION_STRATEGY.md
 
 ## Labels & milestones
 
-| Label | Use |
-|-------|-----|
-| `migration` | Any tier migration work |
-| `performance` | Profiled hotspot |
-| `wasm` | AssemblyScript or loader boundary |
-| `c++` | Emscripten work |
-| `tech-debt` | Hygiene (imports, stubs, docs) |
-| `documentation` | Status / tracker updates |
+| Label           | Use                               |
+| --------------- | --------------------------------- |
+| `migration`     | Any tier migration work           |
+| `performance`   | Profiled hotspot                  |
+| `wasm`          | AssemblyScript or loader boundary |
+| `c++`           | Emscripten work                   |
+| `tech-debt`     | Hygiene (imports, stubs, docs)    |
+| `documentation` | Status / tracker updates          |
 
 **Milestone suggestion:** `Migration Q3 2026` — batcher matrix path + music reactivity slice + emcc export CI.
 
 ---
 
-*Update this file when closing or opening migration issues.*
+_Update this file when closing or opening migration issues._
