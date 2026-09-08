@@ -17,6 +17,8 @@ export function restoreEntity(
     // processMapEntity expects MapEntity type, which is mostly compatible with CandyMapEntity
     processMapEntity(current.entity as unknown as MapEntity, weatherSystem);
 }
+import * as THREE from 'three';
+import { create } from '../world/foliage-registry.ts';
 
 export interface EntitySnapshot {
     id: string;

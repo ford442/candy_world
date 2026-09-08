@@ -9,9 +9,9 @@ import { dof } from 'three/examples/jsm/tsl/display/DepthOfFieldNode.js';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
 import { PostProcessing, WebGPURenderer } from 'three/webgpu';
-import { candyPulseWarpUv, gradeCandyGlowPulse } from './chromatic.ts';
+import { candyPulseWarpUv, gradeCandyGlowPulse } from './chromatic-nodes.ts';
 import type * as postFxUniforms from './post-processing-uniforms.ts';
-import { mixStrobeFlash } from './strobe.ts';
+import { mixStrobeFlash } from './strobe-nodes.ts';
 
 type U = typeof postFxUniforms;
 

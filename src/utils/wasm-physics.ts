@@ -29,6 +29,7 @@ import {
     wasmLerp,
     getNativeFunc,
     POSITION_OFFSET,
+    BATCH_UPLOAD_OFFSET,
     type WasmExports,
     type Cave,
     type Mushroom,
@@ -173,14 +174,14 @@ export function uploadCollisionObjects(
         }
     }
 
+    // Initialize collision system (grid pointers) ALWAYS, so we don't traverse garbage pointers!
+    wasmInitCollisionSystem();
+
     // TASK 2: Safe bypass if no static structures in CORE mode
     if (totalCount === 0) {
-        console.log('[WASM Physics] CORE mode detected: No collision objects to upload. Skipping WASM initialization.');
+        console.log('[WASM Physics] CORE mode detected: No collision objects to upload. Grid initialized to empty.');
         return true; // Return success (not an error to have zero collisions)
     }
-
-    // Initialize collision system only if we have objects to register
-    wasmInitCollisionSystem();
 
     // ⚡ PERFORMANCE: Use batch upload instead of sequential calls
     // TYPE_MUSHROOM = 1, TYPE_CLOUD = 2, TYPE_GATE = 3, TYPE_TRAMPOLINE = 4
@@ -267,19 +268,12 @@ export function uploadCollisionObjects(
         // Upload batch to WASM
         const wasmBatchUpload = exports.addCollisionObjectsBatch;
         if (wasmBatchUpload) {
-            // Allocate memory in WASM and copy data
-            const wasmMalloc = exports.malloc || exports.__new;
-            if (wasmMalloc) {
-                const dataPtr = wasmMalloc(batchData.length * 4); // 4 bytes per float
-                const wasmFloatView = new Float32Array(wasmMemory!.buffer, dataPtr, batchData.length);
-                wasmFloatView.set(batchData);
+            // Write directly to statically allocated memory buffer
+            const dataPtr = BATCH_UPLOAD_OFFSET;
+            const wasmFloatView = new Float32Array(wasmMemory!.buffer, dataPtr, batchData.length);
+            wasmFloatView.set(batchData);
 
-                wasmBatchUpload(dataPtr, totalCount);
-
-                // Free the allocated memory
-                const wasmFree = exports.free || exports.__free;
-                if (wasmFree) wasmFree(dataPtr);
-            }
+            wasmBatchUpload(dataPtr, totalCount);
         }
     } else {
         // Fallback: Sequential upload (for backwards compatibility)

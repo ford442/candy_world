@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep, Fn } from 'three/tsl';
-import { uChromaticIntensity } from '../foliage/chromatic.ts';
+import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
 import { applyGlitch } from '../foliage/glitch.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { color, float, vec3, uv, positionLocal, mx_noise_float, mix, smoothstep, normalLocal, sin } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { uChromaticIntensity } from '../foliage/chromatic.ts';
+import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { uAudioLow, uAudioHigh, createJuicyRimLight, uTime } from '../foliage/material-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';

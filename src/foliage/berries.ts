@@ -10,7 +10,7 @@ import { createComputeBerries } from '../particles/index.ts';
 import { getParticles } from '../particles/lazy.ts';
 import { CommonGeometries, getSphereGeometry } from '../utils/geometry-dedup.ts';
 import { foliageGroup } from '../world/state.ts';
-import { uChromaticIntensity } from './chromatic.ts';
+import { uChromaticIntensity } from './chromatic-nodes.ts';
 import { spawnImpact } from './impacts.ts';
 import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
 
