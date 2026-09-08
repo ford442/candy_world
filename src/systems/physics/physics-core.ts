@@ -307,6 +307,40 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
 
 // --- State: DEFAULT (Walking/Falling) ---
 /**
+ * Movement-path accounting for the default (non-swim/climb/vine) state.
+ *
+ * The kinematic character controller (#1577) owns the movement resolve only
+ * on the JS path (`updateJSFallbackMovement`). The native `updatePhysicsCPP`
+ * path has none of its seven behaviours — no coyote time, no jump buffering,
+ * no slope limit, no step-up, no ground/air acceleration split.
+ *
+ * Measured 2026-09-08 (headless Chromium, dev server AND `vite preview`,
+ * ~340 frames of walking): `native` stayed at 0 in both modes, because the
+ * Emscripten module fails to load at all — see docs/CHARACTER_CONTROLLER.md
+ * ("Why the native path is currently dead"). The controller therefore owns
+ * 100% of frames today.
+ *
+ * These counters exist so that this stops being an invisible assumption: anyone
+ * can read `window.__physicsPathStats` in a live session, and the first
+ * frame the native path ever succeeds logs a loud warning instead of
+ * silently stripping the player of those behaviours.
+ */
+export const physicsPathStats = {
+    /** Frames resolved by resolveCharacterMovement (#1577). */
+    controller: 0,
+    /** Frames resolved by updatePhysicsCPP (emscripten/physics.cpp) — no #1577 behaviours. */
+    native: 0,
+    /** Subset of `controller` frames that took the JS path because of the Melody Lake basin. */
+    lakeBasin: 0,
+};
+
+let _warnedNativePathActive = false;
+
+if (typeof window !== 'undefined') {
+    (window as any).__physicsPathStats = physicsPathStats;
+}
+
+/**
  * Updates physics for the DEFAULT state (walking/falling).
  * Handles C++ physics integration, collision resolution, and foliage interactions.
  */
@@ -391,6 +425,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     const inLakeBasin = isInLakeBasin(player.position.x, player.position.z);
     let onGround = -1;
+    if (inLakeBasin) physicsPathStats.lakeBasin++;
     const effectiveJumpInput = keyStates.jump ? 1 : 0;
     const { moveVec: moveInput, moveSpeed: baseMoveSpeed } = calculateMovementInput(camera, keyStates, player);
     let moveSpeed = baseMoveSpeed;
@@ -451,6 +486,16 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     }
 
     if (onGround >= 0) {
+        physicsPathStats.native++;
+        if (!_warnedNativePathActive) {
+            _warnedNativePathActive = true;
+            console.warn(
+                '[Physics] updatePhysicsCPP resolved player movement. The #1577 character ' +
+                'controller does NOT own this path: coyote time, jump buffering, slope limit, ' +
+                'step-up and the ground/air acceleration split are all inactive while it runs. ' +
+                'See docs/CHARACTER_CONTROLLER.md.'
+            );
+        }
         // C++ Success
         getPlayerState(_scratchPlayerState);
         player.position.set(_scratchPlayerState.x + windForceX, _scratchPlayerState.y, _scratchPlayerState.z + windForceZ);
@@ -471,6 +516,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         }
     } else {
         // --- Kinematic character controller (#1577) ---
+        physicsPathStats.controller++;
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
         player.position.x += windForceX;
         player.position.z += windForceZ;
