@@ -28,12 +28,5 @@
         "tsx": "^4.7.0",
         "typescript": "^5.3.3",
         "@playwright/test": "1.63.0"
-    },
-    "pnpm": {
-        "onlyBuiltDependencies": [
-            "@swc/core",
-            "esbuild",
-            "playwright"
-        ]
     }
 }
