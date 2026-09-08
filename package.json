@@ -113,10 +113,12 @@
         "overrides": {
             "@swc/core": "1.15.47",
             "@swc/wasm": "1.15.47"
-        }
-    },
-    "overrides": {
-        "@swc/core": "1.15.47",
-        "@swc/wasm": "1.15.47"
+        },
+        "onlyBuiltDependencies": [
+            "@swc/core",
+            "esbuild",
+            "playwright",
+            "simple-git-hooks"
+        ]
     }
 }
