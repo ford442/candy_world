@@ -7,17 +7,19 @@ export * from './entity-snapshot-core.ts';
 /**
  * Restores an entity to the world by feeding its map data back into `processMapEntity`.
  */
+import * as THREE from 'three';
+import { create } from '../world/foliage-registry.ts';
+
 export function restoreEntity(
-    snapshot: EntitySnapshot,
+    snapshot: LegacyEntitySnapshot,
     weatherSystem: WeatherSystem
 ): void {
     const current = migrateSnapshot(snapshot);
     // processMapEntity expects MapEntity type, which is mostly compatible with CandyMapEntity
     processMapEntity(current.entity as unknown as MapEntity, weatherSystem);
-import * as THREE from 'three';
-import { create } from '../world/foliage-registry.ts';
+}
 
-export interface EntitySnapshot {
+export interface LegacyEntitySnapshot {
     id: string;
     type: string;
     position: [number, number, number];
@@ -55,7 +57,7 @@ function round(val: number, decimals = 4): number {
     return Math.round(val * p) / p;
 }
 
-export function exportEntitySnapshot(obj: THREE.Object3D): EntitySnapshot | null {
+export function exportEntitySnapshot(obj: THREE.Object3D): LegacyEntitySnapshot | null {
     const mapExport = (obj.userData?.mapExport ?? {}) as Record<string, unknown>;
 
     // Attempt to extract the type
@@ -69,7 +71,7 @@ export function exportEntitySnapshot(obj: THREE.Object3D): EntitySnapshot | null
     obj.getWorldQuaternion(_worldQuat);
     obj.getWorldScale(_worldScale);
 
-    const snapshot: EntitySnapshot = {
+    const snapshot: LegacyEntitySnapshot = {
         id: obj.userData?.mapEntityId || obj.uuid,
         type: mappedType,
         position: [round(_worldPos.x), round(_worldPos.y), round(_worldPos.z)],
@@ -116,7 +118,7 @@ export function exportEntitySnapshot(obj: THREE.Object3D): EntitySnapshot | null
     return snapshot;
 }
 
-export function importEntitySnapshot(snapshot: EntitySnapshot, applyToObj?: THREE.Object3D): THREE.Object3D | null {
+export function importEntitySnapshot(snapshot: LegacyEntitySnapshot, applyToObj?: THREE.Object3D): THREE.Object3D | null {
     let obj = applyToObj;
 
     if (!obj) {
@@ -182,8 +184,8 @@ export function importEntitySnapshot(snapshot: EntitySnapshot, applyToObj?: THRE
     return obj;
 }
 
-export function exportWorldSnapshots(objects: THREE.Object3D[]): EntitySnapshot[] {
-    const snapshots: EntitySnapshot[] = [];
+export function exportWorldSnapshots(objects: THREE.Object3D[]): LegacyEntitySnapshot[] {
+    const snapshots: LegacyEntitySnapshot[] = [];
     for (let i = 0; i < objects.length; i++) {
         const snap = exportEntitySnapshot(objects[i]);
         if (snap) {
@@ -193,7 +195,7 @@ export function exportWorldSnapshots(objects: THREE.Object3D[]): EntitySnapshot[
     return snapshots;
 }
 
-export function importWorldSnapshots(snapshots: EntitySnapshot[]): THREE.Object3D[] {
+export function importWorldSnapshots(snapshots: LegacyEntitySnapshot[]): THREE.Object3D[] {
     const objects: THREE.Object3D[] = [];
     for (let i = 0; i < snapshots.length; i++) {
         const obj = importEntitySnapshot(snapshots[i]);
