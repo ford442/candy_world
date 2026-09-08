@@ -20,3 +20,5 @@ export {
     setGroundCacheTTL,
 } from './ground';
 export * from './music_reactivity';
+export * from './rigidbody';
+export * from './joints';

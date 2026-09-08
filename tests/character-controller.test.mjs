@@ -266,3 +266,119 @@ test('isGrounded does not chatter across frames on flat ground (skinWidth hyster
         );
     }
 });
+
+// ---------------------------------------------------------------------------
+// Regression guards added 2026-09-08 alongside the branch-split measurement
+// (see docs/CHARACTER_CONTROLLER.md and .swarm-state.md iteration 0).
+// ---------------------------------------------------------------------------
+
+test('ground and air acceleration are actually different (not one shared constant)', () => {
+    assert.notEqual(
+        CONFIG.player.groundAccel,
+        CONFIG.player.airAccel,
+        'the config values themselves must differ or this test proves nothing'
+    );
+
+    const target = { x: 10, z: 0 };
+    // Ground query the player never reaches, so the only difference between
+    // the two runs is the isGrounded flag the controller reads for accel.
+    const grounded = makePlayer({ isGrounded: true });
+    resolveCharacterMovement(DELTA, grounded, target, false, false, unreachableGroundQuery());
+    const groundedGain = grounded.velocity.x;
+
+    const airborne = makePlayer({ isGrounded: false });
+    resolveCharacterMovement(DELTA, airborne, target, false, false, unreachableGroundQuery());
+    const airborneGain = airborne.velocity.x;
+
+    assert.ok(groundedGain > 0 && airborneGain > 0, 'both states accelerate toward the target');
+    assert.ok(
+        groundedGain > airborneGain,
+        `grounded accel (${groundedGain}) must outpace air accel (${airborneGain})`
+    );
+    // Pin the ratio to the config so a future edit to one constant that
+    // accidentally reuses the other is caught here.
+    assert.ok(
+        Math.abs(groundedGain / airborneGain - CONFIG.player.groundAccel / CONFIG.player.airAccel) <
+            0.01,
+        'velocity gain ratio should track the groundAccel/airAccel ratio'
+    );
+});
+
+test('slope limit reads CONFIG.player.slopeLimit, not CONFIG.ground.maxSlopeAngle (#1302 coupling guard)', () => {
+    // CONFIG.ground.maxSlopeAngle is the prop-placement constant from #1302
+    // and is deliberately much shallower than the player's slope limit.
+    // A surface between the two must still be walkable: if the controller ever
+    // gets coupled back to the ground constant, this fails.
+    assert.ok(
+        CONFIG.ground.maxSlopeAngle < CONFIG.player.slopeLimit,
+        'fixture assumes the prop-placement limit is the shallower of the two'
+    );
+    const between = (CONFIG.ground.maxSlopeAngle + CONFIG.player.slopeLimit) / 2;
+    const player = makePlayer({
+        position: new THREE.Vector3(0, CONFIG.player.eyeHeight + 0.001, 0),
+        velocity: new THREE.Vector3(0, -1, 0),
+        isGrounded: false,
+    });
+    const groundQuery = {
+        sampleFootprint: () => ({
+            minY: 0,
+            avgY: 0,
+            maxY: 0,
+            normal: new THREE.Vector3(Math.sin(between), Math.cos(between), 0).normalize(),
+        }),
+        getGroundHeight: () => 0,
+    };
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, groundQuery);
+    assert.equal(
+        player.isGrounded,
+        true,
+        'a slope steeper than CONFIG.ground.maxSlopeAngle but under CONFIG.player.slopeLimit is walkable'
+    );
+});
+
+test('steep slope slides downhill, in the downhill direction', () => {
+    const steepAngle = CONFIG.player.slopeLimit + (10 * Math.PI) / 180;
+    // Normal tilted toward +x means the surface falls away toward +x, so the
+    // slide impulse must be +x. A sign error here would still pass the
+    // existing "velocity.x !== 0" assertion.
+    const normal = new THREE.Vector3(Math.sin(steepAngle), Math.cos(steepAngle), 0).normalize();
+    const player = makePlayer({
+        position: new THREE.Vector3(0, CONFIG.player.eyeHeight + 0.001, 0),
+        velocity: new THREE.Vector3(0, -1, 0),
+        isGrounded: false,
+    });
+    const groundQuery = {
+        sampleFootprint: () => ({ minY: 0, avgY: 0, maxY: 0, normal: normal.clone() }),
+        getGroundHeight: () => 0,
+    };
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, groundQuery);
+    assert.ok(
+        player.velocity.x > 0,
+        `slide impulse must point downhill (+x), got ${player.velocity.x}`
+    );
+    assert.equal(player.velocity.z, 0, 'no cross-axis drift on a slope tilted purely in x');
+});
+
+test('slide accumulates over consecutive frames on a steep slope', () => {
+    const steepAngle = CONFIG.player.slopeLimit + (20 * Math.PI) / 180;
+    const normal = new THREE.Vector3(Math.sin(steepAngle), Math.cos(steepAngle), 0).normalize();
+    const player = makePlayer({
+        position: new THREE.Vector3(0, CONFIG.player.eyeHeight + 0.001, 0),
+        velocity: new THREE.Vector3(0, -1, 0),
+        isGrounded: false,
+    });
+    const groundQuery = {
+        sampleFootprint: () => ({ minY: 0, avgY: 0, maxY: 0, normal: normal.clone() }),
+        getGroundHeight: () => 0,
+    };
+    let previous = 0;
+    for (let frame = 0; frame < 5; frame++) {
+        resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, groundQuery);
+        assert.ok(
+            player.velocity.x > previous,
+            `frame ${frame}: downhill speed should keep building, got ${player.velocity.x} after ${previous}`
+        );
+        previous = player.velocity.x;
+    }
+    assert.equal(player.isGrounded, false, 'never regains footing on an over-limit slope');
+});
