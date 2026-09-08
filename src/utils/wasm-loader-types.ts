@@ -278,6 +278,96 @@ export interface WasmExports {
         p3: number
     ) => void;
     resolveGameCollisions?: (kickTrigger: number) => number;
+
+    // --- Dynamic rigid bodies (assembly/rigidbody.ts) --------------------
+    /** Allocates/resets the body pool; returns the byte pointer to its data. */
+    initRigidBodySystem?: () => number;
+    rbCapacity?: () => number;
+    rbCount?: () => number;
+    rbAwakeCount?: () => number;
+    rbSpawn?: (
+        shape: number,
+        x: number,
+        y: number,
+        z: number,
+        mass: number,
+        restitution: number,
+        friction: number,
+        d1: number,
+        d2: number,
+        d3: number,
+        userId: number
+    ) => number;
+    rbDespawn?: (id: number) => void;
+    rbClear?: () => void;
+    rbSetPosition?: (id: number, x: number, y: number, z: number) => void;
+    rbSetVelocity?: (id: number, vx: number, vy: number, vz: number) => void;
+    rbApplyImpulse?: (id: number, ix: number, iy: number, iz: number) => void;
+    rbApplyRadialImpulse?: (
+        x: number,
+        y: number,
+        z: number,
+        radius: number,
+        strength: number,
+        upBias: number
+    ) => number;
+    rbSetPlayerProxy?: (
+        x: number,
+        y: number,
+        z: number,
+        radius: number,
+        height: number,
+        vx: number,
+        vy: number,
+        vz: number
+    ) => void;
+    rbDisablePlayerProxy?: () => void;
+    rbIsSleeping?: (id: number) => number;
+    rbIsGrounded?: (id: number) => number;
+
+    // Joints (assembly/joints.ts). initJointSystem() is called for you by
+    // initRigidBodySystem(); the bridge only needs the pointer back.
+    jointPoolPointer?: () => number;
+    jointHighWater?: () => number;
+    jointCapacity?: () => number;
+    jointCount?: () => number;
+    jointCreate?: (
+        type: number,
+        bodyA: number,
+        bodyB: number,
+        ax: number,
+        ay: number,
+        az: number,
+        bx: number,
+        by: number,
+        bz: number,
+        p0: number,
+        p1: number,
+        p2: number
+    ) => number;
+    jointCreateFixed?: (bodyA: number, bodyB: number) => number;
+    jointCreateHinge?: (
+        bodyA: number,
+        bodyB: number,
+        pivotX: number,
+        pivotY: number,
+        pivotZ: number,
+        axisX: number,
+        axisY: number,
+        axisZ: number
+    ) => number;
+    jointCreateSpring?: (
+        bodyA: number,
+        bodyB: number,
+        rest: number,
+        stiffness: number,
+        damping: number
+    ) => number;
+    jointDestroy?: (id: number) => void;
+    jointsClear?: () => void;
+    jointSetSoftness?: (id: number, softness: number) => void;
+    jointGetError?: (id: number) => number;
+    stepRigidBodies?: (dt: number, nowMs: number) => number;
     checkPositionValidity?: (x: number, z: number, radius: number) => number;
     addCollisionObjectsBatch?: (ptr: number, count: number) => void;
     malloc?: (size: number) => number;

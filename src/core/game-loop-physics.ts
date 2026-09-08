@@ -1,10 +1,20 @@
 import * as THREE from 'three';
 import { updateGroundDebug, isGroundDebugEnabled } from '../debug/tools-stub.ts';
 import { updatePlacementDebug, isPlacementDebugEnabled } from '../debug/tools-stub.ts';
+import {
+    updatePhysicsSandbox,
+    setPhysicsSandboxPlayer,
+    ensurePhysicsSandbox,
+    isPhysicsSandboxEnabled,
+} from '../debug/tools-stub.ts';
 import { uPlayerPosition, uPlayerVelocity } from '../foliage/index.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { updatePhysics, player } from '../systems/physics/index.ts';
+import {
+    setRigidBodyPlayerProxy,
+    updateRigidBodies,
+} from '../systems/physics/rigid-bodies.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { profiler } from '../utils/profiler.ts';
 import { getSparkleTrail, getPlayerShieldMesh, setPlayerShieldMesh } from './deferred-init.ts';
@@ -29,8 +39,25 @@ export function updatePhysicsPhase(delta: number, devOrbitActive: boolean, audio
             }
         }
 
+        // Dynamic rigid bodies run *after* the character controller so they see
+        // the player's final position for this frame. The proxy is one-way: the
+        // solver never writes back to `player`, so jump/dash are untouched.
+        if (player.position && player.velocity) {
+            setRigidBodyPlayerProxy(player.position, player.velocity);
+        }
+        updateRigidBodies(delta);
+        // Unconditional: the gizmos must still repaint on the frame the last
+        // body falls asleep (awake count is already 0 by then). No-ops unless
+        // ?debugPhysics=1 has loaded the sandbox module.
+        updatePhysicsSandbox();
+
         if (sparkleTrail && player.position && player.velocity) {
             updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, rendererRef);
+        }
+
+        if (isPhysicsSandboxEnabled() && player.position) {
+            if (sceneRef) ensurePhysicsSandbox(sceneRef, player.position);
+            setPhysicsSandboxPlayer(player.position);
         }
 
         if (isGroundDebugEnabled() && player.position && cameraRef) {

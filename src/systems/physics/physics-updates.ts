@@ -523,7 +523,6 @@ export function updateJSFallbackMovement(
     }
 }
 
-
 /**
  * Vine attachment detection and handler.
  * Proximity scan uses batchVineInteraction; attach still runs in JS.

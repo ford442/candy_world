@@ -17,6 +17,7 @@
 | [#1329](https://github.com/ford442/candy_world/issues/1329) | CPU particle sim kernel | `cpu-particle-simulate.ts`, `updateCpuParticlesWASM` |
 | [#1330](https://github.com/ford442/candy_world/issues/1330) | Migration docs refresh | `MIGRATION_STATUS.md` (this tracker) |
 | [#1364](https://github.com/ford442/candy_world/issues/1364) | arpeggio_grove channel accum → AS | `assembly/music_reactivity.ts`, `wasm-music-reactivity.ts`, `applyArpeggioGroveChannelAccum` (wired + `?nativeMusicAccum`) |
+| — | Dynamic rigid bodies (native-first, no TS predecessor) | `assembly/rigidbody.ts`, `src/systems/physics/rigid-bodies.ts`, JS mirror in `rigid-body-fallback.ts`, demo behind `?debugPhysics=1` |
 
 ---
 

@@ -21,6 +21,7 @@ type GroundDebugMod = typeof import('./ground-debug.ts');
 type PlaceDebugMod = typeof import('./debug-place.ts');
 type CircadianDebugMod = typeof import('./circadian-debug.ts');
 type FaunaDebugMod = typeof import('./fauna-debug.ts');
+type PhysicsSandboxMod = typeof import('./physics-sandbox.ts');
 
 let _groundMod: GroundDebugMod | null = null;
 let _groundLoad: Promise<GroundDebugMod | null> | null = null;
@@ -30,6 +31,8 @@ let _circadianMod: CircadianDebugMod | null = null;
 let _circadianLoad: Promise<CircadianDebugMod | null> | null = null;
 let _faunaMod: FaunaDebugMod | null = null;
 let _faunaLoad: Promise<FaunaDebugMod | null> | null = null;
+let _physicsMod: PhysicsSandboxMod | null = null;
+let _physicsLoad: Promise<PhysicsSandboxMod | null> | null = null;
 
 function loadGround(): Promise<GroundDebugMod | null> {
     if (!groundFlags()) return Promise.resolve(null);
@@ -79,6 +82,18 @@ function loadFauna(): Promise<FaunaDebugMod | null> {
     return _faunaLoad;
 }
 
+function loadPhysicsSandbox(): Promise<PhysicsSandboxMod | null> {
+    if (!urlFlag('debugPhysics')) return Promise.resolve(null);
+    if (_physicsMod) return Promise.resolve(_physicsMod);
+    if (!_physicsLoad) {
+        _physicsLoad = import('./physics-sandbox.ts').then((m) => {
+            _physicsMod = m;
+            return m;
+        });
+    }
+    return _physicsLoad;
+}
+
 export function isGroundDebugEnabled(): boolean {
     return groundFlags();
 }
@@ -112,6 +127,38 @@ export function initCircadianDebug(opts?: {
 
 export function initFaunaDebug(scene: THREE.Scene): void {
     void loadFauna().then((m) => m?.initFaunaDebug(scene));
+}
+
+/** `?debugPhysics=1` — dynamic rigid-body staging area + collider gizmos. */
+export function isPhysicsSandboxEnabled(): boolean {
+    return urlFlag('debugPhysics');
+}
+
+let _physicsInitStarted = false;
+
+/**
+ * Load and build the staging area once, on the first frame the scene and
+ * player are available. Driven from the game loop rather than a startup hook
+ * so `?debugPhysics=1` works on every boot path (CORE included), not just the
+ * full world-generation one.
+ */
+export function ensurePhysicsSandbox(scene: THREE.Scene, origin: THREE.Vector3): void {
+    if (_physicsInitStarted || !urlFlag('debugPhysics')) return;
+    _physicsInitStarted = true;
+    const spawn = origin.clone();
+    void loadPhysicsSandbox().then((m) => m?.initPhysicsSandbox(scene, spawn));
+}
+
+export function setPhysicsSandboxPlayer(position: THREE.Vector3): void {
+    _physicsMod?.setPhysicsSandboxPlayer(position);
+}
+
+/**
+ * Per-frame gizmo refresh. Synchronous on the already-loaded module so the
+ * hot path never pays for a promise; a no-op until the dynamic import lands.
+ */
+export function updatePhysicsSandbox(): void {
+    _physicsMod?.updatePhysicsSandbox();
 }
 
 export function registerPlantedInstance(
