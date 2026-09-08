@@ -61,6 +61,8 @@ export function initInput(
     ensureGameReticle();
     const updateReticleState = createUpdateReticleState();
 
+    (window as any).__inputSession = session;
+
     initPlaylistManager(audioSystem, controls, session.instructions);
     initAudioControls(audioSystem);
     initLegacyMusicUpload(audioSystem);

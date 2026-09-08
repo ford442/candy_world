@@ -173,6 +173,10 @@ export function checkHarmonyOrbs() {
         const distSq = dx * dx + dy * dy + dz * dz;
         if (distSq < radiusSq) {
             orb.active = false;
+            (harmonyOrbSystem as any).dummy.position.set(0, -9999, 0);
+            (harmonyOrbSystem as any).dummy.scale.setScalar(0);
+            _scratchMatrix.compose((harmonyOrbSystem as any).dummy.position, (harmonyOrbSystem as any).dummy.quaternion, (harmonyOrbSystem as any).dummy.scale);
+            _scratchMatrix.toArray(harmonyOrbSystem.mesh.instanceMatrix.array, (i) * 16);
 
             // Zero-scale + translate-far-below hides the instance without an
             // Object3D dummy or a Matrix4.compose() allocation (#1694): a
