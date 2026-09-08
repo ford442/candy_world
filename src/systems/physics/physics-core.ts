@@ -20,12 +20,12 @@
 import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
 import { CONFIG } from '../../core/config.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/index.ts';
 import { showToast } from '../../utils/toast.ts';
 import {
-    initPhysics, uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
+    initPhysics, uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge, updatePhysicsCPP, getPlayerState
 } from '../../utils/wasm-loader.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
@@ -34,7 +34,7 @@ import {
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { reconcileGroundedEyeY } from '../ground-system.ts';
+import { reconcileGroundedEyeY, isInLakeBasin } from '../ground-system.ts';
 import {
     calculateMovementInput
 } from '../physics.core.ts';
@@ -60,15 +60,9 @@ import {
     cppPhysicsInitialized,
     AudioState,
     KeyStates,
-    CharacterIntent,
+    _scratchPlayerState
 } from './physics-types.ts';
 
-const _characterIntent: CharacterIntent = {
-    wishDir: _scratchMoveVec,
-    moveSpeed: 0,
-    jumpPressed: false,
-    jumpTriggered: false,
-};
 
 // Re-export player and types for external use
 export { player, PlayerState };
@@ -229,8 +223,7 @@ import {
     checkPanningPads,
     checkVineAttachment,
     initCppPhysics,
-    stepCharacter,
-    defaultGroundQuery,
+    updateJSFallbackMovement
 } from './physics-updates.ts';
 
 /**
@@ -321,6 +314,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     if (!cppPhysicsInitialized) {
         initCppPhysics(camera);
         setCppPhysicsInitialized(true);
+        console.log('[PhysicsDiag] updateDefaultState: initCppPhysics returned');
     }
 
     // ⚡ OPTIMIZATION: Caching time to avoid multiple Date.now() calls
@@ -353,8 +347,18 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         checkVineAttachment(camera);
     }
 
+    if (!cppPhysicsInitialized || (window as any).__diagPhysicsCount === undefined) {
+        (window as any).__diagPhysicsCount = 1;
+        console.log('[PhysicsDiag] updateDefaultState: vines loop finished');
+    }
+
     // --- ABILITIES & MOVEMENT ---
     handleAbilities(delta, camera, keyStates);
+
+    if ((window as any).__diagPhysicsCount === 1) {
+        (window as any).__diagPhysicsCount = 2;
+        console.log('[PhysicsDiag] updateDefaultState: handleAbilities finished');
+    }
 
     // Update Phase Shift Timer
     if (player.isPhasing) {
@@ -384,6 +388,10 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         }
     }
 
+
+    const inLakeBasin = isInLakeBasin(player.position.x, player.position.z);
+    let onGround = -1;
+    const effectiveJumpInput = keyStates.jump ? 1 : 0;
     const { moveVec: moveInput, moveSpeed: baseMoveSpeed } = calculateMovementInput(camera, keyStates, player);
     let moveSpeed = baseMoveSpeed;
 
@@ -419,59 +427,98 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         discoverySystem.discover('wind_anchor', 'Wind Anchor', '⚓');
     }
 
-    // --- Kinematic character controller (#1577) ---
-    const isJumpTriggered = keyStates.jump && !_lastInputState.jump;
-    _characterIntent.wishDir.copy(moveInput);
-    _characterIntent.moveSpeed = moveSpeed;
-    _characterIntent.jumpPressed = keyStates.jump;
-    _characterIntent.jumpTriggered = isJumpTriggered;
+    if ((window as any).__diagPhysicsCount === 2) {
+        (window as any).__diagPhysicsCount = 3;
+        console.log('[PhysicsDiag] updateDefaultState: Calling updatePhysicsCPP (LakeBasin=' + inLakeBasin + ')');
+    }
 
-    const stepResult = stepCharacter(delta, _characterIntent, defaultGroundQuery);
+    if (!inLakeBasin) {
+        onGround = updatePhysicsCPP(
+            delta,
+            moveInput.x,
+            moveInput.z,
+            moveSpeed,
+            effectiveJumpInput > 0,
+            keyStates.sprint,
+            keyStates.sneak,
+            grooveGravity.multiplier
+        );
+    }
 
-    player.position.x += windForceX;
-    player.position.z += windForceZ;
+    if ((window as any).__diagPhysicsCount === 3) {
+        (window as any).__diagPhysicsCount = 4;
+        console.log('[PhysicsDiag] updateDefaultState: updatePhysicsCPP returned');
+    }
 
-    if (stepResult.jumped) {
-        keyStates.jump = false;
-        spawnImpact(player.position, 'jump');
-        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-            (window as any).AudioSystem.playSound('jump', { pitch: Math.random() * 0.2 + 0.9, volume: 0.5 });
+    if (onGround >= 0) {
+        // C++ Success
+        getPlayerState(_scratchPlayerState);
+        player.position.set(_scratchPlayerState.x + windForceX, _scratchPlayerState.y, _scratchPlayerState.z + windForceZ);
+        player.velocity.set(_scratchPlayerState.vx, _scratchPlayerState.vy, _scratchPlayerState.vz);
+
+        // Reset jump key if we successfully jumped (velocity.y > 0)
+        // But only if we were grounded before (normal jump)
+        if (player.velocity.y > 0 && player.isGrounded) {
+             keyStates.jump = false;
+             spawnImpact(player.position, 'jump');
+             // 🎨 Palette: Audio feedback for jump
+             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                 (window as any).AudioSystem.playSound('jump', { pitch: Math.random() * 0.2 + 0.9, volume: 0.5 });
+             }
+             if (typeof uChromaticIntensity !== 'undefined') {
+                 uChromaticIntensity.value = 0.2;
+             }
         }
-        if (typeof uChromaticIntensity !== 'undefined') {
-            uChromaticIntensity.value = 0.2;
+    } else {
+        // --- Kinematic character controller (#1577) ---
+        updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
+        player.position.x += windForceX;
+        player.position.z += windForceZ;
+    }
+
+    if ((window as any).__diagPhysicsCount === 4) {
+        (window as any).__diagPhysicsCount = 5;
+        console.log('[PhysicsDiag] updateDefaultState: Reconcile Y begin');
+    }
+
+    // Issue #1265: Reconcile C++ / fallback Y with the authoritative ground query.
+    // Smoothly tracks terrain when grounded; preserves platform elevation when high.
+    if (player.isGrounded || player.velocity.y <= 0) {
+        const prevY = player.position.y;
+        const nextY = reconcileGroundedEyeY(
+            prevY,
+            player.position.x,
+            player.position.z,
+            delta,
+            { isGrounded: player.isGrounded, velocityY: player.velocity.y }
+        );
+        if (nextY !== prevY) {
+            player.position.y = nextY;
+            if (player.isGrounded) {
+                player.velocity.y = 0;
+            }
         }
     }
 
-    if (stepResult.landed) {
-        const fallSpeed = stepResult.fallSpeed;
-        if (fallSpeed > 15.0) {
-            spawnImpact(player.position, 'land');
-            spawnImpact(player.position, 'dash');
-            addCameraShake(0.4);
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
-            }
-        } else if (fallSpeed > 8.0) {
-            spawnImpact(player.position, 'land');
-            addCameraShake(0.15);
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
-            }
-        } else {
-            spawnImpact(player.position, 'jump');
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
-            }
-        }
+    if ((window as any).__diagPhysicsCount === 5) {
+        (window as any).__diagPhysicsCount = 6;
+        console.log('[PhysicsDiag] updateDefaultState: WASM collision resolver begin');
     }
 
     // --- WASM COLLISION RESOLVER (New) ---
     // Try WASM resolution first
     const kickTrigger = audioState?.kickTrigger || 0.0;
-    const wasmResolved = resolveGameCollisionsWASM(player, kickTrigger);
+    let wasmResolved = false;
+    try {
+        wasmResolved = resolveGameCollisionsWASM(player, kickTrigger);
+    } catch (e) {
+        console.error('[PhysicsDiag] WASM crash', e);
+    }
+
+    if ((window as any).__diagPhysicsCount === 6) {
+        (window as any).__diagPhysicsCount = 7;
+        console.log('[PhysicsDiag] updateDefaultState: WASM collision resolver returned');
+    }
 
     // Check discovery flags based on what happened?
     if (wasmResolved) {
@@ -502,6 +549,10 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
          }
     }
 
+    if ((window as any).__diagPhysicsCount === 7) {
+        (window as any).__diagPhysicsCount = 8;
+        console.log('[PhysicsDiag] updateDefaultState: Entering JS physics checks');
+    }
     // Platform-preservation: reconcile Y after WASM; skips elevated platforms internally.
     if (player.isGrounded && player.velocity.y <= 0) {
         const prevY = player.position.y;
@@ -539,4 +590,9 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // --- Harmony Orbs (Collection) ---
     checkHarmonyOrbs();
+
+    if ((window as any).__diagPhysicsCount === 8) {
+        (window as any).__diagPhysicsCount = 9;
+        console.log('[PhysicsDiag] updateDefaultState: FINISHED ENTIRELY');
+    }
 }

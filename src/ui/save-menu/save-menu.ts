@@ -138,7 +138,15 @@ export class SaveMenu {
         // Trap Focus
         yieldToPaint(50).then(() => {
             if (this.container && this.isOpen()) {
-                this.releaseFocusTrap = trapFocusInside(this.container);
+                this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true });
+                // Manually focus the active tab to prevent screen reader double-speak from close button
+                const activeTab = this.container.querySelector('.candy-save-menu__tab[aria-selected="true"]') as HTMLElement;
+                if (activeTab) {
+                    activeTab.focus({ preventScroll: true });
+                } else {
+                    const firstTab = this.container.querySelector('.candy-save-menu__tab') as HTMLElement;
+                    if (firstTab) firstTab.focus({ preventScroll: true });
+                }
             }
         });
     }

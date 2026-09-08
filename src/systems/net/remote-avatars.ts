@@ -137,8 +137,8 @@ export class RemoteAvatars {
         if (this._mesh) {
             if (this._parent) {
                 safeRemoveAndDispose(this._parent, this._mesh);
-            } else {
-                this._mesh.parent?.remove(this._mesh);
+            } else if (this._mesh.parent) {
+                safeRemoveAndDispose(this._mesh.parent as THREE.Scene, this._mesh);
             }
             this._mesh = null;
         }
