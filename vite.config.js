@@ -156,7 +156,7 @@ export default defineConfig({
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
                     }
-                    // Shared nodes for post-processing and app chunks.
+                    // Pure TSL nodes shared between app and postfx chunks
                     if (
                         id.includes('/src/foliage/chromatic-nodes.ts') ||
                         id.includes('/src/foliage/strobe-nodes.ts')

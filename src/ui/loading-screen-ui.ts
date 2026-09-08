@@ -196,7 +196,8 @@ export class LoadingScreen {
 
         yieldToPaint(50).then(() => {
             if (this.container && this.isVisible) {
-                this.releaseFocusTrap = trapFocusInside(this.container);
+                this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true });
+                this.container.focus();
             }
         });
 
