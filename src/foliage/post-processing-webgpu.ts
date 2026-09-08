@@ -102,8 +102,8 @@ export function initWebGPUPostProcessing(
             sampleScene,
             warpedUV,
             pulseDist as ReturnType<typeof float>,
-            opts.u.uPulseNoteColor,
-            opts.u.uPulseShimmer
+            opts.u.uPulseNoteColor as any,
+            opts.u.uPulseShimmer as any
         );
 
         if (dofColorNode) {

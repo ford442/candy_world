@@ -13,12 +13,6 @@ export function runShaderWarmup(ctx: MainContext): void {
         await StageLoader.loadStage('shaderWarmup', async () => {
             if (CONFIG.safeMode || isCIorHeadless()) {
                 console.warn('[Startup] safeMode active — skipping shader warmup');
-                // Even if skipped, we MUST mark the scene as ready, so tests unblock!
-                try {
-                    (window as any).__sceneReady = true;
-                } catch (e) {
-                    void e;
-                }
                 return;
             }
             loadingScreen.startPhase('shader-warmup');
@@ -79,11 +73,20 @@ export function runShaderWarmup(ctx: MainContext): void {
             loadingScreen.completePhase('shader-warmup');
         });
 
-        renderer.setAnimationLoop(animate);
         try {
             (window as any).__sceneReady = true;
+            console.warn('[Startup] __sceneReady set, starting loop');
         } catch (e) {
-            void e;
+            console.warn('[Startup] Error setting __sceneReady', e);
+        }
+        if (!isCIorHeadless()) {
+            try {
+                renderer.setAnimationLoop(animate);
+            } catch (e) {
+                console.warn('[Startup] setAnimationLoop threw', e);
+            }
+        } else {
+            console.warn('[Startup] CI/Headless detected - NOT calling renderer.setAnimationLoop to avoid wedge');
         }
         void preloadGameplay();
 

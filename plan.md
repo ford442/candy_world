@@ -18,6 +18,9 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
     - **Status: Implemented ✅** (#1547 Collapse startup profile UI + wire graphics to runtime)
     -   - Implementation Details: Replaced Graphics/Map Size UI selectors with Play and Explore buttons, updated start-screen to dynamically set map size, and wired config to derive graphics from the profile dynamically.
 
+    - **Status: Implemented ✅** (#1585 Entity Snapshots)
+    -   - Implementation Details: Implemented robust Entity Snapshot system to capture an entity's components via deep copies and restore its state correctly in `entity-snapshot.ts`.
+
     -   - Implementation Details: Wired Generative Biome Audio and Day/Night context into the game loop using zero-allocation updates, allowing the generative audio engine to adapt dynamically to the player's current biome as they explore.
     - **Status: Implemented ✅** (#1492 Workstream A2: Candy Remote Avatar Mesh)
     -   - Implementation Details: Upgraded the placeholder presence avatar sphere to a low-poly dodecahedron using a TSL `MeshPhysicalNodeMaterial` with clearcoat, and wired up `instanceColor` zero-allocation updates to properly apply the hash-based pastel colors per instance.
