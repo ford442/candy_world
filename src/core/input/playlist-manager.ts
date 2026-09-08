@@ -497,6 +497,12 @@ export function togglePlaylist(): void {
 
         // Note: releasePauseMenuFocus is managed by the main input module
         // We notify via a callback mechanism if needed
+        const session = (window as any).__inputSession;
+        if (session && session.focus && session.focus.releasePauseMenuFocus) {
+            session.focus.releasePauseMenuFocus();
+            session.focus.releasePauseMenuFocus = null;
+        }
+
         if (instructionsRef) instructionsRef.style.display = 'none'; // Ensure pause menu is hidden
 
         if (playlistOverlay) {
@@ -506,10 +512,12 @@ export function togglePlaylist(): void {
             playlistOverlay.style.opacity = '1';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
 
-            // 🎨 Palette: Wait for paint before intensive DOM manipulations and focus trapping
+            // Wait for paint before intensive DOM manipulations and focus trapping
             yieldToPaint(50).then(() => {
                 if (isPlaylistOpen && playlistOverlay) {
                     releaseJukeboxFocus = trapFocusInside(playlistOverlay, { skipAutoFocus: true });
+
+                    announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
 
                     // UX: Auto-focus the currently playing track for immediate context
                     if (!audioSystemRef || !playlistList) return;
@@ -562,12 +570,20 @@ export function togglePlaylist(): void {
             // Return to Pause Menu
             if (instructionsRef) {
                 instructionsRef.style.display = 'flex';
-                // Focus trap is re-established by main input module
+
+                yieldToPaint(50).then(() => {
+                     const session = (window as any).__inputSession;
+                     if (session && instructionsRef && instructionsRef.style.display !== 'none') {
+                         session.focus.releasePauseMenuFocus = trapFocusInside(instructionsRef, { skipAutoFocus: true });
+                     }
+                });
             }
             // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
             yieldToPaint(50).then(() => {
-                if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
+                if (lastFocusedElement && lastFocusedElement instanceof HTMLElement && lastFocusedElement.isConnected && (!playlistOverlay || !playlistOverlay.contains(lastFocusedElement))) {
                     lastFocusedElement.focus({ preventScroll: true });
+                } else if (openJukeboxBtn) {
+                    openJukeboxBtn.focus({ preventScroll: true });
                 }
             });
             // Do NOT lock controls, stay unlocked

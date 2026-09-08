@@ -56,8 +56,20 @@ export { addCameraShake } from './camera-shake.ts';
 // --- Animation Loop State ---
 const clock = new THREE.Clock();
 
+let _firstFrameLogged = false;
+
 export function animate() {
-    if (!sceneRef || !cameraRef || !rendererRef || !postProcessingRef) return;
+    if (!_firstFrameLogged) {
+        console.log('[GameLoop] Entered animate() first frame');
+    }
+
+    if (!sceneRef || !cameraRef || !rendererRef || !postProcessingRef) {
+        if (!_firstFrameLogged) {
+            console.log('[GameLoop] Early exit - missing refs', { sceneRef: !!sceneRef, cameraRef: !!cameraRef, rendererRef: !!rendererRef, postProcessingRef: !!postProcessingRef });
+            _firstFrameLogged = true;
+        }
+        return;
+    }
 
     profiler.startFrame();
 
@@ -69,6 +81,11 @@ export function animate() {
             );
             setLoggedWebGPULimits(true);
         }
+    }
+
+    if (!_firstFrameLogged) {
+        console.log('[GameLoop] Passing ref check, proceeding to tick phases...');
+        _firstFrameLogged = true;
     }
 
     const rawDelta = clock.getDelta();
@@ -186,12 +203,22 @@ export function animate() {
     // 6. Physics Phase
     const devOrbitActive = exploreActive;
     updatePhysicsPhase(delta, devOrbitActive, audioState);
+    if (!_firstFrameLogged) {
+        console.log('[GameLoop] Physics phase completed');
+    }
 
     // 7. Gameplay Phase
     updateGameplayPhase(delta, gt + timeOffsetRef.value, exploreActive, audioState);
+    if (!_firstFrameLogged) {
+        console.log('[GameLoop] Gameplay phase completed');
+    }
 
     // 8. Render
     renderPostProcessing();
+
+    if (!_firstFrameLogged) {
+        console.log('[GameLoop] Render phase completed - First frame loop fully complete');
+    }
 
     profiler.endFrame();
 }

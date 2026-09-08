@@ -129,6 +129,11 @@ export declare const DYNAMIC_RADII_OFFSET: {
   /** @type `i32` */
   get value(): number
 };
+/** assembly/constants/BATCH_UPLOAD_OFFSET */
+export declare const BATCH_UPLOAD_OFFSET: {
+  /** @type `i32` */
+  get value(): number
+};
 /** assembly/constants/MAX_DISCOVERY_OBJECTS */
 export declare const MAX_DISCOVERY_OBJECTS: {
   /** @type `i32` */

@@ -210,6 +210,7 @@ export const POSITION_OFFSET = 0;
 export const ANIMATION_OFFSET = 4096;
 export const OUTPUT_OFFSET = 8192;
 export const PLAYER_STATE_OFFSET = 16384;
+export const BATCH_UPLOAD_OFFSET = 149536; // Matching assembly/constants.ts DYNAMIC_RADII_OFFSET + 2048
 
 /** Animation type constants */
 export const AnimationType = {
