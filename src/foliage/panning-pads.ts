@@ -2,23 +2,20 @@
 
 import * as THREE from 'three';
 import {
-    color, float, mix, uv, distance, vec2, smoothstep, uniform,
-    positionLocal, positionWorld, vec3,
-    ShaderNodeObject, Node
+    color, float, uv, distance, vec2, smoothstep, uniform,
+    positionLocal, positionWorld, vec3
 } from 'three/tsl';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { spawnImpact } from './impacts.ts';
 import {
     createUnifiedMaterial,
-    CandyPresets,
     registerReactiveMaterial,
     attachReactivity,
     sharedGeometries,
     createStandardNodeMaterial,
     uPlayerPosition,
-    uTime,
-
+    applyStandardDeformation,
+    createJuicyRimLight
 } from './index.ts';
 import { $sn } from './material-core/tsl-types.ts';
 import { UnifiedMaterialOptions } from './material-core.ts';
@@ -79,10 +76,16 @@ export function createPanningPad(options: PanningPadOptions = {}): THREE.Group {
         noiseScale: 4.0,
         sheen: 0.5,
         sheenColor: glowColor instanceof THREE.Color ? glowColor : new THREE.Color(glowColor),
-        deformationNode: squashDeformation // ⚡ JUICE: Apply TSL Squash
+        deformationNode: applyStandardDeformation(squashDeformation) // ⚡ JUICE: Apply TSL Squash + Wind Sway
     };
 
+
     const padMat = createUnifiedMaterial(0xCCCCCC, padMatOpts);
+
+    // 🎨 PALETTE: Add Juicy Rim Light to the pad's edge
+    const rimLight = createJuicyRimLight(color(baseColor), float(1.5), float(3.0), null);
+    padMat.emissiveNode = padMat.emissiveNode ? $sn(padMat.emissiveNode).add(rimLight) : rimLight;
+
     registerReactiveMaterial(padMat);
 
     const pad = new THREE.Mesh(sharedGeometries.unitCylinder, padMat);
@@ -145,7 +148,7 @@ export function createPanningPad(options: PanningPadOptions = {}): THREE.Group {
 
     // ⚡ JUICE: Interaction Callbacks (Logic Layer)
     // InteractionSystem will call these when player enters proximity or clicks
-    group.userData.onProximityEnter = (distanceSq: number) => {
+    group.userData.onProximityEnter = (_distanceSq: number) => {
         // Trigger "Land" dust particles
         spawnImpact(group.position, 'land');
     };
