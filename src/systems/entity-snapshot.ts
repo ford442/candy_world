@@ -9,9 +9,6 @@ export * from './entity-snapshot-core.ts';
 /**
  * Restores an entity to the world by feeding its map data back into `processMapEntity`.
  */
-import * as THREE from 'three';
-import { create } from '../world/foliage-registry.ts';
-
 export function restoreEntity(
     snapshot: LegacyEntitySnapshot,
     weatherSystem: WeatherSystem
