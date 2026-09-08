@@ -91,7 +91,7 @@ export function renderLoadTab(
         return `
             <div class="candy-empty-state">
                 <div class="candy-empty-state__icon" aria-hidden="true">📝</div>
-                <div class="candy-empty-state__text" role="status" aria-live="polite">No memories found yet. Embark on a journey to save your progress!</div>
+                <div class="candy-empty-state__text">No memories found yet. Embark on a journey to save your progress!</div>
                 ${currentMode === 'full' ? `
                 <div class="candy-save-menu__actions">
                     <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="switch-to-save">

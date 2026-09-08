@@ -432,9 +432,6 @@ export function renderPlaylist(): void {
         const text = document.createElement('div');
         text.className = 'jukebox-empty-text';
         text.id = 'jukebox-empty-desc';
-        text.setAttribute('role', 'status');
-        text.setAttribute('aria-live', 'polite');
-        text.setAttribute('aria-atomic', 'true');
         text.innerText = 'Your playlist is empty — drop some tracks in!';
 
         const browseBtn = document.createElement('button');
