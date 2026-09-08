@@ -25,7 +25,7 @@ import { spawnImpact } from '../../foliage/impacts.ts';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/index.ts';
 import { showToast } from '../../utils/toast.ts';
 import {
-    initPhysics, uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
+    initPhysics, uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge, updatePhysicsCPP, getPlayerState
 } from '../../utils/wasm-loader.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
@@ -34,7 +34,7 @@ import {
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { reconcileGroundedEyeY } from '../ground-system.ts';
+import { reconcileGroundedEyeY, isInLakeBasin } from '../ground-system.ts';
 import {
     calculateMovementInput
 } from '../physics.core.ts';
@@ -60,6 +60,7 @@ import {
     cppPhysicsInitialized,
     AudioState,
     KeyStates,
+    _scratchPlayerState
 } from './physics-types.ts';
 
 
@@ -387,6 +388,10 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         }
     }
 
+
+    const inLakeBasin = isInLakeBasin(player.position.x, player.position.z);
+    let onGround = -1;
+    const effectiveJumpInput = keyStates.jump ? 1 : 0;
     const { moveVec: moveInput, moveSpeed: baseMoveSpeed } = calculateMovementInput(camera, keyStates, player);
     let moveSpeed = baseMoveSpeed;
 
@@ -464,21 +469,11 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
                  uChromaticIntensity.value = 0.2;
              }
         }
-    // --- Kinematic character controller (#1577) ---
-    updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
-
-    player.position.x += windForceX;
-    player.position.z += windForceZ;
-
-    if (stepResult.jumped) {
-        keyStates.jump = false;
-        spawnImpact(player.position, 'jump');
-        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-            (window as any).AudioSystem.playSound('jump', { pitch: Math.random() * 0.2 + 0.9, volume: 0.5 });
-        }
-        if (typeof uChromaticIntensity !== 'undefined') {
-            uChromaticIntensity.value = 0.2;
-        }
+    } else {
+        // --- Kinematic character controller (#1577) ---
+        updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
+        player.position.x += windForceX;
+        player.position.z += windForceZ;
     }
 
     if ((window as any).__diagPhysicsCount === 4) {
@@ -501,28 +496,6 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
             player.position.y = nextY;
             if (player.isGrounded) {
                 player.velocity.y = 0;
-    if (stepResult.landed) {
-        const fallSpeed = stepResult.fallSpeed;
-        if (fallSpeed > 15.0) {
-            spawnImpact(player.position, 'land');
-            spawnImpact(player.position, 'dash');
-            addCameraShake(0.4);
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
-            }
-        } else if (fallSpeed > 8.0) {
-            spawnImpact(player.position, 'land');
-            addCameraShake(0.15);
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
-            }
-        } else {
-            spawnImpact(player.position, 'jump');
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
             }
         }
     }
@@ -579,6 +552,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     if ((window as any).__diagPhysicsCount === 7) {
         (window as any).__diagPhysicsCount = 8;
         console.log('[PhysicsDiag] updateDefaultState: Entering JS physics checks');
+    }
     // Platform-preservation: reconcile Y after WASM; skips elevated platforms internally.
     if (player.isGrounded && player.velocity.y <= 0) {
         const prevY = player.position.y;
