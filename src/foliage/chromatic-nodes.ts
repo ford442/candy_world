@@ -1,21 +1,8 @@
-import * as THREE from 'three';
-import {
-    vec3,
-    float,
-    uniform,
-    time,
-    sin,
-    cos,
-    vec2,
-    max,
-    mix
-} from 'three/tsl';
+import { vec3, float, uniform, time, sin, cos, vec2, max, mix } from 'three/tsl';
 
 // Global uniform for Candy Impact / Glow Pulse intensity.
 // Driven by dashes, impacts, strong beats, etc.
 export const uChromaticIntensity = uniform(0.0);
-export const uGlobalNoteColor = uniform(new THREE.Color(0xffffff));
-export const uGlobalShimmer = uniform(0.0);
 
 type UvNode = ReturnType<typeof vec2>;
 
@@ -46,7 +33,9 @@ export function candyPulseWarpUv(baseUV: UvNode): UvNode {
 export function gradeCandyGlowPulse(
     sample: (coords: UvNode) => ReturnType<typeof vec3>,
     warpedUV: UvNode,
-    distFromCenter: ReturnType<typeof float>
+    distFromCenter: ReturnType<typeof float>,
+    noteColorNode: ReturnType<typeof vec3>,
+    shimmerNode: ReturnType<typeof float>
 ): ReturnType<typeof vec3> {
     const baseColor = sample(warpedUV);
     const glowOffset = uChromaticIntensity.mul(0.004);
@@ -78,8 +67,8 @@ export function gradeCandyGlowPulse(
     const withVig = saturated.add(vec3(vigBoost).mul(0.4));
 
     // Music Impact: global noteColor tint on high chromatic intensity
-    const musicTint = uGlobalNoteColor
-        .mul(uGlobalShimmer)
+    const musicTint = noteColorNode
+        .mul(shimmerNode)
         .mul(uChromaticIntensity)
         .mul(0.15);
     return withVig.add(musicTint) as ReturnType<typeof vec3>;

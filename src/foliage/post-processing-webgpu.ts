@@ -101,7 +101,9 @@ export function initWebGPUPostProcessing(
         let caColor = gradeCandyGlowPulse(
             sampleScene,
             warpedUV,
-            pulseDist as ReturnType<typeof float>
+            pulseDist as ReturnType<typeof float>,
+            opts.u.uPulseNoteColor as any,
+            opts.u.uPulseShimmer as any
         );
 
         if (dofColorNode) {

@@ -9,6 +9,7 @@ export * from './entity-snapshot-core.ts';
 /**
  * Restores an entity to the world by feeding its map data back into `processMapEntity`.
  */
+
 export function restoreEntity(
     snapshot: LegacyEntitySnapshot,
     weatherSystem: WeatherSystem
