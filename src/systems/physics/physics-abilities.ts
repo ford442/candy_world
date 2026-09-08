@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
-import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
 import { dandelionBatcher } from '../../foliage/dandelion-batcher.ts';
 import { spawnDandelionExplosion } from '../../foliage/dandelion-seeds.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';

@@ -7,27 +7,10 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
 ## Current sequencing (2026-08-05)
 
 1. **Foundation** — TS/ESint ratchet gate (#1493), repo hygiene (#1497).
-2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496). **Status: Implemented ✅**
-    -   - Implementation Details: Activated GPU foliage animation path by default via `gpu-foliage-flag.ts` and orchestrator modifications.
+2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496).
 3. **Content** — capstone features (#1492, #1494) after gates are green.
 4. **Epic: Simplify startup (#1546)** — collapse startup to Play/Explore paths + chunk streaming.
     - **Status: In progress** — #1548 chunk streamer landed; Play default visual footprint is now 180×180 with progressive section load (Explore keeps 400×400). Remaining: any leftover #1558 wiring.
-
-    - **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)
-      n4. **Epic: Simplify startup to two load paths + chunk streaming** (#1546)
-    - **Status: Implemented ✅** (#1547 Collapse startup profile UI + wire graphics to runtime)
-    -   - Implementation Details: Replaced Graphics/Map Size UI selectors with Play and Explore buttons, updated start-screen to dynamically set map size, and wired config to derive graphics from the profile dynamically.
-
-    - **Status: Implemented ✅** (#1585 Entity Snapshots)
-    -   - Implementation Details: Implemented robust Entity Snapshot system to capture an entity's components via deep copies and restore its state correctly in `entity-snapshot.ts`.
-
-    -   - Implementation Details: Wired Generative Biome Audio and Day/Night context into the game loop using zero-allocation updates, allowing the generative audio engine to adapt dynamically to the player's current biome as they explore.
-    - **Status: Implemented ✅** (#1492 Workstream A2: Candy Remote Avatar Mesh)
-    -   - Implementation Details: Upgraded the placeholder presence avatar sphere to a low-poly dodecahedron using a TSL `MeshPhysicalNodeMaterial` with clearcoat, and wired up `instanceColor` zero-allocation updates to properly apply the hash-based pastel colors per instance.
-    - **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)
-    -   - Implementation Details: Implemented the Subterranean Sugar Caves biome layer using a new InstancedMesh batcher (`SugarCaveBatcher`) and TSL materials for crystal ribs, and registered it with the music-bindings for the Part II Door narrative.
-    - **Status: Implemented ✅** (#1577 Formalize the first-person character controller)
-    -   - Implementation Details: Formalized the `DEFAULT` player walking mechanism into a unified Javascript controller utilizing the unified `sampleGroundFootprint` mechanisms. This controller natively tackles `coyoteTimeMs`, `jumpBufferMs`, slope slides, and standardizes C++ jumping and fallback jumps seamlessly.
 
 ## Mega-module splits (do not split blindly)
 
@@ -40,3 +23,18 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 - `src/foliage/material-core.ts` — `#1491` barrel + `material-core/` modules (each well under 700 lines)
 
 Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`.
+
+## Accomplished / Recent Progress
+
+- **Status: Implemented ✅** (#1577 Formalize the first-person character controller)
+  - Implementation Details: Formalized the `DEFAULT` player walking mechanism into a unified Javascript controller utilizing the unified `sampleGroundFootprint` mechanisms. This controller natively tackles `coyoteTimeMs`, `jumpBufferMs`, slope slides, and standardizes C++ jumping and fallback jumps seamlessly.
+- **Status: Implemented ✅** (#1496 GPU foliage default)
+  - Implementation Details: Activated GPU foliage animation path by default via `gpu-foliage-flag.ts` and orchestrator modifications.
+- **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)
+  - Implementation Details: Wired Generative Biome Audio and Day/Night context into the game loop using zero-allocation updates, allowing the generative audio engine to adapt dynamically to the player's current biome as they explore.
+- **Status: Implemented ✅** (#1547 Collapse startup profile UI + wire graphics to runtime)
+  - Implementation Details: Replaced Graphics/Map Size UI selectors with Play and Explore buttons, updated start-screen to dynamically set map size, and wired config to derive graphics from the profile dynamically.
+- **Status: Implemented ✅** (#1492 Workstream A2: Candy Remote Avatar Mesh)
+  - Implementation Details: Upgraded the placeholder presence avatar sphere to a low-poly dodecahedron using a TSL `MeshPhysicalNodeMaterial` with clearcoat, and wired up `instanceColor` zero-allocation updates to properly apply the hash-based pastel colors per instance.
+- **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)
+  - Implementation Details: Implemented the Subterranean Sugar Caves biome layer using a new InstancedMesh batcher (`SugarCaveBatcher`) and TSL materials for crystal ribs, and registered it with the music-bindings for the Part II Door narrative.

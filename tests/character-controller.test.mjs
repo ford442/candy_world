@@ -1,250 +1,268 @@
+/**
+ * Unit tests for the kinematic character controller (#1577).
+ *
+ * Imports the REAL production controller from src/ — no inline fake, no
+ * mocked CONFIG. Ground-sampling functions are injected per-call (the
+ * controller's own design: see character-controller.ts), which is what
+ * lets this run headlessly under tsx without booting the WASM/Vite chain
+ * that ground-system.ts pulls in.
+ *
+ * Run: npm run test:character (tsx tests/character-controller.test.mjs)
+ */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
+import { CONFIG } from '../src/core/config.ts';
+import { resolveCharacterMovement } from '../src/systems/physics/character-controller.ts';
 
-// Mocking CONFIG
-const MOCK_CONFIG = {
-    player: {
-        stepHeight: 0.35,
-        coyoteTimeMs: 100,
-        jumpBufferMs: 100,
-        skinWidth: 0.05,
-        airAccel: 5.0,
-        eyeHeight: 1.8,
-    },
-    ground: {
-        maxSlopeAngle: (25 * Math.PI) / 180,
-        footprintRadius: { player: 0.3 },
-        footprintSamples: 4,
-    }
-};
+const FLAT_NORMAL = new THREE.Vector3(0, 1, 0);
+const DELTA = 1 / 60;
 
-// Mocking dependencies
-const mockSampleGroundFootprint = (x, z, radius, samples) => {
-    return { minY: 0, avgY: 0, maxY: 0, pointMin: new THREE.Vector3(), pointMax: new THREE.Vector3() };
-};
-
-const mockSampleGroundNormal = (x, z) => {
-    return new THREE.Vector3(0, 1, 0); // Flat ground
-};
-
-// --- Test Subject Injection ---
-const _targetVelocity = new THREE.Vector3();
-const _tangent = new THREE.Vector3();
-const _up = new THREE.Vector3(0, 1, 0);
-
-class CharacterController {
-    update(delta, player, keyStates, moveInput, moveSpeed, now, groundMocks) {
-        const { stepHeight, skinWidth, airAccel } = MOCK_CONFIG.player;
-        const { maxSlopeAngle, footprintRadius } = MOCK_CONFIG.ground;
-
-        _targetVelocity.copy(moveInput).multiplyScalar(moveSpeed);
-        const isGroundedPrev = player.isGrounded;
-
-        if (isGroundedPrev) {
-            const smoothing = Math.min(1.0, 15.0 * delta);
-            player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
-            player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
-        } else {
-            const airSmoothing = Math.min(1.0, airAccel * delta);
-            player.velocity.x += (_targetVelocity.x - player.velocity.x) * airSmoothing;
-            player.velocity.z += (_targetVelocity.z - player.velocity.z) * airSmoothing;
-        }
-
-        player.velocity.y -= player.gravity * delta;
-
-        const nextX = player.position.x + player.velocity.x * delta;
-        const nextZ = player.position.z + player.velocity.z * delta;
-        const nextYRaw = player.position.y + player.velocity.y * delta;
-
-        const radius = footprintRadius['player'] ?? 0.3;
-        const footprint = groundMocks.sampleGroundFootprint(nextX, nextZ, radius, MOCK_CONFIG.ground.footprintSamples);
-        const destGroundY = footprint.minY;
-        const eyeY = destGroundY + MOCK_CONFIG.player.eyeHeight;
-
-        let acceptedX = nextX;
-        let acceptedZ = nextZ;
-        let acceptedY = nextYRaw;
-        let newlyGrounded = false;
-
-        if (nextYRaw <= eyeY + skinWidth && player.velocity.y <= 0) {
-            const rise = destGroundY - (player.position.y - MOCK_CONFIG.player.eyeHeight);
-
-            if (rise > 0) {
-                if (rise <= stepHeight && player.velocity.y > -15.0) {
-                    acceptedY = eyeY + skinWidth;
-                    newlyGrounded = true;
-                } else {
-                    acceptedX = player.position.x;
-                    acceptedZ = player.position.z;
-                    const curFootprint = groundMocks.sampleGroundFootprint(acceptedX, acceptedZ, radius, MOCK_CONFIG.ground.footprintSamples);
-                    const curEyeY = curFootprint.minY + MOCK_CONFIG.player.eyeHeight;
-                    if (nextYRaw <= curEyeY + skinWidth) {
-                        acceptedY = curEyeY + skinWidth;
-                        newlyGrounded = true;
-                    }
-                }
-            } else {
-                acceptedY = eyeY + skinWidth;
-                newlyGrounded = true;
-            }
-        }
-
-        if (newlyGrounded) {
-            const normal = groundMocks.sampleGroundNormal(acceptedX, acceptedZ);
-            const angle = Math.acos(THREE.MathUtils.clamp(normal.y, -1, 1));
-
-            if (angle > maxSlopeAngle) {
-                newlyGrounded = false;
-                _tangent.copy(_up).cross(normal).cross(_up).normalize();
-                const slideAccel = player.gravity * Math.sin(angle);
-                player.velocity.addScaledVector(_tangent, slideAccel * delta);
-                acceptedY = player.position.y + player.velocity.y * delta;
-            } else {
-                player.velocity.y = 0;
-            }
-        }
-
-        const canJump = newlyGrounded || (now - player.lastGroundedTime <= MOCK_CONFIG.player.coyoteTimeMs);
-        const wantsJump = keyStates.jump || (now - player.jumpBufferTime <= MOCK_CONFIG.player.jumpBufferMs);
-        if (canJump && wantsJump) {
-            player.velocity.y = 8.0;
-            newlyGrounded = false;
-        }
-
-        player.position.set(acceptedX, acceptedY, acceptedZ);
-        player.isGrounded = newlyGrounded;
-    }
+function makePlayer(overrides = {}) {
+    return {
+        position: new THREE.Vector3(0, CONFIG.player.eyeHeight, 0),
+        velocity: new THREE.Vector3(0, 0, 0),
+        isGrounded: true,
+        gravity: 21.5,
+        spawnProtectFrames: 0,
+        controllerClock: 0,
+        lastGroundedTime: -Infinity,
+        jumpPressedTime: -Infinity,
+        ...overrides,
+    };
 }
 
-test('CharacterController - Flat Ground Walk', () => {
-    const controller = new CharacterController();
-    const player = {
-        position: new THREE.Vector3(0, 1.8, 0),
-        velocity: new THREE.Vector3(0, 0, 0),
-        isGrounded: true,
-        gravity: 21.5
+/** Ground query that always reports flat, level ground at y=0. */
+function flatGroundQuery() {
+    return {
+        sampleFootprint: () => ({ minY: 0, avgY: 0, maxY: 0, normal: FLAT_NORMAL.clone() }),
+        getGroundHeight: () => 0,
     };
-    const keyStates = { jump: false };
-    const mocks = {
-        sampleGroundFootprint: () => ({ minY: 0 }),
-        sampleGroundNormal: () => new THREE.Vector3(0, 1, 0)
+}
+
+/** Ground query the player never reaches (used to isolate coyote/jump logic from ground contact). */
+function unreachableGroundQuery() {
+    return {
+        sampleFootprint: () => ({
+            minY: -1000,
+            avgY: -1000,
+            maxY: -1000,
+            normal: FLAT_NORMAL.clone(),
+        }),
+        getGroundHeight: () => -1000,
     };
+}
 
-    controller.update(0.016, player, keyStates, new THREE.Vector3(1, 0, 0), 10, 1000, mocks);
-
-    assert.strictEqual(player.isGrounded, true);
-    assert.ok(player.velocity.x > 0);
-    assert.strictEqual(player.velocity.y, 0);
+test('ground/air acceleration: grounded walk accelerates toward target velocity', () => {
+    const player = makePlayer({ isGrounded: true });
+    const groundQuery = flatGroundQuery();
+    resolveCharacterMovement(DELTA, player, { x: 10, z: 0 }, false, false, groundQuery);
+    assert.ok(player.velocity.x > 0, 'gains horizontal velocity toward target');
+    assert.equal(player.isGrounded, true);
+    assert.equal(player.velocity.y, 0, 'flat ground zeroes vertical velocity');
 });
 
-test('CharacterController - Valid Step Up (0.3m)', () => {
-    const controller = new CharacterController();
-    const player = {
-        position: new THREE.Vector3(0, 1.8, 0),
-        velocity: new THREE.Vector3(0, 0, 0),
-        isGrounded: true,
-        gravity: 21.5
-    };
-    const keyStates = { jump: false };
-    const mocks = {
-        sampleGroundFootprint: (x, z) => ({ minY: 0.3 }),
-        sampleGroundNormal: () => new THREE.Vector3(0, 1, 0)
-    };
-
-    controller.update(0.016, player, keyStates, new THREE.Vector3(1, 0, 0), 10, 1000, mocks);
-
-    assert.strictEqual(player.isGrounded, true);
-    assert.ok(Math.abs(player.position.y - 2.15) < 0.001);
-});
-
-test('CharacterController - Invalid Step Up (0.8m) block', () => {
-    const controller = new CharacterController();
-    const player = {
-        position: new THREE.Vector3(0, 1.8, 0),
-        velocity: new THREE.Vector3(0, 0, 0),
-        isGrounded: true,
-        gravity: 21.5
-    };
-    const keyStates = { jump: false };
-    const mocks = {
-        sampleGroundFootprint: (x, z) => {
-            if (x === 0 && z === 0) return { minY: 0 };
-            return { minY: 0.8 };
-        },
-        sampleGroundNormal: () => new THREE.Vector3(0, 1, 0)
-    };
-
-    controller.update(0.016, player, keyStates, new THREE.Vector3(1, 0, 0), 10, 1000, mocks);
-
-    assert.strictEqual(player.position.x, 0);
-    assert.strictEqual(player.position.z, 0);
-});
-
-test('CharacterController - Slope sliding on 50 degree angle', () => {
-    const controller = new CharacterController();
-    const player = {
-        position: new THREE.Vector3(0, 1.8, 0),
-        velocity: new THREE.Vector3(0, 0, 0),
+test('walkable slope holds footing (angle under CONFIG.player.slopeLimit)', () => {
+    const walkableAngle = CONFIG.player.slopeLimit * 0.5;
+    const nx = Math.sin(walkableAngle);
+    const ny = Math.cos(walkableAngle);
+    const player = makePlayer({
+        position: new THREE.Vector3(0, CONFIG.player.eyeHeight + 0.001, 0),
+        velocity: new THREE.Vector3(0, -1, 0),
         isGrounded: false,
-        gravity: 21.5
+    });
+    const groundQuery = {
+        sampleFootprint: () => ({
+            minY: 0,
+            avgY: 0,
+            maxY: 0,
+            normal: new THREE.Vector3(nx, ny, 0).normalize(),
+        }),
+        getGroundHeight: () => 0,
     };
-    const keyStates = { jump: false };
-    const angle = (50 * Math.PI) / 180;
-    const ny = Math.cos(angle);
-    const nx = Math.sin(angle);
-    const mocks = {
-        sampleGroundFootprint: () => ({ minY: 0 }),
-        sampleGroundNormal: () => new THREE.Vector3(nx, ny, 0).normalize()
-    };
-
-    controller.update(0.016, player, keyStates, new THREE.Vector3(1, 0, 0), 10, 1000, mocks);
-
-    assert.strictEqual(player.isGrounded, false);
-    assert.ok(player.velocity.y < 0);
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, groundQuery);
+    assert.equal(player.isGrounded, true, 'walkable slope grounds the player');
+    assert.equal(player.velocity.y, 0);
 });
 
-test('CharacterController - Coyote Time Jump (within 100ms grace)', () => {
-    const controller = new CharacterController();
-    const player = {
-        position: new THREE.Vector3(0, 5, 0),
+test('steep slope past CONFIG.player.slopeLimit slides instead of holding footing', () => {
+    const steepAngle = CONFIG.player.slopeLimit + (10 * Math.PI) / 180;
+    const nx = Math.sin(steepAngle);
+    const ny = Math.cos(steepAngle);
+    const player = makePlayer({
+        position: new THREE.Vector3(0, CONFIG.player.eyeHeight + 0.001, 0),
+        velocity: new THREE.Vector3(0, -1, 0),
+        isGrounded: false,
+    });
+    const groundQuery = {
+        sampleFootprint: () => ({
+            minY: 0,
+            avgY: 0,
+            maxY: 0,
+            normal: new THREE.Vector3(nx, ny, 0).normalize(),
+        }),
+        getGroundHeight: () => 0,
+    };
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, groundQuery);
+    assert.equal(
+        player.isGrounded,
+        false,
+        'surface steeper than slopeLimit does not grant footing'
+    );
+    assert.ok(player.velocity.y < 0, 'still falling, not snapped to the slope');
+    assert.ok(player.velocity.x !== 0, 'gravity-along-slope impulse pushes the player downhill');
+});
+
+test('step under CONFIG.player.stepHeight climbs the ledge', () => {
+    const rise = CONFIG.player.stepHeight * 0.5;
+    const player = makePlayer({
+        position: new THREE.Vector3(0, CONFIG.player.eyeHeight, 0),
+        velocity: new THREE.Vector3(5, 0, 0),
+        isGrounded: true,
+    });
+    const groundQuery = {
+        sampleFootprint: (x) =>
+            x > 0.01
+                ? { minY: rise, avgY: rise, maxY: rise, normal: FLAT_NORMAL.clone() }
+                : { minY: 0, avgY: 0, maxY: 0, normal: FLAT_NORMAL.clone() },
+        getGroundHeight: () => 0,
+    };
+    resolveCharacterMovement(DELTA, player, { x: 5, z: 0 }, false, false, groundQuery);
+    assert.ok(player.position.x > 0, 'forward motion is accepted');
+    assert.equal(player.isGrounded, true);
+    assert.ok(
+        Math.abs(player.position.y - (rise + CONFIG.player.eyeHeight + CONFIG.player.skinWidth)) <
+            1e-6,
+        'snaps up onto the ledge'
+    );
+});
+
+test('ledge over CONFIG.player.stepHeight blocks forward motion', () => {
+    const rise = CONFIG.player.stepHeight + 0.5;
+    const startX = 0;
+    const player = makePlayer({
+        position: new THREE.Vector3(startX, CONFIG.player.eyeHeight, 0),
+        velocity: new THREE.Vector3(5, 0, 0),
+        isGrounded: true,
+    });
+    const groundQuery = {
+        sampleFootprint: (x) =>
+            Math.abs(x - startX) > 0.01
+                ? { minY: rise, avgY: rise, maxY: rise, normal: FLAT_NORMAL.clone() }
+                : { minY: 0, avgY: 0, maxY: 0, normal: FLAT_NORMAL.clone() },
+        getGroundHeight: () => 0,
+    };
+    resolveCharacterMovement(DELTA, player, { x: 5, z: 0 }, false, false, groundQuery);
+    assert.equal(
+        player.position.x,
+        startX,
+        'a wall taller than stepHeight rejects forward motion (movement resolve, not a teleport)'
+    );
+    assert.equal(player.isGrounded, true, 'still standing on the ground it started on');
+});
+
+test('coyote time: jump fires within CONFIG.player.coyoteTimeMs of leaving ground', () => {
+    const player = makePlayer({
+        position: new THREE.Vector3(0, 50, 0),
         velocity: new THREE.Vector3(0, -5, 0),
         isGrounded: false,
-        gravity: 21.5,
-        lastGroundedTime: 950,
-        jumpBufferTime: 0
-    };
-
-    const keyStates = { jump: true };
-    const mocks = {
-        sampleGroundFootprint: () => ({ minY: 0 }),
-        sampleGroundNormal: () => new THREE.Vector3(0, 1, 0)
-    };
-
-    controller.update(0.016, player, keyStates, new THREE.Vector3(0, 0, 0), 10, 1000, mocks);
-
-    assert.strictEqual(player.velocity.y, 8.0);
+        controllerClock: 1.0,
+        lastGroundedTime: 1.0 - (CONFIG.player.coyoteTimeMs / 1000) * 0.5,
+    });
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, true, true, unreachableGroundQuery());
+    assert.equal(
+        player.velocity.y,
+        CONFIG.player.jumpVelocity,
+        'coyote window still allows the jump to fire'
+    );
 });
 
-test('CharacterController - Jump Buffer (input early, lands later)', () => {
-    const controller = new CharacterController();
-    const player = {
-        position: new THREE.Vector3(0, 1.8, 0),
+test('coyote time: jump does not fire once CONFIG.player.coyoteTimeMs has expired', () => {
+    const player = makePlayer({
+        position: new THREE.Vector3(0, 50, 0),
         velocity: new THREE.Vector3(0, -5, 0),
         isGrounded: false,
-        gravity: 21.5,
-        lastGroundedTime: 0,
-        jumpBufferTime: 950
-    };
+        controllerClock: 1.0,
+        lastGroundedTime: 1.0 - CONFIG.player.coyoteTimeMs / 1000 - 0.05,
+    });
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, true, true, unreachableGroundQuery());
+    assert.notEqual(
+        player.velocity.y,
+        CONFIG.player.jumpVelocity,
+        'expired coyote window does not grant a jump'
+    );
+    assert.ok(player.velocity.y < 0, 'still falling under gravity');
+});
 
-    const keyStates = { jump: false };
-    const mocks = {
-        sampleGroundFootprint: () => ({ minY: 0 }),
-        sampleGroundNormal: () => new THREE.Vector3(0, 1, 0)
-    };
+test('coyote time: a held jump does not refire on the next airborne frame', () => {
+    // Regression test: firing a coyote-window jump must consume
+    // lastGroundedTime, otherwise a held jump key keeps resetting
+    // velocity.y to jumpVelocity every frame for the rest of the original
+    // coyote window instead of a single impulse.
+    const player = makePlayer({
+        position: new THREE.Vector3(0, 50, 0),
+        velocity: new THREE.Vector3(0, -5, 0),
+        isGrounded: false,
+        controllerClock: 1.0,
+        lastGroundedTime: 1.0 - (CONFIG.player.coyoteTimeMs / 1000) * 0.5,
+    });
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, true, true, unreachableGroundQuery());
+    assert.equal(player.velocity.y, CONFIG.player.jumpVelocity, 'first frame: coyote jump fires');
 
-    controller.update(0.016, player, keyStates, new THREE.Vector3(0, 0, 0), 10, 1000, mocks);
+    // Still well within the original coyote window, and jump is still held.
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, true, false, unreachableGroundQuery());
+    assert.ok(
+        player.velocity.y < CONFIG.player.jumpVelocity,
+        'second frame: gravity should have reduced velocity, not refired the jump'
+    );
+});
 
-    assert.strictEqual(player.velocity.y, 8.0);
-    assert.strictEqual(player.isGrounded, false);
+test('jump buffer: a press shortly before landing fires on contact', () => {
+    const player = makePlayer({
+        position: new THREE.Vector3(0, CONFIG.player.eyeHeight + 0.001, 0),
+        velocity: new THREE.Vector3(0, -0.5, 0),
+        isGrounded: false,
+        controllerClock: 1.0,
+        jumpPressedTime: 1.0 - (CONFIG.player.jumpBufferMs / 1000) * 0.5,
+    });
+    // jumpHeld=false: the key may already be released — only the earlier
+    // buffered press should matter.
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, flatGroundQuery());
+    assert.equal(
+        player.velocity.y,
+        CONFIG.player.jumpVelocity,
+        'buffered jump fires immediately on ground contact'
+    );
+    assert.equal(player.isGrounded, false, 'the fired jump leaves the player airborne again');
+});
+
+test('jump buffer: a press outside CONFIG.player.jumpBufferMs does not carry over', () => {
+    const player = makePlayer({
+        position: new THREE.Vector3(0, CONFIG.player.eyeHeight + 0.001, 0),
+        velocity: new THREE.Vector3(0, -0.5, 0),
+        isGrounded: false,
+        controllerClock: 1.0,
+        jumpPressedTime: 1.0 - CONFIG.player.jumpBufferMs / 1000 - 0.05,
+    });
+    resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, flatGroundQuery());
+    assert.notEqual(
+        player.velocity.y,
+        CONFIG.player.jumpVelocity,
+        'stale buffered press is not consumed'
+    );
+    assert.equal(player.isGrounded, true, 'lands normally instead');
+});
+
+test('isGrounded does not chatter across frames on flat ground (skinWidth hysteresis)', () => {
+    const player = makePlayer({ isGrounded: true });
+    const groundQuery = flatGroundQuery();
+    for (let frame = 0; frame < 30; frame++) {
+        resolveCharacterMovement(DELTA, player, { x: 0, z: 0 }, false, false, groundQuery);
+        assert.equal(
+            player.isGrounded,
+            true,
+            `frame ${frame}: isGrounded flickered on stable flat ground`
+        );
+    }
 });

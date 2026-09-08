@@ -86,3 +86,6 @@ export {
 // Default export
 export { default } from './asset-streaming/index.ts';
 export * from './ecs/index.ts';
+
+// Entity Snapshots
+export * from './entity-snapshot.ts';

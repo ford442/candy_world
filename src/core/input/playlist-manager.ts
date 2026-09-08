@@ -142,32 +142,7 @@ export function initPlaylistManager(
         });
     }
 
-    // ♿ Aria: Delegated keyboard active listeners for all playlist buttons
-    if (playlistOverlay) {
-        playlistOverlay.addEventListener('keydown', (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                if (e.repeat) return;
-                const target = e.target as HTMLElement;
-                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                    target.classList.add('keyboard-active');
-                }
-            }
-        });
-        playlistOverlay.addEventListener('keyup', (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                const target = e.target as HTMLElement;
-                if (target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                    target.classList.remove('keyboard-active');
-                }
-            }
-        });
-        playlistOverlay.addEventListener('blur', (e: FocusEvent) => {
-            const target = e.target as HTMLElement;
-            if (target && target.matches && target.matches('.playlist-btn, .playlist-remove-btn, .close-icon-btn, .secondary-button, .cta-button, .jukebox-browse-btn')) {
-                target.classList.remove('keyboard-active');
-            }
-        }, true); // Use capture to ensure we catch blur events on dynamically added children
-    }
+
 
     // 🎨 Palette: Improve Drag & Drop Feedback in Jukebox
     if (playlistOverlay) {
@@ -360,11 +335,13 @@ export function renderPlaylist(): void {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'playlist-btn';
-        // 🎨 Palette: Use formatted title for tooltip and screen readers
-        btn.title = displayName;
-        btn.setAttribute('aria-label', `Play ${displayName}`);
         if (index === currentIdx) {
+            btn.title = `Currently playing: ${displayName}`;
+            btn.setAttribute('aria-label', `Currently playing: ${displayName}`);
             btn.setAttribute('aria-current', 'true');
+        } else {
+            btn.title = `Play ${displayName}`;
+            btn.setAttribute('aria-label', `Play ${displayName}`);
         }
 
         btn.innerHTML = `
@@ -454,16 +431,15 @@ export function renderPlaylist(): void {
 
         const text = document.createElement('div');
         text.className = 'jukebox-empty-text';
+        text.id = 'jukebox-empty-desc';
         text.innerText = 'Your playlist is empty — drop some tracks in!';
-        text.setAttribute('role', 'status');
-        text.setAttribute('aria-live', 'polite');
-        text.setAttribute('aria-atomic', 'true');
 
         const browseBtn = document.createElement('button');
         browseBtn.type = 'button';
         browseBtn.className = 'cta-button jukebox-browse-btn';
         browseBtn.innerHTML = 'Browse Music <span aria-hidden="true">📂</span>';
         browseBtn.setAttribute('aria-label', 'Browse for music files to add to playlist');
+        browseBtn.setAttribute('aria-describedby', 'jukebox-empty-desc');
 
         browseBtn.onclick = (e) => {
             e.stopPropagation();
@@ -518,6 +494,12 @@ export function togglePlaylist(): void {
 
         // Note: releasePauseMenuFocus is managed by the main input module
         // We notify via a callback mechanism if needed
+        const session = (window as any).__inputSession;
+        if (session && session.focus && session.focus.releasePauseMenuFocus) {
+            session.focus.releasePauseMenuFocus();
+            session.focus.releasePauseMenuFocus = null;
+        }
+
         if (instructionsRef) instructionsRef.style.display = 'none'; // Ensure pause menu is hidden
 
         if (playlistOverlay) {
@@ -527,10 +509,12 @@ export function togglePlaylist(): void {
             playlistOverlay.style.opacity = '1';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
 
-            // 🎨 Palette: Wait for paint before intensive DOM manipulations and focus trapping
+            // Wait for paint before intensive DOM manipulations and focus trapping
             yieldToPaint(50).then(() => {
                 if (isPlaylistOpen && playlistOverlay) {
-                    releaseJukeboxFocus = trapFocusInside(playlistOverlay);
+                    releaseJukeboxFocus = trapFocusInside(playlistOverlay, { skipAutoFocus: true });
+
+                    announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
 
                     // UX: Auto-focus the currently playing track for immediate context
                     if (!audioSystemRef || !playlistList) return;
@@ -542,8 +526,13 @@ export function togglePlaylist(): void {
                         activeBtn.focus({ preventScroll: true });
                         // Ensure the active song is visible in the scrollable list
                         activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                    } else if (closePlaylistBtn) {
-                        closePlaylistBtn.focus({ preventScroll: true });
+                    } else {
+                        const emptyBtn = playlistList.querySelector('.jukebox-browse-btn');
+                        if (emptyBtn) {
+                            (emptyBtn as HTMLElement).focus({ preventScroll: true });
+                        } else if (closePlaylistBtn) {
+                            closePlaylistBtn.focus({ preventScroll: true });
+                        }
                     }
                 }
             });
@@ -578,12 +567,20 @@ export function togglePlaylist(): void {
             // Return to Pause Menu
             if (instructionsRef) {
                 instructionsRef.style.display = 'flex';
-                // Focus trap is re-established by main input module
+
+                yieldToPaint(50).then(() => {
+                     const session = (window as any).__inputSession;
+                     if (session && instructionsRef && instructionsRef.style.display !== 'none') {
+                         session.focus.releasePauseMenuFocus = trapFocusInside(instructionsRef, { skipAutoFocus: true });
+                     }
+                });
             }
             // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
             yieldToPaint(50).then(() => {
-                if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
+                if (lastFocusedElement && lastFocusedElement instanceof HTMLElement && lastFocusedElement.isConnected && (!playlistOverlay || !playlistOverlay.contains(lastFocusedElement))) {
                     lastFocusedElement.focus({ preventScroll: true });
+                } else if (openJukeboxBtn) {
+                    openJukeboxBtn.focus({ preventScroll: true });
                 }
             });
             // Do NOT lock controls, stay unlocked

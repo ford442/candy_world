@@ -1,63 +1,207 @@
-import { Entity, Component } from './ecs/types.ts';
-import { World } from './ecs/world.ts';
+import * as THREE from 'three';
+import { create } from '../world/foliage-registry.ts';
+import { processMapEntity } from '../world/generation-entities.ts';
+import type { WeatherSystem, MapEntity } from '../world/generation-utils.ts';
+import { migrateSnapshot, type EntitySnapshot } from './entity-snapshot-core.ts';
 
-export interface EntitySnapshot {
-    entityId: Entity;
-    components: Record<string, Component>;
-}
+export * from './entity-snapshot-core.ts';
 
 /**
- * Creates a snapshot of all components currently attached to an entity.
- *
- * @param world The ECS world instance.
- * @param entity The entity to snapshot.
- * @returns An EntitySnapshot object containing a copy of all component data.
+ * Restores an entity to the world by feeding its map data back into `processMapEntity`.
  */
-export function createEntitySnapshot(world: World, entity: Entity): EntitySnapshot {
-    const components: Record<string, Component> = {};
-    const componentNames = Array.from((world as any).entityToIndex.keys()) as string[];
 
-    for (const name of componentNames) {
-        if (world.hasComponent(entity, name)) {
-            const comp = world.getComponent<Component>(entity, name);
-            if (comp) {
-                // Deep copy component to prevent mutation from continuing simulation
-                components[name] = JSON.parse(JSON.stringify(comp));
-            }
-        }
-    }
+export function restoreEntity(
+    snapshot: LegacyEntitySnapshot,
+    weatherSystem: WeatherSystem
+): void {
+    const current = migrateSnapshot(snapshot);
+    // processMapEntity expects MapEntity type, which is mostly compatible with CandyMapEntity
+    processMapEntity(current.entity as unknown as MapEntity, weatherSystem);
+}
 
-    return {
-        entityId: entity,
-        components
+export interface LegacyEntitySnapshot {
+    id: string;
+    type: string;
+    position: [number, number, number];
+    rotation: { quat: [number, number, number, number] };
+    scale: [number, number, number];
+    persistentId?: string;
+    variant?: string;
+    note?: string;
+    noteIndex?: number;
+    hasFace?: boolean;
+    category?: string;
+    layer?: string;
+    biome?: string;
+    placement?: 'ground' | 'absolute' | 'offset';
+    baseOffset?: number;
+    music?: {
+        biome?: string;
+        biomeTag?: string;
+        biomeOverride?: string;
+        channels?: number[];
+        intensityScale?: number;
+        trackerChannel?: number;
+        reactivityProfile?: string;
+        noteColorOverride?: string;
     };
+    params?: Record<string, unknown>;
 }
 
-/**
- * Restores an entity to the exact state captured in a snapshot.
- * This overrides existing components and adds missing ones from the snapshot.
- *
- * @param world The ECS world instance.
- * @param snapshot The snapshot to restore from.
- * @returns The entity that was restored (same as snapshot.entityId)
- */
-export function restoreEntitySnapshot(world: World, snapshot: EntitySnapshot): Entity {
-    const entity = snapshot.entityId;
+const _worldPos = new THREE.Vector3();
+const _worldQuat = new THREE.Quaternion();
+const _worldScale = new THREE.Vector3();
 
-    // Remove components the entity currently has that are NOT in the snapshot
-    const currentComponents = Array.from((world as any).entityToIndex.keys()).filter((name) => world.hasComponent(entity, name as string)) as string[];
-    for (const name of currentComponents) {
-        if (!(name in snapshot.components)) {
-            world.removeComponent(entity, name);
+function round(val: number, decimals = 4): number {
+    const p = Math.pow(10, decimals);
+    return Math.round(val * p) / p;
+}
+
+export function exportEntitySnapshot(obj: THREE.Object3D): LegacyEntitySnapshot | null {
+    const mapExport = (obj.userData?.mapExport ?? {}) as Record<string, unknown>;
+
+    // Attempt to extract the type
+    let mappedType = mapExport.type as string | undefined;
+    if (!mappedType) mappedType = obj.userData?.mapEntityType as string | undefined;
+    if (!mappedType) mappedType = obj.userData?.type as string | undefined;
+
+    if (!mappedType || typeof mappedType !== 'string') return null;
+
+    obj.getWorldPosition(_worldPos);
+    obj.getWorldQuaternion(_worldQuat);
+    obj.getWorldScale(_worldScale);
+
+    const snapshot: LegacyEntitySnapshot = {
+        id: obj.userData?.mapEntityId || obj.uuid,
+        type: mappedType,
+        position: [round(_worldPos.x), round(_worldPos.y), round(_worldPos.z)],
+        rotation: { quat: [round(_worldQuat.x, 6), round(_worldQuat.y, 6), round(_worldQuat.z, 6), round(_worldQuat.w, 6)] },
+        scale: [round(_worldScale.x), round(_worldScale.y), round(_worldScale.z)]
+    };
+
+    if (obj.userData?.persistentId) {
+        snapshot.persistentId = obj.userData.persistentId;
+    }
+
+    if (mapExport.variant || obj.userData?.variant) {
+        snapshot.variant = mapExport.variant || obj.userData?.variant;
+    }
+
+    if (mapExport.note || obj.userData?.note) {
+        snapshot.note = mapExport.note || obj.userData?.note;
+    }
+
+    if (mapExport.noteIndex !== undefined || obj.userData?.noteIndex !== undefined) {
+        snapshot.noteIndex = mapExport.noteIndex ?? obj.userData?.noteIndex;
+    }
+
+    if (mapExport.hasFace !== undefined || obj.userData?.hasFace !== undefined) {
+        snapshot.hasFace = mapExport.hasFace ?? obj.userData?.hasFace;
+    }
+
+    if (mapExport.category) snapshot.category = mapExport.category as string;
+    if (mapExport.layer) snapshot.layer = mapExport.layer as string;
+    if (mapExport.biome || obj.userData?.biome) snapshot.biome = (mapExport.biome || obj.userData?.biome) as string;
+    if (mapExport.placement) snapshot.placement = mapExport.placement as any;
+    if (mapExport.baseOffset !== undefined) snapshot.baseOffset = mapExport.baseOffset as number;
+
+    if (mapExport.music || obj.userData?.music) {
+        snapshot.music = (mapExport.music || obj.userData?.music) as any;
+    }
+
+    if (mapExport.params) {
+        snapshot.params = mapExport.params as Record<string, unknown>;
+    } else if (obj.userData?.params) {
+        snapshot.params = obj.userData.params as Record<string, unknown>;
+    }
+
+    return snapshot;
+}
+
+export function importEntitySnapshot(snapshot: LegacyEntitySnapshot, applyToObj?: THREE.Object3D): THREE.Object3D | null {
+    let obj = applyToObj;
+
+    if (!obj) {
+        // Prepare spawn parameters
+        const params: Record<string, unknown> = { ...(snapshot.params || {}) };
+        if (snapshot.variant !== undefined) params.variant = snapshot.variant;
+        if (snapshot.note !== undefined) params.note = snapshot.note;
+        if (snapshot.noteIndex !== undefined) params.noteIndex = snapshot.noteIndex;
+        if (snapshot.hasFace !== undefined) params.hasFace = snapshot.hasFace;
+        if (snapshot.persistentId !== undefined) params.persistentId = snapshot.persistentId;
+
+        // Use the uniform scale if it is uniform
+        if (snapshot.scale[0] === snapshot.scale[1] && snapshot.scale[1] === snapshot.scale[2]) {
+            params.scale = snapshot.scale[0];
+        } else {
+            params.scale = snapshot.scale;
+        }
+
+        const created = create(snapshot.type, params);
+        if (!created) {
+            return null;
+        }
+        obj = created;
+    }
+
+    // Apply transforms
+    obj.position.set(snapshot.position[0], snapshot.position[1], snapshot.position[2]);
+    obj.quaternion.set(snapshot.rotation.quat[0], snapshot.rotation.quat[1], snapshot.rotation.quat[2], snapshot.rotation.quat[3]);
+    obj.scale.set(snapshot.scale[0], snapshot.scale[1], snapshot.scale[2]);
+
+    // Apply metadata back to userData
+    obj.userData.mapEntityType = snapshot.type;
+    obj.userData.mapEntityId = snapshot.id;
+    if (snapshot.biome) obj.userData.biome = snapshot.biome;
+    if (snapshot.persistentId) obj.userData.persistentId = snapshot.persistentId;
+    if (snapshot.note) obj.userData.note = snapshot.note;
+    if (snapshot.noteIndex !== undefined) obj.userData.noteIndex = snapshot.noteIndex;
+    if (snapshot.hasFace !== undefined) obj.userData.hasFace = snapshot.hasFace;
+
+    if (snapshot.music) {
+        if (typeof snapshot.music.trackerChannel === 'number') obj.userData.trackerChannel = snapshot.music.trackerChannel;
+        if (typeof snapshot.music.reactivityProfile === 'string') obj.userData.reactivityProfile = snapshot.music.reactivityProfile;
+        if (typeof snapshot.music.intensityScale === 'number') obj.userData.reactivityIntensityScale = snapshot.music.intensityScale;
+    }
+
+    obj.userData.mapExport = {
+        type: snapshot.type,
+        sourceId: snapshot.id,
+        provenance: 'snapshot',
+        variant: snapshot.variant,
+        note: snapshot.note,
+        noteIndex: snapshot.noteIndex,
+        hasFace: snapshot.hasFace,
+        category: snapshot.category,
+        layer: snapshot.layer,
+        biome: snapshot.biome,
+        music: snapshot.music,
+        placement: snapshot.placement,
+        baseOffset: snapshot.baseOffset,
+        params: snapshot.params
+    };
+
+    return obj;
+}
+
+export function exportWorldSnapshots(objects: THREE.Object3D[]): LegacyEntitySnapshot[] {
+    const snapshots: LegacyEntitySnapshot[] = [];
+    for (let i = 0; i < objects.length; i++) {
+        const snap = exportEntitySnapshot(objects[i]);
+        if (snap) {
+            snapshots.push(snap);
         }
     }
+    return snapshots;
+}
 
-    // Add or update components from the snapshot
-    for (const [name, data] of Object.entries(snapshot.components)) {
-        // We use JSON.parse to ensure we're injecting a fresh copy
-        const compData = JSON.parse(JSON.stringify(data));
-        world.setComponent(entity, name, compData);
+export function importWorldSnapshots(snapshots: LegacyEntitySnapshot[]): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
+    for (let i = 0; i < snapshots.length; i++) {
+        const obj = importEntitySnapshot(snapshots[i]);
+        if (obj) {
+            objects.push(obj);
+        }
     }
-
-    return entity;
+    return objects;
 }

@@ -43,12 +43,23 @@ export interface PlayerExtended extends CorePlayerState {
     climbTopY: number;
     /** Frames remaining where gravity is frozen after a spawn/teleport. */
     spawnProtectFrames: number;
+    /**
+     * Accumulated simulation clock (sum of physics deltas), used by the
+     * character controller for coyote time / jump buffering (#1577).
+     * Deliberately NOT wall-clock time — stays correct under frame stalls
+     * and the game's own time scaling.
+     */
+    controllerClock: number;
+    /** controllerClock value at the last frame the player was grounded. */
+    lastGroundedTime: number;
+    /** controllerClock value at the last rising-edge jump input. */
+    jumpPressedTime: number;
 }
 
 // --- Configuration ---
 export const GRAVITY = 21.5;
 export const SWIMMING_GRAVITY = 2.0; // Much lower gravity in water
-export const SWIMMING_DRAG = 4.0;    // High friction in water
+export const SWIMMING_DRAG = 4.0; // High friction in water
 // Re-export the config value so legacy call sites keep working without edits.
 export const PLAYER_HEIGHT_OFFSET = CONFIG.player.eyeHeight;
 export const DANCE_KICK_THRESHOLD = 0.5; // Threshold for kick-triggered camera roll
@@ -58,14 +69,14 @@ export const MOVE_ACCEL = 15.0;
 
 // --- State Definitions ---
 export const PlayerState = {
-    DEFAULT: 'default',   // Grounded or Airborne (Standard Physics)
+    DEFAULT: 'default', // Grounded or Airborne (Standard Physics)
     SWIMMING: 'swimming', // Underwater physics
     CLIMBING: 'climbing', // Wall scaling
-    VINE: 'vine',         // Swinging on a vine
-    DANCING: 'dancing'    // Dance mode with unlocked cursor
+    VINE: 'vine', // Swinging on a vine
+    DANCING: 'dancing', // Dance mode with unlocked cursor
 } as const;
 
-export type PlayerStateType = typeof PlayerState[keyof typeof PlayerState];
+export type PlayerStateType = (typeof PlayerState)[keyof typeof PlayerState];
 
 // --- Player State Object ---
 export const player: PlayerExtended = {
@@ -102,10 +113,14 @@ export const player: PlayerExtended = {
 
     harpoon: {
         active: false,
-        anchor: new THREE.Vector3()
+        anchor: new THREE.Vector3(),
     },
     climbTarget: null,
-    climbTopY: 0
+    climbTopY: 0,
+
+    controllerClock: 0,
+    lastGroundedTime: -Infinity,
+    jumpPressedTime: -Infinity,
 };
 
 // Internal input tracking for edge detection
@@ -116,7 +131,7 @@ export const _lastInputState = {
     dance: false,
     phase: false,
     clap: false,
-    forward: false
+    forward: false,
 };
 
 // Global physics modifiers (Musical Ecosystem)
@@ -124,13 +139,13 @@ export const bpmWind = {
     direction: new THREE.Vector3(1, 0, 0),
     strength: 0,
     targetStrength: 0,
-    bpm: 120
+    bpm: 120,
 };
 
 export const grooveGravity = {
     multiplier: 1.0,
     targetMultiplier: 1.0,
-    baseGravity: 20.0
+    baseGravity: 20.0,
 };
 
 // --- Optimization: Scratch Variables (Zero-Allocation) ---
@@ -145,7 +160,7 @@ export const _scratchPlayerState = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 };
 // ⚡ OPTIMIZATION: Scratch vector for Sonic Clap head offset calculations
 export const _scratchHeadOffset = new THREE.Vector3();
 export const _scratchPos = new THREE.Vector3();
-export const _clapColor = new THREE.Color(0xFFD700);
+export const _clapColor = new THREE.Color(0xffd700);
 
 // C++ Physics Init Flag
 export let cppPhysicsInitialized = false;

@@ -1,4 +1,11 @@
-import { vec3, float, uniform, time, sin, mix } from 'three/tsl';
+import {
+    vec3,
+    float,
+    uniform,
+    time,
+    sin,
+    mix,
+} from 'three/tsl';
 
 // Global uniform for Strobe Sickness intensity
 export const uStrobeIntensity = uniform(0.0);

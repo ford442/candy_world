@@ -52,7 +52,10 @@ function setupAbilityKeyboardInteractions(
         onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
     });
 
-    element.addEventListener('pointerout', () => {
+    element.addEventListener('pointerout', (e: PointerEvent) => {
+        const nextTarget = e.relatedTarget;
+        if (nextTarget instanceof Node && element.contains(nextTarget)) return;
+        if (element.hasPointerCapture(e.pointerId)) return;
         if (element.classList.contains('keyboard-active')) {
             element.classList.remove('keyboard-active');
             onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));

@@ -3,15 +3,12 @@ import {
     Fn,
     vec4,
     viewportSharedTexture,
-    screenUV
+    screenUV,
 } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
-import { mixStrobeFlash, uStrobeIntensity } from './strobe-nodes.ts';
+import { uStrobeIntensity, mixStrobeFlash } from './strobe-nodes.ts';
 
-export { mixStrobeFlash, uStrobeIntensity };
-
-// Global uniform for Strobe Sickness intensity
-
+export { uStrobeIntensity, mixStrobeFlash };
 
 /**
  * Creates a Strobe Sickness HUD Flicker effect.
@@ -29,8 +26,8 @@ export function createStrobePulse(): THREE.Mesh {
         // Base UVs for screen sampling
         const baseUV = screenUV; // Use screenUV for viewport-correct sampling
 
-        const baseColor = viewportSharedTexture(baseUV);
-        const finalColor = mixStrobeFlash(baseColor.xyz);
+        const baseColor = viewportSharedTexture(baseUV as any);
+        const finalColor = mixStrobeFlash(baseColor.xyz as any);
         return vec4(finalColor, 1.0);
     });
 

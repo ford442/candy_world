@@ -168,11 +168,9 @@ export function setupStartScreen(ctx: MainContext): void {
             if (e.repeat) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                fullWorldToggle.classList.add('keyboard-active');
                 fullWorldToggle.click();
-                if (!fullWorldToggle.classList.contains('keyboard-active')) {
-                    fullWorldToggle.classList.add('keyboard-active');
-                }
+
+
             }
         });
     }
@@ -456,12 +454,7 @@ export function setupStartScreen(ctx: MainContext): void {
         }
     });
 
-    startButton.addEventListener('keydown', (e) => {
-        if (e.repeat) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-            startButton.classList.add('keyboard-active');
-        }
-    });
+
     if (isBootInstant()) {
         try {
             (window as any).__bootInstant = true;
