@@ -159,8 +159,7 @@ export function mountAbilityHud(): AbilityHud {
         max: 10,
         value: 0,
         lowThreshold: 0.3,
-        formatValueText: (value, max) =>
-            `${Math.round(value)} out of ${Math.round(max)} Energy`,
+        formatValueText: (value, max) => `${Math.round(value)} out of ${Math.round(max)} Energy`,
     });
     // Preserve the legacy id used by existing CSS and any external tooling.
     energy.fill.id = 'energy-bar-fill';

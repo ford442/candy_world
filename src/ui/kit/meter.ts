@@ -45,8 +45,10 @@ export function createMeter(options: MeterOptions): Meter {
         formatValueText,
     } = options;
 
-    const valueText = formatValueText
-        ?? ((v: number, m: number) => `${Math.round(v)} out of ${Math.round(m)} ${label.replace(/ bar$/i, '')}`);
+    const valueText =
+        formatValueText ??
+        ((v: number, m: number) =>
+            `${Math.round(v)} out of ${Math.round(m)} ${label.replace(/ bar$/i, '')}`);
 
     const fill = el('div', { classes: ['ck-meter__fill'] });
     const root = el('div', {

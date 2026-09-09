@@ -54,9 +54,7 @@
     --ck-ready: var(--ck-mint);
     --ck-active: var(--ck-grape);
     --ck-danger: var(--ck-pink-600);
-    --ck-focus-ring:
-        0 0 0 3px var(--ck-surface-solid),
-        0 0 0 6px var(--ck-magenta);
+    --ck-focus-ring: 0 0 0 3px var(--ck-surface-solid), 0 0 0 6px var(--ck-magenta);
     --ck-meter-fill: linear-gradient(90deg, var(--ck-pink-400), var(--ck-pink-600));
     --ck-meter-fill-low: linear-gradient(90deg, #ff4500, #ff0000);
 
@@ -81,9 +79,7 @@
     --ck-text-accent: var(--ck-pink-400);
     --ck-shadow-panel: 0 4px 14px rgba(0, 0, 0, 0.45);
     --ck-shadow-raised: 0 6px 20px rgba(0, 0, 0, 0.55);
-    --ck-focus-ring:
-        0 0 0 3px var(--ck-night),
-        0 0 0 6px var(--ck-pink-400);
+    --ck-focus-ring: 0 0 0 3px var(--ck-night), 0 0 0 6px var(--ck-pink-400);
 }
 
 /* ♿ Honour reduced motion for every kit component at once. */

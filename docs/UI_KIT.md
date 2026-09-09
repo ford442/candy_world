@@ -4,12 +4,12 @@ A lightweight HUD/GUI layer for Candy World: shared DOM primitives + candy theme
 tokens. Custom CSS and a few hundred lines of TypeScript — **no UI framework**
 (React/Vue are deliberately not in the dependency graph).
 
-| | |
-| --- | --- |
-| Code | `src/ui/kit/` |
-| Styles | `styles/kit-tokens.css` (tokens), `styles/kit.css` (components) |
-| Tests | `npm run test:ui-kit` (`tests/ui-kit.test.ts`) |
-| First adopter | `src/ui/ability-hud.ts` (the in-world ability HUD) |
+|               |                                                                 |
+| ------------- | --------------------------------------------------------------- |
+| Code          | `src/ui/kit/`                                                   |
+| Styles        | `styles/kit-tokens.css` (tokens), `styles/kit.css` (components) |
+| Tests         | `npm run test:ui-kit` (`tests/ui-kit.test.ts`)                  |
+| First adopter | `src/ui/ability-hud.ts` (the in-world ability HUD)              |
 
 ```ts
 import { createPanel, createMeter, attachTooltip, createShortcutHint } from '../ui/kit/index.ts';
@@ -77,11 +77,11 @@ A glossy candy surface that is a properly labelled ARIA region.
 ```ts
 const panel = createPanel({
     id: 'ability-hud',
-    label: 'Abilities',      // ♿ required: the region's accessible name
-    anchor: 'bottom-right',  // bottom-right | bottom-left | top-right | top-left | none
-    layer: 'hud',            // hud | raised | overlay
-    bare: true,              // no chrome — children carry their own surfaces
-    inert: false,            // see "Pointer lock" below
+    label: 'Abilities', // ♿ required: the region's accessible name
+    anchor: 'bottom-right', // bottom-right | bottom-left | top-right | top-left | none
+    layer: 'hud', // hud | raised | overlay
+    bare: true, // no chrome — children carry their own surfaces
+    inert: false, // see "Pointer lock" below
     children: [meter.root, slot.root],
 });
 document.body.appendChild(panel.root);
@@ -93,7 +93,7 @@ document.body.appendChild(panel.root);
 
 **Focus trap.** `panel.trapFocus()` wraps the existing, audited
 `trapFocusInside()` from `src/utils/interaction-utils.ts` (covered by
-`tests/focus-trap.test.ts`) — the kit does *not* fork it. Calling it twice
+`tests/focus-trap.test.ts`) — the kit does _not_ fork it. Calling it twice
 returns the same release function; `hide()` and `destroy()` release
 automatically. Use it for `role="dialog"` panels, never for passive HUD.
 

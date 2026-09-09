@@ -86,6 +86,10 @@ export function getCachedProceduralMaterial(
         return materialCache.get(key)!;
     }
     const material = factory();
+    // Tag it: this instance is reused by every prop that asks for `key`, so
+    // per-prop effects (e.g. the `interact` behavior's highlight) must skip it
+    // rather than light up the whole species at once.
+    material.userData.shared = true;
     materialCache.set(key, material);
     return material;
 }

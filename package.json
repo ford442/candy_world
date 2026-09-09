@@ -38,6 +38,7 @@
         "test:sky-islands": "node tests/sky-islands-traversal.test.mjs",
         "test:presence": "tsx tests/presence-protocol.test.mjs",
         "test:ui-kit": "tsx tests/ui-kit.test.ts",
+        "test:behaviors": "tsx tests/behaviors.test.ts",
         "test:sugar-caves": "tsx tests/sugar-caves-traversal.test.mjs",
         "test:foliage-interact": "node tests/foliage-interact.test.mjs",
         "test:cookbook-presets": "node scripts/check-cookbook-presets.mjs",

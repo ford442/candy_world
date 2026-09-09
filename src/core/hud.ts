@@ -79,7 +79,7 @@ export function setInputSystem(input: any) {
 
 export function updateTheme(isNightMode: boolean) {
     const nightColor = '#0A0A2E'; // Deep Night Blue
-    const dayColor = '#FFD1DC';   // Candy Pink
+    const dayColor = '#FFD1DC'; // Candy Pink
 
     const newColor = isNightMode ? nightColor : dayColor;
 
@@ -100,7 +100,7 @@ export function updateTheme(isNightMode: boolean) {
     if (instructions) {
         // Use rgba to keep transparency
         instructions.style.background = isNightMode
-            ? 'rgba(10, 10, 46, 0.8)'   // Night: Dark Blue
+            ? 'rgba(10, 10, 46, 0.8)' // Night: Dark Blue
             : 'rgba(255, 209, 220, 0.8)'; // Day: Pink
     }
 
@@ -177,12 +177,17 @@ export function updateEnergyBar(
             _lastLowEnergyWarning = true;
         }
 
-        const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
+        const kick = _cachedPrefersReducedMotion ? 0 : audioState?.kickTrigger || 0;
         // Add an intense, juicy pulse based on the beat
         const targetScale = 1.0 + kick * 0.25;
 
         // 🎨 Palette: Smooth organic pulse instead of instant snap
-        _currentEnergyPulseScale = THREE.MathUtils.damp(_currentEnergyPulseScale, targetScale, 15, delta);
+        _currentEnergyPulseScale = THREE.MathUtils.damp(
+            _currentEnergyPulseScale,
+            targetScale,
+            15,
+            delta
+        );
         energy.setPulse(_currentEnergyPulseScale);
     } else {
         _lastLowEnergyWarning = false;
@@ -193,11 +198,7 @@ export function updateEnergyBar(
     }
 }
 
-
-export function updateDashHUD(
-    dashCooldown: number,
-    audioState: any
-): void {
+export function updateDashHUD(dashCooldown: number, audioState: any): void {
     const hud = abilityHud();
     if (!hud) return;
     const slot = hud.dash;
@@ -224,16 +225,13 @@ export function updateDashHUD(
 
     // PALETTE: Pulse to the beat when ready!
     if (isReady) {
-        slot.pulse(_cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0));
+        slot.pulse(_cachedPrefersReducedMotion ? 0 : audioState?.kickTrigger || 0);
     } else {
         slot.clearPulse(); // Reset to CSS
     }
 }
 
-export function updateMineHUD(
-    mineCooldown: number,
-    audioState: any
-): void {
+export function updateMineHUD(mineCooldown: number, audioState: any): void {
     const hud = abilityHud();
     if (!hud) return;
     const slot = hud.mine;
@@ -253,14 +251,17 @@ export function updateMineHUD(
             }
         } else {
             slot.setReady(false);
-            slot.describe('Jitter Mine Ability (F) - Recharging...', 'Jitter Mine (F) - Recharging...');
+            slot.describe(
+                'Jitter Mine Ability (F) - Recharging...',
+                'Jitter Mine (F) - Recharging...'
+            );
         }
         _lastMineReady = isReady;
     }
 
     // PALETTE: Pulse to the beat when ready!
     if (isReady) {
-        slot.pulse(_cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0));
+        slot.pulse(_cachedPrefersReducedMotion ? 0 : audioState?.kickTrigger || 0);
     } else {
         slot.clearPulse();
     }
@@ -311,19 +312,21 @@ export function updatePhaseHUD(
             );
             _lastPhaseAnnouncedSecond = currentSecond;
         }
-
     } else {
         // Not Active - Show Availability
         slot.setCooldown(0); // Clear overlay
 
-        const stateChanged = (isPhasing !== _lastPhaseActive);
+        const stateChanged = isPhasing !== _lastPhaseActive;
         if (stateChanged) {
             const wasActive = _lastPhaseActive;
             slot.setActive(false);
             _lastPhaseActive = isPhasing;
             // Only announce if we actually transitioned from true to false
             if (wasActive === true && _lastPhaseCount !== null) {
-                announce(`Phase shift ended. ${phaseCount} bulb${phaseCount !== 1 ? 's' : ''} remaining`, 'polite');
+                announce(
+                    `Phase shift ended. ${phaseCount} bulb${phaseCount !== 1 ? 's' : ''} remaining`,
+                    'polite'
+                );
             }
         }
 
@@ -347,7 +350,7 @@ export function updatePhaseHUD(
 
         // PALETTE: Pulse to the beat when ready (Ammo > 0)!
         if (phaseCount > 0) {
-            slot.pulse(_cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0));
+            slot.pulse(_cachedPrefersReducedMotion ? 0 : audioState?.kickTrigger || 0);
         } else {
             slot.clearPulse();
         }

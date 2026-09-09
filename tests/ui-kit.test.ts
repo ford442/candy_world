@@ -154,7 +154,8 @@ function assertEqual(actual: any, expected: any, msg?: string): void {
 }
 
 function assertTrue(actual: any, msg?: string): void {
-    if (actual !== true) throw new Error(`${msg ?? 'Assertion failed'}: expected true, got ${actual}`);
+    if (actual !== true)
+        throw new Error(`${msg ?? 'Assertion failed'}: expected true, got ${actual}`);
 }
 
 // ============================================================================
@@ -173,8 +174,13 @@ test('Panel is pointer-inert by default and opt-out works', () => {
     const readOnly = createPanel({ label: 'Tracker' }).root as unknown as MockElement;
     assertTrue(readOnly.hasClass('ck-panel--inert'), 'read-only panel should be inert');
 
-    const interactive = createPanel({ label: 'Abilities', inert: false }).root as unknown as MockElement;
-    assertEqual(interactive.hasClass('ck-panel--inert'), false, 'interactive panel must take clicks');
+    const interactive = createPanel({ label: 'Abilities', inert: false })
+        .root as unknown as MockElement;
+    assertEqual(
+        interactive.hasClass('ck-panel--inert'),
+        false,
+        'interactive panel must take clicks'
+    );
 });
 
 test('Panel hide() marks the region aria-hidden, show() restores it', () => {
@@ -253,7 +259,11 @@ test('Shortcut hint is decorative; the control carries aria-keyshortcuts', () =>
 
     const control = new MockElement('div');
     setShortcut(control as any, 'E');
-    assertEqual(control.getAttribute('aria-keyshortcuts'), 'E', 'shortcut announced on the control');
+    assertEqual(
+        control.getAttribute('aria-keyshortcuts'),
+        'E',
+        'shortcut announced on the control'
+    );
 });
 
 // ============================================================================
@@ -267,7 +277,11 @@ test('Tooltip links a persistent description via aria-describedby', () => {
 
     const describedBy = control.getAttribute('aria-describedby');
     assertTrue(!!describedBy, 'aria-describedby set');
-    assertEqual(control.getAttribute('title'), null, 'native title removed to avoid a double tooltip');
+    assertEqual(
+        control.getAttribute('title'),
+        null,
+        'native title removed to avoid a double tooltip'
+    );
 
     const srCopy = control.children.find((c) => c.id === describedBy);
     assertTrue(!!srCopy, 'description node is a child of the control');
@@ -286,7 +300,9 @@ test('Tooltip bubble stays hidden while the pointer is locked', () => {
     const tooltip = attachTooltip(control as any, { text: 'Dash (E)' });
 
     const visibleBubble = () =>
-        mockBody.children.find((c) => c.hasClass('ck-tooltip') && c.getAttribute('data-ck-visible') === 'true');
+        mockBody.children.find(
+            (c) => c.hasClass('ck-tooltip') && c.getAttribute('data-ck-visible') === 'true'
+        );
 
     mockDocument.pointerLockElement = mockBody;
     tooltip.show();
@@ -309,9 +325,17 @@ test('Tooltip bubble stays hidden while the pointer is locked', () => {
 test('Theme flips a single attribute on the document element', () => {
     setKitTheme(true);
     assertEqual(getKitTheme(), 'night', 'night theme active');
-    assertEqual(mockDocument.documentElement.getAttribute('data-ck-theme'), 'night', 'attribute stamped');
+    assertEqual(
+        mockDocument.documentElement.getAttribute('data-ck-theme'),
+        'night',
+        'attribute stamped'
+    );
     setKitTheme(false);
-    assertEqual(mockDocument.documentElement.getAttribute('data-ck-theme'), null, 'attribute cleared');
+    assertEqual(
+        mockDocument.documentElement.getAttribute('data-ck-theme'),
+        null,
+        'attribute cleared'
+    );
 });
 
 // ============================================================================

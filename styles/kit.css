@@ -63,14 +63,30 @@
 }
 
 /* Anchors */
-.ck-panel--bottom-right { right: var(--ck-space-4); bottom: var(--ck-space-4); }
-.ck-panel--bottom-left { left: var(--ck-space-4); bottom: var(--ck-space-4); }
-.ck-panel--top-right { top: var(--ck-space-4); right: var(--ck-space-4); }
-.ck-panel--top-left { top: var(--ck-space-4); left: var(--ck-space-4); }
+.ck-panel--bottom-right {
+    right: var(--ck-space-4);
+    bottom: var(--ck-space-4);
+}
+.ck-panel--bottom-left {
+    left: var(--ck-space-4);
+    bottom: var(--ck-space-4);
+}
+.ck-panel--top-right {
+    top: var(--ck-space-4);
+    right: var(--ck-space-4);
+}
+.ck-panel--top-left {
+    top: var(--ck-space-4);
+    left: var(--ck-space-4);
+}
 
 /* Layers */
-.ck-panel--layer-raised { z-index: var(--ck-z-hud-raised); }
-.ck-panel--layer-overlay { z-index: var(--ck-z-overlay); }
+.ck-panel--layer-raised {
+    z-index: var(--ck-z-hud-raised);
+}
+.ck-panel--layer-overlay {
+    z-index: var(--ck-z-overlay);
+}
 
 /* 🖱️ Pointer-lock: read-only panels must never swallow the click that
    re-acquires the lock. See docs/UI_KIT.md § Pointer lock. */

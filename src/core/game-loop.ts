@@ -8,6 +8,7 @@ import { ensureHeroAnimationDemo, isHeroAnimationDemoEnabled } from '../debug/to
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { updateHeroAnimations } from '../systems/animation/clip-player.ts';
+import { updateBehaviorSystem } from '../systems/ecs/behaviors/index.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
 import { updatePresenceSystem } from '../systems/net/lazy.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
@@ -204,6 +205,9 @@ export function animate() {
     updateImpacts(rendererRef, gt + timeOffsetRef.value);
     updateDandelionSeeds(rendererRef);
     updateFaunaSystem(delta, gt + timeOffsetRef.value);
+    // Entity behaviors (bob/interact highlight) — after fauna so a behavior can
+    // read this frame's entity transforms, before the hero mixer tick.
+    updateBehaviorSystem(delta, gt + timeOffsetRef.value);
     // Hero clip animation: one mixer tick for every registered rig, after the
     // systems that may have changed which clip a rig should be playing. Systems
     // themselves call playHeroClip/stopHeroClip and never touch the loop.

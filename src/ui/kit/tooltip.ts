@@ -82,9 +82,7 @@ export function attachTooltip(control: HTMLElement, options: TooltipOptions): To
             )
         );
         const top =
-            placement === 'top'
-                ? rect.top - bubbleRect.height - offset
-                : rect.bottom + offset;
+            placement === 'top' ? rect.top - bubbleRect.height - offset : rect.bottom + offset;
         bubble.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
     };
 
