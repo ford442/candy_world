@@ -38,6 +38,13 @@
     *   **Uniforms:** When binding a `Vector3` to a TSL `uniform()`, you must pass a Javascript `new THREE.Vector3()`, not a TSL `vec3()`.
     *   **Attributes:** Geometries *must* have `position` and `normal` attributes. `src/foliage/material-core.ts` has a `validateNodeGeometries` helper to patch this, but you should ensure factories create valid geometry.
 
+### A2. GPU Compute Passes
+*   **Why it's complex:** There is exactly **one `GPUDevice` per page load**, owned by the Three.js renderer, and every compute consumer (particles, foliage, LOD/culling, clustered lights, wind) must borrow it and fail closed to a CPU/WASM tier.
+*   **Agent Note:**
+    *   **Do not** call `navigator.gpu.requestDevice()` or `requestAdapter()`. Use `awaitGpuDevice()` from `src/rendering/gpu-context.ts`.
+    *   Architecture: [`docs/WEBGPU_CONTEXT.md`](docs/WEBGPU_CONTEXT.md). **How to add a pass (recipe + PR checklist):** [`docs/WEBGPU_COMPUTE_PLAYBOOK.md`](docs/WEBGPU_COMPUTE_PLAYBOOK.md).
+    *   Every GPU pass needs a parity-tested CPU/WASM fallback — WebGL, CI, `?webglLite=1`, and device loss all run it.
+
 ### B. Hybrid WASM Architecture
 *   **Why it's complex:** The app loads *two* separate WASM modules that run simultaneously.
     *   `candy_physics.wasm` (AssemblyScript): Handles stateful objects (player, trampolines).

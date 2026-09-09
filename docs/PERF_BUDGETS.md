@@ -1,3 +1,75 @@
+# Systems budget
+
+Batcher budgets (below) only cover foliage instancing. Every system that landed
+with Feature Completeness carries its own numbers here, a profiler mark, an
+overlay line under `?debug=1`, and a cap that is **enforced** — over-budget work
+is rejected, not queued behind a log line.
+
+Table of record: [`src/systems/performance-budget/systems-budget.ts`](../src/systems/performance-budget/systems-budget.ts)
+(`SYSTEM_BUDGETS`). The numbers below and that table must move together;
+`npm run test:budgets` fails if the table loses a system, a cap, or its headroom.
+
+| System            | Frame ms | VRAM MB | Caps (enforced)                       | Profiler mark          | Skip on low / CI                     |
+| ----------------- | -------- | ------- | ------------------------------------- | ---------------------- | ------------------------------------ |
+| Shadows (CSM)     | 3.0      | 48      | `cascades` 4, `localShadowLights` 2   | `shadows.csmUpdate`    | Yes — WebGL / `low` / CI use the plain sun map |
+| Clustered lights  | 1.5      | 8       | `lights` 128, `lightsPerCluster` 32   | `clusteredLights.bin`  | Yes — `?no_clustered`, WebGL, `low`  |
+| Irradiance GI     | 1.0      | 12      | `probes` 4096, `probesPerFrame` 32    | `gi.probeBake`         | Yes — probes off on `low` / CI       |
+| Post-FX stack     | 2.5      | 64      | `passes` 6                            | `postfx.render`        | Yes — DoF + GTAO are `high`-only     |
+| Particles         | 2.0      | 32      | `totalParticles` 65536, `emitters` 32 | `particles.update`     | No — density scales instead          |
+| Rigid bodies      | 1.0      | 0       | `bodies` 64 (`MAX_DYNAMIC_BODIES`)    | `rigidBodies.step`     | No — costs nothing while the pool is empty |
+| Fauna             | 1.5      | 6       | `instances` 96, `perSpecies` 40       | `fauna.update`         | No — instance count scales instead   |
+
+These are **starter ceilings to design against, not measurements.** A feature PR
+that profiles its system replaces its row here and in `SYSTEM_BUDGETS` in the
+same change. The seven frame budgets sum to 12.5 ms, leaving ~4 ms of a 16.67 ms
+frame for scene draw and the game loop.
+
+## Enforcement, not logging
+
+Each cap is applied at the point work is admitted, and the rejection is what
+keeps the budget:
+
+- `spawnRigidBody()` refuses past `MAX_DYNAMIC_BODIES` — body-body collision is
+  an O(n²) sweep, so this cap is load-bearing.
+- `createEmitter()` grants a smaller pool when the particle budget is tight and
+  returns `null` when there is no headroom left; `burstAt()` drops the burst.
+- Fauna spawning clamps to `maxInstances` and now honours `maxPerSpecies`, so
+  one species cannot eat the whole population.
+- Clustered lighting drops lights past `maxLights`; the local shadow-slot pool
+  denies extra shadow maps. Both report the rejection through
+  `recordCapRejection()` so a silent drop still shows up in the overlay.
+
+`enforceCap()` returns the number of units the caller may actually use and warns
+once per cap per session. Callers must honour the return value — a cap that is
+logged but not applied is not a budget.
+
+## Runtime overlay
+
+`?debug=1` adds a **Systems Budget** section next to Batcher Stats, listing every
+system with its live counts against their caps, self-reported ms against its
+frame budget, estimated VRAM, and a `Rejected by cap` list of anything that hit
+a limit. A system that is switched off still gets a line saying why (`off — WebGL
+/ low / CI`); a missing row means the module never loaded.
+
+Telemetry providers live in
+[`src/systems/performance-budget/systems-telemetry.ts`](../src/systems/performance-budget/systems-telemetry.ts)
+and are registered only on the `?debug=1` path, so a production boot pays
+nothing for the overlay.
+
+## CI policy
+
+Headless CI runs on SwiftShader and **cannot** hit 60 fps. Frame-time and VRAM
+budgets are authoritative on real GPUs only.
+
+- `npm run test:budgets` (`tests/systems-budget.test.ts`) asserts that caps
+  reject over-budget work, that marks are recorded, and that every system has a
+  telemetry row. It asserts nothing about elapsed time.
+- The smoke test keeps ignoring GPU frame time. Do not add an FPS assertion to
+  it; a red smoke run on a software rasteriser tells you nothing about the
+  budget.
+
+---
+
 # Batcher Performance Budgets
 
 Candy World now tracks foliage batcher pressure with both build-time budgets and runtime telemetry.

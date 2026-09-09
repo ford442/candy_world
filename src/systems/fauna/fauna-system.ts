@@ -16,6 +16,7 @@ import {
     freeBoidsBuffer,
     updateBoidsBatch,
 } from './boids-bridge.ts';
+import { profiler } from '../../utils/profiler.ts';
 import { spawnFaunaPopulation } from './spawn.ts';
 import { FAUNA_BOID_STRIDE, FaunaSpecies, type FaunaSpawnEntry } from './types.ts';
 
@@ -110,6 +111,7 @@ export class FaunaSystem {
 
     update(dt: number, time: number): void {
         if (!this._initialized || !this._heap || this._count === 0) return;
+        const t0 = performance.now();
 
         updateBoidsBatch(
             this._heap,
@@ -187,6 +189,7 @@ export class FaunaSystem {
         }
 
         batcher.syncMatrices();
+        profiler.mark('fauna.update', performance.now() - t0);
 
         if (isFaunaDebugEnabled()) {
             updateFaunaDebug(this._heap, this._bufferPtr, this._count, this._entries);
@@ -236,13 +239,7 @@ function installScatterSink(): void {
     void import('../physics/rigid-bodies.ts')
         .then(({ applyRigidBodyRadialImpulse }) => {
             setFaunaScatterSink((x, y, z) => {
-                applyRigidBodyRadialImpulse(
-                    x,
-                    y,
-                    z,
-                    cfg.bumpRadius ?? 5,
-                    cfg.bumpStrength ?? 2.5
-                );
+                applyRigidBodyRadialImpulse(x, y, z, cfg.bumpRadius ?? 5, cfg.bumpStrength ?? 2.5);
             });
         })
         .catch(() => {

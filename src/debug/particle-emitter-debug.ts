@@ -72,6 +72,10 @@ export function initParticleEmitterDebug(
         /** Fire a one-shot burst of `count` particles in front of the player. */
         burst(preset: EmitterPreset = 'spark_burst', count = 48, distance = 3) {
             const emitter = burstAt(preset, spawnPointInFront(distance), count);
+            if (!emitter) {
+                console.warn('[particles] particle budget exhausted — burst refused');
+                return null;
+            }
             console.log(
                 `[particles] burst ${count}× ${preset} (${emitter.isGPU ? 'GPU compute' : 'CPU fallback'})`
             );
@@ -81,6 +85,10 @@ export function initParticleEmitterDebug(
         /** Attach an attractor at the player that pulls the shared pool inward. */
         attract(strength = 8, radius = 6, preset: EmitterPreset = 'spark_burst') {
             const emitter = burstAt(preset, spawnPointInFront(), 0);
+            if (!emitter) {
+                console.warn('[particles] particle budget exhausted — no pool to attract');
+                return null;
+            }
             const handle = emitter.addAttractor({
                 position: getPlayerPosition(),
                 strength,
@@ -98,6 +106,10 @@ export function initParticleEmitterDebug(
         /** Bind treble energy to the shared pool's emit rate. */
         music(preset: EmitterPreset = 'candy_puff', max = 120) {
             const emitter = burstAt(preset, spawnPointInFront(), 0);
+            if (!emitter) {
+                console.warn('[particles] particle budget exhausted — no pool to bind');
+                return null;
+            }
             emitter.bindMusic({ source: 'high', target: 'rate', min: 0, max });
             console.log(`[particles] bound audio.high → emit rate (0..${max}/s) on ${emitter.id}`);
             return emitter.id;

@@ -6,18 +6,18 @@ contract: **adding a species is one registry entry plus one geometry case.**
 
 The framework is deliberately thin. It does not simulate motion, own rendering,
 or introduce a second animation path. It sits between two layers that already
-exist and decides *what state each critter is in*.
+exist and decides _what state each critter is in_.
 
 ---
 
 ## 1. The layers
 
-| Layer                | Owns                                              | Lives in                                        |
-| -------------------- | ------------------------------------------------- | ----------------------------------------------- |
-| **Boids**            | Position + velocity for every critter             | `assembly/boids.ts`, mirrored in `boids-bridge.ts` |
-| **Behaviour**        | `FaunaState` per critter, scatter impulses        | `src/systems/fauna/behavior.ts`                 |
-| **Batcher**          | Drawing — 3 instanced meshes, LOD, music tint     | `src/foliage/fauna-batcher.ts`                  |
-| **Orchestration**    | Spawn, per-frame order, teardown                  | `src/systems/fauna/fauna-system.ts`             |
+| Layer             | Owns                                          | Lives in                                           |
+| ----------------- | --------------------------------------------- | -------------------------------------------------- |
+| **Boids**         | Position + velocity for every critter         | `assembly/boids.ts`, mirrored in `boids-bridge.ts` |
+| **Behaviour**     | `FaunaState` per critter, scatter impulses    | `src/systems/fauna/behavior.ts`                    |
+| **Batcher**       | Drawing — 3 instanced meshes, LOD, music tint | `src/foliage/fauna-batcher.ts`                     |
+| **Orchestration** | Spawn, per-frame order, teardown              | `src/systems/fauna/fauna-system.ts`                |
 
 The boid slab (8 floats per critter: `pos xyz`, `vel xyz`, `phase`, `species`)
 is the single source of truth for where a critter is. The behaviour runner
@@ -31,7 +31,7 @@ Per frame, in `FaunaSystem.update()`:
 boids step  →  behaviour runner  →  pose/matrix write  →  batcher.syncMatrices()
 ```
 
-The runner goes *after* the boids step so it sees this frame's positions; its
+The runner goes _after_ the boids step so it sees this frame's positions; its
 velocity writes are consumed by the next step.
 
 ---
@@ -39,15 +39,20 @@ velocity writes are consumed by the next step.
 ## 2. States
 
 ```ts
-enum FaunaState { Wander = 0, Flee = 1, Rest = 2, Perch = 3 }
+enum FaunaState {
+    Wander = 0,
+    Flee = 1,
+    Rest = 2,
+    Perch = 3,
+}
 ```
 
-| State      | Meaning                                | What the runner does                    |
-| ---------- | -------------------------------------- | --------------------------------------- |
-| **Wander** | Roaming — the default                  | Nothing. Boid rules run untouched.      |
-| **Flee**   | Running from the player                | One radial impulse on entry, then a hold timer |
-| **Rest**   | Settled on the ground (idle)           | Damps velocity every frame              |
-| **Perch**  | Settled on a roost/prop — flyers only  | Damps velocity every frame              |
+| State      | Meaning                               | What the runner does                           |
+| ---------- | ------------------------------------- | ---------------------------------------------- |
+| **Wander** | Roaming — the default                 | Nothing. Boid rules run untouched.             |
+| **Flee**   | Running from the player               | One radial impulse on entry, then a hold timer |
+| **Rest**   | Settled on the ground (idle)          | Damps velocity every frame                     |
+| **Perch**  | Settled on a roost/prop — flyers only | Damps velocity every frame                     |
 
 Values are persisted by the native ECS codec (`components.ts`), so **append new
 states; never renumber existing ones.**
@@ -58,7 +63,7 @@ Two radii, not one:
 
 - **`scatterRadius`** — the player crossing this flips the critter to Flee and
   fires a single impulse away from them.
-- **`calmRadius`** — Flee cannot end until the critter is *beyond* this and its
+- **`calmRadius`** — Flee cannot end until the critter is _beyond_ this and its
   `fleeDuration` timer has run out.
 
 The gap between them is a hysteresis band. Without it, a critter sitting on the
@@ -96,17 +101,17 @@ place.
 registerFaunaSpecies({
     species: FaunaSpecies.LicoriceSnail,
     label: 'Licorice Snail',
-    scatterRadius: 2.0,          // slow — lets you get close
-    calmRadius: 4.5,             // must exceed scatterRadius
-    scatterImpulse: 1.2,         // m/s away from the player
-    scatterLift: 0,              // no hop; it is a snail
-    fleeDuration: 3.0,           // stays spooked a while
+    scatterRadius: 2.0, // slow — lets you get close
+    calmRadius: 4.5, // must exceed scatterRadius
+    scatterImpulse: 1.2, // m/s away from the player
+    scatterLift: 0, // no hop; it is a snail
+    fleeDuration: 3.0, // stays spooked a while
     scatterCooldown: 2.0,
-    canPerch: false,             // Rest instead of Perch when it settles
+    canPerch: false, // Rest instead of Perch when it settles
     settleChancePerSecond: 0.4,
     settleDurationMin: 3.0,
     settleDurationMax: 9.0,
-    settleDamping: 0.7,          // per-frame velocity multiplier while settled
+    settleDamping: 0.7, // per-frame velocity multiplier while settled
 });
 ```
 

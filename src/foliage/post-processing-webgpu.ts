@@ -15,6 +15,10 @@ import { mixStrobeFlash } from './strobe-nodes.ts';
 
 type U = typeof postFxUniforms;
 
+function publishPostFxPasses(count: number): void {
+    (globalThis as { __candyPostFxPasses?: number }).__candyPostFxPasses = count;
+}
+
 export function initWebGPUPostProcessing(
     renderer: WebGPURenderer,
     scene: THREE.Scene,
@@ -64,6 +68,10 @@ export function initWebGPUPostProcessing(
         );
         console.log('[PostFX] Depth of Field enabled (WebGPU TSL bokeh)');
     }
+
+    // Pass count for the ?debug=1 systems-budget readout (scene + bloom are
+    // always present; DoF / GTAO are tier-gated).
+    publishPostFxPasses(2 + (opts.dofEnabled ? 1 : 0) + (opts.aoEnabled ? 1 : 0));
 
     let aoPass: ReturnType<typeof ao> | null = null;
     if (opts.aoEnabled && camera instanceof THREE.PerspectiveCamera) {

@@ -37,6 +37,9 @@ export class Profiler {
     /** Canvas 2D context */
     public ctx: CanvasRenderingContext2D | null;
 
+    /** Latest per-system durations reported via {@link mark}, kept even when disabled */
+    private systemMarks: Map<string, number>;
+
     constructor() {
         this.enabled = false;
         this.measures = new Map<string, number>();
@@ -44,6 +47,7 @@ export class Profiler {
         this.frameHistory = [];
         this.canvas = null;
         this.ctx = null;
+        this.systemMarks = new Map<string, number>();
     }
 
     /**
@@ -82,6 +86,31 @@ export class Profiler {
         
         this.measures.set(label, end - start);
         return result;
+    }
+
+    /**
+     * Record a system cost outside the `measure()` wrapper.
+     *
+     * Unlike `measure()`, marks are stored even while the profiler overlay is
+     * off: the perf-budget overlay and the headless smoke check both need to
+     * see that a system reported a number, and the store is a single Map write.
+     *
+     * @param label - System mark name, e.g. `shadows.csmUpdate`
+     * @param ms - Duration in milliseconds
+     */
+    mark(label: string, ms: number): void {
+        this.systemMarks.set(label, ms);
+        if (this.enabled) this.measures.set(label, ms);
+    }
+
+    /** Latest value for every system mark reported this session. */
+    getMarks(): ReadonlyMap<string, number> {
+        return this.systemMarks;
+    }
+
+    /** Latest value for one mark, or `undefined` if it has never been reported. */
+    getMark(label: string): number | undefined {
+        return this.systemMarks.get(label);
     }
 
     /**

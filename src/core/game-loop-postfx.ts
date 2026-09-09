@@ -3,6 +3,7 @@ import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processi
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { AtmosphereShaftState } from '../systems/music-reactivity.ts';
 import { player } from '../systems/physics/index.ts';
+import { profiler } from '../utils/profiler.ts';
 import { areSunCascadesActive, updateSunCascadeDirection } from '../systems/shadow-cascades.ts';
 import { CONFIG, areGodRaysEnabled, isDofEnabled, isDofManual } from './config.ts';
 import { isCIorHeadless } from './config.ts';
@@ -244,6 +245,10 @@ export function updatePostFX(delta: number) {
 
 export function renderPostProcessing() {
     if (!isCIorHeadless() && postProcessingRef) {
+        const t0 = performance.now();
         postProcessingRef.render();
+        // CPU-side submit cost only — GPU pass time needs a real timestamp
+        // query, which is why the ms budget is authoritative on hardware only.
+        profiler.mark('postfx.render', performance.now() - t0);
     }
 }

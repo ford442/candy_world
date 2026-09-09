@@ -39,6 +39,11 @@ import type {
     ParticleAttractor,
     ParticleAudioData,
 } from './compute-particles-types.ts';
+import {
+    enforceCap,
+    withinCap,
+} from '../systems/performance-budget/systems-budget.ts';
+import { profiler } from '../utils/profiler.ts';
 
 // =============================================================================
 // PUBLIC TYPES
@@ -228,6 +233,8 @@ export class Emitter {
     public readonly mesh: THREE.Group;
     /** The underlying system, for callers that need the low-level surface. */
     public readonly system: ComputeParticleSystem;
+    /** Pool size this emitter was granted — may be below the requested count when the particle budget was tight. */
+    public readonly capacity: number;
 
     private readonly position = new THREE.Vector3();
     private readonly shape: EmitterShape;
@@ -258,8 +265,9 @@ export class Emitter {
         this.rate = options.rate ?? 0;
         if (options.position) this.position.copy(options.position);
 
+        this.capacity = options.count ?? defaults.count;
         this.system = defaults.factory({
-            count: options.count ?? defaults.count,
+            count: this.capacity,
             center: this.position.clone(),
             sizeRange: this.sizeRange,
             ...(options.bounds ? { bounds: options.bounds } : {}),
@@ -549,12 +557,31 @@ export function setEmitterParent(parent: THREE.Object3D | null): void {
     emitterParent = parent;
 }
 
+/** Particles already committed across every live emitter. */
+export function getTotalParticleCapacity(): number {
+    let total = 0;
+    for (const emitter of emitters.values()) total += emitter.capacity;
+    return total;
+}
+
 /**
- * Create and register an emitter. The mesh is returned on the handle; add it to the
- * scene yourself so the caller controls parenting and culling.
+ * Create and register an emitter, subject to the particle budget
+ * (`SYSTEM_BUDGETS.particles` — emitter count and total pooled particles).
+ *
+ * The budget is enforced, not advised: a request that would overrun the total
+ * particle cap is granted a smaller pool, and one that arrives with no headroom
+ * left — or past the emitter cap — is refused with `null`. Callers must handle
+ * that, the same way they already handle a full attractor table.
  */
-export function createEmitter(options: EmitterOptions = {}): Emitter {
-    const emitter = new Emitter(options);
+export function createEmitter(options: EmitterOptions = {}): Emitter | null {
+    if (!withinCap('particles', 'emitters', emitters.size + 1)) return null;
+
+    const requested = options.count ?? PRESETS[options.preset ?? 'spark_burst'].count;
+    const used = getTotalParticleCapacity();
+    const granted = enforceCap('particles', 'totalParticles', used + requested) - used;
+    if (granted <= 0) return null;
+
+    const emitter = new Emitter({ ...options, count: granted });
     emitters.set(emitter.id, emitter);
     return emitter;
 }
@@ -594,10 +621,12 @@ export function updateEmitters(
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData
 ): void {
+    const t0 = performance.now();
     for (const emitter of emitters.values()) {
         emitter.step(deltaTime, audioData);
         emitter.system.update(renderer, deltaTime, playerPosition, audioData);
     }
+    profiler.mark('particles.update', performance.now() - t0);
 }
 
 /** Convenience: fire a one-shot burst at a world position from a shared pool. */
@@ -605,11 +634,13 @@ export function burstAt(
     preset: EmitterPreset,
     position: THREE.Vector3,
     count: number = 32
-): Emitter {
+): Emitter | null {
     const id = `shared_${preset}`;
-    let emitter = emitters.get(id);
+    let emitter: Emitter | null = emitters.get(id) ?? null;
     if (!emitter) {
         emitter = createEmitter({ id, preset, shape: { type: 'sphere', radius: 0.35 } });
+        // Particle budget exhausted — the burst is dropped rather than queued.
+        if (!emitter) return null;
         emitterParent?.add(emitter.mesh);
     }
     emitter.burst(count, position);

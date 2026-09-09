@@ -89,7 +89,7 @@ console.log('\nRegistry');
     check('beetle profile resolvable', !!beetle);
     check(
         'every profile has a hysteresis band',
-        profiles.every(p => p.calmRadius > p.scatterRadius)
+        profiles.every((p) => p.calmRadius > p.scatterRadius)
     );
 
     // Round-trips through the registry; restored below.
@@ -263,7 +263,15 @@ console.log('\nEdge cases');
 
     // An unregistered species must not crash the runner — it just roams.
     const unknown = makeFixture([{ species: 99 as FaunaSpecies, x: 1, z: 0 }]);
-    const stats = new FaunaBehaviorRunner(8).update(unknown.entries, unknown.heap, 0, 1 / 60, 0, 1, 0);
+    const stats = new FaunaBehaviorRunner(8).update(
+        unknown.entries,
+        unknown.heap,
+        0,
+        1 / 60,
+        0,
+        1,
+        0
+    );
     check('unregistered species roams instead of throwing', stats.roam === 1);
 
     // The slab may be shared with WASM at a non-zero base offset.
@@ -316,7 +324,11 @@ console.log('\nAllocation');
         console.log(
             `  … ${perTick.toFixed(2)} bytes/tick (run with --expose-gc for the strict check)`
         );
-        check('update allocation stayed bounded', perTick < 200, `${perTick.toFixed(2)} bytes/tick`);
+        check(
+            'update allocation stayed bounded',
+            perTick < 200,
+            `${perTick.toFixed(2)} bytes/tick`
+        );
     }
 }
 
