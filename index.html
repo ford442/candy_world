@@ -60,10 +60,10 @@
                  aria-valuetext="Waiting"
                  aria-label="World readiness"
                  hidden>
-                <div class="readiness-track">
+                <div class="readiness-track" aria-hidden="true">
                     <span id="readiness-progress-fill"></span>
                 </div>
-                <div class="readiness-meta">
+                <div class="readiness-meta" aria-hidden="true">
                     <span id="readiness-progress-label">Ready when you are</span>
                     <span id="readiness-progress-eta"></span>
                 </div>
@@ -257,7 +257,7 @@
             <div class="loading-content">
                 <h1 class="loading-title">🍭 Candy World <span class="loading-dots">...</span></h1>
                 <div class="loading-spinner"></div>
-                <div class="progress-section">
+                <div class="progress-section" aria-hidden="true">
                     <div class="progress-bar">
                         <div class="progress-fill" style="transform: scaleX(0); transform-origin: left;"></div>
                     </div>
@@ -266,7 +266,7 @@
                         <span class="progress-task">Initializing...</span>
                     </div>
                 </div>
-                <div class="time-remaining">Calculating time...</div>
+                <div class="time-remaining" aria-hidden="true">Calculating time...</div>
                 <button type="button" class="skip-button" style="display: none;">
                     <span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>
                 </button>
