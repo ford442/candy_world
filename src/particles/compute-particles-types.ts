@@ -5,7 +5,26 @@
 
 import * as THREE from 'three';
 
-export type ComputeParticleType = 'fireflies' | 'pollen' | 'berries' | 'rain' | 'sparks' | 'gem_sparks';
+export type ComputeParticleType =
+    | 'fireflies'
+    | 'pollen'
+    | 'berries'
+    | 'rain'
+    | 'sparks'
+    | 'gem_sparks'
+    /** One-shot radial shrapnel for impacts and abilities (emitter API preset). */
+    | 'spark_burst'
+    /** One-shot buoyant candy billow for debris and pickups (emitter API preset). */
+    | 'candy_puff';
+
+/** Attractor/repulsor uploaded to the compute kernel. Max 4 per system. */
+export interface ParticleAttractor {
+    position: THREE.Vector3;
+    /** Positive attracts, negative repels. Units/s^2 at the attractor centre. */
+    strength: number;
+    /** Influence radius; force falls off linearly to zero at the edge. */
+    radius: number;
+}
 
 export interface ComputeParticleConfig {
     /** Particle system type */
@@ -22,6 +41,8 @@ export interface ComputeParticleConfig {
     lifeRange?: { min: number; max: number };
     /** Custom uniforms */
     customUniforms?: Record<string, any>;
+    /** Dead particles stay dead until `spawn()` re-seeds them (burst emitters). */
+    oneShot?: boolean;
 }
 
 export interface ParticleBuffers {
@@ -70,6 +91,16 @@ export interface SparkConfig extends Omit<ComputeParticleConfig, 'type'> {
     decayRate?: number;
 }
 
+export interface SparkBurstConfig extends Omit<ComputeParticleConfig, 'type'> {
+    /** Tint of the hottest part of the burst. */
+    coreColor?: number;
+}
+
+export interface CandyPuffConfig extends Omit<ComputeParticleConfig, 'type'> {
+    /** Base candy tint of the billow. */
+    puffColor?: number;
+}
+
 export interface GemSparkConfig extends Omit<ComputeParticleConfig, 'type'> {
     /** Base twinkle frequency multiplier (visual tuning). */
     twinkleRate?: number;
@@ -84,6 +115,8 @@ export interface ComputeSystemCollection {
     rain?: any; // ComputeParticleSystem
     sparks?: any; // ComputeParticleSystem
     gem_sparks?: any; // ComputeParticleSystem
+    spark_burst?: any; // ComputeParticleSystem
+    candy_puff?: any; // ComputeParticleSystem
 }
 
 export interface ComputeParticleSystem {

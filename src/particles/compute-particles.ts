@@ -57,6 +57,9 @@ import {
     RainConfig,
     SparkConfig,
     GemSparkConfig,
+    SparkBurstConfig,
+    CandyPuffConfig,
+    ParticleAttractor,
     ComputeSystemCollection
 } from './compute-particles-types.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
@@ -85,6 +88,27 @@ function fastCos(x: number): number {
 // Default spawn center used when no config.center is provided
 const DEFAULT_SPAWN_CENTER = new THREE.Vector3(0, 5, 0);
 
+/** Attractor slots in the compute kernel's uniform block. Must match MAX_ATTRACTORS in the WGSL. */
+export const MAX_PARTICLE_ATTRACTORS = 4;
+
+/** f32 slots in the uniform block: 24 scalars + 4 attractor vec4 + 4 param vec4. */
+const UNIFORM_FLOAT_COUNT = 24 + MAX_PARTICLE_ATTRACTORS * 4 * 2;
+/** Byte offset of the `attractors` array inside the uniform block. */
+const ATTRACTOR_FLOAT_OFFSET = 24;
+const ATTRACTOR_PARAM_FLOAT_OFFSET = ATTRACTOR_FLOAT_OFFSET + MAX_PARTICLE_ATTRACTORS * 4;
+
+/** Numeric ids for the WGSL `particleType` switch. Keep in sync with the kernel. */
+const PARTICLE_TYPE_ID: Record<ComputeParticleType, number> = {
+    fireflies: 0,
+    pollen: 1,
+    berries: 2,
+    rain: 3,
+    sparks: 4,
+    gem_sparks: 5,
+    spark_burst: 6,
+    candy_puff: 7,
+};
+
 // =============================================================================
 // WEBGPU COMPUTE PARTICLE SYSTEM
 // =============================================================================
@@ -106,7 +130,14 @@ export class ComputeParticleSystem {
     private particleBuffer: GPUBuffer | null = null;
     private nextSpawnIndex: number = 0;
     private unsubscribeDeviceLost: (() => void) | null = null;
+    private deviceLost: boolean = false;
     private static scratchFloat32Array = new Float32Array(4);
+
+    /** Reused every frame — the uniform block used to be re-allocated per dispatch. */
+    private uniformArray = new Float32Array(UNIFORM_FLOAT_COUNT);
+    private attractorCount = 0;
+    private lastAttractors: readonly ParticleAttractor[] = [];
+    private emitScale = 1.0;
 
     public initPromise: Promise<void> | null = null;
     
@@ -240,6 +271,21 @@ export class ComputeParticleSystem {
                     lifeArr[i] = 0.3 + Math.random() * 0.5;
                     break;
                 }
+                case 'spark_burst': {
+                    // Burst pools start fully dead; gameplay seeds them via burstAt().
+                    velArr[vi] = 0;
+                    velArr[vi + 1] = 0;
+                    velArr[vi + 2] = 0;
+                    lifeArr[i] = 0;
+                    break;
+                }
+                case 'candy_puff': {
+                    velArr[vi] = 0;
+                    velArr[vi + 1] = 0;
+                    velArr[vi + 2] = 0;
+                    lifeArr[i] = 0;
+                    break;
+                }
                 case 'gem_sparks':
                     velArr[vi] = (Math.random() - 0.5) * 0.12;
                     velArr[vi + 1] = (Math.random() - 0.5) * 0.06;
@@ -358,6 +404,25 @@ case 'pollen':
                     return mix(orange, white, sparkLife);
                 })();
 
+            case 'spark_burst':
+                return Fn(() => {
+                    // Hot white core cooling to ember as life burns down.
+                    const heat = life.div(0.7).clamp(0.0, 1.0);
+                    const ember = color(0xFF3A1F);
+                    const core = color(0xFFF3C4);
+                    return mix(ember, core, heat).mul(float(1.0).add(uAudioHigh.mul(1.5)));
+                })();
+
+            case 'candy_puff':
+                return Fn(() => {
+                    // Pastel candy billow; seed picks a hue so a burst is not monochrome.
+                    const huePick = sin(seed.mul(8.7)).mul(0.5).add(0.5);
+                    const bubblegum = color(0xFF9ED2);
+                    const sherbet = color(0xFFE9A8);
+                    const mint = color(0xB8FFE3);
+                    return mix(mix(bubblegum, sherbet, huePick), mint, huePick.mul(huePick));
+                })();
+
             case 'gem_sparks':
                 return Fn(() => {
                     // Per-mote static hue jitter from seed (avoids same-note color banding)
@@ -401,6 +466,17 @@ case 'pollen':
             
             case 'sparks':
                 return baseSize.mul(life.div(0.8));
+
+            case 'spark_burst':
+                // Shrinks as it burns out.
+                return baseSize.mul(life.div(0.7).clamp(0.0, 1.0));
+
+            case 'candy_puff':
+                return Fn(() => {
+                    // Puffs expand as they age, so use the inverse of remaining life.
+                    const age = float(1.0).sub(life.div(2.0).clamp(0.0, 1.0));
+                    return baseSize.mul(float(1.0).add(age.mul(2.5)));
+                })();
 
             case 'gem_sparks':
                 return Fn(() => {
@@ -468,11 +544,16 @@ private getOpacityNode(): any {
         // dispatching; the CPU fallback keeps the system alive visually.
         this.unsubscribeDeviceLost = onGpuDeviceLost(() => {
             this.usingGPU = false;
+            this.deviceLost = true;
             this.device = null;
             this.computePipeline = null;
             this.bindGroup = null;
             this.particleBuffer = null;
             this.uniformBuffer = null;
+            // Compute is paused and the storage buffers are gone, so the points would
+            // freeze mid-air. Hide rather than show a stale field; the emitter registry
+            // can rebuild the system if the renderer recovers.
+            this.mesh.visible = false;
         });
 
         // Ensure WebGPU resources are created sequentially with rAF yields
@@ -489,6 +570,7 @@ private getOpacityNode(): any {
     
     private initCPUFallback(): void {
         this.cpuFallback = new CPUParticleSystem(this.config);
+        this.cpuFallback.setAttractors(this.lastAttractors);
         // Replace mesh with CPU fallback mesh
         this.mesh.geometry.dispose();
         (this.mesh.material as THREE.Material).dispose();
@@ -540,7 +622,7 @@ private getOpacityNode(): any {
         if (!this.device) return;
         
         // Align to 16 bytes for WGSL
-        const uniformSize = Math.ceil(80 / 16) * 16;
+        const uniformSize = Math.ceil((UNIFORM_FLOAT_COUNT * 4) / 16) * 16;
         
         this.uniformBuffer = this.device.createBuffer({
             size: uniformSize,
@@ -600,18 +682,51 @@ private getOpacityNode(): any {
         this.uniforms.audioHigh = audioData.high;
         this.uniforms.windSpeed = audioData.windSpeed || 0;
         
-        // Particle type enum
-        const typeMap: Record<ComputeParticleType, number> = {
-            fireflies: 0,
-            pollen: 1,
-            berries: 2,
-            rain: 3,
-            sparks: 4,
-            gem_sparks: 5,
-        };
-        this.uniforms.particleType = typeMap[this.type];
+        this.uniforms.particleType = PARTICLE_TYPE_ID[this.type];
     }
     
+
+    /**
+     * Replace this system's attractor set. Positions are read immediately, so the
+     * caller may reuse its Vector3s. Extra entries beyond MAX_PARTICLE_ATTRACTORS
+     * are ignored. Zero-alloc: values are written straight into the uniform array.
+     */
+    public setAttractors(attractors: readonly ParticleAttractor[]): void {
+        const n = Math.min(attractors.length, MAX_PARTICLE_ATTRACTORS);
+        const u = this.uniformArray;
+        for (let i = 0; i < n; i++) {
+            const a = attractors[i];
+            const o = ATTRACTOR_FLOAT_OFFSET + i * 4;
+            u[o] = a.position.x;
+            u[o + 1] = a.position.y;
+            u[o + 2] = a.position.z;
+            u[o + 3] = a.radius;
+            u[ATTRACTOR_PARAM_FLOAT_OFFSET + i * 4] = a.strength;
+        }
+        // Zero the radius of unused slots so a stale attractor can never linger.
+        for (let i = n; i < MAX_PARTICLE_ATTRACTORS; i++) {
+            u[ATTRACTOR_FLOAT_OFFSET + i * 4 + 3] = 0;
+            u[ATTRACTOR_PARAM_FLOAT_OFFSET + i * 4] = 0;
+        }
+        this.attractorCount = n;
+        this.cpuFallback?.setAttractors(attractors);
+        this.lastAttractors = attractors;
+    }
+
+    /** Multiplier on respawn energy — drive from music volume for a zero-alloc pulse. */
+    public setEmitScale(scale: number): void {
+        this.emitScale = scale;
+    }
+
+    /** True while the GPU compute path is live (false on CPU fallback or after device loss). */
+    public get isGPU(): boolean {
+        return this.usingGPU;
+    }
+
+    /** True once the shared device was lost — the mesh is hidden and compute is paused. */
+    public get isDeviceLost(): boolean {
+        return this.deviceLost;
+    }
 
     public spawn(options: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }): number {
         if (this.usingGPU && this.device && this.particleBuffer) {
@@ -657,6 +772,9 @@ private getOpacityNode(): any {
             }
             return i;
         }
+        if (this.cpuFallback) {
+            return this.cpuFallback.spawn(options);
+        }
         return -1;
     }
 
@@ -682,31 +800,36 @@ private getOpacityNode(): any {
         if (this.usingGPU && this.device && this.uniformBuffer) {
             this.updateUniforms(deltaTime, playerPosition, audioData);
             
-            // Write uniforms to GPU
-            const uniformArray = new Float32Array([
-                this.uniforms.deltaTime,
-                this.uniforms.time,
-                this.uniforms.count,
-                this.uniforms.boundsX,
-                this.uniforms.boundsY,
-                this.uniforms.boundsZ,
-                this.uniforms.centerX,
-                this.uniforms.centerY,
-                this.uniforms.centerZ,
-                this.uniforms.gravity,
-                this.uniforms.windX,
-                this.uniforms.windY,
-                this.uniforms.windZ,
-                this.uniforms.windSpeed,
-                this.uniforms.playerX,
-                this.uniforms.playerY,
-                this.uniforms.playerZ,
-                this.uniforms.audioLow,
-                this.uniforms.audioHigh,
-                this.uniforms.particleType
-            ]);
-            
-            this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformArray);
+            // Write uniforms to GPU. The array is owned by the system and refilled in
+            // place — allocating a Float32Array per dispatch showed up as GC churn.
+            const u = this.uniformArray;
+            u[0] = this.uniforms.deltaTime;
+            u[1] = this.uniforms.time;
+            u[2] = this.uniforms.count;
+            u[3] = this.uniforms.boundsX;
+            u[4] = this.uniforms.boundsY;
+            u[5] = this.uniforms.boundsZ;
+            u[6] = this.uniforms.centerX;
+            u[7] = this.uniforms.centerY;
+            u[8] = this.uniforms.centerZ;
+            u[9] = this.uniforms.gravity;
+            u[10] = this.uniforms.windX;
+            u[11] = this.uniforms.windY;
+            u[12] = this.uniforms.windZ;
+            u[13] = this.uniforms.windSpeed;
+            u[14] = this.uniforms.playerX;
+            u[15] = this.uniforms.playerY;
+            u[16] = this.uniforms.playerZ;
+            u[17] = this.uniforms.audioLow;
+            u[18] = this.uniforms.audioHigh;
+            u[19] = this.uniforms.particleType;
+            u[20] = this.attractorCount;
+            u[21] = this.config.oneShot ? 1 : 0;
+            u[22] = this.emitScale;
+            u[23] = 0;
+            // Attractor slots [24..55] are written by setAttractors().
+
+            this.device.queue.writeBuffer(this.uniformBuffer, 0, u);
             
             // Dispatch compute shader
             const commandEncoder = this.device.createCommandEncoder();
@@ -897,6 +1020,39 @@ export function createComputeGemSparks(config: GemSparkConfig = {}): ComputePart
         bounds: config.bounds || { x: 40, y: 14, z: 18 },
         center: config.center || new THREE.Vector3(0, 6, 0),
         sizeRange: config.sizeRange || { min: 0.025, max: 0.045 },
+        ...config,
+    });
+}
+
+/**
+ * Creates a one-shot spark-burst pool: hot radial shrapnel for impacts, hits and
+ * ability recoil. The pool starts empty — call `spawn()`/`burst()` (or drive it
+ * through the emitter API) to fire particles.
+ */
+export function createComputeSparkBurst(config: SparkBurstConfig = {}): ComputeParticleSystem {
+    return new ComputeParticleSystem({
+        type: 'spark_burst',
+        count: config.count ?? getCIAdjustedCount(2048, 0.1, 64),
+        bounds: config.bounds || { x: 20, y: 20, z: 20 },
+        center: config.center || new THREE.Vector3(0, 2, 0),
+        sizeRange: config.sizeRange || { min: 0.04, max: 0.1 },
+        oneShot: true,
+        ...config,
+    });
+}
+
+/**
+ * Creates a one-shot candy-puff pool: soft pastel billows that rise and spread.
+ * Intended for debris, pickups and dissolve effects.
+ */
+export function createComputeCandyPuff(config: CandyPuffConfig = {}): ComputeParticleSystem {
+    return new ComputeParticleSystem({
+        type: 'candy_puff',
+        count: config.count ?? getCIAdjustedCount(1024, 0.1, 64),
+        bounds: config.bounds || { x: 20, y: 20, z: 20 },
+        center: config.center || new THREE.Vector3(0, 2, 0),
+        sizeRange: config.sizeRange || { min: 0.12, max: 0.3 },
+        oneShot: true,
         ...config,
     });
 }

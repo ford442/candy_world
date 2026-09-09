@@ -10,7 +10,7 @@ import { uTime, uAudioHigh } from '../foliage/material-core.ts';
 import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { isEmscriptenReady } from '../utils/wasm-loader-core.ts';
 import { updateCpuParticlesNative } from '../utils/wasm-particles-cpp.ts';
-import { ComputeParticleType, ComputeParticleConfig, ParticleAudioData } from './compute-particles-types.ts';
+import { ComputeParticleType, ComputeParticleConfig, ParticleAudioData, ParticleAttractor } from './compute-particles-types.ts';
 import {
     respawnCpuParticle,
     simulateCpuParticles,
@@ -36,8 +36,12 @@ export class CPUParticleSystem {
     private center: THREE.Vector3;
     private sizeRange: { min: number; max: number };
     private buffers: CpuParticleBuffers;
+    private config: ComputeParticleConfig;
+    private attractors: readonly ParticleAttractor[] = [];
+    private nextSpawnIndex = 0;
 
     constructor(config: ComputeParticleConfig) {
+        this.config = config;
         this.count = config.count || 10000;
         this.type = config.type;
         this.bounds = config.bounds || { x: 100, y: 20, z: 100 };
@@ -146,6 +150,7 @@ export class CPUParticleSystem {
             timeOffsetFirefly: Math.cos(now * 0.001),
             timeOffsetPollen: now * 0.0005,
             timeSec: now * 0.001,
+            oneShot: this.config.oneShot === true,
         };
     }
 
@@ -179,6 +184,12 @@ export class CPUParticleSystem {
             case 'sparks':
                 finalColor = vec3(1.0, 0.9, 0.5);
                 break;
+            case 'spark_burst':
+                finalColor = vec3(1.0, 0.85, 0.55);
+                break;
+            case 'candy_puff':
+                finalColor = vec3(1.0, 0.75, 0.85);
+                break;
             case 'gem_sparks':
                 material.colorNode = Fn(() => {
                     const jewelRuby = color(0xE0115F);
@@ -199,6 +210,59 @@ export class CPUParticleSystem {
         return material;
     }
 
+    /** Mirror of the GPU path's attractor set; applied on the CPU each frame. */
+    setAttractors(attractors: readonly ParticleAttractor[]): void {
+        this.attractors = attractors;
+    }
+
+    /**
+     * Seed one particle slot. Round-robins through the pool exactly like the GPU
+     * path so a burst behaves the same on either tier.
+     */
+    spawn(options: { position: THREE.Vector3; velocity?: THREE.Vector3; life?: number; size?: number; seed?: number }): number {
+        const i = this.nextSpawnIndex;
+        this.nextSpawnIndex = (this.nextSpawnIndex + 1) % this.count;
+        const idx = i * 3;
+
+        this.positions[idx] = options.position.x;
+        this.positions[idx + 1] = options.position.y;
+        this.positions[idx + 2] = options.position.z;
+
+        if (options.velocity) {
+            this.velocities[idx] = options.velocity.x;
+            this.velocities[idx + 1] = options.velocity.y;
+            this.velocities[idx + 2] = options.velocity.z;
+        }
+        this.lives[i] = options.life ?? 1.0;
+        this.sizes[i] = options.size ?? (this.sizeRange.min + Math.random() * (this.sizeRange.max - this.sizeRange.min));
+        this.seeds[i] = options.seed ?? Math.random() * 1000;
+        return i;
+    }
+
+    /** Linear-falloff attractor pass, matching the WGSL kernel's shared loop. */
+    private applyAttractors(deltaTime: number): void {
+        if (this.attractors.length === 0) return;
+        for (let a = 0; a < this.attractors.length; a++) {
+            const { position, strength, radius } = this.attractors[a];
+            if (radius <= 0) continue;
+            const radiusSq = radius * radius;
+            for (let i = 0; i < this.count; i++) {
+                if (this.lives[i] <= 0) continue;
+                const idx = i * 3;
+                const dx = position.x - this.positions[idx];
+                const dy = position.y - this.positions[idx + 1];
+                const dz = position.z - this.positions[idx + 2];
+                const distSq = dx * dx + dy * dy + dz * dz;
+                if (distSq >= radiusSq || distSq < 1e-8) continue;
+                const dist = Math.sqrt(distSq);
+                const force = (1 - dist / radius) * strength * deltaTime / dist;
+                this.velocities[idx] += dx * force;
+                this.velocities[idx + 1] += dy * force;
+                this.velocities[idx + 2] += dz * force;
+            }
+        }
+    }
+
     update(deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void {
         const posAttr = this.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
         const quadPositions = posAttr.array as Float32Array;
@@ -210,6 +274,8 @@ export class CPUParticleSystem {
         } else {
             simulateCpuParticles(this.buffers, simParams);
         }
+
+        this.applyAttractors(deltaTime);
 
         for (let i = 0; i < this.count; i++) {
             this.updateQuadVertices(i, quadPositions);

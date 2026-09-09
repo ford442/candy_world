@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateAllIntegratedSystems } from '../particles/compute-integration.ts';
+import { updateEmitters } from '../particles/emitter-api.ts';
 import { getParticles } from '../particles/lazy.ts';
 import { fluidSystem } from '../systems/fluid_system.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
@@ -36,6 +37,13 @@ export function updateParticlesPhase(delta: number, t: number, audioState: any, 
             safeSystemUpdate(
                 () => updateAllIntegratedSystems(rendererRef, delta, player.position, _scratchParticleAudioData),
                 'updateAllIntegratedSystems'
+            );
+
+            // Emitter-API pools (gameplay bursts, debris, ability FX) are registered
+            // separately so they are never dispatched twice.
+            safeSystemUpdate(
+                () => updateEmitters(rendererRef, delta, player.position, _scratchParticleAudioData),
+                'updateEmitters'
             );
         });
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/tools-stub.ts';
 import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
-import { uChromaticIntensity, uGlobalNoteColor, uGlobalShimmer } from '../foliage/chromatic-nodes.ts';
+import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
 import {
     uWindSpeed,
     uWindDirection,
@@ -303,11 +303,9 @@ export function updateVisualsPhase(
         }
     }
 
-    // Sync globals used by the post-fx pipeline
-    if (BiomeUniforms && BiomeUniforms.arpeggioGrove) {
-        (uGlobalNoteColor.value as any).copy(BiomeUniforms.arpeggioGrove.noteColor.value);
-        uGlobalShimmer.value = BiomeUniforms.arpeggioGrove.shimmer.value;
-    }
+    // uGlobalNoteColor / uGlobalShimmer were dropped in #1723 when chromatic-nodes.ts
+    // was split out; nothing in the post-fx chain reads them any more, so the sync
+    // that used to live here is gone with them.
 
     let auroraAudioBoost = 0.0;
     if (audioState && audioState.channelData && audioState.channelData.length > 4) {
