@@ -27,7 +27,6 @@
  */
 
 import { getWindState } from '../wind-uniforms.ts';
-
 /** Ground height query, in world space. */
 export type GroundSampler = (x: number, z: number) => number;
 
