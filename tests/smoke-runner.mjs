@@ -23,7 +23,21 @@ const IS_FULL_BOOT =
     BOOT_PATH === 'explore' || (FULL_BOOT && FULL_BOOT !== '0' && FULL_BOOT !== 'false');
 const IS_FAST_FULL = FULL_BOOT === 'fast';
 const RENDERER = process.env.RENDERER?.toLowerCase();
-const USE_WEBGL_BOOT = RENDERER === 'webgl' || RENDERER === 'webgl2';
+// WebGPU is required to enter the world this phase, so there is no WebGL boot to
+// smoke. RENDERER=webgl is refused rather than quietly booting GL — a green run
+// on a backend the app will not ship is worse than no run at all.
+const WEBGL_BOOT_REQUESTED = RENDERER === 'webgl' || RENDERER === 'webgl2';
+if (WEBGL_BOOT_REQUESTED) {
+    console.error(
+        `\n✗ RENDERER=${RENDERER} is not supported: WebGPU is required to enter the world.\n` +
+            '  The WebGL boot path is disabled this phase (see docs/WEBGPU_CONTEXT.md).\n' +
+            '  Re-run without RENDERER, or wait for the WebGL restore wave.\n'
+    );
+    process.exit(1);
+}
+// Extra query params appended to the boot URL, e.g. EXTRA_QS=debugPhysics=1
+// to smoke a debug-flagged subsystem through the normal harness.
+const EXTRA_QS = process.env.EXTRA_QS?.replace(/^[?&]/, '') ?? '';
 
 function bootPathLabel() {
     if (IS_FULL_BOOT) return 'EXPLORE';
@@ -242,9 +256,8 @@ async function runSmokeTest() {
         const profileQs = IS_FULL_BOOT
             ? `boot=explore&graphics=${gfxParam}`
             : `graphics=${gfxParam}`;
-        const bootUrl = USE_WEBGL_BOOT
-            ? `http://localhost:4173/?renderer=webgl&webglLite=1&${profileQs}`
-            : `http://localhost:4173/?${profileQs}`;
+        const extraQs = EXTRA_QS ? `&${EXTRA_QS}` : '';
+        const bootUrl = `http://localhost:4173/?${profileQs}${extraQs}`;
         console.log(`\nNavigating to ${bootUrl}`);
         try {
             await page.goto(bootUrl, {
@@ -284,12 +297,31 @@ async function runSmokeTest() {
         console.log(
             `Renderer: ${rendererInfo.rendererType ?? 'unknown'} (canvas=${rendererInfo.canvasRenderer ?? 'n/a'})`
         );
-        if (USE_WEBGL_BOOT) {
-            if (rendererInfo.usingWebGL) {
-                console.log('✓ WebGL boot path confirmed');
-            } else {
-                console.log('⚠ Expected WebGL boot path but got', rendererInfo.rendererType);
-            }
+        // Hard-fail contract: the world never renders on WebGL this phase.
+        if (rendererInfo.usingWebGL) {
+            console.error(
+                '[CONSOLE ERROR] World booted on WebGL — the WebGPU hard-fail probe did not hold'
+            );
+            hasError = true;
+        }
+
+        // The probe must publish its verdict whether or not it passed, so a
+        // Chrome-vs-Edge failure is legible straight from the page.
+        const probe = await page.evaluate(() => window.webgpuProbe ?? null);
+        if (!probe) {
+            console.error('[CONSOLE ERROR] window.webgpuProbe was never published');
+            hasError = true;
+        } else if (probe.ok !== true) {
+            console.error(
+                `[CONSOLE ERROR] WebGPU probe failed at "${probe.stage}" on ` +
+                    `${probe.browser?.name ?? 'unknown'}: ${probe.reason}`
+            );
+            hasError = true;
+        } else {
+            console.log(
+                `✓ WebGPU probe: ${probe.browser?.name ?? 'unknown'} ${probe.browser?.version ?? ''} ` +
+                    `adapter=${probe.adapterName}`
+            );
         }
 
         // GPU context assertion (#1448): one renderer-owned device, published once
@@ -298,8 +330,6 @@ async function runSmokeTest() {
         if (!gpuContext) {
             console.error('[CONSOLE ERROR] window.__gpuContext was never published');
             hasError = true;
-        } else if (USE_WEBGL_BOOT) {
-            console.log(`✓ GPU context: backend=${gpuContext.backend} reason=${gpuContext.reason}`);
         } else if (rendererInfo.usingWebGPU) {
             const ok =
                 gpuContext.available === true &&
@@ -554,12 +584,6 @@ async function runSmokeTest() {
             pageErrors.forEach((e, i) => console.log(`  ${i + 1}. ${e.split('\n')[0]}`));
         }
 
-        try {
-            await page.close();
-        } catch {
-            // page may already be closed/crashed
-        }
-
         // Results
         console.log('\nChecking physics path stats...');
         // Let the simulation run for a moment so some frames pass
@@ -569,6 +593,12 @@ async function runSmokeTest() {
             console.warn("⚠️  WARNING: Native physics path was never hit! Controller might be doing 100% of the work. Stats:", physicsStats);
         } else {
             console.log(`✓ Native physics path verified (${physicsStats.native} frames)`);
+        }
+
+        try {
+            await page.close();
+        } catch {
+            // page may already be closed/crashed
         }
 
         console.log('\n📊 Test Results:');

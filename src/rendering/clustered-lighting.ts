@@ -34,6 +34,8 @@ import { FEATURE_FLAGS, hasUrlFlag } from '../core/config/url-flags.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import { isGpuComputeAvailable, onGpuDeviceLost } from './gpu-context.ts';
 import { forEachLocalLight, getLocalLightStats, muteAnalyticLocalLights } from './lights.ts';
+import { enforceCap } from '../systems/performance-budget/systems-budget.ts';
+import { profiler } from '../utils/profiler.ts';
 import {
     CLUSTER_GRID_X,
     CLUSTER_GRID_Y,
@@ -176,7 +178,9 @@ export class ClusteredLightingSystem {
         let numLights = 0;
         let clustersWritten = 0;
 
+        let offered = 0;
         forEachLocalLight((snap) => {
+            offered++;
             if (numLights >= this.maxLights) return;
             if (snap.intensity <= 0) return;
 
@@ -222,6 +226,10 @@ export class ClusteredLightingSystem {
             numLights += 1;
         });
 
+        // The cap already dropped the surplus above; report it once so the
+        // ?debug=1 systems-budget panel shows which scene overfilled the pool.
+        enforceCap('clusteredLights', 'lights', offered);
+
         this.numLightsUniform.value = numLights;
         this.lastLights = numLights;
         this.lastClustersWritten = clustersWritten;
@@ -231,6 +239,7 @@ export class ClusteredLightingSystem {
             (this.clusterBuffer as THREE.BufferAttribute).needsUpdate = true;
         }
         this.lastBinMs = performance.now() - t0;
+        profiler.mark('clusteredLights.bin', this.lastBinMs);
         publishStats(this.snapshot());
     }
 

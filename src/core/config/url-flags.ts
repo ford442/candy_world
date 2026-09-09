@@ -22,9 +22,20 @@
 //   ?shadowSoft=0..1      — live-tunable sun shadow softness (also a ?debug=1 slider)
 //   ?pcss=1|0             — force the cheap PCSS-style contact term on/off (high tier)
 //   ?ao / ?ao=1 / ?no_ao  — WebGPU GTAO (off on low; high postfx implies on)
+//   ?env=on|off           — shared dream-sky env map on candy presets
+//                           (off on low / CI; force either way)
+//   ?coat=on|off          — clearcoat lobe on candy presets (off on low; the
+//                           coat is a whole second specular lobe)
 //   ?no_gpu_compute       — force WASM/JS fallback for batch LOD + foliage scalar batches
 //   ?nativeMusicAccum=0   — force TS arpeggio_grove channel accumulate (A/B vs AS)
 //   ?nativeMusicAccum=1   — prefer AS accumulate when candy_physics export present (default)
+//   ?debugPhysics=1       — dynamic rigid-body staging area + collider gizmos
+//                           (G respawns props, B fires a radial blast)
+//   ?softBody=1           — EXPERIMENTAL cloth banner prototype (H resets it).
+//                           Default off; refused on the `low` graphics tier
+//                           (WebGL / CI) unless forced with ?softBody=force
+//   ?heroAnim=1           — hero clip animation staging area: one glTF rig on a
+//                           pedestal near spawn (J cycles clips, K stop/start)
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).

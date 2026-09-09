@@ -53,6 +53,9 @@ import {
 } from '../startup-profile.ts';
 import type { MainContext } from './context.ts';
 import { camera, renderer, scene } from './exports.ts';
+import { getStartupCapabilities } from '../startup/capabilities.ts';
+import { setWindQuality } from '../../systems/wind-uniforms.ts';
+import { initWindDebug } from '../../systems/wind-debug.ts';
 
 function yieldFrame(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 50));
@@ -169,8 +172,6 @@ export function setupStartScreen(ctx: MainContext): void {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 fullWorldToggle.click();
-
-
             }
         });
     }
@@ -290,6 +291,15 @@ export function setupStartScreen(ctx: MainContext): void {
             initFaunaDebug(scene);
 
             initCloudPlacer({ scene, camera, weatherSystem: ctx.weatherSystem ?? null });
+
+            // Wind quality + debug arrow: one shared wind for foliage, GPU
+            // animator and particles (docs/WIND_OPTIMIZATION.md).
+            try {
+                setWindQuality(getStartupCapabilities().graphics);
+                initWindDebug(scene, camera);
+            } catch (e) {
+                console.warn('[Startup] Wind debug init skipped:', e);
+            }
 
             try {
                 initSkyIslandDebug(scene);
@@ -453,7 +463,6 @@ export function setupStartScreen(ctx: MainContext): void {
             void enterWorld();
         }
     });
-
 
     if (isBootInstant()) {
         try {

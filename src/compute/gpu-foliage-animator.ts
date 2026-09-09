@@ -19,6 +19,7 @@
  * ```
  */
 
+import { getWindState } from '../systems/wind-uniforms.ts';
 import { GPUComputeLibrary } from './gpu-compute-library';
 
 // =============================================================================
@@ -94,7 +95,7 @@ export interface FoliageAnimationOutput {
 
 /**
  * WGSL shader for foliage animation.
- * 
+ *
  * Instance Buffer Layout (48 bytes per instance):
  *   pos: vec3<f32>       offset 0
  *   animType: u32        offset 12
@@ -102,11 +103,11 @@ export interface FoliageAnimationOutput {
  *   animOffset: f32      offset 28
  *   scale: vec3<f32>     offset 32
  *   intensity: f32       offset 44
- * 
+ *
  * Output Buffer Layout:
  *   Even indices: position (x, y, z, 0)
  *   Odd indices: rotation (rotX, rotY, rotZ, 0)
- * 
+ *
  * Uniform Buffer Layout (32 bytes):
  *   time: f32            offset 0
  *   beatPhase: f32       offset 4
@@ -114,8 +115,8 @@ export interface FoliageAnimationOutput {
  *   groove: f32          offset 12
  *   isDay: u32           offset 16
  *   instanceCount: u32   offset 20
- *   _pad0: u32           offset 24
- *   _pad1: u32           offset 28
+ *   windGust: f32        offset 24  (shared wind: speed x gust)
+ *   windTurbulence: f32  offset 28  (shared wind: 0-1 chop)
  */
 export const FOLIAGE_ANIMATION_WGSL = /* wgsl */ `
 struct Instance {
@@ -134,8 +135,10 @@ struct Uniforms {
     groove: f32,
     isDay: u32,
     instanceCount: u32,
-    _pad0: u32,
-    _pad1: u32,
+    // Unified wind (src/systems/wind-uniforms.ts) — same values the foliage
+    // TSL sway and the particle systems read, so the GPU path gusts in step.
+    windGust: f32,
+    windTurbulence: f32,
 };
 
 @group(0) @binding(0) var<storage, read> instances: array<Instance>;
@@ -222,8 +225,10 @@ fn animateSpring(pos: vec3<f32>, scale: vec3<f32>, t: f32, offset: f32, intensit
 
 fn animateVineSway(pos: vec3<f32>, rot: vec3<f32>, t: f32, offset: f32, intensity: f32, isDay: bool) -> vec4<f32> {
     let cascade = sin(t * 0.4 + offset + pos.y * 0.5) * 0.15 * intensity;
-    let windGust = select(0.0, sin(t * 0.8) * 0.05, isDay);
-    return vec4<f32>(rot.x + cascade, rot.y + windGust, rot.z, 0.0);
+    // Was a private sine; now the shared gust, so vines swing with the trees.
+    let gustSwing = select(0.0, (u.windGust - 1.0) * 0.25 * u.windGust, isDay);
+    let chop = sin(t * 2.7 + offset) * u.windTurbulence * 0.02;
+    return vec4<f32>(rot.x + cascade, rot.y + gustSwing + chop, rot.z, 0.0);
 }
 
 fn animateSpiralWave(pos: vec3<f32>, t: f32, offset: f32, intensity: f32) -> vec3<f32> {
@@ -342,21 +347,21 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
 /**
  * GPU-accelerated batch foliage animator.
- * 
+ *
  * Uses WebGPU compute shaders to animate thousands of foliage instances in parallel.
  * Supports 13 different animation types with audio-reactive features.
- * 
+ *
  * @example
  * ```ts
  * const gpu = new GPUComputeLibrary();
  * await ensureGpuComputeReady(); // borrows shared device via awaitGpuDevice()
- * 
+ *
  * const animator = new GPUFoliageAnimator(gpu, 10000);
  * await animator.initialize();
- * 
+ *
  * animator.uploadInstances(instanceData);
  * animator.update(time, { kick: 0.5, groove: 0.3, beatPhase: 0.2, isDay: true });
- * 
+ *
  * const results = await animator.readbackResults();
  * // Apply results to InstancedMesh...
  * ```
@@ -365,55 +370,57 @@ export class GPUFoliageAnimator {
     private gpu: GPUComputeLibrary;
     private maxInstances: number;
     private instanceCount: number = 0;
-    
+
     // GPU Buffers
     private instanceBuffer: GPUBuffer | null = null;
     private outputBuffer: GPUBuffer | null = null;
     private uniformBuffer: GPUBuffer | null = null;
+    /** Reused uniform staging — see WIND_OPTIMIZATION.md (no per-frame allocs). */
+    private readonly _uniformScratch = new Float32Array(8);
     private indirectBuffer: GPUBuffer | null = null;
-    
+
     // GPU Resources
     private pipeline: GPUComputePipeline | null = null;
     private bindGroup: GPUBindGroup | null = null;
-    
+
     // CPU staging
     private instanceData: FoliageInstanceData | null = null;
     private outputStaging: Float32Array | null = null;
-    
+
     // Safety flag: True only when instanceCount > 0 (compute dispatch is meaningful)
     private isComputeActive: boolean = false;
-    
+
     // Constants
     private readonly INSTANCE_STRUCT_SIZE = 48; // bytes per instance
-    private readonly OUTPUT_VEC4_SIZE = 16;     // bytes per vec4<f32>
-    private readonly UNIFORM_BUFFER_SIZE = 32;  // bytes (padded)
+    private readonly OUTPUT_VEC4_SIZE = 16; // bytes per vec4<f32>
+    private readonly UNIFORM_BUFFER_SIZE = 32; // bytes (padded)
     private readonly WORKGROUP_SIZE = 128;
-    
+
     /**
      * Creates a new GPUFoliageAnimator.
-     * 
+     *
      * @param gpu - Initialized GPUComputeLibrary instance
      * @param maxInstances - Maximum number of foliage instances to support (default: 10000)
      */
     constructor(gpu: GPUComputeLibrary, maxInstances: number = 10000) {
         this.gpu = gpu;
         this.maxInstances = Math.min(maxInstances, 10000);
-        
+
         if (!this.gpu.isReady()) {
             console.warn(
                 '[GPUFoliageAnimator] Shared WebGPU device not ready — await ensureGpuComputeReady() / awaitGpuDevice()'
             );
         }
     }
-    
+
     /**
      * Initialize GPU resources (buffers, pipeline, bind group).
      * Must be called before using uploadInstances() or update().
-     * 
+     *
      * Safety: Allocates minimum-size buffers even if no instances are present (CORE mode).
      * This prevents WebGPU validation errors when descriptor sets bind empty buffers.
      * The isComputeActive flag prevents dispatch when instanceCount === 0.
-     * 
+     *
      * @throws Error if GPU device is not initialized
      */
     async initialize(): Promise<void> {
@@ -422,44 +429,44 @@ export class GPUFoliageAnimator {
                 '[GPUFoliageAnimator] Shared WebGPU device unavailable — ensureGpuComputeReady() / awaitGpuDevice() returned null'
             );
         }
-        
+
         const instanceBufferSize = this.maxInstances * this.INSTANCE_STRUCT_SIZE;
         const outputBufferSize = this.maxInstances * 2 * this.OUTPUT_VEC4_SIZE; // position + rotation
-        
+
         // Create buffers with initial dummy data
         // NOTE: createStorageBuffer() has built-in safety: minimum 4 bytes allocation
         const dummyInstanceData = new Float32Array(this.maxInstances * 12); // 12 floats per instance struct
-        const dummyOutputData = new Float32Array(this.maxInstances * 8);    // 2 vec4 per instance
+        const dummyOutputData = new Float32Array(this.maxInstances * 8); // 2 vec4 per instance
         const dummyUniformData = new Float32Array(8); // 8 floats (32 bytes)
-        
+
         this.instanceBuffer = this.gpu.createStorageBuffer(dummyInstanceData, 'foliage-instances');
         this.outputBuffer = this.gpu.createStorageBuffer(dummyOutputData, 'foliage-output');
         this.uniformBuffer = this.gpu.createUniformBuffer(dummyUniformData, 'foliage-uniforms');
-        
+
         // Create compute pipeline
         this.pipeline = await this.gpu.createComputePipeline({
             shader: FOLIAGE_ANIMATION_WGSL,
             workgroupSize: this.WORKGROUP_SIZE,
             bindingLayout: [
-                { 
-                    binding: 0, 
-                    visibility: GPUShaderStage.COMPUTE, 
-                    buffer: { type: 'read-only-storage' } 
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'read-only-storage' },
                 },
-                { 
-                    binding: 1, 
-                    visibility: GPUShaderStage.COMPUTE, 
-                    buffer: { type: 'storage' } 
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'storage' },
                 },
-                { 
-                    binding: 2, 
-                    visibility: GPUShaderStage.COMPUTE, 
-                    buffer: { type: 'uniform' } 
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'uniform' },
                 },
             ],
             label: 'foliage-animation',
         });
-        
+
         // Create bind group
         // Safety: Even if buffers are dummy (0 instances), binding layout is valid
         this.bindGroup = this.gpu.createBindGroup(
@@ -467,24 +474,26 @@ export class GPUFoliageAnimator {
             [this.instanceBuffer, this.outputBuffer, this.uniformBuffer],
             'foliage-bind-group'
         );
-        
+
         // Pre-allocate output staging array
         this.outputStaging = new Float32Array(this.maxInstances * 8);
-        
+
         // Initialize compute state: no instances yet, so dispatch is inactive
         this.isComputeActive = false;
-        
-        console.log(`[GPUFoliageAnimator] Initialized for ${this.maxInstances} max instances (compute: ${this.isComputeActive ? 'active' : 'inactive'})`);
+
+        console.log(
+            `[GPUFoliageAnimator] Initialized for ${this.maxInstances} max instances (compute: ${this.isComputeActive ? 'active' : 'inactive'})`
+        );
     }
-    
+
     /**
      * Upload instance data to GPU.
-     * 
+     *
      * Task 1 Verification: Verifies instanceCount before allocating/updating buffers.
-     * Task 2 Safety: Buffers created via gpu.createStorageBuffer() have built-in 
+     * Task 2 Safety: Buffers created via gpu.createStorageBuffer() have built-in
      *         minimum 4-byte allocation, preventing validation errors.
      * Task 3 Dispatch Control: Sets isComputeActive flag based on instance count.
-     * 
+     *
      * @param data - Foliage instance data to upload
      * @throws Error if instance count exceeds maxInstances
      */
@@ -493,73 +502,75 @@ export class GPUFoliageAnimator {
             console.warn('[GPUFoliageAnimator] Cannot upload instances - not initialized');
             return;
         }
-        
+
         // TASK 1: Verify instanceCount before processing
         const newInstanceCount = data.positions.length / 3;
-        
+
         if (newInstanceCount > this.maxInstances) {
             throw new Error(
                 `[GPUFoliageAnimator] Instance count (${newInstanceCount}) exceeds max (${this.maxInstances})`
             );
         }
-        
+
         this.instanceCount = newInstanceCount;
-        
+
         // TASK 3: Set compute active state (true only if instances exist)
         this.isComputeActive = this.instanceCount > 0;
-        
+
         if (!this.isComputeActive) {
-            console.debug('[GPUFoliageAnimator] No instances to upload. Compute dispatch will be skipped.');
+            console.debug(
+                '[GPUFoliageAnimator] No instances to upload. Compute dispatch will be skipped.'
+            );
             return;
         }
-        
+
         this.instanceData = data;
-        
+
         // Pack instance data into buffer (12 floats per instance)
         const packed = new Float32Array(this.instanceCount * 12);
-        
+
         for (let i = 0; i < this.instanceCount; i++) {
             const base = i * 12;
             const posBase = i * 3;
             const rotBase = i * 3;
             const scaleBase = i * 3;
-            
+
             // Position (3 floats) - offset 0
             packed[base + 0] = data.positions[posBase];
             packed[base + 1] = data.positions[posBase + 1];
             packed[base + 2] = data.positions[posBase + 2];
-            
+
             // animType as float - offset 12 (will be cast to u32 in shader)
             packed[base + 3] = data.animTypes[i];
-            
+
             // Rotation (3 floats) - offset 16
             packed[base + 4] = data.rotations[rotBase];
             packed[base + 5] = data.rotations[rotBase + 1];
             packed[base + 6] = data.rotations[rotBase + 2];
-            
+
             // animOffset - offset 28
             packed[base + 7] = data.animOffsets[i];
-            
+
             // Scale (3 floats) - offset 32
             packed[base + 8] = data.scales[scaleBase];
             packed[base + 9] = data.scales[scaleBase + 1];
             packed[base + 10] = data.scales[scaleBase + 2];
-            
+
             // intensity - offset 44
             packed[base + 11] = data.intensities[i];
         }
-        
+
         this.gpu.writeStorageBuffer(this.instanceBuffer, packed);
     }
-    
+
     /**
      * Update animations on GPU.
-     * 
-     * Task 3 Implementation: Uses isComputeActive flag to skip dispatch when 
+     *
+     * Task 3 Implementation: Uses isComputeActive flag to skip dispatch when
      * instanceCount === 0 (CORE mode). This avoids wasting GPU cycles on empty data.
      * Dummy buffers remain allocated and bound (preventing validation errors),
      * but dispatch is completely bypassed.
-     * 
+     *
      * @param time - Current time in seconds
      * @param audio - Audio state for reactive animations
      */
@@ -573,118 +584,121 @@ export class GPUFoliageAnimator {
         if (!this.isComputeActive) {
             return;
         }
-        
-        // Update uniforms
-        const uniforms = new Float32Array([
-            time,
-            audio.beatPhase,
-            audio.kick,
-            audio.groove,
-            audio.isDay ? 1 : 0,
-            this.instanceCount,
-            0, // _pad0
-            0, // _pad1
-        ]);
-        
-        this.gpu.writeUniformBuffer(this.uniformBuffer, uniforms);
-        
+
+        // Update uniforms — written into a preallocated scratch array so the
+        // per-frame wind push costs no allocation.
+        const wind = getWindState();
+        const u = this._uniformScratch;
+        u[0] = time;
+        u[1] = audio.beatPhase;
+        u[2] = audio.kick;
+        u[3] = audio.groove;
+        u[4] = audio.isDay ? 1 : 0;
+        u[5] = this.instanceCount;
+        u[6] = wind.gust;
+        u[7] = wind.turbulence;
+
+        this.gpu.writeUniformBuffer(this.uniformBuffer, u);
+
         // Dispatch compute shader
         const workgroups = Math.ceil(this.instanceCount / this.WORKGROUP_SIZE);
         this.gpu.dispatchCompute(this.pipeline, this.bindGroup, workgroups);
     }
-    
+
     /**
      * Read back animation results from GPU.
      * Note: This causes a GPU-to-CPU sync and should be used sparingly.
-     * 
+     *
      * @returns Promise resolving to updated positions and rotations
      */
     async readbackResults(): Promise<FoliageAnimationOutput> {
         if (!this.gpu.isReady() || !this.outputBuffer) {
             return { positions: new Float32Array(0), rotations: new Float32Array(0) };
         }
-        
+
         const outputSize = this.instanceCount * 2 * this.OUTPUT_VEC4_SIZE;
         const result = await this.gpu.readBuffer(this.outputBuffer, outputSize);
-        
+
         // Unpack results
         const positions = new Float32Array(this.instanceCount * 3);
         const rotations = new Float32Array(this.instanceCount * 3);
-        
+
         for (let i = 0; i < this.instanceCount; i++) {
             const base = i * 8; // 8 floats per instance (2 vec4s)
-            
+
             // Position from even index
             positions[i * 3] = result[base];
             positions[i * 3 + 1] = result[base + 1];
             positions[i * 3 + 2] = result[base + 2];
-            
+
             // Rotation from odd index
             rotations[i * 3] = result[base + 4];
             rotations[i * 3 + 1] = result[base + 5];
             rotations[i * 3 + 2] = result[base + 6];
         }
-        
+
         return { positions, rotations };
     }
-    
+
     /**
      * Get the output GPU buffer for use with indirect rendering.
      * The buffer contains vec4 positions and rotations interleaved.
-     * 
+     *
      * @returns GPUBuffer or null if not initialized
      */
     getOutputBuffer(): GPUBuffer | null {
         return this.outputBuffer;
     }
-    
+
     /**
      * Get the output buffer as a Float32Array for reading.
      * This is more efficient than readbackResults() for continuous access.
-     * 
+     *
      * @returns Float32Array view of output or null
      */
     getOutputArray(): Float32Array | null {
         return this.outputStaging;
     }
-    
+
     /**
      * Get the current instance count.
      */
     getInstanceCount(): number {
         return this.instanceCount;
     }
-    
+
     /**
      * Get the maximum supported instances.
      */
     getMaxInstances(): number {
         return this.maxInstances;
     }
-    
+
     /**
      * Check if compute dispatch is active.
      * Returns false in CORE mode (0 instances) to prevent wasted GPU cycles.
      * Dummy buffers remain allocated and bound to prevent validation errors.
-     * 
+     *
      * @returns true if instanceCount > 0, false otherwise (CORE mode)
      */
     getIsComputeActive(): boolean {
         return this.isComputeActive;
     }
-    
+
     /**
      * Check if the animator is ready to use.
      */
     isReady(): boolean {
-        return this.gpu.isReady() && 
-               this.pipeline !== null && 
-               this.bindGroup !== null &&
-               this.instanceBuffer !== null &&
-               this.outputBuffer !== null &&
-               this.uniformBuffer !== null;
+        return (
+            this.gpu.isReady() &&
+            this.pipeline !== null &&
+            this.bindGroup !== null &&
+            this.instanceBuffer !== null &&
+            this.outputBuffer !== null &&
+            this.uniformBuffer !== null
+        );
     }
-    
+
     /**
      * Destroy all GPU resources.
      * Call this when the animator is no longer needed.
@@ -706,13 +720,13 @@ export class GPUFoliageAnimator {
             this.indirectBuffer.destroy();
             this.indirectBuffer = null;
         }
-        
+
         this.pipeline = null;
         this.bindGroup = null;
         this.instanceData = null;
         this.outputStaging = null;
         this.instanceCount = 0;
-        
+
         console.log('[GPUFoliageAnimator] Destroyed');
     }
 }
@@ -732,7 +746,7 @@ const _scratchMatrix = new THREE.Matrix4();
 
 /**
  * Update a Three.js InstancedMesh with animation results.
- * 
+ *
  * @param mesh - The InstancedMesh to update
  * @param animator - The GPUFoliageAnimator with results
  * @param preserveScale - Whether to preserve original scales (default: true)
@@ -744,38 +758,26 @@ export async function updateInstancedMeshFromAnimator(
 ): Promise<void> {
     const { positions, rotations } = await animator.readbackResults();
     const instanceCount = animator.getInstanceCount();
-    
-    for (let i = 0; i < instanceCount; i++) {
-        _scratchPosition.set(
-            positions[i * 3],
-            positions[i * 3 + 1],
-            positions[i * 3 + 2]
-        );
 
-        _scratchEuler.set(
-            rotations[i * 3],
-            rotations[i * 3 + 1],
-            rotations[i * 3 + 2]
-        );
+    for (let i = 0; i < instanceCount; i++) {
+        _scratchPosition.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+
+        _scratchEuler.set(rotations[i * 3], rotations[i * 3 + 1], rotations[i * 3 + 2]);
         _scratchQuaternion.setFromEuler(_scratchEuler);
-        
+
         if (preserveScale && animator['instanceData']) {
             const data = animator['instanceData'] as FoliageInstanceData;
-            _scratchScale.set(
-                data.scales[i * 3],
-                data.scales[i * 3 + 1],
-                data.scales[i * 3 + 2]
-            );
+            _scratchScale.set(data.scales[i * 3], data.scales[i * 3 + 1], data.scales[i * 3 + 2]);
         } else {
             _scratchScale.set(1, 1, 1);
         }
-        
+
         // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and dummy.updateMatrix() overhead.
         // Composing manually and writing directly to the Float32Array eliminates allocations in this hot path.
         _scratchMatrix.compose(_scratchPosition, _scratchQuaternion, _scratchScale);
         _scratchMatrix.toArray(mesh.instanceMatrix.array, i * 16);
     }
-    
+
     mesh.instanceMatrix.needsUpdate = true;
 }
 
@@ -785,7 +787,7 @@ export async function updateInstancedMeshFromAnimator(
 
 /**
  * Create a GPUFoliageAnimator with automatic initialization.
- * 
+ *
  * @param gpu - GPUComputeLibrary instance
  * @param maxInstances - Maximum number of instances
  * @returns Promise resolving to initialized animator
@@ -802,7 +804,7 @@ export async function createGPUFoliageAnimator(
 /**
  * Create foliage instance data from arrays of positions.
  * Useful for converting existing CPU-side data to GPU format.
- * 
+ *
  * @param positions - Array of [x, y, z] positions
  * @param animType - Default animation type for all instances
  * @param intensity - Default intensity for all instances
@@ -814,11 +816,9 @@ export function createFoliageInstanceData(
     intensity: number = 1.0
 ): FoliageInstanceData {
     const count = positions.length / 3;
-    
-    const posArray = positions instanceof Float32Array 
-        ? positions 
-        : new Float32Array(positions);
-    
+
+    const posArray = positions instanceof Float32Array ? positions : new Float32Array(positions);
+
     return {
         positions: posArray,
         rotations: new Float32Array(count * 3), // All zero rotation
@@ -835,12 +835,12 @@ export function createFoliageInstanceData(
 
 /**
  * Fallback priority for foliage animation:
- * 
+ *
  * 1. GPUFoliageAnimator (WebGPU compute) - Best for 1000+ instances
  * 2. FoliageBatcher (TSL-based) - Three.js shader nodes
  * 3. wasmUpdateFoliageBatch (AssemblyScript) - SIMD-optimized WASM
  * 4. animateFoliage (CPU JS) - Baseline JavaScript implementation
- * 
+ *
  * Use detectFoliageAnimator() to automatically select the best available option.
  */
 
@@ -856,7 +856,11 @@ export interface FoliageAnimatorCapabilities {
 export function detectFoliageCapabilities(): FoliageAnimatorCapabilities {
     return {
         webgpu: typeof navigator !== 'undefined' && 'gpu' in navigator,
-        webgl2: typeof document !== 'undefined' && !!document.createElement('canvas').getContext('webgl2'),
-        wasm: typeof WebAssembly === 'object' && WebAssembly.validate(new Uint8Array([0x00, 0x61, 0x73, 0x6d])),
+        webgl2:
+            typeof document !== 'undefined' &&
+            !!document.createElement('canvas').getContext('webgl2'),
+        wasm:
+            typeof WebAssembly === 'object' &&
+            WebAssembly.validate(new Uint8Array([0x00, 0x61, 0x73, 0x6d])),
     };
 }

@@ -13,6 +13,11 @@ import { uAoStrength, uBloomRadius, uBloomThreshold } from '../foliage/post-proc
 import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import {
+    collectSystemsBudget,
+    getBudgetCapViolations,
+} from '../systems/performance-budget/systems-budget.ts';
+import { registerAllSystemTelemetry } from '../systems/performance-budget/systems-telemetry.ts';
+import {
     DEBUG_CONFIG,
     DEBUG_STAGES,
     StageLoader,
@@ -31,6 +36,7 @@ export class DebugPanel {
     private updateInterval: number | null = null;
     private batcherStatsEl: HTMLElement | null = null;
     private fogStatsEl: HTMLElement | null = null;
+    private systemsBudgetEl: HTMLElement | null = null;
     private lodStatsEl: HTMLElement | null = null;
     private lodHighlightEnabled = false;
 
@@ -173,6 +179,23 @@ export class DebugPanel {
         batcherStats.textContent = 'Batcher Stats: waiting for world init...';
         this.batcherStatsEl = batcherStats;
         panel.appendChild(batcherStats);
+
+        // Systems budget (shadows / lights / GI / post-FX / particles / bodies / fauna)
+        const systemsBudget = document.createElement('div');
+        systemsBudget.style.cssText = `
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(50, 35, 0, 0.35);
+      border: 1px solid rgba(255, 196, 84, 0.35);
+      border-radius: 4px;
+      font-size: 10px;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      color: #ffd9a0;
+    `;
+        systemsBudget.textContent = 'Systems Budget: waiting for systems...';
+        this.systemsBudgetEl = systemsBudget;
+        panel.appendChild(systemsBudget);
 
         const fogStats = document.createElement('div');
         fogStats.style.cssText = `
@@ -616,6 +639,7 @@ export class DebugPanel {
         });
 
         this.updateBatcherStats();
+        this.updateSystemsBudget();
         this.updateFogStats();
         this.updateLodStats();
         this.paintShadowSoftness();
@@ -633,6 +657,63 @@ export class DebugPanel {
             `Hero ${s.hero}  Mid ${s.mid}  Far ${s.far}  Culled ${s.culled}\n` +
             `Impostors ${s.impostors}  Blend band ${s.blendBand}\n` +
             `Total tracked ${s.total}`;
+    }
+
+    /**
+     * Live counts for every budgeted system, each against its cap. Systems that
+     * are off (low tier / CI / feature flag) still get a line saying so — a
+     * missing row means the module never loaded, which is itself information.
+     */
+    private updateSystemsBudget(): void {
+        if (!this.systemsBudgetEl) return;
+
+        const lines: string[] = ['Systems Budget (caps enforced)'];
+        for (const row of collectSystemsBudget()) {
+            const t = row.telemetry;
+            if (!t) {
+                lines.push(`${row.budget.label}: not registered`);
+                continue;
+            }
+            if (!t.enabled) {
+                lines.push(`${row.budget.label}: off — ${t.reason ?? 'disabled'}`);
+                continue;
+            }
+
+            const counts = Object.entries(t.counts ?? {})
+                .map(([cap, value]) => {
+                    const limit = row.budget.caps[cap];
+                    const marker = row.overCaps.includes(cap) ? '!' : '';
+                    return limit === undefined
+                        ? `${cap} ${value}`
+                        : `${cap} ${value}/${limit}${marker}`;
+                })
+                .join('  ');
+
+            const cost: string[] = [];
+            if (typeof t.frameMs === 'number') {
+                cost.push(
+                    `${t.frameMs.toFixed(2)}/${row.budget.frameMs.toFixed(1)}ms${row.overFrameMs ? '!' : ''}`
+                );
+            }
+            if (typeof t.vramMb === 'number' && row.budget.vramMb > 0) {
+                cost.push(`${t.vramMb.toFixed(1)}/${row.budget.vramMb}MB`);
+            }
+            lines.push(
+                `${row.budget.label}: ${counts}${cost.length ? `  ${cost.join('  ')}` : ''}`
+            );
+        }
+
+        const violations = getBudgetCapViolations();
+        if (violations.length > 0) {
+            lines.push('Rejected by cap:');
+            for (const v of violations) {
+                lines.push(
+                    `  ${v.system}.${v.cap} limit ${v.limit} peak ${v.peakRequested} ×${v.hits}`
+                );
+            }
+        }
+
+        this.systemsBudgetEl.textContent = lines.join('\n');
     }
 
     private updateFogStats(): void {
@@ -725,6 +806,7 @@ export function getDebugPanel(): DebugPanel {
  */
 export function initDebugPanel(): void {
     if (DEBUG_CONFIG.enabled) {
+        registerAllSystemTelemetry();
         const panel = getDebugPanel();
         panel.createPanel();
         window.__getFogTelemetry = getFogTelemetry;

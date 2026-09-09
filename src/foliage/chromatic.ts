@@ -1,15 +1,23 @@
+
 import * as THREE from 'three';
 import {
     Fn,
     vec4,
     viewportSharedTexture,
-    screenUV
+    screenUV,
+    vec2
 } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
-import { vec2 } from 'three/tsl';
-import { candyPulseWarpUv, gradeCandyGlowPulse } from './chromatic-nodes.ts';
+import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
+import { uChromaticIntensity, candyPulseWarpUv, gradeCandyGlowPulse } from './chromatic-nodes.ts';
+
+export { uChromaticIntensity, candyPulseWarpUv, gradeCandyGlowPulse };
+
+// Global uniform for Candy Impact / Glow Pulse intensity.
+// Driven by dashes, impacts, strong beats, etc.
 
 type UvNode = ReturnType<typeof vec2>;
+
 
 /**
  * Creates a full-screen "Candy Glow Pulse" overlay.
@@ -26,11 +34,12 @@ export function createChromaticPulse(): THREE.Mesh {
 
     const chromaticEffect = Fn(() => {
         const baseUV = screenUV;
-        const warpedUV = candyPulseWarpUv(baseUV as any);
+        const warpedUV = candyPulseWarpUv(baseUV as UvNode);
         const centered = warpedUV.sub(0.5);
         const dist = centered.length();
-        const sample = (coords: UvNode) => viewportSharedTexture(coords as any).rgb;
-        const withMusic = gradeCandyGlowPulse(sample, warpedUV as UvNode, dist);
+        const sample = (coords: UvNode) => viewportSharedTexture(coords).rgb;
+        const globalUniforms = getBiomeUniforms('global');
+        const withMusic = gradeCandyGlowPulse(sample, warpedUV, dist, globalUniforms.noteColor, globalUniforms.shimmer);
         return vec4(withMusic, 1.0);
     });
 

@@ -19,6 +19,7 @@ import { resolveShadowSettings } from '../core/config/postfx.ts';
 import { isCIorHeadless } from '../core/config/runtime.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
+import { recordCapRejection } from '../systems/performance-budget/systems-budget.ts';
 import { applyLocalShadowSoftness } from './shadow-softness.ts';
 
 export type LocalLightKind = 'point' | 'spot';
@@ -296,7 +297,18 @@ function applyLocalShadow(
     softnessOverride?: number
 ): boolean {
     const local = cfg();
-    const want = enable && remainingLocalShadowSlots() > 0;
+    const hasSlot = remainingLocalShadowSlots() > 0;
+    // The slot pool is the enforcement; report a denial so a starved extra
+    // shadow map shows up next to the other system caps instead of vanishing.
+    if (enable && !hasSlot) {
+        recordCapRejection(
+            'shadows',
+            'localShadowLights',
+            _shadowsUsed + 1,
+            localShadowsAllowed() ? local.maxLocalShadowLights : 0
+        );
+    }
+    const want = enable && hasSlot;
     light.castShadow = want;
     if (!want) return false;
     light.shadow.mapSize.set(local.localShadowMapSize, local.localShadowMapSize);

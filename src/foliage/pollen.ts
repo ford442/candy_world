@@ -31,6 +31,7 @@ import {
     uAudioHigh,
     uWindSpeed,
     uWindDirection,
+    uWindStrength,
     uPlayerPosition,
 } from './index.ts';
 
@@ -77,8 +78,14 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
         // --- Forces ---
 
         // 1. Wind Drift
+        // Not a calculateWindSway() consumer by design: this advects free
+        // particles in a compute pass, where wind is a force on a position,
+        // not a vertex bend anchored to a stem. It already shares the wind
+        // state, which is the part that has to agree.
         // Apply wind force scaled by wind speed
-        const windForce = uWindDirection.mul(uWindSpeed).mul(0.05);
+        // Shared wind: uWindStrength is speed x gust, the same value the
+        // foliage sway scales by — pollen now gusts when the trees do.
+        const windForce = uWindDirection.mul(uWindStrength).mul(0.05);
 
         // 2. Curl Noise (Wander)
         const noiseScale = float(0.2);
@@ -137,7 +144,9 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
         p.y.assign(max(p.y, float(1.8)));
     });
 
-    const computeNode = (computePollen() as unknown as { compute: (n: number) => unknown }).compute(count);
+    const computeNode = (computePollen() as unknown as { compute: (n: number) => unknown }).compute(
+        count
+    );
 
     // 3. Visualization Material
     const material = new PointsNodeMaterial({

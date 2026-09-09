@@ -16,6 +16,11 @@ export {
     // Global uniforms
     uWindSpeed,
     uWindDirection,
+    uWindGust,
+    uWindTurbulence,
+    uWindStrength,
+    windVectorNode,
+    WindUniforms,
     uTime,
     uGlitchIntensity,
     uGlitchExplosionCenter,
@@ -42,7 +47,6 @@ export {
     applyStandardDeformation,
     // Wind and bloom
     calculateWindSway,
-    calculateWindSwayLegacy,
     calculateFlowerBloom,
     getWindTextureData,
     windComputeSystem,
@@ -54,6 +58,10 @@ export {
     isDreamEnvEnabled,
     setDreamEnvEnabled,
     disposeDreamEnv,
+    // Tier gates for the optional surface knobs (see material-core/quality-gate.ts)
+    getGraphicsTier,
+    isClearcoatEnabled,
+    setClearcoatEnabled,
 
     // Presets
     CandyPresets,

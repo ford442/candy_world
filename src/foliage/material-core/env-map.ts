@@ -26,6 +26,7 @@
 import * as THREE from 'three';
 import { getUrlFlag } from '../../core/config/url-flags.ts';
 import { isCIorHeadless } from '../../core/config/runtime.ts';
+import { getGraphicsTier } from './quality-gate.ts';
 
 /** 🎨 PALETTE: dream-sky gradient. Hue rides from candy blue toward violet. */
 const SKY_HUE_BASE = 0.6;
@@ -104,9 +105,10 @@ export function getDreamEnvTexture(): THREE.DataTexture {
  *
  * Mirrors the GI gate in `resolveGiSettings()`: off on CI / headless and on the
  * `low` graphics tier, forceable either way with `?env=on` / `?env=off`. The
- * tier is read from the value `applyStartupCapabilities()` publishes rather
- * than by importing `capabilities.ts`, which would drag the GPU-context module
- * into every foliage bundle.
+ * tier comes from `getGraphicsTier()` in `quality-gate.ts`, which reads the
+ * value `applyStartupCapabilities()` publishes rather than importing
+ * `capabilities.ts` — that would drag the GPU-context module into every
+ * foliage bundle.
  */
 export function isDreamEnvEnabled(): boolean {
     if (_enabledOverride !== null) return _enabledOverride;
@@ -118,13 +120,7 @@ export function isDreamEnvEnabled(): boolean {
 
     if (isCIorHeadless()) return (_resolved = false);
 
-    let graphics: string | undefined;
-    try {
-        graphics = (globalThis as any).window?.__startupCapabilities?.graphics;
-    } catch {
-        graphics = undefined;
-    }
-    if (graphics === 'low') return (_resolved = false);
+    if (getGraphicsTier() === 'low') return (_resolved = false);
 
     return (_resolved = true);
 }

@@ -13,11 +13,13 @@ import {
 import { createCrescendoFogNode, uFogNear, uFogFar } from '../foliage/sky.ts';
 import {
     armGpuContext,
-    captureAdapterRequests,
+    probeWebGPU,
+    WebGPUUnavailableError,
     GPU_ALPHA,
     GPU_ANTIALIAS,
     GPU_POWER_PREFERENCE,
     GPU_REQUIRED_LIMITS,
+    type GpuProbeResult,
 } from '../rendering/gpu-context.ts';
 import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-probes.ts';
 import { initLocalLights } from '../rendering/lights.ts';
@@ -40,8 +42,12 @@ import {
 } from './config.ts';
 
 /**
- * Candy World always uses WebGPURenderer. WebGL2 fallback is the internal
- * GLSL node backend (`forceWebGL` / getFallback), not legacy THREE.WebGLRenderer.
+ * Candy World always uses WebGPURenderer, on a real WebGPU backend.
+ *
+ * Three's internal GLSL node backend (`forceWebGL` / `getFallback`) is disabled
+ * this phase: `createRenderer()` hard-fails instead of falling back, and
+ * `createNodeRenderer()` clears `_getFallback` so it cannot be swapped in
+ * silently. See docs/WEBGPU_CONTEXT.md.
  */
 export type CandyRenderer = WebGPURenderer;
 
@@ -134,78 +140,88 @@ export function isWebGLNodeBackend(renderer: CandyRenderer): boolean {
     return backend?.isWebGLBackend === true;
 }
 
-function createNodeRenderer(canvas: HTMLCanvasElement, forceWebGL = false): WebGPURenderer {
-    if (!forceWebGL) {
-        captureAdapterRequests();
-    }
-    return new WebGPURenderer({
+/**
+ * Build the renderer on the device the probe already brought up.
+ *
+ * Two things matter here beyond the usual parameters:
+ *
+ * 1. `device` / `context` are passed in, so `WebGPUBackend.init()` takes its
+ *    "already provided" branch and never issues a second `requestAdapter` /
+ *    `requestDevice`. That keeps `gpu-context.ts` the single owner.
+ * 2. `_getFallback` is cleared. `WebGPURenderer`'s constructor unconditionally
+ *    installs a fallback that swaps in `WebGLBackend` on any init failure, and
+ *    `Renderer.init()` takes it silently — the world would then render on
+ *    WebGL with nothing but a console warning. Nulling it makes an init failure
+ *    surface as a rejection we can hard-fail on.
+ */
+function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): WebGPURenderer {
+    const renderer = new WebGPURenderer({
         canvas,
         antialias: GPU_ANTIALIAS,
         alpha: GPU_ALPHA,
         powerPreference: GPU_POWER_PREFERENCE,
         requiredLimits: GPU_REQUIRED_LIMITS,
-        forceWebGL,
-    });
+        device: probe.device,
+        context: probe.context,
+    } as ConstructorParameters<typeof WebGPURenderer>[0]);
+
+    (renderer as WebGPURenderer & { _getFallback: unknown })._getFallback = null;
+
+    return renderer;
 }
 
 export interface CreateRendererResult {
     renderer: CandyRenderer;
-    mode: 'webgpu' | 'webgl';
+    mode: 'webgpu';
     requested: RendererBackend;
-    fallbackReason: string | null;
+    fallbackReason: null;
+    probe: GpuProbeResult;
 }
 
 /**
- * Create a renderer from an explicit preference.
+ * Create the renderer, or fail boot.
  *
- * Priority:
- *   - `webgl`  → WebGPURenderer with `forceWebGL` (GLSL node backend)
- *   - `webgpu` → WebGPURenderer when available; falls back to GLSL backend on failure
+ * WebGPU is required to enter the world in this phase. `probeWebGPU()` walks
+ * adapter → device → canvas configure → empty compute pipeline before anything
+ * is constructed; if any step fails it throws {@link WebGPUUnavailableError}
+ * and we do **not** start a WebGL renderer. `?renderer=webgl` and `?webglLite`
+ * cannot rescue boot either — see `resolveRendererBackend()`.
  *
  * @param canvas The canvas element to render to
- * @param preference Resolved renderer preference from URL/localStorage
+ * @param preference Resolved renderer preference (always `webgpu` this phase)
+ * @throws {WebGPUUnavailableError} When WebGPU is unusable on this browser.
  */
 export async function createRenderer(
     canvas: HTMLCanvasElement,
     preference: RendererBackend = resolveRendererBackend()
 ): Promise<CreateRendererResult> {
-    if (preference === 'webgl') {
-        console.log('[Init] WebGL requested — creating WebGPURenderer (GLSL node backend)');
-        return {
-            renderer: createNodeRenderer(canvas, true),
-            mode: 'webgl',
-            requested: 'webgl',
-            fallbackReason: 'explicit-webgl',
-        };
+    if (!canvas) {
+        throw new WebGPUUnavailableError('canvas', 'No #glCanvas element to render into');
     }
 
-    if (WebGPU.isAvailable()) {
-        try {
-            console.log('[Init] WebGPU available, creating WebGPURenderer');
-            const renderer = createNodeRenderer(canvas, false);
-            return { renderer, mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
-        } catch (err) {
-            // Issue #2: WebGPU may be declared available but fail at runtime
-            // (e.g. requestAdapter returns null on Safari 17.4 / Chrome with
-            // disabled GPU).
-            console.warn(
-                '[Init] WebGPURenderer creation failed — WebGPU hard-fail boot probe triggered:',
-                err
-            );
-            throw new Error(`WebGPU is required but initialization failed: ${err}`);
+    // `WebGPU.isAvailable()` only checks that `navigator.gpu` exists, which is
+    // exactly the case that used to boot to WebGL: the object is there, the
+    // adapter request dies later. The probe is the real gate; this only gives
+    // the user the browser-specific advisory Three writes.
+    if (!WebGPU.isAvailable() && !document.getElementById('webgpu-warning')) {
+        const warning = WebGPU.getErrorMessage();
+        if (warning) {
+            warning.id = 'webgpu-warning';
+            warning.style.zIndex = '1'; // Behind the loading screen / fatal error
+            document.body.appendChild(warning);
         }
     }
 
-    console.warn('[Init] WebGPU unavailable — WebGPU hard-fail boot probe triggered.');
-    const warning = WebGPU.getErrorMessage();
-    if (warning && !document.getElementById('webgpu-warning')) {
-        // Only append if not already present (avoid duplicates)
-        warning.id = 'webgpu-warning';
-        warning.style.zIndex = '1'; // Behind loading screen
-        document.body.appendChild(warning);
-    }
+    const probe = await probeWebGPU(canvas);
 
-    throw new Error('WebGPU is required but unavailable on this browser/device.');
+    console.log('[Init] WebGPU probe passed — creating WebGPURenderer on the probed device');
+    return {
+        renderer: createNodeRenderer(canvas, probe),
+        mode: 'webgpu',
+        requested: preference,
+        fallbackReason: null,
+        probe,
+    };
 }
 
 /**
@@ -226,15 +242,12 @@ export async function initScene(): Promise<SceneInitResult> {
     const scene = new THREE.Scene();
 
     const requested = resolveRendererBackend();
-    const { renderer, mode, fallbackReason } = await createRenderer(canvas, requested);
+    const { renderer, mode, fallbackReason, probe } = await createRenderer(canvas, requested);
 
-    if (mode === 'webgl') {
-        (window as any).__computeDisabled = true;
-    }
-
-    // Adopt the renderer's device as the process-wide GPU context. Must complete
+    // Adopt the probed device as the process-wide GPU context. Must complete
     // before setSize so MSAA colorBuffer / swapchain resolve match the canvas.
-    await armGpuContext(renderer, mode, fallbackReason);
+    // Throws if Three landed on its WebGL backend despite the passing probe.
+    await armGpuContext(renderer, probe);
 
     const initialFog = getInitialFogDistances();
 

@@ -101,6 +101,17 @@ export {
 } from './gpu-compute-shaders.ts';
 
 // ============================================================================
+// Shared GPU chores (Tier 4a: prefix sum / compact / reduce_f32)
+// ============================================================================
+export { GPUChoresLibrary, choreBlockCount, prefixSumBlockSumsBytes } from './chores/gpu-chores.ts';
+export type {
+    PrefixSumJob,
+    CompactJob,
+    CompactJobBuffers,
+    ReduceF32Job,
+} from './chores/gpu-chores.ts';
+
+// ============================================================================
 // GPU Culling System (high-performance frustum and occlusion culling)
 // ============================================================================
 export {

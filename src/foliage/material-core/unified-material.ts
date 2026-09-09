@@ -37,6 +37,7 @@ import {
     uGlitchExplosionRadius,
 } from './shared-resources.ts';
 import { applyDreamEnv } from './env-map.ts';
+import { isClearcoatEnabled } from './quality-gate.ts';
 import { triplanarNoise, perturbNormal, createRimLight } from './tsl-nodes.ts';
 import { $sn } from './tsl-types.ts';
 
@@ -69,7 +70,10 @@ export interface UnifiedMaterialOptions {
     subsurfaceThicknessFalloff?: number;
     /** 0 = pure `subsurfaceColor`, 1 = fully multiplied by albedo. Keeps bright hues pastel. */
     subsurfaceAlbedoTint?: number;
-    /** Real `MeshPhysicalNodeMaterial` clearcoat lobe. Opt-in — 0 compiles nothing. */
+    /**
+     * Real `MeshPhysicalNodeMaterial` clearcoat lobe. Opt-in — 0 compiles
+     * nothing — and dropped outright on the `low` tier.
+     */
     clearcoat?: number;
     clearcoatRoughness?: number;
     /** Stylized coat tint. See the note in the cookbook: glTF clearcoat has no colour. */
@@ -286,7 +290,11 @@ export function createUnifiedMaterial(
         material.colorNode = $sn(material.colorNode).add(sssEffect);
     }
 
-    if (clearcoat > 0.0) {
+    // Gated as well as opt-in: the coat is a whole second specular lobe, so it
+    // is stripped entirely on the `low` tier (see `quality-gate.ts`). Low still
+    // reads as candy — sheen and rim carry it — just without the detached
+    // highlight. `?coat=on` forces it back for A/B.
+    if (clearcoat > 0.0 && isClearcoatEnabled()) {
         // The real second specular lobe (`PhysicalLightingModel`'s clearcoat
         // branch), not a fresnel fake. Opt-in because `useClearcoat` compiles
         // the extra lobe for any material whose `clearcoatNode` is non-null.

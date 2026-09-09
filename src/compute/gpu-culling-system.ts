@@ -19,7 +19,17 @@
  * ```
  */
 
-import { GPUChoresLibrary } from './chores/gpu-chores.js';
+import {
+    GPUChoresLibrary,
+    prefixSumBlockSumsBytes,
+    type CompactJob,
+    type PrefixSumJob,
+} from './chores/gpu-chores.ts';
+import {
+    preferGpuCompute,
+    setLastFrameGpuChores,
+    trackGpuBufferBytes,
+} from './compute-orchestrator.ts';
 import { GPUComputeLibrary } from './gpu-compute-library.js';
 import { FRUSTUM_CULL_WGSL, LOD_SELECT_WGSL } from './gpu-compute-shaders.js';
 
@@ -83,24 +93,24 @@ export interface CullingResult {
 
 /**
  * High-performance GPU-accelerated culling system.
- * 
+ *
  * Uses compute shaders for parallel frustum testing and LOD selection.
  * Falls back to CPU implementation when WebGPU is unavailable.
- * 
+ *
  * @example
  * ```ts
  * const gpu = new GPUComputeLibrary();
  * await gpu.initDevice();
- * 
+ *
  * const culling = new GPUCullingSystem(gpu, {
  *     maxObjects: 10000,
  *     lodDistances: [50, 100, 200]
  * });
  * await culling.initialize();
- * 
+ *
  * culling.uploadBoundingSpheres(objectSpheres);
  * const result = culling.cull(cameraFrustum, camera.position);
- * 
+ *
  * // Use results for rendering
  * for (let i = 0; i < result.visibleCount; i++) {
  *     const objectIndex = result.visibleIndices[i];
@@ -135,21 +145,33 @@ export class GPUCullingSystem {
     private frustumBindGroup: GPUBindGroup | null = null;
     private lodBindGroup: GPUBindGroup | null = null;
 
-    // Chores (Prefix Sum + Compact)
+    // Shared Tier 4a chores (prefix sum + compact) — see src/compute/chores/
     private choresLib: GPUChoresLibrary | null = null;
     private offsetBuffer: GPUBuffer | null = null;
     private blockSumsBuffer: GPUBuffer | null = null;
     private countBuffer: GPUBuffer | null = null;
     private compactIndicesBuffer: GPUBuffer | null = null;
     private compactLodsBuffer: GPUBuffer | null = null;
-    private scanBg: GPUBindGroup | null = null;
-    private addBg: GPUBindGroup | null = null;
-    private compactBg: GPUBindGroup | null = null;
+    private prefixSumJob: PrefixSumJob | null = null;
+    private compactJob: CompactJob | null = null;
+    /** Size of the currently-allocated indirect buffer, for the VRAM audit. */
+    private indirectBufferBytes = 0;
 
     // Persistent frustum uniform buffer (reused each frame)
     private frustumUniformBuffer: GPUBuffer | null = null;
 
-    // CPU staging
+    // CPU staging. The frustum/camera uniform blocks mix f32 and u32 fields, so
+    // they are staged through one ArrayBuffer with both views — writing a count
+    // through a Float32Array would hand the shader the float's bit pattern.
+    private readonly frustumUniformStage = new ArrayBuffer(
+        GPUCullingSystem.FRUSTUM_UNIFORM_BUFFER_SIZE
+    );
+    private readonly frustumUniformF32 = new Float32Array(this.frustumUniformStage);
+    private readonly frustumUniformU32 = new Uint32Array(this.frustumUniformStage);
+    private readonly cameraUniformStage = new ArrayBuffer(32);
+    private readonly cameraUniformF32 = new Float32Array(this.cameraUniformStage);
+    private readonly cameraUniformU32 = new Uint32Array(this.cameraUniformStage);
+
     private spheres: Float32Array;
     private sphereCount: number = 0;
     private isInitialized: boolean = false;
@@ -231,7 +253,11 @@ export class GPUCullingSystem {
             shader: FRUSTUM_CULL_WGSL,
             workgroupSize: 64,
             bindingLayout: [
-                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'read-only-storage' },
+                },
                 { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
                 { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
             ],
@@ -243,7 +269,11 @@ export class GPUCullingSystem {
             shader: LOD_SELECT_WGSL,
             workgroupSize: 256,
             bindingLayout: [
-                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'read-only-storage' },
+                },
                 { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
                 { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
             ],
@@ -272,7 +302,12 @@ export class GPUCullingSystem {
         });
 
         // Re-create frustum bind group using the persistent uniform buffer
-        if (this.frustumPipeline && this.sphereBuffer && this.visibleBuffer && this.frustumUniformBuffer) {
+        if (
+            this.frustumPipeline &&
+            this.sphereBuffer &&
+            this.visibleBuffer &&
+            this.frustumUniformBuffer
+        ) {
             this.frustumBindGroup = device.createBindGroup({
                 layout: this.frustumPipeline.getBindGroupLayout(0),
                 entries: [
@@ -284,12 +319,26 @@ export class GPUCullingSystem {
             });
         }
 
-        this.choresLib = new GPUChoresLibrary(device);
-        await this.choresLib.initialize();
+        // Shared chores are best-effort: a shader-compile or device mismatch
+        // (Chrome vs Edge) must degrade to the CPU list build, not take culling
+        // down and never justify a second device.
+        try {
+            const chores = new GPUChoresLibrary(device);
+            await chores.initialize();
+            this.choresLib = chores;
+        } catch (error) {
+            this.choresLib = null;
+            setLastFrameGpuChores(false);
+            console.warn(
+                '[GPUCullingSystem] Shared GPU chores unavailable — falling back to the CPU ' +
+                    'visible-list build. Reason:',
+                error
+            );
+        }
 
-        const blocksCount = Math.ceil(this.config.maxObjects / 256);
+        const blockSumsBytes = prefixSumBlockSumsBytes(this.config.maxObjects);
         this.blockSumsBuffer = device.createBuffer({
-            size: blocksCount * 4,
+            size: blockSumsBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
             label: 'culling-block-sums',
         });
@@ -325,28 +374,35 @@ export class GPUCullingSystem {
                 usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
                 label: 'culling-indirect-dummy',
             });
+            this.indirectBufferBytes = GPUCullingSystem.INDIRECT_BUFFER_SIZE;
+            this.trackBytes(GPUCullingSystem.INDIRECT_BUFFER_SIZE);
         }
 
-        this.scanBg = this.choresLib.createPrefixSumBindGroup(
-            this.visibleBuffer!, this.offsetBuffer, this.blockSumsBuffer);
-        this.addBg = this.choresLib.createPrefixSumAddBindGroup(
-            this.offsetBuffer, this.blockSumsBuffer);
-        this.compactBg = this.choresLib.createCompactBindGroup(
-            this.visibleBuffer!,
-            this.lodBuffer!,
-            this.offsetBuffer,
-            this.compactIndicesBuffer,
-            this.compactLodsBuffer,
-            this.countBuffer,
-            this.indirectBuffer
-        );
+        if (this.choresLib) {
+            this.prefixSumJob = this.choresLib.createPrefixSumJob(
+                this.visibleBuffer!,
+                this.offsetBuffer,
+                this.blockSumsBuffer
+            );
+            this.compactJob = this.choresLib.createCompactJob({
+                inputFlags: this.visibleBuffer!,
+                inputLods: this.lodBuffer!,
+                offsets: this.offsetBuffer,
+                outIndices: this.compactIndicesBuffer,
+                outLods: this.compactLodsBuffer,
+                outCount: this.countBuffer,
+                indirectArgs: this.indirectBuffer,
+            });
+        }
 
+        // Chore params buffers are tracked by the chores library itself; this
+        // accounts for the buffers this system owns.
         this.trackBytes(
-            blocksCount * 4 +
-            4 +
-            Math.max(16, this.config.maxObjects * 4) * 2 +
-            this.config.maxObjects * 4 +
-            GPUCullingSystem.FRUSTUM_UNIFORM_BUFFER_SIZE
+            blockSumsBytes +
+                4 +
+                Math.max(16, this.config.maxObjects * 4) * 2 +
+                this.config.maxObjects * 4 +
+                GPUCullingSystem.FRUSTUM_UNIFORM_BUFFER_SIZE
         );
 
         this.isInitialized = true;
@@ -356,7 +412,7 @@ export class GPUCullingSystem {
     /**
      * Uploads bounding spheres to GPU.
      * Call this when objects move or are added/removed.
-     * 
+     *
      * @param spheres - Array of bounding spheres
      */
     uploadBoundingSpheres(spheres: BoundingSphere[]): void {
@@ -373,19 +429,21 @@ export class GPUCullingSystem {
 
         if (this.gpu.isReady() && this.sphereBuffer) {
             const sub = this.spheres.subarray(0, count * 4);
-            this.gpu.getDevice()?.queue.writeBuffer(
-                this.sphereBuffer,
-                0,
-                sub.buffer,
-                sub.byteOffset,
-                sub.byteLength
-            );
+            this.gpu
+                .getDevice()
+                ?.queue.writeBuffer(
+                    this.sphereBuffer,
+                    0,
+                    sub.buffer,
+                    sub.byteOffset,
+                    sub.byteLength
+                );
         }
     }
 
     /**
      * Performs frustum culling and LOD selection.
-     * 
+     *
      * @param frustum - View frustum planes
      * @param cameraPosition - Camera position in world space
      * @returns Culling results with visible object indices and LOD levels
@@ -395,7 +453,16 @@ export class GPUCullingSystem {
             throw new Error('[GPUCullingSystem] Not initialized. Call initialize() first.');
         }
 
-        if (!this.gpu.isReady() || !this.frustumPipeline || !this.lodPipeline) {
+        // Fail closed to the CPU tier whenever GPU compute is switched off
+        // (`?no_gpu_compute`, `window.__computeDisabled`, CI/headless) or the
+        // shared device went away — never by standing up a device of our own.
+        if (
+            !preferGpuCompute() ||
+            !this.gpu.isReady() ||
+            !this.frustumPipeline ||
+            !this.lodPipeline
+        ) {
+            setLastFrameGpuChores(false);
             return this.cpuCull(frustum, cameraPosition);
         }
 
@@ -420,36 +487,37 @@ export class GPUCullingSystem {
 
         const device = this.gpu.getDevice()!;
 
-        // Upload frustum planes (packed as vec4: normal.xyz, distance) to the
-        // persistent frustum uniform buffer — no per-frame allocation.
-        const planeData = new Float32Array(24);
+        // Frustum uniform: 6 planes as vec4(normal.xyz, distance) (96 bytes)
+        // + instanceCount:u32 + 3× u32 padding (16 bytes). Staged through the
+        // persistent scratch — no per-frame allocation.
+        const fF32 = this.frustumUniformF32;
         for (let i = 0; i < 6; i++) {
-            planeData[i * 4] = frustum.planes[i].normal[0];
-            planeData[i * 4 + 1] = frustum.planes[i].normal[1];
-            planeData[i * 4 + 2] = frustum.planes[i].normal[2];
-            planeData[i * 4 + 3] = frustum.planes[i].distance;
+            fF32[i * 4] = frustum.planes[i].normal[0];
+            fF32[i * 4 + 1] = frustum.planes[i].normal[1];
+            fF32[i * 4 + 2] = frustum.planes[i].normal[2];
+            fF32[i * 4 + 3] = frustum.planes[i].distance;
         }
-
-        // Frustum uniform: 6 planes (96 bytes) + instanceCount + 3× padding (16 bytes)
-        const frustumUniformData = new Float32Array([
-            ...planeData,
-            this.sphereCount, 0, 0, 0,
-        ]);
-        device.queue.writeBuffer(this.frustumUniformBuffer!, 0, frustumUniformData);
+        this.frustumUniformU32[24] = this.sphereCount;
+        this.frustumUniformU32[25] = 0;
+        this.frustumUniformU32[26] = 0;
+        this.frustumUniformU32[27] = 0;
+        device.queue.writeBuffer(this.frustumUniformBuffer!, 0, this.frustumUniformStage);
 
         // Upload camera position and all three LOD thresholds + sphere count
         // to the camera uniform buffer consumed by LOD_SELECT_WGSL.
         // Layout matches LOD_SELECT_WGSL Uniforms struct (32 bytes):
         //   [0-2] camPos.xyz, [3] lod0Dist, [4] lod1Dist, [5] lod2Dist,
         //   [6] objectCount, [7] _pad0
-        const cameraData = new Float32Array([
-            cameraPosition[0], cameraPosition[1], cameraPosition[2], 0,
-            this.config.lodDistances[0],
-            this.config.lodDistances[1],
-            this.config.lodDistances[2],
-            this.sphereCount,
-        ]);
-        device.queue.writeBuffer(this.cameraBuffer!, 0, cameraData);
+        const cF32 = this.cameraUniformF32;
+        cF32[0] = cameraPosition[0];
+        cF32[1] = cameraPosition[1];
+        cF32[2] = cameraPosition[2];
+        cF32[3] = this.config.lodDistances[0];
+        cF32[4] = this.config.lodDistances[1];
+        cF32[5] = this.config.lodDistances[2];
+        this.cameraUniformU32[6] = this.sphereCount;
+        this.cameraUniformU32[7] = 0;
+        device.queue.writeBuffer(this.cameraBuffer!, 0, this.cameraUniformStage);
 
         const commandEncoder = device.createCommandEncoder({ label: 'culling-encoder' });
 
@@ -468,10 +536,13 @@ export class GPUCullingSystem {
         lodPass.dispatchWorkgroups(Math.ceil(this.sphereCount / 256));
         lodPass.end();
 
-        // Prefix-sum + compact (GPU side effect; drives indirect draw / readbackResults)
-        if (this.choresLib && this.scanBg && this.addBg && this.compactBg) {
-            this.choresLib.encodePrefixSum(commandEncoder, this.scanBg, this.addBg, this.sphereCount);
-            this.choresLib.encodeCompact(commandEncoder, this.compactBg, this.sphereCount);
+        // Prefix-sum + compact via the shared Tier 4a chores (GPU side effect;
+        // drives the indirect draw / next-frame readbackResults()).
+        if (this.choresLib && this.prefixSumJob && this.compactJob) {
+            this.choresLib.encodePrefixSum(commandEncoder, this.prefixSumJob, this.sphereCount);
+            this.choresLib.encodeCompact(commandEncoder, this.compactJob, this.sphereCount);
+        } else {
+            setLastFrameGpuChores(false);
         }
 
         device.queue.submit([commandEncoder.finish()]);
@@ -498,7 +569,8 @@ export class GPUCullingSystem {
             // Frustum test against all 6 planes
             let isVisible = true;
             for (const plane of frustum.planes) {
-                const dist = sx * plane.normal[0] +
+                const dist =
+                    sx * plane.normal[0] +
                     sy * plane.normal[1] +
                     sz * plane.normal[2] +
                     plane.distance;
@@ -518,8 +590,10 @@ export class GPUCullingSystem {
 
                 let lod = 3;
                 if (distSq < this.config.lodDistances[0] * this.config.lodDistances[0]) lod = 0;
-                else if (distSq < this.config.lodDistances[1] * this.config.lodDistances[1]) lod = 1;
-                else if (distSq < this.config.lodDistances[2] * this.config.lodDistances[2]) lod = 2;
+                else if (distSq < this.config.lodDistances[1] * this.config.lodDistances[1])
+                    lod = 1;
+                else if (distSq < this.config.lodDistances[2] * this.config.lodDistances[2])
+                    lod = 2;
 
                 visible.push(i);
                 lods.push(lod);
@@ -536,18 +610,37 @@ export class GPUCullingSystem {
     /**
      * Asynchronously reads back culling results from GPU.
      * Use this for GPU-driven rendering workflows.
-     * 
+     *
      * @returns Promise resolving to culling results
      */
     async readbackResults(): Promise<CullingResult> {
-        if (!this.gpu.isReady() || !this.visibleBuffer || !this.lodBuffer || !this.countBuffer || !this.compactIndicesBuffer || !this.compactLodsBuffer) {
+        if (
+            !this.gpu.isReady() ||
+            !this.visibleBuffer ||
+            !this.lodBuffer ||
+            !this.countBuffer ||
+            !this.compactIndicesBuffer ||
+            !this.compactLodsBuffer
+        ) {
             throw new Error('[GPUCullingSystem] GPU not available for readback');
         }
 
+        if (!this.compactJob) {
+            throw new Error(
+                '[GPUCullingSystem] Shared GPU chores unavailable — no compacted list to read back'
+            );
+        }
+
         const countArray = await this.gpu.readBufferU32(this.countBuffer, 4);
-        const visibleCount = countArray[0] ?? 0;
+        // Clamp: the count lands in a GPU buffer, so never size a readback from
+        // it without bounding by what the dense buffers can actually hold.
+        const visibleCount = Math.min(countArray[0] ?? 0, this.config.maxObjects);
         if (visibleCount === 0) {
-            return { visibleIndices: new Uint32Array(0), lodLevels: new Uint32Array(0), visibleCount: 0 };
+            return {
+                visibleIndices: new Uint32Array(0),
+                lodLevels: new Uint32Array(0),
+                visibleCount: 0,
+            };
         }
 
         const [visibleIndices, lodLevels] = await Promise.all([
@@ -561,7 +654,7 @@ export class GPUCullingSystem {
     /**
      * Gets the indirect buffer for GPU-driven rendering.
      * Can be used with drawIndexedIndirect for render pass optimization.
-     * 
+     *
      * @returns GPU buffer containing indirect draw arguments
      */
     getIndirectBuffer(): GPUBuffer | null {
@@ -571,20 +664,51 @@ export class GPUCullingSystem {
     /**
      * Sets up the indirect draw buffer for GPU-driven rendering.
      * The GPU compute shader can write draw arguments directly to this buffer.
-     * 
+     *
      * @param maxDraws - Maximum number of draw calls
      */
     setupIndirectBuffer(maxDraws: number = 1): void {
         if (!this.gpu.isReady()) return;
 
         const device = this.gpu.getDevice()!;
+        const size = maxDraws * 16;
+
+        // Replacing the buffer invalidates the compact bind group that captured
+        // the old one, so free the old buffer and rebuild the job.
+        if (this.indirectBuffer) {
+            this.indirectBuffer.destroy();
+            this.trackBytes(-this.indirectBufferBytes);
+        }
+
         // Each indirect draw: { vertexCount, instanceCount, firstVertex, firstInstance }
         this.indirectBuffer = device.createBuffer({
-            size: maxDraws * 16,
+            size,
             usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
             label: 'culling-indirect',
             mappedAtCreation: false,
         });
+        this.indirectBufferBytes = size;
+        this.trackBytes(size);
+
+        if (
+            this.choresLib &&
+            this.offsetBuffer &&
+            this.countBuffer &&
+            this.compactIndicesBuffer &&
+            this.compactLodsBuffer &&
+            this.visibleBuffer &&
+            this.lodBuffer
+        ) {
+            this.compactJob = this.choresLib.createCompactJob({
+                inputFlags: this.visibleBuffer,
+                inputLods: this.lodBuffer,
+                offsets: this.offsetBuffer,
+                outIndices: this.compactIndicesBuffer,
+                outLods: this.compactLodsBuffer,
+                outCount: this.countBuffer,
+                indirectArgs: this.indirectBuffer,
+            });
+        }
     }
 
     /**
@@ -617,10 +741,13 @@ export class GPUCullingSystem {
         this.visibleBuffer?.destroy();
         this.lodBuffer?.destroy();
         this.cameraBuffer?.destroy();
-        this.indirectBuffer?.destroy();
 
-        const blocksCount = Math.ceil(this.config.maxObjects / 256);
         let freed = 0;
+
+        if (this.indirectBuffer) {
+            this.indirectBuffer.destroy();
+            freed += this.indirectBufferBytes;
+        }
 
         if (this.frustumUniformBuffer) {
             this.frustumUniformBuffer.destroy();
@@ -634,7 +761,7 @@ export class GPUCullingSystem {
 
         if (this.blockSumsBuffer) {
             this.blockSumsBuffer.destroy();
-            freed += blocksCount * 4;
+            freed += prefixSumBlockSumsBytes(this.config.maxObjects);
         }
 
         if (this.countBuffer) {
@@ -656,6 +783,10 @@ export class GPUCullingSystem {
             this.trackBytes(-freed);
         }
 
+        // Frees (and untracks) the chore params buffers the library owns.
+        this.choresLib?.destroy();
+        this.choresLib = null;
+
         this.sphereBuffer = null;
         this.planeBuffer = null;
         this.visibleBuffer = null;
@@ -672,21 +803,20 @@ export class GPUCullingSystem {
         this.lodPipeline = null;
         this.frustumBindGroup = null;
         this.lodBindGroup = null;
-        this.scanBg = null;
-        this.addBg = null;
-        this.compactBg = null;
+        this.prefixSumJob = null;
+        this.compactJob = null;
+        this.indirectBufferBytes = 0;
         this.isInitialized = false;
 
         console.log('[GPUCullingSystem] Destroyed');
     }
 
     /**
-     * Tracks GPU buffer memory via the gpu library hook when available.
+     * Adds this system's buffers to the shared VRAM audit (`__computeVramBytes()`).
      * @param delta - Positive to add, negative to subtract bytes.
      */
     private trackBytes(delta: number): void {
-        const g = this.gpu as { trackGpuBufferBytes?: (n: number) => void };
-        g.trackGpuBufferBytes?.(delta);
+        trackGpuBufferBytes(delta);
     }
 }
 
@@ -697,7 +827,7 @@ export class GPUCullingSystem {
 /**
  * Creates a frustum from view and projection matrices.
  * Extracts the 6 clip planes in world space.
- * 
+ *
  * @param viewMatrix - 4x4 view matrix
  * @param projectionMatrix - 4x4 projection matrix
  * @returns Frustum with 6 planes
@@ -755,7 +885,7 @@ function extractPlane(vp: Float32Array, row: number, negate: boolean): Plane {
 
 /**
  * Creates a simple frustum from camera parameters.
- * 
+ *
  * @param position - Camera position
  * @param forward - Forward direction (normalized)
  * @param up - Up direction (normalized)
@@ -790,13 +920,19 @@ export function createFrustumFromCamera(
     // Near
     planes.push({
         normal: [-forward[0], -forward[1], -forward[2]],
-        distance: -(position[0] * forward[0] + position[1] * forward[1] + position[2] * forward[2] + near),
+        distance: -(
+            position[0] * forward[0] +
+            position[1] * forward[1] +
+            position[2] * forward[2] +
+            near
+        ),
     });
 
     // Far
     planes.push({
         normal: [forward[0], forward[1], forward[2]],
-        distance: position[0] * forward[0] + position[1] * forward[1] + position[2] * forward[2] + far,
+        distance:
+            position[0] * forward[0] + position[1] * forward[1] + position[2] * forward[2] + far,
     });
 
     // Left
@@ -808,7 +944,12 @@ export function createFrustumFromCamera(
     const leftLen = Math.sqrt(leftNormal[0] ** 2 + leftNormal[1] ** 2 + leftNormal[2] ** 2);
     planes.push({
         normal: [leftNormal[0] / leftLen, leftNormal[1] / leftLen, leftNormal[2] / leftLen],
-        distance: -(position[0] * leftNormal[0] + position[1] * leftNormal[1] + position[2] * leftNormal[2]) / leftLen,
+        distance:
+            -(
+                position[0] * leftNormal[0] +
+                position[1] * leftNormal[1] +
+                position[2] * leftNormal[2]
+            ) / leftLen,
     });
 
     // Right
@@ -820,7 +961,12 @@ export function createFrustumFromCamera(
     const rightLen = Math.sqrt(rightNormal[0] ** 2 + rightNormal[1] ** 2 + rightNormal[2] ** 2);
     planes.push({
         normal: [rightNormal[0] / rightLen, rightNormal[1] / rightLen, rightNormal[2] / rightLen],
-        distance: -(position[0] * rightNormal[0] + position[1] * rightNormal[1] + position[2] * rightNormal[2]) / rightLen,
+        distance:
+            -(
+                position[0] * rightNormal[0] +
+                position[1] * rightNormal[1] +
+                position[2] * rightNormal[2]
+            ) / rightLen,
     });
 
     // Top
@@ -832,7 +978,12 @@ export function createFrustumFromCamera(
     const topLen = Math.sqrt(topNormal[0] ** 2 + topNormal[1] ** 2 + topNormal[2] ** 2);
     planes.push({
         normal: [topNormal[0] / topLen, topNormal[1] / topLen, topNormal[2] / topLen],
-        distance: -(position[0] * topNormal[0] + position[1] * topNormal[1] + position[2] * topNormal[2]) / topLen,
+        distance:
+            -(
+                position[0] * topNormal[0] +
+                position[1] * topNormal[1] +
+                position[2] * topNormal[2]
+            ) / topLen,
     });
 
     // Bottom
@@ -843,8 +994,17 @@ export function createFrustumFromCamera(
     ];
     const bottomLen = Math.sqrt(bottomNormal[0] ** 2 + bottomNormal[1] ** 2 + bottomNormal[2] ** 2);
     planes.push({
-        normal: [bottomNormal[0] / bottomLen, bottomNormal[1] / bottomLen, bottomNormal[2] / bottomLen],
-        distance: -(position[0] * bottomNormal[0] + position[1] * bottomNormal[1] + position[2] * bottomNormal[2]) / bottomLen,
+        normal: [
+            bottomNormal[0] / bottomLen,
+            bottomNormal[1] / bottomLen,
+            bottomNormal[2] / bottomLen,
+        ],
+        distance:
+            -(
+                position[0] * bottomNormal[0] +
+                position[1] * bottomNormal[1] +
+                position[2] * bottomNormal[2]
+            ) / bottomLen,
     });
 
     return { planes: planes as [Plane, Plane, Plane, Plane, Plane, Plane] };

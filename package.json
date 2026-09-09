@@ -24,7 +24,14 @@
         "build:optimized": "npm run build:wasm && npm run build:emcc && npm run optimize && vite build",
         "test": "node --experimental-detect-module tests/smoke-runner.mjs",
         "test:wasm": "node tests/wasm.mjs",
+        "test:rigidbody": "node tests/rigid-body.mjs",
+        "test:joints": "node tests/joints.mjs",
+        "test:joint-fallback": "tsx tests/joint-fallback.test.mjs",
+        "test:softbody": "tsx tests/soft-body.test.mjs",
+        "test:heroanim": "tsx tests/hero-animation.test.mjs",
         "test:parity": "node tests/parity.mjs",
+        "test:chores": "node tests/gpu-chores.test.mjs",
+        "test:webgpu-probe": "tsx tests/webgpu-probe.test.mjs",
         "test:awakened": "node tests/awakened-persistence.mjs",
         "test:ground": "node tests/ground-system.test.mjs",
         "test:ground-unified": "node tests/ground-unified-parity.mjs",
@@ -32,6 +39,10 @@
         "test:character": "tsx tests/character-controller.test.mjs",
         "test:sky-islands": "node tests/sky-islands-traversal.test.mjs",
         "test:presence": "tsx tests/presence-protocol.test.mjs",
+        "test:ui-kit": "tsx tests/ui-kit.test.ts",
+        "test:behaviors": "tsx tests/behaviors.test.ts",
+        "test:budgets": "tsx tests/systems-budget.test.ts",
+        "test:fauna": "tsx tests/fauna-behavior.test.ts",
         "test:sugar-caves": "tsx tests/sugar-caves-traversal.test.mjs",
         "test:foliage-interact": "node tests/foliage-interact.test.mjs",
         "test:cookbook-presets": "node scripts/check-cookbook-presets.mjs",
@@ -52,11 +63,10 @@
         "test:atmosphere": "node tests/atmosphere-reactivity.test.mjs",
         "test:explore": "node tests/explore-camera.test.mjs",
         "test:batcher-lod": "node tests/batcher-lod.test.mjs",
-        "test:entity-snapshot": "tsx tests/entity-snapshot.test.mjs",
-        "test:integration": "npm run build:wasm && npm run test:wasm && npm run test:parity && npm run test:cookbook-presets && npm run test:spawn-tracker && npm run test:player-spawn && npm run test:character && npm run test:world-health && npm run test:presence && npm run test:sugar-caves && npm run test:capabilities && npm run test:world-extent && npm run test:lights && npm run test:clustered && npm run test:gi && npm run test:postfx && npm run test",
+        "test:entity-snapshot": "tsx --import ./tests/support/register-hooks.mjs tests/entity-snapshot.test.mjs",
+        "test:integration": "npm run build:wasm && npm run test:wasm && npm run test:budgets && npm run test:rigidbody && npm run test:joints && npm run test:joint-fallback && npm run test:softbody && npm run test:heroanim && npm run test:parity && npm run test:chores && npm run test:webgpu-probe && npm run test:cookbook-presets && npm run test:spawn-tracker && npm run test:entity-snapshot && npm run test:player-spawn && npm run test:character && npm run test:world-health && npm run test:fauna && npm run test:presence && npm run test:sugar-caves && npm run test:capabilities && npm run test:world-extent && npm run test:lights && npm run test:clustered && npm run test:gi && npm run test:postfx && npm run test",
         "test:smoke:full": "FULL_BOOT=1 npm run test",
         "test:smoke:fast": "FULL_BOOT=fast npm run test",
-        "test:smoke:webgl": "RENDERER=webgl npm run test",
         "test:visual": "cd tools/visual-regression && pnpm run test:visual",
         "test:visual:typecheck": "cd tools/visual-regression && pnpm run typecheck",
         "verify:chunk-index": "node scripts/verify-chunk-index.mjs",
@@ -110,10 +120,12 @@
         "overrides": {
             "@swc/core": "1.15.47",
             "@swc/wasm": "1.15.47"
-        }
-    },
-    "overrides": {
-        "@swc/core": "1.15.47",
-        "@swc/wasm": "1.15.47"
+        },
+        "onlyBuiltDependencies": [
+            "@swc/core",
+            "esbuild",
+            "playwright",
+            "simple-git-hooks"
+        ]
     }
 }

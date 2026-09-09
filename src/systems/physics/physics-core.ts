@@ -1,19 +1,19 @@
 /**
  * physics-core.ts
- * 
+ *
  * Core physics orchestration and spatial grid implementation.
- * 
+ *
  * - PhysicsSpatialGrid: Lightweight spatial partitioning for collision queries
  * - populatePhysicsGrids(): Maintains grid state from world foliage
  * - updatePhysics(): Main physics loop orchestrator
  * - Ability functions: grantInvisibility, registerPhysicsCave, triggerHarpoon
- * 
+ *
  * Dependencies:
  * - physics-types.ts: Player state and types
  * - physics-states.ts: State machine handlers (swimming, climbing, dancing, etc.)
  * - physics-abilities.js: Ability system
  * - physics-updates.ts: Individual check* functions (imported by updatePhysics)
- * 
+ *
  * No circular dependencies. Depends on other modules but is not depended upon.
  */
 
@@ -25,19 +25,30 @@ import { spawnImpact } from '../../foliage/impacts.ts';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/index.ts';
 import { showToast } from '../../utils/toast.ts';
 import {
-    initPhysics, uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge, updatePhysicsCPP, getPlayerState
+    initPhysics,
+    uploadCollisionObjects,
+    resolveGameCollisionsWASM,
+    initDynamicFoliageBridge,
+    updatePhysicsCPP,
+    getPlayerState,
 } from '../../utils/wasm-loader.ts';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
-    foliageTraps, foliageGeysers, foliagePortamentoPines, foliagePanningPads,
-    activeVineSwing, lastVineDetachTime
+    foliageMushrooms,
+    foliageTrampolines,
+    foliageClouds,
+    vineSwings,
+    animatedFoliage,
+    foliageTraps,
+    foliageGeysers,
+    foliagePortamentoPines,
+    foliagePanningPads,
+    activeVineSwing,
+    lastVineDetachTime,
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
 import { reconcileGroundedEyeY, isInLakeBasin } from '../ground-system.ts';
-import {
-    calculateMovementInput
-} from '../physics.core.ts';
+import { calculateMovementInput } from '../physics.core.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { handleAbilities } from './physics-abilities.ts';
 import {
@@ -46,10 +57,10 @@ import {
     updateClimbingState,
     updateDancingState,
     updateStateTransitions,
-    updateEnvironmentalModifiers
+    updateEnvironmentalModifiers,
 } from './physics-states.ts';
-import { 
-    player, 
+import {
+    player,
     PlayerState,
     _lastInputState,
     _scratchMoveVec,
@@ -60,9 +71,8 @@ import {
     cppPhysicsInitialized,
     AudioState,
     KeyStates,
-    _scratchPlayerState
+    _scratchPlayerState,
 } from './physics-types.ts';
-
 
 // Re-export player and types for external use
 export { player, PlayerState };
@@ -87,7 +97,7 @@ export class PhysicsSpatialGrid {
         const cz = Math.floor(z / this.cellSize);
         // Pack into a single numeric key (assuming coordinates don't exceed +/- 32767 chunks)
         // using 16 bits for x and 16 bits for z
-        return ((cx & 0xFFFF) << 16) | (cz & 0xFFFF);
+        return ((cx & 0xffff) << 16) | (cz & 0xffff);
     }
 
     insert(obj: any): void {
@@ -116,7 +126,7 @@ export class PhysicsSpatialGrid {
 
         for (let cx = minX; cx <= maxX; cx++) {
             for (let cz = minZ; cz <= maxZ; cz++) {
-                const hash = ((cx & 0xFFFF) << 16) | (cz & 0xFFFF);
+                const hash = ((cx & 0xffff) << 16) | (cz & 0xffff);
                 const cell = this.cells.get(hash);
                 if (cell) {
                     for (let i = 0; i < cell.length; i++) {
@@ -158,7 +168,11 @@ export function populatePhysicsGrids() {
         if (obj.userData?.type && DISCOVERY_MAP[obj.userData.type]) {
             physicsDiscoveryGrid.insert(obj);
         }
-        if (obj.userData?.type === 'retrigger_mushroom' || obj.userData?.type === 'vibratoViolet' || (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal')) {
+        if (
+            obj.userData?.type === 'retrigger_mushroom' ||
+            obj.userData?.type === 'vibratoViolet' ||
+            (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal')
+        ) {
             physicsFoliageGrid.insert(obj);
         }
     }
@@ -183,7 +197,7 @@ export function populatePhysicsGrids() {
 export function grantInvisibility(duration: number) {
     player.isInvisible = true;
     player.invisibilityTimer = duration;
-    showToast("Spiritual Camouflage Active! 🦌", "🌟");
+    showToast('Spiritual Camouflage Active! 🦌', '🌟');
     if (uChromaticIntensity) {
         uChromaticIntensity.value = 0.5;
     }
@@ -206,7 +220,7 @@ export function triggerHarpoon(anchor: THREE.Vector3) {
     if (player.currentState === PlayerState.SWIMMING || player.isUnderwater) {
         player.harpoon.active = true;
         player.harpoon.anchor.copy(anchor);
-        showToast("Waveform Harpoon Anchored! ⚓", "🌊");
+        showToast('Waveform Harpoon Anchored! ⚓', '🌊');
         discoverySystem.discover('waveform_harpoon', 'Waveform Harpoon', '⚓');
     }
 }
@@ -223,7 +237,7 @@ import {
     checkPanningPads,
     checkVineAttachment,
     initCppPhysics,
-    updateJSFallbackMovement
+    updateJSFallbackMovement,
 } from './physics-updates.ts';
 
 /**
@@ -235,7 +249,13 @@ import {
  * @param keyStates - Current key states
  * @param audioState - Audio state for reactivity
  */
-export function updatePhysics(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState) {
+export function updatePhysics(
+    delta: number,
+    camera: THREE.Camera,
+    controls: any,
+    keyStates: KeyStates,
+    audioState: AudioState
+) {
     // 1. Update Global Environmental Modifiers (Wind, Groove)
     updateEnvironmentalModifiers(delta, audioState);
 
@@ -247,7 +267,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
         const dx = player.position.x - center.x;
         const dy = player.position.y - center.y;
         const dz = player.position.z - center.z;
-        const distSq = dx*dx + dy*dy + dz*dz;
+        const distSq = dx * dx + dy * dy + dz * dz;
 
         if (distSq < glitchRad * glitchRad) {
             // Player is inside the glitch field - grant intangibility/phasing
@@ -307,10 +327,43 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
 
 // --- State: DEFAULT (Walking/Falling) ---
 /**
+ * Movement-path accounting for the default (non-swim/climb/vine) state.
+ *
+ * The kinematic character controller (#1577) owns the movement resolve on all
+ * player-walkable frames. When the native Emscripten module is available,
+ * `updatePhysicsCPP` runs only as an obstacle/trampoline assist: TS seeds WASM
+ * state, resolves the authoritative kinematic move in JS, then applies only the
+ * native correction delta back onto the JS result.
+ *
+ * These counters make that split visible at runtime through
+ * `window.__physicsPathStats`.
+ */
+export const physicsPathStats = {
+    /** Frames whose kinematics were resolved by resolveCharacterMovement (#1577). */
+    controller: 0,
+    /** Subset of `controller` frames that also used updatePhysicsCPP obstacle/trampoline assist. */
+    native: 0,
+    /** Subset of `controller` frames that took the JS path because of the Melody Lake basin. */
+    lakeBasin: 0,
+};
+
+let _warnedNativePathActive = false;
+
+if (typeof window !== 'undefined') {
+    (window as any).__physicsPathStats = physicsPathStats;
+}
+
+/**
  * Updates physics for the DEFAULT state (walking/falling).
  * Handles C++ physics integration, collision resolution, and foliage interactions.
  */
-function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState) {
+function updateDefaultState(
+    delta: number,
+    camera: THREE.Camera,
+    controls: any,
+    keyStates: KeyStates,
+    audioState: AudioState
+) {
     if (!cppPhysicsInitialized) {
         initCppPhysics(camera);
         setCppPhysicsInitialized(true);
@@ -334,7 +387,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
             if (v.anchorPoint) {
                 const dx = player.position.x - v.anchorPoint.x;
                 const dz = player.position.z - v.anchorPoint.z;
-                if (dx*dx + dz*dz < 2500) {
+                if (dx * dx + dz * dz < 2500) {
                     v.update(player as any, delta, null);
                 }
             } else {
@@ -365,7 +418,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         player.phaseTimer -= delta;
         if (player.phaseTimer <= 0) {
             player.isPhasing = false;
-            showToast("Phase Shift Ended", "👻");
+            showToast('Phase Shift Ended', '👻');
         }
     }
 
@@ -374,7 +427,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         player.invisibilityTimer -= delta;
         if (player.invisibilityTimer <= 0) {
             player.isInvisible = false;
-            showToast("Camouflage Faded", "💨");
+            showToast('Camouflage Faded', '💨');
         }
     }
 
@@ -388,11 +441,15 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         }
     }
 
-
     const inLakeBasin = isInLakeBasin(player.position.x, player.position.z);
     let onGround = -1;
+    if (inLakeBasin) physicsPathStats.lakeBasin++;
     const effectiveJumpInput = keyStates.jump ? 1 : 0;
-    const { moveVec: moveInput, moveSpeed: baseMoveSpeed } = calculateMovementInput(camera, keyStates, player);
+    const { moveVec: moveInput, moveSpeed: baseMoveSpeed } = calculateMovementInput(
+        camera,
+        keyStates,
+        player
+    );
     let moveSpeed = baseMoveSpeed;
 
     // --- Groove Boots Logic ---
@@ -405,7 +462,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
         // Visual/Audio Feedback could be added here periodically or when moving fast
         if (player.isGrounded && moveInput.lengthSq() > 0 && Math.random() < 0.05) {
-             spawnImpact(player.position, 'dash'); // Sparkles at feet
+            spawnImpact(player.position, 'dash'); // Sparkles at feet
         }
         discoverySystem.discover('groove_boots', 'Groove Boots', '🥾');
     }
@@ -429,7 +486,11 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     if ((window as any).__diagPhysicsCount === 2) {
         (window as any).__diagPhysicsCount = 3;
-        console.log('[PhysicsDiag] updateDefaultState: Calling updatePhysicsCPP (LakeBasin=' + inLakeBasin + ')');
+        console.log(
+            '[PhysicsDiag] updateDefaultState: Calling updatePhysicsCPP (LakeBasin=' +
+                inLakeBasin +
+                ')'
+        );
     }
 
     // Seed WASM state at start of next frame
@@ -457,50 +518,55 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     }
 
     if (!(window as any).__physicsPathStats) {
-        (window as any).__physicsPathStats = { native: 0, controller: 0 };
+        (window as any).__physicsPathStats = physicsPathStats;
     }
 
     if (onGround >= 0) {
-        (window as any).__physicsPathStats.native++;
+        physicsPathStats.controller++;
+        physicsPathStats.native++;
+        if (!_warnedNativePathActive) {
+            _warnedNativePathActive = true;
+            console.log(
+                '[Physics] Native obstacle/trampoline assist active; JS character controller remains authoritative.'
+            );
+        }
 
-        // C++ Success
         getPlayerState(_scratchPlayerState);
         const preX = player.position.x;
         const preZ = player.position.z;
 
-        // 2. Resolve kinematic movement
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
 
-        // 4. Obstacle delta: isolate obstacle push-out
         const obstacleCorrectionX = _scratchPlayerState.x - preX - _scratchPlayerState.vx * delta;
         const obstacleCorrectionZ = _scratchPlayerState.z - preZ - _scratchPlayerState.vz * delta;
 
         player.position.x += obstacleCorrectionX + windForceX;
         player.position.z += obstacleCorrectionZ + windForceZ;
 
-        // 5. Keep onGround == 2 as trampoline vy impulse
         if (onGround === 2) {
-             player.velocity.y = _scratchPlayerState.vy;
-             player.isGrounded = false;
+            player.velocity.y = _scratchPlayerState.vy;
+            player.isGrounded = false;
         }
 
         // Reset jump key if we successfully jumped (velocity.y > 0)
         // But only if we were grounded before (normal jump)
         if (player.velocity.y > 0 && player.isGrounded) {
-             keyStates.jump = false;
-             spawnImpact(player.position, 'jump');
-             // 🎨 Palette: Audio feedback for jump
-             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                 (window as any).AudioSystem.playSound('jump', { pitch: Math.random() * 0.2 + 0.9, volume: 0.5 });
-             }
-             if (typeof uChromaticIntensity !== 'undefined') {
-                 uChromaticIntensity.value = 0.2;
-             }
+            keyStates.jump = false;
+            spawnImpact(player.position, 'jump');
+            // 🎨 Palette: Audio feedback for jump
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('jump', {
+                    pitch: Math.random() * 0.2 + 0.9,
+                    volume: 0.5,
+                });
+            }
+            if (typeof uChromaticIntensity !== 'undefined') {
+                uChromaticIntensity.value = 0.2;
+            }
         }
     } else {
-        (window as any).__physicsPathStats.controller++;
-
         // --- Kinematic character controller (#1577) ---
+        physicsPathStats.controller++;
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
         player.position.x += windForceX;
         player.position.z += windForceZ;
@@ -515,13 +581,10 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // Smoothly tracks terrain when grounded; preserves platform elevation when high.
     if (player.isGrounded || player.velocity.y <= 0) {
         const prevY = player.position.y;
-        const nextY = reconcileGroundedEyeY(
-            prevY,
-            player.position.x,
-            player.position.z,
-            delta,
-            { isGrounded: player.isGrounded, velocityY: player.velocity.y }
-        );
+        const nextY = reconcileGroundedEyeY(prevY, player.position.x, player.position.z, delta, {
+            isGrounded: player.isGrounded,
+            velocityY: player.velocity.y,
+        });
         if (nextY !== prevY) {
             player.position.y = nextY;
             if (player.isGrounded) {
@@ -552,31 +615,34 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // Check discovery flags based on what happened?
     if (wasmResolved) {
-         if (player.velocity.y > 12.0) {
-              discoverySystem.discover('trampoline_shroom', 'Trampoline Mushroom', '🍄');
-              keyStates.jump = false;
+        if (player.velocity.y > 12.0) {
+            discoverySystem.discover('trampoline_shroom', 'Trampoline Mushroom', '🍄');
+            keyStates.jump = false;
 
-              // --- VERTICAL ECOSYSTEM: Audio-Reactive Mushroom Bounce ---
-              // Scale bounce height with current kick strength / note energy
-              const kick = audioState?.kickTrigger || 0;
-              const noteStrength = audioState?.noteVelocity || kick;
-              const bounceMultiplier = 1.0 + noteStrength * 0.8; // 1.0x - 1.8x
-              player.velocity.y *= bounceMultiplier;
+            // --- VERTICAL ECOSYSTEM: Audio-Reactive Mushroom Bounce ---
+            // Scale bounce height with current kick strength / note energy
+            const kick = audioState?.kickTrigger || 0;
+            const noteStrength = audioState?.noteVelocity || kick;
+            const bounceMultiplier = 1.0 + noteStrength * 0.8; // 1.0x - 1.8x
+            player.velocity.y *= bounceMultiplier;
 
-              // 🎨 Palette: Add "Juice" to trampoline mushroom bounce
-              spawnImpact(player.position, 'jump');
-              addCameraShake(0.3 * bounceMultiplier); // 🎨 Palette: Trampoline bounce shake
-              if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                  (window as any).AudioSystem.playSound('impact', { pitch: 1.2 + noteStrength * 0.6, volume: 0.8 });
-              }
-              if (typeof uChromaticIntensity !== 'undefined') {
-                  uChromaticIntensity.value = 0.5 * bounceMultiplier;
-              }
-         }
-         // Check if we landed on a cloud (isGrounded=true at High Y)
-         if (player.isGrounded && player.position.y > 10.0) {
-              discoverySystem.discover('cloud_platform', 'Solid Cloud', '☁️');
-         }
+            // 🎨 Palette: Add "Juice" to trampoline mushroom bounce
+            spawnImpact(player.position, 'jump');
+            addCameraShake(0.3 * bounceMultiplier); // 🎨 Palette: Trampoline bounce shake
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', {
+                    pitch: 1.2 + noteStrength * 0.6,
+                    volume: 0.8,
+                });
+            }
+            if (typeof uChromaticIntensity !== 'undefined') {
+                uChromaticIntensity.value = 0.5 * bounceMultiplier;
+            }
+        }
+        // Check if we landed on a cloud (isGrounded=true at High Y)
+        if (player.isGrounded && player.position.y > 10.0) {
+            discoverySystem.discover('cloud_platform', 'Solid Cloud', '☁️');
+        }
     }
 
     if ((window as any).__diagPhysicsCount === 7) {
@@ -586,13 +652,10 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // Platform-preservation: reconcile Y after WASM; skips elevated platforms internally.
     if (player.isGrounded && player.velocity.y <= 0) {
         const prevY = player.position.y;
-        const nextY = reconcileGroundedEyeY(
-            prevY,
-            player.position.x,
-            player.position.z,
-            delta,
-            { isGrounded: player.isGrounded, velocityY: player.velocity.y }
-        );
+        const nextY = reconcileGroundedEyeY(prevY, player.position.x, player.position.z, delta, {
+            isGrounded: player.isGrounded,
+            velocityY: player.velocity.y,
+        });
         if (nextY !== prevY) {
             player.position.y = nextY;
             player.velocity.y = 0;

@@ -12,15 +12,22 @@
  * multiplies allocation pressure and makes device-loss far likelier — and
  * when it happened there was no recovery path on the render side.
  *
+ * This module is also the **only** caller of `requestAdapter` / `requestDevice`
+ * in the app. `probeWebGPU()` brings the device up and hands it to Three via
+ * `parameters.device`, so the renderer requests nothing of its own.
+ *
  * Lifecycle:
  * ```
- *   init.ts  ──▶ captureAdapterRequests()      (wrap requestAdapter once)
- *            ──▶ new WebGPURenderer({ ... })   (Three requests adapter+device)
- *            ──▶ armGpuContext(renderer, mode)
+ *   init.ts  ──▶ probeWebGPU(canvas)           (adapter → device → configure → compute)
+ *            ──▶ new WebGPURenderer({ device, context, ... })
+ *            ──▶ armGpuContext(renderer, probe)
  *                    └─▶ await renderer.init()
- *                    └─▶ adopt renderer.backend.device
+ *                    └─▶ assert the WebGPU backend won
  *                    └─▶ resolve getGpuContext()
  * ```
+ *
+ * WebGPU is **required**: a failed probe throws `WebGPUUnavailableError` and
+ * boot stops at a hard-fail screen. There is no WebGL rescue in this phase.
  *
  * Consumers:
  * ```ts
@@ -111,9 +118,9 @@ export interface GpuContext {
     backend: RendererBackend;
     /** True when a usable WebGPU device is available for compute work. */
     available: boolean;
-    /** The one owned device, or null on the WebGL path / after loss. */
+    /** The one owned device, or null before the probe / after device loss. */
     device: GPUDevice | null;
-    /** Adapter Three requested, captured without issuing a second request. */
+    /** The adapter the probe requested — the only one this page asks for. */
     adapter: GPUAdapter | null;
     /** Granted device limits (numeric subset of `GPUSupportedLimits`). */
     limits: Record<string, number> | null;
@@ -134,7 +141,9 @@ type DeviceLostListener = (reason: string) => void;
 // =============================================================================
 
 const UNAVAILABLE: GpuContext = {
-    backend: 'webgl',
+    // There is no WebGL path in this phase: `webgpu` + `available: false` means
+    // "the only supported backend, not brought up yet", never "we fell back".
+    backend: 'webgpu',
     available: false,
     device: null,
     adapter: null,
@@ -154,9 +163,9 @@ let armed = false;
 
 const deviceLostListeners = new Set<DeviceLostListener>();
 
-/** Adapter captured from the renderer's own `requestAdapter` call. */
-let capturedAdapter: GPUAdapter | null = null;
-let captureInstalled = false;
+/** Result of the one boot probe, reused by `armGpuContext`. */
+let probePromise: Promise<GpuProbeResult> | null = null;
+let probeReport: GpuProbeReport | null = null;
 
 function ensurePromise(): Promise<GpuContext> {
     if (!contextPromise) {
@@ -199,33 +208,323 @@ function settle(next: GpuContext): GpuContext {
 }
 
 // =============================================================================
-// ADAPTER CAPTURE
+// BOOT PROBE
 // =============================================================================
 
 /**
- * Record the adapter that the renderer requests, without requesting one of our
- * own. Three discards the adapter after `WebGPUBackend.init()`, but we want its
- * name and limits for the boot log, so we intercept exactly one call.
- *
- * Must be invoked *before* the `WebGPURenderer` is constructed. Idempotent.
+ * Where the probe gave up. Mirrored onto `window.webgpuProbe.stage` so a bug
+ * report says *which* WebGPU step died, not just "it didn't work".
  */
-export function captureAdapterRequests(): void {
-    if (captureInstalled) return;
-    if (typeof navigator === 'undefined' || !(navigator as any).gpu) return;
+export type GpuProbeStage =
+    'navigator' | 'adapter' | 'device' | 'canvas' | 'configure' | 'pipeline' | 'renderer';
 
-    captureInstalled = true;
-    const gpu = (navigator as any).gpu;
-    const original = gpu.requestAdapter.bind(gpu);
+/**
+ * WebGPU could not be brought up, so boot must stop.
+ *
+ * There is no WebGL rescue in this phase: a silent GL render is precisely what
+ * hides the Chrome-vs-Edge adapter bug this probe exists to expose. Callers
+ * show the hard-fail screen instead of constructing a renderer.
+ */
+export class WebGPUUnavailableError extends Error {
+    readonly stage: GpuProbeStage;
+    readonly detail: unknown;
 
-    gpu.requestAdapter = async (...args: any[]) => {
-        const adapter = await original(...args);
-        if (adapter && !capturedAdapter) {
-            capturedAdapter = adapter;
-            // One-shot: restore immediately so no other caller is intercepted.
-            gpu.requestAdapter = original;
-        }
-        return adapter;
+    constructor(stage: GpuProbeStage, message: string, detail?: unknown) {
+        super(message);
+        this.name = 'WebGPUUnavailableError';
+        this.stage = stage;
+        this.detail = detail;
+    }
+}
+
+/** Everything the probe brings up, handed to Three so it requests nothing. */
+export interface GpuProbeResult {
+    adapter: GPUAdapter;
+    device: GPUDevice;
+    context: GPUCanvasContext;
+    adapterInfo: GpuAdapterInfo | null;
+}
+
+/**
+ * Browser identity, biased toward telling Edge apart from Chrome.
+ *
+ * Both send `Chrome/` in the UA string, and their WebGPU stacks diverge, so a
+ * report that only says "Chromium" cannot distinguish the two failures.
+ */
+export interface BrowserBrand {
+    name: string;
+    version: string;
+    /** Full UA-CH brand list when available — the reliable Edge/Chrome split. */
+    brands: string[];
+    userAgent: string;
+    platform: string;
+}
+
+/** Probe outcome mirrored onto `window.webgpuProbe`, on success and failure. */
+export interface GpuProbeReport {
+    ok: boolean;
+    stage: GpuProbeStage | 'ok';
+    reason: string | null;
+    browser: BrowserBrand;
+    adapter: GpuAdapterInfo | null;
+    adapterName: string;
+    isFallbackAdapter: boolean;
+    limits: Record<string, number> | null;
+    powerPreference: GPUPowerPreference;
+    requiredLimits: Record<string, number>;
+    timestamp: string;
+}
+
+function describeBrowser(): BrowserBrand {
+    if (typeof navigator === 'undefined') {
+        return { name: 'unknown', version: '', brands: [], userAgent: '', platform: '' };
+    }
+
+    const nav = navigator as Navigator & {
+        userAgentData?: {
+            brands?: { brand: string; version: string }[];
+            platform?: string;
+        };
     };
+    const ua = navigator.userAgent ?? '';
+    const brands = nav.userAgentData?.brands ?? [];
+    const brandList = brands.map((b) => `${b.brand} ${b.version}`.trim());
+
+    // UA-CH pads the list with "Chromium" and a deliberately absurd
+    // "Not)A;Brand" entry; the real product is whatever is left.
+    const real = brands.find(
+        (b) => !/^not[^a-z]*a[^a-z]*brand$/i.test(b.brand) && !/^chromium$/i.test(b.brand)
+    );
+    if (real) {
+        return {
+            name: real.brand,
+            version: real.version,
+            brands: brandList,
+            userAgent: ua,
+            platform: nav.userAgentData?.platform ?? navigator.platform ?? '',
+        };
+    }
+
+    // UA fallback. Order matters: Edge and Opera both also claim `Chrome/`.
+    const patterns: [string, RegExp][] = [
+        ['Microsoft Edge', /Edg(?:e|A|iOS)?\/([\d.]+)/],
+        ['Opera', /OPR\/([\d.]+)/],
+        ['Chrome', /Chrome\/([\d.]+)/],
+        ['Firefox', /Firefox\/([\d.]+)/],
+        ['Safari', /Version\/([\d.]+).*Safari/],
+    ];
+    for (const [name, re] of patterns) {
+        const m = ua.match(re);
+        if (m) {
+            return {
+                name,
+                version: m[1],
+                brands: brandList,
+                userAgent: ua,
+                platform: navigator.platform ?? '',
+            };
+        }
+    }
+
+    return {
+        name: 'unknown',
+        version: '',
+        brands: brandList,
+        userAgent: ua,
+        platform: navigator.platform ?? '',
+    };
+}
+
+function publishProbeReport(report: GpuProbeReport): void {
+    probeReport = report;
+    if (typeof window !== 'undefined') window.webgpuProbe = { ...report };
+}
+
+/** Trivial kernel: proves the device can actually compile and lay out compute. */
+const PROBE_SHADER = '@compute @workgroup_size(1) fn main() {}';
+
+/**
+ * Bring up WebGPU, or fail loudly.
+ *
+ * This is the **only** place in the app that calls `requestAdapter` /
+ * `requestDevice`. It walks the full path the world needs — adapter, device,
+ * canvas context, canvas configure, and an empty compute pipeline — so a
+ * browser that hands out an adapter but cannot compile compute (or cannot
+ * configure the swap chain) fails here, at boot, with a named stage, rather
+ * than three seconds into world generation.
+ *
+ * The device it returns is handed to `WebGPURenderer` via `parameters.device`,
+ * which is why probing costs no second device.
+ *
+ * @param canvas The real world canvas — probing a throwaway canvas would not
+ *   exercise the swap-chain configure that actually breaks.
+ * @throws {WebGPUUnavailableError} Always, when WebGPU is not usable.
+ */
+export function probeWebGPU(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
+    if (!probePromise) probePromise = runProbe(canvas);
+    return probePromise;
+}
+
+async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
+    const browser = describeBrowser();
+    let adapter: GPUAdapter | null = null;
+    let adapterInfo: GpuAdapterInfo | null = null;
+    let device: GPUDevice | null = null;
+
+    const fail = (stage: GpuProbeStage, message: string, detail?: unknown): never => {
+        publishProbeReport({
+            ok: false,
+            stage,
+            reason: message,
+            browser,
+            adapter: adapterInfo,
+            adapterName: describeAdapter(adapterInfo),
+            isFallbackAdapter: Boolean(
+                (adapter as (GPUAdapter & { isFallbackAdapter?: boolean }) | null)
+                    ?.isFallbackAdapter
+            ),
+            limits: device ? snapshotLimits(device.limits) : null,
+            powerPreference: GPU_POWER_PREFERENCE,
+            requiredLimits: GPU_REQUIRED_LIMITS,
+            timestamp: new Date().toISOString(),
+        });
+        // A half-built device would otherwise sit pinned until GC.
+        try {
+            device?.destroy();
+        } catch {
+            /* destroy is best-effort */
+        }
+        settle({ ...UNAVAILABLE, reason: `${stage}: ${message}` });
+        console.error(
+            `[GPUContext] WebGPU probe failed at "${stage}" on ${browser.name} ${browser.version}: ${message}`
+        );
+        throw new WebGPUUnavailableError(stage, message, detail);
+    };
+
+    // 1 — navigator.gpu
+    if (typeof navigator === 'undefined' || !navigator.gpu) {
+        return fail(
+            'navigator',
+            'navigator.gpu is missing — this browser exposes no WebGPU implementation'
+        );
+    }
+
+    // 2 — adapter. Returns null (not throws) when the GPU is blocklisted or
+    // the browser has no usable backend; this is the Chrome/Edge split point.
+    try {
+        adapter = await navigator.gpu.requestAdapter({
+            powerPreference: GPU_POWER_PREFERENCE,
+        });
+    } catch (err) {
+        return fail('adapter', `requestAdapter() threw: ${describeError(err)}`, err);
+    }
+    if (!adapter) {
+        return fail(
+            'adapter',
+            'requestAdapter() resolved null — no WebGPU adapter is available (GPU blocklisted, driver too old, or GPU access disabled)'
+        );
+    }
+    adapterInfo = await readAdapterInfo(adapter, null);
+
+    // 3 — device. Match Three's own descriptor: every feature the adapter
+    // supports, plus our required limits. Asking for exactly what Three would
+    // ask for means adopting this device cannot cost a feature.
+    try {
+        device = await adapter.requestDevice({
+            requiredFeatures: Array.from(adapter.features) as GPUFeatureName[],
+            requiredLimits: GPU_REQUIRED_LIMITS,
+        });
+    } catch (err) {
+        return fail('device', `requestDevice() rejected: ${describeError(err)}`, err);
+    }
+    if (!device) {
+        return fail('device', 'requestDevice() resolved without a device');
+    }
+    adapterInfo = (await readAdapterInfo(adapter, device)) ?? adapterInfo;
+
+    // 4 — canvas context
+    let ctx: GPUCanvasContext | null = null;
+    try {
+        ctx = canvas.getContext('webgpu') as GPUCanvasContext | null;
+    } catch (err) {
+        return fail('canvas', `canvas.getContext('webgpu') threw: ${describeError(err)}`, err);
+    }
+    if (!ctx) {
+        return fail(
+            'canvas',
+            "canvas.getContext('webgpu') returned null — the canvas already holds a context of another type, or WebGPU canvas support is off"
+        );
+    }
+
+    // 5 — configure the swap chain exactly as Three will
+    try {
+        ctx.configure({
+            device,
+            format: navigator.gpu.getPreferredCanvasFormat(),
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+            alphaMode: GPU_ALPHA ? 'premultiplied' : 'opaque',
+        });
+    } catch (err) {
+        return fail('configure', `context.configure() threw: ${describeError(err)}`, err);
+    }
+
+    // 6 — empty compute pipeline. Compute is not optional here: culling,
+    // particles and the gpu-chores library all dispatch, and a device that
+    // cannot compile WGSL compute is not a device we can ship the world on.
+    try {
+        device.pushErrorScope('validation');
+        const module = device.createShaderModule({ code: PROBE_SHADER, label: 'webgpu-probe' });
+        await device.createComputePipelineAsync({
+            label: 'webgpu-probe-pipeline',
+            layout: 'auto',
+            compute: { module, entryPoint: 'main' },
+        });
+        const scoped = await device.popErrorScope();
+        if (scoped) {
+            return fail(
+                'pipeline',
+                `compute pipeline validation failed: ${scoped.message}`,
+                scoped
+            );
+        }
+    } catch (err) {
+        // `fail()` throws, so a validation error caught here would otherwise be
+        // reported (and the device destroyed) a second time.
+        if (err instanceof WebGPUUnavailableError) throw err;
+        return fail('pipeline', `compute pipeline creation failed: ${describeError(err)}`, err);
+    }
+
+    publishProbeReport({
+        ok: true,
+        stage: 'ok',
+        reason: null,
+        browser,
+        adapter: adapterInfo,
+        adapterName: describeAdapter(adapterInfo),
+        isFallbackAdapter: Boolean(
+            (adapter as GPUAdapter & { isFallbackAdapter?: boolean }).isFallbackAdapter
+        ),
+        limits: snapshotLimits(device.limits),
+        powerPreference: GPU_POWER_PREFERENCE,
+        requiredLimits: GPU_REQUIRED_LIMITS,
+        timestamp: new Date().toISOString(),
+    });
+
+    console.log(
+        `[GPUContext] WebGPU probe passed on ${browser.name} ${browser.version} · adapter=${describeAdapter(adapterInfo)}`
+    );
+
+    return { adapter, device, context: ctx, adapterInfo };
+}
+
+function describeError(err: unknown): string {
+    if (err instanceof Error) return `${err.name}: ${err.message}`;
+    return String(err);
+}
+
+/** The last probe report, or null before the probe runs. */
+export function getWebGPUProbeReport(): Readonly<GpuProbeReport> | null {
+    return probeReport;
 }
 
 async function readAdapterInfo(
@@ -267,21 +566,21 @@ function snapshotLimits(limits: GPUSupportedLimits | undefined): Record<string, 
 // =============================================================================
 
 /**
- * Adopt the renderer's device as the process-wide GPU context.
+ * Adopt the probed device as the process-wide GPU context.
  *
- * Resolves the shared context in every case — including the WebGL path and
- * WebGPU initialisation failure — so consumers awaiting {@link getGpuContext}
- * never hang. Never throws.
+ * Unlike the previous revision this **throws** rather than degrading. Three's
+ * `WebGPURenderer` installs a `getFallback` that quietly swaps in `WebGLBackend`
+ * when `WebGPUBackend.init()` fails (see `WebGPURenderer.js`), and the old code
+ * merely noticed afterwards and booted the world on GL anyway. That silent
+ * render is what hid the Chrome/Edge adapter failure, so any sign of the WebGL
+ * backend is now a fatal boot error.
  *
- * @param renderer The renderer created by `init.ts` (WebGPU or WebGL).
- * @param mode The backend actually in use.
- * @param reason Fallback reason when `mode` is `webgl`.
+ * @param renderer The renderer created by `init.ts`.
+ * @param probe The result of {@link probeWebGPU}, whose device the renderer was
+ *   constructed with.
+ * @throws {WebGPUUnavailableError} When the renderer did not come up on WebGPU.
  */
-export async function armGpuContext(
-    renderer: unknown,
-    mode: RendererBackend,
-    reason: string | null = null
-): Promise<GpuContext> {
+export async function armGpuContext(renderer: unknown, probe: GpuProbeResult): Promise<GpuContext> {
     if (armed) return ensurePromise();
     armed = true;
     ensurePromise();
@@ -294,16 +593,17 @@ export async function armGpuContext(
         backend?: { isWebGLBackend?: boolean; isWebGPUBackend?: boolean; device?: GPUDevice };
     };
 
-    // Legacy THREE.WebGLRenderer (pre-0.171 fallback) — no node backend, no GPU compute.
+    const fatal = (message: string, detail?: unknown): never => {
+        settle({ ...UNAVAILABLE, reason: `renderer: ${message}` });
+        if (probeReport) {
+            publishProbeReport({ ...probeReport, ok: false, stage: 'renderer', reason: message });
+        }
+        console.error(`[GPUContext] ${message}`);
+        throw new WebGPUUnavailableError('renderer', message, detail);
+    };
+
     if (!r?.isWebGPURenderer) {
-        console.log(
-            `[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl'})`
-        );
-        return settle({
-            ...UNAVAILABLE,
-            backend: 'webgl',
-            reason: reason ?? 'webgl-backend',
-        });
+        return fatal('Renderer is not a WebGPURenderer — WebGPU is required to enter the world');
     }
 
     try {
@@ -313,49 +613,41 @@ export async function armGpuContext(
             await r.init!();
         }
     } catch (err) {
-        console.warn('[GPUContext] renderer.init() failed — GPU compute disabled:', err);
-        return settle({
-            ...UNAVAILABLE,
-            backend: mode,
-            reason: 'renderer-init-failed',
-        });
+        return fatal(`renderer.init() failed: ${describeError(err)}`, err);
     }
 
     const backend = r.backend;
 
     if (backend?.isWebGLBackend === true) {
-        console.log(
-            `[GPUContext] WebGL backend active — GPU compute disabled (${reason ?? 'webgl-node-backend'})`
+        return fatal(
+            'Three fell back to its WebGL2 backend after the WebGPU probe passed — ' +
+                'refusing to render the world on WebGL'
         );
-        return settle({
-            ...UNAVAILABLE,
-            backend: 'webgl',
-            reason: reason ?? 'webgl-node-backend',
-        });
     }
 
     const device: GPUDevice | null = backend?.device ?? null;
 
     if (!device || !backend?.isWebGPUBackend) {
-        // Three silently fell back to its internal WebGL2 backend.
-        console.warn('[GPUContext] Renderer has no WebGPU device — GPU compute disabled');
-        return settle({
-            ...UNAVAILABLE,
-            backend: 'webgl',
-            reason: 'no-webgpu-device',
-        });
+        return fatal('Renderer initialised without a WebGPU device');
     }
 
-    const adapter = capturedAdapter;
-    const adapterInfo = await readAdapterInfo(adapter, device);
+    if (device !== probe.device) {
+        // The renderer was handed `probe.device`; a different one means Three
+        // requested a second device behind our back, which breaks the
+        // single-device invariant this module exists to hold.
+        console.warn(
+            '[GPUContext] Renderer is using a device other than the probed one — ' +
+                'single-device invariant broken'
+        );
+    }
 
     const next: GpuContext = {
         backend: 'webgpu',
         available: true,
         device,
-        adapter,
+        adapter: probe.adapter,
         limits: snapshotLimits(device.limits),
-        adapterInfo,
+        adapterInfo: probe.adapterInfo,
         powerPreference: GPU_POWER_PREFERENCE,
         requiredLimits: GPU_REQUIRED_LIMITS,
         lost: false,
@@ -495,8 +787,8 @@ function showDeviceLostBanner(message: string): void {
 // =============================================================================
 
 /**
- * Await the shared GPU context. Resolves once the renderer has been armed;
- * resolves to an unavailable context on the WebGL path.
+ * Await the shared GPU context. Resolves once the renderer has been armed, or
+ * to an unavailable context when the boot probe failed.
  */
 export function getGpuContext(): Promise<GpuContext> {
     return ensurePromise();
@@ -565,11 +857,19 @@ declare global {
 export function publishGpuContext(): void {
     if (typeof window === 'undefined') return;
 
-    window.webgpuProbe = {
-        browser: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-        adapter: context.adapterInfo,
-        reason: context.reason || context.lostReason,
-    };
+    // `window.webgpuProbe` belongs to the probe (it holds the browser brand and
+    // the failing stage). Only fold in a *later* fault — device loss — so a
+    // successful probe report is never overwritten by a thinner one.
+    if (probeReport && context.lost) {
+        window.webgpuProbe = {
+            ...probeReport,
+            ok: false,
+            stage: 'renderer',
+            reason: `device-lost: ${context.lostReason ?? 'unknown reason'}`,
+        };
+    } else if (probeReport) {
+        window.webgpuProbe = { ...probeReport };
+    }
 
     window.__gpuContext = {
         backend: context.backend,
@@ -615,7 +915,8 @@ export function __resetGpuContextForTests(): void {
     contextPromise = null;
     resolveContext = null;
     armed = false;
-    capturedAdapter = null;
+    probePromise = null;
+    probeReport = null;
     deviceLostListeners.clear();
 }
 

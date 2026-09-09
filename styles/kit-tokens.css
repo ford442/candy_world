@@ -1,0 +1,96 @@
+/**
+ * 🍭 Candy UI Kit — Design Tokens
+ *
+ * Single source of truth for the candy HUD palette. Component CSS (kit.css,
+ * ability-hud.css, …) references these variables instead of hard-coding hex.
+ *
+ * Night theme: `setKitTheme(true)` (src/ui/kit/theme.ts) stamps
+ * `data-ck-theme="night"` on <html>; only the semantic tokens flip.
+ */
+
+:root {
+    /* --- Raw palette (do not use directly in components; prefer semantics) --- */
+    --ck-pink-100: #ffd1dc;
+    --ck-pink-200: #ffe6ec;
+    --ck-pink-400: #ff69b4;
+    --ck-pink-600: #ff1493;
+    --ck-coral: #ff6b6b;
+    --ck-magenta: #ff4081;
+    --ck-grape: #d500f9;
+    --ck-grape-50: #f3e5f5;
+    --ck-mint: #4caf50;
+    --ck-night: #0a0a2e;
+    --ck-slate: rgba(30, 30, 40, 0.85);
+
+    /* --- Surfaces --- */
+    --ck-surface: rgba(255, 255, 255, 0.85);
+    --ck-surface-solid: #ffffff;
+    --ck-surface-sunken: var(--ck-slate);
+    --ck-border: var(--ck-pink-100);
+    --ck-border-width: 3px;
+
+    /* --- Text --- */
+    --ck-text: #4a2c3a;
+    --ck-text-accent: var(--ck-coral);
+    --ck-text-on-accent: #ffffff;
+    --ck-font-display: 'Fredoka One', cursive, sans-serif;
+    --ck-font-mono: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+    /* --- Shape --- */
+    --ck-radius-sm: 8px;
+    --ck-radius-md: 12px;
+    --ck-radius-pill: 999px;
+    --ck-space-1: 4px;
+    --ck-space-2: 8px;
+    --ck-space-3: 12px;
+    --ck-space-4: 20px;
+
+    /* --- Depth --- */
+    --ck-shadow-panel: 0 4px 10px rgba(0, 0, 0, 0.1);
+    --ck-shadow-raised: 0 6px 18px rgba(0, 0, 0, 0.18);
+    --ck-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 55%);
+
+    /* --- State --- */
+    --ck-ready: var(--ck-mint);
+    --ck-active: var(--ck-grape);
+    --ck-danger: var(--ck-pink-600);
+    --ck-focus-ring: 0 0 0 3px var(--ck-surface-solid), 0 0 0 6px var(--ck-magenta);
+    --ck-meter-fill: linear-gradient(90deg, var(--ck-pink-400), var(--ck-pink-600));
+    --ck-meter-fill-low: linear-gradient(90deg, #ff4500, #ff0000);
+
+    /* --- Motion --- */
+    --ck-dur-fast: 0.1s;
+    --ck-dur-base: 0.2s;
+    --ck-ease-candy: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    /* --- Layers (HUD stacking contract) --- */
+    --ck-z-hud: 100;
+    --ck-z-hud-raised: 150;
+    --ck-z-tooltip: 400;
+    --ck-z-overlay: 900;
+}
+
+:root[data-ck-theme='night'] {
+    --ck-surface: rgba(22, 22, 58, 0.85);
+    --ck-surface-solid: #161638;
+    --ck-surface-sunken: rgba(8, 8, 26, 0.9);
+    --ck-border: #5a4a86;
+    --ck-text: #f4e9ff;
+    --ck-text-accent: var(--ck-pink-400);
+    --ck-shadow-panel: 0 4px 14px rgba(0, 0, 0, 0.45);
+    --ck-shadow-raised: 0 6px 20px rgba(0, 0, 0, 0.55);
+    --ck-focus-ring: 0 0 0 3px var(--ck-night), 0 0 0 6px var(--ck-pink-400);
+}
+
+/* ♿ Honour reduced motion for every kit component at once. */
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --ck-dur-fast: 0s;
+        --ck-dur-base: 0s;
+    }
+}
+
+body.a11y-motion-reduced {
+    --ck-dur-fast: 0s;
+    --ck-dur-base: 0s;
+}

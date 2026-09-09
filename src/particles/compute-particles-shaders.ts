@@ -6,7 +6,7 @@
 /**
  * Update particles compute shader - runs simulation step entirely on GPU
  */
-export const UPDATE_PARTICLES_WGSL = /* wgsl */`
+export const UPDATE_PARTICLES_WGSL = /* wgsl */ `
 struct ParticleData {
     positions: array<vec3<f32>>,
     velocities: array<vec3<f32>>,
@@ -15,10 +15,17 @@ struct ParticleData {
     seeds: array<f32>,
 };
 
+// NOTE: every field is f32 even where the value is logically an integer.
+// The host writes this block from a single Float32Array; declaring count as u32
+// here made WGSL reinterpret the float bits as an integer, so particleType
+// 1..5 became a huge number and fell through to the default branch. Values are
+// converted with u32(...) at the use site instead.
+const MAX_ATTRACTORS: u32 = 4u;
+
 struct Uniforms {
     deltaTime: f32,
     time: f32,
-    count: u32,
+    count: f32,
     boundsX: f32,
     boundsY: f32,
     boundsZ: f32,
@@ -35,7 +42,15 @@ struct Uniforms {
     playerZ: f32,
     audioLow: f32,
     audioHigh: f32,
-    particleType: u32,  // 0=fireflies, 1=pollen, 2=berries, 3=rain, 4=sparks, 5=gem_sparks
+    particleType: f32,  // 0=fireflies, 1=pollen, 2=berries, 3=rain, 4=sparks, 5=gem_sparks, 6=spark_burst, 7=candy_puff
+    attractorCount: f32, // active entries in attractors (0..MAX_ATTRACTORS)
+    oneShot: f32,        // != 0 → dead particles stay dead until the host respawns them
+    emitScale: f32,      // music/gameplay multiplier on respawn energy (1.0 = neutral)
+    _pad0: f32,
+    // xyz = world position, w = radius
+    attractors: array<vec4<f32>, 4>,
+    // x = strength (negative repels), yzw reserved
+    attractorParams: array<vec4<f32>, 4>,
 };
 
 @group(0) @binding(0) var<storage, read_write> particles: ParticleData;
@@ -121,7 +136,7 @@ fn wrapAxis(pos: f32, center: f32, extent: f32) -> f32 {
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
     let index = globalId.x;
-    if (index >= uniforms.count) {
+    if (index >= u32(uniforms.count)) {
         return;
     }
     
@@ -132,10 +147,18 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
     var vel = particles.velocities[index];
     var life = particles.lives[index];
     let seed = particles.seeds[index];
-    
+    let pType = u32(uniforms.particleType);
+
     // Decrease life
     life = life - uniforms.deltaTime;
-    
+
+    // One-shot emitters (bursts, ability FX) do not recycle on the GPU — the host
+    // re-seeds slots through spawn(), so a dead particle just parks invisibly.
+    if (life <= 0.0 && uniforms.oneShot != 0.0) {
+        particles.lives[index] = 0.0;
+        return;
+    }
+
     // Respawn if dead
     if (life <= 0.0) {
         // Random position within bounds
@@ -146,7 +169,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
         );
         
         // Reset velocity based on type
-        switch uniforms.particleType {
+        switch pType {
             case 0u: { // Fireflies
                 vel = vec3<f32>((rand() - 0.5) * 2.0, (rand() - 0.5) * 0.5, (rand() - 0.5) * 2.0);
             }
@@ -171,6 +194,15 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
                     (rand() - 0.5) * 0.12
                 );
             }
+            case 6u: { // Spark burst — hot radial shrapnel, biased upward
+                let dir = normalize(vec3<f32>(rand() - 0.5, rand() * 0.9 + 0.1, rand() - 0.5));
+                vel = dir * (6.0 + rand() * 6.0) * uniforms.emitScale;
+            }
+            case 7u: { // Candy puff — soft billow that rises and spreads
+                let angle = rand() * 6.28318;
+                let speed = (0.6 + rand() * 1.2) * uniforms.emitScale;
+                vel = vec3<f32>(cos(angle) * speed, 0.8 + rand() * 1.4, sin(angle) * speed);
+            }
             default: {
                 vel = vec3<f32>(0.0, 0.0, 0.0);
             }
@@ -178,15 +210,21 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
         
         // Reset life
         life = 2.0 + rand() * 4.0;
-        if (uniforms.particleType == 4u) { // Sparks have short life
+        if (pType == 4u) { // Sparks have short life
             life = 0.3 + rand() * 0.5;
         }
-        if (uniforms.particleType == 5u) { // Gem motes linger
+        if (pType == 5u) { // Gem motes linger
             life = 10.0 + rand() * 14.0;
+        }
+        if (pType == 6u) { // Burst shrapnel is very short lived
+            life = 0.25 + rand() * 0.45;
+        }
+        if (pType == 7u) { // Puffs hang in the air
+            life = 0.9 + rand() * 1.1;
         }
     } else {
         // Update physics based on particle type
-        switch uniforms.particleType {
+        switch pType {
             case 0u: { // Fireflies - Gentle floating with curl noise
                 let noisePos = pos * 0.1 + uniforms.time * 0.3;
                 let curl = curlNoise(noisePos, uniforms.time);
@@ -271,6 +309,17 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
                 vel.y = vel.y - uniforms.gravity * 0.5 * uniforms.deltaTime;
                 vel = vel * 0.99; // Air resistance
             }
+            case 6u: { // Spark burst — ballistic with strong drag, dies fast
+                vel.y = vel.y - uniforms.gravity * 0.65 * uniforms.deltaTime;
+                vel = vel * (1.0 - 2.2 * uniforms.deltaTime);
+            }
+            case 7u: { // Candy puff — buoyant billow, curl-noise swirl, heavy drag
+                let noisePos = pos * 0.35 + uniforms.time * 0.6;
+                let curl = curlNoise(noisePos, uniforms.time) * 1.4;
+                let buoyancy = vec3<f32>(0.0, 1.6 - life * 0.6, 0.0);
+                vel = vel + (curl + buoyancy) * uniforms.deltaTime;
+                vel = vel * (1.0 - 1.6 * uniforms.deltaTime);
+            }
             case 5u: { // Gem sparks — noise drift + gentle bob (magical air, not snow)
                 let noisePos = pos * 0.12 + vec3<f32>(
                     uniforms.time * 0.11,
@@ -288,11 +337,30 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
             default: {}
         }
         
+        // Shared attractor pass — applies to every particle type so gameplay and
+        // weather can steer any emitter without forking this kernel.
+        let attractorCount = min(u32(uniforms.attractorCount), MAX_ATTRACTORS);
+        for (var a: u32 = 0u; a < attractorCount; a = a + 1u) {
+            let att = uniforms.attractors[a];
+            let radius = att.w;
+            if (radius <= 0.0) {
+                continue;
+            }
+            let toAtt = att.xyz - pos;
+            let dist = length(toAtt);
+            if (dist > 0.0001 && dist < radius) {
+                // Linear falloff to zero at the radius; negative strength repels.
+                let falloff = 1.0 - dist / radius;
+                let strength = uniforms.attractorParams[a].x;
+                vel = vel + (toAtt / dist) * strength * falloff * uniforms.deltaTime;
+            }
+        }
+
         // Update position
         pos = pos + vel * uniforms.deltaTime;
 
         // Gem spark soft bounds — wrap instead of pop
-        if (uniforms.particleType == 5u) {
+        if (pType == 5u) {
             pos.x = wrapAxis(pos.x, uniforms.centerX, uniforms.boundsX);
             pos.y = wrapAxis(pos.y, uniforms.centerY, uniforms.boundsY);
             pos.z = wrapAxis(pos.z, uniforms.centerZ, uniforms.boundsZ);
@@ -309,7 +377,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
 /**
  * Render vertex shader - transforms particles for rendering
  */
-export const RENDER_PARTICLES_WGSL = /* wgsl */`
+export const RENDER_PARTICLES_WGSL = /* wgsl */ `
 struct Uniforms {
     mvpMatrix: mat4x4<f32>,
     viewMatrix: mat4x4<f32>,
@@ -396,7 +464,7 @@ fn main(input: VertexInput) -> VertexOutput {
 /**
  * Render fragment shader - colors and effects
  */
-export const FRAGMENT_PARTICLES_WGSL = /* wgsl */`
+export const FRAGMENT_PARTICLES_WGSL = /* wgsl */ `
 struct Uniforms {
     time: f32,
     particleType: u32,
