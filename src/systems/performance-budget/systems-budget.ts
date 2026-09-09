@@ -27,13 +27,7 @@ import { MAX_DYNAMIC_BODIES } from '../physics/rigid-body-types.ts';
 
 /** Systems that carry an independent budget. */
 export type SystemBudgetId =
-    | 'shadows'
-    | 'clusteredLights'
-    | 'gi'
-    | 'postfx'
-    | 'particles'
-    | 'rigidBodies'
-    | 'fauna';
+    'shadows' | 'clusteredLights' | 'gi' | 'postfx' | 'particles' | 'rigidBodies' | 'fauna';
 
 export interface SystemBudget {
     /** Human label for the overlay and the docs table. */

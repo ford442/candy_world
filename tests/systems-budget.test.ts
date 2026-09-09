@@ -154,11 +154,14 @@ check(
 console.log('\nProfiler marks (existence only — no GPU timing in CI)');
 // ---------------------------------------------------------------------------
 
-check('marks are recorded while the overlay is off', (() => {
-    profiler.enabled = false;
-    profiler.mark('particles.update', 1.25);
-    return profiler.getMark('particles.update') === 1.25;
-})());
+check(
+    'marks are recorded while the overlay is off',
+    (() => {
+        profiler.enabled = false;
+        profiler.mark('particles.update', 1.25);
+        return profiler.getMark('particles.update') === 1.25;
+    })()
+);
 
 profiler.mark('rigidBodies.step', 0.4);
 check(

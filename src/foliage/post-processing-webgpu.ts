@@ -97,7 +97,9 @@ export function initWebGPUPostProcessing(
         };
         const sampleScene = (coords: ReturnType<typeof vec2>) => {
             const uvScatter = mix(coords, vec2(0.5, 0.5), scatterAmt);
-            const sampledR = sceneTex.uv(uvScatter.add(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>).r;
+            const sampledR = sceneTex.uv(
+                uvScatter.add(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>
+            ).r;
             const sampledG = sceneTex.uv(uvScatter as ReturnType<typeof vec2>).g;
             const sampledB = sceneTex.uv(
                 uvScatter.sub(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>

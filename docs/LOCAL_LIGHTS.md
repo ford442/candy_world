@@ -1,5 +1,7 @@
 # Local point and spot lights
 
+> Look target: [`CANDY_AESTHETIC_GUARDRAILS.md`](./CANDY_AESTHETIC_GUARDRAILS.md) — no photoreal defaults for GI / AO / SSR.
+
 Candy World is still lit as **hemisphere ambient + one directional sun**. Local
 point and spot lights are first-class _fills_: physically plausible inverse-square
 falloff (`decay = 2`), pastel PALETTE tints, optional cone/cookie, and at most

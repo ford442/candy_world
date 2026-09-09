@@ -21,19 +21,19 @@ interface FrameData {
 export class Profiler {
     /** Whether profiling is enabled */
     public enabled: boolean;
-    
+
     /** Map of current measurements by label (label -> duration in ms) */
     public measures: Map<string, number>;
-    
+
     /** Start time of current frame */
     public frameStart: number;
-    
+
     /** History of frame times for averaging */
     public frameHistory: number[];
-    
+
     /** Canvas element for debug UI */
     public canvas: HTMLCanvasElement | null;
-    
+
     /** Canvas 2D context */
     public ctx: CanvasRenderingContext2D | null;
 
@@ -79,11 +79,11 @@ export class Profiler {
      */
     measure<T>(label: string, fn: () => T): T {
         if (!this.enabled) return fn();
-        
+
         const start = performance.now();
         const result = fn();
         const end = performance.now();
-        
+
         this.measures.set(label, end - start);
         return result;
     }
@@ -118,15 +118,15 @@ export class Profiler {
      */
     endFrame(): void {
         if (!this.enabled || this.frameStart === 0) return;
-        
+
         const frameTime = performance.now() - this.frameStart;
         this.frameHistory.push(frameTime);
-        
+
         // Keep last 60 frames
         if (this.frameHistory.length > 60) {
             this.frameHistory.shift();
         }
-        
+
         this.drawUI();
     }
 
@@ -135,31 +135,33 @@ export class Profiler {
      */
     drawUI(): void {
         if (!this.ctx || !this.canvas) return;
-        
+
         const ctx = this.ctx;
         const width = this.canvas.width;
         const height = this.canvas.height;
-        
+
         // Clear canvas
         ctx.clearRect(0, 0, width, height);
-        
+
         // Calculate average frame time
-        let sum = 0; for (let i = 0; i < this.frameHistory.length; i++) sum += this.frameHistory[i]; const avgFrameTime = sum / this.frameHistory.length;
+        let sum = 0;
+        for (let i = 0; i < this.frameHistory.length; i++) sum += this.frameHistory[i];
+        const avgFrameTime = sum / this.frameHistory.length;
         const fps = Math.round(1000 / avgFrameTime);
-        
+
         // Draw background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(10, 10, 200, 80 + this.measures.size * 20);
-        
+
         // Draw FPS
         ctx.fillStyle = fps >= 55 ? '#00ff00' : fps >= 30 ? '#ffff00' : '#ff0000';
         ctx.font = 'bold 16px monospace';
         ctx.fillText(`FPS: ${fps}`, 20, 30);
-        
+
         // Draw frame time
         ctx.fillStyle = '#ffffff';
         ctx.fillText(`Frame: ${avgFrameTime.toFixed(2)}ms`, 20, 50);
-        
+
         // Draw measurements
         let y = 70;
         this.measures.forEach((duration, label) => {
@@ -183,12 +185,12 @@ export class Profiler {
         this.canvas.style.right = '10px';
         this.canvas.style.zIndex = '9999';
         this.canvas.style.pointerEvents = 'none';
-        
+
         const ctx = this.canvas.getContext('2d');
         if (ctx) {
             this.ctx = ctx;
         }
-        
+
         document.body.appendChild(this.canvas);
     }
 

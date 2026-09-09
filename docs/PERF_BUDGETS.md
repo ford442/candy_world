@@ -9,15 +9,15 @@ Table of record: [`src/systems/performance-budget/systems-budget.ts`](../src/sys
 (`SYSTEM_BUDGETS`). The numbers below and that table must move together;
 `npm run test:budgets` fails if the table loses a system, a cap, or its headroom.
 
-| System            | Frame ms | VRAM MB | Caps (enforced)                       | Profiler mark          | Skip on low / CI                     |
-| ----------------- | -------- | ------- | ------------------------------------- | ---------------------- | ------------------------------------ |
-| Shadows (CSM)     | 3.0      | 48      | `cascades` 4, `localShadowLights` 2   | `shadows.csmUpdate`    | Yes — WebGL / `low` / CI use the plain sun map |
-| Clustered lights  | 1.5      | 8       | `lights` 128, `lightsPerCluster` 32   | `clusteredLights.bin`  | Yes — `?no_clustered`, WebGL, `low`  |
-| Irradiance GI     | 1.0      | 12      | `probes` 4096, `probesPerFrame` 32    | `gi.probeBake`         | Yes — probes off on `low` / CI       |
-| Post-FX stack     | 2.5      | 64      | `passes` 6                            | `postfx.render`        | Yes — DoF + GTAO are `high`-only     |
-| Particles         | 2.0      | 32      | `totalParticles` 65536, `emitters` 32 | `particles.update`     | No — density scales instead          |
-| Rigid bodies      | 1.0      | 0       | `bodies` 64 (`MAX_DYNAMIC_BODIES`)    | `rigidBodies.step`     | No — costs nothing while the pool is empty |
-| Fauna             | 1.5      | 6       | `instances` 96, `perSpecies` 40       | `fauna.update`         | No — instance count scales instead   |
+| System           | Frame ms | VRAM MB | Caps (enforced)                       | Profiler mark         | Skip on low / CI                               |
+| ---------------- | -------- | ------- | ------------------------------------- | --------------------- | ---------------------------------------------- |
+| Shadows (CSM)    | 3.0      | 48      | `cascades` 4, `localShadowLights` 2   | `shadows.csmUpdate`   | Yes — WebGL / `low` / CI use the plain sun map |
+| Clustered lights | 1.5      | 8       | `lights` 128, `lightsPerCluster` 32   | `clusteredLights.bin` | Yes — `?no_clustered`, WebGL, `low`            |
+| Irradiance GI    | 1.0      | 12      | `probes` 4096, `probesPerFrame` 32    | `gi.probeBake`        | Yes — probes off on `low` / CI                 |
+| Post-FX stack    | 2.5      | 64      | `passes` 6                            | `postfx.render`       | Yes — DoF + GTAO are `high`-only               |
+| Particles        | 2.0      | 32      | `totalParticles` 65536, `emitters` 32 | `particles.update`    | No — density scales instead                    |
+| Rigid bodies     | 1.0      | 0       | `bodies` 64 (`MAX_DYNAMIC_BODIES`)    | `rigidBodies.step`    | No — costs nothing while the pool is empty     |
+| Fauna            | 1.5      | 6       | `instances` 96, `perSpecies` 40       | `fauna.update`        | No — instance count scales instead             |
 
 These are **starter ceilings to design against, not measurements.** A feature PR
 that profiles its system replaces its row here and in `SYSTEM_BUDGETS` in the

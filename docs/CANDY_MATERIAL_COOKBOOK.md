@@ -3,16 +3,21 @@
 Recipes for Candy World's glossy, music-reactive surfaces. **Reuse a `CandyPresets.*`
 factory or copy a shipping batcher** before hand-rolling a material.
 
-| Canonical source                    | Path                                                                                                                         |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Presets & TSL helpers               | [`src/foliage/material-core.ts`](../src/foliage/material-core.ts) barrel → [`material-core/`](../src/foliage/material-core/) |
-| Standard deformation chain          | [`applyStandardDeformation`](../src/foliage/material-core/deformation.ts)                                                    |
-| LOD batcher deformation             | [`src/foliage/lod-nodes.ts`](../src/foliage/lod-nodes.ts) → `applyStandardDeformationWithLod`                                |
-| Biome / music uniforms              | [`src/systems/biome-uniforms.ts`](../src/systems/biome-uniforms.ts)                                                          |
-| Per-frame binding update            | [`src/systems/music-reactivity.ts`](../src/systems/music-reactivity.ts)                                                      |
-| Music map overrides                 | [`docs/MUSIC_MAP_BINDING.md`](./MUSIC_MAP_BINDING.md)                                                                        |
-| Binding conventions (authoritative) | [`AGENTS.md`](../AGENTS.md) → "Music Reactivity & Biome / Channel-to-Shader Binding Conventions"                             |
-| Palette & note colors               | [`src/core/config.ts`](../src/core/config.ts) (`PALETTE`, `noteColorMap`)                                                    |
+> Before enabling an advanced lighting feature (CSM, GI, AO, SSR, SSS, extra lights), read
+> [`CANDY_AESTHETIC_GUARDRAILS.md`](./CANDY_AESTHETIC_GUARDRAILS.md) — engine defaults are
+> photoreal and must be re-tuned toward candy.
+
+| Canonical source                      | Path                                                                                                                         |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Presets & TSL helpers                 | [`src/foliage/material-core.ts`](../src/foliage/material-core.ts) barrel → [`material-core/`](../src/foliage/material-core/) |
+| Standard deformation chain            | [`applyStandardDeformation`](../src/foliage/material-core/deformation.ts)                                                    |
+| LOD batcher deformation               | [`src/foliage/lod-nodes.ts`](../src/foliage/lod-nodes.ts) → `applyStandardDeformationWithLod`                                |
+| Biome / music uniforms                | [`src/systems/biome-uniforms.ts`](../src/systems/biome-uniforms.ts)                                                          |
+| Per-frame binding update              | [`src/systems/music-reactivity.ts`](../src/systems/music-reactivity.ts)                                                      |
+| Music map overrides                   | [`docs/MUSIC_MAP_BINDING.md`](./MUSIC_MAP_BINDING.md)                                                                        |
+| Binding conventions (authoritative)   | [`AGENTS.md`](../AGENTS.md) → "Music Reactivity & Biome / Channel-to-Shader Binding Conventions"                             |
+| Palette & note colors                 | [`src/core/config.ts`](../src/core/config.ts) (`PALETTE`, `noteColorMap`)                                                    |
+| Aesthetic guardrails (what to refuse) | [`docs/CANDY_AESTHETIC_GUARDRAILS.md`](./CANDY_AESTHETIC_GUARDRAILS.md) — which advanced features to tone down or avoid      |
 
 > **Maintenance model:** This file is a curated index with deep-links — not a second
 > copy of the code. Prefer linking to the source over pasting snippets that will drift.

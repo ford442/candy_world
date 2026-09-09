@@ -1,6 +1,6 @@
 # WebGPU Compute Playbook — How to Add a Pass
 
-> **Scope:** the recipe for adding *one new compute-based feature* to Candy World.
+> **Scope:** the recipe for adding _one new compute-based feature_ to Candy World.
 > This is not a WGSL tutorial and not a rewrite plan for existing shaders.
 >
 > Read first, do not duplicate:
@@ -23,11 +23,11 @@ in CI, and after a device loss without any new code in the boot path.
 
 ## 0. Pick your tier first
 
-| You are writing…                                                        | Use                                                                                        |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| A reusable primitive (prefix sum, reduce, compact)                      | **Tier 4a** — add it to `GPUChoresLibrary` (`src/compute/chores/gpu-chores.ts`)             |
-| Domain simulation (your feature's kinematics, pose, binning)            | **Tier 4b** — a module scoped to your system, e.g. `src/compute/<feature>-gpu.ts`           |
-| A pass that reads/writes Three.js node material data and nothing else   | **TSL compute node** — `renderer.compute(node)` from `game-loop-compute.ts`; no raw device  |
+| You are writing…                                                      | Use                                                                                        |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| A reusable primitive (prefix sum, reduce, compact)                    | **Tier 4a** — add it to `GPUChoresLibrary` (`src/compute/chores/gpu-chores.ts`)            |
+| Domain simulation (your feature's kinematics, pose, binning)          | **Tier 4b** — a module scoped to your system, e.g. `src/compute/<feature>-gpu.ts`          |
+| A pass that reads/writes Three.js node material data and nothing else | **TSL compute node** — `renderer.compute(node)` from `game-loop-compute.ts`; no raw device |
 
 Prefer a TSL compute node when the data already lives in a `StorageBufferAttribute`. Drop to raw
 WebGPU only when you need explicit buffer layout, readback, or a bind group Three does not model.
@@ -59,7 +59,7 @@ Gate on policy before you allocate anything:
 ```ts
 import { preferGpuCompute, isGpuComputeReady, ensureGpuComputeReady } from '../compute/index.ts';
 
-await ensureGpuComputeReady();               // idempotent; resolves false when unavailable
+await ensureGpuComputeReady(); // idempotent; resolves false when unavailable
 if (!preferGpuCompute() || !isGpuComputeReady()) return false; // caller runs the CPU path
 ```
 
@@ -71,7 +71,7 @@ if (!preferGpuCompute() || !isGpuComputeReady()) return false; // caller runs th
 - **Uniform** for small, per-frame, read-only scalars (< 64 KiB): time, delta, counts, mode flags,
   a handful of vectors. **Storage** for anything per-instance.
 - **Round uniform sizes up to 16 bytes** and pad `vec3` to 16 bytes in the struct. WGSL's std140-ish
-  rules bite silently otherwise — a `vec3<f32>` followed by an `f32` is *not* 16 bytes of packing you
+  rules bite silently otherwise — a `vec3<f32>` followed by an `f32` is _not_ 16 bytes of packing you
   can assume. `compute-particles.ts` does `Math.ceil((floatCount * 4) / 16) * 16` and sizes vec3
   arrays at 16 B/element, not 12.
 - **Never allocate an unbounded buffer.** Size from an explicit, clamped count, and clamp against the
@@ -91,7 +91,7 @@ const bytes = clampStorageBufferSize(count * BYTES_PER_INSTANCE);
 
 ```ts
 import { trackGpuBufferBytes } from '../compute/compute-orchestrator.ts';
-trackGpuBufferBytes(posBytes + stateBytes + uniformBytes);  // and a negative delta in dispose()
+trackGpuBufferBytes(posBytes + stateBytes + uniformBytes); // and a negative delta in dispose()
 ```
 
 - **Label everything.** `label: 'candy-glow-state'` is what you will see in a validation error at 2am.
@@ -102,16 +102,16 @@ trackGpuBufferBytes(posBytes + stateBytes + uniformBytes);  // and a negative de
 
 Two legitimate places, and they are not interchangeable:
 
-| Pass kind                                    | Where it runs                                                                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| TSL compute node                             | `updateComputePhase()` in [`src/core/game-loop-compute.ts`](../src/core/game-loop-compute.ts), via `rendererRef.compute(node)`   |
-| Raw WebGPU dispatch owned by a system        | inside that system's own `update()`, called from its game-loop phase module                                                      |
+| Pass kind                             | Where it runs                                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| TSL compute node                      | `updateComputePhase()` in [`src/core/game-loop-compute.ts`](../src/core/game-loop-compute.ts), via `rendererRef.compute(node)` |
+| Raw WebGPU dispatch owned by a system | inside that system's own `update()`, called from its game-loop phase module                                                    |
 
 Rules:
 
 - **One encoder, one submit, per pass, per frame.** `dispatchCompute()` in `gpu-compute-library.ts`
   is the canonical shape; don't hand-roll it unless you need multiple passes in one encoder (then
-  reuse the *encoder*, still one `queue.submit`).
+  reuse the _encoder_, still one `queue.submit`).
 - **Dispatch before the render phase reads the results**, or accept **one frame of latency** and say
   so. Foliage scalar batches and plant pose deliberately pipeline by a frame (`submit` / `take`) —
   that is cheaper than a stall and visually invisible at 60 FPS. Pick one and document it.
@@ -134,14 +134,14 @@ import { onGpuDeviceLost } from '../rendering/gpu-context.ts';
 
 this.unsubscribeDeviceLost = onGpuDeviceLost(() => {
     this.usingGPU = false;
-    this.pipeline = this.bindGroup = this.buffers = null;  // they belonged to the dead device
+    this.pipeline = this.bindGroup = this.buffers = null; // they belonged to the dead device
     trackGpuBufferBytes(-this.trackedBytes);
     // Don't leave stale GPU-driven visuals on screen: hide, or hand back to the CPU tier.
 });
 ```
 
 - **Never call `device.destroy()`.** The renderer owns the device's lifetime; your `dispose()`
-  releases *your* buffers and unsubscribes, nothing more.
+  releases _your_ buffers and unsubscribes, nothing more.
 - **A listener that throws is caught and logged** — but it still means your teardown was incomplete.
 - On `?renderer=webgl` the context resolves as unavailable immediately, so step 1 already routed you
   to the CPU tier. There is nothing extra to write for WebGL — **if you find yourself branching on
@@ -151,7 +151,7 @@ this.unsubscribeDeviceLost = onGpuDeviceLost(() => {
 
 - `?no_gpu_compute` / `window.__computeDisabled` — kills every GPU compute path, yours included.
   Free if you gated on `preferGpuCompute()`.
-- `?webglLite=1` (or `?lite`) — disables GPU compute *and* forces CORE world generation. Your pass
+- `?webglLite=1` (or `?lite`) — disables GPU compute _and_ forces CORE world generation. Your pass
   must survive **empty registries**: zero instances, 4-byte buffers, skipped dispatch, no NaNs.
 - New features land **behind a flag, default OFF**, until parity is green — follow `?gpuFoliage=1`.
   Expose the flag state for devtools: `window.__myPassFlag()` → `{ urlEnabled, active }`.
@@ -160,7 +160,7 @@ this.unsubscribeDeviceLost = onGpuDeviceLost(() => {
 
 ## 6. Parity and fallback (TS or AS)
 
-Every GPU pass needs a fallback that produces the *same* numbers, because it will run on WebGL, in
+Every GPU pass needs a fallback that produces the _same_ numbers, because it will run on WebGL, in
 CI, and after a device loss.
 
 - Choose the canonical tier and mirror it — WGSL mirrors AssemblyScript (`assembly/foliage.ts`) or a
@@ -187,8 +187,8 @@ dream-like; every example and every default in a new pass should read that way.
 - **No:** grimy screen-space AO dumps, harsh contact-hardening, gritty noise overlays, film grain,
   crunchy sharpening, blood/dirt/decal systems. If a debug view looks like a AAA shooter's G-buffer,
   it does not ship as an example in these docs.
-- Prefer **additive/soft-light accumulation** over subtractive darkening; darken by *desaturating
-  toward the fog colour*, not by multiplying toward black.
+- Prefer **additive/soft-light accumulation** over subtractive darkening; darken by _desaturating
+  toward the fog colour_, not by multiplying toward black.
 - Keep example screenshots and doc snippets in-palette (`CONFIG` colours,
   [`docs/CANDY_MATERIAL_COOKBOOK.md`](./CANDY_MATERIAL_COOKBOOK.md)).
 
@@ -266,15 +266,22 @@ export class CandyGlowGPU {
             label: 'candy-glow',
             bindingLayout: [
                 { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
-                { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'read-only-storage' },
+                },
                 { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
             ],
         });
 
         const outBytes = clampStorageBufferSize(this.count * 4);
         this.uniformBuf = this.gpu.createUniformBuffer(this.uniformArray, 'candy-glow-uniforms');
-        this.inBuf  = this.gpu.createStorageBuffer(intensities, 'candy-glow-in', true);
-        this.outBuf = this.gpu.createStorageBuffer(new Float32Array(outBytes / 4), 'candy-glow-out');
+        this.inBuf = this.gpu.createStorageBuffer(intensities, 'candy-glow-in', true);
+        this.outBuf = this.gpu.createStorageBuffer(
+            new Float32Array(outBytes / 4),
+            'candy-glow-out'
+        );
         this.bindGroup = this.gpu.createBindGroup(
             this.pipeline,
             [this.uniformBuf, this.inBuf, this.outBuf],
@@ -295,7 +302,10 @@ export class CandyGlowGPU {
         if (this.gpu.shouldSkipDispatch(this.count, 'CandyGlow')) return;
 
         const u = this.uniformArray;
-        u[0] = time; u[1] = delta; u[2] = kick; u[3] = this.count;
+        u[0] = time;
+        u[1] = delta;
+        u[2] = kick;
+        u[3] = this.count;
         this.gpu.writeUniformBuffer(this.uniformBuf!, u);
 
         this.gpu.dispatchCompute(
@@ -326,9 +336,9 @@ Call site, in the owning system's phase module:
 
 ```ts
 if (glow.active) {
-    glow.dispatch(t, dt, kick);     // results consumed next frame (1-frame pipelined)
+    glow.dispatch(t, dt, kick); // results consumed next frame (1-frame pipelined)
 } else {
-    cpuGlowFallback(t, dt, kick);   // WASM / TS tier — identical math, see §6
+    cpuGlowFallback(t, dt, kick); // WASM / TS tier — identical math, see §6
 }
 ```
 
@@ -336,34 +346,34 @@ if (glow.active) {
 
 ## Anti-patterns
 
-| ❌ Don't                                                                 | ✅ Do                                                                                            | Why                                                                                                    |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `navigator.gpu.requestDevice()` in a new system                          | `await awaitGpuDevice()`                                                                          | N devices = N VRAM heaps, N pipeline caches, disagreeing limits, and only one of them recovers from loss |
-| `await navigator.gpu.requestAdapter()` during boot                       | Nothing — `captureAdapterRequests()` already wrapped Three's single request                       | A blocking adapter request in the boot path stalls first paint and can double-request on some drivers   |
-| `device.createBuffer({ size: someArray.length * 4 })` unbounded          | `clampStorageBufferSize(count * STRIDE)` from a clamped count                                     | Exceeding `maxStorageBufferBindingSize` is a hard validation failure, worst on iGPUs and SwiftShader    |
-| Assuming your requested limits were granted                              | `getGpuLimit(name)` / `clampWorkgroupSizeX()`                                                     | `GPU_REQUIRED_LIMITS` is a floor of spec defaults, not what the adapter handed you                     |
-| A second bind group *layout* for the same buffer shape                   | Let `gpu-compute-library.ts` cache the layout by shape                                            | Duplicate layouts defeat the pipeline cache and diverge on the next edit                               |
-| `device.destroy()` in `dispose()`                                        | Release your buffers, unsubscribe, return                                                         | You would tear down the renderer's device and black the canvas                                         |
-| Registering your own `device.lost` handler                               | `onGpuDeviceLost(fn)`                                                                             | `gpu-context.ts` owns the one handler and guarantees it runs at most once                              |
-| `await readBuffer()` inside the frame that dispatched                    | 1-frame pipelining, or read during init                                                           | A synchronous readback stalls the queue and costs more than the pass saved                             |
-| Branching on `backend === 'webgl'`                                       | Fail closed on a `null` device                                                                    | One code path; the backend check drifts from the real availability answer                              |
-| New `Float32Array` per dispatch                                          | An owned scratch array refilled in place                                                          | GC churn in the render loop — the exact thing the compute path exists to avoid                         |
-| Shipping GPU-only, "the CPU path is too slow anyway"                     | A parity-tested fallback                                                                          | WebGL, CI, `?webglLite=1`, and every device loss run the fallback                                      |
-| `vec3` arrays sized at 12 B/element                                      | 16 B/element, uniforms rounded to 16                                                              | WGSL alignment; the symptom is garbage in every element after the first                                |
-| A gritty SSAO / grain / dirt example                                     | Soft, pastel, additive                                                                            | See §7 — the aesthetic is a constraint, not a preference                                               |
+| ❌ Don't                                                        | ✅ Do                                                                       | Why                                                                                                      |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `navigator.gpu.requestDevice()` in a new system                 | `await awaitGpuDevice()`                                                    | N devices = N VRAM heaps, N pipeline caches, disagreeing limits, and only one of them recovers from loss |
+| `await navigator.gpu.requestAdapter()` during boot              | Nothing — `captureAdapterRequests()` already wrapped Three's single request | A blocking adapter request in the boot path stalls first paint and can double-request on some drivers    |
+| `device.createBuffer({ size: someArray.length * 4 })` unbounded | `clampStorageBufferSize(count * STRIDE)` from a clamped count               | Exceeding `maxStorageBufferBindingSize` is a hard validation failure, worst on iGPUs and SwiftShader     |
+| Assuming your requested limits were granted                     | `getGpuLimit(name)` / `clampWorkgroupSizeX()`                               | `GPU_REQUIRED_LIMITS` is a floor of spec defaults, not what the adapter handed you                       |
+| A second bind group _layout_ for the same buffer shape          | Let `gpu-compute-library.ts` cache the layout by shape                      | Duplicate layouts defeat the pipeline cache and diverge on the next edit                                 |
+| `device.destroy()` in `dispose()`                               | Release your buffers, unsubscribe, return                                   | You would tear down the renderer's device and black the canvas                                           |
+| Registering your own `device.lost` handler                      | `onGpuDeviceLost(fn)`                                                       | `gpu-context.ts` owns the one handler and guarantees it runs at most once                                |
+| `await readBuffer()` inside the frame that dispatched           | 1-frame pipelining, or read during init                                     | A synchronous readback stalls the queue and costs more than the pass saved                               |
+| Branching on `backend === 'webgl'`                              | Fail closed on a `null` device                                              | One code path; the backend check drifts from the real availability answer                                |
+| New `Float32Array` per dispatch                                 | An owned scratch array refilled in place                                    | GC churn in the render loop — the exact thing the compute path exists to avoid                           |
+| Shipping GPU-only, "the CPU path is too slow anyway"            | A parity-tested fallback                                                    | WebGL, CI, `?webglLite=1`, and every device loss run the fallback                                        |
+| `vec3` arrays sized at 12 B/element                             | 16 B/element, uniforms rounded to 16                                        | WGSL alignment; the symptom is garbage in every element after the first                                  |
+| A gritty SSAO / grain / dirt example                            | Soft, pastel, additive                                                      | See §7 — the aesthetic is a constraint, not a preference                                                 |
 
 ---
 
 ## Consumers — read these before writing a new pass
 
-| Feature                | Doc                                                        | Module                                                                                                    |
-| ---------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Particles              | [`COMPUTE_PARTICLES.md`](./COMPUTE_PARTICLES.md)           | [`src/particles/compute-particles.ts`](../src/particles/compute-particles.ts) — raw device, bind group, dispatch |
-| Foliage pose / scalars | [`GPU_FOLIAGE.md`](./GPU_FOLIAGE.md)                       | `src/compute/foliage-gpu-batch.ts`, `src/compute/gpu-plant-pose.ts` — flagged pilot, 1-frame pipelining     |
-| LOD / culling          | [`COMPUTE_GPU_DEFAULT.md`](./COMPUTE_GPU_DEFAULT.md)       | `src/compute/batcher-gpu-lod.ts`, `src/compute/gpu-culling-system.ts` — Tier 4a chores usage                |
-| Clustered lights       | [`CLUSTERED_LIGHTS.md`](./CLUSTERED_LIGHTS.md)             | [`src/rendering/clustered-lighting.ts`](../src/rendering/clustered-lighting.ts) — CPU bin, GPU upload, no extra device |
-| Irradiance probes / GI | [`IRRADIANCE_PROBES.md`](./IRRADIANCE_PROBES.md)           | [`src/rendering/irradiance-probes.ts`](../src/rendering/irradiance-probes.ts)                               |
-| Wind                   | [`WIND_OPTIMIZATION.md`](./WIND_OPTIMIZATION.md)           | `src/foliage/wind-compute.ts` — TSL compute node dispatched from `game-loop-compute.ts`                     |
+| Feature                | Doc                                                  | Module                                                                                                                 |
+| ---------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Particles              | [`COMPUTE_PARTICLES.md`](./COMPUTE_PARTICLES.md)     | [`src/particles/compute-particles.ts`](../src/particles/compute-particles.ts) — raw device, bind group, dispatch       |
+| Foliage pose / scalars | [`GPU_FOLIAGE.md`](./GPU_FOLIAGE.md)                 | `src/compute/foliage-gpu-batch.ts`, `src/compute/gpu-plant-pose.ts` — flagged pilot, 1-frame pipelining                |
+| LOD / culling          | [`COMPUTE_GPU_DEFAULT.md`](./COMPUTE_GPU_DEFAULT.md) | `src/compute/batcher-gpu-lod.ts`, `src/compute/gpu-culling-system.ts` — Tier 4a chores usage                           |
+| Clustered lights       | [`CLUSTERED_LIGHTS.md`](./CLUSTERED_LIGHTS.md)       | [`src/rendering/clustered-lighting.ts`](../src/rendering/clustered-lighting.ts) — CPU bin, GPU upload, no extra device |
+| Irradiance probes / GI | [`IRRADIANCE_PROBES.md`](./IRRADIANCE_PROBES.md)     | [`src/rendering/irradiance-probes.ts`](../src/rendering/irradiance-probes.ts)                                          |
+| Wind                   | [`WIND_OPTIMIZATION.md`](./WIND_OPTIMIZATION.md)     | `src/foliage/wind-compute.ts` — TSL compute node dispatched from `game-loop-compute.ts`                                |
 
 ---
 
@@ -373,6 +383,7 @@ Copy-paste into the PR description and tick it:
 
 ```markdown
 ### WebGPU compute pass checklist
+
 - [ ] Zero new `requestDevice` / `requestAdapter` call sites (`grep -rn "requestDevice\|requestAdapter" src/`)
 - [ ] Device acquired via `awaitGpuDevice()`; `null` fails closed to the CPU/WASM tier (no throw)
 - [ ] Gated on `preferGpuCompute()` + `isGpuComputeReady()`; `ensureGpuComputeReady()` awaited once

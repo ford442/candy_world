@@ -39,10 +39,7 @@ import type {
     ParticleAttractor,
     ParticleAudioData,
 } from './compute-particles-types.ts';
-import {
-    enforceCap,
-    withinCap,
-} from '../systems/performance-budget/systems-budget.ts';
+import { enforceCap, withinCap } from '../systems/performance-budget/systems-budget.ts';
 import { profiler } from '../utils/profiler.ts';
 
 // =============================================================================
