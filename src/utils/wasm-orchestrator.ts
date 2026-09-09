@@ -244,7 +244,9 @@ export async function parallelWasmLoad(options: ParallelWasmLoadOptions = {}): P
             // Import the generated JS loader
             let createCandyNative: ((config: Record<string, unknown>) => Promise<EmscriptenModule>) | undefined;
             try {
-                const { default: creator } = await import(/* @vite-ignore */ `${locatePrefix}/candy_native.js?v=${Date.now()}`);
+                const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
+                const jsUrl = new URL(`${locatePrefix}/candy_native.js`, base).href;
+                const { default: creator } = await import(/* @vite-ignore */ jsUrl);
                 createCandyNative = creator;
             } catch (jsError) {
                 console.log('[WASMOrchestrator] candy_native.js not found, skipping EMCC module');
@@ -258,8 +260,9 @@ export async function parallelWasmLoad(options: ParallelWasmLoadOptions = {}): P
             try {
                 const instance = await createCandyNative({
                     locateFile: (path: string, prefix: string) => {
-                        if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
-                        if (path.endsWith('.worker.js')) return `${locatePrefix}/candy_native.worker.js`;
+                        const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
+                        if (path.endsWith('.wasm')) return new URL(`${locatePrefix}/candy_native.wasm`, base).href;
+                        if (path.endsWith('.worker.js')) return new URL(`${locatePrefix}/candy_native.worker.js`, base).href;
                         return prefix + path;
                     },
                     print: (text: string) => console.log('[Native]', text),

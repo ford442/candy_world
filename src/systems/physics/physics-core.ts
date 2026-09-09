@@ -432,13 +432,19 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         console.log('[PhysicsDiag] updateDefaultState: Calling updatePhysicsCPP (LakeBasin=' + inLakeBasin + ')');
     }
 
+    // Seed WASM state at start of next frame
+    import('../../utils/wasm-physics.ts').then(({ setPlayerState }) => {
+        setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
+    }).catch(() => {});
+
     if (!inLakeBasin) {
+        // 3. updatePhysicsCPP(..., jump = false) as obstacle/trampoline solver only
         onGround = updatePhysicsCPP(
             delta,
             moveInput.x,
             moveInput.z,
             moveSpeed,
-            effectiveJumpInput > 0,
+            false, // jump=false to prevent C++ from firing vy=10
             keyStates.sprint,
             keyStates.sneak,
             grooveGravity.multiplier
@@ -450,11 +456,33 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         console.log('[PhysicsDiag] updateDefaultState: updatePhysicsCPP returned');
     }
 
+    if (!(window as any).__physicsPathStats) {
+        (window as any).__physicsPathStats = { native: 0, controller: 0 };
+    }
+
     if (onGround >= 0) {
+        (window as any).__physicsPathStats.native++;
+
         // C++ Success
         getPlayerState(_scratchPlayerState);
-        player.position.set(_scratchPlayerState.x + windForceX, _scratchPlayerState.y, _scratchPlayerState.z + windForceZ);
-        player.velocity.set(_scratchPlayerState.vx, _scratchPlayerState.vy, _scratchPlayerState.vz);
+        const preX = player.position.x;
+        const preZ = player.position.z;
+
+        // 2. Resolve kinematic movement
+        updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
+
+        // 4. Obstacle delta: isolate obstacle push-out
+        const obstacleCorrectionX = _scratchPlayerState.x - preX - _scratchPlayerState.vx * delta;
+        const obstacleCorrectionZ = _scratchPlayerState.z - preZ - _scratchPlayerState.vz * delta;
+
+        player.position.x += obstacleCorrectionX + windForceX;
+        player.position.z += obstacleCorrectionZ + windForceZ;
+
+        // 5. Keep onGround == 2 as trampoline vy impulse
+        if (onGround === 2) {
+             player.velocity.y = _scratchPlayerState.vy;
+             player.isGrounded = false;
+        }
 
         // Reset jump key if we successfully jumped (velocity.y > 0)
         // But only if we were grounded before (normal jump)
@@ -470,6 +498,8 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
              }
         }
     } else {
+        (window as any).__physicsPathStats.controller++;
+
         // --- Kinematic character controller (#1577) ---
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
         player.position.x += windForceX;

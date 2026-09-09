@@ -438,7 +438,9 @@ export function checkCollision(playerX: number, playerZ: number, playerRadius: n
  */
 export function updatePhysicsCPP(delta: number, inputX: number, inputZ: number, speed: number, jump: boolean, sprint: boolean, sneak: boolean, grooveGravity: number): number {
     const f = getNativeFunc('updatePhysicsCPP');
-    if (f) return f(delta, inputX, inputZ, speed, jump ? 1 : 0, sprint ? 1 : 0, sneak ? 1 : 0, grooveGravity);
+    if (f) {
+        return f(delta, inputX, inputZ, speed, jump ? 1 : 0, sprint ? 1 : 0, sneak ? 1 : 0, grooveGravity);
+    }
     return -1;
 }
 

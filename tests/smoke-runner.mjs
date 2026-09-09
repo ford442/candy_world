@@ -561,6 +561,16 @@ async function runSmokeTest() {
         }
 
         // Results
+        console.log('\nChecking physics path stats...');
+        // Let the simulation run for a moment so some frames pass
+        await new Promise(r => setTimeout(r, 500));
+        const physicsStats = await page.evaluate(() => window.__physicsPathStats).catch(() => null);
+        if (!physicsStats || physicsStats.native === 0) {
+            console.warn("⚠️  WARNING: Native physics path was never hit! Controller might be doing 100% of the work. Stats:", physicsStats);
+        } else {
+            console.log(`✓ Native physics path verified (${physicsStats.native} frames)`);
+        }
+
         console.log('\n📊 Test Results:');
         if (hasError) {
             console.log('❌ FAILED');
