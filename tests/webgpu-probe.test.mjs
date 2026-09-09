@@ -35,7 +35,12 @@ function makeDevice(overrides = {}) {
         limits: { maxStorageBufferBindingSize: 134217728, maxComputeWorkgroupSizeX: 256 },
         features: new Set(),
         lost: new Promise(() => {}),
-        adapterInfo: { vendor: 'fake', architecture: 'discrete', device: 'FakeGPU', description: '' },
+        adapterInfo: {
+            vendor: 'fake',
+            architecture: 'discrete',
+            device: 'FakeGPU',
+            description: '',
+        },
         destroy() {
             this.destroyed = true;
         },
@@ -99,7 +104,10 @@ async function expectFailure(canvas, stage) {
     await assert.rejects(
         () => probeWebGPU(canvas),
         (err) => {
-            assert.ok(err instanceof WebGPUUnavailableError, `expected WebGPUUnavailableError, got ${err}`);
+            assert.ok(
+                err instanceof WebGPUUnavailableError,
+                `expected WebGPUUnavailableError, got ${err}`
+            );
             assert.equal(err.stage, stage, `expected stage "${stage}", got "${err.stage}"`);
             return true;
         }

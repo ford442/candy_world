@@ -144,19 +144,19 @@ It is published from module load, so it is always readable — before arming it 
 `requestAdapter` / `requestDevice` in the app. It walks the whole path the world needs, in order,
 and names the step that broke:
 
-| Stage       | What it proves                                                              |
-| ----------- | --------------------------------------------------------------------------- |
-| `navigator` | `navigator.gpu` exists at all                                               |
-| `adapter`   | `requestAdapter()` yields an adapter — **this is where Chrome and Edge diverge** |
+| Stage       | What it proves                                                                           |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| `navigator` | `navigator.gpu` exists at all                                                            |
+| `adapter`   | `requestAdapter()` yields an adapter — **this is where Chrome and Edge diverge**         |
 | `device`    | `requestDevice()` grants the device, with every adapter feature and our `requiredLimits` |
-| `configure` | the real world canvas configures as a swap chain                            |
-| `pipeline`  | an empty `@compute` kernel compiles — culling, particles and gpu-chores all need this |
+| `configure` | the real world canvas configures as a swap chain                                         |
+| `pipeline`  | an empty `@compute` kernel compiles — culling, particles and gpu-chores all need this    |
 
 Any failure throws `WebGPUUnavailableError` (carrying `.stage`), which `runScenePipeline` turns into
 the blocking screen in [`src/ui/webgpu-fatal.ts`](../src/ui/webgpu-fatal.ts): advice for the stage,
 the browser brand, and copyable diagnostics JSON. **No renderer is constructed.**
 
-`WebGPU.isAvailable()` is *not* the gate — it only checks that `navigator.gpu` exists, which is
+`WebGPU.isAvailable()` is _not_ the gate — it only checks that `navigator.gpu` exists, which is
 exactly the case that used to boot to WebGL: the object is present and the adapter request dies
 later. It is kept only to surface Three's browser-specific advisory text.
 
@@ -170,7 +170,7 @@ the Chrome-vs-Edge adapter failure. `init.ts` now clears `renderer._getFallback`
 
 ### Reading the verdict
 
-`window.webgpuProbe` is published on success *and* failure:
+`window.webgpuProbe` is published on success _and_ failure:
 
 ```jsonc
 {
@@ -198,12 +198,12 @@ page.
 
 The WebGL path is **disabled this phase**, not deleted — restoring it is a later issue wave.
 
-| Input                                | Status                                                                 |
-| ------------------------------------ | ---------------------------------------------------------------------- |
+| Input                                   | Status                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------- |
 | `?renderer=webgl` / `webgl2` / `?webgl` | Warn, then ignored — `resolveRendererBackend()` always returns `webgpu` |
-| `?webglLite=1`                       | No longer implies a WebGL boot. `?lite` still only trims world density  |
-| `localStorage candy.renderer`        | Ignored; `switchRendererPreference('webgl')` refuses out loud           |
-| `RENDERER=webgl npm run test`        | The smoke runner exits 1 rather than booting GL to make CI green        |
+| `?webglLite=1`                          | No longer implies a WebGL boot. `?lite` still only trims world density  |
+| `localStorage candy.renderer`           | Ignored; `switchRendererPreference('webgl')` refuses out loud           |
+| `RENDERER=webgl npm run test`           | The smoke runner exits 1 rather than booting GL to make CI green        |
 
 None of these can rescue boot. A green run on a backend the app will not ship is worse than no run
 at all, so CI is expected-fail here rather than silently passing on GL.

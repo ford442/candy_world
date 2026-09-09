@@ -59,6 +59,10 @@ export {
     isDreamEnvEnabled,
     setDreamEnvEnabled,
     disposeDreamEnv,
+    // Tier gates for the optional surface knobs (see material-core/quality-gate.ts)
+    getGraphicsTier,
+    isClearcoatEnabled,
+    setClearcoatEnabled,
 
     // Presets
     CandyPresets,

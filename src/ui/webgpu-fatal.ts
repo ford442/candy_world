@@ -31,8 +31,7 @@ const STAGE_ADVICE: Record<string, string> = {
 
 function stageAdvice(stage: unknown): string {
     return (
-        STAGE_ADVICE[String(stage)] ??
-        'WebGPU could not be initialised on this browser and device.'
+        STAGE_ADVICE[String(stage)] ?? 'WebGPU could not be initialised on this browser and device.'
     );
 }
 

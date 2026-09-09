@@ -296,8 +296,12 @@ Optional `scaleDistanceBias` shrinks instances ~8% toward biome outer radius.
 
 Three cross-cutting options on `UnifiedMaterialOptions`
 ([`unified-material.ts`](../src/foliage/material-core/unified-material.ts)). All three
-are ordinary node/property assignments — none of them forks a second shader variant, so
-`shader-warmup.ts` compiles the same program count it did before they existed.
+are ordinary node/property assignments, but two of them — `clearcoat` and `useDreamEnv` —
+swap a whole extra *lighting term* into the graph, so a material that carries one
+compiles to a different pipeline than the same preset without it. That is why both are
+tier-gated (below) and why [`shader-warmup.ts`](../src/rendering/shader-warmup.ts)
+pre-compiles the override shapes the bare presets leave uncovered. See
+[Warm-up and gating](#warm-up-and-gating).
 
 ### Before / after
 
@@ -330,6 +334,15 @@ fresnel fake.
 | `clearcoatTint`         | `null`  | **Stylized, not physical.** glTF clearcoat has no colour; this is a fresnel-weighted tint added to _emissive_ |
 | `clearcoatTintStrength` | `0.2`   | Scales the tint (also multiplied by `clearcoat`). Emissive, so it feeds bloom — keep it small                 |
 
+Gated as well as opt-in: the coat is **stripped entirely on the `low` graphics tier**
+(and therefore on CI, headless and the WebGL fallback, all of which
+`resolveStartupCapabilities()` clamps to `low`), forced either way with `?coat=on` /
+`?coat=off` or from code with `setClearcoatEnabled()`
+([`quality-gate.ts`](../src/foliage/material-core/quality-gate.ts)). Low still reads as
+candy — sheen and rim carry it — just without the detached highlight. Like the env gate,
+it is read at material-construction time, so toggling only affects materials built
+afterwards.
+
 ```ts
 // Wrapper-fresh gummy: the bare preset stays matte-surfaced on purpose.
 const wrapped = CandyPresets.Gummy(0xff69b4, { clearcoat: 0.8, clearcoatRoughness: 0.1 });
@@ -361,6 +374,31 @@ materials built afterwards.
 
 The same texture backs [`mirrors.ts`](../src/foliage/mirrors.ts) (sampled with explicit
 UVs), so mirrors and candy highlights demonstrably reflect one sky.
+
+**Lifetime.** The texture is deliberately **session-lived**: built lazily on the first
+opted-in material and never freed while the page is up. That is not a leak — it is one
+~1 MB `DataTexture` plus the single PMREM chain three derives from it, and Candy World
+generates its world once at boot with no runtime regeneration path to free it at. It
+matches [`irradiance-probes.ts`](../src/rendering/irradiance-probes.ts), whose volume is
+owned the same way. `disposeDreamEnv()` exists as the **test / hot-reload seam** (it
+drops the texture and re-arms the gate so a suite can re-resolve settings); if a world
+teardown path is ever added, that is the call to hook into it.
+
+### Warm-up and gating
+
+`shader-warmup.ts` compiles every default preset, which covers the shapes the presets
+ship with — `Sugar` (coat, no env), `Gummy` and `Crystal` (env, no coat). Two shapes are
+reachable only through overrides and so are warmed explicitly by
+`getSurfaceVariantTargets()`:
+
+| Warm-up target             | Why it is not covered by a bare preset                                              |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| `CandyPresets.Gummy+coat`  | The documented `{ clearcoat: 0.8 }` opt-in — coat *and* env together, the heaviest graph the preset vocabulary produces |
+| `PhysicalClearcoat_Base`   | Shape of [`remote-avatars.ts`](../src/systems/net/remote-avatars.ts): a bare `MeshPhysicalNodeMaterial` with a coat, built outside the presets entirely |
+
+Two entries, not a matrix: every other override differs only in *uniform values*, which
+three's program cache does not fork on. Both are skipped when the coat gate is off, where
+they would compile to the un-coated graph the presets already warmed.
 
 ### `subsurface*` — wrapped translucency, _not_ SSS
 

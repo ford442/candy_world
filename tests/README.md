@@ -38,6 +38,30 @@ This test:
 
 **Note**: This test requires `candy_physics.wasm` to be built. Run `npm run build:wasm` first if it doesn't exist.
 
+### `npm run test:entity-snapshot` — Entity Snapshot Round-Trip
+
+**File**: `tests/entity-snapshot.test.mjs`
+**Runtime**: Node.js (ESM) + `tsx`, with the asset stubs in `tests/support/`
+**Duration**: ~2 seconds
+**Purpose**: Verify the typed `EntitySnapshot` primitive round-trips losslessly
+
+This test:
+
+1. Restores authored `CandyMapEntity` records through the real
+   `processMapEntity` registration path — no `WebGPURenderer`, no browser
+2. Re-snapshots each restored object and asserts the canonicalized record
+   (rounded floats, stable key order) is unchanged, for three fixtures:
+   a static prop, an instanced-batcher instance, and a music-reactive entity
+3. Reads instance transforms from the batcher's **CPU mirror** `Object3D` only —
+   never `instanceMatrix.array` after a GPU upload, never `mapAsync`
+4. Exercises `migrateSnapshot`: a v1 record migrates to the current shape, a
+   current record is a fixed point, and a future version is rejected
+5. Checks the sidecar merge order (`map.json` base → overrides)
+
+Asset imports Vite normally handles (`.css`, `.wasm?init`) are stubbed by
+`tests/support/register-hooks.mjs`, which the npm script passes via
+`node --import`.
+
 ### `npm run test` — Smoke Test (WebGPU + Boot Sequence)
 
 **File**: `tests/smoke-runner.mjs`  

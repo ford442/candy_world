@@ -216,13 +216,7 @@ function settle(next: GpuContext): GpuContext {
  * report says *which* WebGPU step died, not just "it didn't work".
  */
 export type GpuProbeStage =
-    | 'navigator'
-    | 'adapter'
-    | 'device'
-    | 'canvas'
-    | 'configure'
-    | 'pipeline'
-    | 'renderer';
+    'navigator' | 'adapter' | 'device' | 'canvas' | 'configure' | 'pipeline' | 'renderer';
 
 /**
  * WebGPU could not be brought up, so boot must stop.
@@ -487,7 +481,11 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         });
         const scoped = await device.popErrorScope();
         if (scoped) {
-            return fail('pipeline', `compute pipeline validation failed: ${scoped.message}`, scoped);
+            return fail(
+                'pipeline',
+                `compute pipeline validation failed: ${scoped.message}`,
+                scoped
+            );
         }
     } catch (err) {
         // `fail()` throws, so a validation error caught here would otherwise be
@@ -582,10 +580,7 @@ function snapshotLimits(limits: GPUSupportedLimits | undefined): Record<string, 
  *   constructed with.
  * @throws {WebGPUUnavailableError} When the renderer did not come up on WebGPU.
  */
-export async function armGpuContext(
-    renderer: unknown,
-    probe: GpuProbeResult
-): Promise<GpuContext> {
+export async function armGpuContext(renderer: unknown, probe: GpuProbeResult): Promise<GpuContext> {
     if (armed) return ensurePromise();
     armed = true;
     ensurePromise();

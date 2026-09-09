@@ -10,7 +10,8 @@
  */
 
 import * as THREE from 'three';
-import { snapshotEntity } from '../systems/entity-snapshot.ts';
+import { markAuthoredTransform, nextSnapshotId, snapshotEntity } from '../systems/entity-snapshot-core.ts';
+import { saveSnapshot } from '../systems/entity-snapshot-store.ts';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
 import { showToast } from '../utils/toast.ts';
 import { create } from '../world/foliage-registry.ts';
@@ -147,10 +148,12 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
             return;
         }
         try {
-            const snap = snapshotEntity(_lastSpawnedObject, `snap_${Date.now()}`);
+            const snap = snapshotEntity(_lastSpawnedObject);
             if (snap) {
                 console.log('[DebugPlace] Entity Snapshot:');
                 console.log(JSON.stringify(snap, null, 2));
+                // Dev-only sidecar write; never touches assets/map.json.
+                void saveSnapshot(snap);
                 showToast('Snapshot captured to console', '✅', 2000);
             } else {
                 showToast('Failed to capture snapshot', '❌', 2000);
@@ -215,6 +218,14 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
 
             // Re-apply the normal alignment and local rotation
             obj.quaternion.copy(_reticle.quaternion);
+
+            // Batchers bake scale into geometry, so record what was authored —
+            // otherwise the next snapshot of this object reports scale 1.
+            obj.userData.mapEntityId = nextSnapshotId();
+            markAuthoredTransform(obj, {
+                scale: _currentScale,
+                rotation: { quat: [obj.quaternion.x, obj.quaternion.y, obj.quaternion.z, obj.quaternion.w] }
+            });
 
             // To ensure we get it perfectly in the scene, add to scene and maybe foliage group if applicable
             _scene.add(obj);
