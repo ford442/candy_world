@@ -1,8 +1,10 @@
 import {
+    type IWeatherSystem,
     MRState,
     syncMapMusicContext,
     mapNoteToColor,
     applyArpeggioGroveChannelAccum,
+    applyNebulaChannelAccum,
     WeatherMusicTargets,
     _frustum,
     _projScreenMatrix,
@@ -36,7 +38,7 @@ import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { uTwilight } from '../foliage/sky.ts';
-import type { AudioData, FoliageObject } from '../foliage/types.ts';
+import type { AudioData, ChannelData, FoliageObject } from '../foliage/types.ts';
 import {
     uploadPositionsFlat,
     batchDistanceCull,
@@ -75,12 +77,6 @@ interface MoonState {
     dancePhase: number;
 }
 
-// Minimal interface for WeatherSystem based on usage
-export interface IWeatherSystem {
-    getTwilightGlowIntensity?(cyclePos: number): number;
-    isNight(): boolean;
-}
-
 // Caches to prevent repeated lookups (migrated from core idea)
 const _noteNameCache: Record<string | number, string> = {};
 
@@ -103,6 +99,105 @@ function stripNoteOctave(str: string): string {
     // the first number/hyphen is the note name. .substring() is highly
     // optimized in JS engines (often a sliced string pointer).
     return str.substring(0, startIdx);
+}
+
+
+// --- Biome channel binding helpers ---------------------------------------
+// These replace ~19 hand-unrolled copies of the same three loops (one per
+// biome × per bound uniform) that updateBiomeChannelBindings used to carry.
+// All are allocation-free and take the channel list by argument rather than
+// capturing it: applyMapMusicContext() *reassigns* the MRState.*Ch arrays when
+// a map override loads, so a cached reference would silently freeze reactivity
+// on the default bindings.
+
+/** Volume above which a channel counts as playing a note. */
+const NOTE_AUDIBLE_THRESHOLD = 0.05;
+/** Per-frame lerp back towards white once a biome's note channel goes silent. */
+const NOTE_COLOR_RELEASE_LERP = 0.05;
+/** Per-frame multiplier applied to reactive uniforms while audio is inactive. */
+const SILENT_DECAY = 0.9;
+
+/** Uniforms that simply decay towards zero when there is no audio data. */
+const SILENT_DECAY_UNIFORMS = [
+    BiomeUniforms.arpeggioGrove.shimmer,
+    BiomeUniforms.arpeggioGrove.hueShift,
+    BiomeUniforms.crystallineNebula.shimmer,
+    BiomeUniforms.global.shimmer,
+    BiomeUniforms.global.hueShift,
+    BiomeUniforms.gemCanopy.shimmer,
+    BiomeUniforms.gemCanopy.hueShift,
+    BiomeUniforms.skyIslands.shimmer,
+    BiomeUniforms.skyIslands.hueShift,
+    BiomeUniforms.sugarCaves.shimmer,
+    BiomeUniforms.sugarCaves.hueShift,
+    BiomeUniforms.skyMoon.moonIntensity,
+] as const;
+
+/** Sum the volume of every configured channel that exists in this module. */
+function accumChannelVolume(
+    chList: readonly number[],
+    channels: readonly ChannelData[]
+): number {
+    let sum = 0.0;
+    for (let i = 0; i < chList.length; i++) {
+        const idx = chList[i];
+        if (idx < channels.length) sum += channels[idx].volume;
+    }
+    return sum;
+}
+
+/** Note value of the first configured channel that is audible; 0 if none is. */
+function firstAudibleNote(
+    chList: readonly number[],
+    channels: readonly ChannelData[]
+): number {
+    for (let i = 0; i < chList.length; i++) {
+        const idx = chList[i];
+        if (idx < channels.length && channels[idx].volume > NOTE_AUDIBLE_THRESHOLD) {
+            return parseInt(channels[idx].note) || 0;
+        }
+    }
+    return 0;
+}
+
+/** Channel accumulator → 0..1 uniform value, day/night gated and map scaled. */
+function normalizeAccum(
+    accum: number,
+    chList: readonly number[],
+    nightGate: number,
+    intensityScale: number
+): number {
+    return Math.min(accum / Math.max(chList.length, 1), 1.0) * nightGate * intensityScale;
+}
+
+/**
+ * Drift a biome's noteColor uniform back towards white. `target` is a
+ * module-level scratch Color — never allocate one here.
+ */
+function releaseNoteColor(uniform: { value: THREE.Color }, target: THREE.Color) {
+    target.setHex(0xffffff);
+    uniform.value.lerp(target, NOTE_COLOR_RELEASE_LERP);
+}
+
+/**
+ * Lerp a biome's noteColor uniform towards the colour of the note it is
+ * playing, or release it towards white when silent. Returns true if a note was
+ * playing, so callers can hang biome-specific behaviour off a note hit.
+ */
+function applyNoteColor(
+    uniform: { value: THREE.Color },
+    noteVal: number,
+    target: THREE.Color,
+    palette: string,
+    lerpRate: number
+): boolean {
+    if (noteVal > 0) {
+        mapNoteToColor(noteVal, target, palette);
+        uniform.value.lerp(target, lerpRate);
+        return true;
+    }
+    releaseNoteColor(uniform, target);
+    return false;
 }
 
 export class MusicReactivitySystem {
@@ -411,11 +506,15 @@ export class MusicReactivitySystem {
 
     private updateBiomeChannelBindings(audioState: AudioData | null, dayNightBias: number) {
         // ---------------------------------------------------------------
-        // ⚡ BIOME CHANNEL BINDING — Arpeggio Grove & Crystalline Nebula
+        // ⚡ BIOME CHANNEL BINDING
         // Data-driven: channel indices come from assets/music-bindings.json.
         // Allocation-free: only pre-allocated module-level scalars are used.
         // Day/night gating: reactivity is attenuated during the day phase.
         // nightGate: 1.0 at night (dayNightBias=0) → 0.2 at full day (dayNightBias=1)
+        //
+        // Ordering note: update() calls this before updateLuminousPlants() and
+        // updateSkyWavePropagation(), but that order is incidental — neither of
+        // those reads BiomeUniforms or the MRState accumulators written here.
         // ---------------------------------------------------------------
         const nightGate = 0.2 + (1.0 - dayNightBias) * 0.8;
         const channels = audioState?.channelData;
@@ -460,225 +559,53 @@ export class MusicReactivitySystem {
             // --- Arpeggio Grove: shimmer + hueShift (#1364 AS batch / TS fallback) ---
             applyArpeggioGroveChannelAccum(channels, nightGate);
 
-            // --- Global: shimmer ---
-            MRState.globalShimmerAccum = 0.0;
-            for (let i = 0; i < MRState.globalShimmerCh.length; i++) {
-                const idx = MRState.globalShimmerCh[i];
-                if (idx < channels.length) MRState.globalShimmerAccum += channels[idx].volume;
-            }
+            // --- Crystalline Nebula: shimmer + amplitudeScale + noteColor ---
+            applyNebulaChannelAccum(channels, nightGate);
 
-            // --- Global: hue shift ---
-            MRState.globalHueShiftAccum = 0.0;
-            for (let i = 0; i < MRState.globalHueShiftCh.length; i++) {
-                const idx = MRState.globalHueShiftCh[i];
-                if (idx < channels.length) MRState.globalHueShiftAccum += channels[idx].volume;
-            }
+            // --- Accumulate per-biome channel energy ---
+            MRState.globalShimmerAccum = accumChannelVolume(MRState.globalShimmerCh, channels);
+            MRState.globalHueShiftAccum = accumChannelVolume(MRState.globalHueShiftCh, channels);
+            MRState.gemCanopyShimmerAccum = accumChannelVolume(MRState.gemCanopyShimmerCh, channels);
+            MRState.gemCanopyHueShiftAccum = accumChannelVolume(MRState.gemCanopyHueShiftCh, channels);
+            MRState.skyIslandsShimmerAccum = accumChannelVolume(MRState.skyIslandsShimmerCh, channels);
+            MRState.skyIslandsHueShiftAccum = accumChannelVolume(MRState.skyIslandsHueShiftCh, channels);
+            MRState.skyIslandsFogAccum = accumChannelVolume(MRState.skyIslandsFogCh, channels);
+            MRState.sugarCavesShimmerAccum = accumChannelVolume(MRState.sugarCavesShimmerCh, channels);
+            MRState.sugarCavesHueShiftAccum = accumChannelVolume(MRState.sugarCavesHueShiftCh, channels);
+            MRState.skyMoonIntensityAccum = accumChannelVolume(MRState.skyMoonIntensityCh, channels);
 
-            // --- Gem Canopy: shimmer ---
-            MRState.gemCanopyShimmerAccum = 0.0;
-            for (let i = 0; i < MRState.gemCanopyShimmerCh.length; i++) {
-                const idx = MRState.gemCanopyShimmerCh[i];
-                if (idx < channels.length) MRState.gemCanopyShimmerAccum += channels[idx].volume;
-            }
+            // --- Read the note playing on each biome's note-colour channel ---
+            MRState.skyMoonNoteVal = firstAudibleNote(MRState.skyMoonNoteColorCh, channels);
+            MRState.arpeggioNoteVal = firstAudibleNote(MRState.arpeggioNoteColorCh, channels);
+            MRState.globalNoteVal = firstAudibleNote(MRState.globalNoteColorCh, channels);
+            MRState.gemCanopyNoteVal = firstAudibleNote(MRState.gemCanopyNoteColorCh, channels);
+            MRState.skyIslandsNoteVal = firstAudibleNote(MRState.skyIslandsNoteColorCh, channels);
+            MRState.sugarCavesNoteVal = firstAudibleNote(MRState.sugarCavesNoteColorCh, channels);
 
-            // --- Gem Canopy: hue shift (note-hit twist driver) ---
-            MRState.gemCanopyHueShiftAccum = 0.0;
-            for (let i = 0; i < MRState.gemCanopyHueShiftCh.length; i++) {
-                const idx = MRState.gemCanopyHueShiftCh[i];
-                if (idx < channels.length) MRState.gemCanopyHueShiftAccum += channels[idx].volume;
-            }
-
-            // --- Sky Islands: shimmer ---
-            MRState.skyIslandsShimmerAccum = 0.0;
-            for (let i = 0; i < MRState.skyIslandsShimmerCh.length; i++) {
-                const idx = MRState.skyIslandsShimmerCh[i];
-                if (idx < channels.length) MRState.skyIslandsShimmerAccum += channels[idx].volume;
-            }
-
-            // --- Sky Islands: hue shift ---
-            MRState.skyIslandsHueShiftAccum = 0.0;
-            for (let i = 0; i < MRState.skyIslandsHueShiftCh.length; i++) {
-                const idx = MRState.skyIslandsHueShiftCh[i];
-                if (idx < channels.length) MRState.skyIslandsHueShiftAccum += channels[idx].volume;
-            }
-
-            // --- Sky Islands: fog density ---
-            MRState.skyIslandsFogAccum = 0.0;
-            for (let i = 0; i < MRState.skyIslandsFogCh.length; i++) {
-                const idx = MRState.skyIslandsFogCh[i];
-                if (idx < channels.length) MRState.skyIslandsFogAccum += channels[idx].volume;
-            }
-
-            // --- Sugar Caves: shimmer + hue shift ---
-            MRState.sugarCavesShimmerAccum = 0.0;
-            for (let i = 0; i < MRState.sugarCavesShimmerCh.length; i++) {
-                const idx = MRState.sugarCavesShimmerCh[i];
-                if (idx < channels.length) MRState.sugarCavesShimmerAccum += channels[idx].volume;
-            }
-            MRState.sugarCavesHueShiftAccum = 0.0;
-            for (let i = 0; i < MRState.sugarCavesHueShiftCh.length; i++) {
-                const idx = MRState.sugarCavesHueShiftCh[i];
-                if (idx < channels.length) MRState.sugarCavesHueShiftAccum += channels[idx].volume;
-            }
-
-            // --- Crystalline Nebula: shimmer ---
-            MRState.nebulaShimmerAccum = 0.0;
-            for (let i = 0; i < MRState.nebulaShimmerCh.length; i++) {
-                const idx = MRState.nebulaShimmerCh[i];
-                if (idx < channels.length) MRState.nebulaShimmerAccum += channels[idx].volume;
-            }
-
-            // --- Crystalline Nebula: amplitude scale ---
-            MRState.nebulaAmplitudeAccum = 0.0;
-            for (let i = 0; i < MRState.nebulaAmplitudeCh.length; i++) {
-                const idx = MRState.nebulaAmplitudeCh[i];
-                if (idx < channels.length) MRState.nebulaAmplitudeAccum += channels[idx].volume;
-            }
-
-            MRState.skyMoonIntensityAccum = 0.0;
-            MRState.skyMoonNoteVal = 0;
-            MRState.arpeggioNoteVal = 0;
-            MRState.nebulaNoteVal = 0;
-            MRState.gemCanopyNoteVal = 0;
-            MRState.skyIslandsNoteVal = 0;
-            MRState.sugarCavesNoteVal = 0;
-
-            // Read Intensity
-            for (let i = 0; i < MRState.skyMoonIntensityCh.length; i++) {
-                const idx = MRState.skyMoonIntensityCh[i];
-                if (idx < channels.length) MRState.skyMoonIntensityAccum += channels[idx].volume;
-            }
-            // Read Note Color (use first matching channel that has volume)
-            for (let i = 0; i < MRState.skyMoonNoteColorCh.length; i++) {
-                const idx = MRState.skyMoonNoteColorCh[i];
-                if (idx < channels.length && channels[idx].volume > 0.05) {
-                    MRState.skyMoonNoteVal = parseInt(channels[idx].note) || 0;
-                    break;
-                }
-            }
-            // Read Arpeggio Note Color
-            for (let i = 0; i < MRState.arpeggioNoteColorCh.length; i++) {
-                const idx = MRState.arpeggioNoteColorCh[i];
-                if (idx < channels.length && channels[idx].volume > 0.05) {
-                    MRState.arpeggioNoteVal = parseInt(channels[idx].note) || 0;
-                    break;
-                }
-            }
-            // Read Nebula Note Color
-            for (let i = 0; i < MRState.nebulaNoteColorCh.length; i++) {
-                const idx = MRState.nebulaNoteColorCh[i];
-                if (idx < channels.length && channels[idx].volume > 0.05) {
-                    MRState.nebulaNoteVal = parseInt(channels[idx].note) || 0;
-                    break;
-                }
-            }
-            // Read Global Note Color
-            for (let i = 0; i < MRState.globalNoteColorCh.length; i++) {
-                const idx = MRState.globalNoteColorCh[i];
-                if (idx < channels.length && channels[idx].volume > 0.05) {
-                    MRState.globalNoteVal = parseInt(channels[idx].note) || 0;
-                    break;
-                }
-            }
-            // Read Gem Canopy Note Color
-            for (let i = 0; i < MRState.gemCanopyNoteColorCh.length; i++) {
-                const idx = MRState.gemCanopyNoteColorCh[i];
-                if (idx < channels.length && channels[idx].volume > 0.05) {
-                    MRState.gemCanopyNoteVal = parseInt(channels[idx].note) || 0;
-                    break;
-                }
-            }
-            // Read Sky Islands Note Color
-            for (let i = 0; i < MRState.skyIslandsNoteColorCh.length; i++) {
-                const idx = MRState.skyIslandsNoteColorCh[i];
-                if (idx < channels.length && channels[idx].volume > 0.05) {
-                    MRState.skyIslandsNoteVal = parseInt(channels[idx].note) || 0;
-                    break;
-                }
-            }
-            for (let i = 0; i < MRState.sugarCavesNoteColorCh.length; i++) {
-                const idx = MRState.sugarCavesNoteColorCh[i];
-                if (idx < channels.length && channels[idx].volume > 0.05) {
-                    MRState.sugarCavesNoteVal = parseInt(channels[idx].note) || 0;
-                    break;
-                }
-            }
-
-            // Push to TSL uniforms
+            // Push to TSL uniforms.
             // Mutate .value in place: never reassign the uniform node itself.
             // arpeggio_grove shimmer/hueShift already written by applyArpeggioGroveChannelAccum.
-            BiomeUniforms.crystallineNebula.shimmer.value =
-                Math.min(
-                    MRState.nebulaShimmerAccum / Math.max(MRState.nebulaShimmerCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.nebulaIntensityScale;
-            // amplitudeScale: 1.0 baseline + channel energy boost, gated by night
-            BiomeUniforms.crystallineNebula.amplitudeScale.value =
-                1.0 +
-                Math.min(
-                    MRState.nebulaAmplitudeAccum / Math.max(MRState.nebulaAmplitudeCh.length, 1),
-                    1.0
-                ) *
-                    nightGate *
-                    MRState.nebulaIntensityScale;
+            // crystalline_nebula shimmer/amplitudeScale/noteColor already written by applyNebulaChannelAccum.
+            BiomeUniforms.global.shimmer.value = normalizeAccum(
+                MRState.globalShimmerAccum, MRState.globalShimmerCh, nightGate, MRState.globalIntensityScale);
+            BiomeUniforms.global.hueShift.value = normalizeAccum(
+                MRState.globalHueShiftAccum, MRState.globalHueShiftCh, nightGate, MRState.globalIntensityScale);
 
-            BiomeUniforms.global.shimmer.value =
-                Math.min(
-                    MRState.globalShimmerAccum / Math.max(MRState.globalShimmerCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.globalIntensityScale;
-            BiomeUniforms.global.hueShift.value =
-                Math.min(
-                    MRState.globalHueShiftAccum / Math.max(MRState.globalHueShiftCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.globalIntensityScale;
+            BiomeUniforms.gemCanopy.shimmer.value = normalizeAccum(
+                MRState.gemCanopyShimmerAccum, MRState.gemCanopyShimmerCh, nightGate, MRState.gemCanopyIntensityScale);
+            BiomeUniforms.gemCanopy.hueShift.value = normalizeAccum(
+                MRState.gemCanopyHueShiftAccum, MRState.gemCanopyHueShiftCh, nightGate, MRState.gemCanopyIntensityScale);
 
-            BiomeUniforms.gemCanopy.shimmer.value =
-                Math.min(
-                    MRState.gemCanopyShimmerAccum / Math.max(MRState.gemCanopyShimmerCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.gemCanopyIntensityScale;
-            BiomeUniforms.gemCanopy.hueShift.value =
-                Math.min(
-                    MRState.gemCanopyHueShiftAccum /
-                        Math.max(MRState.gemCanopyHueShiftCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.gemCanopyIntensityScale;
+            BiomeUniforms.skyIslands.shimmer.value = normalizeAccum(
+                MRState.skyIslandsShimmerAccum, MRState.skyIslandsShimmerCh, nightGate, MRState.skyIslandsIntensityScale);
+            BiomeUniforms.skyIslands.hueShift.value = normalizeAccum(
+                MRState.skyIslandsHueShiftAccum, MRState.skyIslandsHueShiftCh, nightGate, MRState.skyIslandsIntensityScale);
 
-            BiomeUniforms.skyIslands.shimmer.value =
-                Math.min(
-                    MRState.skyIslandsShimmerAccum /
-                        Math.max(MRState.skyIslandsShimmerCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.skyIslandsIntensityScale;
-            BiomeUniforms.skyIslands.hueShift.value =
-                Math.min(
-                    MRState.skyIslandsHueShiftAccum /
-                        Math.max(MRState.skyIslandsHueShiftCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.skyIslandsIntensityScale;
+            // Sky Islands fog is the one scalar that eases towards a rest/peak
+            // range rather than being driven directly.
             {
-                const fogNorm =
-                    Math.min(
-                        MRState.skyIslandsFogAccum / Math.max(MRState.skyIslandsFogCh.length, 1),
-                        1.0
-                    ) *
-                    nightGate *
-                    MRState.skyIslandsIntensityScale;
+                const fogNorm = normalizeAccum(
+                    MRState.skyIslandsFogAccum, MRState.skyIslandsFogCh, nightGate, MRState.skyIslandsIntensityScale);
                 const fogTarget =
                     MRState.skyIslandsFogRest +
                     (MRState.skyIslandsFogPeak - MRState.skyIslandsFogRest) * fogNorm;
@@ -686,68 +613,22 @@ export class MusicReactivitySystem {
                     BiomeUniforms.skyIslands.fogDensity.value * 0.85 + fogTarget * 0.15;
             }
 
-            BiomeUniforms.sugarCaves.shimmer.value =
-                Math.min(
-                    MRState.sugarCavesShimmerAccum /
-                        Math.max(MRState.sugarCavesShimmerCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.sugarCavesIntensityScale;
-            BiomeUniforms.sugarCaves.hueShift.value =
-                Math.min(
-                    MRState.sugarCavesHueShiftAccum /
-                        Math.max(MRState.sugarCavesHueShiftCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.sugarCavesIntensityScale;
+            BiomeUniforms.sugarCaves.shimmer.value = normalizeAccum(
+                MRState.sugarCavesShimmerAccum, MRState.sugarCavesShimmerCh, nightGate, MRState.sugarCavesIntensityScale);
+            BiomeUniforms.sugarCaves.hueShift.value = normalizeAccum(
+                MRState.sugarCavesHueShiftAccum, MRState.sugarCavesHueShiftCh, nightGate, MRState.sugarCavesIntensityScale);
 
-            BiomeUniforms.skyMoon.moonIntensity.value =
-                Math.min(
-                    MRState.skyMoonIntensityAccum / Math.max(MRState.skyMoonIntensityCh.length, 1),
-                    1.0
-                ) *
-                nightGate *
-                MRState.skyMoonIntensityScale;
+            BiomeUniforms.skyMoon.moonIntensity.value = normalizeAccum(
+                MRState.skyMoonIntensityAccum, MRState.skyMoonIntensityCh, nightGate, MRState.skyMoonIntensityScale);
 
-            if (MRState.skyMoonNoteVal > 0) {
-                mapNoteToColor(MRState.skyMoonNoteVal, _targetMoonColor);
-                // Smoothly lerp towards the target color
-                BiomeUniforms.skyMoon.moonNoteColor.value.lerp(_targetMoonColor, 0.1);
-            } else {
-                // Slowly drift back to white when no note plays
-                _targetMoonColor.setHex(0xffffff);
-                BiomeUniforms.skyMoon.moonNoteColor.value.lerp(_targetMoonColor, 0.05);
-            }
+            // --- Note colours ---
+            // Must run after the shimmer writes above: gem_canopy's awakening
+            // check reads back the shimmer value set this frame.
+            applyNoteColor(BiomeUniforms.skyMoon.moonNoteColor, MRState.skyMoonNoteVal, _targetMoonColor, 'global', 0.1);
+            applyNoteColor(BiomeUniforms.arpeggioGrove.noteColor, MRState.arpeggioNoteVal, _targetArpeggioColor, 'global', 0.1);
+            applyNoteColor(BiomeUniforms.global.noteColor, MRState.globalNoteVal, _targetGlobalColor, 'global', 0.1);
 
-            if (MRState.arpeggioNoteVal > 0) {
-                mapNoteToColor(MRState.arpeggioNoteVal, _targetArpeggioColor);
-                BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_targetArpeggioColor, 0.1);
-            } else {
-                _targetArpeggioColor.setHex(0xffffff);
-                BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_targetArpeggioColor, 0.05);
-            }
-
-            if (MRState.nebulaNoteVal > 0) {
-                mapNoteToColor(MRState.nebulaNoteVal, _targetNebulaColor);
-                BiomeUniforms.crystallineNebula.noteColor.value.lerp(_targetNebulaColor, 0.1);
-            } else {
-                _targetNebulaColor.setHex(0xffffff);
-                BiomeUniforms.crystallineNebula.noteColor.value.lerp(_targetNebulaColor, 0.05);
-            }
-
-            if (MRState.globalNoteVal > 0) {
-                mapNoteToColor(MRState.globalNoteVal, _targetGlobalColor, 'global');
-                BiomeUniforms.global.noteColor.value.lerp(_targetGlobalColor, 0.1);
-            } else {
-                _targetGlobalColor.setHex(0xffffff);
-                BiomeUniforms.global.noteColor.value.lerp(_targetGlobalColor, 0.05);
-            }
-
-            if (MRState.gemCanopyNoteVal > 0) {
-                mapNoteToColor(MRState.gemCanopyNoteVal, _targetGemCanopyColor, 'gem_canopy');
-                BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.12);
+            if (applyNoteColor(BiomeUniforms.gemCanopy.noteColor, MRState.gemCanopyNoteVal, _targetGemCanopyColor, 'gem_canopy', 0.12)) {
                 const shimmer = BiomeUniforms.gemCanopy.shimmer.value;
                 if (shimmer > 0.2) {
                     awakenedPersistence.tryAwakenNearby(
@@ -757,67 +638,31 @@ export class MusicReactivitySystem {
                         _targetGemCanopyColor.getHex()
                     );
                 }
-            } else {
-                _targetGemCanopyColor.setHex(0xffffff);
-                BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.05);
             }
 
-            if (MRState.skyIslandsNoteVal > 0) {
-                mapNoteToColor(MRState.skyIslandsNoteVal, _targetSkyIslandsColor, 'sky_islands');
-                BiomeUniforms.skyIslands.noteColor.value.lerp(_targetSkyIslandsColor, 0.12);
-            } else {
-                _targetSkyIslandsColor.setHex(0xffffff);
-                BiomeUniforms.skyIslands.noteColor.value.lerp(_targetSkyIslandsColor, 0.05);
-            }
-
-            if (MRState.sugarCavesNoteVal > 0) {
-                mapNoteToColor(MRState.sugarCavesNoteVal, _targetSugarCavesColor, 'sugar_caves');
-                BiomeUniforms.sugarCaves.noteColor.value.lerp(_targetSugarCavesColor, 0.12);
-            } else {
-                _targetSugarCavesColor.setHex(0xffffff);
-                BiomeUniforms.sugarCaves.noteColor.value.lerp(_targetSugarCavesColor, 0.05);
-            }
+            applyNoteColor(BiomeUniforms.skyIslands.noteColor, MRState.skyIslandsNoteVal, _targetSkyIslandsColor, 'sky_islands', 0.12);
+            applyNoteColor(BiomeUniforms.sugarCaves.noteColor, MRState.sugarCavesNoteVal, _targetSugarCavesColor, 'sugar_caves', 0.12);
         } else {
             // No audio data — smoothly decay towards resting values (no snapping).
-            BiomeUniforms.arpeggioGrove.shimmer.value *= 0.9;
-            BiomeUniforms.arpeggioGrove.hueShift.value *= 0.9;
-            BiomeUniforms.crystallineNebula.shimmer.value *= 0.9;
+            for (let i = 0; i < SILENT_DECAY_UNIFORMS.length; i++) {
+                SILENT_DECAY_UNIFORMS[i].value *= SILENT_DECAY;
+            }
             // Decay amplitude towards baseline 1.0
             BiomeUniforms.crystallineNebula.amplitudeScale.value =
-                1.0 + (BiomeUniforms.crystallineNebula.amplitudeScale.value - 1.0) * 0.9;
-
-            BiomeUniforms.global.shimmer.value *= 0.9;
-            BiomeUniforms.global.hueShift.value *= 0.9;
-            BiomeUniforms.gemCanopy.shimmer.value *= 0.9;
-            BiomeUniforms.gemCanopy.hueShift.value *= 0.9;
-            BiomeUniforms.skyIslands.shimmer.value *= 0.9;
-            BiomeUniforms.skyIslands.hueShift.value *= 0.9;
+                1.0 + (BiomeUniforms.crystallineNebula.amplitudeScale.value - 1.0) * SILENT_DECAY;
+            // NB: 0.1 literal, not (1 - SILENT_DECAY) — the latter is
+            // 0.09999999999999998 and drifts this IIR off the original values.
             BiomeUniforms.skyIslands.fogDensity.value =
-                BiomeUniforms.skyIslands.fogDensity.value * 0.9 + MRState.skyIslandsFogRest * 0.1;
-            BiomeUniforms.sugarCaves.shimmer.value *= 0.9;
-            BiomeUniforms.sugarCaves.hueShift.value *= 0.9;
+                BiomeUniforms.skyIslands.fogDensity.value * SILENT_DECAY +
+                MRState.skyIslandsFogRest * 0.1;
 
-            BiomeUniforms.skyMoon.moonIntensity.value *= 0.9;
-            _targetMoonColor.setHex(0xffffff);
-            BiomeUniforms.skyMoon.moonNoteColor.value.lerp(_targetMoonColor, 0.05);
-
-            _targetArpeggioColor.setHex(0xffffff);
-            BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_targetArpeggioColor, 0.05);
-
-            _targetNebulaColor.setHex(0xffffff);
-            BiomeUniforms.crystallineNebula.noteColor.value.lerp(_targetNebulaColor, 0.05);
-
-            _targetGlobalColor.setHex(0xffffff);
-            BiomeUniforms.global.noteColor.value.lerp(_targetGlobalColor, 0.05);
-
-            _targetGemCanopyColor.setHex(0xffffff);
-            BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.05);
-
-            _targetSkyIslandsColor.setHex(0xffffff);
-            BiomeUniforms.skyIslands.noteColor.value.lerp(_targetSkyIslandsColor, 0.05);
-
-            _targetSugarCavesColor.setHex(0xffffff);
-            BiomeUniforms.sugarCaves.noteColor.value.lerp(_targetSugarCavesColor, 0.05);
+            releaseNoteColor(BiomeUniforms.skyMoon.moonNoteColor, _targetMoonColor);
+            releaseNoteColor(BiomeUniforms.arpeggioGrove.noteColor, _targetArpeggioColor);
+            releaseNoteColor(BiomeUniforms.crystallineNebula.noteColor, _targetNebulaColor);
+            releaseNoteColor(BiomeUniforms.global.noteColor, _targetGlobalColor);
+            releaseNoteColor(BiomeUniforms.gemCanopy.noteColor, _targetGemCanopyColor);
+            releaseNoteColor(BiomeUniforms.skyIslands.noteColor, _targetSkyIslandsColor);
+            releaseNoteColor(BiomeUniforms.sugarCaves.noteColor, _targetSugarCavesColor);
         }
     }
 

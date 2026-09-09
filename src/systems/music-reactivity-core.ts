@@ -374,6 +374,69 @@ export function applyArpeggioGroveChannelAccum(
     return usedNative;
 }
 
+// Mirrors NOTE_AUDIBLE_THRESHOLD / NOTE_COLOR_RELEASE_LERP in music-reactivity.ts.
+// Kept local (rather than shared) so this extraction doesn't need a helper
+// import across the barrel boundary; the class file still owns the constants
+// for the biomes it hasn't handed off yet.
+const _NEBULA_NOTE_AUDIBLE_THRESHOLD = 0.05;
+const _NEBULA_NOTE_COLOR_RELEASE_LERP = 0.05;
+
+/**
+ * crystalline_nebula hot path (music-reactivity split, nebula slice):
+ * accumulate shimmer + amplitudeScale channel volumes, write BiomeUniforms
+ * in place, and lerp the note-color uniform toward the currently playing
+ * note (or release it toward white when silent). No native accel path —
+ * nebula's channel lists are small enough that the TS loop is cheap.
+ * Zero-alloc: only pre-existing MRState/BiomeUniforms/_targetNebulaColor
+ * scratches are touched.
+ */
+export function applyNebulaChannelAccum(
+    channels: ReadonlyArray<{ volume: number; note: string }>,
+    nightGate: number
+): void {
+    const shimmerCh = MRState.nebulaShimmerCh;
+    const ampCh = MRState.nebulaAmplitudeCh;
+    const noteCh = MRState.nebulaNoteColorCh;
+    const scale = MRState.nebulaIntensityScale;
+
+    let shimmerAccum = 0.0;
+    for (let i = 0; i < shimmerCh.length; i++) {
+        const idx = shimmerCh[i];
+        if (idx < channels.length) shimmerAccum += channels[idx].volume;
+    }
+    let ampAccum = 0.0;
+    for (let i = 0; i < ampCh.length; i++) {
+        const idx = ampCh[i];
+        if (idx < channels.length) ampAccum += channels[idx].volume;
+    }
+    MRState.nebulaShimmerAccum = shimmerAccum;
+    MRState.nebulaAmplitudeAccum = ampAccum;
+
+    BiomeUniforms.crystallineNebula.shimmer.value =
+        Math.min(shimmerAccum / Math.max(shimmerCh.length, 1), 1.0) * nightGate * scale;
+    BiomeUniforms.crystallineNebula.amplitudeScale.value =
+        1.0 + Math.min(ampAccum / Math.max(ampCh.length, 1), 1.0) * nightGate * scale;
+
+    let noteVal = 0;
+    for (let i = 0; i < noteCh.length; i++) {
+        const idx = noteCh[i];
+        if (idx < channels.length && channels[idx].volume > _NEBULA_NOTE_AUDIBLE_THRESHOLD) {
+            noteVal = parseInt(channels[idx].note) || 0;
+            break;
+        }
+    }
+    MRState.nebulaNoteVal = noteVal;
+
+    const noteColorUniform = BiomeUniforms.crystallineNebula.noteColor;
+    if (noteVal > 0) {
+        mapNoteToColor(noteVal, _targetNebulaColor, 'global');
+        noteColorUniform.value.lerp(_targetNebulaColor, 0.1);
+    } else {
+        _targetNebulaColor.setHex(0xffffff);
+        noteColorUniform.value.lerp(_targetNebulaColor, _NEBULA_NOTE_COLOR_RELEASE_LERP);
+    }
+}
+
 // --- Type Definitions ---
 
 interface MoonState {
@@ -389,9 +452,6 @@ export interface IWeatherSystem {
     getTwilightGlowIntensity?(cyclePos: number): number;
     isNight(): boolean;
 }
-
-// Caches to prevent repeated lookups (migrated from core idea)
-const _noteNameCache: Record<string | number, string> = {};
 
 export interface WeatherReactivityBinding {
     channel: number;

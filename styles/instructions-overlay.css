@@ -1,0 +1,379 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #FFD1DC;
+    user-select: none;
+}
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+#instructions {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255, 209, 220, 0.8);
+    z-index: 200;
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    transition: opacity 0.3s;
+}
+#instructions::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0) 28%, rgba(255, 144, 186, 0.26) 100%);
+}
+.instructions-content {
+    position: relative;
+    z-index: 1;
+}
+#instructions h1 {
+    color: #FF6B6B;
+    font-size: 3em;
+    margin: 0 0 20px 0;
+    text-shadow: 2px 2px 0px #fff;
+    font-family: 'Fredoka One', cursive, sans-serif;
+}
+.dream-subtitle {
+    margin: -6px 0 18px;
+    color: #7f3f68;
+    font-size: 1.05rem;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+    letter-spacing: 0.02em;
+}
+.cta-button {
+    font-size: 1.5em;
+    padding: 15px 40px;
+    background: #FF6B6B;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+    transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+    font-weight: bold;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+/* ♿ Aria: Distinguish busy (loading) states from disabled states */
+.cta-button[aria-busy="true"] {
+    background: #FFB6C1;
+    cursor: wait;
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.2);
+    opacity: 0.9;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.secondary-button[aria-busy="true"] {
+    background: #a39bda;
+    cursor: wait;
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(106, 90, 205, 0.2);
+    opacity: 0.9;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.cta-button[aria-disabled="true"],
+.cta-button:disabled {
+    background: #FFB6C1;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.8;
+    filter: grayscale(100%) brightness(80%);
+    pointer-events: none;
+    transition: all 0.3s ease;
+    /* 🎨 Palette: Improve text contrast */
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.secondary-button[aria-disabled="true"],
+.secondary-button:disabled {
+    background: #a39bda;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.7;
+}
+
+/* ♿ Aria & 🎨 Palette: Visual pop when button becomes ready */
+.cta-button[aria-disabled="false"]:not(:disabled):not([aria-busy="true"]) {
+    animation: cta-pulse-ready 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.secondary-button[aria-disabled="false"]:not(:disabled):not([aria-busy="true"]) {
+    pointer-events: auto;
+}
+
+@keyframes cta-pulse-ready {
+    0% {
+        transform: scale(0.9);
+        box-shadow: 0 0 0 rgba(255, 107, 107, 0);
+    }
+    50% {
+        transform: scale(1.08);
+        box-shadow: 0 0 25px rgba(255, 107, 107, 0.8);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+    }
+}
+
+.cta-button:hover,
+.cta-button:focus {
+    transform: scale(1.05);
+    background: #FF5252;
+}
+.mode-btn {
+    padding: 10px 18px; margin: 0 6px; font-size: 0.95em; border-radius: 12px; border: 2px solid transparent; cursor: pointer; color: white;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+#toggleFullWorld {
+    margin: 8px auto 4px;
+}
+#toggleFullWorld[aria-checked="true"] {
+    background: #a5d6a7;
+    color: #1b3a1b;
+}
+
+#readiness-progress {
+    margin: 14px auto 0;
+    max-width: 360px;
+    text-align: left;
+}
+#readiness-progress[hidden] { display: none !important; }
+.readiness-track {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.28);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+}
+#readiness-progress-fill {
+    display: block;
+    height: 100%;
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(90deg, #ff9ecd, #7dd3fc);
+    transition: transform 0.25s ease;
+}
+.readiness-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 0.8em;
+    opacity: 0.9;
+}
+#readiness-progress-label { flex: 1; text-align: left; }
+#readiness-progress-eta { white-space: nowrap; opacity: 0.85; }
+.cta-button:active,
+.cta-button.keyboard-active,
+.cta-button[aria-pressed="true"],
+.cta-button[aria-checked="true"],
+.toggle-button:active,
+.toggle-button.keyboard-active,
+.toggle-button[aria-pressed="true"],
+.toggle-button[aria-checked="true"],
+.secondary-button:active,
+.secondary-button.keyboard-active,
+.secondary-button[aria-pressed="true"],
+.playlist-btn:active,
+.playlist-btn.keyboard-active,
+.playlist-btn[aria-pressed="true"],
+.close-icon-btn:active,
+.close-icon-btn.keyboard-active,
+.close-icon-btn[aria-pressed="true"],
+.file-label:active,
+.file-label.keyboard-active,
+.file-label[aria-pressed="true"],
+.playlist-remove-btn:active,
+.playlist-remove-btn.keyboard-active,
+.playlist-remove-btn[aria-pressed="true"] {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
+
+.settings-container {
+    margin-bottom: 20px;
+    z-index: 201;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+.file-label {
+    background: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    border: 2px solid #FF6B6B;
+    color: #FF6B6B;
+    font-weight: bold;
+    display: inline-block;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+}
+.file-label[aria-busy="true"] {
+    background: #FFF0F5;
+    cursor: wait;
+    opacity: 0.8;
+    pointer-events: none;
+    transform: scale(0.98);
+}
+.file-label:hover {
+    background: #FFF0F5;
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
+.file-label:active {
+    transform: scale(0.95);
+    box-shadow: 0 2px 5px rgba(255, 107, 107, 0.2);
+}
+.toggle-button {
+    background: #6A5ACD;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    color: white;
+    font-weight: bold;
+    font-size: 1em;
+    transition: background 0.2s;
+}
+.toggle-button:hover {
+    background: #584AB8;
+}
+.controls-container {
+    margin-top: 20px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 20px 30px;
+    border-radius: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    max-width: 600px;
+    width: 90%;
+}
+.controls-section {
+    margin-bottom: 10px;
+}
+.controls-section:last-child {
+    margin-bottom: 0;
+}
+.controls-header {
+    font-family: 'Fredoka One', cursive, sans-serif;
+    color: #FF6B6B;
+    font-size: 1.1em;
+    margin: 0 0 8px 0;
+    padding-bottom: 5px;
+    border-bottom: 2px dashed #FFD1DC;
+}
+.controls-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px 20px;
+    margin: 0;
+    align-items: center;
+}
+kbd.key {
+    display: inline-block;
+    background: #f0f0f0;
+    border: 1px solid #dcdcdc;
+    border-bottom: 2px solid #cecece;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: #333;
+    min-width: 20px;
+    text-align: center;
+}
+
+/* 🎨 Palette: "Sugar Glaze" Focus Rings */
+/* Replaces generic outlines with high-contrast, theme-aware rings */
+:focus-visible {
+    outline: 3px solid #FF4081;
+    outline-offset: 2px;
+}
+
+.cta-button:focus-visible,
+.toggle-button:focus-visible,
+.secondary-button:focus-visible,
+.playlist-btn:focus-visible,
+.file-label:focus-visible,
+input:focus-visible + label,
+.ability-slot:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    position: relative;
+    z-index: 10;
+}
+
+/* 🎨 Palette: Input Icons */
+.mouse-icon {
+    display: inline-block;
+    width: 12px;
+    height: 18px;
+    border: 2px solid #555;
+    border-radius: 6px;
+    position: relative;
+    vertical-align: text-bottom;
+    margin: 0 4px 1px 2px;
+    background: rgba(255,255,255,0.8);
+}
+.mouse-icon::before { /* Scroll wheel */
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 4px;
+    background: #555;
+    border-radius: 1px;
+}
+.mouse-icon.right {
+    background: linear-gradient(90deg, transparent 50%, #FFB6C1 50%);
+}
+
+.combo-badge {
+    display: inline-block;
+    background: #FF6B6B;
+    color: white;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.75em;
+    font-weight: bold;
+    margin-left: 2px;
+    vertical-align: middle;
+    font-family: 'Fredoka One', cursive, sans-serif;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.1);
+    position: relative;
+    top: -1px;
+}
