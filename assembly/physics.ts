@@ -30,6 +30,15 @@ const PLAYER_RADIUS: f32 = 0.5;
 // Global collision count
 let collisionObjectCount: i32 = 0;
 
+/**
+ * Number of static collision objects currently registered in the spatial grid.
+ * Consumers walking GRID_HEADS/GRID_NEXT (e.g. the rigid-body solver) need this
+ * to bound their traversal.
+ */
+export function getCollisionObjectCount(): i32 {
+  return collisionObjectCount;
+}
+
 export function initDynamicFoliageMemory(maxInstances: i32): i32 {
   // Clear dynamic radii block
   for (let i = 0; i < maxInstances; i++) {

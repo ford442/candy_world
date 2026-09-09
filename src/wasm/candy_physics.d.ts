@@ -139,6 +139,161 @@ export declare const MAX_DISCOVERY_OBJECTS: {
   /** @type `i32` */
   get value(): number
 };
+/** assembly/constants/MAX_DYNAMIC_BODIES */
+export declare const MAX_DYNAMIC_BODIES: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RIGID_BODY_STRIDE */
+export declare const RIGID_BODY_STRIDE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_MIN_X */
+export declare const RB_MIN_X: {
+  /** @type `f32` */
+  get value(): number
+};
+/** assembly/constants/RB_MAX_X */
+export declare const RB_MAX_X: {
+  /** @type `f32` */
+  get value(): number
+};
+/** assembly/constants/RB_MIN_Z */
+export declare const RB_MIN_Z: {
+  /** @type `f32` */
+  get value(): number
+};
+/** assembly/constants/RB_MAX_Z */
+export declare const RB_MAX_Z: {
+  /** @type `f32` */
+  get value(): number
+};
+/** assembly/constants/RB_MIN_Y */
+export declare const RB_MIN_Y: {
+  /** @type `f32` */
+  get value(): number
+};
+/** assembly/constants/RB_MAX_Y */
+export declare const RB_MAX_Y: {
+  /** @type `f32` */
+  get value(): number
+};
+/** assembly/constants/RB_FLOATS_PER_BODY */
+export declare const RB_FLOATS_PER_BODY: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_PX */
+export declare const RB_F_PX: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_PY */
+export declare const RB_F_PY: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_PZ */
+export declare const RB_F_PZ: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_VX */
+export declare const RB_F_VX: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_VY */
+export declare const RB_F_VY: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_VZ */
+export declare const RB_F_VZ: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_INV_MASS */
+export declare const RB_F_INV_MASS: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_RESTITUTION */
+export declare const RB_F_RESTITUTION: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_FRICTION */
+export declare const RB_F_FRICTION: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_D1 */
+export declare const RB_F_D1: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_D2 */
+export declare const RB_F_D2: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_D3 */
+export declare const RB_F_D3: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_SHAPE */
+export declare const RB_F_SHAPE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_FLAGS */
+export declare const RB_F_FLAGS: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_SLEEP */
+export declare const RB_F_SLEEP: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_F_USER */
+export declare const RB_F_USER: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_FLAG_ACTIVE */
+export declare const RB_FLAG_ACTIVE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_FLAG_KINEMATIC */
+export declare const RB_FLAG_KINEMATIC: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_FLAG_SLEEPING */
+export declare const RB_FLAG_SLEEPING: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/RB_FLAG_GROUNDED */
+export declare const RB_FLAG_GROUNDED: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/MAX_JOINTS */
+export declare const MAX_JOINTS: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/JOINT_STRIDE */
+export declare const JOINT_STRIDE: {
+  /** @type `i32` */
+  get value(): number
+};
 /**
  * assembly/math/lerp
  * @param a `f32`
@@ -278,6 +433,11 @@ export declare function getPositionZ(index: number): number;
  * @returns `f32`
  */
 export declare function getPositionRadius(index: number): number;
+/**
+ * assembly/physics/getCollisionObjectCount
+ * @returns `i32`
+ */
+export declare function getCollisionObjectCount(): number;
 /**
  * assembly/physics/initDynamicFoliageMemory
  * @param maxInstances `i32`
@@ -1219,3 +1379,280 @@ export declare function boidsBufferBytes(count: number): number;
  * @param outPtr `usize`
  */
 export declare function accumulateArpeggioChannels(volumesPtr: number, shimmerCount: number, hueShiftCount: number, nightGate: number, intensityScale: number, outPtr: number): void;
+/** assembly/rigidbody/RB_SHAPE_SPHERE */
+export declare const RB_SHAPE_SPHERE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/rigidbody/RB_SHAPE_CAPSULE */
+export declare const RB_SHAPE_CAPSULE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/rigidbody/RB_SHAPE_BOX */
+export declare const RB_SHAPE_BOX: {
+  /** @type `i32` */
+  get value(): number
+};
+/**
+ * assembly/rigidbody/initRigidBodySystem
+ * @returns `i32`
+ */
+export declare function initRigidBodySystem(): number;
+/**
+ * assembly/rigidbody/rbCapacity
+ * @returns `i32`
+ */
+export declare function rbCapacity(): number;
+/**
+ * assembly/rigidbody/rbCount
+ * @returns `i32`
+ */
+export declare function rbCount(): number;
+/**
+ * assembly/rigidbody/rbAwakeCount
+ * @returns `i32`
+ */
+export declare function rbAwakeCount(): number;
+/**
+ * assembly/rigidbody/rbSpawn
+ * @param shape `i32`
+ * @param x `f32`
+ * @param y `f32`
+ * @param z `f32`
+ * @param mass `f32`
+ * @param restitution `f32`
+ * @param friction `f32`
+ * @param d1 `f32`
+ * @param d2 `f32`
+ * @param d3 `f32`
+ * @param userId `i32`
+ * @returns `i32`
+ */
+export declare function rbSpawn(shape: number, x: number, y: number, z: number, mass: number, restitution: number, friction: number, d1: number, d2: number, d3: number, userId: number): number;
+/**
+ * assembly/rigidbody/rbDespawn
+ * @param id `i32`
+ */
+export declare function rbDespawn(id: number): void;
+/**
+ * assembly/rigidbody/rbClear
+ */
+export declare function rbClear(): void;
+/**
+ * assembly/rigidbody/rbSetPosition
+ * @param id `i32`
+ * @param x `f32`
+ * @param y `f32`
+ * @param z `f32`
+ */
+export declare function rbSetPosition(id: number, x: number, y: number, z: number): void;
+/**
+ * assembly/rigidbody/rbSetVelocity
+ * @param id `i32`
+ * @param vx `f32`
+ * @param vy `f32`
+ * @param vz `f32`
+ */
+export declare function rbSetVelocity(id: number, vx: number, vy: number, vz: number): void;
+/**
+ * assembly/rigidbody/rbApplyImpulse
+ * @param id `i32`
+ * @param ix `f32`
+ * @param iy `f32`
+ * @param iz `f32`
+ */
+export declare function rbApplyImpulse(id: number, ix: number, iy: number, iz: number): void;
+/**
+ * assembly/rigidbody/rbApplyRadialImpulse
+ * @param x `f32`
+ * @param y `f32`
+ * @param z `f32`
+ * @param radius `f32`
+ * @param strength `f32`
+ * @param upBias `f32`
+ * @returns `i32`
+ */
+export declare function rbApplyRadialImpulse(x: number, y: number, z: number, radius: number, strength: number, upBias: number): number;
+/**
+ * assembly/rigidbody/rbSetPlayerProxy
+ * @param x `f32`
+ * @param y `f32`
+ * @param z `f32`
+ * @param radius `f32`
+ * @param height `f32`
+ * @param vx `f32`
+ * @param vy `f32`
+ * @param vz `f32`
+ */
+export declare function rbSetPlayerProxy(x: number, y: number, z: number, radius: number, height: number, vx: number, vy: number, vz: number): void;
+/**
+ * assembly/rigidbody/rbDisablePlayerProxy
+ */
+export declare function rbDisablePlayerProxy(): void;
+/**
+ * assembly/rigidbody/rbGetPositionX
+ * @param id `i32`
+ * @returns `f32`
+ */
+export declare function rbGetPositionX(id: number): number;
+/**
+ * assembly/rigidbody/rbGetPositionY
+ * @param id `i32`
+ * @returns `f32`
+ */
+export declare function rbGetPositionY(id: number): number;
+/**
+ * assembly/rigidbody/rbGetPositionZ
+ * @param id `i32`
+ * @returns `f32`
+ */
+export declare function rbGetPositionZ(id: number): number;
+/**
+ * assembly/rigidbody/rbIsSleeping
+ * @param id `i32`
+ * @returns `i32`
+ */
+export declare function rbIsSleeping(id: number): number;
+/**
+ * assembly/rigidbody/rbIsGrounded
+ * @param id `i32`
+ * @returns `i32`
+ */
+export declare function rbIsGrounded(id: number): number;
+/**
+ * assembly/rigidbody/stepRigidBodies
+ * @param dt `f32`
+ * @param nowMs `f64`
+ * @returns `i32`
+ */
+export declare function stepRigidBodies(dt: number, nowMs: number): number;
+/** assembly/joints/JOINT_FIXED */
+export declare const JOINT_FIXED: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/joints/JOINT_HINGE */
+export declare const JOINT_HINGE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/joints/JOINT_SPRING */
+export declare const JOINT_SPRING: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/joints/SPRING_MAX_STIFFNESS */
+export declare const SPRING_MAX_STIFFNESS: {
+  /** @type `f32` */
+  get value(): number
+};
+/** assembly/joints/SPRING_MAX_DAMPING */
+export declare const SPRING_MAX_DAMPING: {
+  /** @type `f32` */
+  get value(): number
+};
+/**
+ * assembly/joints/initJointSystem
+ * @param bodyPoolPtr `usize`
+ * @returns `i32`
+ */
+export declare function initJointSystem(bodyPoolPtr: number): number;
+/**
+ * assembly/joints/jointPoolPointer
+ * @returns `i32`
+ */
+export declare function jointPoolPointer(): number;
+/**
+ * assembly/joints/jointHighWater
+ * @returns `i32`
+ */
+export declare function jointHighWater(): number;
+/**
+ * assembly/joints/jointCapacity
+ * @returns `i32`
+ */
+export declare function jointCapacity(): number;
+/**
+ * assembly/joints/jointCount
+ * @returns `i32`
+ */
+export declare function jointCount(): number;
+/**
+ * assembly/joints/jointCreate
+ * @param type `i32`
+ * @param bodyA `i32`
+ * @param bodyB `i32`
+ * @param ax `f32`
+ * @param ay `f32`
+ * @param az `f32`
+ * @param bx `f32`
+ * @param by `f32`
+ * @param bz `f32`
+ * @param p0 `f32`
+ * @param p1 `f32`
+ * @param p2 `f32`
+ * @returns `i32`
+ */
+export declare function jointCreate(type: number, bodyA: number, bodyB: number, ax: number, ay: number, az: number, bx: number, by: number, bz: number, p0: number, p1: number, p2: number): number;
+/**
+ * assembly/joints/jointCreateFixed
+ * @param bodyA `i32`
+ * @param bodyB `i32`
+ * @returns `i32`
+ */
+export declare function jointCreateFixed(bodyA: number, bodyB: number): number;
+/**
+ * assembly/joints/jointCreateHinge
+ * @param bodyA `i32`
+ * @param bodyB `i32`
+ * @param pivotX `f32`
+ * @param pivotY `f32`
+ * @param pivotZ `f32`
+ * @param axisX `f32`
+ * @param axisY `f32`
+ * @param axisZ `f32`
+ * @returns `i32`
+ */
+export declare function jointCreateHinge(bodyA: number, bodyB: number, pivotX: number, pivotY: number, pivotZ: number, axisX: number, axisY: number, axisZ: number): number;
+/**
+ * assembly/joints/jointCreateSpring
+ * @param bodyA `i32`
+ * @param bodyB `i32`
+ * @param rest `f32`
+ * @param stiffness `f32`
+ * @param damping `f32`
+ * @returns `i32`
+ */
+export declare function jointCreateSpring(bodyA: number, bodyB: number, rest: number, stiffness: number, damping: number): number;
+/**
+ * assembly/joints/jointDestroy
+ * @param id `i32`
+ */
+export declare function jointDestroy(id: number): void;
+/**
+ * assembly/joints/jointsClear
+ */
+export declare function jointsClear(): void;
+/**
+ * assembly/joints/jointsOnBodyRemoved
+ * @param bodyId `i32`
+ */
+export declare function jointsOnBodyRemoved(bodyId: number): void;
+/**
+ * assembly/joints/jointSetSoftness
+ * @param id `i32`
+ * @param softness `f32`
+ */
+export declare function jointSetSoftness(id: number, softness: number): void;
+/**
+ * assembly/joints/jointGetError
+ * @param id `i32`
+ * @returns `f32`
+ */
+export declare function jointGetError(id: number): number;
+/**
+ * assembly/joints/solveJoints
+ * @param h `f32`
+ */
+export declare function solveJoints(h: number): void;

@@ -12,3 +12,7 @@ export const uAberrationStrength = uniform(0.002);
 export const uDofFocus = uniform(CONFIG.postfx.dofFocusDistance);
 export const uDofMix = uniform(0.0);
 export const uShaftScatterBoost = uniform(0.0);
+
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+export const uPulseNoteColor = BiomeUniforms.global.noteColor;
+export const uPulseShimmer = BiomeUniforms.global.shimmer;

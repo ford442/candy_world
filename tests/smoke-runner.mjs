@@ -24,6 +24,9 @@ const IS_FULL_BOOT =
 const IS_FAST_FULL = FULL_BOOT === 'fast';
 const RENDERER = process.env.RENDERER?.toLowerCase();
 const USE_WEBGL_BOOT = RENDERER === 'webgl' || RENDERER === 'webgl2';
+// Extra query params appended to the boot URL, e.g. EXTRA_QS=debugPhysics=1
+// to smoke a debug-flagged subsystem through the normal harness.
+const EXTRA_QS = process.env.EXTRA_QS?.replace(/^[?&]/, '') ?? '';
 
 function bootPathLabel() {
     if (IS_FULL_BOOT) return 'EXPLORE';
@@ -242,9 +245,10 @@ async function runSmokeTest() {
         const profileQs = IS_FULL_BOOT
             ? `boot=explore&graphics=${gfxParam}`
             : `graphics=${gfxParam}`;
+        const extraQs = EXTRA_QS ? `&${EXTRA_QS}` : '';
         const bootUrl = USE_WEBGL_BOOT
-            ? `http://localhost:4173/?renderer=webgl&webglLite=1&${profileQs}`
-            : `http://localhost:4173/?${profileQs}`;
+            ? `http://localhost:4173/?renderer=webgl&webglLite=1&${profileQs}${extraQs}`
+            : `http://localhost:4173/?${profileQs}${extraQs}`;
         console.log(`\nNavigating to ${bootUrl}`);
         try {
             await page.goto(bootUrl, {

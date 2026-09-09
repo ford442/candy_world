@@ -73,13 +73,20 @@ export function runShaderWarmup(ctx: MainContext): void {
             loadingScreen.completePhase('shader-warmup');
         });
 
-        console.log('[Startup] About to call renderer.setAnimationLoop(animate)');
-        renderer.setAnimationLoop(animate);
         try {
             (window as any).__sceneReady = true;
-            console.log('[Startup] Successfully set __sceneReady = true');
+            console.warn('[Startup] __sceneReady set, starting loop');
         } catch (e) {
-            console.log('[Startup] Error setting __sceneReady', e);
+            console.warn('[Startup] Error setting __sceneReady', e);
+        }
+        if (!isCIorHeadless()) {
+            try {
+                renderer.setAnimationLoop(animate);
+            } catch (e) {
+                console.warn('[Startup] setAnimationLoop threw', e);
+            }
+        } else {
+            console.warn('[Startup] CI/Headless detected - NOT calling renderer.setAnimationLoop to avoid wedge');
         }
         void preloadGameplay();
 
