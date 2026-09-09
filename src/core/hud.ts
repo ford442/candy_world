@@ -3,22 +3,26 @@
 
 import * as THREE from 'three';
 import { unlockSystem } from '../systems/unlocks.ts';
+import { mountAbilityHud, type AbilityHud } from '../ui/ability-hud.ts';
 import { announce } from '../ui/announcer.ts';
+import { setKitTheme } from '../ui/kit/index.ts';
 import { CYCLE_DURATION } from './config.ts';
 
 // Theme state (managed here, but timeOffset is in main)
 let isNight = false;
 let lastIsNight: boolean | null = null;
 
-// 🎨 Palette: Cache HUD Elements
-const hudEnergyContainer = document.getElementById('energy-bar-container');
-const hudEnergyFill = document.getElementById('energy-bar-fill');
-const hudDash = document.getElementById('ability-dash');
-const hudDashOverlay = hudDash ? hudDash.querySelector('.cooldown-overlay') as HTMLElement : null;
-const hudMine = document.getElementById('ability-mine');
-const hudMineOverlay = hudMine ? hudMine.querySelector('.cooldown-overlay') as HTMLElement : null;
-const hudPhase = document.getElementById('ability-phase');
-const hudPhaseOverlay = hudPhase ? hudPhase.querySelector('.cooldown-overlay') as HTMLElement : null;
+// 🎨 Palette: Ability HUD (Candy UI Kit — see src/ui/ability-hud.ts)
+// Resolved lazily: this module is imported before the HUD is mounted, so a
+// module-load DOM lookup would cache nulls.
+let _abilityHud: AbilityHud | null = null;
+
+function abilityHud(): AbilityHud | null {
+    if (!_abilityHud && typeof document !== 'undefined') {
+        _abilityHud = mountAbilityHud();
+    }
+    return _abilityHud;
+}
 
 // 🎨 Palette: Cache Tracker HUD Elements
 const trackerPatternEl = document.getElementById('tracker-pattern');
@@ -78,6 +82,9 @@ export function updateTheme(isNightMode: boolean) {
     const dayColor = '#FFD1DC';   // Candy Pink
 
     const newColor = isNightMode ? nightColor : dayColor;
+
+    // 0. Flip the UI kit token set (all --ck-* driven surfaces follow)
+    setKitTheme(isNightMode);
 
     // 1. Update Meta Theme Color (Mobile/Browser UI)
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
@@ -156,49 +163,33 @@ export function updateEnergyBar(
     audioState: any,
     delta: number
 ): void {
-    if (!hudEnergyContainer || !hudEnergyFill) return;
+    const hud = abilityHud();
+    if (!hud) return;
 
-    const energyPct = Math.max(0, Math.min(1, playerEnergy / playerMaxEnergy));
-    hudEnergyFill.style.width = `${energyPct * 100}%`;
-    hudEnergyContainer.setAttribute('aria-valuenow', playerEnergy.toFixed(1));
-    hudEnergyContainer.setAttribute('aria-valuemax', playerMaxEnergy.toFixed(1));
-    // ♿ Aria: Add contextual text for screen readers (e.g. "8 out of 10 Energy")
-    hudEnergyContainer.setAttribute('aria-valuetext', `${Math.round(playerEnergy)} out of ${Math.round(playerMaxEnergy)} Energy`);
+    const { energy } = hud;
+    energy.setValue(playerEnergy, playerMaxEnergy);
 
-    // Pulse to the beat when health/energy is low (< 30%)
-    if (energyPct < 0.3) {
+    // Pulse to the beat when energy is low (< 30%). The kit meter owns the
+    // warning colours via [data-ck-state="low"]; we only drive the pulse.
+    if (energy.isLow()) {
         if (!_lastLowEnergyWarning) {
             announce('Warning: Critical energy level', 'assertive');
             _lastLowEnergyWarning = true;
         }
 
-        hudEnergyContainer.classList.add('low-energy-pulse');
         const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
         // Add an intense, juicy pulse based on the beat
         const targetScale = 1.0 + kick * 0.25;
 
         // 🎨 Palette: Smooth organic pulse instead of instant snap
         _currentEnergyPulseScale = THREE.MathUtils.damp(_currentEnergyPulseScale, targetScale, 15, delta);
-        hudEnergyContainer.style.transform = `scale(${_currentEnergyPulseScale.toFixed(3)})`;
-
-        // Color shift to warning red/orange
-        hudEnergyFill.style.background = `linear-gradient(90deg, #ff4500, #ff0000)`;
-        hudEnergyContainer.style.borderColor = '#ff0000';
+        energy.setPulse(_currentEnergyPulseScale);
     } else {
         _lastLowEnergyWarning = false;
-        hudEnergyContainer.classList.remove('low-energy-pulse');
 
         // 🎨 Palette: Smoothly return to normal scale when energy recovers
         _currentEnergyPulseScale = THREE.MathUtils.damp(_currentEnergyPulseScale, 1.0, 10, delta);
-        if (Math.abs(_currentEnergyPulseScale - 1.0) > 0.001) {
-            hudEnergyContainer.style.transform = `scale(${_currentEnergyPulseScale.toFixed(3)})`;
-        } else {
-            hudEnergyContainer.style.transform = '';
-        }
-
-        // Restore original candy pink gradient
-        hudEnergyFill.style.background = `linear-gradient(90deg, #ff69b4, #ff1493)`;
-        hudEnergyContainer.style.borderColor = ''; // Let CSS take over
+        energy.setPulse(_currentEnergyPulseScale);
     }
 }
 
@@ -207,43 +198,35 @@ export function updateDashHUD(
     dashCooldown: number,
     audioState: any
 ): void {
-    if (!hudDash || !hudDashOverlay) return;
+    const hud = abilityHud();
+    if (!hud) return;
+    const slot = hud.dash;
 
     const dashPct = Math.min(1, Math.max(0, dashCooldown));
-
-    // Only update height if it changed significantly?
-    // Browser optimizes this well, but we can verify.
-    hudDashOverlay.style.height = `${dashPct * 100}%`;
+    slot.setCooldown(dashPct);
 
     const isReady = dashPct <= 0;
     if (isReady !== _lastDashReady) {
         if (isReady) {
-            hudDash.setAttribute('aria-disabled', 'false');
-            hudDash.title = "Dash (E) - Ready!";
-            hudDash.setAttribute('aria-label', "Dash Ability (E) - Ready!");
+            slot.setReady(true);
+            slot.describe('Dash Ability (E) - Ready!', 'Dash (E) - Ready!');
 
             // ♿ Aria: Announce ability readiness specifically when pointer-locked
             if (_lastDashReady === false) {
                 announce('Dash ready', 'polite');
             }
         } else {
-            hudDash.setAttribute('aria-disabled', 'true');
-            hudDash.title = "Dash (E) - Recharging...";
-            hudDash.setAttribute('aria-label', "Dash Ability (E) - Recharging...");
+            slot.setReady(false);
+            slot.describe('Dash Ability (E) - Recharging...', 'Dash (E) - Recharging...');
         }
         _lastDashReady = isReady;
     }
 
     // PALETTE: Pulse to the beat when ready!
     if (isReady) {
-        const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
-        const scale = 1.0 + kick * 0.15;
-        const pressed = hudDash.classList.contains('pressed');
-        // Multiply by 0.9 if pressed (mimics CSS active state)
-        const finalScale = pressed ? scale * 0.9 : scale;
-        hudDash.style.transform = `scale(${finalScale.toFixed(3)})`;
+        slot.pulse(_cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0));
     } else {
-        hudDash.style.transform = ''; // Reset to CSS
+        slot.clearPulse(); // Reset to CSS
     }
 }
 
@@ -251,39 +234,35 @@ export function updateMineHUD(
     mineCooldown: number,
     audioState: any
 ): void {
-    if (!hudMine || !hudMineOverlay) return;
+    const hud = abilityHud();
+    if (!hud) return;
+    const slot = hud.mine;
 
     const minePct = Math.min(1, Math.max(0, mineCooldown));
-    hudMineOverlay.style.height = `${minePct * 100}%`;
+    slot.setCooldown(minePct);
 
     const isReady = minePct <= 0;
     if (isReady !== _lastMineReady) {
         if (isReady) {
-            hudMine.setAttribute('aria-disabled', 'false');
-            hudMine.title = "Jitter Mine (F) - Ready!";
-            hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Ready!");
+            slot.setReady(true);
+            slot.describe('Jitter Mine Ability (F) - Ready!', 'Jitter Mine (F) - Ready!');
 
             // ♿ Aria: Announce ability readiness specifically when pointer-locked
             if (_lastMineReady === false) {
                 announce('Jitter Mine ready', 'polite');
             }
         } else {
-            hudMine.setAttribute('aria-disabled', 'true');
-            hudMine.title = "Jitter Mine (F) - Recharging...";
-            hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Recharging...");
+            slot.setReady(false);
+            slot.describe('Jitter Mine Ability (F) - Recharging...', 'Jitter Mine (F) - Recharging...');
         }
         _lastMineReady = isReady;
     }
 
     // PALETTE: Pulse to the beat when ready!
     if (isReady) {
-        const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
-        const scale = 1.0 + kick * 0.15;
-        const pressed = hudMine.classList.contains('pressed');
-        const finalScale = pressed ? scale * 0.9 : scale;
-        hudMine.style.transform = `scale(${finalScale.toFixed(3)})`;
+        slot.pulse(_cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0));
     } else {
-        hudMine.style.transform = '';
+        slot.clearPulse();
     }
 }
 
@@ -293,54 +272,54 @@ export function updatePhaseHUD(
     phaseTimer: number,
     audioState: any
 ): void {
-    if (!hudPhase || !hudPhaseOverlay) return;
+    const hud = abilityHud();
+    if (!hud) return;
+    const slot = hud.phase;
 
     let countChanged = false;
 
     // Update Badge Count (Throttled by value check)
     if (phaseCount !== _lastPhaseCount) {
-        const badge = hudPhase.querySelector('.ability-count');
-        if (badge) badge.textContent = phaseCount.toString();
+        slot.setBadge(phaseCount);
         _lastPhaseCount = phaseCount;
         countChanged = true;
     }
 
-// Handle State
+    // Handle State
     if (isPhasing) {
         const duration = 5.0; // From physics.ts
         const remaining = Math.max(0, phaseTimer);
         const pct = remaining / duration;
 
         // Show duration depleting
-        hudPhaseOverlay.style.height = `${pct * 100}%`;
+        slot.setCooldown(pct);
 
         if (isPhasing !== _lastPhaseActive) {
-            hudPhase.setAttribute('aria-pressed', 'true');
-            hudPhase.setAttribute('aria-disabled', 'false');
+            slot.setActive(true);
+            slot.setReady(true);
             _lastPhaseActive = isPhasing;
             announce('Phase shift active', 'polite');
             _lastPhaseAnnouncedSecond = Math.ceil(remaining);
         }
 
-        // Dynamic ARIA label for screen readers (maybe throttle this?)
-        // For now, let's update title for hover
-        hudPhase.title = `Phase Shift Active: ${remaining.toFixed(1)}s left`;
-
-        // ♿ Aria: Throttle aria-label updates to integer seconds to avoid screen reader spam
+        // ♿ Aria: Throttle label updates to integer seconds to avoid screen reader spam
         const currentSecond = Math.ceil(remaining);
         if (currentSecond !== _lastPhaseAnnouncedSecond) {
-            hudPhase.setAttribute('aria-label', `Phase Shift active, ${currentSecond} seconds remaining`);
+            slot.describe(
+                `Phase Shift active, ${currentSecond} seconds remaining`,
+                `Phase Shift Active: ${currentSecond}s left`
+            );
             _lastPhaseAnnouncedSecond = currentSecond;
         }
 
     } else {
         // Not Active - Show Availability
-        hudPhaseOverlay.style.height = '0%'; // Clear overlay
+        slot.setCooldown(0); // Clear overlay
 
         const stateChanged = (isPhasing !== _lastPhaseActive);
         if (stateChanged) {
             const wasActive = _lastPhaseActive;
-            hudPhase.setAttribute('aria-pressed', 'false');
+            slot.setActive(false);
             _lastPhaseActive = isPhasing;
             // Only announce if we actually transitioned from true to false
             if (wasActive === true && _lastPhaseCount !== null) {
@@ -350,28 +329,27 @@ export function updatePhaseHUD(
 
         // Check Availability (Ammo) - Update only on state change or count change
         if (stateChanged || countChanged) {
-            const isReady = phaseCount > 0;
-            if (isReady) {
-                hudPhase.setAttribute('aria-disabled', 'false');
-                hudPhase.title = `Phase Shift (Z) - ${phaseCount} Bulb${phaseCount !== 1 ? 's' : ''} Available`;
-                hudPhase.setAttribute('aria-label', `Phase Shift (Z) - ${phaseCount} Bulbs Available`);
+            if (phaseCount > 0) {
+                slot.setReady(true);
+                const bulbs = `${phaseCount} Bulb${phaseCount !== 1 ? 's' : ''}`;
+                slot.describe(
+                    `Phase Shift (Z) - ${phaseCount} Bulbs Available`,
+                    `Phase Shift (Z) - ${bulbs} Available`
+                );
             } else {
-                hudPhase.setAttribute('aria-disabled', 'true');
-                hudPhase.title = "Phase Shift (Z) - Need Tremolo Bulb";
-                hudPhase.setAttribute('aria-label', "Phase Shift (Z) - Empty (Need Tremolo Bulb)");
+                slot.setReady(false);
+                slot.describe(
+                    'Phase Shift (Z) - Empty (Need Tremolo Bulb)',
+                    'Phase Shift (Z) - Need Tremolo Bulb'
+                );
             }
         }
 
         // PALETTE: Pulse to the beat when ready (Ammo > 0)!
-        const isReady = phaseCount > 0;
-        if (isReady) {
-            const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
-            const scale = 1.0 + kick * 0.15;
-            const pressed = hudPhase.classList.contains('pressed');
-            const finalScale = pressed ? scale * 0.9 : scale;
-            hudPhase.style.transform = `scale(${finalScale.toFixed(3)})`;
+        if (phaseCount > 0) {
+            slot.pulse(_cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0));
         } else {
-            hudPhase.style.transform = '';
+            slot.clearPulse();
         }
     }
 }

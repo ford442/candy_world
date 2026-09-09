@@ -1,14 +1,5 @@
 import * as THREE from 'three';
-import {
-    color,
-    float,
-    vec3,
-    mix,
-    uv,
-    sin,
-    positionLocal,
-    positionWorld,
-} from 'three/tsl';
+import { color, float, vec3, mix, uv, sin, positionLocal, positionWorld } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { calculatePlayerPush } from './deformation.ts';
 import { CandyPresets } from './presets.ts';

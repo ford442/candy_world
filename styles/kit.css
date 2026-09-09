@@ -1,0 +1,216 @@
+/**
+ * 🍭 Candy UI Kit — Component styles
+ *
+ * Every value comes from kit-tokens.css. Class prefix: `ck-`.
+ * See docs/UI_KIT.md for usage.
+ */
+
+/* ==========================================================================
+   Panel — glossy candy surface, the base for every HUD cluster
+   ========================================================================== */
+
+.ck-panel {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    gap: var(--ck-space-3);
+    box-sizing: border-box;
+    padding: var(--ck-space-2) var(--ck-space-3);
+    color: var(--ck-text);
+    font-family: var(--ck-font-display);
+    background: var(--ck-surface);
+    border: var(--ck-border-width) solid var(--ck-border);
+    border-radius: var(--ck-radius-md);
+    box-shadow: var(--ck-shadow-panel);
+    z-index: var(--ck-z-hud);
+    transition:
+        background var(--ck-dur-base),
+        border-color var(--ck-dur-base),
+        opacity var(--ck-dur-base);
+}
+
+/* Glossy highlight — the candy "wet look". */
+.ck-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--ck-gloss);
+    pointer-events: none;
+}
+
+.ck-panel > * {
+    position: relative;
+}
+
+/* Bare variant: no chrome, used when children carry their own surfaces
+   (e.g. the ability HUD, whose slots are the visible candy). */
+.ck-panel--bare {
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+}
+
+.ck-panel--bare::before {
+    content: none;
+}
+
+.ck-panel--column {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--ck-space-1);
+}
+
+/* Anchors */
+.ck-panel--bottom-right { right: var(--ck-space-4); bottom: var(--ck-space-4); }
+.ck-panel--bottom-left { left: var(--ck-space-4); bottom: var(--ck-space-4); }
+.ck-panel--top-right { top: var(--ck-space-4); right: var(--ck-space-4); }
+.ck-panel--top-left { top: var(--ck-space-4); left: var(--ck-space-4); }
+
+/* Layers */
+.ck-panel--layer-raised { z-index: var(--ck-z-hud-raised); }
+.ck-panel--layer-overlay { z-index: var(--ck-z-overlay); }
+
+/* 🖱️ Pointer-lock: read-only panels must never swallow the click that
+   re-acquires the lock. See docs/UI_KIT.md § Pointer lock. */
+.ck-panel--inert {
+    pointer-events: none;
+}
+
+.ck-panel[hidden] {
+    display: none !important;
+}
+
+.ck-panel-title {
+    color: var(--ck-text-accent);
+    font-size: 0.9em;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* ==========================================================================
+   Meter — horizontal progress/resource bar (role="progressbar")
+   ========================================================================== */
+
+.ck-meter {
+    position: relative;
+    width: 150px;
+    height: 20px;
+    overflow: hidden;
+    background: var(--ck-surface-sunken);
+    border: var(--ck-border-width) solid var(--ck-border);
+    border-radius: var(--ck-radius-pill);
+    box-shadow: var(--ck-shadow-panel);
+    transition:
+        transform var(--ck-dur-fast) var(--ck-ease-candy),
+        border-color var(--ck-dur-base);
+}
+
+.ck-meter__fill {
+    width: 0%;
+    height: 100%;
+    background: var(--ck-meter-fill);
+    border-radius: var(--ck-radius-pill);
+    box-shadow: 0 0 10px rgba(255, 105, 180, 0.5);
+    transition:
+        width var(--ck-dur-fast) linear,
+        background var(--ck-dur-base);
+}
+
+/* Critical state — the JS sets data-ck-state, not a bespoke class. */
+.ck-meter[data-ck-state='low'] {
+    border-color: var(--ck-danger);
+}
+
+.ck-meter[data-ck-state='low'] .ck-meter__fill {
+    background: var(--ck-meter-fill-low);
+}
+
+/* ==========================================================================
+   Shortcut hint — the keycap badge on a slot or button
+   ========================================================================== */
+
+.ck-kbd {
+    display: inline-block;
+    padding: 0 var(--ck-space-1);
+    color: var(--ck-text-accent);
+    font-family: var(--ck-font-display);
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1.4;
+    text-shadow: 1px 1px 0 var(--ck-surface-solid);
+    transition:
+        transform var(--ck-dur-fast) var(--ck-ease-candy),
+        background-color var(--ck-dur-fast),
+        box-shadow var(--ck-dur-fast);
+}
+
+/* Corner placement inside a positioned parent (ability slots). */
+.ck-kbd--corner {
+    position: absolute;
+    top: 2px;
+    left: var(--ck-space-1);
+    z-index: 2;
+}
+
+.ck-kbd--highlight {
+    transform: scale(1.2);
+    color: var(--ck-text-on-accent);
+    background-color: var(--ck-coral);
+    border-radius: var(--ck-radius-sm);
+    box-shadow: 0 0 15px rgba(255, 107, 107, 0.6);
+}
+
+/* ==========================================================================
+   Tooltip — hover/focus description, mirrored to aria-describedby
+   ========================================================================== */
+
+.ck-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    max-width: 220px;
+    padding: var(--ck-space-1) var(--ck-space-2);
+    color: var(--ck-text);
+    font-family: var(--ck-font-display);
+    font-size: 12px;
+    line-height: 1.35;
+    text-align: center;
+    background: var(--ck-surface-solid);
+    border: 2px solid var(--ck-border);
+    border-radius: var(--ck-radius-sm);
+    box-shadow: var(--ck-shadow-raised);
+    opacity: 0;
+    /* Tooltips are pure decoration for the mouse; never eat a lock click. */
+    pointer-events: none;
+    z-index: var(--ck-z-tooltip);
+    transition: opacity var(--ck-dur-base);
+}
+
+.ck-tooltip[data-ck-visible='true'] {
+    opacity: 1;
+}
+
+/* The always-present accessible copy: visually hidden, read by AT. */
+.ck-tooltip--sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ==========================================================================
+   Shared focus ring — one visible focus treatment for every kit control
+   ========================================================================== */
+
+.ck-focusable:focus-visible {
+    outline: none;
+    box-shadow: var(--ck-focus-ring);
+}

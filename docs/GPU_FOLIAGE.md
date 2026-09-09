@@ -4,21 +4,21 @@ WebGPU compute path for high-count foliage pose and scalar animation on the **sh
 
 ## Enable
 
-| Toggle | Value |
-|--------|-------|
-| URL | `?gpuFoliage=1` (default **OFF** until parity is green) |
-| Disable all GPU compute | `?no_gpu_compute` |
-| DevTools | `window.__gpuFoliageFlag()` → `{ urlEnabled, pilotActive }` |
-| Orchestrator | `window.__gpuFoliageOrchestrator()` → `{ active, disabledByDeviceLoss, animatorReady }` |
+| Toggle                  | Value                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| URL                     | `?gpuFoliage=1` (default **OFF** until parity is green)                                 |
+| Disable all GPU compute | `?no_gpu_compute`                                                                       |
+| DevTools                | `window.__gpuFoliageFlag()` → `{ urlEnabled, pilotActive }`                             |
+| Orchestrator            | `window.__gpuFoliageOrchestrator()` → `{ active, disabledByDeviceLoss, animatorReady }` |
 
 Requires `preferGpuCompute()` and a warm shared device (`ensureGpuComputeReady()`). **Zero new `requestDevice` call sites** — all paths borrow via `awaitGpuDevice()`.
 
 ## Pilot batchers
 
-| Batcher | GPU module | CPU fallback |
-|---------|-----------|--------------|
-| `SimpleFlowerBatcher` | `gpu-plant-pose.ts` (ADSR → `aPoseState`) | `PlantPoseMachine` |
-| `FoliageBatcher` scalar batches (sway/bounce/hop/gentleSway) | `foliage-gpu-batch.ts` | AssemblyScript via `foliage-batcher-core.ts` |
+| Batcher                                                      | GPU module                                | CPU fallback                                 |
+| ------------------------------------------------------------ | ----------------------------------------- | -------------------------------------------- |
+| `SimpleFlowerBatcher`                                        | `gpu-plant-pose.ts` (ADSR → `aPoseState`) | `PlantPoseMachine`                           |
+| `FoliageBatcher` scalar batches (sway/bounce/hop/gentleSway) | `foliage-gpu-batch.ts`                    | AssemblyScript via `foliage-batcher-core.ts` |
 
 `GPUFoliageAnimator` (`gpu-foliage-animator.ts`) is initialised by `gpu-foliage-orchestrator.ts` when the pilot flag is on; full instanced-matrix migration is a follow-up slice.
 
@@ -69,17 +69,17 @@ npm run budget:batchers
 In browser:
 
 ```js
-window.__computeStatus()  // lastFrameGpuFoliage, vramEstimateBytes
-performance.measure('simple-flower-update')  // profiler marks in game-loop
+window.__computeStatus(); // lastFrameGpuFoliage, vramEstimateBytes
+performance.measure('simple-flower-update'); // profiler marks in game-loop
 ```
 
 ### VRAM budget (pilot, 1000 flowers)
 
-| Buffer | Approx size |
-|--------|-------------|
-| Plant pose positions | 12 KB |
-| Plant pose state | 8 KB |
-| Scalar batch (512 cap) | ~8 KB |
+| Buffer                       | Approx size                             |
+| ---------------------------- | --------------------------------------- |
+| Plant pose positions         | 12 KB                                   |
+| Plant pose state             | 8 KB                                    |
+| Scalar batch (512 cap)       | ~8 KB                                   |
 | GPUFoliageAnimator (10k cap) | ~640 KB (only when orchestrator active) |
 
 Check `window.__computeVramBytes()` after exploring a full world.

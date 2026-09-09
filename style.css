@@ -1,4 +1,7 @@
 /* Global styles — import order matches original cascade */
+/* UI kit tokens must come first: everything below may reference --ck-* vars. */
+@import './styles/kit-tokens.css';
+@import './styles/kit.css';
 @import './styles/reticle.css';
 @import './styles/accessibility-motion.css';
 @import './styles/playlist.css';

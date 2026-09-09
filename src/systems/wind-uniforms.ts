@@ -24,7 +24,7 @@ import { uniform, vec3, float } from 'three/tsl';
 
 /** Gust octave weights, strongest (slowest) first. */
 const GUST_OCTAVES: ReadonlyArray<{ freq: number; amp: number }> = [
-    { freq: 0.23, amp: 0.30 },
+    { freq: 0.23, amp: 0.3 },
     { freq: 0.61, amp: 0.14 },
     { freq: 1.47, amp: 0.06 },
 ];

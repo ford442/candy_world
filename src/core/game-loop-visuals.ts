@@ -4,12 +4,7 @@ import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
 import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
 import { updateWind, type WindUpdateInput } from '../systems/wind-uniforms.ts';
 import { updateWindDebug } from '../systems/wind-debug.ts';
-import {
-    uAudioLow,
-    uAudioHigh,
-    uGlitchIntensity,
-    uTime,
-} from '../foliage/index.ts';
+import { uAudioLow, uAudioHigh, uGlitchIntensity, uTime } from '../foliage/index.ts';
 import {
     uSkyTopColor,
     uSkyBottomColor,

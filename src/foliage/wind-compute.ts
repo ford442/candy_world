@@ -1,6 +1,29 @@
 import * as THREE from 'three';
-import { DataTexture, Vector2, Vector4, RGBAFormat, HalfFloatType, NearestFilter, RepeatWrapping } from 'three';
-import { textureStore, instanceIndex, Fn, float, vec4, vec2, ivec2, mx_noise_float, sin, cos, max, min, uniform, floor } from 'three/tsl';
+import {
+    DataTexture,
+    Vector2,
+    Vector4,
+    RGBAFormat,
+    HalfFloatType,
+    NearestFilter,
+    RepeatWrapping,
+} from 'three';
+import {
+    textureStore,
+    instanceIndex,
+    Fn,
+    float,
+    vec4,
+    vec2,
+    ivec2,
+    mx_noise_float,
+    sin,
+    cos,
+    max,
+    min,
+    uniform,
+    floor,
+} from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -43,12 +66,12 @@ export const DEFAULT_WIND_CONFIG: WindConfig = {
     gustFrequency: 0.3,
     gustStrength: 0.5,
     directionAngle: 0,
-    directionVariation: 0.3
+    directionVariation: 0.3,
 };
 
 /**
  * WindComputeSystem - WebGPU Compute Shader Edition
- * 
+ *
  * Replaces CPU noise generation with a WebGPU Compute Shader that writes
  * to a StorageTexture. This removes the JS CPU bottleneck and updates
  * the entire 256x256 texture every frame.
@@ -57,19 +80,19 @@ export class WindComputeSystem {
     private windTexture: THREE.Texture;
     private timeAccumulator: number = 0;
     private config: WindConfig;
-    
+
     // Cached direction vectors
     private baseDirection: Vector2 = new Vector2(1, 0);
     private currentDirection: Vector2 = new Vector2(1, 0);
-    
+
     // Performance tracking
     private frameCount: number = 0;
     private lastUpdateTime: number = 0;
     private averageUpdateTime: number = 0;
-    
+
     // Uniforms for TSL shaders
     private windParams: Vector4 = new Vector4(1, 0, 0, 1); // x: speed, y: unused, z: unused, w: time
-    
+
     // Compute specific uniforms
     private uTime = uniform(0);
     private uWindSpeed = uniform(1.0);
@@ -81,7 +104,7 @@ export class WindComputeSystem {
 
     constructor(config: Partial<WindConfig> = {}) {
         this.config = { ...DEFAULT_WIND_CONFIG, ...config };
-        
+
         // Create the storage texture for compute shader
         const storageTexture = new StorageTexture(WIND_TEXTURE_SIZE, WIND_TEXTURE_SIZE);
         storageTexture.type = HalfFloatType;
@@ -90,7 +113,7 @@ export class WindComputeSystem {
         storageTexture.wrapS = RepeatWrapping;
         storageTexture.wrapT = RepeatWrapping;
         this.windTexture = storageTexture;
-        
+
         // Initialize base direction from config
         this.baseDirection.set(
             Math.cos(this.config.directionAngle),
@@ -101,7 +124,7 @@ export class WindComputeSystem {
             const windDir = this.uWindDirection.value as unknown as THREE.Vector3;
             windDir.set(this.currentDirection.x, this.currentDirection.y, 0);
         }
-        
+
         this.initComputeNode();
     }
 
@@ -155,8 +178,12 @@ export class WindComputeSystem {
 
             // Apply base wind direction influence
             const dirInfluence = float(0.7); // How much base direction affects the wind
-            windX = windX.mul(float(1.0).sub(dirInfluence)).add(this.uWindDirection.x.mul(dirInfluence));
-            windZ = windZ.mul(float(1.0).sub(dirInfluence)).add(this.uWindDirection.y.mul(dirInfluence));
+            windX = windX
+                .mul(float(1.0).sub(dirInfluence))
+                .add(this.uWindDirection.x.mul(dirInfluence));
+            windZ = windZ
+                .mul(float(1.0).sub(dirInfluence))
+                .add(this.uWindDirection.y.mul(dirInfluence));
 
             // Calculate gust intensity
             const gustPhase = nx.mul(2.0).add(ny.mul(1.5)).add(timeOffset.mul(this.uGustFreq));
@@ -177,7 +204,9 @@ export class WindComputeSystem {
         });
 
         // Dispatch one thread per pixel
-        this._computeNode = (computeWind() as unknown as { compute: (n: number) => unknown }).compute(WIND_TEXTURE_SIZE * WIND_TEXTURE_SIZE);
+        this._computeNode = (
+            computeWind() as unknown as { compute: (n: number) => unknown }
+        ).compute(WIND_TEXTURE_SIZE * WIND_TEXTURE_SIZE);
     }
 
     /**
@@ -186,14 +215,14 @@ export class WindComputeSystem {
     getComputeNode() {
         return this._computeNode;
     }
-    
+
     /**
      * Get the wind texture for use in TSL shaders
      */
     getWindTexture(): THREE.Texture {
         return this.windTexture;
     }
-    
+
     /**
      * Get shader uniforms for binding to materials
      */
@@ -201,27 +230,28 @@ export class WindComputeSystem {
         return {
             windTexture: this.windTexture,
             windParams: this.windParams,
-            windSpeed: this.config.baseSpeed
+            windSpeed: this.config.baseSpeed,
         };
     }
-    
+
     /**
      * Update the wind simulation parameters
      * Call this once per frame with deltaTime in seconds
      */
     update(deltaTime: number): void {
         const startTime = performance.now();
-        
+
         this.timeAccumulator += deltaTime;
         this.frameCount++;
-        
+
         // Update wind direction with slow variation
-        const directionOscillation = Math.sin(this.timeAccumulator * 0.1) * this.config.directionVariation;
+        const directionOscillation =
+            Math.sin(this.timeAccumulator * 0.1) * this.config.directionVariation;
         this.currentDirection.set(
             Math.cos(this.config.directionAngle + directionOscillation),
             Math.sin(this.config.directionAngle + directionOscillation)
         );
-        
+
         // Baked field follows the unified wind (src/systems/wind-uniforms.ts):
         // heading and gust come from there so the texture agrees with the TSL
         // sway. `config` only supplies the noise shape (scale, frequency).
@@ -241,7 +271,7 @@ export class WindComputeSystem {
         windDir.set(this.currentDirection.x, this.currentDirection.y, 0);
         this.uGustFreq.value = this.config.gustFrequency;
         this.uGustStrength.value = this.config.gustStrength * shared.gust;
-        
+
         // Update wind params uniform for materials
         this.windParams.set(
             sharedSpeed,
@@ -249,13 +279,13 @@ export class WindComputeSystem {
             this.currentDirection.x,
             this.currentDirection.y
         );
-        
+
         // Track performance
         const updateTime = performance.now() - startTime;
         this.averageUpdateTime = this.averageUpdateTime * 0.95 + updateTime * 0.05;
         this.lastUpdateTime = updateTime;
     }
-    
+
     /**
      * Get wind vector at a specific world position and time
      * Use this for CPU-side calculations (e.g., particle effects)
@@ -265,39 +295,39 @@ export class WindComputeSystem {
     getWindAt(x: number, z: number, time: number = this.timeAccumulator): Vector2 {
         // Approximate the wind direction and speed for CPU side effects
         // Full noise is calculated on GPU, so we use a simplified version here
-        const gustPhase = (x * 0.01) * 2 + (z * 0.01) * 1.5 + (time * 0.1) * this.config.gustFrequency;
+        const gustPhase = x * 0.01 * 2 + z * 0.01 * 1.5 + time * 0.1 * this.config.gustFrequency;
         const gust = (Math.sin(gustPhase) + 1) * 0.5; // 0 to 1
         const gustSharp = Math.pow(gust, 3) * this.config.gustStrength;
-        
+
         const gustMultiplier = 1.0 + gustSharp;
-        
+
         return new Vector2(
             this.currentDirection.x * gustMultiplier * this.config.baseSpeed,
             this.currentDirection.y * gustMultiplier * this.config.baseSpeed
         );
     }
-    
+
     /**
      * Get current wind direction as a normalized vector
      */
     getCurrentDirection(): Vector2 {
         return this.currentDirection.clone();
     }
-    
+
     /**
      * Get current wind speed
      */
     getWindSpeed(): number {
         return this.config.baseSpeed;
     }
-    
+
     /**
      * Set wind speed dynamically
      */
     setWindSpeed(speed: number): void {
         this.config.baseSpeed = Math.max(0, speed);
     }
-    
+
     /**
      * Set wind direction dynamically
      */
@@ -305,7 +335,7 @@ export class WindComputeSystem {
         this.config.directionAngle = angle;
         this.baseDirection.set(Math.cos(angle), Math.sin(angle));
     }
-    
+
     /**
      * Get performance statistics
      */
@@ -321,10 +351,11 @@ export class WindComputeSystem {
             lastUpdateTime: this.lastUpdateTime,
             frameCount: this.frameCount,
             textureSize: WIND_TEXTURE_SIZE,
-            textureMemoryMB: (WIND_TEXTURE_SIZE * WIND_TEXTURE_SIZE * WIND_TEXTURE_CHANNELS * 4) / (1024 * 1024)
+            textureMemoryMB:
+                (WIND_TEXTURE_SIZE * WIND_TEXTURE_SIZE * WIND_TEXTURE_CHANNELS * 4) / (1024 * 1024),
         };
     }
-    
+
     /**
      * Dispose of resources
      */
@@ -342,12 +373,12 @@ export const windComputeSystem = new WindComputeSystem();
 /**
  * Creates a TSL-ready wind texture reference
  * Use this function in TSL material definitions to get the wind texture node
- * 
+ *
  * Example:
  * ```typescript
  * import { texture, uv } from 'three/tsl';
  * import { getWindTextureNode } from './wind-compute.ts';
- * 
+ *
  * const windValue = getWindTextureNode(uv().mul(0.1).add(time * 0.01));
  * ```
  */
@@ -359,7 +390,7 @@ export function getWindTextureData(): {
     return {
         texture: windComputeSystem.getWindTexture(),
         params: windComputeSystem.getUniforms().windParams,
-        sampleScale: 0.1 // Scale factor for UV mapping to world space
+        sampleScale: 0.1, // Scale factor for UV mapping to world space
     };
 }
 
@@ -372,23 +403,23 @@ export class WindPerformanceProfiler {
     private lastFrameTime: number = 0;
     private isProfiling: boolean = false;
     private profileStartTime: number = 0;
-    
+
     startProfiling(): void {
         this.frameTimings = [];
         this.isProfiling = true;
         this.profileStartTime = performance.now();
         this.lastFrameTime = this.profileStartTime;
     }
-    
+
     recordFrame(): void {
         if (!this.isProfiling) return;
-        
+
         const now = performance.now();
         const delta = now - this.lastFrameTime;
         this.frameTimings.push(delta);
         this.lastFrameTime = now;
     }
-    
+
     stopProfiling(): {
         averageFPS: number;
         minFPS: number;
@@ -397,13 +428,13 @@ export class WindPerformanceProfiler {
         duration: number;
     } {
         this.isProfiling = false;
-        
+
         if (this.frameTimings.length === 0) {
             return { averageFPS: 0, minFPS: 0, maxFPS: 0, totalFrames: 0, duration: 0 };
         }
-        
+
         const duration = performance.now() - this.profileStartTime;
-        
+
         // ⚡ OPTIMIZATION: Eliminate .map() and .reduce() arrays to prevent GC spikes in hot paths
         let sum = 0;
         let minFPS = Infinity;
@@ -423,10 +454,10 @@ export class WindPerformanceProfiler {
             minFPS: minFPS,
             maxFPS: maxFPS,
             totalFrames: count,
-            duration
+            duration,
         };
     }
-    
+
     /**
      * Log profiling results to console with formatting
      */
@@ -437,7 +468,7 @@ export class WindPerformanceProfiler {
             minFPS: results.minFPS.toFixed(1),
             maxFPS: results.maxFPS.toFixed(1),
             frames: results.totalFrames,
-            duration: `${(results.duration / 1000).toFixed(1)}s`
+            duration: `${(results.duration / 1000).toFixed(1)}s`,
         });
     }
 }

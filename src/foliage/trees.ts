@@ -1,10 +1,42 @@
 import * as THREE from 'three';
-import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld, normalLocal, add } from 'three/tsl';
+import {
+    color as tslColor,
+    mix,
+    float,
+    sin,
+    cos,
+    vec3,
+    positionLocal,
+    positionWorld,
+    time,
+    normalWorld,
+    normalLocal,
+    add,
+} from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu'; // Import explicit type for cast
 import { calcVineDetachImpulse } from '../utils/wasm-foliage-interact.ts';
 import { createBerryCluster } from './berries.ts';
 import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uAudioHigh, uWindSpeed, uWindStrength, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
+import {
+    foliageMaterials,
+    registerReactiveMaterial,
+    attachReactivity,
+    pickAnimation,
+    createClayMaterial,
+    createGradientMaterial,
+    sharedGeometries,
+    uAudioLow,
+    uAudioHigh,
+    uWindSpeed,
+    uWindStrength,
+    calculatePlayerPush,
+    createStandardNodeMaterial,
+    createJuicyRimLight,
+    getCachedProceduralMaterial,
+    calculateWindSway,
+    applyPlayerInteraction,
+    applyStandardDeformation,
+} from './index.ts';
 import { uTwilight } from './sky.ts';
 import { treeBatcher } from './tree-batcher.ts';
 import { FoliageObject } from './types.ts';
@@ -76,7 +108,9 @@ function enhanceWithFloralJuice(material: any) {
         // 2. Wind Flutter (High Frequency Shiver)
         const flutterFreq = float(15.0);
         const flutterAmp = float(0.05).mul(uWindStrength.add(0.5));
-        const flutter = sin(time.mul(flutterFreq).add(positionWorld.x).add(positionWorld.z)).mul(flutterAmp);
+        const flutter = sin(time.mul(flutterFreq).add(positionWorld.x).add(positionWorld.z)).mul(
+            flutterAmp
+        );
 
         let newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
 
@@ -88,7 +122,7 @@ function enhanceWithFloralJuice(material: any) {
 
         // 4. Juicy Rim Light (Audio-reactive edge glow)
         // Memory explicitly notes: To apply createJuicyRimLight to non-instanced Three.js meshes without crashing WebGPU, construct a standard TSL color node (e.g., tslColor(colorHex)) and pass it as the baseColor argument instead of an instanced attribute.
-        const rimLight = createJuicyRimLight(tslColor(0xFFFFFF), float(1.5), float(3.0), null);
+        const rimLight = createJuicyRimLight(tslColor(0xffffff), float(1.5), float(3.0), null);
         material.emissiveNode = add(material.emissiveNode ?? tslColor(0x000000), rimLight);
     }
     return material;
@@ -96,12 +130,12 @@ function enhanceWithFloralJuice(material: any) {
 
 // @refactor {target: "ts", reason: "complex-config", note: "Factory functions prone to undefined option bugs"}
 export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
-    const { color = 0xFF69B4 } = options;
+    const { color = 0xff69b4 } = options;
     const group = new THREE.Group();
 
     const trunkH = 3 + Math.random() * 2;
     // Shared geometry: Cylinder
-    const trunkMat = createGradientMaterial(0xA0724B, 0x6B4226, 0.8);
+    const trunkMat = createGradientMaterial(0xa0724b, 0x6b4226, 0.8);
     const trunk = new THREE.Mesh(sharedGeometries.cylinder, trunkMat);
     trunk.scale.set(0.4, trunkH, 0.4);
     trunk.position.y = trunkH / 2;
@@ -142,11 +176,11 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
 
     if (Math.random() > 0.4) {
         const berries = createBerryCluster({
-            color: 0xFF00AA,
+            color: 0xff00aa,
             count: 6 + Math.floor(Math.random() * 4),
             baseGlow: 0.3,
             shape: 'pear',
-            size: 0.1
+            size: 0.1,
         });
         berries.position.set(
             (Math.random() - 0.5) * 1.5,
@@ -172,7 +206,7 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
 }
 
 export function createShrub(options: ShrubOptions = {}): THREE.Group {
-    const { color = 0x32CD32 } = options;
+    const { color = 0x32cd32 } = options;
     const group = new THREE.Group();
 
     // Shared geometry: Sphere
@@ -183,8 +217,8 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
     base.castShadow = true;
     group.add(base);
 
-    const flowerMat = getCachedProceduralMaterial(`shrub_flower`, 0xFF69B4, () => {
-        const mat = createClayMaterial(0xFF69B4);
+    const flowerMat = getCachedProceduralMaterial(`shrub_flower`, 0xff69b4, () => {
+        const mat = createClayMaterial(0xff69b4);
         enhanceWithFloralJuice(mat);
         return mat;
     });
@@ -204,17 +238,13 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
 
     if (Math.random() > 0.5) {
         const berries = createBerryCluster({
-            color: 0xFF6600,
+            color: 0xff6600,
             count: 4 + Math.floor(Math.random() * 3),
             baseGlow: 0.25,
             shape: 'sphere',
-            size: 0.08
+            size: 0.08,
         });
-        berries.position.set(
-            (Math.random() - 0.5) * 1.2,
-            1.2,
-            (Math.random() - 0.5) * 1.2
-        );
+        berries.position.set((Math.random() - 0.5) * 1.2, 1.2, (Math.random() - 0.5) * 1.2);
         group.add(berries);
         group.userData.berries = berries;
     }
@@ -234,7 +264,7 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
 }
 
 export function createVine(options: VineOptions = {}): THREE.Group {
-    const { color = 0x228B22, length = 3 } = options;
+    const { color = 0x228b22, length = 3 } = options;
     const group = new THREE.Group();
 
     // ⚡ BOLT + 🎨 PALETTE OPTIMIZATION:
@@ -243,7 +273,10 @@ export function createVine(options: VineOptions = {}): THREE.Group {
         const mat = createClayMaterial(color);
         mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
+        mat.emissiveNode = add(
+            mat.emissiveNode ?? tslColor(0x000000),
+            createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode)
+        );
         return mat;
     });
     registerReactiveMaterial(vineMat);
@@ -278,11 +311,14 @@ export function createLeafParticle(options: LeafOptions = {}): THREE.Mesh {
 }
 
 export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Group {
-    const { color = 0x8A2BE2 } = options;
+    const { color = 0x8a2be2 } = options;
     const group = new THREE.Group();
 
     const trunkH = 2.5 + Math.random();
-    const trunk = new THREE.Mesh(sharedGeometries.cylinder, createGradientMaterial(0x5D4037, 0x4A3025, 0.9));
+    const trunk = new THREE.Mesh(
+        sharedGeometries.cylinder,
+        createGradientMaterial(0x5d4037, 0x4a3025, 0.9)
+    );
     trunk.scale.set(0.5, trunkH, 0.5);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
@@ -320,7 +356,10 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'bubbleWillow');
         if (group.userData.attachGemFruits) {
-            gemFruitBatcher.attachToTree(group, { height: trunkH, gemCount: 5 + Math.floor(Math.random() * 3) });
+            gemFruitBatcher.attachToTree(group, {
+                height: trunkH,
+                gemCount: 5 + Math.floor(Math.random() * 3),
+            });
         }
         group.userData.isBatched = true;
         group.userData.onPlacement = null;
@@ -330,7 +369,7 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
 }
 
 export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
-    const { color = 0x00FA9A } = options;
+    const { color = 0x00fa9a } = options;
     const group = new THREE.Group();
 
     // ⚡ OPTIMIZATION: Scratch vector to prevent GC spikes in curve generation if optionalTarget is missing
@@ -365,7 +404,10 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
     group.add(mesh);
 
     const tipMat = createStandardNodeMaterial({
-        color: 0xFFFFFF, emissive: 0xFFFACD, emissiveIntensity: 0.5, roughness: 0.5
+        color: 0xffffff,
+        emissive: 0xfffacd,
+        emissiveIntensity: 0.5,
+        roughness: 0.5,
     });
     registerReactiveMaterial(tipMat);
 
@@ -390,7 +432,7 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
 }
 
 export function createBalloonBush(options: BalloonBushOptions = {}): THREE.Group {
-    const { color = 0xFF4500 } = options;
+    const { color = 0xff4500 } = options;
     const group = new THREE.Group();
 
     const sphereCount = 5 + Math.floor(Math.random() * 5);
@@ -408,7 +450,7 @@ export function createBalloonBush(options: BalloonBushOptions = {}): THREE.Group
 
         mesh.position.set(
             (Math.random() - 0.5) * 0.8,
-            r + (Math.random()) * 0.8,
+            r + Math.random() * 0.8,
             (Math.random() - 0.5) * 0.8
         );
         mesh.castShadow = true;
@@ -441,7 +483,7 @@ export function createVineCluster(x: number, z: number): THREE.Group {
 }
 
 export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.Group {
-    const { color = 0xFFD700 } = options;
+    const { color = 0xffd700 } = options;
     const group = new THREE.Group();
 
     const trunkHeight = 3.0;
@@ -451,26 +493,36 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
     const pleatGeo = new THREE.TorusGeometry(0.3, 0.15, 8, 16);
 
     // 🎨 PALETTE: Add TSL Juice (Wind Sway and Rim Light) to the Accordion trunk pleats
-    const pleatMatBase = getCachedProceduralMaterial(`accordion_palm_pleat_base`, 0x8B4513, () => {
-        const mat = createClayMaterial(0x8B4513) as MeshStandardNodeMaterial;
+    const pleatMatBase = getCachedProceduralMaterial(`accordion_palm_pleat_base`, 0x8b4513, () => {
+        const mat = createClayMaterial(0x8b4513) as MeshStandardNodeMaterial;
         mat.positionNode = applyStandardDeformation(positionLocal);
-        const rim = createJuicyRimLight(tslColor(0x8B4513), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode || normalLocal);
+        const rim = createJuicyRimLight(
+            tslColor(0x8b4513),
+            float(1.0).add(uAudioLow.mul(0.5)),
+            float(3.0),
+            mat.normalNode || normalLocal
+        );
         mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), rim);
         return mat;
     });
     registerReactiveMaterial(pleatMatBase);
 
-    const pleatMatAlt = getCachedProceduralMaterial(`accordion_palm_pleat_alt`, 0xA0522D, () => {
-        const mat = createClayMaterial(0xA0522D) as MeshStandardNodeMaterial;
+    const pleatMatAlt = getCachedProceduralMaterial(`accordion_palm_pleat_alt`, 0xa0522d, () => {
+        const mat = createClayMaterial(0xa0522d) as MeshStandardNodeMaterial;
         mat.positionNode = applyStandardDeformation(positionLocal);
-        const rim = createJuicyRimLight(tslColor(0xA0522D), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), mat.normalNode || normalLocal);
+        const rim = createJuicyRimLight(
+            tslColor(0xa0522d),
+            float(1.0).add(uAudioLow.mul(0.5)),
+            float(3.0),
+            mat.normalNode || normalLocal
+        );
         mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), rim);
         return mat;
     });
     registerReactiveMaterial(pleatMatAlt);
 
     for (let i = 0; i < segments; i++) {
-        const activeMat = (i % 2 === 0) ? pleatMatAlt : pleatMatBase;
+        const activeMat = i % 2 === 0 ? pleatMatAlt : pleatMatBase;
         const pleat = new THREE.Mesh(pleatGeo, activeMat);
         pleat.rotation.x = Math.PI / 2;
         pleat.position.y = i * (trunkHeight / segments);
@@ -486,7 +538,12 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
     const leafMat = getCachedProceduralMaterial(`accordion_palm_leaf_${color}`, color, () => {
         const mat = createClayMaterial(color) as MeshStandardNodeMaterial;
         mat.positionNode = applyStandardDeformation(positionLocal);
-        const rim = createJuicyRimLight(tslColor(color), float(1.5).add(uAudioHigh.mul(2.0)), float(3.0), mat.normalNode || normalLocal);
+        const rim = createJuicyRimLight(
+            tslColor(color),
+            float(1.5).add(uAudioHigh.mul(2.0)),
+            float(3.0),
+            mat.normalNode || normalLocal
+        );
         mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), rim);
         return mat;
     });
@@ -512,11 +569,14 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
 }
 
 export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): THREE.Group {
-    const { color = 0xFFFFFF } = options;
+    const { color = 0xffffff } = options;
     const group = new THREE.Group();
 
     const trunkH = 2.5 + Math.random();
-    const trunk = new THREE.Mesh(sharedGeometries.cylinder, createGradientMaterial(0x222222, 0x111111, 0.9));
+    const trunk = new THREE.Mesh(
+        sharedGeometries.cylinder,
+        createGradientMaterial(0x222222, 0x111111, 0.9)
+    );
     trunk.scale.set(0.3, trunkH, 0.3);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
@@ -528,16 +588,29 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
         const m = createClayMaterial(0x111111);
         m.roughness = 0.4;
         m.positionNode = applyStandardDeformation(positionLocal);
-        m.emissiveNode = add(m.emissiveNode ?? tslColor(0x000000), createJuicyRimLight(tslColor(0x222222), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), normalLocal));
+        m.emissiveNode = add(
+            m.emissiveNode ?? tslColor(0x000000),
+            createJuicyRimLight(
+                tslColor(0x222222),
+                float(1.0).add(uAudioLow.mul(0.5)),
+                float(3.0),
+                normalLocal
+            )
+        );
         return m;
     });
     registerReactiveMaterial(cableMat);
 
     const tipMat = getCachedProceduralMaterial(`optic_tip_willow_${color}`, color, () => {
-        const m = createStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 });
+        const m = createStandardNodeMaterial({ color: 0xffffff, roughness: 0.2 });
         const baseEmissive = tslColor(color).mul(0.8);
         const twilightBoost = baseEmissive.mul(uTwilight).mul(2.0);
-        const rimLight = createJuicyRimLight(tslColor(color), float(2.0).add(uAudioHigh.mul(2.0)), float(2.0), normalLocal);
+        const rimLight = createJuicyRimLight(
+            tslColor(color),
+            float(2.0).add(uAudioHigh.mul(2.0)),
+            float(2.0),
+            normalLocal
+        );
         m.emissiveNode = baseEmissive.add(twilightBoost).add(rimLight);
         m.positionNode = applyStandardDeformation(positionLocal);
         return m;
@@ -550,13 +623,13 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
         branchGroup.rotation.y = (i / branchCount) * Math.PI * 2;
 
         const len = 1.5 + Math.random();
-        
+
         const whip = new THREE.Group();
         whip.rotation.z = Math.PI / 4;
 
         const cable = new THREE.Mesh(sharedGeometries.cylinderLow, cableMat);
         cable.scale.set(0.02, len, 0.02);
-        cable.position.set(0, -len/2, 0);
+        cable.position.set(0, -len / 2, 0);
         whip.add(cable);
 
         const tip = new THREE.Mesh(sharedGeometries.sphereLow, tipMat);
@@ -613,13 +686,13 @@ export class VineSwing {
             const pumpForce = 3.0;
 
             if (inputState.forward) {
-                 if (Math.abs(this.swingAngularVel) > 0.1) {
-                     this.swingAngularVel += Math.sign(this.swingAngularVel) * pumpForce * delta;
-                 } else {
-                     this.swingAngularVel += pumpForce * delta;
-                 }
+                if (Math.abs(this.swingAngularVel) > 0.1) {
+                    this.swingAngularVel += Math.sign(this.swingAngularVel) * pumpForce * delta;
+                } else {
+                    this.swingAngularVel += pumpForce * delta;
+                }
             } else if (inputState.backward) {
-                 this.swingAngularVel -= Math.sign(this.swingAngularVel) * pumpForce * delta;
+                this.swingAngularVel -= Math.sign(this.swingAngularVel) * pumpForce * delta;
             }
         }
 
@@ -669,7 +742,7 @@ export class VineSwing {
 }
 
 export function createSwingableVine(options: SwingableVineOptions = {}): THREE.Group {
-    const { length = 12, color = 0x2E8B57 } = options;
+    const { length = 12, color = 0x2e8b57 } = options;
     const group = new THREE.Group();
 
     const segmentCount = 8;
@@ -679,7 +752,10 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
         const mat = createClayMaterial(color);
         mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
+        mat.emissiveNode = add(
+            mat.emissiveNode ?? tslColor(0x000000),
+            createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode)
+        );
         return mat;
     });
 
@@ -690,26 +766,30 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
 
         const mesh = new THREE.Mesh(sharedGeometries.cylinderLow, mat);
         mesh.scale.set(0.15, segLen, 0.15);
-        mesh.position.y = -segLen/2;
+        mesh.position.y = -segLen / 2;
         mesh.rotation.z = (Math.random() - 0.5) * 0.1;
         mesh.rotation.x = (Math.random() - 0.5) * 0.1;
 
         segmentGroup.add(mesh);
 
         if (Math.random() > 0.4) {
-             const leaf = createLeafParticle({ color: 0x32CD32 });
-             leaf.position.y = -segLen * 0.5;
-             leaf.position.x = 0.1;
-             leaf.rotation.z = Math.PI / 4;
-             segmentGroup.add(leaf);
+            const leaf = createLeafParticle({ color: 0x32cd32 });
+            leaf.position.y = -segLen * 0.5;
+            leaf.position.x = 0.1;
+            leaf.rotation.z = Math.PI / 4;
+            segmentGroup.add(leaf);
         }
 
         group.add(segmentGroup);
     }
 
     const hitGeo = new THREE.CylinderGeometry(0.5, 0.5, length, 8);
-    hitGeo.translate(0, -length/2, 0);
-    const hitMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, wireframe: true, visible: false });
+    hitGeo.translate(0, -length / 2, 0);
+    const hitMat = new THREE.MeshBasicMaterial({
+        color: 0xffff00,
+        wireframe: true,
+        visible: false,
+    });
     const hitbox = new THREE.Mesh(hitGeo, hitMat);
     hitbox.userData.isVineHitbox = true;
     group.add(hitbox);
@@ -722,7 +802,7 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
 }
 
 export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
-    const { length = 10, color = 0x2E8B57 } = options;
+    const { length = 10, color = 0x2e8b57 } = options;
     const group = new THREE.Group();
 
     const segmentCount = 10;
@@ -732,7 +812,10 @@ export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
         const mat = createClayMaterial(color);
         mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
+        mat.emissiveNode = add(
+            mat.emissiveNode ?? tslColor(0x000000),
+            createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode)
+        );
         return mat;
     });
 
@@ -759,11 +842,11 @@ export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
 
         // Occasional leaf
         if (Math.random() > 0.5) {
-             const leaf = createLeafParticle({ color: 0x32CD32 });
-             leaf.position.y = -segLen * 0.5;
-             leaf.position.x = 0.12;
-             leaf.rotation.z = Math.PI / 4;
-             segmentGroup.add(leaf);
+            const leaf = createLeafParticle({ color: 0x32cd32 });
+            leaf.position.y = -segLen * 0.5;
+            leaf.position.x = 0.12;
+            leaf.rotation.z = Math.PI / 4;
+            segmentGroup.add(leaf);
         }
 
         group.add(segmentGroup);
@@ -772,7 +855,11 @@ export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
     // Climbable hitbox (invisible)
     const hitGeo = new THREE.CylinderGeometry(0.6, 0.6, length, 8);
     hitGeo.translate(0, -length / 2, 0);
-    const hitMat = new THREE.MeshBasicMaterial({ color: 0x00FF00, wireframe: true, visible: false });
+    const hitMat = new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        wireframe: true,
+        visible: false,
+    });
     const hitbox = new THREE.Mesh(hitGeo, hitMat);
     hitbox.userData.isClimbable = true;
     group.add(hitbox);

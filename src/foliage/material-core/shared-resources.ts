@@ -109,7 +109,9 @@ export function median(arr: number[]): number {
     _medianScratch.subarray(0, len).sort();
 
     const mid = Math.floor(len / 2);
-    return len % 2 !== 0 ? _medianScratch[mid] : (_medianScratch[mid - 1] + _medianScratch[mid]) / 2;
+    return len % 2 !== 0
+        ? _medianScratch[mid]
+        : (_medianScratch[mid - 1] + _medianScratch[mid]) / 2;
 }
 
 export function generateNoiseTexture(size = 256): THREE.DataTexture {

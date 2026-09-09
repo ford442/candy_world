@@ -140,7 +140,9 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
         p.y.assign(max(p.y, float(1.8)));
     });
 
-    const computeNode = (computePollen() as unknown as { compute: (n: number) => unknown }).compute(count);
+    const computeNode = (computePollen() as unknown as { compute: (n: number) => unknown }).compute(
+        count
+    );
 
     // 3. Visualization Material
     const material = new PointsNodeMaterial({
