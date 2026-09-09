@@ -1,13 +1,37 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-    attribute, float, sin, cos, positionLocal, normalLocal,
-    exp, rotate, normalize, vec4, vec3, smoothstep, step,
-    mix, color, storage, instanceIndex, uniform, Fn, If
+    attribute,
+    float,
+    sin,
+    cos,
+    positionLocal,
+    normalLocal,
+    exp,
+    rotate,
+    normalize,
+    vec4,
+    vec3,
+    smoothstep,
+    step,
+    mix,
+    color,
+    storage,
+    instanceIndex,
+    uniform,
+    Fn,
+    If,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { isCIorHeadless } from '../core/config.ts';
-import { uTime, uAudioHigh, uWindSpeed, uWindDirection, createSugarSparkle } from './index.ts';
+import {
+    uTime,
+    uAudioHigh,
+    uWindSpeed,
+    uWindDirection,
+    uWindStrength,
+    createSugarSparkle,
+} from './index.ts';
 import { createJuicyRimLight } from './material-core.ts';
 
 const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
@@ -39,8 +63,8 @@ const modUint = (x: any, y: any) => {
 };
 
 // Colors
-const COLOR_STALK = new THREE.Color(0xFFFFFF); // White
-const COLOR_TIP = new THREE.Color(0xFFD700);   // Gold
+const COLOR_STALK = new THREE.Color(0xffffff); // White
+const COLOR_TIP = new THREE.Color(0xffd700); // Gold
 
 export function createDandelionSeedSystem(): THREE.InstancedMesh {
     if (_seedMesh) return _seedMesh;
@@ -61,24 +85,23 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     const tipCount = tipGeo.attributes.position.count;
 
     const stalkColors = new Float32Array(stalkCount * 3);
-    for(let i=0; i<stalkCount; i++) {
-        stalkColors[i*3] = COLOR_STALK.r;
-        stalkColors[i*3+1] = COLOR_STALK.g;
-        stalkColors[i*3+2] = COLOR_STALK.b;
+    for (let i = 0; i < stalkCount; i++) {
+        stalkColors[i * 3] = COLOR_STALK.r;
+        stalkColors[i * 3 + 1] = COLOR_STALK.g;
+        stalkColors[i * 3 + 2] = COLOR_STALK.b;
     }
     stalkGeo.setAttribute('color', new THREE.BufferAttribute(stalkColors, 3));
 
     const tipColors = new Float32Array(tipCount * 3);
-    for(let i=0; i<tipCount; i++) {
-        tipColors[i*3] = COLOR_TIP.r;
-        tipColors[i*3+1] = COLOR_TIP.g;
-        tipColors[i*3+2] = COLOR_TIP.b;
+    for (let i = 0; i < tipCount; i++) {
+        tipColors[i * 3] = COLOR_TIP.r;
+        tipColors[i * 3 + 1] = COLOR_TIP.g;
+        tipColors[i * 3 + 2] = COLOR_TIP.b;
     }
     tipGeo.setAttribute('color', new THREE.BufferAttribute(tipColors, 3));
 
     const geometry = mergeGeometries([stalkGeo, tipGeo]);
     geometry.computeBoundingSphere();
-
 
     // Custom Attributes for TSL via Storage Instanced Buffers
     const spawnArray = new Float32Array(MAX_SEEDS * 4);
@@ -86,8 +109,8 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     const miscArray = new Float32Array(MAX_SEEDS * 4);
 
     // Initialize to dead
-    for(let i=0; i<MAX_SEEDS; i++) {
-        spawnArray[i*4+3] = -1000.0;
+    for (let i = 0; i < MAX_SEEDS; i++) {
+        spawnArray[i * 4 + 3] = -1000.0;
         miscArray[i * 4 + 0] = Math.random() - 0.5;
         miscArray[i * 4 + 1] = Math.random() - 0.5;
         miscArray[i * 4 + 2] = Math.random() - 0.5;
@@ -131,9 +154,13 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     const drag = float(1.5);
     const burstDist = velocity.mul(float(1.0).sub(exp(age.mul(drag).negate()))).div(drag);
 
-    // 2. Wind Drift (starts affecting after initial burst slows down)
+    // 2. Wind Drift (starts affecting after initial burst slows down).
+    // Like pollen.ts, this advects detached particles rather than bending
+    // anchored vertices, so calculateWindSway() is the wrong shape for it —
+    // it shares the wind uniforms instead.
     const windInfluence = smoothstep(0.5, 2.0, age);
-    const windDrift = uWindDirection.mul(uWindSpeed).mul(age.mul(windInfluence));
+    // Shared gust — seeds surge on the same swell as the foliage they left.
+    const windDrift = uWindDirection.mul(uWindStrength).mul(age.mul(windInfluence));
 
     // 3. Floating Sway (Sine wave up/down/side)
     const swayFreq = float(2.0);
@@ -149,7 +176,6 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     const gravityDrop = gravity.mul(age);
 
     const particleWorldPos = spawnPos.add(burstDist).add(windDrift).add(sway).add(gravityDrop);
-
 
     // Rotation: Tumbling
     const tumbleSpeed = float(2.0);
@@ -182,7 +208,6 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     const opacity = float(1.0).sub(smoothstep(0.7, 1.0, lifeProgress));
     mat.opacityNode = opacity.mul(isAlive);
 
-
     // --- 3. Mesh Setup ---
 
     _seedMesh = new THREE.InstancedMesh(geometry, mat, MAX_SEEDS);
@@ -211,9 +236,15 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
         const sVelNode = storage(velBuffer, 'vec4', velBuffer.count);
         const sMiscNode = storage(miscBuffer, 'vec4', miscBuffer.count);
 
-        const inSpawnNode = storage(stagingSpawnBuffer, 'vec4', stagingSpawnBuffer.count).element(stageIndex);
-        const inVelNode = storage(stagingVelBuffer, 'vec4', stagingVelBuffer.count).element(stageIndex);
-        const inMiscNode = storage(stagingMiscBuffer, 'vec4', stagingMiscBuffer.count).element(stageIndex);
+        const inSpawnNode = storage(stagingSpawnBuffer, 'vec4', stagingSpawnBuffer.count).element(
+            stageIndex
+        );
+        const inVelNode = storage(stagingVelBuffer, 'vec4', stagingVelBuffer.count).element(
+            stageIndex
+        );
+        const inMiscNode = storage(stagingMiscBuffer, 'vec4', stagingMiscBuffer.count).element(
+            stageIndex
+        );
 
         const spawnCount = uSpawnCount;
         const spawnIdx = uSpawnIndex;
@@ -241,7 +272,7 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
         stagingSpawnBuffer,
         stagingVelBuffer,
         stagingMiscBuffer,
-        maxSpawnsPerFrame: MAX_SPAWNS_PER_FRAME
+        maxSpawnsPerFrame: MAX_SPAWNS_PER_FRAME,
     };
 
     _seedMesh.userData = userData;
@@ -252,10 +283,7 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
 let _currentStageOffset = 0;
 let _spawnHeadStart = -1;
 
-export function spawnDandelionExplosion(
-    center: THREE.Vector3,
-    count: number = 24
-) {
+export function spawnDandelionExplosion(center: THREE.Vector3, count: number = 24) {
     if (!_seedMesh) return;
 
     const ud = _seedMesh.userData as DandelionSeedUserData;
@@ -268,9 +296,10 @@ export function spawnDandelionExplosion(
     const limit = Math.min(count, ud.maxSpawnsPerFrame - _currentStageOffset);
     if (limit <= 0) return;
 
-    const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000;
+    const now =
+        (uTime as any).value !== undefined ? (uTime as any).value : performance.now() / 1000;
 
-    for(let i=0; i<limit; i++) {
+    for (let i = 0; i < limit; i++) {
         const offset = (_currentStageOffset + i) * 4;
 
         // Spread out start position slightly (radius of head)
@@ -329,7 +358,9 @@ export function updateDandelionSeeds(renderer: any) {
         ud.uSpawnCount.value = _currentStageOffset;
         ud.uSpawnIndex.value = _spawnHeadStart;
 
-        if (!isCIorHeadless()) { renderer.compute(ud.computeNode); }
+        if (!isCIorHeadless()) {
+            renderer.compute(ud.computeNode);
+        }
 
         _currentStageOffset = 0;
     } else {

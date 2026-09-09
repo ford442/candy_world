@@ -7,6 +7,11 @@ import { CONFIG } from '../../core/config.ts';
 import { animatedFoliage } from '../../world/state.ts';
 import { World } from '../ecs/world.ts';
 import { getGroundHeight, sampleGroundNormal } from '../ground-system.ts';
+import {
+    SYSTEM_BUDGETS,
+    enforceCap,
+    recordCapRejection,
+} from '../performance-budget/systems-budget.ts';
 import { faunaComponentCodec } from './components.ts';
 import { getSkyIslandRoostAnchors, DEFAULT_ROOST_PLAN } from './roosts.ts';
 import {
@@ -226,12 +231,27 @@ export function spawnFaunaPopulation(opts: SpawnFaunaOptions): FaunaSpawnEntry[]
     const base = bufferByteOffset >> 2;
     const ctx = { world, buffer, base, rng, entries };
 
+    // The instance cap is the boid buffer's own size; clamping here keeps a
+    // mis-sized CONFIG from writing past the allocation.
+    const instanceCap = enforceCap('fauna', 'instances', maxCount);
+
     // Reserved pass: sky-island roost flocks (#1363 task 7).
-    let slot = spawnSkyIslandRoosts(ctx, 0, maxCount);
+    let slot = spawnSkyIslandRoosts(ctx, 0, instanceCap);
+
+    // Per-species ceiling: one species must not eat the whole population, which
+    // is what makes the flocking cost per species predictable.
+    const perSpeciesCap = Math.min(
+        CONFIG.fauna?.maxPerSpecies ?? instanceCap,
+        SYSTEM_BUDGETS.fauna.caps.perSpecies
+    );
+    const perSpecies = new Map<FaunaSpecies, number>();
+    for (const entry of entries) {
+        perSpecies.set(entry.component.species, (perSpecies.get(entry.component.species) ?? 0) + 1);
+    }
 
     // Terrain scatter fills whatever cap remains.
-    const attempts = maxCount * 4;
-    for (let a = 0; a < attempts && slot < maxCount; a++) {
+    const attempts = instanceCap * 4;
+    for (let a = 0; a < attempts && slot < instanceCap; a++) {
         const x = WORLD_MIN + rng() * (WORLD_MAX - WORLD_MIN);
         const z = WORLD_MIN + rng() * (WORLD_MAX - WORLD_MIN);
         const biome = resolveBiomeAt(x, z);
@@ -242,9 +262,15 @@ export function spawnFaunaPopulation(opts: SpawnFaunaOptions): FaunaSpawnEntry[]
         if (spawnRoll > Math.min(0.85, threshold)) continue;
 
         const species = speciesForSlot(slot, density, rng);
+        const placed = perSpecies.get(species) ?? 0;
+        if (placed >= perSpeciesCap) {
+            recordCapRejection('fauna', 'perSpecies', placed + 1, perSpeciesCap);
+            continue;
+        }
         const y = getGroundHeight(x, z);
 
         writeCritter(ctx, slot, x, y, z, species, biome);
+        perSpecies.set(species, placed + 1);
         slot++;
     }
 

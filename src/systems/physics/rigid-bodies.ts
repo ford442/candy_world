@@ -19,6 +19,8 @@
 import type * as THREE from 'three';
 import { getWasmInstance, getWasmMemory } from '../../utils/wasm-loader-core.ts';
 import type { WasmExports } from '../../utils/wasm-loader-types.ts';
+import { profiler } from '../../utils/profiler.ts';
+import { withinCap } from '../performance-budget/systems-budget.ts';
 import { getUnifiedGroundHeightTyped } from '../physics.core.ts';
 import { stepRigidBodiesJS, type FallbackPlayerProxy } from './rigid-body-fallback.ts';
 import {
@@ -193,6 +195,10 @@ export function getRigidBodyPool(): Float32Array | null {
 export function spawnRigidBody(desc: RigidBodyDesc): RigidBodyHandle | null {
     if (!_initialized) initRigidBodies();
 
+    // Budget gate ahead of the pool itself, so the overflow lands in the
+    // ?debug=1 systems-budget readout instead of only in the console.
+    if (!withinCap('rigidBodies', 'bodies', getRigidBodyCount() + 1)) return null;
+
     const shape = desc.shape ?? RB_SHAPE.SPHERE;
     const radius = Math.max(desc.radius ?? 0.5, 0.01);
     const halfHeight = Math.max(desc.halfHeight ?? radius, 0.01);
@@ -204,9 +210,16 @@ export function spawnRigidBody(desc: RigidBodyDesc): RigidBodyHandle | null {
     let id: number;
     if (_useWasm && _exports?.rbSpawn) {
         id = _exports.rbSpawn(
-            shape, desc.x, desc.y, desc.z,
-            mass, restitution, friction,
-            radius, halfHeight, halfDepth,
+            shape,
+            desc.x,
+            desc.y,
+            desc.z,
+            mass,
+            restitution,
+            friction,
+            radius,
+            halfHeight,
+            halfDepth,
             0
         );
     } else {
@@ -446,9 +459,14 @@ export function setRigidBodyPlayerProxy(
 
     if (_useWasm && _exports?.rbSetPlayerProxy) {
         _exports.rbSetPlayerProxy(
-            position.x, position.y, position.z,
-            radius, height,
-            velocity.x, velocity.y, velocity.z
+            position.x,
+            position.y,
+            position.z,
+            radius,
+            height,
+            velocity.x,
+            velocity.y,
+            velocity.z
         );
     }
 }
@@ -463,6 +481,7 @@ export function setRigidBodyPlayerProxy(
  */
 export function updateRigidBodies(delta: number): number {
     if (!_initialized) return 0;
+    const _t0 = performance.now();
     if (getRigidBodyCount() === 0) {
         _awakeCount = 0;
         _prevAwakeCount = 0;
@@ -489,6 +508,7 @@ export function updateRigidBodies(delta: number): number {
     // (sub-unit) displacement unwritten and the mesh sits slightly off.
     if (_awakeCount > 0 || _prevAwakeCount > 0) syncRigidBodyTransforms();
     _prevAwakeCount = _awakeCount;
+    profiler.mark('rigidBodies.step', performance.now() - _t0);
     return _awakeCount;
 }
 

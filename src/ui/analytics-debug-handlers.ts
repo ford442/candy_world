@@ -155,7 +155,11 @@ export class AnalyticsDebugOverlay {
     // Trap focus inside the overlay
     yieldToPaint(50).then(() => {
       if (this.isVisible && this.elements?.container) {
-        this.releaseFocusTrap = trapFocusInside(this.elements.container);
+        this.releaseFocusTrap = trapFocusInside(this.elements.container, { skipAutoFocus: true });
+        const closeBtn = this.elements.container.querySelector('.analytics-debug-close') as HTMLElement;
+        if (closeBtn) {
+          closeBtn.focus();
+        }
       }
     });
 

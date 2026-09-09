@@ -15,6 +15,10 @@ import { mixStrobeFlash } from './strobe-nodes.ts';
 
 type U = typeof postFxUniforms;
 
+function publishPostFxPasses(count: number): void {
+    (globalThis as { __candyPostFxPasses?: number }).__candyPostFxPasses = count;
+}
+
 export function initWebGPUPostProcessing(
     renderer: WebGPURenderer,
     scene: THREE.Scene,
@@ -65,6 +69,10 @@ export function initWebGPUPostProcessing(
         console.log('[PostFX] Depth of Field enabled (WebGPU TSL bokeh)');
     }
 
+    // Pass count for the ?debug=1 systems-budget readout (scene + bloom are
+    // always present; DoF / GTAO are tier-gated).
+    publishPostFxPasses(2 + (opts.dofEnabled ? 1 : 0) + (opts.aoEnabled ? 1 : 0));
+
     let aoPass: ReturnType<typeof ao> | null = null;
     if (opts.aoEnabled && camera instanceof THREE.PerspectiveCamera) {
         aoPass = ao(scenePass.getTextureNode('depth'), null as never, camera);
@@ -89,7 +97,9 @@ export function initWebGPUPostProcessing(
         };
         const sampleScene = (coords: ReturnType<typeof vec2>) => {
             const uvScatter = mix(coords, vec2(0.5, 0.5), scatterAmt);
-            const sampledR = sceneTex.uv(uvScatter.add(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>).r;
+            const sampledR = sceneTex.uv(
+                uvScatter.add(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>
+            ).r;
             const sampledG = sceneTex.uv(uvScatter as ReturnType<typeof vec2>).g;
             const sampledB = sceneTex.uv(
                 uvScatter.sub(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>

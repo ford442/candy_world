@@ -45,6 +45,10 @@ export const CPU_PARTICLE_TYPE_ID: Record<ComputeParticleType, number> = {
     rain: 3,
     sparks: 4,
     gem_sparks: 5,
+    // The native (C++) kernel only knows ids 0..5, so the emitter presets borrow the
+    // closest existing behaviour there. The TS path below simulates them properly.
+    spark_burst: 4,
+    candy_puff: 1,
 };
 
 export interface CpuParticleBuffers {
@@ -78,6 +82,8 @@ export interface CpuParticleSimParams {
     timeOffsetFirefly: number;
     timeOffsetPollen: number;
     timeSec: number;
+    /** Dead particles stay dead until the host re-seeds them (burst emitters). */
+    oneShot?: boolean;
 }
 
 function wrapAxis(pos: number, center: number, extent: number): number {
@@ -90,9 +96,7 @@ function wrapAxis(pos: number, center: number, extent: number): number {
 
 function isOutOfWorldBounds(px: number, py: number, pz: number): boolean {
     const b = PARTICLE_WORLD_BOUNDS;
-    return px < b.minX || px > b.maxX ||
-        py < b.minY || py > b.maxY ||
-        pz < b.minZ || pz > b.maxZ;
+    return px < b.minX || px > b.maxX || py < b.minY || py > b.maxY || pz < b.minZ || pz > b.maxZ;
 }
 
 function setParticleColor(
@@ -133,11 +137,25 @@ function setParticleColor(
             colors[idx + 2] = 0.5;
             colors[idx + 3] = 1.0;
             break;
+        case 'spark_burst':
+            colors[idx] = 1.0;
+            colors[idx + 1] = 0.85;
+            colors[idx + 2] = 0.55;
+            colors[idx + 3] = 1.0;
+            break;
+        case 'candy_puff': {
+            const puffHue = fastSin(seeds[i] * 8.7) * 0.5 + 0.5;
+            colors[idx] = 1.0;
+            colors[idx + 1] = 0.62 + puffHue * 0.3;
+            colors[idx + 2] = 0.82;
+            colors[idx + 3] = 0.75;
+            break;
+        }
         case 'gem_sparks': {
             const huePick = fastSin(seeds[i] * 12.9898) * 0.5 + 0.5;
             const ruby = [0.88, 0.07, 0.37];
             const sapphire = [0.06, 0.32, 0.73];
-            const amethyst = [0.60, 0.40, 0.80];
+            const amethyst = [0.6, 0.4, 0.8];
             colors[idx] = ruby[0] * (1 - huePick) + sapphire[0] * huePick;
             colors[idx + 1] = ruby[1] * (1 - huePick) + amethyst[1] * huePick * huePick;
             colors[idx + 2] = ruby[2] * (1 - huePick) + amethyst[2] * huePick;
@@ -149,7 +167,18 @@ function setParticleColor(
 
 export function respawnCpuParticle(
     buffers: CpuParticleBuffers,
-    params: Pick<CpuParticleSimParams, 'type' | 'centerX' | 'centerY' | 'centerZ' | 'boundsX' | 'boundsY' | 'boundsZ' | 'sizeMin' | 'sizeMax'>,
+    params: Pick<
+        CpuParticleSimParams,
+        | 'type'
+        | 'centerX'
+        | 'centerY'
+        | 'centerZ'
+        | 'boundsX'
+        | 'boundsY'
+        | 'boundsZ'
+        | 'sizeMin'
+        | 'sizeMax'
+    >,
     i: number,
     initial = false
 ): void {
@@ -196,6 +225,24 @@ export function respawnCpuParticle(
             lives[i] = 0.3 + Math.random() * 0.5;
             break;
         }
+        case 'spark_burst': {
+            const burstAngle = Math.random() * Math.PI * 2;
+            const burstSpeed = 6 + Math.random() * 6;
+            velocities[idx] = fastCos(burstAngle) * burstSpeed;
+            velocities[idx + 1] = (0.1 + Math.random() * 0.9) * burstSpeed;
+            velocities[idx + 2] = fastSin(burstAngle) * burstSpeed;
+            lives[i] = 0.25 + Math.random() * 0.45;
+            break;
+        }
+        case 'candy_puff': {
+            const puffAngle = Math.random() * Math.PI * 2;
+            const puffSpeed = 0.6 + Math.random() * 1.2;
+            velocities[idx] = fastCos(puffAngle) * puffSpeed;
+            velocities[idx + 1] = 0.8 + Math.random() * 1.4;
+            velocities[idx + 2] = fastSin(puffAngle) * puffSpeed;
+            lives[i] = 0.9 + Math.random() * 1.1;
+            break;
+        }
         case 'gem_sparks':
             velocities[idx] = (Math.random() - 0.5) * 0.12;
             velocities[idx + 1] = (Math.random() - 0.5) * 0.06;
@@ -209,11 +256,7 @@ export function respawnCpuParticle(
     setParticleColor(params.type, colors, seeds, i);
 }
 
-function updateFirefly(
-    buffers: CpuParticleBuffers,
-    params: CpuParticleSimParams,
-    i: number
-): void {
+function updateFirefly(buffers: CpuParticleBuffers, params: CpuParticleSimParams, i: number): void {
     const { positions, velocities, seeds } = buffers;
     const idx = i * 3;
     const dt = params.deltaTime;
@@ -259,11 +302,7 @@ function updateFirefly(
     }
 }
 
-function updatePollen(
-    buffers: CpuParticleBuffers,
-    params: CpuParticleSimParams,
-    i: number
-): void {
+function updatePollen(buffers: CpuParticleBuffers, params: CpuParticleSimParams, i: number): void {
     const { positions, velocities } = buffers;
     const idx = i * 3;
     const dt = params.deltaTime;
@@ -372,7 +411,11 @@ function updateSpark(buffers: CpuParticleBuffers, params: CpuParticleSimParams, 
     positions[idx + 2] += velocities[idx + 2] * dt;
 }
 
-function updateGemSpark(buffers: CpuParticleBuffers, params: CpuParticleSimParams, i: number): void {
+function updateGemSpark(
+    buffers: CpuParticleBuffers,
+    params: CpuParticleSimParams,
+    i: number
+): void {
     const { positions, velocities, seeds } = buffers;
     const idx = i * 3;
     const dt = params.deltaTime;
@@ -402,6 +445,53 @@ function updateGemSpark(buffers: CpuParticleBuffers, params: CpuParticleSimParam
     positions[idx + 2] = wrapAxis(positions[idx + 2], params.centerZ, params.boundsZ);
 }
 
+/** Ballistic shrapnel with strong drag — CPU twin of WGSL particleType 6. */
+function updateSparkBurst(
+    buffers: CpuParticleBuffers,
+    params: CpuParticleSimParams,
+    i: number
+): void {
+    const { positions, velocities } = buffers;
+    const idx = i * 3;
+    const dt = params.deltaTime;
+    const drag = 1 - 2.2 * dt;
+
+    velocities[idx + 1] -= 9.8 * 0.65 * dt;
+    velocities[idx] *= drag;
+    velocities[idx + 1] *= drag;
+    velocities[idx + 2] *= drag;
+
+    positions[idx] += velocities[idx] * dt;
+    positions[idx + 1] += velocities[idx + 1] * dt;
+    positions[idx + 2] += velocities[idx + 2] * dt;
+}
+
+/** Buoyant billow with swirl — CPU twin of WGSL particleType 7. */
+function updateCandyPuff(
+    buffers: CpuParticleBuffers,
+    params: CpuParticleSimParams,
+    i: number
+): void {
+    const { positions, velocities, lives, seeds } = buffers;
+    const idx = i * 3;
+    const dt = params.deltaTime;
+    const drag = 1 - 1.6 * dt;
+
+    // Cheap swirl stand-in for the GPU's curl noise.
+    const phase = params.timeSec * 0.6 + seeds[i];
+    velocities[idx] += fastCos(phase) * 1.4 * dt;
+    velocities[idx + 2] += fastSin(phase) * 1.4 * dt;
+    velocities[idx + 1] += (1.6 - lives[i] * 0.6) * dt;
+
+    velocities[idx] *= drag;
+    velocities[idx + 1] *= drag;
+    velocities[idx + 2] *= drag;
+
+    positions[idx] += velocities[idx] * dt;
+    positions[idx + 1] += velocities[idx + 1] * dt;
+    positions[idx + 2] += velocities[idx + 2] * dt;
+}
+
 function updateParticleByType(
     buffers: CpuParticleBuffers,
     params: CpuParticleSimParams,
@@ -426,6 +516,12 @@ function updateParticleByType(
         case 'gem_sparks':
             updateGemSpark(buffers, params, i);
             break;
+        case 'spark_burst':
+            updateSparkBurst(buffers, params, i);
+            break;
+        case 'candy_puff':
+            updateCandyPuff(buffers, params, i);
+            break;
     }
 }
 
@@ -444,6 +540,11 @@ export function simulateCpuParticles(
         lives[i] -= params.deltaTime;
 
         if (lives[i] <= 0) {
+            if (params.oneShot) {
+                // Burst pools are host-driven; a dead slot parks until it is re-seeded.
+                lives[i] = 0;
+                continue;
+            }
             respawnCpuParticle(buffers, respawnParams, i);
         } else {
             updateParticleByType(buffers, params, i);

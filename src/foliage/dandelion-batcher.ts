@@ -214,8 +214,8 @@ export class DandelionBatcher {
             const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.3));
             const goldEmissionWithTwilight = goldEmission.add(twilightGlowTint).add(biomeTint).mul(dayGlow);
 
-            // Mix: If Gold, use Emission. Else Black.
-            m.emissiveNode = mix(vec3(0.0), goldEmissionWithTwilight.add(rim.mul(dayGlow)), isGold);
+            // Mix: If Gold, use Emission. Else Black. Add rim light globally for juiciness.
+            m.emissiveNode = mix(vec3(0.0), goldEmissionWithTwilight, isGold).add(rim.mul(dayGlow));
 
             // Roughness: Gold is shiny (0.2), others are matte (0.8)
             m.roughnessNode = mix(float(0.8), float(0.2), isGold);
@@ -249,7 +249,9 @@ export class DandelionBatcher {
             // C. Global Sway & Player Interaction
             // Apply to the *entire* geometry (Stem + Seeds)
             // This makes the stem bend, and seeds (being part of same geo) move with it.
-            const posFinal = applyStandardDeformation(posPuffed);
+            const swayOffset = calculateWindSway(posPuffed);
+            const posSwayed = posPuffed.add(swayOffset);
+            const posFinal = applyStandardDeformation(posSwayed);
 
             m.positionNode = posFinal;
 

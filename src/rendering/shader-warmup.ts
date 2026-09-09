@@ -19,10 +19,14 @@
 
 import * as THREE from 'three';
 import { vec3, positionLocal } from 'three/tsl';
-import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
+import {
+    MeshStandardNodeMaterial,
+    MeshBasicNodeMaterial,
+    MeshPhysicalNodeMaterial,
+} from 'three/webgpu';
 import { CONFIG, isCIorHeadless } from '../core/config.ts';
 import { getStartupCapabilities, type MaterialSubset } from '../core/startup/capabilities.ts';
-import { CandyPresets, foliageMaterials } from '../foliage/index.ts';
+import { CandyPresets, foliageMaterials, isClearcoatEnabled } from '../foliage/index.ts';
 import { createTerrainMaterial } from '../foliage/terrain.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
@@ -205,6 +209,52 @@ function getPresetTargets(): WarmupTarget[] {
 }
 
 /**
+ * Gets the surface-knob variants that are *not* reachable from a bare preset.
+ *
+ * `getPresetTargets()` covers every default graph shape — `Sugar` ships the
+ * clearcoat lobe, `Gummy` and `Crystal` ship the dream env — but a clearcoat or
+ * an env swaps a whole extra lighting term into the node graph, so an *override*
+ * that turns one on where the preset had it off is a genuinely new pipeline.
+ * Miss it and the first Gummy shard or remote peer to enter the frustum hitches.
+ *
+ * Deliberately two entries, not a matrix. The only graph shapes the presets
+ * leave uncovered are "coat *and* env together" and "coat on a bare physical
+ * material"; every other combination differs only in uniform values, which
+ * three's program cache does not fork on. Both are skipped entirely when the
+ * coat is gated off (`low` tier), where they would compile to the un-coated
+ * graph the presets already warmed.
+ */
+function getSurfaceVariantTargets(): WarmupTarget[] {
+    if (!isClearcoatEnabled()) return [];
+
+    return [
+        {
+            // The documented `Gummy` + clearcoat opt-in (cookbook, "Surface
+            // knobs"): transmission + translucency + env + coat, the heaviest
+            // graph the preset vocabulary can produce.
+            name: 'CandyPresets.Gummy+coat',
+            priority: 40,
+            create: () => CandyPresets.Gummy(0xff6b6b, { clearcoat: 0.8, clearcoatRoughness: 0.1 }),
+        },
+        {
+            // Shape of the remote-peer avatar material
+            // (`src/systems/net/remote-avatars.ts`): a bare physical material
+            // with a coat, built outside the preset vocabulary entirely — so
+            // nothing else in this list compiles it.
+            name: 'PhysicalClearcoat_Base',
+            priority: 50,
+            create: () =>
+                new MeshPhysicalNodeMaterial({
+                    roughness: 0.25,
+                    metalness: 0,
+                    clearcoat: 0.85,
+                    clearcoatRoughness: 0.15,
+                }),
+        },
+    ];
+}
+
+/**
  * Gets special material targets (terrain, water, etc.)
  */
 function getSpecialTargets(): WarmupTarget[] {
@@ -271,6 +321,7 @@ export class ShaderWarmup {
         const resolved = subset ?? getStartupCapabilities().warmup.materialSubset;
         const allTargets = [
             ...getPresetTargets(),
+            ...getSurfaceVariantTargets(),
             ...getSpecialTargets(),
             ...getFoliageMaterialTargets(),
         ];

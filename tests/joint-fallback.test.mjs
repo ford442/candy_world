@@ -10,8 +10,16 @@
 // Run with tsx (the solver modules are TypeScript): npm run test:joint-fallback
 
 import { stepRigidBodiesJS } from '../src/systems/physics/rigid-body-fallback.ts';
-import { solveJointsJS, writeJointRecord, createJointPool } from '../src/systems/physics/joint-fallback.ts';
-import { JOINT_TYPE, J_FIELD as J, J_FLOATS_PER_JOINT } from '../src/systems/physics/joint-types.ts';
+import {
+    solveJointsJS,
+    writeJointRecord,
+    createJointPool,
+} from '../src/systems/physics/joint-fallback.ts';
+import {
+    JOINT_TYPE,
+    J_FIELD as J,
+    J_FLOATS_PER_JOINT,
+} from '../src/systems/physics/joint-types.ts';
 import {
     MAX_DYNAMIC_BODIES,
     RB_FIELD as F,
@@ -23,7 +31,17 @@ import {
 const DT = 1 / 60;
 /** Ground far below everything, so terrain contacts never interfere. */
 const GROUND = () => -50;
-const NO_PLAYER = { active: false, x: 0, y: 0, z: 0, radius: 0.5, height: 1.8, vx: 0, vy: 0, vz: 0 };
+const NO_PLAYER = {
+    active: false,
+    x: 0,
+    y: 0,
+    z: 0,
+    radius: 0.5,
+    height: 1.8,
+    vx: 0,
+    vy: 0,
+    vz: 0,
+};
 
 let failures = 0;
 function check(condition, message) {
@@ -61,10 +79,21 @@ function spawn(world, x, y, z, mass, radius = 0.4) {
 function join(world, type, a, b, anchorA, anchorB, p0, p1, p2) {
     const id = world.jointCount++;
     const ok = writeJointRecord(
-        world.joints, world.bodies, id, type, a, b,
-        anchorA[0], anchorA[1], anchorA[2],
-        anchorB[0], anchorB[1], anchorB[2],
-        p0, p1, p2
+        world.joints,
+        world.bodies,
+        id,
+        type,
+        a,
+        b,
+        anchorA[0],
+        anchorA[1],
+        anchorA[2],
+        anchorB[0],
+        anchorB[1],
+        anchorB[2],
+        p0,
+        p1,
+        p2
     );
     check(ok, `joint ${id} (type ${type}) should be accepted`);
     return id;
@@ -72,13 +101,8 @@ function join(world, type, a, b, anchorA, anchorB, p0, p1, p2) {
 
 function step(world, ticks) {
     for (let t = 0; t < ticks; t++) {
-        stepRigidBodiesJS(
-            world.bodies,
-            world.bodyCount,
-            DT,
-            GROUND,
-            NO_PLAYER,
-            (h) => solveJointsJS(world.joints, world.bodies, world.jointCount, h)
+        stepRigidBodiesJS(world.bodies, world.bodyCount, DT, GROUND, NO_PLAYER, (h) =>
+            solveJointsJS(world.joints, world.bodies, world.jointCount, h)
         );
     }
 }
@@ -92,7 +116,11 @@ const speed = (w, id) => {
 };
 
 function assertFinite(world, id, name, tick) {
-    if (!Number.isFinite(px(world, id)) || !Number.isFinite(py(world, id)) || !Number.isFinite(pz(world, id))) {
+    if (
+        !Number.isFinite(px(world, id)) ||
+        !Number.isFinite(py(world, id)) ||
+        !Number.isFinite(pz(world, id))
+    ) {
         throw new Error(`${name}: body ${id} went non-finite at tick ${tick}`);
     }
 }
@@ -113,24 +141,31 @@ function testHingeSwing() {
     let maxRadiusError = 0;
     let maxDrift = 0;
     let maxSpeed = 0;
-    for (let tick = 0; tick < 3600; tick++) { // 60s
+    for (let tick = 0; tick < 3600; tick++) {
+        // 60s
         step(w, 1);
         assertFinite(w, seat, 'fallback-hinge', tick);
-        maxRadiusError = Math.max(maxRadiusError,
-            Math.abs(Math.hypot(px(w, seat) - PIVOT[0], py(w, seat) - PIVOT[1]) - ARM));
+        maxRadiusError = Math.max(
+            maxRadiusError,
+            Math.abs(Math.hypot(px(w, seat) - PIVOT[0], py(w, seat) - PIVOT[1]) - ARM)
+        );
         maxDrift = Math.max(maxDrift, Math.abs(pz(w, seat) - PIVOT[2]));
         maxSpeed = Math.max(maxSpeed, speed(w, seat));
     }
 
-    check(maxRadiusError < 0.02, `seat must stay on its arc, max radius error ${maxRadiusError.toFixed(5)}`);
+    check(
+        maxRadiusError < 0.02,
+        `seat must stay on its arc, max radius error ${maxRadiusError.toFixed(5)}`
+    );
     check(maxDrift < 1e-3, `seat must stay in the hinge plane, drift ${maxDrift.toFixed(8)}`);
     check(maxSpeed < 16, `swing speed must stay bounded, peaked ${maxSpeed.toFixed(2)}`);
     // The kinematic pivot must never be dragged by what it carries.
-    check(px(w, pivot) === PIVOT[0] && py(w, pivot) === PIVOT[1],
-        'kinematic pivot must not move');
+    check(px(w, pivot) === PIVOT[0] && py(w, pivot) === PIVOT[1], 'kinematic pivot must not move');
 
     if (failures === 0) {
-        console.log(`  ✓ 60s swing: radius error <= ${maxRadiusError.toFixed(5)}, peak ${maxSpeed.toFixed(2)} u/s`);
+        console.log(
+            `  ✓ 60s swing: radius error <= ${maxRadiusError.toFixed(5)}, peak ${maxSpeed.toFixed(2)} u/s`
+        );
     }
 }
 
@@ -146,17 +181,24 @@ function testSpringConverges() {
     const length = ANCHOR_Y - py(w, bob);
     // k = 300 on 1 kg under g = 22 => sag = m*g/k.
     const expected = 2.0 + 22.0 / 300.0;
-    check(Math.abs(length - expected) < 0.05,
-        `spring should hang at ${expected.toFixed(3)}, got ${length.toFixed(3)}`);
+    check(
+        Math.abs(length - expected) < 0.05,
+        `spring should hang at ${expected.toFixed(3)}, got ${length.toFixed(3)}`
+    );
 
-    if (failures === 0) console.log(`  ✓ converged to ${length.toFixed(3)} (analytic ${expected.toFixed(3)})`);
+    if (failures === 0)
+        console.log(`  ✓ converged to ${length.toFixed(3)} (analytic ${expected.toFixed(3)})`);
 }
 
 function testSpringStiffnessSweep() {
     console.log('Test 3: fallback springs stay bounded across the documented range');
     for (const { k, c } of [
-        { k: 10, c: 0 }, { k: 200, c: 8 }, { k: 2000, c: 40 },
-        { k: 4000, c: 0 }, { k: 4000, c: 400 }, { k: 1e9, c: 1e9 },
+        { k: 10, c: 0 },
+        { k: 200, c: 8 },
+        { k: 2000, c: 40 },
+        { k: 4000, c: 0 },
+        { k: 4000, c: 400 },
+        { k: 1e9, c: 1e9 },
     ]) {
         const w = makeWorld();
         const anchor = spawn(w, 0, 20, 0, 0, 0.2);
@@ -170,7 +212,10 @@ function testSpringStiffnessSweep() {
             maxSpeed = Math.max(maxSpeed, speed(w, bob));
         }
         // Nothing a joint writes may exceed the body layer's own speed clamp.
-        check(maxSpeed < 80, `spring k=${k} c=${c} must stay under the speed clamp, peaked ${maxSpeed.toFixed(1)}`);
+        check(
+            maxSpeed < 80,
+            `spring k=${k} c=${c} must stay under the speed clamp, peaked ${maxSpeed.toFixed(1)}`
+        );
     }
     if (failures === 0) console.log('  ✓ 6 configs stayed bounded over 30s each');
 }
@@ -196,11 +241,14 @@ function testFixedHoldsOffset() {
         }
         step(w, 1);
         assertFinite(w, b, 'fallback-fixed', tick);
-        maxDrift = Math.max(maxDrift, Math.hypot(
-            px(w, b) - px(w, a) - want[0],
-            py(w, b) - py(w, a) - want[1],
-            pz(w, b) - pz(w, a) - want[2]
-        ));
+        maxDrift = Math.max(
+            maxDrift,
+            Math.hypot(
+                px(w, b) - px(w, a) - want[0],
+                py(w, b) - py(w, a) - want[1],
+                pz(w, b) - pz(w, a) - want[2]
+            )
+        );
     }
 
     check(maxDrift < 0.35, `welded offset should hold, max drift ${maxDrift.toFixed(4)}`);
@@ -215,16 +263,58 @@ function testRejections() {
     const dyn = spawn(w, 4, 20, 0, 1);
 
     const j = w.joints;
-    check(!writeJointRecord(j, w.bodies, 0, JOINT_TYPE.FIXED, kin1, kin2, 0, 20, 0, 2, 20, 0, 0, 0, 0),
-        'two kinematic ends must be rejected');
-    check(!writeJointRecord(j, w.bodies, 0, JOINT_TYPE.FIXED, -1, -1, 0, 20, 0, 0, 20, 0, 0, 0, 0),
-        'two world ends must be rejected');
-    check(!writeJointRecord(j, w.bodies, 0, JOINT_TYPE.HINGE, 9999, dyn, 0, 20, 0, 4, 20, 0, 0, 0, 1),
-        'out-of-range body id must be rejected');
-    check(!writeJointRecord(j, w.bodies, 0, JOINT_TYPE.HINGE, kin1, dyn, NaN, 20, 0, 4, 20, 0, 0, 0, 1),
-        'a non-finite anchor must be rejected');
-    check(writeJointRecord(j, w.bodies, 0, JOINT_TYPE.HINGE, kin1, dyn, 0, 20, 0, 4, 20, 0, 0, 0, 1),
-        'a valid hinge must be accepted');
+    check(
+        !writeJointRecord(
+            j,
+            w.bodies,
+            0,
+            JOINT_TYPE.FIXED,
+            kin1,
+            kin2,
+            0,
+            20,
+            0,
+            2,
+            20,
+            0,
+            0,
+            0,
+            0
+        ),
+        'two kinematic ends must be rejected'
+    );
+    check(
+        !writeJointRecord(j, w.bodies, 0, JOINT_TYPE.FIXED, -1, -1, 0, 20, 0, 0, 20, 0, 0, 0, 0),
+        'two world ends must be rejected'
+    );
+    check(
+        !writeJointRecord(j, w.bodies, 0, JOINT_TYPE.HINGE, 9999, dyn, 0, 20, 0, 4, 20, 0, 0, 0, 1),
+        'out-of-range body id must be rejected'
+    );
+    check(
+        !writeJointRecord(
+            j,
+            w.bodies,
+            0,
+            JOINT_TYPE.HINGE,
+            kin1,
+            dyn,
+            NaN,
+            20,
+            0,
+            4,
+            20,
+            0,
+            0,
+            0,
+            1
+        ),
+        'a non-finite anchor must be rejected'
+    );
+    check(
+        writeJointRecord(j, w.bodies, 0, JOINT_TYPE.HINGE, kin1, dyn, 0, 20, 0, 4, 20, 0, 0, 0, 1),
+        'a valid hinge must be accepted'
+    );
 
     if (failures === 0) console.log('  ✓ invalid joints refused, valid one accepted');
 }

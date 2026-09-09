@@ -9,12 +9,14 @@ import { FaunaBatcher } from '../../foliage/fauna-batcher.ts';
 import { World } from '../ecs/world.ts';
 import { sampleBakedGroundNormalInto, fillGroundHeightsBatch, _fdDelta } from '../ground-system.ts';
 import { player } from '../physics/physics-types.ts';
+import { FaunaBehaviorRunner, setFaunaScatterSink, type FaunaBehaviorStats } from './behavior.ts';
 import {
     allocateBoidsBuffer,
     bindBoidsWasm,
     freeBoidsBuffer,
     updateBoidsBatch,
 } from './boids-bridge.ts';
+import { profiler } from '../../utils/profiler.ts';
 import { spawnFaunaPopulation } from './spawn.ts';
 import { FAUNA_BOID_STRIDE, FaunaSpecies, type FaunaSpawnEntry } from './types.ts';
 
@@ -39,6 +41,8 @@ export class FaunaSystem {
     private _entries: FaunaSpawnEntry[] = [];
     private _count = 0;
     private _initialized = false;
+    private _behavior: FaunaBehaviorRunner | null = null;
+    private _stats: FaunaBehaviorStats | null = null;
 
     private _fallbackCount = 0;
     private _fallbackPositions: Float32Array | null = null;
@@ -53,6 +57,11 @@ export class FaunaSystem {
 
     get count(): number {
         return this._count;
+    }
+
+    /** Last frame's state histogram — null while the state machine is off. */
+    get behaviorStats(): FaunaBehaviorStats | null {
+        return this._stats;
     }
 
     init(): void {
@@ -95,12 +104,20 @@ export class FaunaSystem {
             );
         }
 
+        if (CONFIG.fauna?.behavior?.enabled !== false) {
+            this._behavior = new FaunaBehaviorRunner(CONFIG.fauna?.behavior?.seed ?? 0xfa);
+            this._behavior.resize(this._count);
+            installScatterSink();
+        }
+
         this._initialized = true;
+        publishFaunaCount(this._count);
         console.log(`[Fauna] Spawned ${this._count} ambient critters (cap ${maxCount})`);
     }
 
     update(dt: number, time: number): void {
         if (!this._initialized || !this._heap || this._count === 0) return;
+        const t0 = performance.now();
 
         updateBoidsBatch(
             this._heap,
@@ -112,8 +129,23 @@ export class FaunaSystem {
             time
         );
 
-        const batcher = FaunaBatcher.getInstance();
         const base = this._bufferPtr >> 2;
+
+        // State machine runs on this frame's positions; its velocity writes are
+        // consumed by the next boids step.
+        if (this._behavior) {
+            this._stats = this._behavior.update(
+                this._entries,
+                this._heap,
+                base,
+                dt,
+                player.position.x,
+                player.position.y,
+                player.position.z
+            );
+        }
+
+        const batcher = FaunaBatcher.getInstance();
 
         // ⚡ OPTIMIZATION: Bypassed per-critter sampleGroundNormal WASM bridge crossing by batching FD queries
         this._fallbackCount = 0;
@@ -215,6 +247,7 @@ export class FaunaSystem {
         }
 
         batcher.syncMatrices();
+        profiler.mark('fauna.update', performance.now() - t0);
 
         if (isFaunaDebugEnabled()) {
             updateFaunaDebug(this._heap, this._bufferPtr, this._count, this._entries);
@@ -232,9 +265,47 @@ export class FaunaSystem {
         this._fallbackCount = 0;
         this._entries = [];
         this._count = 0;
+        this._behavior = null;
+        this._stats = null;
+        setFaunaScatterSink(null);
+        publishFaunaCount(0);
         this._initialized = false;
         FaunaSystem._instance = null;
     }
+}
+
+/**
+ * Publish the live critter count for `window.__worldHealth` and smoke tests.
+ * A window shim rather than an import so world-health keeps no fauna dependency.
+ */
+function publishFaunaCount(count: number): void {
+    try {
+        (window as any).__faunaCount = count;
+    } catch {
+        /* SSR / node */
+    }
+}
+
+/**
+ * Optional physical reaction: a scatter burst shoves nearby dynamic bodies.
+ * The rigid-body module is imported lazily so fauna keeps booting when the RB
+ * layer is absent or disabled.
+ */
+function installScatterSink(): void {
+    const cfg = CONFIG.fauna?.behavior;
+    if (!cfg?.rigidBodyBump) {
+        setFaunaScatterSink(null);
+        return;
+    }
+    void import('../physics/rigid-bodies.ts')
+        .then(({ applyRigidBodyRadialImpulse }) => {
+            setFaunaScatterSink((x, y, z) => {
+                applyRigidBodyRadialImpulse(x, y, z, cfg.bumpRadius ?? 5, cfg.bumpStrength ?? 2.5);
+            });
+        })
+        .catch(() => {
+            /* RB layer unavailable — scatter stays purely visual */
+        });
 }
 
 export function initFaunaSystem(): void {

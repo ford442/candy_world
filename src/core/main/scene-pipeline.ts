@@ -1,10 +1,12 @@
 import { StageLoader } from '../../debug/index.ts';
 import { initPostProcessing } from '../../foliage/post-processing.ts';
+import { WebGPUUnavailableError } from '../../rendering/gpu-context.ts';
 import {
     publishRendererBreadcrumbs,
     installRendererHotSwitch,
 } from '../../rendering/renderer-mode.ts';
 import { showRendererBadge } from '../../ui/mode-badge-lazy.ts';
+import { showWebGPUFatalScreen } from '../../ui/webgpu-fatal.ts';
 import { installWorldExportTools } from '../../world/map-exporter.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
 import { setCameraRef } from '../camera-ref.ts';
@@ -22,9 +24,19 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     console.time('Core Scene Setup');
 
     let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
-    await StageLoader.loadStage('core', async () => {
-        sceneInitResult = await initScene();
-    });
+    try {
+        await StageLoader.loadStage('core', async () => {
+            sceneInitResult = await initScene();
+        });
+    } catch (err) {
+        // WebGPU is required to enter the world this phase. A failed probe gets
+        // the blocking diagnostics screen and boot stops here — we deliberately
+        // do not start a WebGL renderer to keep the page looking alive.
+        if (err instanceof WebGPUUnavailableError) {
+            showWebGPUFatalScreen(err);
+        }
+        throw err;
+    }
 
     if (!sceneInitResult) {
         const msg = 'Core scene initialization was skipped or failed';
@@ -61,12 +73,9 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
         forceWebGL: mode === 'webgl',
     });
 
-    if (mode === 'webgl') {
-        console.warn('[Startup] WebGL fallback mode active. Some visual features may be limited.');
-        loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Switching to WebGL mode...');
-    } else {
-        loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Initializing post-processing...');
-    }
+    // `mode` is always 'webgpu' this phase — createRenderer() hard-fails instead
+    // of falling back. The branch stays for the WebGL restore wave (#1597 era).
+    loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Initializing post-processing...');
 
     await StageLoader.loadStage('postProcessing', async () => {
         ctx.postProcessing = await initPostProcessing(

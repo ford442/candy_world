@@ -41,6 +41,9 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
         const err = event.reason;
         const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');
         console.error('[Bootstrap] Unhandled rejection during startup:', err);
+        // The WebGPU hard-fail screen already explains the fault in far more
+        // detail; don't let this generic handler stack a second message on it.
+        if (document.getElementById('webgpu-fatal')) return;
         try {
             loadingScreen.showFatalError(
                 `Startup failed: ${msg}\n\nRefresh the page to try again.`

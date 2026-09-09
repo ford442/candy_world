@@ -1,4 +1,7 @@
 /* Global styles — import order matches original cascade */
+/* UI kit tokens must come first: everything below may reference --ck-* vars. */
+@import './styles/kit-tokens.css';
+@import './styles/kit.css';
 @import './styles/reticle.css';
 @import './styles/accessibility-motion.css';
 @import './styles/playlist.css';
@@ -8,3 +11,7 @@
 @import './styles/interaction-a11y.css';
 @import './styles/photo-mode.css';
 @import './styles/wait-full-toggle.css';
+/* Formerly the inline <style> block in index.html — kept last to preserve
+   the original cascade precedence (inline styles loaded after style.css). */
+@import './styles/instructions-overlay.css';
+@import './styles/jukebox-and-drag.css';

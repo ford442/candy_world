@@ -500,6 +500,28 @@ export interface ConfigType {
             /** Species mix at roosts — moth-heavy; flyers suit floating decks. */
             density: { beetle: number; hopper: number; moth: number };
         };
+        /** State machine (roam/flee/perch/idle) — see docs/FAUNA.md. */
+        behavior: {
+            /** Master enable for the state machine. Off = pure boids, as before. */
+            enabled: boolean;
+            /** Seed for settle rolls, so a session replays identically. */
+            seed: number;
+            /**
+             * Emit a rigid-body radial impulse where a flock scatters, so nearby
+             * dynamic props react to the burst. Requires the RB layer.
+             */
+            rigidBodyBump: boolean;
+            /** Radius (m) of that impulse. */
+            bumpRadius: number;
+            /** Strength of that impulse. */
+            bumpStrength: number;
+            /** Hero skinned clips for named fauna rigs — opt-in, count-capped. */
+            heroClips: {
+                enabled: boolean;
+                /** Maximum rigs driven by the fauna state machine at once. */
+                maxRigs: number;
+            };
+        };
     };
 
     presence: {

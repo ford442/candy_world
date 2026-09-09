@@ -1,5 +1,7 @@
 # Lightweight GI — irradiance probes
 
+> Look target: [`CANDY_AESTHETIC_GUARDRAILS.md`](./CANDY_AESTHETIC_GUARDRAILS.md) — no photoreal defaults for GI / AO / SSR.
+
 **Status:** Landed
 **Affected systems:** unified materials (TSL), lighting config, game loop, local-light registry.
 

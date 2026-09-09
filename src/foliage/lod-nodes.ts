@@ -17,7 +17,7 @@ import type { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
 import { $sn } from './material-core/tsl-types.ts';
 import { calculatePlayerPush, calculateWindSway } from './material-core.ts';
-import type { TSLArg } from './material-core.ts';
+import type { TSLArg, WindDeformationOptions } from './material-core.ts';
 
 /** Continuous LOD factor: 0 = hero, 1 = mid, 2 = far, 3+ = culled */
 export const aInstanceLodFactor = attribute('instanceLodFactor', 'float');
@@ -100,8 +100,8 @@ export const applyPlayerInteractionWithLod = (basePosNode: TSLArg) => {
 };
 
 /** Wind sway attenuated in mid/far tiers */
-export const calculateWindSwayWithLod = (posNode: TSLArg) => {
-    const wind = calculateWindSway(posNode);
+export const calculateWindSwayWithLod = (posNode: TSLArg, options?: WindDeformationOptions) => {
+    const wind = calculateWindSway(posNode, options);
     const weight = lodHeroGate().add(lodMidOnlyGate().mul(0.45));
     return wind.mul(weight);
 };
@@ -115,12 +115,15 @@ export const calculateWindSwayWithLod = (posNode: TSLArg) => {
 export const foliageDeformationOffset = (
     baseWithAnimPos: TSLArg,
     extraOffset?: ReturnType<typeof float>,
-    subtractNode: typeof positionLocal = positionLocal
+    subtractNode: typeof positionLocal = positionLocal,
+    options?: WindDeformationOptions
 ) => {
-    const heroPos = baseWithAnimPos
-        .add(calculatePlayerPush(baseWithAnimPos))
-        .add(calculateWindSway(baseWithAnimPos));
-    const midPos = baseWithAnimPos.add(calculateWindSway(baseWithAnimPos).mul(0.5));
+    // One sway evaluation for both tiers. Calling calculateWindSway twice with
+    // the same argument compiles its sin/pow twice per vertex — TSL inlines,
+    // it does not memoize.
+    const sway = calculateWindSway(baseWithAnimPos, options).toVar();
+    const heroPos = baseWithAnimPos.add(calculatePlayerPush(baseWithAnimPos)).add(sway);
+    const midPos = baseWithAnimPos.add(sway.mul(0.5));
     const farPos = baseWithAnimPos;
 
     const heroMid = mix(midPos, heroPos, lodHeroGate());
@@ -142,8 +145,12 @@ export const foliageDeformationOffset = (
 /** Absolute displaced position (for materials using positionNode directly) */
 export const foliageMotionPosition = (
     baseWithAnimPos: TSLArg,
-    extraOffset?: ReturnType<typeof float>
-) => foliageDeformationOffset(baseWithAnimPos, extraOffset).add(positionLocal);
+    extraOffset?: ReturnType<typeof float>,
+    options?: WindDeformationOptions
+) =>
+    foliageDeformationOffset(baseWithAnimPos, extraOffset, positionLocal, options).add(
+        positionLocal
+    );
 
 /** Scale emissive / sparkle intensity by LOD tier */
 export const scaleEmissiveByLod = (emissiveNode: ReturnType<typeof float>) => {
@@ -161,6 +168,11 @@ export const lodHeroOnlyMultiplier = (
  * 🏗️ ARCHITECT: Standardized TSL deformation chain for LOD-enabled objects
  * that manually compose their offsets instead of using foliageDeformationOffset.
  */
-export const applyStandardDeformationWithLod = (basePosNode: any) => {
-    return applyPlayerInteractionWithLod(basePosNode.add(calculateWindSwayWithLod(basePosNode)));
+export const applyStandardDeformationWithLod = (
+    basePosNode: any,
+    options?: WindDeformationOptions
+) => {
+    return applyPlayerInteractionWithLod(
+        basePosNode.add(calculateWindSwayWithLod(basePosNode, options))
+    );
 };

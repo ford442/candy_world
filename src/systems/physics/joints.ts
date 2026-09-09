@@ -36,11 +36,7 @@ import {
 } from './rigid-bodies.ts';
 import type { RigidBodyHandle } from './rigid-body-types.ts';
 import { MAX_DYNAMIC_BODIES, RB_FIELD as F, RB_FLOATS_PER_BODY } from './rigid-body-types.ts';
-import {
-    createJointPool,
-    solveJointsJS,
-    writeJointRecord,
-} from './joint-fallback.ts';
+import { createJointPool, solveJointsJS, writeJointRecord } from './joint-fallback.ts';
 import {
     J_FIELD as J,
     J_FLAG,
@@ -218,9 +214,15 @@ function create(
     type: JointType,
     a: JointEnd,
     b: JointEnd,
-    ax: number, ay: number, az: number,
-    bx: number, by: number, bz: number,
-    p0: number, p1: number, p2: number
+    ax: number,
+    ay: number,
+    az: number,
+    bx: number,
+    by: number,
+    bz: number,
+    p0: number,
+    p1: number,
+    p2: number
 ): JointHandle | null {
     if (!_initialized) initJoints();
 
@@ -239,7 +241,7 @@ function create(
     if (id < 0) {
         console.warn(
             `[Joints] create rejected (type ${type}, bodies ${idA}/${idB}) — ` +
-            `pool full (${MAX_JOINTS}), dead body, or two immovable ends`
+                `pool full (${MAX_JOINTS}), dead body, or two immovable ends`
         );
         return null;
     }
@@ -252,9 +254,15 @@ function createFallback(
     type: JointType,
     idA: number,
     idB: number,
-    ax: number, ay: number, az: number,
-    bx: number, by: number, bz: number,
-    p0: number, p1: number, p2: number
+    ax: number,
+    ay: number,
+    az: number,
+    bx: number,
+    by: number,
+    bz: number,
+    p0: number,
+    p1: number,
+    p2: number
 ): number {
     const joints = _pool;
     const bodies = getRigidBodyPool();
@@ -270,7 +278,21 @@ function createFallback(
     if (id < 0) return -1;
 
     const ok = writeJointRecord(
-        joints, bodies, id, type, idA, idB, ax, ay, az, bx, by, bz, p0, p1, p2
+        joints,
+        bodies,
+        id,
+        type,
+        idA,
+        idB,
+        ax,
+        ay,
+        az,
+        bx,
+        by,
+        bz,
+        p0,
+        p1,
+        p2
     );
     if (!ok) return -1;
 
@@ -318,10 +340,18 @@ export function createHinge(
     if (!bodyOrigin(b.id, _scratchB)) return null;
     const [bx, by, bz] = _scratchB;
     return create(
-        JOINT_TYPE.HINGE, a, b,
-        pivot.x, pivot.y, pivot.z,
-        bx, by, bz,
-        axis.x, axis.y, axis.z
+        JOINT_TYPE.HINGE,
+        a,
+        b,
+        pivot.x,
+        pivot.y,
+        pivot.z,
+        bx,
+        by,
+        bz,
+        axis.x,
+        axis.y,
+        axis.z
     );
 }
 

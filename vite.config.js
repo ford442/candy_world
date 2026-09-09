@@ -23,6 +23,13 @@ export default defineConfig({
             },
             output: {
                 manualChunks(id) {
+                    // GLTFLoader (three/examples) is only reached through the
+                    // hero rig loader's dynamic import, so it must be matched
+                    // *before* the node_modules → vendor rule below: otherwise
+                    // the default boot downloads a loader it will never use.
+                    if (id.includes('three/examples/jsm/loaders/GLTFLoader')) {
+                        return 'gltf-loader';
+                    }
                     // Vendor chunk - all third-party dependencies
                     if (id.includes('node_modules')) {
                         return 'vendor';
@@ -82,6 +89,12 @@ export default defineConfig({
                         id.includes('/src/world/decorator-streamer.ts')
                     ) {
                         return 'world-content';
+                    }
+                    // Experimental soft-body solver: only the (lazy) demo imports
+                    // it, so it rides the debug chunk rather than adding dead
+                    // weight to `app`. Move it out if a real system adopts it.
+                    if (id.includes('/src/systems/physics/soft-body.ts')) {
+                        return 'debug';
                     }
                     // Debug tools (panel, gizmos, ground/placement/circadian/fauna overlays)
                     if (

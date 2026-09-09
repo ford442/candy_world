@@ -71,12 +71,90 @@ interface PropSpec {
 
 // 6 props: enough to feel like a play space, well inside the 64-body budget.
 const PROPS: PropSpec[] = [
-    { name: 'gumdrop-pink',   shape: RB_SHAPE.SPHERE,  color: 0xff69b4, mass: 1.2, restitution: 0.55, friction: 0.35, radius: 0.6,  halfHeight: 0.6,  halfDepth: 0.6,  dx: -3.0, dz: 0.0,  dy: 3.0 },
-    { name: 'gumdrop-mint',   shape: RB_SHAPE.SPHERE,  color: 0x9fe8c8, mass: 0.8, restitution: 0.7,  friction: 0.25, radius: 0.45, halfHeight: 0.45, halfDepth: 0.45, dx: -1.4, dz: 1.6,  dy: 4.2 },
-    { name: 'jelly-cube',     shape: RB_SHAPE.BOX,     color: 0xffd6e8, mass: 2.5, restitution: 0.2,  friction: 0.6,  radius: 0.55, halfHeight: 0.55, halfDepth: 0.55, dx: 0.4,  dz: -1.2, dy: 3.4 },
-    { name: 'licorice-crate', shape: RB_SHAPE.BOX,     color: 0x6b4a7a, mass: 4.0, restitution: 0.1,  friction: 0.8,  radius: 0.7,  halfHeight: 0.7,  halfDepth: 0.7,  dx: 2.2,  dz: 0.8,  dy: 3.0 },
-    { name: 'candy-cane',     shape: RB_SHAPE.CAPSULE, color: 0xfff4f8, mass: 1.5, restitution: 0.3,  friction: 0.5,  radius: 0.32, halfHeight: 0.75, halfDepth: 0.32, dx: 3.6,  dz: -1.8, dy: 4.8 },
-    { name: 'bonbon-lilac',   shape: RB_SHAPE.SPHERE,  color: 0xc9b6ff, mass: 0.6, restitution: 0.8,  friction: 0.2,  radius: 0.38, halfHeight: 0.38, halfDepth: 0.38, dx: 1.1,  dz: 2.4,  dy: 5.5 },
+    {
+        name: 'gumdrop-pink',
+        shape: RB_SHAPE.SPHERE,
+        color: 0xff69b4,
+        mass: 1.2,
+        restitution: 0.55,
+        friction: 0.35,
+        radius: 0.6,
+        halfHeight: 0.6,
+        halfDepth: 0.6,
+        dx: -3.0,
+        dz: 0.0,
+        dy: 3.0,
+    },
+    {
+        name: 'gumdrop-mint',
+        shape: RB_SHAPE.SPHERE,
+        color: 0x9fe8c8,
+        mass: 0.8,
+        restitution: 0.7,
+        friction: 0.25,
+        radius: 0.45,
+        halfHeight: 0.45,
+        halfDepth: 0.45,
+        dx: -1.4,
+        dz: 1.6,
+        dy: 4.2,
+    },
+    {
+        name: 'jelly-cube',
+        shape: RB_SHAPE.BOX,
+        color: 0xffd6e8,
+        mass: 2.5,
+        restitution: 0.2,
+        friction: 0.6,
+        radius: 0.55,
+        halfHeight: 0.55,
+        halfDepth: 0.55,
+        dx: 0.4,
+        dz: -1.2,
+        dy: 3.4,
+    },
+    {
+        name: 'licorice-crate',
+        shape: RB_SHAPE.BOX,
+        color: 0x6b4a7a,
+        mass: 4.0,
+        restitution: 0.1,
+        friction: 0.8,
+        radius: 0.7,
+        halfHeight: 0.7,
+        halfDepth: 0.7,
+        dx: 2.2,
+        dz: 0.8,
+        dy: 3.0,
+    },
+    {
+        name: 'candy-cane',
+        shape: RB_SHAPE.CAPSULE,
+        color: 0xfff4f8,
+        mass: 1.5,
+        restitution: 0.3,
+        friction: 0.5,
+        radius: 0.32,
+        halfHeight: 0.75,
+        halfDepth: 0.32,
+        dx: 3.6,
+        dz: -1.8,
+        dy: 4.8,
+    },
+    {
+        name: 'bonbon-lilac',
+        shape: RB_SHAPE.SPHERE,
+        color: 0xc9b6ff,
+        mass: 0.6,
+        restitution: 0.8,
+        friction: 0.2,
+        radius: 0.38,
+        halfHeight: 0.38,
+        halfDepth: 0.38,
+        dx: 1.1,
+        dz: 2.4,
+        dy: 5.5,
+    },
 ];
 
 const GIZMO_AWAKE = 0xff2d8f;
@@ -96,7 +174,9 @@ const AXIS_MARKER = 0.6;
  */
 const SWING = {
     /** Beam that carries the hinge pivot. */
-    dx: -6.0, dz: 3.0, pivotHeight: 4.4,
+    dx: -6.0,
+    dz: 3.0,
+    pivotHeight: 4.4,
     /** Arm length: how far the seat hangs below the pivot. */
     arm: 2.2,
     /** Hinge axis — +Z, so the seat swings along X, across the approach path. */
@@ -110,9 +190,12 @@ const SWING = {
 };
 
 const PAD = {
-    dx: -6.0, dz: -1.5, anchorHeight: 3.6,
+    dx: -6.0,
+    dz: -1.5,
+    anchorHeight: 3.6,
     /** Spring rest length, and where the gumdrop starts (stretched, so it bobs). */
-    rest: 1.4, startDrop: 2.2,
+    rest: 1.4,
+    startDrop: 2.2,
     stiffness: 320,
     damping: 9,
     radius: 0.55,
@@ -134,8 +217,16 @@ const _handles: (RigidBodyHandle | null)[] = [];
 const _meshes: THREE.Mesh[] = [];
 const _gizmos: (THREE.LineSegments | null)[] = new Array(MAX_DYNAMIC_BODIES).fill(null);
 
-const _gizmoAwakeMat = new THREE.LineBasicMaterial({ color: GIZMO_AWAKE, transparent: true, opacity: 0.85 });
-const _gizmoAsleepMat = new THREE.LineBasicMaterial({ color: GIZMO_ASLEEP, transparent: true, opacity: 0.45 });
+const _gizmoAwakeMat = new THREE.LineBasicMaterial({
+    color: GIZMO_AWAKE,
+    transparent: true,
+    opacity: 0.85,
+});
+const _gizmoAsleepMat = new THREE.LineBasicMaterial({
+    color: GIZMO_ASLEEP,
+    transparent: true,
+    opacity: 0.45,
+});
 
 let _keyHandler: ((e: KeyboardEvent) => void) | null = null;
 let _playerRef: THREE.Vector3 | null = null;
@@ -161,7 +252,7 @@ export function initPhysicsSandbox(scene: THREE.Scene, origin: THREE.Vector3): v
     // and a debug staging area being live is worth surfacing loudly anyway.
     console.warn(
         `[physics-sandbox] Enabled — ${PROPS.length} props, solver: ${wasm ? 'WASM (AssemblyScript)' : 'JS fallback'}, ` +
-        `joints: ${_usingJointWasm ? 'WASM (AssemblyScript)' : 'JS fallback'}`
+            `joints: ${_usingJointWasm ? 'WASM (AssemblyScript)' : 'JS fallback'}`
     );
 
     teardownProps();
@@ -281,7 +372,9 @@ function spawnToys(): void {
 
     const pivotHandle = spawnRigidBody({
         shape: RB_SHAPE.SPHERE,
-        x: swingX, y: pivotY, z: swingZ,
+        x: swingX,
+        y: pivotY,
+        z: swingZ,
         kinematic: true,
         radius: 0.12,
     });
@@ -295,7 +388,9 @@ function spawnToys(): void {
 
     const seat = spawnRigidBody({
         shape: RB_SHAPE.SPHERE,
-        x: seatX, y: pivotY, z: swingZ,
+        x: seatX,
+        y: pivotY,
+        z: swingZ,
         mass: SWING.seatMass,
         restitution: 0.2,
         friction: 0.4,
@@ -322,7 +417,9 @@ function spawnToys(): void {
 
         const charm = spawnRigidBody({
             shape: RB_SHAPE.SPHERE,
-            x: seatX, y: charmY, z: swingZ,
+            x: seatX,
+            y: charmY,
+            z: swingZ,
             mass: SWING.charmMass,
             restitution: 0.1,
             friction: 0.5,
@@ -347,7 +444,9 @@ function spawnToys(): void {
 
     const anchor = spawnRigidBody({
         shape: RB_SHAPE.SPHERE,
-        x: padX, y: anchorY, z: padZ,
+        x: padX,
+        y: anchorY,
+        z: padZ,
         kinematic: true,
         radius: 0.16,
     });
@@ -360,7 +459,9 @@ function spawnToys(): void {
 
     const bob = spawnRigidBody({
         shape: RB_SHAPE.SPHERE,
-        x: padX, y: bobY, z: padZ,
+        x: padX,
+        y: bobY,
+        z: padZ,
         mass: PAD.mass,
         restitution: 0.3,
         friction: 0.3,
@@ -384,13 +485,16 @@ function groundAt(x: number, z: number): number {
 }
 
 function makeToyMesh(geo: THREE.BufferGeometry, color: number): THREE.Mesh {
-    const mesh = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({
-        color,
-        roughness: 0.3,
-        metalness: 0.0,
-        clearcoat: 0.8,
-        clearcoatRoughness: 0.2,
-    }));
+    const mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshPhysicalMaterial({
+            color,
+            roughness: 0.3,
+            metalness: 0.0,
+            clearcoat: 0.8,
+            clearcoatRoughness: 0.2,
+        })
+    );
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.frustumCulled = false;

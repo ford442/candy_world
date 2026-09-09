@@ -13,14 +13,13 @@
  * velocity with the PBD update `v += dp / h`.
  */
 
+import { J_FIELD as J, J_FLAG, J_FLOATS_PER_JOINT, JOINT_TYPE, MAX_JOINTS } from './joint-types.ts';
 import {
-    J_FIELD as J,
-    J_FLAG,
-    J_FLOATS_PER_JOINT,
-    JOINT_TYPE,
-    MAX_JOINTS,
-} from './joint-types.ts';
-import { MAX_DYNAMIC_BODIES, RB_FIELD as F, RB_FLAG, RB_FLOATS_PER_BODY } from './rigid-body-types.ts';
+    MAX_DYNAMIC_BODIES,
+    RB_FIELD as F,
+    RB_FLAG,
+    RB_FLOATS_PER_BODY,
+} from './rigid-body-types.ts';
 
 // Mirrors the tuning block in assembly/joints.ts.
 const JOINT_ITERATIONS = 4;
@@ -71,7 +70,13 @@ function joints_bodyRead(id: number, field: number): number {
 }
 
 /** Write a velocity, capped at MAX_JOINT_SPEED and sanitised. */
-function setVelocityClamped(bodies: Float32Array, id: number, vx: number, vy: number, vz: number): void {
+function setVelocityClamped(
+    bodies: Float32Array,
+    id: number,
+    vx: number,
+    vy: number,
+    vz: number
+): void {
     let x = vx;
     let y = vy;
     let z = vz;
@@ -235,7 +240,8 @@ function solveSpring(joints: Float32Array, bodies: Float32Array, j: number, h: n
 
     if (invA > 0) {
         setVelocityClamped(
-            bodies, a,
+            bodies,
+            a,
             vax - nx * impulse * invA,
             vay - ny * impulse * invA,
             vaz - nz * impulse * invA
@@ -244,7 +250,8 @@ function solveSpring(joints: Float32Array, bodies: Float32Array, j: number, h: n
     }
     if (invB > 0) {
         setVelocityClamped(
-            bodies, b,
+            bodies,
+            b,
             vbx + nx * impulse * invB,
             vby + ny * impulse * invB,
             vbz + nz * impulse * invB
@@ -342,7 +349,13 @@ function projectRigid(joints: Float32Array, bodies: Float32Array, j: number, typ
     }
 }
 
-function applyCorrection(bodies: Float32Array, id: number, dx: number, dy: number, dz: number): void {
+function applyCorrection(
+    bodies: Float32Array,
+    id: number,
+    dx: number,
+    dy: number,
+    dz: number
+): void {
     const b = id * RB_FLOATS_PER_BODY;
     bodies[b + F.PX] += dx;
     bodies[b + F.PY] += dy;
@@ -366,9 +379,15 @@ export function writeJointRecord(
     type: number,
     bodyA: number,
     bodyB: number,
-    ax: number, ay: number, az: number,
-    bx: number, by: number, bz: number,
-    p0: number, p1: number, p2: number
+    ax: number,
+    ay: number,
+    az: number,
+    bx: number,
+    by: number,
+    bz: number,
+    p0: number,
+    p1: number,
+    p2: number
 ): boolean {
     if (type < JOINT_TYPE.FIXED || type > JOINT_TYPE.SPRING) return false;
     if (!bodyRefValid(bodies, bodyA) || !bodyRefValid(bodies, bodyB)) return false;

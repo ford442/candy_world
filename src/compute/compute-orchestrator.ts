@@ -18,6 +18,8 @@ export interface ComputeOrchestratorStatus {
     vramEstimateBytes: number;
     lastFrameGpuLod: boolean;
     lastFrameGpuFoliage: boolean;
+    /** True when a shared Tier 4a chore (prefix sum / compact / reduce) was encoded this frame. */
+    lastFrameGpuChores: boolean;
 }
 
 let _preferGpu = true;
@@ -26,6 +28,7 @@ let _initStarted = false;
 let _vramEstimateBytes = 0;
 let _lastFrameGpuLod = false;
 let _lastFrameGpuFoliage = false;
+let _lastFrameGpuChores = false;
 
 function readDisabledFromUrl(): boolean {
     try {
@@ -69,6 +72,7 @@ export function getComputeOrchestratorStatus(): ComputeOrchestratorStatus {
         vramEstimateBytes: _vramEstimateBytes,
         lastFrameGpuLod: _lastFrameGpuLod,
         lastFrameGpuFoliage: _lastFrameGpuFoliage,
+        lastFrameGpuChores: _lastFrameGpuChores,
     };
 }
 
@@ -83,6 +87,14 @@ export function setLastFrameGpuLod(used: boolean): void {
 
 export function setLastFrameGpuFoliage(used: boolean): void {
     _lastFrameGpuFoliage = used;
+}
+
+/**
+ * Flag that a shared GPU chore ran this frame, so `__computeStatus()` shows
+ * whether the Tier 4a path is live or the caller degraded to CPU/WASM.
+ */
+export function setLastFrameGpuChores(used: boolean): void {
+    _lastFrameGpuChores = used;
 }
 
 /**
@@ -112,6 +124,7 @@ export function tickComputeOrchestrator(): void {
     if (isExplicitlyDisabled()) {
         _preferGpu = false;
         _gpuReady = false;
+        _lastFrameGpuChores = false;
         return;
     }
     _gpuReady = getSharedGPUCompute().isReady();

@@ -1,15 +1,10 @@
 import * as THREE from 'three';
 import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/tools-stub.ts';
 import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
-import { uChromaticIntensity, uGlobalNoteColor, uGlobalShimmer } from '../foliage/chromatic-nodes.ts';
-import {
-    uWindSpeed,
-    uWindDirection,
-    uAudioLow,
-    uAudioHigh,
-    uGlitchIntensity,
-    uTime,
-} from '../foliage/index.ts';
+import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
+import { updateWind, type WindUpdateInput } from '../systems/wind-uniforms.ts';
+import { updateWindDebug } from '../systems/wind-debug.ts';
+import { uAudioLow, uAudioHigh, uGlitchIntensity, uTime } from '../foliage/index.ts';
 import {
     uSkyTopColor,
     uSkyBottomColor,
@@ -78,6 +73,15 @@ import { updateSunShadowFollow } from './game-loop-postfx.ts';
 import { updateLocalLightHelpers } from '../rendering/lights.ts';
 import { updateTheme, getLastIsNight, setLastIsNight, setIsNight } from './hud.ts';
 
+// Reused every frame — the wind update must not allocate (see WIND_OPTIMIZATION.md).
+const _windInput: WindUpdateInput = {
+    weatherWind: 0,
+    direction: null,
+    bpm: 120,
+    audioLow: 0,
+    stormIntensity: 0,
+};
+
 export function updateVisualsPhase(
     delta: number,
     t: number,
@@ -118,15 +122,15 @@ export function updateVisualsPhase(
         weatherState = weatherSystemRef.state;
         weatherIntensity = weatherSystemRef.intensity;
 
-        const activeBPM = audioState?.bpm || 120;
-        const bpmWindFactor = THREE.MathUtils.clamp((activeBPM - 60) / 120, 0, 1.5);
-        const baseWind = 1.0 + weatherSystemRef.windSpeed * 4.0;
-        const targetWindSpeed = baseWind * (1.0 + bpmWindFactor * 0.5);
-        uWindSpeed.value = THREE.MathUtils.lerp(uWindSpeed.value as number, targetWindSpeed, 0.05);
-
-        if (uWindDirection.value && weatherSystemRef.windDirection) {
-            (uWindDirection.value as any).copy(weatherSystemRef.windDirection);
-        }
+        // Single wind update for the frame: foliage TSL, GPU foliage animator,
+        // particles and cloth all read the uniforms this publishes.
+        _windInput.weatherWind = weatherSystemRef.windSpeed;
+        _windInput.direction = weatherSystemRef.windDirection;
+        _windInput.bpm = audioState?.bpm || 120;
+        _windInput.audioLow = audioState?.low || 0;
+        _windInput.stormIntensity = weatherState === WeatherState.STORM ? weatherIntensity : 0;
+        updateWind(delta, _windInput);
+        updateWindDebug();
     }
 
     if (sceneRef && sceneRef.fog instanceof THREE.FogExp2) {
@@ -303,11 +307,9 @@ export function updateVisualsPhase(
         }
     }
 
-    // Sync globals used by the post-fx pipeline
-    if (BiomeUniforms && BiomeUniforms.arpeggioGrove) {
-        (uGlobalNoteColor.value as any).copy(BiomeUniforms.arpeggioGrove.noteColor.value);
-        uGlobalShimmer.value = BiomeUniforms.arpeggioGrove.shimmer.value;
-    }
+    // uGlobalNoteColor / uGlobalShimmer were dropped in #1723 when chromatic-nodes.ts
+    // was split out; nothing in the post-fx chain reads them any more, so the sync
+    // that used to live here is gone with them.
 
     let auroraAudioBoost = 0.0;
     if (audioState && audioState.channelData && audioState.channelData.length > 4) {
