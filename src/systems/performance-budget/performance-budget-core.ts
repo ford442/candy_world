@@ -28,6 +28,7 @@
  * ```
  */
 
+import { getGpuContextSync } from '../../rendering/gpu-context.ts';
 import {
   BudgetMode,
   BudgetType,
@@ -202,30 +203,30 @@ export class PerformanceBudget {
       else score += 2;
     }
     
-    // Check WebGPU capabilities
+    // Check WebGPU capabilities. Read the adapter the boot probe already
+    // requested — `gpu-context.ts` is the single owner of adapter/device
+    // requests, and a second requestAdapter() here is exactly the kind of
+    // stray device this tiering used to spin up behind the renderer's back.
     try {
-      if ('gpu' in navigator) {
-        const adapter = await (navigator as any).gpu.requestAdapter();
-        if (adapter) {
-          const info = await adapter.requestAdapterInfo();
-          
-          // Check for discrete GPU
-          const isDiscrete = info.architecture === 'discrete' || 
-                            info.description?.toLowerCase().includes('nvidia') ||
-                            info.description?.toLowerCase().includes('amd') ||
-                            info.description?.toLowerCase().includes('radeon') ||
-                            info.description?.toLowerCase().includes('geforce');
-          
-          if (isDiscrete) score += 3;
-          else score += 1;
-          
-          // Check device type
-          if (info.deviceType === 'integrated') score -= 1;
-          else if (info.deviceType === 'discrete') score += 1;
-        }
+      const info = getGpuContextSync().adapterInfo;
+      if (info) {
+        const description = `${info.description ?? ''} ${info.device ?? ''}`.toLowerCase();
+        const isDiscrete =
+          info.architecture === 'discrete' ||
+          description.includes('nvidia') ||
+          description.includes('amd') ||
+          description.includes('radeon') ||
+          description.includes('geforce');
+
+        if (isDiscrete) score += 3;
+        else score += 1;
+
+        const integrated = /intel|uhd|iris|mali|adreno|swiftshader|llvmpipe/.test(description);
+        if (integrated) score -= 1;
+        else if (isDiscrete) score += 1;
       }
     } catch (e) {
-      // WebGPU not available, rely on other metrics
+      // No GPU context yet — rely on the other metrics.
     }
     
     // Check for mobile user agent

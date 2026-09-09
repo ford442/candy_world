@@ -25,9 +25,14 @@ in CI, and after a device loss without any new code in the boot path.
 
 | You are writing…                                                      | Use                                                                                        |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| A reusable primitive (prefix sum, reduce, compact)                    | **Tier 4a** — add it to `GPUChoresLibrary` (`src/compute/chores/gpu-chores.ts`)            |
+| A reusable primitive (prefix sum, reduce, compact)                    | **Tier 4a** — `GPUChoresLibrary` already ships these (`src/compute/chores/gpu-chores.ts`)  |
 | Domain simulation (your feature's kinematics, pose, binning)          | **Tier 4b** — a module scoped to your system, e.g. `src/compute/<feature>-gpu.ts`          |
 | A pass that reads/writes Three.js node material data and nothing else | **TSL compute node** — `renderer.compute(node)` from `game-loop-compute.ts`; no raw device |
+
+Before writing a Tier 4a kernel, check whether `GPUChoresLibrary` already has it —
+`prefix_sum`, `compact` and `reduce_f32` are in the kit, and their contract (live count via
+uniform, inclusive scan, 256-wide workgroups) is documented in
+[`COMPUTE_GPU_DEFAULT.md`](./COMPUTE_GPU_DEFAULT.md#gpu-chores-tier-4a-vs-4b).
 
 Prefer a TSL compute node when the data already lives in a `StorageBufferAttribute`. Drop to raw
 WebGPU only when you need explicit buffer layout, readback, or a bind group Three does not model.

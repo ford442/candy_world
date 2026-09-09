@@ -1,5 +1,22 @@
 # WebGL2 Fallback Renderer
 
+> [!WARNING]
+> **This path is disabled — deferred to a later issue wave (#1625).**
+>
+> WebGPU is currently **required** to enter the world. A failed boot probe stops boot at a
+> diagnostics screen instead of starting a WebGL renderer, because a silent GL render is exactly
+> what hid the Chrome-vs-Edge adapter bug we are trying to surface.
+>
+> Everything below documents the path as it will work when it is restored, and as the code still
+> reads today. It does **not** describe current behaviour:
+>
+> - `?renderer=webgl` / `?renderer=webgl2` / `?webgl` — warn, then ignored
+> - `?webglLite=1` — no longer implies a WebGL boot (`?lite` still trims world density)
+> - `localStorage candy.renderer` — ignored; `setRenderer('webgl')` refuses out loud
+> - `RENDERER=webgl npm run test` — the smoke runner exits 1 rather than booting GL for a green CI
+>
+> See [`WEBGPU_CONTEXT.md`](./WEBGPU_CONTEXT.md#webgl-deferred) for the current contract.
+
 Candy World ships with **WebGPU** as the default renderer and an opt-in **WebGL2** reference path via Three.js `WebGPURenderer` with `forceWebGL: true` (GLSL node backend). Legacy `THREE.WebGLRenderer` is no longer used — TSL node materials require the node renderer backend.
 
 This mirrors the ford442 portfolio pattern used in Tetris_WebGPU, power_gen, mod-player, pachinball, Watershed, and HarborGlow.

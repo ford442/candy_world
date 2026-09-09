@@ -1,10 +1,19 @@
 /**
  * Renderer backend selection for Candy World.
  *
- * Priority (first match wins):
- *   1. URL param  ?renderer=webgl|webgpu  (also accepts webgl2)
- *   2. localStorage candy.renderer
- *   3. default    webgpu (auto-falls back to WebGL when unavailable)
+ * **This phase: WebGPU is the only backend.** `resolveRendererBackend()` always
+ * returns `webgpu`, and a failed WebGPU boot probe hard-fails instead of
+ * starting a WebGL renderer — a silent GL render is what hid the Chrome-vs-Edge
+ * adapter failure we are trying to surface.
+ *
+ * The WebGL selection inputs below are therefore **inert**, kept so the restore
+ * wave can re-enable them in one place rather than re-deriving them:
+ *   - `?renderer=webgl` / `?renderer=webgl2` / `?webgl` — warn, then ignored
+ *   - `?webglLite=1` / `?lite` — no longer imply a WebGL boot; `?lite` still
+ *     only trims world density (see `shouldPreferLightWorldLoad()`)
+ *   - `localStorage candy.renderer` — ignored while the phase is active
+ *
+ * @see docs/WEBGPU_CONTEXT.md
  */
 
 export type RendererBackend = 'webgpu' | 'webgl';
@@ -32,12 +41,29 @@ export function setStoredRendererPreference(backend: RendererBackend): void {
   }
 }
 
-export function resolveRendererBackend(search: string = window.location.search): RendererBackend {
-  const params = new URLSearchParams(search);
-  const explicit = params.get('renderer')?.toLowerCase();
+/** True while WebGPU is the only backend that may boot the world. */
+export const WEBGPU_REQUIRED = true;
 
-  if (explicit === 'webgl' || explicit === 'webgl2' || params.has('webgl')) {
-    console.warn('[RendererMode] WebGL URL flags are disabled during this phase to enforce WebGPU device probe discipline.');
+export function resolveRendererBackend(search: string = window.location.search): RendererBackend {
+  let params: URLSearchParams;
+  try {
+    params = new URLSearchParams(search);
+  } catch {
+    return 'webgpu';
+  }
+
+  const explicit = params.get('renderer')?.toLowerCase();
+  const askedForWebGL =
+    explicit === 'webgl' ||
+    explicit === 'webgl2' ||
+    params.has('webgl') ||
+    params.has('webglLite');
+
+  if (askedForWebGL || getStoredRendererPreference() === 'webgl') {
+    console.warn(
+      '[RendererMode] WebGL selection is disabled this phase — WebGPU is required to enter the ' +
+        'world, and a failed probe hard-fails rather than booting WebGL. See docs/WEBGPU_CONTEXT.md.',
+    );
   }
 
   // Always force WebGPU resolution for the current probe phase.
@@ -73,6 +99,14 @@ export function publishRendererBreadcrumbs(
 }
 
 export function switchRendererPreference(backend: RendererBackend): void {
+  if (backend === 'webgl' && WEBGPU_REQUIRED) {
+    // Reloading into a preference the boot path ignores would look like a
+    // no-op bug from the debug panel. Refuse it out loud instead.
+    console.warn(
+      '[RendererMode] Cannot switch to WebGL this phase — WebGPU is required to enter the world.',
+    );
+    return;
+  }
   setStoredRendererPreference(backend);
   const url = new URL(window.location.href);
   url.searchParams.set('renderer', backend);
