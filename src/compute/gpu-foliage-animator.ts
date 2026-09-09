@@ -19,6 +19,7 @@
  * ```
  */
 
+import { getWindState } from '../systems/wind-uniforms.ts';
 import { GPUComputeLibrary } from './gpu-compute-library';
 
 // =============================================================================
@@ -114,8 +115,8 @@ export interface FoliageAnimationOutput {
  *   groove: f32          offset 12
  *   isDay: u32           offset 16
  *   instanceCount: u32   offset 20
- *   _pad0: u32           offset 24
- *   _pad1: u32           offset 28
+ *   windGust: f32        offset 24  (shared wind: speed x gust)
+ *   windTurbulence: f32  offset 28  (shared wind: 0-1 chop)
  */
 export const FOLIAGE_ANIMATION_WGSL = /* wgsl */ `
 struct Instance {
@@ -134,8 +135,10 @@ struct Uniforms {
     groove: f32,
     isDay: u32,
     instanceCount: u32,
-    _pad0: u32,
-    _pad1: u32,
+    // Unified wind (src/systems/wind-uniforms.ts) — same values the foliage
+    // TSL sway and the particle systems read, so the GPU path gusts in step.
+    windGust: f32,
+    windTurbulence: f32,
 };
 
 @group(0) @binding(0) var<storage, read> instances: array<Instance>;
@@ -222,8 +225,10 @@ fn animateSpring(pos: vec3<f32>, scale: vec3<f32>, t: f32, offset: f32, intensit
 
 fn animateVineSway(pos: vec3<f32>, rot: vec3<f32>, t: f32, offset: f32, intensity: f32, isDay: bool) -> vec4<f32> {
     let cascade = sin(t * 0.4 + offset + pos.y * 0.5) * 0.15 * intensity;
-    let windGust = select(0.0, sin(t * 0.8) * 0.05, isDay);
-    return vec4<f32>(rot.x + cascade, rot.y + windGust, rot.z, 0.0);
+    // Was a private sine; now the shared gust, so vines swing with the trees.
+    let gustSwing = select(0.0, (u.windGust - 1.0) * 0.25 * u.windGust, isDay);
+    let chop = sin(t * 2.7 + offset) * u.windTurbulence * 0.02;
+    return vec4<f32>(rot.x + cascade, rot.y + gustSwing + chop, rot.z, 0.0);
 }
 
 fn animateSpiralWave(pos: vec3<f32>, t: f32, offset: f32, intensity: f32) -> vec3<f32> {
@@ -370,6 +375,8 @@ export class GPUFoliageAnimator {
     private instanceBuffer: GPUBuffer | null = null;
     private outputBuffer: GPUBuffer | null = null;
     private uniformBuffer: GPUBuffer | null = null;
+    /** Reused uniform staging — see WIND_OPTIMIZATION.md (no per-frame allocs). */
+    private readonly _uniformScratch = new Float32Array(8);
     private indirectBuffer: GPUBuffer | null = null;
     
     // GPU Resources
@@ -574,19 +581,20 @@ export class GPUFoliageAnimator {
             return;
         }
         
-        // Update uniforms
-        const uniforms = new Float32Array([
-            time,
-            audio.beatPhase,
-            audio.kick,
-            audio.groove,
-            audio.isDay ? 1 : 0,
-            this.instanceCount,
-            0, // _pad0
-            0, // _pad1
-        ]);
-        
-        this.gpu.writeUniformBuffer(this.uniformBuffer, uniforms);
+        // Update uniforms — written into a preallocated scratch array so the
+        // per-frame wind push costs no allocation.
+        const wind = getWindState();
+        const u = this._uniformScratch;
+        u[0] = time;
+        u[1] = audio.beatPhase;
+        u[2] = audio.kick;
+        u[3] = audio.groove;
+        u[4] = audio.isDay ? 1 : 0;
+        u[5] = this.instanceCount;
+        u[6] = wind.gust;
+        u[7] = wind.turbulence;
+
+        this.gpu.writeUniformBuffer(this.uniformBuffer, u);
         
         // Dispatch compute shader
         const workgroups = Math.ceil(this.instanceCount / this.WORKGROUP_SIZE);

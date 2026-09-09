@@ -1,5 +1,78 @@
 # Wind Calculation Optimization
 
+## Unified wind state (single source of truth)
+
+All wind now originates in **`src/systems/wind-uniforms.ts`**. It owns the only
+mutable wind state in the app and publishes it as TSL uniform nodes created once
+at module init:
+
+| Uniform | Meaning |
+|---|---|
+| `WindUniforms.direction` | normalized world-space heading (Y ≈ 0) |
+| `WindUniforms.speed` | smoothed base speed (weather wind + BPM coupling) |
+| `WindUniforms.gust` | multi-octave swell multiplier, ~0.5–1.5 |
+| `WindUniforms.turbulence` | 0–1 chop, rises with storms |
+| `WindUniforms.musicCoupling` | 0–1 how hard the track is driving the wind |
+| `uWindStrength` | derived node: `speed × gust` — **scale sway by this** |
+
+`src/foliage/material-core/shared-resources.ts` re-exports these under the
+historical `uWindSpeed` / `uWindDirection` names, so every material graph that
+already imported from `material-core` picks up the unified state unchanged.
+
+### Update path
+
+`updateVisualsPhase()` (`src/core/game-loop-visuals.ts`) calls `updateWind(delta,
+input)` exactly once per frame, feeding it weather wind, heading, BPM, low-band
+audio and storm intensity. Nothing else may write wind uniforms.
+
+The update is **allocation-free**: the input object is a module-level scratch,
+gust is a scalar loop over a constant octave table, and direction is written with
+an in-place `Vector3.set`. The GPU foliage animator likewise stages its uniforms
+into a preallocated `Float32Array(8)`.
+
+### Consumers
+
+| Consumer | Reads |
+|---|---|
+| `material-core/deformation.ts` (`calculateWindSway`, `applyStandardDeformation`, flower bloom) | `uWindStrength`, `uWindTurbulence`, `uWindGust` |
+| `foliage/cloud-batcher.ts` (wind shear) | `uWindStrength` |
+| `foliage/pollen.ts`, `foliage/dandelion-seeds.ts` (GPU particles) | `uWindStrength` |
+| `compute/gpu-foliage-animator.ts` (WGSL `animateVineSway`) | `u.windGust`, `u.windTurbulence` via `getWindState()` |
+| `systems/physics/soft-body.ts` (cloth) | `getWindState().gust` |
+
+Clouds are the type this fixed most visibly: their shear ran on raw `uWindSpeed`,
+so they drifted at a constant rate while the trees underneath were gusting. Vines
+in the GPU animator had their own `sin(t * 0.8)` gust, unrelated to everything
+else; both are now on the shared swell.
+
+### Quality tiers
+
+Gust octaves scale with `getStartupCapabilities().graphics` via
+`setWindQuality()`, called during startup:
+
+| Tier | Octaves | Effect |
+|---|---|---|
+| `low` | 1 | slow swell only — no fine chatter |
+| `medium` | 2 | swell + mid detail |
+| `high` | 3 | full detail |
+
+🎨 **PALETTE / Visual Impact**: gust is the readable part of wind. It is a slow
+swell around 1.0, so the world breathes between lulls and gusts rather than
+vibrating at a fixed amplitude — and because every system multiplies by the same
+`speed × gust`, a gust lands on trees, clouds, pollen and cloth on the same frame.
+
+### Debugging
+
+`?debug=1` (or `?wind`) draws a single wind arrow in front of the camera
+(`src/systems/wind-debug.ts`): heading is `WindUniforms.direction`, length is
+`speed × gust`. That is literally the number every consumer scales by, so if
+foliage and particles ever disagree again, compare each against this arrow.
+`window.__wind()` returns the same state as plain numbers.
+
+---
+
+## Historical: per-vertex → baked texture
+
 ## Overview
 
 This document describes the optimization of the `calculateWindSway()` function in the Candy World project, transitioning from a per-vertex calculation approach to a baked wind texture + compute shader approach.

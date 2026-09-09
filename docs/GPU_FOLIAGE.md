@@ -100,3 +100,16 @@ Check `window.__computeVramBytes()` after exploring a full world.
 2. GPU ADSR without readback stall (GPU→instance attribute buffer)
 3. Second pilot: cloud scalar path or portamento SoA matrices
 4. Extend `GPUFoliageAnimator` to additional species
+
+## Wind
+
+The animator does not generate wind. It reads the unified state from
+`src/systems/wind-uniforms.ts` via `getWindState()` and stages `windGust` /
+`windTurbulence` into its uniform buffer (offsets 24 / 28, the old `_pad0` /
+`_pad1` slots), so `animateVineSway` gusts in step with the TSL foliage sway and
+the particle systems. See `docs/WIND_OPTIMIZATION.md`.
+
+The GPU path remains fail-closed: the animator constructs only after
+`ensureGpuComputeReady()` / `awaitGpuDevice()` hands over a shared device, and
+`update()` returns early when the device or pipeline is missing. Wind state is
+plain CPU numbers, so the CPU fallback path stays consistent with it.

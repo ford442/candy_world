@@ -26,6 +26,8 @@
  * See docs/PERF_BUDGETS.md § "Soft Bodies (experimental)".
  */
 
+import { getWindState } from '../wind-uniforms.ts';
+
 /** Ground height query, in world space. */
 export type GroundSampler = (x: number, z: number) => number;
 
@@ -245,9 +247,10 @@ export class ClothSim {
         const maxStep = MAX_SPEED * h;
         const g = o.gravity * h * h;
 
-        // One gust value per substep: a slow sine, so the ripple reads as a
-        // breeze rather than noise. Modulated per-row for a travelling wave.
-        const gust = 0.65 + 0.35 * Math.sin(this.time * 1.7);
+        // Gust comes from the unified wind (src/systems/wind-uniforms.ts), so
+        // cloth ripples on the same swell as foliage and pollen instead of on a
+        // private sine. Modulated per-row for a travelling wave.
+        const gust = getWindState().gust;
         const wl = Math.hypot(o.windX, o.windY, o.windZ) || 1;
         const wScale = o.windStrength * gust * h * h;
         const wx = (o.windX / wl) * wScale;

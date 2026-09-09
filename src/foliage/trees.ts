@@ -4,7 +4,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu'; // Import explicit type
 import { calcVineDetachImpulse } from '../utils/wasm-foliage-interact.ts';
 import { createBerryCluster } from './berries.ts';
 import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uAudioHigh, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uAudioHigh, uWindSpeed, uWindStrength, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { treeBatcher } from './tree-batcher.ts';
 import { FoliageObject } from './types.ts';
@@ -75,7 +75,7 @@ function enhanceWithFloralJuice(material: any) {
 
         // 2. Wind Flutter (High Frequency Shiver)
         const flutterFreq = float(15.0);
-        const flutterAmp = float(0.05).mul(uWindSpeed.add(0.5));
+        const flutterAmp = float(0.05).mul(uWindStrength.add(0.5));
         const flutter = sin(time.mul(flutterFreq).add(positionWorld.x).add(positionWorld.z)).mul(flutterAmp);
 
         let newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));

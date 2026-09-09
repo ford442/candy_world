@@ -12,7 +12,7 @@ import {
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { calculatePlayerPush } from './deformation.ts';
 import { CandyPresets } from './presets.ts';
-import { uTime, uWindSpeed, uWindDirection } from './shared-resources.ts';
+import { uTime, uWindSpeed, uWindDirection, uWindStrength } from './shared-resources.ts';
 import { createUnifiedMaterial, type UnifiedMaterialOptions } from './unified-material.ts';
 
 export function createClayMaterial(
@@ -56,7 +56,7 @@ export function createGradientMaterial(
 ) {
     const windTime = uTime.mul(uWindSpeed.add(0.5));
     const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
-    const swayAmount = sin(swayPhase).mul(0.1).mul(uWindSpeed.add(0.2));
+    const swayAmount = sin(swayPhase).mul(0.1).mul(uWindStrength.add(0.2));
 
     const heightFactor = positionLocal.y.max(0.0);
 

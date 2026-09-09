@@ -43,7 +43,10 @@ function getMesh(value: unknown): THREE.InstancedMesh | null {
     return null;
 }
 
-function getMeshesFromRecord(record: Record<string, unknown>, keys: readonly string[]): THREE.InstancedMesh[] {
+function getMeshesFromRecord(
+    record: Record<string, unknown>,
+    keys: readonly string[]
+): THREE.InstancedMesh[] {
     const meshes: THREE.InstancedMesh[] = [];
     for (const key of keys) {
         const mesh = getMesh(record[key]);
@@ -74,7 +77,11 @@ function estimateMeshBytes(mesh: THREE.InstancedMesh): number {
     return bytes;
 }
 
-function summarize(label: string, id: string, meshes: THREE.InstancedMesh[]): BatcherTelemetryEntry {
+function summarize(
+    label: string,
+    id: string,
+    meshes: THREE.InstancedMesh[]
+): BatcherTelemetryEntry {
     let instances = 0;
     let capacity = 0;
     let drawCalls = 0;
@@ -90,8 +97,18 @@ function summarize(label: string, id: string, meshes: THREE.InstancedMesh[]): Ba
 
 export function collectBatcherTelemetry(): BatcherTelemetryReport {
     const treeStats = treeBatcher.getStats();
-    const treeCapacity = treeStats.trunks.capacity + treeStats.spheres.capacity + treeStats.capsules.capacity + treeStats.helices.capacity + treeStats.roses.capacity;
-    const treeInstances = treeStats.trunks.count + treeStats.spheres.count + treeStats.capsules.count + treeStats.helices.count + treeStats.roses.count;
+    const treeCapacity =
+        treeStats.trunks.capacity +
+        treeStats.spheres.capacity +
+        treeStats.capsules.capacity +
+        treeStats.helices.capacity +
+        treeStats.roses.capacity;
+    const treeInstances =
+        treeStats.trunks.count +
+        treeStats.spheres.count +
+        treeStats.capsules.count +
+        treeStats.helices.count +
+        treeStats.roses.count;
 
     const flowerRecord = toRecord(flowerBatcher);
     const simpleFlowerRecord = toRecord(simpleFlowerBatcher);
@@ -109,12 +126,41 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
             instances: treeInstances,
             capacity: treeCapacity,
             drawCalls: 5,
-            estimatedVramBytes: treeCapacity * 192
+            estimatedVramBytes: treeCapacity * 192,
         },
         // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
-        summarize('MushroomBatcher', 'mushroom', mushroomBatcher.mesh ? [mushroomBatcher.mesh] : []),
-        summarize('FlowerBatcher', 'flower', flowerRecord ? getMeshesFromRecord(flowerRecord, ['stems', 'centers', 'stamens', 'petalsSimple', 'petalsMulti', 'petalsSpiral']) : []),
-        summarize('SimpleFlowerBatcher', 'simple-flower', simpleFlowerRecord ? getMeshesFromRecord(simpleFlowerRecord, ['stemMesh', 'petalMesh', 'centerMesh', 'stamenMesh', 'beamMesh']) : []),
+        summarize(
+            'MushroomBatcher',
+            'mushroom',
+            mushroomBatcher.mesh ? [mushroomBatcher.mesh] : []
+        ),
+        summarize(
+            'FlowerBatcher',
+            'flower',
+            flowerRecord
+                ? getMeshesFromRecord(flowerRecord, [
+                      'stems',
+                      'centers',
+                      'stamens',
+                      'petalsSimple',
+                      'petalsMulti',
+                      'petalsSpiral',
+                  ])
+                : []
+        ),
+        summarize(
+            'SimpleFlowerBatcher',
+            'simple-flower',
+            simpleFlowerRecord
+                ? getMeshesFromRecord(simpleFlowerRecord, [
+                      'stemMesh',
+                      'petalMesh',
+                      'centerMesh',
+                      'stamenMesh',
+                      'beamMesh',
+                  ])
+                : []
+        ),
         // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
         summarize(
             'CloudBatcher',
@@ -129,21 +175,51 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
             })()
         ),
         // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
-        summarize('LuminousPlantBatcher', 'luminous', luminousPlantBatcher?.mesh ? [luminousPlantBatcher.mesh] : []),
+        summarize(
+            'LuminousPlantBatcher',
+            'luminous',
+            luminousPlantBatcher?.mesh ? [luminousPlantBatcher.mesh] : []
+        ),
         summarize('GemFruitBatcher', 'gem_canopy', gemFruitBatcher?.meshes ?? []),
         // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
-        summarize('GlassMushroomBatcher', 'glass_mushroom', glassMushroomBatcher?.mesh ? [glassMushroomBatcher.mesh] : []),
+        summarize(
+            'GlassMushroomBatcher',
+            'glass_mushroom',
+            glassMushroomBatcher?.mesh ? [glassMushroomBatcher.mesh] : []
+        ),
         // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
-        summarize('WaterfallBatcher', 'waterfall', (() => {
-            const arr: THREE.InstancedMesh[] = [];
-            if (waterfallBatcher?.mesh) arr.push(waterfallBatcher.mesh);
-            if (waterfallBatcher?.splashMesh) arr.push(waterfallBatcher.splashMesh);
-            return arr;
-        })()),
-        summarize('ArpeggioFernBatcher', 'arpeggio', arpeggioRecord ? getMeshesFromRecord(arpeggioRecord, ['mesh']) : []),
-        summarize('PortamentoPineBatcher', 'portamento', portamentoRecord ? getMeshesFromRecord(portamentoRecord, ['trunkMesh', 'needleMesh']) : []),
-        summarize('DandelionBatcher', 'dandelion', dandelionRecord ? getMeshesFromRecord(dandelionRecord, ['mesh']) : []),
-        summarize('LanternBatcher', 'lantern', lanternRecord ? getMeshesFromRecord(lanternRecord, ['stemMesh', 'topMesh']) : []),
+        summarize(
+            'WaterfallBatcher',
+            'waterfall',
+            (() => {
+                const arr: THREE.InstancedMesh[] = [];
+                if (waterfallBatcher?.mesh) arr.push(waterfallBatcher.mesh);
+                if (waterfallBatcher?.splashMesh) arr.push(waterfallBatcher.splashMesh);
+                return arr;
+            })()
+        ),
+        summarize(
+            'ArpeggioFernBatcher',
+            'arpeggio',
+            arpeggioRecord ? getMeshesFromRecord(arpeggioRecord, ['mesh']) : []
+        ),
+        summarize(
+            'PortamentoPineBatcher',
+            'portamento',
+            portamentoRecord
+                ? getMeshesFromRecord(portamentoRecord, ['trunkMesh', 'needleMesh'])
+                : []
+        ),
+        summarize(
+            'DandelionBatcher',
+            'dandelion',
+            dandelionRecord ? getMeshesFromRecord(dandelionRecord, ['mesh']) : []
+        ),
+        summarize(
+            'LanternBatcher',
+            'lantern',
+            lanternRecord ? getMeshesFromRecord(lanternRecord, ['stemMesh', 'topMesh']) : []
+        ),
         (() => {
             // Debris is lazily constructed, so read its stats rather than its mesh —
             // summarize() would report a phantom 0/0 entry before the first burst.
@@ -154,7 +230,7 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
                 instances: debris.count,
                 capacity: MAX_DEBRIS,
                 drawCalls: debris.drawCalls,
-                estimatedVramBytes: MAX_DEBRIS * 76
+                estimatedVramBytes: MAX_DEBRIS * 76,
             };
         })(),
     ];
@@ -176,7 +252,7 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
         totalCapacity,
         totalDrawCalls,
         totalEstimatedVramBytes,
-        entries
+        entries,
     };
 }
 

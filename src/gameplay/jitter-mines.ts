@@ -1,5 +1,20 @@
 import * as THREE from 'three';
-import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep, Fn } from 'three/tsl';
+import {
+    positionLocal,
+    uv,
+    float,
+    sin,
+    cos,
+    vec3,
+    uniform,
+    attribute,
+    vec4,
+    vec2,
+    step,
+    mix,
+    smoothstep,
+    Fn,
+} from 'three/tsl';
 import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
 import { applyGlitch } from '../foliage/glitch.ts';
 import { burstCandyDebris } from '../foliage/candy-debris-batcher.ts';
@@ -8,7 +23,7 @@ import {
     createClayMaterial,
     uGlitchIntensity,
     uTime,
-    uAudioLow
+    uAudioLow,
 } from '../foliage/material-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 
@@ -27,7 +42,7 @@ interface Mine {
     visible: boolean;
     position: THREE.Vector3;
     rotation: THREE.Euler; // Store rotation state
-    scale: number;        // Store scale state
+    scale: number; // Store scale state
     time: number;
 }
 
@@ -68,10 +83,9 @@ class JitterMineSystem {
                 position: new THREE.Vector3(),
                 rotation: new THREE.Euler(),
                 scale: 0,
-                time: 0
+                time: 0,
             });
         }
-
 
         const geometry = new THREE.IcosahedronGeometry(MINE_RADIUS, 0);
 
@@ -107,14 +121,14 @@ class JitterMineSystem {
         const computeLogic = Fn(() => {
             const aSpawn = attribute('aSpawn', 'vec4');
             const aState = attribute('aState', 'vec4');
-        // -----------------------------------------------------------------
-        // TSL MATERIAL GRAPH — deferred until first actual use
-        // -----------------------------------------------------------------
-        const baseGlitch = applyGlitch(
-            uv(),
-            positionLocal,
-            float(0.2).add(sin(uTime.mul(10.0)).mul(0.1))
-        );
+            // -----------------------------------------------------------------
+            // TSL MATERIAL GRAPH — deferred until first actual use
+            // -----------------------------------------------------------------
+            const baseGlitch = applyGlitch(
+                uv(),
+                positionLocal,
+                float(0.2).add(sin(uTime.mul(10.0)).mul(0.1))
+            );
 
             const spawnPos = aSpawn.xyz;
             const spawnTime = aSpawn.w;
@@ -122,7 +136,11 @@ class JitterMineSystem {
             const rotAxis = vec3(aState.y, aState.z, aState.w);
 
             const glitchTime = uTime ? uTime.mul(10.0) : float(0.0);
-            const baseGlitchPosition = applyGlitch(uv(), positionLocal, float(0.2).add(sin(glitchTime).mul(0.1))).position;
+            const baseGlitchPosition = applyGlitch(
+                uv(),
+                positionLocal,
+                float(0.2).add(sin(glitchTime).mul(0.1))
+            ).position;
 
             const age = uTime ? uTime.sub(spawnTime) : float(0.0);
 
@@ -132,7 +150,9 @@ class JitterMineSystem {
 
             // 🎨 PALETTE: Audio-Reactive Squash & Stretch (Heartbeat/Jelly feel)
             // High impact on kick drum (uAudioLow)
-            const beatSquash = uAudioLow ? smoothstep(0.2, 0.8, uAudioLow).pow(float(1.5)).mul(0.4) : float(0.0); // Max 40% squash
+            const beatSquash = uAudioLow
+                ? smoothstep(0.2, 0.8, uAudioLow).pow(float(1.5)).mul(0.4)
+                : float(0.0); // Max 40% squash
 
             // Squash Y axis down, bulge X/Z axes out
             const scaleY = float(1.0).sub(beatSquash);
@@ -152,15 +172,18 @@ class JitterMineSystem {
             const z = rotAxis.z;
 
             // Custom Rodrigues' rotation formula
-            const rx = scaledPos.x.mul(t.mul(x).mul(x).add(c))
+            const rx = scaledPos.x
+                .mul(t.mul(x).mul(x).add(c))
                 .add(scaledPos.y.mul(t.mul(x).mul(y).sub(s.mul(z))))
                 .add(scaledPos.z.mul(t.mul(x).mul(z).add(s.mul(y))));
 
-            const ry = scaledPos.x.mul(t.mul(x).mul(y).add(s.mul(z)))
+            const ry = scaledPos.x
+                .mul(t.mul(x).mul(y).add(s.mul(z)))
                 .add(scaledPos.y.mul(t.mul(y).mul(y).add(c)))
                 .add(scaledPos.z.mul(t.mul(y).mul(z).sub(s.mul(x))));
 
-            const rz = scaledPos.x.mul(t.mul(x).mul(z).sub(s.mul(y)))
+            const rz = scaledPos.x
+                .mul(t.mul(x).mul(z).sub(s.mul(y)))
                 .add(scaledPos.y.mul(t.mul(y).mul(z).add(s.mul(x))))
                 .add(scaledPos.z.mul(t.mul(z).mul(z).add(c)));
 
@@ -171,14 +194,14 @@ class JitterMineSystem {
         });
 
         // Create Glitchy Material using the compute node to prevent instantiation before material-core exports
-        const material = createClayMaterial(0xFF00FF, {
+        const material = createClayMaterial(0xff00ff, {
             roughness: 0.2,
             metalness: 0.8,
-            emissive: 0xFF00FF,
+            emissive: 0xff00ff,
             emissiveIntensity: 0.8,
             bumpStrength: 0.5,
             noiseScale: 20.0,
-            deformationNode: computeLogic()
+            deformationNode: computeLogic(),
         });
 
         this._mesh = new THREE.InstancedMesh(geometry, material, MAX_MINES);
@@ -192,7 +215,11 @@ class JitterMineSystem {
             _scratchDummy.position.set(0, 0, 0);
             _scratchDummy.scale.setScalar(1);
             _scratchDummy.rotation.set(0, 0, 0);
-            _scratchMatrix.compose(_scratchDummy.position, _scratchDummy.quaternion, _scratchDummy.scale);
+            _scratchMatrix.compose(
+                _scratchDummy.position,
+                _scratchDummy.quaternion,
+                _scratchDummy.scale
+            );
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
             _scratchMatrix.toArray(this._mesh.instanceMatrix.array, i * 16);
         }
@@ -225,7 +252,7 @@ class JitterMineSystem {
         if (this.cooldownTimer > 0) return;
 
         // Find free slot
-        let index = this.mines.findIndex(m => !m.active);
+        let index = this.mines.findIndex((m) => !m.active);
 
         // If pool full, recycle oldest
         if (index === -1) {
@@ -253,7 +280,8 @@ class JitterMineSystem {
         spawnArray[index * 4 + 1] = position.y;
         spawnArray[index * 4 + 2] = position.z;
         // uTime is global from material-core.ts. We pass current time
-        spawnArray[index * 4 + 3] = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000;
+        spawnArray[index * 4 + 3] =
+            (uTime as any).value !== undefined ? (uTime as any).value : performance.now() / 1000;
         this.spawnBuffer.needsUpdate = true;
 
         const stateArray = this.stateBuffer.array as Float32Array;
@@ -300,10 +328,16 @@ class JitterMineSystem {
 
             // Apply to globals (override/boost audio effects)
             if (uChromaticIntensity) {
-                (uChromaticIntensity as any).value = Math.max((uChromaticIntensity as any).value, this.trauma);
+                (uChromaticIntensity as any).value = Math.max(
+                    (uChromaticIntensity as any).value,
+                    this.trauma
+                );
             }
             if (uGlitchIntensity) {
-                (uGlitchIntensity as any).value = Math.max((uGlitchIntensity as any).value, this.trauma);
+                (uGlitchIntensity as any).value = Math.max(
+                    (uGlitchIntensity as any).value,
+                    this.trauma
+                );
             }
         }
     }
@@ -321,14 +355,14 @@ class JitterMineSystem {
         this.stateBuffer.needsUpdate = true;
 
         // Visuals
-        spawnImpact(mine.position, 'explosion', 0xFF00FF);
+        spawnImpact(mine.position, 'explosion', 0xff00ff);
 
         // Broken-candy shrapnel: bigger and faster than a blaster hit so the
         // detonation reads as a shatter rather than a sparkle.
         burstCandyDebris({
             origin: mine.position,
             count: 28,
-            color: 0xFF00FF,
+            color: 0xff00ff,
             speed: 9.0,
             size: 0.2,
             life: 2.6,
@@ -340,7 +374,10 @@ class JitterMineSystem {
 
         // Sound
         if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-            (window as any).AudioSystem.playSound('explosion', { position: mine.position, pitch: 0.5 + Math.random() * 0.5 });
+            (window as any).AudioSystem.playSound('explosion', {
+                position: mine.position,
+                pitch: 0.5 + Math.random() * 0.5,
+            });
         }
     }
 }
@@ -361,5 +398,5 @@ export const jitterMineSystem = new Proxy({} as JitterMineSystem, {
         }
         (_jitterMineSystem as any)[prop] = value;
         return true;
-    }
+    },
 });

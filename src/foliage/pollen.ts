@@ -31,6 +31,7 @@ import {
     uAudioHigh,
     uWindSpeed,
     uWindDirection,
+    uWindStrength,
     uPlayerPosition,
 } from './index.ts';
 
@@ -78,7 +79,9 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
 
         // 1. Wind Drift
         // Apply wind force scaled by wind speed
-        const windForce = uWindDirection.mul(uWindSpeed).mul(0.05);
+        // Shared wind: uWindStrength is speed x gust, the same value the
+        // foliage sway scales by — pollen now gusts when the trees do.
+        const windForce = uWindDirection.mul(uWindStrength).mul(0.05);
 
         // 2. Curl Noise (Wander)
         const noiseScale = float(0.2);

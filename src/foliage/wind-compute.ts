@@ -10,6 +10,7 @@ const modFloat = (x: any, y: any) => {
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
 import { StorageTexture } from 'three/webgpu';
+import { getWindState } from '../systems/wind-uniforms.ts';
 
 // Wind texture configuration
 export const WIND_TEXTURE_SIZE = 256; // 256x256 wind field
@@ -221,17 +222,29 @@ export class WindComputeSystem {
             Math.sin(this.config.directionAngle + directionOscillation)
         );
         
+        // Baked field follows the unified wind (src/systems/wind-uniforms.ts):
+        // heading and gust come from there so the texture agrees with the TSL
+        // sway. `config` only supplies the noise shape (scale, frequency).
+        const shared = getWindState();
+        const sharedLenSq =
+            shared.directionX * shared.directionX + shared.directionZ * shared.directionZ;
+        if (sharedLenSq > 1e-6) {
+            const inv = 1 / Math.sqrt(sharedLenSq);
+            this.currentDirection.set(shared.directionX * inv, shared.directionZ * inv);
+        }
+        const sharedSpeed = shared.speed > 0 ? shared.speed : this.config.baseSpeed;
+
         // Update uniforms for the compute shader
         this.uTime.value = this.timeAccumulator;
-        this.uWindSpeed.value = this.config.baseSpeed;
+        this.uWindSpeed.value = sharedSpeed;
         const windDir = this.uWindDirection.value as unknown as THREE.Vector3;
         windDir.set(this.currentDirection.x, this.currentDirection.y, 0);
         this.uGustFreq.value = this.config.gustFrequency;
-        this.uGustStrength.value = this.config.gustStrength;
+        this.uGustStrength.value = this.config.gustStrength * shared.gust;
         
         // Update wind params uniform for materials
         this.windParams.set(
-            this.config.baseSpeed,
+            sharedSpeed,
             this.timeAccumulator,
             this.currentDirection.x,
             this.currentDirection.y

@@ -54,7 +54,9 @@ function createCloudMaterial() {
     // We use positionLocal.y (approx height) to shear along Wind Direction
     // Shearing Factor = Height * WindSpeed * 0.5
     const shearHeight = positionLocal.y.max(0.0); // Clamp to 0 to keep bottom fixed-ish
-    const shearAmount = shearHeight.mul(uWindSpeed).mul(0.5);
+    // Was private wind math on raw speed, so clouds drifted steadily while the
+    // trees below were gusting. Now on the shared speed x gust strength.
+    const shearAmount = shearHeight.mul(uWindStrength).mul(0.5);
     const windShear = vec3(
         uWindDirection.x.mul(shearAmount),
         float(0.0), // No vertical shear
@@ -213,7 +215,7 @@ import { batchDistanceCull_c } from '../utils/wasm-batch-animation.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
-    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, applyStandardDeformation, uPlayerVelocity
+    uWindSpeed, uWindDirection, uWindStrength, triplanarNoise, uPlayerPosition, applyStandardDeformation, uPlayerVelocity
 } from './index.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';
 

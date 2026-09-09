@@ -54,8 +54,18 @@ export const _scratchVec1 = new THREE.Vector3();
 export const _scratchVec2 = new THREE.Vector3();
 export const _scratchVec3 = new THREE.Vector3();
 
-export const uWindSpeed = uniform(0.0);
-export const uWindDirection = uniform(vec3(1, 0, 0));
+// Wind lives in ONE place — src/systems/wind-uniforms.ts. These are re-exports
+// of those nodes, kept under the historical names so material graphs that
+// already import from material-core pick up the unified state for free.
+export {
+    uWindSpeed,
+    uWindDirection,
+    uWindGust,
+    uWindTurbulence,
+    uWindStrength,
+    windVectorNode,
+    WindUniforms,
+} from '../../systems/wind-uniforms.ts';
 export const uTime = uniform(0.0);
 export const uGlitchIntensity = uniform(0.0);
 export const uGlitchExplosionCenter = uniform(vec3(0, 0, 0));

@@ -7,7 +7,7 @@ import {
 } from 'three/tsl';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { isCIorHeadless } from '../core/config.ts';
-import { uTime, uAudioHigh, uWindSpeed, uWindDirection, createSugarSparkle } from './index.ts';
+import { uTime, uAudioHigh, uWindSpeed, uWindDirection, uWindStrength, createSugarSparkle } from './index.ts';
 import { createJuicyRimLight } from './material-core.ts';
 
 const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
@@ -133,7 +133,8 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
 
     // 2. Wind Drift (starts affecting after initial burst slows down)
     const windInfluence = smoothstep(0.5, 2.0, age);
-    const windDrift = uWindDirection.mul(uWindSpeed).mul(age.mul(windInfluence));
+    // Shared gust — seeds surge on the same swell as the foliage they left.
+    const windDrift = uWindDirection.mul(uWindStrength).mul(age.mul(windInfluence));
 
     // 3. Floating Sway (Sine wave up/down/side)
     const swayFreq = float(2.0);

@@ -124,9 +124,9 @@ export class CandyDebrisBatcher {
         mat.colorNode = instanceColor;
         // Visual Impact: a tight rim keeps shards legible against pastel terrain
         // even when they tumble out of the key light.
-        mat.emissiveNode = instanceColor.mul(
-            createJuicyRimLight(instanceColor, float(0.9), float(3.5), null)
-        ).mul(float(0.6));
+        mat.emissiveNode = instanceColor
+            .mul(createJuicyRimLight(instanceColor, float(0.9), float(3.5), null))
+            .mul(float(0.6));
 
         const mesh = new THREE.InstancedMesh(createShardGeometry(), mat, this.capacity);
         mesh.name = 'CandyDebris';

@@ -20,6 +20,7 @@ import {
     uAudioHigh,
     uAudioLow,
     uWindSpeed,
+    uWindStrength,
     createSugarSparkle,
 } from '../index.ts';
 import { applyBaseContactAO, getBaseContactHeight } from '../index.ts';
@@ -98,7 +99,7 @@ export function initializeTreeBatcherMeshes(state: TreeBatcherState, getLODMeshe
 
         // Flutter: High frequency vertex displacement driven by wind
         const flutterSpeed = float(15.0);
-        const flutterAmp = float(0.08).mul(uWindSpeed.add(0.5));
+        const flutterAmp = float(0.08).mul(uWindStrength.add(0.5));
         // Use world position to decorrelate instances
         const flutterPhase = uTime.mul(flutterSpeed).add(positionWorld.x).add(positionWorld.z);
         const flutter = sin(flutterPhase).mul(flutterAmp);

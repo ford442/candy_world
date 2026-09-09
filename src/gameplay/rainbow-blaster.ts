@@ -1,14 +1,37 @@
 import * as THREE from 'three';
 import {
-    vec3, float, positionLocal, normalLocal, mx_noise_float,
-    mix, sin, smoothstep, normalize, positionWorld, color, attribute,
-    storage, instanceIndex, Fn, If, exp, vec4, uniform, rotate, varyingProperty
+    vec3,
+    float,
+    positionLocal,
+    normalLocal,
+    mx_noise_float,
+    mix,
+    sin,
+    smoothstep,
+    normalize,
+    positionWorld,
+    color,
+    attribute,
+    storage,
+    instanceIndex,
+    Fn,
+    If,
+    exp,
+    vec4,
+    uniform,
+    rotate,
+    varyingProperty,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { getCelestialState } from '../core/cycle.ts';
 import { burstCandyDebris } from '../foliage/candy-debris-batcher.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
-import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/material-core.ts';
+import {
+    createCandyMaterial,
+    uTime,
+    uAudioHigh,
+    createJuicyRimLight,
+} from '../foliage/material-core.ts';
 import { isInLakeBasin } from '../systems/ground-system.ts';
 import { triggerHarpoon } from '../systems/physics/index.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -70,7 +93,7 @@ class ProjectilePool {
             roughness: 0.4,
             metalness: 0.1,
             transparent: true,
-            depthWrite: false
+            depthWrite: false,
         });
 
         const stateAttr = attribute('aState', 'vec4');
@@ -104,7 +127,11 @@ class ProjectilePool {
         const spunPosition = rotate(positionLocal, spunTime);
 
         // Apply Total Deformation based on compute shader scale and position
-        mat.positionNode = spunPosition.add(displacement).mul(audioPulse).mul(scaleAttr).add(instancePos);
+        mat.positionNode = spunPosition
+            .add(displacement)
+            .mul(audioPulse)
+            .mul(scaleAttr)
+            .add(instancePos);
 
         // Hide dead projectiles
         mat.opacityNode = smoothstep(0.0, 0.01, life);
@@ -115,7 +142,9 @@ class ProjectilePool {
 
         // Inner Glow (Emissive)
         // Pulsate the core brightness with audio
-        const coreGlow = uAudioHigh ? baseColor.mul(float(0.5).add(uAudioHigh.mul(0.5))) : baseColor.mul(float(0.5));
+        const coreGlow = uAudioHigh
+            ? baseColor.mul(float(0.5).add(uAudioHigh.mul(0.5)))
+            : baseColor.mul(float(0.5));
 
         mat.emissiveNode = coreGlow;
 
@@ -130,7 +159,7 @@ class ProjectilePool {
         const identityMatrix = new THREE.Matrix4();
         for (let i = 0; i < MAX_PROJECTILES; i++) {
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        identityMatrix.toArray(this.mesh.instanceMatrix.array, (i) * 16);
+            identityMatrix.toArray(this.mesh.instanceMatrix.array, i * 16);
         }
         this.mesh.instanceMatrix.needsUpdate = true;
 
@@ -155,12 +184,12 @@ class ProjectilePool {
                 velocity: new THREE.Vector3(),
                 position: new THREE.Vector3(),
                 color: new THREE.Color(),
-                scale: 0
+                scale: 0,
             });
 
             // Set initial white
             // ⚡ OPTIMIZATION: Reuse color
-            this.color.setHex(0xFFFFFF);
+            this.color.setHex(0xffffff);
             this.mesh.setColorAt(i, this.color);
         }
 
@@ -194,7 +223,9 @@ class ProjectilePool {
             });
         });
 
-        this.computeNode = (updateProjectilesCompute() as unknown as { compute: (n: number) => unknown }).compute(MAX_PROJECTILES);
+        this.computeNode = (
+            updateProjectilesCompute() as unknown as { compute: (n: number) => unknown }
+        ).compute(MAX_PROJECTILES);
     }
 
     addToScene(scene: THREE.Scene) {
@@ -255,7 +286,13 @@ class ProjectilePool {
         }
     }
 
-    update(dt: number, scene: THREE.Scene, weatherSystem: any, isDay: boolean, renderer: THREE.WebGLRenderer | any) {
+    update(
+        dt: number,
+        scene: THREE.Scene,
+        weatherSystem: any,
+        isDay: boolean,
+        renderer: THREE.WebGLRenderer | any
+    ) {
         // Run GPU Compute Shader first
         if (renderer && renderer.compute) {
             this.uDeltaTime.value = dt;
@@ -300,11 +337,11 @@ class ProjectilePool {
                 const dz = p.position.z - cloud.position.z;
                 const distSq = dx * dx + dy * dy + dz * dz;
 
-                if (distSq < (cloudRadius * cloudRadius)) {
+                if (distSq < cloudRadius * cloudRadius) {
                     hit = true;
                     this.handleCloudHit(cloud, scene, isDay);
 
-                     if (weatherSystem && weatherSystem.notifyCloudShot) {
+                    if (weatherSystem && weatherSystem.notifyCloudShot) {
                         weatherSystem.notifyCloudShot(isDay);
                     }
                     break;
@@ -323,7 +360,7 @@ class ProjectilePool {
                 const distSq = dx * dx + dy * dy + dz * dz;
                 const hitRadius = 1.5;
 
-                if (distSq < (hitRadius * hitRadius) && Math.abs(dy) < 2.0) {
+                if (distSq < hitRadius * hitRadius && Math.abs(dy) < 2.0) {
                     hit = true;
                     // Trigger Charge
                     geyser.userData.chargeLevel = (geyser.userData.chargeLevel || 0) + 0.5;
@@ -354,39 +391,39 @@ class ProjectilePool {
                 const dz = p.position.z - trap.position.z;
                 const distSq = dx * dx + dy * dy + dz * dz;
 
-                if (distSq < (radius * radius)) {
-                     if (unlockSystem.isUnlocked('snap_core')) {
-                         // Hit! Reflect!
-                         // Calculate Normal: Outward from trap center
-                         _scratchVec3.subVectors(p.position, trap.position).normalize();
+                if (distSq < radius * radius) {
+                    if (unlockSystem.isUnlocked('snap_core')) {
+                        // Hit! Reflect!
+                        // Calculate Normal: Outward from trap center
+                        _scratchVec3.subVectors(p.position, trap.position).normalize();
 
-                         // Reflect Velocity
-                         p.velocity.reflect(_scratchVec3);
+                        // Reflect Velocity
+                        p.velocity.reflect(_scratchVec3);
 
-                         // Trigger Snap Animation (Immediate Close)
-                         trap.userData.snapState = 1.0;
+                        // Trigger Snap Animation (Immediate Close)
+                        trap.userData.snapState = 1.0;
 
-                         // Visuals
-                         spawnImpact(p.position, 'snare');
+                        // Visuals
+                        spawnImpact(p.position, 'snare');
 
-                         // Don't destroy projectile, just bounce
-                         // Reduce life slightly to prevent infinite bounces
-                         p.life -= 0.5;
+                        // Don't destroy projectile, just bounce
+                        // Reduce life slightly to prevent infinite bounces
+                        p.life -= 0.5;
 
-                         // Ensure projectile is pushed out to avoid multi-frame collisions?
-                         // Move it slightly along normal
-                         p.position.addScaledVector(_scratchVec3, 0.5);
+                        // Ensure projectile is pushed out to avoid multi-frame collisions?
+                        // Move it slightly along normal
+                        p.position.addScaledVector(_scratchVec3, 0.5);
 
-                         // Break this loop (handled collision for this frame)
-                         // But continue inner loop? No, break checking traps for this projectile
-                         break;
-                     } else {
-                         // Hit! Without upgrade, destroy projectile and trigger trap
-                         p.life = 0;
-                         trap.userData.snapState = 1.0;
-                         spawnImpact(p.position, 'snare');
-                         break;
-                     }
+                        // Break this loop (handled collision for this frame)
+                        // But continue inner loop? No, break checking traps for this projectile
+                        break;
+                    } else {
+                        // Hit! Without upgrade, destroy projectile and trigger trap
+                        p.life = 0;
+                        trap.userData.snapState = 1.0;
+                        spawnImpact(p.position, 'snare');
+                        break;
+                    }
                 }
             }
 
@@ -421,8 +458,8 @@ class ProjectilePool {
     handleCloudHit(cloud: any, scene: THREE.Scene, isDay: boolean) {
         if (isDay) {
             this.knockDownCloudMist(cloud);
-             // Spawn Mist Impact
-             spawnImpact(cloud.position, 'mist');
+            // Spawn Mist Impact
+            spawnImpact(cloud.position, 'mist');
         } else {
             this.knockDownCloudDeluge(cloud);
             // Spawn Rain Impact
@@ -441,7 +478,7 @@ class ProjectilePool {
 
         cloud.traverse((c: any) => {
             if (c.isMesh && c.material) {
-                 // Optimization: Modifying material directly assuming simple use case.
+                // Optimization: Modifying material directly assuming simple use case.
             }
         });
     }
@@ -470,7 +507,7 @@ const projectilePool = new Proxy({} as ProjectilePool, {
         }
         (_projectilePool as any)[prop] = value;
         return true;
-    }
+    },
 });
 function getProjectilePool(): ProjectilePool {
     return projectilePool as ProjectilePool;
@@ -486,14 +523,20 @@ export function fireRainbow(scene: THREE.Scene, origin: THREE.Vector3, direction
     getProjectilePool().fire(origin, direction);
 }
 
-export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any, currentTime: number, renderer?: THREE.WebGLRenderer) {
+export function updateBlaster(
+    dt: number,
+    scene: THREE.Scene,
+    weatherSystem: any,
+    currentTime: number,
+    renderer?: THREE.WebGLRenderer
+) {
     const celestial = getCelestialState(currentTime, _scratchCelestialState);
     const isDay = celestial.sunIntensity > 0.5;
 
     // Ensure pool is in scene (safety)
     if (!initialized) {
-         getProjectilePool().addToScene(scene);
-         initialized = true;
+        getProjectilePool().addToScene(scene);
+        initialized = true;
     }
 
     getProjectilePool().update(dt, scene, weatherSystem, isDay, renderer);
