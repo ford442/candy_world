@@ -329,26 +329,19 @@ export function updatePhysics(
 /**
  * Movement-path accounting for the default (non-swim/climb/vine) state.
  *
- * The kinematic character controller (#1577) owns the movement resolve only
- * on the JS path (`updateJSFallbackMovement`). The native `updatePhysicsCPP`
- * path has none of its seven behaviours — no coyote time, no jump buffering,
- * no slope limit, no step-up, no ground/air acceleration split.
+ * The kinematic character controller (#1577) owns the movement resolve on all
+ * player-walkable frames. When the native Emscripten module is available,
+ * `updatePhysicsCPP` runs only as an obstacle/trampoline assist: TS seeds WASM
+ * state, resolves the authoritative kinematic move in JS, then applies only the
+ * native correction delta back onto the JS result.
  *
- * Measured 2026-09-08 (headless Chromium, dev server AND `vite preview`,
- * ~340 frames of walking): `native` stayed at 0 in both modes, because the
- * Emscripten module fails to load at all — see docs/CHARACTER_CONTROLLER.md
- * ("Why the native path is currently dead"). The controller therefore owns
- * 100% of frames today.
- *
- * These counters exist so that this stops being an invisible assumption: anyone
- * can read `window.__physicsPathStats` in a live session, and the first
- * frame the native path ever succeeds logs a loud warning instead of
- * silently stripping the player of those behaviours.
+ * These counters make that split visible at runtime through
+ * `window.__physicsPathStats`.
  */
 export const physicsPathStats = {
-    /** Frames resolved by resolveCharacterMovement (#1577). */
+    /** Frames whose kinematics were resolved by resolveCharacterMovement (#1577). */
     controller: 0,
-    /** Frames resolved by updatePhysicsCPP (emscripten/physics.cpp) — no #1577 behaviours. */
+    /** Subset of `controller` frames that also used updatePhysicsCPP obstacle/trampoline assist. */
     native: 0,
     /** Subset of `controller` frames that took the JS path because of the Melody Lake basin. */
     lakeBasin: 0,
@@ -500,13 +493,19 @@ function updateDefaultState(
         );
     }
 
+    // Seed WASM state at start of next frame
+    import('../../utils/wasm-physics.ts').then(({ setPlayerState }) => {
+        setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
+    }).catch(() => {});
+
     if (!inLakeBasin) {
+        // 3. updatePhysicsCPP(..., jump = false) as obstacle/trampoline solver only
         onGround = updatePhysicsCPP(
             delta,
             moveInput.x,
             moveInput.z,
             moveSpeed,
-            effectiveJumpInput > 0,
+            false, // jump=false to prevent C++ from firing vy=10
             keyStates.sprint,
             keyStates.sneak,
             grooveGravity.multiplier
@@ -518,25 +517,36 @@ function updateDefaultState(
         console.log('[PhysicsDiag] updateDefaultState: updatePhysicsCPP returned');
     }
 
+    if (!(window as any).__physicsPathStats) {
+        (window as any).__physicsPathStats = physicsPathStats;
+    }
+
     if (onGround >= 0) {
+        physicsPathStats.controller++;
         physicsPathStats.native++;
         if (!_warnedNativePathActive) {
             _warnedNativePathActive = true;
-            console.warn(
-                '[Physics] updatePhysicsCPP resolved player movement. The #1577 character ' +
-                    'controller does NOT own this path: coyote time, jump buffering, slope limit, ' +
-                    'step-up and the ground/air acceleration split are all inactive while it runs. ' +
-                    'See docs/CHARACTER_CONTROLLER.md.'
+            console.log(
+                '[Physics] Native obstacle/trampoline assist active; JS character controller remains authoritative.'
             );
         }
-        // C++ Success
+
         getPlayerState(_scratchPlayerState);
-        player.position.set(
-            _scratchPlayerState.x + windForceX,
-            _scratchPlayerState.y,
-            _scratchPlayerState.z + windForceZ
-        );
-        player.velocity.set(_scratchPlayerState.vx, _scratchPlayerState.vy, _scratchPlayerState.vz);
+        const preX = player.position.x;
+        const preZ = player.position.z;
+
+        updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
+
+        const obstacleCorrectionX = _scratchPlayerState.x - preX - _scratchPlayerState.vx * delta;
+        const obstacleCorrectionZ = _scratchPlayerState.z - preZ - _scratchPlayerState.vz * delta;
+
+        player.position.x += obstacleCorrectionX + windForceX;
+        player.position.z += obstacleCorrectionZ + windForceZ;
+
+        if (onGround === 2) {
+            player.velocity.y = _scratchPlayerState.vy;
+            player.isGrounded = false;
+        }
 
         // Reset jump key if we successfully jumped (velocity.y > 0)
         // But only if we were grounded before (normal jump)

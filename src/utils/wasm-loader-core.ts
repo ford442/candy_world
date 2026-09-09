@@ -493,13 +493,16 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         const resolvedJsPath = jsFilename.includes('://')
             ? jsFilename
             : `${cleanPrefix}${jsFilename}`;
-        console.log('Loading WASM:', resolvedJsPath);
+
+        const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
+        const jsUrl = new URL(resolvedJsPath, base).href;
+        console.log('Loading WASM:', jsUrl);
 
         // Load the JS factory
         let createCandyNative:
             ((config: Record<string, unknown>) => Promise<ExtendedEmscriptenModule>) | undefined;
         try {
-            const module = await import(/* @vite-ignore */ `${resolvedJsPath}?v=${Date.now()}`);
+            const module = await import(/* @vite-ignore */ jsUrl);
             createCandyNative = module.default;
         } catch (e) {
             console.log(`[WASM] ${jsFilename} not found. Fallback?`, e);
@@ -521,7 +524,9 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         // MANUAL FETCH: Pre-fetch binary
         let wasmBinary: ArrayBuffer | null = null;
         try {
-            const resp = await fetch(resolvedWasmPath);
+            const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
+            const fetchWasmUrl = new URL(`${cleanPrefix}${wasmFilename}`, base).href;
+            const resp = await fetch(fetchWasmUrl);
             if (resp.ok) {
                 wasmBinary = await resp.arrayBuffer();
             } else {
@@ -555,7 +560,9 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             const config: Record<string, unknown> = {
                 // Critical: Explicitly tell Emscripten where to find the file
                 locateFile: (path: string, scriptDirectory: string) => {
-                    if (path.endsWith('.wasm')) return resolvedWasmPath;
+                    const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
+                    if (path.endsWith('.wasm')) return new URL(`${cleanPrefix}${wasmFilename}`, base).href;
+                    if (path.endsWith('.worker.js')) return new URL(`${cleanPrefix}${wasmFilename.replace('.wasm', '.worker.js')}`, base).href;
                     return scriptDirectory + path;
                 },
                 print: (text: string) => console.log('[Native]', text),
@@ -579,7 +586,9 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
                             // Fallback fetch if pre-fetch failed
                             if (!bytes) {
                                 console.log('[Native] Fetching binary inside hook...');
-                                const response = await fetch(resolvedWasmPath);
+                                const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
+                                const fetchWasmUrl = new URL(`${cleanPrefix}${wasmFilename}`, base).href;
+                                const response = await fetch(fetchWasmUrl);
                                 if (!response.ok)
                                     throw new Error(`Fetch failed: ${response.status}`);
                                 bytes = await response.arrayBuffer();
