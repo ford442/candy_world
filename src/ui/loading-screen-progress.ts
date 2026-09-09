@@ -239,7 +239,7 @@ export class LoadingScreenProgress {
                 needsVisualUpdate = true;
             }
         } else if (Math.abs(phaseDiff) > 0.1) {
-            this.displayedPhaseProgress = THREE.MathUtils.damp(this.displayedPhaseProgress, this.phaseProgress, 5.0, deltaSeconds);
+            this.displayedPhaseProgress = THREE.MathUtils.damp(this.displayedPhaseProgress, this.phaseProgress, 2.5, deltaSeconds);
             needsVisualUpdate = true;
         } else if (this.displayedPhaseProgress !== this.phaseProgress) {
             this.displayedPhaseProgress = this.phaseProgress;
@@ -254,7 +254,7 @@ export class LoadingScreenProgress {
                 needsVisualUpdate = true;
             }
         } else if (Math.abs(diff) > 0.1) {
-            this.displayedOverallProgress = THREE.MathUtils.damp(this.displayedOverallProgress, this.targetOverallProgress, 5.0, deltaSeconds);
+            this.displayedOverallProgress = THREE.MathUtils.damp(this.displayedOverallProgress, this.targetOverallProgress, 2.5, deltaSeconds);
             needsVisualUpdate = true;
         } else if (this.displayedOverallProgress !== this.targetOverallProgress) {
             this.displayedOverallProgress = this.targetOverallProgress;
