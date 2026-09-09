@@ -19,7 +19,11 @@
 
 import * as THREE from 'three';
 import { vec3, positionLocal } from 'three/tsl';
-import { MeshStandardNodeMaterial, MeshBasicNodeMaterial, MeshPhysicalNodeMaterial } from 'three/webgpu';
+import {
+    MeshStandardNodeMaterial,
+    MeshBasicNodeMaterial,
+    MeshPhysicalNodeMaterial,
+} from 'three/webgpu';
 import { CONFIG, isCIorHeadless } from '../core/config.ts';
 import { getStartupCapabilities, type MaterialSubset } from '../core/startup/capabilities.ts';
 import { CandyPresets, foliageMaterials, isClearcoatEnabled } from '../foliage/index.ts';
@@ -230,8 +234,7 @@ function getSurfaceVariantTargets(): WarmupTarget[] {
             // graph the preset vocabulary can produce.
             name: 'CandyPresets.Gummy+coat',
             priority: 40,
-            create: () =>
-                CandyPresets.Gummy(0xff6b6b, { clearcoat: 0.8, clearcoatRoughness: 0.1 }),
+            create: () => CandyPresets.Gummy(0xff6b6b, { clearcoat: 0.8, clearcoatRoughness: 0.1 }),
         },
         {
             // Shape of the remote-peer avatar material

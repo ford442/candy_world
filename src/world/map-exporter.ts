@@ -6,7 +6,7 @@ import {
     inferLayer,
     normalizeExportType,
     normalizeScale,
-    round
+    round,
 } from './map-entity-record.ts';
 import type { CandyMapData, CandyMapEntity } from './map-loader.ts';
 import { animatedFoliage, foliageGroup } from './state.ts';
@@ -36,19 +36,30 @@ export interface ExportWorldResult {
     };
 }
 
-function buildEntityFromInstanced(mesh: THREE.InstancedMesh, type: string, index: number): CandyMapEntity {
+function buildEntityFromInstanced(
+    mesh: THREE.InstancedMesh,
+    type: string,
+    index: number
+): CandyMapEntity {
     mesh.getMatrixAt(index, _instancedMatrix);
     _instancedMatrix.decompose(_worldPos, _worldQuat, _worldScale);
     return {
         id: `canonical:${type}:instanced:${index}`,
         type,
         position: [round(_worldPos.x), round(_worldPos.y), round(_worldPos.z)],
-        rotation: { quat: [round(_worldQuat.x, 6), round(_worldQuat.y, 6), round(_worldQuat.z, 6), round(_worldQuat.w, 6)] },
+        rotation: {
+            quat: [
+                round(_worldQuat.x, 6),
+                round(_worldQuat.y, 6),
+                round(_worldQuat.z, 6),
+                round(_worldQuat.w, 6),
+            ],
+        },
         scale: normalizeScale(_worldScale),
         category: inferCategory(type),
         layer: inferLayer(type),
         placement: type === 'cloud' || _worldPos.y > 8 ? 'absolute' : 'ground',
-        params: { provenance: 'instanced-fallback', batched: true }
+        params: { provenance: 'instanced-fallback', batched: true },
     };
 }
 
@@ -84,7 +95,8 @@ export function buildCanonicalMapFromWorld(options: ExportWorldOptions = {}): Ex
         seen.add(hash);
         entities.push(entity);
         byType[entity.type] = (byType[entity.type] || 0) + 1;
-        const provenance = typeof entity.params?.provenance === 'string' ? entity.params.provenance : 'runtime';
+        const provenance =
+            typeof entity.params?.provenance === 'string' ? entity.params.provenance : 'runtime';
         byProvenance[provenance] = (byProvenance[provenance] || 0) + 1;
     }
 
@@ -140,11 +152,14 @@ export function buildCanonicalMapFromWorld(options: ExportWorldOptions = {}): Ex
             version: '2.0',
             seed: 0,
             entityCount: entities.length,
-            bounds: { min: [round(minX, 2), round(minZ, 2)], max: [round(maxX, 2), round(maxZ, 2)] },
+            bounds: {
+                min: [round(minX, 2), round(minZ, 2)],
+                max: [round(maxX, 2), round(maxZ, 2)],
+            },
             exportedAt: new Date().toISOString(),
-            source: options.sourceLabel ?? 'runtime-export'
+            source: options.sourceLabel ?? 'runtime-export',
         },
-        entities
+        entities,
     };
 
     return {
@@ -153,8 +168,8 @@ export function buildCanonicalMapFromWorld(options: ExportWorldOptions = {}): Ex
             totalEntities: entities.length,
             byType,
             byProvenance,
-            deduped
-        }
+            deduped,
+        },
     };
 }
 
@@ -163,7 +178,7 @@ export function installWorldExportTools(): void {
     window.exportCurrentWorldToMap = async (options: WindowExportOptions = {}) => {
         const result = buildCanonicalMapFromWorld({
             includeInstancedFallback: options.includeInstancedFallback ?? true,
-            sourceLabel: options.sourceLabel ?? 'window-export'
+            sourceLabel: options.sourceLabel ?? 'window-export',
         });
         const fileName = options.fileName ?? 'canonical-part1-map.json';
         const json = JSON.stringify(result.map, null, 2);

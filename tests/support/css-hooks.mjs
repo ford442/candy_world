@@ -7,7 +7,11 @@ const ASSET_RE = /\.(css|scss|sass|svg|png|jpe?g|gif|webp|mp3|ogg|wav|wasm)(\?.*
 
 export async function resolve(specifier, context, nextResolve) {
     if (ASSET_RE.test(specifier)) {
-        return { url: 'data:text/javascript,export default {}', shortCircuit: true, format: 'module' };
+        return {
+            url: 'data:text/javascript,export default {}',
+            shortCircuit: true,
+            format: 'module',
+        };
     }
     return nextResolve(specifier, context);
 }

@@ -154,7 +154,10 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     const drag = float(1.5);
     const burstDist = velocity.mul(float(1.0).sub(exp(age.mul(drag).negate()))).div(drag);
 
-    // 2. Wind Drift (starts affecting after initial burst slows down)
+    // 2. Wind Drift (starts affecting after initial burst slows down).
+    // Like pollen.ts, this advects detached particles rather than bending
+    // anchored vertices, so calculateWindSway() is the wrong shape for it —
+    // it shares the wind uniforms instead.
     const windInfluence = smoothstep(0.5, 2.0, age);
     // Shared gust — seeds surge on the same swell as the foliage they left.
     const windDrift = uWindDirection.mul(uWindStrength).mul(age.mul(windInfluence));

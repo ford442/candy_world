@@ -11,11 +11,7 @@ import { create } from '../world/foliage-registry.ts';
 import { processMapEntity } from '../world/generation-entities.ts';
 import type { WeatherSystem, MapEntity } from '../world/generation-utils.ts';
 import { animatedFoliage } from '../world/state.ts';
-import {
-    migrateSnapshot,
-    restoreEntityWith,
-    type EntitySnapshot
-} from './entity-snapshot-core.ts';
+import { migrateSnapshot, restoreEntityWith, type EntitySnapshot } from './entity-snapshot-core.ts';
 import { populatePhysicsGrids } from './physics/index.ts';
 
 export * from './entity-snapshot-core.ts';
@@ -33,10 +29,11 @@ export function restoreEntity(
     options: { rebuildPhysicsGrid?: boolean } = {}
 ): THREE.Object3D[] {
     return restoreEntityWith(snapshot, {
-        processEntity: (item, weather) => processMapEntity(item as unknown as MapEntity, weather as WeatherSystem),
+        processEntity: (item, weather) =>
+            processMapEntity(item as unknown as MapEntity, weather as WeatherSystem),
         weatherSystem,
         registry: animatedFoliage as THREE.Object3D[],
-        onCollidersChanged: options.rebuildPhysicsGrid ? () => populatePhysicsGrids() : undefined
+        onCollidersChanged: options.rebuildPhysicsGrid ? () => populatePhysicsGrids() : undefined,
     });
 }
 
@@ -117,8 +114,15 @@ export function exportEntitySnapshot(obj: THREE.Object3D): LegacyEntitySnapshot 
         id: obj.userData?.mapEntityId || obj.uuid,
         type: mappedType,
         position: [round(_worldPos.x), round(_worldPos.y), round(_worldPos.z)],
-        rotation: { quat: [round(_worldQuat.x, 6), round(_worldQuat.y, 6), round(_worldQuat.z, 6), round(_worldQuat.w, 6)] },
-        scale: [round(_worldScale.x), round(_worldScale.y), round(_worldScale.z)]
+        rotation: {
+            quat: [
+                round(_worldQuat.x, 6),
+                round(_worldQuat.y, 6),
+                round(_worldQuat.z, 6),
+                round(_worldQuat.w, 6),
+            ],
+        },
+        scale: [round(_worldScale.x), round(_worldScale.y), round(_worldScale.z)],
     };
 
     if (obj.userData?.persistentId) {
@@ -143,7 +147,8 @@ export function exportEntitySnapshot(obj: THREE.Object3D): LegacyEntitySnapshot 
 
     if (mapExport.category) snapshot.category = mapExport.category as string;
     if (mapExport.layer) snapshot.layer = mapExport.layer as string;
-    if (mapExport.biome || obj.userData?.biome) snapshot.biome = (mapExport.biome || obj.userData?.biome) as string;
+    if (mapExport.biome || obj.userData?.biome)
+        snapshot.biome = (mapExport.biome || obj.userData?.biome) as string;
     if (mapExport.placement) snapshot.placement = mapExport.placement as any;
     if (mapExport.baseOffset !== undefined) snapshot.baseOffset = mapExport.baseOffset as number;
 
@@ -160,7 +165,10 @@ export function exportEntitySnapshot(obj: THREE.Object3D): LegacyEntitySnapshot 
     return snapshot;
 }
 
-export function importEntitySnapshot(snapshot: LegacyEntitySnapshot, applyToObj?: THREE.Object3D): THREE.Object3D | null {
+export function importEntitySnapshot(
+    snapshot: LegacyEntitySnapshot,
+    applyToObj?: THREE.Object3D
+): THREE.Object3D | null {
     let obj = applyToObj;
 
     if (!obj) {
@@ -188,7 +196,12 @@ export function importEntitySnapshot(snapshot: LegacyEntitySnapshot, applyToObj?
 
     // Apply transforms
     obj.position.set(snapshot.position[0], snapshot.position[1], snapshot.position[2]);
-    obj.quaternion.set(snapshot.rotation.quat[0], snapshot.rotation.quat[1], snapshot.rotation.quat[2], snapshot.rotation.quat[3]);
+    obj.quaternion.set(
+        snapshot.rotation.quat[0],
+        snapshot.rotation.quat[1],
+        snapshot.rotation.quat[2],
+        snapshot.rotation.quat[3]
+    );
     obj.scale.set(snapshot.scale[0], snapshot.scale[1], snapshot.scale[2]);
 
     // Apply metadata back to userData
@@ -201,9 +214,12 @@ export function importEntitySnapshot(snapshot: LegacyEntitySnapshot, applyToObj?
     if (snapshot.hasFace !== undefined) obj.userData.hasFace = snapshot.hasFace;
 
     if (snapshot.music) {
-        if (typeof snapshot.music.trackerChannel === 'number') obj.userData.trackerChannel = snapshot.music.trackerChannel;
-        if (typeof snapshot.music.reactivityProfile === 'string') obj.userData.reactivityProfile = snapshot.music.reactivityProfile;
-        if (typeof snapshot.music.intensityScale === 'number') obj.userData.reactivityIntensityScale = snapshot.music.intensityScale;
+        if (typeof snapshot.music.trackerChannel === 'number')
+            obj.userData.trackerChannel = snapshot.music.trackerChannel;
+        if (typeof snapshot.music.reactivityProfile === 'string')
+            obj.userData.reactivityProfile = snapshot.music.reactivityProfile;
+        if (typeof snapshot.music.intensityScale === 'number')
+            obj.userData.reactivityIntensityScale = snapshot.music.intensityScale;
     }
 
     obj.userData.mapExport = {
@@ -220,7 +236,7 @@ export function importEntitySnapshot(snapshot: LegacyEntitySnapshot, applyToObj?
         music: snapshot.music,
         placement: snapshot.placement,
         baseOffset: snapshot.baseOffset,
-        params: snapshot.params
+        params: snapshot.params,
     };
 
     return obj;

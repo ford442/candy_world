@@ -49,7 +49,7 @@ export const SUPPORTED_EXPORT_TYPES = new Set<string>([
     'gem_canopy_tree',
     'glass_mushroom',
     'sky_island',
-    'vine_ladder'
+    'vine_ladder',
 ]);
 
 const _worldPos = new THREE.Vector3();
@@ -70,7 +70,13 @@ export function normalizeScale(scale: THREE.Vector3): number | [number, number, 
 }
 
 export function inferCategory(type: string): string {
-    if (type === 'bubble_willow' || type === 'portamento_pine' || type === 'fiber_optic_willow' || type === 'gem_canopy_tree') return 'mushroom-trees';
+    if (
+        type === 'bubble_willow' ||
+        type === 'portamento_pine' ||
+        type === 'fiber_optic_willow' ||
+        type === 'gem_canopy_tree'
+    )
+        return 'mushroom-trees';
     if (type === 'mushroom' || type === 'retrigger_mushroom') return 'face-mushrooms';
     if (type === 'glass_mushroom') return 'mycelium';
     if (type === 'cloud') return 'clouds';
@@ -82,14 +88,22 @@ export function inferCategory(type: string): string {
         type === 'subwoofer_lotus' ||
         type === 'portamento_pine' ||
         type === 'cymbal_dandelion'
-    ) return 'musical-flora';
-    if (type === 'floating_orb' || type === 'silence_spirit' || type === 'instrument_shrine' || type === 'melody_mirror') return 'interactive';
+    )
+        return 'musical-flora';
+    if (
+        type === 'floating_orb' ||
+        type === 'silence_spirit' ||
+        type === 'instrument_shrine' ||
+        type === 'melody_mirror'
+    )
+        return 'interactive';
     return 'decorative';
 }
 
 export function inferLayer(type: string): string {
     if (type === 'cloud' || type === 'floating_orb') return 'sky';
-    if (type === 'instrument_shrine' || type === 'melody_mirror' || type === 'silence_spirit') return 'interactive';
+    if (type === 'instrument_shrine' || type === 'melody_mirror' || type === 'silence_spirit')
+        return 'interactive';
     return 'ground';
 }
 
@@ -99,7 +113,12 @@ export function normalizeExportType(value: unknown): string | null {
     return SUPPORTED_EXPORT_TYPES.has(normalized) ? normalized : null;
 }
 
-export function withProvenanceParams(base: Record<string, unknown> | undefined, provenance: string, sourceId?: string, isBatched?: boolean): Record<string, unknown> | undefined {
+export function withProvenanceParams(
+    base: Record<string, unknown> | undefined,
+    provenance: string,
+    sourceId?: string,
+    isBatched?: boolean
+): Record<string, unknown> | undefined {
     const params = base ? { ...base } : {};
     params.provenance = provenance;
     if (sourceId) params.sourceId = sourceId;
@@ -113,9 +132,14 @@ export function entityHash(entity: CandyMapEntity): string {
     const p = entity.position;
     const s = entity.scale;
     const scaleHash = Array.isArray(s) ? s.join(',') : String(s ?? 1);
-    const rot = (entity.rotation && typeof entity.rotation === 'object' && !Array.isArray(entity.rotation) && 'quat' in entity.rotation && Array.isArray(entity.rotation.quat))
-        ? entity.rotation.quat.join(',')
-        : 'none';
+    const rot =
+        entity.rotation &&
+        typeof entity.rotation === 'object' &&
+        !Array.isArray(entity.rotation) &&
+        'quat' in entity.rotation &&
+        Array.isArray(entity.rotation.quat)
+            ? entity.rotation.quat.join(',')
+            : 'none';
     return `${entity.type}|${round(p[0], 2)}|${round(p[1], 2)}|${round(p[2], 2)}|${scaleHash}|${rot}|${entity.variant ?? ''}|${entity.note ?? ''}|${entity.noteIndex ?? ''}`;
 }
 
@@ -128,7 +152,8 @@ export function entityHash(entity: CandyMapEntity): string {
  */
 export function buildEntityFromObject(obj: THREE.Object3D, index: number): CandyMapEntity | null {
     const exportMeta = (obj.userData?.mapExport ?? {}) as Record<string, unknown>;
-    const mappedType = normalizeExportType(exportMeta.type) ??
+    const mappedType =
+        normalizeExportType(exportMeta.type) ??
         normalizeExportType(obj.userData?.mapEntityType) ??
         normalizeExportType(obj.userData?.type);
     if (!mappedType) return null;
@@ -137,10 +162,13 @@ export function buildEntityFromObject(obj: THREE.Object3D, index: number): Candy
     obj.getWorldQuaternion(_worldQuat);
     obj.getWorldScale(_worldScale);
 
-    const provenance = typeof exportMeta.provenance === 'string' ? exportMeta.provenance : 'runtime';
+    const provenance =
+        typeof exportMeta.provenance === 'string' ? exportMeta.provenance : 'runtime';
     const sourceId = typeof exportMeta.sourceId === 'string' ? exportMeta.sourceId : undefined;
     const params = withProvenanceParams(
-        exportMeta.params && typeof exportMeta.params === 'object' ? (exportMeta.params as Record<string, unknown>) : undefined,
+        exportMeta.params && typeof exportMeta.params === 'object'
+            ? (exportMeta.params as Record<string, unknown>)
+            : undefined,
         provenance,
         sourceId,
         !!obj.userData?.isBatched
@@ -150,20 +178,38 @@ export function buildEntityFromObject(obj: THREE.Object3D, index: number): Candy
         id: `canonical:${mappedType}:${index}`,
         type: mappedType,
         position: [round(_worldPos.x), round(_worldPos.y), round(_worldPos.z)],
-        rotation: { quat: [round(_worldQuat.x, 6), round(_worldQuat.y, 6), round(_worldQuat.z, 6), round(_worldQuat.w, 6)] },
+        rotation: {
+            quat: [
+                round(_worldQuat.x, 6),
+                round(_worldQuat.y, 6),
+                round(_worldQuat.z, 6),
+                round(_worldQuat.w, 6),
+            ],
+        },
         scale: normalizeScale(_worldScale),
-        category: (typeof exportMeta.category === 'string' && exportMeta.category) || inferCategory(mappedType),
+        category:
+            (typeof exportMeta.category === 'string' && exportMeta.category) ||
+            inferCategory(mappedType),
         layer: (typeof exportMeta.layer === 'string' && exportMeta.layer) || inferLayer(mappedType),
-        biome: (typeof exportMeta.biome === 'string' && exportMeta.biome) || (typeof obj.userData?.biome === 'string' ? obj.userData.biome : undefined),
-        placement: (typeof exportMeta.placement === 'string' && ['ground', 'absolute', 'offset'].includes(exportMeta.placement))
-            ? exportMeta.placement as 'ground' | 'absolute' | 'offset'
-            : (mappedType === 'cloud' || _worldPos.y > 8 ? 'absolute' : 'ground'),
-        params
+        biome:
+            (typeof exportMeta.biome === 'string' && exportMeta.biome) ||
+            (typeof obj.userData?.biome === 'string' ? obj.userData.biome : undefined),
+        placement:
+            typeof exportMeta.placement === 'string' &&
+            ['ground', 'absolute', 'offset'].includes(exportMeta.placement)
+                ? (exportMeta.placement as 'ground' | 'absolute' | 'offset')
+                : mappedType === 'cloud' || _worldPos.y > 8
+                  ? 'absolute'
+                  : 'ground',
+        params,
     };
 
-    const storedBaseOffset = typeof exportMeta.baseOffset === 'number'
-        ? exportMeta.baseOffset
-        : (typeof params?.baseOffset === 'number' ? params.baseOffset : undefined);
+    const storedBaseOffset =
+        typeof exportMeta.baseOffset === 'number'
+            ? exportMeta.baseOffset
+            : typeof params?.baseOffset === 'number'
+              ? params.baseOffset
+              : undefined;
     if (storedBaseOffset !== undefined && Number.isFinite(storedBaseOffset)) {
         entity.baseOffset = storedBaseOffset;
     }
@@ -182,7 +228,11 @@ export function buildEntityFromObject(obj: THREE.Object3D, index: number): Candy
         entity.music = { biomeTag: entity.biome };
     }
 
-    if (mappedType === 'portamento_pine' && entity.params && typeof entity.params.height !== 'number') {
+    if (
+        mappedType === 'portamento_pine' &&
+        entity.params &&
+        typeof entity.params.height !== 'number'
+    ) {
         entity.params.height = round(_worldScale.y * 4, 3);
     }
     if (mappedType === 'cloud' && entity.params && typeof entity.params.size !== 'number') {

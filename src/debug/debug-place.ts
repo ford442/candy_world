@@ -10,7 +10,11 @@
  */
 
 import * as THREE from 'three';
-import { markAuthoredTransform, nextSnapshotId, snapshotEntity } from '../systems/entity-snapshot-core.ts';
+import {
+    markAuthoredTransform,
+    nextSnapshotId,
+    snapshotEntity,
+} from '../systems/entity-snapshot-core.ts';
 import { saveSnapshot } from '../systems/entity-snapshot-store.ts';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
 import { showToast } from '../utils/toast.ts';
@@ -141,7 +145,8 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
     flexRow.appendChild(typeSelect);
     const snapshotBtn = document.createElement('button');
     snapshotBtn.textContent = 'Capture Snapshot';
-    snapshotBtn.style.cssText = 'background:#1a4;color:#fff;border:1px solid #3c6;padding:2px 6px;margin-left:4px;cursor:pointer;';
+    snapshotBtn.style.cssText =
+        'background:#1a4;color:#fff;border:1px solid #3c6;padding:2px 6px;margin-left:4px;cursor:pointer;';
     snapshotBtn.addEventListener('click', () => {
         if (!_lastSpawnedObject) {
             showToast('No recent object to capture', '⚠️', 2000);
@@ -164,7 +169,6 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
         }
     });
     flexRow.appendChild(snapshotBtn);
-
 
     document.body.appendChild(_panel);
 
@@ -224,7 +228,9 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
             obj.userData.mapEntityId = nextSnapshotId();
             markAuthoredTransform(obj, {
                 scale: _currentScale,
-                rotation: { quat: [obj.quaternion.x, obj.quaternion.y, obj.quaternion.z, obj.quaternion.w] }
+                rotation: {
+                    quat: [obj.quaternion.x, obj.quaternion.y, obj.quaternion.z, obj.quaternion.w],
+                },
             });
 
             // To ensure we get it perfectly in the scene, add to scene and maybe foliage group if applicable

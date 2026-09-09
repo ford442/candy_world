@@ -133,7 +133,13 @@ export function initializeTreeBatcherMeshes(
         aerialPerspectiveLodBoost()
     );
 
-    // Flutter: High frequency vertex displacement driven by wind
+    // Flutter: High frequency vertex displacement driven by wind.
+    // Stays bespoke rather than moving into calculateWindSway(): the shared
+    // factory bends horizontally along uWindDirection with a y² falloff, and
+    // this needs a fixed 3-axis offset with no height falloff. Migrating it
+    // would need two options the factory deliberately does not have — a bend
+    // *direction* node and a height-falloff override. It is an additive detail
+    // layer on top of foliageDeformationOffset(), not a competing sway.
     const flutterSpeed = float(15.0);
     const flutterAmp = float(0.08).mul(uWindStrength.add(0.5));
     // Use world position to decorrelate instances

@@ -47,7 +47,6 @@ export {
     applyStandardDeformation,
     // Wind and bloom
     calculateWindSway,
-    calculateWindSwayLegacy,
     calculateFlowerBloom,
     getWindTextureData,
     windComputeSystem,

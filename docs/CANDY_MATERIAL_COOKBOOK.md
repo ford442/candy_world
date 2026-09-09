@@ -297,7 +297,7 @@ Optional `scaleDistanceBias` shrinks instances ~8% toward biome outer radius.
 Three cross-cutting options on `UnifiedMaterialOptions`
 ([`unified-material.ts`](../src/foliage/material-core/unified-material.ts)). All three
 are ordinary node/property assignments, but two of them — `clearcoat` and `useDreamEnv` —
-swap a whole extra *lighting term* into the graph, so a material that carries one
+swap a whole extra _lighting term_ into the graph, so a material that carries one
 compiles to a different pipeline than the same preset without it. That is why both are
 tier-gated (below) and why [`shader-warmup.ts`](../src/rendering/shader-warmup.ts)
 pre-compiles the override shapes the bare presets leave uncovered. See
@@ -391,12 +391,12 @@ ship with — `Sugar` (coat, no env), `Gummy` and `Crystal` (env, no coat). Two 
 reachable only through overrides and so are warmed explicitly by
 `getSurfaceVariantTargets()`:
 
-| Warm-up target             | Why it is not covered by a bare preset                                              |
-| -------------------------- | ------------------------------------------------------------------------------------ |
-| `CandyPresets.Gummy+coat`  | The documented `{ clearcoat: 0.8 }` opt-in — coat *and* env together, the heaviest graph the preset vocabulary produces |
-| `PhysicalClearcoat_Base`   | Shape of [`remote-avatars.ts`](../src/systems/net/remote-avatars.ts): a bare `MeshPhysicalNodeMaterial` with a coat, built outside the presets entirely |
+| Warm-up target            | Why it is not covered by a bare preset                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CandyPresets.Gummy+coat` | The documented `{ clearcoat: 0.8 }` opt-in — coat _and_ env together, the heaviest graph the preset vocabulary produces                                 |
+| `PhysicalClearcoat_Base`  | Shape of [`remote-avatars.ts`](../src/systems/net/remote-avatars.ts): a bare `MeshPhysicalNodeMaterial` with a coat, built outside the presets entirely |
 
-Two entries, not a matrix: every other override differs only in *uniform values*, which
+Two entries, not a matrix: every other override differs only in _uniform values_, which
 three's program cache does not fork on. Both are skipped when the coat gate is off, where
 they would compile to the un-coated graph the presets already warmed.
 

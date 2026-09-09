@@ -95,7 +95,8 @@ function deriveTags(entity: CandyMapEntity, obj?: THREE.Object3D): string[] {
     if (music) {
         const biomeTag = music.biomeTag ?? music.biome ?? music.biomeOverride;
         if (typeof biomeTag === 'string') tags.add(`music:${biomeTag}`);
-        if (typeof music.reactivityProfile === 'string') tags.add(`profile:${music.reactivityProfile}`);
+        if (typeof music.reactivityProfile === 'string')
+            tags.add(`profile:${music.reactivityProfile}`);
         if (Number.isInteger(music.trackerChannel)) tags.add(`channel:${music.trackerChannel}`);
     }
     if (typeof entity.note === 'string') tags.add(`note:${entity.note}`);
@@ -118,9 +119,8 @@ export function snapshotEntity(
     obj: THREE.Object3D,
     idOrOptions?: string | SnapshotOptions
 ): EntitySnapshot | null {
-    const options: SnapshotOptions = typeof idOrOptions === 'string'
-        ? { id: idOrOptions }
-        : (idOrOptions ?? {});
+    const options: SnapshotOptions =
+        typeof idOrOptions === 'string' ? { id: idOrOptions } : (idOrOptions ?? {});
 
     const entity = buildEntityFromObject(obj, 0);
     if (!entity) return null;
@@ -138,14 +138,20 @@ export function snapshotEntity(
         schemaVersion: CURRENT_SNAPSHOT_VERSION,
         id,
         entity: canonicalizeEntity(entity),
-        tags: deriveTags(entity, obj)
+        tags: deriveTags(entity, obj),
     };
 
     const userData: EntitySnapshotUserData = {};
-    if (typeof obj.userData?.animationType === 'string') userData.animationType = obj.userData.animationType;
-    if (typeof obj.userData?.animationOffset === 'number') userData.animationOffset = round(obj.userData.animationOffset, 6);
-    if (typeof obj.userData?.animationSpeed === 'number') userData.animationSpeed = round(obj.userData.animationSpeed, 6);
-    for (const _ in userData) { snapshot.userData = userData; break; }
+    if (typeof obj.userData?.animationType === 'string')
+        userData.animationType = obj.userData.animationType;
+    if (typeof obj.userData?.animationOffset === 'number')
+        userData.animationOffset = round(obj.userData.animationOffset, 6);
+    if (typeof obj.userData?.animationSpeed === 'number')
+        userData.animationSpeed = round(obj.userData.animationSpeed, 6);
+    for (const _ in userData) {
+        snapshot.userData = userData;
+        break;
+    }
 
     if (options.includeLegacyHash !== false) {
         const [x, , z] = snapshot.entity.position;
@@ -156,10 +162,26 @@ export function snapshotEntity(
 }
 
 const ENTITY_KEY_ORDER: (keyof CandyMapEntity)[] = [
-    'id', 'type', 'persistentId', 'position', 'rotation', 'scale',
-    'variant', 'size', 'note', 'noteIndex', 'hasFace',
-    'category', 'layer', 'biome', 'music', 'placement', 'baseOffset',
-    'critical', 'isObstacle', 'params'
+    'id',
+    'type',
+    'persistentId',
+    'position',
+    'rotation',
+    'scale',
+    'variant',
+    'size',
+    'note',
+    'noteIndex',
+    'hasFace',
+    'category',
+    'layer',
+    'biome',
+    'music',
+    'placement',
+    'baseOffset',
+    'critical',
+    'isObstacle',
+    'params',
 ];
 
 function roundDeep(value: unknown, digits: number): unknown {
@@ -220,7 +242,7 @@ const MIGRATIONS: Record<number, SnapshotMigration> = {
         delete next.positionHash;
         if (!Array.isArray(next.tags)) next.tags = [];
         return next;
-    }
+    },
 };
 
 /**
@@ -235,10 +257,13 @@ export function migrateSnapshot(raw: unknown): EntitySnapshot {
 
     let data = { ...(raw as Record<string, unknown>) };
     const rawVersion = data.schemaVersion;
-    let version = typeof rawVersion === 'number' && Number.isFinite(rawVersion) ? Math.floor(rawVersion) : 1;
+    let version =
+        typeof rawVersion === 'number' && Number.isFinite(rawVersion) ? Math.floor(rawVersion) : 1;
 
     if (version > CURRENT_SNAPSHOT_VERSION) {
-        throw new Error(`[EntitySnapshot] Cannot load snapshot from future version ${version} (current ${CURRENT_SNAPSHOT_VERSION})`);
+        throw new Error(
+            `[EntitySnapshot] Cannot load snapshot from future version ${version} (current ${CURRENT_SNAPSHOT_VERSION})`
+        );
     }
 
     while (version < CURRENT_SNAPSHOT_VERSION) {
@@ -304,9 +329,12 @@ export function restoreEntityWith(snapshot: EntitySnapshot, deps: RestoreDeps): 
         if (!obj) continue;
         markAuthoredTransform(obj, { scale: record.scale, rotation: record.rotation });
         obj.userData.mapEntityId = current.id;
-        if (current.userData?.animationType) obj.userData.animationType = current.userData.animationType;
-        if (current.userData?.animationOffset !== undefined) obj.userData.animationOffset = current.userData.animationOffset;
-        if (current.userData?.animationSpeed !== undefined) obj.userData.animationSpeed = current.userData.animationSpeed;
+        if (current.userData?.animationType)
+            obj.userData.animationType = current.userData.animationType;
+        if (current.userData?.animationOffset !== undefined)
+            obj.userData.animationOffset = current.userData.animationOffset;
+        if (current.userData?.animationSpeed !== undefined)
+            obj.userData.animationSpeed = current.userData.animationSpeed;
     }
 
     deps.onCollidersChanged?.();
@@ -338,9 +366,11 @@ export function applyEntitySnapshot(snapshot: EntitySnapshot, obj: THREE.Object3
                 obj.quaternion.set(qx, qy, qz, qw);
             } else if ('euler' in rotation && Array.isArray(rotation.euler)) {
                 const [rx, ry, rz] = rotation.euler;
-                const order = rotation.order && ['XYZ', 'YZX', 'ZXY', 'XZY', 'YXZ', 'ZYX'].includes(rotation.order)
-                    ? rotation.order
-                    : 'YXZ';
+                const order =
+                    rotation.order &&
+                    ['XYZ', 'YZX', 'ZXY', 'XZY', 'YXZ', 'ZYX'].includes(rotation.order)
+                        ? rotation.order
+                        : 'YXZ';
                 obj.rotation.set(rx, ry, rz, order as THREE.EulerOrder);
             }
         }
@@ -353,9 +383,12 @@ export function applyEntitySnapshot(snapshot: EntitySnapshot, obj: THREE.Object3
     markAuthoredTransform(obj, { scale: current.entity.scale, rotation: current.entity.rotation });
 
     if (current.userData) {
-        if (current.userData.animationType) obj.userData.animationType = current.userData.animationType;
-        if (current.userData.animationOffset !== undefined) obj.userData.animationOffset = current.userData.animationOffset;
-        if (current.userData.animationSpeed !== undefined) obj.userData.animationSpeed = current.userData.animationSpeed;
+        if (current.userData.animationType)
+            obj.userData.animationType = current.userData.animationType;
+        if (current.userData.animationOffset !== undefined)
+            obj.userData.animationOffset = current.userData.animationOffset;
+        if (current.userData.animationSpeed !== undefined)
+            obj.userData.animationSpeed = current.userData.animationSpeed;
     }
 
     obj.userData.mapEntityId = current.id;

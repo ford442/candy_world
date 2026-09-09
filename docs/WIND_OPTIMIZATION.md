@@ -280,12 +280,16 @@ class WindComputeSystem {
 #### Before Optimization
 
 ```javascript
-// In console, temporarily disable optimized version
-const original = calculateWindSway;
-calculateWindSway = calculateWindSwayLegacy;
-
-// Record 5-10 seconds of gameplay
+// Record 5-10 seconds of gameplay in a dense biome
 // Stop recording and note the "GPU Time" metric
+```
+
+To count generated instructions rather than eyeball frame time, dump the WGSL
+for one representative material (r171 exposes this on the renderer):
+
+```javascript
+const { vertexShader } = await renderer.debug.getShaderAsync(scene, camera, mesh);
+console.log(vertexShader.split('\n').length);
 ```
 
 #### After Optimization
@@ -435,12 +439,110 @@ function animate(deltaTime: number) {
 
 ### Issue: Different visual appearance
 
-**Solution**: Temporarily switch to `calculateWindSwayLegacy` for comparison:
+**Solution**: Compare against the bare factory with no options and no LOD
+weighting, which is the reference behaviour:
 
 ```typescript
-import { calculateWindSwayLegacy } from './src/foliage/common.ts';
-mat.positionNode = positionLocal.add(calculateWindSwayLegacy(positionLocal));
+import { calculateWindSway } from './src/foliage/material-core/deformation.ts';
+mat.positionNode = positionLocal.add(calculateWindSway(positionLocal));
 ```
+
+---
+
+## Authoring wind on a new batcher
+
+Call the shared factory. Do not write a second sine.
+
+```typescript
+import { applyStandardDeformationWithLod } from '../foliage/lod-nodes.ts'; // LOD-enabled batchers
+import { applyStandardDeformation } from '../foliage/material-core/deformation.ts'; // everything else
+
+mat.positionNode = applyStandardDeformationWithLod(positionLocal.add(animOffset));
+```
+
+### Giving a species its own character
+
+`calculateWindSway(pos, options)` — and every wrapper that forwards to it —
+takes node-valued options. **Options are TSL nodes, never booleans.** A node is
+data and compiles into the one shared graph; a boolean would fork the graph and
+multiply shader permutations. Pass a constant (`float(2.0)`) or a per-instance
+attribute (`attribute('aStiffness', 'float')`) — the latter costs nothing extra
+and varies the species across the world.
+
+| Option            | Effect                                              |
+| ----------------- | --------------------------------------------------- |
+| `stiffness`       | divides sway — >1 woody, <1 floppy                  |
+| `amplitude`       | multiplies sway                                     |
+| `frequency`       | multiplies the phase rate — faster, tighter waves   |
+| `phaseOffset`     | added to the phase, to de-sync species deliberately |
+| `audioReactivity` | sway gains `uAudioLow × audioReactivity`            |
+| `circadianBlend`  | multiplies sway, for day/night dampening            |
+
+**Every option is omitted by default, and an omitted option emits no
+instruction at all** — an unparameterized call generates exactly the WGSL it
+generated before options existed. That is what makes adopting the factory a
+provably behaviour-preserving change.
+
+The only permitted _structural_ variant is LOD (cheap graph far, full graph
+near), and it lives in `lod-nodes.ts`. Keeping it there holds the permutation
+count at 2 rather than 2ⁿ.
+
+### Why the factory pins values with `.toVar()`
+
+TSL **inlines** a node at every use site — reusing a node re-runs its
+computation in the generated WGSL, it does not cache it. `calculateWindSway`
+feeds its phase, sway and height falloff into both `.x` and `.z`, so without
+`.toVar()` each `sin()` and `pow()` compiles twice, per vertex, on every
+instanced foliage mesh. `calculatePlayerPush` does the same with `normalize()`.
+If you add a value consumed more than once, `.toVar()` it.
+
+The same trap exists one layer up: `foliageDeformationOffset` computes sway once
+and shares it between the hero and mid tiers. Do not call `calculateWindSway`
+twice with the same argument.
+
+### Species that stay bespoke
+
+Three call sites deliberately do not use the factory, each with a comment saying
+why at the source:
+
+- `tree-batcher/materials-init.ts` leaf flutter — needs a fixed 3-axis offset
+  with no height falloff; the factory bends horizontally along `uWindDirection`
+  with a y² falloff. It is an _additive detail layer_ stacked on
+  `foliageDeformationOffset()`, not a competing sway.
+- `pollen.ts` and `dandelion-seeds.ts` — compute-pass advection of detached
+  particles, where wind is a force on a position rather than a bend on an
+  anchored vertex. They share the wind _uniforms_, which is the part that must
+  agree.
+
+### Shadows: decided — foliage shadows sway, and already do
+
+**Decision (2026-09-09, Noah): deformed foliage casts a deformed shadow.**
+No code was needed to honour it — on the WebGPU path r171 already inherits
+vertex deformation into the depth pass:
+
+- `ShadowNode.updateShadow()` sets `scene.overrideMaterial` to the light's
+  shared `ShadowNodeMaterial` and renders only `castShadow` objects.
+  `CSMShadowNode` (the cascade rig in `src/systems/shadow-cascades.ts`)
+  inherits that path rather than replacing it.
+- `Renderer.renderObject()` then copies the **object's own `positionNode` onto
+  that override material** for the duration of the draw
+  (`three/src/renderers/common/Renderer.js`, in the `scene.overrideMaterial`
+  branch), restoring it afterwards.
+
+So `calculateWindSway` runs in the shadow pass too, at no extra material and no
+second graph. The absence of `customDepthMaterial` / `customDistanceMaterial`
+from this repo is **not** evidence of a bug: those are `WebGLRenderer`
+concepts, and this app renders through `WebGPURenderer` (whose WebGL _backend_
+uses the same `Renderer.js` above), so they would never have been consulted.
+
+**The guardrail that keeps this true:** only `positionNode` is inherited.
+`vertexNode` and `geometryNode` are not copied to the override material, so a
+material that deforms through either would sway in the color pass while its
+shadow stayed rigid — the exact detached-shadow artefact, reintroduced. Nothing
+in `src/` uses them today. Deform through `positionNode`.
+
+To confirm by eye: harsh directional light, time scale up, watch ground shadows
+track the meshes (detection guide #2).
 
 ---
 

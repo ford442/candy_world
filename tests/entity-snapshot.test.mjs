@@ -15,7 +15,7 @@ import {
     CURRENT_SNAPSHOT_VERSION,
     canonicalizeEntity,
     migrateSnapshot,
-    snapshotEntity
+    snapshotEntity,
 } from '../src/systems/entity-snapshot-core.ts';
 import { restoreEntity } from '../src/systems/entity-snapshot.ts';
 import { mergeSnapshotLayers } from '../src/systems/entity-snapshot-store.ts';
@@ -46,8 +46,14 @@ function roundTrip(snapshot) {
     assert.ok(created.length > 0, `restore produced no object for ${snapshot.entity.type}`);
     const mirror = created[0];
     // CPU mirror only: these are plain Object3Ds tracked by animatedFoliage.
-    assert.ok(!mirror.isInstancedMesh, 'snapshot source must be the CPU mirror, not an InstancedMesh');
-    assert.ok(animatedFoliage.includes(mirror), 'restored object must be registered in animatedFoliage');
+    assert.ok(
+        !mirror.isInstancedMesh,
+        'snapshot source must be the CPU mirror, not an InstancedMesh'
+    );
+    assert.ok(
+        animatedFoliage.includes(mirror),
+        'restored object must be registered in animatedFoliage'
+    );
     const next = snapshotEntity(mirror, { id: snapshot.id });
     assert.ok(next, `re-snapshot failed for ${snapshot.entity.type}`);
     return { created, snapshot: next };
@@ -57,14 +63,17 @@ function roundTrip(snapshot) {
 // (a) static prop — not batched, authored scale/rotation
 // ---------------------------------------------------------------------------
 test('static prop round-trips to the same canonical CandyMapEntity', () => {
-    const seed = seedSnapshot({
-        type: 'starflower',
-        position: [12.5, 3.25, -7.75],
-        rotation: { quat: [0, 0.3827, 0, 0.9239] },
-        scale: 1.75,
-        placement: 'absolute',
-        params: {}
-    }, 'snap-static-prop');
+    const seed = seedSnapshot(
+        {
+            type: 'starflower',
+            position: [12.5, 3.25, -7.75],
+            rotation: { quat: [0, 0.3827, 0, 0.9239] },
+            scale: 1.75,
+            placement: 'absolute',
+            params: {},
+        },
+        'snap-static-prop'
+    );
 
     const first = roundTrip(seed).snapshot;
     const second = roundTrip(first).snapshot;
@@ -82,15 +91,18 @@ test('static prop round-trips to the same canonical CandyMapEntity', () => {
 // (b) instanced-batcher entity — one logical instance, read from the CPU mirror
 // ---------------------------------------------------------------------------
 test('instanced-batcher instance round-trips per logical instance', () => {
-    const seed = seedSnapshot({
-        type: 'mushroom',
-        position: [10, 0.5, -5],
-        rotation: { quat: [0, 0, 0, 1] },
-        scale: 1.5,
-        variant: 'regular',
-        placement: 'absolute',
-        params: {}
-    }, 'snap-batched-mushroom');
+    const seed = seedSnapshot(
+        {
+            type: 'mushroom',
+            position: [10, 0.5, -5],
+            rotation: { quat: [0, 0, 0, 1] },
+            scale: 1.5,
+            variant: 'regular',
+            placement: 'absolute',
+            params: {},
+        },
+        'snap-batched-mushroom'
+    );
 
     const { created, snapshot: first } = roundTrip(seed);
     const mirror = created[0];
@@ -101,7 +113,11 @@ test('instanced-batcher instance round-trips per logical instance', () => {
     // ...so the authored transform is what makes the round-trip lossless.
     assert.equal(first.entity.params.batched, true);
     assert.equal(first.entity.scale, 1.5, 'authored scale survives the batcher');
-    assert.deepEqual(first.entity.rotation, { quat: [0, 0, 0, 1] }, 'authored rotation survives the batcher');
+    assert.deepEqual(
+        first.entity.rotation,
+        { quat: [0, 0, 0, 1] },
+        'authored rotation survives the batcher'
+    );
     assert.deepEqual(first.entity.position, [10, 0.5, -5]);
 
     const second = roundTrip(first).snapshot;
@@ -112,28 +128,39 @@ test('instanced-batcher instance round-trips per logical instance', () => {
 // (c) music-reactive entity — note fields + derived tags
 // ---------------------------------------------------------------------------
 test('music-reactive entity round-trips note fields and tags', () => {
-    const seed = seedSnapshot({
-        type: 'vibrato_violet',
-        position: [-2, 1.5, 3],
-        rotation: { quat: [0, 0, 0, 1] },
-        scale: 1,
-        note: 'C4',
-        noteIndex: 0,
-        biome: 'arpeggio_grove',
-        music: { biomeTag: 'arpeggio_grove', trackerChannel: 2, reactivityProfile: 'lead' },
-        placement: 'absolute',
-        params: {}
-    }, 'snap-music-violet');
+    const seed = seedSnapshot(
+        {
+            type: 'vibrato_violet',
+            position: [-2, 1.5, 3],
+            rotation: { quat: [0, 0, 0, 1] },
+            scale: 1,
+            note: 'C4',
+            noteIndex: 0,
+            biome: 'arpeggio_grove',
+            music: { biomeTag: 'arpeggio_grove', trackerChannel: 2, reactivityProfile: 'lead' },
+            placement: 'absolute',
+            params: {},
+        },
+        'snap-music-violet'
+    );
 
     const first = roundTrip(seed).snapshot;
 
     assert.equal(first.entity.note, 'C4');
     assert.equal(first.entity.noteIndex, 0);
     assert.equal(first.entity.biome, 'arpeggio_grove');
-    assert.deepEqual(first.entity.music, { biomeTag: 'arpeggio_grove', trackerChannel: 2, reactivityProfile: 'lead' });
+    assert.deepEqual(first.entity.music, {
+        biomeTag: 'arpeggio_grove',
+        trackerChannel: 2,
+        reactivityProfile: 'lead',
+    });
     assert.deepEqual(first.tags, [
-        'biome:arpeggio_grove', 'channel:2', 'music:arpeggio_grove',
-        'note:C4', 'profile:lead', 'reactivity:flora'
+        'biome:arpeggio_grove',
+        'channel:2',
+        'music:arpeggio_grove',
+        'note:C4',
+        'profile:lead',
+        'reactivity:flora',
     ]);
 
     const second = roundTrip(first).snapshot;
@@ -144,14 +171,17 @@ test('music-reactive entity round-trips note fields and tags', () => {
 // ids & legacy position hash
 // ---------------------------------------------------------------------------
 test('snapshot ids are generated, never the position hash', () => {
-    const seed = seedSnapshot({
-        type: 'starflower',
-        position: [4, 2, 4],
-        rotation: { quat: [0, 0, 0, 1] },
-        scale: 1,
-        placement: 'absolute',
-        params: {}
-    }, 'snap-id-check');
+    const seed = seedSnapshot(
+        {
+            type: 'starflower',
+            position: [4, 2, 4],
+            rotation: { quat: [0, 0, 0, 1] },
+            scale: 1,
+            placement: 'absolute',
+            params: {},
+        },
+        'snap-id-check'
+    );
 
     const created = restoreEntity(seed);
     const a = snapshotEntity(created[0]);
@@ -160,7 +190,11 @@ test('snapshot ids are generated, never the position hash', () => {
     assert.notEqual(a.id, b.id, 'each snapshot gets a fresh generated id');
     assert.match(a.id, /^snap_/);
     assert.ok(a.legacyPositionHash, 'position hash is retained for legacy lookup');
-    assert.equal(a.legacyPositionHash, b.legacyPositionHash, 'position hash depends only on position + type');
+    assert.equal(
+        a.legacyPositionHash,
+        b.legacyPositionHash,
+        'position hash depends only on position + type'
+    );
     assert.notEqual(a.id, a.legacyPositionHash, 'the id is not the position hash');
 });
 
@@ -177,8 +211,8 @@ test('v1 snapshot migrates to the current shape', () => {
             position: [0, 0, 0],
             rotation: { quat: [0, 0, 0, 1] },
             scale: 1,
-            params: {}
-        }
+            params: {},
+        },
     };
 
     const migrated = migrateSnapshot(v1);
@@ -191,15 +225,27 @@ test('v1 snapshot migrates to the current shape', () => {
 });
 
 test('a current-version snapshot migrates to itself', () => {
-    const snapshot = seedSnapshot({
-        type: 'starflower', position: [1, 2, 3], rotation: { quat: [0, 0, 0, 1] }, scale: 1, params: {}
-    }, 'snap-current');
+    const snapshot = seedSnapshot(
+        {
+            type: 'starflower',
+            position: [1, 2, 3],
+            rotation: { quat: [0, 0, 0, 1] },
+            scale: 1,
+            params: {},
+        },
+        'snap-current'
+    );
     assert.deepEqual(migrateSnapshot(snapshot), snapshot);
 });
 
 test('a future-version snapshot is rejected', () => {
     assert.throws(
-        () => migrateSnapshot({ schemaVersion: CURRENT_SNAPSHOT_VERSION + 1, id: 'x', entity: { type: 'starflower', position: [0, 0, 0] } }),
+        () =>
+            migrateSnapshot({
+                schemaVersion: CURRENT_SNAPSHOT_VERSION + 1,
+                id: 'x',
+                entity: { type: 'starflower', position: [0, 0, 0] },
+            }),
         /future version/
     );
 });
@@ -210,16 +256,19 @@ test('a future-version snapshot is rejected', () => {
 test('sidecar overrides replace matching base entities and append new ones', () => {
     const base = [
         { id: 'e1', type: 'starflower', position: [0, 0, 0] },
-        { id: 'e2', type: 'mushroom', position: [1, 0, 1] }
+        { id: 'e2', type: 'mushroom', position: [1, 0, 1] },
     ];
     const committed = [seedSnapshot({ type: 'mushroom', position: [5, 0, 5] }, 'e2')];
     const dev = [
         seedSnapshot({ type: 'mushroom', position: [9, 0, 9] }, 'e2'),
-        seedSnapshot({ type: 'flower', position: [2, 0, 2] }, 'e3')
+        seedSnapshot({ type: 'flower', position: [2, 0, 2] }, 'e3'),
     ];
 
     const merged = mergeSnapshotLayers(base, committed, dev);
-    assert.deepEqual(merged.map((e) => e.id), ['e1', 'e2', 'e3']);
+    assert.deepEqual(
+        merged.map((e) => e.id),
+        ['e1', 'e2', 'e3']
+    );
     assert.deepEqual(merged[1].position, [9, 0, 9], 'the later layer wins');
     assert.equal(merged[2].type, 'flower');
 });
