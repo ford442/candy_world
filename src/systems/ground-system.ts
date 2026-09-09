@@ -294,12 +294,12 @@ export function registerGroundNormalData(
     _bakedNormalData = { normals, size, resolution };
 }
 
-const _fdDelta = 0.05;
+export const _fdDelta = 0.05;
 const _fdTx = new THREE.Vector3();
 const _fdTz = new THREE.Vector3();
 const _normalScratch = new THREE.Vector3();
 
-function sampleBakedGroundNormalInto(x: number, z: number, out: THREE.Vector3): boolean {
+export function sampleBakedGroundNormalInto(x: number, z: number, out: THREE.Vector3): boolean {
     if (!_bakedNormalData) return false;
     const { normals, size, resolution } = _bakedNormalData;
     const halfSize = size * 0.5;

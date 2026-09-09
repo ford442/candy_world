@@ -33,6 +33,8 @@ export interface FaunaComponent {
     normalX: number;
     normalY: number;
     normalZ: number;
+    /** Scratch space for batched normal fallback index. */
+    fallbackIndex?: number;
 }
 
 export interface FaunaSpawnEntry {

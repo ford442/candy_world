@@ -7,7 +7,7 @@ import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
 import { updateFaunaDebug, isFaunaDebugEnabled } from '../../debug/tools-stub.ts';
 import { FaunaBatcher } from '../../foliage/fauna-batcher.ts';
 import { World } from '../ecs/world.ts';
-import { sampleGroundNormal } from '../ground-system.ts';
+import { sampleBakedGroundNormalInto, fillGroundHeightsBatch, _fdDelta } from '../ground-system.ts';
 import { player } from '../physics/physics-types.ts';
 import {
     allocateBoidsBuffer,
@@ -27,6 +27,8 @@ const _tiltQuat = new THREE.Quaternion();
 const _mat = new THREE.Matrix4();
 const _pos = new THREE.Vector3();
 const _scale = new THREE.Vector3(1, 1, 1);
+const _fdTx = new THREE.Vector3();
+const _fdTz = new THREE.Vector3();
 
 export class FaunaSystem {
     private static _instance: FaunaSystem | null = null;
@@ -37,6 +39,10 @@ export class FaunaSystem {
     private _entries: FaunaSpawnEntry[] = [];
     private _count = 0;
     private _initialized = false;
+
+    private _fallbackCount = 0;
+    private _fallbackPositions: Float32Array | null = null;
+    private _fallbackHeights: Float32Array | null = null;
 
     static getInstance(): FaunaSystem {
         if (!FaunaSystem._instance) {
@@ -109,7 +115,64 @@ export class FaunaSystem {
         const batcher = FaunaBatcher.getInstance();
         const base = this._bufferPtr >> 2;
 
+        // ⚡ OPTIMIZATION: Bypassed per-critter sampleGroundNormal WASM bridge crossing by batching FD queries
+        this._fallbackCount = 0;
+
+        // Ensure buffers exist
+        if (!this._fallbackPositions || this._fallbackPositions.length < this._entries.length * 8) {
+            this._fallbackPositions = new Float32Array(this._entries.length * 8);
+            this._fallbackHeights = new Float32Array(this._entries.length * 4);
+        }
+
+        // Pass 1: Try baked normals, collect misses
         for (const { component } of this._entries) {
+            const b = base + component.slot * FAUNA_BOID_STRIDE;
+            const x = this._heap[b];
+            const z = this._heap[b + 2];
+
+            if (!sampleBakedGroundNormalInto(x, z, _normal)) {
+                const off = this._fallbackCount * 8;
+                this._fallbackPositions[off]     = x - _fdDelta; this._fallbackPositions[off + 1] = z;
+                this._fallbackPositions[off + 2] = x + _fdDelta; this._fallbackPositions[off + 3] = z;
+                this._fallbackPositions[off + 4] = x;            this._fallbackPositions[off + 5] = z - _fdDelta;
+                this._fallbackPositions[off + 6] = x;            this._fallbackPositions[off + 7] = z + _fdDelta;
+                component.fallbackIndex = this._fallbackCount;
+                this._fallbackCount++;
+            } else {
+                component.fallbackIndex = -1;
+                component.normalX = _normal.x;
+                component.normalY = _normal.y;
+                component.normalZ = _normal.z;
+            }
+        }
+
+        // Pass 2: Batch process misses
+        if (this._fallbackCount > 0) {
+            fillGroundHeightsBatch(this._fallbackPositions, this._fallbackHeights!, this._fallbackCount * 4);
+        }
+
+        for (const { component } of this._entries) {
+            if (component.fallbackIndex !== undefined && component.fallbackIndex >= 0) {
+                const off = component.fallbackIndex * 4;
+                const hL = this._fallbackHeights![off];
+                const hR = this._fallbackHeights![off + 1];
+                const hD = this._fallbackHeights![off + 2];
+                const hU = this._fallbackHeights![off + 3];
+
+                _fdTx.set(_fdDelta * 2, hR - hL, 0).normalize();
+                _fdTz.set(0, hU - hD, _fdDelta * 2).normalize();
+
+                _normal.crossVectors(_fdTz, _fdTx).normalize();
+                if (_normal.y < 0.2) {
+                    _normal.y = 0.2;
+                    _normal.normalize();
+                }
+
+                component.normalX = _normal.x;
+                component.normalY = _normal.y;
+                component.normalZ = _normal.z;
+            }
+
             const b = base + component.slot * FAUNA_BOID_STRIDE;
             const x = this._heap[b];
             const y = this._heap[b + 1];
@@ -117,11 +180,6 @@ export class FaunaSystem {
             const vx = this._heap[b + 3];
             const vz = this._heap[b + 5];
             const phase = this._heap[b + 6];
-
-            sampleGroundNormal(x, z, _normal);
-            component.normalX = _normal.x;
-            component.normalY = _normal.y;
-            component.normalZ = _normal.z;
 
             _pos.set(x, y, z);
             _fwd.set(vx, 0, vz);
@@ -169,6 +227,9 @@ export class FaunaSystem {
         }
         this._bufferPtr = 0;
         this._heap = null;
+        this._fallbackPositions = null;
+        this._fallbackHeights = null;
+        this._fallbackCount = 0;
         this._entries = [];
         this._count = 0;
         this._initialized = false;
