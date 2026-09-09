@@ -11,7 +11,6 @@
  * - checkSnareTraps(): Knockback trap mechanics
  * - checkGeysers(): Geyser lift mechanics
  * - checkPanningPads(): Bobbing platform mechanics
- * - updateJSFallbackMovement(): JavaScript physics fallback
  * - checkVineAttachment(): Vine swing attachment
  * - initCppPhysics(): C++ engine initialization
  *
@@ -57,13 +56,10 @@ import { DISCOVERY_MAP } from '../discovery_map.ts';
 import { CONFIG } from '../../core/config.ts';
 import {
     getGroundHeight,
-    reconcileGroundedEyeY,
-    sampleGroundFootprint,
     sampleGroundNormal,
 } from '../ground-system.ts';
 import { getUnifiedGroundHeightTyped } from '../physics.core.ts';
 import { unlockSystem } from '../unlocks.ts';
-import { resolveCharacterMovement } from './character-controller.ts';
 import {
     physicsFoliageGrid,
     physicsDiscoveryGrid,
@@ -79,10 +75,6 @@ import {
     _scratchMoveVec,
     KeyStates,
     AudioState,
-    _scratchCamRight,
-    _scratchTargetVel,
-    _scratchUp,
-    _lastInputState,
     foliageCaves,
 } from './physics-types.ts';
 
@@ -440,88 +432,6 @@ export function checkPanningPads() {
 }
 
 // --- Kinematic Character Controller (#1577) ---
-
-/**
- * JavaScript fallback movement (used for Lake Basin).
- *
- * Camera-relative target velocity is computed here; the kinematic resolve
- * itself (ground/air acceleration, footprint-based ground contact, step-up,
- * slope sliding, coyote time, jump buffering) is delegated to the formal
- * character controller (#1577) — see character-controller.ts.
- */
-export function updateJSFallbackMovement(
-    delta: number,
-    camera: THREE.Camera,
-    controls: any,
-    keyStates: KeyStates,
-    moveSpeed: number
-) {
-    const camDir = _scratchCamDir;
-    camera.getWorldDirection(camDir);
-    camDir.y = 0;
-    camDir.normalize();
-    const camRight = _scratchCamRight.crossVectors(camDir, _scratchUp);
-    const _targetVelocity = _scratchTargetVel.set(0, 0, 0);
-    if (keyStates.forward) _targetVelocity.add(camDir);
-    if (keyStates.backward) _targetVelocity.sub(camDir);
-    if (keyStates.right) _targetVelocity.add(camRight);
-    if (keyStates.left) _targetVelocity.sub(camRight);
-    if (_targetVelocity.lengthSq() > 0) _targetVelocity.normalize().multiplyScalar(moveSpeed);
-
-    // Rising-edge jump detection: _lastInputState.jump still holds the
-    // previous frame's value here (physics-core.ts updates it after this
-    // state's update runs), matching the pattern used in physics-abilities.ts.
-    const jumpTriggered = keyStates.jump && !_lastInputState.jump;
-
-    const outcome = resolveCharacterMovement(
-        delta,
-        player,
-        _targetVelocity,
-        keyStates.jump,
-        jumpTriggered,
-        { sampleFootprint: sampleGroundFootprint, getGroundHeight }
-    );
-
-    if (outcome.justLanded) {
-        const fallSpeed = outcome.fallSpeed;
-        if (fallSpeed > 15.0) {
-            spawnImpact(player.position, 'land');
-            spawnImpact(player.position, 'dash');
-            addCameraShake(0.4);
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
-            }
-        } else if (fallSpeed > 8.0) {
-            spawnImpact(player.position, 'land');
-            addCameraShake(0.15);
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
-            }
-        } else {
-            spawnImpact(player.position, 'jump');
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
-            }
-        }
-    }
-
-    if (player.isGrounded) {
-        const smoothedY = reconcileGroundedEyeY(
-            player.position.y,
-            player.position.x,
-            player.position.z,
-            delta,
-            { isGrounded: true, velocityY: player.velocity.y }
-        );
-        if (smoothedY !== player.position.y) {
-            player.position.y = smoothedY;
-            player.velocity.y = 0;
-        }
-    }
-}
 
 /**
  * Vine attachment detection and handler.
