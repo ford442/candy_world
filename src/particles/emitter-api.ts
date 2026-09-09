@@ -339,27 +339,26 @@ export class Emitter {
         slot.radius = attractor.radius;
         this.uploadAttractors();
 
-        const self = this;
         return {
             index,
-            setPosition(position: THREE.Vector3) {
+            setPosition: (position: THREE.Vector3) => {
                 slot.position.copy(position);
-                self.uploadAttractors();
+                this.uploadAttractors();
             },
-            setStrength(strength: number) {
+            setStrength: (strength: number) => {
                 slot.strength = strength;
-                self.uploadAttractors();
+                this.uploadAttractors();
             },
-            setRadius(radius: number) {
+            setRadius: (radius: number) => {
                 slot.radius = radius;
-                self.uploadAttractors();
+                this.uploadAttractors();
             },
-            remove() {
-                if (!self.attractorSlotUsed[index]) return;
-                self.attractorSlotUsed[index] = false;
+            remove: () => {
+                if (!this.attractorSlotUsed[index]) return;
+                this.attractorSlotUsed[index] = false;
                 slot.strength = 0;
                 slot.radius = 0;
-                self.uploadAttractors();
+                this.uploadAttractors();
             },
         };
     }
