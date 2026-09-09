@@ -54,6 +54,8 @@ export interface WorldHealthReport {
         trampolines: number;
         panningPads: number;
         portamentoPines: number;
+        /** Live ambient fauna critters (0 when ?no_fauna or fauna disabled). */
+        fauna: number;
     };
 
     // ---- batcher instance counts ----
@@ -65,6 +67,20 @@ export interface WorldHealthReport {
     // ---- derived health signals ----
     warnings: string[];
     healthy: boolean;
+}
+
+/**
+ * Live critter count, published by FaunaSystem on init/dispose. Read through
+ * the window shim so this module keeps no dependency on the fauna system —
+ * `?no_fauna` never loads it, and 0 is the correct answer then.
+ */
+function readFaunaCount(): number {
+    try {
+        const n = (window as any).__faunaCount;
+        return typeof n === 'number' ? n : 0;
+    } catch {
+        return 0;
+    }
 }
 
 /** Minimum objects we expect to see in a healthy FULL-mode scene. */
@@ -91,6 +107,7 @@ export function validateWorldPopulation(mode: string = 'UNKNOWN'): WorldHealthRe
         trampolines:      foliageTrampolines.length,
         panningPads:      foliagePanningPads.length,
         portamentoPines:  foliagePortamentoPines.length,
+        fauna:            readFaunaCount(),
     };
 
     // Batcher telemetry — lazy import keeps the health check self-contained;
@@ -167,7 +184,7 @@ export function validateWorldPopulation(mode: string = 'UNKNOWN'): WorldHealthRe
         console.log(
             `[WorldHealth] ✓ ${mode} | ${spawn.succeeded}/${spawn.attempted} spawned` +
             ` | foliage=${sceneObjects.animatedFoliage} interactive=${sceneObjects.interactive}` +
-            ` | batchers=${batcherTotal} instances`
+            ` | fauna=${sceneObjects.fauna} | batchers=${batcherTotal} instances`
         );
     } else {
         console.warn('[WorldHealth] ⚠ Warnings after population:');

@@ -20,6 +20,7 @@ export const FAUNA_STATE_CLIPS: Readonly<Record<FaunaState, string>> = {
     [FaunaState.Wander]: 'walk',
     [FaunaState.Flee]: 'flee',
     [FaunaState.Rest]: 'idle',
+    [FaunaState.Perch]: 'perch',
 };
 
 /** Played when the rig has no clip for the requested state. */
@@ -30,6 +31,7 @@ const FADE_BY_STATE: Readonly<Record<FaunaState, number>> = {
     [FaunaState.Wander]: 0.2,
     [FaunaState.Flee]: 0.08,
     [FaunaState.Rest]: 0.35,
+    [FaunaState.Perch]: 0.35,
 };
 
 /**

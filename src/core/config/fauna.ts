@@ -23,4 +23,15 @@ export const FAUNA_DEFAULTS: ConfigType['fauna'] = {
         jitter: 0.12,
         density: { beetle: 1, hopper: 1, moth: 8 },
     },
+    behavior: {
+        enabled: true,
+        seed: 0xfa,
+        rigidBodyBump: true,
+        bumpRadius: 5,
+        bumpStrength: 2.5,
+        heroClips: {
+            enabled: false,
+            maxRigs: 4,
+        },
+    },
 };

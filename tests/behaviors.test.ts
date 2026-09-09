@@ -45,8 +45,17 @@ function check(name: string, cond: boolean, detail = ''): void {
 // ---------------------------------------------------------------------------
 
 class MockColor {
-    constructor(public r = 0, public g = 0, public b = 0) {}
-    setRGB(r: number, g: number, b: number) { this.r = r; this.g = g; this.b = b; return this; }
+    constructor(
+        public r = 0,
+        public g = 0,
+        public b = 0
+    ) {}
+    setRGB(r: number, g: number, b: number) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        return this;
+    }
 }
 
 function mockMesh(): any {
@@ -66,20 +75,40 @@ function mockWorld() {
     const store = new Map<number, any>();
     return {
         calls: 0,
-        addComponent(e: number, name: string, c: any) { this.calls++; store.set(e, c); },
-        setComponent(e: number, name: string, c: any) { this.calls++; store.set(e, c); },
-        getComponent(e: number) { return store.get(e); },
-        hasComponent(e: number) { return store.has(e); },
-        removeComponent(e: number) { store.delete(e); },
-        peek(e: number) { return store.get(e); },
+        addComponent(e: number, name: string, c: any) {
+            this.calls++;
+            store.set(e, c);
+        },
+        setComponent(e: number, name: string, c: any) {
+            this.calls++;
+            store.set(e, c);
+        },
+        getComponent(e: number) {
+            return store.get(e);
+        },
+        hasComponent(e: number) {
+            return store.has(e);
+        },
+        removeComponent(e: number) {
+            store.delete(e);
+        },
+        peek(e: number) {
+            return store.get(e);
+        },
     };
 }
 
 function tracker(log: string[], name: string): Behavior {
     return {
-        onEnable() { log.push(`${name}:enable`); },
-        tick() { log.push(`${name}:tick`); },
-        onDisable() { log.push(`${name}:disable`); },
+        onEnable() {
+            log.push(`${name}:enable`);
+        },
+        tick() {
+            log.push(`${name}:tick`);
+        },
+        onDisable() {
+            log.push(`${name}:disable`);
+        },
     };
 }
 
@@ -118,7 +147,10 @@ console.log('\nLifecycle');
     check('detached behavior stops ticking', log.length === 2, log.join(' '));
 
     removeAllBehaviors(1);
-    check('removeAllBehaviors clears the entity', listBehaviors(1).length === 0 && getBehaviorCount() === 1);
+    check(
+        'removeAllBehaviors clears the entity',
+        listBehaviors(1).length === 0 && getBehaviorCount() === 1
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -134,9 +166,14 @@ console.log('\nSwap-remove integrity');
 
     // Remove from the middle: the last slot is swapped into the hole.
     removeBehavior(3, 'a');
-    check('middle removal keeps the rest attached',
-        hasBehavior(1, 'a') && hasBehavior(2, 'a') && !hasBehavior(3, 'a') &&
-        hasBehavior(4, 'a') && hasBehavior(5, 'a'));
+    check(
+        'middle removal keeps the rest attached',
+        hasBehavior(1, 'a') &&
+            hasBehavior(2, 'a') &&
+            !hasBehavior(3, 'a') &&
+            hasBehavior(4, 'a') &&
+            hasBehavior(5, 'a')
+    );
 
     removeBehavior(5, 'a'); // the entity that was moved into the hole
     check('moved slot is still removable', !hasBehavior(5, 'a') && getBehaviorCount() === 3);
@@ -155,15 +192,25 @@ console.log('\nRe-entrant detach');
     resetBehaviors();
     let ticks = 0;
     registerBehaviorType('suicide', (entity) => ({
-        tick() { ticks++; removeBehavior(entity, 'suicide'); },
+        tick() {
+            ticks++;
+            removeBehavior(entity, 'suicide');
+        },
     }));
-    registerBehaviorType('survivor', () => ({ tick() { ticks++; } }));
+    registerBehaviorType('survivor', () => ({
+        tick() {
+            ticks++;
+        },
+    }));
     addBehavior(1, 'suicide');
     addBehavior(2, 'survivor');
 
     tickBehaviors(0.016, 0);
     check('both ticked on the detaching frame', ticks === 2, `got ${ticks}`);
-    check('deferred detach applied after the tick', !hasBehavior(1, 'suicide') && getBehaviorCount() === 1);
+    check(
+        'deferred detach applied after the tick',
+        !hasBehavior(1, 'suicide') && getBehaviorCount() === 1
+    );
 
     ticks = 0;
     tickBehaviors(0.016, 0);
@@ -220,7 +267,11 @@ console.log('\nECS component mirroring');
     const callsBefore = world.calls;
     tickBehaviors(0.016, 0);
     tickBehaviors(0.016, 0);
-    check('ticking never touches the world', world.calls === callsBefore, `${world.calls} vs ${callsBefore}`);
+    check(
+        'ticking never touches the world',
+        world.calls === callsBefore,
+        `${world.calls} vs ${callsBefore}`
+    );
 
     removeBehavior(7, 'a');
     check('component updated on detach', world.peek(7)?.types.join(',') === 'b');
@@ -241,15 +292,21 @@ console.log('\nBuilt-in: bob');
     addBehavior(1, 'bob', { object: mesh, amplitude: 0.5, speed: 1, phase: 0, roll: 0.1 });
 
     tickBehaviors(0.016, 0.25); // quarter cycle → sin = 1
-    check('bob reaches peak amplitude', Math.abs(mesh.position.y - 2.5) < 1e-6, `y=${mesh.position.y}`);
+    check(
+        'bob reaches peak amplitude',
+        Math.abs(mesh.position.y - 2.5) < 1e-6,
+        `y=${mesh.position.y}`
+    );
     check('roll trails the bob', Math.abs(mesh.rotation.z) < 1e-6, `z=${mesh.rotation.z}`);
 
     tickBehaviors(0.016, 0.75); // three-quarter cycle → sin = -1
     check('bob reaches trough', Math.abs(mesh.position.y - 1.5) < 1e-6, `y=${mesh.position.y}`);
 
     removeBehavior(1, 'bob');
-    check('bob restores the original pose',
-        Math.abs(mesh.position.y - 2) < 1e-6 && Math.abs(mesh.rotation.z) < 1e-6);
+    check(
+        'bob restores the original pose',
+        Math.abs(mesh.position.y - 2) < 1e-6 && Math.abs(mesh.rotation.z) < 1e-6
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -262,31 +319,51 @@ console.log('\nBuilt-in: interact highlight');
     registerBehaviorType('interact', createInteractHighlightBehavior);
     const mesh = mockMesh();
     let ownHookCalls = 0;
-    mesh.userData.onGazeEnter = () => { ownHookCalls++; };
+    mesh.userData.onGazeEnter = () => {
+        ownHookCalls++;
+    };
 
     addBehavior(1, 'interact', { object: mesh, color: 0xffffff, intensity: 1, attack: 0.1 });
-    check('gaze hooks installed', typeof mesh.userData.onGazeEnter === 'function' &&
-        typeof mesh.userData.onGazeLeave === 'function');
+    check(
+        'gaze hooks installed',
+        typeof mesh.userData.onGazeEnter === 'function' &&
+            typeof mesh.userData.onGazeLeave === 'function'
+    );
 
     tickBehaviors(0.05, 0);
-    check('idle prop keeps its emissive', mesh.material.emissive.r === 0 && mesh.material.emissiveIntensity === 1);
+    check(
+        'idle prop keeps its emissive',
+        mesh.material.emissive.r === 0 && mesh.material.emissiveIntensity === 1
+    );
 
     mesh.userData.onGazeEnter();
     check('pre-existing hook still fires', ownHookCalls === 1);
     tickBehaviors(0.05, 0); // half of the 0.1s attack
-    check('highlight ramps in', mesh.material.emissive.r > 0.4 && mesh.material.emissive.r < 0.6,
-        `r=${mesh.material.emissive.r}`);
+    check(
+        'highlight ramps in',
+        mesh.material.emissive.r > 0.4 && mesh.material.emissive.r < 0.6,
+        `r=${mesh.material.emissive.r}`
+    );
     tickBehaviors(0.05, 0);
-    check('highlight reaches full', Math.abs(mesh.material.emissive.r - 1) < 1e-6 &&
-        Math.abs(mesh.material.emissiveIntensity - 2) < 1e-6);
+    check(
+        'highlight reaches full',
+        Math.abs(mesh.material.emissive.r - 1) < 1e-6 &&
+            Math.abs(mesh.material.emissiveIntensity - 2) < 1e-6
+    );
 
     mesh.userData.onGazeLeave();
     tickBehaviors(0.2, 0);
-    check('highlight falls back off', Math.abs(mesh.material.emissive.r) < 1e-6 &&
-        Math.abs(mesh.material.emissiveIntensity - 1) < 1e-6);
+    check(
+        'highlight falls back off',
+        Math.abs(mesh.material.emissive.r) < 1e-6 &&
+            Math.abs(mesh.material.emissiveIntensity - 1) < 1e-6
+    );
 
     removeBehavior(1, 'interact');
-    check('hooks restored on detach', mesh.userData.onGazeEnter !== undefined && mesh.userData.onGazeLeave === undefined);
+    check(
+        'hooks restored on detach',
+        mesh.userData.onGazeEnter !== undefined && mesh.userData.onGazeLeave === undefined
+    );
     mesh.userData.onGazeEnter();
     check('restored hook is the original', ownHookCalls === 2);
 
@@ -297,16 +374,20 @@ console.log('\nBuilt-in: interact highlight');
     addBehavior(2, 'interact', { object: sharedProp, intensity: 1, attack: 0.01 });
     sharedProp.userData.onGazeEnter();
     tickBehaviors(0.1, 0);
-    check('shared material is not highlighted',
-        sharedProp.material.emissive.r === 0 && sharedProp.material.emissiveIntensity === 1);
+    check(
+        'shared material is not highlighted',
+        sharedProp.material.emissive.r === 0 && sharedProp.material.emissiveIntensity === 1
+    );
 
     const tslProp = mockMesh();
     tslProp.material.emissiveNode = {};
     addBehavior(3, 'interact', { object: tslProp, intensity: 1, attack: 0.01 });
     tslProp.userData.onGazeEnter();
     tickBehaviors(0.1, 0);
-    check('TSL-driven emissive is not touched',
-        tslProp.material.emissive.r === 0 && tslProp.material.emissiveIntensity === 1);
+    check(
+        'TSL-driven emissive is not touched',
+        tslProp.material.emissive.r === 0 && tslProp.material.emissiveIntensity === 1
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -340,10 +421,15 @@ console.log('\nAllocation budget');
     if (gc) {
         // 200 behaviors × 20k ticks. Anything allocating per frame lands orders
         // of magnitude above this; steady-state churn should be ~0 bytes/tick.
-        check('tick allocates nothing measurable', perTick < 8,
-            `${perTick.toFixed(2)} bytes/tick over ${ITERATIONS} ticks`);
+        check(
+            'tick allocates nothing measurable',
+            perTick < 8,
+            `${perTick.toFixed(2)} bytes/tick over ${ITERATIONS} ticks`
+        );
     } else {
-        console.log(`  … ${perTick.toFixed(2)} bytes/tick (run with --expose-gc for the strict check)`);
+        console.log(
+            `  … ${perTick.toFixed(2)} bytes/tick (run with --expose-gc for the strict check)`
+        );
         check('tick allocation stayed bounded', perTick < 200, `${perTick.toFixed(2)} bytes/tick`);
     }
 }

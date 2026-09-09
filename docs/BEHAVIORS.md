@@ -12,12 +12,12 @@ and does not know about batchers.
 
 ## 1. Pick an attachment style
 
-| | **Batcher / TSL uniform** | **Behavior** | **`userData`** |
-|---|---|---|---|
-| Use when | The prop is drawn by an instanced batcher, or its motion/glow is a pure function of time, position and audio uniforms | The prop is a one-off `Object3D` with per-instance JS state and a lifecycle (enable → tick → disable) | You need to hang a plain fact on an object: a type name, a radius, a callback |
-| Cost | Free per instance — the GPU does the work for thousands | One JS function call per frame per instance | Zero, until something loops over the scene graph to read it |
-| Scales to | 10,000+ | ~100s | n/a |
-| Lives in | `src/foliage/*-batcher.ts`, `src/systems/wind-uniforms.ts`, `src/foliage/plant-pose-machine.ts` | `src/systems/ecs/behaviors/` | The object |
+|           | **Batcher / TSL uniform**                                                                                             | **Behavior**                                                                                          | **`userData`**                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Use when  | The prop is drawn by an instanced batcher, or its motion/glow is a pure function of time, position and audio uniforms | The prop is a one-off `Object3D` with per-instance JS state and a lifecycle (enable → tick → disable) | You need to hang a plain fact on an object: a type name, a radius, a callback |
+| Cost      | Free per instance — the GPU does the work for thousands                                                               | One JS function call per frame per instance                                                           | Zero, until something loops over the scene graph to read it                   |
+| Scales to | 10,000+                                                                                                               | ~100s                                                                                                 | n/a                                                                           |
+| Lives in  | `src/foliage/*-batcher.ts`, `src/systems/wind-uniforms.ts`, `src/foliage/plant-pose-machine.ts`                       | `src/systems/ecs/behaviors/`                                                                          | The object                                                                    |
 
 **Rules of thumb**
 
@@ -30,7 +30,7 @@ and does not know about batchers.
   is reused by every prop of that species — mutating it tints all of them. A
   material with an `emissiveNode` ignores `.emissive` entirely.
 - **`userData` is for data, not for behavior.** Storing
-  `userData.animationType = 'bounce'` makes the *game loop* responsible for
+  `userData.animationType = 'bounce'` makes the _game loop_ responsible for
   switching on a string every frame for every object. For new non-batched props,
   attach a behavior instead (see the deprecation note below).
 - **Fauna keeps its existing ECS path.** Fauna components use fixed-stride
@@ -45,14 +45,14 @@ and does not know about batchers.
 import { initBehaviorSystem } from '../systems/ecs/behaviors/index.ts';
 import { addBehavior, removeAllBehaviors } from '../systems/ecs/behavior.ts';
 
-const world = initBehaviorSystem();       // idempotent; registers the built-ins
+const world = initBehaviorSystem(); // idempotent; registers the built-ins
 const entity = world.createEntity();
 
 addBehavior(entity, 'bob', {
     object: prop,
     amplitude: 0.2,
     speed: 0.4,
-    phase: Math.random() * Math.PI * 2,   // desynchronise siblings
+    phase: Math.random() * Math.PI * 2, // desynchronise siblings
 });
 
 addBehavior(entity, 'interact', { object: prop, color: 0xfff0d0 });
@@ -69,9 +69,9 @@ The game loop ticks the whole list once per frame from `src/core/game-loop.ts`
 
 ```ts
 export interface Behavior {
-    onEnable?(): void;          // capture base state here
+    onEnable?(): void; // capture base state here
     tick(dt: number, time: number): void;
-    onDisable?(): void;         // restore base state here — always
+    onDisable?(): void; // restore base state here — always
 }
 ```
 
@@ -88,7 +88,7 @@ value on the instance in the constructor or `onEnable`. `tests/behaviors.test.ts
 enforces this: 200 live behaviors × 20,000 ticks must add ~0 bytes of steady
 heap.
 
-**`onDisable` must restore.** It runs on detach *and* whenever the graphics tier
+**`onDisable` must restore.** It runs on detach _and_ whenever the graphics tier
 drops below the behavior's minimum, so a behavior that leaves the prop mid-pose
 will visibly freeze it there.
 
@@ -102,9 +102,9 @@ skipped by a single boolean check — no re-allocation on either transition.
 
 ### Built-ins
 
-| Type | Tier | What it does |
-|---|---|---|
-| `bob` | `low` | Vertical bob (+ optional roll) on a **non-batched** prop. Restores the original pose on detach. |
+| Type       | Tier     | What it does                                                                                                                                                                                                                              |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bob`      | `low`    | Vertical bob (+ optional roll) on a **non-batched** prop. Restores the original pose on detach.                                                                                                                                           |
 | `interact` | `medium` | Emissive highlight while the player gazes at / stands near the prop. Chains onto the existing `interaction.ts` `onGazeEnter`/`onProximityEnter` hooks rather than adding a second picking path, and skips shared or TSL-driven materials. |
 
 ---
@@ -115,7 +115,9 @@ Every entity with at least one behavior carries a single `behavior` component
 listing its behavior type names:
 
 ```ts
-{ types: ['bob', 'interact'] }
+{
+    types: ['bob', 'interact'];
+}
 ```
 
 That is written on attach/detach only — **never during a tick** — so the tick
@@ -124,7 +126,7 @@ behaviors without a second registry.
 
 ### C++ bitmask path
 
-The C++ ECS query uses a 32-bit component mask, so component *names* are a
+The C++ ECS query uses a 32-bit component mask, so component _names_ are a
 scarce resource. The behavior layer deliberately spends **exactly one bit**
 (`behavior`) no matter how many behavior types exist — the type names live
 inside the component payload, not in the mask. Adding a new behavior type
@@ -144,7 +146,7 @@ fixed-stride codecs are untouched.
 const entity = initBehaviorSystem().createEntity();
 addBehavior(entity, 'bob', { object: group, amplitude: 0.15, phase: Math.random() * 6.28 });
 addBehavior(entity, 'interact', { object: group });
-group.userData.behaviorEntity = entity;   // so despawn can clean up
+group.userData.behaviorEntity = entity; // so despawn can clean up
 ```
 
 ### ❌ Deprecated for this case: `userData.animationType`
@@ -177,7 +179,7 @@ addBehavior(entity, 'bob', { object: blade });
 ### ❌ Don't use a behavior to hold data
 
 ```ts
-addBehavior(entity, 'biomeTag', { biome: 'lake_island' });  // no tick, no point
+addBehavior(entity, 'biomeTag', { biome: 'lake_island' }); // no tick, no point
 ```
 
 Use `userData.biome`, or a real ECS component if a system needs to query it.

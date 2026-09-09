@@ -136,7 +136,9 @@ export function hasBehaviorType(type: string): boolean {
 export function addBehavior(entity: Entity, type: string, options: BehaviorOptions = {}): boolean {
     const def = types.get(type);
     if (!def) {
-        console.warn(`[Behaviors] Unknown behavior type "${type}" — did you registerBehaviorType()?`);
+        console.warn(
+            `[Behaviors] Unknown behavior type "${type}" — did you registerBehaviorType()?`
+        );
         return false;
     }
 
@@ -205,7 +207,10 @@ export function hasBehavior(entity: Entity, type: string): boolean {
     return slotIndex !== undefined && slots[slotIndex].alive;
 }
 
-export function getBehavior<T extends Behavior = Behavior>(entity: Entity, type: string): T | undefined {
+export function getBehavior<T extends Behavior = Behavior>(
+    entity: Entity,
+    type: string
+): T | undefined {
     const slotIndex = index.get(entity)?.get(type);
     if (slotIndex === undefined) return undefined;
     const slot = slots[slotIndex];

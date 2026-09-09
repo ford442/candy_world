@@ -62,8 +62,12 @@ class InteractHighlightBehavior implements Behavior {
     private prevProxEnter?: (distanceSq: number) => void;
     private prevProxLeave?: () => void;
 
-    private readonly onEnter = () => { this.hovered = true; };
-    private readonly onLeave = () => { this.hovered = false; };
+    private readonly onEnter = () => {
+        this.hovered = true;
+    };
+    private readonly onLeave = () => {
+        this.hovered = false;
+    };
 
     constructor(options: InteractHighlightOptions) {
         this.object = options.object;
@@ -176,20 +180,32 @@ class InteractHighlightBehavior implements Behavior {
             this.prevGazeEnter = ud.onGazeEnter;
             this.prevGazeLeave = ud.onGazeLeave;
             ud.onGazeEnter = this.prevGazeEnter
-                ? () => { this.prevGazeEnter!(); this.onEnter(); }
+                ? () => {
+                      this.prevGazeEnter!();
+                      this.onEnter();
+                  }
                 : this.onEnter;
             ud.onGazeLeave = this.prevGazeLeave
-                ? () => { this.prevGazeLeave!(); this.onLeave(); }
+                ? () => {
+                      this.prevGazeLeave!();
+                      this.onLeave();
+                  }
                 : this.onLeave;
         }
         if (this.trigger === 'proximity' || this.trigger === 'both') {
             this.prevProxEnter = ud.onProximityEnter;
             this.prevProxLeave = ud.onProximityLeave;
             ud.onProximityEnter = this.prevProxEnter
-                ? (d: number) => { this.prevProxEnter!(d); this.onEnter(); }
+                ? (d: number) => {
+                      this.prevProxEnter!(d);
+                      this.onEnter();
+                  }
                 : this.onEnter;
             ud.onProximityLeave = this.prevProxLeave
-                ? () => { this.prevProxLeave!(); this.onLeave(); }
+                ? () => {
+                      this.prevProxLeave!();
+                      this.onLeave();
+                  }
                 : this.onLeave;
         }
     }
@@ -209,6 +225,9 @@ class InteractHighlightBehavior implements Behavior {
     }
 }
 
-export function createInteractHighlightBehavior(_entity: Entity, options: BehaviorOptions): Behavior {
+export function createInteractHighlightBehavior(
+    _entity: Entity,
+    options: BehaviorOptions
+): Behavior {
     return new InteractHighlightBehavior(options as InteractHighlightOptions);
 }
