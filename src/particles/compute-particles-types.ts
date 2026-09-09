@@ -55,13 +55,13 @@ export interface ParticleBuffers {
 }
 
 export interface ParticleAudioData {
-    low: number;      // Bass energy (0-1)
-    mid: number;      // Mid energy (0-1)
-    high: number;     // Treble energy (0-1)
-    beat: boolean;    // Beat trigger
-    groove: number;   // Groove amount (0-1)
-    windX?: number;   // Wind X direction
-    windZ?: number;   // Wind Z direction
+    low: number; // Bass energy (0-1)
+    mid: number; // Mid energy (0-1)
+    high: number; // Treble energy (0-1)
+    beat: boolean; // Beat trigger
+    groove: number; // Groove amount (0-1)
+    windX?: number; // Wind X direction
+    windZ?: number; // Wind Z direction
     windSpeed?: number; // Wind speed
 }
 
@@ -122,7 +122,12 @@ export interface ComputeSystemCollection {
 export interface ComputeParticleSystem {
     particlesMesh: any;
     computeNode: any;
-    update(renderer: THREE.Renderer, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void;
+    update(
+        renderer: THREE.Renderer,
+        deltaTime: number,
+        playerPosition: THREE.Vector3,
+        audioData: ParticleAudioData
+    ): void;
     dispose(): void;
     updateInstances(count: number): void;
 }

@@ -186,7 +186,10 @@ const PRESETS: Record<EmitterPreset, PresetDefaults> = {
 };
 
 /** Presets whose pool is host-driven: nothing appears until you burst or set a rate. */
-const ONE_SHOT_PRESETS: ReadonlySet<EmitterPreset> = new Set<EmitterPreset>(['spark_burst', 'candy_puff']);
+const ONE_SHOT_PRESETS: ReadonlySet<EmitterPreset> = new Set<EmitterPreset>([
+    'spark_burst',
+    'candy_puff',
+]);
 
 // =============================================================================
 // SCRATCH — module-level so the per-frame path allocates nothing
@@ -266,13 +269,17 @@ export class Emitter {
         this.mesh.add(this.system.mesh);
         // The system replaces its mesh if WebGPU init fails and the CPU tier takes
         // over, so re-parent once initialisation settles.
-        this.system.initPromise?.then(() => {
-            if (this.disposed) return;
-            if (this.system.mesh.parent !== this.mesh) {
-                this.mesh.clear();
-                this.mesh.add(this.system.mesh);
-            }
-        }).catch(() => { /* system already logged; nothing to re-parent */ });
+        this.system.initPromise
+            ?.then(() => {
+                if (this.disposed) return;
+                if (this.system.mesh.parent !== this.mesh) {
+                    this.mesh.clear();
+                    this.mesh.add(this.system.mesh);
+                }
+            })
+            .catch(() => {
+                /* system already logged; nothing to re-parent */
+            });
 
         for (let i = 0; i < MAX_PARTICLE_ATTRACTORS; i++) {
             this.attractors.push({ position: new THREE.Vector3(), strength: 0, radius: 0 });
@@ -509,12 +516,18 @@ export class Emitter {
 
 function readMusicSource(source: MusicSource, audioData: ParticleAudioData): number {
     switch (source) {
-        case 'low': return audioData.low;
-        case 'mid': return audioData.mid;
-        case 'high': return audioData.high;
-        case 'groove': return audioData.groove;
-        case 'beat': return audioData.beat ? 1 : 0;
-        default: return 0;
+        case 'low':
+            return audioData.low;
+        case 'mid':
+            return audioData.mid;
+        case 'high':
+            return audioData.high;
+        case 'groove':
+            return audioData.groove;
+        case 'beat':
+            return audioData.beat ? 1 : 0;
+        default:
+            return 0;
     }
 }
 

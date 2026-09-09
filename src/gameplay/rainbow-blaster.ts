@@ -6,6 +6,7 @@ import {
 } from 'three/tsl';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { getCelestialState } from '../core/cycle.ts';
+import { burstCandyDebris } from '../foliage/candy-debris-batcher.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/material-core.ts';
 import { isInLakeBasin } from '../systems/ground-system.ts';
@@ -391,6 +392,17 @@ class ProjectilePool {
 
             if (hit || p.life <= 0) {
                 p.active = false;
+
+                // Chunky sugar shards on a real hit only — an expired projectile
+                // just fades, it did not break anything.
+                if (hit) {
+                    burstCandyDebris({
+                        origin: p.position,
+                        count: 14,
+                        color: p.color,
+                        speed: 6.5,
+                    });
+                }
 
                 // Only sync death state to GPU (life = 0)
                 this.stateArray[i * 4 + 3] = 0;

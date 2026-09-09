@@ -6,7 +6,7 @@
 /**
  * Update particles compute shader - runs simulation step entirely on GPU
  */
-export const UPDATE_PARTICLES_WGSL = /* wgsl */`
+export const UPDATE_PARTICLES_WGSL = /* wgsl */ `
 struct ParticleData {
     positions: array<vec3<f32>>,
     velocities: array<vec3<f32>>,
@@ -377,7 +377,7 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
 /**
  * Render vertex shader - transforms particles for rendering
  */
-export const RENDER_PARTICLES_WGSL = /* wgsl */`
+export const RENDER_PARTICLES_WGSL = /* wgsl */ `
 struct Uniforms {
     mvpMatrix: mat4x4<f32>,
     viewMatrix: mat4x4<f32>,
@@ -464,7 +464,7 @@ fn main(input: VertexInput) -> VertexOutput {
 /**
  * Render fragment shader - colors and effects
  */
-export const FRAGMENT_PARTICLES_WGSL = /* wgsl */`
+export const FRAGMENT_PARTICLES_WGSL = /* wgsl */ `
 struct Uniforms {
     time: f32,
     particleType: u32,

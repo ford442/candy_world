@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep, Fn } from 'three/tsl';
 import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
 import { applyGlitch } from '../foliage/glitch.ts';
+import { burstCandyDebris } from '../foliage/candy-debris-batcher.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import {
     createClayMaterial,
@@ -321,6 +322,17 @@ class JitterMineSystem {
 
         // Visuals
         spawnImpact(mine.position, 'explosion', 0xFF00FF);
+
+        // Broken-candy shrapnel: bigger and faster than a blaster hit so the
+        // detonation reads as a shatter rather than a sparkle.
+        burstCandyDebris({
+            origin: mine.position,
+            count: 28,
+            color: 0xFF00FF,
+            speed: 9.0,
+            size: 0.2,
+            life: 2.6,
+        });
 
         // Glitch Effect
         // Trigger screen trauma

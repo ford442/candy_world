@@ -20,14 +20,14 @@ export type {
     SparkBurstConfig,
     CandyPuffConfig,
     ParticleAttractor,
-    ComputeSystemCollection
+    ComputeSystemCollection,
 } from './compute-particles-types.ts';
 
 // Shaders
 export {
     UPDATE_PARTICLES_WGSL,
     RENDER_PARTICLES_WGSL,
-    FRAGMENT_PARTICLES_WGSL
+    FRAGMENT_PARTICLES_WGSL,
 } from './compute-particles-shaders.ts';
 
 // CPU fallback system
@@ -50,7 +50,7 @@ export {
     removeComputeSystem,
     updateAllComputeSystems,
     disposeAllComputeSystems,
-    getActiveComputeSystems
+    getActiveComputeSystems,
 } from './compute-particles.ts';
 
 // Default export
@@ -67,7 +67,7 @@ export {
     updateEmitters,
     setEmitterParent,
     burstAt,
-    isOneShotPreset
+    isOneShotPreset,
 } from './emitter-api.ts';
 
 export type {
@@ -78,7 +78,7 @@ export type {
     MusicBinding,
     MusicSource,
     MusicTarget,
-    AttractorHandle
+    AttractorHandle,
 } from './emitter-api.ts';
 
 // Integration
@@ -97,5 +97,5 @@ export {
     queueDeferredSystem,
     loadDeferredSystems,
     benchmarkParticleSystem,
-    printBenchmarkResults
+    printBenchmarkResults,
 } from './compute-integration.ts';

@@ -87,6 +87,13 @@
       "warningUtilization": 80,
       "bytesPerInstance": 512,
       "baseBytes": 131072
+    },
+    "candy_debris": {
+      "label": "CandyDebrisBatcher",
+      "budgetInstances": 768,
+      "warningUtilization": 80,
+      "bytesPerInstance": 76,
+      "baseBytes": 16384
     }
   }
 }

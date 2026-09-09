@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
+import { getCandyDebrisStats, MAX_DEBRIS } from './candy-debris-batcher.ts';
 import { CloudBatcher } from './cloud-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
 import { flowerBatcher } from './flower-batcher.ts';
@@ -143,6 +144,19 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
         summarize('PortamentoPineBatcher', 'portamento', portamentoRecord ? getMeshesFromRecord(portamentoRecord, ['trunkMesh', 'needleMesh']) : []),
         summarize('DandelionBatcher', 'dandelion', dandelionRecord ? getMeshesFromRecord(dandelionRecord, ['mesh']) : []),
         summarize('LanternBatcher', 'lantern', lanternRecord ? getMeshesFromRecord(lanternRecord, ['stemMesh', 'topMesh']) : []),
+        (() => {
+            // Debris is lazily constructed, so read its stats rather than its mesh —
+            // summarize() would report a phantom 0/0 entry before the first burst.
+            const debris = getCandyDebrisStats();
+            return {
+                id: 'candy_debris',
+                label: 'CandyDebrisBatcher',
+                instances: debris.count,
+                capacity: MAX_DEBRIS,
+                drawCalls: debris.drawCalls,
+                estimatedVramBytes: MAX_DEBRIS * 76
+            };
+        })(),
     ];
 
     let totalInstances = 0;

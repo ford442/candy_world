@@ -1,17 +1,17 @@
 /**
  * @file compute-particles.ts
  * @description WebGPU Compute Shader-based Particle System for Candy World
- * 
+ *
  * This system uses WebGPU compute shaders to simulate particles entirely on the GPU,
  * achieving 100,000+ particles at 60fps vs ~5,000 with CPU-based systems.
- * 
+ *
  * Features:
  * - GPU-side physics simulation (gravity, wind, turbulence)
  * - Particle lifecycle management (spawn → update → die → respawn)
  * - Ground collision with WASM height lookup
  * - Player attraction/repulsion
  * - Multiple system types: Fireflies, Pollen, Berries, Rain, Sparks
- * 
+ *
  * @example
  * ```ts
  * // Create firefly system with 50,000 particles
@@ -20,9 +20,9 @@
  *     count: 50000,
  *     bounds: { x: 100, y: 20, z: 100 }
  * });
- * 
+ *
  * scene.add(fireflies.mesh);
- * 
+ *
  * // In render loop
  * fireflies.update(renderer, deltaTime, playerPosition, audioData);
  * ```
@@ -30,26 +30,58 @@
 
 import * as THREE from 'three';
 import {
-    Fn, uniform, storage, instanceIndex, vertexIndex, float, vec2, vec3, vec4,
-    mix, sin, cos, normalize, color, attribute,
-    mx_noise_float, positionLocal, max, length, min, pow, abs,
-    smoothstep, uv, distance, time, sqrt, dot, cross,
-    cameraPosition
+    Fn,
+    uniform,
+    storage,
+    instanceIndex,
+    vertexIndex,
+    float,
+    vec2,
+    vec3,
+    vec4,
+    mix,
+    sin,
+    cos,
+    normalize,
+    color,
+    attribute,
+    mx_noise_float,
+    positionLocal,
+    max,
+    length,
+    min,
+    pow,
+    abs,
+    smoothstep,
+    uv,
+    distance,
+    time,
+    sqrt,
+    dot,
+    cross,
+    cameraPosition,
 } from 'three/tsl';
-import { 
-    MeshStandardNodeMaterial, 
-    PointsNodeMaterial, 
-    StorageBufferAttribute 
-} from 'three/webgpu';
+import { MeshStandardNodeMaterial, PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
 import { getCIAdjustedCount, isCIorHeadless } from '../core/config.ts';
-import { uTime, uAudioLow, uAudioHigh, uPlayerPosition, uWindSpeed, uWindDirection } from '../foliage/material-core.ts';
+import {
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    uPlayerPosition,
+    uWindSpeed,
+    uWindDirection,
+} from '../foliage/material-core.ts';
 import { awaitGpuDevice, getGpuContextSync, onGpuDeviceLost } from '../rendering/gpu-context.ts';
 import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
-import { 
-    ComputeParticleType, 
-    ComputeParticleConfig, 
-    ParticleBuffers, 
+import {
+    UPDATE_PARTICLES_WGSL,
+    RENDER_PARTICLES_WGSL,
+    FRAGMENT_PARTICLES_WGSL,
+} from './compute-particles-shaders.ts';
+import {
+    ComputeParticleType,
+    ComputeParticleConfig,
+    ParticleBuffers,
     ParticleAudioData,
     FireflyConfig,
     PollenConfig,
@@ -60,7 +92,7 @@ import {
     SparkBurstConfig,
     CandyPuffConfig,
     ParticleAttractor,
-    ComputeSystemCollection
+    ComputeSystemCollection,
 } from './compute-particles-types.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
 
@@ -117,7 +149,7 @@ export class ComputeParticleSystem {
     public mesh: THREE.Points;
     public type: ComputeParticleType;
     public count: number;
-    
+
     private buffers: ParticleBuffers;
     private config: ComputeParticleConfig;
     private computePipeline: GPUComputePipeline | null = null;
@@ -140,7 +172,7 @@ export class ComputeParticleSystem {
     private emitScale = 1.0;
 
     public initPromise: Promise<void> | null = null;
-    
+
     // Uniforms
     private uniforms = {
         deltaTime: 0,
@@ -162,17 +194,19 @@ export class ComputeParticleSystem {
         playerZ: 0,
         audioLow: 0,
         audioHigh: 0,
-        particleType: 0
+        particleType: 0,
     };
-    
+
     constructor(config: ComputeParticleConfig) {
         this.config = config;
         this.type = config.type;
         this.count = config.count || 10000;
-        
+
         // Check CI bypass here
         if (isCIorHeadless() && (config.type === 'berries' || config.type === 'gem_sparks')) {
-            console.log(`[ComputeParticles] Stub mode activated for ${config.type} in CI/test (headless memory limit)`);
+            console.log(
+                `[ComputeParticles] Stub mode activated for ${config.type} in CI/test (headless memory limit)`
+            );
             this.count = 1;
             this.buffers = this.createBuffers();
             this.initializeParticleBuffers();
@@ -185,21 +219,21 @@ export class ComputeParticleSystem {
         // Initialize buffers
         this.buffers = this.createBuffers();
         this.initializeParticleBuffers();
-        
+
         // Create mesh (will be used for both GPU and CPU)
         this.mesh = this.createMesh();
         this.mesh.userData.computeParticleSystem = this;
-        
+
         // Try to initialize WebGPU
         this.initPromise = this.initWebGPU().catch(() => {
             console.log(`[ComputeParticles] Falling back to CPU for ${this.type}`);
             this.initCPUFallback();
         });
     }
-    
+
     private createBuffers(): ParticleBuffers {
         const count = this.count;
-        
+
         return {
             // Use 4 components (vec4) for vec3 data so the underlying GPU buffer is
             // 16-byte-aligned per element, matching WGSL storage buffer requirements.
@@ -209,7 +243,7 @@ export class ComputeParticleSystem {
             life: new StorageBufferAttribute(new Float32Array(count), 1) as any,
             size: new StorageBufferAttribute(new Float32Array(count), 1) as any,
             color: new StorageBufferAttribute(new Float32Array(count * 4), 4) as any,
-            seed: new StorageBufferAttribute(new Float32Array(count), 1) as any
+            seed: new StorageBufferAttribute(new Float32Array(count), 1) as any,
         };
     }
 
@@ -307,7 +341,7 @@ export class ComputeParticleSystem {
         this.buffers.size.needsUpdate = true;
         this.buffers.seed.needsUpdate = true;
     }
-    
+
     private ensureUVAttribute(geometry: THREE.BufferGeometry): void {
         if (!geometry.hasAttribute('uv')) {
             const vertexCount = geometry.attributes.position.count;
@@ -319,7 +353,7 @@ export class ComputeParticleSystem {
     private createMesh(): THREE.Points {
         // Use storage buffers for GPU, regular buffers for CPU fallback
         const geometry = new THREE.BufferGeometry();
-        
+
         // Set storage buffers as attributes
         geometry.setAttribute('position', this.buffers.position);
         geometry.setAttribute('velocity', this.buffers.velocity);
@@ -329,22 +363,22 @@ export class ComputeParticleSystem {
         geometry.setAttribute('seed', this.buffers.seed);
 
         this.ensureUVAttribute(geometry);
-        
+
         // Create TSL material
         const material = new PointsNodeMaterial({
             transparent: true,
             depthWrite: false,
-            blending: THREE.AdditiveBlending
+            blending: THREE.AdditiveBlending,
         });
-        
+
         // TSL Nodes for position.
         // Use 'vec4' to match the 16-byte-per-element GPU buffer stride required by
         // WGSL (vec3 arrays are padded to vec4 alignment). Only xyz is used for position.
         const positionStorage = storage(this.buffers.position, 'vec4', this.count);
         const instancePos = positionStorage.element(vertexIndex).xyz;
-        
+
         material.positionNode = instancePos;
-        
+
         // TSL Nodes for color with type-specific effects
         material.colorNode = this.getColorNode();
         const sizeNode = this.getSizeNode();
@@ -352,7 +386,7 @@ export class ComputeParticleSystem {
             (material as any).sizeNode = sizeNode;
         }
         material.opacityNode = this.getOpacityNode();
-        
+
         const mesh = new THREE.Points(geometry, material);
         mesh.frustumCulled = false;
         mesh.userData.type = `compute_${this.type}`;
@@ -360,47 +394,47 @@ export class ComputeParticleSystem {
         if (this.type === 'gem_sparks') {
             mesh.renderOrder = -10;
         }
-        
+
         return mesh;
     }
-    
+
     private getColorNode(): any {
         const lifeStorage = storage(this.buffers.life, 'float', this.count);
         const seedStorage = storage(this.buffers.seed, 'float', this.count);
         const life = lifeStorage.element(vertexIndex);
         const seed = seedStorage.element(vertexIndex);
-        
+
         switch (this.type) {
             case 'fireflies':
                 return Fn(() => {
                     const intensity = life.div(6.0).clamp(0.0, 1.0);
-                    const green = color(0x88FF00);
-                    const gold = color(0xFFD700);
+                    const green = color(0x88ff00);
+                    const gold = color(0xffd700);
                     const baseColor = mix(green, gold, intensity);
                     const audioBoost = uAudioHigh.mul(3.0);
                     return baseColor.mul(float(1.0).add(audioBoost));
                 })();
-            
-case 'pollen':
-    return Fn(() => {
-        // pointUV emits gl_PointCoord which WGSL doesn't support; use seed for variation instead.
-        const hueMix = sin(seed.mul(10.0).add(uTime)).mul(0.5).add(0.5);
-        const cyan = color(0x00FFFF);
-        const magenta = color(0xFF00FF);
-        return mix(cyan, magenta, hueMix);
-    })();
-            
+
+            case 'pollen':
+                return Fn(() => {
+                    // pointUV emits gl_PointCoord which WGSL doesn't support; use seed for variation instead.
+                    const hueMix = sin(seed.mul(10.0).add(uTime)).mul(0.5).add(0.5);
+                    const cyan = color(0x00ffff);
+                    const magenta = color(0xff00ff);
+                    return mix(cyan, magenta, hueMix);
+                })();
+
             case 'berries':
-                return color(0xFF6600);
-            
+                return color(0xff6600);
+
             case 'rain':
-                return color(0x99CCFF);
-            
+                return color(0x99ccff);
+
             case 'sparks':
                 return Fn(() => {
                     const sparkLife = life.div(0.8).clamp(0.0, 1.0);
-                    const white = color(0xFFFF80);
-                    const orange = color(0xFF8000);
+                    const white = color(0xffff80);
+                    const orange = color(0xff8000);
                     return mix(orange, white, sparkLife);
                 })();
 
@@ -408,8 +442,8 @@ case 'pollen':
                 return Fn(() => {
                     // Hot white core cooling to ember as life burns down.
                     const heat = life.div(0.7).clamp(0.0, 1.0);
-                    const ember = color(0xFF3A1F);
-                    const core = color(0xFFF3C4);
+                    const ember = color(0xff3a1f);
+                    const core = color(0xfff3c4);
                     return mix(ember, core, heat).mul(float(1.0).add(uAudioHigh.mul(1.5)));
                 })();
 
@@ -417,9 +451,9 @@ case 'pollen':
                 return Fn(() => {
                     // Pastel candy billow; seed picks a hue so a burst is not monochrome.
                     const huePick = sin(seed.mul(8.7)).mul(0.5).add(0.5);
-                    const bubblegum = color(0xFF9ED2);
-                    const sherbet = color(0xFFE9A8);
-                    const mint = color(0xB8FFE3);
+                    const bubblegum = color(0xff9ed2);
+                    const sherbet = color(0xffe9a8);
+                    const mint = color(0xb8ffe3);
                     return mix(mix(bubblegum, sherbet, huePick), mint, huePick.mul(huePick));
                 })();
 
@@ -427,21 +461,29 @@ case 'pollen':
                 return Fn(() => {
                     // Per-mote static hue jitter from seed (avoids same-note color banding)
                     const huePick = sin(seed.mul(12.9898)).mul(0.5).add(0.5);
-                    const jewelRuby = color(0xE0115F);
-                    const jewelSapphire = color(0x0F52BA);
-                    const jewelAmethyst = color(0x9966CC);
-                    const baseJewel = mix(mix(jewelRuby, jewelSapphire, huePick), jewelAmethyst, huePick.mul(huePick));
+                    const jewelRuby = color(0xe0115f);
+                    const jewelSapphire = color(0x0f52ba);
+                    const jewelAmethyst = color(0x9966cc);
+                    const baseJewel = mix(
+                        mix(jewelRuby, jewelSapphire, huePick),
+                        jewelAmethyst,
+                        huePick.mul(huePick)
+                    );
                     // Music Impact: harmonize with hanging gems via gem_canopy bindings
-                    const musicTint = mix(baseJewel, gemCanopyNoteColorNode, BiomeUniforms.gemCanopy.shimmer);
+                    const musicTint = mix(
+                        baseJewel,
+                        gemCanopyNoteColorNode,
+                        BiomeUniforms.gemCanopy.shimmer
+                    );
                     const beatBoost = uAudioHigh.mul(0.5).add(1.0);
                     return musicTint.mul(beatBoost);
                 })();
-            
+
             default:
-                return color(0xFFFFFF);
+                return color(0xffffff);
         }
     }
-    
+
     private getSizeNode(): any {
         const sizeStorage = storage(this.buffers.size, 'float', this.count);
         const lifeStorage = storage(this.buffers.life, 'float', this.count);
@@ -449,21 +491,25 @@ case 'pollen':
         const baseSize = sizeStorage.element(vertexIndex);
         const life = lifeStorage.element(vertexIndex);
         const seed = seedStorage.element(vertexIndex);
-        
+
         switch (this.type) {
             case 'fireflies':
                 return Fn(() => {
-                    const pulse = sin(uTime.mul(5.0).add(seed.mul(10.0))).mul(0.3).add(1.0);
+                    const pulse = sin(uTime.mul(5.0).add(seed.mul(10.0)))
+                        .mul(0.3)
+                        .add(1.0);
                     const audioPulse = uAudioHigh.mul(0.5);
                     return baseSize.mul(pulse).add(audioPulse);
                 })();
-            
+
             case 'pollen':
                 return Fn(() => {
-                    const twinkle = sin(uTime.mul(3.0).add(seed.mul(20.0))).mul(0.2).add(1.0);
+                    const twinkle = sin(uTime.mul(3.0).add(seed.mul(20.0)))
+                        .mul(0.2)
+                        .add(1.0);
                     return baseSize.mul(twinkle);
                 })();
-            
+
             case 'sparks':
                 return baseSize.mul(life.div(0.8));
 
@@ -481,49 +527,53 @@ case 'pollen':
             case 'gem_sparks':
                 return Fn(() => {
                     const twinkleRate = float(4.0).add(seed.mul(0.01));
-                    const twinkle = sin(uTime.mul(twinkleRate).add(seed.mul(6.28))).mul(0.35).add(1.0);
+                    const twinkle = sin(uTime.mul(twinkleRate).add(seed.mul(6.28)))
+                        .mul(0.35)
+                        .add(1.0);
                     const beatPulse = uAudioHigh.mul(0.8);
                     return baseSize.mul(twinkle).add(beatPulse.mul(0.015));
                 })();
-            
+
             default:
                 return null;
         }
     }
-private getOpacityNode(): any {
-    const lifeStorage = storage(this.buffers.life, 'float', this.count);
-    const seedStorage = storage(this.buffers.seed, 'float', this.count);
-    const life = lifeStorage.element(vertexIndex);
-    const seed = seedStorage.element(vertexIndex);
+    private getOpacityNode(): any {
+        const lifeStorage = storage(this.buffers.life, 'float', this.count);
+        const seedStorage = storage(this.buffers.seed, 'float', this.count);
+        const life = lifeStorage.element(vertexIndex);
+        const seed = seedStorage.element(vertexIndex);
 
-    if (this.type === 'gem_sparks') {
-        const posStorage = storage(this.buffers.position, 'vec4', this.count);
-        const pos = posStorage.element(vertexIndex).xyz;
-        const cx = float(this.config.center?.x ?? 0);
-        const cy = float(this.config.center?.y ?? 5);
-        const cz = float(this.config.center?.z ?? 0);
-        const halfX = float((this.config.bounds?.x ?? 40) * 0.5);
-        const halfY = float((this.config.bounds?.y ?? 14) * 0.5);
-        const halfZ = float((this.config.bounds?.z ?? 18) * 0.5);
-        return Fn(() => {
-            const relX = pos.x.sub(cx).abs();
-            const relY = pos.y.sub(cy).abs();
-            const relZ = pos.z.sub(cz).abs();
-            const edgeX = smoothstep(halfX, halfX.mul(0.72), relX);
-            const edgeY = smoothstep(halfY, halfY.mul(0.72), relY);
-            const edgeZ = smoothstep(halfZ, halfZ.mul(0.72), relZ);
-            const edgeFade = edgeX.mul(edgeY).mul(edgeZ);
-            const twinkle = sin(uTime.mul(4.0).add(seed.mul(6.28))).mul(0.25).add(0.75);
-            const beat = uAudioHigh.mul(0.35).add(0.65);
-            return edgeFade.mul(twinkle).mul(beat).clamp(0.0, 1.0);
-        })();
+        if (this.type === 'gem_sparks') {
+            const posStorage = storage(this.buffers.position, 'vec4', this.count);
+            const pos = posStorage.element(vertexIndex).xyz;
+            const cx = float(this.config.center?.x ?? 0);
+            const cy = float(this.config.center?.y ?? 5);
+            const cz = float(this.config.center?.z ?? 0);
+            const halfX = float((this.config.bounds?.x ?? 40) * 0.5);
+            const halfY = float((this.config.bounds?.y ?? 14) * 0.5);
+            const halfZ = float((this.config.bounds?.z ?? 18) * 0.5);
+            return Fn(() => {
+                const relX = pos.x.sub(cx).abs();
+                const relY = pos.y.sub(cy).abs();
+                const relZ = pos.z.sub(cz).abs();
+                const edgeX = smoothstep(halfX, halfX.mul(0.72), relX);
+                const edgeY = smoothstep(halfY, halfY.mul(0.72), relY);
+                const edgeZ = smoothstep(halfZ, halfZ.mul(0.72), relZ);
+                const edgeFade = edgeX.mul(edgeY).mul(edgeZ);
+                const twinkle = sin(uTime.mul(4.0).add(seed.mul(6.28)))
+                    .mul(0.25)
+                    .add(0.75);
+                const beat = uAudioHigh.mul(0.35).add(0.65);
+                return edgeFade.mul(twinkle).mul(beat).clamp(0.0, 1.0);
+            })();
+        }
+
+        // pointUV emits gl_PointCoord which WGSL does not support. WebGPU points are
+        // single-fragment primitives without point-coord, so we fade by life instead of
+        // applying a circular disc mask.
+        return smoothstep(float(0.0), float(0.5), life).clamp(0.0, 1.0);
     }
-
-    // pointUV emits gl_PointCoord which WGSL does not support. WebGPU points are
-    // single-fragment primitives without point-coord, so we fade by life instead of
-    // applying a circular disc mask.
-    return smoothstep(float(0.0), float(0.5), life).clamp(0.0, 1.0);
-}
     private async initWebGPU(): Promise<void> {
         if (!navigator.gpu) {
             throw new Error('WebGPU not supported');
@@ -559,15 +609,17 @@ private getOpacityNode(): any {
         // Ensure WebGPU resources are created sequentially with rAF yields
         // rather than Promise.all parallel execution, to prevent VRAM allocation spikes.
         await this.createComputePipeline();
-        await new Promise(resolve => requestAnimationFrame(resolve));
+        await new Promise((resolve) => requestAnimationFrame(resolve));
         await this.createUniformBuffer();
-        await new Promise(resolve => requestAnimationFrame(resolve));
+        await new Promise((resolve) => requestAnimationFrame(resolve));
         await this.createBindGroup();
-        
+
         this.usingGPU = true;
-        console.log(`[ComputeParticles] GPU initialized for ${this.type} with ${this.count} particles`);
+        console.log(
+            `[ComputeParticles] GPU initialized for ${this.type} with ${this.count} particles`
+        );
     }
-    
+
     private initCPUFallback(): void {
         this.cpuFallback = new CPUParticleSystem(this.config);
         this.cpuFallback.setAttractors(this.lastAttractors);
@@ -577,95 +629,104 @@ private getOpacityNode(): any {
         this.mesh = this.cpuFallback.mesh;
         this.usingGPU = false;
     }
-    
+
     private async createComputePipeline(): Promise<void> {
         if (!this.device) return;
-        
+
         const shaderModule = this.device.createShaderModule({
-            code: UPDATE_PARTICLES_WGSL
-            .replace('positions: array<vec3<f32>>', `positions: array<vec3<f32>, ${this.count}>`)
-            .replace('velocities: array<vec3<f32>>', `velocities: array<vec3<f32>, ${this.count}>`)
-            .replace('lives: array<f32>', `lives: array<f32, ${this.count}>`)
-            .replace('sizes: array<f32>', `sizes: array<f32, ${this.count}>`)
-            .replace('seeds: array<f32>', `seeds: array<f32, ${this.count}>`)
+            code: UPDATE_PARTICLES_WGSL.replace(
+                'positions: array<vec3<f32>>',
+                `positions: array<vec3<f32>, ${this.count}>`
+            )
+                .replace(
+                    'velocities: array<vec3<f32>>',
+                    `velocities: array<vec3<f32>, ${this.count}>`
+                )
+                .replace('lives: array<f32>', `lives: array<f32, ${this.count}>`)
+                .replace('sizes: array<f32>', `sizes: array<f32, ${this.count}>`)
+                .replace('seeds: array<f32>', `seeds: array<f32, ${this.count}>`),
         });
-        
+
         const bindGroupLayout = this.device.createBindGroupLayout({
             entries: [
                 {
                     binding: 0,
                     visibility: GPUShaderStage.COMPUTE,
-                    buffer: { type: 'storage' }
+                    buffer: { type: 'storage' },
                 },
                 {
                     binding: 1,
                     visibility: GPUShaderStage.COMPUTE,
-                    buffer: { type: 'uniform' }
-                }
-            ]
+                    buffer: { type: 'uniform' },
+                },
+            ],
         });
-        
+
         const pipelineLayout = this.device.createPipelineLayout({
-            bindGroupLayouts: [bindGroupLayout]
+            bindGroupLayouts: [bindGroupLayout],
         });
-        
+
         this.computePipeline = this.device.createComputePipeline({
             layout: pipelineLayout,
             compute: {
                 module: shaderModule,
-                entryPoint: 'main'
-            }
+                entryPoint: 'main',
+            },
         });
     }
-    
+
     private async createUniformBuffer(): Promise<void> {
         if (!this.device) return;
-        
+
         // Align to 16 bytes for WGSL
         const uniformSize = Math.ceil((UNIFORM_FLOAT_COUNT * 4) / 16) * 16;
-        
+
         this.uniformBuffer = this.device.createBuffer({
             size: uniformSize,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-            mappedAtCreation: false
+            mappedAtCreation: false,
         });
     }
-    
+
     private async createBindGroup(): Promise<void> {
         if (!this.device || !this.uniformBuffer || !this.computePipeline) return;
-        
+
         // Create storage buffer from position buffer
         const vec3ArraySize = this.count * 16;
         const f32ArraySize = this.count * 4;
-        const totalSize = Math.ceil(((vec3ArraySize * 2) + (f32ArraySize * 3)) / 16) * 16;
+        const totalSize = Math.ceil((vec3ArraySize * 2 + f32ArraySize * 3) / 16) * 16;
 
         // Stagger allocation to prevent VRAM spikes
-        await new Promise(resolve => requestAnimationFrame(resolve));
+        await new Promise((resolve) => requestAnimationFrame(resolve));
 
         this.particleBuffer = this.device.createBuffer({
             size: totalSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-            mappedAtCreation: false
+            mappedAtCreation: false,
         });
-        
-        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        await new Promise((resolve) => requestAnimationFrame(resolve));
 
         this.bindGroup = this.device.createBindGroup({
             layout: this.computePipeline.getBindGroupLayout(0),
             entries: [
                 {
                     binding: 0,
-                    resource: { buffer: this.particleBuffer }
+                    resource: { buffer: this.particleBuffer },
                 },
                 {
                     binding: 1,
-                    resource: { buffer: this.uniformBuffer }
-                }
-            ]
+                    resource: { buffer: this.uniformBuffer },
+                },
+            ],
         });
     }
-    
-    private updateUniforms(deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void {
+
+    private updateUniforms(
+        deltaTime: number,
+        playerPosition: THREE.Vector3,
+        audioData: ParticleAudioData
+    ): void {
         this.uniforms.deltaTime = deltaTime;
         this.uniforms.time = performance.now() * 0.001;
         this.uniforms.count = this.count;
@@ -681,10 +742,9 @@ private getOpacityNode(): any {
         this.uniforms.audioLow = audioData.low;
         this.uniforms.audioHigh = audioData.high;
         this.uniforms.windSpeed = audioData.windSpeed || 0;
-        
+
         this.uniforms.particleType = PARTICLE_TYPE_ID[this.type];
     }
-    
 
     /**
      * Replace this system's attractor set. Positions are read immediately, so the
@@ -728,7 +788,13 @@ private getOpacityNode(): any {
         return this.deviceLost;
     }
 
-    public spawn(options: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }): number {
+    public spawn(options: {
+        position: THREE.Vector3;
+        velocity?: THREE.Vector3;
+        life?: number;
+        size?: number;
+        seed?: number;
+    }): number {
         if (this.usingGPU && this.device && this.particleBuffer) {
             const i = this.nextSpawnIndex;
             this.nextSpawnIndex = (this.nextSpawnIndex + 1) % this.count;
@@ -746,29 +812,49 @@ private getOpacityNode(): any {
             ComputeParticleSystem.scratchFloat32Array[1] = options.position.y;
             ComputeParticleSystem.scratchFloat32Array[2] = options.position.z;
             ComputeParticleSystem.scratchFloat32Array[3] = 0;
-            this.device.queue.writeBuffer(this.particleBuffer, posOffset, ComputeParticleSystem.scratchFloat32Array);
+            this.device.queue.writeBuffer(
+                this.particleBuffer,
+                posOffset,
+                ComputeParticleSystem.scratchFloat32Array
+            );
 
             if (options.velocity) {
                 ComputeParticleSystem.scratchFloat32Array[0] = options.velocity.x;
                 ComputeParticleSystem.scratchFloat32Array[1] = options.velocity.y;
                 ComputeParticleSystem.scratchFloat32Array[2] = options.velocity.z;
                 ComputeParticleSystem.scratchFloat32Array[3] = 0;
-                this.device.queue.writeBuffer(this.particleBuffer, velOffset, ComputeParticleSystem.scratchFloat32Array);
+                this.device.queue.writeBuffer(
+                    this.particleBuffer,
+                    velOffset,
+                    ComputeParticleSystem.scratchFloat32Array
+                );
             }
 
             if (options.life !== undefined) {
                 ComputeParticleSystem.scratchFloat32Array[0] = options.life;
-                this.device.queue.writeBuffer(this.particleBuffer, lifeOffset, ComputeParticleSystem.scratchFloat32Array.subarray(0, 1));
+                this.device.queue.writeBuffer(
+                    this.particleBuffer,
+                    lifeOffset,
+                    ComputeParticleSystem.scratchFloat32Array.subarray(0, 1)
+                );
             }
 
             if (options.size !== undefined) {
                 ComputeParticleSystem.scratchFloat32Array[0] = options.size;
-                this.device.queue.writeBuffer(this.particleBuffer, sizeOffset, ComputeParticleSystem.scratchFloat32Array.subarray(0, 1));
+                this.device.queue.writeBuffer(
+                    this.particleBuffer,
+                    sizeOffset,
+                    ComputeParticleSystem.scratchFloat32Array.subarray(0, 1)
+                );
             }
 
             if (options.seed !== undefined) {
                 ComputeParticleSystem.scratchFloat32Array[0] = options.seed;
-                this.device.queue.writeBuffer(this.particleBuffer, seedOffset, ComputeParticleSystem.scratchFloat32Array.subarray(0, 1));
+                this.device.queue.writeBuffer(
+                    this.particleBuffer,
+                    seedOffset,
+                    ComputeParticleSystem.scratchFloat32Array.subarray(0, 1)
+                );
             }
             return i;
         }
@@ -778,17 +864,28 @@ private getOpacityNode(): any {
         return -1;
     }
 
-
     public kill(index: number): void {
         if (this.usingGPU && this.device && this.particleBuffer) {
             const vec3ArraySize = this.count * 16;
             const lifeOffset = vec3ArraySize * 2 + index * 4;
             ComputeParticleSystem.scratchFloat32Array[0] = -1.0;
-            this.device.queue.writeBuffer(this.particleBuffer, lifeOffset, ComputeParticleSystem.scratchFloat32Array.subarray(0, 1));
+            this.device.queue.writeBuffer(
+                this.particleBuffer,
+                lifeOffset,
+                ComputeParticleSystem.scratchFloat32Array.subarray(0, 1)
+            );
         }
     }
 
-    public burst(spawns: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }[]): number[] {
+    public burst(
+        spawns: {
+            position: THREE.Vector3;
+            velocity?: THREE.Vector3;
+            life?: number;
+            size?: number;
+            seed?: number;
+        }[]
+    ): number[] {
         const indices: number[] = [];
         for (const spawn of spawns) {
             indices.push(this.spawn(spawn));
@@ -796,10 +893,15 @@ private getOpacityNode(): any {
         return indices;
     }
 
-    update(renderer: THREE.Renderer, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void {
+    update(
+        renderer: THREE.Renderer,
+        deltaTime: number,
+        playerPosition: THREE.Vector3,
+        audioData: ParticleAudioData
+    ): void {
         if (this.usingGPU && this.device && this.uniformBuffer) {
             this.updateUniforms(deltaTime, playerPosition, audioData);
-            
+
             // Write uniforms to GPU. The array is owned by the system and refilled in
             // place — allocating a Float32Array per dispatch showed up as GC churn.
             const u = this.uniformArray;
@@ -830,7 +932,7 @@ private getOpacityNode(): any {
             // Attractor slots [24..55] are written by setAttractors().
 
             this.device.queue.writeBuffer(this.uniformBuffer, 0, u);
-            
+
             // Dispatch compute shader
             const commandEncoder = this.device.createCommandEncoder();
             const passEncoder = commandEncoder.beginComputePass();
@@ -845,7 +947,9 @@ private getOpacityNode(): any {
             // This is a hack for the review environment, as a proper implementation requires TSL compute nodes.
             const rendererBackend = renderer as any;
             if (rendererBackend.backend && rendererBackend.backend.attributeUtils) {
-                const bufferData = rendererBackend.backend.attributeUtils.get(this.buffers.position);
+                const bufferData = rendererBackend.backend.attributeUtils.get(
+                    this.buffers.position
+                );
                 if (bufferData && bufferData.buffer !== this.particleBuffer) {
                     // Force Three.js to use our SoA buffer
                     bufferData.buffer = this.particleBuffer;
@@ -855,19 +959,17 @@ private getOpacityNode(): any {
             // Sync GPU storage buffer back to CPU buffers to bridge with TSL rendering.
             // This is required because TSL uses StorageBufferAttributes which map to separate buffers
             // while our compute shader uses a single unified SoA structure.
-
         } else if (this.cpuFallback) {
             // Update CPU fallback
             this.cpuFallback.update(deltaTime, playerPosition, audioData);
         }
     }
-    
 
     dispose(): void {
         if (this.cpuFallback) {
             this.cpuFallback.dispose();
         }
-        
+
         this.mesh.geometry.dispose();
         (this.mesh.material as THREE.Material).dispose();
 
@@ -889,7 +991,10 @@ private getOpacityNode(): any {
     /**
      * Spawn multiple particles dynamically.
      */
-    spawnMany(count: number, options: { position?: THREE.Vector3, velocity?: THREE.Vector3, spread?: number } = {}): void {
+    spawnMany(
+        count: number,
+        options: { position?: THREE.Vector3; velocity?: THREE.Vector3; spread?: number } = {}
+    ): void {
         if (!this.mesh) return;
 
         // Use config.center as the default spawn origin, falling back to DEFAULT_SPAWN_CENTER.
@@ -907,7 +1012,6 @@ private getOpacityNode(): any {
     burstMany(count: number, position: THREE.Vector3): void {
         this.spawnMany(count, { position, spread: 2.0 });
     }
-
 }
 
 // =============================================================================
@@ -926,7 +1030,7 @@ export function createComputeFireflies(config: FireflyConfig = {}): ComputeParti
         bounds: config.bounds || { x: 100, y: 15, z: 100 },
         center: config.center || new THREE.Vector3(0, 3, 0),
         sizeRange: config.sizeRange || { min: 0.1, max: 0.25 },
-        ...config
+        ...config,
     });
 }
 
@@ -942,7 +1046,7 @@ export function createComputePollen(config: PollenConfig = {}): ComputeParticleS
         bounds: config.bounds || { x: 50, y: 20, z: 50 },
         center: config.center || new THREE.Vector3(0, 8, 0),
         sizeRange: config.sizeRange || { min: 0.05, max: 0.15 },
-        ...config
+        ...config,
     });
 }
 
@@ -954,7 +1058,10 @@ export function createComputePollen(config: PollenConfig = {}): ComputeParticleS
 export function createComputeBerries(config: BerryConfig = {}): ComputeParticleSystem {
     if (isCIorHeadless()) {
         return new ComputeParticleSystem({
-            type: 'berries', count: 1, bounds: {x: 1, y: 1, z: 1}, center: new THREE.Vector3()
+            type: 'berries',
+            count: 1,
+            bounds: { x: 1, y: 1, z: 1 },
+            center: new THREE.Vector3(),
         });
     }
 
@@ -964,7 +1071,7 @@ export function createComputeBerries(config: BerryConfig = {}): ComputeParticleS
         bounds: config.bounds || { x: 80, y: 30, z: 80 },
         center: config.center || new THREE.Vector3(0, 20, 0),
         sizeRange: config.sizeRange || { min: 0.08, max: 0.15 },
-        ...config
+        ...config,
     });
 }
 
@@ -980,7 +1087,7 @@ export function createComputeRain(config: RainConfig = {}): ComputeParticleSyste
         bounds: config.bounds || { x: 200, y: 50, z: 200 },
         center: config.center || new THREE.Vector3(0, 40, 0),
         sizeRange: config.sizeRange || { min: 0.02, max: 0.05 },
-        ...config
+        ...config,
     });
 }
 
@@ -996,7 +1103,7 @@ export function createComputeSparks(config: SparkConfig = {}): ComputeParticleSy
         bounds: config.bounds || { x: 30, y: 20, z: 30 },
         center: config.center || new THREE.Vector3(0, 5, 0),
         sizeRange: config.sizeRange || { min: 0.05, max: 0.12 },
-        ...config
+        ...config,
     });
 }
 
@@ -1110,7 +1217,11 @@ export function getActiveComputeSystems(): ComputeSystemCollection {
 }
 
 // Export WGSL shaders for advanced users
-export { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
+export {
+    UPDATE_PARTICLES_WGSL,
+    RENDER_PARTICLES_WGSL,
+    FRAGMENT_PARTICLES_WGSL,
+} from './compute-particles-shaders.ts';
 
 // Re-export ParticleAudioData for backward compatibility
 export type { ParticleAudioData } from './compute-particles-types.ts';

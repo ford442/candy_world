@@ -96,9 +96,7 @@ function wrapAxis(pos: number, center: number, extent: number): number {
 
 function isOutOfWorldBounds(px: number, py: number, pz: number): boolean {
     const b = PARTICLE_WORLD_BOUNDS;
-    return px < b.minX || px > b.maxX ||
-        py < b.minY || py > b.maxY ||
-        pz < b.minZ || pz > b.maxZ;
+    return px < b.minX || px > b.maxX || py < b.minY || py > b.maxY || pz < b.minZ || pz > b.maxZ;
 }
 
 function setParticleColor(
@@ -157,7 +155,7 @@ function setParticleColor(
             const huePick = fastSin(seeds[i] * 12.9898) * 0.5 + 0.5;
             const ruby = [0.88, 0.07, 0.37];
             const sapphire = [0.06, 0.32, 0.73];
-            const amethyst = [0.60, 0.40, 0.80];
+            const amethyst = [0.6, 0.4, 0.8];
             colors[idx] = ruby[0] * (1 - huePick) + sapphire[0] * huePick;
             colors[idx + 1] = ruby[1] * (1 - huePick) + amethyst[1] * huePick * huePick;
             colors[idx + 2] = ruby[2] * (1 - huePick) + amethyst[2] * huePick;
@@ -169,7 +167,18 @@ function setParticleColor(
 
 export function respawnCpuParticle(
     buffers: CpuParticleBuffers,
-    params: Pick<CpuParticleSimParams, 'type' | 'centerX' | 'centerY' | 'centerZ' | 'boundsX' | 'boundsY' | 'boundsZ' | 'sizeMin' | 'sizeMax'>,
+    params: Pick<
+        CpuParticleSimParams,
+        | 'type'
+        | 'centerX'
+        | 'centerY'
+        | 'centerZ'
+        | 'boundsX'
+        | 'boundsY'
+        | 'boundsZ'
+        | 'sizeMin'
+        | 'sizeMax'
+    >,
     i: number,
     initial = false
 ): void {
@@ -247,11 +256,7 @@ export function respawnCpuParticle(
     setParticleColor(params.type, colors, seeds, i);
 }
 
-function updateFirefly(
-    buffers: CpuParticleBuffers,
-    params: CpuParticleSimParams,
-    i: number
-): void {
+function updateFirefly(buffers: CpuParticleBuffers, params: CpuParticleSimParams, i: number): void {
     const { positions, velocities, seeds } = buffers;
     const idx = i * 3;
     const dt = params.deltaTime;
@@ -297,11 +302,7 @@ function updateFirefly(
     }
 }
 
-function updatePollen(
-    buffers: CpuParticleBuffers,
-    params: CpuParticleSimParams,
-    i: number
-): void {
+function updatePollen(buffers: CpuParticleBuffers, params: CpuParticleSimParams, i: number): void {
     const { positions, velocities } = buffers;
     const idx = i * 3;
     const dt = params.deltaTime;
@@ -410,7 +411,11 @@ function updateSpark(buffers: CpuParticleBuffers, params: CpuParticleSimParams, 
     positions[idx + 2] += velocities[idx + 2] * dt;
 }
 
-function updateGemSpark(buffers: CpuParticleBuffers, params: CpuParticleSimParams, i: number): void {
+function updateGemSpark(
+    buffers: CpuParticleBuffers,
+    params: CpuParticleSimParams,
+    i: number
+): void {
     const { positions, velocities, seeds } = buffers;
     const idx = i * 3;
     const dt = params.deltaTime;

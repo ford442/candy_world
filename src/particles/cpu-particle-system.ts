@@ -10,7 +10,12 @@ import { uTime, uAudioHigh } from '../foliage/material-core.ts';
 import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { isEmscriptenReady } from '../utils/wasm-loader-core.ts';
 import { updateCpuParticlesNative } from '../utils/wasm-particles-cpp.ts';
-import { ComputeParticleType, ComputeParticleConfig, ParticleAudioData, ParticleAttractor } from './compute-particles-types.ts';
+import {
+    ComputeParticleType,
+    ComputeParticleConfig,
+    ParticleAudioData,
+    ParticleAttractor,
+} from './compute-particles-types.ts';
 import {
     respawnCpuParticle,
     simulateCpuParticles,
@@ -158,7 +163,7 @@ export class CPUParticleSystem {
         const material = new PointsNodeMaterial({
             transparent: true,
             depthWrite: false,
-            blending: THREE.AdditiveBlending
+            blending: THREE.AdditiveBlending,
         });
 
         const aUv = uv();
@@ -192,11 +197,19 @@ export class CPUParticleSystem {
                 break;
             case 'gem_sparks':
                 material.colorNode = Fn(() => {
-                    const jewelRuby = color(0xE0115F);
-                    const jewelSapphire = color(0x0F52BA);
-                    const jewelAmethyst = color(0x9966CC);
-                    const baseJewel = mix(jewelRuby, mix(jewelSapphire, jewelAmethyst, float(0.5)), float(0.5));
-                    const musicTint = mix(baseJewel, gemCanopyNoteColorNode, BiomeUniforms.gemCanopy.shimmer);
+                    const jewelRuby = color(0xe0115f);
+                    const jewelSapphire = color(0x0f52ba);
+                    const jewelAmethyst = color(0x9966cc);
+                    const baseJewel = mix(
+                        jewelRuby,
+                        mix(jewelSapphire, jewelAmethyst, float(0.5)),
+                        float(0.5)
+                    );
+                    const musicTint = mix(
+                        baseJewel,
+                        gemCanopyNoteColorNode,
+                        BiomeUniforms.gemCanopy.shimmer
+                    );
                     const beatBoost = uAudioHigh.mul(0.5).add(1.0);
                     return musicTint.mul(beatBoost);
                 })();
@@ -219,7 +232,13 @@ export class CPUParticleSystem {
      * Seed one particle slot. Round-robins through the pool exactly like the GPU
      * path so a burst behaves the same on either tier.
      */
-    spawn(options: { position: THREE.Vector3; velocity?: THREE.Vector3; life?: number; size?: number; seed?: number }): number {
+    spawn(options: {
+        position: THREE.Vector3;
+        velocity?: THREE.Vector3;
+        life?: number;
+        size?: number;
+        seed?: number;
+    }): number {
         const i = this.nextSpawnIndex;
         this.nextSpawnIndex = (this.nextSpawnIndex + 1) % this.count;
         const idx = i * 3;
@@ -234,7 +253,9 @@ export class CPUParticleSystem {
             this.velocities[idx + 2] = options.velocity.z;
         }
         this.lives[i] = options.life ?? 1.0;
-        this.sizes[i] = options.size ?? (this.sizeRange.min + Math.random() * (this.sizeRange.max - this.sizeRange.min));
+        this.sizes[i] =
+            options.size ??
+            this.sizeRange.min + Math.random() * (this.sizeRange.max - this.sizeRange.min);
         this.seeds[i] = options.seed ?? Math.random() * 1000;
         return i;
     }
@@ -255,7 +276,7 @@ export class CPUParticleSystem {
                 const distSq = dx * dx + dy * dy + dz * dz;
                 if (distSq >= radiusSq || distSq < 1e-8) continue;
                 const dist = Math.sqrt(distSq);
-                const force = (1 - dist / radius) * strength * deltaTime / dist;
+                const force = ((1 - dist / radius) * strength * deltaTime) / dist;
                 this.velocities[idx] += dx * force;
                 this.velocities[idx + 1] += dy * force;
                 this.velocities[idx + 2] += dz * force;
