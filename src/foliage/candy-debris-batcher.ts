@@ -273,7 +273,8 @@ export class CandyDebrisBatcher {
             _scratchQuat.setFromEuler(_scratchEuler);
             _scratchScale.set(scale, scale, scale);
             _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
-            mesh.setMatrixAt(i, _scratchMatrix);
+            // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix.array
+            _scratchMatrix.toArray(mesh.instanceMatrix.array, i * 16);
             i++;
         }
 
