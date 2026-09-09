@@ -31,6 +31,7 @@ import {
     initDynamicFoliageBridge,
     updatePhysicsCPP,
     getPlayerState,
+    setPlayerState,
 } from '../../utils/wasm-loader.ts';
 import {
     foliageMushrooms,
@@ -47,10 +48,15 @@ import {
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { reconcileGroundedEyeY, isInLakeBasin } from '../ground-system.ts';
+import { reconcileGroundedEyeY, isInLakeBasin, getGroundHeight, sampleGroundFootprint } from '../ground-system.ts';
+
+const _characterGroundQuery = { sampleFootprint: sampleGroundFootprint, getGroundHeight };
 import { calculateMovementInput } from '../physics.core.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { handleAbilities } from './physics-abilities.ts';
+import { resolveCharacterMovement } from './character-controller.ts';
+
+
 import {
     updateSwimmingState,
     updateVineState,
@@ -72,6 +78,10 @@ import {
     AudioState,
     KeyStates,
     _scratchPlayerState,
+    _scratchTargetVel,
+    _scratchCamDir,
+    _scratchCamRight,
+    _scratchUp,
 } from './physics-types.ts';
 
 // Re-export player and types for external use
@@ -237,7 +247,6 @@ import {
     checkPanningPads,
     checkVineAttachment,
     initCppPhysics,
-    updateJSFallbackMovement,
 } from './physics-updates.ts';
 
 /**
@@ -493,85 +502,119 @@ function updateDefaultState(
         );
     }
 
-    // Seed WASM state at start of next frame
-    import('../../utils/wasm-physics.ts').then(({ setPlayerState }) => {
-        setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
-    }).catch(() => {});
+    // Calculate target velocity based on input (formerly in updateJSFallbackMovement)
+    const camDir = _scratchCamDir;
+    camera.getWorldDirection(camDir);
+    camDir.y = 0;
+    camDir.normalize();
+    const camRight = _scratchCamRight.crossVectors(camDir, _scratchUp);
+    const _targetVelocity = _scratchTargetVel.set(0, 0, 0);
+    if (keyStates.forward) _targetVelocity.add(camDir);
+    if (keyStates.backward) _targetVelocity.sub(camDir);
+    if (keyStates.right) _targetVelocity.add(camRight);
+    if (keyStates.left) _targetVelocity.sub(camRight);
+    if (_targetVelocity.lengthSq() > 0) _targetVelocity.normalize().multiplyScalar(moveSpeed);
 
     if (!inLakeBasin) {
+        // Seed WASM state synchronously before running C++ update
+        setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
+
+        const preX = player.position.x;
+        const preZ = player.position.z;
+
         // 3. updatePhysicsCPP(..., jump = false) as obstacle/trampoline solver only
         onGround = updatePhysicsCPP(
             delta,
-            moveInput.x,
-            moveInput.z,
+            _targetVelocity.x,
+            _targetVelocity.z,
             moveSpeed,
             false, // jump=false to prevent C++ from firing vy=10
             keyStates.sprint,
             keyStates.sneak,
             grooveGravity.multiplier
         );
-    }
 
-    if ((window as any).__diagPhysicsCount === 3) {
-        (window as any).__diagPhysicsCount = 4;
-        console.log('[PhysicsDiag] updateDefaultState: updatePhysicsCPP returned');
-    }
+        if (onGround >= 0) {
+            physicsPathStats.native++;
+            if (!_warnedNativePathActive) {
+                _warnedNativePathActive = true;
+                console.log(
+                    '[Physics] Native obstacle/trampoline assist active; JS character controller remains authoritative.'
+                );
+            }
 
-    if (!(window as any).__physicsPathStats) {
-        (window as any).__physicsPathStats = physicsPathStats;
-    }
+            getPlayerState(_scratchPlayerState);
 
-    if (onGround >= 0) {
-        physicsPathStats.controller++;
-        physicsPathStats.native++;
-        if (!_warnedNativePathActive) {
-            _warnedNativePathActive = true;
-            console.log(
-                '[Physics] Native obstacle/trampoline assist active; JS character controller remains authoritative.'
-            );
+            // Extract the C++ obstacle-constrained displacement as the new target velocity
+            // This isolates the C++ collision sliding while letting TS own kinematic acceleration
+            _targetVelocity.x = (_scratchPlayerState.x - preX) / delta;
+            _targetVelocity.z = (_scratchPlayerState.z - preZ) / delta;
+
+            if (onGround === 2) {
+                player.velocity.y = _scratchPlayerState.vy;
+                player.isGrounded = false;
+            }
         }
+    }
 
-        getPlayerState(_scratchPlayerState);
-        const preX = player.position.x;
-        const preZ = player.position.z;
+    // Now TS controller owns the movement resolve for BOTH paths!
+    physicsPathStats.controller++;
+    const jumpTriggered = keyStates.jump && !_lastInputState.jump;
+    const outcome = resolveCharacterMovement(
+        delta,
+        player,
+        _targetVelocity,
+        keyStates.jump,
+        jumpTriggered,
+        _characterGroundQuery
+    );
 
-        updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
+    // Apply wind forces
+    player.position.x += windForceX;
+    player.position.z += windForceZ;
 
-        const obstacleCorrectionX = _scratchPlayerState.x - preX - _scratchPlayerState.vx * delta;
-        const obstacleCorrectionZ = _scratchPlayerState.z - preZ - _scratchPlayerState.vz * delta;
-
-        player.position.x += obstacleCorrectionX + windForceX;
-        player.position.z += obstacleCorrectionZ + windForceZ;
-
-        if (onGround === 2) {
-            player.velocity.y = _scratchPlayerState.vy;
-            player.isGrounded = false;
-        }
-
-        // Reset jump key if we successfully jumped (velocity.y > 0)
-        // But only if we were grounded before (normal jump)
-        if (player.velocity.y > 0 && player.isGrounded) {
-            keyStates.jump = false;
-            spawnImpact(player.position, 'jump');
-            // 🎨 Palette: Audio feedback for jump
+    // Handle landing FX (formerly in updateJSFallbackMovement)
+    if (outcome.justLanded) {
+        const fallSpeed = outcome.fallSpeed;
+        if (fallSpeed > 15.0) {
+            spawnImpact(player.position, 'land');
+            spawnImpact(player.position, 'dash');
+            addCameraShake(0.4);
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('jump', {
-                    pitch: Math.random() * 0.2 + 0.9,
-                    volume: 0.5,
-                });
+                (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
             }
-            if (typeof uChromaticIntensity !== 'undefined') {
-                uChromaticIntensity.value = 0.2;
+        } else if (fallSpeed > 8.0) {
+            spawnImpact(player.position, 'land');
+            addCameraShake(0.15);
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
+            }
+        } else {
+            spawnImpact(player.position, 'jump');
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
             }
         }
-    } else {
-        // --- Kinematic character controller (#1577) ---
-        physicsPathStats.controller++;
-        updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
-        player.position.x += windForceX;
-        player.position.z += windForceZ;
     }
 
+    // Reset jump key if we successfully jumped
+    if (player.velocity.y > 0 && player.isGrounded) {
+        keyStates.jump = false;
+        spawnImpact(player.position, 'jump');
+        // 🎨 Palette: Audio feedback for jump
+        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+            (window as any).AudioSystem.playSound('jump', {
+                pitch: Math.random() * 0.2 + 0.9,
+                volume: 0.5,
+            });
+        }
+        if (typeof uChromaticIntensity !== 'undefined') {
+            uChromaticIntensity.value = 0.2;
+        }
+    }
     if ((window as any).__diagPhysicsCount === 4) {
         (window as any).__diagPhysicsCount = 5;
         console.log('[PhysicsDiag] updateDefaultState: Reconcile Y begin');

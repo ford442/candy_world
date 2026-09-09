@@ -26,6 +26,9 @@ Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`.
 
 ## Accomplished / Recent Progress
 
+- **Status: Implemented ✅** (#1577 Make the kinematic controller the single owner of player movement on both physics paths)
+  - Implementation Details: Consolidated the WASM native path and JS fallback into a single unified character controller path in `physics-core.ts`. C++ now only handles raw integration and obstacle collision, while the TS controller handles all kinematic resolve (slope limit, step-up, coyote-time, air control) using a zero-allocation `resolveCharacterMovement` setup.
+
 - **Status: Implemented ✅** (#1577 Formalize the first-person character controller)
   - Implementation Details: Formalized the `DEFAULT` player walking mechanism into a unified Javascript controller utilizing the unified `sampleGroundFootprint` mechanisms. This controller natively tackles `coyoteTimeMs`, `jumpBufferMs`, slope slides, and standardizes C++ jumping and fallback jumps seamlessly.
 - **Status: Implemented ✅** (#1496 GPU foliage default)
