@@ -17,14 +17,17 @@ export type {
     RainConfig,
     SparkConfig,
     GemSparkConfig,
-    ComputeSystemCollection
+    SparkBurstConfig,
+    CandyPuffConfig,
+    ParticleAttractor,
+    ComputeSystemCollection,
 } from './compute-particles-types.ts';
 
 // Shaders
 export {
     UPDATE_PARTICLES_WGSL,
     RENDER_PARTICLES_WGSL,
-    FRAGMENT_PARTICLES_WGSL
+    FRAGMENT_PARTICLES_WGSL,
 } from './compute-particles-shaders.ts';
 
 // CPU fallback system
@@ -39,16 +42,44 @@ export {
     createComputeRain,
     createComputeSparks,
     createComputeGemSparks,
+    createComputeSparkBurst,
+    createComputeCandyPuff,
+    MAX_PARTICLE_ATTRACTORS,
     initComputeParticleSystems,
     addComputeSystem,
     removeComputeSystem,
     updateAllComputeSystems,
     disposeAllComputeSystems,
-    getActiveComputeSystems
+    getActiveComputeSystems,
 } from './compute-particles.ts';
 
 // Default export
 export { default } from './compute-particles.ts';
+
+// Reusable emitter API (emitters, attractors, music hooks)
+export {
+    Emitter,
+    createEmitter,
+    getEmitter,
+    getEmitters,
+    disposeEmitter,
+    disposeAllEmitters,
+    updateEmitters,
+    setEmitterParent,
+    burstAt,
+    isOneShotPreset,
+} from './emitter-api.ts';
+
+export type {
+    EmitterOptions,
+    EmitterPreset,
+    EmitterShape,
+    EmitterShapeType,
+    MusicBinding,
+    MusicSource,
+    MusicTarget,
+    AttractorHandle,
+} from './emitter-api.ts';
 
 // Integration
 export {
@@ -66,5 +97,5 @@ export {
     queueDeferredSystem,
     loadDeferredSystems,
     benchmarkParticleSystem,
-    printBenchmarkResults
+    printBenchmarkResults,
 } from './compute-integration.ts';

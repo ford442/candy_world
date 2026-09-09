@@ -1,77 +1,48 @@
-/* 🎨 Palette: Ability HUD */
+/* 🎨 Palette: Ability HUD
+ *
+ * Layout, surface and meter now come from the Candy UI Kit
+ * (styles/kit.css: .ck-panel, .ck-meter). What remains here is the
+ * ability-slot look, expressed in --ck-* tokens. See docs/UI_KIT.md.
+ */
 #ability-hud {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
-    align-items: center;
+    /* Kit panel anchors bottom-right; abilities want a slightly airier gap. */
     gap: 15px;
-    z-index: 100;
 }
 
-/* 🎨 Palette: Energy Bar */
 #energy-bar-container {
-    width: 150px;
-    height: 20px;
-    background: rgba(30, 30, 40, 0.85);
-    border-radius: 10px;
-    border: 3px solid #ffd1dc;
-    overflow: hidden;
-    position: relative;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    transition:
-        transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-        border-color 0.2s;
     margin-right: 10px;
-}
-
-#energy-bar-fill {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, #ff69b4, #ff1493);
-    border-radius: 7px;
-    transition:
-        width 0.1s linear,
-        background 0.2s;
-    box-shadow: 0 0 10px rgba(255, 105, 180, 0.5);
-}
-
-.low-energy-pulse {
-    border-color: #ff1493 !important;
 }
 
 .ability-slot {
     width: 50px;
     height: 50px;
-    background: rgba(255, 255, 255, 0.85);
-    border-radius: 12px;
-    border: 3px solid #ffd1dc;
+    background: var(--ck-surface);
+    border-radius: var(--ck-radius-md);
+    border: var(--ck-border-width) solid var(--ck-border);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 24px;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--ck-shadow-panel);
     /* PALETTE: Removed transform transition to allow smooth JS beat pulsing */
     transition:
-        border-color 0.2s,
-        box-shadow 0.2s;
+        border-color var(--ck-dur-base),
+        box-shadow var(--ck-dur-base);
 }
 
 /* 🎨 Palette: Interactive Hover and Focus States */
 .ability-slot:hover {
-    border-color: #ff6b6b;
+    border-color: var(--ck-coral);
     box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
     cursor: pointer;
 }
 
 .ability-slot:focus-visible {
     outline: none;
-    box-shadow:
-        0 0 0 3px #ffffff,
-        0 0 0 6px #ff4081;
-    border-color: #ff4081;
+    box-shadow: var(--ck-focus-ring);
+    border-color: var(--ck-magenta);
 }
 
 /* PALETTE: Fallback beat bounce animation */
@@ -89,18 +60,6 @@
 
 .hud-beat-bounce {
     animation: hud-bounce 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.ability-key {
-    position: absolute;
-    top: 2px;
-    left: 4px;
-    font-size: 10px;
-    font-weight: bold;
-    color: #ff6b6b;
-    font-family: 'Fredoka One', cursive, sans-serif;
-    text-shadow: 1px 1px 0 #fff;
-    z-index: 2;
 }
 
 .ability-icon {
@@ -126,9 +85,9 @@
 
 /* Ready State */
 .ability-slot[aria-disabled='false']:not([aria-pressed='true']) {
-    border-color: #4caf50;
+    border-color: var(--ck-ready);
     box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
-    background: #ffffff;
+    background: var(--ck-surface-solid);
 }
 
 /* 🎨 Palette: Ability Slot Ready State Visual Pop */
@@ -141,9 +100,9 @@
 
 /* 🎨 Palette: Active State (Duration Running) */
 .ability-slot[aria-pressed='true'] {
-    border-color: #d500f9;
+    border-color: var(--ck-active);
     box-shadow: 0 0 15px rgba(213, 0, 249, 0.6);
-    background: #f3e5f5;
+    background: var(--ck-grape-50);
 }
 
 /* 🎨 Palette: Ability Counter Badge */
@@ -151,16 +110,16 @@
     position: absolute;
     bottom: -6px;
     right: -6px;
-    background: #ff6b6b;
-    color: white;
+    background: var(--ck-coral);
+    color: var(--ck-text-on-accent);
     font-size: 0.8rem;
     font-weight: bold;
     padding: 2px 6px;
     border-radius: 10px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    font-family: 'Fredoka One', sans-serif;
+    font-family: var(--ck-font-display);
     z-index: 5;
-    border: 2px solid white;
+    border: 2px solid var(--ck-surface-solid);
     pointer-events: none;
 }
 

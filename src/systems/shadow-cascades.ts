@@ -18,6 +18,7 @@ import { CSMShadowNode } from 'three/examples/jsm/csm/CSMShadowNode.js';
 import { clampCascadeCount, type ShadowSettings } from '../core/config/postfx.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { CONFIG } from '../core/config.ts';
+import { profiler } from '../utils/profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 
 /**
@@ -137,6 +138,7 @@ export function updateSunCascadeDirection(
     normalizedSunDir: THREE.Vector3
 ): void {
     if (!_active) return;
+    const t0 = performance.now();
 
     const cfg = CONFIG.lighting.shadows;
     sunLight.position.copy(playerPos).addScaledVector(normalizedSunDir, cfg.sunDistance);
@@ -144,6 +146,7 @@ export function updateSunCascadeDirection(
     sunLight.target.updateMatrixWorld();
 
     updateCascadeDebug();
+    profiler.mark('shadows.csmUpdate', performance.now() - t0);
 }
 
 /**

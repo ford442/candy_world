@@ -11,11 +11,11 @@ _batchCloudBob_simd
 _batchComposeMatrices_c
 _batchCymbalShake_c
 _batchDeformMeshes
-_batchDistanceCull_c
+_batchDistSq3D_omp
 _batchDistanceCullIndexed_c
 _batchDistanceCullLOD_c
+_batchDistanceCull_c
 _batchDistances
-_batchDistSq3D_omp
 _batchFadeColors_c
 _batchFastCos_simd
 _batchFastSin_simd
@@ -23,8 +23,8 @@ _batchFbm_omp
 _batchFiberWhip_c
 _batchFloat_c
 _batchFloat_simd
-_batchFrustumCull_c
 _batchFrustumCullSIMD_c
+_batchFrustumCull_c
 _batchGeyserErupt_c
 _batchGeyserLaunch_c
 _batchGroundHeight_simd
@@ -134,8 +134,8 @@ _getSpiralYOffset
 _getUnifiedGroundHeight
 _getWobbleX
 _getWobbleZ
-_hash
 _hasSIMDSupport
+_hash
 _initDiscoveryGrid
 _initParticleRandom
 _initPhysics

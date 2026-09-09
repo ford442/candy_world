@@ -11,11 +11,21 @@ export enum FaunaSpecies {
     SugarMoth = 2,
 }
 
-/** High-level behaviour state (future expansion). */
+/**
+ * High-level behaviour state, driven by `src/systems/fauna/behavior.ts`.
+ *
+ * Values are persisted by the native codec (`components.ts`), so append new
+ * states rather than renumbering existing ones.
+ */
 export enum FaunaState {
+    /** Boid rules run untouched — the default. */
     Wander = 0,
+    /** Running from the player; a scatter impulse was applied on entry. */
     Flee = 1,
+    /** Settled in place on the ground. */
     Rest = 2,
+    /** Settled on a roost/prop — flyers only. */
+    Perch = 3,
 }
 
 /** Dense-buffer stride in floats (mirrors assembly/boids.ts). */

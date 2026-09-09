@@ -14,6 +14,9 @@ import {
     uTime,
     uWindSpeed,
     uWindDirection,
+    uWindGust,
+    uWindStrength,
+    uWindTurbulence,
     uAudioLow,
     uPlayerPosition,
 } from './shared-resources.ts';
@@ -40,10 +43,20 @@ export const applyPlayerInteraction = (basePosNode: any) => {
     return basePosNode.add(calculatePlayerPush(basePosNode));
 };
 
+/**
+ * Canonical wind bend. Reads the unified wind state (direction, speed, gust,
+ * turbulence) so every material that calls this agrees with the GPU foliage
+ * animator and the particle systems on the same frame.
+ *
+ * 🎨 PALETTE / Visual Impact: amplitude is `speed × gust`, so lulls and swells
+ * travel across the whole world at once rather than per-batcher.
+ */
 export const calculateWindSway = Fn<[TSLArg]>(([posNode]) => {
     const windTime = uTime.mul(uWindSpeed.add(0.5));
     const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
-    const swayAmount = sin(swayPhase).mul(0.1).mul(uWindSpeed.add(0.2));
+    // Turbulence adds a faster, smaller ripple on top of the shared swell.
+    const chop = sin(swayPhase.mul(2.7).add(uTime)).mul(uWindTurbulence).mul(0.35);
+    const swayAmount = sin(swayPhase).add(chop).mul(0.1).mul(uWindStrength.add(0.2));
 
     const heightFactor = posNode.y.max(0.0);
     const heightBend = heightFactor.pow(2.0);
@@ -60,7 +73,7 @@ export const calculateWindSway = Fn<[TSLArg]>(([posNode]) => {
 export const calculateWindSwayLegacy = Fn<[TSLArg]>(([posNode]) => {
     const windTime = uTime.mul(uWindSpeed.add(0.5));
     const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
-    const swayAmount = sin(swayPhase).mul(0.1).mul(uWindSpeed.add(0.2));
+    const swayAmount = sin(swayPhase).mul(0.1).mul(uWindStrength.add(0.2));
 
     const heightFactor = posNode.y.max(0.0);
 
@@ -82,7 +95,9 @@ export const calculateFlowerBloom = (posNode?: any) => {
 
     const breath = sin(uTime.mul(2.0)).mul(0.05);
     const bloom = uAudioLow.mul(0.3);
-    const scale = float(1.0).add(aPoseState).add(breath).add(bloom);
+    // Gust makes blooms open a touch wider on a swell, matching the stems.
+    const gustOpen = uWindGust.sub(1.0).mul(0.04);
+    const scale = float(1.0).add(aPoseState).add(breath).add(bloom).add(gustOpen);
 
     return scale.mul(_pos);
 };

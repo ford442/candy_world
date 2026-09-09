@@ -45,6 +45,7 @@ import type { Node } from 'three/webgpu';
 import { CONFIG } from '../core/config/defaults.ts';
 import { resolveGiSettings, type GiSettings } from '../core/config/postfx.ts';
 import { getUrlFlag, hasUrlFlag } from '../core/config/url-flags.ts';
+import { profiler } from '../utils/profiler.ts';
 import { forEachLocalLight } from './lights.ts';
 
 /**
@@ -553,6 +554,7 @@ function recentreVolume(centre: THREE.Vector3, force: boolean): boolean {
  */
 export function updateIrradianceProbes(centre: THREE.Vector3, env: Partial<GiEnvironment>): void {
     if (!_volume || !_enabled) return;
+    const t0 = performance.now();
 
     if (env.sky) _env.sky.copy(env.sky);
     if (env.ground) _env.ground.copy(env.ground);
@@ -591,6 +593,7 @@ export function updateIrradianceProbes(centre: THREE.Vector3, env: Partial<GiEnv
     _breadcrumbTick = (_breadcrumbTick + 1) % 60;
     if (_breadcrumbTick === 0) publishBreadcrumb();
 
+    profiler.mark('gi.probeBake', performance.now() - t0);
     updateProbeDebug();
 }
 

@@ -3,6 +3,9 @@
 > Owner module: [`src/rendering/gpu-context.ts`](../src/rendering/gpu-context.ts)
 > Issue: #1448
 
+> Adding a compute pass? Follow [`docs/WEBGPU_COMPUTE_PLAYBOOK.md`](./WEBGPU_COMPUTE_PLAYBOOK.md) —
+> this doc is the architecture; the playbook is the step-by-step recipe and PR checklist.
+
 Candy World creates **exactly one `GPUDevice` per page load**, and the Three.js renderer owns it.
 Nothing else calls `navigator.gpu.requestDevice()`.
 

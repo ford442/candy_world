@@ -16,6 +16,11 @@ export {
     // Global uniforms
     uWindSpeed,
     uWindDirection,
+    uWindGust,
+    uWindTurbulence,
+    uWindStrength,
+    windVectorNode,
+    WindUniforms,
     uTime,
     uGlitchIntensity,
     uGlitchExplosionCenter,

@@ -54,8 +54,18 @@ export const _scratchVec1 = new THREE.Vector3();
 export const _scratchVec2 = new THREE.Vector3();
 export const _scratchVec3 = new THREE.Vector3();
 
-export const uWindSpeed = uniform(0.0);
-export const uWindDirection = uniform(vec3(1, 0, 0));
+// Wind lives in ONE place — src/systems/wind-uniforms.ts. These are re-exports
+// of those nodes, kept under the historical names so material graphs that
+// already import from material-core pick up the unified state for free.
+export {
+    uWindSpeed,
+    uWindDirection,
+    uWindGust,
+    uWindTurbulence,
+    uWindStrength,
+    windVectorNode,
+    WindUniforms,
+} from '../../systems/wind-uniforms.ts';
 export const uTime = uniform(0.0);
 export const uGlitchIntensity = uniform(0.0);
 export const uGlitchExplosionCenter = uniform(vec3(0, 0, 0));
@@ -76,6 +86,10 @@ export function getCachedProceduralMaterial(
         return materialCache.get(key)!;
     }
     const material = factory();
+    // Tag it: this instance is reused by every prop that asks for `key`, so
+    // per-prop effects (e.g. the `interact` behavior's highlight) must skip it
+    // rather than light up the whole species at once.
+    material.userData.shared = true;
     materialCache.set(key, material);
     return material;
 }
@@ -99,7 +113,9 @@ export function median(arr: number[]): number {
     _medianScratch.subarray(0, len).sort();
 
     const mid = Math.floor(len / 2);
-    return len % 2 !== 0 ? _medianScratch[mid] : (_medianScratch[mid - 1] + _medianScratch[mid]) / 2;
+    return len % 2 !== 0
+        ? _medianScratch[mid]
+        : (_medianScratch[mid - 1] + _medianScratch[mid]) / 2;
 }
 
 export function generateNoiseTexture(size = 256): THREE.DataTexture {

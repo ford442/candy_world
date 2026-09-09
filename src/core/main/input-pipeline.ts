@@ -14,6 +14,7 @@ import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { InteractionSystem } from '../../systems/interaction.ts';
 import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
 import { player } from '../../systems/physics/index.ts';
+import { mountAbilityHud } from '../../ui/ability-hud.ts';
 import { announcePolite } from '../../ui/announcer.ts';
 import { profiler } from '../../utils/profiler.ts';
 import { toggleOverlay } from '../../utils/startup-profiler.ts';
@@ -32,6 +33,10 @@ const _scratchClickOrigin = new THREE.Vector3();
 
 export async function runInputPipeline(ctx: MainContext): Promise<void> {
     ctx.timeOffset = { value: 0 };
+
+    // Build the ability HUD before initInput() so the input session can bind
+    // its slots (Candy UI Kit — src/ui/ability-hud.ts).
+    mountAbilityHud();
 
     await StageLoader.loadStage('input', () => {
         ctx.inputSystem = initInput(

@@ -1,5 +1,7 @@
 # Shadow softness (PCF + cheap PCSS)
 
+> Look target: [`CANDY_AESTHETIC_GUARDRAILS.md`](./CANDY_AESTHETIC_GUARDRAILS.md) — no photoreal defaults for GI / AO / SSR.
+
 Candy World wants **buttery contact shadows** on glossy surfaces, not razor
 silhouettes and not film-grain PCSS. Softness is artist-tunable without a
 shader recode.

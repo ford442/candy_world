@@ -1,5 +1,7 @@
 # Clustered Lighting (Forward+)
 
+> Look target: [`CANDY_AESTHETIC_GUARDRAILS.md`](./CANDY_AESTHETIC_GUARDRAILS.md) — no photoreal defaults for GI / AO / SSR.
+
 Issue: **#1571**. Registry: [`src/rendering/lights.ts`](../src/rendering/lights.ts) (#1570).
 Shader inject: [`src/foliage/material-core/unified-material.ts`](../src/foliage/material-core/unified-material.ts).
 CPU bin: [`src/rendering/clustered-bin.ts`](../src/rendering/clustered-bin.ts).
