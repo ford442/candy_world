@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import {
-    color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep
+    color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep, normalLocal
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getCIAdjustedCount } from '../core/config.ts';
@@ -94,7 +94,7 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
         musicTint,
         float(1.3).add(gemUniforms.shimmer.mul(2.0)), // Visual Impact: rim intensity swells with music
         float(3.0),                                   // Visual Impact: rim falloff
-        null
+        normalLocal
     );
     mat.emissiveNode = musicTint.mul(shimmerGlow.add(beatPulse)).add(rim.mul(0.7))
         .add(musicTint.mul(aAwakened.mul(aEmissiveScale).mul(0.45)))
