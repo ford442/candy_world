@@ -7,7 +7,12 @@ import {
 import { sampleEntityScale, biomeNormalizedDistance } from './entity-scale.ts';
 import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
-import { MYCELIUM_GROVE, WeatherSystem, isPositionValid, yieldControl } from './generation-utils.ts';
+import {
+    MYCELIUM_GROVE,
+    WeatherSystem,
+    isPositionValid,
+    yieldControl,
+} from './generation-utils.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
 

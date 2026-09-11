@@ -5,17 +5,36 @@ import type { MapMusicOverrides } from '../world/map-loader.ts';
 import { getMapMusicContext } from '../world/map-music-context.ts';
 import { BiomeUniforms } from './biome-uniforms.ts';
 import {
-    defaultArpeggioShimmerCh, defaultArpeggioHueShiftCh, defaultArpeggioNoteColorCh,
-    defaultNebulaShimmerCh, defaultNebulaAmplitudeCh, defaultNebulaNoteColorCh,
-    defaultSkyMoonNoteColorCh, defaultSkyMoonIntensityCh, defaultGlobalShimmerCh,
-    defaultGlobalHueShiftCh, defaultGlobalNoteColorCh, defaultSkyMoonMelodyCh,
-    defaultLuminousPlantTrackerChannel, defaultGemCanopyShimmerCh, defaultGemCanopyHueShiftCh,
-    defaultGemCanopyNoteColorCh, defaultSkyIslandsShimmerCh, defaultSkyIslandsHueShiftCh,
-    defaultSkyIslandsNoteColorCh, defaultSkyIslandsFogCh, defaultSkyIslandsFogRest, defaultSkyIslandsFogPeak,
-    defaultSugarCavesShimmerCh, defaultSugarCavesHueShiftCh, defaultSugarCavesNoteColorCh,
+    defaultArpeggioShimmerCh,
+    defaultArpeggioHueShiftCh,
+    defaultArpeggioNoteColorCh,
+    defaultNebulaShimmerCh,
+    defaultNebulaAmplitudeCh,
+    defaultNebulaNoteColorCh,
+    defaultSkyMoonNoteColorCh,
+    defaultSkyMoonIntensityCh,
+    defaultGlobalShimmerCh,
+    defaultGlobalHueShiftCh,
+    defaultGlobalNoteColorCh,
+    defaultSkyMoonMelodyCh,
+    defaultLuminousPlantTrackerChannel,
+    defaultGemCanopyShimmerCh,
+    defaultGemCanopyHueShiftCh,
+    defaultGemCanopyNoteColorCh,
+    defaultSkyIslandsShimmerCh,
+    defaultSkyIslandsHueShiftCh,
+    defaultSkyIslandsNoteColorCh,
+    defaultSkyIslandsFogCh,
+    defaultSkyIslandsFogRest,
+    defaultSkyIslandsFogPeak,
+    defaultSugarCavesShimmerCh,
+    defaultSugarCavesHueShiftCh,
+    defaultSugarCavesNoteColorCh,
     defaultWeatherBindings,
-    defaultSkyWavePropagationMs, defaultSkyWaveDecayMs, defaultSkyWaveTargets,
-    CHROMATIC_SCALE
+    defaultSkyWavePropagationMs,
+    defaultSkyWaveDecayMs,
+    defaultSkyWaveTargets,
+    CHROMATIC_SCALE,
 } from './music-reactivity-defaults.ts';
 import {
     type ActiveWave,
@@ -29,7 +48,11 @@ import {
 export type { ActiveWave };
 export { _zeroVec, computeWaveTimeSinceArrival, getActiveWave, setActiveWave };
 
-const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
+const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = [
+    'rainIntensity',
+    'thunderPulse',
+    'fogDensity',
+];
 
 // ⚡ OPTIMIZATION: Fixed scratch for arpeggio_grove volume packing (zero per-frame alloc).
 // Capacity grows if map overrides expand channel lists beyond the default 3 slots.
@@ -96,9 +119,15 @@ export const MRState = {
     smoothedSkyIntensity: 0.0,
     lastSkyNoteIndex: 0.0,
     weatherBindings: {
-        rainIntensity: defaultWeatherBindings.rainIntensity ? { ...defaultWeatherBindings.rainIntensity } : undefined,
-        thunderPulse: defaultWeatherBindings.thunderPulse ? { ...defaultWeatherBindings.thunderPulse } : undefined,
-        fogDensity: defaultWeatherBindings.fogDensity ? { ...defaultWeatherBindings.fogDensity } : undefined,
+        rainIntensity: defaultWeatherBindings.rainIntensity
+            ? { ...defaultWeatherBindings.rainIntensity }
+            : undefined,
+        thunderPulse: defaultWeatherBindings.thunderPulse
+            ? { ...defaultWeatherBindings.thunderPulse }
+            : undefined,
+        fogDensity: defaultWeatherBindings.fogDensity
+            ? { ...defaultWeatherBindings.fogDensity }
+            : undefined,
     } as any,
     skyWavePropagationMs: defaultSkyWavePropagationMs,
     skyWaveDecayMs: defaultSkyWaveDecayMs,
@@ -130,7 +159,8 @@ export function toChannels(value: unknown): readonly number[] | undefined {
     const sanitized: number[] = [];
     for (let i = 0; i < value.length; i++) {
         const channel = value[i];
-        if (Number.isInteger(channel) && channel >= 0 && channel <= 255) sanitized.push(channel as number);
+        if (Number.isInteger(channel) && channel >= 0 && channel <= 255)
+            sanitized.push(channel as number);
     }
     return sanitized.length > 0 ? sanitized : undefined;
 }
@@ -173,9 +203,15 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     MRState.luminousPlantTrackerChannel = defaultLuminousPlantTrackerChannel;
 
     MRState.weatherBindings = {
-        rainIntensity: defaultWeatherBindings.rainIntensity ? { ...defaultWeatherBindings.rainIntensity } : undefined,
-        thunderPulse: defaultWeatherBindings.thunderPulse ? { ...defaultWeatherBindings.thunderPulse } : undefined,
-        fogDensity: defaultWeatherBindings.fogDensity ? { ...defaultWeatherBindings.fogDensity } : undefined,
+        rainIntensity: defaultWeatherBindings.rainIntensity
+            ? { ...defaultWeatherBindings.rainIntensity }
+            : undefined,
+        thunderPulse: defaultWeatherBindings.thunderPulse
+            ? { ...defaultWeatherBindings.thunderPulse }
+            : undefined,
+        fogDensity: defaultWeatherBindings.fogDensity
+            ? { ...defaultWeatherBindings.fogDensity }
+            : undefined,
     };
     MRState.skyWavePropagationMs = defaultSkyWavePropagationMs;
     MRState.skyWaveDecayMs = defaultSkyWaveDecayMs;
@@ -195,24 +231,38 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
         const sugarCaves = biomeOverrides.sugar_caves;
         if (arpeggio) {
             MRState.arpeggioShimmerCh = toChannels(arpeggio.shimmer) ?? MRState.arpeggioShimmerCh;
-            MRState.arpeggioHueShiftCh = toChannels(arpeggio.hueShift) ?? MRState.arpeggioHueShiftCh;
-            MRState.arpeggioNoteColorCh = toChannels(arpeggio.noteColor) ?? MRState.arpeggioNoteColorCh;
-            if (typeof arpeggio.intensityScale === 'number' && Number.isFinite(arpeggio.intensityScale)) {
+            MRState.arpeggioHueShiftCh =
+                toChannels(arpeggio.hueShift) ?? MRState.arpeggioHueShiftCh;
+            MRState.arpeggioNoteColorCh =
+                toChannels(arpeggio.noteColor) ?? MRState.arpeggioNoteColorCh;
+            if (
+                typeof arpeggio.intensityScale === 'number' &&
+                Number.isFinite(arpeggio.intensityScale)
+            ) {
                 MRState.arpeggioIntensityScale = arpeggio.intensityScale;
             }
         }
         if (nebula) {
             MRState.nebulaShimmerCh = toChannels(nebula.shimmer) ?? MRState.nebulaShimmerCh;
-            MRState.nebulaAmplitudeCh = toChannels(nebula.amplitudeScale) ?? MRState.nebulaAmplitudeCh;
+            MRState.nebulaAmplitudeCh =
+                toChannels(nebula.amplitudeScale) ?? MRState.nebulaAmplitudeCh;
             MRState.nebulaNoteColorCh = toChannels(nebula.noteColor) ?? MRState.nebulaNoteColorCh;
-            if (typeof nebula.intensityScale === 'number' && Number.isFinite(nebula.intensityScale)) {
+            if (
+                typeof nebula.intensityScale === 'number' &&
+                Number.isFinite(nebula.intensityScale)
+            ) {
                 MRState.nebulaIntensityScale = nebula.intensityScale;
             }
         }
         if (skyMoon) {
-            MRState.skyMoonNoteColorCh = toChannels(skyMoon.noteColor) ?? MRState.skyMoonNoteColorCh;
-            MRState.skyMoonIntensityCh = toChannels(skyMoon.intensity) ?? MRState.skyMoonIntensityCh;
-            if (typeof skyMoon.intensityScale === 'number' && Number.isFinite(skyMoon.intensityScale)) {
+            MRState.skyMoonNoteColorCh =
+                toChannels(skyMoon.noteColor) ?? MRState.skyMoonNoteColorCh;
+            MRState.skyMoonIntensityCh =
+                toChannels(skyMoon.intensity) ?? MRState.skyMoonIntensityCh;
+            if (
+                typeof skyMoon.intensityScale === 'number' &&
+                Number.isFinite(skyMoon.intensityScale)
+            ) {
                 MRState.skyMoonIntensityScale = skyMoon.intensityScale;
             }
         }
@@ -220,52 +270,91 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
             MRState.globalShimmerCh = toChannels(global.shimmer) ?? MRState.globalShimmerCh;
             MRState.globalHueShiftCh = toChannels(global.hueShift) ?? MRState.globalHueShiftCh;
             MRState.globalNoteColorCh = toChannels(global.noteColor) ?? MRState.globalNoteColorCh;
-            if (typeof global.intensityScale === 'number' && Number.isFinite(global.intensityScale)) {
+            if (
+                typeof global.intensityScale === 'number' &&
+                Number.isFinite(global.intensityScale)
+            ) {
                 MRState.globalIntensityScale = global.intensityScale;
             }
         }
         if (gemCanopy) {
-            MRState.gemCanopyShimmerCh = toChannels(gemCanopy.shimmer) ?? MRState.gemCanopyShimmerCh;
-            MRState.gemCanopyHueShiftCh = toChannels(gemCanopy.hueShift) ?? MRState.gemCanopyHueShiftCh;
-            MRState.gemCanopyNoteColorCh = toChannels(gemCanopy.noteColor) ?? MRState.gemCanopyNoteColorCh;
-            if (typeof gemCanopy.intensityScale === 'number' && Number.isFinite(gemCanopy.intensityScale)) {
+            MRState.gemCanopyShimmerCh =
+                toChannels(gemCanopy.shimmer) ?? MRState.gemCanopyShimmerCh;
+            MRState.gemCanopyHueShiftCh =
+                toChannels(gemCanopy.hueShift) ?? MRState.gemCanopyHueShiftCh;
+            MRState.gemCanopyNoteColorCh =
+                toChannels(gemCanopy.noteColor) ?? MRState.gemCanopyNoteColorCh;
+            if (
+                typeof gemCanopy.intensityScale === 'number' &&
+                Number.isFinite(gemCanopy.intensityScale)
+            ) {
                 MRState.gemCanopyIntensityScale = gemCanopy.intensityScale;
             }
         }
         if (skyIslands) {
-            MRState.skyIslandsShimmerCh = toChannels(skyIslands.shimmer) ?? MRState.skyIslandsShimmerCh;
-            MRState.skyIslandsHueShiftCh = toChannels(skyIslands.hueShift) ?? MRState.skyIslandsHueShiftCh;
-            MRState.skyIslandsNoteColorCh = toChannels(skyIslands.noteColor) ?? MRState.skyIslandsNoteColorCh;
-            if (typeof skyIslands.intensityScale === 'number' && Number.isFinite(skyIslands.intensityScale)) {
+            MRState.skyIslandsShimmerCh =
+                toChannels(skyIslands.shimmer) ?? MRState.skyIslandsShimmerCh;
+            MRState.skyIslandsHueShiftCh =
+                toChannels(skyIslands.hueShift) ?? MRState.skyIslandsHueShiftCh;
+            MRState.skyIslandsNoteColorCh =
+                toChannels(skyIslands.noteColor) ?? MRState.skyIslandsNoteColorCh;
+            if (
+                typeof skyIslands.intensityScale === 'number' &&
+                Number.isFinite(skyIslands.intensityScale)
+            ) {
                 MRState.skyIslandsIntensityScale = skyIslands.intensityScale;
             }
         }
         if (sugarCaves) {
-            MRState.sugarCavesShimmerCh = toChannels(sugarCaves.shimmer) ?? MRState.sugarCavesShimmerCh;
-            MRState.sugarCavesHueShiftCh = toChannels(sugarCaves.hueShift) ?? MRState.sugarCavesHueShiftCh;
-            MRState.sugarCavesNoteColorCh = toChannels(sugarCaves.noteColor) ?? MRState.sugarCavesNoteColorCh;
-            if (typeof sugarCaves.intensityScale === 'number' && Number.isFinite(sugarCaves.intensityScale)) {
+            MRState.sugarCavesShimmerCh =
+                toChannels(sugarCaves.shimmer) ?? MRState.sugarCavesShimmerCh;
+            MRState.sugarCavesHueShiftCh =
+                toChannels(sugarCaves.hueShift) ?? MRState.sugarCavesHueShiftCh;
+            MRState.sugarCavesNoteColorCh =
+                toChannels(sugarCaves.noteColor) ?? MRState.sugarCavesNoteColorCh;
+            if (
+                typeof sugarCaves.intensityScale === 'number' &&
+                Number.isFinite(sugarCaves.intensityScale)
+            ) {
                 MRState.sugarCavesIntensityScale = sugarCaves.intensityScale;
             }
         }
     }
 
-    if (typeof overrides?.skyMoon?.melodyChannel === 'number' && Number.isInteger(overrides.skyMoon.melodyChannel)) {
+    if (
+        typeof overrides?.skyMoon?.melodyChannel === 'number' &&
+        Number.isInteger(overrides.skyMoon.melodyChannel)
+    ) {
         MRState.skyMoonCh = overrides.skyMoon.melodyChannel;
     }
-    if (typeof overrides?.luminousPlants?.trackerChannel === 'number' && Number.isInteger(overrides.luminousPlants.trackerChannel)) {
+    if (
+        typeof overrides?.luminousPlants?.trackerChannel === 'number' &&
+        Number.isInteger(overrides.luminousPlants.trackerChannel)
+    ) {
         MRState.luminousPlantTrackerChannel = overrides.luminousPlants.trackerChannel;
     }
-    if (typeof overrides?.luminousPlants?.baseIntensity === 'number' && Number.isFinite(overrides.luminousPlants.baseIntensity)) {
+    if (
+        typeof overrides?.luminousPlants?.baseIntensity === 'number' &&
+        Number.isFinite(overrides.luminousPlants.baseIntensity)
+    ) {
         MRState.luminousIntensityScale = overrides.luminousPlants.baseIntensity;
     }
-    if (typeof overrides?.skyWave?.propagationMs === 'number' && Number.isFinite(overrides.skyWave.propagationMs)) {
+    if (
+        typeof overrides?.skyWave?.propagationMs === 'number' &&
+        Number.isFinite(overrides.skyWave.propagationMs)
+    ) {
         MRState.skyWavePropagationMs = Math.max(100, overrides.skyWave.propagationMs);
     }
-    if (typeof overrides?.skyWave?.decayMs === 'number' && Number.isFinite(overrides.skyWave.decayMs)) {
+    if (
+        typeof overrides?.skyWave?.decayMs === 'number' &&
+        Number.isFinite(overrides.skyWave.decayMs)
+    ) {
         MRState.skyWaveDecayMs = Math.max(100, overrides.skyWave.decayMs);
     }
-    if (Array.isArray(overrides?.skyWave?.targetBiomes) && overrides.skyWave.targetBiomes.length > 0) {
+    if (
+        Array.isArray(overrides?.skyWave?.targetBiomes) &&
+        overrides.skyWave.targetBiomes.length > 0
+    ) {
         // ⚡ OPTIMIZATION: Replaced .filter() with manual loop + in-place mutation to eliminate array allocation in context syncs.
         MRState.skyWaveTargets.length = 0;
         for (let i = 0; i < overrides.skyWave.targetBiomes.length; i++) {
@@ -288,9 +377,16 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
             const override = overrides.weatherReactivity[key];
             if (!override || typeof override !== 'object') continue;
             const merged: WeatherReactivityBinding = {
-                channel: typeof override.channel === 'number' ? override.channel : current?.channel ?? 0,
-                smoothing: typeof override.smoothing === 'number' ? override.smoothing : current?.smoothing ?? 0.15,
-                scale: typeof override.scale === 'number' ? override.scale : current?.scale ?? 1.0,
+                channel:
+                    typeof override.channel === 'number'
+                        ? override.channel
+                        : (current?.channel ?? 0),
+                smoothing:
+                    typeof override.smoothing === 'number'
+                        ? override.smoothing
+                        : (current?.smoothing ?? 0.15),
+                scale:
+                    typeof override.scale === 'number' ? override.scale : (current?.scale ?? 1.0),
             };
             MRState.weatherBindings[key] = merged;
         }

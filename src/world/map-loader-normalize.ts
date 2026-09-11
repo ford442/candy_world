@@ -1,4 +1,11 @@
-import type { CandyMapEntity, LoadedMapEntity, MapRotation, MapScale, Quat, Vec3 } from './map-loader-types.ts';
+import type {
+    CandyMapEntity,
+    LoadedMapEntity,
+    MapRotation,
+    MapScale,
+    Quat,
+    Vec3,
+} from './map-loader-types.ts';
 
 const TYPE_ALIASES: Record<string, string> = {
     panningPad: 'panning_pad',
