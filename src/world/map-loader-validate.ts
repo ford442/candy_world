@@ -1,5 +1,17 @@
-import type { CandyMapData, CandyMapEntity, MapMusicHints, MapMusicOverrides, MapWeatherBinding, MapMusicChannelBinding } from './map-loader-types.ts';
-import { asVec3, isFiniteNumber, normalizeRotation, normalizeScale } from './map-loader-normalize.ts';
+import type {
+    CandyMapData,
+    CandyMapEntity,
+    MapMusicHints,
+    MapMusicOverrides,
+    MapWeatherBinding,
+    MapMusicChannelBinding,
+} from './map-loader-types.ts';
+import {
+    asVec3,
+    isFiniteNumber,
+    normalizeRotation,
+    normalizeScale,
+} from './map-loader-normalize.ts';
 
 const MAX_MAP_ENTITIES = 20000;
 

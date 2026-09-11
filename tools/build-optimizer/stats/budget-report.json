@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-09T08:59:12.008Z",
+  "timestamp": "2026-09-11T07:54:06.237Z",
   "config": {
     "budgets": {
       "main": "300kb",
@@ -24,9 +24,9 @@
     {
       "name": "app",
       "budget": 768000,
-      "actual": 712656,
+      "actual": 738362,
       "status": "warning",
-      "percentage": 0.9279375
+      "percentage": 0.9614088541666667
     },
     {
       "name": "vendor",
@@ -45,17 +45,17 @@
     {
       "name": "total",
       "budget": 20971520,
-      "actual": 14565556,
+      "actual": 14565490,
       "status": "pass",
-      "percentage": 0.6945398330688477
+      "percentage": 0.6945366859436035
     }
   ],
   "overall": {
     "status": "warning",
-    "totalSize": 16375376,
+    "totalSize": 16401016,
     "totalBudget": 24197120
   },
   "recommendations": [
-    "APP approaching budget (93%). Monitor closely."
+    "APP approaching budget (96%). Monitor closely."
   ]
 }

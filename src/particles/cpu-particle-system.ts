@@ -275,8 +275,9 @@ export class CPUParticleSystem {
                 const dz = position.z - this.positions[idx + 2];
                 const distSq = dx * dx + dy * dy + dz * dz;
                 if (distSq >= radiusSq || distSq < 1e-8) continue;
-                const dist = Math.sqrt(distSq);
-                const force = ((1 - dist / radius) * strength * deltaTime) / dist;
+                // ⚡ OPTIMIZATION: Bypassed Math.sqrt() + two divides in the attractor×particle loop; one invsqrt, same linear falloff.
+                const invDist = 1 / Math.sqrt(distSq);
+                const force = (invDist - 1 / radius) * strength * deltaTime;
                 this.velocities[idx] += dx * force;
                 this.velocities[idx + 1] += dy * force;
                 this.velocities[idx + 2] += dz * force;
