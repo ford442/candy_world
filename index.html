@@ -82,17 +82,17 @@
                 <span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>
             </button>
 
-            <button id="volDownBtn" class="toggle-button" aria-label="Decrease Volume" aria-keyshortcuts="-" title="Decrease Volume (-)">
+            <button type="button" id="volDownBtn" class="toggle-button" aria-label="Decrease Volume" aria-keyshortcuts="-" title="Decrease Volume (-)">
                 <span aria-hidden="true">&minus;</span> <span class="key-badge" aria-hidden="true">-</span>
             </button>
         <button type="button" role="switch" aria-checked="false" id="toggleMuteBtn" class="toggle-button" aria-keyshortcuts="M" aria-label="Mute Audio">
                 <span aria-hidden="true">🔊</span> Mute <span class="key-badge" aria-hidden="true">M</span>
             </button>
-            <button id="volUpBtn" class="toggle-button" aria-label="Increase Volume" aria-keyshortcuts="+" title="Increase Volume (+)">
+            <button type="button" id="volUpBtn" class="toggle-button" aria-label="Increase Volume" aria-keyshortcuts="+" title="Increase Volume (+)">
                 <span aria-hidden="true">&plus;</span> <span class="key-badge" aria-hidden="true">+</span>
             </button>
 
-            <button id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-controls="playlist-overlay" aria-label="Open Jukebox playlist" aria-haspopup="dialog" aria-expanded="false">
+            <button type="button" id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-controls="playlist-overlay" aria-label="Open Jukebox playlist" aria-haspopup="dialog" aria-expanded="false">
                 Open Jukebox <span class="key-badge" aria-hidden="true">Q</span>
             </button>
 
@@ -186,7 +186,7 @@
     <div id="playlist-backdrop" aria-hidden="true"></div>
 
     <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1">
-        <button id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox" title="Close Jukebox (Esc)"><span aria-hidden="true">×</span></button>
+        <button type="button" id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox" title="Close Jukebox (Esc)"><span aria-hidden="true">×</span></button>
         <h2 id="playlist-title"><span aria-hidden="true">🎵</span> Jukebox</h2>
         <ul id="playlist-list" aria-label="Current playlist" >
         </ul>
@@ -197,7 +197,7 @@
                 <span aria-hidden="true">➕</span> Add Songs <span class="key-badge" aria-hidden="true">U</span>
                 <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </button>
-            <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close <span class="key-badge" aria-hidden="true">Esc</span></button>
+            <button type="button" id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close <span class="key-badge" aria-hidden="true">Esc</span></button>
         </div>
         <div style="text-align: center; margin-top: 15px; font-size: 0.85em; color: #666;" aria-hidden="true">
             Navigate: <kbd class="key" aria-label="Up Arrow">↑</kbd> <kbd class="key" aria-label="Down Arrow">↓</kbd> &nbsp; Select: <kbd class="key">Enter</kbd>
@@ -218,21 +218,21 @@
 
     <!-- D-Pad Direction Controls -->
     <div id="dpad-controls" role="group" aria-label="Direction Controls" aria-hidden="true">
-        <button id="dpad-forward" class="dpad-btn" aria-label="Move Forward" title="Move Forward" tabindex="-1">
+        <button type="button" id="dpad-forward" class="dpad-btn" aria-label="Move Forward" title="Move Forward" tabindex="-1">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l-8 8h5v8h6v-8h5z"/></svg>
         </button>
         <div class="dpad-middle-row">
-            <button id="dpad-left" class="dpad-btn" aria-label="Strafe Left" title="Strafe Left" tabindex="-1">
+            <button type="button" id="dpad-left" class="dpad-btn" aria-label="Strafe Left" title="Strafe Left" tabindex="-1">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l8-8v5h8v6h-8v5z"/></svg>
             </button>
             <div class="dpad-center" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></svg>
             </div>
-            <button id="dpad-right" class="dpad-btn" aria-label="Strafe Right" title="Strafe Right" tabindex="-1">
+            <button type="button" id="dpad-right" class="dpad-btn" aria-label="Strafe Right" title="Strafe Right" tabindex="-1">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12l-8 8v-5H4v-6h8V4z"/></svg>
             </button>
         </div>
-        <button id="dpad-backward" class="dpad-btn" aria-label="Move Backward" title="Move Backward" tabindex="-1">
+        <button type="button" id="dpad-backward" class="dpad-btn" aria-label="Move Backward" title="Move Backward" tabindex="-1">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20l8-8h-5V4H9v8H4z"/></svg>
         </button>
     </div>
