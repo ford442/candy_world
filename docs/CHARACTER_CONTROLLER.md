@@ -19,109 +19,12 @@ imports it.
 
 ## Architecture split: which tier owns what
 
-There are two movement paths, selected in `physics-core.ts`'s
-`updateDefaultState`:
+There are two movement paths, selected in `physics-core.ts`\'s `updateDefaultState`:
 
-- **Off-lake + native present:** `updatePhysicsCPP` (`emscripten/physics.cpp`)
-  is called across the WASM boundary as the C++ integrator (no #1577 behaviours).
-- **In lake, or `updatePhysicsCPP` returns `< 0`:** `updateJSFallbackMovement`
-  is called, which delegates to `resolveCharacterMovement` using
-  `CONFIG.player` tuning.
+- **Off-lake + native present:** `updatePhysicsCPP` (`emscripten/physics.cpp`) is called across the WASM boundary as the C++ obstacle/trampoline solver. The C++ code provides the collision-constrained displacement without affecting player kinematic properties.
+- **In lake, or `updatePhysicsCPP` returns `< 0`:** Only JS ground queries are used.
 
-**The character controller described below owns the JS path only.** It does
-not touch, and is not reachable from, the C++ path.
-
-### Why the native path is currently dead (measured 2026-09-08)
-
-An earlier revision of this doc noted only that "this VM always takes the JS
-path." That has now been measured and root-caused, and it is not a property
-of one VM — it is a property of every build:
-
-`window.__physicsPathStats` (exported as `physicsPathStats` from
-`physics-core.ts`) was read after ~60s of scripted walking in headless
-Chromium, in both serving modes:
-
-| Mode                        | controller frames | native frames |
-| --------------------------- | ----------------- | ------------- |
-| `vite preview` (prod build) | 173               | **0**         |
-| `vite` dev server           | 163               | **0**         |
-| walk with sprint/jump/turns | 220               | **0**         |
-
-`onGround < 0` on every single frame. The cause is not the physics code at
-all — the Emscripten module never loads. `loadEmscriptenModule()` in
-`src/utils/wasm-loader-core.ts` resolves the loader path with
-`checkWasmFileExists('candy_native.wasm')`, which correctly finds the file at
-the site root and yields `./candy_native.js`. It then does:
-
-```ts
-await import(/* @vite-ignore */ `${resolvedJsPath}?v=${Date.now()}`);
-```
-
-A relative dynamic-import specifier resolves against **the importing
-module's URL**, not the document's. So the request goes to:
-
-- production build: `/chunks/candy_native.js` → **404**
-- dev server: `/src/utils/candy_native.js` → **404**
-
-…while the file actually sits at `/candy_native.js`. Both the threaded and
-the single-threaded fallback (`candy_native_st.js`) miss for the same reason,
-after which the loader logs `Emscripten module unavailable (optional). JS
-fallbacks remain active.` and moves on. `src/utils/wasm-orchestrator.ts` has
-the identical bug at its own `import()` call.
-
-Consequences, in order of importance:
-
-1. **The controller currently owns 100% of player movement frames.** The
-   "seven behaviours are absent from the walkable world" premise is false as
-   of this build — off-lake walking gets coyote time, slope limit, step-up
-   and the accel split, because it is running the JS path.
-2. The native path is a **latent** regression, not an active one. The day the
-   404 is fixed, every one of those behaviours silently disappears off-lake.
-   That is why `physics-core.ts` now logs a one-time `console.warn` the first
-   frame `updatePhysicsCPP` ever returns `>= 0`, rather than switching
-   silently.
-3. The C++ path also keeps its own player state inside WASM and is **never
-   seeded from TS** — `setPlayerState` is exported from the bridge
-   (`src/utils/wasm-physics.ts`) but has no caller anywhere in `src/`. So on
-   that path everything TS writes afterwards (wind push, `reconcileGroundedEyeY`,
-   the WASM collision resolver, and every ability velocity from
-   `physics-abilities.ts`) is discarded on the next frame's `getPlayerState`
-   read. Any future work to route the native path through the controller has
-   to fix that first; a controller whose coyote clock lives in two places is
-   worse than no controller.
-
-The loader bug is **not fixed here** — `wasm-loader-core.ts` and
-`wasm-orchestrator.ts` were outside this change's file boundary, and turning
-the native path on is a large behavioural change that deserves its own
-ticket and its own verification pass.
-
-### What the native path would still be missing
-
-`emscripten/physics.cpp` was re-read in full on 2026-09-08; all four gaps
-below are still accurate on current `main`:
-
-- `updatePhysicsCPP` ground-checks with a single-point
-  `getGroundHeight(nextX, nextZ)` call — no footprint sampling, no surface
-  normal, no slope concept at all.
-- The eye-height snap is a hardcoded `nextY < groundY + 1.8f` — no
-  configurable step height, no ledge-block resolve.
-- Horizontal smoothing is one flat `15.0f * delta` regardless of airborne
-  state — no ground/air acceleration split.
-- Jump is `if (onGround == 1 && jump) player.vy = 10.0f;` — no coyote time,
-  no jump buffering, no skin-width hysteresis.
-
-So the right long-term shape is still a controller that owns ground-contact
-resolution for _both_ paths, with C++ reduced to raw integration and
-obstacle collision. That is not what shipped here. Extending
-`emscripten/physics.cpp` would require rebuilding the WASM binary
-(`npm run build:emcc`, no emsdk toolchain in this environment); routing the
-native path through the TS controller instead is possible without a C++
-change — `setPlayerState` already exists in the ABI — but it would be
-**unverifiable in the running app today**, because there is no frame on
-which that code would execute. Writing it now would reproduce exactly the
-failure mode (#1686, #1676) that this document exists to record. The
-sequencing is: fix the loader 404 first, confirm `physicsPathStats.native`
-goes non-zero, then route it.
+**In both cases, `resolveCharacterMovement` now universally owns the kinematic resolve.** The controller runs on *every* frame to apply slope, step-up, coyote-time, air control, and jump buffering regardless of whether the native C++ collision assist ran or not.
 
 ## The controller
 
@@ -141,7 +44,7 @@ resolveCharacterMovement(
 ): CharacterMovementOutcome
 ```
 
-It is called from `updateJSFallbackMovement`, which computes the
+It is called from `updateDefaultState`, which computes the
 camera-relative `targetVelocityXZ` from `keyStates` (unchanged from before
 this issue) and passes the real ground-sampling functions as `groundQuery`:
 

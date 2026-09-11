@@ -12,6 +12,11 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
 4. **Epic: Simplify startup (#1546)** — collapse startup to Play/Explore paths + chunk streaming.
     - **Status: In progress** — #1548 chunk streamer landed; Play default visual footprint is now 180×180 with progressive section load (Explore keeps 400×400). Remaining: any leftover #1558 wiring.
 
+**Next Steps:**
+1. #1693 TSL wind/deformation unification (kimi).
+2. Copilot: #1717 split music-reactivity.ts.
+3. Do not reopen C++ kinematic resolve until there is an emsdk ticket.
+
 ## Mega-module splits (do not split blindly)
 
 Prefer domain barrels over mechanical 700-line cuts. Already landed:
