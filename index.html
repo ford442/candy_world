@@ -42,7 +42,7 @@
         >
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
-        <button id="startButton" class="cta-button" disabled title="Please wait while game assets load...">
+        <button type="button" id="startButton" class="cta-button" disabled aria-busy="true" title="Please wait while game assets load...">
             <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
         </button>
 
@@ -100,7 +100,7 @@
                 <span aria-hidden="true">🎥</span> Explore Mode <span class="key-badge" aria-hidden="true">Tab</span>
             </button>
 
-            <button id="openA11yBtn" class="toggle-button" aria-label="Open Accessibility Settings" aria-haspopup="dialog" aria-expanded="false" title="Accessibility Settings">
+            <button type="button" id="openA11yBtn" class="toggle-button" aria-label="Open Accessibility Settings" aria-haspopup="dialog" aria-expanded="false" title="Accessibility Settings">
                 <span aria-hidden="true">♿</span> Accessibility
             </button>
         </div>
