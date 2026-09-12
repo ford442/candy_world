@@ -283,6 +283,6 @@ export function installPresenceStartScreenUI(): void {
         };
         window.addEventListener('candy:start-screen-hidden', cleanup);
 
-        wrapper.focus();
+        checkbox.focus({ preventScroll: true });
     });
 }
