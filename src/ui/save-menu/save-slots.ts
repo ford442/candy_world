@@ -54,19 +54,19 @@ export function renderSlot(
             ` : '<div class="candy-save-slot__info">Click to save</div>'}
             <div class="candy-save-slot__actions">
                 ${forSave || isEmpty ? `
-                    <button class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="${forSave ? 'overwrite' : 'save'}" data-slot="${slot.slotId}" aria-label="${isEmpty ? `Available Save Slot: ${slot.slotName}` : (forSave ? `Overwrite ${slot.slotName}` : `Save to ${slot.slotName}`)}">
+                    <button type="button" class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="${forSave ? 'overwrite' : 'save'}" data-slot="${slot.slotId}" aria-label="${isEmpty ? `Available Save Slot: ${slot.slotName}` : (forSave ? `Overwrite ${slot.slotName}` : `Save to ${slot.slotName}`)}">
                         ${forSave && !isEmpty ? 'Overwrite' : 'Save'}
                     </button>
                 ` : `
-                    <button class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="load" data-slot="${slot.slotId}" aria-label="Load ${slot.slotName}">
+                    <button type="button" class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="load" data-slot="${slot.slotId}" aria-label="Load ${slot.slotName}">
                         Load
                     </button>
-                    <button class="candy-save-slot__btn candy-save-slot__btn--secondary" data-action="export" data-slot="${slot.slotId}" aria-label="Export ${slot.slotName}">
+                    <button type="button" class="candy-save-slot__btn candy-save-slot__btn--secondary" data-action="export" data-slot="${slot.slotId}" aria-label="Export ${slot.slotName}">
                         Export
                     </button>
                 `}
                 ${isEmpty ? '' : `
-                    <button class="candy-save-slot__btn candy-save-slot__btn--danger" data-action="delete" data-slot="${slot.slotId}" aria-label="Delete save: ${slot.slotName}" title="Delete save">
+                    <button type="button" class="candy-save-slot__btn candy-save-slot__btn--danger" data-action="delete" data-slot="${slot.slotId}" aria-label="Delete save: ${slot.slotName}" title="Delete save">
                         <span aria-hidden="true">🗑️</span>
                     </button>
                 `}
@@ -94,13 +94,13 @@ export function renderLoadTab(
                 <div class="candy-empty-state__text">No memories found yet. Embark on a journey to save your progress!</div>
                 ${currentMode === 'full' ? `
                 <div class="candy-save-menu__actions">
-                    <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="switch-to-save">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="switch-to-save">
                         <span aria-hidden="true">➕</span> Create New Save
                     </button>
                 </div>
                 ` : `
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
-                    <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="close">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="close">
                         <span aria-hidden="true">✕</span> Close Menu
                     </button>
                 </div>
@@ -143,7 +143,7 @@ export function renderSaveTab(
             ${manualSlots.map(slot => renderSlot(slot, true, selectedSlot)).join('')}
         </div>
         <div class="candy-save-menu__actions">
-            <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="quick-save">
+            <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="quick-save">
                 <span aria-hidden="true">💾</span> Quick Save (Ctrl+S)
             </button>
         </div>
