@@ -16,5 +16,5 @@ onlyBuiltDependencies:
   - "archiver"
 
 overrides:
-  '@swc/core': '1.15.47'
-  '@swc/wasm': '1.15.47'
+  '@swc/core': 1.15.47
+  '@swc/wasm': 1.15.47
