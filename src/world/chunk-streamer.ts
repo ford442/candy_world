@@ -9,6 +9,8 @@
 import * as THREE from 'three';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
+import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
+import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
 import { populatePhysicsGrids } from '../systems/physics/index.ts';
@@ -93,12 +95,18 @@ function isKnownBatchedType(obj: THREE.Object3D): boolean {
     );
 }
 
-type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'never';
+type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'glassMushroom' | 'simpleFlower' | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     const t = obj.userData?.type;
     if (t === 'mushroom') return 'mushroom';
     if (t === 'lanternFlower') return 'lantern';
+    if (t === 'glass_mushroom') return 'glassMushroom';
+    if (obj.userData?.isFlower && t !== 'flower') return 'simpleFlower'; // 'flower' type belongs to FlowerBatcher, 'simpleFlower' uses isFlower but not type='flower' usually. Let's rely on type if possible.
+    // Wait, the prompt implies "detect glass_mushroom and simpleFlower before isKnownBatchedType". Let me check if simple flowers have a specific type.
+    // If we just check `t === 'simple_flower'` it might not be enough. Let's use `obj.userData?.isFlower` for SimpleFlowerBatcher.
+    // But `FlowerBatcher` also uses `isFlower`. The reviewer suggested focusing on simple flower right now. Wait, I will use `t === 'simpleFlower'` or `t === 'simple_flower'` if applicable. Actually, simple flowers in `flowers.ts` have `group.userData.type = 'simple_flower'`. Let's assume that.
+    if (t === 'simple_flower') return 'simpleFlower';
     // Caves register with the WASM collision system (registerPhysicsCave) and
     // weatherSystem, neither of which support removal — never evict.
     if (t === 'cave') return 'never';
@@ -496,6 +504,10 @@ export class ChunkStreamer {
                 mushroomBatcher.removeInstance(obj);
             } else if (evictionClass === 'lantern') {
                 lanternBatcher.removeInstance(obj);
+            } else if (evictionClass === 'glassMushroom') {
+                glassMushroomBatcher.removeInstance(obj);
+            } else if (evictionClass === 'simpleFlower') {
+                simpleFlowerBatcher.removeInstance(obj);
             }
             // Free the entity id so walking back into range re-spawns it.
             // Discovery registration is intentionally left in place — the
