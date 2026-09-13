@@ -13,9 +13,8 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
     - **Status: In progress** — #1548 chunk streamer landed; Play default visual footprint is now 180×180 with progressive section load (Explore keeps 400×400). Remaining: any leftover #1558 wiring.
 
 **Next Steps:**
-1. #1693 TSL wind/deformation unification (kimi).
-2. Copilot: #1717 split music-reactivity.ts.
-3. Do not reopen C++ kinematic resolve until there is an emsdk ticket.
+1. Copilot: #1717 split music-reactivity.ts.
+2. Do not reopen C++ kinematic resolve until there is an emsdk ticket.
 
 ## Mega-module splits (do not split blindly)
 
@@ -30,6 +29,9 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`.
 
 ## Accomplished / Recent Progress
+
+- **Status: Implemented ✅** (#1693 Parameterize and consolidate the TSL wind/deformation path)
+  - Implementation Details: Consolidated all foliage wind and interaction deformations across the batchers to explicitly use the shared `applyStandardDeformation` or `applyStandardDeformationWithLod` TSL node factories, removing obsolete usages of `calculateWindSway` and `applyPlayerInteraction`.
 
 - **Status: Implemented ✅** (#1577 Make the kinematic controller the single owner of player movement on both physics paths)
   - Implementation Details: Consolidated the WASM native path and JS fallback into a single unified character controller path in `physics-core.ts`. C++ now only handles raw integration and obstacle collision, while the TS controller handles all kinematic resolve (slope limit, step-up, coyote-time, air control) using a zero-allocation `resolveCharacterMovement` setup.
