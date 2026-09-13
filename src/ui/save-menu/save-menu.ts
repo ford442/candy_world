@@ -304,7 +304,7 @@ export class SaveMenu {
         return `
             <div class="candy-save-menu__header">
                 <h2 id="save-menu-title" class="candy-save-menu__title">${titles[this.currentMode]}</h2>
-                <button class="candy-save-menu__close" data-action="close" aria-label="Close menu" title="Close"><span aria-hidden="true">✕</span></button>
+                <button type="button" class="candy-save-menu__close" data-action="close" aria-label="Close menu" title="Close"><span aria-hidden="true">✕</span></button>
             </div>
         `;
     }
@@ -313,7 +313,7 @@ export class SaveMenu {
         return `
             <div class="candy-save-menu__tabs" role="tablist" aria-label="Save Menu Tabs">
                 ${tabs.map(tab => `
-                    <button 
+                    <button type="button"
                         id="tab-${tab.id}"
                         role="tab"
                         aria-selected="${this.currentTab === tab.id}"
@@ -350,16 +350,16 @@ export class SaveMenu {
                 <div class="candy-io-area__label" id="export-label">Export Save Data</div>
                 <textarea class="candy-textarea" id="export-area" placeholder="Exported save data will appear here..." aria-labelledby="export-label" readonly spellcheck="false"></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
-                    <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="export-current">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="export-current">
                         <span aria-hidden="true">📋</span> Export Current
                     </button>
-                    <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="export-all">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="export-all">
                         <span aria-hidden="true">📦</span> Export All
                     </button>
-                    <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="copy-export">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="copy-export">
                         <span aria-hidden="true">📋</span> Copy to Clipboard
                     </button>
-                    <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="download-export">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="download-export">
                         <span aria-hidden="true">💾</span> Download as File
                     </button>
                 </div>
@@ -371,10 +371,10 @@ export class SaveMenu {
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
                     <input type="file" class="candy-file-input" id="import-file" accept=".json,.txt" tabindex="-1">
                     <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" id="import-file-btn"><span aria-hidden="true">📁</span> Choose File</button>
-                    <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="import-data">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="import-data">
                         <span aria-hidden="true">📥</span> Import Data
                     </button>
-                    <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="clear-import">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="clear-import">
                         <span aria-hidden="true">🗑️</span> Clear
                     </button>
                 </div>
@@ -385,7 +385,7 @@ export class SaveMenu {
                 <div class="candy-danger-zone__text">
                     Deleting all data cannot be undone. All saves, settings, and progress will be permanently lost.
                 </div>
-                <button class="candy-save-menu__btn candy-save-menu__btn--danger" data-action="delete-all">
+                <button type="button" class="candy-save-menu__btn candy-save-menu__btn--danger" data-action="delete-all">
                     <span aria-hidden="true">🗑️</span> Delete All Data
                 </button>
             </div>
