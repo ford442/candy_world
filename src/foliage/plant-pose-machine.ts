@@ -93,17 +93,23 @@ export class PlantPoseMachine {
         // Clamp to [0,1] so large delta values don't overshoot.
         const lerpK = Math.min(1.0, attackRate * delta);
 
+        // ⚡ OPTIMIZATION: Hoisted invariant wave calculations outside the hot loop.
+        let waveRadiusSq = 0;
+        let hasActiveWave = false;
+        if (activeWave && getPlantWorldPosition) {
+            hasActiveWave = true;
+            const speed = activeWave.speed || 25.0;
+            const elapsedSec = Math.max(0, (performance.now() - activeWave.timestamp) / 1000);
+            const currentRadius = elapsedSec * speed;
+            waveRadiusSq = currentRadius * currentRadius;
+        }
+
         for (let i = 0; i < count; i++) {
             let triggerValue = channelIntensity;
 
-            if (activeWave && getPlantWorldPosition) {
-                getPlantWorldPosition(i, this._scratchPos);
-                const distSq = computeWaveDistSq(this._scratchPos, activeWave, cameraPosition);
-
-                const speed = activeWave.speed || 25.0;
-                const elapsedSec = Math.max(0, (performance.now() - activeWave.timestamp) / 1000);
-                const currentRadius = elapsedSec * speed;
-                const waveRadiusSq = currentRadius * currentRadius;
+            if (hasActiveWave) {
+                getPlantWorldPosition!(i, this._scratchPos);
+                const distSq = computeWaveDistSq(this._scratchPos, activeWave!, cameraPosition);
 
                 if (distSq < waveRadiusSq && waveRadiusSq > 0) {
                     const progress = 1.0 - (distSq / waveRadiusSq); // inverted for "arrival" feel
