@@ -57,6 +57,10 @@ export class SimpleFlowerBatcher {
     initialized: boolean;
     count: number;
 
+    // Fast O(1) removal tracking
+    private logicIdToInstance: Map<number, number> = new Map();
+    private instanceToLogicId: number[] = [];
+
     // Meshes
     stemMesh: THREE.InstancedMesh | null;
     petalMesh: THREE.InstancedMesh | null;
@@ -435,6 +439,9 @@ export class SimpleFlowerBatcher {
         }
 
         const i = this.count;
+        this.logicIdToInstance.set(logicObject.id, i);
+        this.instanceToLogicId[i] = logicObject.id;
+
         const { color = 0xFFFFFF } = options;
 
         if (this._gpuPositions && isGpuFoliageDefaultPath()) {
@@ -581,6 +588,94 @@ export class SimpleFlowerBatcher {
             // Yes, unless we set drawRange.
             this.pollenPoints.geometry.setDrawRange(0, this.count * GRAINS_PER_FLOWER);
         }
+    }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.initialized || !logicObject) return;
+
+        const id = logicObject.id;
+        const index = this.logicIdToInstance.get(id);
+        if (index === undefined) return;
+
+        const last = this.count - 1;
+        if (index !== last) {
+            const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
+            for (const mesh of meshes) {
+                if (!mesh) continue;
+
+                // Swap instance matrix
+                const matrixArray = mesh.instanceMatrix.array as Float32Array;
+                for (let i = 0; i < 16; i++) {
+                    matrixArray[index * 16 + i] = matrixArray[last * 16 + i];
+                }
+                mesh.instanceMatrix.needsUpdate = true;
+
+                // Swap instanceColor if exists
+                if (mesh.instanceColor) {
+                    const colorArray = mesh.instanceColor.array as Float32Array;
+                    for (let i = 0; i < 3; i++) {
+                        colorArray[index * 3 + i] = colorArray[last * 3 + i];
+                    }
+                    mesh.instanceColor.needsUpdate = true;
+                }
+
+                // Swap aPoseState
+                const poseAttr = mesh.geometry.getAttribute('aPoseState');
+                if (poseAttr) {
+                    const poseArray = poseAttr.array as Float32Array;
+                    poseArray[index] = poseArray[last];
+                    poseAttr.needsUpdate = true;
+                }
+            }
+
+            // Zero out pollen instances
+            if (this.pollenPositions) {
+                for (let j = 0; j < GRAINS_PER_FLOWER; j++) {
+                    const pIndex = index * GRAINS_PER_FLOWER + j;
+                    this.pollenPositions[pIndex * 3] = 0;
+                    this.pollenPositions[pIndex * 3 + 1] = 0;
+                    this.pollenPositions[pIndex * 3 + 2] = 0;
+                }
+                if (this.pollenPoints) {
+                    this.pollenPoints.geometry.attributes.position.needsUpdate = true;
+                }
+            }
+
+            // Update ID mappings
+            const lastLogicId = this.instanceToLogicId[last];
+            this.logicIdToInstance.set(lastLogicId, index);
+            this.instanceToLogicId[index] = lastLogicId;
+
+            // Swap GPU positions
+            if (this._gpuPositions) {
+                this._gpuPositions[index * 3] = this._gpuPositions[last * 3];
+                this._gpuPositions[index * 3 + 1] = this._gpuPositions[last * 3 + 1];
+                this._gpuPositions[index * 3 + 2] = this._gpuPositions[last * 3 + 2];
+            }
+        } else {
+            // It's the last element, zero out pollen
+            if (this.pollenPositions) {
+                for (let j = 0; j < GRAINS_PER_FLOWER; j++) {
+                    const pIndex = index * GRAINS_PER_FLOWER + j;
+                    this.pollenPositions[pIndex * 3] = 0;
+                    this.pollenPositions[pIndex * 3 + 1] = 0;
+                    this.pollenPositions[pIndex * 3 + 2] = 0;
+                }
+                if (this.pollenPoints) {
+                    this.pollenPoints.geometry.attributes.position.needsUpdate = true;
+                }
+            }
+        }
+
+        this.logicIdToInstance.delete(id);
+        this.count--;
+
+        // Update counts
+        if (this.stemMesh) this.stemMesh.count = this.count;
+        if (this.petalMesh) this.petalMesh.count = this.count;
+        if (this.centerMesh) this.centerMesh.count = this.count;
+        if (this.stamenMesh) this.stamenMesh.count = this.count;
+        if (this.beamMesh) this.beamMesh.count = this.count;
     }
 
     dispose(): void {

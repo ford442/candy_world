@@ -151,6 +151,10 @@ export class GlassMushroomBatcher {
     private maxInstances: number;
     private count = 0;
 
+    // Track logical objects to instance indices for fast O(1) removal
+    private logicIdToInstance = new Map<number, number>();
+    private instanceToLogicId: number[] = [];
+
     static getInstance(): GlassMushroomBatcher {
         if (!GlassMushroomBatcher._instance) {
             GlassMushroomBatcher._instance = new GlassMushroomBatcher();
@@ -197,6 +201,9 @@ export class GlassMushroomBatcher {
         const phaseAttr = this.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
         phaseAttr.array[id] = Math.random() * Math.PI * 2;
 
+        this.logicIdToInstance.set(group.id, id);
+        this.instanceToLogicId[id] = group.id;
+
         this.count++;
         this.mesh.count = this.count;
         this.mesh.instanceMatrix.needsUpdate = true;
@@ -209,6 +216,36 @@ export class GlassMushroomBatcher {
         if (index < 0 || index >= this.count) return;
         matrix.toArray(this.mesh.instanceMatrix.array, index * 16);
         this.mesh.instanceMatrix.needsUpdate = true;
+    }
+
+    /** Remove an instance efficiently by swapping with the last instance to prevent VRAM growth. */
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!logicObject) return;
+
+        const id = logicObject.id;
+        const index = this.logicIdToInstance.get(id);
+        if (index === undefined) return;
+
+        const last = this.count - 1;
+        if (index !== last) {
+            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+            for (let i = 0; i < 16; i++) {
+                matrixArray[index * 16 + i] = matrixArray[last * 16 + i];
+            }
+            this.mesh.instanceMatrix.needsUpdate = true;
+
+            const phaseAttr = this.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
+            phaseAttr.array[index] = phaseAttr.array[last];
+            phaseAttr.needsUpdate = true;
+
+            const lastLogicId = this.instanceToLogicId[last];
+            this.logicIdToInstance.set(lastLogicId, index);
+            this.instanceToLogicId[index] = lastLogicId;
+        }
+
+        this.logicIdToInstance.delete(id);
+        this.count--;
+        this.mesh.count = this.count;
     }
 
     /** Live instance count — used by world-health / telemetry callers. */
