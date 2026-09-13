@@ -158,7 +158,7 @@ export class AnalyticsDebugOverlay {
         this.releaseFocusTrap = trapFocusInside(this.elements.container, { skipAutoFocus: true });
         const closeBtn = this.elements.container.querySelector('.analytics-debug-close') as HTMLElement;
         if (closeBtn) {
-          closeBtn.focus();
+          closeBtn.focus({ preventScroll: true });
         }
       }
     });
