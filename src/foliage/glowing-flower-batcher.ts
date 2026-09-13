@@ -79,8 +79,7 @@ export class GlowingFlowerBatcher {
         // If we multiply the WHOLE position by 0, it collapses to (0,0,0).
         // Since pivot is at bottom (0,0,0), this works perfectly for "growing from ground".
 
-        // However, stemMat.positionNode in common.ts is:
-        // mat.positionNode = withPush.add(calculateWindSway(positionLocal));
+        // stemMat.positionNode in common.ts relies on `applyStandardDeformation`
         // We need to wrap this.
         const baseStemPos = stemMat.positionNode;
         stemMat.positionNode = baseStemPos.mul(visibilityScale);
@@ -115,17 +114,11 @@ export class GlowingFlowerBatcher {
         // But wait, the Stem scales Y based on random height.
         // The Head matrix also translates Y based on random height.
         // So we just need local deformation (Wind/Push) relative to the Head's position.
-        // However, `calculateWindSway` assumes height factor based on Y.
-        // Since Head is at top, Y is small (relative to Head center).
-        // But in World Space, it works.
-        // `calculateWindSway` uses `positionLocal.y` for bending factor.
-        // If Head is a separate mesh at (0,H,0), its `positionLocal.y` is roughly 0 (center of sphere).
-        // So `calculateWindSway` will return 0 bend!
-        // We need to fake the height for bending.
-        // The head is effectively at "Height" (from matrix).
-        // We can use a fixed height factor for bending since it's always at the top.
-        // Or we can assume the head moves with the stem tip.
-        // Stem tip movement = calculateWindSway(vec3(0, 1, 0)) [since stem is unit cylinder, top is 1]
+        // We use a proxy position `vec3(0, 1, 0)` because the head is a separate mesh.
+        // The factory uses `positionLocal.y` for bending factor (heightBend).
+        // If we use the sphere's real `positionLocal`, `positionLocal.y` is roughly 0 (center of sphere),
+        // which would return ~0 bend for the head while the stem sways!
+        // `applyStandardDeformation` evaluates wind and push at `vec3(0, 1, 0)` (since stem is unit cylinder, top is 1).
 
         const standardDef = applyStandardDeformation(vec3(0, 1, 0)).sub(vec3(0, 1, 0)); // Sway & Push at top
 

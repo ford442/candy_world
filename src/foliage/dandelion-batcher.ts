@@ -10,8 +10,6 @@ import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     createStandardNodeMaterial,
-    calculateWindSway,
-    applyPlayerInteraction,
     applyStandardDeformation,
     uAudioLow,
     uAudioHigh,
@@ -249,9 +247,7 @@ export class DandelionBatcher {
             // C. Global Sway & Player Interaction
             // Apply to the *entire* geometry (Stem + Seeds)
             // This makes the stem bend, and seeds (being part of same geo) move with it.
-            const swayOffset = calculateWindSway(posPuffed);
-            const posSwayed = posPuffed.add(swayOffset);
-            const posFinal = applyStandardDeformation(posSwayed);
+            const posFinal = applyStandardDeformation(posPuffed);
 
             m.positionNode = posFinal;
 
