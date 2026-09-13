@@ -102,7 +102,7 @@ export const applyPlayerInteractionWithLod = (basePosNode: TSLArg) => {
 /** Wind sway attenuated in mid/far tiers */
 export const calculateWindSwayWithLod = (posNode: TSLArg, options?: WindDeformationOptions) => {
     const wind = calculateWindSway(posNode, options);
-    const weight = lodHeroGate().add(lodMidOnlyGate().mul(0.45));
+    const weight = lodHeroGate().add(lodMidOnlyGate().mul(0.5));
     return wind.mul(weight);
 };
 
@@ -130,7 +130,7 @@ export const foliageDeformationOffset = (
     let blended: ReturnType<typeof mix> = mix(farPos, heroMid, float(1).sub(lodFarGate()));
 
     if (extraOffset) {
-        const extraWeight = lodHeroGate().add(lodMidOnlyGate().mul(0.35));
+        const extraWeight = lodHeroGate().add(lodMidOnlyGate().mul(0.5));
         blended = blended.add(extraOffset.mul(extraWeight)) as unknown as ReturnType<typeof mix>;
     }
 
