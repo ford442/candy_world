@@ -508,6 +508,7 @@ export function togglePlaylist(): void {
             void playlistOverlay.offsetWidth;
             playlistOverlay.style.opacity = '1';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
+            playlistOverlay.setAttribute('aria-hidden', 'false');
 
             // Wait for paint before intensive DOM manipulations and focus trapping
             yieldToPaint(50).then(() => {
@@ -551,6 +552,7 @@ export function togglePlaylist(): void {
         if (playlistOverlay) {
             playlistOverlay.style.opacity = '0';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(0.95)';
+            playlistOverlay.setAttribute('aria-hidden', 'true');
         }
 
         announce('Jukebox closed', 'polite');
