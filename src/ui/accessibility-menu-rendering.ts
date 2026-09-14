@@ -90,7 +90,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
 
         const closeBtn = document.createElement('button');
         closeBtn.className = 'a11y-close-btn a11y-button';
-        closeBtn.textContent = '✕';
+        closeBtn.innerHTML = '<span aria-hidden="true">✕</span>';
         closeBtn.style.cssText = `
       ${this.getButtonStyle()}
       width: 40px;
@@ -106,6 +106,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
 
 
         closeBtn.setAttribute('aria-label', 'Close accessibility menu');
+        closeBtn.setAttribute('aria-keyshortcuts', 'Escape');
+        closeBtn.setAttribute('title', 'Close (Esc)');
 
         header.appendChild(title);
         header.appendChild(closeBtn);
