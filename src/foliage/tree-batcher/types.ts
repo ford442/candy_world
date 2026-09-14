@@ -30,5 +30,7 @@ export interface TreeBatcherState {
     helixCapacity: number;
     roseCapacity: number;
     accordionLeafCapacity: number;
+    logicIdToInstances: Map<number, { countProp: InstanceCountProp, index: number }[]>;
+    instanceToLogicId: Record<InstanceCountProp, number[]>;
     _pendingInstances: PendingInstance[];
 }
