@@ -7,12 +7,13 @@
 // the game loop. Reuses RegionManager (region-manager-core.ts) for cell
 // bookkeeping/spiral ordering instead of forking a parallel grid.
 import * as THREE from 'three';
-import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
-import { lanternBatcher } from '../foliage/lantern-batcher.ts';
-import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
-import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
-import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
+import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
+import { lanternBatcher } from '../foliage/lantern-batcher.ts';
+import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
+import { treeBatcher } from '../foliage/tree-batcher/index.ts';
+import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { populatePhysicsGrids } from '../systems/physics/index.ts';
 import {
     CellState,
@@ -25,13 +26,6 @@ import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { processMapEntity } from './generation-entities.ts';
 import { yieldControl, type WeatherSystem } from './generation-utils.ts';
 import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
-import {
-    PLAY_EVICT_RADIUS_M,
-    PLAY_EVICT_RADIUS_PRESSURE_M,
-    PLAY_LOAD_RADIUS_M,
-    PLAY_SPAWN_RADIUS_CHUNKS,
-    metersToChunkRadius,
-} from './world-extent.ts';
 import type { LoadedCandyMap, LoadedMapEntity, MapChunkIndex } from './map-loader.ts';
 import {
     animatedFoliage,
@@ -49,6 +43,13 @@ import {
     computeFoliageObjects,
     vineSwings,
 } from './state.ts';
+import {
+    PLAY_EVICT_RADIUS_M,
+    PLAY_EVICT_RADIUS_PRESSURE_M,
+    PLAY_LOAD_RADIUS_M,
+    PLAY_SPAWN_RADIUS_CHUNKS,
+    metersToChunkRadius,
+} from './world-extent.ts';
 
 /** World-space chunk size (metres). Re-exported for callers; canonical value lives in map-loader.ts. */
 export const CHUNK_SIZE = DEFAULT_MAP_CHUNK_STREAM_SIZE;
@@ -95,10 +96,11 @@ function isKnownBatchedType(obj: THREE.Object3D): boolean {
     );
 }
 
-type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'glassMushroom' | 'simpleFlower' | 'never';
+type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'glassMushroom' | 'simpleFlower' | 'tree' | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     const t = obj.userData?.type;
+    if (t === 'tree' || t === 'shrub' || t === 'willow' || t === 'balloonBush' || t === 'helixPlant' || t === 'accordion_palm' || t === 'floweringTree' || t === 'bubbleWillow' || t === 'prismRoseBush' || t === 'helix' || t === 'accordionPalm') return 'tree';
     if (t === 'mushroom') return 'mushroom';
     if (t === 'lanternFlower') return 'lantern';
     if (t === 'glass_mushroom') return 'glassMushroom';
@@ -508,6 +510,8 @@ export class ChunkStreamer {
                 glassMushroomBatcher.removeInstance(obj);
             } else if (evictionClass === 'simpleFlower') {
                 simpleFlowerBatcher.removeInstance(obj);
+            } else if (evictionClass === 'tree') {
+                treeBatcher.removeInstance(obj);
             }
             // Free the entity id so walking back into range re-spawns it.
             // Discovery registration is intentionally left in place — the
