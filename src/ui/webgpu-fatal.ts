@@ -12,6 +12,7 @@
  */
 
 import { getWebGPUProbeReport } from '../rendering/gpu-context.ts';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
 
 const OVERLAY_ID = 'webgpu-fatal';
 
@@ -158,6 +159,7 @@ export function showWebGPUFatalScreen(error: unknown): void {
         }
     });
 
+    trapFocusInside(overlay, { skipAutoFocus: true });
     reload.focus({ preventScroll: true });
     console.error('[Boot] WebGPU hard-fail:', diagnostics);
 }
