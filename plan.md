@@ -13,8 +13,8 @@ Use this file for short cross-cutting sequencing notes that span multiple weeks.
     - **Status: In progress** — #1548 chunk streamer landed; Play default visual footprint is now 180×180 with progressive section load (Explore keeps 400×400). Remaining: any leftover #1558 wiring.
 
 **Next Steps:**
-1. Copilot: #1717 split music-reactivity.ts.
-2. Do not reopen C++ kinematic resolve until there is an emsdk ticket.
+1. Do not reopen C++ kinematic resolve until there is an emsdk ticket.
+2. Proceed to next feature or mega-module split.
 
 ## Mega-module splits (do not split blindly)
 
@@ -29,6 +29,9 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`.
 
 ## Accomplished / Recent Progress
+
+- **Status: Implemented ✅** (#1717 Split music-reactivity.ts)
+  - Implementation Details: Split the massive `music-reactivity.ts` file by extracting `updateFoliageAnimationLoop`, `updateBiomeChannelBindings`, `updateLuminousPlants`, and `updateSkyWavePropagation` into their own sibling files. Maintained `MusicReactivitySystem` as the public orchestrator by importing and calling these extracted functions, effectively resolving the 1161-line module size while keeping the public API stable and satisfying domain architecture requirements.
 
 - **Status: Implemented ✅** (#1693 Parameterize and consolidate the TSL wind/deformation path)
   - Implementation Details: Consolidated all foliage wind and interaction deformations across the batchers to explicitly use the shared `applyStandardDeformation` or `applyStandardDeformationWithLod` TSL node factories, removing obsolete usages of `calculateWindSway` and `applyPlayerInteraction`.
