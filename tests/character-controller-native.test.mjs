@@ -131,10 +131,17 @@ async function main() {
                 const M = window.__nativeModule;
                 const out = {};
 
-                // 1+2. No obstacles: native must not author ground contact or a
-                // jump from terrain alone.
-                M._initPhysics(0, 50, 0);
-                M._setPlayerState(0, 50, 0, 0, -5, 0);
+                // 1+2. No obstacles, seeded squarely inside the OLD landing
+                // window (getGroundHeight(0,0) === 2.3, so the removed
+                // `nextY < groundY + 1.8f` snap used to fire anywhere below
+                // y=4.1 while falling): native must not author ground
+                // contact, snap Y, zero vy, or fire a jump from terrain
+                // alone anymore. y=4.0 falling at vy=-2 lands nextY ~= 3.97,
+                // inside that old [-, 4.1) window, so this genuinely
+                // exercises the removed behavior rather than merely being
+                // too far from the ground to trigger it either way.
+                M._initPhysics(0, 4.0, 0);
+                M._setPlayerState(0, 4.0, 0, 0, -2, 0);
                 out.noObstacleOnGround = M._updatePhysicsCPP(delta, 0, 0, 6, 1, 0, 0, 1.0);
                 out.noObstacleVy = M._getPlayerVY();
 
@@ -158,13 +165,13 @@ async function main() {
             }, DELTA);
 
             check(
-                'no obstacles + falling: native reports no ground contact (terrain Y-snap removed)',
+                'no obstacles, inside the old landing window: native reports no ground contact (terrain Y-snap removed)',
                 results.noObstacleOnGround === 0,
                 `onGround=${results.noObstacleOnGround}`
             );
             check(
-                'no obstacles + jump=1: vy untouched by native (jump gate removed)',
-                Math.abs(results.noObstacleVy - -5) < 1e-3,
+                'no obstacles, inside the old landing window, jump=1: vy untouched (no snap-to-zero, no jump gate)',
+                Math.abs(results.noObstacleVy - -2) < 1e-3,
                 `vy=${results.noObstacleVy}`
             );
             check(
