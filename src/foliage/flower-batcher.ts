@@ -57,6 +57,10 @@ export class FlowerBatcher {
     private multiCount = 0;
     private spiralCount = 0;
 
+    private logicIdToParts: Map<string, Array<{ mesh: THREE.InstancedMesh, countProp: string, index: number }>> = new Map();
+    // Maps mesh.uuid -> Map<index, ownerId> for O(1) reverse lookups
+    private meshIndexToLogicId: Map<string, Map<number, string>> = new Map();
+
     private _poseMachine!: PlantPoseMachine;
     private _lastGpuPoses: Float32Array | null = null;
     private _gpuPoseInFlight = false;
@@ -279,6 +283,8 @@ export class FlowerBatcher {
         // --- Logic mirroring createFlower ---
         // ⚡ OPTIMIZATION: Using scratch variables to avoid GC stutter during large generations
 
+        const parts: Array<{ mesh: THREE.InstancedMesh, countProp: string, index: number }> = [];
+
         // 1. Stem
         const stemHeight = 0.6 + Math.random() * 0.4;
         _scratchScale.set(0.05, stemHeight, 0.05);
@@ -289,7 +295,8 @@ export class FlowerBatcher {
 
         // Transform to world
         _scratchMatrix.multiplyMatrices(rootMatrix, _scratchMatrix2);
-        this.addInstance(this.stems, _scratchMatrix, null, 'stemCount');
+        let idx = this.addInstance(this.stems, _scratchMatrix, null, 'stemCount');
+        if (idx !== -1) parts.push({ mesh: this.stems, countProp: 'stemCount', index: idx });
 
         // 2. Head Setup
         // Head pivot is at (0, stemHeight, 0)
@@ -301,7 +308,8 @@ export class FlowerBatcher {
         // 3. Center
         _scratchMatrix2.makeScale(0.1, 0.1, 0.1);
         _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
-        this.addInstance(this.centers, _scratchMatrix, null, 'centerCount');
+        idx = this.addInstance(this.centers, _scratchMatrix, null, 'centerCount');
+        if (idx !== -1) parts.push({ mesh: this.centers, countProp: 'centerCount', index: idx });
 
         // 4. Stamens
         const stamenCount = 3;
@@ -317,7 +325,8 @@ export class FlowerBatcher {
 
             _scratchMatrix2.compose(_scratchPos, _scratchQuat, _scratchScale);
             _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
-            this.addInstance(this.stamens, _scratchMatrix, null, 'stamenCount');
+            idx = this.addInstance(this.stamens, _scratchMatrix, null, 'stamenCount');
+            if (idx !== -1) parts.push({ mesh: this.stamens, countProp: 'stamenCount', index: idx });
         }
 
         // 5. Petals
@@ -329,7 +338,8 @@ export class FlowerBatcher {
                 _scratchMatrix2.setPosition(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
 
                 _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
-                this.addInstance(this.petalsSimple, _scratchMatrix, color, 'simpleCount');
+                idx = this.addInstance(this.petalsSimple, _scratchMatrix, color, 'simpleCount');
+                if (idx !== -1) parts.push({ mesh: this.petalsSimple, countProp: 'simpleCount', index: idx });
             }
         } else if (type === 'multi') {
             const petalCount = 8 + Math.floor(Math.random() * 4);
@@ -345,7 +355,8 @@ export class FlowerBatcher {
                 _scratchMatrix2.scale(_scratchScale.set(0.12, 0.12, 0.12));
 
                 _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
-                this.addInstance(this.petalsMulti, _scratchMatrix, color, 'multiCount');
+                idx = this.addInstance(this.petalsMulti, _scratchMatrix, color, 'multiCount');
+                if (idx !== -1) parts.push({ mesh: this.petalsMulti, countProp: 'multiCount', index: idx });
             }
         } else if (type === 'spiral') {
             const petalCount = 10;
@@ -360,7 +371,8 @@ export class FlowerBatcher {
 
                 _scratchMatrix2.compose(_scratchPos, _scratchQuat, _scratchScale);
                 _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
-                this.addInstance(this.petalsSpiral, _scratchMatrix, color, 'spiralCount');
+                idx = this.addInstance(this.petalsSpiral, _scratchMatrix, color, 'spiralCount');
+                if (idx !== -1) parts.push({ mesh: this.petalsSpiral, countProp: 'spiralCount', index: idx });
             }
         } else if (type === 'layered') {
             for (let layer = 0; layer < 2; layer++) {
@@ -384,13 +396,27 @@ export class FlowerBatcher {
 
                     _scratchMatrix2.compose(_scratchPos, _scratchQuat, _scratchScale);
                     _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
-                    this.addInstance(this.petalsSimple, _scratchMatrix, layerColor, 'simpleCount');
+                    idx = this.addInstance(this.petalsSimple, _scratchMatrix, layerColor, 'simpleCount');
+                    if (idx !== -1) parts.push({ mesh: this.petalsSimple, countProp: 'simpleCount', index: idx });
                 }
+            }
+        }
+
+        if (parts.length > 0) {
+            this.logicIdToParts.set(group.uuid, parts);
+
+            for (const part of parts) {
+                let indexMap = this.meshIndexToLogicId.get(part.mesh.uuid);
+                if (!indexMap) {
+                    indexMap = new Map();
+                    this.meshIndexToLogicId.set(part.mesh.uuid, indexMap);
+                }
+                indexMap.set(part.index, group.uuid);
             }
         }
     }
 
-    private addInstance(mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color | null, countProp: string) {
+    private addInstance(mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color | null, countProp: string): number {
         let index = 0;
         let max = 0;
 
@@ -403,7 +429,7 @@ export class FlowerBatcher {
             case 'spiralCount': index = this.spiralCount; max = MAX_PETALS; break;
         }
 
-        if (index >= max) return;
+        if (index >= max) return -1;
 
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         matrix.toArray(mesh.instanceMatrix.array, (index) * 16);
@@ -430,6 +456,102 @@ export class FlowerBatcher {
             mesh.instanceMatrix.needsUpdate = true;
             if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         }
+
+        return index;
+    }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.initialized || !logicObject) return;
+
+        const id = logicObject.uuid;
+        const parts = this.logicIdToParts.get(id);
+        if (!parts) return;
+
+        // Sort parts by index descending to avoid the multi-slot swap bug.
+        // Parts might be jumbled from previous evictions.
+        parts.sort((a, b) => b.index - a.index);
+
+        for (const part of parts) {
+            const mesh = part.mesh;
+            const index = part.index;
+            const countProp = part.countProp;
+
+            let lastIndex = -1;
+            switch (countProp) {
+                case 'stemCount': lastIndex = this.stemCount - 1; break;
+                case 'centerCount': lastIndex = this.centerCount - 1; break;
+                case 'stamenCount': lastIndex = this.stamenCount - 1; break;
+                case 'simpleCount': lastIndex = this.simpleCount - 1; break;
+                case 'multiCount': lastIndex = this.multiCount - 1; break;
+                case 'spiralCount': lastIndex = this.spiralCount - 1; break;
+            }
+
+            if (lastIndex < 0) continue;
+
+            if (index !== lastIndex) {
+                // Copy matrix
+                const matrixArray = mesh.instanceMatrix.array as Float32Array;
+                for (let j = 0; j < 16; j++) {
+                    matrixArray[index * 16 + j] = matrixArray[lastIndex * 16 + j];
+                }
+                mesh.instanceMatrix.needsUpdate = true;
+
+                // Copy color
+                if (mesh.instanceColor) {
+                    const colorArray = mesh.instanceColor.array as Float32Array;
+                    for (let j = 0; j < 3; j++) {
+                        colorArray[index * 3 + j] = colorArray[lastIndex * 3 + j];
+                    }
+                    mesh.instanceColor.needsUpdate = true;
+                }
+
+                // Copy aPoseState
+                const poseAttr = mesh.geometry.getAttribute('aPoseState');
+                if (poseAttr) {
+                    const poseArray = poseAttr.array as Float32Array;
+                    poseArray[index] = poseArray[lastIndex];
+                    poseAttr.needsUpdate = true;
+                }
+
+                // O(1) reverse lookup
+                const indexMap = this.meshIndexToLogicId.get(mesh.uuid);
+                if (indexMap) {
+                    const ownerId = indexMap.get(lastIndex);
+                    if (ownerId && ownerId !== id) {
+                        const ownerParts = this.logicIdToParts.get(ownerId);
+                        if (ownerParts) {
+                            for (const otherPart of ownerParts) {
+                                if (otherPart.mesh === mesh && otherPart.index === lastIndex) {
+                                    otherPart.index = index;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (ownerId) {
+                        indexMap.set(index, ownerId);
+                    }
+                    indexMap.delete(lastIndex);
+                }
+            } else {
+                const indexMap = this.meshIndexToLogicId.get(mesh.uuid);
+                if (indexMap) {
+                    indexMap.delete(index);
+                }
+            }
+
+            // Decrement
+            switch (countProp) {
+                case 'stemCount': this.stemCount--; mesh.count = this.stemCount; break;
+                case 'centerCount': this.centerCount--; mesh.count = this.centerCount; break;
+                case 'stamenCount': this.stamenCount--; mesh.count = this.stamenCount; break;
+                case 'simpleCount': this.simpleCount--; mesh.count = this.simpleCount; break;
+                case 'multiCount': this.multiCount--; mesh.count = this.multiCount; break;
+                case 'spiralCount': this.spiralCount--; mesh.count = this.spiralCount; break;
+            }
+        }
+
+        this.logicIdToParts.delete(id);
     }
 
     update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {
