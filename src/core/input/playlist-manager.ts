@@ -1,6 +1,6 @@
 /**
- * Playlist Manager Module
- * Handles playlist UI rendering, jukebox modal, and playlist-related event handlers
+ * Playlist Manager Module (Coordinator)
+ * Orchestrates playlist initialization and holds shared state.
  */
 
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
@@ -10,29 +10,39 @@ import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
+import { handlePlaylistUpload } from './playlist-events.ts';
+import type { PlaylistManagerState } from './playlist-types.ts';
+import { renderPlaylist, updateJukeboxButtonState } from './playlist-ui.ts';
 
-// State
-let isPlaylistOpen = false;
-let wasPausedBeforePlaylist = false;
-let lastFocusedElement: Element | null = null;
-let releaseJukeboxFocus: (() => void) | null = null;
+// Shared State Instance
+const _state: PlaylistManagerState = {
+    isPlaylistOpen: false,
+    wasPausedBeforePlaylist: false,
+    lastFocusedElement: null,
+    releaseJukeboxFocus: null,
 
-// DOM Elements
-let playlistOverlay: HTMLElement | null = null;
-let playlistBackdrop: HTMLElement | null = null;
-let playlistList: HTMLElement | null = null;
-let closePlaylistBtn: HTMLElement | null = null;
-let playlistCloseX: HTMLElement | null = null;
-let playlistUploadInput: HTMLInputElement | null = null;
-let addSongsBtn: HTMLElement | null = null;
-let openJukeboxBtn: HTMLElement | null = null;
-let nowPlayingContainer: HTMLElement | null = null;
-let nowPlayingText: HTMLElement | null = null;
+    playlistOverlay: null,
+    playlistBackdrop: null,
+    playlistList: null,
+    closePlaylistBtn: null,
+    playlistCloseX: null,
+    playlistUploadInput: null,
+    addSongsBtn: null,
+    openJukeboxBtn: null,
+    nowPlayingContainer: null,
+    nowPlayingText: null,
 
-// References passed from main input module
-let audioSystemRef: AudioSystem | null = null;
-let controlsRef: PointerLockControls | null = null;
-let instructionsRef: HTMLElement | null = null;
+    audioSystemRef: null,
+    controlsRef: null,
+    instructionsRef: null,
+};
+
+/**
+ * Accessor for the shared state
+ */
+export function getPlaylistManagerState(): PlaylistManagerState {
+    return _state;
+}
 
 /**
  * Initialize playlist manager
@@ -42,21 +52,21 @@ export function initPlaylistManager(
     controls: PointerLockControls,
     instructions: HTMLElement | null
 ): void {
-    audioSystemRef = audioSystem;
-    controlsRef = controls;
-    instructionsRef = instructions;
+    _state.audioSystemRef = audioSystem;
+    _state.controlsRef = controls;
+    _state.instructionsRef = instructions;
 
     // Get DOM elements
-    playlistOverlay = document.getElementById('playlist-overlay');
-    playlistBackdrop = document.getElementById('playlist-backdrop');
-    playlistList = document.getElementById('playlist-list');
-    closePlaylistBtn = document.getElementById('closePlaylistBtn');
-    playlistCloseX = document.getElementById('playlistCloseX');
-    playlistUploadInput = document.getElementById('playlistUploadInput') as HTMLInputElement | null;
-    addSongsBtn = document.getElementById('addSongsBtn');
-    openJukeboxBtn = document.getElementById('openJukeboxBtn');
-    nowPlayingContainer = document.getElementById('nowPlayingContainer');
-    nowPlayingText = document.getElementById('nowPlayingText');
+    _state.playlistOverlay = document.getElementById('playlist-overlay');
+    _state.playlistBackdrop = document.getElementById('playlist-backdrop');
+    _state.playlistList = document.getElementById('playlist-list');
+    _state.closePlaylistBtn = document.getElementById('closePlaylistBtn');
+    _state.playlistCloseX = document.getElementById('playlistCloseX');
+    _state.playlistUploadInput = document.getElementById('playlistUploadInput') as HTMLInputElement | null;
+    _state.addSongsBtn = document.getElementById('addSongsBtn');
+    _state.openJukeboxBtn = document.getElementById('openJukeboxBtn');
+    _state.nowPlayingContainer = document.getElementById('nowPlayingContainer');
+    _state.nowPlayingText = document.getElementById('nowPlayingText');
 
     // Initialize state
     if (audioSystem.getPlaylist) {
@@ -66,11 +76,11 @@ export function initPlaylistManager(
         // 🎨 Palette: Restore Now Playing info if music is already running
         const currentIdx = audioSystem.getCurrentIndex();
         if (currentIdx >= 0 && playlist[currentIdx]) {
-            if (nowPlayingContainer && nowPlayingText) {
+            if (_state.nowPlayingContainer && _state.nowPlayingText) {
                 const trackName = formatSongTitle(playlist[currentIdx].name);
-                nowPlayingText.innerText = trackName;
-                nowPlayingContainer.style.display = 'flex';
-                nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
+                _state.nowPlayingText.innerText = trackName;
+                _state.nowPlayingContainer.style.display = 'flex';
+                _state.nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
                 document.title = `🎵 ${trackName} - Candy World`;
             }
         }
@@ -78,7 +88,7 @@ export function initPlaylistManager(
 
     // Hook up AudioSystem callbacks
     audioSystem.onPlaylistUpdate = (playlist: File[]) => {
-        if (isPlaylistOpen) renderPlaylist();
+        if (_state.isPlaylistOpen) renderPlaylist();
         updateJukeboxButtonState(playlist ? playlist.length : 0);
 
         if (!playlist || playlist.length === 0) {
@@ -88,7 +98,7 @@ export function initPlaylistManager(
 
     // UX: Show toast and update playlist when track changes
     audioSystem.onTrackChange = (index: number) => {
-        if (isPlaylistOpen) renderPlaylist();
+        if (_state.isPlaylistOpen) renderPlaylist();
 
         // Show "Now Playing" toast
         const songs = audioSystem.getPlaylist();
@@ -100,10 +110,10 @@ export function initPlaylistManager(
             announce(`Now playing: ${trackName}`, 'polite');
 
             // 🎨 Palette: Update "Now Playing" in Pause Menu
-            if (nowPlayingContainer && nowPlayingText) {
-                nowPlayingText.innerText = trackName;
-                nowPlayingContainer.style.display = 'flex';
-                nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
+            if (_state.nowPlayingContainer && _state.nowPlayingText) {
+                _state.nowPlayingText.innerText = trackName;
+                _state.nowPlayingContainer.style.display = 'flex';
+                _state.nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
             }
 
             // 🎨 Palette: Update Browser Tab Title
@@ -112,70 +122,68 @@ export function initPlaylistManager(
     };
 
     // Event Listeners for UI
-    if (closePlaylistBtn) {
-        closePlaylistBtn.addEventListener('click', togglePlaylist);
+    if (_state.closePlaylistBtn) {
+        _state.closePlaylistBtn.addEventListener('click', togglePlaylist);
     }
 
-    if (playlistCloseX) {
-        playlistCloseX.addEventListener('click', togglePlaylist);
+    if (_state.playlistCloseX) {
+        _state.playlistCloseX.addEventListener('click', togglePlaylist);
     }
 
-    if (playlistBackdrop) {
-        playlistBackdrop.addEventListener('click', togglePlaylist);
+    if (_state.playlistBackdrop) {
+        _state.playlistBackdrop.addEventListener('click', togglePlaylist);
     }
 
-    if (playlistUploadInput) {
-        playlistUploadInput.addEventListener('change', handlePlaylistUpload);
+    if (_state.playlistUploadInput) {
+        _state.playlistUploadInput.addEventListener('change', handlePlaylistUpload);
     }
 
-    if (addSongsBtn) {
-        addSongsBtn.addEventListener('click', (e) => {
+    if (_state.addSongsBtn) {
+        _state.addSongsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (playlistUploadInput) playlistUploadInput.click();
+            if (_state.playlistUploadInput) _state.playlistUploadInput.click();
         });
     }
 
-    if (openJukeboxBtn) {
-        openJukeboxBtn.addEventListener('click', (e) => {
+    if (_state.openJukeboxBtn) {
+        _state.openJukeboxBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             togglePlaylist();
         });
     }
 
-
-
     // 🎨 Palette: Improve Drag & Drop Feedback in Jukebox
-    if (playlistOverlay) {
+    if (_state.playlistOverlay) {
         const dropZoneText = document.createElement('div');
         dropZoneText.className = 'playlist-drop-zone-text';
         dropZoneText.innerHTML = '<span aria-hidden="true">📂</span> Drop tracks here...';
-        playlistOverlay.appendChild(dropZoneText);
+        _state.playlistOverlay.appendChild(dropZoneText);
 
         let playlistDragCounter = 0;
 
-        playlistOverlay.addEventListener('dragenter', (e: DragEvent) => {
+        _state.playlistOverlay.addEventListener('dragenter', (e: DragEvent) => {
             e.preventDefault();
             playlistDragCounter++;
-            playlistOverlay?.classList.add('playlist-drag-active');
+            _state.playlistOverlay?.classList.add('playlist-drag-active');
         });
 
-        playlistOverlay.addEventListener('dragleave', (e: DragEvent) => {
+        _state.playlistOverlay.addEventListener('dragleave', (e: DragEvent) => {
             e.preventDefault();
             playlistDragCounter--;
             if (playlistDragCounter <= 0) {
                 playlistDragCounter = 0;
-                playlistOverlay?.classList.remove('playlist-drag-active');
+                _state.playlistOverlay?.classList.remove('playlist-drag-active');
             }
         });
 
-        playlistOverlay.addEventListener('dragover', (e: DragEvent) => {
+        _state.playlistOverlay.addEventListener('dragover', (e: DragEvent) => {
             e.preventDefault();
         });
 
-        playlistOverlay.addEventListener('drop', (e: DragEvent) => {
+        _state.playlistOverlay.addEventListener('drop', (e: DragEvent) => {
             e.preventDefault();
             playlistDragCounter = 0;
-            playlistOverlay?.classList.remove('playlist-drag-active');
+            _state.playlistOverlay?.classList.remove('playlist-drag-active');
 
             const files = e.dataTransfer?.files;
             if (files && files.length > 0) {
@@ -210,93 +218,24 @@ export function initPlaylistManager(
 }
 
 /**
- * Handle playlist file upload
- */
-function handlePlaylistUpload(e: Event): void {
-    if (!audioSystemRef) return;
-
-    const target = e.target as HTMLInputElement;
-    const files = target.files;
-    if (files && files.length > 0) {
-        const browseBtn = playlistList?.querySelector('.jukebox-browse-btn') as HTMLElement | null;
-
-        const originalAddSongsHtml = addSongsBtn ? addSongsBtn.innerHTML : '';
-        const originalBrowseHtml = browseBtn ? browseBtn.innerHTML : '';
-
-        const setBusy = (btn: HTMLElement | null) => {
-            if (btn) {
-                btn.setAttribute('aria-busy', 'true');
-                btn.setAttribute('aria-disabled', 'true');
-                btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Processing...';
-            }
-        };
-
-        const restoreBusy = (btn: HTMLElement | null, originalHtml: string) => {
-            if (btn) {
-                btn.removeAttribute('aria-busy');
-                btn.removeAttribute('aria-disabled');
-                btn.innerHTML = originalHtml;
-            }
-        };
-
-        setBusy(addSongsBtn);
-        setBusy(browseBtn);
-
-        // Brief delay for satisfying UX feedback
-        setTimeout(() => {
-            const { validFiles, invalidFiles } = filterValidMusicFiles(files);
-
-            if (validFiles.length > 0) {
-                audioSystemRef!.addToQueue(validFiles);
-                if (invalidFiles.length > 0) {
-                    const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
-                    showToast(msg, '⚠️');
-                    announce(msg, 'polite');
-                } else {
-                    const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
-                    showToast(msg, '📂');
-                    if (validFiles.length === 1) {
-                        announce(
-                            `Song '${validFiles[0].name}' has been added and is ready to play.`,
-                            'polite'
-                        );
-                    } else {
-                        announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
-                    }
-                }
-            } else {
-                showToast('❌ Only .mod, .xm, .it, .s3m allowed!', '🚫');
-                announce('Failed to add songs, invalid format.', 'polite');
-            }
-
-            restoreBusy(addSongsBtn, originalAddSongsHtml);
-            restoreBusy(browseBtn, originalBrowseHtml);
-            target.value = '';
-        }, 500);
-    } else {
-        target.value = '';
-    }
-}
-
-/**
  * Check if playlist is currently open
  */
 export function getIsPlaylistOpen(): boolean {
-    return isPlaylistOpen;
+    return _state.isPlaylistOpen;
 }
 
 /**
  * Set the playlist open state (used by main input for forced closes)
  */
 export function setIsPlaylistOpen(value: boolean): void {
-    isPlaylistOpen = value;
+    _state.isPlaylistOpen = value;
 }
 
 /**
  * Close playlist and release focus (for cleanup)
  */
 export function closePlaylist(): void {
-    if (isPlaylistOpen) {
+    if (_state.isPlaylistOpen) {
         togglePlaylist();
     }
 }
@@ -305,222 +244,70 @@ export function closePlaylist(): void {
  * Get the focus release function for cleanup
  */
 export function getReleaseJukeboxFocus(): (() => void) | null {
-    return releaseJukeboxFocus;
+    return _state.releaseJukeboxFocus;
 }
 
 /**
  * Set the focus release function
  */
 export function setReleaseJukeboxFocus(fn: (() => void) | null): void {
-    releaseJukeboxFocus = fn;
-}
-
-/**
- * Render the playlist UI
- */
-export function renderPlaylist(): void {
-    if (!playlistList || !audioSystemRef) return;
-
-    playlistList.innerHTML = '';
-    const songs = audioSystemRef.getPlaylist();
-    const currentIdx = audioSystemRef.getCurrentIndex();
-
-    songs.forEach((file: File, index: number) => {
-        const li = document.createElement('li');
-        li.className = 'playlist-item';
-
-        // UX: Use a button for keyboard accessibility
-        const displayName = formatSongTitle(file.name);
-
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'playlist-btn';
-        if (index === currentIdx) {
-            btn.title = `Currently playing: ${displayName}`;
-            btn.setAttribute('aria-label', `Currently playing: ${displayName}`);
-            btn.setAttribute('aria-current', 'true');
-        } else {
-            btn.title = `Play ${displayName}`;
-            btn.setAttribute('aria-label', `Play ${displayName}`);
-        }
-
-        btn.innerHTML = `
-            <span class="song-title">${index + 1}. ${displayName}</span>
-            <span class="status-icon" aria-hidden="true">${index === currentIdx ? '🔊' : '▶️'}</span>
-        `;
-        btn.onclick = (e) => {
-            // Prevent bubbling if needed, though li has no click handler now
-            e.stopPropagation();
-            audioSystemRef!.playAtIndex(index);
-            renderPlaylist(); // Re-render to update active state
-
-            // Keep focus on the clicked item (re-rendered)
-            // We need to find the new button after render
-            requestAnimationFrame(() => {
-                const newItems = playlistList!.querySelectorAll('.playlist-btn');
-                if (newItems && newItems[index] && newItems[index] instanceof HTMLElement) {
-                    (newItems[index] as HTMLElement).focus({ preventScroll: true });
-                }
-            });
-        };
-
-        // Remove Button (UX Improvement)
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'playlist-remove-btn';
-        removeBtn.innerHTML = '<span aria-hidden="true">×</span>';
-        // 🎨 Palette: Use formatted title for tooltip and screen readers
-        removeBtn.title = `Remove ${displayName}`;
-        removeBtn.setAttribute('aria-label', `Remove ${displayName} from playlist`);
-        removeBtn.onclick = (e) => {
-            e.stopPropagation();
-            const _wasActive = document.activeElement === removeBtn;
-            audioSystemRef!.removeTrack(index);
-            renderPlaylist();
-
-            // 🎨 Palette: Provide explicit feedback for destructive action
-            showToast(`Removed ${displayName}`, '🗑️', 3000);
-
-            // UX: Restore Focus to an appropriate element
-            requestAnimationFrame(() => {
-                // If it was active and the element is gone, or it was the last song
-                const remainingSongs = audioSystemRef!.getPlaylist().length;
-                if (remainingSongs === 0) {
-                    // Fallback to empty state button if list is now empty
-                    const emptyBtn =
-                        playlistList?.querySelector('.jukebox-browse-btn') ||
-                        document.getElementById('addSongsBtn');
-                    if (emptyBtn) {
-                        (emptyBtn as HTMLElement).focus({ preventScroll: true });
-                    }
-                } else {
-                    const removeBtns = playlistList?.querySelectorAll('.playlist-remove-btn') || [];
-                    const playBtns = playlistList?.querySelectorAll('.playlist-btn') || [];
-
-                    // Try focusing the next remove button (at same index, since list shifted)
-                    if (removeBtns && removeBtns[index]) {
-                        (removeBtns[index] as HTMLElement).focus({ preventScroll: true });
-                    } else if (removeBtns && removeBtns[index - 1]) {
-                        // Or the previous one
-                        (removeBtns[index - 1] as HTMLElement).focus({ preventScroll: true });
-                    } else if (playBtns && playBtns[0]) {
-                        // Or the first song
-                        (playBtns[0] as HTMLElement).focus({ preventScroll: true });
-                    }
-                }
-            });
-        };
-
-        li.appendChild(btn);
-        li.appendChild(removeBtn);
-        playlistList?.appendChild(li);
-    });
-
-    if (songs.length === 0) {
-        // 🎨 Palette: Rich Empty State for the Jukebox
-        const li = document.createElement('li');
-        li.className = 'jukebox-empty-state';
-        li.style.listStyle = 'none';
-
-        const iconContainer = document.createElement('div');
-        iconContainer.className = 'jukebox-empty-icon-container';
-        const icon = document.createElement('div');
-        icon.className = 'jukebox-empty-icon';
-        icon.innerHTML = '<span aria-hidden="true">🎵</span>';
-        iconContainer.appendChild(icon);
-
-        const text = document.createElement('div');
-        text.className = 'jukebox-empty-text';
-        text.id = 'jukebox-empty-desc';
-        text.innerText = 'Your playlist is empty — drop some tracks in!';
-
-        const browseBtn = document.createElement('button');
-        browseBtn.type = 'button';
-        browseBtn.className = 'cta-button jukebox-browse-btn';
-        browseBtn.innerHTML = 'Browse Music <span aria-hidden="true">📂</span>';
-        browseBtn.setAttribute('aria-label', 'Browse for music files to add to playlist');
-        browseBtn.setAttribute('aria-describedby', 'jukebox-empty-desc');
-
-        browseBtn.onclick = (e) => {
-            e.stopPropagation();
-            if (playlistUploadInput) playlistUploadInput.click();
-        };
-
-        li.appendChild(iconContainer);
-        li.appendChild(text);
-        li.appendChild(browseBtn);
-        playlistList?.appendChild(li);
-    }
-}
-
-/**
- * Update jukebox button state with song count
- */
-export function updateJukeboxButtonState(count: number): void {
-    if (!openJukeboxBtn) return;
-    const countText = count > 0 ? ` (${count})` : '';
-    openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge" aria-hidden="true">Q</span>`;
-    openJukeboxBtn.setAttribute(
-        'aria-label',
-        `Open Jukebox playlist${count > 0 ? `, ${count} songs` : ''}`
-    );
-    // Ensure aria-expanded state is preserved when updating innerHTML
-    openJukeboxBtn.setAttribute('aria-expanded', String(isPlaylistOpen));
+    _state.releaseJukeboxFocus = fn;
 }
 
 /**
  * Toggle playlist open/closed
  */
 export function togglePlaylist(): void {
-    if (!controlsRef) return;
+    if (!_state.controlsRef) return;
 
-    isPlaylistOpen = !isPlaylistOpen;
+    _state.isPlaylistOpen = !_state.isPlaylistOpen;
 
-    if (openJukeboxBtn) {
-        openJukeboxBtn.setAttribute('aria-expanded', String(isPlaylistOpen));
+    if (_state.openJukeboxBtn) {
+        _state.openJukeboxBtn.setAttribute('aria-expanded', String(_state.isPlaylistOpen));
     }
 
-    if (isPlaylistOpen) {
+    if (_state.isPlaylistOpen) {
         // OPENING
 
         // 🎨 Palette: Smart Context Preservation
         // Check if we are opening from the Pause Menu (instructions visible)
-        wasPausedBeforePlaylist = instructionsRef
-            ? instructionsRef.style.display !== 'none'
+        _state.wasPausedBeforePlaylist = _state.instructionsRef
+            ? _state.instructionsRef.style.display !== 'none'
             : false;
 
-        lastFocusedElement = document.activeElement;
-        controlsRef.unlock(); // Unlock mouse so we can click
+        _state.lastFocusedElement = document.activeElement;
+        _state.controlsRef.unlock(); // Unlock mouse so we can click
 
         // Note: releasePauseMenuFocus is managed by the main input module
         // We notify via a callback mechanism if needed
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const session = (window as any).__inputSession;
         if (session && session.focus && session.focus.releasePauseMenuFocus) {
             session.focus.releasePauseMenuFocus();
             session.focus.releasePauseMenuFocus = null;
         }
 
-        if (instructionsRef) instructionsRef.style.display = 'none'; // Ensure pause menu is hidden
+        if (_state.instructionsRef) _state.instructionsRef.style.display = 'none'; // Ensure pause menu is hidden
 
-        if (playlistOverlay) {
-            playlistOverlay.style.display = 'flex';
+        if (_state.playlistOverlay) {
+            _state.playlistOverlay.style.display = 'flex';
             // Force DOM reflow
-            void playlistOverlay.offsetWidth;
-            playlistOverlay.style.opacity = '1';
-            playlistOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
-            playlistOverlay.setAttribute('aria-hidden', 'false');
+            void _state.playlistOverlay.offsetWidth;
+            _state.playlistOverlay.style.opacity = '1';
+            _state.playlistOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
+            _state.playlistOverlay.setAttribute('aria-hidden', 'false');
 
             // Wait for paint before intensive DOM manipulations and focus trapping
             yieldToPaint(50).then(() => {
-                if (isPlaylistOpen && playlistOverlay) {
-                    releaseJukeboxFocus = trapFocusInside(playlistOverlay, { skipAutoFocus: true });
+                if (_state.isPlaylistOpen && _state.playlistOverlay) {
+                    _state.releaseJukeboxFocus = trapFocusInside(_state.playlistOverlay, { skipAutoFocus: true });
 
                     announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
 
                     // UX: Auto-focus the currently playing track for immediate context
-                    if (!audioSystemRef || !playlistList) return;
-                    const currentIdx = audioSystemRef.getCurrentIndex();
-                    const playlistBtns = playlistList.querySelectorAll('.playlist-btn');
+                    if (!_state.audioSystemRef || !_state.playlistList) return;
+                    const currentIdx = _state.audioSystemRef.getCurrentIndex();
+                    const playlistBtns = _state.playlistList.querySelectorAll('.playlist-btn');
 
                     if (currentIdx >= 0 && playlistBtns[currentIdx]) {
                         const activeBtn = playlistBtns[currentIdx] as HTMLElement;
@@ -528,11 +315,11 @@ export function togglePlaylist(): void {
                         // Ensure the active song is visible in the scrollable list
                         activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
                     } else {
-                        const emptyBtn = playlistList.querySelector('.jukebox-browse-btn');
+                        const emptyBtn = _state.playlistList.querySelector('.jukebox-browse-btn');
                         if (emptyBtn) {
                             (emptyBtn as HTMLElement).focus({ preventScroll: true });
-                        } else if (closePlaylistBtn) {
-                            closePlaylistBtn.focus({ preventScroll: true });
+                        } else if (_state.closePlaylistBtn) {
+                            _state.closePlaylistBtn.focus({ preventScroll: true });
                         }
                     }
                 }
@@ -540,55 +327,56 @@ export function togglePlaylist(): void {
 
             announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
         }
-        if (playlistBackdrop) playlistBackdrop.style.display = 'block';
+        if (_state.playlistBackdrop) _state.playlistBackdrop.style.display = 'block';
         renderPlaylist();
     } else {
         // CLOSING
-        if (releaseJukeboxFocus) {
-            releaseJukeboxFocus();
-            releaseJukeboxFocus = null;
+        if (_state.releaseJukeboxFocus) {
+            _state.releaseJukeboxFocus();
+            _state.releaseJukeboxFocus = null;
         }
 
-        if (playlistOverlay) {
-            playlistOverlay.style.opacity = '0';
-            playlistOverlay.style.transform = 'translate(-50%, -50%) scale(0.95)';
-            playlistOverlay.setAttribute('aria-hidden', 'true');
+        if (_state.playlistOverlay) {
+            _state.playlistOverlay.style.opacity = '0';
+            _state.playlistOverlay.style.transform = 'translate(-50%, -50%) scale(0.95)';
+            _state.playlistOverlay.setAttribute('aria-hidden', 'true');
         }
 
         announce('Jukebox closed', 'polite');
 
         setTimeout(() => {
-            if (!isPlaylistOpen) {
-                if (playlistOverlay) playlistOverlay.style.display = 'none';
-                if (playlistBackdrop) playlistBackdrop.style.display = 'none';
+            if (!_state.isPlaylistOpen) {
+                if (_state.playlistOverlay) _state.playlistOverlay.style.display = 'none';
+                if (_state.playlistBackdrop) _state.playlistBackdrop.style.display = 'none';
             }
         }, 300);
 
         // 🎨 Palette: Smart Context Restoration
-        if (wasPausedBeforePlaylist) {
+        if (_state.wasPausedBeforePlaylist) {
             // Return to Pause Menu
-            if (instructionsRef) {
-                instructionsRef.style.display = 'flex';
+            if (_state.instructionsRef) {
+                _state.instructionsRef.style.display = 'flex';
 
                 yieldToPaint(50).then(() => {
+                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                      const session = (window as any).__inputSession;
-                     if (session && instructionsRef && instructionsRef.style.display !== 'none') {
-                         session.focus.releasePauseMenuFocus = trapFocusInside(instructionsRef, { skipAutoFocus: true });
+                     if (session && _state.instructionsRef && _state.instructionsRef.style.display !== 'none') {
+                         session.focus.releasePauseMenuFocus = trapFocusInside(_state.instructionsRef, { skipAutoFocus: true });
                      }
                 });
             }
             // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
             yieldToPaint(50).then(() => {
-                if (lastFocusedElement && lastFocusedElement instanceof HTMLElement && lastFocusedElement.isConnected && (!playlistOverlay || !playlistOverlay.contains(lastFocusedElement))) {
-                    lastFocusedElement.focus({ preventScroll: true });
-                } else if (openJukeboxBtn) {
-                    openJukeboxBtn.focus({ preventScroll: true });
+                if (_state.lastFocusedElement && _state.lastFocusedElement instanceof HTMLElement && _state.lastFocusedElement.isConnected && (!_state.playlistOverlay || !_state.playlistOverlay.contains(_state.lastFocusedElement))) {
+                    _state.lastFocusedElement.focus({ preventScroll: true });
+                } else if (_state.openJukeboxBtn) {
+                    _state.openJukeboxBtn.focus({ preventScroll: true });
                 }
             });
             // Do NOT lock controls, stay unlocked
         } else {
             // Return to Game
-            controlsRef.lock(); // Re-lock mouse to play
+            _state.controlsRef.lock(); // Re-lock mouse to play
         }
     }
 }
@@ -597,184 +385,23 @@ export function togglePlaylist(): void {
  * Get the "wasPausedBeforePlaylist" state for context restoration
  */
 export function getWasPausedBeforePlaylist(): boolean {
-    return wasPausedBeforePlaylist;
+    return _state.wasPausedBeforePlaylist;
 }
 
 /**
  * Set the "wasPausedBeforePlaylist" state
  */
 export function setWasPausedBeforePlaylist(value: boolean): void {
-    wasPausedBeforePlaylist = value;
+    _state.wasPausedBeforePlaylist = value;
 }
 
 /**
  * Get the last focused element before opening playlist
  */
 export function getLastFocusedElement(): Element | null {
-    return lastFocusedElement;
+    return _state.lastFocusedElement;
 }
 
-/**
- * Handle playlist-specific key events
- * Returns true if the key was handled
- */
-export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
-    if (!isPlaylistOpen || !playlistOverlay) return false;
-
-    // Close on Q
-    if (event.code === 'KeyQ') {
-        event.preventDefault();
-        if (closePlaylistBtn) {
-            closePlaylistBtn.classList.add('keyboard-active');
-            // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
-        }
-        togglePlaylist();
-        return true;
-    }
-
-    // Upload on U
-    if (event.code === 'KeyU') {
-        const playlistInput = document.getElementById('playlistUploadInput') as HTMLInputElement;
-        const addSongsBtnEl = document.getElementById('addSongsBtn');
-        if (addSongsBtnEl) {
-            addSongsBtnEl.classList.add('keyboard-active');
-            // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
-        }
-        if (playlistInput) playlistInput.click();
-        return true;
-    }
-
-    // UX: Arrow Key Navigation for Playlist
-    if (event.code === 'ArrowDown' || event.code === 'ArrowUp') {
-        // Query all visually accessible buttons within the playlist overlay
-        const focusableBtns = Array.from(
-            playlistOverlay.querySelectorAll('button:not([disabled]):not([tabindex="-1"])')
-        ).filter((el) => (el as HTMLElement).offsetParent !== null) as HTMLElement[];
-        if (focusableBtns.length > 0) {
-            event.preventDefault(); // Prevent scrolling
-            const currentIndex = focusableBtns.indexOf(document.activeElement as HTMLElement);
-            let nextIndex;
-
-            if (event.code === 'ArrowDown') {
-                nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % focusableBtns.length;
-            } else {
-                nextIndex =
-                    currentIndex === -1
-                        ? focusableBtns.length - 1
-                        : (currentIndex - 1 + focusableBtns.length) % focusableBtns.length;
-            }
-            focusableBtns[nextIndex].focus({ preventScroll: true });
-        }
-        return true;
-    }
-
-    // Block game controls while in menu
-    return true;
-}
-
-/**
- * Handle playlist-specific keyup events (for tactile feedback)
- * Returns true if the key was handled
- */
-export function handlePlaylistKeyUp(event: KeyboardEvent): boolean {
-    let handled = false;
-    // ♿ Aria: Do not guard by isPlaylistOpen, because closing the playlist
-    // on keydown changes the state, and we still need to clear the keyup state.
-
-    if (event.code === 'KeyQ') {
-        if (closePlaylistBtn) {
-            closePlaylistBtn.classList.remove('keyboard-active');
-        }
-        // If playlist is currently open, we consider this key handled by the playlist
-        if (isPlaylistOpen && playlistOverlay) handled = true;
-    }
-
-    if (event.code === 'KeyU') {
-        const addSongsBtnEl = document.getElementById('addSongsBtn');
-        if (addSongsBtnEl) {
-            addSongsBtnEl.classList.remove('keyboard-active');
-        }
-        if (isPlaylistOpen && playlistOverlay) handled = true;
-    }
-
-    if (event.code === 'Escape') {
-        if (closePlaylistBtn) {
-            closePlaylistBtn.classList.remove('keyboard-active');
-        }
-        if (isPlaylistOpen && playlistOverlay) handled = true;
-    }
-
-    return handled;
-}
-
-/**
- * Handle legacy music upload (main menu compatibility)
- */
-export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
-    const musicUpload = document.getElementById('musicUpload') as HTMLInputElement | null;
-    const musicUploadBtn = document.getElementById('musicUploadBtn');
-
-    if (musicUploadBtn && musicUpload) {
-        musicUploadBtn.addEventListener('click', () => {
-            musicUpload.click();
-        });
-    }
-
-    if (musicUpload) {
-        musicUpload.addEventListener('change', (event: Event) => {
-            const target = event.target as HTMLInputElement;
-            const files = target.files;
-            if (files && files.length > 0) {
-                const originalHtml = musicUploadBtn ? musicUploadBtn.innerHTML : '';
-                if (musicUploadBtn) {
-                    musicUploadBtn.setAttribute('aria-busy', 'true');
-                    musicUploadBtn.setAttribute('aria-disabled', 'true');
-                    musicUploadBtn.innerHTML =
-                        '<span class="spinner" aria-hidden="true"></span> Processing...';
-                }
-
-                // Brief delay for satisfying UX feedback
-                setTimeout(() => {
-                    const { validFiles, invalidFiles } = filterValidMusicFiles(files);
-
-                    if (validFiles.length > 0) {
-                        audioSystem.addToQueue(validFiles);
-
-                        if (invalidFiles.length > 0) {
-                            const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
-                            showToast(msg, '⚠️');
-                            announce(msg, 'polite');
-                        } else {
-                            const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
-                            showToast(msg, '📂');
-                            if (validFiles.length === 1) {
-                                announce(
-                                    `Song '${validFiles[0].name}' has been added and is ready to play.`,
-                                    'polite'
-                                );
-                            } else {
-                                announce(
-                                    `Added ${validFiles.length} songs to the playlist.`,
-                                    'polite'
-                                );
-                            }
-                        }
-                    } else {
-                        // All files were invalid
-                        showToast('❌ Only .mod, .xm, .it, .s3m allowed!', '🚫');
-                        announce('Failed to add songs, invalid format.', 'polite');
-                    }
-
-                    if (musicUploadBtn) {
-                        musicUploadBtn.removeAttribute('aria-busy');
-                        musicUploadBtn.removeAttribute('aria-disabled');
-                        musicUploadBtn.innerHTML = originalHtml;
-                    }
-                    target.value = '';
-                }, 500);
-            } else {
-                target.value = '';
-            }
-        });
-    }
-}
+// Re-export everything else for backward compatibility with consumer modules
+export { renderPlaylist, updateJukeboxButtonState } from './playlist-ui.ts';
+export { handlePlaylistUpload, handlePlaylistKeyDown, handlePlaylistKeyUp, initLegacyMusicUpload } from './playlist-events.ts';

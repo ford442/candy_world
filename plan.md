@@ -26,9 +26,12 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 - `style.css` — `#1490` barrel + `styles/` modules (each well under 700 lines)
 - `src/foliage/material-core.ts` — `#1491` barrel + `material-core/` modules (each well under 700 lines)
 
-Still ticketed for future PRs: `tree-batcher.ts`, `input.ts`.
+Still ticketed for future PRs: `tree-batcher.ts`.
 
 ## Accomplished / Recent Progress
+
+- **Status: Implemented ✅** (#1767 Split playlist-manager.ts)
+  - Implementation Details: Split the massive `playlist-manager.ts` file by extracting DOM event handlers and UI rendering logic into sibling files (`playlist-events.ts`, `playlist-ui.ts`, and `playlist-types.ts`). Maintained `playlist-manager.ts` as the public orchestrator, keeping the public API stable.
 
 - **Status: Implemented ✅** (#1717 Split music-reactivity.ts)
   - Implementation Details: Split the massive `music-reactivity.ts` file by extracting `updateFoliageAnimationLoop`, `updateBiomeChannelBindings`, `updateLuminousPlants`, and `updateSkyWavePropagation` into their own sibling files. Maintained `MusicReactivitySystem` as the public orchestrator by importing and calling these extracted functions, effectively resolving the 1161-line module size while keeping the public API stable and satisfying domain architecture requirements.
