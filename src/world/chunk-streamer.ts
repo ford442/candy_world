@@ -11,6 +11,7 @@ import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
 import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
@@ -96,7 +97,7 @@ function isKnownBatchedType(obj: THREE.Object3D): boolean {
     );
 }
 
-type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'glassMushroom' | 'simpleFlower' | 'tree' | 'never';
+type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'glassMushroom' | 'simpleFlower' | 'flower' | 'tree' | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     const t = obj.userData?.type;
@@ -104,6 +105,7 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'mushroom') return 'mushroom';
     if (t === 'lanternFlower') return 'lantern';
     if (t === 'glass_mushroom') return 'glassMushroom';
+    if (t === 'flower') return 'flower';
     if (obj.userData?.isFlower && t !== 'flower') return 'simpleFlower'; // 'flower' type belongs to FlowerBatcher, 'simpleFlower' uses isFlower but not type='flower' usually. Let's rely on type if possible.
     // Wait, the prompt implies "detect glass_mushroom and simpleFlower before isKnownBatchedType". Let me check if simple flowers have a specific type.
     // If we just check `t === 'simple_flower'` it might not be enough. Let's use `obj.userData?.isFlower` for SimpleFlowerBatcher.
@@ -510,6 +512,8 @@ export class ChunkStreamer {
                 glassMushroomBatcher.removeInstance(obj);
             } else if (evictionClass === 'simpleFlower') {
                 simpleFlowerBatcher.removeInstance(obj);
+            } else if (evictionClass === 'flower') {
+                flowerBatcher.removeInstance(obj);
             } else if (evictionClass === 'tree') {
                 treeBatcher.removeInstance(obj);
             }
