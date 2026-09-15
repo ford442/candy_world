@@ -8,10 +8,10 @@
 // bookkeeping/spiral ordering instead of forking a parallel grid.
 import * as THREE from 'three';
 import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
+import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
-import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
