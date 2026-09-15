@@ -3,8 +3,8 @@
  * Handles playlist UI rendering and updates for the jukebox modal
  */
 
-import { formatSongTitle } from './input-types.ts';
 import { showToast } from '../../utils/toast.ts';
+import { formatSongTitle } from './input-types.ts';
 import { getPlaylistManagerState } from './playlist-manager.ts';
 
 export function renderPlaylist(): void {

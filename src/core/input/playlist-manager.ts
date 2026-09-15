@@ -10,11 +10,9 @@ import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
+import { handlePlaylistUpload } from './playlist-events.ts';
 import type { PlaylistManagerState } from './playlist-types.ts';
-
-// Feature modules
 import { renderPlaylist, updateJukeboxButtonState } from './playlist-ui.ts';
-import { handlePlaylistUpload, handlePlaylistKeyDown, handlePlaylistKeyUp, initLegacyMusicUpload } from './playlist-events.ts';
 
 // Shared State Instance
 const _state: PlaylistManagerState = {
@@ -282,6 +280,7 @@ export function togglePlaylist(): void {
 
         // Note: releasePauseMenuFocus is managed by the main input module
         // We notify via a callback mechanism if needed
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const session = (window as any).__inputSession;
         if (session && session.focus && session.focus.releasePauseMenuFocus) {
             session.focus.releasePauseMenuFocus();
@@ -359,6 +358,7 @@ export function togglePlaylist(): void {
                 _state.instructionsRef.style.display = 'flex';
 
                 yieldToPaint(50).then(() => {
+                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                      const session = (window as any).__inputSession;
                      if (session && _state.instructionsRef && _state.instructionsRef.style.display !== 'none') {
                          session.focus.releasePauseMenuFocus = trapFocusInside(_state.instructionsRef, { skipAutoFocus: true });
