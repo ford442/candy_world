@@ -33,6 +33,7 @@ export function addFatalErrorReloadButton(container: HTMLElement): void {
     announce('Fatal loading error. Please reload the page to try again.', 'assertive');
 
     const reloadBtn = document.createElement('button');
+    reloadBtn.type = 'button';
     reloadBtn.className = 'fatal-error-reload skip-button';
     reloadBtn.setAttribute('aria-label', 'Reload page to try again');
     reloadBtn.innerHTML = '<span aria-hidden="true">🔄</span> Reload Page';
