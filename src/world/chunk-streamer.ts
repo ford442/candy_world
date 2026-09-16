@@ -117,8 +117,23 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     // it registers its instance with PortamentoPineBatcher, not TreeBatcher —
     // this check must run before the generic 'tree' bucket below or eviction
     // would call the wrong batcher's removeInstance and leak a ghost instance.
-    if (t === 'tree' && obj.userData?.animationType === 'batchedPortamento') return 'portamentoPine';
-    if (t === 'tree' || t === 'shrub' || t === 'willow' || t === 'balloonBush' || t === 'helixPlant' || t === 'accordion_palm' || t === 'floweringTree' || t === 'bubbleWillow' || t === 'prismRoseBush' || t === 'helix' || t === 'accordionPalm' || t === 'gem_canopy_tree') return 'tree';
+    if (t === 'tree' && obj.userData?.animationType === 'batchedPortamento')
+        return 'portamentoPine';
+    if (
+        t === 'tree' ||
+        t === 'shrub' ||
+        t === 'willow' ||
+        t === 'balloonBush' ||
+        t === 'helixPlant' ||
+        t === 'accordion_palm' ||
+        t === 'floweringTree' ||
+        t === 'bubbleWillow' ||
+        t === 'prismRoseBush' ||
+        t === 'helix' ||
+        t === 'accordionPalm' ||
+        t === 'gem_canopy_tree'
+    )
+        return 'tree';
     if (t === 'mushroom') return 'mushroom';
     if (t === 'lanternFlower') return 'lantern';
     if (t === 'glass_mushroom') return 'glassMushroom';
@@ -547,8 +562,7 @@ export class ChunkStreamer {
             // userData.gemRefs — free those too so they don't outlive the
             // tree that anchored them.
             const gemRefs = (obj.userData as Record<string, unknown>).gemRefs as
-                | BatcherInstanceRef[]
-                | undefined;
+                BatcherInstanceRef[] | undefined;
             if (gemRefs) gemFruitBatcher.removeInstances(gemRefs);
             // Free the entity id so walking back into range re-spawns it.
             // Discovery registration is intentionally left in place — the

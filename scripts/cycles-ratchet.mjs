@@ -42,12 +42,16 @@ if (count > maxCycles) {
         console.warn('(report-only mode — not failing CI)');
     } else {
         console.error(msg);
-        console.error('New circular dependencies were introduced. Break the cycle instead of widening the baseline:\n');
+        console.error(
+            'New circular dependencies were introduced. Break the cycle instead of widening the baseline:\n'
+        );
         cycles.forEach((cycle, i) => console.error(`  ${i + 1}. ${cycle.join(' -> ')}`));
         process.exit(1);
     }
 } else if (count < maxCycles) {
-    console.log(`\n🎉 You reduced circular dependencies! Ratcheting down ${maxCycles} -> ${count}...`);
+    console.log(
+        `\n🎉 You reduced circular dependencies! Ratcheting down ${maxCycles} -> ${count}...`
+    );
     writeFileSync(
         baselinePath,
         JSON.stringify(

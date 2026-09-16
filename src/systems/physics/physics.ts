@@ -1,6 +1,6 @@
 /**
  * physics.ts
- * 
+ *
  * Barrel export for physics modules.
  * Re-exports all public APIs from physics-core and physics-updates.
  */
@@ -12,5 +12,5 @@ export {
     grantInvisibility,
     registerPhysicsCave,
     unregisterPhysicsCave,
-    triggerHarpoon
+    triggerHarpoon,
 } from './physics-core.ts';

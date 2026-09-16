@@ -75,7 +75,8 @@ function startVitePreview() {
 function summarize(report) {
     const out = {};
     for (const e of report?.entries ?? []) {
-        if (TRACKED_IDS.includes(e.id)) out[e.id] = { instances: e.instances, capacity: e.capacity };
+        if (TRACKED_IDS.includes(e.id))
+            out[e.id] = { instances: e.instances, capacity: e.capacity };
     }
     out.totalInstances = report?.totalInstances ?? null;
     return out;
@@ -110,10 +111,17 @@ async function main() {
         });
         // Scoped to the batchers this change touched — CloudBatcher and others
         // hit their own (unrelated, expected) caps independently of eviction.
-        const WATCHED_WARNING_TAGS = ['[ArpeggioBatcher]', '[PortamentoBatcher]', '[GemFruitBatcher]'];
+        const WATCHED_WARNING_TAGS = [
+            '[ArpeggioBatcher]',
+            '[PortamentoBatcher]',
+            '[GemFruitBatcher]',
+        ];
         page.on('console', (msg) => {
             const text = msg.text();
-            if (WATCHED_WARNING_TAGS.some((tag) => text.includes(tag)) && /max (limit|capacity)/i.test(text)) {
+            if (
+                WATCHED_WARNING_TAGS.some((tag) => text.includes(tag)) &&
+                /max (limit|capacity)/i.test(text)
+            ) {
                 capacityWarnings.push(text);
             }
         });
@@ -201,10 +209,14 @@ async function main() {
         }
 
         if (failures.length > 0) {
-            console.error('\n❌ chunk-streamer eviction regression:\n  • ' + failures.join('\n  • '));
+            console.error(
+                '\n❌ chunk-streamer eviction regression:\n  • ' + failures.join('\n  • ')
+            );
             process.exitCode = 1;
         } else {
-            console.log('\n✅ Batcher instance counts stayed bounded across repeated load/evict cycles');
+            console.log(
+                '\n✅ Batcher instance counts stayed bounded across repeated load/evict cycles'
+            );
         }
     } catch (err) {
         console.error('❌ chunk-streamer-eviction test error:', err.message);

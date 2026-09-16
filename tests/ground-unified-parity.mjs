@@ -25,8 +25,12 @@ const root = join(__dirname, '..');
 /** Mirrors assembly/ground.ts's raw terrain formula — not exported standalone by WASM, so there's no import to swap in for the common JS/WASM input. */
 function rawTerrain(x, z) {
     if (Number.isNaN(x) || Number.isNaN(z)) return 0;
-    return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
-        Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+    return (
+        Math.sin(x * 0.05) * 2 +
+        Math.cos(z * 0.05) * 2 +
+        Math.sin(x * 0.2) * 0.3 +
+        Math.cos(z * 0.15) * 0.3
+    );
 }
 
 function jsUnified(x, z, now, platforms) {
@@ -42,7 +46,9 @@ const wasmBytes = readFileSync(wasmPath);
 
 const importObject = {
     env: {
-        abort: () => { throw new Error('WASM abort'); },
+        abort: () => {
+            throw new Error('WASM abort');
+        },
         seed: () => Date.now(),
         now: () => Date.now(),
     },
@@ -51,7 +57,13 @@ const importObject = {
 const { instance } = await WebAssembly.instantiate(wasmBytes, importObject);
 const exports = instance.exports;
 
-const required = ['getUnifiedGroundHeight', 'batchUnifiedGroundHeight', 'clearGroundPlatforms', 'addGroundPlatform', 'invalidateGroundCache'];
+const required = [
+    'getUnifiedGroundHeight',
+    'batchUnifiedGroundHeight',
+    'clearGroundPlatforms',
+    'addGroundPlatform',
+    'invalidateGroundCache',
+];
 for (const name of required) {
     if (typeof exports[name] !== 'function') {
         console.error(`Missing export: ${name}`);
@@ -59,9 +71,7 @@ for (const name of required) {
     }
 }
 
-const platforms = [
-    { minX: 5, maxX: 15, minZ: 5, maxZ: 15, maxY: 12.0 },
-];
+const platforms = [{ minX: 5, maxX: 15, minZ: 5, maxZ: 15, maxY: 12.0 }];
 
 exports.clearGroundPlatforms();
 for (const p of platforms) {
@@ -70,8 +80,16 @@ for (const p of platforms) {
 exports.invalidateGroundCache();
 
 const samples = [
-    [0, 0], [10, 10], [20, 20], [50, 30], [-60, -40],
-    [5.5, 5.5], [14.9, 14.9], [-10, 25], [30, -15], [100, -100],
+    [0, 0],
+    [10, 10],
+    [20, 20],
+    [50, 30],
+    [-60, -40],
+    [5.5, 5.5],
+    [14.9, 14.9],
+    [-10, 25],
+    [30, -15],
+    [100, -100],
 ];
 
 let passed = 0;
@@ -136,8 +154,8 @@ for (let i = 0; i < BENCH_N; i++) {
 const jsMs = performance.now() - t1;
 
 console.log(`\nMicrobench (${BENCH_N} queries, cold cache per path):`);
-console.log(`  AS WASM: ${wasmMs.toFixed(1)} ms (${(BENCH_N / wasmMs * 1000).toFixed(0)} q/s)`);
-console.log(`  JS core: ${jsMs.toFixed(1)} ms (${(BENCH_N / jsMs * 1000).toFixed(0)} q/s)`);
+console.log(`  AS WASM: ${wasmMs.toFixed(1)} ms (${((BENCH_N / wasmMs) * 1000).toFixed(0)} q/s)`);
+console.log(`  JS core: ${jsMs.toFixed(1)} ms (${((BENCH_N / jsMs) * 1000).toFixed(0)} q/s)`);
 console.log(`  Speedup: ${(jsMs / wasmMs).toFixed(2)}x`);
 
 console.log(`\n---\n${passed} passed, ${failed} failed`);

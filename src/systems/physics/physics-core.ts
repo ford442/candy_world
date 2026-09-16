@@ -48,14 +48,18 @@ import {
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { reconcileGroundedEyeY, isInLakeBasin, getGroundHeight, sampleGroundFootprint } from '../ground-system.ts';
+import {
+    reconcileGroundedEyeY,
+    isInLakeBasin,
+    getGroundHeight,
+    sampleGroundFootprint,
+} from '../ground-system.ts';
 
 const _characterGroundQuery = { sampleFootprint: sampleGroundFootprint, getGroundHeight };
 import { calculateMovementInput } from '../physics.core.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { handleAbilities } from './physics-abilities.ts';
 import { resolveCharacterMovement } from './character-controller.ts';
-
 
 import {
     updateSwimmingState,
@@ -527,7 +531,14 @@ function updateDefaultState(
 
     if (!inLakeBasin) {
         // Seed WASM state synchronously before running C++ update
-        setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
+        setPlayerState(
+            player.position.x,
+            player.position.y,
+            player.position.z,
+            player.velocity.x,
+            player.velocity.y,
+            player.velocity.z
+        );
 
         const preX = player.position.x;
         const preZ = player.position.z;

@@ -31,7 +31,10 @@ export function serializeEntitySnapshots(): EntitySnapshot[] {
         const rotation: [number, number, number, number] = [quat.x, quat.y, quat.z, quat.w];
 
         let scale: number | [number, number, number];
-        if (Math.abs(obj.scale.x - obj.scale.y) < 0.001 && Math.abs(obj.scale.x - obj.scale.z) < 0.001) {
+        if (
+            Math.abs(obj.scale.x - obj.scale.y) < 0.001 &&
+            Math.abs(obj.scale.x - obj.scale.z) < 0.001
+        ) {
             scale = obj.scale.x;
         } else {
             scale = [obj.scale.x, obj.scale.y, obj.scale.z];
@@ -53,7 +56,7 @@ export function serializeEntitySnapshots(): EntitySnapshot[] {
             biome: meta.biome || obj.userData.biome,
             music: meta.music,
             placement: meta.placement,
-            params: meta.params
+            params: meta.params,
         };
 
         snapshots.push(snapshot);
@@ -98,10 +101,16 @@ export function applyEntitySnapshots(snapshots: EntitySnapshot[]): void {
     let restored = 0;
     for (const snapshot of snapshots) {
         try {
-            processMapEntity(toMapEntity(snapshot), weatherSystem as unknown as Parameters<typeof processMapEntity>[1]);
+            processMapEntity(
+                toMapEntity(snapshot),
+                weatherSystem as unknown as Parameters<typeof processMapEntity>[1]
+            );
             restored++;
         } catch (err) {
-            console.warn(`[SaveSystem] Failed to restore entity "${snapshot.type}" (id: ${snapshot.id ?? 'none'}):`, err);
+            console.warn(
+                `[SaveSystem] Failed to restore entity "${snapshot.type}" (id: ${snapshot.id ?? 'none'}):`,
+                err
+            );
         }
     }
 

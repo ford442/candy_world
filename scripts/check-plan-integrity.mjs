@@ -45,11 +45,17 @@ lines.forEach((line, idx) => {
 const duplicates = [...byText.entries()].filter(([, lineNos]) => lineNos.length > 1);
 
 if (duplicates.length > 0) {
-    console.error(`❌ weekly_plan.md has ${duplicates.length} filled-in Outcome: line(s) duplicated verbatim across multiple entries — the #1724 global-replace signature:\n`);
+    console.error(
+        `❌ weekly_plan.md has ${duplicates.length} filled-in Outcome: line(s) duplicated verbatim across multiple entries — the #1724 global-replace signature:\n`
+    );
     for (const [content, lineNos] of duplicates) {
-        console.error(`  lines ${lineNos.join(', ')}: "${content.slice(0, 100)}${content.length > 100 ? '…' : ''}"`);
+        console.error(
+            `  lines ${lineNos.join(', ')}: "${content.slice(0, 100)}${content.length > 100 ? '…' : ''}"`
+        );
     }
-    console.error('\nIf this is real: restore each entry\'s original outcome text (git blame / prior commits), never pattern-replace across the file — append or edit one dated block at a time.');
+    console.error(
+        "\nIf this is real: restore each entry's original outcome text (git blame / prior commits), never pattern-replace across the file — append or edit one dated block at a time."
+    );
     process.exit(1);
 }
 

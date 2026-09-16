@@ -52,15 +52,56 @@ function buildIslandPlatforms() {
 
 function registerGraph() {
     clearSkyIslandGraph();
-    registerSkyIslandNode({ id: 'approach:ground', layerId: 'ground', kind: 'ground', x: -100, y: 2, z: 100 });
+    registerSkyIslandNode({
+        id: 'approach:ground',
+        layerId: 'ground',
+        kind: 'ground',
+        x: -100,
+        y: 2,
+        z: 100,
+    });
     for (const l of LAYERS) {
-        registerSkyIslandNode({ id: `island:${l.id}`, layerId: l.id, kind: 'island', x: l.x, y: l.y, z: l.z });
+        registerSkyIslandNode({
+            id: `island:${l.id}`,
+            layerId: l.id,
+            kind: 'island',
+            x: l.x,
+            y: l.y,
+            z: l.z,
+        });
     }
-    registerSkyIslandNode({ id: 'mist:cloud:0', layerId: 'low_mist', kind: 'cloud', x: -101, y: 16.5, z: 118 });
-    registerSkyIslandEdge({ id: 'e0', from: 'approach:ground', to: 'island:low_mist', kind: 'vine_ladder' });
-    registerSkyIslandEdge({ id: 'e1', from: 'island:low_mist', to: 'island:mid_canopy', kind: 'vine_ladder' });
-    registerSkyIslandEdge({ id: 'e2', from: 'island:mid_canopy', to: 'island:high_nebula', kind: 'vine_ladder' });
-    registerSkyIslandEdge({ id: 'e3', from: 'mist:cloud:0', to: 'island:low_mist', kind: 'cloud_hop' });
+    registerSkyIslandNode({
+        id: 'mist:cloud:0',
+        layerId: 'low_mist',
+        kind: 'cloud',
+        x: -101,
+        y: 16.5,
+        z: 118,
+    });
+    registerSkyIslandEdge({
+        id: 'e0',
+        from: 'approach:ground',
+        to: 'island:low_mist',
+        kind: 'vine_ladder',
+    });
+    registerSkyIslandEdge({
+        id: 'e1',
+        from: 'island:low_mist',
+        to: 'island:mid_canopy',
+        kind: 'vine_ladder',
+    });
+    registerSkyIslandEdge({
+        id: 'e2',
+        from: 'island:mid_canopy',
+        to: 'island:high_nebula',
+        kind: 'vine_ladder',
+    });
+    registerSkyIslandEdge({
+        id: 'e3',
+        from: 'mist:cloud:0',
+        to: 'island:low_mist',
+        kind: 'cloud_hop',
+    });
 }
 
 const ROOST_DECK_TOLERANCE = 2.5;
@@ -124,9 +165,12 @@ test('reconcile: preserves eye on each island tier (#1265 guard)', () => {
     for (const layer of LAYERS) {
         registerPlatform({
             id: `deck:${layer.id}`,
-            minX: layer.x - layer.radius, maxX: layer.x + layer.radius,
-            minZ: layer.z - layer.radius, maxZ: layer.z + layer.radius,
-            minY: layer.y - 0.8, maxY: layer.y,
+            minX: layer.x - layer.radius,
+            maxX: layer.x + layer.radius,
+            minZ: layer.z - layer.radius,
+            maxZ: layer.z + layer.radius,
+            minY: layer.y - 0.8,
+            maxY: layer.y,
         });
         const eyeOnIsland = layer.y + EYE_HEIGHT;
         const next = reconcileGroundedEyeY(eyeOnIsland, layer.x, layer.z, 0.1, {
@@ -138,8 +182,17 @@ test('reconcile: preserves eye on each island tier (#1265 guard)', () => {
 });
 
 test('reconcile: return to ground still snaps up when sinking', () => {
-    const FAR_X = 600, FAR_Z = 600;
-    registerPlatform({ id: 'ground', minX: FAR_X - 5, maxX: FAR_X + 5, minZ: FAR_Z - 5, maxZ: FAR_Z + 5, minY: 1.0, maxY: 2.0 });
+    const FAR_X = 600,
+        FAR_Z = 600;
+    registerPlatform({
+        id: 'ground',
+        minX: FAR_X - 5,
+        maxX: FAR_X + 5,
+        minZ: FAR_Z - 5,
+        maxZ: FAR_Z + 5,
+        minY: 1.0,
+        maxY: 2.0,
+    });
     const eyeY = getEyeTargetY(FAR_X, FAR_Z);
     const y = reconcileGroundedEyeY(1.0, FAR_X, FAR_Z, 0.016, { isGrounded: true, velocityY: 0 });
     assertLabel(Math.abs(y - eyeY) < 1e-6, `return snap to terrain eye ${eyeY}`);
@@ -171,9 +224,12 @@ test('traversal path: spawn → hops → apex → return without clipping', () =
             assertLabel(Math.abs(ground - layer.y) < 0.001, `waypoint ${wp.id} ground=${ground}`);
             registerPlatform({
                 id: `deck:${layer.id}`,
-                minX: layer.x - layer.radius, maxX: layer.x + layer.radius,
-                minZ: layer.z - layer.radius, maxZ: layer.z + layer.radius,
-                minY: layer.y - 0.8, maxY: layer.y,
+                minX: layer.x - layer.radius,
+                maxX: layer.x + layer.radius,
+                minZ: layer.z - layer.radius,
+                maxZ: layer.z + layer.radius,
+                minY: layer.y - 0.8,
+                maxY: layer.y,
             });
             const eye = getEyeTargetY(wp.x, wp.z);
             const reconciled = reconcileGroundedEyeY(eye, wp.x, wp.z, 0.1, {
@@ -188,15 +244,24 @@ test('traversal path: spawn → hops → apex → return without clipping', () =
 
 test('layer Y ordering matches proposal tiers', () => {
     assertLabel(LAYERS[0].y < LAYERS[1].y && LAYERS[1].y < LAYERS[2].y, 'mist < canopy < nebula');
-    assertLabel(LAYERS[0].y === 18 && LAYERS[1].y === 32 && LAYERS[2].y === 48, 'explicit Y coords');
+    assertLabel(
+        LAYERS[0].y === 18 && LAYERS[1].y === 32 && LAYERS[2].y === 48,
+        'explicit Y coords'
+    );
 });
 
 test('fauna roosts: anchors land on every island deck', () => {
     const anchors = planRoostAnchors(buildRoostSources(), DEFAULT_ROOST_PLAN);
-    assertLabel(anchors.length === LAYERS.length * DEFAULT_ROOST_PLAN.perIsland, `${LAYERS.length * DEFAULT_ROOST_PLAN.perIsland} anchors (got ${anchors.length})`);
+    assertLabel(
+        anchors.length === LAYERS.length * DEFAULT_ROOST_PLAN.perIsland,
+        `${LAYERS.length * DEFAULT_ROOST_PLAN.perIsland} anchors (got ${anchors.length})`
+    );
     for (const l of LAYERS) {
         const onLayer = anchors.filter((a) => a.layerId === l.id);
-        assertLabel(onLayer.length === DEFAULT_ROOST_PLAN.perIsland, `${l.id} seats ${DEFAULT_ROOST_PLAN.perIsland} roosts (got ${onLayer.length})`);
+        assertLabel(
+            onLayer.length === DEFAULT_ROOST_PLAN.perIsland,
+            `${l.id} seats ${DEFAULT_ROOST_PLAN.perIsland} roosts (got ${onLayer.length})`
+        );
     }
 });
 
@@ -229,7 +294,10 @@ test('fauna roosts: ground query resolves the deck, not terrain', () => {
 });
 
 test('fauna roosts: degrade to zero when no islands registered', () => {
-    assertLabel(planRoostAnchors([], DEFAULT_ROOST_PLAN).length === 0, 'empty registry → no roosts');
+    assertLabel(
+        planRoostAnchors([], DEFAULT_ROOST_PLAN).length === 0,
+        'empty registry → no roosts'
+    );
     const disabled = planRoostAnchors(buildRoostSources(), { ...DEFAULT_ROOST_PLAN, perIsland: 0 });
     assertLabel(disabled.length === 0, 'perIsland 0 → no roosts');
     const degenerate = planRoostAnchors(

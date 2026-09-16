@@ -13,7 +13,10 @@
 
 import assert from 'node:assert/strict';
 import { processMapEntity } from '../src/world/generation-entities.ts';
-import { applyEntitySnapshots, serializeEntitySnapshots } from '../src/systems/save-system/entity-snapshot.ts';
+import {
+    applyEntitySnapshots,
+    serializeEntitySnapshots,
+} from '../src/systems/save-system/entity-snapshot.ts';
 import { animatedFoliage } from '../src/world/state.ts';
 
 let passed = 0;
@@ -55,7 +58,7 @@ test('static entity round-trips through save/load via applyEntitySnapshots', () 
     assert.equal(snapshot.type, 'mushroom');
     assert.ok(
         Math.abs(snapshot.position[0] - TEST_POSITION[0]) < 1e-6 &&
-        Math.abs(snapshot.position[2] - TEST_POSITION[2]) < 1e-6,
+            Math.abs(snapshot.position[2] - TEST_POSITION[2]) < 1e-6,
         `captured position should match spawn position, got ${snapshot.position}`
     );
 
@@ -74,7 +77,7 @@ test('static entity round-trips through save/load via applyEntitySnapshots', () 
     assert.equal(restored.userData.mapEntityType, 'mushroom');
     assert.ok(
         Math.abs(restored.position.x - TEST_POSITION[0]) < 1e-6 &&
-        Math.abs(restored.position.z - TEST_POSITION[2]) < 1e-6,
+            Math.abs(restored.position.z - TEST_POSITION[2]) < 1e-6,
         `restored position should match, got (${restored.position.x}, ${restored.position.z})`
     );
 });

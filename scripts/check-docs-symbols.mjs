@@ -77,7 +77,9 @@ if (failures.length > 0) {
     for (const f of failures) {
         console.error(`  ${f.file}:${f.line} — ${f.path}`);
     }
-    console.error('\nEither the doc drifted from src/core/config/**, or the symbol was renamed/removed. Fix the doc or the config.');
+    console.error(
+        '\nEither the doc drifted from src/core/config/**, or the symbol was renamed/removed. Fix the doc or the config.'
+    );
     process.exit(1);
 }
 

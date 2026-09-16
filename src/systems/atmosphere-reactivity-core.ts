@@ -3,7 +3,12 @@
 // foliage/sky.ts and is part of the uTwilight import cycle).
 
 /** Exponential approach toward `target` at rate `k`, frame-rate independent. */
-export function smoothTowards(current: number, target: number, k: number, deltaTime: number): number {
+export function smoothTowards(
+    current: number,
+    target: number,
+    k: number,
+    deltaTime: number
+): number {
     return current + (target - current) * (1.0 - Math.exp(-k * deltaTime));
 }
 

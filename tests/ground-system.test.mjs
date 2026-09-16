@@ -24,14 +24,24 @@ let passed = 0;
 let failed = 0;
 
 function assertLabel(cond, label) {
-    if (cond) { console.log(`  ✓ ${label}`); passed++; }
-    else { console.error(`  ✗ ${label}`); failed++; }
+    if (cond) {
+        console.log(`  ✓ ${label}`);
+        passed++;
+    } else {
+        console.error(`  ✗ ${label}`);
+        failed++;
+    }
 }
 
 function test(name, fn) {
     console.log(`\n${name}`);
     clearPlatforms();
-    try { fn(); } catch (e) { console.error(`  ✗ threw: ${e.stack}`); failed++; }
+    try {
+        fn();
+    } catch (e) {
+        console.error(`  ✗ threw: ${e.stack}`);
+        failed++;
+    }
 }
 
 // Well outside LAKE_BOUNDS (x: -38..78, z: -28..68) so applyLakeModifiers can't
@@ -43,9 +53,12 @@ const FAR_Z = 500;
 function fixGroundAt(id, x, z, groundY) {
     registerPlatform({
         id,
-        minX: x - 5, maxX: x + 5,
-        minZ: z - 5, maxZ: z + 5,
-        minY: groundY - 1, maxY: groundY,
+        minX: x - 5,
+        maxX: x + 5,
+        minZ: z - 5,
+        maxZ: z + 5,
+        minY: groundY - 1,
+        maxY: groundY,
     });
 }
 
@@ -66,8 +79,14 @@ test('reconcile: smooths downhill when grounded near terrain', () => {
     fixGroundAt('p1', FAR_X, FAR_Z, 2.0);
     const eyeY = getEyeTargetY(FAR_X, FAR_Z);
     const startY = eyeY + 0.8; // was standing on slightly higher ground, within platform threshold
-    assert.ok(0.8 <= PLATFORM_THRESHOLD, 'test fixture assumes offset stays within platform threshold');
-    const next = reconcileGroundedEyeY(startY, FAR_X, FAR_Z, 0.1, { isGrounded: true, velocityY: 0 });
+    assert.ok(
+        0.8 <= PLATFORM_THRESHOLD,
+        'test fixture assumes offset stays within platform threshold'
+    );
+    const next = reconcileGroundedEyeY(startY, FAR_X, FAR_Z, 0.1, {
+        isGrounded: true,
+        velocityY: 0,
+    });
     assertLabel(next < startY, 'moved down toward new eye target');
     assertLabel(next >= eyeY, 'did not overshoot below eye target');
 });
@@ -75,13 +94,19 @@ test('reconcile: smooths downhill when grounded near terrain', () => {
 test('reconcile: preserves platform elevation when high above terrain', () => {
     fixGroundAt('p1', FAR_X, FAR_Z, 2.0);
     const platformEyeY = 15.0;
-    const y = reconcileGroundedEyeY(platformEyeY, FAR_X, FAR_Z, 0.1, { isGrounded: true, velocityY: 0 });
+    const y = reconcileGroundedEyeY(platformEyeY, FAR_X, FAR_Z, 0.1, {
+        isGrounded: true,
+        velocityY: 0,
+    });
     assertLabel(y === platformEyeY, 'cloud/platform Y unchanged');
 });
 
 test('reconcile: does not pull airborne jumper down', () => {
     fixGroundAt('p1', FAR_X, FAR_Z, 2.0);
-    const y = reconcileGroundedEyeY(6.0, FAR_X, FAR_Z, 0.016, { isGrounded: false, velocityY: 5.0 });
+    const y = reconcileGroundedEyeY(6.0, FAR_X, FAR_Z, 0.016, {
+        isGrounded: false,
+        velocityY: 5.0,
+    });
     assertLabel(y === 6.0, 'jump arc preserved');
 });
 
