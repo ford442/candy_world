@@ -467,7 +467,7 @@ export class SaveMenu {
             if (this.listeningKeybind) {
                 this.cancelKeybindListen();
             } else {
-                const closeBtn = this.container.querySelector('.candy-save-menu__close') as HTMLElement;
+                const closeBtn = this.container?.querySelector('.candy-save-menu__close') as HTMLElement;
                 if (closeBtn) closeBtn.classList.add('keyboard-active');
                 this.close();
             }
