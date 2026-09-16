@@ -2,6 +2,19 @@
 
 ## Today's focus
 
+**2026-09-16 — Close the phantom-landing class of defect as a process (foundation issue 4 of 5).** Same disease #1577 was: tests that cannot fail, a mega-module split closed on GitHub while the file was allegedly still long, and a snapshot loader that was a documented no-op. Verified on disk this run, not assumed from prior tickets:
+
+- **`src/systems/music-reactivity.ts` was already 457 lines**, not the ~1098 the issue assumed — the `-core`/`-bindings`/`-sky-wave`/`-foliage`/`-luminous`/`-defaults` split had already landed in earlier work. No re-split needed; treated as verify-only.
+- **5 of 6 named orphan tests were genuine inline fakes** (`tests/ground-system.test.mjs`, `ground-unified-parity.mjs`, `sky-islands-traversal.test.mjs`, `foliage-interact.test.mjs`, `atmosphere-reactivity.test.mjs`) — each reimplemented production logic locally instead of importing `src/`. Rewrote all 5 to import the real functions (`ground-system.ts`, `ground-height-core.ts`, `sky-island-graph.ts`, `src/systems/fauna/roosts.ts`, `wasm-foliage-interact.ts`); `atmosphere-reactivity.ts`'s pure math was extracted into a new `atmosphere-reactivity-core.ts` sibling so it could be imported without pulling in the `foliage/sky.ts` uTwilight circular-import (documented in project memory). `test:cascades` was already real, just unwired. All 6 now run in `test:integration`.
+- **`npm run test:integration` was not invoked by any GitHub Actions workflow** — none of `.github/workflows/*.yml` ran it, `npm run test`, or most of its ~48 constituent scripts; only `test:cycles`, `test:presence`, `test:sugar-caves`, `test:visual` were CI-gated. This was the real, bigger version of the phantom-landing problem: fixing the scripts wouldn't have mattered without a gate. Added `.github/workflows/integration.yml` running `npm run test:integration` on every PR to `main`.
+- Fixing `tests/support/css-hooks.mjs` (a `.wasm?init`/tsx `load`-hook interaction bug on Node 24 that corrupted the stubbed asset module) was a **prerequisite**, not a side quest — it was silently breaking the already-wired `test:entity-snapshot` locally, independent of anything else touched this run.
+- Added `scripts/check-docs-symbols.mjs` (every `CONFIG.x.y` in `docs/**` — excluding `docs/archive/**` — resolves against the live `CONFIG` object) and `scripts/check-plan-integrity.mjs` (no *filled-in* `Outcome:` line appears twice — the #1724 signature; unfilled placeholders are exempt). Both wired into `test:integration`.
+- `applyEntitySnapshots` (`src/systems/save-system/entity-snapshot.ts`) was a documented no-op (`console.warn` + return). Wired it through the real `processMapEntity` spawn path (same factory lookup + scene/`animatedFoliage`/batcher registration as world-gen), covered by a new `tests/save-entity-snapshot-roundtrip.test.mjs` (`test:save-entity-snapshot`, wired into `test:integration`). Unblocks Festival Night Market authored-stall persistence.
+
+Outcome: <!-- fill in at end of day after this run's CI confirms the new integration.yml workflow is green -->
+
+---
+
 **2026-09-08 — FIX FIRST mode. Primary: #1577 shipped to the path the player almost never uses. Promote the kinematic controller to the ONE owner of player movement, off-lake path included.**
 
 Last run's Fix First worked — this time the code is genuinely on disk, verified this run:

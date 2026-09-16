@@ -311,7 +311,7 @@ export function createPortamentoPine(options: PortamentoPineOptions = {}) {
     group.userData.onPlacement = () => {
         portamentoPineBatcher.register(group, options);
         if (group.userData.attachGemFruits) {
-            gemFruitBatcher.attachToTree(group, { height, gemCount: 5 + Math.floor(Math.random() * 3) });
+            group.userData.gemRefs = gemFruitBatcher.attachToTree(group, { height, gemCount: 5 + Math.floor(Math.random() * 3) }).refs;
         }
     };
 

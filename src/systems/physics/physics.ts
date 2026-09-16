@@ -8,8 +8,9 @@
 export * from './physics-core.ts';
 export * from './physics-updates.ts';
 export { player, PlayerState } from './physics-core.ts';
-export { 
-    grantInvisibility, 
-    registerPhysicsCave, 
-    triggerHarpoon 
+export {
+    grantInvisibility,
+    registerPhysicsCave,
+    unregisterPhysicsCave,
+    triggerHarpoon
 } from './physics-core.ts';

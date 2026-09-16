@@ -203,6 +203,15 @@ export class WeatherSystem {
     }
 
     /**
+     * Inverse of registerCave — stops tracking a cave that ChunkStreamer is
+     * evicting so it doesn't leave a weather ghost.
+     */
+    unregisterCave(cave: any): void {
+        const idx = this.trackedCaves.indexOf(cave);
+        if (idx !== -1) this.trackedCaves.splice(idx, 1);
+    }
+
+    /**
      * Register a tree for tracking
      */
     registerTree(tree: any): void {

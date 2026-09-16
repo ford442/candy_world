@@ -270,6 +270,52 @@ export class PortamentoPineBatcher {
     return i;
   }
 
+  /** Swap-with-last removal — keeps logicPines/SoA buffers dense for update()'s 0..count-1 loop. */
+  removeInstance(logicObject: THREE.Object3D): void {
+    if (!this.initialized || !logicObject) return;
+    const index = logicObject.userData?.batchIndex;
+    if (typeof index !== 'number' || index < 0 || index >= this.count || this.logicPines[index] !== logicObject) {
+      return;
+    }
+
+    const last = this.count - 1;
+    if (index !== last) {
+      this._batchPositions[index * 3 + 0] = this._batchPositions[last * 3 + 0];
+      this._batchPositions[index * 3 + 1] = this._batchPositions[last * 3 + 1];
+      this._batchPositions[index * 3 + 2] = this._batchPositions[last * 3 + 2];
+
+      this._batchQuaternions[index * 4 + 0] = this._batchQuaternions[last * 4 + 0];
+      this._batchQuaternions[index * 4 + 1] = this._batchQuaternions[last * 4 + 1];
+      this._batchQuaternions[index * 4 + 2] = this._batchQuaternions[last * 4 + 2];
+      this._batchQuaternions[index * 4 + 3] = this._batchQuaternions[last * 4 + 3];
+
+      this._batchScales[index * 3 + 0] = this._batchScales[last * 3 + 0];
+      this._batchScales[index * 3 + 1] = this._batchScales[last * 3 + 1];
+      this._batchScales[index * 3 + 2] = this._batchScales[last * 3 + 2];
+
+      if (this.bendAttribute) {
+        this.bendAttribute.array[index] = this.bendAttribute.array[last];
+      }
+
+      const movedPine = this.logicPines[last];
+      this.logicPines[index] = movedPine;
+      if (movedPine) {
+        movedPine.userData.batchIndex = index;
+        if (this.bendAttribute) movedPine.userData._lastUploadedBend = this.bendAttribute.array[index];
+      }
+    }
+
+    this.logicPines.length = last;
+    this.count = last;
+    logicObject.userData.batchIndex = undefined;
+
+    this._matricesDirty = true;
+    this.flushMatrices();
+    if (this.trunkMesh) this.trunkMesh.count = this.count;
+    if (this.needleMesh) this.needleMesh.count = this.count;
+    if (this.bendAttribute) this.bendAttribute.needsUpdate = true;
+  }
+
   updateInstance(idx: number, dummy: THREE.Object3D) {
     if (!this.initialized) return;
 

@@ -57,12 +57,12 @@ import type { RendererBackend } from './renderer-mode.ts';
 export const GPU_POWER_PREFERENCE: GPUPowerPreference = 'high-performance';
 
 /**
- * Limits requested for the shared device.
+ * Limit **floors** for the shared device.
  *
  * Every value here is exactly a WebGPU spec **default** (guaranteed by any
- * conformant adapter, including SwiftShader), so `requestDevice` can never be
- * rejected for asking too much. They are stated explicitly rather than left
- * implicit because compute shaders bind against these ceilings:
+ * conformant adapter, including SwiftShader), so a request at these values can
+ * never be rejected for asking too much. They are stated explicitly rather than
+ * left implicit because compute shaders bind against these ceilings:
  *
  * - `maxStorageBufferBindingSize` 128 MiB — matches what
  *   `gpu-compute-library.ts` and `compute-particles.ts` used to request from
@@ -72,8 +72,9 @@ export const GPU_POWER_PREFERENCE: GPUPowerPreference = 'high-performance';
  *   the workgroup size declared by the particle and culling WGSL kernels.
  * - `maxComputeWorkgroupStorageSize` 16 KiB — headroom for tiled kernels.
  *
- * Actual granted limits are usually higher; read them from
- * {@link getGpuContextSync}`().limits` rather than assuming these values.
+ * The probe does not request these verbatim: see {@link resolveRequiredLimits}.
+ * Read what was granted from {@link getGpuContextSync}`().limits` rather than
+ * assuming these values.
  */
 export const GPU_REQUIRED_LIMITS: Record<string, number> = {
     maxStorageBufferBindingSize: 134217728,
@@ -81,6 +82,77 @@ export const GPU_REQUIRED_LIMITS: Record<string, number> = {
     maxComputeInvocationsPerWorkgroup: 256,
     maxComputeWorkgroupStorageSize: 16384,
 };
+
+/**
+ * Soft ceilings the probe asks for when the adapter supports them.
+ *
+ * A `requiredLimits` entry is a *guarantee*: the UA may grant more than asked,
+ * but nothing obliges it to. Asking for `min(adapter, desired)` turns "we hope
+ * the browser is generous" into a granted contract, while `min` keeps the
+ * request inside what the adapter advertised so `requestDevice` cannot reject.
+ *
+ * - Storage bindings go up to 1 GiB. `maxBufferSize` is requested alongside,
+ *   because a binding can never exceed the largest buffer that can be created.
+ * - Workgroup keys stay at 256: the WGSL kernels declare exactly that, so a
+ *   larger grant would buy nothing.
+ */
+export const GPU_DESIRED_LIMITS: Record<string, number> = {
+    maxBufferSize: 1073741824,
+    maxStorageBufferBindingSize: 1073741824,
+    maxComputeWorkgroupSizeX: 256,
+    maxComputeInvocationsPerWorkgroup: 256,
+    maxComputeWorkgroupStorageSize: 16384,
+};
+
+/** Spec defaults for keys in {@link GPU_DESIRED_LIMITS} not already floored above. */
+const SPEC_DEFAULT_LIMITS: Record<string, number> = {
+    maxBufferSize: 268435456,
+    ...GPU_REQUIRED_LIMITS,
+};
+
+const SOFTWARE_ADAPTER_RE = /swiftshader|llvmpipe|lavapipe|microsoft basic/;
+
+/** True for software rasterisers (SwiftShader CI, llvmpipe, WARP). */
+export function isSoftwareAdapter(
+    adapter: GPUAdapter | null,
+    info: GpuAdapterInfo | null
+): boolean {
+    if ((adapter as (GPUAdapter & { isFallbackAdapter?: boolean }) | null)?.isFallbackAdapter) {
+        return true;
+    }
+    const blob = [info?.vendor, info?.architecture, info?.device, info?.description]
+        .join(' ')
+        .toLowerCase();
+    return SOFTWARE_ADAPTER_RE.test(blob);
+}
+
+/**
+ * The `requiredLimits` the probe actually sends.
+ *
+ * `requested[k] = min(adapter.limits[k], ceiling[k])`, where the ceiling is
+ * {@link GPU_DESIRED_LIMITS} on hardware and the spec default on software
+ * adapters — CI never asks SwiftShader for more than its defaults, so it boots
+ * exactly as it did before adapter-aware limits. A key the adapter does not
+ * report falls back to the spec default, which every conformant adapter grants.
+ */
+export function resolveRequiredLimits(
+    adapter: GPUAdapter | null,
+    info: GpuAdapterInfo | null
+): Record<string, number> {
+    const software = isSoftwareAdapter(adapter, info);
+    const supported = (adapter?.limits ?? {}) as unknown as Record<string, number | undefined>;
+    const out: Record<string, number> = {};
+    for (const key of Object.keys(GPU_DESIRED_LIMITS)) {
+        const ceiling = software ? SPEC_DEFAULT_LIMITS[key] : GPU_DESIRED_LIMITS[key];
+        const advertised = supported[key];
+        out[key] =
+            typeof advertised === 'number'
+                ? Math.min(advertised, ceiling)
+                : SPEC_DEFAULT_LIMITS[key];
+    }
+    out.maxStorageBufferBindingSize = Math.min(out.maxStorageBufferBindingSize, out.maxBufferSize);
+    return out;
+}
 
 /**
  * Alpha mode for the canvas context.
@@ -101,6 +173,21 @@ export const GPU_ALPHA = true;
  * in favour of post-AA would be a visual change and is out of scope here.
  */
 export const GPU_ANTIALIAS = true;
+
+/**
+ * Swap-chain configuration as last applied to the world canvas.
+ *
+ * The swap chain is the *display* surface only: `getPreferredCanvasFormat()`
+ * (usually `bgra8unorm`) tagged with a `colorSpace` that matches the renderer's
+ * `outputColorSpace`. Scene rendering and the post chain run on `rgba16float`
+ * render targets and are only tone-mapped / encoded into this format at the
+ * final output pass. See docs/WEBGPU_CONTEXT.md#swap-chain-vs-hdr-render-targets.
+ */
+export interface GpuCanvasConfig {
+    format: GPUTextureFormat;
+    colorSpace: PredefinedColorSpace;
+    alphaMode: GPUCanvasAlphaMode;
+}
 
 // =============================================================================
 // TYPES
@@ -126,7 +213,12 @@ export interface GpuContext {
     limits: Record<string, number> | null;
     adapterInfo: GpuAdapterInfo | null;
     powerPreference: GPUPowerPreference;
+    /** Spec-default floors ({@link GPU_REQUIRED_LIMITS}). */
     requiredLimits: Record<string, number>;
+    /** What `requestDevice` was actually asked for ({@link resolveRequiredLimits}). */
+    requestedLimits: Record<string, number> | null;
+    /** Swap-chain configuration, or null before the canvas is configured. */
+    canvas: GpuCanvasConfig | null;
     /** True once the device has been lost. */
     lost: boolean;
     lostReason: string | null;
@@ -151,6 +243,8 @@ const UNAVAILABLE: GpuContext = {
     adapterInfo: null,
     powerPreference: GPU_POWER_PREFERENCE,
     requiredLimits: GPU_REQUIRED_LIMITS,
+    requestedLimits: null,
+    canvas: null,
     lost: false,
     lostReason: null,
     reason: 'not-initialized',
@@ -243,6 +337,10 @@ export interface GpuProbeResult {
     device: GPUDevice;
     context: GPUCanvasContext;
     adapterInfo: GpuAdapterInfo | null;
+    /** The `requiredLimits` the device was created with. */
+    requestedLimits: Record<string, number>;
+    /** Swap-chain configuration the probe applied (always `srgb`). */
+    canvas: GpuCanvasConfig;
 }
 
 /**
@@ -269,9 +367,16 @@ export interface GpuProbeReport {
     adapter: GpuAdapterInfo | null;
     adapterName: string;
     isFallbackAdapter: boolean;
+    /** Full granted limit snapshot. */
     limits: Record<string, number> | null;
     powerPreference: GPUPowerPreference;
+    /** Spec-default floors. */
     requiredLimits: Record<string, number>;
+    /** What `requestDevice` was asked for, or null before the adapter answered. */
+    requestedLimits: Record<string, number> | null;
+    /** Granted values for exactly the requested keys, for side-by-side reading. */
+    grantedLimits: Record<string, number> | null;
+    canvas: GpuCanvasConfig | null;
     timestamp: string;
 }
 
@@ -370,6 +475,8 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
     let adapter: GPUAdapter | null = null;
     let adapterInfo: GpuAdapterInfo | null = null;
     let device: GPUDevice | null = null;
+    let requestedLimits: Record<string, number> | null = null;
+    let canvasConfig: GpuCanvasConfig | null = null;
 
     const fail = (stage: GpuProbeStage, message: string, detail?: unknown): never => {
         publishProbeReport({
@@ -386,6 +493,9 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
             limits: device ? snapshotLimits(device.limits) : null,
             powerPreference: GPU_POWER_PREFERENCE,
             requiredLimits: GPU_REQUIRED_LIMITS,
+            requestedLimits,
+            grantedLimits: device ? pickLimits(device.limits, requestedLimits) : null,
+            canvas: canvasConfig,
             timestamp: new Date().toISOString(),
         });
         // A half-built device would otherwise sit pinned until GC.
@@ -427,12 +537,14 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
     adapterInfo = await readAdapterInfo(adapter, null);
 
     // 3 — device. Match Three's own descriptor: every feature the adapter
-    // supports, plus our required limits. Asking for exactly what Three would
-    // ask for means adopting this device cannot cost a feature.
+    // supports, so adopting this device cannot cost a feature. Limits are
+    // clamped to what the adapter advertises (spec defaults on software
+    // adapters), so the request is both a guarantee and never rejectable.
+    requestedLimits = resolveRequiredLimits(adapter, adapterInfo);
     try {
         device = await adapter.requestDevice({
             requiredFeatures: Array.from(adapter.features) as GPUFeatureName[],
-            requiredLimits: GPU_REQUIRED_LIMITS,
+            requiredLimits: requestedLimits,
         });
     } catch (err) {
         return fail('device', `requestDevice() rejected: ${describeError(err)}`, err);
@@ -456,14 +568,16 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         );
     }
 
-    // 5 — configure the swap chain exactly as Three will
+    // 5 — configure the swap chain as Three will. `colorSpace` is explicit;
+    // `configureCanvasColorSpace()` re-applies it once the renderer has chosen
+    // its `outputColorSpace`.
     try {
-        ctx.configure({
-            device,
+        canvasConfig = {
             format: navigator.gpu.getPreferredCanvasFormat(),
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+            colorSpace: 'srgb',
             alphaMode: GPU_ALPHA ? 'premultiplied' : 'opaque',
-        });
+        };
+        applyCanvasConfig(ctx, device, canvasConfig);
     } catch (err) {
         return fail('configure', `context.configure() threw: ${describeError(err)}`, err);
     }
@@ -507,6 +621,9 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         limits: snapshotLimits(device.limits),
         powerPreference: GPU_POWER_PREFERENCE,
         requiredLimits: GPU_REQUIRED_LIMITS,
+        requestedLimits,
+        grantedLimits: pickLimits(device.limits, requestedLimits),
+        canvas: canvasConfig,
         timestamp: new Date().toISOString(),
     });
 
@@ -514,7 +631,64 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         `[GPUContext] WebGPU probe passed on ${browser.name} ${browser.version} · adapter=${describeAdapter(adapterInfo)}`
     );
 
-    return { adapter, device, context: ctx, adapterInfo };
+    return {
+        adapter,
+        device,
+        context: ctx,
+        adapterInfo,
+        requestedLimits: requestedLimits!,
+        canvas: canvasConfig!,
+    };
+}
+
+function applyCanvasConfig(
+    ctx: GPUCanvasContext,
+    device: GPUDevice,
+    config: GpuCanvasConfig
+): void {
+    ctx.configure({
+        device,
+        format: config.format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+        alphaMode: config.alphaMode,
+        colorSpace: config.colorSpace,
+    });
+}
+
+/**
+ * Map a Three `outputColorSpace` onto a canvas `colorSpace`.
+ *
+ * The canvas only understands the two predefined display spaces. Anything
+ * linear or unrecognised is presented as `srgb`, which is also what Three's own
+ * output pass encodes to for those values.
+ */
+export function canvasColorSpaceFor(outputColorSpace: string): PredefinedColorSpace {
+    return outputColorSpace === 'display-p3' ? 'display-p3' : 'srgb';
+}
+
+/**
+ * Re-apply the swap-chain configuration with a `colorSpace` matching the
+ * renderer's `outputColorSpace`.
+ *
+ * Must run **after** `renderer.init()`: Three 0.171's `WebGPUBackend.init()`
+ * calls `context.configure()` itself without a `colorSpace`, which resets the
+ * canvas to the `srgb` default and would silently undo anything set earlier.
+ */
+export function configureCanvasColorSpace(
+    probe: GpuProbeResult,
+    outputColorSpace: string
+): GpuCanvasConfig {
+    const next: GpuCanvasConfig = {
+        ...probe.canvas,
+        colorSpace: canvasColorSpaceFor(outputColorSpace),
+    };
+    applyCanvasConfig(probe.context, probe.device, next);
+    probe.canvas = next;
+
+    if (probeReport) probeReport = { ...probeReport, canvas: next };
+    context = { ...context, canvas: next };
+    publishGpuContext();
+    return next;
 }
 
 function describeError(err: unknown): string {
@@ -549,6 +723,19 @@ async function readAdapterInfo(
         device: raw.device ?? '',
         description: raw.description ?? '',
     };
+}
+
+function pickLimits(
+    limits: GPUSupportedLimits | undefined,
+    keys: Record<string, number> | null
+): Record<string, number> | null {
+    const all = snapshotLimits(limits);
+    if (!all || !keys) return null;
+    const out: Record<string, number> = {};
+    for (const key of Object.keys(keys)) {
+        if (key in all) out[key] = all[key];
+    }
+    return out;
 }
 
 function snapshotLimits(limits: GPUSupportedLimits | undefined): Record<string, number> | null {
@@ -650,6 +837,8 @@ export async function armGpuContext(renderer: unknown, probe: GpuProbeResult): P
         adapterInfo: probe.adapterInfo,
         powerPreference: GPU_POWER_PREFERENCE,
         requiredLimits: GPU_REQUIRED_LIMITS,
+        requestedLimits: probe.requestedLimits,
+        canvas: probe.canvas,
         lost: false,
         lostReason: null,
         reason: null,
@@ -879,6 +1068,8 @@ export function publishGpuContext(): void {
         reason: context.reason,
         powerPreference: context.powerPreference,
         requiredLimits: context.requiredLimits,
+        requestedLimits: context.requestedLimits,
+        canvas: context.canvas,
         adapter: context.adapterInfo,
         adapterName: describeAdapter(context.adapterInfo),
         limits: context.limits,
@@ -898,8 +1089,10 @@ function describeAdapter(info: GpuAdapterInfo | null): string {
 /** One-time boot log: adapter, power preference, and the limits that matter. */
 function logGpuContext(ctx: GpuContext): void {
     const limits = ctx.limits ?? {};
-    const notable = Object.keys(GPU_REQUIRED_LIMITS)
-        .map((key) => `${key}=${limits[key] ?? '?'}`)
+    const requested = ctx.requestedLimits ?? GPU_REQUIRED_LIMITS;
+    // `granted (requested)` — a gap means the UA was more generous than asked.
+    const notable = Object.keys(requested)
+        .map((key) => `${key}=${limits[key] ?? '?'} (${requested[key]})`)
         .join(' ');
 
     console.log(

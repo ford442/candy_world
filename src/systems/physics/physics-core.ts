@@ -222,6 +222,16 @@ export function registerPhysicsCave(cave: THREE.Object3D) {
 }
 
 /**
+ * Inverse of registerPhysicsCave — drops a cave from collision/water-level
+ * checks so ChunkStreamer can evict it without leaving a physics ghost.
+ * @param cave - The cave mesh to unregister
+ */
+export function unregisterPhysicsCave(cave: THREE.Object3D) {
+    const idx = foliageCaves.indexOf(cave);
+    if (idx !== -1) foliageCaves.splice(idx, 1);
+}
+
+/**
  * Triggers harpoon mechanics when player is swimming.
  * @param anchor - The target anchor point
  */
