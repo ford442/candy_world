@@ -455,11 +455,20 @@ export class SaveMenu {
         }
     }
 
+    private handleKeyup(e: KeyboardEvent): void {
+        if (e.key === 'Escape') {
+            const closeBtn = this.container?.querySelector('.candy-save-menu__close') as HTMLElement;
+            if (closeBtn) closeBtn.classList.remove('keyboard-active');
+        }
+    }
+
     private handleKeydown(e: KeyboardEvent): void {
         if (e.key === 'Escape') {
             if (this.listeningKeybind) {
                 this.cancelKeybindListen();
             } else {
+                const closeBtn = this.container.querySelector('.candy-save-menu__close') as HTMLElement;
+                if (closeBtn) closeBtn.classList.add('keyboard-active');
                 this.close();
             }
         } else if (this.listeningKeybind) {
