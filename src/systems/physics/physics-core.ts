@@ -522,13 +522,15 @@ function updateDefaultState(
         const preX = player.position.x;
         const preZ = player.position.z;
 
-        // 3. updatePhysicsCPP(..., jump = false) as obstacle/trampoline solver only
+        // 3. updatePhysicsCPP() as obstacle/trampoline solver only. The native
+        // module no longer consults jump/sprint/sneak/grooveGravity — they're
+        // passed for ABI compatibility only (see wasm-physics.ts).
         onGround = updatePhysicsCPP(
             delta,
             _targetVelocity.x,
             _targetVelocity.z,
             moveSpeed,
-            false, // jump=false to prevent C++ from firing vy=10
+            false,
             keyStates.sprint,
             keyStates.sneak,
             grooveGravity.multiplier
