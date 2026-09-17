@@ -206,79 +206,71 @@ export class GPUParticleSystem {
             throw new Error('[GPUParticleSystem] GPU device not ready');
         }
 
-        try {
-            // 1. Create pipeline using PARTICLE_PHYSICS_WGSL
-            this.pipeline = await this.gpu.createComputePipeline({
-                shader: PARTICLE_PHYSICS_WGSL,
-                workgroupSize: 256,
-                bindingLayout: PARTICLE_LAYOUT,
-                label: 'particle-physics',
-            });
+        // 1. Create pipeline using PARTICLE_PHYSICS_WGSL
+        this.pipeline = await this.gpu.createComputePipeline({
+            shader: PARTICLE_PHYSICS_WGSL,
+            workgroupSize: 256,
+            bindingLayout: PARTICLE_LAYOUT,
+            label: 'particle-physics',
+        });
 
-            // 2. Initialize particle data
-            this.initializeParticles();
+        // 2. Initialize particle data
+        this.initializeParticles();
 
-            // 3. Create GPU buffers
-            const bufferSize = this.config.count * 4 * 4; // count * vec4 * 4 bytes
+        // 3. Create GPU buffers
+        this.positionBuffer = this.gpu.createStorageBuffer(
+            this.positions,
+            'particle-positions'
+        );
 
-            this.positionBuffer = this.gpu.createStorageBuffer(
-                this.positions,
-                'particle-positions'
+        this.velocityBuffer = this.gpu.createStorageBuffer(
+            this.velocities,
+            'particle-velocities'
+        );
+
+        this.colorBuffer = this.gpu.createStorageBuffer(
+            this.colors,
+            'particle-colors'
+        );
+
+        // 4. Create uniform buffer (64 bytes aligned)
+        const uniformData = this.packUniforms({
+            deltaTime: 0.016,
+            gravity: this.config.gravity,
+            audioKick: 0,
+            audioSnare: 0,
+            audioPulse: 0,
+            particleCount: this.config.count,
+            boundsMinX: this.config.bounds.min[0],
+            boundsMinY: this.config.bounds.min[1],
+            boundsMinZ: this.config.bounds.min[2],
+            boundsMaxX: this.config.bounds.max[0],
+            boundsMaxY: this.config.bounds.max[1],
+            boundsMaxZ: this.config.bounds.max[2],
+            spawnCenterX: this.config.spawnCenter[0],
+            spawnCenterY: this.config.spawnCenter[1],
+            spawnCenterZ: this.config.spawnCenter[2],
+            damping: this.config.damping,
+            restitution: this.config.restitution,
+            boundsCollision: this.config.boundsCollision ? 1 : 0,
+            time: 0,
+        });
+
+        this.uniformBuffer = this.gpu.createUniformBuffer(
+            uniformData,
+            'particle-uniforms'
+        );
+
+        // 5. Create bind group
+        if (this.positionBuffer && this.velocityBuffer && this.colorBuffer && this.uniformBuffer) {
+            this.bindGroup = this.gpu.createBindGroup(
+                this.pipeline,
+                [this.positionBuffer, this.velocityBuffer, this.colorBuffer, this.uniformBuffer],
+                'particle-bind-group'
             );
-
-            this.velocityBuffer = this.gpu.createStorageBuffer(
-                this.velocities,
-                'particle-velocities'
-            );
-
-            this.colorBuffer = this.gpu.createStorageBuffer(
-                this.colors,
-                'particle-colors'
-            );
-
-            // 4. Create uniform buffer (64 bytes aligned)
-            const uniformData = this.packUniforms({
-                deltaTime: 0.016,
-                gravity: this.config.gravity,
-                audioKick: 0,
-                audioSnare: 0,
-                audioPulse: 0,
-                particleCount: this.config.count,
-                boundsMinX: this.config.bounds.min[0],
-                boundsMinY: this.config.bounds.min[1],
-                boundsMinZ: this.config.bounds.min[2],
-                boundsMaxX: this.config.bounds.max[0],
-                boundsMaxY: this.config.bounds.max[1],
-                boundsMaxZ: this.config.bounds.max[2],
-                spawnCenterX: this.config.spawnCenter[0],
-                spawnCenterY: this.config.spawnCenter[1],
-                spawnCenterZ: this.config.spawnCenter[2],
-                damping: this.config.damping,
-                restitution: this.config.restitution,
-                boundsCollision: this.config.boundsCollision ? 1 : 0,
-                time: 0,
-            });
-
-            this.uniformBuffer = this.gpu.createUniformBuffer(
-                uniformData,
-                'particle-uniforms'
-            );
-
-            // 5. Create bind group
-            if (this.positionBuffer && this.velocityBuffer && this.colorBuffer && this.uniformBuffer) {
-                this.bindGroup = this.gpu.createBindGroup(
-                    this.pipeline,
-                    [this.positionBuffer, this.velocityBuffer, this.colorBuffer, this.uniformBuffer],
-                    'particle-bind-group'
-                );
-            }
-
-            this.isInitialized = true;
-            console.log(`[GPUParticleSystem] Initialized with ${this.config.count} particles`);
-        } catch (error) {
-            console.error('[GPUParticleSystem] Initialization failed:', error);
-            throw error;
         }
+
+        this.isInitialized = true;
     }
 
     /**
@@ -676,8 +668,6 @@ export class GPUParticleSystem {
 
         this.isInitialized = false;
         this.destroyed = true;
-
-        console.log('[GPUParticleSystem] Destroyed');
     }
 }
 
@@ -776,10 +766,9 @@ export async function createParticleSystemWithFallback(
         try {
             const system = new GPUParticleSystem(gpu, config);
             await system.initialize();
-            console.log('[ParticleSystem] Using WebGPU compute');
             return system;
-        } catch (error) {
-            console.warn('[ParticleSystem] WebGPU compute failed, trying fallback:', error);
+        } catch (_error) {
+            // WebGPU compute failed, trying fallback
         }
     }
 
@@ -789,7 +778,6 @@ export async function createParticleSystemWithFallback(
     // 3. wasmUpdateParticles (WASM from assembly/particles.ts)
     // 4. Pure JS implementation
 
-    console.error('[ParticleSystem] All GPU compute methods failed');
     return null;
 }
 

@@ -18,6 +18,9 @@
  * const results = await animator.readbackResults();
  * ```
  */
+
+import * as THREE from 'three';
+
 import { getWindState } from '../systems/wind-uniforms.ts';
 import { GPUComputeLibrary } from './gpu-compute-library';
 
@@ -714,8 +717,6 @@ export class GPUFoliageAnimator {
 // =============================================================================
 // THREE.JS INTEGRATION HELPERS
 // =============================================================================
-
-import * as THREE from 'three';
 
 // Scratch variables for zero-allocation batch updates
 const _scratchPosition = new THREE.Vector3();
