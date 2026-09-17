@@ -67,7 +67,6 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
 
         // Set up keyboard listener
         this.container.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        this.container.addEventListener('keyup', (e) => this.handleKeyUp(e));
     }
 
     private createHeader(): HTMLElement {
