@@ -30,6 +30,8 @@ export class KickDrumGeyserBatcher {
     private _scratchVec3 = new THREE.Vector3();
     private _scratchPos = new THREE.Vector3();
 
+    private _instanceMap = new Map<number, number>();
+
     // Data arrays for animation
     private _offsets: Float32Array;
     private _maxHeights: Float32Array;
@@ -137,11 +139,60 @@ export class KickDrumGeyserBatcher {
 
         this._offsets[i] = Math.random() * 10.0;
         this._maxHeights[i] = options.maxHeight ?? 5.0;
+        this._instanceMap.set(proxy.id, i);
+        proxy.userData.isBatched = true;
+        proxy.userData.type = 'kick_drum_geyser';
     }
 
     /**
      * Update loop to animate plumes based on kick drum audio
      */
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (this._count === 0 || !logicObject) return;
+
+        const id = logicObject.id;
+        const i = this._instanceMap.get(id);
+        if (i === undefined) return;
+
+        this._count--;
+        const lastIndex = this._count;
+
+        // If it's not the last element, swap with last
+        if (i !== lastIndex) {
+            this._offsets[i] = this._offsets[lastIndex];
+            this._maxHeights[i] = this._maxHeights[lastIndex];
+
+            // Swap matrices
+            for (let j = 0; j < 16; j++) {
+                this.baseMesh.instanceMatrix.array[i * 16 + j] = this.baseMesh.instanceMatrix.array[lastIndex * 16 + j];
+                this.coreMesh.instanceMatrix.array[i * 16 + j] = this.coreMesh.instanceMatrix.array[lastIndex * 16 + j];
+                this.plumeMesh.instanceMatrix.array[i * 16 + j] = this.plumeMesh.instanceMatrix.array[lastIndex * 16 + j];
+            }
+
+            // Update map for the swapped object.
+            // We need to find the logic object ID that was at lastIndex.
+            // We can iterate the map, or we can maintain a reverse map.
+            // Since Map iteration is somewhat slow, let's just do it directly.
+            for (const [key, val] of this._instanceMap.entries()) {
+                if (val === lastIndex) {
+                    this._instanceMap.set(key, i);
+                    break;
+                }
+            }
+        }
+
+        this._instanceMap.delete(id);
+
+        this.baseMesh.count = this._count;
+        this.coreMesh.count = this._count;
+        this.plumeMesh.count = this._count;
+
+        this.baseMesh.instanceMatrix.needsUpdate = true;
+        this.coreMesh.instanceMatrix.needsUpdate = true;
+        this.plumeMesh.instanceMatrix.needsUpdate = true;
+    }
+
     update(time: number, deltaTime: number, audioState: any, activeWave: any) {
         if (this._count === 0) return;
 
@@ -151,31 +202,45 @@ export class KickDrumGeyserBatcher {
         const baseArray = this.baseMesh.instanceMatrix.array;
         const plumeArray = this.plumeMesh.instanceMatrix.array;
 
+        // ⚡ OPTIMIZATION: Hoisted wave radius + deferred sqrt; skip plume writes when scaleY is unchanged.
+        let hasWave = false;
+        let elapsedSec = 0;
+        let speed = 25;
+        let waveRadiusSq = 0;
+        let ox = 0, oy = 0, oz = 0;
+
+        if (activeWave) {
+            hasWave = true;
+            speed = activeWave.speed || 25;
+            elapsedSec = (performance.now() - activeWave.timestamp) / 1000;
+            const r = elapsedSec * speed;
+            waveRadiusSq = r * r;
+            const origin = activeWave.origin || new THREE.Vector3();
+            ox = origin.x; oy = origin.y; oz = origin.z;
+        }
+
         // O(N) zero-allocation hot path
         for (let i = 0; i < this._count; i++) {
-            // Get position directly from array for wave calculation
-            const x = baseArray[i * 16 + 12];
-            const y = baseArray[i * 16 + 13];
-            const z = baseArray[i * 16 + 14];
-
-            // ⚡ OPTIMIZATION: Zero-allocation position object for wave computation
-            this._scratchPos.set(x, y, z);
-
-            // Calculate distance-based wave timing
-            const waveTime = computeWaveTimeSinceArrival(this._scratchPos, activeWave);
-
-            // Simulate local kick intensity. If wave hasn't reached, it's 0.
-            // If it reached recently, apply a sharp spike that decays.
+            const baseIndex = i * 16;
             let localKick = globalKick;
-            if (activeWave) {
-                if (waveTime < 0) {
+
+            if (hasWave) {
+                const dx = baseArray[baseIndex + 12] - ox;
+                const dy = baseArray[baseIndex + 13] - oy;
+                const dz = baseArray[baseIndex + 14] - oz;
+                const distSq = dx * dx + dy * dy + dz * dz;
+
+                if (waveRadiusSq <= 0 || distSq > waveRadiusSq) {
                     localKick = 0;
-                } else if (waveTime < 0.2) {
-                    // Sharp spike when wave hits
-                    localKick = 1.0;
                 } else {
-                    // Exponential decay
-                    localKick = Math.max(0, Math.exp(-10.0 * (waveTime - 0.2)));
+                    const waveTime = elapsedSec - Math.sqrt(distSq) / speed;
+                    if (waveTime < 0) {
+                        localKick = 0;
+                    } else if (waveTime < 0.2) {
+                        localKick = 1.0;
+                    } else {
+                        localKick = Math.max(0, Math.exp(-10.0 * (waveTime - 0.2)));
+                    }
                 }
             }
 
@@ -186,7 +251,9 @@ export class KickDrumGeyserBatcher {
             // Keep base transform, but scale Y axis
             // ⚡ OPTIMIZATION: Bypassed Matrix4 composition overhead by directly modifying the Y-axis basis vector in the Float32Array
             const scaleY = targetHeight + 0.01; // 0.01 to prevent singular matrix warning
-            const baseIndex = i * 16;
+
+            // dirty check
+            if (Math.abs(plumeArray[baseIndex + 5] - (baseArray[baseIndex + 5] * scaleY)) < 1e-6) continue;
 
             plumeArray[baseIndex + 0] = baseArray[baseIndex + 0];
             plumeArray[baseIndex + 1] = baseArray[baseIndex + 1];

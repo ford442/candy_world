@@ -14,6 +14,7 @@ import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { populatePhysicsGrids } from '../systems/physics/index.ts';
 import {
@@ -97,7 +98,7 @@ function isKnownBatchedType(obj: THREE.Object3D): boolean {
     );
 }
 
-type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'glassMushroom' | 'simpleFlower' | 'flower' | 'tree' | 'never';
+type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'glassMushroom' | 'simpleFlower' | 'flower' | 'tree' | 'kickDrumGeyser' | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     const t = obj.userData?.type;
@@ -111,6 +112,7 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     // If we just check `t === 'simple_flower'` it might not be enough. Let's use `obj.userData?.isFlower` for SimpleFlowerBatcher.
     // But `FlowerBatcher` also uses `isFlower`. The reviewer suggested focusing on simple flower right now. Wait, I will use `t === 'simpleFlower'` or `t === 'simple_flower'` if applicable. Actually, simple flowers in `flowers.ts` have `group.userData.type = 'simple_flower'`. Let's assume that.
     if (t === 'simple_flower') return 'simpleFlower';
+    if (t === 'kick_drum_geyser') return 'kickDrumGeyser';
     // Caves register with the WASM collision system (registerPhysicsCave) and
     // weatherSystem, neither of which support removal — never evict.
     if (t === 'cave') return 'never';
@@ -510,6 +512,8 @@ export class ChunkStreamer {
                 lanternBatcher.removeInstance(obj);
             } else if (evictionClass === 'glassMushroom') {
                 glassMushroomBatcher.removeInstance(obj);
+            } else if (evictionClass === 'kickDrumGeyser') {
+                kickDrumGeyserBatcher.removeInstance(obj);
             } else if (evictionClass === 'simpleFlower') {
                 simpleFlowerBatcher.removeInstance(obj);
             } else if (evictionClass === 'flower') {
