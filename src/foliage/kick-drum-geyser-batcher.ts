@@ -33,6 +33,7 @@ export class KickDrumGeyserBatcher {
     // Data arrays for animation
     private _offsets: Float32Array;
     private _maxHeights: Float32Array;
+    private logicGeysers: any[] = [];
 
     group = new THREE.Group();
 
@@ -137,6 +138,56 @@ export class KickDrumGeyserBatcher {
 
         this._offsets[i] = Math.random() * 10.0;
         this._maxHeights[i] = options.maxHeight ?? 5.0;
+
+        proxy.userData.batchIndex = i;
+        proxy.userData.isBatched = true;
+        this.logicGeysers[i] = proxy;
+    }
+
+    removeInstance(logicObject: THREE.Object3D): void {
+        if (!logicObject) return;
+        const index = logicObject.userData?.batchIndex;
+        if (
+            typeof index !== 'number' ||
+            index < 0 ||
+            index >= this._count ||
+            this.logicGeysers[index] !== logicObject
+        ) {
+            return;
+        }
+
+        const last = this._count - 1;
+        if (index !== last) {
+            // Swap with last logic object
+            const movedGeyser = this.logicGeysers[last];
+            this.logicGeysers[index] = movedGeyser;
+            if (movedGeyser) movedGeyser.userData.batchIndex = index;
+
+            // Swap matrices
+            const baseArray = this.baseMesh.instanceMatrix.array;
+            const coreArray = this.coreMesh.instanceMatrix.array;
+            const plumeArray = this.plumeMesh.instanceMatrix.array;
+            for (let j = 0; j < 16; j++) {
+                baseArray[index * 16 + j] = baseArray[last * 16 + j];
+                coreArray[index * 16 + j] = coreArray[last * 16 + j];
+                plumeArray[index * 16 + j] = plumeArray[last * 16 + j];
+            }
+
+            // Swap data arrays
+            this._offsets[index] = this._offsets[last];
+            this._maxHeights[index] = this._maxHeights[last];
+        }
+
+        this.logicGeysers.length = last;
+        this._count = last;
+        this.baseMesh.count = last;
+        this.coreMesh.count = last;
+        this.plumeMesh.count = last;
+        logicObject.userData.batchIndex = undefined;
+
+        this.baseMesh.instanceMatrix.needsUpdate = true;
+        this.coreMesh.instanceMatrix.needsUpdate = true;
+        this.plumeMesh.instanceMatrix.needsUpdate = true;
     }
 
     /**
@@ -151,6 +202,25 @@ export class KickDrumGeyserBatcher {
         const baseArray = this.baseMesh.instanceMatrix.array;
         const plumeArray = this.plumeMesh.instanceMatrix.array;
 
+        // ⚡ OPTIMIZATION: Hoisted wave math parameters to avoid per-instance performance.now() overhead
+        let now = 0;
+        let elapsedSec = 0;
+        let waveRadiusSq = 0;
+        let waveSpeed = 25.0;
+        let waveOriginX = 0, waveOriginY = 0, waveOriginZ = 0;
+
+        if (activeWave) {
+            now = performance.now();
+            elapsedSec = (now - activeWave.timestamp) / 1000;
+            waveSpeed = activeWave.speed || 25.0;
+            waveRadiusSq = (elapsedSec * waveSpeed) ** 2;
+            if (activeWave.origin) {
+                waveOriginX = activeWave.origin.x;
+                waveOriginY = activeWave.origin.y;
+                waveOriginZ = activeWave.origin.z;
+            }
+        }
+
         // O(N) zero-allocation hot path
         for (let i = 0; i < this._count; i++) {
             // Get position directly from array for wave calculation
@@ -158,24 +228,35 @@ export class KickDrumGeyserBatcher {
             const y = baseArray[i * 16 + 13];
             const z = baseArray[i * 16 + 14];
 
-            // ⚡ OPTIMIZATION: Zero-allocation position object for wave computation
-            this._scratchPos.set(x, y, z);
-
-            // Calculate distance-based wave timing
-            const waveTime = computeWaveTimeSinceArrival(this._scratchPos, activeWave);
-
-            // Simulate local kick intensity. If wave hasn't reached, it's 0.
-            // If it reached recently, apply a sharp spike that decays.
             let localKick = globalKick;
+
             if (activeWave) {
-                if (waveTime < 0) {
+                if (elapsedSec <= 0) {
                     localKick = 0;
-                } else if (waveTime < 0.2) {
-                    // Sharp spike when wave hits
-                    localKick = 1.0;
                 } else {
-                    // Exponential decay
-                    localKick = Math.max(0, Math.exp(-10.0 * (waveTime - 0.2)));
+                    const dx = x - waveOriginX;
+                    const dy = y - waveOriginY;
+                    const dz = z - waveOriginZ;
+                    const distSq = dx * dx + dy * dy + dz * dz;
+
+                    if (distSq > waveRadiusSq) {
+                        localKick = 0; // Wave hasn't reached yet
+                    } else {
+                        // ⚡ OPTIMIZATION: Deferred Math.sqrt() only for geysers inside the wave front
+                        const distance = Math.sqrt(distSq);
+                        const arrivalTime = activeWave.timestamp + (distance / waveSpeed) * 1000;
+                        const waveTime = (now - arrivalTime) / 1000;
+
+                        if (waveTime < 0) {
+                            localKick = 0;
+                        } else if (waveTime < 0.2) {
+                            // Sharp spike when wave hits
+                            localKick = 1.0;
+                        } else {
+                            // Exponential decay
+                            localKick = Math.max(0, Math.exp(-10.0 * (waveTime - 0.2)));
+                        }
+                    }
                 }
             }
 
