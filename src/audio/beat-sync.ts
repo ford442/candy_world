@@ -2,6 +2,7 @@
 
 import { AudioSystem } from './audio-system.ts';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type BeatCallback = (state: any) => void;
 
 export class BeatSync {

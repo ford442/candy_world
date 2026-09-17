@@ -39,10 +39,8 @@ export async function initGPUCompute(): Promise<void> {
 
         try {
             await lib.initDevice();
-            console.log('[Compute] GPU compute library ready');
         } catch {
             // WebGPU unavailable — CPU/WASM fallback will be used transparently
-            console.log('[Compute] WebGPU unavailable — GPU compute disabled, CPU fallback active');
         }
     })();
 
