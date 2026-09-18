@@ -25,8 +25,9 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 - `game-loop.ts` + `game-loop-*.ts` — tick phase pattern to copy
 - `style.css` — `#1490` barrel + `styles/` modules (each well under 700 lines)
 - `src/foliage/material-core.ts` — `#1491` barrel + `material-core/` modules (each well under 700 lines)
+- `src/foliage/tree-batcher.ts` — `#1486` barrel + `tree-batcher/` modules (each well under 700 lines)
 
-Still ticketed for future PRs: `tree-batcher.ts`.
+Still ticketed for future PRs: remaining mega-modules that are still over 700 lines, including `trees.ts` (~873 lines), `gpu-context.ts` (~1118 lines), `compute-particles.ts` (~1230 lines), `mushroom-batcher.ts` (~947 lines), `save-menu.ts` (~851 lines).
 
 ## Accomplished / Recent Progress
 

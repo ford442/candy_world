@@ -121,14 +121,14 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 **User idea pool — GitHub issues filed 2026-09-07 by `ford442` (Noah's OWN words — FRESHEST this run, filed one day ago). A mechanical file-split batch, direct successor to the 2026-08-01 #1485–#1491 batch. Pure per-file refactors, ideal Copilot fodder, one file per PR. NOT picked today only because Fix First outranks them; #1717 is routed to Copilot this run and the rest are the standing head of the queue for 2026-09-15.**
 
-- [ ] **#1717 Split `music-reactivity.ts` (1161 lines) into files under 700 lines** ← **Copilot prep target 2026-09-08** (fully file-decoupled from the physics slice). Note: `-core.ts` / barrel split partly exists already from #1350/#1397 — expand against current main, don't re-do landed work.
-- [ ] **#1718 Split `map-loader.ts` (1153 lines) into files under 700 lines**
-- [ ] **#1719 Split `index.html` (1024 lines) into files under 700 lines** — note this one is markup + inline boot script, not TS; sequence it after #1717/#1718 and mind the boot-error surface that #1598 hard-fail added.
-- [ ] **#1720 Split `generation-decorators.ts` (1004 lines) into files under 700 lines** — was already split once on 2026-07-06; verify against current main before planning.
+- [x] **#1717 Split `music-reactivity.ts` (1161 lines) into files under 700 lines** ← **Copilot prep target 2026-09-08** (fully file-decoupled from the physics slice). Note: `-core.ts` / barrel split partly exists already from #1350/#1397 — expand against current main, don't re-do landed work.
+- [x] **#1718 Split `map-loader.ts` (1153 lines) into files under 700 lines**
+- [x] **#1719 Split `index.html` (1024 lines) into files under 700 lines** — note this one is markup + inline boot script, not TS; sequence it after #1717/#1718 and mind the boot-error surface that #1598 hard-fail added.
+- [x] **#1720 Split `generation-decorators.ts` (1004 lines) into files under 700 lines** — was already split once on 2026-07-06; verify against current main before planning.
 
 **User idea pool — GitHub issue filed 2026-09-02 by `ford442` (Noah's OWN words). This is the Copilot-prep issue the 2026-09-01 routine drafted, which Noah then filed himself — treat as endorsed and live.**
 
-- [ ] **#1693 💨 Parameterize and consolidate the TSL wind/deformation path (#1582 slice)** — one shared wind/deformation node factory across foliage object types. Rendering/foliage lane, file-decoupled from physics. Strong candidate for the 2026-09-15 kimi main event if no Fix First triggers.
+- [x] **#1693 💨 Parameterize and consolidate the TSL wind/deformation path (#1582 slice)** — one shared wind/deformation node factory across foliage object types. Rendering/foliage lane, file-decoupled from physics. Strong candidate for the 2026-09-15 kimi main event if no Fix First triggers.
 
 **User idea pool — GitHub issue filed 2026-08-27 by `ford442` (Noah's OWN words). Landed; see status.**
 
@@ -170,7 +170,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [x] **#1492 Capstone epic — Presence + Part II door** — `enhancement` `architecture`. Tracker: `docs/CAPSTONE_ROADMAP.md`. Landed 2026-08-12: Presence A2–A5 + Sugar Caves B + Part II unlock. See `docs/SUGAR_CAVES_SHIP.md`.
 - [x] **#1494 Generative music + Cinematic Photo Mode as first-class features** — `enhancement`. Content capstone. **Status: Implemented ✅**
     - Implementation Details: Wired Generative Biome Audio and Day/Night context into the game loop, allowing the generative audio engine to adapt to the player's current biome as they explore.
-- [ ] **Mechanical file-split batch (#1485-#1491)** — split >700-line files into modules: `config.ts` (#1485 **partial — domain barrel landed**), `tree-batcher.ts` (#1486), `input.ts` (#1487), `main.ts` (#1488 **landed — `main/` pipelines**), `temp_base.ts` (#1489 **absent on main**), `style.css` (#1490 **landed — `styles/` modules + barrel**), `material-core.ts` (#1491 **landed — `material-core/` modules + barrel**). Pure mechanical — ideal future Copilot fodder, one file per PR.
+- [ ] **Mechanical file-split batch (#1485-#1491)** — split >700-line files into modules: `config.ts` (#1485 **partial — domain barrel landed**), `tree-batcher.ts` (#1486 **landed — split across `tree-batcher/` modules**), `input.ts` (#1487 **landed — split and deleted monolith**), `main.ts` (#1488 **landed — `main/` pipelines**), `temp_base.ts` (#1489 **absent on main**), `style.css` (#1490 **landed — `styles/` modules + barrel**), `material-core.ts` (#1491 **landed — `material-core/` modules + barrel**). Pure mechanical — ideal future Copilot fodder, one file per PR.
 
 <!-- ARCHIVED — 2026-07-27 batch (resolved). -->
 
@@ -247,14 +247,14 @@ _Content / world-building (capstones, after foundation):_
 - [x] **#1353 Real-time co-presence** (Supabase Realtime).
 - [x] **#1354 Tier-4 WebGPU compute consolidation.**
     - Implementation Details: Consolidated compute operations by extending the Tier-4 WebGPU `PlantPoseMachine` via `runGpuPlantPose` to `FlowerBatcher`, `PortamentoBatcher`, and `ArpeggioBatcher`, bypassing CPU allocations when enabled.
-- [ ] **#1355 Generative biome audio.**
-- [ ] **#1356 Cinematic Photo Mode.**
+- [x] **#1355 Generative biome audio.** (Shipped under #1494)
+- [x] **#1356 Cinematic Photo Mode.** (Shipped under #1494)
 - [ ] **#1365 In-world `?debugPlace` map placement editor** — content-authoring gizmo.
 - [x] **#1352 Living candy fauna** (WASM boids + ECS).
     - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
 - [x] **#1353 Real-time co-presence** (Supabase Realtime). **Status: Implemented ✅**
     - Implementation Details: Verified the real-time presence components and wired `updatePresenceSystem` and `teardownPresence` to the game loop to ensure proper live-publishing of player poses.
-- [ ] **#1355 Generative biome audio. #1356 Cinematic Photo Mode.**
+- [x] **#1355 Generative biome audio. #1356 Cinematic Photo Mode.** (Shipped under #1494)
     - Implementation Details: Built a zero-allocation `FaunaBatcher` (InstancedMesh) backed by an AssemblyScript ECS boids simulation.
 - [ ] **#1353 Real-time co-presence** (Supabase Realtime). **#1355 Generative biome audio. #1356 Cinematic Photo Mode.**
 
@@ -493,3 +493,20 @@ Outcome: #1170 LANDED. `npm run build:ci`, `npm run test:wasm`, `npm run test`, 
 Status: Implemented ✅
 
 - Implementation Details: Applied "Juice" to the `gem-fruit-batcher.ts` component by standardizing the deformation with `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. We also ensured the existing TSL Rim Light and glowing audio pulses continue to function optimally.
+
+- [x] **2026-09-17** ✅ ISSUE HYGIENE & TRACKER TRUTH
+    - Updated trackers to reflect real on-disk state. Stopped treating `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md` as a live backlog.
+    - Reconciled phantom splits that were already completed on disk.
+
+    | Ticket  | Issue claimed                   | On disk now                                                                                                    | Call                                                               |
+    |---------|---------------------------------|----------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+    | #1718   | map-loader.ts 1153 lines        | map-loader.ts ~131 + map-loader-{types,normalize,validate,setpieces,spatial-index}.ts, all well under 700      | Done                                                               |
+    | #1719   | index.html 1024 lines           | ~311 lines                                                                                                     | Done                                                               |
+    | #1720   | generation-decorators.ts 1004 lines | 9-line barrel + five siblings, largest ~359                                                                    | Done                                                               |
+    | #1717   | music-reactivity.ts 1161 lines  | ~385 + -core/-bindings/-foliage/-sky-wave/-luminous/-defaults                                                  | Done (plan.md already says so; Ideas checkbox is stale)            |
+    | #1486   | tree-batcher.ts mega-split      | 5-line barrel + tree-batcher/{class,ops,materials-init,constants,types}; ops.ts ~609                           | Done                                                               |
+    | #1487   | input.ts                        | File is gone; src/core/input/input/                                                                            | Done                                                               |
+    | #1693   | shared TSL deformation          | applyStandardDeformation / WithLod used across the batchers                                                    | Done (plan.md already says so; Ideas checkbox is stale)            |
+    | #1355 / #1356 | generative audio + photo mode | real modules + #1494                                                                                           | Done — do not rebuild                                              |
+
+    GitHub close blocked (no token). Next authenticated run comments the table, then `gh issue close N --reason completed`.
