@@ -26,11 +26,11 @@ export class KickDrumGeyserBatcher {
     private _scratchVec3 = new THREE.Vector3();
     private _scratchPos = new THREE.Vector3();
 
-    private _instanceMap = new Map<number, number>();
 
     // Data arrays for animation
     private _offsets: Float32Array;
     private _maxHeights: Float32Array;
+    private logicGeysers: THREE.Object3D[] = [];
 
     group = new THREE.Group();
 
@@ -135,54 +135,54 @@ export class KickDrumGeyserBatcher {
 
         this._offsets[i] = Math.random() * 10.0;
         this._maxHeights[i] = options.maxHeight ?? 5.0;
-        this._instanceMap.set(proxy.id, i);
+        proxy.userData.batchIndex = i;
         proxy.userData.isBatched = true;
         proxy.userData.type = 'kick_drum_geyser';
+        this.logicGeysers[i] = proxy;
     }
 
     /**
      * Update loop to animate plumes based on kick drum audio
      */
 
-    removeInstance(logicObject: THREE.Object3D) {
-        if (this._count === 0 || !logicObject) return;
-
-        const id = logicObject.id;
-        const i = this._instanceMap.get(id);
-        if (i === undefined) return;
-
-        this._count--;
-        const lastIndex = this._count;
-
-        // If it's not the last element, swap with last
-        if (i !== lastIndex) {
-            this._offsets[i] = this._offsets[lastIndex];
-            this._maxHeights[i] = this._maxHeights[lastIndex];
-
-            // Swap matrices
-            for (let j = 0; j < 16; j++) {
-                this.baseMesh.instanceMatrix.array[i * 16 + j] = this.baseMesh.instanceMatrix.array[lastIndex * 16 + j];
-                this.coreMesh.instanceMatrix.array[i * 16 + j] = this.coreMesh.instanceMatrix.array[lastIndex * 16 + j];
-                this.plumeMesh.instanceMatrix.array[i * 16 + j] = this.plumeMesh.instanceMatrix.array[lastIndex * 16 + j];
-            }
-
-            // Update map for the swapped object.
-            // We need to find the logic object ID that was at lastIndex.
-            // We can iterate the map, or we can maintain a reverse map.
-            // Since Map iteration is somewhat slow, let's just do it directly.
-            for (const [key, val] of this._instanceMap.entries()) {
-                if (val === lastIndex) {
-                    this._instanceMap.set(key, i);
-                    break;
-                }
-            }
+    removeInstance(logicObject: THREE.Object3D): void {
+        if (!logicObject) return;
+        const index = logicObject.userData?.batchIndex;
+        if (
+            !logicObject ||
+            typeof index !== 'number' ||
+            index < 0 ||
+            index >= this._count ||
+            this.logicGeysers[index] !== logicObject
+        ) {
+            return;
         }
 
-        this._instanceMap.delete(id);
+        const last = this._count - 1;
+        if (index !== last) {
+            const movedGeyser = this.logicGeysers[last];
+            this.logicGeysers[index] = movedGeyser;
+            if (movedGeyser) movedGeyser.userData.batchIndex = index;
 
-        this.baseMesh.count = this._count;
-        this.coreMesh.count = this._count;
-        this.plumeMesh.count = this._count;
+            const baseArray = this.baseMesh.instanceMatrix.array;
+            const coreArray = this.coreMesh.instanceMatrix.array;
+            const plumeArray = this.plumeMesh.instanceMatrix.array;
+            for (let j = 0; j < 16; j++) {
+                baseArray[index * 16 + j] = baseArray[last * 16 + j];
+                coreArray[index * 16 + j] = coreArray[last * 16 + j];
+                plumeArray[index * 16 + j] = plumeArray[last * 16 + j];
+            }
+
+            this._offsets[index] = this._offsets[last];
+            this._maxHeights[index] = this._maxHeights[last];
+        }
+
+        this.logicGeysers.length = last;
+        this._count = last;
+        this.baseMesh.count = last;
+        this.coreMesh.count = last;
+        this.plumeMesh.count = last;
+        logicObject.userData.batchIndex = undefined;
 
         this.baseMesh.instanceMatrix.needsUpdate = true;
         this.coreMesh.instanceMatrix.needsUpdate = true;
@@ -199,20 +199,23 @@ export class KickDrumGeyserBatcher {
         const plumeArray = this.plumeMesh.instanceMatrix.array;
 
         // ⚡ OPTIMIZATION: Hoisted wave radius + deferred sqrt; skip plume writes when scaleY is unchanged.
-        let hasWave = false;
         let elapsedSec = 0;
         let speed = 25;
         let waveRadiusSq = 0;
         let ox = 0, oy = 0, oz = 0;
 
         if (activeWave) {
-            hasWave = true;
-            speed = activeWave.speed || 25;
             elapsedSec = (performance.now() - activeWave.timestamp) / 1000;
-            const r = elapsedSec * speed;
-            waveRadiusSq = r * r;
-            const origin = activeWave.origin || new THREE.Vector3();
-            ox = origin.x; oy = origin.y; oz = origin.z;
+            if (elapsedSec > 0) {
+                speed = activeWave.speed || 25;
+                const r = elapsedSec * speed;
+                waveRadiusSq = r * r;
+                if (activeWave.origin) {
+                    ox = activeWave.origin.x;
+                    oy = activeWave.origin.y;
+                    oz = activeWave.origin.z;
+                }
+            }
         }
 
         // O(N) zero-allocation hot path
@@ -220,22 +223,26 @@ export class KickDrumGeyserBatcher {
             const baseIndex = i * 16;
             let localKick = globalKick;
 
-            if (hasWave) {
-                const dx = baseArray[baseIndex + 12] - ox;
-                const dy = baseArray[baseIndex + 13] - oy;
-                const dz = baseArray[baseIndex + 14] - oz;
-                const distSq = dx * dx + dy * dy + dz * dz;
-
-                if (waveRadiusSq <= 0 || distSq > waveRadiusSq) {
+            if (activeWave) {
+                if (elapsedSec <= 0) {
                     localKick = 0;
                 } else {
-                    const waveTime = elapsedSec - Math.sqrt(distSq) / speed;
-                    if (waveTime < 0) {
+                    const dx = baseArray[baseIndex + 12] - ox;
+                    const dy = baseArray[baseIndex + 13] - oy;
+                    const dz = baseArray[baseIndex + 14] - oz;
+                    const distSq = dx * dx + dy * dy + dz * dz;
+
+                    if (waveRadiusSq <= 0 || distSq > waveRadiusSq) {
                         localKick = 0;
-                    } else if (waveTime < 0.2) {
-                        localKick = 1.0;
                     } else {
-                        localKick = Math.max(0, Math.exp(-10.0 * (waveTime - 0.2)));
+                        const waveTime = elapsedSec - Math.sqrt(distSq) / speed;
+                        if (waveTime < 0) {
+                            localKick = 0;
+                        } else if (waveTime < 0.2) {
+                            localKick = 1.0;
+                        } else {
+                            localKick = Math.max(0, Math.exp(-10.0 * (waveTime - 0.2)));
+                        }
                     }
                 }
             }

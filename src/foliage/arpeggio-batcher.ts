@@ -433,6 +433,52 @@ export class ArpeggioFernBatcher {
 
         // Update count
         this.mesh!.count = this.count;
+        this.mesh!.count = this.count;
+    }
+    /** Swap-with-last removal — keeps logicFerns/SoA buffers dense so update()'s 0..count-1 loop stays valid. */
+    removeInstance(logicObject: any): void {
+        if (!this.initialized || !logicObject) return;
+        const index = logicObject.userData?.batchIndex;
+        if (
+            typeof index !== 'number' ||
+            index < 0 ||
+            index >= this.count ||
+            this.logicFerns[index] !== logicObject
+        ) {
+            return;
+        }
+
+        const last = this.count - 1;
+        if (index !== last) {
+            this._batchPositions[index * 3 + 0] = this._batchPositions[last * 3 + 0];
+            this._batchPositions[index * 3 + 1] = this._batchPositions[last * 3 + 1];
+            this._batchPositions[index * 3 + 2] = this._batchPositions[last * 3 + 2];
+
+            this._batchQuaternions[index * 4 + 0] = this._batchQuaternions[last * 4 + 0];
+            this._batchQuaternions[index * 4 + 1] = this._batchQuaternions[last * 4 + 1];
+            this._batchQuaternions[index * 4 + 2] = this._batchQuaternions[last * 4 + 2];
+            this._batchQuaternions[index * 4 + 3] = this._batchQuaternions[last * 4 + 3];
+
+            this._batchScales[index * 3 + 0] = this._batchScales[last * 3 + 0];
+            this._batchScales[index * 3 + 1] = this._batchScales[last * 3 + 1];
+            this._batchScales[index * 3 + 2] = this._batchScales[last * 3 + 2];
+
+            this._batchColors[index * 3 + 0] = this._batchColors[last * 3 + 0];
+            this._batchColors[index * 3 + 1] = this._batchColors[last * 3 + 1];
+            this._batchColors[index * 3 + 2] = this._batchColors[last * 3 + 2];
+
+            const movedFern = this.logicFerns[last];
+            this.logicFerns[index] = movedFern;
+            if (movedFern) movedFern.userData.batchIndex = index;
+        }
+
+        this.logicFerns.length = last;
+        this.count = last;
+        logicObject.userData.batchIndex = undefined;
+
+        this._matricesDirty = true;
+        this.flushMatrices();
+        this.mesh!.count = this.count;
     }
 
     updateInstance(index: number, dummy: any) {

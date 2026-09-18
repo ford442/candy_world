@@ -221,6 +221,11 @@ export function registerPhysicsCave(cave: THREE.Object3D) {
     foliageCaves.push(cave);
 }
 
+export function unregisterPhysicsCave(cave: THREE.Object3D) {
+    const index = foliageCaves.indexOf(cave);
+    if (index !== -1) foliageCaves.splice(index, 1);
+}
+
 /**
  * Triggers harpoon mechanics when player is swimming.
  * @param anchor - The target anchor point

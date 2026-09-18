@@ -2,7 +2,7 @@
 
 import { AudioSystem } from './audio-system.ts';
 
-export type BeatCallback = (state: any) => void;
+export type BeatCallback = (state: { beat: boolean, phase: number, sixteenth: boolean, measure?: boolean }) => void;
 
 export class BeatSync {
     audio: AudioSystem;
