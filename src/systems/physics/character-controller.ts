@@ -3,17 +3,11 @@
  *
  * Kinematic first-person character controller (#1577).
  *
- * `resolveCharacterMovement` is the single owner of the movement resolve on
- * every default-state frame — gravity, ground/air acceleration smoothing,
- * footprint-sampled ground contact, step-up, slope-limit sliding, coyote
- * time, and jump buffering — regardless of whether `updatePhysicsCPP`
- * (`emscripten/physics.cpp`) ran first. The native module is assist-only: it
- * seeds from this module's `player` state (via `setPlayerState`) and, when
- * present, only tests obstacle/trampoline colliders, returning a constrained
- * XZ displacement (and a bounce `vy` for trampolines) for `physics-core.ts`
- * to fold into the `targetVelocityXZ` passed in here. It no longer authors
- * ground Y-snap, gravity, acceleration smoothing, or jump — see
- * docs/CHARACTER_CONTROLLER.md for the full split.
+ * Owns the movement resolve for the JS-fallback physics path only
+ * (`updateJSFallbackMovement`, used in the Melody Lake basin and whenever
+ * the C++ path fails) — see the iteration-0 decision in .swarm-state.md for
+ * why the native `updatePhysicsCPP` path (emscripten/physics.cpp) is left
+ * untouched by this change.
  *
  * Deliberately takes ground-sampling functions as an injected `groundQuery`
  * parameter instead of statically importing ground-system.ts: that module

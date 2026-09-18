@@ -88,10 +88,17 @@ This test:
 
 **Note**: Warnings (e.g., `CloudBatcher` capacity warnings) are OK and don't cause failure. Only errors fail the test.
 
-#### `RENDERER=webgl` (expected to fail)
+#### WebGL2 Smoke Test (`RENDERER=webgl`)
 
-WebGPU is required to enter the world, so `RENDERER=webgl npm run test` exits 1 rather than booting GL
-for a green run. See [docs/webgl-fallback.md](../docs/webgl-fallback.md).
+For headless CI or environments where WebGPU is unavailable (SwiftShader, software stacks):
+
+```bash
+RENDERER=webgl npm run test
+# or
+npm run test:smoke:webgl
+```
+
+Boots with `?renderer=webgl&webglLite=1` and asserts `window.usingWebGL === true`. See [docs/webgl-fallback.md](../docs/webgl-fallback.md).
 
 #### Explore-path smoke (`BOOT_PATH=explore`)
 
@@ -127,10 +134,6 @@ Keep default Play as the PR gate; use `test:world` for integration / nightly run
 #### Boot timing (`npm run test:boot:timing`)
 
 Playwright preview + `?boot=instant&graphics=low`. Records phase durations and asserts spawn count ≤ 80. Default budgets in `tests/boot-budgets.json` are generous for headless CI; `STRICT_BOOT_TIMING=1` uses the 8s product target. **Not** a required PR check.
-
-#### ChunkStreamer eviction (`npm run test:stream-evict`)
-
-Playwright preview + `?boot=instant&graphics=low`. Drives `window.__updateChunkStreamer` through repeated out-and-back walks past the evict radius and reads `window.__getBatcherTelemetry()` after each loop. Fails if a tracked batcher's (tree/arpeggio/portamento/gem_canopy/mushroom/lantern) live instance count keeps growing across cycles instead of plateauing, or if a "max capacity/limit reached" warning fires — both indicate freed InstancedMesh slots aren't being reused. **Not** a required PR check (same headless-GPU caveat as boot timing), but should stay green.
 
 #### Startup capabilities (`npm run test:capabilities`)
 

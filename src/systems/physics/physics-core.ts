@@ -48,18 +48,14 @@ import {
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import {
-    reconcileGroundedEyeY,
-    isInLakeBasin,
-    getGroundHeight,
-    sampleGroundFootprint,
-} from '../ground-system.ts';
+import { reconcileGroundedEyeY, isInLakeBasin, getGroundHeight, sampleGroundFootprint } from '../ground-system.ts';
 
 const _characterGroundQuery = { sampleFootprint: sampleGroundFootprint, getGroundHeight };
 import { calculateMovementInput } from '../physics.core.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { handleAbilities } from './physics-abilities.ts';
 import { resolveCharacterMovement } from './character-controller.ts';
+
 
 import {
     updateSwimmingState,
@@ -225,14 +221,9 @@ export function registerPhysicsCave(cave: THREE.Object3D) {
     foliageCaves.push(cave);
 }
 
-/**
- * Inverse of registerPhysicsCave — drops a cave from collision/water-level
- * checks so ChunkStreamer can evict it without leaving a physics ghost.
- * @param cave - The cave mesh to unregister
- */
 export function unregisterPhysicsCave(cave: THREE.Object3D) {
-    const idx = foliageCaves.indexOf(cave);
-    if (idx !== -1) foliageCaves.splice(idx, 1);
+    const index = foliageCaves.indexOf(cave);
+    if (index !== -1) foliageCaves.splice(index, 1);
 }
 
 /**
@@ -531,27 +522,18 @@ function updateDefaultState(
 
     if (!inLakeBasin) {
         // Seed WASM state synchronously before running C++ update
-        setPlayerState(
-            player.position.x,
-            player.position.y,
-            player.position.z,
-            player.velocity.x,
-            player.velocity.y,
-            player.velocity.z
-        );
+        setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
 
         const preX = player.position.x;
         const preZ = player.position.z;
 
-        // 3. updatePhysicsCPP() as obstacle/trampoline solver only. The native
-        // module no longer consults jump/sprint/sneak/grooveGravity — they're
-        // passed for ABI compatibility only (see wasm-physics.ts).
+        // 3. updatePhysicsCPP(..., jump = false) as obstacle/trampoline solver only
         onGround = updatePhysicsCPP(
             delta,
             _targetVelocity.x,
             _targetVelocity.z,
             moveSpeed,
-            false,
+            false, // jump=false to prevent C++ from firing vy=10
             keyStates.sprint,
             keyStates.sneak,
             grooveGravity.multiplier

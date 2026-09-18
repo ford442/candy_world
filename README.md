@@ -5,6 +5,7 @@ A 3D world of rudimentary, but sharp graphically nature - featuring smooth, glos
 ## Features
 
 - **WebGPU rendering** - Modern GPU API for high-performance 3D graphics
+- **WebGL2 fallback** - Opt-in reference renderer for debugging, CI, and agent visual inspection (`?renderer=webgl`)
 - **Smooth, glossy graphics** - Rounded organic shapes with specular highlights
 - **Nature-themed candy world** - Trees, mushrooms with faces, and clouds
 - **Pastel color palette** - Soft greens, pinks, purples, and oranges inspired by candy aesthetics
@@ -59,8 +60,8 @@ See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md) and [docs/SUGAR_CAVES
     - Instant: `npm run dev:fast` → auto-enters spawn chunk
     - Full world QA: `?boot=explore` or `BOOT_PATH=explore npm run test:world`
 
-    WebGPU is required — there is no WebGL mode (`?renderer=webgl` is ignored).
-    See [docs/webgl-fallback.md](./docs/webgl-fallback.md).
+    For WebGL2 debugging or CI screenshots, use `http://localhost:5173/?renderer=webgl`.
+    See [docs/webgl-fallback.md](./docs/webgl-fallback.md) for full renderer toggle and porting notes.
 
     Graphics quality lives in **Settings** (save menu). It applies the next time you enter.
 
@@ -81,7 +82,8 @@ npm run preview
 ### Requirements
 
 - Node.js 16+ and npm
-- A modern browser with **WebGPU** (Chrome/Edge 113+, Firefox ≥141, Safari ≥26). WebGPU is **required**: without a usable adapter, boot stops at a diagnostics screen — there is no WebGL fallback
+- A modern browser with **WebGPU** (Chrome/Edge 113+, Firefox ≥141, Safari ≥26) or **WebGL2** for the fallback path
+- **`WebGPURenderer`** is default; use `?renderer=webgl` when WebGPU is unavailable or for visual debugging
 - **COOP/COEP**: dev/preview servers emit cross-origin isolation headers for `SharedArrayBuffer` / libopenmpt — check `window.crossOriginIsolated` if audio pthreads fail
 
 ## Controls
@@ -105,8 +107,8 @@ npm run preview
 
 ## Technical Details
 
-- Built with Three.js ^0.171 (`three/webgpu` + `three/tsl`) on a single WebGPU device ([docs/WEBGPU_CONTEXT.md](./docs/WEBGPU_CONTEXT.md))
-- WebGPU only; Three's automatic WebGL2 fallback is disabled on purpose
+- Built with Three.js ^0.171 (`three/webgpu` + `three/tsl`) and WebGPU-first rendering (opt-in WebGL2 fallback)
+- WebGPU in evergreen browsers; `WebGPURenderer` falls back to WebGL2 automatically when needed
 - Advanced materials:
     - MeshPhysicalMaterial with clearcoat for candy surfaces
     - MeshStandardMaterial for ground and other elements

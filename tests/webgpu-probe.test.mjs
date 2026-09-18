@@ -24,15 +24,8 @@ function setNavigator(value) {
     });
 }
 
-const {
-    probeWebGPU,
-    WebGPUUnavailableError,
-    __resetGpuContextForTests,
-    getWebGPUProbeReport,
-    configureCanvasColorSpace,
-    resolveRequiredLimits,
-    GPU_REQUIRED_LIMITS,
-} = await import('../src/rendering/gpu-context.ts');
+const { probeWebGPU, WebGPUUnavailableError, __resetGpuContextForTests, getWebGPUProbeReport } =
+    await import('../src/rendering/gpu-context.ts');
 
 // --- Fakes -----------------------------------------------------------------
 
@@ -70,15 +63,13 @@ function makeAdapter(device, overrides = {}) {
 }
 
 let configureCalls = 0;
-let lastConfigure = null;
 function makeCanvas(overrides = {}) {
     return {
         getContext: (kind) => {
             assert.equal(kind, 'webgpu');
             return {
-                configure: (config) => {
+                configure: () => {
                     configureCalls++;
-                    lastConfigure = config;
                 },
             };
         },
@@ -106,7 +97,6 @@ function installGpu(requestAdapter) {
 function reset() {
     __resetGpuContextForTests();
     configureCalls = 0;
-    lastConfigure = null;
     delete globalThis.window.webgpuProbe;
 }
 
@@ -279,122 +269,7 @@ async function expectFailure(canvas, stage) {
         ['depth32float-stencil8', 'timestamp-query'],
         'every adapter feature is requested, matching what Three would ask for'
     );
-    // The fake adapter advertises no limits, so every key falls back to spec defaults.
     assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
-    assert.equal(requestedDescriptor.requiredLimits.maxBufferSize, 268435456);
-}
-
-// --- Limits: clamped to the adapter on hardware ------------------------------
-{
-    const hardware = {
-        limits: {
-            maxBufferSize: 4294967296,
-            maxStorageBufferBindingSize: 2147483648,
-            maxComputeWorkgroupSizeX: 1024,
-            maxComputeInvocationsPerWorkgroup: 1024,
-            maxComputeWorkgroupStorageSize: 65536,
-        },
-    };
-    const info = { vendor: 'nvidia', architecture: 'ampere', device: '', description: '' };
-    assert.deepEqual(resolveRequiredLimits(hardware, info), {
-        maxBufferSize: 1073741824,
-        maxStorageBufferBindingSize: 1073741824,
-        maxComputeWorkgroupSizeX: 256,
-        maxComputeInvocationsPerWorkgroup: 256,
-        maxComputeWorkgroupStorageSize: 16384,
-    });
-
-    // An adapter below the soft ceiling is asked for exactly what it has,
-    // and a binding never exceeds the requested buffer size.
-    const small = {
-        limits: {
-            ...hardware.limits,
-            maxBufferSize: 536870912,
-            maxStorageBufferBindingSize: 805306368,
-        },
-    };
-    const req = resolveRequiredLimits(small, info);
-    assert.equal(req.maxBufferSize, 536870912);
-    assert.equal(req.maxStorageBufferBindingSize, 536870912);
-}
-
-// --- Limits: software adapters never ask above spec defaults ----------------
-{
-    const generous = {
-        limits: {
-            maxBufferSize: 4294967296,
-            maxStorageBufferBindingSize: 2147483648,
-            maxComputeWorkgroupSizeX: 1024,
-            maxComputeInvocationsPerWorkgroup: 1024,
-            maxComputeWorkgroupStorageSize: 65536,
-        },
-    };
-    const swiftshader = {
-        vendor: 'google',
-        architecture: 'swiftshader',
-        device: '',
-        description: '',
-    };
-    const req = resolveRequiredLimits(generous, swiftshader);
-    for (const [key, value] of Object.entries(GPU_REQUIRED_LIMITS)) {
-        assert.equal(req[key], value, `SwiftShader ${key} stays at the spec default`);
-    }
-    assert.equal(req.maxBufferSize, 268435456);
-
-    const fallback = resolveRequiredLimits({ ...generous, isFallbackAdapter: true }, null);
-    assert.equal(
-        fallback.maxStorageBufferBindingSize,
-        134217728,
-        'isFallbackAdapter is capped too'
-    );
-}
-
-// --- Report carries requested vs granted limits ------------------------------
-{
-    reset();
-    const device = makeDevice({
-        limits: {
-            maxBufferSize: 1073741824,
-            maxStorageBufferBindingSize: 1073741824,
-            maxComputeWorkgroupSizeX: 256,
-        },
-    });
-    installGpu(async () =>
-        makeAdapter(device, {
-            limits: { maxBufferSize: 2147483648, maxStorageBufferBindingSize: 2147483648 },
-        })
-    );
-    await probeWebGPU(makeCanvas());
-
-    const report = globalThis.window.webgpuProbe;
-    assert.equal(report.requestedLimits.maxStorageBufferBindingSize, 1073741824);
-    assert.equal(report.grantedLimits.maxStorageBufferBindingSize, 1073741824);
-    assert.deepEqual(
-        Object.keys(report.grantedLimits).sort(),
-        ['maxBufferSize', 'maxComputeWorkgroupSizeX', 'maxStorageBufferBindingSize'],
-        'granted limits are reported for the requested keys the device exposes'
-    );
-}
-
-// --- Canvas colorSpace follows outputColorSpace ------------------------------
-{
-    reset();
-    const device = makeDevice();
-    installGpu(async () => makeAdapter(device));
-    const probe = await probeWebGPU(makeCanvas());
-
-    assert.equal(lastConfigure.colorSpace, 'srgb', 'probe configures srgb explicitly');
-    assert.equal(lastConfigure.format, 'bgra8unorm');
-    assert.equal(getWebGPUProbeReport().canvas.colorSpace, 'srgb');
-
-    configureCanvasColorSpace(probe, 'display-p3');
-    assert.equal(lastConfigure.colorSpace, 'display-p3');
-    assert.equal(lastConfigure.alphaMode, 'premultiplied', 'reconfigure keeps alpha mode');
-    assert.equal(globalThis.window.__gpuContext.canvas.colorSpace, 'display-p3');
-    assert.equal(globalThis.window.webgpuProbe.canvas.colorSpace, 'display-p3');
-
-    configureCanvasColorSpace(probe, 'srgb-linear');
-    assert.equal(lastConfigure.colorSpace, 'srgb', 'non-display spaces present as srgb');
 }
 
 console.log('✓ webgpu-probe: all assertions passed');

@@ -18,7 +18,7 @@ import {
     GPU_ALPHA,
     GPU_ANTIALIAS,
     GPU_POWER_PREFERENCE,
-    configureCanvasColorSpace,
+    GPU_REQUIRED_LIMITS,
     type GpuProbeResult,
 } from '../rendering/gpu-context.ts';
 import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-probes.ts';
@@ -160,8 +160,7 @@ function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): W
         antialias: GPU_ANTIALIAS,
         alpha: GPU_ALPHA,
         powerPreference: GPU_POWER_PREFERENCE,
-        // Informational only: with `device` supplied Three requests nothing.
-        requiredLimits: probe.requestedLimits,
+        requiredLimits: GPU_REQUIRED_LIMITS,
         device: probe.device,
         context: probe.context,
     } as ConstructorParameters<typeof WebGPURenderer>[0]);
@@ -226,13 +225,11 @@ export async function createRenderer(
 }
 
 /**
- * Initialize the Three.js scene with renderer, lighting, fog, and visual effects.
+ * Initialize the Three.js scene with renderer (WebGPU with WebGL fallback), lighting, fog, and visual effects.
  *
  * Creates:
- * - `WebGPURenderer` on the probed WebGPU device. WebGPU is required: there is
- *   no WebGL fallback, and a failed probe throws {@link WebGPUUnavailableError}
- *   (see docs/WEBGPU_CONTEXT.md and docs/webgl-fallback.md)
- * - Scene with TSL-driven fog node plus a standard `THREE.Fog` for distances
+ * - WebGPU renderer with automatic WebGL fallback if unavailable
+ * - Scene with TSL-driven fog node (WebGPU) and legacy fallback fog (all)
  * - Perspective camera positioned at (0, 5, 0)
  * - Hemisphere ambient light + directional sunlight with shadows
  * - Sun glow, corona, and volumetric light shafts
@@ -312,16 +309,6 @@ export async function initScene(): Promise<SceneInitResult> {
             }
             webgpuRenderer.outputColorSpace = 'srgb';
             webgpuRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-        }
-
-        // `renderer.init()` (inside armGpuContext) reconfigured the canvas
-        // without a colorSpace; tag the swap chain to match outputColorSpace.
-        try {
-            configureCanvasColorSpace(probe, webgpuRenderer.outputColorSpace);
-        } catch (e) {
-            console.warn('[Init] Canvas rejected display-p3, presenting as srgb.', e);
-            webgpuRenderer.outputColorSpace = 'srgb';
-            configureCanvasColorSpace(probe, 'srgb');
         }
     }
 

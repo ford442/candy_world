@@ -10,17 +10,15 @@ import * as THREE from 'three';
 import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
-import { gemFruitBatcher } from '../foliage/gem-fruit-batcher.ts';
 import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
-import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { populatePhysicsGrids, unregisterPhysicsCave } from '../systems/physics/index.ts';
-import type { BatcherInstanceRef } from '../systems/awakened-types.ts';
 import {
     CellState,
     RegionManager,
@@ -87,11 +85,8 @@ interface ChunkRecord {
  * that isn't matched by one of the specific type checks above falls back to
  * 'never' rather than being torn down without a removeInstance path (which
  * would desync an InstancedMesh's index bookkeeping). Every currently-known
- * batched species — mushroom, lantern, glass mushroom, flower/simple flower,
- * tree species (incl. gem_canopy_tree/bubbleWillow), arpeggio fern, and
- * portamento pine — is matched explicitly above and never reaches this
- * fallback; it only guards a future batched species that hasn't been wired
- * into classifyForEviction yet.
+ * batched species with an eviction path is matched explicitly before this
+ * fallback; it only guards a future batched species that hasn't been wired in yet.
  */
 function isKnownBatchedType(obj: THREE.Object3D): boolean {
     return !!obj.userData?.isBatched;
@@ -108,19 +103,14 @@ type EvictionClass =
     | 'arpeggioFern'
     | 'portamentoPine'
     | 'cave'
-    | 'geyser'
+    | 'kickDrumGeyser'
     | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     const t = obj.userData?.type;
-    // musical_flora.ts's portamento pine factory intentionally sets
-    // type='tree' (animationType='batchedPortamento' is the real
-    // discriminator) so it inherits tree placement/collision handling, but
-    // it registers its instance with PortamentoPineBatcher, not TreeBatcher —
-    // this check must run before the generic 'tree' bucket below or eviction
-    // would call the wrong batcher's removeInstance and leak a ghost instance.
-    if (t === 'tree' && obj.userData?.animationType === 'batchedPortamento')
+    if (t === 'tree' && obj.userData?.animationType === 'batchedPortamento') {
         return 'portamentoPine';
+    }
     if (
         t === 'tree' ||
         t === 'shrub' ||
@@ -134,21 +124,17 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
         t === 'helix' ||
         t === 'accordionPalm' ||
         t === 'gem_canopy_tree'
-    )
+    ) {
         return 'tree';
+    }
     if (t === 'mushroom') return 'mushroom';
     if (t === 'lanternFlower') return 'lantern';
     if (t === 'glass_mushroom') return 'glassMushroom';
     if (t === 'flower') return 'flower';
-    if (t === 'simple_flower' || obj.userData?.isFlower) return 'simpleFlower';
-    // createArpeggioFern (musical_flora.ts) sets type='fern', not
-    // 'arpeggio_fern' — that string only exists as the foliage-registry key.
-    if (t === 'fern') return 'arpeggioFern';
-    // Caves now have inverses for both registrations they make on placement
-    // (registerPhysicsCave / weatherSystem.registerCave), so they no longer
-    // need to stay permanent — see evictObject's 'cave' branch.
+    if (t === 'simple_flower' || (obj.userData?.isFlower && t !== 'flower')) return 'simpleFlower';
+    if (t === 'fern' || t === 'arpeggio_fern') return 'arpeggioFern';
     if (t === 'cave') return 'cave';
-    if (t === 'kick_drum_geyser') return 'geyser';
+    if (t === 'kick_drum_geyser') return 'kickDrumGeyser';
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -545,6 +531,8 @@ export class ChunkStreamer {
                 lanternBatcher.removeInstance(obj);
             } else if (evictionClass === 'glassMushroom') {
                 glassMushroomBatcher.removeInstance(obj);
+            } else if (evictionClass === 'kickDrumGeyser') {
+                kickDrumGeyserBatcher.removeInstance(obj);
             } else if (evictionClass === 'simpleFlower') {
                 simpleFlowerBatcher.removeInstance(obj);
             } else if (evictionClass === 'flower') {
@@ -558,17 +546,7 @@ export class ChunkStreamer {
             } else if (evictionClass === 'cave') {
                 unregisterPhysicsCave(obj);
                 this.weatherSystem?.unregisterCave?.(obj);
-            } else if (evictionClass === 'geyser') {
-                kickDrumGeyserBatcher.removeInstance(obj);
             }
-            // Trees/pines that grew hanging gem fruit (gem_canopy_tree, and
-            // any bubbleWillow/portamento_pine with attachGemFruits) own a
-            // batch of separate GemFruitBatcher instances tracked in
-            // userData.gemRefs — free those too so they don't outlive the
-            // tree that anchored them.
-            const gemRefs = (obj.userData as Record<string, unknown>).gemRefs as
-                BatcherInstanceRef[] | undefined;
-            if (gemRefs) gemFruitBatcher.removeInstances(gemRefs);
             // Free the entity id so walking back into range re-spawns it.
             // Discovery registration is intentionally left in place — the
             // discovery grid (WASM/AS) has no unregister API (see .swarm-state.md).

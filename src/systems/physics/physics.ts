@@ -11,6 +11,5 @@ export { player, PlayerState } from './physics-core.ts';
 export {
     grantInvisibility,
     registerPhysicsCave,
-    unregisterPhysicsCave,
-    triggerHarpoon,
+    triggerHarpoon
 } from './physics-core.ts';

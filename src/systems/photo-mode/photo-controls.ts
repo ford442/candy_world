@@ -328,7 +328,7 @@ export class PhotoControlsOverlay {
         if (!this.root) return;
         this.root.classList.add('visible');
         this.releaseFocus?.();
-        this.releaseFocus = trapFocusInside(this.root, { skipAutoFocus: true });
+        this.releaseFocus = trapFocusInside(this.root);
         const first = this.root.querySelector('button, input') as HTMLElement | null;
         first?.focus();
     }

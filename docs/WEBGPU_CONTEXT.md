@@ -71,40 +71,26 @@ and leave the device to the renderer.
 
 Set explicitly in `src/core/init.ts`, with the values defined in `gpu-context.ts`:
 
-| Option             | Value                                     | Rationale                                                                                                                                                                                                                                                        |
-| ------------------ | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `powerPreference`  | `'high-performance'`                      | The compute devices already asked for it; the main renderer did not. On a hybrid laptop that could put the renderer on the iGPU and compute on the dGPU — two heaps and cross-adapter copies. One device, one preference.                                        |
-| `antialias`        | `true`                                    | Unchanged from before. The post chain has no full-screen AA resolve of its own, so swap-chain MSAA is still the only geometric AA. Swapping to post-AA is a visual change and out of scope.                                                                      |
-| `alpha`            | `true` → `alphaMode: 'premultiplied'`     | Three's default, pinned explicitly. HUD, loading screen, badges, and the accessibility menu are DOM layers composited over the canvas and depend on premultiplied blending.                                                                                      |
-| `requiredLimits`   | see below                                 | Adapter-aware: `min(adapter, desired)`, spec defaults on software adapters.                                                                                                                                                                                      |
-| `outputColorSpace` | `'display-p3'` / `'srgb'` string literals | Chosen in `init.ts` (P3 only when `(dynamic-range: high)` matches). The canvas `colorSpace` is set to match — see [Swap chain vs HDR render targets](#swap-chain-vs-hdr-render-targets). The Three enum regression is tracked separately — do not "fix" it here. |
+| Option             | Value                                     | Rationale                                                                                                                                                                                                                 |
+| ------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `powerPreference`  | `'high-performance'`                      | The compute devices already asked for it; the main renderer did not. On a hybrid laptop that could put the renderer on the iGPU and compute on the dGPU — two heaps and cross-adapter copies. One device, one preference. |
+| `antialias`        | `true`                                    | Unchanged from before. The post chain has no full-screen AA resolve of its own, so swap-chain MSAA is still the only geometric AA. Swapping to post-AA is a visual change and out of scope.                               |
+| `alpha`            | `true` → `alphaMode: 'premultiplied'`     | Three's default, pinned explicitly. HUD, loading screen, badges, and the accessibility menu are DOM layers composited over the canvas and depend on premultiplied blending.                                               |
+| `requiredLimits`   | see below                                 | Aligns the renderer's device with the compute tier's ceilings.                                                                                                                                                            |
+| `outputColorSpace` | `'display-p3'` / `'srgb'` string literals | Untouched. The Three enum regression is tracked separately — do not "fix" it here.                                                                                                                                        |
 
 ### Limits matrix
 
-A `requiredLimits` entry is a **guarantee**; anything the UA grants above it is luck. So the probe
-does not just hope for more — `resolveRequiredLimits(adapter, adapterInfo)` asks for
+Every requested value is exactly a **WebGPU spec default**, so `requestDevice` can never be rejected
+for asking too much — including on SwiftShader in CI. They are requested explicitly because compute
+shaders bind against these ceilings.
 
-```
-requested[k] = min(adapter.limits[k], ceiling[k])
-ceiling      = GPU_DESIRED_LIMITS      on hardware adapters
-             = spec default            on software adapters (isFallbackAdapter, SwiftShader, llvmpipe, lavapipe, WARP)
-```
-
-Clamping to what the adapter advertises means `requestDevice` still cannot be rejected for asking too
-much, and the software cap means CI requests exactly what it requested before this change.
-`maxStorageBufferBindingSize` is additionally clamped to the requested `maxBufferSize`.
-
-| Limit                               | Floor (`GPU_REQUIRED_LIMITS`, spec default) | Hardware ceiling (`GPU_DESIRED_LIMITS`) | Requested on SwiftShader CI | Why                                                                                                                            |
-| ----------------------------------- | ------------------------------------------- | --------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `maxBufferSize`                     | 268 435 456 (256 MiB)                       | 1 073 741 824 (1 GiB)                   | 268 435 456                 | A storage binding can never be larger than the buffer behind it                                                                |
-| `maxStorageBufferBindingSize`       | 134 217 728 (128 MiB)                       | 1 073 741 824 (1 GiB)                   | 134 217 728                 | The floor is what `gpu-compute-library.ts` / `compute-particles.ts` used to request, so no binding that used to fit can shrink |
-| `maxComputeWorkgroupSizeX`          | 256                                         | 256                                     | 256                         | Workgroup size declared by the particle and culling WGSL kernels; a larger grant buys nothing                                  |
-| `maxComputeInvocationsPerWorkgroup` | 256                                         | 256                                     | 256                         | Same kernels, single-dimension dispatch                                                                                        |
-| `maxComputeWorkgroupStorageSize`    | 16 384 (16 KiB)                             | 16 384                                  | 16 384                      | Headroom for tiled kernels                                                                                                     |
-
-The UA may still grant more than requested. Both are published — `window.webgpuProbe.requestedLimits`
-vs `window.webgpuProbe.grantedLimits` (same keys), and `window.__gpuContext.requestedLimits` next to
-the full `limits` snapshot. The boot log prints `granted (requested)` per key.
+| Limit                               | Requested             | Why                                                                                                                                                                                              | Granted (SwiftShader CI) |
+| ----------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| `maxStorageBufferBindingSize`       | 134 217 728 (128 MiB) | Identical to what `gpu-compute-library.ts` and `compute-particles.ts` used to request from their own devices, so moving them onto the renderer's device cannot shrink a binding that used to fit | 134 217 728              |
+| `maxComputeWorkgroupSizeX`          | 256                   | Workgroup size declared by the particle and culling WGSL kernels                                                                                                                                 | 256                      |
+| `maxComputeInvocationsPerWorkgroup` | 256                   | Same kernels, single-dimension dispatch                                                                                                                                                          | 256                      |
+| `maxComputeWorkgroupStorageSize`    | 16 384 (16 KiB)       | Headroom for tiled kernels                                                                                                                                                                       | 16 384                   |
 
 Adapters usually grant more. Read what was actually granted rather than assuming the request:
 
@@ -117,37 +103,6 @@ const cap = clampStorageBufferSize(desiredBytes);
 
 `webgpu-limits.ts` sources its `getWebGPULimits()` from the shared context and only caches once a
 real device has been seen, so an early caller cannot pin the defaults for the whole session.
-
-## Swap chain vs HDR render targets
-
-Two formats are in play, and they are not the same thing:
-
-| Surface                                 | Format                                                                                                 | Color space                                                        |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| Canvas swap chain (`context.configure`) | `navigator.gpu.getPreferredCanvasFormat()` — usually `bgra8unorm` (Three forces `bgra8unorm` on Quest) | `colorSpace` = renderer `outputColorSpace` (`srgb` / `display-p3`) |
-| Scene + post chain render targets       | `rgba16float` (HalfFloat)                                                                              | Linear working space                                               |
-
-Lighting, fog, bloom, and the rest of the post chain run on `rgba16float` targets, so values above
-1.0 survive until the final output pass. That pass tone-maps (ACES on SDR, linear on HDR displays)
-and encodes to `outputColorSpace`, writing into the 8-bit swap chain. The swap chain's `colorSpace`
-tells the compositor how to interpret those bytes; if it disagreed with `outputColorSpace`, P3 output
-would be shown as sRGB (desaturated) or vice versa.
-
-Order matters:
-
-1. `probeWebGPU()` configures the canvas with an explicit `colorSpace: 'srgb'`.
-2. `renderer.init()` (inside `armGpuContext`) — Three 0.171's `WebGPUBackend.init()` calls
-   `context.configure()` **again, without `colorSpace`**, resetting it to the `srgb` default.
-3. `init.ts` picks `outputColorSpace`, then calls `configureCanvasColorSpace(probe, outputColorSpace)`,
-   which re-applies format / usage / alphaMode with the matching `colorSpace`. If the canvas rejects
-   `display-p3`, init falls back to `srgb` for both.
-
-The applied config is published as `canvas: { format, colorSpace, alphaMode }` on both
-`window.__gpuContext` and `window.webgpuProbe`.
-
-The swap chain is **not** configured with `toneMapping: { mode: 'extended' }`, so it is clamped to
-SDR range even on HDR displays; the `rgba16float` internals are for precision through the post chain,
-not for HDR presentation. Extended-range output is out of scope here.
 
 ## Device-lost policy
 
@@ -179,8 +134,7 @@ maxComputeInvocationsPerWorkgroup=256 maxComputeWorkgroupStorageSize=16384
 ```
 
 `window.__gpuContext` carries `backend`, `available`, `lost`, `lostReason`, `reason`,
-`powerPreference`, `requiredLimits` (floors), `requestedLimits`, `canvas`, `adapter`, `adapterName`,
-`limits` (granted), `alpha`, and `antialias`.
+`powerPreference`, `requiredLimits`, `adapter`, `adapterName`, `limits`, `alpha`, and `antialias`.
 It is published from module load, so it is always readable — before arming it reports
 `available: false`. The smoke test asserts its shape on the WebGPU path.
 
@@ -190,13 +144,13 @@ It is published from module load, so it is always readable — before arming it 
 `requestAdapter` / `requestDevice` in the app. It walks the whole path the world needs, in order,
 and names the step that broke:
 
-| Stage       | What it proves                                                                                 |
-| ----------- | ---------------------------------------------------------------------------------------------- |
-| `navigator` | `navigator.gpu` exists at all                                                                  |
-| `adapter`   | `requestAdapter()` yields an adapter — **this is where Chrome and Edge diverge**               |
-| `device`    | `requestDevice()` grants the device, with every adapter feature and the adapter-clamped limits |
-| `configure` | the real world canvas configures as a swap chain                                               |
-| `pipeline`  | an empty `@compute` kernel compiles — culling, particles and gpu-chores all need this          |
+| Stage       | What it proves                                                                           |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| `navigator` | `navigator.gpu` exists at all                                                            |
+| `adapter`   | `requestAdapter()` yields an adapter — **this is where Chrome and Edge diverge**         |
+| `device`    | `requestDevice()` grants the device, with every adapter feature and our `requiredLimits` |
+| `configure` | the real world canvas configures as a swap chain                                         |
+| `pipeline`  | an empty `@compute` kernel compiles — culling, particles and gpu-chores all need this    |
 
 Any failure throws `WebGPUUnavailableError` (carrying `.stage`), which `runScenePipeline` turns into
 the blocking screen in [`src/ui/webgpu-fatal.ts`](../src/ui/webgpu-fatal.ts): advice for the stage,
@@ -227,11 +181,7 @@ the Chrome-vs-Edge adapter failure. `init.ts` now clears `renderer._getFallback`
   "adapter": null,
   "adapterName": "unknown",
   "isFallbackAdapter": false,
-  "limits": null,               // full granted snapshot, once a device exists
-  "requiredLimits": { ... },    // spec-default floors
-  "requestedLimits": null,      // what requestDevice was asked for (null: adapter never answered)
-  "grantedLimits": null,        // device.limits for exactly the requested keys
-  "canvas": null                // { format, colorSpace, alphaMode } once configured
+  "limits": null
 }
 ```
 
@@ -244,24 +194,20 @@ Unit coverage: [`tests/webgpu-probe.test.mjs`](../tests/webgpu-probe.test.mjs)
 (`npm run test:webgpu-probe`) drives every stage against fakes and asserts one `requestAdapter` per
 page.
 
-## WebGL: not available
+## WebGL: deferred
 
-WebGPU is the only backend. There is no WebGL fallback and no debug-only WebGL renderer; this is the
-single story README, `AGENTS.md`, `src/core/init.ts`, and [`webgl-fallback.md`](./webgl-fallback.md)
-all tell.
+The WebGL path is **disabled this phase**, not deleted — restoring it is a later issue wave.
 
 | Input                                   | Status                                                                  |
 | --------------------------------------- | ----------------------------------------------------------------------- |
 | `?renderer=webgl` / `webgl2` / `?webgl` | Warn, then ignored — `resolveRendererBackend()` always returns `webgpu` |
-| `?webglLite=1`                          | No WebGL boot. `?lite` only trims world density                         |
-| `?wireframe` / `?matDebug`              | Inert — `initWebGLDebug()` returns early off WebGL                      |
+| `?webglLite=1`                          | No longer implies a WebGL boot. `?lite` still only trims world density  |
 | `localStorage candy.renderer`           | Ignored; `switchRendererPreference('webgl')` refuses out loud           |
 | `RENDERER=webgl npm run test`           | The smoke runner exits 1 rather than booting GL to make CI green        |
 
 None of these can rescue boot. A green run on a backend the app will not ship is worse than no run
 at all, so CI is expected-fail here rather than silently passing on GL.
 
-`src/rendering/webgl-debug.ts` and the `mode === 'webgl'` branches downstream are unreachable but
-still imported; removing them is a cleanup, not a behaviour change. The old opt-in WebGL2 design is
-archived at [`docs/archive/webgl-fallback.md`](./archive/webgl-fallback.md) for a possible future
-restore — it does not describe current behaviour.
+`src/rendering/webgl-debug.ts` and the `mode === 'webgl'` branches downstream are dead but kept, so
+the restore wave flips `resolveRendererBackend()` and the probe's fatality in one place instead of
+re-deriving them.

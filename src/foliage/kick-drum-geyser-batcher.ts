@@ -1,11 +1,9 @@
 import * as THREE from 'three';
 import {
-    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform, normalLocal, add
+    color, float, vec3, vec4, sin, cos, positionLocal, normalLocal, add
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { BiomeId } from '../systems/biome-uniforms.ts';
 import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
-import { computeWaveDistSq, computeWaveTimeSinceArrival } from '../systems/music-wave.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -28,10 +26,11 @@ export class KickDrumGeyserBatcher {
     private _scratchVec3 = new THREE.Vector3();
     private _scratchPos = new THREE.Vector3();
 
+
     // Data arrays for animation
     private _offsets: Float32Array;
     private _maxHeights: Float32Array;
-    private logicGeysers: any[] = [];
+    private logicGeysers: THREE.Object3D[] = [];
 
     group = new THREE.Group();
 
@@ -136,11 +135,15 @@ export class KickDrumGeyserBatcher {
 
         this._offsets[i] = Math.random() * 10.0;
         this._maxHeights[i] = options.maxHeight ?? 5.0;
-
         proxy.userData.batchIndex = i;
         proxy.userData.isBatched = true;
+        proxy.userData.type = 'kick_drum_geyser';
         this.logicGeysers[i] = proxy;
     }
+
+    /**
+     * Update loop to animate plumes based on kick drum audio
+     */
 
     removeInstance(logicObject: THREE.Object3D): void {
         if (!logicObject) return;
@@ -156,12 +159,10 @@ export class KickDrumGeyserBatcher {
 
         const last = this._count - 1;
         if (index !== last) {
-            // Swap with last logic object
             const movedGeyser = this.logicGeysers[last];
             this.logicGeysers[index] = movedGeyser;
             if (movedGeyser) movedGeyser.userData.batchIndex = index;
 
-            // Swap matrices
             const baseArray = this.baseMesh.instanceMatrix.array;
             const coreArray = this.coreMesh.instanceMatrix.array;
             const plumeArray = this.plumeMesh.instanceMatrix.array;
@@ -171,7 +172,6 @@ export class KickDrumGeyserBatcher {
                 plumeArray[index * 16 + j] = plumeArray[last * 16 + j];
             }
 
-            // Swap data arrays
             this._offsets[index] = this._offsets[last];
             this._maxHeights[index] = this._maxHeights[last];
         }
@@ -188,10 +188,7 @@ export class KickDrumGeyserBatcher {
         this.plumeMesh.instanceMatrix.needsUpdate = true;
     }
 
-    /**
-     * Update loop to animate plumes based on kick drum audio
-     */
-    update(time: number, deltaTime: number, audioState: any, activeWave: any) {
+    update(_time: number, _deltaTime: number, audioState: any, activeWave: any) {
         if (this._count === 0) return;
 
         // Eruption logic is driven by the 'kick' channel (typically uAudioLow in similar batchers or audioState.kick)
@@ -200,58 +197,49 @@ export class KickDrumGeyserBatcher {
         const baseArray = this.baseMesh.instanceMatrix.array;
         const plumeArray = this.plumeMesh.instanceMatrix.array;
 
-        // ⚡ OPTIMIZATION: Hoisted wave math parameters to avoid per-instance performance.now() overhead
-        let now = 0;
+        // ⚡ OPTIMIZATION: Hoisted wave radius + deferred sqrt; skip plume writes when scaleY is unchanged.
         let elapsedSec = 0;
+        let speed = 25;
         let waveRadiusSq = 0;
-        let waveSpeed = 25.0;
-        let waveOriginX = 0, waveOriginY = 0, waveOriginZ = 0;
+        let ox = 0, oy = 0, oz = 0;
 
         if (activeWave) {
-            now = performance.now();
-            elapsedSec = (now - activeWave.timestamp) / 1000;
-            waveSpeed = activeWave.speed || 25.0;
-            waveRadiusSq = (elapsedSec * waveSpeed) ** 2;
-            if (activeWave.origin) {
-                waveOriginX = activeWave.origin.x;
-                waveOriginY = activeWave.origin.y;
-                waveOriginZ = activeWave.origin.z;
+            elapsedSec = (performance.now() - activeWave.timestamp) / 1000;
+            if (elapsedSec > 0) {
+                speed = activeWave.speed || 25;
+                const r = elapsedSec * speed;
+                waveRadiusSq = r * r;
+                if (activeWave.origin) {
+                    ox = activeWave.origin.x;
+                    oy = activeWave.origin.y;
+                    oz = activeWave.origin.z;
+                }
             }
         }
 
         // O(N) zero-allocation hot path
         for (let i = 0; i < this._count; i++) {
-            // Get position directly from array for wave calculation
-            const x = baseArray[i * 16 + 12];
-            const y = baseArray[i * 16 + 13];
-            const z = baseArray[i * 16 + 14];
-
+            const baseIndex = i * 16;
             let localKick = globalKick;
 
             if (activeWave) {
                 if (elapsedSec <= 0) {
                     localKick = 0;
                 } else {
-                    const dx = x - waveOriginX;
-                    const dy = y - waveOriginY;
-                    const dz = z - waveOriginZ;
+                    const dx = baseArray[baseIndex + 12] - ox;
+                    const dy = baseArray[baseIndex + 13] - oy;
+                    const dz = baseArray[baseIndex + 14] - oz;
                     const distSq = dx * dx + dy * dy + dz * dz;
 
-                    if (distSq > waveRadiusSq) {
-                        localKick = 0; // Wave hasn't reached yet
+                    if (waveRadiusSq <= 0 || distSq > waveRadiusSq) {
+                        localKick = 0;
                     } else {
-                        // ⚡ OPTIMIZATION: Deferred Math.sqrt() only for geysers inside the wave front
-                        const distance = Math.sqrt(distSq);
-                        const arrivalTime = activeWave.timestamp + (distance / waveSpeed) * 1000;
-                        const waveTime = (now - arrivalTime) / 1000;
-
+                        const waveTime = elapsedSec - Math.sqrt(distSq) / speed;
                         if (waveTime < 0) {
                             localKick = 0;
                         } else if (waveTime < 0.2) {
-                            // Sharp spike when wave hits
                             localKick = 1.0;
                         } else {
-                            // Exponential decay
                             localKick = Math.max(0, Math.exp(-10.0 * (waveTime - 0.2)));
                         }
                     }
@@ -265,7 +253,9 @@ export class KickDrumGeyserBatcher {
             // Keep base transform, but scale Y axis
             // ⚡ OPTIMIZATION: Bypassed Matrix4 composition overhead by directly modifying the Y-axis basis vector in the Float32Array
             const scaleY = targetHeight + 0.01; // 0.01 to prevent singular matrix warning
-            const baseIndex = i * 16;
+
+            // dirty check
+            if (Math.abs(plumeArray[baseIndex + 5] - (baseArray[baseIndex + 5] * scaleY)) < 1e-6) continue;
 
             plumeArray[baseIndex + 0] = baseArray[baseIndex + 0];
             plumeArray[baseIndex + 1] = baseArray[baseIndex + 1];

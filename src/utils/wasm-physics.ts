@@ -425,26 +425,16 @@ export function checkCollision(playerX: number, playerZ: number, playerRadius: n
 // =============================================================================
 
 /**
- * Native-assist-only obstacle/trampoline solver (see docs/CHARACTER_CONTROLLER.md).
- *
- * `resolveCharacterMovement` (character-controller.ts) is the sole authority
- * for gravity, ground/air acceleration, ground Y-snap, coyote time, jump
- * buffering, and jump. This call only tests obstacle/trampoline colliders
- * against the caller-seeded player state (via `setPlayerState`, which must be
- * called first) and reports back a constrained XZ position — read via
- * `getPlayerState()` and diffed against the pre-call position to recover an
- * effective velocity — plus a bounce `vy` when the return value is `2`.
- *
+ * Update physics using C++
  * @param delta - Delta time
- * @param inputX - Camera-relative, already speed-scaled target velocity X
- * @param inputZ - Camera-relative, already speed-scaled target velocity Z
- * @param speed - Unused by the native module; accepted for ABI compatibility
- * @param jump - Unused by the native module; accepted for ABI compatibility
- * @param sprint - Unused by the native module; accepted for ABI compatibility
- * @param sneak - Unused by the native module; accepted for ABI compatibility
- * @param grooveGravity - Unused by the native module; accepted for ABI compatibility
- * @returns -1 if native unavailable, 0 if no obstacle contact, 1 on
- *   obstacle/platform contact, 2 on a trampoline bounce (vy is authoritative)
+ * @param inputX - Input X
+ * @param inputZ - Input Z
+ * @param speed - Speed
+ * @param jump - Jump flag
+ * @param sprint - Sprint flag
+ * @param sneak - Sneak flag
+ * @param grooveGravity - Groove gravity
+ * @returns Physics result code
  */
 export function updatePhysicsCPP(delta: number, inputX: number, inputZ: number, speed: number, jump: boolean, sprint: boolean, sneak: boolean, grooveGravity: number): number {
     const f = getNativeFunc('updatePhysicsCPP');
