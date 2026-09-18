@@ -42,7 +42,7 @@ export const calculatePlayerPush = Fn<[TSLArg]>(([currentPos]) => {
     return vec3(pushDir.x.mul(bendAmount), float(0.0), pushDir.z.mul(bendAmount));
 });
 
-export const applyPlayerInteraction = (basePosNode: any) => {
+const applyPlayerInteraction = (basePosNode: any) => {
     return basePosNode.add(calculatePlayerPush(basePosNode));
 };
 

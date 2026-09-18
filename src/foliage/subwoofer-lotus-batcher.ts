@@ -23,8 +23,6 @@ import {
     uTime,
     getCachedProceduralMaterial,
     createJuicyRimLight,
-    calculateWindSway,
-      applyPlayerInteraction,
     applyStandardDeformation
 
 } from './index.ts';

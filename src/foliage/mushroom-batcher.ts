@@ -33,12 +33,9 @@ import {
     applyBaseContactAO, getBaseContactHeight,
 } from './index.ts';
 import {
-    applyPlayerInteractionWithLod,
-    calculateWindSwayWithLod,
     scaleEmissiveByLod,
     applyStandardDeformationWithLod,
-    applyFoliageLodMaterialFade,
-} from './lod-nodes.ts';
+    applyFoliageLodMaterialFade} from './lod-nodes.ts';
 import { uTwilight } from './sky.ts';
 
 const MAX_MUSHROOMS = getCIAdjustedCount(1000, 0.1, 50); // Reduced from 4000 for WebGPU uniform buffer limits

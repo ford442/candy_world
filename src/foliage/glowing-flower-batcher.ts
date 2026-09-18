@@ -12,7 +12,7 @@ import { foliageGroup } from '../world/state.ts';
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, uWindSpeed, uWindDirection,
-    createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation,
+    createJuicyRimLight, applyStandardDeformation,
     createStandardNodeMaterial
 } from './index.ts';
 import { uTwilight } from './sky.ts';
