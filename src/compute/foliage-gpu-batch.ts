@@ -76,6 +76,12 @@ interface BatchGpuState {
     uniformBuffer: GPUBuffer | null;
     pipeline: GPUComputePipeline | null;
     bindGroup: GPUBindGroup | null;
+    readbackStagings: [GPUBuffer, GPUBuffer] | null;
+    readbackIndex: number;
+    readbackPending: [boolean, boolean];
+    readbackCounts: [number, number];
+    readbackPromises: [Promise<void> | null, Promise<void> | null];
+    poseStaging: Float32Array | null;
 }
 
 let _batch: BatchGpuState | null = null;
@@ -98,6 +104,10 @@ async function ensureBatchGpu(maxCount: number): Promise<boolean> {
         _batch?.yBuffer?.destroy();
         _batch?.outBuffer?.destroy();
         _batch?.uniformBuffer?.destroy();
+        if (_batch?.readbackStagings) {
+            _batch.readbackStagings[0].destroy();
+            _batch.readbackStagings[1].destroy();
+        }
 
         const offsetBuffer = device.createBuffer({
             size: fBytes,
@@ -120,7 +130,16 @@ async function ensureBatchGpu(maxCount: number): Promise<boolean> {
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
-        trackGpuBufferBytes(fBytes * 4 + 16);
+        const staging0 = device.createBuffer({
+            size: fBytes,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+        const staging1 = device.createBuffer({
+            size: fBytes,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+
+        trackGpuBufferBytes(fBytes * 6 + 16);
 
         const layout = device.createBindGroupLayout({
             entries: [
@@ -172,6 +191,12 @@ async function ensureBatchGpu(maxCount: number): Promise<boolean> {
             uniformBuffer,
             pipeline,
             bindGroup,
+            readbackStagings: [staging0, staging1],
+            readbackIndex: 0,
+            readbackPending: [false, false],
+            readbackCounts: [0, 0],
+            readbackPromises: [null, null],
+            poseStaging: new Float32Array(cap),
         };
         return true;
     })();
@@ -217,11 +242,41 @@ export async function runFoliageGpuScalarBatch(
     pass.setBindGroup(0, _batch.bindGroup!);
     pass.dispatchWorkgroups(Math.ceil(count / 64));
     pass.end();
+
+    const readBytes = count * 4;
+    const curIndex = _batch.readbackIndex;
+    const prevIndex = (curIndex + 1) % 2;
+    const curStaging = _batch.readbackStagings![curIndex];
+    const prevStaging = _batch.readbackStagings![prevIndex];
+    const prevPending = _batch.readbackPending[prevIndex];
+
+    encoder.copyBufferToBuffer(_batch.outBuffer!, 0, curStaging, 0, readBytes);
     device.queue.submit([encoder.finish()]);
 
-    const out = await gpu.readBuffer(_batch.outBuffer!, count * 4);
-    setLastFrameGpuFoliage(true);
-    return out.subarray(0, count);
+    _batch.readbackPending[curIndex] = true;
+    _batch.readbackCounts[curIndex] = count;
+    _batch.readbackPromises[curIndex] = curStaging.mapAsync(GPUMapMode.READ);
+    _batch.readbackIndex = prevIndex;
+
+    if (prevPending) {
+        const promise = _batch.readbackPromises[prevIndex];
+        if (promise) {
+            await promise;
+        }
+        const mapped = new Float32Array(prevStaging.getMappedRange());
+        const prevCount = _batch.readbackCounts[prevIndex];
+        if (!_batch.poseStaging || _batch.poseStaging.length < prevCount) {
+            _batch.poseStaging = new Float32Array(prevCount);
+        }
+        _batch.poseStaging.set(mapped.subarray(0, prevCount));
+        prevStaging.unmap();
+        _batch.readbackPending[prevIndex] = false;
+        setLastFrameGpuFoliage(true);
+        return _batch.poseStaging.subarray(0, prevCount);
+    } else {
+        setLastFrameGpuFoliage(false);
+        return null;
+    }
 }
 
 const _pendingBatches = new Map<string, Promise<Float32Array | null>>();
@@ -282,6 +337,10 @@ export function disposeFoliageGpuBatch(): void {
     _batch?.yBuffer?.destroy();
     _batch?.outBuffer?.destroy();
     _batch?.uniformBuffer?.destroy();
+    if (_batch?.readbackStagings) {
+        _batch.readbackStagings[0].destroy();
+        _batch.readbackStagings[1].destroy();
+    }
     _batch = null;
     _initPromise = null;
 }

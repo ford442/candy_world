@@ -114,6 +114,11 @@ interface PoseGpuState {
     bindGroup: GPUBindGroup | null;
     /** CPU mirror for readback without stalling when pipelined. */
     poseStaging: Float32Array | null;
+    readbackStagings: [GPUBuffer, GPUBuffer] | null;
+    readbackIndex: number;
+    readbackPending: [boolean, boolean];
+    readbackCounts: [number, number];
+    readbackPromises: [Promise<void> | null, Promise<void> | null];
 }
 
 let _poseGpu: PoseGpuState | null = null;
@@ -145,6 +150,7 @@ async function ensurePoseGpu(maxCount: number): Promise<boolean> {
         const posBytes = cap * 12;
         const stateBytes = cap * STATE_FLOATS_PER_INSTANCE * 4;
         const uniformBytes = UNIFORM_FLOATS * 4;
+        const readbackBytes = cap * STATE_FLOATS_PER_INSTANCE * 4;
 
         const positionBuffer = device.createBuffer({
             size: posBytes,
@@ -162,7 +168,18 @@ async function ensurePoseGpu(maxCount: number): Promise<boolean> {
             label: 'gpu-plant-pose-uniforms',
         });
 
-        _trackedBytes = posBytes + stateBytes + uniformBytes;
+        const staging0 = device.createBuffer({
+            size: readbackBytes,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+            label: 'gpu-plant-pose-staging-0',
+        });
+        const staging1 = device.createBuffer({
+            size: readbackBytes,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+            label: 'gpu-plant-pose-staging-1',
+        });
+
+        _trackedBytes = posBytes + stateBytes + uniformBytes + readbackBytes * 2;
         trackGpuBufferBytes(_trackedBytes);
 
         const layout = device.createBindGroupLayout({
@@ -205,6 +222,11 @@ async function ensurePoseGpu(maxCount: number): Promise<boolean> {
             pipeline,
             bindGroup,
             poseStaging: new Float32Array(cap),
+            readbackStagings: [staging0, staging1],
+            readbackIndex: 0,
+            readbackPending: [false, false],
+            readbackCounts: [0, 0],
+            readbackPromises: [null, null],
         };
 
         if (!_deviceLostUnsub) {
@@ -228,6 +250,10 @@ function disposePoseGpuInternal(): void {
     _poseGpu?.positionBuffer?.destroy();
     _poseGpu?.stateBuffer?.destroy();
     _poseGpu?.uniformBuffer?.destroy();
+    if (_poseGpu?.readbackStagings) {
+        _poseGpu.readbackStagings[0].destroy();
+        _poseGpu.readbackStagings[1].destroy();
+    }
     _poseGpu = null;
     _initPromise = null;
 }
@@ -294,25 +320,43 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
 
     // Copy currentPose column (stride 2 floats) for readback
     const readBytes = count * STATE_FLOATS_PER_INSTANCE * 4;
-    const readBuffer = device.createBuffer({
-        size: readBytes,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-    });
-    encoder.copyBufferToBuffer(_poseGpu.stateBuffer!, 0, readBuffer, 0, readBytes);
+    const curIndex = _poseGpu.readbackIndex;
+    const prevIndex = (curIndex + 1) % 2;
+    const curStaging = _poseGpu.readbackStagings![curIndex];
+    const prevStaging = _poseGpu.readbackStagings![prevIndex];
+    const prevPending = _poseGpu.readbackPending[prevIndex];
+
+    encoder.copyBufferToBuffer(_poseGpu.stateBuffer!, 0, curStaging, 0, readBytes);
     device.queue.submit([encoder.finish()]);
 
-    await readBuffer.mapAsync(GPUMapMode.READ);
-    const mapped = new Float32Array(readBuffer.getMappedRange().slice(0));
-    readBuffer.unmap();
-    readBuffer.destroy();
+    // Map current for next frame
+    _poseGpu.readbackPending[curIndex] = true;
+    _poseGpu.readbackCounts[curIndex] = count;
+    _poseGpu.readbackPromises[curIndex] = curStaging.mapAsync(GPUMapMode.READ);
+    _poseGpu.readbackIndex = prevIndex;
 
-    const poses = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-        poses[i] = mapped[i * 2 + 1];
+    if (prevPending) {
+        // Wait for previous to finish mapping (should be ready immediately if pipelined)
+        const promise = _poseGpu.readbackPromises[prevIndex];
+        if (promise) {
+            await promise;
+        }
+        const mapped = new Float32Array(prevStaging.getMappedRange());
+        const prevCount = _poseGpu.readbackCounts[prevIndex];
+        if (_poseGpu.poseStaging) {
+            for (let i = 0; i < prevCount; i++) {
+                _poseGpu.poseStaging[i] = mapped[i * 2 + 1];
+            }
+        }
+        prevStaging.unmap();
+        _poseGpu.readbackPending[prevIndex] = false;
+        setLastFrameGpuFoliage(true);
+        return _poseGpu.poseStaging ? _poseGpu.poseStaging.subarray(0, prevCount) : null;
+    } else {
+        // First frame, return fallback (or 0s)
+        setLastFrameGpuFoliage(false);
+        return null;
     }
-
-    setLastFrameGpuFoliage(true);
-    return poses;
 }
 
 /** Synchronous gate for batchers — async work must be awaited by caller. */
