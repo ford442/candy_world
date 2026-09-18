@@ -198,7 +198,6 @@ export class GPUCullingSystem {
         if (this.isInitialized) return;
 
         if (!this.gpu.isReady()) {
-            console.warn('[GPUCullingSystem] GPU not ready, will use CPU fallback');
             this.isInitialized = true;
             return;
         }
@@ -326,14 +325,9 @@ export class GPUCullingSystem {
             const chores = new GPUChoresLibrary(device);
             await chores.initialize();
             this.choresLib = chores;
-        } catch (error) {
+        } catch (_error) {
             this.choresLib = null;
             setLastFrameGpuChores(false);
-            console.warn(
-                '[GPUCullingSystem] Shared GPU chores unavailable — falling back to the CPU ' +
-                    'visible-list build. Reason:',
-                error
-            );
         }
 
         const blockSumsBytes = prefixSumBlockSumsBytes(this.config.maxObjects);
@@ -406,7 +400,6 @@ export class GPUCullingSystem {
         );
 
         this.isInitialized = true;
-        console.log(`[GPUCullingSystem] Initialized for ${this.config.maxObjects} objects`);
     }
 
     /**
@@ -807,8 +800,6 @@ export class GPUCullingSystem {
         this.compactJob = null;
         this.indirectBufferBytes = 0;
         this.isInitialized = false;
-
-        console.log('[GPUCullingSystem] Destroyed');
     }
 
     /**

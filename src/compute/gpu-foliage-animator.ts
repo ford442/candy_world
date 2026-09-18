@@ -19,6 +19,8 @@
  * ```
  */
 
+import * as THREE from 'three';
+
 import { getWindState } from '../systems/wind-uniforms.ts';
 import { GPUComputeLibrary } from './gpu-compute-library';
 
@@ -405,12 +407,6 @@ export class GPUFoliageAnimator {
     constructor(gpu: GPUComputeLibrary, maxInstances: number = 10000) {
         this.gpu = gpu;
         this.maxInstances = Math.min(maxInstances, 10000);
-
-        if (!this.gpu.isReady()) {
-            console.warn(
-                '[GPUFoliageAnimator] Shared WebGPU device not ready — await ensureGpuComputeReady() / awaitGpuDevice()'
-            );
-        }
     }
 
     /**
@@ -429,9 +425,6 @@ export class GPUFoliageAnimator {
                 '[GPUFoliageAnimator] Shared WebGPU device unavailable — ensureGpuComputeReady() / awaitGpuDevice() returned null'
             );
         }
-
-        const instanceBufferSize = this.maxInstances * this.INSTANCE_STRUCT_SIZE;
-        const outputBufferSize = this.maxInstances * 2 * this.OUTPUT_VEC4_SIZE; // position + rotation
 
         // Create buffers with initial dummy data
         // NOTE: createStorageBuffer() has built-in safety: minimum 4 bytes allocation
@@ -480,10 +473,6 @@ export class GPUFoliageAnimator {
 
         // Initialize compute state: no instances yet, so dispatch is inactive
         this.isComputeActive = false;
-
-        console.log(
-            `[GPUFoliageAnimator] Initialized for ${this.maxInstances} max instances (compute: ${this.isComputeActive ? 'active' : 'inactive'})`
-        );
     }
 
     /**
@@ -499,7 +488,6 @@ export class GPUFoliageAnimator {
      */
     uploadInstances(data: FoliageInstanceData): void {
         if (!this.gpu.isReady() || !this.instanceBuffer) {
-            console.warn('[GPUFoliageAnimator] Cannot upload instances - not initialized');
             return;
         }
 
@@ -518,9 +506,6 @@ export class GPUFoliageAnimator {
         this.isComputeActive = this.instanceCount > 0;
 
         if (!this.isComputeActive) {
-            console.debug(
-                '[GPUFoliageAnimator] No instances to upload. Compute dispatch will be skipped.'
-            );
             return;
         }
 
@@ -726,16 +711,12 @@ export class GPUFoliageAnimator {
         this.instanceData = null;
         this.outputStaging = null;
         this.instanceCount = 0;
-
-        console.log('[GPUFoliageAnimator] Destroyed');
     }
 }
 
 // =============================================================================
 // THREE.JS INTEGRATION HELPERS
 // =============================================================================
-
-import * as THREE from 'three';
 
 // Scratch variables for zero-allocation batch updates
 const _scratchPosition = new THREE.Vector3();
