@@ -118,24 +118,37 @@ float getPlayerVY() { return player.vy; }
 EMSCRIPTEN_KEEPALIVE
 float getPlayerVZ() { return player.vz; }
 
-extern float getGroundHeight(float x, float z);
-
+// -----------------------------------------------------------------------------
+// Native-assist-only ABI.
+//
+// `resolveCharacterMovement` (src/systems/physics/character-controller.ts) is
+// the single owner of gravity, ground/air acceleration smoothing, ground
+// Y-snap, coyote time, jump buffering, and jump on every default-state frame.
+// TS seeds this module's player position/velocity from its own authoritative
+// state via setPlayerState() immediately before calling updatePhysicsCPP, so
+// this function must never author a competing player pose. It only tests the
+// seeded velocity against obstacle/trampoline colliders and reports back:
+//   - a constrained XZ position (obstacle push-out / stem collision), read
+//     by TS as an effective velocity via (post.x/z - pre.x/z) / delta, and
+//   - a bounce vy (onGround == 2 only), read back verbatim by TS.
+// It does not integrate gravity, smooth horizontal velocity, snap Y to the
+// ground plane, or fire a jump — those are exclusively resolveCharacterMovement's
+// job. `jump`, `sprint`, `sneak`, and `grooveGravity` are accepted for ABI
+// compatibility but are no longer consulted here.
+// -----------------------------------------------------------------------------
 EMSCRIPTEN_KEEPALIVE
 int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int jump, int sprint, int sneak, float grooveGravity) {
-    float currentGravity = player.gravity * grooveGravity;
-    player.vy -= currentGravity * delta;
+    (void)speed;
+    (void)jump;
+    (void)sprint;
+    (void)sneak;
+    (void)grooveGravity;
 
-    float targetVX = inputX * speed;
-    float targetVZ = inputZ * speed;
-
-    float smooth = 15.0f * delta;
-    if (smooth > 1.0f) smooth = 1.0f;
-    player.vx += (targetVX - player.vx) * smooth;
-    player.vz += (targetVZ - player.vz) * smooth;
-
-    float nextX = player.x + player.vx * delta;
+    // inputX/inputZ arrive already camera-relative and speed-scaled (TS's
+    // _targetVelocity) — used as-is, not re-integrated or smoothed.
+    float nextX = player.x + inputX * delta;
     float nextY = player.y + player.vy * delta;
-    float nextZ = player.z + player.vz * delta;
+    float nextZ = player.z + inputZ * delta;
 
     int onGround = 0;
 
@@ -163,11 +176,14 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
             else if (player.vy < 0 && distH < capR) {
                  if (nextY >= surfaceY - 0.5f && nextY <= surfaceY + 2.0f) {
                      if (obj.param3 > 0.5f) {
+                         // Trampoline mushroom: report the bounce impulse for
+                         // TS to apply. Does not touch nextY/nextX/nextZ.
                          player.vy = 15.0f;
                          onGround = 2;
                      } else {
-                         nextY = surfaceY + 1.8f;
-                         player.vy = 0;
+                         // Regular mushroom cap: report ground contact only.
+                         // TS's own footprint ground query owns the landing
+                         // pose (Y-snap, vy zeroing) via resolveCharacterMovement.
                          onGround = 1;
                      }
                  }
@@ -179,8 +195,8 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
                 float radius = obj.radius;
                 if (distH < radius) {
                     if (player.vy < 0 && nextY >= topY - 0.5f && nextY < topY + 3.0f) {
-                        nextY = topY + 1.8f;
-                        player.vy = 0;
+                        // Cloud/platform top: report ground contact only, same
+                        // as the mushroom-cap case above.
                         onGround = 1;
                     }
                 }
@@ -197,21 +213,15 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
         }
     }
 
-    float groundY = getGroundHeight(nextX, nextZ);
-    
-    if (nextY < groundY + 1.8f && player.vy <= 0) {
-        nextY = groundY + 1.8f;
-        player.vy = 0;
-        onGround = 1;
-    }
-
+    // No general-terrain Y-snap here: TS's resolveCharacterMovement samples
+    // its own footprint ground query (sampleGroundFootprint/getGroundHeight
+    // from ground-system.ts) for that, using this frame's obstacle-constrained
+    // XZ. Authoring a competing groundY + 1.8f snap here (and the immediate
+    // jump gate that used to key off it) is exactly the dual-ownership bug
+    // this ABI freeze removes — see docs/CHARACTER_CONTROLLER.md.
     player.x = nextX;
     player.y = nextY;
     player.z = nextZ;
-
-    if (onGround == 1 && jump) {
-        player.vy = 10.0f;
-    }
 
     return onGround;
 }

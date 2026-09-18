@@ -356,10 +356,10 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'bubbleWillow');
         if (group.userData.attachGemFruits) {
-            gemFruitBatcher.attachToTree(group, {
+            group.userData.gemRefs = gemFruitBatcher.attachToTree(group, {
                 height: trunkH,
                 gemCount: 5 + Math.floor(Math.random() * 3),
-            });
+            }).refs;
         }
         group.userData.isBatched = true;
         group.userData.onPlacement = null;

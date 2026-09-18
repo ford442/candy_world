@@ -26,6 +26,60 @@ There are two movement paths, selected in `physics-core.ts`\'s `updateDefaultSta
 
 **In both cases, `resolveCharacterMovement` now universally owns the kinematic resolve.** The controller runs on *every* frame to apply slope, step-up, coyote-time, air control, and jump buffering regardless of whether the native C++ collision assist ran or not.
 
+### The native-assist-only ABI (frozen)
+
+`updatePhysicsCPP` used to run a second, competing player step: it integrated
+its own gravity, smoothed horizontal velocity toward a target at one flat
+`15.0f * delta` rate (no ground/air distinction), snapped Y to
+`getGroundHeight(nextX, nextZ) + 1.8f` whenever falling, and fired its own
+`vy = 10.0f` jump when `onGround == 1 && jump`. None of that is true anymore.
+`updatePhysicsCPP`'s contract today:
+
+- **Called every off-lake frame** with `inputX`/`inputZ` already
+  camera-relative and speed-scaled (`_targetVelocity` in `physics-core.ts`)
+  and the player's position/velocity pre-seeded via `setPlayerState`
+  (called immediately before, every frame — this is not optional: native
+  has no persistent authoritative state of its own between frames).
+- **Does not integrate gravity.** `player.vy` is used read-only (as a sign
+  check and to advance an internal `nextY` used only for this call's own
+  obstacle-range tests) — never decremented by a gravity term. Gravity is
+  exclusively `resolveCharacterMovement`'s (`player.velocity.y -=
+  player.gravity * delta`).
+- **Does not smooth horizontal velocity.** `inputX`/`inputZ` are used
+  directly as this frame's velocity for the naive obstacle-test step — no
+  internal lag, no re-scaling. `speed` is accepted but unused (ABI
+  compatibility only).
+- **Does not snap Y to the ground plane.** The `groundY + 1.8f` block, and
+  the `getGroundHeight` call that fed it, are gone entirely. Landing on
+  terrain is 100% `resolveCharacterMovement`'s footprint-sampled ground
+  query.
+- **Does not fire a jump.** The `onGround == 1 && jump` gate is gone;
+  `jump`, `sprint`, `sneak`, and `grooveGravity` are accepted for ABI
+  compatibility but no longer consulted (groove gravity is already applied
+  to `player.gravity` by `updateEnvironmentalModifiers` in
+  `physics-states.ts`, and consumed by `resolveCharacterMovement` — native
+  re-applying it would have double-counted it).
+- **Still resolves obstacle collision and trampoline impulses**, unchanged
+  in structure: mushroom-stem push-out, mushroom-cap / cloud-top contact
+  detection, and the two bounce-pad paths (mushroom-cap trampoline and the
+  standalone bounce object). A non-bounce contact now only *reports*
+  `onGround == 1` — it no longer also authors the landing Y or zeroes `vy`,
+  since `physics-core.ts` never reads native's `y` back anyway (only the
+  XZ diff and, for bounce, `vy`).
+- **Returns**: `0` no contact, `1` obstacle/platform contact (XZ-only —
+  `physics-core.ts` folds the resulting `(post.x/z - pre.x/z) / delta`
+  into `resolveCharacterMovement`'s `targetVelocityXZ`), `2` trampoline
+  bounce (native's `vy` is read back verbatim and applied to
+  `player.velocity.y`).
+
+This is deliberately **not** a full footprint/normal resolve on the C++
+side — it is the minimum obstacle test needed so mushroom stems and
+trampolines keep working without native re-deriving (and risking
+disagreeing with) the ground model `resolveCharacterMovement` already
+owns via `sampleGroundFootprint`/`getGroundHeight` (`ground-system.ts`).
+Teaching C++ a full resolve is explicitly out of scope here; see the
+issue that froze this ABI.
+
 ## The controller
 
 `src/systems/physics/character-controller.ts` exports one stateful resolver —
@@ -181,10 +235,28 @@ Added 2026-09-08 (15 tests total):
   `velocity.x !== 0`, which a sign error would also pass.
 - slide speed accumulates over consecutive frames rather than resetting.
 
-**Not covered, and not claimed:** the native `updatePhysicsCPP` path. There
-is no test for it because there is no routing to test — see "Why the native
-path is currently dead" above. The runtime signal for that gap is the
-one-time `console.warn` in `physics-core.ts` plus the `physicsPathStats`
-counters, not a test.
+### Native-assist ABI test
 
-Run: `npm run test:character`. Wired into `npm run test:integration`.
+`tests/character-controller-native.test.mjs` (`npm run test:character-native`)
+exercises the real compiled `emscripten/physics.cpp` module — not a mock —
+through a headless Chromium page (Playwright), since the Emscripten glue
+(`public/candy_native_st.js`, `MODULARIZE` + `ENVIRONMENT=web`) cannot load
+under plain Node the way `character-controller.test.mjs` loads
+`character-controller.ts`. A minimal static file server plus
+`tests/fixtures/native-physics-harness.html` stand in for the app's own
+WASM loader. It asserts the frozen ABI directly:
+
+- with no obstacles registered, `updatePhysicsCPP` never reports ground
+  contact from terrain alone (the removed `groundY + 1.8f` snap) and never
+  changes `vy` when `jump=1` (the removed jump gate);
+- a trampoline mushroom still reports `onGround === 2` with a bounce `vy`;
+- a non-trampoline mushroom stem still pushes the player's XZ away from it.
+
+This needs a real `build:emcc` output (`public/candy_native_st.{js,wasm}`),
+which needs emsdk. **It skips cleanly (exit 0) rather than failing** when
+those files, or `@playwright/test` itself, aren't available — this is a
+Tier-2 check. `npm run test:character` (the pure-JS controller suite) has
+no such dependency and always runs.
+
+Run: `npm run test:character` and `npm run test:character-native`. Both are
+wired into `npm run test:integration`.

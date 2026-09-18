@@ -8,15 +8,19 @@
 // bookkeeping/spiral ordering instead of forking a parallel grid.
 import * as THREE from 'three';
 import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
+import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
+import { gemFruitBatcher } from '../foliage/gem-fruit-batcher.ts';
 import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
-import { populatePhysicsGrids } from '../systems/physics/index.ts';
+import { populatePhysicsGrids, unregisterPhysicsCave } from '../systems/physics/index.ts';
+import type { BatcherInstanceRef } from '../systems/awakened-types.ts';
 import {
     CellState,
     RegionManager,
@@ -79,30 +83,58 @@ interface ChunkRecord {
 }
 
 /**
- * Mirrors the `isBatched` predicate in generation-entities.ts::safeAddFoliage.
- * Kept in sync manually — that file is out of scope for this change. Batched
- * types (besides mushroom, which has MushroomBatcher.removeInstance) have no
- * public instance-removal API, so evicting them would corrupt/leak InstancedMesh
- * capacity. We never evict them; they stay spawned once loaded.
+ * Safety-net fallback for classifyForEviction: any object flagged isBatched
+ * that isn't matched by one of the specific type checks above falls back to
+ * 'never' rather than being torn down without a removeInstance path (which
+ * would desync an InstancedMesh's index bookkeeping). Every currently-known
+ * batched species — mushroom, lantern, glass mushroom, flower/simple flower,
+ * tree species (incl. gem_canopy_tree/bubbleWillow), arpeggio fern, and
+ * portamento pine — is matched explicitly above and never reaches this
+ * fallback; it only guards a future batched species that hasn't been wired
+ * into classifyForEviction yet.
  */
 function isKnownBatchedType(obj: THREE.Object3D): boolean {
-    const t = obj.userData?.type;
-    return !!(
-        obj.userData?.isBatched ||
-        t === 'arpeggio_fern' ||
-        t === 'portamento_pine' ||
-        t === 'gem_canopy_tree' ||
-        t === 'glass_mushroom' ||
-        t === 'prismRoseBush' ||
-        obj.userData?.isFlower
-    );
+    return !!obj.userData?.isBatched;
 }
 
-type EvictionClass = 'full' | 'mushroom' | 'lantern' | 'glassMushroom' | 'simpleFlower' | 'flower' | 'tree' | 'kickDrumGeyser' | 'never';
+type EvictionClass =
+    | 'full'
+    | 'mushroom'
+    | 'lantern'
+    | 'glassMushroom'
+    | 'simpleFlower'
+    | 'flower'
+    | 'tree'
+    | 'arpeggioFern'
+    | 'portamentoPine'
+    | 'cave'
+    | 'never' | 'kickDrumGeyser';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     const t = obj.userData?.type;
-    if (t === 'tree' || t === 'shrub' || t === 'willow' || t === 'balloonBush' || t === 'helixPlant' || t === 'accordion_palm' || t === 'floweringTree' || t === 'bubbleWillow' || t === 'prismRoseBush' || t === 'helix' || t === 'accordionPalm') return 'tree';
+    // musical_flora.ts's portamento pine factory intentionally sets
+    // type='tree' (animationType='batchedPortamento' is the real
+    // discriminator) so it inherits tree placement/collision handling, but
+    // it registers its instance with PortamentoPineBatcher, not TreeBatcher —
+    // this check must run before the generic 'tree' bucket below or eviction
+    // would call the wrong batcher's removeInstance and leak a ghost instance.
+    if (t === 'tree' && obj.userData?.animationType === 'batchedPortamento')
+        return 'portamentoPine';
+    if (
+        t === 'tree' ||
+        t === 'shrub' ||
+        t === 'willow' ||
+        t === 'balloonBush' ||
+        t === 'helixPlant' ||
+        t === 'accordion_palm' ||
+        t === 'floweringTree' ||
+        t === 'bubbleWillow' ||
+        t === 'prismRoseBush' ||
+        t === 'helix' ||
+        t === 'accordionPalm' ||
+        t === 'gem_canopy_tree'
+    )
+        return 'tree';
     if (t === 'mushroom') return 'mushroom';
     if (t === 'lanternFlower') return 'lantern';
     if (t === 'glass_mushroom') return 'glassMushroom';
@@ -116,6 +148,8 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     // Caves register with the WASM collision system (registerPhysicsCave) and
     // weatherSystem, neither of which support removal — never evict.
     if (t === 'cave') return 'never';
+    if (t === 'fern') return 'arpeggioFern';
+
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -520,7 +554,22 @@ export class ChunkStreamer {
                 flowerBatcher.removeInstance(obj);
             } else if (evictionClass === 'tree') {
                 treeBatcher.removeInstance(obj);
+            } else if (evictionClass === 'arpeggioFern') {
+                arpeggioFernBatcher.removeInstance(obj);
+            } else if (evictionClass === 'portamentoPine') {
+                portamentoPineBatcher.removeInstance(obj);
+            } else if (evictionClass === 'cave') {
+                unregisterPhysicsCave(obj);
+                this.weatherSystem?.unregisterCave?.(obj);
             }
+            // Trees/pines that grew hanging gem fruit (gem_canopy_tree, and
+            // any bubbleWillow/portamento_pine with attachGemFruits) own a
+            // batch of separate GemFruitBatcher instances tracked in
+            // userData.gemRefs — free those too so they don't outlive the
+            // tree that anchored them.
+            const gemRefs = (obj.userData as Record<string, unknown>).gemRefs as
+                BatcherInstanceRef[] | undefined;
+            if (gemRefs) gemFruitBatcher.removeInstances(gemRefs);
             // Free the entity id so walking back into range re-spawns it.
             // Discovery registration is intentionally left in place — the
             // discovery grid (WASM/AS) has no unregister API (see .swarm-state.md).

@@ -1,0 +1,31 @@
+<!doctype html>
+<!--
+  Minimal browser harness for tests/character-controller-native.test.mjs.
+
+  Loads the single-threaded Emscripten build (public/candy_native_st.js)
+  directly — no game engine, no Vite — so the native-assist physics ABI
+  (emscripten/physics.cpp: updatePhysicsCPP, setPlayerState, etc.) can be
+  exercised in isolation from a plain static file server.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>candy_native_st harness</title>
+  </head>
+  <body>
+    <script type="module">
+      window.__nativeModuleReady = false;
+      window.__nativeModuleError = null;
+      import('/public/candy_native_st.js')
+        .then((mod) => mod.default())
+        .then((Module) => {
+          window.__nativeModule = Module;
+          window.__nativeModuleReady = true;
+        })
+        .catch((err) => {
+          window.__nativeModuleError = String((err && err.stack) || err);
+          window.__nativeModuleReady = true;
+        });
+    </script>
+  </body>
+</html>
