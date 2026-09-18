@@ -41,7 +41,7 @@ function readDisabledFromUrl(): boolean {
 function isExplicitlyDisabled(): boolean {
     if (typeof window === 'undefined') return true;
     if (readDisabledFromUrl()) return true;
-    if ((window as any).__computeDisabled === true) return true;
+    if ((window as unknown as { __computeDisabled?: boolean }).__computeDisabled === true) return true;
     if (isCIorHeadless()) return true;
     return false;
 }
