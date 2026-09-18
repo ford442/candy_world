@@ -12,8 +12,6 @@ import {
     CandyPresets,
     uTime,
     registerReactiveMaterial,
-    calculateWindSway,
-    applyPlayerInteraction,
     applyStandardDeformation,
     createJuicyRimLight
 } from './index.ts';

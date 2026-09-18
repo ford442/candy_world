@@ -128,7 +128,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 **User idea pool — GitHub issue filed 2026-09-02 by `ford442` (Noah's OWN words). This is the Copilot-prep issue the 2026-09-01 routine drafted, which Noah then filed himself — treat as endorsed and live.**
 
-- [ ] **#1693 💨 Parameterize and consolidate the TSL wind/deformation path (#1582 slice)** — one shared wind/deformation node factory across foliage object types. Rendering/foliage lane, file-decoupled from physics. Strong candidate for the 2026-09-15 kimi main event if no Fix First triggers.
+- [x] **#1693 💨 Parameterize and consolidate the TSL wind/deformation path (#1582 slice)** — one shared wind/deformation node factory across foliage object types. Rendering/foliage lane, file-decoupled from physics. Strong candidate for the 2026-09-15 kimi main event if no Fix First triggers.
 
 **User idea pool — GitHub issue filed 2026-08-27 by `ford442` (Noah's OWN words). Landed; see status.**
 

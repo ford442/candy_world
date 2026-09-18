@@ -33,10 +33,7 @@ import {
     createStandardNodeMaterial,
     createJuicyRimLight,
     getCachedProceduralMaterial,
-    calculateWindSway,
-    applyPlayerInteraction,
-    applyStandardDeformation,
-} from './index.ts';
+    applyStandardDeformation} from './index.ts';
 import { uTwilight } from './sky.ts';
 import { treeBatcher } from './tree-batcher.ts';
 import { FoliageObject } from './types.ts';

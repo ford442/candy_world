@@ -94,13 +94,13 @@ export function syncFoliageLodUniforms(): void {
 }
 
 /** Player push only within hero band */
-export const applyPlayerInteractionWithLod = (basePosNode: TSLArg) => {
+const applyPlayerInteractionWithLod = (basePosNode: TSLArg) => {
     const push = calculatePlayerPush(basePosNode).mul(lodHeroGate());
     return basePosNode.add(push);
 };
 
 /** Wind sway attenuated in mid/far tiers */
-export const calculateWindSwayWithLod = (posNode: TSLArg, options?: WindDeformationOptions) => {
+const calculateWindSwayWithLod = (posNode: TSLArg, options?: WindDeformationOptions) => {
     const wind = calculateWindSway(posNode, options);
     const weight = lodHeroGate().add(lodMidOnlyGate().mul(0.5));
     return wind.mul(weight);

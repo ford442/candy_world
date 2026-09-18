@@ -42,14 +42,11 @@ import {
     createJuicyRimLight,
     sharedGeometries,
     calculateFlowerBloom,
-    calculateWindSway,
-    applyPlayerInteraction,
     applyStandardDeformation,
     getCachedProceduralMaterial,
     uTime,
     uAudioHigh,
-    uAudioLow,
-} from './index.ts';
+    uAudioLow} from './index.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { uTwilight } from './sky.ts';
