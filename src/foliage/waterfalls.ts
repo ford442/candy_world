@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import {
     color,
-    time,
     uv,
     float,
     vec2,
@@ -23,7 +22,6 @@ import {
     abs,
     add,
 } from 'three/tsl';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
 import {
     registerReactiveMaterial,
@@ -66,12 +64,12 @@ export function createWaterfall(
     });
 
     const speed = 2.0;
-    const flowUV = uv().add(vec2(0, time.mul(speed).negate()));
+    const flowUV = uv().add(vec2(0, uTime.mul(speed).negate()));
 
     const ripple1 = sin(flowUV.y.mul(15.0).add(flowUV.x.mul(5.0)))
         .mul(0.5)
         .add(0.5);
-    const ripple2 = sin(flowUV.y.mul(25.0).sub(flowUV.x.mul(10.0)).add(time))
+    const ripple2 = sin(flowUV.y.mul(25.0).sub(flowUV.x.mul(10.0)).add(uTime))
         .mul(0.5)
         .add(0.5);
     const foam = ripple1.mul(ripple2);
@@ -82,8 +80,7 @@ export function createWaterfall(
     const gradient = mix(color(0xff00ff), color(0x00ffff), uv().y);
     mat.colorNode = mix(mat.colorNode ?? color(0x00FFFF), gradient, 0.5);
 
-    // 🎨 PALETTE: Make Rim Light audio reactive for extra juice!
-    const rim = createJuicyRimLight(gradient, float(2.0).add(uAudioHigh.mul(2.0)), float(3.0), normalWorld);
+    const rim = createJuicyRimLight(gradient, float(2.0), float(3.0), normalWorld);
 
     const emission = gradient.mul(uBaseEmission.add(uPulseIntensity)).mul(foam.add(0.2));
     const highIntensity = uAudioHigh.pow(float(1.5)).mul(1.5);
@@ -131,7 +128,7 @@ export function createWaterfall(
 
         // Audio-reactive impulse (only on strong beats)
         const audioImpulse = max(float(0.0), uPulseIntensity.sub(0.5)).mul(25.0);
-        const randSeed = p.x.mul(10.0).add(p.z.mul(10.0)).add(time.mul(100.0));
+        const randSeed = p.x.mul(10.0).add(p.z.mul(10.0)).add(uTime.mul(100.0));
         const impulseVar = sin(randSeed).mul(0.5).add(0.5);
 
         const appliedImpulse = vec3(
@@ -219,7 +216,7 @@ export function createWaterfall(
         );
     };
 
-    (group as any).onAnimate = (delta: number, time: number) => {
+    (group as any).onAnimate = (delta: number, _time: number) => {
         // Only decay the pulse (physics is now fully GPU-driven)
         const pulse = mesh.userData.uPulseIntensity as UniformNode<number>;
         if (pulse.value > 0.01) {
