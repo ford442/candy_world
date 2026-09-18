@@ -15,6 +15,7 @@ import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
@@ -107,6 +108,7 @@ type EvictionClass =
     | 'arpeggioFern'
     | 'portamentoPine'
     | 'cave'
+    | 'geyser'
     | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
@@ -146,6 +148,7 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     // (registerPhysicsCave / weatherSystem.registerCave), so they no longer
     // need to stay permanent — see evictObject's 'cave' branch.
     if (t === 'cave') return 'cave';
+    if (t === 'kick_drum_geyser') return 'geyser';
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -555,6 +558,8 @@ export class ChunkStreamer {
             } else if (evictionClass === 'cave') {
                 unregisterPhysicsCave(obj);
                 this.weatherSystem?.unregisterCave?.(obj);
+            } else if (evictionClass === 'geyser') {
+                kickDrumGeyserBatcher.removeInstance(obj);
             }
             // Trees/pines that grew hanging gem fruit (gem_canopy_tree, and
             // any bubbleWillow/portamento_pine with attachGemFruits) own a
