@@ -1,3 +1,9 @@
+import {
+    awaitGpuDevice,
+    getGpuContextSync,
+    onGpuDeviceLost,
+} from '../rendering/gpu-context.ts';
+import { log } from "../utils/log.ts";
 /**
  * @file gpu-compute-library.ts
  * @description Unified WebGPU compute library for Candy World.
@@ -24,11 +30,6 @@
  * @see docs/WEBGPU_CONTEXT.md
  */
 
-import {
-    awaitGpuDevice,
-    getGpuContextSync,
-    onGpuDeviceLost,
-} from '../rendering/gpu-context.ts';
 
 // =============================================================================
 // TYPES
@@ -117,9 +118,11 @@ export class GPUComputeLibrary {
             this.adapter = null;
             this.pipelineCache.clear();
             this.layoutCache.clear();
+            console.warn('[GPU] Shared device lost — GPU compute soft-disabled');
         });
 
         this._ready = true;
+        log.debug('[GPU] Using shared renderer-owned device');
     }
 
     // =========================================================================
@@ -370,7 +373,8 @@ export class GPUComputeLibrary {
         }
         try {
             return await gpuFn();
-        } catch (_error) {
+        } catch (error) {
+            console.error(`[GPU] ${label} failed, falling back to CPU:`, error);
             return cpuFn();
         }
     }
@@ -395,8 +399,9 @@ export class GPUComputeLibrary {
      * // Proceed with normal dispatch...
      * ```
      */
-    shouldSkipDispatch(activeCount: number, _systemName: string = 'GPU Compute'): boolean {
+    shouldSkipDispatch(activeCount: number, systemName: string = 'GPU Compute'): boolean {
         if (activeCount === 0) {
+            log.debug(`[GPU] ${systemName}: Skipping dispatch (empty registry). Dummy buffer in place.`);
             return true;
         }
         return false;
@@ -421,8 +426,12 @@ export class GPUComputeLibrary {
     }
 
     /** Log a benchmark comparison to console */
-    logBenchmark(_label: string, _gpuMs: number, _cpuMs: number): void {
-        // Disabled to satisfy lint rules, can be re-enabled for debugging
+    logBenchmark(label: string, gpuMs: number, cpuMs: number): void {
+        const speedup = cpuMs / Math.max(gpuMs, 0.001);
+        log.debug(
+            `[GPU Benchmark] ${label}: GPU ${gpuMs.toFixed(2)}ms vs CPU ${cpuMs.toFixed(2)}ms ` +
+            `(${speedup.toFixed(1)}x ${speedup > 1 ? 'faster' : 'slower'})`
+        );
     }
 
     // =========================================================================
@@ -444,6 +453,7 @@ export class GPUComputeLibrary {
         this.device = null;
         this.adapter = null;
         this._ready = false;
+        log.debug('[GPU] Compute library disposed (shared device left intact)');
     }
 }
 

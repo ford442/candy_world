@@ -20,7 +20,7 @@
  *   the device already initialised because deferred-init.ts calls
  *   initGPUCompute() early in the post-boot phase.
  */
-
+import { log } from "../utils/log.ts";
 import { getSharedGPUCompute, type ComputeMetrics } from './gpu-compute-library.ts';
 
 let _initPromise: Promise<void> | null = null;
@@ -39,8 +39,10 @@ export async function initGPUCompute(): Promise<void> {
 
         try {
             await lib.initDevice();
+            log.debug('[Compute] GPU compute library ready');
         } catch {
             // WebGPU unavailable — CPU/WASM fallback will be used transparently
+            log.debug('[Compute] WebGPU unavailable — GPU compute disabled, CPU fallback active');
         }
     })();
 

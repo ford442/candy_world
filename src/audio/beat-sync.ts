@@ -1,9 +1,8 @@
 // BeatSync - TypeScript wrapper to expose beat events from AudioSystem
 
-import { AudioSystem } from './audio-system.ts';
+import { AudioSystem, type VisualState } from './audio-system.ts';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type BeatCallback = (state: any) => void;
+export type BeatCallback = (state: VisualState) => void;
 
 export class BeatSync {
     audio: AudioSystem;

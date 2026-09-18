@@ -7,6 +7,7 @@ export {
     updatePhysics,
     grantInvisibility,
     registerPhysicsCave,
+    unregisterPhysicsCave,
     triggerHarpoon,
     player,
     PlayerState,

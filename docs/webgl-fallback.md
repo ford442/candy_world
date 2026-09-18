@@ -1,185 +1,27 @@
-# WebGL2 Fallback Renderer
+# WebGL2 — Not Available
 
-> [!WARNING]
-> **This path is disabled — deferred to a later issue wave (#1625).**
->
-> WebGPU is currently **required** to enter the world. A failed boot probe stops boot at a
-> diagnostics screen instead of starting a WebGL renderer, because a silent GL render is exactly
-> what hid the Chrome-vs-Edge adapter bug we are trying to surface.
->
-> Everything below documents the path as it will work when it is restored, and as the code still
-> reads today. It does **not** describe current behaviour:
->
-> - `?renderer=webgl` / `?renderer=webgl2` / `?webgl` — warn, then ignored
-> - `?webglLite=1` — no longer implies a WebGL boot (`?lite` still trims world density)
-> - `localStorage candy.renderer` — ignored; `setRenderer('webgl')` refuses out loud
-> - `RENDERER=webgl npm run test` — the smoke runner exits 1 rather than booting GL for a green CI
->
-> See [`WEBGPU_CONTEXT.md`](./WEBGPU_CONTEXT.md#webgl-deferred) for the current contract.
+**Candy World does not boot on WebGL.** WebGPU is required to enter the world.
 
-Candy World ships with **WebGPU** as the default renderer and an opt-in **WebGL2** reference path via Three.js `WebGPURenderer` with `forceWebGL: true` (GLSL node backend). Legacy `THREE.WebGLRenderer` is no longer used — TSL node materials require the node renderer backend.
+- There is **no** WebGL fallback and **no** debug-only WebGL renderer. A failed WebGPU boot probe
+  stops at a diagnostics screen (`src/ui/webgpu-fatal.ts`); it never starts a GL renderer, because a
+  silent GL render is exactly what hid the Chrome-vs-Edge adapter bug (#1625).
+- `?renderer=webgl`, `?renderer=webgl2`, `?webgl`, `?webglLite=1`, and `localStorage candy.renderer`
+  are **ignored** (with a console warning). `window.setRenderer('webgl')` refuses.
+- `RENDERER=webgl npm run test` **exits 1** by design. Run `npm run test` (WebGPU) instead.
+- `?wireframe`, `?matDebug`, and `candy_set_webgl_debug_mode()` are inert: `initWebGLDebug()` returns
+  early unless the active backend is WebGL, which it never is.
 
-This mirrors the ford442 portfolio pattern used in Tetris_WebGPU, power_gen, mod-player, pachinball, Watershed, and HarborGlow.
+What remains in the tree, and why:
 
-## Why WebGL2?
+| File                                   | Status                                                                |
+| -------------------------------------- | --------------------------------------------------------------------- |
+| `src/rendering/renderer-mode.ts`       | Live — always resolves `webgpu`; publishes `window.rendererType` etc. |
+| `src/rendering/webgl-debug.ts`         | Imported but inert (every entry point gates on `mode === 'webgl'`)    |
+| `mode === 'webgl'` branches downstream | Unreachable; `SceneInitResult.mode` is always `'webgpu'`              |
+| `renderer._getFallback = null` in init | Live — stops Three swapping in `WebGLBackend` behind our back         |
 
-- **Visual debugging** — agents and Playwright can screenshot `canvas.toDataURL()` reliably
-- **Reference rendering** — compare candy materials, fog, and terrain while porting TSL features to WebGPU
-- **CI / headless** — SwiftShader and software WebGPU stacks often fail; WebGL2 is the supported test path
-
-## Selecting a Renderer
-
-Priority (first match wins):
-
-| Source       | Example                                | Result                                  |
-| ------------ | -------------------------------------- | --------------------------------------- |
-| URL param    | `?renderer=webgl`                      | Force WebGL2                            |
-| URL param    | `?renderer=webgpu`                     | Prefer WebGPU (fallback if unavailable) |
-| localStorage | `candy.renderer` = `webgl` \| `webgpu` | Persisted preference                    |
-| Default      | _(none)_                               | WebGPU when available                   |
-
-### Quick start
-
-```bash
-npm run dev
-# open http://localhost:5173/?renderer=webgl
-```
-
-### Hot-switch (full reload)
-
-```js
-window.setRenderer('webgl'); // or 'webgpu'
-```
-
-The debug panel (`?debug=1`, press **D**) also exposes **WebGPU / WebGL2** buttons.
-
-## WebGL Debug Helpers
-
-Available when `?renderer=webgl`:
-
-| Param / shortcut       | Effect                                     |
-| ---------------------- | ------------------------------------------ |
-| `?wireframe=1` / **G** | Scene-wide wireframe overlay               |
-| `?matDebug=1` / **M**  | `MeshNormalMaterial` override              |
-| `?webglLite=1`         | Disable GPU compute + recommend CORE world |
-
-Programmatic API:
-
-```js
-window.candy_set_webgl_debug_mode('wireframe', true);
-window.candy_set_webgl_debug_mode('material', true);
-window.candy_get_webgl_debug_state();
-```
-
-## Playwright / CI
-
-Recommended boot URL for smoke tests and screenshots:
-
-```
-http://localhost:4173/?renderer=webgl&webglLite=1
-```
-
-Environment variable shortcut:
-
-```bash
-RENDERER=webgl npm run test
-```
-
-Window breadcrumbs exposed for assertions:
-
-```js
-window.rendererType; // 'webgl' | 'webgpu'
-window.usingWebGL; // boolean
-window.usingWebGPU; // boolean
-window.rendererFallbackReason; // null | 'explicit-webgl' | 'webgpu-unavailable'
-document.querySelector('#glCanvas').dataset.renderer;
-```
-
-Screenshot capture:
-
-```js
-import { captureCanvasScreenshot } from './src/rendering/renderer-mode.ts';
-const png = await captureCanvasScreenshot(document.querySelector('#glCanvas'));
-```
-
-## Visual Parity Notes
-
-| Feature                               | WebGPU                                    | WebGL2                                                         |
-| ------------------------------------- | ----------------------------------------- | -------------------------------------------------------------- |
-| MeshPhysicalMaterial (candy gloss)    | ✓ TSL + node path                         | ✓ Standard GLSL                                                |
-| TSL fog node (`scene.fogNode`)        | ✓                                         | Uses `THREE.Fog` fallback                                      |
-| TSL post-processing (bloom, vignette) | ✓ `PostProcessing` + TSL                  | ✓ `EffectComposer` + `UnrealBloomPass`                         |
-| GPU compute particles                 | ✓                                         | Disabled in `webglLite` / `safeMode`                           |
-| Music-reactivity uniforms             | ✓ TSL batchers                            | ✓ Same batchers where WebGL-compatible                         |
-| Shader warmup                         | Full batched warmup                       | Full batched warmup (GLSL node backend compiles TSL materials) |
-| God rays (sunrise/sunset/moon shafts) | ✓ additive shaft planes + `uShaftOpacity` | ✓ same planes, per-frame `material.opacity` sync               |
-| Depth of Field (bokeh)                | ✓ TSL `dof()` mixed by `uDofMix`          | ✓ `BokehPass`, toggled via `pass.enabled`                      |
-
-## Atmospheric Post-FX (god rays + DoF)
-
-Both effects are controlled by `CONFIG.postfx` (see `src/core/config.ts`) and resolved
-through `resolvePostfxQuality()` / `areGodRaysEnabled()` / `isDofEnabled()`:
-
-- **Quality tier** — `CONFIG.postfx.quality` (`off` | `low` | `high`), overridable with
-  `?postfx=off|low|high`. Default is `low`: god rays on, DoF off (60fps budget).
-- **God rays** — live in `game-loop.ts` (`applyMusicReactiveLightShafts`): golden-hour
-  shafts + cool moonbeams whose opacity is driven by the melody/beat channels, frustum-gated
-  and opacity-capped. `?postfx=off` (or `CONFIG.postfx.godRays = false`) hides them at zero cost.
-- **Depth of Field** — `?dof` / `?no_dof`, or implied by the `high` tier. DoF is only _built
-  into_ the render graph when enabled at boot, so the default tier carries no DoF cost. Within a
-  DoF-enabled session, `uDofMix` fades the effect in near luminous/mycelium flora (or always, in
-  manual `dofEnabled` mode) and snaps back to a sharp world instantly. `uDofFocus` follows the
-  player's look distance. WebGL uses `BokehPass` as a degraded-but-functional equivalent.
-
-## Shadows: CSM is WebGPU-only
-
-Cascaded Shadow Maps ride Three's TSL node graph (`CSMShadowNode` sets
-`light.shadow.shadowNode`, which only `AnalyticLightNode` — the WebGPU light
-path — ever reads). The WebGL renderer never builds that graph, so
-`initSunCascades()` checks `renderer.isWebGPURenderer` and returns `null` on
-WebGL. The caller then keeps the legacy single player-following ortho map
-configured in `configureSunShadows()`; nothing throws and nothing is skipped.
-Shadow softness (`shadow.filterNode`, 3×3 / 5×5 PCF) attaches after CSM init
-and also lands on the single follow map when cascades are off. r171
-`PCFSoftShadowMap` ignores `shadow.radius` on the node path — we use
-`PCFShadowMap` plus the candy filter. See `docs/SHADOW_SOFTNESS.md`.
-
-In practice WebGL rarely reaches either path: `resolveStartupCapabilities()`
-forces `graphics='low'` whenever `forceWebGL` is set, and the `low` tier turns
-shadows off entirely. The single-map fallback exists for the case where that
-clamp is relaxed, and so that flipping `CONFIG.lighting.shadows.cascadesEnabled`
-to `false` restores the old rig on either backend.
-
-Local point/spot lights still **illuminate** on WebGL. Extra local shadow maps
-are skipped (`src/rendering/lights.ts` treats the WebGL backend as
-directional-only). Tune fills via `CONFIG.lighting.local`; see
-`docs/LOCAL_LIGHTS.md`.
-
-Boot check both paths after touching shadow code:
-
-```bash
-RENDERER=webgl npm run test   # must still reach __sceneReady
-npm run test                  # WebGPU default
-```
-
-## WebGL → WebGPU Porting Checklist
-
-When iterating a visual feature in WebGL first:
-
-1. **Materials** — confirm `MeshPhysicalMaterial` clearcoat/roughness in WebGL; port TSL node graphs in batchers for WebGPU
-2. **Fog** — WebGL uses `scene.fog`; WebGPU adds `scene.fogNode` via `createCrescendoFogNode()`
-3. **Post-processing** — bloom threshold/radius come from `CONFIG.postfx` on both pipelines. GTAO is WebGPU-only (skipped on `?renderer=webgl`).
-4. **Uniforms** — mutate `.value` in place; never reassign TSL uniform nodes
-5. **Compute** — gate with `window.__computeDisabled`; provide JS fallback
-6. **Test both paths** — `?renderer=webgl` and default WebGPU before merging
-
-## Related Files
-
-- `src/rendering/renderer-mode.ts` — preference resolution, breadcrumbs, hot-switch
-- `src/rendering/webgl-debug.ts` — wireframe, material debug, lite boot flags
-- `src/core/init.ts` — renderer creation and mode-specific setup
-- `src/foliage/post-processing.ts` — dual post-processing pipelines
-- `src/debug/panel.ts` — debug UI renderer toggle
-- `src/systems/shadow-cascades.ts` — CSM rig, WebGPU guard, single-map fallback
-- `src/rendering/shadow-softness.ts` — TSL PCF / cheap PCSS, live softness API
-- `src/rendering/lights.ts` — local point/spot registry (WebGL illuminates, extra maps skipped)
+For the full contract see [`WEBGPU_CONTEXT.md` → WebGL: not available](./WEBGPU_CONTEXT.md#webgl-not-available).
+The previous opt-in WebGL2 design (toggles, parity table, porting checklist) is preserved for a
+future restore in [`docs/archive/webgl-fallback.md`](./archive/webgl-fallback.md). Do not follow it
+for current work. Post-FX and shadow notes that used to live there are current in
+[`POSTFX_STACK.md`](./POSTFX_STACK.md) and [`SHADOW_SOFTNESS.md`](./SHADOW_SOFTNESS.md).
