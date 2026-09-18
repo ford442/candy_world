@@ -80,7 +80,8 @@ export function createWaterfall(
     const gradient = mix(color(0xff00ff), color(0x00ffff), uv().y);
     mat.colorNode = mix(mat.colorNode ?? color(0x00FFFF), gradient, 0.5);
 
-    const rim = createJuicyRimLight(gradient, float(2.0), float(3.0), normalWorld);
+    // 🎨 PALETTE: Make Rim Light audio reactive for extra juice!
+    const rim = createJuicyRimLight(gradient, float(2.0).add(uAudioHigh.mul(2.0)), float(3.0), normalWorld);
 
     const emission = gradient.mul(uBaseEmission.add(uPulseIntensity)).mul(foam.add(0.2));
     const highIntensity = uAudioHigh.pow(float(1.5)).mul(1.5);
