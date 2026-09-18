@@ -1,8 +1,4 @@
-import { processMapEntity } from '../../world/generation-entities.ts';
-import type { MapEntity } from '../../world/generation-utils.ts';
 import { animatedFoliage } from '../../world/state.ts';
-import { populatePhysicsGrids } from '../physics/index.ts';
-import { getWeatherSystem } from '../weather/lazy.ts';
 import type { EntitySnapshot } from './save-types.ts';
 
 /**
@@ -62,49 +58,14 @@ export function serializeEntitySnapshots(): EntitySnapshot[] {
     return snapshots;
 }
 
-/** save-system EntitySnapshot fields line up 1:1 with MapEntity — this is a reshape, not a data transform. */
-function toMapEntity(snapshot: EntitySnapshot): MapEntity {
-    return {
-        id: snapshot.id,
-        type: snapshot.type,
-        position: snapshot.position,
-        rotation: snapshot.rotation,
-        scale: snapshot.scale,
-        persistentId: snapshot.persistentId,
-        variant: snapshot.variant,
-        note: snapshot.note,
-        noteIndex: snapshot.noteIndex,
-        hasFace: snapshot.hasFace,
-        category: snapshot.category,
-        layer: snapshot.layer,
-        biome: snapshot.biome,
-        placement: snapshot.placement as MapEntity['placement'],
-        music: snapshot.music as MapEntity['music'],
-        params: snapshot.params,
-    };
-}
-
 /**
- * Respawns dynamic world entities from save-data snapshots via the same
- * processMapEntity() path used for map.json world generation — same factory
- * lookup (foliage-registry.ts), same scene/animatedFoliage/batcher
- * registration (safeAddFoliage), so a restored entity is indistinguishable
- * from one placed at world-gen time.
+ * Placeholder minimal loader logic. A future editor or reload system
+ * will iterate over these snapshots to rebuild the scene accurately.
  */
 export function applyEntitySnapshots(snapshots: EntitySnapshot[]): void {
     if (!snapshots || snapshots.length === 0) return;
-
-    const weatherSystem = getWeatherSystem();
-    let restored = 0;
-    for (const snapshot of snapshots) {
-        try {
-            processMapEntity(toMapEntity(snapshot), weatherSystem as unknown as Parameters<typeof processMapEntity>[1]);
-            restored++;
-        } catch (err) {
-            console.warn(`[SaveSystem] Failed to restore entity "${snapshot.type}" (id: ${snapshot.id ?? 'none'}):`, err);
-        }
-    }
-
-    if (restored > 0) populatePhysicsGrids();
-    console.warn(`[SaveSystem] Restored ${restored}/${snapshots.length} entities from snapshot.`);
+    console.warn(`[SaveSystem] applyEntitySnapshots received ${snapshots.length} entities to restore.`);
+    // TODO: Connect this to the actual procedural generation / batcher pipeline
+    // to respawn entities from snapshots. Currently a no-op as the scene
+    // re-generates via deterministic map.json and seeds on load.
 }

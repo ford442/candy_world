@@ -274,7 +274,12 @@ export class PortamentoPineBatcher {
   removeInstance(logicObject: THREE.Object3D): void {
     if (!this.initialized || !logicObject) return;
     const index = logicObject.userData?.batchIndex;
-    if (typeof index !== 'number' || index < 0 || index >= this.count || this.logicPines[index] !== logicObject) {
+    if (
+      typeof index !== 'number' ||
+      index < 0 ||
+      index >= this.count ||
+      this.logicPines[index] !== logicObject
+    ) {
       return;
     }
 
@@ -301,7 +306,9 @@ export class PortamentoPineBatcher {
       this.logicPines[index] = movedPine;
       if (movedPine) {
         movedPine.userData.batchIndex = index;
-        if (this.bendAttribute) movedPine.userData._lastUploadedBend = this.bendAttribute.array[index];
+        if (this.bendAttribute) {
+          movedPine.userData._lastUploadedBend = this.bendAttribute.array[index];
+        }
       }
     }
 

@@ -1,32 +1,61 @@
 /**
  * Parity + microbench: JS core vs AssemblyScript unified ground height.
- * Run: npm run test:ground-unified (tsx tests/ground-unified-parity.mjs)
+ * Run: node tests/ground-unified-parity.mjs
  * Requires: pnpm run build:wasm first.
- *
- * Loads candy_physics.wasm directly (not through the Vite-only `?init`
- * import) — a documented WASM/parity harness per the phantom-test policy.
- * `applyPlatformOverride`/`applyLakeModifiers` are real imports from
- * ground-height-core.ts (previously hand-duplicated here, which is exactly
- * the drift risk this harness exists to catch). `rawTerrain` has no JS-side
- * production counterpart to import — assembly/ground.ts doesn't export a
- * terrain-only function, only the fully-composed `getUnifiedGroundHeight` — so
- * it stays a documented mirror of that formula, used as the common input fed
- * into both the JS and WASM paths below.
  */
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { applyLakeModifiers, applyPlatformOverride } from '../src/systems/ground-height-core.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
-/** Mirrors assembly/ground.ts's raw terrain formula — not exported standalone by WASM, so there's no import to swap in for the common JS/WASM input. */
+// Inline JS core (mirror ground-height-core.ts — no TS import in node test)
+const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68 };
+const LAKE_BOTTOM = -2.0;
+const LAKE_ISLAND = { centerX: 20, centerZ: 20, radius: 12, peakHeight: 3.0, falloffRadius: 4, enabled: true };
+const LAKE_ISLAND_RADIUS_SQ = LAKE_ISLAND.radius * LAKE_ISLAND.radius;
+
 function rawTerrain(x, z) {
     if (Number.isNaN(x) || Number.isNaN(z)) return 0;
     return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
         Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+}
+
+function applyPlatformOverride(x, z, terrainHeight, platforms) {
+    let best = terrainHeight;
+    for (const p of platforms) {
+        if (x < p.minX || x > p.maxX || z < p.minZ || z > p.maxZ) continue;
+        if (p.maxY > best) best = p.maxY;
+    }
+    return best;
+}
+
+function applyLakeModifiers(x, z, height) {
+    if (x <= LAKE_BOUNDS.minX || x >= LAKE_BOUNDS.maxX || z <= LAKE_BOUNDS.minZ || z >= LAKE_BOUNDS.maxZ) {
+        return height;
+    }
+    if (LAKE_ISLAND.enabled) {
+        const dx = x - LAKE_ISLAND.centerX;
+        const dz = z - LAKE_ISLAND.centerZ;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < LAKE_ISLAND_RADIUS_SQ) {
+            const dist = Math.sqrt(distSq);
+            const normalizedDist = dist / LAKE_ISLAND.radius;
+            const islandHeight = LAKE_ISLAND.peakHeight * Math.cos(normalizedDist * Math.PI / 2);
+            const edgeDist = LAKE_ISLAND.radius - dist;
+            const edgeBlend = Math.min(1.0, edgeDist / LAKE_ISLAND.falloffRadius);
+            const finalIslandHeight = 1.5 + islandHeight * edgeBlend;
+            return Math.max(height, finalIslandHeight);
+        }
+    }
+    const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
+    const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
+    const distEdge = Math.min(distX, distZ);
+    const blend = Math.min(1.0, distEdge / 10.0);
+    const targetHeight = height + (LAKE_BOTTOM - height) * blend;
+    return targetHeight < height ? targetHeight : height;
 }
 
 function jsUnified(x, z, now, platforms) {

@@ -13,10 +13,10 @@ import { spawnDandelionExplosion } from './dandelion-seeds.ts';
 import { gemFruitBatcher } from './gem-fruit-batcher.ts';
 import { applyGlitch } from './glitch.ts';
 import { spawnImpact } from './impacts.ts';
-import { 
-    createClayMaterial, 
-    createCandyMaterial, 
-    registerReactiveMaterial, 
+import {
+    createClayMaterial,
+    createCandyMaterial,
+    registerReactiveMaterial,
     attachReactivity,
     CandyPresets,
     uAudioLow,
@@ -311,7 +311,7 @@ export function createPortamentoPine(options: PortamentoPineOptions = {}) {
     group.userData.onPlacement = () => {
         portamentoPineBatcher.register(group, options);
         if (group.userData.attachGemFruits) {
-            group.userData.gemRefs = gemFruitBatcher.attachToTree(group, { height, gemCount: 5 + Math.floor(Math.random() * 3) }).refs;
+            gemFruitBatcher.attachToTree(group, { height, gemCount: 5 + Math.floor(Math.random() * 3) });
         }
     };
 

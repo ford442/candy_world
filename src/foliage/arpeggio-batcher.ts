@@ -24,16 +24,13 @@ import {
     createCandyMaterial,
     registerReactiveMaterial,
     sharedGeometries,
-    applyPlayerInteraction,
     applyStandardDeformation,
-    calculateWindSway,
     createJuicyRimLight,
     createStandardNodeMaterial,
     uAudioHigh,
     uPlayerPosition,
     applyBaseContactAO,
-    getBaseContactHeight,
-} from './index.ts';
+    getBaseContactHeight} from './index.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 
@@ -431,15 +428,18 @@ export class ArpeggioFernBatcher {
         this._matricesDirty = true;
         this.flushMatrices(); // immediate matrix+color write (native or TS)
 
-        // Update count
         this.mesh!.count = this.count;
     }
-
     /** Swap-with-last removal — keeps logicFerns/SoA buffers dense so update()'s 0..count-1 loop stays valid. */
     removeInstance(logicObject: any): void {
         if (!this.initialized || !logicObject) return;
         const index = logicObject.userData?.batchIndex;
-        if (typeof index !== 'number' || index < 0 || index >= this.count || this.logicFerns[index] !== logicObject) {
+        if (
+            typeof index !== 'number' ||
+            index < 0 ||
+            index >= this.count ||
+            this.logicFerns[index] !== logicObject
+        ) {
             return;
         }
 

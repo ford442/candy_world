@@ -22,9 +22,7 @@ import {
     CandyPresets,
     createClayMaterial,
     calculateFlowerBloom,
-    calculateWindSway,
-    applyPlayerInteraction,
-    applyStandardDeformation,
+            applyStandardDeformation,
     createJuicyRimLight,
     uTime,
     uAudioHigh,
@@ -275,8 +273,8 @@ export class SimpleFlowerBatcher {
 
         // 2. Wind Sway (Match Flowers)
         // We pass a proxy local position with Y=1.0 (approx flower height)
-        // because calculateWindSway assumes input is local pos relative to pivot at Y=0
-        const sway = calculateWindSway(vec3(0.0, 1.0, 0.0));
+        // because applyStandardDeformation assumes input is local pos relative to pivot at Y=0
+        const sway = applyStandardDeformation(vec3(0.0, 1.0, 0.0)).sub(vec3(0.0, 1.0, 0.0));
 
         // 3. Player Interaction (Wake Turbulence)
         const dist = length(basePos.sub(uPlayerPosition));

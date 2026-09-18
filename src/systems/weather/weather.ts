@@ -31,7 +31,7 @@ const THUNDER_STORM_CHARGE_BOOST = 0.05; // Storm charge increment per frame whe
 export class WeatherSystem {
     // Core references
     scene: THREE.Scene;
-    
+
     // State
     state: WeatherState;
     intensity: number;
@@ -42,7 +42,7 @@ export class WeatherSystem {
     darknessFactor: number;
     targetPaletteMode: string | null;
     currentSeason: string;
-    
+
     // Player Control Factor
     cloudDensity: number;
     cloudRegenRate: number;
@@ -176,7 +176,7 @@ export class WeatherSystem {
     setRenderer(renderer: any): void {
         this.renderer = renderer;
         this.effectsManager.setRenderer(renderer);
-        
+
         // Sync mesh references
         const effectsState = this.effectsManager.getState();
         this.rainMesh = effectsState.rainMesh;
@@ -200,15 +200,6 @@ export class WeatherSystem {
         if (!this.trackedCaves.includes(cave)) {
             this.trackedCaves.push(cave);
         }
-    }
-
-    /**
-     * Inverse of registerCave — stops tracking a cave that ChunkStreamer is
-     * evicting so it doesn't leave a weather ghost.
-     */
-    unregisterCave(cave: any): void {
-        const idx = this.trackedCaves.indexOf(cave);
-        if (idx !== -1) this.trackedCaves.splice(idx, 1);
     }
 
     /**
@@ -341,7 +332,7 @@ export class WeatherSystem {
         // Spawning
         const isRaining = this.state === WeatherState.RAIN || this.state === WeatherState.STORM;
         this.ecosystemManager.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight, this.onSpawnFoliage, isRaining);
-        
+
         // Waterfalls
         this.ecosystemManager.updateMushroomWaterfalls(time, bassIntensity, this.state, this.intensity, this.trackedMushrooms, this.mushroomWaterfalls);
 
@@ -386,7 +377,7 @@ export class WeatherSystem {
             );
             this.lightningTimer = lightningResult.lightningTimer;
             this.lightningActive = lightningResult.lightningActive;
-            
+
             this.atmosphereManager.chargeBerryGlow(bassIntensity, this.trackedTrees, this.trackedShrubs);
         }
 
@@ -532,13 +523,13 @@ export class WeatherSystem {
             else if (cycleWeatherBias.biasState === 'rain') biasState = WeatherState.RAIN;
 
             if (audioState !== biasState) {
-                if (Math.random() < biasWeight) { 
-                    this.state = biasState; 
-                    this.targetIntensity = cycleWeatherBias.biasIntensity; 
+                if (Math.random() < biasWeight) {
+                    this.state = biasState;
+                    this.targetIntensity = cycleWeatherBias.biasIntensity;
                 }
-                else { 
-                    this.state = audioState; 
-                    this.targetIntensity = audioIntensity; 
+                else {
+                    this.state = audioState;
+                    this.targetIntensity = audioIntensity;
                 }
             } else {
                 this.state = audioState;
@@ -716,7 +707,7 @@ export class WeatherSystem {
      */
     dispose(): void {
         this.effectsManager.dispose();
-        
+
         // Cleanup any remaining waterfalls
         if (this.mushroomWaterfalls && this.mushroomWaterfalls.size > 0) {
             for (const uuid of this.mushroomWaterfalls) {

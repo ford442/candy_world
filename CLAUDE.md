@@ -14,7 +14,7 @@ The primary play experience is first-person: click to pointer-lock, use mouse-lo
 - **Language**: TypeScript (strict mode)
 - **Performance**: AssemblyScript compiled to WASM for physics and particle simulation
 - **Testing**: Playwright for smoke/boot tests, Node.js for WASM tests
-- **Browser Support**: Chrome 113+, Edge 113+, or browsers with WebGPU enabled. WebGPU is required — there is no WebGL fallback (`docs/webgl-fallback.md`)
+- **Browser Support**: Chrome 113+, Edge 113+, or browsers with WebGPU enabled
 
 ## Development Commands
 
@@ -36,8 +36,8 @@ npm run test               # Smoke test - boot sequence (~2-3m)
 npm run test:integration   # Full test pipeline
 
 # WASM & build tools
-npm run build:wasm         # Compile AssemblyScript (linear-memory MVP + simd + bulk-memory; not Wasm GC)
-npm run build:emcc         # Emscripten build (-O2 MT + ST; do not raise — see AGENTS.md "Emscripten Build Safety")
+npm run build:wasm         # Compile AssemblyScript
+npm run build:emcc         # Emscripten build
 npm run verify:emcc        # Verify Emscripten exports
 ```
 

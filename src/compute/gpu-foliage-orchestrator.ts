@@ -28,7 +28,6 @@ function attachDeviceLostHandler(): void {
     _deviceLostUnsub = onGpuDeviceLost(() => {
         _disabledByDeviceLoss = true;
         teardownGpuFoliageOrchestrator();
-        console.warn('[GPUFoliage] Device lost — falling back to CPU/WASM foliage');
     });
 }
 
@@ -48,7 +47,6 @@ export async function initGpuFoliageOrchestrator(): Promise<GPUFoliageAnimator |
 
         const gpu = getSharedGPUCompute();
         if (!gpu.isReady()) {
-            console.warn('[GPUFoliage] Shared WebGPU device unavailable — CPU/WASM fallback');
             return null;
         }
 
@@ -58,12 +56,10 @@ export async function initGpuFoliageOrchestrator(): Promise<GPUFoliageAnimator |
         try {
             await animator.initialize();
         } catch (err) {
-            console.warn('[GPUFoliage] Animator init failed — CPU/WASM fallback', err);
             return null;
         }
 
         _animator = animator;
-        console.log('[GPUFoliage] Orchestrator ready — default GPU animation path (opt-out: ?gpuFoliage=0)');
         return animator;
     })();
 

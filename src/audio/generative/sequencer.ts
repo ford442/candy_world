@@ -97,7 +97,7 @@ export class GenerativeSequencer {
         return this.pendingEvents;
     }
 
-    getBeatPhase(dayNightBias: number): number {
+    getBeatPhase(_dayNightBias: number): number {
         const beatsPerStep = 1 / 4; // 16th notes
         const totalSteps = this.bar * STEPS_PER_BAR + this.step;
         const beat = (totalSteps * beatsPerStep) % 4;

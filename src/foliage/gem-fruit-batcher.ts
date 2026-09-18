@@ -110,8 +110,6 @@ export class GemFruitBatcher {
     readonly group = new THREE.Group();
     readonly meshes: THREE.InstancedMesh[] = [];
     private readonly _counts = [0, 0, 0];
-    /** instanceIndex -> the BatcherInstanceRef occupying that slot, so a swap-removal can patch the owner's index in place. */
-    private readonly _instanceOwners: (BatcherInstanceRef | null)[][] = [[], [], []];
     private readonly _scratchMatrix = new THREE.Matrix4();
     private readonly _scratchPos = new THREE.Vector3();
     private readonly _scratchQuat = new THREE.Quaternion();
@@ -200,9 +198,7 @@ export class GemFruitBatcher {
                 const instanceIndex = this._registerInstance(gemType, this._scratchMatrix, drop + 0.2);
                 if (instanceIndex >= 0) {
                     placed++;
-                    const ref: BatcherInstanceRef = { batcher: 'gem_fruit', instanceIndex, gemType };
-                    refs.push(ref);
-                    this._instanceOwners[gemType][instanceIndex] = ref;
+                    refs.push({ batcher: 'gem_fruit', instanceIndex, gemType });
                     updatedMeshes.add(this.meshes[gemType]);
                 }
             }
@@ -250,51 +246,6 @@ export class GemFruitBatcher {
         mesh.count = idx + 1;
         // ⚡ OPTIMIZATION: Removed needsUpdate=true inside the loop. Flagged externally.
         return idx;
-    }
-
-    /**
-     * Swap-with-last removal for one gem. `ref` must be the same object
-     * handed back by attachToTree/registerPlacedEntity — its `instanceIndex`
-     * is kept in sync (mutated in place) by earlier removals in the same
-     * batch, so callers can safely remove a tree's whole ref list in a loop.
-     */
-    removeInstance(ref: BatcherInstanceRef | null | undefined): void {
-        if (!ref || ref.batcher !== 'gem_fruit' || typeof ref.gemType !== 'number') return;
-        const type = ref.gemType;
-        const mesh = this.meshes[type];
-        if (!mesh) return;
-
-        const idx = ref.instanceIndex;
-        const last = this._counts[type] - 1;
-        if (idx < 0 || idx > last) return; // already removed, or stale/invalid ref
-
-        if (idx !== last) {
-            const matArr = mesh.instanceMatrix.array as Float32Array;
-            matArr.copyWithin(idx * 16, last * 16, last * 16 + 16);
-            mesh.instanceMatrix.needsUpdate = true;
-
-            for (const attrName of ['aPhase', 'aArmLen', 'aAwakened', 'aEmissiveScale'] as const) {
-                const attr = mesh.geometry.getAttribute(attrName) as THREE.InstancedBufferAttribute | undefined;
-                if (!attr) continue;
-                const arr = attr.array as Float32Array;
-                arr[idx] = arr[last];
-                attr.needsUpdate = true;
-            }
-
-            const movedOwner = this._instanceOwners[type][last];
-            this._instanceOwners[type][idx] = movedOwner ?? null;
-            if (movedOwner) movedOwner.instanceIndex = idx;
-        }
-
-        this._instanceOwners[type][last] = null;
-        this._counts[type] = last;
-        mesh.count = last;
-    }
-
-    /** Bulk convenience for evicting every gem attached to one tree/pine. */
-    removeInstances(refs: readonly BatcherInstanceRef[] | null | undefined): void {
-        if (!refs) return;
-        for (const ref of refs) this.removeInstance(ref);
     }
 
     dispose(): void {

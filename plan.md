@@ -26,10 +26,9 @@ Prefer domain barrels over mechanical 700-line cuts. Already landed:
 - `style.css` — `#1490` barrel + `styles/` modules (each well under 700 lines)
 - `src/foliage/material-core.ts` — `#1491` barrel + `material-core/` modules (each well under 700 lines)
 
-## Accomplished / Recent Progress
+Still ticketed for future PRs: `tree-batcher.ts`.
 
-- **Status: Implemented ✅** (#1486 Split tree-batcher.ts / trees.ts)
-  - Implementation Details: Split the massive `src/foliage/trees.ts` file into domain-focused submodules (`trees-core.ts`, `trees-willows.ts`, `trees-vines.ts`, `trees-palms.ts`, `trees-shrubs.ts`) and maintained `trees.ts` as a thin barrel file to resolve the module size limit violation without breaking the public API.
+## Accomplished / Recent Progress
 
 - **Status: Implemented ✅** (#1767 Split playlist-manager.ts)
   - Implementation Details: Split the massive `playlist-manager.ts` file by extracting DOM event handlers and UI rendering logic into sibling files (`playlist-events.ts`, `playlist-ui.ts`, and `playlist-types.ts`). Maintained `playlist-manager.ts` as the public orchestrator, keeping the public API stable.

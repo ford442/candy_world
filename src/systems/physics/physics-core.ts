@@ -221,14 +221,9 @@ export function registerPhysicsCave(cave: THREE.Object3D) {
     foliageCaves.push(cave);
 }
 
-/**
- * Inverse of registerPhysicsCave — drops a cave from collision/water-level
- * checks so ChunkStreamer can evict it without leaving a physics ghost.
- * @param cave - The cave mesh to unregister
- */
 export function unregisterPhysicsCave(cave: THREE.Object3D) {
-    const idx = foliageCaves.indexOf(cave);
-    if (idx !== -1) foliageCaves.splice(idx, 1);
+    const index = foliageCaves.indexOf(cave);
+    if (index !== -1) foliageCaves.splice(index, 1);
 }
 
 /**
@@ -532,15 +527,13 @@ function updateDefaultState(
         const preX = player.position.x;
         const preZ = player.position.z;
 
-        // 3. updatePhysicsCPP() as obstacle/trampoline solver only. The native
-        // module no longer consults jump/sprint/sneak/grooveGravity — they're
-        // passed for ABI compatibility only (see wasm-physics.ts).
+        // 3. updatePhysicsCPP(..., jump = false) as obstacle/trampoline solver only
         onGround = updatePhysicsCPP(
             delta,
             _targetVelocity.x,
             _targetVelocity.z,
             moveSpeed,
-            false,
+            false, // jump=false to prevent C++ from firing vy=10
             keyStates.sprint,
             keyStates.sneak,
             grooveGravity.multiplier
