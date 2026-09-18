@@ -1,19 +1,15 @@
 import * as THREE from 'three';
 import {
-    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform, normalLocal, add
+    color, float, vec3, vec4, sin, cos, positionLocal, normalLocal, add
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { BiomeId } from '../systems/biome-uniforms.ts';
 import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
-import { computeWaveDistSq, computeWaveTimeSinceArrival } from '../systems/music-wave.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     CandyPresets,
     uTime,
     registerReactiveMaterial,
-    calculateWindSway,
-    applyPlayerInteraction,
     applyStandardDeformation,
     createJuicyRimLight
 } from './index.ts';
@@ -193,7 +189,7 @@ export class KickDrumGeyserBatcher {
         this.plumeMesh.instanceMatrix.needsUpdate = true;
     }
 
-    update(time: number, deltaTime: number, audioState: any, activeWave: any) {
+    update(_time: number, _deltaTime: number, audioState: any, activeWave: any) {
         if (this._count === 0) return;
 
         // Eruption logic is driven by the 'kick' channel (typically uAudioLow in similar batchers or audioState.kick)

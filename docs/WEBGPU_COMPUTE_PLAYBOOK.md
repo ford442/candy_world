@@ -8,7 +8,7 @@
 > - [`docs/WEBGPU_CONTEXT.md`](./WEBGPU_CONTEXT.md) — single-device architecture, limits matrix, device-lost policy
 > - [`docs/COMPUTE_GPU_DEFAULT.md`](./COMPUTE_GPU_DEFAULT.md) — which subsystems are GPU-default, Tier 4a vs 4b
 > - [`docs/COMPUTE_PARTICLES.md`](./COMPUTE_PARTICLES.md), [`docs/GPU_FOLIAGE.md`](./GPU_FOLIAGE.md) — worked, shipped examples
-> - [`docs/webgl-fallback.md`](./webgl-fallback.md) — why there is no WebGL path (compute still needs a CPU/WASM tier for device loss)
+> - [`docs/webgl-fallback.md`](./webgl-fallback.md) — the WebGL2 reference path and `?webglLite=1`
 > - [`docs/TIER_PARITY.md`](./TIER_PARITY.md) — golden-vector harness for fallback parity
 >
 > Owner modules: [`src/rendering/gpu-context.ts`](../src/rendering/gpu-context.ts),
@@ -148,9 +148,9 @@ this.unsubscribeDeviceLost = onGpuDeviceLost(() => {
 - **Never call `device.destroy()`.** The renderer owns the device's lifetime; your `dispose()`
   releases _your_ buffers and unsubscribes, nothing more.
 - **A listener that throws is caught and logged** — but it still means your teardown was incomplete.
-- There is no WebGL backend to handle (WebGPU is required to boot), but device loss and
-  `?no_gpu_compute` still leave you without a device, and step 1 already routes those to the CPU
-  tier — **if you find yourself branching on the backend name, you skipped step 1.**
+- On `?renderer=webgl` the context resolves as unavailable immediately, so step 1 already routed you
+  to the CPU tier. There is nothing extra to write for WebGL — **if you find yourself branching on
+  the backend name, you skipped step 1.**
 
 ## 5. Quality tier and `webglLite`
 
@@ -401,7 +401,7 @@ Copy-paste into the PR description and tick it:
 - [ ] `shouldSkipDispatch()` (or equivalent) guards zero-count registries
 - [ ] `onGpuDeviceLost` teardown drops pipeline/bind group/buffers; **no `device.destroy()`**
 - [ ] No stale GPU-driven visuals after device loss (hidden or handed to the CPU tier)
-- [ ] Verified on `?no_gpu_compute` (CPU tier) and the default WebGPU path
+- [ ] Verified on `?renderer=webgl`, `?webglLite=1`, and `?no_gpu_compute`
 - [ ] CPU/WASM fallback exists and is parity-tested (`npm run test:parity`, `|Δ| ≤ 1e-5`)
 - [ ] New path behind a URL flag, default OFF, until parity is green
 - [ ] Instance counts scale with quality tier; `getCIAdjustedCount()` used for CI

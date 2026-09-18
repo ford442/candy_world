@@ -416,7 +416,7 @@ if [ $MISSING_COUNT -gt 0 ]; then
 fi
 
 # =============================================================================
-# ROBUST EXPORT LIST (keeps exports alive through DCE + avoids shell quoting trap)
+# ROBUST EXPORT LIST (fixes -O3 DCE + shell quoting trap)
 # =============================================================================
 echo "[INFO] Building export list (${#EXPORT_LIST[@]} functions)..."
 
@@ -433,30 +433,15 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 # STEP 4: Configure Compiler and Linker Flags
 # ---------------------------------------------------------
 
-OPT_LEVEL="-O2"  # see OPTIMIZER LEVEL below — do not raise without reading it
-
 # Compiler flags for performance
-# - O2: Optimization level. Deliberately NOT -O3/-Os/-Oz — see OPTIMIZER LEVEL below.
+# - O3: Maximum optimization for speed
 # - msimd128: Enable SIMD for vectorized math operations
 # - mrelaxed-simd: Allow relaxed SIMD operations for better performance
 # - ffast-math: Aggressive floating-point optimizations
 # - fno-rtti: Disable RTTI to reduce code size
 # - pthread: Enable threading support for parallel operations
 # - fopenmp: Enable OpenMP for parallel batch operations
-COMPILE_FLAGS="$OPT_LEVEL -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
-
-# OPTIMIZER LEVEL (IMPORTANT):
-# - Compile and link both use -O2, for MT and ST builds alike.
-# - At -O3/-Os/-Oz, emcc runs metadce and minifies wasm import/export names
-#   (MINIFY_WASM_IMPORTS_AND_EXPORTS). That setting is INTERNAL: passing
-#   `-s MINIFY_WASM_IMPORTS_AND_EXPORTS=0` is rejected by em++ ("internal
-#   setting and cannot be set from command line"), and since this script
-#   swallows compile failures it would silently ship no native module.
-# - Staying at -O2 is therefore how readable export names are guaranteed;
-#   verify_build.js (`verify:emcc --strict` in Tier 2 CI) reads the .wasm export
-#   table by name and fails if they ever get minified.
-# - Changing the level: rebuild, confirm verify:emcc --strict stays green, and
-#   update AGENTS.md in the same commit.
+COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
 
 # Linker flags
 # - USE_PTHREADS=1: Enable pthread support (requires SharedArrayBuffer)
@@ -477,7 +462,7 @@ else
     echo "[INFO] Assertions DISABLED for production"
 fi
 
-LINK_FLAGS="$OPT_LEVEL -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
+LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=["ccall","cwrap","wasmMemory"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web,worker -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s SHARED_MEMORY=1 \
@@ -571,10 +556,10 @@ OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
 OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
 
 # Compiler flags for ST (remove pthread, atomics, etc)
-COMPILE_FLAGS_ST="$OPT_LEVEL -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops"
+COMPILE_FLAGS_ST="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops"
 
 # Linker flags for ST (remove pthread, shared memory)
-LINK_FLAGS_ST="$OPT_LEVEL -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
+LINK_FLAGS_ST="-O2 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=["ccall","cwrap","wasmMemory"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web -s ERROR_ON_UNDEFINED_SYMBOLS=0 \

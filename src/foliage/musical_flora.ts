@@ -1,19 +1,6 @@
 import * as THREE from 'three';
 import {
-    color,
-    float,
-    vec3,
-    sin,
-    cos,
-    mix,
-    uv,
-    positionLocal,
-    time,
-    smoothstep,
-    uniform,
-    vec2,
-    step,
-    abs,
+    color, float, vec3, sin, cos, mix, uv, positionLocal, time, smoothstep, uniform, vec2, step, abs
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
@@ -34,7 +21,7 @@ import {
     CandyPresets,
     uAudioLow,
     uTime,
-    uGlitchIntensity,
+    uGlitchIntensity
 } from './index.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
 
@@ -101,7 +88,7 @@ function createGlitchyMaterial(hexColor: number): MeshStandardNodeMaterial {
     // Color Shift: Mix base color with Cyan based on scanline strength
     // PRESERVE: Use existing colorNode (Clay preset AO) as base
     const baseColorNode = material.colorNode || color(hexColor);
-    const glitchColor = color(0x00ffff); // Cyan
+    const glitchColor = color(0x00FFFF); // Cyan
 
     // Emissive boost on scanline
     const emissiveIntensity = scanline.mul(glitchTrigger.add(0.2)).mul(2.0); // Base visibility + Kick
@@ -118,7 +105,7 @@ function createGlitchyMaterial(hexColor: number): MeshStandardNodeMaterial {
 // --- Category 1: Melodic Flora ---
 
 export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
-    const { color = 0x00ff88, scale = 1.0 } = options;
+    const { color = 0x00FF88, scale = 1.0 } = options;
     const group = new THREE.Group();
 
     // ⚡ OPTIMIZATION: Logic Object only (visuals are batched)
@@ -131,8 +118,8 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
 
     group.userData.animationType = 'arpeggioUnfurl';
     group.userData.type = 'fern';
-    group.userData.biome = 'arpeggio_grove'; // Music reactivity: tells getBiomeUniforms which uniform group to use
-    group.userData.interactionText = 'Play Arpeggio';
+    group.userData.biome = 'arpeggio_grove';   // Music reactivity: tells getBiomeUniforms which uniform group to use
+    group.userData.interactionText = "Play Arpeggio";
 
     group.userData.needsRegistration = true;
     group.userData.batchOptions = options;
@@ -158,11 +145,11 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
         const harvested = group.userData.harvested || false;
 
         if (harvested) {
-            group.userData.interactionText = 'Harvested';
+            group.userData.interactionText = "Harvested";
         } else if (unfurl > 0.8) {
-            group.userData.interactionText = 'Harvest Core';
+            group.userData.interactionText = "Harvest Core";
         } else {
-            group.userData.interactionText = 'Play Arpeggio';
+            group.userData.interactionText = "Play Arpeggio";
         }
     };
 
@@ -172,9 +159,9 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
         // Physical pop handled by updating batcher matrix
         const batchIdx = group.userData.batchIndex;
         if (batchIdx !== undefined) {
-            // We need to scale the group (Logic) then update Batcher
-            // makeInteractive already scaled the group in originalEnter!
-            arpeggioFernBatcher.updateInstance(batchIdx, group);
+             // We need to scale the group (Logic) then update Batcher
+             // makeInteractive already scaled the group in originalEnter!
+             arpeggioFernBatcher.updateInstance(batchIdx, group);
         }
     };
 
@@ -193,7 +180,7 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
         if (originalLeave) originalLeave();
         const batchIdx = group.userData.batchIndex;
         if (batchIdx !== undefined) {
-            arpeggioFernBatcher.updateInstance(batchIdx, group);
+             arpeggioFernBatcher.updateInstance(batchIdx, group);
         }
     };
 
@@ -201,17 +188,23 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
 }
 
 export function createSnareTrap(options: SnareTrapOptions = {}) {
-    const { scale = 1.0, color = 0xff4444 } = options;
+    const { scale = 1.0, color = 0xFF4444 } = options;
     const group = new THREE.Group();
 
     // Visuals: Jaw-like structure
     // Lower Jaw
-    const lowerJaw = new THREE.Mesh(new THREE.BoxGeometry(1, 0.2, 1), createClayMaterial(color));
+    const lowerJaw = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 0.2, 1),
+        createClayMaterial(color)
+    );
     lowerJaw.position.y = 0.1;
     group.add(lowerJaw);
 
     // Upper Jaw (Pivots)
-    const upperJaw = new THREE.Mesh(new THREE.BoxGeometry(1, 0.2, 1), createClayMaterial(color));
+    const upperJaw = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 0.2, 1),
+        createClayMaterial(color)
+    );
     upperJaw.position.y = 0.5;
     upperJaw.rotation.x = -Math.PI / 4; // Open
     // Pivot helper
@@ -248,26 +241,20 @@ export function createSnareTrap(options: SnareTrapOptions = {}) {
     return makeInteractive(reactiveGroup);
 }
 
-const _impactColorSpore = new THREE.Color(0xff4444);
+const _impactColorSpore = new THREE.Color(0xFF4444);
 
 export function createRetriggerMushroom(options: RetriggerMushroomOptions = {}) {
-    const { scale = 1.0, color = 0xff6b6b, retriggerSpeed = 4 } = options;
+    const { scale = 1.0, color = 0xFF6B6B, retriggerSpeed = 4 } = options;
     const group = new THREE.Group();
 
     // Use Glitchy Material for Cap
     const capMat = createGlitchyMaterial(color);
 
-    const cap = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-        capMat
-    );
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
     cap.position.y = 0.8;
     group.add(cap);
 
-    const stem = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.3, 0.4, 0.8, 8),
-        createClayMaterial(0xf5f5dc)
-    );
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.8, 8), createClayMaterial(0xF5F5DC));
     stem.position.y = 0.4;
     group.add(stem);
 
@@ -293,11 +280,7 @@ export function createPortamentoPine(options: PortamentoPineOptions = {}) {
     group.scale.setScalar(scaleFactor);
 
     // Hitbox (Cylinder approx)
-    const hitGeo = new THREE.CylinderGeometry(
-        0.5 * scaleFactor,
-        0.5 * scaleFactor,
-        4.0 * scaleFactor
-    );
+    const hitGeo = new THREE.CylinderGeometry(0.5 * scaleFactor, 0.5 * scaleFactor, 4.0 * scaleFactor);
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
     const hitMesh = new THREE.Mesh(hitGeo, hitMat);
     hitMesh.position.y = 2.0 * scaleFactor; // Center at half-height
@@ -313,24 +296,13 @@ export function createPortamentoPine(options: PortamentoPineOptions = {}) {
     group.userData.reactToNote = (noteInfo: any) => {
         if (noteInfo.channel === 2 || noteInfo.channel === 3) {
             group.userData.reactivityState.velocity += 15.0 * (noteInfo.velocity || 0.5);
-            if (
-                (window as any).AudioSystem &&
-                typeof (window as any).AudioSystem.playSound === 'function'
-            ) {
+            if ((window as any).AudioSystem && typeof (window as any).AudioSystem.playSound === 'function') {
                 const pitch = noteInfo.note ? 1.0 : 0.8 + Math.random() * 0.4;
-                (window as any).AudioSystem.playSound('creak', {
-                    position: group.position,
-                    pitch,
-                    volume: 0.3,
-                });
+                (window as any).AudioSystem.playSound('creak', { position: group.position, pitch, volume: 0.3 });
             }
             // Inform the batcher of reactive bend (batcher provides helper)
             const idx = group.userData.batchIndex;
-            if (
-                idx !== undefined &&
-                portamentoPineBatcher &&
-                typeof portamentoPineBatcher.setBendForIndex === 'function'
-            ) {
+            if (idx !== undefined && portamentoPineBatcher && typeof portamentoPineBatcher.setBendForIndex === 'function') {
                 portamentoPineBatcher.setBendForIndex(idx, group.userData.reactivityState.velocity);
             }
         }
@@ -339,10 +311,7 @@ export function createPortamentoPine(options: PortamentoPineOptions = {}) {
     group.userData.onPlacement = () => {
         portamentoPineBatcher.register(group, options);
         if (group.userData.attachGemFruits) {
-            group.userData.gemRefs = gemFruitBatcher.attachToTree(group, {
-                height,
-                gemCount: 5 + Math.floor(Math.random() * 3),
-            }).refs;
+            gemFruitBatcher.attachToTree(group, { height, gemCount: 5 + Math.floor(Math.random() * 3) });
         }
     };
 
@@ -387,7 +356,7 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
 
     group.userData.animationType = 'batchedCymbal'; // Use batched type to avoid CPU animation
     group.userData.type = 'flower';
-    group.userData.interactionText = 'Harvest Seeds';
+    group.userData.interactionText = "Harvest Seeds";
 
     // Callback for generation system to invoke after setting position
     group.userData.onPlacement = () => {
@@ -409,19 +378,16 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
             _scratchHeadOffset.set(0, 1.5 * scale, 0);
             _scratchHeadOffset.applyQuaternion(group.quaternion);
             _scratchHeadPos.copy(group.position).add(_scratchHeadOffset);
-            spawnImpact(_scratchHeadPos, 'spore', 0xffd700);
+            spawnImpact(_scratchHeadPos, 'spore', 0xFFD700);
             spawnDandelionExplosion(_scratchHeadPos, 24);
 
             // Audio
             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('pickup', {
-                    position: group.position,
-                    pitch: 2.0,
-                });
+                (window as any).AudioSystem.playSound('pickup', { position: group.position, pitch: 2.0 });
             }
 
             group.userData.harvested = true;
-            group.userData.interactionText = 'Harvested';
+            group.userData.interactionText = "Harvested";
         }
 
         if (originalInteract) originalInteract();
