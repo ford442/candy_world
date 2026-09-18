@@ -114,6 +114,7 @@ export function createKeyboardHandlers(
                 event.preventDefault();
                 const closePlaylistBtn = document.getElementById('closePlaylistBtn');
                 if (closePlaylistBtn) {
+                    closePlaylistBtn.classList.add('keyboard-active');
                     // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
                 }
                 togglePlaylist();
