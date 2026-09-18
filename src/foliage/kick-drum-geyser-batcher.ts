@@ -149,7 +149,6 @@ export class KickDrumGeyserBatcher {
         if (!logicObject) return;
         const index = logicObject.userData?.batchIndex;
         if (
-            !logicObject ||
             typeof index !== 'number' ||
             index < 0 ||
             index >= this._count ||

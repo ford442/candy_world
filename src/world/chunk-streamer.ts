@@ -132,7 +132,7 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'glass_mushroom') return 'glassMushroom';
     if (t === 'flower') return 'flower';
     if (t === 'simple_flower' || (obj.userData?.isFlower && t !== 'flower')) return 'simpleFlower';
-    if (t === 'fern') return 'arpeggioFern';
+    if (t === 'fern' || t === 'arpeggio_fern') return 'arpeggioFern';
     if (t === 'cave') return 'cave';
     if (t === 'kick_drum_geyser') return 'kickDrumGeyser';
     if (isKnownBatchedType(obj)) return 'never';

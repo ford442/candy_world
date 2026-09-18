@@ -431,8 +431,6 @@ export class ArpeggioFernBatcher {
         this._matricesDirty = true;
         this.flushMatrices(); // immediate matrix+color write (native or TS)
 
-        // Update count
-        this.mesh!.count = this.count;
         this.mesh!.count = this.count;
     }
     /** Swap-with-last removal — keeps logicFerns/SoA buffers dense so update()'s 0..count-1 loop stays valid. */
