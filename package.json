@@ -23,6 +23,7 @@
     "build": "npm run build:wasm && npm run build:emcc && vite build",
     "build:optimized": "npm run build:wasm && npm run build:emcc && npm run optimize && vite build",
     "test": "node --experimental-detect-module tests/smoke-runner.mjs",
+
     "test:wasm": "node tests/wasm.mjs",
     "test:rigidbody": "node tests/rigid-body.mjs",
     "test:joints": "node tests/joints.mjs",

@@ -12,12 +12,9 @@ import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, u
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import {
-    applyPlayerInteractionWithLod,
-    calculateWindSwayWithLod,
     scaleEmissiveByLod,
     applyStandardDeformationWithLod,
-    applyFoliageLodMaterialFade,
-} from './lod-nodes.ts';
+    applyFoliageLodMaterialFade} from './lod-nodes.ts';
 import { uTime, createJuicyRimLight, applyBaseContactAO, getBaseContactHeight } from './material-core.ts';
 import { uTwilight } from './sky.ts';
 

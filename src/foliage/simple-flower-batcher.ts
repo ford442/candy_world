@@ -23,7 +23,6 @@ import {
     createClayMaterial,
     calculateFlowerBloom,
     calculateWindSway,
-    applyPlayerInteraction,
     applyStandardDeformation,
     createJuicyRimLight,
     uTime,

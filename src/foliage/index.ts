@@ -43,10 +43,9 @@ export {
     colorFromNote,
     // Player interaction
     calculatePlayerPush,
-    applyPlayerInteraction,
     applyStandardDeformation,
-    // Wind and bloom
     calculateWindSway,
+    // Wind and bloom
     calculateFlowerBloom,
     getWindTextureData,
     windComputeSystem,
@@ -73,8 +72,7 @@ export {
     createTransparentNodeMaterial,
     applyBaseContactAO,
     getBaseContactHeight,
-    updateBaseContactAOUniforms,
-} from './material-core.ts';
+    updateBaseContactAOUniforms} from './material-core.ts';
 
 // =============================================================================
 // FOLIAGE MATERIALS - Pre-configured material instances

@@ -13,8 +13,7 @@ import { foliageGroup } from '../world/state.ts';
 const _scratchLODMatrix = new THREE.Matrix4();
 import {
     CandyPresets,
-    applyPlayerInteraction,
-    uTime,
+        uTime,
     uAudioLow,
     uAudioHigh,
     uWindSpeed

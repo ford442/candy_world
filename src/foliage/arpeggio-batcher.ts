@@ -24,16 +24,13 @@ import {
     createCandyMaterial,
     registerReactiveMaterial,
     sharedGeometries,
-    applyPlayerInteraction,
     applyStandardDeformation,
-    calculateWindSway,
     createJuicyRimLight,
     createStandardNodeMaterial,
     uAudioHigh,
     uPlayerPosition,
     applyBaseContactAO,
-    getBaseContactHeight,
-} from './index.ts';
+    getBaseContactHeight} from './index.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 
