@@ -18,7 +18,18 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
     protected handleKeyDown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
             const closeBtn = this.container?.querySelector('.a11y-close-btn') as HTMLElement;
-            if (closeBtn) closeBtn.classList.add('keyboard-active');
+            if (closeBtn) {
+                closeBtn.classList.add('keyboard-active');
+                document.addEventListener(
+                    'keyup',
+                    (e: KeyboardEvent) => {
+                        if (e.key === 'Escape') {
+                            closeBtn.classList.remove('keyboard-active');
+                        }
+                    },
+                    { once: true }
+                );
+            }
 
             this.close();
             event.preventDefault();
