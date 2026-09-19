@@ -20,15 +20,15 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
             const closeBtn = this.container?.querySelector('.a11y-close-btn') as HTMLElement;
             if (closeBtn) {
                 closeBtn.classList.add('keyboard-active');
-                document.addEventListener(
-                    'keyup',
-                    (e: KeyboardEvent) => {
-                        if (e.key === 'Escape') {
-                            closeBtn.classList.remove('keyboard-active');
-                        }
-                    },
-                    { once: true }
-                );
+
+                const handleEscapeKeyUp = (e: KeyboardEvent) => {
+                    if (e.key === 'Escape') {
+                        closeBtn.classList.remove('keyboard-active');
+                        document.removeEventListener('keyup', handleEscapeKeyUp);
+                    }
+                };
+
+                document.addEventListener('keyup', handleEscapeKeyUp);
             }
 
             this.close();
