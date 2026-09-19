@@ -22,6 +22,8 @@ Requires `preferGpuCompute()` and a warm shared device (`ensureGpuComputeReady()
 
 `GPUFoliageAnimator` (`gpu-foliage-animator.ts`) is initialised by `gpu-foliage-orchestrator.ts` when the pilot flag is on; full instanced-matrix migration is a follow-up slice.
 
+> **Note**: Both `gpu-plant-pose.ts` and `foliage-gpu-batch.ts` use persistent ping-pong `MAP_READ` staging buffers for readback, introducing a 1-frame latency to avoid GPU-CPU sync stalls.
+
 ## Storage layout
 
 ### Plant pose (`gpu-plant-pose.ts`)
