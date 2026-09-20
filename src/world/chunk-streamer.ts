@@ -12,7 +12,7 @@ import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
-import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
