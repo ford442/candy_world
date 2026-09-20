@@ -199,8 +199,11 @@ export class CullingSystem {
 
     /** Check if camera has moved significantly */
     private hasCameraMoved(camera: THREE.Camera): boolean {
-        // ⚡ OPTIMIZATION: Use distanceToSquared to avoid Math.sqrt() in checks
-        const posDiffSq = this.lastCameraPosition.distanceToSquared(camera.position);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceToSquared() overhead with raw math
+        const dx = this.lastCameraPosition.x - camera.position.x;
+        const dy = this.lastCameraPosition.y - camera.position.y;
+        const dz = this.lastCameraPosition.z - camera.position.z;
+        const posDiffSq = dx * dx + dy * dy + dz * dz;
         const rotDiff = 1 - Math.abs(this.lastCameraQuaternion.dot(camera.quaternion));
         
         return posDiffSq > (this.cameraMovedThreshold * this.cameraMovedThreshold) || rotDiff > 0.001;
@@ -297,8 +300,11 @@ export class CullingSystem {
         this.updateBoundingSphere(obj.object, obj.boundingSphere);
         
         // Calculate distance to camera
-        // ⚡ OPTIMIZATION: Use distanceToSquared to avoid Math.sqrt() in high-frequency culling loop
-        const distSq = camera.position.distanceToSquared(obj.boundingSphere.center);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceToSquared() overhead in high-frequency culling loop with raw math
+        const dx = camera.position.x - obj.boundingSphere.center.x;
+        const dy = camera.position.y - obj.boundingSphere.center.y;
+        const dz = camera.position.z - obj.boundingSphere.center.z;
+        const distSq = dx * dx + dy * dy + dz * dz;
         obj.distance = distSq; // Note: storing squared distance to avoid Math.sqrt
 
         // DISTANCE CULLING
