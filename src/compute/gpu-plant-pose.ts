@@ -114,6 +114,10 @@ interface PoseGpuState {
     bindGroup: GPUBindGroup | null;
     /** CPU mirror for readback without stalling when pipelined. */
     poseStaging: Float32Array | null;
+    /** Persistent double-buffered readback to avoid sync stalls */
+    readbackBuffers: GPUBuffer[] | null;
+    readbackIndex: number;
+    prevCount: number;
 }
 
 let _poseGpu: PoseGpuState | null = null;
@@ -197,6 +201,19 @@ async function ensurePoseGpu(maxCount: number): Promise<boolean> {
             label: 'gpu-plant-pose-bind-group',
         });
 
+        const readbackBuffers = [
+            device.createBuffer({
+                size: stateBytes,
+                usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+                label: 'gpu-plant-pose-readback-0',
+            }),
+            device.createBuffer({
+                size: stateBytes,
+                usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+                label: 'gpu-plant-pose-readback-1',
+            }),
+        ];
+
         _poseGpu = {
             maxCount: cap,
             positionBuffer,
@@ -205,6 +222,9 @@ async function ensurePoseGpu(maxCount: number): Promise<boolean> {
             pipeline,
             bindGroup,
             poseStaging: new Float32Array(cap),
+            readbackBuffers,
+            readbackIndex: 0,
+            prevCount: 0,
         };
 
         if (!_deviceLostUnsub) {
@@ -228,6 +248,10 @@ function disposePoseGpuInternal(): void {
     _poseGpu?.positionBuffer?.destroy();
     _poseGpu?.stateBuffer?.destroy();
     _poseGpu?.uniformBuffer?.destroy();
+    if (_poseGpu?.readbackBuffers) {
+        _poseGpu.readbackBuffers[0].destroy();
+        _poseGpu.readbackBuffers[1].destroy();
+    }
     _poseGpu = null;
     _initPromise = null;
 }
@@ -292,27 +316,42 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
     pass.dispatchWorkgroups(Math.ceil(count / 64));
     pass.end();
 
-    // Copy currentPose column (stride 2 floats) for readback
+    // ⚡ OPTIMIZATION: Persistent ping-pong readback buffers to avoid GC and GPU sync stalls
+    // Only copy active elements to save memory bandwidth
     const readBytes = count * STATE_FLOATS_PER_INSTANCE * 4;
-    const readBuffer = device.createBuffer({
-        size: readBytes,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-    });
-    encoder.copyBufferToBuffer(_poseGpu.stateBuffer!, 0, readBuffer, 0, readBytes);
-    device.queue.submit([encoder.finish()]);
+    const currentBuffer = _poseGpu.readbackBuffers![_poseGpu.readbackIndex];
+    const prevBuffer = _poseGpu.readbackBuffers![1 - _poseGpu.readbackIndex];
 
-    await readBuffer.mapAsync(GPUMapMode.READ);
-    const mapped = new Float32Array(readBuffer.getMappedRange().slice(0));
-    readBuffer.unmap();
-    readBuffer.destroy();
-
-    const poses = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-        poses[i] = mapped[i * 2 + 1];
+    // Ensure the current buffer is unmapped before copying into it to avoid WebGPU validation errors
+    if (currentBuffer.mapState !== 'unmapped') {
+        currentBuffer.unmap();
     }
 
+    // Copy current state to the staging buffer for this frame
+    encoder.copyBufferToBuffer(_poseGpu.stateBuffer!, 0, currentBuffer, 0, readBytes);
+    device.queue.submit([encoder.finish()]);
+
+    // Map the current buffer for the NEXT frame (do not await)
+    currentBuffer.mapAsync(GPUMapMode.READ).catch(() => {});
+
+    // Read the results from the PREVIOUS frame
+    const poses = _poseGpu.poseStaging!;
+    if (prevBuffer.mapState === 'mapped') {
+        const mapped = new Float32Array(prevBuffer.getMappedRange());
+        const readCount = Math.min(_poseGpu.prevCount, count);
+        for (let i = 0; i < readCount; i++) {
+            poses[i] = mapped[i * 2 + 1];
+        }
+        prevBuffer.unmap();
+    }
+
+    // Update state for next frame
+    _poseGpu.readbackIndex = 1 - _poseGpu.readbackIndex;
+    _poseGpu.prevCount = count;
+
     setLastFrameGpuFoliage(true);
-    return poses;
+    // Return a view of just the active count to avoid out-of-bounds processing downstream
+    return poses.subarray(0, count);
 }
 
 /** Synchronous gate for batchers — async work must be awaited by caller. */

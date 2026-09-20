@@ -1,60 +1,11 @@
-# plan.md
+1. **Optimize GPU readback stalls in `runGpuPlantPose` (`src/compute/gpu-plant-pose.ts`)**:
+   - The current implementation creates a new `GPUBuffer`, calls `mapAsync`, and `await`s it every frame, causing a GPU-CPU sync stall and GC spike.
+   - I will implement a pipelined readback with persistent ping-pong staging buffers.
+   - We will map the current frame's buffer without awaiting, and read from the previous frame's buffer.
+   - We must track `prevCount` to avoid reading out of bounds.
 
-Living task board for Candy World. **Primary source:** [`weekly_plan.md`](./weekly_plan.md) (today's focus, backlog, done log).
+2. **Complete pre commit steps**
+   - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.
 
-Use this file for short cross-cutting sequencing notes that span multiple weeks. Detailed issue tracking lives in GitHub (#1485–#1491 mechanical splits, #1497 hygiene, etc.).
-
-## Current sequencing (2026-08-05)
-
-1. **Foundation** — TS/ESint ratchet gate (#1493), repo hygiene (#1497).
-2. **Perf / migration** — app-chunk peel (#1495), GPU foliage default (#1496).
-3. **Content** — capstone features (#1492, #1494) after gates are green.
-4. **Epic: Simplify startup (#1546)** — collapse startup to Play/Explore paths + chunk streaming.
-    - **Status: In progress** — #1548 chunk streamer landed; Play default visual footprint is now 180×180 with progressive section load (Explore keeps 400×400). Remaining: any leftover #1558 wiring.
-
-**Next Steps:**
-1. Do not reopen C++ kinematic resolve until there is an emsdk ticket.
-2. Proceed to next feature or mega-module split.
-
-## Mega-module splits (do not split blindly)
-
-Prefer domain barrels over mechanical 700-line cuts. Already landed:
-
-- `src/core/config/` — domain modules + `config.ts` barrel
-- `src/core/main/` — boot pipelines + thin `main.ts` orchestrator
-- `game-loop.ts` + `game-loop-*.ts` — tick phase pattern to copy
-- `style.css` — `#1490` barrel + `styles/` modules (each well under 700 lines)
-- `src/foliage/material-core.ts` — `#1491` barrel + `material-core/` modules (each well under 700 lines)
-- `src/foliage/tree-batcher.ts` — `#1486` barrel + `tree-batcher/` modules (each well under 700 lines)
-
-Still ticketed for future PRs: remaining mega-modules that are still over 700 lines, including `trees.ts` (~873 lines), `gpu-context.ts` (~1118 lines), `compute-particles.ts` (~1230 lines), `mushroom-batcher.ts` (~947 lines), `save-menu.ts` (~851 lines).
-
-## Accomplished / Recent Progress
-
-- **Status: Implemented ✅** (#1800 Split trees.ts)
-  - Implementation Details: Split the massive `trees.ts` file by extracting `createFloweringTree`, `createShrub`, `createVine`, and others into their own sibling files (`trees-core.ts`, `trees-willows.ts`, `trees-vines.ts`, `trees-palms.ts`, `trees-shrubs.ts`). Maintained `trees.ts` as the public barrel by re-exporting these modules, effectively resolving the 873-line module size while keeping the public API stable and satisfying domain architecture requirements.
-
-- **Status: Implemented ✅** (#1767 Split playlist-manager.ts)
-  - Implementation Details: Split the massive `playlist-manager.ts` file by extracting DOM event handlers and UI rendering logic into sibling files (`playlist-events.ts`, `playlist-ui.ts`, and `playlist-types.ts`). Maintained `playlist-manager.ts` as the public orchestrator, keeping the public API stable.
-
-- **Status: Implemented ✅** (#1717 Split music-reactivity.ts)
-  - Implementation Details: Split the massive `music-reactivity.ts` file by extracting `updateFoliageAnimationLoop`, `updateBiomeChannelBindings`, `updateLuminousPlants`, and `updateSkyWavePropagation` into their own sibling files. Maintained `MusicReactivitySystem` as the public orchestrator by importing and calling these extracted functions, effectively resolving the 1161-line module size while keeping the public API stable and satisfying domain architecture requirements.
-
-- **Status: Implemented ✅** (#1693 Parameterize and consolidate the TSL wind/deformation path)
-  - Implementation Details: Consolidated all foliage wind and interaction deformations across the batchers to explicitly use the shared `applyStandardDeformation` or `applyStandardDeformationWithLod` TSL node factories, removing obsolete usages of `calculateWindSway` and `applyPlayerInteraction`.
-
-- **Status: Implemented ✅** (#1577 Make the kinematic controller the single owner of player movement on both physics paths)
-  - Implementation Details: Consolidated the WASM native path and JS fallback into a single unified character controller path in `physics-core.ts`. C++ now only handles raw integration and obstacle collision, while the TS controller handles all kinematic resolve (slope limit, step-up, coyote-time, air control) using a zero-allocation `resolveCharacterMovement` setup.
-
-- **Status: Implemented ✅** (#1577 Formalize the first-person character controller)
-  - Implementation Details: Formalized the `DEFAULT` player walking mechanism into a unified Javascript controller utilizing the unified `sampleGroundFootprint` mechanisms. This controller natively tackles `coyoteTimeMs`, `jumpBufferMs`, slope slides, and standardizes C++ jumping and fallback jumps seamlessly.
-- **Status: Implemented ✅** (#1496 GPU foliage default)
-  - Implementation Details: Activated GPU foliage animation path by default via `gpu-foliage-flag.ts` and orchestrator modifications.
-- **Status: Implemented ✅** (#1494 Generative music + Cinematic Photo Mode as first-class features)
-  - Implementation Details: Wired Generative Biome Audio and Day/Night context into the game loop using zero-allocation updates, allowing the generative audio engine to adapt dynamically to the player's current biome as they explore.
-- **Status: Implemented ✅** (#1547 Collapse startup profile UI + wire graphics to runtime)
-  - Implementation Details: Replaced Graphics/Map Size UI selectors with Play and Explore buttons, updated start-screen to dynamically set map size, and wired config to derive graphics from the profile dynamically.
-- **Status: Implemented ✅** (#1492 Workstream A2: Candy Remote Avatar Mesh)
-  - Implementation Details: Upgraded the placeholder presence avatar sphere to a low-poly dodecahedron using a TSL `MeshPhysicalNodeMaterial` with clearcoat, and wired up `instanceColor` zero-allocation updates to properly apply the hash-based pastel colors per instance.
-- **Status: Implemented ✅** (#1492 Workstream B: Subterranean Sugar Caves)
-  - Implementation Details: Implemented the Subterranean Sugar Caves biome layer using a new InstancedMesh batcher (`SugarCaveBatcher`) and TSL materials for crystal ribs, and registered it with the music-bindings for the Part II Door narrative.
+3. **Submit PR**:
+   - Submit with title `⚡ Bolt: Pipeline GPU readbacks`.
