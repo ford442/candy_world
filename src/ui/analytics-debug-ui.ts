@@ -547,6 +547,7 @@ export function createElements(
   title.innerHTML = '<span aria-hidden="true">🍭</span> Analytics Debug';
 
   const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
   closeBtn.className = 'analytics-debug-close';
   closeBtn.setAttribute('aria-label', 'Close analytics debug overlay');
   closeBtn.title = 'Close';
@@ -554,6 +555,7 @@ export function createElements(
   closeBtn.onclick = onClose;
 
   const minimizeBtn = document.createElement('button');
+  minimizeBtn.type = 'button';
   minimizeBtn.className = 'analytics-debug-close';
   minimizeBtn.setAttribute('aria-label', 'Minimize analytics debug overlay');
   minimizeBtn.title = 'Minimize';
