@@ -89,6 +89,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     `;
 
         const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
         closeBtn.className = 'a11y-close-btn a11y-button';
         closeBtn.innerHTML = '<span aria-hidden="true">✕</span>';
         closeBtn.style.cssText = `
@@ -164,6 +165,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         for (const section of sections) {
             const isActive = this.currentSection === section;
             const tab = document.createElement('button');
+            tab.type = 'button';
             tab.className = 'a11y-tab';
             tab.id = `tab-${section}`;
             tab.role = 'tab';
@@ -293,6 +295,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
 
         for (const preset of presets) {
             const card = document.createElement('button');
+            card.type = 'button';
             card.className = 'a11y-preset-card a11y-button';
             card.style.cssText = `
         ${this.getButtonStyle()}
@@ -378,6 +381,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             label.style.cssText = 'flex: 1;';
 
             const btn = document.createElement('button');
+            btn.type = 'button';
             btn.className = 'a11y-button';
             btn.textContent = binding.key || 'Unbound';
             btn.style.cssText = `${this.getButtonStyle()} width: 120px;`;
