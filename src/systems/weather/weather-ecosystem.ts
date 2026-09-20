@@ -6,7 +6,7 @@ import { updateCloudAttraction, isCloudOverTarget } from '../../foliage/clouds.t
 import { flowerBatcher } from '../../foliage/flower-batcher.ts';
 import { createLanternFlower } from '../../foliage/flowers.ts';
 import { cleanupReactivity } from '../../foliage/foliage-reactivity.ts';
-import { mushroomBatcher } from '../../foliage/mushroom-batcher.ts';
+import { mushroomBatcher } from '../../foliage/mushroom-batcher/index.ts';
 import { createMushroom } from '../../foliage/mushrooms.ts';
 import { replaceMushroomWithGiant } from '../../foliage/mushrooms.ts';
 import { FoliageGrowthOptions } from '../../foliage/types.ts';

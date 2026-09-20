@@ -9,7 +9,7 @@ import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { foliageBatcher } from '../foliage/batcher/index.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
-import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
