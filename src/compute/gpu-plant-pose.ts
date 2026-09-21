@@ -252,6 +252,15 @@ function disposePoseGpuInternal(): void {
     _poseGpu?.positionBuffer?.destroy();
     _poseGpu?.stateBuffer?.destroy();
     _poseGpu?.uniformBuffer?.destroy();
+    if (_poseGpu?.readBufferA?.mapState === 'mapped') {
+        _poseGpu.readBufferA.unmap();
+    }
+    if (_poseGpu?.readBufferB?.mapState === 'mapped') {
+        _poseGpu.readBufferB.unmap();
+    }
+    if (_poseGpu) {
+        _poseGpu.mapPromise = null;
+    }
     _poseGpu?.readBufferA?.destroy();
     _poseGpu?.readBufferB?.destroy();
     _poseGpu = null;
@@ -320,6 +329,7 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
 
     // ⚡ OPTIMIZATION: Pipelined readback using ping-pong persistent staging buffers
     const readBytes = count * STATE_FLOATS_PER_INSTANCE * 4;
+    let copiedCount = 0;
 
     // Await the mapping from the *previous* frame
     if (_poseGpu.mapPromise) {
@@ -334,6 +344,7 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
             for (let i = 0; i < safeCount; i++) {
                 _poseGpu.poseStaging![i] = mapped[i * 2 + 1];
             }
+            copiedCount = safeCount;
             prevBuffer.unmap();
         } catch {
             // Ignore interrupted map operations and continue with best-effort stale staging data.
@@ -355,8 +366,8 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
     _poseGpu.prevCount = count;
 
     setLastFrameGpuFoliage(true);
-    // Return a correctly sized view
-    return _poseGpu.poseStaging!.subarray(0, count);
+    // Return only data that was actually read back from the previous frame.
+    return _poseGpu.poseStaging!.subarray(0, copiedCount);
 }
 
 /** Synchronous gate for batchers — async work must be awaited by caller. */
