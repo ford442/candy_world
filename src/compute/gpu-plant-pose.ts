@@ -114,9 +114,11 @@ interface PoseGpuState {
     bindGroup: GPUBindGroup | null;
     /** CPU mirror for readback without stalling when pipelined. */
     poseStaging: Float32Array | null;
-    /** Persistent double-buffered readback to avoid sync stalls */
-    readbackBuffers: GPUBuffer[] | null;
-    readbackIndex: number;
+    // ⚡ OPTIMIZATION: Ping-pong buffers for pipelined readback
+    readBufferA: GPUBuffer | null;
+    readBufferB: GPUBuffer | null;
+    currentReadBufferIndex: number;
+    mapPromise: Promise<void> | null;
     prevCount: number;
 }
 
@@ -201,18 +203,18 @@ async function ensurePoseGpu(maxCount: number): Promise<boolean> {
             label: 'gpu-plant-pose-bind-group',
         });
 
-        const readbackBuffers = [
-            device.createBuffer({
-                size: stateBytes,
-                usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-                label: 'gpu-plant-pose-readback-0',
-            }),
-            device.createBuffer({
-                size: stateBytes,
-                usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-                label: 'gpu-plant-pose-readback-1',
-            }),
-        ];
+        const readBufferA = device.createBuffer({
+            size: stateBytes,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+            label: 'gpu-plant-pose-read-a',
+        });
+        const readBufferB = device.createBuffer({
+            size: stateBytes,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+            label: 'gpu-plant-pose-read-b',
+        });
+        _trackedBytes += stateBytes * 2;
+        trackGpuBufferBytes(stateBytes * 2);
 
         _poseGpu = {
             maxCount: cap,
@@ -222,8 +224,10 @@ async function ensurePoseGpu(maxCount: number): Promise<boolean> {
             pipeline,
             bindGroup,
             poseStaging: new Float32Array(cap),
-            readbackBuffers,
-            readbackIndex: 0,
+            readBufferA,
+            readBufferB,
+            currentReadBufferIndex: 0,
+            mapPromise: null,
             prevCount: 0,
         };
 
@@ -248,10 +252,8 @@ function disposePoseGpuInternal(): void {
     _poseGpu?.positionBuffer?.destroy();
     _poseGpu?.stateBuffer?.destroy();
     _poseGpu?.uniformBuffer?.destroy();
-    if (_poseGpu?.readbackBuffers) {
-        _poseGpu.readbackBuffers[0].destroy();
-        _poseGpu.readbackBuffers[1].destroy();
-    }
+    _poseGpu?.readBufferA?.destroy();
+    _poseGpu?.readBufferB?.destroy();
     _poseGpu = null;
     _initPromise = null;
 }
@@ -316,42 +318,45 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
     pass.dispatchWorkgroups(Math.ceil(count / 64));
     pass.end();
 
-    // ⚡ OPTIMIZATION: Persistent ping-pong readback buffers to avoid GC and GPU sync stalls
-    // Only copy active elements to save memory bandwidth
+    // ⚡ OPTIMIZATION: Pipelined readback using ping-pong persistent staging buffers
     const readBytes = count * STATE_FLOATS_PER_INSTANCE * 4;
-    const currentBuffer = _poseGpu.readbackBuffers![_poseGpu.readbackIndex];
-    const prevBuffer = _poseGpu.readbackBuffers![1 - _poseGpu.readbackIndex];
 
-    // Ensure the current buffer is unmapped before copying into it to avoid WebGPU validation errors
-    if (currentBuffer.mapState !== 'unmapped') {
-        currentBuffer.unmap();
+    // Await the mapping from the *previous* frame
+    if (_poseGpu.mapPromise) {
+        try {
+            await _poseGpu.mapPromise;
+            const prevBuffer =
+                _poseGpu.currentReadBufferIndex === 0 ? _poseGpu.readBufferA! : _poseGpu.readBufferB!;
+            const mapped = new Float32Array(prevBuffer.getMappedRange());
+
+            // Copy into our persistent CPU staging buffer
+            const safeCount = Math.min(_poseGpu.prevCount, count, _poseGpu.maxCount);
+            for (let i = 0; i < safeCount; i++) {
+                _poseGpu.poseStaging![i] = mapped[i * 2 + 1];
+            }
+            prevBuffer.unmap();
+        } catch {
+            // Ignore interrupted map operations and continue with best-effort stale staging data.
+        }
     }
 
-    // Copy current state to the staging buffer for this frame
-    encoder.copyBufferToBuffer(_poseGpu.stateBuffer!, 0, currentBuffer, 0, readBytes);
+    // Swap buffers for current frame dispatch
+    _poseGpu.currentReadBufferIndex = 1 - _poseGpu.currentReadBufferIndex;
+    const currBuffer = _poseGpu.currentReadBufferIndex === 0 ? _poseGpu.readBufferA! : _poseGpu.readBufferB!;
+    if (currBuffer.mapState !== 'unmapped') {
+        currBuffer.unmap();
+    }
+
+    encoder.copyBufferToBuffer(_poseGpu.stateBuffer!, 0, currBuffer, 0, readBytes);
     device.queue.submit([encoder.finish()]);
 
-    // Map the current buffer for the NEXT frame (do not await)
-    currentBuffer.mapAsync(GPUMapMode.READ).catch(() => {});
-
-    // Read the results from the PREVIOUS frame
-    const poses = _poseGpu.poseStaging!;
-    if (prevBuffer.mapState === 'mapped') {
-        const mapped = new Float32Array(prevBuffer.getMappedRange());
-        const readCount = Math.min(_poseGpu.prevCount, count);
-        for (let i = 0; i < readCount; i++) {
-            poses[i] = mapped[i * 2 + 1];
-        }
-        prevBuffer.unmap();
-    }
-
-    // Update state for next frame
-    _poseGpu.readbackIndex = 1 - _poseGpu.readbackIndex;
+    // Start mapAsync for NEXT frame, do not await it here
+    _poseGpu.mapPromise = currBuffer.mapAsync(GPUMapMode.READ, 0, readBytes).catch(() => {});
     _poseGpu.prevCount = count;
 
     setLastFrameGpuFoliage(true);
-    // Return a view of just the active count to avoid out-of-bounds processing downstream
-    return poses.subarray(0, count);
+    // Return a correctly sized view
+    return _poseGpu.poseStaging!.subarray(0, count);
 }
 
 /** Synchronous gate for batchers — async work must be awaited by caller. */

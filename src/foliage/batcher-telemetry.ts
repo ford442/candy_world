@@ -8,7 +8,7 @@ import { gemFruitBatcher } from './gem-fruit-batcher.ts';
 import { glassMushroomBatcher } from './glass-mushroom-batcher.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { luminousPlantBatcher } from './luminous-plant-batcher.ts';
-import { mushroomBatcher } from './mushroom-batcher.ts';
+import { mushroomBatcher } from './mushroom-batcher/index.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { treeBatcher } from './tree-batcher.ts';

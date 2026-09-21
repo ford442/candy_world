@@ -1,0 +1,29 @@
+--- src/foliage/mushroom-batcher/materials.ts
++++ src/foliage/mushroom-batcher/materials.ts
+@@ -1,2 +1,28 @@
+-    private createMaterials(): MeshStandardNodeMaterial[] {
++import { color, float, attribute, positionLocal,
++    sin, smoothstep, time,
++    dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
++    max, uv, floor, instanceIndex, varyingProperty, mix
++} from 'three/tsl';
++import { MeshStandardNodeMaterial } from 'three/webgpu';
++import { CONFIG } from '../../core/config.ts';
++import { BiomeUniforms, uCircadianPoseOffset } from '../../systems/biome-uniforms.ts';
++import { circadianNightGlowMult } from '../../systems/biome-uniforms.ts';
++import { applyAerialPerspective, aerialPerspectiveLodBoost } from '../aerial-perspective.ts';
++import { modFloat } from './constants.ts';
++import {
++    foliageMaterials, uTime,
++    uAudioLow, uAudioHigh, createJuicyRimLight, uPlayerPosition,
++    createSugarSparkle, getCachedProceduralMaterial,
++    applyBaseContactAO, getBaseContactHeight,
++} from '../index.ts';
++import {
++    scaleEmissiveByLod,
++    applyStandardDeformationWithLod,
++    applyFoliageLodMaterialFade} from '../lod-nodes.ts';
++import { uTwilight } from '../sky.ts';
++
++export function createMaterials(): MeshStandardNodeMaterial[] {
+         // TSL Logic - OPTIMIZED: Consolidated to single instanceData attribute
