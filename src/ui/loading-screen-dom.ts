@@ -81,6 +81,7 @@ export function createLoadingScreenDOM(
 
     const title = document.createElement('h1');
     title.className = 'loading-title';
+    title.tabIndex = -1; // ♿ Aria: Make focusable for trapFocusInside without double-speak
     title.innerHTML = '🍭 Candy World <span class="loading-dots">...</span>';
     content.appendChild(title);
 
