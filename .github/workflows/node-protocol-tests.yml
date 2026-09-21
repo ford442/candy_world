@@ -29,3 +29,6 @@ jobs:
 
             - name: Sugar Caves traversal + Part II unlock
               run: pnpm run test:sugar-caves
+
+            - name: Integration tests
+              run: pnpm run test:integration
