@@ -197,8 +197,20 @@ export class LoadingScreen {
         yieldToPaint(50).then(() => {
             if (this.container && this.isVisible) {
                 this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true });
-                const focusTarget = (this.skipButton && this.skipButton.style.display !== 'none') ? this.skipButton : this.container;
-                focusTarget.focus({ preventScroll: true });
+                // 🎨 PALETTE: Focus specific inner element, not the wrapper, to prevent screen reader double-speak
+                let focusTarget: HTMLElement | null = null;
+                if (this.skipButton && this.skipButton.style.display !== 'none') {
+                    focusTarget = this.skipButton;
+                } else {
+                    focusTarget = this.container.querySelector('.loading-title') as HTMLElement;
+                    if (focusTarget) {
+                        focusTarget.tabIndex = -1; // Ensure it's focusable if it was FCP rendered
+                    }
+                }
+
+                if (focusTarget) {
+                    focusTarget.focus({ preventScroll: true });
+                }
             }
         });
 
