@@ -330,7 +330,7 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
             const mapped = new Float32Array(prevBuffer.getMappedRange());
 
             // Copy into our persistent CPU staging buffer
-            const safeCount = Math.min(_poseGpu.prevCount, count, _poseGpu.maxCount);
+            const safeCount = Math.min(_poseGpu.prevCount, _poseGpu.maxCount);
             for (let i = 0; i < safeCount; i++) {
                 _poseGpu.poseStaging![i] = mapped[i * 2 + 1];
             }
