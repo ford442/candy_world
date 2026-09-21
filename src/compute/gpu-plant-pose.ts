@@ -252,6 +252,15 @@ function disposePoseGpuInternal(): void {
     _poseGpu?.positionBuffer?.destroy();
     _poseGpu?.stateBuffer?.destroy();
     _poseGpu?.uniformBuffer?.destroy();
+    if (_poseGpu?.readBufferA?.mapState === 'mapped') {
+        _poseGpu.readBufferA.unmap();
+    }
+    if (_poseGpu?.readBufferB?.mapState === 'mapped') {
+        _poseGpu.readBufferB.unmap();
+    }
+    if (_poseGpu) {
+        _poseGpu.mapPromise = null;
+    }
     _poseGpu?.readBufferA?.destroy();
     _poseGpu?.readBufferB?.destroy();
     _poseGpu = null;
@@ -323,31 +332,44 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
 
     // Await the mapping from the *previous* frame
     if (_poseGpu.mapPromise) {
-        await _poseGpu.mapPromise;
-        const prevBuffer = _poseGpu.currentReadBufferIndex === 0 ? _poseGpu.readBufferA! : _poseGpu.readBufferB!;
-        const mapped = new Float32Array(prevBuffer.getMappedRange());
+        try {
+            await _poseGpu.mapPromise;
+            const prevBuffer =
+                _poseGpu.currentReadBufferIndex === 0 ? _poseGpu.readBufferA! : _poseGpu.readBufferB!;
+            const mapped = new Float32Array(prevBuffer.getMappedRange());
 
-        // Copy into our persistent CPU staging buffer
-        const safeCount = Math.min(_poseGpu.prevCount, _poseGpu.maxCount);
-        for (let i = 0; i < safeCount; i++) {
-            _poseGpu.poseStaging![i] = mapped[i * 2 + 1];
+            // Copy into our persistent CPU staging buffer
+            const safeCount = Math.min(_poseGpu.prevCount, _poseGpu.maxCount);
+            for (let i = 0; i < safeCount; i++) {
+                _poseGpu.poseStaging![i] = mapped[i * 2 + 1];
+            }
+            prevBuffer.unmap();
+        } catch {
+            // Ignore interrupted map operations and continue with best-effort stale staging data.
+            const prevBuffer =
+                _poseGpu.currentReadBufferIndex === 0 ? _poseGpu.readBufferA! : _poseGpu.readBufferB!;
+            if (prevBuffer.mapState === 'mapped') {
+                prevBuffer.unmap();
+            }
         }
-        prevBuffer.unmap();
     }
 
     // Swap buffers for current frame dispatch
     _poseGpu.currentReadBufferIndex = 1 - _poseGpu.currentReadBufferIndex;
     const currBuffer = _poseGpu.currentReadBufferIndex === 0 ? _poseGpu.readBufferA! : _poseGpu.readBufferB!;
+    if (currBuffer.mapState !== 'unmapped') {
+        currBuffer.unmap();
+    }
 
     encoder.copyBufferToBuffer(_poseGpu.stateBuffer!, 0, currBuffer, 0, readBytes);
     device.queue.submit([encoder.finish()]);
 
     // Start mapAsync for NEXT frame, do not await it here
-    _poseGpu.mapPromise = currBuffer.mapAsync(GPUMapMode.READ, 0, readBytes);
+    _poseGpu.mapPromise = currBuffer.mapAsync(GPUMapMode.READ, 0, readBytes).catch(() => {});
     _poseGpu.prevCount = count;
 
     setLastFrameGpuFoliage(true);
-    // Return a correctly sized view
+    // Return a stable current-frame-sized view for downstream batchers.
     return _poseGpu.poseStaging!.subarray(0, count);
 }
 
