@@ -460,6 +460,7 @@ export class SaveMenu {
             if (this.listeningKeybind) {
                 this.cancelKeybindListen();
             } else {
+                if (e.repeat) return; // Prevent multiple keyup listeners
                 const closeBtn = this.container?.querySelector('.candy-save-menu__close') as HTMLElement;
                 if (closeBtn) {
                     closeBtn.classList.add('keyboard-active');

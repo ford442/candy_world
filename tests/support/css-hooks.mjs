@@ -8,10 +8,21 @@ const ASSET_RE = /\.(css|scss|sass|svg|png|jpe?g|gif|webp|mp3|ogg|wav|wasm)(\?.*
 export async function resolve(specifier, context, nextResolve) {
     if (ASSET_RE.test(specifier)) {
         return {
-            url: 'data:text/javascript;base64,ZXhwb3J0IGRlZmF1bHQge307',
+            url: `mock-asset:${specifier}`,
             shortCircuit: true,
             format: 'module',
         };
     }
     return nextResolve(specifier, context);
+}
+
+export async function load(url, context, nextLoad) {
+    if (url.startsWith('mock-asset:')) {
+        return {
+            format: 'module',
+            source: 'export default {};',
+            shortCircuit: true,
+        };
+    }
+    return nextLoad(url, context);
 }
