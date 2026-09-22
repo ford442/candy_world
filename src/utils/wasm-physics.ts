@@ -38,6 +38,8 @@ import {
     type PlayerState
 } from './wasm-loader-core.ts';
 
+let _collisionScratchBuffer = new Float32Array(1024);
+
 // Zero-allocation persistent buffers for batchGroundHeight
 let _batchGroundHeightInPtr: number | null = null;
 let _batchGroundHeightOutPtr: number | null = null;
@@ -194,7 +196,12 @@ export function uploadCollisionObjects(
     if (hasBatchFunction) {
         // Use batch upload - reduces JS<->WASM bridge crossings from N to 1
         const BATCH_SIZE = 8; // [type, x, y, z, r, h, p1, p2]
-        const batchData = new Float32Array(totalCount * BATCH_SIZE);
+        // ⚡ OPTIMIZATION: Replaced per-frame Float32Array allocation with a reusable, auto-growing scratch buffer to eliminate GC spikes on the WASM bridge.
+        const requiredSize = totalCount * BATCH_SIZE;
+        if (requiredSize > _collisionScratchBuffer.length) {
+            _collisionScratchBuffer = new Float32Array(Math.max(requiredSize, Math.ceil(_collisionScratchBuffer.length * 1.5)));
+        }
+        const batchData = _collisionScratchBuffer.subarray(0, requiredSize);
         let ptr = 0;
 
         // 1. Gates (TASK 1: Guard against undefined cave/userData)
