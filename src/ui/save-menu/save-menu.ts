@@ -455,20 +455,22 @@ export class SaveMenu {
         }
     }
 
-    private handleKeyup(e: KeyboardEvent): void {
-        if (e.key === 'Escape') {
-            const closeBtn = this.container?.querySelector('.candy-save-menu__close') as HTMLElement;
-            if (closeBtn) closeBtn.classList.remove('keyboard-active');
-        }
-    }
-
     private handleKeydown(e: KeyboardEvent): void {
         if (e.key === 'Escape') {
             if (this.listeningKeybind) {
                 this.cancelKeybindListen();
             } else {
                 const closeBtn = this.container?.querySelector('.candy-save-menu__close') as HTMLElement;
-                if (closeBtn) closeBtn.classList.add('keyboard-active');
+                if (closeBtn) {
+                    closeBtn.classList.add('keyboard-active');
+                    const handleEscapeKeyUp = (ev: KeyboardEvent) => {
+                        if (ev.key === 'Escape') {
+                            closeBtn.classList.remove('keyboard-active');
+                            document.removeEventListener('keyup', handleEscapeKeyUp);
+                        }
+                    };
+                    document.addEventListener('keyup', handleEscapeKeyUp);
+                }
                 this.close();
             }
         } else if (this.listeningKeybind) {
