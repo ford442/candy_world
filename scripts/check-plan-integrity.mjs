@@ -31,11 +31,27 @@ const OUTCOME_RE = /^[\s>*-]*(?:\*\*)?Outcome:?(?:\*\*)?\s*:?\s*(.*)$/;
 
 // An outcome that is still a placeholder comment carries no assertion, so it
 // may legitimately repeat across pending days.
+/**
+ * Decide whether an `Outcome:` body is still an unfilled placeholder.
+ *
+ * Placeholders carry no assertion, so they may legitimately repeat once per
+ * pending day and are exempt from the duplicate check.
+ *
+ * @param {string} body Text following the `Outcome:` marker on the line.
+ * @returns {boolean} True if nothing but HTML comments and whitespace remain.
+ */
 function isPlaceholder(body) {
     const stripped = body.replace(/<!--[\s\S]*?-->/g, '').trim();
     return stripped.length === 0;
 }
 
+/**
+ * Scan `weekly_plan.md` for filled `Outcome:` lines that appear more than once
+ * — the fingerprint of a global find-and-replace across historical entries.
+ *
+ * @returns {void} Returns on success; exits 1 naming each repeated outcome and
+ *   the line numbers it occupies otherwise.
+ */
 function main() {
     if (!fs.existsSync(PLAN)) {
         console.error(`✗ weekly_plan.md not found at ${PLAN}`);

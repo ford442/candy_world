@@ -26,6 +26,12 @@ const DOCS_DIR = path.join(root, 'docs');
 // `CONFIG.a.b`, `CONFIG.a.b.c`, ... — at least one dotted segment past CONFIG.
 const SYMBOL_RE = /\bCONFIG(?:\.[A-Za-z_$][\w$]*){2,}/g;
 
+/**
+ * Recursively collect every file path under `dir`.
+ *
+ * @param {string} dir Absolute directory to walk.
+ * @returns {string[]} Absolute paths of all files found, directories excluded.
+ */
 function walk(dir) {
     const out = [];
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -36,6 +42,16 @@ function walk(dir) {
     return out;
 }
 
+/**
+ * Walk a dotted property path against a live object.
+ *
+ * Uses `in` rather than a truthiness check so a property that legitimately
+ * holds `undefined`, `null`, `0` or `false` still counts as existing.
+ *
+ * @param {object} rootObj Object to resolve against (the runtime CONFIG).
+ * @param {string[]} segments Property names, outermost first.
+ * @returns {boolean} True if every segment exists along the path.
+ */
 function resolvePath(rootObj, segments) {
     let cur = rootObj;
     for (const seg of segments) {
@@ -46,6 +62,13 @@ function resolvePath(rootObj, segments) {
     return true;
 }
 
+/**
+ * Collect every `CONFIG.a.b` symbol cited in `docs/**`, resolve each against
+ * the real runtime config, and report the ones that do not exist.
+ *
+ * @returns {Promise<void>} Resolves on success; exits 1 with a listing of the
+ *   unresolved symbols and their citing files otherwise.
+ */
 async function main() {
     if (!fs.existsSync(DOCS_DIR)) {
         console.error(`✗ docs/ not found at ${DOCS_DIR}`);
