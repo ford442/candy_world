@@ -589,3 +589,10 @@ Status: Implemented ✅
     | #1355 / #1356 | generative audio + photo mode | real modules + #1494                                                                                           | Done — do not rebuild                                              |
 
     GitHub close blocked (no token). Next authenticated run comments the table, then `gh issue close N --reason completed`.
+
+- [x] **2026-09-23** ✅ FESTIVAL NIGHT MARKET (#1758)
+    - Night-only lantern stalls on the existing map (six `night_market_stall` setpieces south of the Play spawn), batched in `src/foliage/night-market-batcher.ts` (3 draw calls, circadian fold/unfurl, lantern mesh hidden in full day).
+    - #1755 contract from day one: `removeInstance` swap-remove + `ChunkStreamer` eviction class; decorative light descriptors via `lights.ts`, released on evict.
+    - #1756 round trip: `?debugPlace` now places through `restoreEntity` and re-applies dev-sidecar placements on boot; `night_market_stall` is snapshot-exportable.
+    - `night_market` music block (bindings, BiomeUniforms, accumulators, hard night gate, sky-wave target, palette, generative profile); discovery stamps + chord-strike hook in `src/systems/night-market-stamps.ts`.
+    - `test:night-market` (in `test:fast`), `night_market` VR viewpoint, ship note `docs/FESTIVAL_NIGHT_MARKET.md`.

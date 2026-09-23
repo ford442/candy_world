@@ -106,6 +106,18 @@ export const BiomeUniforms = {
         noteColor: uniform(new THREE.Color(0xffffff)),
     },
 
+    /**
+     * Festival Night Market — lantern stalls; channels in music-bindings.json night_market.
+     * Hard night gate: all three stay at rest during the day (see music-reactivity-bindings.ts).
+     */
+    nightMarket: {
+        /** 0–1 lantern emissive boost. Music Impact: stall lanterns flare on chord hits */
+        shimmer: uniform(0.0),
+        /** 0–1 awning ripple / lantern swing driver. */
+        hueShift: uniform(0.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
+    },
+
     global: {
         /** 0–1 shimmer emissive boost for global effects. */
         shimmer: uniform(0.0),
@@ -268,7 +280,8 @@ export type BiomeId =
     | 'lake_features'
     | 'gem_canopy'
     | 'sky_islands'
-    | 'sugar_caves';
+    | 'sugar_caves'
+    | 'night_market';
 
 /**
  * Returns the appropriate uniform group for a given biome tag.
@@ -311,6 +324,8 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
             return BiomeUniforms.skyIslands;
         case 'sugar_caves':
             return BiomeUniforms.sugarCaves;
+        case 'night_market':
+            return BiomeUniforms.nightMarket;
         case 'global':
             return BiomeUniforms.global;
         default:

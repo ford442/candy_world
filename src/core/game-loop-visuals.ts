@@ -12,6 +12,7 @@ import {
     uAtmosphereIntensity,
 } from '../foliage/sky.ts';
 import { uStarOpacity } from '../foliage/stars.ts';
+import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { globalClusteredLighting } from '../rendering/clustered-lighting.ts';
 import { updateIrradianceProbes } from '../rendering/irradiance-probes.ts';
@@ -109,6 +110,7 @@ export function updateVisualsPhase(
 
     circadianController.setDayTarget(!isNightNow);
     circadianController.update(delta);
+    nightMarketBatcher.update(circadianController.getPhase());
 
     if (isCircadianDebugEnabled()) {
         updateCircadianDebug(dayNightBias);
