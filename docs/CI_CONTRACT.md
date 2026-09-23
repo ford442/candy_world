@@ -98,6 +98,14 @@ do not re-create a script that names a file which is not there.**
 has never run in this environment: `public/candy_native*.js` and
 `public/candy_native*.wasm` are not built (no emsdk here). As of 2026-09-23 the
 harness prints an explicit, unmissable block naming every missing artifact and
-ends with "green for the tiers that ran (TS↔AS). 3 tier(s) SKIPPED" rather than
+ends with "green for the comparisons that ran. 3 group(s) SKIPPED" rather than
 a bare "Parity harness green." It still exits 0 — a missing optional toolchain
 should not block a PR — but it no longer reads as full coverage.
+
+C++ and AssemblyScript skips are counted separately (`cppSkips` vs `skips`).
+The shared counter also increments for a missing AssemblyScript foliage export,
+so gating the C++ diagnostic on it made a single AS export gap report "the C++
+tier did NOT run" with an inflated count. AS gaps now get their own block
+naming `npm run build:wasm`. **If you add a new skip site to
+`tests/parity.mjs`, increment the counter for the tier it belongs to** —
+otherwise the summary goes back to blaming the wrong toolchain.
