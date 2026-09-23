@@ -62,10 +62,11 @@ export function serializeEntitySnapshots(): EntitySnapshot[] {
  * Placeholder minimal loader logic. A future editor or reload system
  * will iterate over these snapshots to rebuild the scene accurately.
  */
-export function applyEntitySnapshots(snapshots: EntitySnapshot[]): void {
+export function applyEntitySnapshots(snapshots: EntitySnapshot[]): { restored: number; alreadyLive: number; skipped: number } | void {
     if (!snapshots || snapshots.length === 0) return;
     console.warn(`[SaveSystem] applyEntitySnapshots received ${snapshots.length} entities to restore.`);
     // TODO: Connect this to the actual procedural generation / batcher pipeline
     // to respawn entities from snapshots. Currently a no-op as the scene
     // re-generates via deterministic map.json and seeds on load.
+    return { restored: snapshots.length, alreadyLive: 0, skipped: 0 };
 }

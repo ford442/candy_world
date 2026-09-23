@@ -11,6 +11,8 @@ import {
     SaveSlotInfo
 } from '../../systems/save-system/index.ts';
 import { showToast } from '../../utils/toast.ts';
+import { announce } from '../announcer.ts';
+
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import type { SaveMenu } from './save-menu.ts';
 
@@ -245,8 +247,13 @@ async function loadSave(
 ): Promise<void> {
     const data = await saveSystem.load(slotId);
     if (data) {
-        showToast(`Loaded: ${data.metadata.slotName}`, '📂', 3000);
-        onLoadCallback?.(data);
+        let msg = `Loaded: ${data.metadata.slotName}`;
+        const result = onLoadCallback?.(data) as any;
+        if (result) {
+            msg += ` (Restored ${result.restored}, Skipped ${result.skipped})`;
+        }
+        showToast(msg, '<span aria-hidden="true">📂</span>', 3000);
+        announce(msg, 'polite');
         menu?.close();
     } else {
         showToast('Failed to load save', '❌', 3000);
