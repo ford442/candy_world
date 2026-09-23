@@ -1,0 +1,27 @@
+name: npm install build
+
+# The documented onboarding path (README, CLAUDE.md, DEVELOPER_CONTEXT.md) is
+# `npm install`, which ignores pnpm-lock.yaml and pnpm-only overrides. Every
+# other job installs with pnpm, so this is the only check that sees the npm path.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  npm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install root deps with npm
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        run: npm run build:ci

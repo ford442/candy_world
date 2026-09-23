@@ -2,7 +2,6 @@ packages:
   - '.'
   - 'tools/visual-regression'
 allowBuilds:
-  '@swc/core': true
   esbuild: true
   simple-git-hooks: true
 minimumReleaseAgeExclude:
@@ -10,11 +9,6 @@ minimumReleaseAgeExclude:
   - playwright-core@1.63.0
   - playwright@1.63.0
 onlyBuiltDependencies:
-  - "@swc/core"
   - "esbuild"
   - "playwright"
   - "archiver"
-
-overrides:
-  '@swc/core': 1.15.47
-  '@swc/wasm': 1.15.47
