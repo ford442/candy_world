@@ -36,6 +36,10 @@ const FLOAT_TOL = 1e-5;
 let failures = 0;
 let passes = 0;
 let skips = 0;
+// Tracked separately from `skips`, which also counts AssemblyScript export
+// gaps (see runFoliageScalarParity). Conflating the two lets a missing AS
+// export report that the C++ tier did not run when it ran fine.
+let cppSkips = 0;
 
 function assertClose(label, a, b, tol = FLOAT_TOL, inputHint = '') {
   const d = Math.abs(a - b);
@@ -320,6 +324,7 @@ function runMatrixParity(asInstance, em) {
   if (!cppAvailable) {
     console.log('  ⏭ C++ SKIP — candy_native.wasm unavailable (mirrors runtime JS fallback)');
     skips++;
+    cppSkips++;
   }
 }
 
@@ -384,6 +389,7 @@ function runArpeggioParity(asInstance, em) {
   if (!cppAvailable) {
     console.log('  ⏭ C++ SKIP — accumulateArpeggioChannels_c / candy_native unavailable');
     skips++;
+    cppSkips++;
   }
 }
 
@@ -482,6 +488,7 @@ function runPoseWriteParity(asInstance, em) {
   if (!cppAvailable) {
     console.log('  ⏭ C++ SKIP — batchWriteInstancePose_c / candy_native unavailable');
     skips++;
+    cppSkips++;
   }
 }
 
@@ -606,26 +613,36 @@ async function main() {
 
   console.log('\n────────────────────────────────────────');
   console.log(`Result: ${passes} PASS, ${failures} FAIL, ${skips} SKIP`);
-  if (skips > 0) {
+  const asSkips = skips - cppSkips;
+  if (cppSkips > 0) {
     console.log('');
-    console.log('!! SKIPPED: the C++ / Emscripten tier of this harness did NOT run.');
-    console.log(`!! SKIPPED: ${skips} comparison group(s) were not checked against C++.`);
-    if (missingCppArtifacts.length > 0) {
+    console.log(`!! SKIPPED: ${cppSkips} C++ / Emscripten comparison group(s) were not checked.`);
+    if (!em && missingCppArtifacts.length > 0) {
       console.log('!! SKIPPED: missing build artifact(s) — none of these exist:');
       for (const rel of missingCppArtifacts) {
         console.log(`!!            ${rel}`);
       }
       console.log('!! SKIPPED: build them with `npm run build:emcc` to enable the C++ tier.');
+    } else if (!em) {
+      console.log('!! SKIPPED: the Emscripten module could not be loaded.');
     } else {
       console.log('!! SKIPPED: the Emscripten module loaded but the required *_c exports are absent.');
     }
+    console.log('');
+  }
+  if (asSkips > 0) {
+    console.log('');
+    console.log(`!! SKIPPED: ${asSkips} AssemblyScript comparison group(s) were not checked —`);
+    console.log('!! SKIPPED: an expected export is missing from candy_physics.wasm.');
+    console.log('!! SKIPPED: rebuild it with `npm run build:wasm`; if that does not restore');
+    console.log('!! SKIPPED: the export, the AS source no longer provides it.');
     console.log('');
   }
   if (failures > 0) {
     process.exit(1);
   }
   if (skips > 0) {
-    console.log(`Parity harness green for the tiers that ran (TS↔AS). ${skips} tier(s) SKIPPED — see above.`);
+    console.log(`Parity harness green for the comparisons that ran. ${skips} group(s) SKIPPED — see above.`);
   } else {
     console.log('Parity harness green.');
   }
