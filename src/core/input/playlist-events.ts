@@ -87,8 +87,8 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
     const state = getPlaylistManagerState();
     if (!state.isPlaylistOpen || !state.playlistOverlay) return false;
 
-    // Close on Q
-    if (event.code === 'KeyQ') {
+    // Close on Escape or Q
+    if (event.code === 'Escape' || event.code === 'KeyQ') {
         event.preventDefault();
         if (state.closePlaylistBtn) {
             state.closePlaylistBtn.classList.add('keyboard-active');
@@ -148,7 +148,7 @@ export function handlePlaylistKeyUp(event: KeyboardEvent): boolean {
     // ♿ Aria: Do not guard by isPlaylistOpen, because closing the playlist
     // on keydown changes the state, and we still need to clear the keyup state.
 
-    if (event.code === 'KeyQ') {
+    if (event.code === 'Escape' || event.code === 'KeyQ') {
         if (state.closePlaylistBtn) {
             state.closePlaylistBtn.classList.remove('keyboard-active');
         }
