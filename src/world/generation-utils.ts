@@ -347,6 +347,7 @@ export function isCriticalEntity(
         'sky_island',
         'instrument_shrine',
         'waterfall',
+        'night_market_stall',
     ];
 
     if (criticalTypes.includes(normalizeMapEntityType(item.type))) return true;
