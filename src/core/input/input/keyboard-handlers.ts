@@ -109,15 +109,10 @@ export function createKeyboardHandlers(
 
         const isPlaylistOpen = getIsPlaylistOpen();
 
+        // Handle Escape globally to prevent defaults, then defer to handlers
         if (event.code === 'Escape') {
             if (isPlaylistOpen) {
-                event.preventDefault();
-                const closePlaylistBtn = document.getElementById('closePlaylistBtn');
-                if (closePlaylistBtn) {
-                    closePlaylistBtn.classList.add('keyboard-active');
-                    // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
-                }
-                togglePlaylist();
+                // Handled in playlist-events.ts
                 return;
             } else if (session.shouldPreventMenuOnUnlock && session.shouldPreventMenuOnUnlock()) {
                 if (session.instructions) {
