@@ -22,7 +22,7 @@ const EMPTY_MODULE_URL = new URL('./empty-module.mjs', import.meta.url).href;
 export async function resolve(specifier, context, nextResolve) {
     if (ASSET_RE.test(specifier)) {
         return {
-            url: 'data:text/javascript;base64,ZXhwb3J0IGRlZmF1bHQge307', // "export default {};"
+            url: EMPTY_MODULE_URL,
             shortCircuit: true,
             format: 'module',
         };
