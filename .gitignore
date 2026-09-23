@@ -80,3 +80,27 @@ typecheck_output.txt
 fix_errors.sh
 patch_*.cjs
 patch_*.diff
+
+# Root scratch, round 4 (2026-09-22). These are root-anchored globs rather than
+# exact names so the next one-shot codemod or log dump can't be re-tracked.
+# Durable tools belong in scripts/ or tools/, audits in docs/audits/.
+/fix_*
+/fix-*
+/patch_*
+/patch-*
+/split_*
+/split-*
+/test.js
+/test_*
+/inspect-*
+/lint-*
+/lint_*
+/review_*
+/*_old.*
+/*.patch
+/*.txt
+!/REFACTORING_FINAL_SUMMARY.txt
+/REPORT_*.md
+# Shell accidents: `npm … > candy_world@1.0.0`, `… > vite`
+/*@*
+/vite
