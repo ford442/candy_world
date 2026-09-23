@@ -1,14 +1,14 @@
 packages:
-  - '.'
-  - 'tools/visual-regression'
+    - '.'
+    - 'tools/visual-regression'
 allowBuilds:
-  esbuild: true
-  simple-git-hooks: true
+    esbuild: true
+    simple-git-hooks: true
 minimumReleaseAgeExclude:
-  - '@playwright/test@1.63.0'
-  - playwright-core@1.63.0
-  - playwright@1.63.0
+    - '@playwright/test@1.63.0'
+    - playwright-core@1.63.0
+    - playwright@1.63.0
 onlyBuiltDependencies:
-  - "esbuild"
-  - "playwright"
-  - "archiver"
+    - 'esbuild'
+    - 'playwright'
+    - 'archiver'
