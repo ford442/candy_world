@@ -119,13 +119,21 @@ function asScratch(memory, baseOff = 262144) {
 // ---------------------------------------------------------------------------
 // Load Emscripten candy_native (optional)
 // ---------------------------------------------------------------------------
+// Populated by loadEmscripten() with every artifact path it looked for and did
+// not find, so the end-of-run summary can name what is missing instead of
+// reporting a silent green.
+const missingCppArtifacts = [];
+
 async function loadEmscripten() {
   const candidates = [
     path.join(root, 'public/candy_native_st.js'),
     path.join(root, 'public/candy_native.js'),
   ];
   for (const jsPath of candidates) {
-    if (!fs.existsSync(jsPath)) continue;
+    if (!fs.existsSync(jsPath)) {
+      missingCppArtifacts.push(path.relative(root, jsPath));
+      continue;
+    }
     try {
       const mod = await import(pathToFileURL(jsPath).href);
       const factory = mod.default || mod.Module || mod.createCandyNative;
@@ -147,7 +155,10 @@ async function loadEmscripten() {
     path.join(root, 'public/candy_native.wasm'),
   ];
   for (const wasmPath of wasmCandidates) {
-    if (!fs.existsSync(wasmPath)) continue;
+    if (!fs.existsSync(wasmPath)) {
+      missingCppArtifacts.push(path.relative(root, wasmPath));
+      continue;
+    }
     try {
       const bytes = fs.readFileSync(wasmPath);
       // Emscripten modules need extensive imports; attempt will likely fail → SKIP
@@ -595,10 +606,29 @@ async function main() {
 
   console.log('\n────────────────────────────────────────');
   console.log(`Result: ${passes} PASS, ${failures} FAIL, ${skips} SKIP`);
+  if (skips > 0) {
+    console.log('');
+    console.log('!! SKIPPED: the C++ / Emscripten tier of this harness did NOT run.');
+    console.log(`!! SKIPPED: ${skips} comparison group(s) were not checked against C++.`);
+    if (missingCppArtifacts.length > 0) {
+      console.log('!! SKIPPED: missing build artifact(s) — none of these exist:');
+      for (const rel of missingCppArtifacts) {
+        console.log(`!!            ${rel}`);
+      }
+      console.log('!! SKIPPED: build them with `npm run build:emcc` to enable the C++ tier.');
+    } else {
+      console.log('!! SKIPPED: the Emscripten module loaded but the required *_c exports are absent.');
+    }
+    console.log('');
+  }
   if (failures > 0) {
     process.exit(1);
   }
-  console.log('Parity harness green.');
+  if (skips > 0) {
+    console.log(`Parity harness green for the tiers that ran (TS↔AS). ${skips} tier(s) SKIPPED — see above.`);
+  } else {
+    console.log('Parity harness green.');
+  }
 }
 
 main().catch((err) => {

@@ -2,18 +2,48 @@ name: Visual Regression Tests
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# DISABLED 2026-09-23 — manual (`workflow_dispatch`) only.
+#
+# WHY. This workflow had two halves and neither one worked:
+#
+#   * `update-baselines` (push to main) failed on every single run from
+#     2026-09-19 through 2026-09-22 — 8+ consecutive reds — at the
+#     "Commit updated baselines" step:
+#         The following paths are ignored by one of your .gitignore files:
+#         tools/visual-regression/test/baselines
+#         hint: Use -f if you really want to add them.
+#     `tools/visual-regression/.gitignore` line 3 ignores `test/baselines/`,
+#     which is the exact directory the job tries to `git add`. It can never
+#     succeed as written.
+#
+#   * `visual-regression` (pull requests) reported SUCCESS on every run — but
+#     for the same reason. Because baselines are gitignored, `git ls-files
+#     tools/visual-regression/test` returns nothing: there is not one baseline
+#     image in the repository. `tools/visual-regression/cli.ts` handles a
+#     missing baseline with `if (!baseline) { warn; continue; }`, so zero
+#     comparisons run and the job exits 0 no matter what the renderer draws.
+#     A check that cannot fail is not a check.
+#
+# Leaving it enabled meant a permanently-red status on main plus a
+# permanently-green PR check that gated nothing. Both are worse than absent.
+#
+# TO RE-ENABLE, all three must be true:
+#   1. Decide where baselines live. Either un-ignore
+#      `tools/visual-regression/test/baselines/` and commit the PNGs (they are
+#      binary and will grow the repo), or move them to an artifact/LFS store
+#      the PR job can fetch. The current arrangement — generate in CI, commit
+#      to a gitignored path — cannot work.
+#   2. Make `cli.ts` fail, not warn-and-continue, when a viewpoint listed in
+#      `ci.config.json` has no baseline. Otherwise a lost baseline silently
+#      turns the check green again.
+#   3. Prove it can fail: change a material colour in `src/`, push, and watch
+#      this workflow go red. Only then restore the `push:`/`pull_request:`
+#      triggers below.
+#
+# The job definitions are left intact and runnable via "Run workflow" so the
+# capture pipeline can still be exercised by hand while the above is sorted.
 on:
-  push:
-    branches: [main, develop]
-    paths:
-      - 'src/**'
-      - 'assets/**'
-      - '.github/workflows/visual-regression.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'assets/**'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
