@@ -335,6 +335,22 @@ export const CONFIG: ConfigType = {
             'A#': 0xba55d3,
             B: 0x00fa9a,
         },
+        // PALETTE: Festival Night Market — warm paper-lantern pastels
+        // (peach, butter, strawberry milk, lilac). Never sodium-orange street light.
+        night_market: {
+            C: 0xffb38a,
+            'C#': 0xffc9a8,
+            D: 0xffe08a,
+            'D#': 0xfff1a8,
+            E: 0xff9ec4,
+            F: 0xffb8d9,
+            'F#': 0xd7a8ff,
+            G: 0xc3b1ff,
+            'G#': 0xa8e6ff,
+            A: 0xffcfa8,
+            'A#': 0xffa8b8,
+            B: 0xfff5c2,
+        },
     },
 
     // Per-species reaction tuning
