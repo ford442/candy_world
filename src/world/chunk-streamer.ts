@@ -17,6 +17,7 @@ import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
+import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { populatePhysicsGrids, unregisterPhysicsCave } from '../systems/physics/index.ts';
 import {
@@ -104,6 +105,7 @@ type EvictionClass =
     | 'portamentoPine'
     | 'cave'
     | 'kickDrumGeyser'
+    | 'nightMarketStall'
     | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
@@ -135,6 +137,7 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'fern' || t === 'arpeggio_fern') return 'arpeggioFern';
     if (t === 'cave') return 'cave';
     if (t === 'kick_drum_geyser') return 'kickDrumGeyser';
+    if (t === 'night_market_stall') return 'nightMarketStall';
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -533,6 +536,8 @@ export class ChunkStreamer {
                 glassMushroomBatcher.removeInstance(obj);
             } else if (evictionClass === 'kickDrumGeyser') {
                 kickDrumGeyserBatcher.removeInstance(obj);
+            } else if (evictionClass === 'nightMarketStall') {
+                nightMarketBatcher.removeInstance(obj);
             } else if (evictionClass === 'simpleFlower') {
                 simpleFlowerBatcher.removeInstance(obj);
             } else if (evictionClass === 'flower') {

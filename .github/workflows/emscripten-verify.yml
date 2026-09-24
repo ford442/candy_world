@@ -67,6 +67,12 @@ jobs:
       - name: Lexical manifest lint (EXPECTED_EXPORTS ⊆ exports.txt)
         run: pnpm run verify:emcc:manifest
 
+      - name: Build AssemblyScript WASM
+        run: pnpm run build:wasm
+
+      - name: Cross-tier parity (TS ↔ AssemblyScript ↔ C++)
+        run: pnpm run test:parity
+
       - name: Fail if exports.txt drifted from the committed manifest
         run: |
           if ! git diff --exit-code -- emscripten/exports.txt; then

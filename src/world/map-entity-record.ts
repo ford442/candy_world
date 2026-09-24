@@ -50,6 +50,7 @@ export const SUPPORTED_EXPORT_TYPES = new Set<string>([
     'glass_mushroom',
     'sky_island',
     'vine_ladder',
+    'night_market_stall',
 ]);
 
 const _worldPos = new THREE.Vector3();
@@ -80,6 +81,7 @@ export function inferCategory(type: string): string {
     if (type === 'mushroom' || type === 'retrigger_mushroom') return 'face-mushrooms';
     if (type === 'glass_mushroom') return 'mycelium';
     if (type === 'cloud') return 'clouds';
+    if (type === 'night_market_stall') return 'setpiece';
     if (
         type === 'arpeggio_fern' ||
         type === 'vibrato_violet' ||

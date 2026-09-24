@@ -30,6 +30,9 @@ import {
     defaultSugarCavesShimmerCh,
     defaultSugarCavesHueShiftCh,
     defaultSugarCavesNoteColorCh,
+    defaultNightMarketShimmerCh,
+    defaultNightMarketHueShiftCh,
+    defaultNightMarketNoteColorCh,
     defaultWeatherBindings,
     defaultSkyWavePropagationMs,
     defaultSkyWaveDecayMs,
@@ -85,12 +88,16 @@ export const MRState = {
     sugarCavesShimmerCh: defaultSugarCavesShimmerCh as readonly number[],
     sugarCavesHueShiftCh: defaultSugarCavesHueShiftCh as readonly number[],
     sugarCavesNoteColorCh: defaultSugarCavesNoteColorCh as readonly number[],
+    nightMarketShimmerCh: defaultNightMarketShimmerCh as readonly number[],
+    nightMarketHueShiftCh: defaultNightMarketHueShiftCh as readonly number[],
+    nightMarketNoteColorCh: defaultNightMarketNoteColorCh as readonly number[],
     arpeggioIntensityScale: 1.0,
     nebulaIntensityScale: 1.0,
     globalIntensityScale: 1.0,
     gemCanopyIntensityScale: 1.0,
     skyIslandsIntensityScale: 1.0,
     sugarCavesIntensityScale: 1.0,
+    nightMarketIntensityScale: 1.0,
     skyMoonIntensityScale: 1.0,
     luminousIntensityScale: 1.0,
     arpeggioShimmerAccum: 0.0,
@@ -107,6 +114,8 @@ export const MRState = {
     skyIslandsFogAccum: 0.0,
     sugarCavesShimmerAccum: 0.0,
     sugarCavesHueShiftAccum: 0.0,
+    nightMarketShimmerAccum: 0.0,
+    nightMarketHueShiftAccum: 0.0,
     skyMoonNoteVal: 0.0,
     arpeggioNoteVal: 0.0,
     nebulaNoteVal: 0.0,
@@ -114,6 +123,7 @@ export const MRState = {
     gemCanopyNoteVal: 0.0,
     skyIslandsNoteVal: 0.0,
     sugarCavesNoteVal: 0.0,
+    nightMarketNoteVal: 0.0,
     skyMoonCh: defaultSkyMoonMelodyCh,
     luminousPlantTrackerChannel: defaultLuminousPlantTrackerChannel,
     smoothedSkyIntensity: 0.0,
@@ -145,6 +155,7 @@ export const _targetGlobalColor = new THREE.Color(0xffffff);
 export const _targetGemCanopyColor = new THREE.Color(0xffffff);
 export const _targetSkyIslandsColor = new THREE.Color(0xffffff);
 export const _targetSugarCavesColor = new THREE.Color(0xffffff);
+export const _targetNightMarketColor = new THREE.Color(0xffffff);
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
 export const _frustum = new THREE.Frustum();
@@ -189,6 +200,9 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     MRState.sugarCavesShimmerCh = defaultSugarCavesShimmerCh;
     MRState.sugarCavesHueShiftCh = defaultSugarCavesHueShiftCh;
     MRState.sugarCavesNoteColorCh = defaultSugarCavesNoteColorCh;
+    MRState.nightMarketShimmerCh = defaultNightMarketShimmerCh;
+    MRState.nightMarketHueShiftCh = defaultNightMarketHueShiftCh;
+    MRState.nightMarketNoteColorCh = defaultNightMarketNoteColorCh;
 
     MRState.arpeggioIntensityScale = 1.0;
     MRState.nebulaIntensityScale = 1.0;
@@ -196,6 +210,7 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     MRState.gemCanopyIntensityScale = 1.0;
     MRState.skyIslandsIntensityScale = 1.0;
     MRState.sugarCavesIntensityScale = 1.0;
+    MRState.nightMarketIntensityScale = 1.0;
     MRState.skyMoonIntensityScale = 1.0;
     MRState.luminousIntensityScale = 1.0;
 
@@ -229,6 +244,7 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
         const gemCanopy = biomeOverrides.gem_canopy;
         const skyIslands = biomeOverrides.sky_islands;
         const sugarCaves = biomeOverrides.sugar_caves;
+        const nightMarket = biomeOverrides.night_market;
         if (arpeggio) {
             MRState.arpeggioShimmerCh = toChannels(arpeggio.shimmer) ?? MRState.arpeggioShimmerCh;
             MRState.arpeggioHueShiftCh =
@@ -317,6 +333,20 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
                 Number.isFinite(sugarCaves.intensityScale)
             ) {
                 MRState.sugarCavesIntensityScale = sugarCaves.intensityScale;
+            }
+        }
+        if (nightMarket) {
+            MRState.nightMarketShimmerCh =
+                toChannels(nightMarket.shimmer) ?? MRState.nightMarketShimmerCh;
+            MRState.nightMarketHueShiftCh =
+                toChannels(nightMarket.hueShift) ?? MRState.nightMarketHueShiftCh;
+            MRState.nightMarketNoteColorCh =
+                toChannels(nightMarket.noteColor) ?? MRState.nightMarketNoteColorCh;
+            if (
+                typeof nightMarket.intensityScale === 'number' &&
+                Number.isFinite(nightMarket.intensityScale)
+            ) {
+                MRState.nightMarketIntensityScale = nightMarket.intensityScale;
             }
         }
     }

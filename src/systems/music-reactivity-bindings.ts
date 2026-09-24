@@ -14,6 +14,7 @@ import {
     _targetGemCanopyColor,
     _targetSkyIslandsColor,
     _targetSugarCavesColor,
+    _targetNightMarketColor,
     _targetMoonColor
 } from './music-reactivity-core.ts';
 import { CHROMATIC_SCALE } from './music-reactivity-defaults.ts';
@@ -39,6 +40,8 @@ export const SILENT_DECAY_UNIFORMS = [
     BiomeUniforms.skyIslands.hueShift,
     BiomeUniforms.sugarCaves.shimmer,
     BiomeUniforms.sugarCaves.hueShift,
+    BiomeUniforms.nightMarket.shimmer,
+    BiomeUniforms.nightMarket.hueShift,
     BiomeUniforms.skyMoon.moonIntensity,
 ] as const;
 
@@ -116,6 +119,7 @@ export function updateBiomeChannelBindings(audioState: AudioData | null, dayNigh
         // those reads BiomeUniforms or the MRState accumulators written here.
         // ---------------------------------------------------------------
         const nightGate = 0.2 + (1.0 - dayNightBias) * 0.8;
+        const marketGate = 1.0 - dayNightBias;
         const channels = audioState?.channelData;
 
         if (channels && channels.length > 0) {
@@ -146,6 +150,9 @@ export function updateBiomeChannelBindings(audioState: AudioData | null, dayNigh
                     ...MRState.sugarCavesShimmerCh,
                     ...MRState.sugarCavesHueShiftCh,
                     ...MRState.sugarCavesNoteColorCh,
+                    ...MRState.nightMarketShimmerCh,
+                    ...MRState.nightMarketHueShiftCh,
+                    ...MRState.nightMarketNoteColorCh,
                 ];
                 const maxNeeded = Math.max(0, ...allConfiguredChannels);
                 if (maxNeeded >= channels.length) {
@@ -189,6 +196,14 @@ export function updateBiomeChannelBindings(audioState: AudioData | null, dayNigh
                 MRState.sugarCavesHueShiftCh,
                 channels
             );
+            MRState.nightMarketShimmerAccum = accumChannelVolume(
+                MRState.nightMarketShimmerCh,
+                channels
+            );
+            MRState.nightMarketHueShiftAccum = accumChannelVolume(
+                MRState.nightMarketHueShiftCh,
+                channels
+            );
             MRState.skyMoonIntensityAccum = accumChannelVolume(
                 MRState.skyMoonIntensityCh,
                 channels
@@ -201,6 +216,7 @@ export function updateBiomeChannelBindings(audioState: AudioData | null, dayNigh
             MRState.gemCanopyNoteVal = firstAudibleNote(MRState.gemCanopyNoteColorCh, channels);
             MRState.skyIslandsNoteVal = firstAudibleNote(MRState.skyIslandsNoteColorCh, channels);
             MRState.sugarCavesNoteVal = firstAudibleNote(MRState.sugarCavesNoteColorCh, channels);
+            MRState.nightMarketNoteVal = firstAudibleNote(MRState.nightMarketNoteColorCh, channels);
 
             // Push to TSL uniforms.
             // Mutate .value in place: never reassign the uniform node itself.
@@ -274,6 +290,27 @@ export function updateBiomeChannelBindings(audioState: AudioData | null, dayNigh
                 MRState.sugarCavesIntensityScale
             );
 
+            // Music Impact: the market only trades after dark — hard night gate
+            // (0 at full day) instead of the shared 0.2 floor, so daytime
+            // tracker energy never lights shuttered stalls.
+            // Release, not snap: a chord-strike flare (night-market-stamps.ts)
+            // eases back down to the tracker level instead of lasting one frame.
+            BiomeUniforms.nightMarket.shimmer.value = Math.max(
+                normalizeAccum(
+                    MRState.nightMarketShimmerAccum,
+                    MRState.nightMarketShimmerCh,
+                    marketGate,
+                    MRState.nightMarketIntensityScale
+                ),
+                BiomeUniforms.nightMarket.shimmer.value * SILENT_DECAY
+            );
+            BiomeUniforms.nightMarket.hueShift.value = normalizeAccum(
+                MRState.nightMarketHueShiftAccum,
+                MRState.nightMarketHueShiftCh,
+                marketGate,
+                MRState.nightMarketIntensityScale
+            );
+
             BiomeUniforms.skyMoon.moonIntensity.value = normalizeAccum(
                 MRState.skyMoonIntensityAccum,
                 MRState.skyMoonIntensityCh,
@@ -340,6 +377,13 @@ export function updateBiomeChannelBindings(audioState: AudioData | null, dayNigh
                 'sugar_caves',
                 0.12
             );
+            applyNoteColor(
+                BiomeUniforms.nightMarket.noteColor,
+                MRState.nightMarketNoteVal,
+                _targetNightMarketColor,
+                'night_market',
+                0.12
+            );
         } else {
             // No audio data — smoothly decay towards resting values (no snapping).
             for (let i = 0; i < SILENT_DECAY_UNIFORMS.length; i++) {
@@ -361,5 +405,6 @@ export function updateBiomeChannelBindings(audioState: AudioData | null, dayNigh
             releaseNoteColor(BiomeUniforms.gemCanopy.noteColor, _targetGemCanopyColor);
             releaseNoteColor(BiomeUniforms.skyIslands.noteColor, _targetSkyIslandsColor);
             releaseNoteColor(BiomeUniforms.sugarCaves.noteColor, _targetSugarCavesColor);
+            releaseNoteColor(BiomeUniforms.nightMarket.noteColor, _targetNightMarketColor);
         }
     }
