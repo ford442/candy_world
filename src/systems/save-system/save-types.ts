@@ -2,6 +2,8 @@
  * Save System Types - Type definitions and constants for the save system
  */
 
+import type { EntitySnapshot } from '../entity-snapshot-core.ts';
+
 // =============================================================================
 // CONSTANTS & CONFIG
 // =============================================================================
@@ -35,27 +37,11 @@ export interface SerializableVector3 {
 }
 
 /**
- * Entity Snapshot for save data and editor round-tripping
+ * Entity snapshots in a save are the typed, versioned records from
+ * `entity-snapshot-core.ts` (each carries its own `schemaVersion`). Saves
+ * written before v2 hold flat records; `applyEntitySnapshots` skips those.
  */
-export interface EntitySnapshot {
-    id?: string;
-    type: string;
-    position: [number, number, number];
-    rotation?: [number, number, number, number]; // Quaternion x,y,z,w
-    scale?: number | [number, number, number];
-    persistentId?: string;
-    variant?: string;
-    note?: string;
-    noteIndex?: number;
-    hasFace?: boolean;
-    category?: string;
-    layer?: string;
-    biome?: string;
-    music?: Record<string, unknown>;
-    placement?: string;
-    params?: Record<string, unknown>;
-}
-
+export type { EntitySnapshot };
 
 /**
  * Player state for save data

@@ -36,6 +36,10 @@ const FLOAT_TOL = 1e-5;
 let failures = 0;
 let passes = 0;
 let skips = 0;
+// Tracked separately from `skips`, which also counts AssemblyScript export
+// gaps (see runFoliageScalarParity). Conflating the two lets a missing AS
+// export report that the C++ tier did not run when it ran fine.
+let cppSkips = 0;
 
 function assertClose(label, a, b, tol = FLOAT_TOL, inputHint = '') {
   const d = Math.abs(a - b);
@@ -119,13 +123,21 @@ function asScratch(memory, baseOff = 262144) {
 // ---------------------------------------------------------------------------
 // Load Emscripten candy_native (optional)
 // ---------------------------------------------------------------------------
+// Populated by loadEmscripten() with every artifact path it looked for and did
+// not find, so the end-of-run summary can name what is missing instead of
+// reporting a silent green.
+const missingCppArtifacts = [];
+
 async function loadEmscripten() {
   const candidates = [
     path.join(root, 'public/candy_native_st.js'),
     path.join(root, 'public/candy_native.js'),
   ];
   for (const jsPath of candidates) {
-    if (!fs.existsSync(jsPath)) continue;
+    if (!fs.existsSync(jsPath)) {
+      missingCppArtifacts.push(path.relative(root, jsPath));
+      continue;
+    }
     try {
       const mod = await import(pathToFileURL(jsPath).href);
       const factory = mod.default || mod.Module || mod.createCandyNative;
@@ -134,7 +146,31 @@ async function loadEmscripten() {
         if (mod.default && mod.default._batchComposeMatrices_c) return mod.default;
         continue;
       }
-      const instance = await factory();
+      // The glue's default wasm-loading path uses fetch(), which Node's
+      // fetch() doesn't support for file:// URLs. Supply instantiateWasm
+      // directly from a file read so the C++ tier can actually load here
+      // instead of silently SKIPping every run (see #1757/#1758 write-up).
+      const moduleArg = {};
+      const wasmPath = jsPath.replace(/\.js$/, '.wasm');
+      if (fs.existsSync(wasmPath)) {
+        const wasmBytes = fs.readFileSync(wasmPath);
+        moduleArg.instantiateWasm = (imports, successCallback) => {
+          WebAssembly.instantiate(wasmBytes, imports).then(({ instance, module }) => {
+            successCallback(instance, module);
+          });
+          return {};
+        };
+      }
+      const instance = await factory(moduleArg);
+      // EXPORTED_RUNTIME_METHODS only lists ccall/cwrap/wasmMemory (see
+      // emscripten/build.sh), so instance.HEAPF32 isn't attached even
+      // though the *_c exports and _malloc/_free are. Derive it from the
+      // exported wasmMemory so the marshaling helpers below can run.
+      if (!instance.HEAPF32 && instance.wasmMemory) {
+        Object.defineProperty(instance, 'HEAPF32', {
+          get: () => new Float32Array(instance.wasmMemory.buffer),
+        });
+      }
       return instance;
     } catch (err) {
       console.warn(`  [C++] Failed to load ${path.basename(jsPath)}: ${err.message}`);
@@ -147,7 +183,10 @@ async function loadEmscripten() {
     path.join(root, 'public/candy_native.wasm'),
   ];
   for (const wasmPath of wasmCandidates) {
-    if (!fs.existsSync(wasmPath)) continue;
+    if (!fs.existsSync(wasmPath)) {
+      missingCppArtifacts.push(path.relative(root, wasmPath));
+      continue;
+    }
     try {
       const bytes = fs.readFileSync(wasmPath);
       // Emscripten modules need extensive imports; attempt will likely fail → SKIP
@@ -309,6 +348,7 @@ function runMatrixParity(asInstance, em) {
   if (!cppAvailable) {
     console.log('  ⏭ C++ SKIP — candy_native.wasm unavailable (mirrors runtime JS fallback)');
     skips++;
+    cppSkips++;
   }
 }
 
@@ -373,6 +413,7 @@ function runArpeggioParity(asInstance, em) {
   if (!cppAvailable) {
     console.log('  ⏭ C++ SKIP — accumulateArpeggioChannels_c / candy_native unavailable');
     skips++;
+    cppSkips++;
   }
 }
 
@@ -471,6 +512,7 @@ function runPoseWriteParity(asInstance, em) {
   if (!cppAvailable) {
     console.log('  ⏭ C++ SKIP — batchWriteInstancePose_c / candy_native unavailable');
     skips++;
+    cppSkips++;
   }
 }
 
@@ -566,6 +608,51 @@ function runPlantPoseParity() {
   passes++;
 }
 
+// TS reference for emscripten/math.cpp:117 getGroundHeight, mirrored here so
+// the NaN guard (std::isnan) is exercised cross-tier — a regression here
+// means -ffast-math (or similar) folded the guard away. See #1757/#1758.
+function getGroundHeightTS(x, z) {
+  if (Number.isNaN(x) || Number.isNaN(z)) return 0;
+  const hills = Math.sin(x * 0.05) * 2.0 + Math.cos(z * 0.05) * 2.0;
+  const detail = Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+  return hills + detail;
+}
+
+function runGroundHeightNaNGuardParity(as, em) {
+  console.log('\n══ Path 6: getGroundHeight NaN guard (math.cpp:117) ══');
+  const cases = [
+    ['NaN,NaN', NaN, NaN],
+    ['NaN,0', NaN, 0],
+    ['0,NaN', 0, NaN],
+    ['finite', 12.5, -7.25],
+  ];
+
+  for (const [label, x, z] of cases) {
+    const expected = getGroundHeightTS(x, z);
+    const ok = assertClose(`TS↔AS  getGroundHeight(${label})`, expected, as.exports.getGroundHeight(x, z));
+    if (ok) {
+      console.log(`  ✓ TS↔AS  getGroundHeight(${label})`);
+      passes++;
+    }
+  }
+
+  if (!em || typeof em.ccall !== 'function') {
+    console.log('  ⏭ C++ SKIP — candy_native(_st) unavailable');
+    skips++;
+    cppSkips++;
+    return;
+  }
+  for (const [label, x, z] of cases) {
+    const expected = getGroundHeightTS(x, z);
+    const got = em.ccall('getGroundHeight', 'number', ['number', 'number'], [x, z]);
+    const ok = assertClose(`TS↔C++ getGroundHeight(${label})`, expected, got);
+    if (ok) {
+      console.log(`  ✓ TS↔C++ getGroundHeight(${label})`);
+      passes++;
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 async function main() {
   console.log('Cross-tier parity harness (#1351 + #1358 pose write)');
@@ -592,13 +679,43 @@ async function main() {
   runPoseWriteParity(asInstance, em);
   runFoliageScalarParity(asInstance);
   runPlantPoseParity();
+  runGroundHeightNaNGuardParity(asInstance, em);
 
   console.log('\n────────────────────────────────────────');
   console.log(`Result: ${passes} PASS, ${failures} FAIL, ${skips} SKIP`);
+  const asSkips = skips - cppSkips;
+  if (cppSkips > 0) {
+    console.log('');
+    console.log(`!! SKIPPED: ${cppSkips} C++ / Emscripten comparison group(s) were not checked.`);
+    if (!em && missingCppArtifacts.length > 0) {
+      console.log('!! SKIPPED: missing build artifact(s) — none of these exist:');
+      for (const rel of missingCppArtifacts) {
+        console.log(`!!            ${rel}`);
+      }
+      console.log('!! SKIPPED: build them with `npm run build:emcc` to enable the C++ tier.');
+    } else if (!em) {
+      console.log('!! SKIPPED: the Emscripten module could not be loaded.');
+    } else {
+      console.log('!! SKIPPED: the Emscripten module loaded but the required *_c exports are absent.');
+    }
+    console.log('');
+  }
+  if (asSkips > 0) {
+    console.log('');
+    console.log(`!! SKIPPED: ${asSkips} AssemblyScript comparison group(s) were not checked —`);
+    console.log('!! SKIPPED: an expected export is missing from candy_physics.wasm.');
+    console.log('!! SKIPPED: rebuild it with `npm run build:wasm`; if that does not restore');
+    console.log('!! SKIPPED: the export, the AS source no longer provides it.');
+    console.log('');
+  }
   if (failures > 0) {
     process.exit(1);
   }
-  console.log('Parity harness green.');
+  if (skips > 0) {
+    console.log(`Parity harness green for the comparisons that ran. ${skips} group(s) SKIPPED — see above.`);
+  } else {
+    console.log('Parity harness green.');
+  }
 }
 
 main().catch((err) => {

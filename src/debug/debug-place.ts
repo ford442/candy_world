@@ -11,13 +11,17 @@
 
 import * as THREE from 'three';
 import {
-    markAuthoredTransform,
+    CURRENT_SNAPSHOT_VERSION,
     nextSnapshotId,
     snapshotEntity,
+    type EntitySnapshot,
 } from '../systems/entity-snapshot-core.ts';
-import { saveSnapshot } from '../systems/entity-snapshot-store.ts';
+import { loadDevSnapshots, saveSnapshot } from '../systems/entity-snapshot-store.ts';
+import { restoreEntity } from '../systems/entity-snapshot.ts';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
+import { applyEntitySnapshots } from '../systems/save-system/entity-snapshot.ts';
 import { showToast } from '../utils/toast.ts';
+import { announce } from '../ui/announcer.ts';
 import { create } from '../world/foliage-registry.ts';
 import { plantOnSurface } from '../world/placement-utils.ts';
 
@@ -72,10 +76,43 @@ const ENTITY_TYPES = [
     'wisteria_cluster',
     'glass_mushroom',
     'sky_island',
+    'night_market_stall',
 ];
 
 export function isPlacementDebugEnabled(): boolean {
     return DEBUG_PLACE;
+}
+
+function round2(v: number): number {
+    return Math.round(v * 100) / 100;
+}
+
+/** Resolves once boot has published `window.__sceneReady` (world generated), or after the timeout. */
+function whenSceneReady(timeoutMs = 180_000): Promise<void> {
+    return new Promise((resolve) => {
+        const start = performance.now();
+        const poll = () => {
+            if ((window as any).__sceneReady || performance.now() - start > timeoutMs) resolve();
+            else setTimeout(poll, 250);
+        };
+        poll();
+    });
+}
+
+/**
+ * Re-apply every `?debugPlace` placement from the dev sidecar after the world
+ * has generated, through the same `applyEntitySnapshots` path a save load uses.
+ */
+async function restoreDevPlacements(): Promise<void> {
+    await whenSceneReady();
+    const snapshots = await loadDevSnapshots();
+    if (snapshots.length === 0) return;
+    const result = applyEntitySnapshots(snapshots);
+    console.log(
+        `[DebugPlace] Restored ${result.restored} dev placements ` +
+            `(${result.alreadyLive} already live, ${result.skipped} skipped)`
+    );
+    if (result.restored > 0) showToast(`Restored ${result.restored} placements`, '🏗️', 2500);
 }
 
 function updatePanel() {
@@ -144,6 +181,8 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
     const flexRow = _panel.children[1] as HTMLElement;
     flexRow.appendChild(typeSelect);
     const snapshotBtn = document.createElement('button');
+    snapshotBtn.type = 'button';
+    snapshotBtn.setAttribute('aria-label', 'Capture Snapshot');
     snapshotBtn.textContent = 'Capture Snapshot';
     snapshotBtn.style.cssText =
         'background:#1a4;color:#fff;border:1px solid #3c6;padding:2px 6px;margin-left:4px;cursor:pointer;';
@@ -153,13 +192,20 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
             return;
         }
         try {
-            const snap = snapshotEntity(_lastSpawnedObject);
+            // Keep the placement's id so this overwrites its sidecar record
+            // instead of adding a duplicate that would restore twice.
+            const liveId = _lastSpawnedObject.userData.mapEntityId;
+            const snap = snapshotEntity(
+                _lastSpawnedObject,
+                typeof liveId === 'string' ? { id: liveId } : undefined
+            );
             if (snap) {
                 console.log('[DebugPlace] Entity Snapshot:');
                 console.log(JSON.stringify(snap, null, 2));
                 // Dev-only sidecar write; never touches assets/map.json.
                 void saveSnapshot(snap);
-                showToast('Snapshot captured to console', '✅', 2000);
+                showToast('Snapshot captured to console', '<span aria-hidden="true">✅</span>', 2000);
+                announce('Snapshot captured', 'polite');
             } else {
                 showToast('Failed to capture snapshot', '❌', 2000);
             }
@@ -179,6 +225,16 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
     _reticle.renderOrder = 9999;
     scene.add(_reticle);
 
+    window.addEventListener('mousedown', (e) => {
+        if (!isPlacementDebugEnabled() || !_reticle) return;
+        if (_panel && _panel.contains(e.target as Node)) return;
+        // One-shot scale flash
+        _reticle.scale.setScalar(_currentScale * 1.5);
+        setTimeout(() => {
+            if (_reticle) _reticle.scale.setScalar(_currentScale);
+        }, 150);
+    });
+
     window.addEventListener('wheel', (e) => {
         if (!isPlacementDebugEnabled()) return;
         // Don't intercept if mouse is over the panel
@@ -186,6 +242,7 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
 
         _currentScale += e.deltaY < 0 ? 0.1 : -0.1;
         _currentScale = Math.max(0.1, Math.min(10.0, _currentScale));
+        if (_reticle) _reticle.scale.setScalar(_currentScale);
         updatePanel();
     });
 
@@ -213,53 +270,41 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
         // Left click only
         if (e.button !== 0) return;
 
-        const obj = create(_currentType, { scale: _currentScale });
+        // Place through the snapshot restore path (processMapEntity), not a bare
+        // scene.add: batched species get a live instance slot, the object joins
+        // animatedFoliage (so saves serialize it) and ChunkStreamer can evict it.
+        const id = nextSnapshotId(_currentType);
+        const q = _reticle.quaternion;
+        const px = round2(_reticle.position.x);
+        const py = round2(_reticle.position.y);
+        const pz = round2(_reticle.position.z);
+        const snapshot: EntitySnapshot = {
+            schemaVersion: CURRENT_SNAPSHOT_VERSION,
+            id,
+            entity: {
+                type: _currentType,
+                position: [px, py, pz],
+                rotation: { quat: [q.x, q.y, q.z, q.w] },
+                scale: round2(_currentScale),
+                placement: 'absolute',
+                params: {},
+            },
+        };
+        const created = restoreEntity(snapshot, null, { rebuildPhysicsGrid: true });
+        const obj = created[0];
         if (obj) {
             _lastSpawnedObject = obj;
-            plantOnSurface(obj, _reticle.position.x, _reticle.position.z, {
-                groundY: _reticle.position.y,
-            });
-
-            // Re-apply the normal alignment and local rotation
-            obj.quaternion.copy(_reticle.quaternion);
-
-            // Batchers bake scale into geometry, so record what was authored —
-            // otherwise the next snapshot of this object reports scale 1.
-            obj.userData.mapEntityId = nextSnapshotId();
-            markAuthoredTransform(obj, {
-                scale: _currentScale,
-                rotation: {
-                    quat: [obj.quaternion.x, obj.quaternion.y, obj.quaternion.z, obj.quaternion.w],
-                },
-            });
-
-            // To ensure we get it perfectly in the scene, add to scene and maybe foliage group if applicable
-            _scene.add(obj);
-
-            // Note: For true placement, we should import weatherSystemRef if needed, but for debug a simple scene add is often enough.
-
-            const px = _reticle.position.x.toFixed(2);
-            const py = _reticle.position.y.toFixed(2);
-            const pz = _reticle.position.z.toFixed(2);
-
-            const jsonSnippet = {
-                id: `${_currentType}_${Date.now()}`,
-                type: _currentType,
-                position: [parseFloat(px), parseFloat(py), parseFloat(pz)],
-                rotation: [0, _currentRotation, 0],
-                params: {
-                    scale: parseFloat(_currentScale.toFixed(2)),
-                },
-            };
+            // Dev sidecar write so the placement survives a reload (?debugPlace only).
+            void saveSnapshot(snapshot);
 
             console.log(`[DebugPlace] Spawned ${_currentType}`);
-            console.log(JSON.stringify(jsonSnippet, null, 2) + ',');
-
-            console.log(`Placed ${_currentType}. JSON logged.`);
+            console.log(JSON.stringify({ ...snapshot.entity, id }, null, 2) + ',');
         } else {
             console.warn(`[DebugPlace] Could not create type ${_currentType}`);
         }
     });
+
+    void restoreDevPlacements();
 
     console.log('[debug-place] Enabled — ?debugPlace=1');
 }
@@ -287,5 +332,4 @@ export function updatePlacementDebug(cameraPos: THREE.Vector3, cameraDir: THREE.
     _scratchQuatY.setFromAxisAngle(_up, _currentRotation);
 
     _reticle.quaternion.copy(_scratchQuat).multiply(_scratchQuatY);
-    _reticle.scale.setScalar(_currentScale);
 }
