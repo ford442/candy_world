@@ -16,6 +16,13 @@ import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
+import { gemFruitBatcher } from '../foliage/gem-fruit-batcher.ts';
+import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
+import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
+import { waterfallBatcher } from '../foliage/waterfall-batcher.ts';
+import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
+import { glowingFlowerBatcher } from '../foliage/glowing-flower-batcher.ts';
+import { sugarCaveBatcher } from '../foliage/sugar-cave-batcher.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { populatePhysicsGrids, unregisterPhysicsCave } from '../systems/physics/index.ts';
@@ -104,6 +111,13 @@ type EvictionClass =
     | 'portamentoPine'
     | 'cave'
     | 'kickDrumGeyser'
+    | 'gemFruit'
+    | 'luminousPlant'
+    | 'dandelion'
+    | 'waterfall'
+    | 'subwooferLotus'
+    | 'glowingFlower'
+    | 'sugarCave'
     | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
@@ -122,11 +136,14 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
         t === 'bubbleWillow' ||
         t === 'prismRoseBush' ||
         t === 'helix' ||
-        t === 'accordionPalm' ||
-        t === 'gem_canopy_tree'
+        t === 'accordionPalm'
     ) {
         return 'tree';
     }
+    // gem_canopy_tree needs both gem and tree removals, but ChunkStreamer
+    // only returns one EvictionClass here. We handle it as 'gemFruit' and
+    // do a compound eviction in evictObject.
+    if (t === 'gem_canopy_tree') return 'gemFruit';
     if (t === 'mushroom') return 'mushroom';
     if (t === 'lanternFlower') return 'lantern';
     if (t === 'glass_mushroom') return 'glassMushroom';
@@ -135,6 +152,12 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'fern' || t === 'arpeggio_fern') return 'arpeggioFern';
     if (t === 'cave') return 'cave';
     if (t === 'kick_drum_geyser') return 'kickDrumGeyser';
+    if (t === 'luminous_plant') return 'luminousPlant';
+    if (t === 'dandelion') return 'dandelion';
+    if (t === 'waterfall') return 'waterfall';
+    if (t === 'subwoofer_lotus') return 'subwooferLotus';
+    if (t === 'glowing_flower') return 'glowingFlower';
+    if (t === 'sugar_cave') return 'sugarCave';
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -543,6 +566,24 @@ export class ChunkStreamer {
                 arpeggioFernBatcher.removeInstance(obj);
             } else if (evictionClass === 'portamentoPine') {
                 portamentoPineBatcher.removeInstance(obj);
+            } else if (evictionClass === 'gemFruit') {
+                gemFruitBatcher.removeInstance(obj);
+                // Also remove the underlying tree
+                if (obj.userData?.type === 'gem_canopy_tree') {
+                    treeBatcher.removeInstance(obj);
+                }
+            } else if (evictionClass === 'luminousPlant') {
+                luminousPlantBatcher.removeInstance(obj);
+            } else if (evictionClass === 'dandelion') {
+                dandelionBatcher.removeInstance(obj);
+            } else if (evictionClass === 'waterfall') {
+                waterfallBatcher.removeInstance(obj);
+            } else if (evictionClass === 'subwooferLotus') {
+                subwooferLotusBatcher.removeInstance(obj);
+            } else if (evictionClass === 'glowingFlower') {
+                glowingFlowerBatcher.removeInstance(obj);
+            } else if (evictionClass === 'sugarCave') {
+                sugarCaveBatcher.removeInstance(obj);
             } else if (evictionClass === 'cave') {
                 unregisterPhysicsCave(obj);
                 this.weatherSystem?.registerCave?.(obj);
