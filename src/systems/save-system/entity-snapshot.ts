@@ -1,5 +1,8 @@
 import { animatedFoliage } from '../../world/state.ts';
 import type { EntitySnapshot } from './save-types.ts';
+import { processMapEntity } from '../../world/generation-entities.ts';
+import type { MapEntity } from '../../world/generation-utils.ts';
+import { populatePhysicsGrids } from '../physics/index.ts';
 
 /**
  * Serializes all dynamic world objects into snapshots that can be safely
@@ -59,13 +62,48 @@ export function serializeEntitySnapshots(): EntitySnapshot[] {
 }
 
 /**
- * Placeholder minimal loader logic. A future editor or reload system
- * will iterate over these snapshots to rebuild the scene accurately.
+ * Restores a batch of snapshots into the world via the standard map population path
+ * (`processMapEntity`). Connects the raw loaded JSON data to the robust generation
+ * path, which handles validation, map metadata injection, and instancing. Rebuilds
+ * the physics grid exactly once at the end.
  */
 export function applyEntitySnapshots(snapshots: EntitySnapshot[]): void {
     if (!snapshots || snapshots.length === 0) return;
-    console.warn(`[SaveSystem] applyEntitySnapshots received ${snapshots.length} entities to restore.`);
-    // TODO: Connect this to the actual procedural generation / batcher pipeline
-    // to respawn entities from snapshots. Currently a no-op as the scene
-    // re-generates via deterministic map.json and seeds on load.
+    console.log(`[SaveSystem] applyEntitySnapshots restoring ${snapshots.length} entities...`);
+
+    let processedCount = 0;
+
+    for (const snap of snapshots) {
+        try {
+            // Map the save format snapshot to MapEntity
+            const item: MapEntity = {
+                id: snap.id,
+                type: snap.type,
+                position: snap.position,
+                rotation: snap.rotation ? { quat: snap.rotation } : undefined,
+                scale: snap.scale,
+                persistentId: snap.persistentId,
+                variant: snap.variant,
+                note: snap.note,
+                noteIndex: snap.noteIndex,
+                hasFace: snap.hasFace,
+                category: snap.category,
+                layer: snap.layer,
+                biome: snap.biome,
+                music: snap.music,
+                placement: snap.placement as any,
+                params: snap.params
+            };
+
+            processMapEntity(item, null as any);
+            processedCount++;
+        } catch (err) {
+            console.warn(`[SaveSystem] applyEntitySnapshots: Failed to restore snapshot ${snap.id || 'unknown'} (type: ${snap.type}). Skipping.`, err);
+        }
+    }
+
+    // Rebuild physics grid exactly once after all entities have been processed.
+    if (processedCount > 0) {
+        populatePhysicsGrids();
+    }
 }
