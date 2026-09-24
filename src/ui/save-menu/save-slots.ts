@@ -172,7 +172,11 @@ export async function handleSlotAction(
         btnElement.setAttribute('aria-busy', 'true');
         btnElement.setAttribute('aria-disabled', 'true');
         const originalText = btnElement.innerHTML;
-        btnElement.innerHTML = '<span class="spinner" aria-hidden="true"></span>...';
+        const textContent = btnElement.textContent?.trim() || 'Processing';
+
+        // Build content safely
+        btnElement.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+        btnElement.appendChild(document.createTextNode(textContent + '...'));
 
         // Setup cleanup to restore state
         const cleanup = () => {
@@ -335,7 +339,11 @@ export async function handleQuickSave(
         btnElement.setAttribute('aria-busy', 'true');
         btnElement.setAttribute('aria-disabled', 'true');
         const originalText = btnElement.innerHTML;
-        btnElement.innerHTML = '<span class="spinner" aria-hidden="true"></span>...';
+        const textContent = btnElement.textContent?.trim() || 'Saving';
+
+        // Build content safely
+        btnElement.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+        btnElement.appendChild(document.createTextNode(textContent + '...'));
 
         try {
             await yieldToPaint();
