@@ -139,14 +139,14 @@ export class WasmMeshDeformation {
         // Allocate WASM memory
         const memory = getWasmMemory();
         if (!memory) {
-            console.log('[WasmMeshDeformation] WASM memory not available, using JS fallback');
+
             return;
         }
         
         try {
             // Allocate space for positions (3 floats per vertex)
             const posSize = this.vertexCount * 3 * 4; // 4 bytes per float
-            this.wasmPosPtr = (memory as any).malloc(posSize);
+            this.wasmPosPtr = (memory as unknown as {malloc: (size: number) => number}).malloc(posSize);
             this.wasmOrigPtr = (memory as any).malloc(posSize);
             
             if (this.normals && this.shouldRecomputeNormals) {
@@ -158,7 +158,7 @@ export class WasmMeshDeformation {
             }
             
             // Copy original positions to WASM
-            const F32 = new Float32Array((memory as any).buffer);
+            const F32 = new Float32Array((memory as unknown as {buffer: ArrayBuffer}).buffer);
             F32.set(this.originalPositions, this.wasmOrigPtr >> 2);
             
             if (this.indices && this.wasmIndexPtr) {
@@ -182,7 +182,7 @@ export class WasmMeshDeformation {
         const memory = getWasmMemory();
         if (!memory) return;
         
-        const free = (memory as any).free;
+        const free = (memory as unknown as {free: (ptr: number) => void}).free;
         if (!free) return;
         
         if (this.wasmPosPtr) free(this.wasmPosPtr);
