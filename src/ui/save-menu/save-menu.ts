@@ -608,8 +608,13 @@ export class SaveMenu {
             btnElement.setAttribute('aria-disabled', 'true');
             btnElement.style.width = `${originalWidth}px`;
             btnElement.style.justifyContent = 'center';
-            btnElement.innerHTML =
-                '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px;"><span class="visually-hidden">Processing...</span></span>';
+            const textContent = btnElement.textContent?.trim() || 'Processing';
+
+            // Rebuild content safely to avoid interpreting textContent as HTML
+            btnElement.innerHTML = '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px; margin-right: 8px;"><span class="visually-hidden">Processing...</span></span>';
+            const textSpan = document.createElement('span');
+            textSpan.textContent = textContent;
+            btnElement.appendChild(textSpan);
         };
 
         const restoreState = () => {
@@ -710,7 +715,7 @@ export class SaveMenu {
             try {
                 await navigator.clipboard.writeText(textarea.value);
                 showToast('Copied to clipboard!', '📋', 3000);
-            } catch (e) {
+            } catch {
                 showToast('Failed to copy', '❌', 3000);
             }
         }

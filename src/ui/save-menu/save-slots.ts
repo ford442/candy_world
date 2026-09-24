@@ -11,9 +11,8 @@ import {
     SaveSlotInfo
 } from '../../systems/save-system/index.ts';
 import { showToast } from '../../utils/toast.ts';
-import { announce } from '../announcer.ts';
-
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
+import { announce } from '../announcer.ts';
 import type { SaveMenu } from './save-menu.ts';
 
 /**
@@ -84,7 +83,7 @@ export function renderLoadTab(
     slots: SaveSlotInfo[], 
     currentMode: 'load' | 'save' | 'full',
     selectedSlot: string | null,
-    menu: SaveMenu
+    _menu: SaveMenu
 ): string {
     const manualSlots = slots.filter(s => !s.isAutoSave && s.exists);
     const autoSlots = slots.filter(s => s.isAutoSave && s.exists);
@@ -172,7 +171,11 @@ export async function handleSlotAction(
         btnElement.setAttribute('aria-busy', 'true');
         btnElement.setAttribute('aria-disabled', 'true');
         const originalText = btnElement.innerHTML;
-        btnElement.innerHTML = '<span class="spinner" aria-hidden="true"></span>...';
+        const textContent = btnElement.textContent?.trim() || 'Processing';
+
+        // Build content safely
+        btnElement.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+        btnElement.appendChild(document.createTextNode(textContent + '...'));
 
         // Setup cleanup to restore state
         const cleanup = () => {
@@ -335,7 +338,11 @@ export async function handleQuickSave(
         btnElement.setAttribute('aria-busy', 'true');
         btnElement.setAttribute('aria-disabled', 'true');
         const originalText = btnElement.innerHTML;
-        btnElement.innerHTML = '<span class="spinner" aria-hidden="true"></span>...';
+        const textContent = btnElement.textContent?.trim() || 'Saving';
+
+        // Build content safely
+        btnElement.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+        btnElement.appendChild(document.createTextNode(textContent + '...'));
 
         try {
             await yieldToPaint();
