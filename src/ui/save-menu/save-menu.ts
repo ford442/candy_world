@@ -715,7 +715,7 @@ export class SaveMenu {
             try {
                 await navigator.clipboard.writeText(textarea.value);
                 showToast('Copied to clipboard!', '📋', 3000);
-            } catch (e) {
+            } catch {
                 showToast('Failed to copy', '❌', 3000);
             }
         }

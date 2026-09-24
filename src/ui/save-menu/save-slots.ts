@@ -11,9 +11,8 @@ import {
     SaveSlotInfo
 } from '../../systems/save-system/index.ts';
 import { showToast } from '../../utils/toast.ts';
-import { announce } from '../announcer.ts';
-
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
+import { announce } from '../announcer.ts';
 import type { SaveMenu } from './save-menu.ts';
 
 /**
@@ -84,7 +83,7 @@ export function renderLoadTab(
     slots: SaveSlotInfo[], 
     currentMode: 'load' | 'save' | 'full',
     selectedSlot: string | null,
-    menu: SaveMenu
+    _menu: SaveMenu
 ): string {
     const manualSlots = slots.filter(s => !s.isAutoSave && s.exists);
     const autoSlots = slots.filter(s => s.isAutoSave && s.exists);
