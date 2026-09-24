@@ -120,10 +120,10 @@ export class WasmMeshDeformation {
      */
     private initWasm(): void {
         // Check if WASM functions are available
-        this.wasmDeformWave = getNativeFunc('deformMeshWave') as any;
-        this.wasmDeformJiggle = getNativeFunc('deformMeshJiggle') as any;
-        this.wasmDeformWobble = getNativeFunc('deformMeshWobble') as any;
-        this.wasmRecomputeNormals = getNativeFunc('recomputeNormals') as any;
+        this.wasmDeformWave = getNativeFunc('deformMeshWave') as unknown as (...args: number[]) => void;
+        this.wasmDeformJiggle = getNativeFunc('deformMeshJiggle') as unknown as (...args: number[]) => void;
+        this.wasmDeformWobble = getNativeFunc('deformMeshWobble') as unknown as (...args: number[]) => void;
+        this.wasmRecomputeNormals = getNativeFunc('recomputeNormals') as unknown as (...args: number[]) => void;
         
         // Only use WASM if we have the right function for our type
         const hasRequiredFunc = 
