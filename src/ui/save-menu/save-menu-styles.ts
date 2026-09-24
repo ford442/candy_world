@@ -289,7 +289,8 @@ export const MENU_STYLES = `
     cursor: wait !important;
     position: relative;
     pointer-events: none;
-    opacity: 0.8;
+    filter: grayscale(100%) brightness(50%);
+    transition: all 0.3s ease;
 }
 
 .candy-save-slot__btn[aria-busy="true"] .spinner,
@@ -355,9 +356,11 @@ export const MENU_STYLES = `
 
 .candy-save-menu__btn[aria-disabled="true"],
 .candy-save-slot__btn[aria-disabled="true"] {
-    opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+    pointer-events: none;
+    filter: grayscale(100%) brightness(50%);
+    transition: all 0.3s ease;
 }
 
 .candy-save-menu__btn:focus-visible {

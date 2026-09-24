@@ -24,8 +24,15 @@ jobs:
             - name: Install root deps
               run: pnpm install --frozen-lockfile
 
-            - name: Presence protocol (mocked Realtime, no Supabase)
-              run: pnpm run test:presence
-
-            - name: Sugar Caves traversal + Part II unlock
-              run: pnpm run test:sugar-caves
+            # test:fast is the PR gate: every node-only suite (physics/WASM
+            # parity, protocol, traversal, rendering-config and repo-integrity
+            # guards), and nothing that needs a browser or a Vite build. It
+            # runs in well under a minute on this runner.
+            #
+            # The browser-dependent smoke runs (`test`, `test:smoke:fast`) and
+            # `vite build` live in `test:integration`, which is local/nightly
+            # only — this job installs no Playwright browser and passes no
+            # --enable-unsafe-webgpu, so those cannot pass here. See
+            # docs/CI_CONTRACT.md.
+            - name: Node test suite (PR gate)
+              run: pnpm run test:fast

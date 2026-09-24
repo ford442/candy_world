@@ -837,7 +837,7 @@ export async function initWasm(): Promise<boolean> {
         (startButton as HTMLButtonElement).disabled = false;
         startButton.removeAttribute('aria-busy');
         startButton.removeAttribute('title');
-        startButton.textContent = 'Start Exploration 🚀';
+        startButton.innerHTML = 'Start Exploration <span aria-hidden="true">🚀</span>';
         startButton.style.cursor = 'pointer';
 
         // ♿ Aria: Announce that the loading is complete and the button is ready

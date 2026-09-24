@@ -17,6 +17,7 @@ import {
     type SaveData,
 } from './save-system/index.ts';
 import { unlockSystem } from './unlocks.ts';
+import { getWeatherSystem } from './weather/lazy.ts';
 
 type SaveSystemInternals = {
     gatherPlayerData: () => SaveData['player'];
@@ -100,7 +101,7 @@ function gatherProgressData(playtime: number): SaveData['progress'] {
 export function applyLoadedData(data: SaveData): { restored: number; alreadyLive: number; skipped: number } | void {
     let applyResult;
     if (data.world && data.world.entitySnapshots) {
-        applyResult = applyEntitySnapshots(data.world.entitySnapshots);
+        applyResult = applyEntitySnapshots(data.world.entitySnapshots, getWeatherSystem());
     }
     if (data.player.position) {
         player.position.set(data.player.position.x, data.player.position.y, data.player.position.z);
