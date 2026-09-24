@@ -55,7 +55,7 @@ export async function initGpuFoliageOrchestrator(): Promise<GPUFoliageAnimator |
         const animator = new GPUFoliageAnimator(gpu);
         try {
             await animator.initialize();
-        } catch (err) {
+        } catch {
             return null;
         }
 

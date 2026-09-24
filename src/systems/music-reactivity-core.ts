@@ -404,6 +404,36 @@ export function syncMapMusicContext(): void {
 
 // Helper to map MIDI note (0-127) to a color hue
 // Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
+
+// ⚡ OPTIMIZATION: Zero-allocation pitch class parser with caching
+const _pitchCache: Record<string, number> = {};
+
+export function parseNoteToMIDI(noteStr: string | undefined): number {
+    if (!noteStr) return 0;
+    if (_pitchCache[noteStr] !== undefined) return _pitchCache[noteStr];
+
+    let hasNumbers = false;
+    let startIdx = 0;
+    for (let i = 0; i < noteStr.length; i++) {
+        const c = noteStr.charCodeAt(i);
+        if ((c >= 48 && c <= 57) || c === 45) { // '0'-'9' or '-'
+            hasNumbers = true;
+            startIdx = i;
+            break;
+        }
+    }
+
+    let noteName = noteStr;
+    if (hasNumbers) {
+        noteName = noteStr.substring(0, startIdx);
+    }
+
+    const idx = CHROMATIC_SCALE.indexOf(noteName);
+    const result = idx >= 0 ? idx + 12 : 0; // +12 to ensure it is > 0 and won't return white color early
+    _pitchCache[noteStr] = result;
+    return result;
+}
+
 export function mapNoteToColor(note: number, outColor: THREE.Color, palette: string = 'global') {
     if (note <= 0) return outColor.setHex(0xffffff);
     const pitchClass = note % 12;
@@ -517,7 +547,7 @@ export function applyNebulaChannelAccum(
     for (let i = 0; i < noteCh.length; i++) {
         const idx = noteCh[i];
         if (idx < channels.length && channels[idx].volume > _NEBULA_NOTE_AUDIBLE_THRESHOLD) {
-            noteVal = parseInt(channels[idx].note) || 0;
+            noteVal = parseNoteToMIDI(channels[idx].note);
             break;
         }
     }

@@ -7,6 +7,7 @@ import {
     mapNoteToColor,
     applyArpeggioGroveChannelAccum,
     applyNebulaChannelAccum,
+    parseNoteToMIDI,
     _targetArpeggioColor,
     _targetNebulaColor,
     _targetGlobalColor,
@@ -56,7 +57,7 @@ export function firstAudibleNote(chList: readonly number[], channels: readonly C
     for (let i = 0; i < chList.length; i++) {
         const idx = chList[i];
         if (idx < channels.length && channels[idx].volume > NOTE_AUDIBLE_THRESHOLD) {
-            return parseInt(channels[idx].note) || 0;
+            return parseNoteToMIDI(channels[idx].note);
         }
     }
     return 0;
