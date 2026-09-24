@@ -21,6 +21,9 @@ import { restoreEntity } from '../systems/entity-snapshot.ts';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
 import { applyEntitySnapshots } from '../systems/save-system/entity-snapshot.ts';
 import { showToast } from '../utils/toast.ts';
+import { announce } from '../ui/announcer.ts';
+import { create } from '../world/foliage-registry.ts';
+import { plantOnSurface } from '../world/placement-utils.ts';
 
 const _hasFlag = (key: string): boolean => {
     try {
@@ -178,6 +181,8 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
     const flexRow = _panel.children[1] as HTMLElement;
     flexRow.appendChild(typeSelect);
     const snapshotBtn = document.createElement('button');
+    snapshotBtn.type = 'button';
+    snapshotBtn.setAttribute('aria-label', 'Capture Snapshot');
     snapshotBtn.textContent = 'Capture Snapshot';
     snapshotBtn.style.cssText =
         'background:#1a4;color:#fff;border:1px solid #3c6;padding:2px 6px;margin-left:4px;cursor:pointer;';
@@ -199,7 +204,8 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
                 console.log(JSON.stringify(snap, null, 2));
                 // Dev-only sidecar write; never touches assets/map.json.
                 void saveSnapshot(snap);
-                showToast('Snapshot captured to console', '✅', 2000);
+                showToast('Snapshot captured to console', '<span aria-hidden="true">✅</span>', 2000);
+                announce('Snapshot captured', 'polite');
             } else {
                 showToast('Failed to capture snapshot', '❌', 2000);
             }
@@ -219,6 +225,16 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
     _reticle.renderOrder = 9999;
     scene.add(_reticle);
 
+    window.addEventListener('mousedown', (e) => {
+        if (!isPlacementDebugEnabled() || !_reticle) return;
+        if (_panel && _panel.contains(e.target as Node)) return;
+        // One-shot scale flash
+        _reticle.scale.setScalar(_currentScale * 1.5);
+        setTimeout(() => {
+            if (_reticle) _reticle.scale.setScalar(_currentScale);
+        }, 150);
+    });
+
     window.addEventListener('wheel', (e) => {
         if (!isPlacementDebugEnabled()) return;
         // Don't intercept if mouse is over the panel
@@ -226,6 +242,7 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
 
         _currentScale += e.deltaY < 0 ? 0.1 : -0.1;
         _currentScale = Math.max(0.1, Math.min(10.0, _currentScale));
+        if (_reticle) _reticle.scale.setScalar(_currentScale);
         updatePanel();
     });
 
@@ -315,5 +332,4 @@ export function updatePlacementDebug(cameraPos: THREE.Vector3, cameraDir: THREE.
     _scratchQuatY.setFromAxisAngle(_up, _currentRotation);
 
     _reticle.quaternion.copy(_scratchQuat).multiply(_scratchQuatY);
-    _reticle.scale.setScalar(_currentScale);
 }
