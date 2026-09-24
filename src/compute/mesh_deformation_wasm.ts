@@ -147,14 +147,14 @@ export class WasmMeshDeformation {
             // Allocate space for positions (3 floats per vertex)
             const posSize = this.vertexCount * 3 * 4; // 4 bytes per float
             this.wasmPosPtr = (memory as unknown as {malloc: (size: number) => number}).malloc(posSize);
-            this.wasmOrigPtr = (memory as any).malloc(posSize);
+            this.wasmOrigPtr = (memory as unknown as {malloc: (size: number) => number}).malloc(posSize);
             
             if (this.normals && this.shouldRecomputeNormals) {
-                this.wasmNormalPtr = (memory as any).malloc(posSize);
+                this.wasmNormalPtr = (memory as unknown as {malloc: (size: number) => number}).malloc(posSize);
             }
             
             if (this.indices) {
-                this.wasmIndexPtr = (memory as any).malloc(this.indices.length * 2); // 2 bytes per uint16
+                this.wasmIndexPtr = (memory as unknown as {malloc: (size: number) => number}).malloc(this.indices.length * 2); // 2 bytes per uint16
             }
             
             // Copy original positions to WASM
@@ -162,7 +162,7 @@ export class WasmMeshDeformation {
             F32.set(this.originalPositions, this.wasmOrigPtr >> 2);
             
             if (this.indices && this.wasmIndexPtr) {
-                const U16 = new Uint16Array((memory as any).buffer);
+                const U16 = new Uint16Array((memory as unknown as {buffer: ArrayBuffer}).buffer);
                 U16.set(this.indices, this.wasmIndexPtr >> 1);
             }
             
@@ -240,7 +240,7 @@ export class WasmMeshDeformation {
         }
         
         // Copy current positions to WASM
-        const F32 = new Float32Array((memory as any).buffer);
+        const F32 = new Float32Array((memory as unknown as {buffer: ArrayBuffer}).buffer);
         F32.set(this.originalPositions, this.wasmPosPtr >> 2);
         
         // Call appropriate WASM function
