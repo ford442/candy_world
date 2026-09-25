@@ -219,7 +219,12 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         interactiveGroup.add(hitMesh);
         foliageGroup.add(interactiveGroup);
 
-        this.logicObjects.push(interactiveGroup);
+        interactiveGroup.userData.batchIndex = i;
+        proxy.userData.interactiveGroup = interactiveGroup;
+        proxy.userData.isBatched = true;
+        proxy.userData.type = 'subwoofer_lotus';
+
+        this.logicObjects[i] = interactiveGroup;
     }
 
     // Since we need caller to actually place the proxy first, we provide an updateInstance
@@ -275,6 +280,51 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
     flushRegistrations(): void {
         // No-op: SubwooferLotusBatcher registers immediately in register()
         // This exists only for API compatibility with other batchers
+    }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!logicObject || !this.padMesh) return;
+
+        const index = logicObject.userData.batchIndex;
+        if (typeof index !== 'number' || index < 0 || index >= this._count) return;
+
+        const lastIndex = this._count - 1;
+
+        if (index !== lastIndex) {
+            // Swap Matrix for all 3 meshes
+            const padMatrix = this.padMesh.instanceMatrix.array as Float32Array;
+            const ringsMatrix = this.ringsMesh.instanceMatrix.array as Float32Array;
+            const centerMatrix = this.centerMesh.instanceMatrix.array as Float32Array;
+
+            for (let i = 0; i < 16; i++) {
+                padMatrix[index * 16 + i] = padMatrix[lastIndex * 16 + i];
+                ringsMatrix[index * 16 + i] = ringsMatrix[lastIndex * 16 + i];
+                centerMatrix[index * 16 + i] = centerMatrix[lastIndex * 16 + i];
+            }
+
+            this.padMesh.instanceMatrix.needsUpdate = true;
+            this.ringsMesh.instanceMatrix.needsUpdate = true;
+            this.centerMesh.instanceMatrix.needsUpdate = true;
+
+            const swappedInteractive = this.logicObjects[lastIndex];
+            if (swappedInteractive) {
+                swappedInteractive.userData.batchIndex = index;
+                this.logicObjects[index] = swappedInteractive;
+            }
+        }
+
+        const interactiveGroup = this.logicObjects[index];
+        if (interactiveGroup) {
+            safeRemoveAndDispose(foliageGroup as any, interactiveGroup);
+        }
+
+        this.logicObjects[lastIndex] = null as unknown as THREE.Object3D;
+        logicObject.userData.batchIndex = -1;
+        this._count--;
+
+        this.padMesh.count = this._count;
+        this.ringsMesh.count = this._count;
+        this.centerMesh.count = this._count;
     }
 }
 

@@ -120,6 +120,16 @@ export function updateDecoratorStreamer(playerX: number, playerZ: number): void 
     }
 }
 
+export function unloadDecoratorSection(id: DecoratorId): void {
+    if (!queued.has(id)) return;
+    queued.delete(id);
+    if (id === 'sugar_caves') {
+        import('../foliage/index.ts').then(({ sugarCaveBatcher }) => {
+            sugarCaveBatcher.clear();
+        }).catch(err => console.warn('[DecoratorStreamer] Failed to unload sugar caves', err));
+    }
+}
+
 function enqueueSection(section: DecoratorSection): void {
     if (queued.has(section.id) || !weatherRef) return;
     queued.add(section.id);

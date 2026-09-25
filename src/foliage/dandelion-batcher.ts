@@ -309,6 +309,42 @@ export class DandelionBatcher {
 
         // Store batch index on logic object for later updates (like harvesting)
         logicObject.userData.batchIndex = i;
+        logicObject.userData.type = 'cymbal_dandelion';
+        logicObject.userData.isBatched = true;
+
+        // Ensure we track mapping for swap-with-last removal
+        if (!this._logicObjects) this._logicObjects = [];
+        this._logicObjects[i] = logicObject;
+    }
+
+    private _logicObjects: THREE.Object3D[] = [];
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.initialized || !this.mesh || !logicObject) return;
+        const index = logicObject.userData.batchIndex;
+        if (typeof index !== 'number' || index < 0 || index >= this.count) return;
+
+        const lastIndex = this.count - 1;
+
+        // Swap if it's not already the last one
+        if (index !== lastIndex) {
+            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+            for (let i = 0; i < 16; i++) {
+                matrixArray[index * 16 + i] = matrixArray[lastIndex * 16 + i];
+            }
+            this.mesh.instanceMatrix.needsUpdate = true;
+
+            const swappedObject = this._logicObjects[lastIndex];
+            if (swappedObject) {
+                swappedObject.userData.batchIndex = index;
+                this._logicObjects[index] = swappedObject;
+            }
+        }
+
+        this._logicObjects[lastIndex] = null as unknown as THREE.Object3D;
+        logicObject.userData.batchIndex = -1;
+        this.count--;
+        this.mesh.count = this.count;
     }
 
     harvest(batchIndex: number) {

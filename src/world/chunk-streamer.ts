@@ -17,6 +17,12 @@ import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
+import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
+import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
+import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
+import { waterfallBatcher } from '../foliage/waterfall-batcher.ts';
+import { gemFruitBatcher } from '../foliage/gem-fruit-batcher.ts';
+import type { BatcherInstanceRef } from '../systems/awakened-types.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { populatePhysicsGrids, unregisterPhysicsCave } from '../systems/physics/index.ts';
 import {
@@ -104,6 +110,9 @@ type EvictionClass =
     | 'portamentoPine'
     | 'cave'
     | 'kickDrumGeyser'
+    | 'luminousPlant'
+    | 'dandelion'
+    | 'subwooferLotus'
     | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
@@ -131,10 +140,13 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'lanternFlower') return 'lantern';
     if (t === 'glass_mushroom') return 'glassMushroom';
     if (t === 'flower') return 'flower';
-    if (t === 'simple_flower' || (obj.userData?.isFlower && t !== 'flower')) return 'simpleFlower';
+    if (t === 'simple_flower' || t === 'glowing_flower' || (obj.userData?.isFlower && t !== 'flower')) return 'simpleFlower';
     if (t === 'fern' || t === 'arpeggio_fern') return 'arpeggioFern';
     if (t === 'cave') return 'cave';
     if (t === 'kick_drum_geyser') return 'kickDrumGeyser';
+    if (t === 'luminous_plant') return 'luminousPlant';
+    if (t === 'cymbal_dandelion' || t === 'dandelion') return 'dandelion';
+    if (t === 'subwoofer_lotus') return 'subwooferLotus';
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -539,13 +551,26 @@ export class ChunkStreamer {
                 flowerBatcher.removeInstance(obj);
             } else if (evictionClass === 'tree') {
                 treeBatcher.removeInstance(obj);
+                const gemRefs = obj.userData.gemRefs as BatcherInstanceRef[] | undefined;
+                if (gemRefs) {
+                    for (let i = gemRefs.length - 1; i >= 0; i--) {
+                        gemFruitBatcher.removeInstanceByRef(gemRefs[i]);
+                    }
+                }
             } else if (evictionClass === 'arpeggioFern') {
                 arpeggioFernBatcher.removeInstance(obj);
             } else if (evictionClass === 'portamentoPine') {
                 portamentoPineBatcher.removeInstance(obj);
+            } else if (evictionClass === 'luminousPlant') {
+                luminousPlantBatcher.removeInstance(obj);
+            } else if (evictionClass === 'dandelion') {
+                dandelionBatcher.removeInstance(obj);
+            } else if (evictionClass === 'subwooferLotus') {
+                subwooferLotusBatcher.removeInstance(obj.userData.interactiveGroup || obj);
             } else if (evictionClass === 'cave') {
+                waterfallBatcher.removeInstance(obj);
                 unregisterPhysicsCave(obj);
-                this.weatherSystem?.registerCave?.(obj);
+                (this.weatherSystem as any)?.unregisterCave?.(obj);
             }
             // Free the entity id so walking back into range re-spawns it.
             // Discovery registration is intentionally left in place — the

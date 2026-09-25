@@ -400,6 +400,11 @@ export class WaterfallBatcher {
 
         this.mesh!.instanceMatrix.needsUpdate = true;
     }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!logicObject) return;
+        this.remove(logicObject.uuid);
+    }
 }
 
 export const waterfallBatcher = WaterfallBatcher.getInstance();

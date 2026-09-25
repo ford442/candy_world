@@ -237,9 +237,81 @@ export class LuminousPlantBatcher {
         this.mesh.instanceMatrix.needsUpdate = true;
         phaseAttr.needsUpdate = true;
 
+        if (!this._logicObjects) this._logicObjects = [];
+        this._logicObjects[id] = group;
+        group.userData.batchIndex = id;
+        group.userData.isBatched = true;
+        group.userData.type = LUMINOUS_TYPE_ID;
+
         this.drainPendingBulk();
 
         return id;
+    }
+
+    private _logicObjects: THREE.Object3D[] = [];
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.mesh || !logicObject) return;
+        const index = logicObject.userData.batchIndex;
+        if (typeof index !== 'number' || index < 0 || index >= this.count) return;
+
+        const lastIndex = this.count - 1;
+
+        if (index !== lastIndex) {
+            // Swap Matrix
+            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+            for (let i = 0; i < 16; i++) {
+                matrixArray[index * 16 + i] = matrixArray[lastIndex * 16 + i];
+            }
+            this.mesh.instanceMatrix.needsUpdate = true;
+
+            // Swap aPhaseOffset
+            const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
+            if (phaseAttr) {
+                phaseAttr.setX(index, phaseAttr.getX(lastIndex));
+                phaseAttr.needsUpdate = true;
+            }
+
+            // Swap Awakened Attrs
+            if (AWAKENED_ATTR_ENABLED) {
+                const awakenedAttr = this.mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
+                const emissiveAttr = this.mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
+                if (awakenedAttr && emissiveAttr) {
+                    awakenedAttr.setX(index, awakenedAttr.getX(lastIndex));
+                    emissiveAttr.setX(index, emissiveAttr.getX(lastIndex));
+                    awakenedAttr.needsUpdate = true;
+                    emissiveAttr.needsUpdate = true;
+                }
+
+                // Swap Persistent ID mappings
+                const lastPersistentId = this.indexToPersistentId[lastIndex];
+                this.indexToPersistentId[index] = lastPersistentId;
+                if (lastPersistentId !== undefined && lastPersistentId !== 0) {
+                    this.persistentIdToIndex.set(lastPersistentId, index);
+                }
+            }
+
+            // Swap Logic Objects Map
+            const swappedObject = this._logicObjects[lastIndex];
+            if (swappedObject) {
+                swappedObject.userData.batchIndex = index;
+                this._logicObjects[index] = swappedObject;
+            }
+        }
+
+        // Cleanup
+        if (AWAKENED_ATTR_ENABLED) {
+            const persistentId = this.indexToPersistentId[lastIndex];
+            if (persistentId !== undefined && persistentId !== 0) {
+                this.persistentIdToIndex.delete(persistentId);
+                this.indexToPersistentId[lastIndex] = 0;
+            }
+        }
+
+        this._logicObjects[lastIndex] = null as unknown as THREE.Object3D;
+        logicObject.userData.batchIndex = -1;
+        this.count--;
+        this.mesh.count = this.count;
     }
 
     /** Apply awakened glow by stable persistentId */

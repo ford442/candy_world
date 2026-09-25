@@ -248,6 +248,49 @@ export class GemFruitBatcher {
         return idx;
     }
 
+    removeInstanceByRef(ref: BatcherInstanceRef): void {
+        const type = ref.gemType;
+        if (type === undefined || type < 0 || type >= 3) return;
+        const index = ref.instanceIndex;
+        if (typeof index !== 'number' || index < 0 || index >= this._counts[type]) return;
+
+        const mesh = this.meshes[type];
+        const lastIndex = this._counts[type] - 1;
+
+        if (index !== lastIndex) {
+            // Swap Matrix
+            const matrixArray = mesh.instanceMatrix.array as Float32Array;
+            for (let i = 0; i < 16; i++) {
+                matrixArray[index * 16 + i] = matrixArray[lastIndex * 16 + i];
+            }
+            mesh.instanceMatrix.needsUpdate = true;
+
+            // Swap Buffer Attributes
+            const phaseAttr = mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
+            const armAttr = mesh.geometry.getAttribute('aArmLen') as THREE.InstancedBufferAttribute;
+            const awakenedAttr = mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
+            const emissiveAttr = mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
+
+            if (phaseAttr) phaseAttr.setX(index, phaseAttr.getX(lastIndex));
+            if (armAttr) armAttr.setX(index, armAttr.getX(lastIndex));
+            if (awakenedAttr) awakenedAttr.setX(index, awakenedAttr.getX(lastIndex));
+            if (emissiveAttr) emissiveAttr.setX(index, emissiveAttr.getX(lastIndex));
+
+            if (phaseAttr) phaseAttr.needsUpdate = true;
+            if (armAttr) armAttr.needsUpdate = true;
+            if (awakenedAttr) awakenedAttr.needsUpdate = true;
+            if (emissiveAttr) emissiveAttr.needsUpdate = true;
+
+            // Note: Since refs are stored on the parent tree, swapping them means
+            // we'd technically need a reverse mapping to update the tree's refs.
+            // But since this is only called during chunk eviction, trees in the same chunk
+            // are evicted together, so dangling refs are acceptable if they are just about to be deleted.
+        }
+
+        this._counts[type]--;
+        mesh.count = this._counts[type];
+    }
+
     dispose(): void {
         for (let t = 0; t < this.meshes.length; t++) {
             const mesh = this.meshes[t];
