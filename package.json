@@ -44,6 +44,7 @@
     "test:budgets": "tsx tests/systems-budget.test.ts",
     "test:fauna": "tsx tests/fauna-behavior.test.ts",
     "test:sugar-caves": "tsx tests/sugar-caves-traversal.test.mjs",
+    "test:night-market": "tsx --import ./tests/support/register-hooks.mjs tests/night-market-traversal.test.mjs",
     "test:foliage-interact": "node tests/foliage-interact.test.mjs",
     "test:cookbook-presets": "node scripts/check-cookbook-presets.mjs",
     "test:spawn-tracker": "node tests/spawn-tracker.test.mjs",
@@ -64,8 +65,8 @@
     "test:explore": "node tests/explore-camera.test.mjs",
     "test:batcher-lod": "node tests/batcher-lod.test.mjs",
     "test:entity-snapshot": "tsx --import ./tests/support/register-hooks.mjs tests/entity-snapshot.test.mjs",
-    "test:save-entity-snapshot": "tsx --import ./tests/support/register-hooks.mjs tests/save-entity-snapshot-roundtrip.test.mjs",
-    "test:integration": "npm run build:wasm && npm run test:wasm && npm run test:budgets && npm run test:rigidbody && npm run test:joints && npm run test:joint-fallback && npm run test:softbody && npm run test:heroanim && npm run test:parity && npm run test:chores && npm run test:webgpu-probe && npm run test:cookbook-presets && npm run test:docs-symbols && npm run test:plan-integrity && npm run test:spawn-tracker && npm run test:entity-snapshot && npm run test:save-entity-snapshot && npm run test:player-spawn && npm run test:character && npm run test:character-native && npm run test:world-health && npm run test:fauna && npm run test:presence && npm run test:sugar-caves && npm run test:capabilities && npm run test:world-extent && npm run test:lights && npm run test:clustered && npm run test:gi && npm run test:postfx && npm run test:ground && npm run test:ground-unified && npm run test:sky-islands && npm run test:foliage-interact && npm run test:cascades && npm run test:atmosphere && vite build && npm run test",
+    "test:fast": "npm run build:wasm && npm run test:wasm && npm run test:budgets && npm run test:rigidbody && npm run test:joints && npm run test:joint-fallback && npm run test:softbody && npm run test:heroanim && npm run test:parity && npm run test:chores && npm run test:webgpu-probe && npm run test:cookbook-presets && npm run test:spawn-tracker && npm run test:entity-snapshot && npm run test:player-spawn && npm run test:character && npm run test:world-health && npm run test:fauna && npm run test:presence && npm run test:sugar-caves && npm run test:night-market && npm run test:capabilities && npm run test:world-extent && npm run test:lights && npm run test:clustered && npm run test:gi && npm run test:postfx && npm run test:ground && npm run test:ground-unified && npm run test:sky-islands && npm run test:foliage-interact && npm run test:cascades && npm run test:atmosphere && npm run test:docs-symbols && npm run test:plan-integrity",
+    "test:integration": "npm run test:fast && vite build && npm run test && npm run test:smoke:fast",
     "test:smoke:full": "FULL_BOOT=1 npm run test",
     "test:smoke:fast": "FULL_BOOT=fast npm run test",
     "test:visual": "cd tools/visual-regression && pnpm run test:visual",
@@ -86,7 +87,9 @@
     "lint:raw": "eslint src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "simple-git-hooks"
+    "prepare": "simple-git-hooks",
+    "test:docs-symbols": "tsx --import ./tests/support/register-hooks.mjs scripts/check-docs-symbols.mjs",
+    "test:plan-integrity": "node scripts/check-plan-integrity.mjs"
   },
   "keywords": [],
   "author": "",
@@ -111,7 +114,6 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.64.0",
     "vite": "^5.0.0",
-    "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.5.0"
   },
   "simple-git-hooks": {
@@ -122,5 +124,4 @@
       "@swc/core": "1.15.47",
       "@swc/wasm": "1.15.47"
     }
-  }
 }

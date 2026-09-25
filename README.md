@@ -47,6 +47,8 @@ See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md) and [docs/SUGAR_CAVES
     npm install
     ```
 
+    CI installs with `pnpm install --frozen-lockfile` (`pnpm-lock.yaml` is the source of truth for exact versions), but `npm install` is supported too and is built on every PR by the `npm install build` workflow. Don't put a version pin only in `pnpm-workspace.yaml` or the `pnpm` field of `package.json`, because npm ignores both.
+
 2. Start the development server:
 
     ```bash

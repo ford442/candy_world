@@ -20,7 +20,6 @@
  */
 
 import * as THREE from 'three';
-
 import { getWindState } from '../systems/wind-uniforms.ts';
 import { GPUComputeLibrary } from './gpu-compute-library';
 
