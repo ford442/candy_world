@@ -42,58 +42,60 @@ let skips = 0;
 let cppSkips = 0;
 
 function assertClose(label, a, b, tol = FLOAT_TOL, inputHint = '') {
-  const d = Math.abs(a - b);
-  if (d > tol || Number.isNaN(d)) {
-    console.error(`  ✗ ${label}: got ${b}, expected ${a}, |Δ|=${d} (tol=${tol})`);
-    if (inputHint) console.error(`    input: ${inputHint}`);
-    failures++;
-    return false;
-  }
-  return true;
+    const d = Math.abs(a - b);
+    if (d > tol || Number.isNaN(d)) {
+        console.error(`  ✗ ${label}: got ${b}, expected ${a}, |Δ|=${d} (tol=${tol})`);
+        if (inputHint) console.error(`    input: ${inputHint}`);
+        failures++;
+        return false;
+    }
+    return true;
 }
 
 function assertExact(label, a, b, inputHint = '') {
-  if (a !== b) {
-    console.error(`  ✗ ${label}: got ${b}, expected ${a} (exact)`);
-    if (inputHint) console.error(`    input: ${inputHint}`);
-    failures++;
-    return false;
-  }
-  return true;
+    if (a !== b) {
+        console.error(`  ✗ ${label}: got ${b}, expected ${a} (exact)`);
+        if (inputHint) console.error(`    input: ${inputHint}`);
+        failures++;
+        return false;
+    }
+    return true;
 }
 
 function compareF32Arrays(label, expected, actual, tol, inputHint) {
-  const n = expected.length;
-  if (actual.length !== n) {
-    assertExact(`${label}.length`, n, actual.length, inputHint);
-    return false;
-  }
-  for (let i = 0; i < n; i++) {
-    if (!assertClose(`${label}[${i}]`, expected[i], actual[i], tol, inputHint)) {
-      // Print surrounding context once
-      return false;
+    const n = expected.length;
+    if (actual.length !== n) {
+        assertExact(`${label}.length`, n, actual.length, inputHint);
+        return false;
     }
-  }
-  return true;
+    for (let i = 0; i < n; i++) {
+        if (!assertClose(`${label}[${i}]`, expected[i], actual[i], tol, inputHint)) {
+            // Print surrounding context once
+            return false;
+        }
+    }
+    return true;
 }
 
 // ---------------------------------------------------------------------------
 // Load AssemblyScript candy_physics.wasm
 // ---------------------------------------------------------------------------
 async function loadAssemblyScript() {
-  const wasmPath = path.join(root, 'src/wasm/candy_physics.wasm');
-  if (!fs.existsSync(wasmPath)) {
-    throw new Error(`Missing ${wasmPath} — run npm run build:wasm first`);
-  }
-  const bytes = fs.readFileSync(wasmPath);
-  const { instance } = await WebAssembly.instantiate(bytes, {
-    env: {
-      abort: () => { throw new Error('AS abort'); },
-      seed: () => Date.now(),
-      now: () => Date.now(),
-    },
-  });
-  return instance;
+    const wasmPath = path.join(root, 'src/wasm/candy_physics.wasm');
+    if (!fs.existsSync(wasmPath)) {
+        throw new Error(`Missing ${wasmPath} — run npm run build:wasm first`);
+    }
+    const bytes = fs.readFileSync(wasmPath);
+    const { instance } = await WebAssembly.instantiate(bytes, {
+        env: {
+            abort: () => {
+                throw new Error('AS abort');
+            },
+            seed: () => Date.now(),
+            now: () => Date.now(),
+        },
+    });
+    return instance;
 }
 
 /**
@@ -101,23 +103,23 @@ async function loadAssemblyScript() {
  * Layout: sequential f32 buffers packed from baseOff.
  */
 function asScratch(memory, baseOff = 262144) {
-  return {
-    baseOff,
-    alloc(byteLen) {
-      const ptr = this.baseOff;
-      this.baseOff += (byteLen + 15) & ~15; // 16-byte align
-      return ptr;
-    },
-    f32() {
-      return new Float32Array(memory.buffer);
-    },
-    writeF32(ptr, arr) {
-      this.f32().set(arr, ptr >> 2);
-    },
-    readF32(ptr, len) {
-      return this.f32().slice(ptr >> 2, (ptr >> 2) + len);
-    },
-  };
+    return {
+        baseOff,
+        alloc(byteLen) {
+            const ptr = this.baseOff;
+            this.baseOff += (byteLen + 15) & ~15; // 16-byte align
+            return ptr;
+        },
+        f32() {
+            return new Float32Array(memory.buffer);
+        },
+        writeF32(ptr, arr) {
+            this.f32().set(arr, ptr >> 2);
+        },
+        readF32(ptr, len) {
+            return this.f32().slice(ptr >> 2, (ptr >> 2) + len);
+        },
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -129,596 +131,647 @@ function asScratch(memory, baseOff = 262144) {
 const missingCppArtifacts = [];
 
 async function loadEmscripten() {
-  const candidates = [
-    path.join(root, 'public/candy_native_st.js'),
-    path.join(root, 'public/candy_native.js'),
-  ];
-  for (const jsPath of candidates) {
-    if (!fs.existsSync(jsPath)) {
-      missingCppArtifacts.push(path.relative(root, jsPath));
-      continue;
+    const candidates = [
+        path.join(root, 'public/candy_native_st.js'),
+        path.join(root, 'public/candy_native.js'),
+    ];
+    for (const jsPath of candidates) {
+        if (!fs.existsSync(jsPath)) {
+            missingCppArtifacts.push(path.relative(root, jsPath));
+            continue;
+        }
+        try {
+            const mod = await import(pathToFileURL(jsPath).href);
+            const factory = mod.default || mod.Module || mod.createCandyNative;
+            if (typeof factory !== 'function') {
+                // Some builds export Module as a promise/object already
+                if (mod.default && mod.default._batchComposeMatrices_c) return mod.default;
+                continue;
+            }
+            // The glue's default wasm-loading path uses fetch(), which Node's
+            // fetch() doesn't support for file:// URLs. Supply instantiateWasm
+            // directly from a file read so the C++ tier can actually load here
+            // instead of silently SKIPping every run (see #1757/#1758 write-up).
+            const moduleArg = {};
+            const wasmPath = jsPath.replace(/\.js$/, '.wasm');
+            if (fs.existsSync(wasmPath)) {
+                const wasmBytes = fs.readFileSync(wasmPath);
+                moduleArg.instantiateWasm = (imports, successCallback) => {
+                    WebAssembly.instantiate(wasmBytes, imports).then(({ instance, module }) => {
+                        successCallback(instance, module);
+                    });
+                    return {};
+                };
+            }
+            const instance = await factory(moduleArg);
+            // EXPORTED_RUNTIME_METHODS only lists ccall/cwrap/wasmMemory (see
+            // emscripten/build.sh), so instance.HEAPF32 isn't attached even
+            // though the *_c exports and _malloc/_free are. Derive it from the
+            // exported wasmMemory so the marshaling helpers below can run.
+            if (!instance.HEAPF32 && instance.wasmMemory) {
+                Object.defineProperty(instance, 'HEAPF32', {
+                    get: () => new Float32Array(instance.wasmMemory.buffer),
+                });
+            }
+            return instance;
+        } catch (err) {
+            console.warn(`  [C++] Failed to load ${path.basename(jsPath)}: ${err.message}`);
+        }
     }
-    try {
-      const mod = await import(pathToFileURL(jsPath).href);
-      const factory = mod.default || mod.Module || mod.createCandyNative;
-      if (typeof factory !== 'function') {
-        // Some builds export Module as a promise/object already
-        if (mod.default && mod.default._batchComposeMatrices_c) return mod.default;
-        continue;
-      }
-      // The glue's default wasm-loading path uses fetch(), which Node's
-      // fetch() doesn't support for file:// URLs. Supply instantiateWasm
-      // directly from a file read so the C++ tier can actually load here
-      // instead of silently SKIPping every run (see #1757/#1758 write-up).
-      const moduleArg = {};
-      const wasmPath = jsPath.replace(/\.js$/, '.wasm');
-      if (fs.existsSync(wasmPath)) {
-        const wasmBytes = fs.readFileSync(wasmPath);
-        moduleArg.instantiateWasm = (imports, successCallback) => {
-          WebAssembly.instantiate(wasmBytes, imports).then(({ instance, module }) => {
-            successCallback(instance, module);
-          });
-          return {};
-        };
-      }
-      const instance = await factory(moduleArg);
-      // EXPORTED_RUNTIME_METHODS only lists ccall/cwrap/wasmMemory (see
-      // emscripten/build.sh), so instance.HEAPF32 isn't attached even
-      // though the *_c exports and _malloc/_free are. Derive it from the
-      // exported wasmMemory so the marshaling helpers below can run.
-      if (!instance.HEAPF32 && instance.wasmMemory) {
-        Object.defineProperty(instance, 'HEAPF32', {
-          get: () => new Float32Array(instance.wasmMemory.buffer),
-        });
-      }
-      return instance;
-    } catch (err) {
-      console.warn(`  [C++] Failed to load ${path.basename(jsPath)}: ${err.message}`);
-    }
-  }
 
-  // Raw WASM fallback (no glue) — usually fails for Emscripten; try ST wasm
-  const wasmCandidates = [
-    path.join(root, 'public/candy_native_st.wasm'),
-    path.join(root, 'public/candy_native.wasm'),
-  ];
-  for (const wasmPath of wasmCandidates) {
-    if (!fs.existsSync(wasmPath)) {
-      missingCppArtifacts.push(path.relative(root, wasmPath));
-      continue;
+    // Raw WASM fallback (no glue) — usually fails for Emscripten; try ST wasm
+    const wasmCandidates = [
+        path.join(root, 'public/candy_native_st.wasm'),
+        path.join(root, 'public/candy_native.wasm'),
+    ];
+    for (const wasmPath of wasmCandidates) {
+        if (!fs.existsSync(wasmPath)) {
+            missingCppArtifacts.push(path.relative(root, wasmPath));
+            continue;
+        }
+        try {
+            const bytes = fs.readFileSync(wasmPath);
+            // Emscripten modules need extensive imports; attempt will likely fail → SKIP
+            const { instance } = await WebAssembly.instantiate(bytes, {
+                env: {},
+                wasi_snapshot_preview1: {},
+            });
+            return { raw: true, exports: instance.exports, memory: instance.exports.memory };
+        } catch (err) {
+            console.warn(
+                `  [C++] Raw instantiate ${path.basename(wasmPath)} skipped: ${err.message.split('\n')[0]}`
+            );
+        }
     }
-    try {
-      const bytes = fs.readFileSync(wasmPath);
-      // Emscripten modules need extensive imports; attempt will likely fail → SKIP
-      const { instance } = await WebAssembly.instantiate(bytes, {
-        env: {},
-        wasi_snapshot_preview1: {},
-      });
-      return { raw: true, exports: instance.exports, memory: instance.exports.memory };
-    } catch (err) {
-      console.warn(`  [C++] Raw instantiate ${path.basename(wasmPath)} skipped: ${err.message.split('\n')[0]}`);
-    }
-  }
-  return null;
+    return null;
 }
 
 function cppCompose(em, positions, quaternions, scales, count) {
-  const out = new Float32Array(count * 16);
-  if (!em) return null;
+    const out = new Float32Array(count * 16);
+    if (!em) return null;
 
-  // Glue Module path
-  if (typeof em._batchComposeMatrices_c === 'function' && em._malloc && em.HEAPF32) {
-    const pPos = em._malloc(count * 3 * 4);
-    const pQuat = em._malloc(count * 4 * 4);
-    const pScale = em._malloc(count * 3 * 4);
-    const pMat = em._malloc(count * 16 * 4);
-    em.HEAPF32.set(positions.subarray(0, count * 3), pPos >> 2);
-    em.HEAPF32.set(quaternions.subarray(0, count * 4), pQuat >> 2);
-    em.HEAPF32.set(scales.subarray(0, count * 3), pScale >> 2);
-    em._batchComposeMatrices_c(pPos, pQuat, pScale, pMat, count);
-    out.set(em.HEAPF32.subarray(pMat >> 2, (pMat >> 2) + count * 16));
-    em._free(pPos); em._free(pQuat); em._free(pScale); em._free(pMat);
-    return out;
-  }
+    // Glue Module path
+    if (typeof em._batchComposeMatrices_c === 'function' && em._malloc && em.HEAPF32) {
+        const pPos = em._malloc(count * 3 * 4);
+        const pQuat = em._malloc(count * 4 * 4);
+        const pScale = em._malloc(count * 3 * 4);
+        const pMat = em._malloc(count * 16 * 4);
+        em.HEAPF32.set(positions.subarray(0, count * 3), pPos >> 2);
+        em.HEAPF32.set(quaternions.subarray(0, count * 4), pQuat >> 2);
+        em.HEAPF32.set(scales.subarray(0, count * 3), pScale >> 2);
+        em._batchComposeMatrices_c(pPos, pQuat, pScale, pMat, count);
+        out.set(em.HEAPF32.subarray(pMat >> 2, (pMat >> 2) + count * 16));
+        em._free(pPos);
+        em._free(pQuat);
+        em._free(pScale);
+        em._free(pMat);
+        return out;
+    }
 
-  // Raw export path
-  const fn = em.exports && (em.exports.batchComposeMatrices_c || em.exports._batchComposeMatrices_c);
-  if (fn && em.memory) {
-    // Insufficient without a proper allocator — treat as unavailable
+    // Raw export path
+    const fn =
+        em.exports && (em.exports.batchComposeMatrices_c || em.exports._batchComposeMatrices_c);
+    if (fn && em.memory) {
+        // Insufficient without a proper allocator — treat as unavailable
+        return null;
+    }
     return null;
-  }
-  return null;
 }
 
 function cppWriteColors(em, colorsIn, count, intensity) {
-  if (!em || typeof em._batchWriteInstanceColors_c !== 'function' || !em._malloc || !em.HEAPF32) {
-    return null;
-  }
-  const out = new Float32Array(count * 3);
-  const pIn = em._malloc(count * 3 * 4);
-  const pOut = em._malloc(count * 3 * 4);
-  em.HEAPF32.set(colorsIn.subarray(0, count * 3), pIn >> 2);
-  em._batchWriteInstanceColors_c(pIn, pOut, count, intensity);
-  out.set(em.HEAPF32.subarray(pOut >> 2, (pOut >> 2) + count * 3));
-  em._free(pIn); em._free(pOut);
-  return out;
+    if (!em || typeof em._batchWriteInstanceColors_c !== 'function' || !em._malloc || !em.HEAPF32) {
+        return null;
+    }
+    const out = new Float32Array(count * 3);
+    const pIn = em._malloc(count * 3 * 4);
+    const pOut = em._malloc(count * 3 * 4);
+    em.HEAPF32.set(colorsIn.subarray(0, count * 3), pIn >> 2);
+    em._batchWriteInstanceColors_c(pIn, pOut, count, intensity);
+    out.set(em.HEAPF32.subarray(pOut >> 2, (pOut >> 2) + count * 3));
+    em._free(pIn);
+    em._free(pOut);
+    return out;
 }
 
 function cppAccumulate(em, volumes, shimmerCount, hueShiftCount, nightGate, intensityScale) {
-  if (!em) return null;
-  const fn = em._accumulateArpeggioChannels_c || em.accumulateArpeggioChannels_c
-    || (em.exports && (em.exports.accumulateArpeggioChannels_c || em.exports._accumulateArpeggioChannels_c));
-  if (!fn) return null; // expected SKIP until C++ export lands
-  if (em._malloc && em.HEAPF32) {
-    const total = shimmerCount + hueShiftCount;
-    const pIn = em._malloc(Math.max(total, 1) * 4);
-    const pOut = em._malloc(8);
-    if (total > 0) em.HEAPF32.set(volumes.subarray(0, total), pIn >> 2);
-    fn(pIn, shimmerCount, hueShiftCount, nightGate, intensityScale, pOut);
-    const out = new Float32Array([
-      em.HEAPF32[pOut >> 2],
-      em.HEAPF32[(pOut >> 2) + 1],
-    ]);
-    em._free(pIn); em._free(pOut);
-    return out;
-  }
-  return null;
+    if (!em) return null;
+    const fn =
+        em._accumulateArpeggioChannels_c ||
+        em.accumulateArpeggioChannels_c ||
+        (em.exports &&
+            (em.exports.accumulateArpeggioChannels_c || em.exports._accumulateArpeggioChannels_c));
+    if (!fn) return null; // expected SKIP until C++ export lands
+    if (em._malloc && em.HEAPF32) {
+        const total = shimmerCount + hueShiftCount;
+        const pIn = em._malloc(Math.max(total, 1) * 4);
+        const pOut = em._malloc(8);
+        if (total > 0) em.HEAPF32.set(volumes.subarray(0, total), pIn >> 2);
+        fn(pIn, shimmerCount, hueShiftCount, nightGate, intensityScale, pOut);
+        const out = new Float32Array([em.HEAPF32[pOut >> 2], em.HEAPF32[(pOut >> 2) + 1]]);
+        em._free(pIn);
+        em._free(pOut);
+        return out;
+    }
+    return null;
 }
 
 // ---------------------------------------------------------------------------
 // Path 1: matrix + color
 // ---------------------------------------------------------------------------
 function runMatrixParity(asInstance, em) {
-  console.log('\n══ Path 1: batchComposeMatrices + instance colors ══');
-  const fixture = JSON.parse(
-    fs.readFileSync(path.join(root, 'tests/fixtures/parity/matrix-compose.json'), 'utf8')
-  );
+    console.log('\n══ Path 1: batchComposeMatrices + instance colors ══');
+    const fixture = JSON.parse(
+        fs.readFileSync(path.join(root, 'tests/fixtures/parity/matrix-compose.json'), 'utf8')
+    );
 
-  const mem = asInstance.exports.memory;
-  const asCompose = asInstance.exports.batchComposeMatrices;
-  const asColors = asInstance.exports.batchWriteInstanceColors;
-  if (typeof asCompose !== 'function') {
-    console.error('  ✗ AS missing export batchComposeMatrices');
-    failures++;
-    return;
-  }
-  if (typeof asColors !== 'function') {
-    console.error('  ✗ AS missing export batchWriteInstanceColors');
-    failures++;
-    return;
-  }
-
-  let cppAvailable = false;
-
-  for (const c of fixture.cases) {
-    const count = c.count;
-    const positions = new Float32Array(c.positions);
-    const quaternions = new Float32Array(c.quaternions);
-    const scales = new Float32Array(c.scales);
-    const colors = new Float32Array(c.colors);
-    const intensity = c.intensity;
-    const hint = `case=${c.name} count=${count}`;
-
-    // --- TS reference ---
-    const tsMat = new Float32Array(count * 16);
-    composeMatricesTS(positions, quaternions, scales, tsMat, count);
-    const tsCol = new Float32Array(count * 3);
-    writeInstanceColorsTS(colors, tsCol, count, intensity);
-
-    // --- AS path ---
-    const scratch = asScratch(mem);
-    const pPos = scratch.alloc(count * 3 * 4);
-    const pQuat = scratch.alloc(count * 4 * 4);
-    const pScale = scratch.alloc(count * 3 * 4);
-    const pMat = scratch.alloc(count * 16 * 4);
-    const pColIn = scratch.alloc(count * 3 * 4);
-    const pColOut = scratch.alloc(count * 3 * 4);
-    scratch.writeF32(pPos, positions);
-    scratch.writeF32(pQuat, quaternions);
-    scratch.writeF32(pScale, scales);
-    scratch.writeF32(pColIn, colors);
-    asCompose(pPos, pQuat, pScale, pMat, count);
-    asColors(pColIn, pColOut, count, intensity);
-    const asMat = scratch.readF32(pMat, count * 16);
-    const asCol = scratch.readF32(pColOut, count * 3);
-
-    const matOk = compareF32Arrays(`AS matrix ${c.name}`, tsMat, asMat, FLOAT_TOL, hint);
-    const colOk = compareF32Arrays(`AS color ${c.name}`, tsCol, asCol, FLOAT_TOL, hint);
-    if (matOk && colOk) {
-      console.log(`  ✓ TS↔AS  ${c.name} (matrices=${count * 16}f, colors=${count * 3}f)`);
-      passes++;
+    const mem = asInstance.exports.memory;
+    const asCompose = asInstance.exports.batchComposeMatrices;
+    const asColors = asInstance.exports.batchWriteInstanceColors;
+    if (typeof asCompose !== 'function') {
+        console.error('  ✗ AS missing export batchComposeMatrices');
+        failures++;
+        return;
+    }
+    if (typeof asColors !== 'function') {
+        console.error('  ✗ AS missing export batchWriteInstanceColors');
+        failures++;
+        return;
     }
 
-    // --- C++ path ---
-    const cppMat = cppCompose(em, positions, quaternions, scales, count);
-    const cppCol = cppWriteColors(em, colors, count, intensity);
-    if (cppMat) {
-      cppAvailable = true;
-      let ok = compareF32Arrays(`C++ matrix ${c.name}`, tsMat, cppMat, FLOAT_TOL, hint);
-      if (cppCol) {
-        ok = compareF32Arrays(`C++ color ${c.name}`, tsCol, cppCol, FLOAT_TOL, hint) && ok;
-      }
-      if (ok) {
-        console.log(`  ✓ TS↔C++ ${c.name}`);
-        passes++;
-      }
-    }
-  }
+    let cppAvailable = false;
 
-  if (!cppAvailable) {
-    console.log('  ⏭ C++ SKIP — candy_native.wasm unavailable (mirrors runtime JS fallback)');
-    skips++;
-    cppSkips++;
-  }
+    for (const c of fixture.cases) {
+        const count = c.count;
+        const positions = new Float32Array(c.positions);
+        const quaternions = new Float32Array(c.quaternions);
+        const scales = new Float32Array(c.scales);
+        const colors = new Float32Array(c.colors);
+        const intensity = c.intensity;
+        const hint = `case=${c.name} count=${count}`;
+
+        // --- TS reference ---
+        const tsMat = new Float32Array(count * 16);
+        composeMatricesTS(positions, quaternions, scales, tsMat, count);
+        const tsCol = new Float32Array(count * 3);
+        writeInstanceColorsTS(colors, tsCol, count, intensity);
+
+        // --- AS path ---
+        const scratch = asScratch(mem);
+        const pPos = scratch.alloc(count * 3 * 4);
+        const pQuat = scratch.alloc(count * 4 * 4);
+        const pScale = scratch.alloc(count * 3 * 4);
+        const pMat = scratch.alloc(count * 16 * 4);
+        const pColIn = scratch.alloc(count * 3 * 4);
+        const pColOut = scratch.alloc(count * 3 * 4);
+        scratch.writeF32(pPos, positions);
+        scratch.writeF32(pQuat, quaternions);
+        scratch.writeF32(pScale, scales);
+        scratch.writeF32(pColIn, colors);
+        asCompose(pPos, pQuat, pScale, pMat, count);
+        asColors(pColIn, pColOut, count, intensity);
+        const asMat = scratch.readF32(pMat, count * 16);
+        const asCol = scratch.readF32(pColOut, count * 3);
+
+        const matOk = compareF32Arrays(`AS matrix ${c.name}`, tsMat, asMat, FLOAT_TOL, hint);
+        const colOk = compareF32Arrays(`AS color ${c.name}`, tsCol, asCol, FLOAT_TOL, hint);
+        if (matOk && colOk) {
+            console.log(`  ✓ TS↔AS  ${c.name} (matrices=${count * 16}f, colors=${count * 3}f)`);
+            passes++;
+        }
+
+        // --- C++ path ---
+        const cppMat = cppCompose(em, positions, quaternions, scales, count);
+        const cppCol = cppWriteColors(em, colors, count, intensity);
+        if (cppMat) {
+            cppAvailable = true;
+            let ok = compareF32Arrays(`C++ matrix ${c.name}`, tsMat, cppMat, FLOAT_TOL, hint);
+            if (cppCol) {
+                ok = compareF32Arrays(`C++ color ${c.name}`, tsCol, cppCol, FLOAT_TOL, hint) && ok;
+            }
+            if (ok) {
+                console.log(`  ✓ TS↔C++ ${c.name}`);
+                passes++;
+            }
+        }
+    }
+
+    if (!cppAvailable) {
+        console.log('  ⏭ C++ SKIP — candy_native.wasm unavailable (mirrors runtime JS fallback)');
+        skips++;
+        cppSkips++;
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Path 2: arpeggio accumulate
 // ---------------------------------------------------------------------------
 function runArpeggioParity(asInstance, em) {
-  console.log('\n══ Path 2: accumulateArpeggioChannels (arpeggio_grove) ══');
-  const fixture = JSON.parse(
-    fs.readFileSync(path.join(root, 'tests/fixtures/parity/arpeggio-accumulate.json'), 'utf8')
-  );
-
-  const mem = asInstance.exports.memory;
-  const asAccum = asInstance.exports.accumulateArpeggioChannels;
-  if (typeof asAccum !== 'function') {
-    console.error('  ✗ AS missing export accumulateArpeggioChannels');
-    failures++;
-    return;
-  }
-
-  let cppAvailable = false;
-
-  for (const c of fixture.cases) {
-    const volumes = new Float32Array(c.volumes);
-    const hint = `case=${c.name} nightGate=${c.nightGate} intensity=${c.intensityScale} vols=[${c.volumes.join(',')}]`;
-
-    // Validate nightGate formula from dayNightBias (exact within f32)
-    const expectedGate = 0.2 + (1.0 - c.dayNightBias) * 0.8;
-    assertClose(`${c.name}.nightGate`, expectedGate, c.nightGate, FLOAT_TOL, hint);
-
-    // --- TS ---
-    const tsOut = new Float32Array(2);
-    accumulateArpeggioChannelsTS(
-      volumes, c.shimmerCount, c.hueShiftCount, c.nightGate, c.intensityScale, tsOut
+    console.log('\n══ Path 2: accumulateArpeggioChannels (arpeggio_grove) ══');
+    const fixture = JSON.parse(
+        fs.readFileSync(path.join(root, 'tests/fixtures/parity/arpeggio-accumulate.json'), 'utf8')
     );
 
-    // --- AS ---
-    const scratch = asScratch(mem);
-    const total = c.shimmerCount + c.hueShiftCount;
-    const pIn = scratch.alloc(Math.max(total, 1) * 4);
-    const pOut = scratch.alloc(8);
-    if (total > 0) scratch.writeF32(pIn, volumes);
-    asAccum(pIn, c.shimmerCount, c.hueShiftCount, c.nightGate, c.intensityScale, pOut);
-    const asOut = scratch.readF32(pOut, 2);
-
-    if (compareF32Arrays(`AS accum ${c.name}`, tsOut, asOut, FLOAT_TOL, hint)) {
-      console.log(`  ✓ TS↔AS  ${c.name} → [${tsOut[0].toFixed(6)}, ${tsOut[1].toFixed(6)}]`);
-      passes++;
+    const mem = asInstance.exports.memory;
+    const asAccum = asInstance.exports.accumulateArpeggioChannels;
+    if (typeof asAccum !== 'function') {
+        console.error('  ✗ AS missing export accumulateArpeggioChannels');
+        failures++;
+        return;
     }
 
-    // --- C++ ---
-    const cppOut = cppAccumulate(em, volumes, c.shimmerCount, c.hueShiftCount, c.nightGate, c.intensityScale);
-    if (cppOut) {
-      cppAvailable = true;
-      if (compareF32Arrays(`C++ accum ${c.name}`, tsOut, cppOut, FLOAT_TOL, hint)) {
-        console.log(`  ✓ TS↔C++ ${c.name}`);
-        passes++;
-      }
-    }
-  }
+    let cppAvailable = false;
 
-  if (!cppAvailable) {
-    console.log('  ⏭ C++ SKIP — accumulateArpeggioChannels_c / candy_native unavailable');
-    skips++;
-    cppSkips++;
-  }
+    for (const c of fixture.cases) {
+        const volumes = new Float32Array(c.volumes);
+        const hint = `case=${c.name} nightGate=${c.nightGate} intensity=${c.intensityScale} vols=[${c.volumes.join(',')}]`;
+
+        // Validate nightGate formula from dayNightBias (exact within f32)
+        const expectedGate = 0.2 + (1.0 - c.dayNightBias) * 0.8;
+        assertClose(`${c.name}.nightGate`, expectedGate, c.nightGate, FLOAT_TOL, hint);
+
+        // --- TS ---
+        const tsOut = new Float32Array(2);
+        accumulateArpeggioChannelsTS(
+            volumes,
+            c.shimmerCount,
+            c.hueShiftCount,
+            c.nightGate,
+            c.intensityScale,
+            tsOut
+        );
+
+        // --- AS ---
+        const scratch = asScratch(mem);
+        const total = c.shimmerCount + c.hueShiftCount;
+        const pIn = scratch.alloc(Math.max(total, 1) * 4);
+        const pOut = scratch.alloc(8);
+        if (total > 0) scratch.writeF32(pIn, volumes);
+        asAccum(pIn, c.shimmerCount, c.hueShiftCount, c.nightGate, c.intensityScale, pOut);
+        const asOut = scratch.readF32(pOut, 2);
+
+        if (compareF32Arrays(`AS accum ${c.name}`, tsOut, asOut, FLOAT_TOL, hint)) {
+            console.log(`  ✓ TS↔AS  ${c.name} → [${tsOut[0].toFixed(6)}, ${tsOut[1].toFixed(6)}]`);
+            passes++;
+        }
+
+        // --- C++ ---
+        const cppOut = cppAccumulate(
+            em,
+            volumes,
+            c.shimmerCount,
+            c.hueShiftCount,
+            c.nightGate,
+            c.intensityScale
+        );
+        if (cppOut) {
+            cppAvailable = true;
+            if (compareF32Arrays(`C++ accum ${c.name}`, tsOut, cppOut, FLOAT_TOL, hint)) {
+                console.log(`  ✓ TS↔C++ ${c.name}`);
+                passes++;
+            }
+        }
+    }
+
+    if (!cppAvailable) {
+        console.log('  ⏭ C++ SKIP — accumulateArpeggioChannels_c / candy_native unavailable');
+        skips++;
+        cppSkips++;
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Path 3: combined batchWriteInstancePose (#1358 arpeggio slice)
 // ---------------------------------------------------------------------------
 function cppWriteInstancePose(em, positions, quaternions, scales, colors, intensity, count) {
-  if (!em || typeof em._batchWriteInstancePose_c !== 'function' || !em._malloc || !em.HEAPF32) {
-    return null;
-  }
-  const pPos = em._malloc(count * 3 * 4);
-  const pQuat = em._malloc(count * 4 * 4);
-  const pScale = em._malloc(count * 3 * 4);
-  const pColIn = em._malloc(count * 3 * 4);
-  const pMat = em._malloc(count * 16 * 4);
-  const pColOut = em._malloc(count * 3 * 4);
-  em.HEAPF32.set(positions.subarray(0, count * 3), pPos >> 2);
-  em.HEAPF32.set(quaternions.subarray(0, count * 4), pQuat >> 2);
-  em.HEAPF32.set(scales.subarray(0, count * 3), pScale >> 2);
-  em.HEAPF32.set(colors.subarray(0, count * 3), pColIn >> 2);
-  em._batchWriteInstancePose_c(pPos, pQuat, pScale, pColIn, pMat, pColOut, intensity, count);
-  const mat = new Float32Array(count * 16);
-  const col = new Float32Array(count * 3);
-  mat.set(em.HEAPF32.subarray(pMat >> 2, (pMat >> 2) + count * 16));
-  col.set(em.HEAPF32.subarray(pColOut >> 2, (pColOut >> 2) + count * 3));
-  em._free(pPos); em._free(pQuat); em._free(pScale);
-  em._free(pColIn); em._free(pMat); em._free(pColOut);
-  return { mat, col };
+    if (!em || typeof em._batchWriteInstancePose_c !== 'function' || !em._malloc || !em.HEAPF32) {
+        return null;
+    }
+    const pPos = em._malloc(count * 3 * 4);
+    const pQuat = em._malloc(count * 4 * 4);
+    const pScale = em._malloc(count * 3 * 4);
+    const pColIn = em._malloc(count * 3 * 4);
+    const pMat = em._malloc(count * 16 * 4);
+    const pColOut = em._malloc(count * 3 * 4);
+    em.HEAPF32.set(positions.subarray(0, count * 3), pPos >> 2);
+    em.HEAPF32.set(quaternions.subarray(0, count * 4), pQuat >> 2);
+    em.HEAPF32.set(scales.subarray(0, count * 3), pScale >> 2);
+    em.HEAPF32.set(colors.subarray(0, count * 3), pColIn >> 2);
+    em._batchWriteInstancePose_c(pPos, pQuat, pScale, pColIn, pMat, pColOut, intensity, count);
+    const mat = new Float32Array(count * 16);
+    const col = new Float32Array(count * 3);
+    mat.set(em.HEAPF32.subarray(pMat >> 2, (pMat >> 2) + count * 16));
+    col.set(em.HEAPF32.subarray(pColOut >> 2, (pColOut >> 2) + count * 3));
+    em._free(pPos);
+    em._free(pQuat);
+    em._free(pScale);
+    em._free(pColIn);
+    em._free(pMat);
+    em._free(pColOut);
+    return { mat, col };
 }
 
 function runPoseWriteParity(asInstance, em) {
-  console.log('\n══ Path 3: batchWriteInstancePose (combined matrix+color, #1358) ══');
-  const fixture = JSON.parse(
-    fs.readFileSync(path.join(root, 'tests/fixtures/parity/matrix-compose.json'), 'utf8')
-  );
+    console.log('\n══ Path 3: batchWriteInstancePose (combined matrix+color, #1358) ══');
+    const fixture = JSON.parse(
+        fs.readFileSync(path.join(root, 'tests/fixtures/parity/matrix-compose.json'), 'utf8')
+    );
 
-  const mem = asInstance.exports.memory;
-  const asPose = asInstance.exports.batchWriteInstancePose;
-  if (typeof asPose !== 'function') {
-    console.error('  ✗ AS missing export batchWriteInstancePose');
-    failures++;
-    return;
-  }
-
-  let cppAvailable = false;
-
-  for (const c of fixture.cases) {
-    const count = c.count;
-    const positions = new Float32Array(c.positions);
-    const quaternions = new Float32Array(c.quaternions);
-    const scales = new Float32Array(c.scales);
-    const colors = new Float32Array(c.colors);
-    const intensity = c.intensity;
-    const hint = `case=${c.name} count=${count}`;
-
-    const tsMat = new Float32Array(count * 16);
-    const tsCol = new Float32Array(count * 3);
-    writeInstancePoseTS(positions, quaternions, scales, colors, tsMat, tsCol, intensity, count);
-
-    const scratch = asScratch(mem);
-    const pPos = scratch.alloc(count * 3 * 4);
-    const pQuat = scratch.alloc(count * 4 * 4);
-    const pScale = scratch.alloc(count * 3 * 4);
-    const pColIn = scratch.alloc(count * 3 * 4);
-    const pMat = scratch.alloc(count * 16 * 4);
-    const pColOut = scratch.alloc(count * 3 * 4);
-    scratch.writeF32(pPos, positions);
-    scratch.writeF32(pQuat, quaternions);
-    scratch.writeF32(pScale, scales);
-    scratch.writeF32(pColIn, colors);
-    asPose(pPos, pQuat, pScale, pColIn, pMat, pColOut, intensity, count);
-    const asMat = scratch.readF32(pMat, count * 16);
-    const asCol = scratch.readF32(pColOut, count * 3);
-
-    const ok =
-      compareF32Arrays(`AS pose-mat ${c.name}`, tsMat, asMat, FLOAT_TOL, hint) &&
-      compareF32Arrays(`AS pose-col ${c.name}`, tsCol, asCol, FLOAT_TOL, hint);
-    if (ok) {
-      console.log(`  ✓ TS↔AS  pose ${c.name}`);
-      passes++;
+    const mem = asInstance.exports.memory;
+    const asPose = asInstance.exports.batchWriteInstancePose;
+    if (typeof asPose !== 'function') {
+        console.error('  ✗ AS missing export batchWriteInstancePose');
+        failures++;
+        return;
     }
 
-    const cpp = cppWriteInstancePose(em, positions, quaternions, scales, colors, intensity, count);
-    if (cpp) {
-      cppAvailable = true;
-      const cppOk =
-        compareF32Arrays(`C++ pose-mat ${c.name}`, tsMat, cpp.mat, FLOAT_TOL, hint) &&
-        compareF32Arrays(`C++ pose-col ${c.name}`, tsCol, cpp.col, FLOAT_TOL, hint);
-      if (cppOk) {
-        console.log(`  ✓ TS↔C++ pose ${c.name}`);
-        passes++;
-      }
-    }
-  }
+    let cppAvailable = false;
 
-  if (!cppAvailable) {
-    console.log('  ⏭ C++ SKIP — batchWriteInstancePose_c / candy_native unavailable');
-    skips++;
-    cppSkips++;
-  }
+    for (const c of fixture.cases) {
+        const count = c.count;
+        const positions = new Float32Array(c.positions);
+        const quaternions = new Float32Array(c.quaternions);
+        const scales = new Float32Array(c.scales);
+        const colors = new Float32Array(c.colors);
+        const intensity = c.intensity;
+        const hint = `case=${c.name} count=${count}`;
+
+        const tsMat = new Float32Array(count * 16);
+        const tsCol = new Float32Array(count * 3);
+        writeInstancePoseTS(positions, quaternions, scales, colors, tsMat, tsCol, intensity, count);
+
+        const scratch = asScratch(mem);
+        const pPos = scratch.alloc(count * 3 * 4);
+        const pQuat = scratch.alloc(count * 4 * 4);
+        const pScale = scratch.alloc(count * 3 * 4);
+        const pColIn = scratch.alloc(count * 3 * 4);
+        const pMat = scratch.alloc(count * 16 * 4);
+        const pColOut = scratch.alloc(count * 3 * 4);
+        scratch.writeF32(pPos, positions);
+        scratch.writeF32(pQuat, quaternions);
+        scratch.writeF32(pScale, scales);
+        scratch.writeF32(pColIn, colors);
+        asPose(pPos, pQuat, pScale, pColIn, pMat, pColOut, intensity, count);
+        const asMat = scratch.readF32(pMat, count * 16);
+        const asCol = scratch.readF32(pColOut, count * 3);
+
+        const ok =
+            compareF32Arrays(`AS pose-mat ${c.name}`, tsMat, asMat, FLOAT_TOL, hint) &&
+            compareF32Arrays(`AS pose-col ${c.name}`, tsCol, asCol, FLOAT_TOL, hint);
+        if (ok) {
+            console.log(`  ✓ TS↔AS  pose ${c.name}`);
+            passes++;
+        }
+
+        const cpp = cppWriteInstancePose(
+            em,
+            positions,
+            quaternions,
+            scales,
+            colors,
+            intensity,
+            count
+        );
+        if (cpp) {
+            cppAvailable = true;
+            const cppOk =
+                compareF32Arrays(`C++ pose-mat ${c.name}`, tsMat, cpp.mat, FLOAT_TOL, hint) &&
+                compareF32Arrays(`C++ pose-col ${c.name}`, tsCol, cpp.col, FLOAT_TOL, hint);
+            if (cppOk) {
+                console.log(`  ✓ TS↔C++ pose ${c.name}`);
+                passes++;
+            }
+        }
+    }
+
+    if (!cppAvailable) {
+        console.log('  ⏭ C++ SKIP — batchWriteInstancePose_c / candy_native unavailable');
+        skips++;
+        cppSkips++;
+    }
 }
 
 function runFoliageScalarParity(asInstance) {
-  console.log('\n══ Path 4: foliage scalar batches (sway / bounce / hop) ══');
-  const modes = ['sway', 'gentleSway', 'bounce', 'hop'];
-  const time = 1.234;
-  const kick = 0.42;
-  const offsets = [0, 0.5, 1.1, 2.0];
-  const intensities = [1, 0.8, 0.6, 1.2];
-  const originalYs = [1.0, 2.0, 0.5, 3.0];
+    console.log('\n══ Path 4: foliage scalar batches (sway / bounce / hop) ══');
+    const modes = ['sway', 'gentleSway', 'bounce', 'hop'];
+    const time = 1.234;
+    const kick = 0.42;
+    const offsets = [0, 0.5, 1.1, 2.0];
+    const intensities = [1, 0.8, 0.6, 1.2];
+    const originalYs = [1.0, 2.0, 0.5, 3.0];
 
-  const mem = asInstance.exports.memory;
-  const asFuncs = {
-    sway: asInstance.exports.computeSway,
-    gentleSway: asInstance.exports.computeGentleSway,
-    bounce: asInstance.exports.computeBounce,
-    hop: asInstance.exports.computeHop,
-  };
+    const mem = asInstance.exports.memory;
+    const asFuncs = {
+        sway: asInstance.exports.computeSway,
+        gentleSway: asInstance.exports.computeGentleSway,
+        bounce: asInstance.exports.computeBounce,
+        hop: asInstance.exports.computeHop,
+    };
 
-  for (const mode of modes) {
-    const asFn = asFuncs[mode];
-    if (typeof asFn !== 'function') {
-      console.log(`  ⏭ AS SKIP — ${mode} export missing`);
-      skips++;
-      continue;
+    for (const mode of modes) {
+        const asFn = asFuncs[mode];
+        if (typeof asFn !== 'function') {
+            console.log(`  ⏭ AS SKIP — ${mode} export missing`);
+            skips++;
+            continue;
+        }
+
+        for (let i = 0; i < offsets.length; i++) {
+            const tsVal = computeFoliageScalarTS(
+                mode,
+                time,
+                kick,
+                offsets[i],
+                intensities[i],
+                originalYs[i]
+            );
+            const scratch = asScratch(mem);
+            const pOff = scratch.alloc(4 * 4);
+            const pInt = scratch.alloc(4 * 4);
+            const pY = scratch.alloc(4 * 4);
+            const pOut = scratch.alloc(4 * 4);
+            scratch.writeF32(pOff, new Float32Array([offsets[i]]));
+            scratch.writeF32(pInt, new Float32Array([intensities[i]]));
+            scratch.writeF32(pY, new Float32Array([originalYs[i]]));
+            if (mode === 'bounce' || mode === 'hop') {
+                asFn(1, time, pY, pOff, pInt, kick, pOut);
+            } else {
+                asFn(1, time, pOff, pInt, pOut);
+            }
+            const asVal = scratch.readF32(pOut, 1)[0];
+            const hint = `mode=${mode} i=${i}`;
+            if (assertClose(`foliage-scalar ${hint}`, tsVal, asVal, FLOAT_TOL, hint)) {
+                passes++;
+            }
+        }
+        console.log(`  ✓ TS↔AS  foliage scalar ${mode}`);
     }
-
-    for (let i = 0; i < offsets.length; i++) {
-      const tsVal = computeFoliageScalarTS(mode, time, kick, offsets[i], intensities[i], originalYs[i]);
-      const scratch = asScratch(mem);
-      const pOff = scratch.alloc(4 * 4);
-      const pInt = scratch.alloc(4 * 4);
-      const pY = scratch.alloc(4 * 4);
-      const pOut = scratch.alloc(4 * 4);
-      scratch.writeF32(pOff, new Float32Array([offsets[i]]));
-      scratch.writeF32(pInt, new Float32Array([intensities[i]]));
-      scratch.writeF32(pY, new Float32Array([originalYs[i]]));
-      if (mode === 'bounce' || mode === 'hop') {
-        asFn(1, time, pY, pOff, pInt, kick, pOut);
-      } else {
-        asFn(1, time, pOff, pInt, pOut);
-      }
-      const asVal = scratch.readF32(pOut, 1)[0];
-      const hint = `mode=${mode} i=${i}`;
-      if (assertClose(`foliage-scalar ${hint}`, tsVal, asVal, FLOAT_TOL, hint)) {
-        passes++;
-      }
-    }
-    console.log(`  ✓ TS↔AS  foliage scalar ${mode}`);
-  }
 }
 
 function runPlantPoseParity() {
-  console.log('\n══ Path 5: plant pose ADSR (gpu-plant-pose reference) ══');
-  const config = {
-    attackRate: 4.0,
-    releaseRate: 2.0,
-    sustainLevel: 0.85,
-    dayTarget: 1.0,
-    nightTarget: 0.15,
-    triggerThreshold: 0.05,
-  };
-  const count = 4;
-  const positions = new Float32Array([0, 0, 0, 10, 0, 0, 0, 5, 0, 20, 0, 0]);
-  const envA = new Float32Array(count);
-  const poseA = new Float32Array(count);
-  const envB = new Float32Array(count);
-  const poseB = new Float32Array(count);
+    console.log('\n══ Path 5: plant pose ADSR (gpu-plant-pose reference) ══');
+    const config = {
+        attackRate: 4.0,
+        releaseRate: 2.0,
+        sustainLevel: 0.85,
+        dayTarget: 1.0,
+        nightTarget: 0.15,
+        triggerThreshold: 0.05,
+    };
+    const count = 4;
+    const positions = new Float32Array([0, 0, 0, 10, 0, 0, 0, 5, 0, 20, 0, 0]);
+    const envA = new Float32Array(count);
+    const poseA = new Float32Array(count);
+    const envB = new Float32Array(count);
+    const poseB = new Float32Array(count);
 
-  const frames = [
-    { delta: 0.016, kick: 0.0, bias: 0.3, wave: null },
-    { delta: 0.016, kick: 0.9, bias: 0.5, wave: null },
-    {
-      delta: 0.016,
-      kick: 0.0,
-      bias: 0.5,
-      wave: { originX: 0, originY: 0, originZ: 0, radiusSq: 100 },
-    },
-  ];
+    const frames = [
+        { delta: 0.016, kick: 0.0, bias: 0.3, wave: null },
+        { delta: 0.016, kick: 0.9, bias: 0.5, wave: null },
+        {
+            delta: 0.016,
+            kick: 0.0,
+            bias: 0.5,
+            wave: { originX: 0, originY: 0, originZ: 0, radiusSq: 100 },
+        },
+    ];
 
-  for (let f = 0; f < frames.length; f++) {
-    const { delta, kick, bias, wave } = frames[f];
-    computePlantPoseFrameTS(count, delta, kick, bias, config, positions, envA, poseA, wave);
-    computePlantPoseFrameTS(count, delta, kick, bias, config, positions, envB, poseB, wave);
-    const hint = `frame=${f}`;
-    for (let i = 0; i < count; i++) {
-      assertClose(`plant-pose env[${i}] ${hint}`, envA[i], envB[i], FLOAT_TOL, hint);
-      assertClose(`plant-pose pose[${i}] ${hint}`, poseA[i], poseB[i], FLOAT_TOL, hint);
+    for (let f = 0; f < frames.length; f++) {
+        const { delta, kick, bias, wave } = frames[f];
+        computePlantPoseFrameTS(count, delta, kick, bias, config, positions, envA, poseA, wave);
+        computePlantPoseFrameTS(count, delta, kick, bias, config, positions, envB, poseB, wave);
+        const hint = `frame=${f}`;
+        for (let i = 0; i < count; i++) {
+            assertClose(`plant-pose env[${i}] ${hint}`, envA[i], envB[i], FLOAT_TOL, hint);
+            assertClose(`plant-pose pose[${i}] ${hint}`, poseA[i], poseB[i], FLOAT_TOL, hint);
+        }
     }
-  }
-  console.log('  ✓ plant pose reference deterministic (3 frames)');
-  passes++;
+    console.log('  ✓ plant pose reference deterministic (3 frames)');
+    passes++;
 }
 
 // TS reference for emscripten/math.cpp:117 getGroundHeight, mirrored here so
 // the NaN guard (std::isnan) is exercised cross-tier — a regression here
 // means -ffast-math (or similar) folded the guard away. See #1757/#1758.
 function getGroundHeightTS(x, z) {
-  if (Number.isNaN(x) || Number.isNaN(z)) return 0;
-  const hills = Math.sin(x * 0.05) * 2.0 + Math.cos(z * 0.05) * 2.0;
-  const detail = Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
-  return hills + detail;
+    if (Number.isNaN(x) || Number.isNaN(z)) return 0;
+    const hills = Math.sin(x * 0.05) * 2.0 + Math.cos(z * 0.05) * 2.0;
+    const detail = Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+    return hills + detail;
 }
 
 function runGroundHeightNaNGuardParity(as, em) {
-  console.log('\n══ Path 6: getGroundHeight NaN guard (math.cpp:117) ══');
-  const cases = [
-    ['NaN,NaN', NaN, NaN],
-    ['NaN,0', NaN, 0],
-    ['0,NaN', 0, NaN],
-    ['finite', 12.5, -7.25],
-  ];
+    console.log('\n══ Path 6: getGroundHeight NaN guard (math.cpp:117) ══');
+    const cases = [
+        ['NaN,NaN', NaN, NaN],
+        ['NaN,0', NaN, 0],
+        ['0,NaN', 0, NaN],
+        ['finite', 12.5, -7.25],
+    ];
 
-  for (const [label, x, z] of cases) {
-    const expected = getGroundHeightTS(x, z);
-    const ok = assertClose(`TS↔AS  getGroundHeight(${label})`, expected, as.exports.getGroundHeight(x, z));
-    if (ok) {
-      console.log(`  ✓ TS↔AS  getGroundHeight(${label})`);
-      passes++;
+    for (const [label, x, z] of cases) {
+        const expected = getGroundHeightTS(x, z);
+        const ok = assertClose(
+            `TS↔AS  getGroundHeight(${label})`,
+            expected,
+            as.exports.getGroundHeight(x, z)
+        );
+        if (ok) {
+            console.log(`  ✓ TS↔AS  getGroundHeight(${label})`);
+            passes++;
+        }
     }
-  }
 
-  if (!em || typeof em.ccall !== 'function') {
-    console.log('  ⏭ C++ SKIP — candy_native(_st) unavailable');
-    skips++;
-    cppSkips++;
-    return;
-  }
-  for (const [label, x, z] of cases) {
-    const expected = getGroundHeightTS(x, z);
-    const got = em.ccall('getGroundHeight', 'number', ['number', 'number'], [x, z]);
-    const ok = assertClose(`TS↔C++ getGroundHeight(${label})`, expected, got);
-    if (ok) {
-      console.log(`  ✓ TS↔C++ getGroundHeight(${label})`);
-      passes++;
+    if (!em || typeof em.ccall !== 'function') {
+        console.log('  ⏭ C++ SKIP — candy_native(_st) unavailable');
+        skips++;
+        cppSkips++;
+        return;
     }
-  }
+    for (const [label, x, z] of cases) {
+        const expected = getGroundHeightTS(x, z);
+        const got = em.ccall('getGroundHeight', 'number', ['number', 'number'], [x, z]);
+        const ok = assertClose(`TS↔C++ getGroundHeight(${label})`, expected, got);
+        if (ok) {
+            console.log(`  ✓ TS↔C++ getGroundHeight(${label})`);
+            passes++;
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
 async function main() {
-  console.log('Cross-tier parity harness (#1351 + #1358 pose write)');
-  console.log(`Tolerance: |Δ| ≤ ${FLOAT_TOL} for f32; exact for integers`);
-  console.log(`WHY: f32 quat→matrix / volume÷count intermediates; 1e-5 catches formula drift without flaking on ulp noise`);
+    console.log('Cross-tier parity harness (#1351 + #1358 pose write)');
+    console.log(`Tolerance: |Δ| ≤ ${FLOAT_TOL} for f32; exact for integers`);
+    console.log(
+        `WHY: f32 quat→matrix / volume÷count intermediates; 1e-5 catches formula drift without flaking on ulp noise`
+    );
 
-  const asInstance = await loadAssemblyScript();
-  console.log('AS WASM: loaded (candy_physics.wasm)');
+    const asInstance = await loadAssemblyScript();
+    console.log('AS WASM: loaded (candy_physics.wasm)');
 
-  let em = null;
-  try {
-    em = await loadEmscripten();
-  } catch (err) {
-    console.warn(`C++ load error: ${err.message}`);
-  }
-  if (em) {
-    console.log('C++ WASM: loaded');
-  } else {
-    console.log('C++ WASM: not available (will SKIP C++ tiers)');
-  }
-
-  runMatrixParity(asInstance, em);
-  runArpeggioParity(asInstance, em);
-  runPoseWriteParity(asInstance, em);
-  runFoliageScalarParity(asInstance);
-  runPlantPoseParity();
-  runGroundHeightNaNGuardParity(asInstance, em);
-
-  console.log('\n────────────────────────────────────────');
-  console.log(`Result: ${passes} PASS, ${failures} FAIL, ${skips} SKIP`);
-  const asSkips = skips - cppSkips;
-  if (cppSkips > 0) {
-    console.log('');
-    console.log(`!! SKIPPED: ${cppSkips} C++ / Emscripten comparison group(s) were not checked.`);
-    if (!em && missingCppArtifacts.length > 0) {
-      console.log('!! SKIPPED: missing build artifact(s) — none of these exist:');
-      for (const rel of missingCppArtifacts) {
-        console.log(`!!            ${rel}`);
-      }
-      console.log('!! SKIPPED: build them with `npm run build:emcc` to enable the C++ tier.');
-    } else if (!em) {
-      console.log('!! SKIPPED: the Emscripten module could not be loaded.');
-    } else {
-      console.log('!! SKIPPED: the Emscripten module loaded but the required *_c exports are absent.');
+    let em = null;
+    try {
+        em = await loadEmscripten();
+    } catch (err) {
+        console.warn(`C++ load error: ${err.message}`);
     }
-    console.log('');
-  }
-  if (asSkips > 0) {
-    console.log('');
-    console.log(`!! SKIPPED: ${asSkips} AssemblyScript comparison group(s) were not checked —`);
-    console.log('!! SKIPPED: an expected export is missing from candy_physics.wasm.');
-    console.log('!! SKIPPED: rebuild it with `npm run build:wasm`; if that does not restore');
-    console.log('!! SKIPPED: the export, the AS source no longer provides it.');
-    console.log('');
-  }
-  if (failures > 0) {
-    process.exit(1);
-  }
-  if (skips > 0) {
-    console.log(`Parity harness green for the comparisons that ran. ${skips} group(s) SKIPPED — see above.`);
-  } else {
-    console.log('Parity harness green.');
-  }
+    if (em) {
+        console.log('C++ WASM: loaded');
+    } else {
+        console.log('C++ WASM: not available (will SKIP C++ tiers)');
+    }
+
+    runMatrixParity(asInstance, em);
+    runArpeggioParity(asInstance, em);
+    runPoseWriteParity(asInstance, em);
+    runFoliageScalarParity(asInstance);
+    runPlantPoseParity();
+    runGroundHeightNaNGuardParity(asInstance, em);
+
+    console.log('\n────────────────────────────────────────');
+    console.log(`Result: ${passes} PASS, ${failures} FAIL, ${skips} SKIP`);
+    const asSkips = skips - cppSkips;
+    if (cppSkips > 0) {
+        console.log('');
+        console.log(
+            `!! SKIPPED: ${cppSkips} C++ / Emscripten comparison group(s) were not checked.`
+        );
+        if (!em && missingCppArtifacts.length > 0) {
+            console.log('!! SKIPPED: missing build artifact(s) — none of these exist:');
+            for (const rel of missingCppArtifacts) {
+                console.log(`!!            ${rel}`);
+            }
+            console.log('!! SKIPPED: build them with `npm run build:emcc` to enable the C++ tier.');
+        } else if (!em) {
+            console.log('!! SKIPPED: the Emscripten module could not be loaded.');
+        } else {
+            console.log(
+                '!! SKIPPED: the Emscripten module loaded but the required *_c exports are absent.'
+            );
+        }
+        console.log('');
+    }
+    if (asSkips > 0) {
+        console.log('');
+        console.log(`!! SKIPPED: ${asSkips} AssemblyScript comparison group(s) were not checked —`);
+        console.log('!! SKIPPED: an expected export is missing from candy_physics.wasm.');
+        console.log('!! SKIPPED: rebuild it with `npm run build:wasm`; if that does not restore');
+        console.log('!! SKIPPED: the export, the AS source no longer provides it.');
+        console.log('');
+    }
+    if (failures > 0) {
+        process.exit(1);
+    }
+    if (skips > 0) {
+        console.log(
+            `Parity harness green for the comparisons that ran. ${skips} group(s) SKIPPED — see above.`
+        );
+    } else {
+        console.log('Parity harness green.');
+    }
 }
 
 main().catch((err) => {
-  console.error(err);
-  process.exit(1);
+    console.error(err);
+    process.exit(1);
 });

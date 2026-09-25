@@ -564,9 +564,15 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             const config: Record<string, unknown> = {
                 // Critical: Explicitly tell Emscripten where to find the file
                 locateFile: (path: string, scriptDirectory: string) => {
-                    const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
-                    if (path.endsWith('.wasm')) return new URL(`${cleanPrefix}${wasmFilename}`, base).href;
-                    if (path.endsWith('.worker.js')) return new URL(`${cleanPrefix}${wasmFilename.replace('.wasm', '.worker.js')}`, base).href;
+                    const base =
+                        typeof document !== 'undefined' ? document.baseURI : self.location.href;
+                    if (path.endsWith('.wasm'))
+                        return new URL(`${cleanPrefix}${wasmFilename}`, base).href;
+                    if (path.endsWith('.worker.js'))
+                        return new URL(
+                            `${cleanPrefix}${wasmFilename.replace('.wasm', '.worker.js')}`,
+                            base
+                        ).href;
                     return scriptDirectory + path;
                 },
                 print: (text: string) => console.log('[Native]', text),
@@ -590,8 +596,12 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
                             // Fallback fetch if pre-fetch failed
                             if (!bytes) {
                                 console.log('[Native] Fetching binary inside hook...');
-                                const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
-                                const fetchWasmUrl = new URL(`${cleanPrefix}${wasmFilename}`, base).href;
+                                const base =
+                                    typeof document !== 'undefined'
+                                        ? document.baseURI
+                                        : self.location.href;
+                                const fetchWasmUrl = new URL(`${cleanPrefix}${wasmFilename}`, base)
+                                    .href;
                                 const response = await fetch(fetchWasmUrl);
                                 if (!response.ok)
                                     throw new Error(`Fetch failed: ${response.status}`);
