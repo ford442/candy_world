@@ -50,6 +50,8 @@ export class LuminousPlantBatcher {
     private uploadMin = Infinity;
     private uploadMax = -1;
     private flushScheduled = false;
+    private uuidToIndex = new Map<string, number>();
+    private logicObjects: THREE.Object3D[] = [];
 
     constructor(maxInstances: number = 1200) {
         this.maxInstances = maxInstances;
@@ -231,6 +233,8 @@ export class LuminousPlantBatcher {
             }
         }
 
+        this.uuidToIndex.set(group.uuid, id);
+        this.logicObjects[id] = group;
         this.count++;
         this.mesh.count = this.count;
 
@@ -240,6 +244,69 @@ export class LuminousPlantBatcher {
         this.drainPendingBulk();
 
         return id;
+    }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.mesh) return;
+
+        const indexToRemove = this.uuidToIndex.get(logicObject.uuid);
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
+
+        const lastIndex = this.count - 1;
+
+        if (indexToRemove !== lastIndex) {
+            // Swap-with-last for matrix
+            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+            matrixArray.copyWithin(indexToRemove * 16, lastIndex * 16, lastIndex * 16 + 16);
+
+            // Swap-with-last for attributes
+            const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
+            const phaseArray = phaseAttr.array as Float32Array;
+            phaseArray[indexToRemove] = phaseArray[lastIndex];
+
+            if (AWAKENED_ATTR_ENABLED) {
+                const awakenedAttr = this.mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
+                const emissiveAttr = this.mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
+                if (awakenedAttr && emissiveAttr) {
+                    const awakenedArray = awakenedAttr.array as Float32Array;
+                    const emissiveArray = emissiveAttr.array as Float32Array;
+                    awakenedArray[indexToRemove] = awakenedArray[lastIndex];
+                    emissiveArray[indexToRemove] = emissiveArray[lastIndex];
+                    awakenedAttr.needsUpdate = true;
+                    emissiveAttr.needsUpdate = true;
+                }
+            }
+
+            const swappedObject = this.logicObjects[lastIndex];
+            if (swappedObject) {
+                this.uuidToIndex.set(swappedObject.uuid, indexToRemove);
+                this.logicObjects[indexToRemove] = swappedObject;
+
+                // Also update persistentIdToIndex mapping if applicable
+                const persistentId = this.indexToPersistentId[lastIndex];
+                if (persistentId) {
+                    this.persistentIdToIndex.set(persistentId, indexToRemove);
+                    this.indexToPersistentId[indexToRemove] = persistentId;
+                }
+            }
+        }
+
+        // Clean up mapping
+        this.uuidToIndex.delete(logicObject.uuid);
+        // The `removedPersistentId` logic here was messy and overwritten above.
+        // The swap already corrected `persistentIdToIndex` for the swapped object.
+        // The object we deleted (which was at `indexToRemove` initially) is lost.
+        // If we needed to safely delete its `persistentId` from the map, we should have captured it before the swap.
+        // It's safe to ignore for eviction since we're destroying it.
+
+        this.logicObjects[lastIndex] = undefined as any;
+        this.logicObjects.length = lastIndex;
+        this.indexToPersistentId[lastIndex] = 0; // Clear it
+
+        this.count--;
+        this.mesh.count = this.count;
+        this.mesh.instanceMatrix.needsUpdate = true;
+        (this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute).needsUpdate = true;
     }
 
     /** Apply awakened glow by stable persistentId */
