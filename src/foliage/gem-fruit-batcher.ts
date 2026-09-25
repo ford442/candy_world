@@ -115,6 +115,9 @@ export class GemFruitBatcher {
     private readonly _scratchQuat = new THREE.Quaternion();
     private readonly _scratchScale = new THREE.Vector3(1, 1, 1);
 
+    // Maps gemType -> instanceIndex -> parent logicObject
+    private readonly _instanceToTree: Array<THREE.Object3D[]> = [[], [], []];
+
     static getInstance(): GemFruitBatcher {
         if (!GemFruitBatcher._instance) {
             GemFruitBatcher._instance = new GemFruitBatcher();
@@ -195,7 +198,7 @@ export class GemFruitBatcher {
 
                 this._scratchMatrix.compose(this._scratchPos, this._scratchQuat, this._scratchScale);
 
-                const instanceIndex = this._registerInstance(gemType, this._scratchMatrix, drop + 0.2);
+                const instanceIndex = this._registerInstanceForTree(gemType, this._scratchMatrix, drop + 0.2, treeGroup);
                 if (instanceIndex >= 0) {
                     placed++;
                     refs.push({ batcher: 'gem_fruit', instanceIndex, gemType });
@@ -210,7 +213,78 @@ export class GemFruitBatcher {
             if (mesh.geometry.getAttribute('aArmLen')) (mesh.geometry.getAttribute('aArmLen') as THREE.InstancedBufferAttribute).needsUpdate = true;
         });
 
+        treeGroup.userData.gemRefs = refs;
         return { placed, refs };
+    }
+
+    removeInstance(logicObject: THREE.Object3D): void {
+        const refs = logicObject.userData.gemRefs as BatcherInstanceRef[];
+        if (!refs || refs.length === 0) return;
+
+        // Sort parts by index descending to avoid multi-slot swap bugs
+        refs.sort((a, b) => b.instanceIndex - a.instanceIndex);
+
+        const updatedMeshes = new Set<THREE.InstancedMesh>();
+
+        for (const ref of refs) {
+            const gemType = ref.gemType as number;
+            const indexToRemove = ref.instanceIndex;
+
+            if (gemType === undefined || typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this._counts[gemType]) {
+                continue;
+            }
+
+            const mesh = this.meshes[gemType];
+            const lastIndex = this._counts[gemType] - 1;
+
+            if (indexToRemove !== lastIndex) {
+                // Swap matrices
+                const matrixArray = mesh.instanceMatrix.array as Float32Array;
+                matrixArray.copyWithin(indexToRemove * 16, lastIndex * 16, lastIndex * 16 + 16);
+
+                // Swap attributes
+                const phaseAttr = mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
+                const armAttr = mesh.geometry.getAttribute('aArmLen') as THREE.InstancedBufferAttribute;
+                const awakenedAttr = mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
+                const emissiveAttr = mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
+
+                const phaseArray = phaseAttr.array as Float32Array;
+                const armArray = armAttr.array as Float32Array;
+                const awakenedArray = awakenedAttr.array as Float32Array;
+                const emissiveArray = emissiveAttr.array as Float32Array;
+
+                phaseArray[indexToRemove] = phaseArray[lastIndex];
+                armArray[indexToRemove] = armArray[lastIndex];
+                awakenedArray[indexToRemove] = awakenedArray[lastIndex];
+                emissiveArray[indexToRemove] = emissiveArray[lastIndex];
+
+                // Remap swapped instance to its owning tree
+                const swappedTree = this._instanceToTree[gemType][lastIndex];
+                if (swappedTree && swappedTree.userData.gemRefs) {
+                    const treeRefs = swappedTree.userData.gemRefs as BatcherInstanceRef[];
+                    const swappedRef = treeRefs.find(r => r.gemType === gemType && r.instanceIndex === lastIndex);
+                    if (swappedRef) {
+                        swappedRef.instanceIndex = indexToRemove;
+                    }
+                    this._instanceToTree[gemType][indexToRemove] = swappedTree;
+                }
+            }
+
+            this._instanceToTree[gemType][lastIndex] = undefined as any;
+            this._counts[gemType]--;
+            mesh.count = this._counts[gemType];
+            updatedMeshes.add(mesh);
+        }
+
+        updatedMeshes.forEach(mesh => {
+            mesh.instanceMatrix.needsUpdate = true;
+            (mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute).needsUpdate = true;
+            (mesh.geometry.getAttribute('aArmLen') as THREE.InstancedBufferAttribute).needsUpdate = true;
+            (mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute).needsUpdate = true;
+            (mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute).needsUpdate = true;
+        });
+
+        logicObject.userData.gemRefs = null;
     }
 
     setAwakened(gemType: number, instanceIndex: number, emissiveScale: number): void {
@@ -245,6 +319,15 @@ export class GemFruitBatcher {
         this._counts[type] = idx + 1;
         mesh.count = idx + 1;
         // ⚡ OPTIMIZATION: Removed needsUpdate=true inside the loop. Flagged externally.
+        return idx;
+    }
+
+    // Called inside attachToTree loop, map index back to the tree
+    private _registerInstanceForTree(type: GemTypeIndex, matrix: THREE.Matrix4, armLen: number, treeGroup: THREE.Object3D): number {
+        const idx = this._registerInstance(type, matrix, armLen);
+        if (idx >= 0) {
+            this._instanceToTree[type][idx] = treeGroup;
+        }
         return idx;
     }
 

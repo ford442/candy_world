@@ -26,6 +26,9 @@ export const defaultSkyIslandsFogPeak: number = (musicBindings as any).biomes.sk
 export const defaultSugarCavesShimmerCh: readonly number[] = (musicBindings as any).biomes.sugar_caves.shimmer;
 export const defaultSugarCavesHueShiftCh: readonly number[] = (musicBindings as any).biomes.sugar_caves.hueShift;
 export const defaultSugarCavesNoteColorCh: readonly number[] = (musicBindings as any).biomes.sugar_caves.noteColor;
+export const defaultNightMarketShimmerCh: readonly number[] = (musicBindings as any).biomes.night_market.shimmer;
+export const defaultNightMarketHueShiftCh: readonly number[] = (musicBindings as any).biomes.night_market.hueShift;
+export const defaultNightMarketNoteColorCh: readonly number[] = (musicBindings as any).biomes.night_market.noteColor;
 
 const _skyMoonConfig = (musicBindings as any).sky_moon;
 if (!_skyMoonConfig || typeof _skyMoonConfig.melody_channel !== 'number') {
@@ -60,6 +63,7 @@ export const skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
   gem_canopy: BiomeUniforms.gemCanopy.noteColor,
   sky_islands: BiomeUniforms.skyIslands.noteColor,
   sugar_caves: BiomeUniforms.sugarCaves.noteColor,
+  night_market: BiomeUniforms.nightMarket.noteColor,
   sky_moon: BiomeUniforms.skyMoon.moonNoteColor as any,
 };
 

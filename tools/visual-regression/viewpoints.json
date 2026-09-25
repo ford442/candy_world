@@ -163,6 +163,16 @@
             "fov": 60,
             "timeOfDay": "night",
             "waitForStable": 3000
+        },
+        {
+            "name": "night_market",
+            "description": "Festival Night Market lantern lane after dusk — awnings unfurled, paper lanterns lit; candy clearcoat, never a photoreal night street (#1758)",
+            "biomeAnchor": "night_market region (-10,-62)→(17,-42); stalls at z=-47.5 / z=-56.5, x=-4 / 3.5 / 11",
+            "cameraPosition": { "x": -14, "y": 3.5, "z": -52 },
+            "cameraTarget": { "x": 8, "y": 1.2, "z": -52 },
+            "fov": 60,
+            "timeOfDay": "night",
+            "waitForStable": 3000
         }
     ]
 }

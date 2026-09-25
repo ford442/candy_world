@@ -1,6 +1,6 @@
 /**
  * Save Menu UI Component
- * 
+ *
  * Features:
  * - Load game menu with slot selection
  * - Save game menu with slot selection
@@ -10,32 +10,27 @@
  * - Integration with save-system.ts
  */
 
-import { 
-    saveSystem, 
-    SaveData, 
+import {
+    saveSystem,
+    SaveData,
     SaveSlotInfo,
     SettingsSaveData,
-    KeyBindings
+    KeyBindings,
 } from '../../systems/save-system/index.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { announce } from '../announcer.ts';
 import { MENU_STYLES } from './save-menu-styles.ts';
-import { 
-    renderSettingsTab, 
-    handleSettingChange, 
+import {
+    renderSettingsTab,
+    handleSettingChange,
     handleSettingClick,
     handleKeybindClick,
     cancelKeybindListen as cancelKeybindListenBase,
-    updateKeybind as updateKeybindBase
+    updateKeybind as updateKeybindBase,
 } from './save-settings.ts';
-import { 
-    renderLoadTab, 
-    renderSaveTab, 
-    handleSlotAction, 
-    handleQuickSave 
-} from './save-slots.ts';
+import { renderLoadTab, renderSaveTab, handleSlotAction, handleQuickSave } from './save-slots.ts';
 
 // =============================================================================
 // TYPES
@@ -77,7 +72,7 @@ export class SaveMenu {
         this.onSaveCallback = options.onSave;
         this.onCloseCallback = options.onClose;
         this.settings = saveSystem.getSettings();
-        
+
         this.keydownHandler = (e) => this.handleKeydown(e);
         this.injectStyles();
     }
@@ -105,7 +100,7 @@ export class SaveMenu {
      */
     async show(): Promise<void> {
         if (this.container) return;
-        
+
         this.lastFocusedElement = document.activeElement as HTMLElement | null;
 
         this.container = document.createElement('div');
@@ -115,7 +110,7 @@ export class SaveMenu {
         this.container.setAttribute('aria-modal', 'true');
         this.container.setAttribute('aria-labelledby', 'save-menu-title');
         this.container.setAttribute('tabindex', '-1');
-        
+
         // Add click outside to close
         this.container.addEventListener('click', (e) => {
             if (e.target === this.container) {
@@ -126,10 +121,10 @@ export class SaveMenu {
         // Render initial loading state
         this.renderLoading();
         document.body.appendChild(this.container);
-        
+
         // Add escape key handler
         document.addEventListener('keydown', this.keydownHandler);
-        
+
         // Load slots
         await this.refreshSlots();
         announce(`${this.slots.length} saves loaded`, 'polite');
@@ -140,11 +135,15 @@ export class SaveMenu {
             if (this.container && this.isOpen()) {
                 this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true });
                 // Manually focus the active tab to prevent screen reader double-speak from close button
-                const activeTab = this.container.querySelector('.candy-save-menu__tab[aria-selected="true"]') as HTMLElement;
+                const activeTab = this.container.querySelector(
+                    '.candy-save-menu__tab[aria-selected="true"]'
+                ) as HTMLElement;
                 if (activeTab) {
                     activeTab.focus({ preventScroll: true });
                 } else {
-                    const firstTab = this.container.querySelector('.candy-save-menu__tab') as HTMLElement;
+                    const firstTab = this.container.querySelector(
+                        '.candy-save-menu__tab'
+                    ) as HTMLElement;
                     if (firstTab) firstTab.focus({ preventScroll: true });
                 }
             }
@@ -159,11 +158,14 @@ export class SaveMenu {
 
         // Add exit animation
         this.container.style.animation = 'fadeOut 0.3s ease forwards';
-        const containerInner = this.container.querySelector('.candy-save-menu__container') as HTMLElement;
+        const containerInner = this.container.querySelector(
+            '.candy-save-menu__container'
+        ) as HTMLElement;
         if (containerInner) {
-            containerInner.style.animation = 'juicyPopOut 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+            containerInner.style.animation =
+                'juicyPopOut 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
         }
-        
+
         setTimeout(() => {
             if (this.releaseFocusTrap) {
                 this.releaseFocusTrap();
@@ -203,7 +205,7 @@ export class SaveMenu {
 
     private injectStyles(): void {
         if (document.getElementById('candy-save-menu-styles')) return;
-        
+
         const style = document.createElement('style');
         style.id = 'candy-save-menu-styles';
         style.textContent = MENU_STYLES;
@@ -224,7 +226,7 @@ export class SaveMenu {
 
     private renderLoading(): void {
         if (!this.container) return;
-        
+
         this.container.innerHTML = `
             <div class="candy-save-menu__container">
                 <div class="candy-save-menu__loading" aria-live="polite">
@@ -239,9 +241,9 @@ export class SaveMenu {
 
     private render(): void {
         if (!this.container) return;
-        
+
         const tabs = this.getTabs();
-        
+
         // Track focus before rendering
         const activeElement = document.activeElement;
         const wasFocusedInside = this.container.contains(activeElement);
@@ -255,7 +257,7 @@ export class SaveMenu {
                 </div>
             </div>
         `;
-        
+
         this.attachEventListeners();
 
         // ♿ Aria: explicitly restore focus to a logical element when rebuilding DOM
@@ -265,18 +267,21 @@ export class SaveMenu {
 
                 // Only restore if focus actually dropped to body or null
                 if (!document.activeElement || document.activeElement === document.body) {
-                    const activeTab = this.container.querySelector(`[role="tab"][aria-selected="true"]`) as HTMLElement;
+                    const activeTab = this.container.querySelector(
+                        `[role="tab"][aria-selected="true"]`
+                    ) as HTMLElement;
                     if (activeTab) {
                         activeTab.focus({ preventScroll: true });
                     } else {
                         // Fallback to first focusable element
-                        const firstFocusable = this.container.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
+                        const firstFocusable = this.container.querySelector(
+                            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                        ) as HTMLElement;
                         if (firstFocusable) firstFocusable.focus({ preventScroll: true });
                     }
                 }
             });
         }
-
     }
 
     private getTabs(): { id: MenuTab; label: string; icon: string }[] {
@@ -298,9 +303,9 @@ export class SaveMenu {
         const titles: Record<MenuMode, string> = {
             load: 'Load Game',
             save: 'Save Game',
-            full: 'Save / Load'
+            full: 'Save / Load',
         };
-        
+
         return `
             <div class="candy-save-menu__header">
                 <h2 id="save-menu-title" class="candy-save-menu__title">${titles[this.currentMode]}</h2>
@@ -312,7 +317,9 @@ export class SaveMenu {
     private renderTabs(tabs: { id: MenuTab; label: string; icon: string }[]): string {
         return `
             <div class="candy-save-menu__tabs" role="tablist" aria-label="Save Menu Tabs">
-                ${tabs.map(tab => `
+                ${tabs
+                    .map(
+                        (tab) => `
                     <button type="button"
                         id="tab-${tab.id}"
                         role="tab"
@@ -324,7 +331,9 @@ export class SaveMenu {
                     >
                         <span aria-hidden="true">${tab.icon}</span> ${tab.label}
                     </button>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
         `;
     }
@@ -400,7 +409,7 @@ export class SaveMenu {
         if (!this.container) return;
 
         // Tab switching
-        this.container.querySelectorAll('[data-tab]').forEach(btn => {
+        this.container.querySelectorAll('[data-tab]').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 const tab = (e.currentTarget as HTMLElement).dataset.tab as MenuTab;
                 this.switchTab(tab);
@@ -408,12 +417,12 @@ export class SaveMenu {
         });
 
         // Close buttons
-        this.container.querySelectorAll('[data-action="close"]').forEach(btn => {
+        this.container.querySelectorAll('[data-action="close"]').forEach((btn) => {
             btn.addEventListener('click', () => this.close());
         });
 
         // Slot actions
-        this.container.querySelectorAll('[data-action][data-slot]').forEach(btn => {
+        this.container.querySelectorAll('[data-action][data-slot]').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 const el = e.currentTarget as HTMLElement;
                 const action = el.dataset.action;
@@ -424,24 +433,28 @@ export class SaveMenu {
 
         // Quick save
         const quickSaveBtn = this.container.querySelector('[data-action="quick-save"]');
-        quickSaveBtn?.addEventListener('click', () => this.handleQuickSave(quickSaveBtn as HTMLElement));
+        quickSaveBtn?.addEventListener('click', () =>
+            this.handleQuickSave(quickSaveBtn as HTMLElement)
+        );
 
         // Settings
-        this.container.querySelectorAll('[data-setting]').forEach(el => {
+        this.container.querySelectorAll('[data-setting]').forEach((el) => {
             el.addEventListener('change', (e) => this.handleSettingChange(e));
             el.addEventListener('click', (e) => this.handleSettingClick(e));
         });
 
         // Keybinds
-        this.container.querySelectorAll('[data-keybind]').forEach(btn => {
+        this.container.querySelectorAll('[data-keybind]').forEach((btn) => {
             btn.addEventListener('click', (e) => this.handleKeybindClick(e));
         });
 
         // Actions
-        this.container.querySelectorAll('[data-action]').forEach(btn => {
+        this.container.querySelectorAll('[data-action]').forEach((btn) => {
             const action = (btn as HTMLElement).dataset.action;
             if (action && !btn.hasAttribute('data-slot')) {
-                btn.addEventListener('click', () => this.handleAction(action, btn as HTMLButtonElement));
+                btn.addEventListener('click', () =>
+                    this.handleAction(action, btn as HTMLButtonElement)
+                );
             }
         });
 
@@ -455,20 +468,25 @@ export class SaveMenu {
         }
     }
 
-    private handleKeyup(e: KeyboardEvent): void {
-        if (e.key === 'Escape') {
-            const closeBtn = this.container?.querySelector('.candy-save-menu__close') as HTMLElement;
-            if (closeBtn) closeBtn.classList.remove('keyboard-active');
-        }
-    }
-
     private handleKeydown(e: KeyboardEvent): void {
         if (e.key === 'Escape') {
             if (this.listeningKeybind) {
                 this.cancelKeybindListen();
             } else {
-                const closeBtn = this.container?.querySelector('.candy-save-menu__close') as HTMLElement;
-                if (closeBtn) closeBtn.classList.add('keyboard-active');
+                if (e.repeat) return;
+                const closeBtn = this.container?.querySelector(
+                    '.candy-save-menu__close'
+                ) as HTMLElement;
+                if (closeBtn) {
+                    closeBtn.classList.add('keyboard-active');
+                    const handleEscapeKeyUp = (ev: KeyboardEvent) => {
+                        if (ev.key === 'Escape') {
+                            closeBtn.classList.remove('keyboard-active');
+                            document.removeEventListener('keyup', handleEscapeKeyUp);
+                        }
+                    };
+                    document.addEventListener('keyup', handleEscapeKeyUp);
+                }
                 this.close();
             }
         } else if (this.listeningKeybind) {
@@ -477,14 +495,14 @@ export class SaveMenu {
             return;
         }
 
-
-
         // ♿ Aria: Keyboard navigation for Tabs (Left/Right Arrows)
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             const activeElement = document.activeElement as HTMLElement;
             if (activeElement && activeElement.getAttribute('role') === 'tab') {
                 e.preventDefault();
-                const tabs = Array.from(this.container?.querySelectorAll('[role="tab"]') || []) as HTMLElement[];
+                const tabs = Array.from(
+                    this.container?.querySelectorAll('[role="tab"]') || []
+                ) as HTMLElement[];
                 const currentIndex = tabs.indexOf(activeElement);
                 if (currentIndex >= 0) {
                     let nextIndex = e.key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1;
@@ -504,7 +522,11 @@ export class SaveMenu {
         }
     }
 
-    private async handleSlotAction(action: string, slotId: string, btnElement?: HTMLElement): Promise<void> {
+    private async handleSlotAction(
+        action: string,
+        slotId: string,
+        btnElement?: HTMLElement
+    ): Promise<void> {
         // Create bound save function for callbacks
         const boundSaveToSlot = async (id: string) => {
             const result = await saveSystem.save(id);
@@ -517,8 +539,8 @@ export class SaveMenu {
         };
 
         await handleSlotAction(
-            action, 
-            slotId, 
+            action,
+            slotId,
             this,
             this.onLoadCallback,
             this.onSaveCallback,
@@ -552,10 +574,12 @@ export class SaveMenu {
 
     private handleKeybindClick(e: Event): void {
         handleKeybindClick(
-            e, 
-            this.settings, 
-            this.listeningKeybind, 
-            (key) => { this.listeningKeybind = key; },
+            e,
+            this.settings,
+            this.listeningKeybind,
+            (key) => {
+                this.listeningKeybind = key;
+            },
             this.container
         );
     }
@@ -564,7 +588,9 @@ export class SaveMenu {
         cancelKeybindListenBase(
             this.settings,
             this.listeningKeybind,
-            (key) => { this.listeningKeybind = key; },
+            (key) => {
+                this.listeningKeybind = key;
+            },
             this.container
         );
     }
@@ -579,15 +605,21 @@ export class SaveMenu {
 
         const setWorkingState = () => {
             btnElement.setAttribute('aria-busy', 'true');
-            btnElement.setAttribute("aria-disabled", "true");
+            btnElement.setAttribute('aria-disabled', 'true');
             btnElement.style.width = `${originalWidth}px`;
             btnElement.style.justifyContent = 'center';
-            btnElement.innerHTML = '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px;"><span class="visually-hidden">Processing...</span></span>';
+            const textContent = btnElement.textContent?.trim() || 'Processing';
+
+            // Rebuild content safely to avoid interpreting textContent as HTML
+            btnElement.innerHTML = '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px; margin-right: 8px;"><span class="visually-hidden">Processing...</span></span>';
+            const textSpan = document.createElement('span');
+            textSpan.textContent = textContent;
+            btnElement.appendChild(textSpan);
         };
 
         const restoreState = () => {
             btnElement.removeAttribute('aria-busy');
-            btnElement.removeAttribute("aria-disabled");
+            btnElement.removeAttribute('aria-disabled');
             btnElement.style.width = '';
             btnElement.style.justifyContent = '';
             btnElement.innerHTML = originalHtml;
@@ -639,7 +671,9 @@ export class SaveMenu {
                 setTimeout(restoreState, 300);
                 break;
             case 'clear-import': {
-                const importArea = this.container?.querySelector('#import-area') as HTMLTextAreaElement;
+                const importArea = this.container?.querySelector(
+                    '#import-area'
+                ) as HTMLTextAreaElement;
                 if (importArea) importArea.value = '';
                 break;
             }
@@ -657,7 +691,7 @@ export class SaveMenu {
             showToast('No current save to export', '⚠️', 3000);
             return;
         }
-        
+
         const data = await saveSystem.exportSave(currentSlot);
         if (data) {
             const textarea = this.container?.querySelector('#export-area') as HTMLTextAreaElement;
@@ -681,7 +715,7 @@ export class SaveMenu {
             try {
                 await navigator.clipboard.writeText(textarea.value);
                 showToast('Copied to clipboard!', '📋', 3000);
-            } catch (e) {
+            } catch {
                 showToast('Failed to copy', '❌', 3000);
             }
         }
@@ -742,7 +776,11 @@ export class SaveMenu {
     }
 
     private async deleteAll(): Promise<void> {
-        if (!confirm('⚠️ WARNING: This will permanently delete ALL save data, settings, and progress.\n\nThis cannot be undone.\n\nAre you absolutely sure?')) {
+        if (
+            !confirm(
+                '⚠️ WARNING: This will permanently delete ALL save data, settings, and progress.\n\nThis cannot be undone.\n\nAre you absolutely sure?'
+            )
+        ) {
             return;
         }
 
@@ -769,7 +807,7 @@ export function openSaveMenu(options: SaveMenuOptions = {}): SaveMenu {
     if (activeMenu?.isOpen()) {
         activeMenu.close();
     }
-    
+
     activeMenu = new SaveMenu(options);
     activeMenu.show();
     return activeMenu;
@@ -813,7 +851,7 @@ export function isSaveMenuOpen(): boolean {
  */
 export function showSaveIndicator(duration: number = 2000): void {
     let indicator = document.getElementById('standalone-save-indicator');
-    
+
     if (!indicator) {
         indicator = document.createElement('div');
         indicator.id = 'standalone-save-indicator';
@@ -840,9 +878,9 @@ export function showSaveIndicator(duration: number = 2000): void {
         `;
         document.body.appendChild(indicator);
     }
-    
+
     indicator.style.opacity = '1';
-    
+
     setTimeout(() => {
         if (indicator) {
             indicator.innerHTML = `✅ Saved`;
