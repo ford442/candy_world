@@ -313,6 +313,10 @@ export class WaterfallBatcher {
         this.splashMesh!.instanceMatrix.needsUpdate = true;
     }
 
+    removeInstance(logicObject: THREE.Object3D) {
+        this.remove(logicObject.uuid);
+    }
+
     remove(id: string) {
         if (!this.initialized || !this.idToIndex.has(id)) return;
 
