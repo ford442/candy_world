@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
 import { updateFaunaDebug, isFaunaDebugEnabled } from '../../debug/tools-stub.ts';
 import { FaunaBatcher } from '../../foliage/fauna-batcher.ts';
+import { profiler } from '../../utils/profiler.ts';
 import { World } from '../ecs/world.ts';
 import { sampleBakedGroundNormalInto, fillGroundHeightsBatch, _fdDelta } from '../ground-system.ts';
 import { player } from '../physics/physics-types.ts';
@@ -16,7 +17,6 @@ import {
     freeBoidsBuffer,
     updateBoidsBatch,
 } from './boids-bridge.ts';
-import { profiler } from '../../utils/profiler.ts';
 import { spawnFaunaPopulation } from './spawn.ts';
 import { FAUNA_BOID_STRIDE, FaunaSpecies, type FaunaSpawnEntry } from './types.ts';
 

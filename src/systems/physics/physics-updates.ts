@@ -19,6 +19,7 @@
 
 import * as THREE from 'three';
 import { addCameraShake } from '../../core/camera-shake.ts';
+import { CONFIG } from '../../core/config.ts';
 import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
@@ -53,7 +54,6 @@ import {
 import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { CONFIG } from '../../core/config.ts';
 import {
     getGroundHeight,
     sampleGroundNormal,

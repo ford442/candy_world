@@ -15,9 +15,9 @@ import {
     smoothstep,
     Fn,
 } from 'three/tsl';
+import { burstCandyDebris } from '../foliage/candy-debris-batcher.ts';
 import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
 import { applyGlitch } from '../foliage/glitch.ts';
-import { burstCandyDebris } from '../foliage/candy-debris-batcher.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import {
     createClayMaterial,

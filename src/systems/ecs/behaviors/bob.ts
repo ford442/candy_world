@@ -10,8 +10,8 @@
  */
 
 import type * as THREE from 'three';
-import type { Entity } from '../types.ts';
 import type { Behavior, BehaviorOptions } from '../behavior.ts';
+import type { Entity } from '../types.ts';
 
 export interface BobOptions extends BehaviorOptions {
     object: THREE.Object3D;

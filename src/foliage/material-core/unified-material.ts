@@ -29,6 +29,8 @@ import {
 } from '../../rendering/clustered-lighting.ts';
 import { getIrradianceNode } from '../../rendering/irradiance-probes.ts';
 import { applyGlitch } from '../glitch.ts';
+import { applyDreamEnv } from './env-map.ts';
+import { isClearcoatEnabled } from './quality-gate.ts';
 import {
     uTime,
     uAudioHigh,
@@ -36,8 +38,6 @@ import {
     uGlitchExplosionCenter,
     uGlitchExplosionRadius,
 } from './shared-resources.ts';
-import { applyDreamEnv } from './env-map.ts';
-import { isClearcoatEnabled } from './quality-gate.ts';
 import { triplanarNoise, perturbNormal, createRimLight } from './tsl-nodes.ts';
 import { $sn } from './tsl-types.ts';
 

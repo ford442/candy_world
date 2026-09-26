@@ -11,6 +11,7 @@ import {
 } from '../../foliage/clouds.ts';
 import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
 import { createIntegratedRain } from '../../particles/compute-integration.ts';
+import type { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles-types.ts';
 import {
     createPointLight,
     getLightningLightId,
@@ -20,7 +21,6 @@ import {
 // src/systems/weather/weather-effects.ts
 // Visual effects management: rainbow, aurora, lightning, plant growth
 
-import type { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles-types.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import { WeatherState } from '../weather-types.ts';
 

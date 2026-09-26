@@ -24,8 +24,8 @@
  */
 
 import * as THREE from 'three';
-import { getUrlFlag } from '../../core/config/url-flags.ts';
 import { isCIorHeadless } from '../../core/config/runtime.ts';
+import { getUrlFlag } from '../../core/config/url-flags.ts';
 import { getGraphicsTier } from './quality-gate.ts';
 
 /** 🎨 PALETTE: dream-sky gradient. Hue rides from candy blue toward violet. */

@@ -27,15 +27,6 @@
  * joints, ragdolls, cloth, and motorised articulated skeletons.
  */
 
-import {
-    getRigidBodyExports,
-    getRigidBodyPool,
-    initRigidBodies,
-    setFallbackJointHooks,
-    type FallbackJointHooks,
-} from './rigid-bodies.ts';
-import type { RigidBodyHandle } from './rigid-body-types.ts';
-import { MAX_DYNAMIC_BODIES, RB_FIELD as F, RB_FLOATS_PER_BODY } from './rigid-body-types.ts';
 import { createJointPool, solveJointsJS, writeJointRecord } from './joint-fallback.ts';
 import {
     J_FIELD as J,
@@ -49,6 +40,15 @@ import {
     type JointType,
     type Vec3Like,
 } from './joint-types.ts';
+import {
+    getRigidBodyExports,
+    getRigidBodyPool,
+    initRigidBodies,
+    setFallbackJointHooks,
+    type FallbackJointHooks,
+} from './rigid-bodies.ts';
+import type { RigidBodyHandle } from './rigid-body-types.ts';
+import { MAX_DYNAMIC_BODIES, RB_FIELD as F, RB_FLOATS_PER_BODY } from './rigid-body-types.ts';
 
 export {
     MAX_JOINTS,

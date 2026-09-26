@@ -23,9 +23,9 @@ code = code.replace(
     createJuicyRimLight`
 );
 
-code = code.replace(/    color, float, mix, uv, distance, vec2, smoothstep, uniform,\n    positionLocal, positionWorld, vec3,\n    ShaderNodeObject, Node/, `    color, float, uv, distance, vec2, smoothstep, uniform,\n    positionLocal, positionWorld, vec3`);
+code = code.replace(/ {4}color, float, mix, uv, distance, vec2, smoothstep, uniform,\n {4}positionLocal, positionWorld, vec3,\n {4}ShaderNodeObject, Node/, `    color, float, uv, distance, vec2, smoothstep, uniform,\n    positionLocal, positionWorld, vec3`);
 code = code.replace(/import { MeshStandardNodeMaterial } from 'three\/webgpu';\n/, '');
 
-code = code.replace(/    group.userData.onProximityEnter = \(distanceSq: number\) => {/, `    group.userData.onProximityEnter = (_distanceSq: number) => {`);
+code = code.replace(/ {4}group.userData.onProximityEnter = \(distanceSq: number\) => {/, `    group.userData.onProximityEnter = (_distanceSq: number) => {`);
 
 fs.writeFileSync(file, code);

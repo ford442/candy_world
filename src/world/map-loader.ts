@@ -1,9 +1,9 @@
 import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
-import type { CandyMapData, LoadedCandyMap } from './map-loader-types.ts';
 import { normalizeEntity } from './map-loader-normalize.ts';
-import { validateMapShape } from './map-loader-validate.ts';
 import { addLegacySetpieces } from './map-loader-setpieces.ts';
 import { LoadedCandyMapImpl } from './map-loader-spatial-index.ts';
+import type { CandyMapData, LoadedCandyMap } from './map-loader-types.ts';
+import { validateMapShape } from './map-loader-validate.ts';
 
 export { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
 

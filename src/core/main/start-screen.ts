@@ -6,6 +6,8 @@ import { globalLoadingManager } from '../../systems/loading-manager.ts';
 import { initPresenceFromOptIn } from '../../systems/net/lazy.ts';
 import { populatePhysicsGrids } from '../../systems/physics/index.ts';
 import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
+import { initWindDebug } from '../../systems/wind-debug.ts';
+import { setWindQuality } from '../../systems/wind-uniforms.ts';
 import { announce } from '../../ui/announcer.ts';
 import {
     showDeferredIndicator,
@@ -41,6 +43,7 @@ import {
     initDeferredVisuals,
     runDeferredWarmup,
 } from '../deferred-init.ts';
+import { getStartupCapabilities } from '../startup/capabilities.ts';
 import {
     loadStartupProfile,
     setStartupPath,
@@ -53,9 +56,6 @@ import {
 } from '../startup-profile.ts';
 import type { MainContext } from './context.ts';
 import { camera, renderer, scene } from './exports.ts';
-import { getStartupCapabilities } from '../startup/capabilities.ts';
-import { setWindQuality } from '../../systems/wind-uniforms.ts';
-import { initWindDebug } from '../../systems/wind-debug.ts';
 
 function yieldFrame(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 50));
