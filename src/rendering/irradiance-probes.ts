@@ -264,7 +264,7 @@ function gatherDonors(volume: ProbeVolume): void {
         if (snap.intensity <= 0) return;
 
         if (snap.parent) {
-            // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and updateMatrixWorld() overhead in high-frequency lighting loop by relying on pre-composed matrixWorld
+            snap.parent.updateMatrixWorld();
             if (snap.gpu) {
                 _scratchDonorPos.setFromMatrixPosition(snap.parent.matrixWorld);
             } else {
