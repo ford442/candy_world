@@ -591,7 +591,7 @@ export class ChunkStreamer {
                 sugarCaveBatcher.removeInstance(obj);
             } else if (evictionClass === 'cave') {
                 unregisterPhysicsCave(obj);
-                this.weatherSystem?.registerCave?.(obj);
+                this.weatherSystem?.unregisterCave?.(obj);
             }
             // Free the entity id so walking back into range re-spawns it.
             // Discovery registration is intentionally left in place — the
