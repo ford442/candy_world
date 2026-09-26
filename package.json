@@ -119,4 +119,5 @@
     "simple-git-hooks": {
         "pre-commit": "node scripts/prettier-staged.mjs"
     }
+  }
 }
