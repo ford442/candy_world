@@ -81,6 +81,7 @@ canvas {
     opacity: 0.9;
     pointer-events: none;
     transition: all 0.3s ease;
+    filter: grayscale(100%) brightness(50%);
 }
 
 .secondary-button[aria-busy='true'] {
@@ -91,6 +92,7 @@ canvas {
     opacity: 0.9;
     pointer-events: none;
     transition: all 0.3s ease;
+    filter: grayscale(100%) brightness(50%);
 }
 
 .cta-button[aria-disabled='true'],
@@ -270,6 +272,8 @@ canvas {
     opacity: 0.8;
     pointer-events: none;
     transform: scale(0.98);
+    transition: all 0.3s ease;
+    filter: grayscale(100%) brightness(50%);
 }
 .file-label:hover {
     background: #fff0f5;
