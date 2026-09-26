@@ -1,31 +1,11 @@
-# plan.md
+# Objective
+Fix the remaining chunk streaming memory leaks by implementing eviction paths for all batched species, and write a test to guard it.
 
-## Objective
-Split the mega-module `src/foliage/mushroom-batcher.ts` (~944 lines) into smaller sub-modules using a domain barrel approach, similar to what was done for `trees.ts`. This satisfies the architectural rule of breaking down files larger than 700 lines.
-
-## Plan
-
-1. **Create Sub-modules:**
-   - Extract `MushroomBatcher` class logic into `mushroom-batcher-class.ts`.
-   - Extract geometry merging logic (`createMergedGeometry`) into `geometry.ts`.
-   - Extract TSL material creation logic (`createMaterials`) into `materials.ts`.
-   - Any shared constants, imports, or type definitions will be placed in `types.ts` or `constants.ts` as needed.
-
-2. **Refactor `mushroom-batcher.ts`:**
-   - Modify the original file to act solely as a barrel module (re-exporting from the newly created files), preserving the original API.
-
-3. **Verify:**
-   - Run `npm run typecheck` to ensure no circular dependencies or missing exports.
-   - Run `npm run test` to verify logic integrity.
-
-4. **Update Documentation:**
-   - Update `plan.md` to mark this mega-module split as completed, similar to the entry for `trees.ts`.
-
-5. **Complete pre-commit steps:**
-   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
-
-6. **Submit:**
-   - Commit the changes and submit the PR.
-
-- **Status: Implemented ✅** (Split mushroom-batcher.ts)
-  - Implementation Details: Split the massive `mushroom-batcher.ts` file by extracting `MushroomBatcher` class logic, geometry merging, and TSL material creation into `mushroom-batcher.ts`, `geometry.ts`, and `materials.ts` within a new `mushroom-batcher` directory. Maintained `src/foliage/mushroom-batcher.ts` as the public barrel by re-exporting the newly split modules, effectively resolving the 944-line module size while keeping the public API stable and satisfying domain architecture requirements.
+# Steps
+1. In `src/world/generation-utils.ts`, edit `WeatherSystem` interface to add `unregisterCave(obj: THREE.Object3D): void;`. In `src/systems/weather/weather.ts`, implement `unregisterCave(cave: any): void` to remove it from `this.trackedCaves`.
+2. In `src/world/chunk-streamer.ts`, change `this.weatherSystem?.registerCave?.(obj);` to `this.weatherSystem?.unregisterCave?.(obj);` at line 594.
+3. Keep `tests/stream-evict.test.mjs` as we wrote it earlier using tsx to explicitly test the eviction paths on the batchers, verifying memory leaks are indeed fixed in `classifyForEviction` mappings since we verified they're already listed correctly.
+4. Run `npm run typecheck` and `npm run test` to verify changes.
+5. In `weekly_plan.md`, add "Status: Implemented ✅" with a short detail to the `ChunkStreamer` `#1755` issue.
+6. Complete pre commit steps to ensure proper testing, verification, review, and reflection are done.
+7. Call submit to finalize.

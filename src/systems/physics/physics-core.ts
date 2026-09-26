@@ -53,10 +53,8 @@ import { reconcileGroundedEyeY, isInLakeBasin, getGroundHeight, sampleGroundFoot
 const _characterGroundQuery = { sampleFootprint: sampleGroundFootprint, getGroundHeight };
 import { calculateMovementInput } from '../physics.core.ts';
 import { unlockSystem } from '../unlocks.ts';
-import { handleAbilities } from './physics-abilities.ts';
 import { resolveCharacterMovement } from './character-controller.ts';
-
-
+import { handleAbilities } from './physics-abilities.ts';
 import {
     updateSwimmingState,
     updateVineState,

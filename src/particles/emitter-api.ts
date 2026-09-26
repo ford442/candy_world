@@ -22,6 +22,13 @@
  */
 
 import * as THREE from 'three';
+import { enforceCap, withinCap } from '../systems/performance-budget/systems-budget.ts';
+import { profiler } from '../utils/profiler.ts';
+import type {
+    ComputeParticleType,
+    ParticleAttractor,
+    ParticleAudioData,
+} from './compute-particles-types.ts';
 import {
     ComputeParticleSystem,
     MAX_PARTICLE_ATTRACTORS,
@@ -34,13 +41,6 @@ import {
     createComputeSparkBurst,
     createComputeCandyPuff,
 } from './compute-particles.ts';
-import type {
-    ComputeParticleType,
-    ParticleAttractor,
-    ParticleAudioData,
-} from './compute-particles-types.ts';
-import { enforceCap, withinCap } from '../systems/performance-budget/systems-budget.ts';
-import { profiler } from '../utils/profiler.ts';
 
 // =============================================================================
 // PUBLIC TYPES

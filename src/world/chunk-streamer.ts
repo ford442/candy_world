@@ -9,22 +9,22 @@
 import * as THREE from 'three';
 import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
+import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
+import { gemFruitBatcher } from '../foliage/gem-fruit-batcher.ts';
 import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
+import { glowingFlowerBatcher } from '../foliage/glowing-flower-batcher.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { lanternBatcher } from '../foliage/lantern-batcher.ts';
+import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
+import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
-import { treeBatcher } from '../foliage/tree-batcher/index.ts';
-import { gemFruitBatcher } from '../foliage/gem-fruit-batcher.ts';
-import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
-import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
-import { waterfallBatcher } from '../foliage/waterfall-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
-import { glowingFlowerBatcher } from '../foliage/glowing-flower-batcher.ts';
 import { sugarCaveBatcher } from '../foliage/sugar-cave-batcher.ts';
-import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
-import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
+import { treeBatcher } from '../foliage/tree-batcher/index.ts';
+import { waterfallBatcher } from '../foliage/waterfall-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { populatePhysicsGrids, unregisterPhysicsCave } from '../systems/physics/index.ts';
 import {
@@ -591,7 +591,7 @@ export class ChunkStreamer {
                 sugarCaveBatcher.removeInstance(obj);
             } else if (evictionClass === 'cave') {
                 unregisterPhysicsCave(obj);
-                this.weatherSystem?.registerCave?.(obj);
+                this.weatherSystem?.unregisterCave?.(obj);
             }
             // Free the entity id so walking back into range re-spawns it.
             // Discovery registration is intentionally left in place — the

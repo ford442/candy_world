@@ -8,7 +8,6 @@ import { CONFIG } from "../../core/config.ts";
 import { BiomeUniforms, uCircadianPoseOffset } from "../../systems/biome-uniforms.ts";
 import { circadianNightGlowMult } from "../../systems/biome-uniforms.ts";
 import { applyAerialPerspective, aerialPerspectiveLodBoost } from "../aerial-perspective.ts";
-import { modFloat } from "./constants.ts";
 import {
     foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createJuicyRimLight, uPlayerPosition,
@@ -20,6 +19,7 @@ import {
     applyStandardDeformationWithLod,
     applyFoliageLodMaterialFade} from "../lod-nodes.ts";
 import { uTwilight } from "../sky.ts";
+import { modFloat } from "./constants.ts";
 
 export function createMaterials(): MeshStandardNodeMaterial[] {
         // TSL Logic - OPTIMIZED: Consolidated to single instanceData attribute

@@ -3,8 +3,8 @@ import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processi
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { AtmosphereShaftState } from '../systems/music-reactivity.ts';
 import { player } from '../systems/physics/index.ts';
-import { profiler } from '../utils/profiler.ts';
 import { areSunCascadesActive, updateSunCascadeDirection } from '../systems/shadow-cascades.ts';
+import { profiler } from '../utils/profiler.ts';
 import { CONFIG, areGodRaysEnabled, isDofEnabled, isDofManual } from './config.ts';
 import { isCIorHeadless } from './config.ts';
 import {

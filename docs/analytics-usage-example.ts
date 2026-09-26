@@ -17,7 +17,6 @@ import {
   trackUnlockAchieved,
   trackMilestoneReached,
 } from '../src/systems/analytics';
-
 import { toggleAnalyticsDebug } from '../src/ui/analytics-debug';
 
 // ============================================================================

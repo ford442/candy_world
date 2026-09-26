@@ -1,7 +1,7 @@
-import { uWindStrength } from '../systems/wind-uniforms.ts';
-import { createBerryCluster } from './berries.ts';
 import * as THREE from 'three';
 import { color as tslColor, float, sin, positionLocal, add , time, positionWorld, vec3} from 'three/tsl';
+import { uWindStrength } from '../systems/wind-uniforms.ts';
+import { createBerryCluster } from './berries.ts';
  // Import explicit type for cast
  // ⚡ OPTIMIZATION: Import Batcher
 import { registerReactiveMaterial, attachReactivity, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, createJuicyRimLight, getCachedProceduralMaterial , calculatePlayerPush} from './index.ts';

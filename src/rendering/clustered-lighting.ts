@@ -32,8 +32,6 @@ import { StorageInstancedBufferAttribute } from 'three/webgpu';
 import { CONFIG } from '../core/config/defaults.ts';
 import { FEATURE_FLAGS, hasUrlFlag } from '../core/config/url-flags.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
-import { isGpuComputeAvailable, onGpuDeviceLost } from './gpu-context.ts';
-import { forEachLocalLight, getLocalLightStats, muteAnalyticLocalLights } from './lights.ts';
 import { enforceCap } from '../systems/performance-budget/systems-budget.ts';
 import { profiler } from '../utils/profiler.ts';
 import {
@@ -47,6 +45,8 @@ import {
     packLight,
     resetClusterCounts,
 } from './clustered-bin.ts';
+import { isGpuComputeAvailable, onGpuDeviceLost } from './gpu-context.ts';
+import { forEachLocalLight, getLocalLightStats, muteAnalyticLocalLights } from './lights.ts';
 
 const _worldPos = new THREE.Vector3();
 const _viewPos = new THREE.Vector3();

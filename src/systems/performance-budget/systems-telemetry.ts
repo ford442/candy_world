@@ -8,13 +8,13 @@
  * headless CI test can exercise the caps without touching a renderer.
  */
 
-import { getIrradianceStats, isIrradianceEnabled } from '../../rendering/irradiance-probes.ts';
-import { getClusteredLightingStats } from '../../rendering/clustered-lighting.ts';
-import { getLocalLightStats } from '../../rendering/lights.ts';
 import { getEmitters, getTotalParticleCapacity } from '../../particles/emitter-api.ts';
+import { getClusteredLightingStats } from '../../rendering/clustered-lighting.ts';
+import { getIrradianceStats, isIrradianceEnabled } from '../../rendering/irradiance-probes.ts';
+import { getLocalLightStats } from '../../rendering/lights.ts';
 import { profiler } from '../../utils/profiler.ts';
-import { areSunCascadesActive, getCascadeMapSizes } from '../shadow-cascades.ts';
 import { getRigidBodyCount, getAwakeRigidBodyCount } from '../physics/rigid-bodies.ts';
+import { areSunCascadesActive, getCascadeMapSizes } from '../shadow-cascades.ts';
 import { registerSystemTelemetry } from './systems-budget.ts';
 
 const BYTES_PER_MB = 1024 * 1024;
