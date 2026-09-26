@@ -2,18 +2,18 @@
 
 import * as THREE from 'three';
 import {
-    color, float, mix, sin, cos, positionLocal, positionWorld, vec3, normalWorld,
-    mx_noise_float, distance, smoothstep, max, min
+    color, float, sin, positionLocal, positionWorld, vec3, normalWorld,
+    mx_noise_float, distance, smoothstep
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { grantInvisibility } from '../systems/physics/index.ts';
 import {
-    sharedGeometries,
     registerReactiveMaterial,
-    attachReactivity,
     uTime,
-    uPlayerPosition
+    uPlayerPosition,
+    applyStandardDeformation,
+    createJuicyRimLight
 } from './index.ts';
 
 export interface SilenceSpiritOptions {
@@ -67,8 +67,13 @@ export function createSilenceSpirit(options: SilenceSpiritOptions = {}): THREE.G
     // Music Impact: crystalline nebula shimmer/noteColor tints the ethereal spirits
     const nebulaUniforms = getBiomeUniforms('crystalline_nebula');
     const musicTint = nebulaUniforms.noteColor.mul(nebulaUniforms.shimmer).mul(0.35);
-    mat.emissiveNode = glowColor.mul(alpha).mul(2.0).add(musicTint); // Bright glow
+    const baseGlow = glowColor.mul(alpha).mul(2.0).add(musicTint); // Bright glow
+    const rimLight = createJuicyRimLight(glowColor, float(1.0), float(3.0), normalWorld);
+    mat.emissiveNode = baseGlow.add(rimLight.mul(alpha));
     mat.colorNode = color(0xEEFFFF);
+    mat.positionNode = applyStandardDeformation(positionLocal, { amplitude: float(0.2) });
+
+    registerReactiveMaterial(mat);
 
     // 1. Ghost Body
     const bodyGeo = new THREE.CapsuleGeometry(0.3 * scale, 1.0 * scale, 4, 8);
