@@ -185,7 +185,7 @@ export class ClusteredLightingSystem {
             if (snap.intensity <= 0) return;
 
             if (snap.parent) {
-                snap.parent.updateMatrixWorld();
+                // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and updateMatrixWorld() overhead in high-frequency lighting loop by relying on pre-composed matrixWorld
                 if (snap.gpu) {
                     _worldPos.setFromMatrixPosition(snap.parent.matrixWorld);
                 } else {
