@@ -2,16 +2,14 @@
 
 import * as THREE from 'three';
 import {
-    color, float, mix, sin, cos, positionLocal, positionWorld, vec3, normalWorld,
-    mx_noise_float, distance, smoothstep, max, min
+    color, float, sin, positionLocal, positionWorld, vec3, normalWorld,
+    mx_noise_float, distance, smoothstep
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { grantInvisibility } from '../systems/physics/index.ts';
 import {
-    sharedGeometries,
     registerReactiveMaterial,
-    attachReactivity,
     uTime,
     uPlayerPosition,
     applyStandardDeformation,
