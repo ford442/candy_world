@@ -111,7 +111,7 @@ npm run test         # smoke / boot sequence (~2–3m)
       `window.__worldHealth` after boot.
 - [ ] Test both renderers when touching visuals: default WebGPU and `?renderer=webgl`.
 
-**Useful URL flags:** `?explore=1` (orbit showcase) · `?renderer=webgl` ·
+**Useful URL flags:** `?boot=lobby` (one-room lobby) · `?explore=1` (orbit showcase) · `?renderer=webgl` ·
 `?postfx=off|low|high` · `?dof` · `?no_luminous` / `?no_mycelium` (isolate subsystems).
 
 ---
