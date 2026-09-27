@@ -8,7 +8,32 @@
     <title>Candy World</title>
     <!-- Preload critical assets -->
     <link rel="preload" href="./assets/splash.webp" as="image" type="image/webp" />
-    <link rel="preload" href="./assets/map.json" as="fetch" crossorigin="anonymous" />
+    <script>
+        // Preload map.json only for paths that stream it (Play / Explore).
+        // Mirrors resolveBootPathFromUrl + candy.bootPath in src/core/startup-profile.ts.
+        (function () {
+            var path = null;
+            try {
+                var q = new URLSearchParams(location.search);
+                var boot = q.get('boot');
+                var map = q.get('map') || q.get('mapSize');
+                if (boot === 'lobby' || boot === 'core') path = boot;
+                else if (boot) path = 'play';
+                else if (map === 'tiny' || map === 'lobby') path = 'lobby';
+                else if (map === 'small') path = 'core';
+                else if (map) path = 'play';
+                if (q.has('waitForFull')) path = 'explore';
+                if (!path) path = localStorage.getItem('candy.bootPath');
+            } catch (e) { /* storage blocked — preload as before */ }
+            if (path === 'lobby' || path === 'core') return;
+            var link = document.createElement('link');
+            link.rel = 'preload';
+            link.href = './assets/map.json';
+            link.as = 'fetch';
+            link.crossOrigin = 'anonymous';
+            document.head.appendChild(link);
+        })();
+    </script>
     <script src="/js/libopenmpt-init.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
