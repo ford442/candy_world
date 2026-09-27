@@ -16,7 +16,10 @@ import {
     snapshotEntity,
     type EntitySnapshot,
 } from '../systems/entity-snapshot-core.ts';
-import { loadDevSnapshots, saveSnapshot } from '../systems/entity-snapshot-store.ts';
+import { loadDevSnapshots, saveSnapshot, deleteSnapshot } from '../systems/entity-snapshot-store.ts';
+import { WorldCommand } from '../systems/edit-history.ts';
+import { removeLiveEntity, findLiveByMapEntityId } from '../systems/entity-snapshot.ts';
+import { populatePhysicsGrids } from '../systems/physics/index.ts';
 import { restoreEntity } from '../systems/entity-snapshot.ts';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
 import { applyEntitySnapshots } from '../systems/save-system/entity-snapshot.ts';
@@ -48,6 +51,7 @@ let _currentType = 'mushroom';
 let _currentScale = 1.0;
 let _currentRotation = 0.0;
 let _lastSpawnedObject: THREE.Object3D | null = null;
+const _worldCommand = new WorldCommand();
 
 const ENTITY_TYPES = [
     'mushroom',
@@ -174,7 +178,8 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
         <div>Rot: <span id="debug-place-rot">0</span>° (R to rotate)</div>
         <div style="opacity:0.7;font-size:10px;margin-top:4px">
             [E]/[Q] Next/Prev Type<br>
-            [Click] Place (logs to console)
+            [Click] Place (logs to console)<br>
+            [Ctrl+Z]/[Ctrl+Y] Undo/Redo
         </div>
     `;
 
@@ -249,6 +254,32 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
     window.addEventListener('keydown', (e) => {
         if (!isPlacementDebugEnabled()) return;
 
+        // Ensure we're not interfering with inputs inside the panel
+        if (_panel && _panel.contains(e.target as Node)) return;
+
+        // Handle Undo / Redo
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        const cmdKey = isMac ? e.metaKey : e.ctrlKey;
+
+        if (cmdKey && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                _worldCommand.redo();
+                showToast('Redo', '⏭️', 2000);
+            } else {
+                _worldCommand.undo();
+                showToast('Undo', '⏪', 2000);
+            }
+            return;
+        }
+
+        if (cmdKey && e.key.toLowerCase() === 'y') {
+            e.preventDefault();
+            _worldCommand.redo();
+            showToast('Redo', '⏭️', 2000);
+            return;
+        }
+
         if (e.key === 'r' || e.key === 'R') {
             _currentRotation += Math.PI / 8;
             if (_currentRotation >= Math.PI * 2) _currentRotation -= Math.PI * 2;
@@ -270,9 +301,7 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
         // Left click only
         if (e.button !== 0) return;
 
-        // Place through the snapshot restore path (processMapEntity), not a bare
-        // scene.add: batched species get a live instance slot, the object joins
-        // animatedFoliage (so saves serialize it) and ChunkStreamer can evict it.
+
         const id = nextSnapshotId(_currentType);
         const q = _reticle.quaternion;
         const px = round2(_reticle.position.x);
@@ -290,18 +319,44 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
                 params: {},
             },
         };
-        const created = restoreEntity(snapshot, null, { rebuildPhysicsGrid: true });
-        const obj = created[0];
+
+        const cmd = {
+            id: snapshot.id,
+            action: 'add' as const,
+            snapshot,
+            apply: () => {
+                const created = restoreEntity(snapshot, null, { rebuildPhysicsGrid: true });
+                const obj = created[0];
+                if (obj) {
+                    void saveSnapshot(snapshot);
+                    return obj;
+                }
+                return null;
+            },
+            revert: () => {
+                const live = findLiveByMapEntityId(snapshot.id);
+                if (!live) return false;
+                const ok = removeLiveEntity(live);
+                if (ok) {
+                    void deleteSnapshot(snapshot.id);
+                    // Trigger physics update
+                    populatePhysicsGrids();
+                }
+                return ok;
+            }
+        };
+
+        _worldCommand.execute(cmd);
+        const obj = cmd.apply();
+
         if (obj) {
             _lastSpawnedObject = obj;
-            // Dev sidecar write so the placement survives a reload (?debugPlace only).
-            void saveSnapshot(snapshot);
-
             console.log(`[DebugPlace] Spawned ${_currentType}`);
             console.log(JSON.stringify({ ...snapshot.entity, id }, null, 2) + ',');
         } else {
             console.warn(`[DebugPlace] Could not create type ${_currentType}`);
         }
+
     });
 
     void restoreDevPlacements();
