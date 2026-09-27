@@ -7,12 +7,13 @@ import { createCloud } from './clouds.ts';
  * These clouds are non-interactive and purely visual, handled by the batcher.
  *
  * @param scene The THREE.Scene to add the cloud logic objects to (optional, for hierarchy)
+ * @param count Candidate cloud positions (noise-thresholded, so fewer spawn)
  * @returns Array of generated cloud objects
  */
-export function generateCloudLayer(scene: THREE.Scene): THREE.Object3D[] {
+export function generateCloudLayer(scene: THREE.Scene, count: number = 150): THREE.Object3D[] {
     const generatedClouds: THREE.Object3D[] = [];
     // Increase count for a dense layer
-    const CLOUD_COUNT = 150;
+    const CLOUD_COUNT = count;
     const RADIUS = 800;
     const MIN_HEIGHT = 100;
     const HEIGHT_RANGE = 60;
