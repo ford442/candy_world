@@ -457,7 +457,11 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
     // 3. We attempt to load 'candy_native.wasm' (threaded).
     // 4. If that fails (file missing, instantiation error, worker error), we recursively call loadEmscriptenModule(true).
 
-    const canUseThreads = typeof SharedArrayBuffer !== 'undefined' && !forceSingleThreaded;
+    // typeof SharedArrayBuffer !== 'undefined' alone doesn't guarantee a shared
+    // WebAssembly.Memory can actually be constructed (e.g. COOP/COEP present
+    // but the runtime still rejects atomics); isSharedMemoryAvailable() does a
+    // real try/catch construction test instead of a weaker duplicate check.
+    const canUseThreads = isSharedMemoryAvailable() && !forceSingleThreaded;
 
     try {
         await updateWasmProgress(10, 'Loading Native Engine...');

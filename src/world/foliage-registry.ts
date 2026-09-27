@@ -31,6 +31,7 @@ import {
     createVineLadder,
 } from '../foliage/index.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
+import { createNightMarketStall } from '../foliage/night-market-stall.ts';
 import { createSkyIsland } from '../foliage/sky-islands.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
@@ -173,4 +174,12 @@ export function registerBuiltinWorldObjectTypes(): void {
     }), { defaultIsObstacle: true, defaultRadius: 8, supportsMusic: true, batcherHint: 'sky_islands' });
     registerType('melody_mirror', (params) => createMelodyMirror({ scale: typeof params?.scale === 'number' ? params.scale : 1.0 }), { supportsMusic: true });
     registerType('cave', (params) => createCaveEntrance({ scale: typeof params?.scale === 'number' ? params.scale : 2.0 }));
+    registerType('night_market_stall', (params) => {
+        const variant = Number(params?.variant);
+        return createNightMarketStall({
+            color: typeof params?.color === 'number' ? params.color : undefined,
+            variant: Number.isFinite(variant) ? variant : undefined,
+            name: typeof params?.name === 'string' ? params.name : undefined,
+        });
+    }, { defaultIsObstacle: true, defaultRadius: 1.6, supportsMusic: true, batcherHint: 'night_market' });
 }

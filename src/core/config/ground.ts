@@ -46,6 +46,8 @@ export const GROUND_DEFAULTS: ConfigType['ground'] = {
         glass_mushroom: 0.25,
         rock: 0.3,
         grass: 0.15,
+        // 3 m counter: sample the footprint so no corner floats on the lane's slope.
+        night_market_stall: 1.4,
     },
     footprintPlacementY: {
         panning_pad: 'avg',

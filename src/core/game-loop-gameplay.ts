@@ -4,7 +4,9 @@ import { updateFallingBerries, collectFallingBerries } from '../foliage/berries.
 import { CloudBatcher } from '../foliage/cloud-batcher.ts';
 import { updateFallingClouds } from '../foliage/clouds.ts';
 import { ensureGameplay, getGameplay, getJitterMineCooldown } from '../gameplay/lazy.ts';
+import { circadianController } from '../systems/circadian-controller.ts';
 import { getGroundHeight } from '../systems/ground-system.ts';
+import { onNightMarketChordStrike, updateNightMarketStamps } from '../systems/night-market-stamps.ts';
 import { player } from '../systems/physics/index.ts';
 import { profiler } from '../utils/profiler.ts';
 import { foliageClouds } from '../world/state.ts';
@@ -69,7 +71,15 @@ export function updateGameplayPhase(delta: number, t: number, exploreActive: boo
             const isStrikeTriggered = isStrikePressed && !getLastStrikeState();
 
             if (isStrikeTriggered) {
+                const wasActive = gameplay.chordStrikeSystem.active;
                 gameplay.chordStrikeSystem.fire(player.position);
+                if (!wasActive && gameplay.chordStrikeSystem.active) {
+                    onNightMarketChordStrike(
+                        gameplay.chordStrikeSystem.position,
+                        gameplay.chordStrikeSystem.maxRadius,
+                        circadianController.getPhase()
+                    );
+                }
             }
             setLastStrikeState(isStrikePressed);
 
@@ -81,6 +91,7 @@ export function updateGameplayPhase(delta: number, t: number, exploreActive: boo
         }
 
         harmonyOrbSystem.update(delta, audioState, player.position);
+        updateNightMarketStamps(delta, player.position, circadianController.getPhase());
 
         safeSystemUpdate(
             () => updateFallingClouds(delta, foliageClouds, getGroundHeight),

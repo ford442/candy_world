@@ -6,7 +6,8 @@
       "meadow",
       "crystallineNebula",
       "lake",
-      "sky_islands"
+      "sky_islands",
+      "night_market"
     ],
     "bounds": {
       "min": [
@@ -23225,6 +23226,138 @@
         "provenance": "dev-placer",
         "sourceId": "dev:cloud:l1a2b3c4:3"
       }
+    },
+    {
+      "id": "setpiece:night_market:stall:0",
+      "type": "night_market_stall",
+      "category": "setpiece",
+      "layer": "setpiece-night-market",
+      "biome": "night_market",
+      "position": [
+        -4,
+        0,
+        -47.5
+      ],
+      "rotation": 3.141593,
+      "scale": 1,
+      "variant": "0",
+      "music": {
+        "biomeTag": "night_market"
+      },
+      "params": {
+        "name": "Taffy Twist"
+      },
+      "critical": true
+    },
+    {
+      "id": "setpiece:night_market:stall:1",
+      "type": "night_market_stall",
+      "category": "setpiece",
+      "layer": "setpiece-night-market",
+      "biome": "night_market",
+      "position": [
+        3.5,
+        0,
+        -47.5
+      ],
+      "rotation": 3.141593,
+      "scale": 1,
+      "variant": "1",
+      "music": {
+        "biomeTag": "night_market"
+      },
+      "params": {
+        "name": "Gumdrop Games"
+      },
+      "critical": true
+    },
+    {
+      "id": "setpiece:night_market:stall:2",
+      "type": "night_market_stall",
+      "category": "setpiece",
+      "layer": "setpiece-night-market",
+      "biome": "night_market",
+      "position": [
+        11,
+        0,
+        -47.5
+      ],
+      "rotation": 3.141593,
+      "scale": 1,
+      "variant": "2",
+      "music": {
+        "biomeTag": "night_market"
+      },
+      "params": {
+        "name": "Marshmallow Masks"
+      },
+      "critical": true
+    },
+    {
+      "id": "setpiece:night_market:stall:3",
+      "type": "night_market_stall",
+      "category": "setpiece",
+      "layer": "setpiece-night-market",
+      "biome": "night_market",
+      "position": [
+        -4,
+        0,
+        -56.5
+      ],
+      "rotation": 0.0,
+      "scale": 1,
+      "variant": "3",
+      "music": {
+        "biomeTag": "night_market"
+      },
+      "params": {
+        "name": "Lollipop Lanterns"
+      },
+      "critical": true
+    },
+    {
+      "id": "setpiece:night_market:stall:4",
+      "type": "night_market_stall",
+      "category": "setpiece",
+      "layer": "setpiece-night-market",
+      "biome": "night_market",
+      "position": [
+        3.5,
+        0,
+        -56.5
+      ],
+      "rotation": 0.0,
+      "scale": 1,
+      "variant": "4",
+      "music": {
+        "biomeTag": "night_market"
+      },
+      "params": {
+        "name": "Cotton Cloud Candy"
+      },
+      "critical": true
+    },
+    {
+      "id": "setpiece:night_market:stall:5",
+      "type": "night_market_stall",
+      "category": "setpiece",
+      "layer": "setpiece-night-market",
+      "biome": "night_market",
+      "position": [
+        11,
+        0,
+        -56.5
+      ],
+      "rotation": 0.0,
+      "scale": 1,
+      "variant": "0",
+      "music": {
+        "biomeTag": "night_market"
+      },
+      "params": {
+        "name": "Sherbet Shaved Ice"
+      },
+      "critical": true
     }
   ],
   "paths": [
@@ -36775,6 +36908,30 @@
       "music": {
         "biomeTag": "sugar_caves",
         "intensityScale": 0.85
+      }
+    },
+    {
+      "id": "night_market",
+      "name": "Festival Night Market",
+      "bounds": {
+        "min": [
+          -10,
+          -62
+        ],
+        "max": [
+          17,
+          -42
+        ]
+      },
+      "biome": "night_market",
+      "tags": [
+        "night_only",
+        "setpiece",
+        "festival"
+      ],
+      "music": {
+        "biomeTag": "night_market",
+        "intensityScale": 1.0
       }
     }
   ]
