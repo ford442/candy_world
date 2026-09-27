@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'fs';
 
 let content = readFileSync('src/systems/music-reactivity.ts', 'utf8');
 
-const regex = /\n,\n    noteVal: number,[\s\S]*?return true;\n    }\n/m;
+const regex = /\n,\n {4}noteVal: number,[\s\S]*?return true;\n {4}}\n/m;
 content = content.replace(regex, '');
 
 content = content.replace(/import { updateFoliageAnimationLoop } from '\.\/music-reactivity-foliage\.ts';\nimport { updateBiomeChannelBindings } from '\.\/music-reactivity-bindings\.ts';\n/, "import { updateFoliageAnimationLoop } from './music-reactivity-foliage.ts';\nimport { updateBiomeChannelBindings } from './music-reactivity-bindings.ts';\nimport { NOTE_AUDIBLE_THRESHOLD, NOTE_COLOR_RELEASE_LERP, SILENT_DECAY, SILENT_DECAY_UNIFORMS, accumChannelVolume, firstAudibleNote, normalizeAccum, releaseNoteColor, applyNoteColor } from './music-reactivity-bindings.ts';\n");
