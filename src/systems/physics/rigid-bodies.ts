@@ -17,9 +17,9 @@
  */
 
 import type * as THREE from 'three';
+import { profiler } from '../../utils/profiler.ts';
 import { getWasmInstance, getWasmMemory } from '../../utils/wasm-loader-core.ts';
 import type { WasmExports } from '../../utils/wasm-loader-types.ts';
-import { profiler } from '../../utils/profiler.ts';
 import { withinCap } from '../performance-budget/systems-budget.ts';
 import { getUnifiedGroundHeightTyped } from '../physics.core.ts';
 import { stepRigidBodiesJS, type FallbackPlayerProxy } from './rigid-body-fallback.ts';
