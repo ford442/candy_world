@@ -173,18 +173,16 @@ export class AnalyticsDebugOverlay {
     yieldToPaint(50).then(() => {
       if (this.isVisible && this.elements?.container) {
         this.releaseFocusTrap = trapFocusInside(this.elements.container, { skipAutoFocus: true });
-        // Focus the active tab or first tab to prevent double-speak
-        const activeTab = this.elements.container.querySelector('.analytics-debug-tab[aria-selected="true"]') as HTMLElement;
-        if (activeTab) {
-            activeTab.focus({ preventScroll: true });
+        // Analytics panel does not have tabs; focus the container title to prevent double-speak,
+        // or default to the close button
+        const title = this.elements.container.querySelector('.analytics-debug-title') as HTMLElement;
+        if (title) {
+            title.tabIndex = -1;
+            title.focus({ preventScroll: true });
         } else {
-            const firstTab = this.elements.container.querySelector('.analytics-debug-tab') as HTMLElement;
-            if (firstTab) firstTab.focus({ preventScroll: true });
-            else {
-                const closeBtn = this.elements.container.querySelector('.analytics-debug-close') as HTMLElement;
-                if (closeBtn) {
-                  closeBtn.focus({ preventScroll: true });
-                }
+            const closeBtn = this.elements.container.querySelector('.analytics-debug-close') as HTMLElement;
+            if (closeBtn) {
+                closeBtn.focus({ preventScroll: true });
             }
         }
       }
