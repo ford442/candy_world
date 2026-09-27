@@ -1,9 +1,7 @@
-import { MRState, _scratchSphere } from './music-reactivity-core.ts';
-import { _emptyAudioState } from './music-reactivity.ts';
-import { CYCLE_DURATION } from '../core/config.ts';
-import { getDayNightBias } from '../core/cycle.ts';
 import * as THREE from 'three';
 import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
+import { CYCLE_DURATION } from '../core/config.ts';
+import { getDayNightBias } from '../core/cycle.ts';
 import { animateFoliage } from '../foliage/animation.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { foliageBatcher } from '../foliage/batcher/index.ts';
@@ -14,7 +12,9 @@ import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
 import { uploadPositionsFlat, batchDistanceCull, WASM_POSITION_OBJECT_CAPACITY } from '../utils/wasm-batch.ts';
+import { MRState, _scratchSphere } from './music-reactivity-core.ts';
 import { _frustum, _projScreenMatrix } from './music-reactivity-core.ts';
+import { _emptyAudioState } from './music-reactivity.ts';
 
 let _batchPositionsBuffer = new Float32Array(0);
 let _batchPositionsCapacity = 0;
