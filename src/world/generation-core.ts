@@ -50,7 +50,7 @@ import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { animatedFoliage, worldGroup } from './state.ts';
 import { createPathTerrain } from './terrain-mesh.ts';
-import { PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
+import { LOBBY_FLOOR_TOP_Y, LOBBY_SPAWN_X, LOBBY_SPAWN_Z, PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
 import { setMapMetadataSeed } from './world-seed.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
@@ -759,12 +759,149 @@ export async function generateCoreWorld(
     );
 }
 
+
+/** Half-width of the playable lobby floor (metres). Walls sit just outside. */
+const LOBBY_ROOM_HALF = 10;
+const LOBBY_WALL_HEIGHT = 6.5;
+const LOBBY_WALL_THICKNESS = 0.7;
+
+function hideOutdoorSetpiecesForLobby(scene: THREE.Scene): void {
+    scene.traverse((obj) => {
+        const t = (obj as THREE.Object3D).userData?.type;
+        if (t === 'water' || t === 'lake_island' || t === 'waterfall') {
+            obj.visible = false;
+        }
+    });
+}
+
+function buildLobbyWalls(scene: THREE.Scene): void {
+    const floor = new THREE.Mesh(
+        new THREE.BoxGeometry(LOBBY_ROOM_HALF * 2 + 1.2, 0.45, LOBBY_ROOM_HALF * 2 + 1.2),
+        new THREE.MeshPhysicalMaterial({
+            color: 0xf8bbd0,
+            roughness: 0.28,
+            metalness: 0,
+            clearcoat: 0.85,
+            clearcoatRoughness: 0.2,
+        })
+    );
+    floor.position.set(0, LOBBY_FLOOR_TOP_Y - 0.22, 0);
+    floor.userData.type = 'lobby_floor';
+    floor.userData.isWalkable = true;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const wallMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffb6c8,
+        roughness: 0.22,
+        metalness: 0,
+        clearcoat: 1,
+        clearcoatRoughness: 0.18,
+        transmission: 0.08,
+        thickness: 0.4,
+    });
+    const half = LOBBY_ROOM_HALF;
+    const h = LOBBY_WALL_HEIGHT;
+    const thick = LOBBY_WALL_THICKNESS;
+    const doorWidth = 3.2;
+    const specs: Array<{ w: number; d: number; x: number; z: number }> = [
+        { w: half * 2 + thick, d: thick, x: 0, z: -half },
+        { w: (half * 2 - doorWidth) / 2, d: thick, x: -(half + doorWidth / 2) / 2, z: half },
+        { w: (half * 2 - doorWidth) / 2, d: thick, x: (half + doorWidth / 2) / 2, z: half },
+        { w: thick, d: half * 2 + thick, x: -half, z: 0 },
+        { w: thick, d: half * 2 + thick, x: half, z: 0 },
+    ];
+    for (const spec of specs) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(spec.w, h, spec.d), wallMat);
+        mesh.position.set(spec.x, h * 0.5, spec.z);
+        mesh.userData.type = 'lobby_wall';
+        mesh.userData.isObstacle = true;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+    }
+
+    const ceiling = new THREE.Mesh(
+        new THREE.BoxGeometry(half * 2 + thick, 0.35, half * 2 + thick),
+        new THREE.MeshPhysicalMaterial({
+            color: 0xffe4f0,
+            roughness: 0.35,
+            metalness: 0,
+            clearcoat: 0.6,
+            transparent: true,
+            opacity: 0.55,
+        })
+    );
+    ceiling.position.set(0, h + 0.1, 0);
+    ceiling.userData.type = 'lobby_ceiling';
+    scene.add(ceiling);
+}
+
+export async function generateLobbyWorld(
+    scene: THREE.Scene,
+    weatherSystem: WeatherSystem,
+    onProgress?: WorldProgressCallback
+): Promise<void> {
+    console.log('[World] Lobby mode: building one-room candy lobby');
+    initCollisionSystem();
+    hideOutdoorSetpiecesForLobby(scene);
+    buildLobbyWalls(scene);
+
+    const spawnX = LOBBY_SPAWN_X;
+    const spawnZ = LOBBY_SPAWN_Z;
+
+    if (onProgress) onProgress(0, 3, '[World] Framing lobby room');
+
+    const placements: Array<{
+        type: string;
+        x: number;
+        z: number;
+        params?: Record<string, unknown>;
+    }> = [
+        { type: 'mushroom', x: spawnX + 3.2, z: spawnZ - 2.4 },
+        { type: 'mushroom', x: spawnX - 3.6, z: spawnZ + 1.8 },
+        { type: 'instrument_shrine', x: spawnX, z: spawnZ - 5.5, params: { scale: 1.1 } },
+        { type: 'retrigger_mushroom', x: spawnX + 5.2, z: spawnZ + 3.4 },
+        { type: 'flower', x: spawnX - 2.2, z: spawnZ + 4.6, params: { variant: 'glowing' } },
+        { type: 'flower', x: spawnX + 2.4, z: spawnZ + 5.0 },
+        { type: 'flower', x: spawnX - 5.4, z: spawnZ - 3.2, params: { variant: 'glowing' } },
+        { type: 'arpeggio_fern', x: spawnX + 4.8, z: spawnZ - 4.4 },
+        { type: 'luminous_plant', x: spawnX - 4.6, z: spawnZ - 5.0 },
+        { type: 'luminous_plant', x: spawnX + 1.6, z: spawnZ + 6.2 },
+    ];
+
+    let placed = 0;
+    for (const item of placements) {
+        const obj = create(item.type, item.params);
+        if (!obj) continue;
+        plantOnSurface(obj, item.x, item.z, { groundY: LOBBY_FLOOR_TOP_Y });
+        obj.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(obj, item.type === 'mushroom' || item.type === 'instrument_shrine', 0.6, weatherSystem);
+        placed += 1;
+    }
+    if (onProgress) onProgress(1, 3, `[World] Lobby props (${placed})`, 'lobby');
+
+    for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2 + 0.4;
+        const cloud = create('cloud', { size: sampleEntityScale('cloud') });
+        if (!cloud) continue;
+        cloud.position.set(Math.cos(angle) * 6, 8.5 + (i % 2) * 0.8, Math.sin(angle) * 6);
+        cloud.userData.tier = 1;
+        safeAddFoliage(cloud, false, 0.8, weatherSystem);
+    }
+    if (onProgress) onProgress(2, 3, '[World] Lobby lantern-clouds', 'cloud');
+
+    await yieldControl();
+    if (onProgress) onProgress(3, 3, '[World] Lobby room ready');
+    console.log(`[World] Lobby ready (${placed} props + walls).`);
+}
+
 export async function populateWorld(
     scene: THREE.Scene,
     weatherSystem: WeatherSystem,
     mode: WorldMode = 'CORE',
     onProgress?: WorldProgressCallback,
-    options?: { fastPopulation?: boolean; bootPath?: BootPath }
+    options?: { fastPopulation?: boolean; bootPath?: BootPath; lobby?: boolean }
 ): Promise<WorldMode> {
     worldGenerationToken = Date.now();
     const currentToken = worldGenerationToken;
@@ -777,6 +914,13 @@ export async function populateWorld(
             '%c[World] FAST FULL Mode — using heavily reduced object population for quick loads',
             'color:#81c784'
         );
+    }
+
+    if (mode === 'LOBBY' || options?.lobby) {
+        console.log('%c[World] LOBBY Mode — one-room candy lobby', 'color:#ffd54f');
+        await generateLobbyWorld(scene, weatherSystem, onProgress);
+        console.log('[World] populateWorld() complete in LOBBY mode');
+        return 'LOBBY';
     }
 
     if (mode === 'CORE') {

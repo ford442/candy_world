@@ -90,6 +90,7 @@ function applyUrlPath(path: StartupPath, url: ResolveStartupCapabilitiesInput['u
     if (boot === 'instant' || boot === 'play') return 'play';
     if (boot === 'explore') return 'explore';
     if (boot === 'core') return 'core';
+    if (boot === 'lobby') return 'lobby';
     return path;
 }
 

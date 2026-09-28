@@ -164,6 +164,13 @@ canvas {
     background: #a5d6a7;
     color: #1b3a1b;
 }
+#toggleLobby {
+    margin: 8px auto 4px;
+}
+#toggleLobby[aria-checked='true'] {
+    background: #ffe082;
+    color: #5d4037;
+}
 
 #readiness-progress {
     margin: 14px auto 0;

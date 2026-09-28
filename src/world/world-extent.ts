@@ -20,10 +20,18 @@ export const PLAY_WORLD_SIZE = 180;
 export const EXPLORE_WORLD_SIZE = 400;
 /** CORE sandbox — already a small candy set. */
 export const CORE_WORLD_SIZE = 120;
+/** Lobby — one enclosed room, no horizon streaming. */
+export const LOBBY_WORLD_SIZE = 24;
+/** Lobby room is origin-centered so the tiny extent can clamp the player. */
+export const LOBBY_SPAWN_X = 0;
+export const LOBBY_SPAWN_Z = 0;
+/** Top of the lobby floor slab — above Melody Lake's carved basin. */
+export const LOBBY_FLOOR_TOP_Y = 2.4;
 
 export const PLAY_WORLD_HALF = PLAY_WORLD_SIZE / 2;
 export const EXPLORE_WORLD_HALF = EXPLORE_WORLD_SIZE / 2;
 export const CORE_WORLD_HALF = CORE_WORLD_SIZE / 2;
+export const LOBBY_WORLD_HALF = LOBBY_WORLD_SIZE / 2;
 
 /** Spawn tile + 1-ring must be ready before pointer-lock. */
 export const PLAY_SPAWN_RADIUS_CHUNKS = 1;
@@ -74,9 +82,19 @@ const CORE_EXTENT: WorldExtentConfig = {
     fogFarCap: CORE_WORLD_HALF + 20,
 };
 
+const LOBBY_EXTENT: WorldExtentConfig = {
+    size: LOBBY_WORLD_SIZE,
+    halfExtent: LOBBY_WORLD_HALF,
+    heightmapResolution: 32,
+    grassCapacity: 120,
+    luminousPlantCount: 8,
+    fogFarCap: LOBBY_WORLD_HALF + 8,
+};
+
 export function worldExtentForPath(path: StartupPath | string | undefined): WorldExtentConfig {
     if (path === 'explore') return EXPLORE_EXTENT;
     if (path === 'core') return CORE_EXTENT;
+    if (path === 'lobby') return LOBBY_EXTENT;
     return PLAY_EXTENT;
 }
 
