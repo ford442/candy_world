@@ -249,7 +249,7 @@ export type WorldProgressCallback = (
     entityType?: string
 ) => void;
 
-export type WorldMode = 'CORE' | 'FULL';
+export type WorldMode = 'CORE' | 'FULL' | 'LOBBY';
 
 export interface FoliageGrowthOptions {
     maxOffspring: number;

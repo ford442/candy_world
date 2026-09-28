@@ -100,6 +100,23 @@ export class AnalyticsDebugOverlay {
 
     if (this.elements?.container) {
       this.elements.container.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          const closeBtn = this.elements?.container.querySelector('.analytics-debug-close') as HTMLElement;
+          if (closeBtn) {
+            closeBtn.classList.add('keyboard-active');
+            const handleEscapeKeyUp = (ev: KeyboardEvent) => {
+              if (ev.key === 'Escape') {
+                closeBtn.classList.remove('keyboard-active');
+                document.removeEventListener('keyup', handleEscapeKeyUp);
+              }
+            };
+            document.addEventListener('keyup', handleEscapeKeyUp);
+          }
+          this.hide();
+          e.preventDefault();
+          return;
+        }
+
         if (e.key === 'Enter' || e.key === ' ') {
           const target = e.target as HTMLElement;
           if (
@@ -156,9 +173,17 @@ export class AnalyticsDebugOverlay {
     yieldToPaint(50).then(() => {
       if (this.isVisible && this.elements?.container) {
         this.releaseFocusTrap = trapFocusInside(this.elements.container, { skipAutoFocus: true });
-        const closeBtn = this.elements.container.querySelector('.analytics-debug-close') as HTMLElement;
-        if (closeBtn) {
-          closeBtn.focus({ preventScroll: true });
+        // Analytics panel does not have tabs; focus the container title to prevent double-speak,
+        // or default to the close button
+        const title = this.elements.container.querySelector('.analytics-debug-title') as HTMLElement;
+        if (title) {
+            title.tabIndex = -1;
+            title.focus({ preventScroll: true });
+        } else {
+            const closeBtn = this.elements.container.querySelector('.analytics-debug-close') as HTMLElement;
+            if (closeBtn) {
+                closeBtn.focus({ preventScroll: true });
+            }
         }
       }
     });
