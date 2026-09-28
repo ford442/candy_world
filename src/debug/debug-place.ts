@@ -10,75 +10,23 @@
  */
 
 import * as THREE from 'three';
-import { editHistory, type WorldCommand } from '../systems/edit-history.ts';
-import { animatedFoliage } from '../world/state.ts';
-import { deleteSnapshot } from '../systems/entity-snapshot-store.ts';
-
-// Known batchers with removeInstance
-import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
-import { treeBatcher } from '../foliage/tree-batcher/index.ts';
-import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
-import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
-import { flowerBatcher } from '../foliage/flower-batcher.ts';
-import { lanternBatcher } from '../foliage/lantern-batcher.ts';
-
+import { editHistory } from '../systems/edit-history.ts';
 import {
     CURRENT_SNAPSHOT_VERSION,
     nextSnapshotId,
     snapshotEntity,
     type EntitySnapshot,
 } from '../systems/entity-snapshot-core.ts';
-import { loadDevSnapshots, saveSnapshot } from '../systems/entity-snapshot-store.ts';
-import { restoreEntity } from '../systems/entity-snapshot.ts';
+import {
+    deleteSnapshot,
+    loadDevSnapshots,
+    saveSnapshot,
+} from '../systems/entity-snapshot-store.ts';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
 import { applyEntitySnapshots } from '../systems/save-system/entity-snapshot.ts';
+import { PlaceCommand, type PlaceCommandHooks } from '../systems/world-commands.ts';
 import { announce } from '../ui/announcer.ts';
 import { showToast } from '../utils/toast.ts';
-import { create } from '../world/foliage-registry.ts';
-import { plantOnSurface } from '../world/placement-utils.ts';
-
-
-class PlaceCommand implements WorldCommand {
-    constructor(private snapshot: EntitySnapshot) {}
-
-    apply(): void {
-        const created = restoreEntity(this.snapshot, null, { rebuildPhysicsGrid: true });
-        if (created && created[0]) {
-            _lastSpawnedObject = created[0];
-            void saveSnapshot(this.snapshot);
-            console.log(`[PlaceCommand] Restored ${this.snapshot.entity.type}`);
-        }
-    }
-
-    revert(): void {
-        // Find the object
-        const id = this.snapshot.id;
-        const objIndex = animatedFoliage.findIndex((o) => (o as any).userData?.mapEntityId === id);
-        if (objIndex === -1) return;
-
-        const obj = animatedFoliage[objIndex] as THREE.Object3D;
-        const t = obj.userData?.type;
-
-        // Batcher removal (small local despawn)
-        if (t === 'mushroom') mushroomBatcher.removeInstance(obj);
-        else if (t === 'tree' || t === 'shrub' || t === 'willow' || t === 'balloonBush' || t === 'helixPlant' || t === 'accordion_palm' || t === 'floweringTree' || t === 'bubbleWillow' || t === 'prismRoseBush' || t === 'helix' || t === 'accordionPalm' || t === 'gem_canopy_tree') treeBatcher.removeInstance(obj);
-        else if (t === 'glass_mushroom') glassMushroomBatcher.removeInstance(obj);
-        else if (t === 'simple_flower' || (obj.userData?.isFlower && t !== 'flower')) simpleFlowerBatcher.removeInstance(obj);
-        else if (t === 'flower') flowerBatcher.removeInstance(obj);
-        else if (t === 'lanternFlower') lanternBatcher.removeInstance(obj);
-
-        animatedFoliage.splice(objIndex, 1);
-        if (obj.parent) obj.parent.remove(obj);
-
-        void deleteSnapshot(id);
-        console.log(`[PlaceCommand] Reverted ${this.snapshot.entity.type}`);
-    }
-
-    serialize() {
-        return { type: 'PlaceCommand', snapshot: this.snapshot };
-    }
-}
-
 
 const _hasFlag = (key: string): boolean => {
     try {
@@ -136,6 +84,26 @@ const ENTITY_TYPES = [
 
 export function isPlacementDebugEnabled(): boolean {
     return DEBUG_PLACE;
+}
+
+// Dev sidecar persistence (?debugPlace only) follows the edit history, so an
+// undone placement doesn't come back on reload.
+const _placeHooks: PlaceCommandHooks = {
+    onApplied(objects, snapshot) {
+        _lastSpawnedObject = objects[0] ?? null;
+        void saveSnapshot(snapshot);
+    },
+    onReverted(snapshot) {
+        if (_lastSpawnedObject?.userData?.mapEntityId === snapshot.id) _lastSpawnedObject = null;
+        void deleteSnapshot(snapshot.id);
+    },
+};
+
+/** Keys typed into the panel's form controls must not trigger edit shortcuts. */
+function isTextEntryTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 }
 
 function round2(v: number): number {
@@ -229,7 +197,8 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
         <div>Rot: <span id="debug-place-rot">0</span>° (R to rotate)</div>
         <div style="opacity:0.7;font-size:10px;margin-top:4px">
             [E]/[Q] Next/Prev Type<br>
-            [Click] Place (logs to console)
+            [Click] Place (logs to console)<br>
+            [Ctrl+Z]/[Ctrl+Y] Undo/Redo
         </div>
     `;
 
@@ -259,7 +228,11 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
                 console.log(JSON.stringify(snap, null, 2));
                 // Dev-only sidecar write; never touches assets/map.json.
                 void saveSnapshot(snap);
-                showToast('Snapshot captured to console', '<span aria-hidden="true">✅</span>', 2000);
+                showToast(
+                    'Snapshot captured to console',
+                    '<span aria-hidden="true">✅</span>',
+                    2000
+                );
                 announce('Snapshot captured', 'polite');
             } else {
                 showToast('Failed to capture snapshot', '❌', 2000);
@@ -301,19 +274,22 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
         updatePanel();
     });
 
-
     window.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
-            if (e.shiftKey) {
-                editHistory.redo();
-            } else {
-                editHistory.undo();
+        if ((e.ctrlKey || e.metaKey) && !isTextEntryTarget(e.target)) {
+            const key = e.key.toLowerCase();
+            const isUndo = key === 'z' && !e.shiftKey;
+            const isRedo = key === 'y' || (key === 'z' && e.shiftKey);
+            if (isUndo || isRedo) {
+                e.preventDefault();
+                const hadStep = (isUndo ? editHistory.undoCount : editHistory.redoCount) > 0;
+                const ok = isUndo ? editHistory.undo() : editHistory.redo();
+                const verb = isUndo ? 'Undo' : 'Redo';
+                if (ok) announce(`${verb} placement`, 'polite');
+                // A failed step was dropped from history (see EditHistory.undo).
+                else if (hadStep)
+                    showToast(`Couldn't ${verb.toLowerCase()} that placement`, '⚠️', 2000);
+                return;
             }
-            return;
-        }
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
-            editHistory.redo();
-            return;
         }
 
         if (!isPlacementDebugEnabled()) return;
@@ -360,16 +336,7 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
             },
         };
 
-        const created = restoreEntity(snapshot, null, { rebuildPhysicsGrid: true });
-        const obj = created[0];
-        if (obj) {
-            _lastSpawnedObject = obj;
-            // Dev sidecar write so the placement survives a reload (?debugPlace only).
-            void saveSnapshot(snapshot);
-
-            // Push to history
-            editHistory.push(new PlaceCommand(snapshot));
-
+        if (editHistory.execute(new PlaceCommand(snapshot, _placeHooks))) {
             console.log(`[DebugPlace] Spawned ${_currentType}`);
             console.log(JSON.stringify({ ...snapshot.entity, id }, null, 2) + ',');
         } else {
