@@ -121,6 +121,8 @@ export function resolveBootPathFromUrl(params?: URLSearchParams | null): Startup
     if (isUrlBootFlag(boot)) {
         return boot === 'instant' ? 'play' : boot;
     }
+    // Debug aliases for forcing the CORE sandbox without the mode dialog.
+    if (search?.get('core') === '1' || search?.get('mode') === 'core') return 'core';
     return mapSizeToStartupPath(search?.get('map') ?? search?.get('mapSize'));
 }
 

@@ -16,6 +16,7 @@ import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { createIntegratedFireflies } from '../particles/index.ts';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
+import { DEBUG_CONFIG } from '../debug/stages.ts';
 import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
 import { updateProgress } from '../ui/loading-screen.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
@@ -48,7 +49,7 @@ import {
 } from './map-music-context.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
-import { animatedFoliage, worldGroup } from './state.ts';
+import { animatedFoliage, obstacles, worldGroup } from './state.ts';
 import { createPathTerrain } from './terrain-mesh.ts';
 import { PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
 import { setMapMetadataSeed } from './world-seed.ts';
@@ -757,6 +758,20 @@ export async function generateCoreWorld(
     console.log(
         `[World] Core Only world generation complete. Spawned ${animatedFoliage.length} objects.`
     );
+    if (DEBUG_CONFIG.enabled) assertCoreWorldPlayable(weatherSystem);
+}
+
+/** Debug-only check that CORE mode produced the minimum playable scene. */
+function assertCoreWorldPlayable(weatherSystem: WeatherSystem | undefined): void {
+    const missing: string[] = [];
+    if (!Number.isFinite(sampleGroundY(CONFIG.player.spawnX, CONFIG.player.spawnZ))) {
+        missing.push('ground at spawn');
+    }
+    if (obstacles.length === 0) missing.push('physics obstacle');
+    if (!weatherSystem) missing.push('weatherSystem');
+    if (missing.length > 0) {
+        console.warn(`[World] Core world incomplete — missing: ${missing.join(', ')}`);
+    }
 }
 
 export async function populateWorld(
