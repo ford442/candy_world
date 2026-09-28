@@ -1,5 +1,5 @@
-import type { CandyMapData, CandyMapEntity, Vec3 } from './map-loader-types.ts';
 import { asVec3, normalizeType } from './map-loader-normalize.ts';
+import type { CandyMapData, CandyMapEntity, Vec3 } from './map-loader-types.ts';
 
 const ARPEGGIO_GROVE_SETPIECE = {
     centerX: -60,

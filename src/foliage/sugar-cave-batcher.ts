@@ -27,6 +27,7 @@ export class SugarCaveBatcher {
     private _geo: THREE.ConeGeometry | null = null;
     private _mat: MeshStandardNodeMaterial | null = null;
     private _count = 0;
+    private logicObjects: THREE.Object3D[] = [];
 
     init(): void {
         if (this._mesh) return;
@@ -108,11 +109,50 @@ export class SugarCaveBatcher {
         this._mesh.count = this._count;
     }
 
+    register(logicObject: THREE.Object3D): void {
+        if (!this._mesh) this.init();
+        if (!this._mesh || this._count >= SUGAR_RIB_MAX) return;
+
+        const i = this._count;
+        this.add(logicObject.position, logicObject.quaternion, logicObject.scale.y);
+
+        logicObject.userData.batchIndex = i;
+        this.logicObjects[i] = logicObject;
+    }
+
+    removeInstance(logicObject: THREE.Object3D): void {
+        if (!this._mesh) return;
+
+        const indexToRemove = logicObject.userData.batchIndex;
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this._count) return;
+
+        const lastIndex = this._count - 1;
+
+        if (indexToRemove !== lastIndex) {
+            const matrixArray = this._mesh.instanceMatrix.array as Float32Array;
+            matrixArray.copyWithin(indexToRemove * 16, lastIndex * 16, lastIndex * 16 + 16);
+
+            const swappedObject = this.logicObjects[lastIndex];
+            if (swappedObject) {
+                swappedObject.userData.batchIndex = indexToRemove;
+                this.logicObjects[indexToRemove] = swappedObject;
+            }
+        }
+
+        this.logicObjects[lastIndex] = undefined as any;
+        this.logicObjects.length = lastIndex;
+
+        this._count--;
+        this._mesh.count = this._count;
+        this._mesh.instanceMatrix.needsUpdate = true;
+    }
+
     clear(): void {
         this._count = 0;
         if (this._mesh) {
             this._mesh.count = 0;
         }
+        this.logicObjects.length = 0;
     }
 
     dispose(): void {

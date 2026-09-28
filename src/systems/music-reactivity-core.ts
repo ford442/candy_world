@@ -30,6 +30,9 @@ import {
     defaultSugarCavesShimmerCh,
     defaultSugarCavesHueShiftCh,
     defaultSugarCavesNoteColorCh,
+    defaultNightMarketShimmerCh,
+    defaultNightMarketHueShiftCh,
+    defaultNightMarketNoteColorCh,
     defaultWeatherBindings,
     defaultSkyWavePropagationMs,
     defaultSkyWaveDecayMs,
@@ -85,12 +88,16 @@ export const MRState = {
     sugarCavesShimmerCh: defaultSugarCavesShimmerCh as readonly number[],
     sugarCavesHueShiftCh: defaultSugarCavesHueShiftCh as readonly number[],
     sugarCavesNoteColorCh: defaultSugarCavesNoteColorCh as readonly number[],
+    nightMarketShimmerCh: defaultNightMarketShimmerCh as readonly number[],
+    nightMarketHueShiftCh: defaultNightMarketHueShiftCh as readonly number[],
+    nightMarketNoteColorCh: defaultNightMarketNoteColorCh as readonly number[],
     arpeggioIntensityScale: 1.0,
     nebulaIntensityScale: 1.0,
     globalIntensityScale: 1.0,
     gemCanopyIntensityScale: 1.0,
     skyIslandsIntensityScale: 1.0,
     sugarCavesIntensityScale: 1.0,
+    nightMarketIntensityScale: 1.0,
     skyMoonIntensityScale: 1.0,
     luminousIntensityScale: 1.0,
     arpeggioShimmerAccum: 0.0,
@@ -107,6 +114,8 @@ export const MRState = {
     skyIslandsFogAccum: 0.0,
     sugarCavesShimmerAccum: 0.0,
     sugarCavesHueShiftAccum: 0.0,
+    nightMarketShimmerAccum: 0.0,
+    nightMarketHueShiftAccum: 0.0,
     skyMoonNoteVal: 0.0,
     arpeggioNoteVal: 0.0,
     nebulaNoteVal: 0.0,
@@ -114,6 +123,7 @@ export const MRState = {
     gemCanopyNoteVal: 0.0,
     skyIslandsNoteVal: 0.0,
     sugarCavesNoteVal: 0.0,
+    nightMarketNoteVal: 0.0,
     skyMoonCh: defaultSkyMoonMelodyCh,
     luminousPlantTrackerChannel: defaultLuminousPlantTrackerChannel,
     smoothedSkyIntensity: 0.0,
@@ -145,6 +155,7 @@ export const _targetGlobalColor = new THREE.Color(0xffffff);
 export const _targetGemCanopyColor = new THREE.Color(0xffffff);
 export const _targetSkyIslandsColor = new THREE.Color(0xffffff);
 export const _targetSugarCavesColor = new THREE.Color(0xffffff);
+export const _targetNightMarketColor = new THREE.Color(0xffffff);
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
 export const _frustum = new THREE.Frustum();
@@ -189,6 +200,9 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     MRState.sugarCavesShimmerCh = defaultSugarCavesShimmerCh;
     MRState.sugarCavesHueShiftCh = defaultSugarCavesHueShiftCh;
     MRState.sugarCavesNoteColorCh = defaultSugarCavesNoteColorCh;
+    MRState.nightMarketShimmerCh = defaultNightMarketShimmerCh;
+    MRState.nightMarketHueShiftCh = defaultNightMarketHueShiftCh;
+    MRState.nightMarketNoteColorCh = defaultNightMarketNoteColorCh;
 
     MRState.arpeggioIntensityScale = 1.0;
     MRState.nebulaIntensityScale = 1.0;
@@ -196,6 +210,7 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     MRState.gemCanopyIntensityScale = 1.0;
     MRState.skyIslandsIntensityScale = 1.0;
     MRState.sugarCavesIntensityScale = 1.0;
+    MRState.nightMarketIntensityScale = 1.0;
     MRState.skyMoonIntensityScale = 1.0;
     MRState.luminousIntensityScale = 1.0;
 
@@ -229,6 +244,7 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
         const gemCanopy = biomeOverrides.gem_canopy;
         const skyIslands = biomeOverrides.sky_islands;
         const sugarCaves = biomeOverrides.sugar_caves;
+        const nightMarket = biomeOverrides.night_market;
         if (arpeggio) {
             MRState.arpeggioShimmerCh = toChannels(arpeggio.shimmer) ?? MRState.arpeggioShimmerCh;
             MRState.arpeggioHueShiftCh =
@@ -319,6 +335,20 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
                 MRState.sugarCavesIntensityScale = sugarCaves.intensityScale;
             }
         }
+        if (nightMarket) {
+            MRState.nightMarketShimmerCh =
+                toChannels(nightMarket.shimmer) ?? MRState.nightMarketShimmerCh;
+            MRState.nightMarketHueShiftCh =
+                toChannels(nightMarket.hueShift) ?? MRState.nightMarketHueShiftCh;
+            MRState.nightMarketNoteColorCh =
+                toChannels(nightMarket.noteColor) ?? MRState.nightMarketNoteColorCh;
+            if (
+                typeof nightMarket.intensityScale === 'number' &&
+                Number.isFinite(nightMarket.intensityScale)
+            ) {
+                MRState.nightMarketIntensityScale = nightMarket.intensityScale;
+            }
+        }
     }
 
     if (
@@ -404,6 +434,36 @@ export function syncMapMusicContext(): void {
 
 // Helper to map MIDI note (0-127) to a color hue
 // Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
+
+// ⚡ OPTIMIZATION: Zero-allocation pitch class parser with caching
+const _pitchCache: Record<string, number> = {};
+
+export function parseNoteToMIDI(noteStr: string | undefined): number {
+    if (!noteStr) return 0;
+    if (_pitchCache[noteStr] !== undefined) return _pitchCache[noteStr];
+
+    let hasNumbers = false;
+    let startIdx = 0;
+    for (let i = 0; i < noteStr.length; i++) {
+        const c = noteStr.charCodeAt(i);
+        if ((c >= 48 && c <= 57) || c === 45) { // '0'-'9' or '-'
+            hasNumbers = true;
+            startIdx = i;
+            break;
+        }
+    }
+
+    let noteName = noteStr;
+    if (hasNumbers) {
+        noteName = noteStr.substring(0, startIdx);
+    }
+
+    const idx = CHROMATIC_SCALE.indexOf(noteName);
+    const result = idx >= 0 ? idx + 12 : 0; // +12 to ensure it is > 0 and won't return white color early
+    _pitchCache[noteStr] = result;
+    return result;
+}
+
 export function mapNoteToColor(note: number, outColor: THREE.Color, palette: string = 'global') {
     if (note <= 0) return outColor.setHex(0xffffff);
     const pitchClass = note % 12;
@@ -517,7 +577,7 @@ export function applyNebulaChannelAccum(
     for (let i = 0; i < noteCh.length; i++) {
         const idx = noteCh[i];
         if (idx < channels.length && channels[idx].volume > _NEBULA_NOTE_AUDIBLE_THRESHOLD) {
-            noteVal = parseInt(channels[idx].note) || 0;
+            noteVal = parseNoteToMIDI(channels[idx].note);
             break;
         }
     }

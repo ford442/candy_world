@@ -1,6 +1,6 @@
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import * as THREE from 'three';
 import { color as tslColor, float , positionLocal, normalLocal, add} from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
  // Import explicit type for cast
  // ⚡ OPTIMIZATION: Import Batcher
 import { registerReactiveMaterial, createClayMaterial, getCachedProceduralMaterial , applyStandardDeformation, createJuicyRimLight, uAudioLow, uAudioHigh} from './index.ts';

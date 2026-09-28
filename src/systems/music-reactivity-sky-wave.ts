@@ -1,14 +1,12 @@
 import * as THREE from 'three';
-import { WEATHER_TARGET_DECAY_RATE } from './music-reactivity.ts';
-
-import { uTwilight } from '../foliage/sky.ts';
 import { CONFIG } from '../core/config.ts';
+import { uTwilight } from '../foliage/sky.ts';
+import type { AudioData } from '../foliage/types.ts';
 import { WeatherMusicTargets } from './music-reactivity-core.ts';
-
 import { MRState, _whiteColor, getActiveWave, setActiveWave } from './music-reactivity-core.ts';
 import { skyWaveUniformMap } from './music-reactivity-defaults.ts';
+import { WEATHER_TARGET_DECAY_RATE } from './music-reactivity.ts';
 import { computeWaveDistSq } from './music-wave.ts';
-import type { AudioData } from '../foliage/types.ts';
 
     export function updateSkyWavePropagation(
         audioState: AudioData | null,

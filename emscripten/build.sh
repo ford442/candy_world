@@ -434,14 +434,20 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 # ---------------------------------------------------------
 
 # Compiler flags for performance
-# - O3: Maximum optimization for speed
+# - O2: Optimize for speed
 # - msimd128: Enable SIMD for vectorized math operations
 # - mrelaxed-simd: Allow relaxed SIMD operations for better performance
-# - ffast-math: Aggressive floating-point optimizations
 # - fno-rtti: Disable RTTI to reduce code size
 # - pthread: Enable threading support for parallel operations
 # - fopenmp: Enable OpenMP for parallel batch operations
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
+#
+# NOTE: -ffast-math is intentionally NOT used. math.cpp's getGroundHeight()
+# NaN guard (std::isnan) depends on IEEE-compliant float semantics;
+# -ffast-math implies -ffinite-math-only, which licenses the compiler to fold
+# isnan() to a constant `false`. tests/parity.mjs also asserts TS/AS/C++
+# numeric agreement to |Δ| <= 1e-5, which -ffast-math's reassociation can
+# violate in a compiler-version-dependent way.
+COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
 
 # Linker flags
 # - USE_PTHREADS=1: Enable pthread support (requires SharedArrayBuffer)
@@ -463,10 +469,10 @@ else
 fi
 
 LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+-s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=["ccall","cwrap","wasmMemory"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
--s ENVIRONMENT=web,worker -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s SHARED_MEMORY=1 \
--matomics -fopenmp -msimd128 -mrelaxed-simd -ffast-math -pthread -L$SCRIPT_DIR/vendor -lomp"
+-s ENVIRONMENT=web,worker -s SHARED_MEMORY=1 \
+-matomics -fopenmp -msimd128 -mrelaxed-simd -pthread -L$SCRIPT_DIR/vendor -lomp"
 
 # ---------------------------------------------------------
 # STEP 5: Compile and Link
@@ -481,6 +487,10 @@ rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "$REPO_ROOT/public/candy_native.worker.js" "pe
 
 # Compile with error handling
 BUILD_SUCCESS=0
+# noglob: EXPORTED_RUNTIME_METHODS=[...] above looks like a glob character
+# class to bash when expanded unquoted below; disable pathname expansion for
+# this invocation so a coincidentally-matching filename can't rewrite it.
+set -f
 if em++ "${COMPILE_UNITS[@]}" \
   $COMPILE_FLAGS \
   $LINK_FLAGS \
@@ -488,6 +498,7 @@ if em++ "${COMPILE_UNITS[@]}" \
   -o "$OUTPUT_JS" 2>&1; then
     BUILD_SUCCESS=1
 fi
+set +f
 
 if [ $BUILD_SUCCESS -eq 1 ] && [ -f "$OUTPUT_WASM" ]; then
     echo ""
@@ -556,15 +567,20 @@ OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
 OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
 
 # Compiler flags for ST (remove pthread, atomics, etc)
-COMPILE_FLAGS_ST="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops"
+# NOTE: -ffast-math intentionally omitted; see COMPILE_FLAGS comment above.
+COMPILE_FLAGS_ST="-O2 -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops"
 
 # Linker flags for ST (remove pthread, shared memory)
 LINK_FLAGS_ST="-O2 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=["ccall","cwrap","wasmMemory"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
--s ENVIRONMENT=web -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
--msimd128 -mrelaxed-simd -ffast-math"
+-s ENVIRONMENT=web \
+-msimd128 -mrelaxed-simd"
 
+# noglob: EXPORTED_RUNTIME_METHODS=[...] above looks like a glob character
+# class to bash when expanded unquoted below; disable pathname expansion for
+# this invocation so a coincidentally-matching filename can't rewrite it.
+set -f
 if em++ "${COMPILE_UNITS[@]}" \
   $COMPILE_FLAGS_ST \
   $LINK_FLAGS_ST \
@@ -576,6 +592,7 @@ if em++ "${COMPILE_UNITS[@]}" \
 else
     echo "[WARN] Single-threaded build failed!"
 fi
+set +f
 
 # ---------------------------------------------------------
 # Build Summary
