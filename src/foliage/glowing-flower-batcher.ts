@@ -291,6 +291,8 @@ export class GlowingFlowerBatcher {
             colorArray[colorOffset + 2] = _scratchColor.b;
         }
 
+        this.indexMap.set(logicObject.uuid, i);
+        this.logicObjects[i] = logicObject;
         this.count++;
 
         // Mark for update
@@ -304,6 +306,45 @@ export class GlowingFlowerBatcher {
         this.washMesh!.instanceMatrix.needsUpdate = true;
         if (this.washMesh!.instanceColor) this.washMesh!.instanceColor.needsUpdate = true;
         this.washMesh!.count = this.count;
+    }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.initialized || !this.stemMesh || !this.headMesh || !this.washMesh) return;
+
+        const indexToRemove = this.indexMap.get(logicObject.uuid);
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
+
+        const lastIndex = this.count - 1;
+
+        if (indexToRemove !== lastIndex) {
+            // Swap-with-last for all 3 meshes (matrix and color)
+            for (const mesh of [this.stemMesh, this.headMesh, this.washMesh]) {
+                const matrixArray = mesh.instanceMatrix.array as Float32Array;
+                matrixArray.copyWithin(indexToRemove * 16, lastIndex * 16, lastIndex * 16 + 16);
+
+                if (mesh.instanceColor) {
+                    const colorArray = mesh.instanceColor.array as Float32Array;
+                    colorArray.copyWithin(indexToRemove * 3, lastIndex * 3, lastIndex * 3 + 3);
+                }
+            }
+
+            const swappedObject = this.logicObjects[lastIndex];
+            if (swappedObject) {
+                this.indexMap.set(swappedObject.uuid, indexToRemove);
+                this.logicObjects[indexToRemove] = swappedObject;
+            }
+        }
+
+        this.indexMap.delete(logicObject.uuid);
+        this.logicObjects[lastIndex] = undefined as any;
+        this.logicObjects.length = lastIndex;
+
+        this.count--;
+        for (const mesh of [this.stemMesh, this.headMesh, this.washMesh]) {
+            mesh.count = this.count;
+            mesh.instanceMatrix.needsUpdate = true;
+            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        }
     }
 }
 

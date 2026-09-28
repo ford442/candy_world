@@ -20,20 +20,6 @@
 
 import * as THREE from 'three';
 import {
-    applyRigidBodyRadialImpulse,
-    clearRigidBodies,
-    getRigidBodyPool,
-    initRigidBodies,
-    spawnRigidBody,
-    MAX_DYNAMIC_BODIES,
-    RB_FIELD as F,
-    RB_FLAG,
-    RB_FLOATS_PER_BODY,
-    RB_SHAPE,
-    type RigidBodyHandle,
-    type RigidBodyShape,
-} from '../systems/physics/rigid-bodies.ts';
-import {
     clearJoints,
     createFixed,
     createHinge,
@@ -51,6 +37,20 @@ import {
     MAX_JOINTS,
     type JointHandle,
 } from '../systems/physics/joints.ts';
+import {
+    applyRigidBodyRadialImpulse,
+    clearRigidBodies,
+    getRigidBodyPool,
+    initRigidBodies,
+    spawnRigidBody,
+    MAX_DYNAMIC_BODIES,
+    RB_FIELD as F,
+    RB_FLAG,
+    RB_FLOATS_PER_BODY,
+    RB_SHAPE,
+    type RigidBodyHandle,
+    type RigidBodyShape,
+} from '../systems/physics/rigid-bodies.ts';
 import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
 
 interface PropSpec {

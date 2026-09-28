@@ -197,8 +197,7 @@ export default defineConfig({
                     if (
                         id.includes('/src/systems/weather/') ||
                         id.includes('/src/particles/') ||
-                        id.includes('/src/compute/') ||
-                        id.includes('/src/foliage/berries.ts')
+                        id.includes('/src/compute/')
                     ) {
                         return 'weather';
                     }
