@@ -11,6 +11,8 @@ import type * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { getEyeTargetY, getGroundHeight, isInLakeBasin } from './ground-system.ts';
 import { player } from './physics/physics-types.ts';
+import { getStartupCapabilities } from '../core/startup/capabilities.ts';
+import { LOBBY_FLOOR_TOP_Y, LOBBY_SPAWN_X, LOBBY_SPAWN_Z } from '../world/world-extent.ts';
 
 /** Number of physics frames gravity is frozen after a spawn/teleport. */
 const SPAWN_PROTECT_FRAMES = 8;
@@ -23,6 +25,13 @@ const SPAWN_PROBES: readonly [number, number][] = [
 ];
 
 export function getConfiguredSpawnXZ(): { x: number; z: number } {
+    try {
+        if (getStartupCapabilities().path === 'lobby') {
+            return { x: LOBBY_SPAWN_X, z: LOBBY_SPAWN_Z };
+        }
+    } catch {
+        /* capabilities unavailable */
+    }
     return { x: CONFIG.player.spawnX, z: CONFIG.player.spawnZ };
 }
 
@@ -84,6 +93,19 @@ export function placePlayerOnGround(
 
 export function placePlayerAtConfiguredSpawn(camera: THREE.Camera): number {
     const { x, z } = getConfiguredSpawnXZ();
+    try {
+        if (getStartupCapabilities().path === 'lobby') {
+            const y = LOBBY_FLOOR_TOP_Y + CONFIG.player.eyeHeight;
+            player.position.set(x, y, z);
+            player.velocity.set(0, 0, 0);
+            player.isGrounded = true;
+            player.spawnProtectFrames = SPAWN_PROTECT_FRAMES;
+            camera.position.set(x, y, z);
+            return y;
+        }
+    } catch {
+        /* fall through */
+    }
     if (isUnsafeSpawnXZ(x, z)) {
         console.warn(
             `[Spawn] Configured spawn (${x}, ${z}) is inside Melody Lake — using shore fallback (8, -36)`

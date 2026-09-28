@@ -25,8 +25,8 @@ const _scratchLocalPos = new THREE.Vector3();
 const _scratchLocalQuat = new THREE.Quaternion();
 const _scratchLocalScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
-const _scratchZeroVector = new THREE.Vector3();
 const _scratchDummyAudio = { low: 0, mid: 0, high: 0, beat: false, groove: 0, windX: 0, windZ: 0, windSpeed: 0 };
+const _scratchZeroVector = new THREE.Vector3();
 
 // ⚡ OPTIMIZATION: Pre-calculate constants for loop efficiency
 const GOLDEN_RATIO_ANGLE = Math.PI * (1 + Math.sqrt(5));

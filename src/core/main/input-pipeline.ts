@@ -10,10 +10,10 @@ import {
     uShaftScatterBoost,
 } from '../../foliage/post-processing-uniforms.ts';
 import { ensureGameplay } from '../../gameplay/lazy.ts';
-import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { InteractionSystem } from '../../systems/interaction.ts';
 import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
 import { player } from '../../systems/physics/index.ts';
+import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { mountAbilityHud } from '../../ui/ability-hud.ts';
 import { announcePolite } from '../../ui/announcer.ts';
 import { profiler } from '../../utils/profiler.ts';

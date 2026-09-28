@@ -53,6 +53,9 @@
             <button type="button" role="switch" aria-checked="false" id="toggleFullWorld" class="toggle-button" aria-describedby="mode-description" aria-label="Full World — load the nearby map first and stream the horizon">
                 <span aria-hidden="true">🌸</span> Full World
             </button>
+            <button type="button" role="switch" aria-checked="false" id="toggleLobby" class="toggle-button" aria-describedby="mode-description" aria-label="Lobby — tiny one-room map">
+                <span aria-hidden="true">🏠</span> Lobby
+            </button>
 
             <div id="readiness-progress"
                  role="progressbar"
@@ -190,7 +193,7 @@
     <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1" aria-hidden="true">
         <button type="button" id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox" title="Close Jukebox (Esc)"><span aria-hidden="true">×</span></button>
         <h2 id="playlist-title"><span aria-hidden="true">🎵</span> Jukebox</h2>
-        <ul id="playlist-list" aria-label="Current playlist" >
+        <ul id="playlist-list" aria-label="Current playlist" aria-live="polite" aria-atomic="true">
         </ul>
         
         <div class="playlist-controls">

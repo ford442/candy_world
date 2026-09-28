@@ -1,5 +1,5 @@
-import type { CandyMapData, LoadedCandyMap, LoadedMapEntity, Vec3 } from './map-loader-types.ts';
 import { normalizeType } from './map-loader-normalize.ts';
+import type { CandyMapData, LoadedCandyMap, LoadedMapEntity, Vec3 } from './map-loader-types.ts';
 
 const DEFAULT_SPATIAL_CELL_SIZE = 40;
 

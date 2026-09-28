@@ -219,7 +219,66 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         interactiveGroup.add(hitMesh);
         foliageGroup.add(interactiveGroup);
 
+        // Keep track of the original proxy (which holds the batchIndex) so we can update it on swap.
+        // We will store both the proxy and the interactiveGroup in a custom object or just update logicObjects to hold the proxy.
+        // Wait, updateInstance uses this.logicObjects to update the interactiveGroup position.
+        // Let's store the proxy on the interactiveGroup to reference it back.
+        interactiveGroup.userData.proxy = proxy;
+        proxy.userData.interactiveGroup = interactiveGroup;
         this.logicObjects.push(interactiveGroup);
+    }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.padMesh || !this.ringsMesh || !this.centerMesh) return;
+
+        const indexToRemove = logicObject.userData.batchIndex;
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this._count) return;
+
+        const lastIndex = this._count - 1;
+
+        if (indexToRemove !== lastIndex) {
+            // Swap-with-last for all three meshes
+            const padArray = this.padMesh.instanceMatrix.array as Float32Array;
+            const ringsArray = this.ringsMesh.instanceMatrix.array as Float32Array;
+            const centerArray = this.centerMesh.instanceMatrix.array as Float32Array;
+
+            const destOffset = indexToRemove * 16;
+            const srcOffset = lastIndex * 16;
+
+            padArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
+            ringsArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
+            centerArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
+
+            const swappedInteractive = this.logicObjects[lastIndex];
+            if (swappedInteractive) {
+                const proxy = swappedInteractive.userData.proxy as THREE.Object3D;
+                if (proxy) {
+                    proxy.userData.batchIndex = indexToRemove;
+                }
+                this.logicObjects[indexToRemove] = swappedInteractive;
+            }
+        }
+
+        // Dispose interactive dummy (we need the original interactive group from indexToRemove)
+        // Note: the original interactive group is no longer in logicObjects[indexToRemove] if swapped,
+        // but we can just dispose `logicObject.userData.interactiveGroup` if we store it.
+        // Let's store interactiveGroup on logicObject itself when we create it.
+        const interactiveGroup = logicObject.userData.interactiveGroup as THREE.Object3D;
+        if (interactiveGroup) {
+            safeRemoveAndDispose(interactiveGroup.parent as THREE.Scene, interactiveGroup);
+        }
+
+        this.logicObjects[lastIndex] = undefined as any;
+        this.logicObjects.length = lastIndex;
+
+        this._count--;
+        this.padMesh.count = this._count;
+        this.ringsMesh.count = this._count;
+        this.centerMesh.count = this._count;
+
+        this.padMesh.instanceMatrix.needsUpdate = true;
+        this.ringsMesh.instanceMatrix.needsUpdate = true;
+        this.centerMesh.instanceMatrix.needsUpdate = true;
     }
 
     // Since we need caller to actually place the proxy first, we provide an updateInstance

@@ -10,6 +10,18 @@
  */
 
 import * as THREE from 'three';
+import { editHistory, type WorldCommand } from '../systems/edit-history.ts';
+import { animatedFoliage } from '../world/state.ts';
+import { deleteSnapshot } from '../systems/entity-snapshot-store.ts';
+
+// Known batchers with removeInstance
+import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
+import { treeBatcher } from '../foliage/tree-batcher/index.ts';
+import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
+import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
+import { flowerBatcher } from '../foliage/flower-batcher.ts';
+import { lanternBatcher } from '../foliage/lantern-batcher.ts';
+
 import {
     CURRENT_SNAPSHOT_VERSION,
     nextSnapshotId,
@@ -20,10 +32,53 @@ import { loadDevSnapshots, saveSnapshot } from '../systems/entity-snapshot-store
 import { restoreEntity } from '../systems/entity-snapshot.ts';
 import { getGroundHeight, sampleGroundNormal } from '../systems/ground-system.ts';
 import { applyEntitySnapshots } from '../systems/save-system/entity-snapshot.ts';
-import { showToast } from '../utils/toast.ts';
 import { announce } from '../ui/announcer.ts';
+import { showToast } from '../utils/toast.ts';
 import { create } from '../world/foliage-registry.ts';
 import { plantOnSurface } from '../world/placement-utils.ts';
+
+
+class PlaceCommand implements WorldCommand {
+    constructor(private snapshot: EntitySnapshot) {}
+
+    apply(): void {
+        const created = restoreEntity(this.snapshot, null, { rebuildPhysicsGrid: true });
+        if (created && created[0]) {
+            _lastSpawnedObject = created[0];
+            void saveSnapshot(this.snapshot);
+            console.log(`[PlaceCommand] Restored ${this.snapshot.entity.type}`);
+        }
+    }
+
+    revert(): void {
+        // Find the object
+        const id = this.snapshot.id;
+        const objIndex = animatedFoliage.findIndex((o) => (o as any).userData?.mapEntityId === id);
+        if (objIndex === -1) return;
+
+        const obj = animatedFoliage[objIndex] as THREE.Object3D;
+        const t = obj.userData?.type;
+
+        // Batcher removal (small local despawn)
+        if (t === 'mushroom') mushroomBatcher.removeInstance(obj);
+        else if (t === 'tree' || t === 'shrub' || t === 'willow' || t === 'balloonBush' || t === 'helixPlant' || t === 'accordion_palm' || t === 'floweringTree' || t === 'bubbleWillow' || t === 'prismRoseBush' || t === 'helix' || t === 'accordionPalm' || t === 'gem_canopy_tree') treeBatcher.removeInstance(obj);
+        else if (t === 'glass_mushroom') glassMushroomBatcher.removeInstance(obj);
+        else if (t === 'simple_flower' || (obj.userData?.isFlower && t !== 'flower')) simpleFlowerBatcher.removeInstance(obj);
+        else if (t === 'flower') flowerBatcher.removeInstance(obj);
+        else if (t === 'lanternFlower') lanternBatcher.removeInstance(obj);
+
+        animatedFoliage.splice(objIndex, 1);
+        if (obj.parent) obj.parent.remove(obj);
+
+        void deleteSnapshot(id);
+        console.log(`[PlaceCommand] Reverted ${this.snapshot.entity.type}`);
+    }
+
+    serialize() {
+        return { type: 'PlaceCommand', snapshot: this.snapshot };
+    }
+}
+
 
 const _hasFlag = (key: string): boolean => {
     try {
@@ -246,7 +301,21 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
         updatePanel();
     });
 
+
     window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+            if (e.shiftKey) {
+                editHistory.redo();
+            } else {
+                editHistory.undo();
+            }
+            return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+            editHistory.redo();
+            return;
+        }
+
         if (!isPlacementDebugEnabled()) return;
 
         if (e.key === 'r' || e.key === 'R') {
@@ -290,12 +359,16 @@ export function initPlacementDebug(scene: THREE.Scene, camera: THREE.Perspective
                 params: {},
             },
         };
+
         const created = restoreEntity(snapshot, null, { rebuildPhysicsGrid: true });
         const obj = created[0];
         if (obj) {
             _lastSpawnedObject = obj;
             // Dev sidecar write so the placement survives a reload (?debugPlace only).
             void saveSnapshot(snapshot);
+
+            // Push to history
+            editHistory.push(new PlaceCommand(snapshot));
 
             console.log(`[DebugPlace] Spawned ${_currentType}`);
             console.log(JSON.stringify({ ...snapshot.entity, id }, null, 2) + ',');
