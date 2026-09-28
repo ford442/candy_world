@@ -325,7 +325,6 @@ float fastPow2(float x) {
 
 // SIMD-fast inverse square root for 4 values
 // Uses the Quake III algorithm vectorized
-EMSCRIPTEN_KEEPALIVE
 void fastInvSqrt_simd4(float* x, float* out) {
     // Scalar fallback - the bit manipulation in Quake's algorithm
     // is difficult to vectorize efficiently in WASM SIMD
@@ -341,7 +340,6 @@ void fastInvSqrt_simd4(float* x, float* out) {
 
 // Batch fast sine calculation using SIMD
 // Processes 4 values at once using vectorized Taylor series
-EMSCRIPTEN_KEEPALIVE
 void batchFastSin_simd(float* x, int count, float* out) {
     int i = 0;
     int count4 = count & ~3;
@@ -382,7 +380,6 @@ void batchFastSin_simd(float* x, int count, float* out) {
 }
 
 // Batch fast cosine calculation using SIMD
-EMSCRIPTEN_KEEPALIVE
 void batchFastCos_simd(float* x, int count, float* out) {
     int i = 0;
     int count4 = count & ~3;

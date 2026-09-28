@@ -7,7 +7,16 @@
  *
  * Paths:
  *   (1) batchComposeMatrices + instance color write
- *   (2) accumulateArpeggioChannels (arpeggio_grove)
+ *   (2) accumulateArpeggioChannels (arpeggio_grove) — TS ↔ AS only
+ *
+ * The C++ tier covers only native exports that src/ actually calls. The C++
+ * twins of the instance-color write and the arpeggio accumulate were never
+ * called at runtime (the live path is AssemblyScript) and were dropped from
+ * emscripten/exports.txt in #1822, so they are no longer compared here.
+ *
+ * CANDY_PARITY_REQUIRE_CPP=1 makes any C++ SKIP a failure. Set it wherever
+ * build:emcc has just run (emscripten-verify.yml), so a native module that
+ * built but did not load or lacks an export cannot pass as "green".
  *
  * Tolerances (documented):
  *   - Matrix / color / accumulate floats: |Δ| ≤ 1e-5
@@ -230,41 +239,6 @@ function cppCompose(em, positions, quaternions, scales, count) {
   return null;
 }
 
-function cppWriteColors(em, colorsIn, count, intensity) {
-  if (!em || typeof em._batchWriteInstanceColors_c !== 'function' || !em._malloc || !em.HEAPF32) {
-    return null;
-  }
-  const out = new Float32Array(count * 3);
-  const pIn = em._malloc(count * 3 * 4);
-  const pOut = em._malloc(count * 3 * 4);
-  em.HEAPF32.set(colorsIn.subarray(0, count * 3), pIn >> 2);
-  em._batchWriteInstanceColors_c(pIn, pOut, count, intensity);
-  out.set(em.HEAPF32.subarray(pOut >> 2, (pOut >> 2) + count * 3));
-  em._free(pIn); em._free(pOut);
-  return out;
-}
-
-function cppAccumulate(em, volumes, shimmerCount, hueShiftCount, nightGate, intensityScale) {
-  if (!em) return null;
-  const fn = em._accumulateArpeggioChannels_c || em.accumulateArpeggioChannels_c
-    || (em.exports && (em.exports.accumulateArpeggioChannels_c || em.exports._accumulateArpeggioChannels_c));
-  if (!fn) return null; // expected SKIP until C++ export lands
-  if (em._malloc && em.HEAPF32) {
-    const total = shimmerCount + hueShiftCount;
-    const pIn = em._malloc(Math.max(total, 1) * 4);
-    const pOut = em._malloc(8);
-    if (total > 0) em.HEAPF32.set(volumes.subarray(0, total), pIn >> 2);
-    fn(pIn, shimmerCount, hueShiftCount, nightGate, intensityScale, pOut);
-    const out = new Float32Array([
-      em.HEAPF32[pOut >> 2],
-      em.HEAPF32[(pOut >> 2) + 1],
-    ]);
-    em._free(pIn); em._free(pOut);
-    return out;
-  }
-  return null;
-}
-
 // ---------------------------------------------------------------------------
 // Path 1: matrix + color
 // ---------------------------------------------------------------------------
@@ -331,14 +305,9 @@ function runMatrixParity(asInstance, em) {
 
     // --- C++ path ---
     const cppMat = cppCompose(em, positions, quaternions, scales, count);
-    const cppCol = cppWriteColors(em, colors, count, intensity);
     if (cppMat) {
       cppAvailable = true;
-      let ok = compareF32Arrays(`C++ matrix ${c.name}`, tsMat, cppMat, FLOAT_TOL, hint);
-      if (cppCol) {
-        ok = compareF32Arrays(`C++ color ${c.name}`, tsCol, cppCol, FLOAT_TOL, hint) && ok;
-      }
-      if (ok) {
+      if (compareF32Arrays(`C++ matrix ${c.name}`, tsMat, cppMat, FLOAT_TOL, hint)) {
         console.log(`  ✓ TS↔C++ ${c.name}`);
         passes++;
       }
@@ -355,7 +324,7 @@ function runMatrixParity(asInstance, em) {
 // ---------------------------------------------------------------------------
 // Path 2: arpeggio accumulate
 // ---------------------------------------------------------------------------
-function runArpeggioParity(asInstance, em) {
+function runArpeggioParity(asInstance) {
   console.log('\n══ Path 2: accumulateArpeggioChannels (arpeggio_grove) ══');
   const fixture = JSON.parse(
     fs.readFileSync(path.join(root, 'tests/fixtures/parity/arpeggio-accumulate.json'), 'utf8')
@@ -368,8 +337,6 @@ function runArpeggioParity(asInstance, em) {
     failures++;
     return;
   }
-
-  let cppAvailable = false;
 
   for (const c of fixture.cases) {
     const volumes = new Float32Array(c.volumes);
@@ -398,22 +365,6 @@ function runArpeggioParity(asInstance, em) {
       console.log(`  ✓ TS↔AS  ${c.name} → [${tsOut[0].toFixed(6)}, ${tsOut[1].toFixed(6)}]`);
       passes++;
     }
-
-    // --- C++ ---
-    const cppOut = cppAccumulate(em, volumes, c.shimmerCount, c.hueShiftCount, c.nightGate, c.intensityScale);
-    if (cppOut) {
-      cppAvailable = true;
-      if (compareF32Arrays(`C++ accum ${c.name}`, tsOut, cppOut, FLOAT_TOL, hint)) {
-        console.log(`  ✓ TS↔C++ ${c.name}`);
-        passes++;
-      }
-    }
-  }
-
-  if (!cppAvailable) {
-    console.log('  ⏭ C++ SKIP — accumulateArpeggioChannels_c / candy_native unavailable');
-    skips++;
-    cppSkips++;
   }
 }
 
@@ -675,7 +626,7 @@ async function main() {
   }
 
   runMatrixParity(asInstance, em);
-  runArpeggioParity(asInstance, em);
+  runArpeggioParity(asInstance);
   runPoseWriteParity(asInstance, em);
   runFoliageScalarParity(asInstance);
   runPlantPoseParity();
@@ -709,6 +660,10 @@ async function main() {
     console.log('');
   }
   if (failures > 0) {
+    process.exit(1);
+  }
+  if (cppSkips > 0 && process.env.CANDY_PARITY_REQUIRE_CPP === '1') {
+    console.log('!! FAIL: CANDY_PARITY_REQUIRE_CPP=1 but the C++ tier skipped — see above.');
     process.exit(1);
   }
   if (skips > 0) {

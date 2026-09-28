@@ -171,6 +171,10 @@ done
 
 # Define all animation function exports and check each one
 # Format: "c_function_name" (without underscore prefix)
+# List only functions src/ calls, by name or through getNativeFunc. #1822 removed
+# the *_simd twins, the SIMD/LOD cull kernels, and the unused colour/arpeggio
+# C++ twins. They stay in the source as internal helpers without
+# EMSCRIPTEN_KEEPALIVE, so the linker can drop any that nothing reaches.
 declare -A ANIMATION_FUNCTIONS=(
     # Math functions (math.cpp)
     ["hash"]="math"
@@ -183,9 +187,6 @@ declare -A ANIMATION_FUNCTIONS=(
     ["valueNoise2D_simd4"]="math"
     ["fbm2D_simd4"]="math"
     ["batchGroundHeight_simd"]="math"
-    ["fastInvSqrt_simd4"]="math"
-    ["batchFastSin_simd"]="math"
-    ["batchFastCos_simd"]="math"
     
     # OpenMP-parallelized batch functions (math.cpp)
     ["batchValueNoise_omp"]="math"
@@ -242,7 +243,6 @@ declare -A ANIMATION_FUNCTIONS=(
     # Agent 4: Frustum/distance culling functions
     ["batchFrustumCull_c"]="physics"
     ["batchDistanceCullIndexed_c"]="physics"
-    ["batchFrustumCullSIMD_c"]="physics"
     
     # Batch physics functions (physics.cpp)
     ["batchCollisionCheck_c"]="physics"
@@ -258,13 +258,10 @@ declare -A ANIMATION_FUNCTIONS=(
     
     # Agent 3: LOD batch update functions (lod_batch.cpp)
     ["batchUpdateLODMatrices_c"]="lod_batch"
-    ["batchDistanceCullLOD_c"]="lod_batch"
     ["batchScaleMatrices_c"]="lod_batch"
     ["batchTranslateMatrices_c"]="lod_batch"
     ["batchFadeColors_c"]="lod_batch"
     ["batchComposeMatrices_c"]="lod_batch"
-    ["batchWriteInstanceColors_c"]="lod_batch"
-    ["accumulateArpeggioChannels_c"]="lod_batch"
 
     # #1358: instanced batcher pose → matrix/color (batcher_instance.cpp)
     ["batchWriteInstancePose_c"]="batcher_instance"
@@ -288,13 +285,7 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchCloudBob_c"]="animation_batch"
     
     # Agent 1: SIMD-optimized animation batch functions
-    ["batchShiver_simd"]="animation_batch"
-    ["batchSpring_simd"]="animation_batch"
-    ["batchFloat_simd"]="animation_batch"
-    ["batchCloudBob_simd"]="animation_batch"
-    ["batchVineSway_simd"]="animation_batch"
     ["batchGeyserErupt_c"]="animation_batch"
-    ["batchRetrigger_simd"]="animation_batch"
     
     # Mesh deformation functions (mesh_deformation.cpp)
     ["deformMeshWave"]="mesh_deformation"

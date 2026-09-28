@@ -73,6 +73,8 @@ Ranked by likely frame-time impact × feasibility. **File a GitHub issue before 
 
 **15% scope:** Wire region visibility bitmask update through one existing batch export for a single entity class (e.g. clouds or distant trees).
 
+**Note (#1822):** only `batchDistanceCull_c` was ever wired. `batchFrustumCullSIMD_c` and `batchDistanceCullLOD_c` are no longer exported. To wire one, add it back to the `ANIMATION_FUNCTIONS` table in `emscripten/build.sh` and restore its `EMSCRIPTEN_KEEPALIVE`.
+
 **Files:** `src/foliage/cloud-batcher.ts`, `src/utils/wasm-batch-animation.ts`, `emscripten/batch.cpp`
 
 ---
