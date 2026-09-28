@@ -11,7 +11,12 @@ export type { ScaleSampleOptions } from './entity-scale.ts';
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { registerPlantedInstance } from '../debug/tools-stub.ts';
-import { getGroundHeight, sampleGroundNormal, sampleGroundFootprint, type GroundFootprintResult } from '../systems/ground-system.ts';
+import {
+    getGroundHeight,
+    sampleGroundNormal,
+    sampleGroundFootprint,
+    type GroundFootprintResult,
+} from '../systems/ground-system.ts';
 
 /**
  * Local-origin Y offset from ground contact to object root (world units).
@@ -25,21 +30,21 @@ export const ENTITY_BASE_OFFSETS: Readonly<Record<string, number>> = {
     // Stem pivot minY=0; slight sink so cap overhang reads rooted.
     mushroom: -0.02,
     retrigger_mushroom: -0.02, // stem cylinder bottom at local y=0 (musical_flora.ts)
-    glass_mushroom: 0,         // glass-mushroom-batcher merged geo minY=0
+    glass_mushroom: 0, // glass-mushroom-batcher merged geo minY=0
 
     // --- Trees / shrubs (tree-batcher / portamento-batcher) ---
-    tree: 0,                   // unitCylinder trunk base at origin
-    shrub: 0,                  // balloon_bush lowest sphere sits on y=0
-    portamento_pine: 0,        // portamento-batcher merged trunk minY=0
-    bubble_willow: 0,          // trunk.position.y=h/2 → base at group origin
+    tree: 0, // unitCylinder trunk base at origin
+    shrub: 0, // balloon_bush lowest sphere sits on y=0
+    portamento_pine: 0, // portamento-batcher merged trunk minY=0
+    bubble_willow: 0, // trunk.position.y=h/2 → base at group origin
     balloon_bush: 0,
-    helix_plant: 0.02,         // TubeGeometry tube radius extends ~2cm below t=0
-    gem_canopy_tree: 0,        // bubble-willow silhouette; hit cylinder base at origin
-    prism_rose_bush: 0,        // trunk unitCylinder scaled from y=0
+    helix_plant: 0.02, // TubeGeometry tube radius extends ~2cm below t=0
+    gem_canopy_tree: 0, // bubble-willow silhouette; hit cylinder base at origin
+    prism_rose_bush: 0, // trunk unitCylinder scaled from y=0
 
     // --- Ferns / luminous ---
-    arpeggio_fern: 0,          // arpeggio-batcher merged minY=0
-    luminous_plant: 0,         // luminous-plant-batcher stem translate(0,2,0) → minY=0
+    arpeggio_fern: 0, // arpeggio-batcher merged minY=0
+    luminous_plant: 0, // luminous-plant-batcher stem translate(0,2,0) → minY=0
 
     // --- Flowers ---
     flower: 0,
@@ -47,16 +52,16 @@ export const ENTITY_BASE_OFFSETS: Readonly<Record<string, number>> = {
     starflower: 0,
     vibrato_violet: 0,
     tremolo_tulip: 0,
-    cymbal_dandelion: 0,       // dandelion-batcher stem translate(0,0.75,0) on h=1.5
+    cymbal_dandelion: 0, // dandelion-batcher stem translate(0,0.75,0) on h=1.5
 
     // --- Ground cover ---
-    rock: -0.04,               // embed slightly for natural scatter
+    rock: -0.04, // embed slightly for natural scatter
     grass: -0.015,
 
     // --- Musical / interactive props ---
-    kick_drum_geyser: 0.08,    // coreGeo minY≈−0.1 (translate −0.05, h=0.1)
-    snare_trap: 0,             // lower jaw box bottom at y=0
-    subwoofer_lotus: 0,        // pad unitCylinder minY=0
+    kick_drum_geyser: 0.08, // coreGeo minY≈−0.1 (translate −0.05, h=0.1)
+    snare_trap: 0, // lower jaw box bottom at y=0
+    subwoofer_lotus: 0, // pad unitCylinder minY=0
     panning_pad: 0,
     instrument_shrine: 0,
 };
@@ -107,7 +112,10 @@ export function getMaxSlopeAngle(): number {
 }
 
 /** Pick placement Y from a footprint sample based on per-type policy. */
-export function resolveFootprintGroundY(footprint: GroundFootprintResult, entityType?: string): number {
+export function resolveFootprintGroundY(
+    footprint: GroundFootprintResult,
+    entityType?: string
+): number {
     const policy = entityType ? CONFIG.ground.footprintPlacementY[entityType] : undefined;
     return policy === 'avg' ? footprint.avgY : footprint.minY;
 }
@@ -172,8 +180,7 @@ export function computePlacementY(
         return groundY + (options.yInput ?? 0);
     }
 
-    const baseOffset = options.baseOffset
-        ?? getEntityBaseOffset(entityType);
+    const baseOffset = options.baseOffset ?? getEntityBaseOffset(entityType);
     return groundY + baseOffset;
 }
 
@@ -244,15 +251,16 @@ export function plantOnSurface(
     z: number,
     options: PlantOnSurfaceOptions = {}
 ): number {
-    const entityType = (options.entityType
-        ?? obj.userData.mapEntityType
-        ?? obj.userData.type) as string | undefined;
-    const mapParamOffset = typeof obj.userData.mapExport?.params?.baseOffset === 'number'
-        ? obj.userData.mapExport.params.baseOffset as number
-        : undefined;
-    const userOffset = typeof obj.userData.baseOffset === 'number'
-        ? obj.userData.baseOffset as number
-        : undefined;
+    const entityType = (options.entityType ?? obj.userData.mapEntityType ?? obj.userData.type) as
+        string | undefined;
+    const mapParamOffset =
+        typeof obj.userData.mapExport?.params?.baseOffset === 'number'
+            ? (obj.userData.mapExport.params.baseOffset as number)
+            : undefined;
+    const userOffset =
+        typeof obj.userData.baseOffset === 'number'
+            ? (obj.userData.baseOffset as number)
+            : undefined;
     const baseOffset = resolveEntityBaseOffset(entityType, {
         baseOffset: options.baseOffset ?? userOffset ?? mapParamOffset,
     });
@@ -267,7 +275,7 @@ export function plantOnSurface(
         normal = footprint.normal;
     } else {
         const groundY = options.groundY ?? sampleGroundY(x, z);
-        y = options.y ?? (groundY + baseOffset);
+        y = options.y ?? groundY + baseOffset;
         normal = sampleGroundNormal(x, z);
     }
 
@@ -275,7 +283,11 @@ export function plantOnSurface(
     const alignSlope = shouldAlignToSlope(entityType, options.alignToSlope);
 
     if (alignSlope) {
-        obj.userData.groundSlopeQuaternion = computeSlopeQuaternion(normal, maxTilt, new THREE.Quaternion());
+        obj.userData.groundSlopeQuaternion = computeSlopeQuaternion(
+            normal,
+            maxTilt,
+            new THREE.Quaternion()
+        );
         obj.userData.groundNormal = normal.clone();
     } else {
         obj.userData.groundSlopeQuaternion = undefined;

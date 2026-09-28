@@ -233,7 +233,8 @@ export function setupStartScreen(ctx: MainContext): void {
         startButton.setAttribute('aria-disabled', 'true');
         startButton.setAttribute('title', 'Generating world...');
         const textContent = startButton.textContent?.trim() || 'Generating';
-        startButton.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+        startButton.innerHTML =
+            '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
         startButton.appendChild(document.createTextNode(textContent + '... '));
         const candyEmoji = document.createElement('span');
         candyEmoji.setAttribute('aria-hidden', 'true');
@@ -297,8 +298,11 @@ export function setupStartScreen(ctx: MainContext): void {
                     startButton.style.background = `linear-gradient(90deg, ${accent} ${percent}%, ${soft} ${percent}%)`;
 
                     if (percent - lastAnnounced >= 10 || percent === 100) {
-                        startButton.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
-                        startButton.appendChild(document.createTextNode(`Generating ${percent}%... `));
+                        startButton.innerHTML =
+                            '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+                        startButton.appendChild(
+                            document.createTextNode(`Generating ${percent}%... `)
+                        );
                         const candyEmoji = document.createElement('span');
                         candyEmoji.setAttribute('aria-hidden', 'true');
                         candyEmoji.textContent = '🍭';
