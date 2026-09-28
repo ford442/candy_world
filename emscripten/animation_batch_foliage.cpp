@@ -287,7 +287,6 @@ void batchCloudBob_c(float* input, int count, float time, float intensity, float
  */
 EMSCRIPTEN_KEEPALIVE
 
-EMSCRIPTEN_KEEPALIVE
 void batchVineSway_simd(float* input, int count, float time, float intensity, float* output) {
     int i = 0;
     int count4 = count & ~3;
