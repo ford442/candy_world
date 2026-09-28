@@ -93,6 +93,10 @@ function resolve(overrides = {}) {
     assert.equal(core.path, 'core');
     assert.equal(core.world.size, 120);
 
+    const lobby = resolve({ url: { boot: 'lobby' } });
+    assert.equal(lobby.path, 'lobby');
+    assert.equal(lobby.world.size, 24);
+
     const wait = resolve({ profile: { path: 'play' }, url: { waitForFull: true } });
     assert.equal(wait.path, 'explore');
 }
@@ -106,11 +110,14 @@ function resolve(overrides = {}) {
 
 // URL / mapSize compat
 {
+    assert.equal(mapSizeToStartupPath('lobby'), 'lobby');
+    assert.equal(mapSizeToStartupPath('tiny'), 'lobby');
     assert.equal(mapSizeToStartupPath('small'), 'core');
     assert.equal(mapSizeToStartupPath('medium'), 'play');
     assert.equal(mapSizeToStartupPath('large'), 'explore');
     assert.equal(resolveBootPathFromUrl(new URLSearchParams('boot=instant')), 'play');
     assert.equal(resolveBootPathFromUrl(new URLSearchParams('boot=explore')), 'explore');
+    assert.equal(resolveBootPathFromUrl(new URLSearchParams('boot=lobby')), 'lobby');
     assert.equal(resolveBootPathFromUrl(new URLSearchParams('map=small')), 'core');
     assert.equal(resolveBootPathFromUrl(new URLSearchParams('map=large')), 'explore');
 }

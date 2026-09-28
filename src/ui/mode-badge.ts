@@ -1,7 +1,7 @@
 import type { StartupProfile } from '../core/startup-profile.ts';
 import { profileBadgeLabel } from '../core/startup-profile.ts';
 
-export type WorldMode = 'CORE' | 'FULL';
+export type WorldMode = 'CORE' | 'FULL' | 'LOBBY';
 
 let modeBadge: HTMLDivElement | null = null;
 let rendererBadge: HTMLDivElement | null = null;

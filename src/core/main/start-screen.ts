@@ -43,7 +43,7 @@ import {
     initDeferredVisuals,
     runDeferredWarmup,
 } from '../deferred-init.ts';
-import { getStartupCapabilities } from '../startup/capabilities.ts';
+import { getStartupCapabilities, refreshStartupCapabilities } from '../startup/capabilities.ts';
 import {
     loadStartupProfile,
     setStartupPath,
@@ -86,11 +86,14 @@ function whenSceneReady(): Promise<void> {
 }
 
 function pathToWorldMode(path: StartupPath): WorldMode {
+    if (path === 'lobby') return 'LOBBY';
     return path === 'core' ? 'CORE' : 'FULL';
 }
 
 function pathEmoji(path: StartupPath): string {
-    return path === 'explore' ? '🌸' : '🍭';
+    if (path === 'explore') return '🌸';
+    if (path === 'lobby') return '🏠';
+    return '🍭';
 }
 
 export function setupStartScreen(ctx: MainContext): void {
@@ -134,11 +137,15 @@ export function setupStartScreen(ctx: MainContext): void {
 
     const modeDescription = document.getElementById('mode-description');
     const fullWorldToggle = document.getElementById('toggleFullWorld') as HTMLButtonElement | null;
+    const lobbyToggle = document.getElementById('toggleLobby') as HTMLButtonElement | null;
 
     const syncProfileUi = () => {
         if (fullWorldToggle) {
             const explore = profile.path === 'explore';
             fullWorldToggle.setAttribute('aria-checked', String(explore));
+        }
+        if (lobbyToggle) {
+            lobbyToggle.setAttribute('aria-checked', String(profile.path === 'lobby'));
         }
 
         if (modeDescription) {
@@ -155,8 +162,13 @@ export function setupStartScreen(ctx: MainContext): void {
     const applyPath = (path: StartupPath) => {
         // Keep the in-memory session path even when URL would re-force it on load.
         profile = { ...profile, path };
-        if (path === 'play' || path === 'explore') {
+        if (path === 'play' || path === 'explore' || path === 'lobby') {
             setStartupPath(path);
+        }
+        try {
+            refreshStartupCapabilities({ profile });
+        } catch {
+            /* capabilities cache is optional at this point */
         }
         (window as any).__startupProfile = profile;
         syncProfileUi();
@@ -176,6 +188,20 @@ export function setupStartScreen(ctx: MainContext): void {
         });
     }
 
+    if (lobbyToggle) {
+        lobbyToggle.addEventListener('click', () => {
+            const next = profile.path === 'lobby' ? 'play' : 'lobby';
+            applyPath(next);
+        });
+        lobbyToggle.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                lobbyToggle.click();
+            }
+        });
+    }
+
     (window as any).__startupProfile = profile;
     syncProfileUi();
 
@@ -188,6 +214,7 @@ export function setupStartScreen(ctx: MainContext): void {
 
     const getGenerationLabel = (path: StartupPath) => {
         if (path === 'core') return 'Generating core world...';
+        if (path === 'lobby') return 'Building lobby room...';
         if (path === 'explore') return 'Generating full world (nearby + streaming)...';
         return 'Generating spawn area...';
     };
@@ -234,6 +261,7 @@ export function setupStartScreen(ctx: MainContext): void {
             );
 
             if (fullWorldToggle) fullWorldToggle.style.display = 'none';
+            if (lobbyToggle) lobbyToggle.style.display = 'none';
             if (modeDescription) modeDescription.style.display = 'none';
             showModeBadge(requestedMode, profile);
 
@@ -269,7 +297,11 @@ export function setupStartScreen(ctx: MainContext): void {
                         lastAnnounced = percent;
                     }
                 },
-                requestedMode === 'FULL' ? { bootPath } : undefined
+                requestedMode === 'FULL'
+                    ? { bootPath }
+                    : profile.path === 'lobby'
+                      ? { lobby: true }
+                      : undefined
             );
 
             if (activeWorldMode !== requestedMode) {
@@ -444,6 +476,7 @@ export function setupStartScreen(ctx: MainContext): void {
             startButton.style.background = '';
             startButton.innerHTML = 'Retry';
             if (fullWorldToggle) fullWorldToggle.style.display = '';
+            if (lobbyToggle) lobbyToggle.style.display = '';
             if (modeDescription) modeDescription.style.display = '';
             announce('World generation failed. Please try again.', 'assertive');
         } finally {
