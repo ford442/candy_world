@@ -92,7 +92,7 @@
  * ```
  */
 
-import { spawnTracker, recordSpawnAttempt } from '../world/spawn-tracker.ts';
+import { recordSpawnAttempt } from '../world/spawn-tracker.ts';
 
 export enum LoadPriority {
   CRITICAL = 0,  // Player sees immediately - load first
@@ -389,10 +389,6 @@ export class DeferredLoader {
           }
         }
       } catch (error) {
-        spawnTracker.recordFailure('deferred_loader_item', error, {
-          context: `deferred-loader:${item.id}`,
-          countAttempt: true,
-        });
         console.error(`[DeferredLoader] Failed to load '${item.id}':`, error);
         this.emit('error', {
           id: item.id,

@@ -32,7 +32,6 @@ import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
 import type { WorldMode } from '../../world/generation-utils.ts';
 import { populateWorld } from '../../world/generation.ts';
 import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
-import { spawnTracker } from '../../world/spawn-tracker.ts';
 import {
     reset as resetSpawnTracker,
     getReport as getSpawnReport,
@@ -393,7 +392,7 @@ export function setupStartScreen(ctx: MainContext): void {
             setDeferredFailures(0);
             globalBackgroundProcessor.onProgress((completed, total) => {
                 setDeferredProgress(completed, total);
-                setDeferredFailures(spawnTracker.getReport().failCount);
+                setDeferredFailures(getSpawnReport().failed);
             });
             globalBackgroundProcessor.resetCounters();
             showDeferredIndicator();

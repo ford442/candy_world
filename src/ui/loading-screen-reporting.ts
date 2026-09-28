@@ -28,7 +28,10 @@ export function updateSpawnFailureBadge(
                 try {
                     const r = getReport();
                     const summary = `Spawn failures: ${r.failed}/${r.attempted} (succeeded ${r.succeeded}). By type: ${Object.entries(r.failuresByType).map(([k,v])=>k+':'+v).join(', ') || 'n/a'}`;
-                    log.debug('SpawnTracker', 'Failures during population', r.failuresByType, 'Last errors:', r.lastErrors);
+                    console.group(`[SpawnTracker] ${r.failed} spawn failure(s)`);
+                    console.table(r.failuresByType);
+                    for (const e of r.lastErrors) console.warn(`${e.type}: ${e.message}`);
+                    console.groupEnd();
                     showToast(summary + ' — see console for full list', '⚠️', 6000);
                 } catch (e) { log.warn('Deferred', 'failed to show spawn report', e); }
             };

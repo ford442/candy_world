@@ -18,8 +18,6 @@ import { isCIorHeadless, getJsHeapUsageRatio, getLoadMemoryTier } from '../core/
  * so the GC can reclaim memory instead of locking the tab during load.
  */
 
-import { spawnTracker } from '../world/spawn-tracker.ts';
-
 export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;

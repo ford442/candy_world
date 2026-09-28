@@ -1,78 +1,19 @@
 /**
  * Unit tests for src/world/spawn-tracker.ts
  *
- * Runs in Node with no browser, no build step.
- * Uses the compiled JS via tsx or direct import with ts-node.
- * Falls back to a pure-JS re-implementation of the module logic to keep
- * the test self-contained when a TypeScript runner is not available.
+ * Imports the real module; Node 24 strips the TypeScript types.
  *
  * Run: node tests/spawn-tracker.test.mjs
  */
 
-// --------------------------------------------------------------------------
-// Inline reimplementation matching spawn-tracker.ts exactly, so we can test
-// the logic without needing a build step or tsx.
-// --------------------------------------------------------------------------
+import {
+  recordSpawnAttempt,
+  getReport,
+  reset,
+  maybeRecordBackgroundFailure,
+} from '../src/world/spawn-tracker.ts';
 
 const MAX_LAST_ERRORS = 8;
-
-let attempted = 0;
-let succeeded = 0;
-let failed = 0;
-const failuresByType = Object.create(null);
-const lastErrors = [];
-let lastReport = null;
-let dirty = true;
-
-function makeReport() {
-  return { attempted, succeeded, failed, failuresByType: { ...failuresByType }, lastErrors: lastErrors.slice() };
-}
-
-function recordSpawnAttempt(type, success, error) {
-  attempted++;
-  const key = type || 'unknown';
-  if (success) {
-    succeeded++;
-  } else {
-    failed++;
-    failuresByType[key] = (failuresByType[key] || 0) + 1;
-    let msg = 'unknown error';
-    if (error instanceof Error) msg = error.message || error.toString();
-    else if (error != null) msg = String(error);
-    lastErrors.push({ type: key, message: msg.slice(0, 200), ts: Date.now() });
-    if (lastErrors.length > MAX_LAST_ERRORS) lastErrors.shift();
-  }
-  dirty = true;
-}
-
-function getReport() {
-  if (!dirty && lastReport) return lastReport;
-  lastReport = makeReport();
-  dirty = false;
-  return lastReport;
-}
-
-function reset() {
-  attempted = 0; succeeded = 0; failed = 0;
-  for (const k of Object.keys(failuresByType)) delete failuresByType[k];
-  lastErrors.length = 0;
-  lastReport = null;
-  dirty = true;
-}
-
-function maybeRecordBackgroundFailure(taskId, error) {
-  if (!taskId) return false;
-  if (
-    taskId.startsWith('map_stream_') || taskId.startsWith('map_fallback_') ||
-    taskId.startsWith('proc_') || taskId.includes('spawn') || taskId.includes('foliage')
-  ) {
-    const m = taskId.match(/(?:map_stream_|map_fallback_|proc_)([a-z0-9_]+)/i);
-    const t = m ? m[1] : taskId.split('_').pop() || 'background';
-    recordSpawnAttempt(t, false, error);
-    return true;
-  }
-  return false;
-}
 
 // --------------------------------------------------------------------------
 // Test harness

@@ -69,3 +69,70 @@ export class PlaceCommand implements WorldCommand {
         return { type: 'place', snapshot: this.snapshot };
     }
 }
+
+/** Remove one authored entity: the inverse of PlaceCommand, same hooks. */
+export class RemoveCommand implements WorldCommand {
+    private readonly place: PlaceCommand;
+
+    constructor(
+        readonly snapshot: EntitySnapshot,
+        hooks: PlaceCommandHooks = {}
+    ) {
+        this.place = new PlaceCommand(snapshot, hooks);
+    }
+
+    apply(): void {
+        this.place.revert();
+    }
+
+    revert(): void {
+        this.place.apply();
+    }
+
+    serialize(): SerializedWorldCommand {
+        return { type: 'remove', snapshot: this.snapshot };
+    }
+}
+
+/**
+ * Move an authored entity by despawning `from` and placing `to` (same id,
+ * new transform). Re-placing through processMapEntity re-runs grounding and
+ * batcher registration, which an in-place transform write would skip.
+ */
+export class MoveCommand implements WorldCommand {
+    private readonly fromCmd: PlaceCommand;
+    private readonly toCmd: PlaceCommand;
+
+    constructor(
+        readonly from: EntitySnapshot,
+        readonly to: EntitySnapshot,
+        hooks: PlaceCommandHooks = {}
+    ) {
+        if (from.id !== to.id) throw new Error('MoveCommand requires matching snapshot ids');
+        this.fromCmd = new PlaceCommand(from, hooks);
+        this.toCmd = new PlaceCommand(to, hooks);
+    }
+
+    apply(): void {
+        MoveCommand.swap(this.fromCmd, this.toCmd);
+    }
+
+    revert(): void {
+        MoveCommand.swap(this.toCmd, this.fromCmd);
+    }
+
+    /** Remove `out`, place `in`; if placing fails, put `out` back before rethrowing. */
+    private static swap(out: PlaceCommand, into: PlaceCommand): void {
+        out.revert();
+        try {
+            into.apply();
+        } catch (err) {
+            out.apply();
+            throw err;
+        }
+    }
+
+    serialize(): SerializedWorldCommand {
+        return { type: 'move', from: this.from, to: this.to };
+    }
+}

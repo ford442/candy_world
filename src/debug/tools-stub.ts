@@ -53,8 +53,12 @@ function loadGround(): Promise<GroundDebugMod | null> {
     return _groundLoad;
 }
 
+// `?debugPlace` is dev-only: the DEV guard lets Rollup drop the editor chunk
+// (and its export/merge code) from production builds entirely.
+const placeFlag = () => import.meta.env.DEV && urlFlag('debugPlace');
+
 function loadPlace(): Promise<PlaceDebugMod | null> {
-    if (!urlFlag('debugPlace')) return Promise.resolve(null);
+    if (!placeFlag()) return Promise.resolve(null);
     if (_placeMod) return Promise.resolve(_placeMod);
     if (!_placeLoad) {
         _placeLoad = import('./debug-place.ts').then((m) => {
@@ -130,7 +134,7 @@ export function isGroundDebugEnabled(): boolean {
 }
 
 export function isPlacementDebugEnabled(): boolean {
-    return urlFlag('debugPlace');
+    return placeFlag();
 }
 
 export function isCircadianDebugEnabled(): boolean {
@@ -293,7 +297,7 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
 }
 
 export function updatePlacementDebug(cameraPos: THREE.Vector3, cameraDir: THREE.Vector3): void {
-    if (!urlFlag('debugPlace')) return;
+    if (!placeFlag()) return;
     if (_placeMod) {
         _placeMod.updatePlacementDebug(cameraPos, cameraDir);
         return;
