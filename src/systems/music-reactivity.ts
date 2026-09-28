@@ -25,14 +25,6 @@ export * from './music-reactivity-core.ts';
 export { AtmosphereShaftState } from './atmosphere-reactivity.ts';
 export { computeWaveDistSq } from './music-wave.ts';
 import * as THREE from 'three';
-import { updateSkyWavePropagation } from './music-reactivity-sky-wave.ts';
-
-import { updateLuminousPlants } from './music-reactivity-luminous.ts';
-
-import { updateFoliageAnimationLoop } from './music-reactivity-foliage.ts';
-import { updateBiomeChannelBindings } from './music-reactivity-bindings.ts';
-import { NOTE_AUDIBLE_THRESHOLD, NOTE_COLOR_RELEASE_LERP, SILENT_DECAY, SILENT_DECAY_UNIFORMS, accumChannelVolume, firstAudibleNote, normalizeAccum, releaseNoteColor, applyNoteColor } from './music-reactivity-bindings.ts';
-
 import { BeatSync } from '../audio/beat-sync.ts';
 import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
@@ -59,7 +51,12 @@ import {
 } from './atmosphere-reactivity.ts';
 import { awakenedPersistence } from './awakened-persistence-api.ts';
 import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
+import { NOTE_AUDIBLE_THRESHOLD, NOTE_COLOR_RELEASE_LERP, SILENT_DECAY, SILENT_DECAY_UNIFORMS, accumChannelVolume, firstAudibleNote, normalizeAccum, releaseNoteColor, applyNoteColor } from './music-reactivity-bindings.ts';
+import { updateBiomeChannelBindings } from './music-reactivity-bindings.ts';
 import { CHROMATIC_SCALE, skyWaveUniformMap } from './music-reactivity-defaults.ts';
+import { updateFoliageAnimationLoop } from './music-reactivity-foliage.ts';
+import { updateLuminousPlants } from './music-reactivity-luminous.ts';
+import { updateSkyWavePropagation } from './music-reactivity-sky-wave.ts';
 import type { ActiveWave } from './music-wave.ts';
 
 // Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)

@@ -2,9 +2,8 @@ import * as THREE from 'three';
 import { updateCircadianDebug, isCircadianDebugEnabled } from '../debug/tools-stub.ts';
 import { uAuroraIntensity, uAuroraColor } from '../foliage/aurora.ts';
 import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
-import { updateWind, type WindUpdateInput } from '../systems/wind-uniforms.ts';
-import { updateWindDebug } from '../systems/wind-debug.ts';
 import { uAudioLow, uAudioHigh, uGlitchIntensity, uTime } from '../foliage/index.ts';
+import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
 import {
     uSkyTopColor,
     uSkyBottomColor,
@@ -12,14 +11,15 @@ import {
     uAtmosphereIntensity,
 } from '../foliage/sky.ts';
 import { uStarOpacity } from '../foliage/stars.ts';
-import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { globalClusteredLighting } from '../rendering/clustered-lighting.ts';
 import { updateIrradianceProbes } from '../rendering/irradiance-probes.ts';
-import { cameraRef } from './game-loop-core.ts';
-import { profiler } from '../utils/profiler.ts';
+import { updateLocalLightHelpers } from '../rendering/lights.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
 import { WeatherState } from '../systems/weather-types.ts';
+import { updateWindDebug } from '../systems/wind-debug.ts';
+import { updateWind, type WindUpdateInput } from '../systems/wind-uniforms.ts';
+import { profiler } from '../utils/profiler.ts';
 import {
     DURATION_SUNRISE,
     DURATION_DAY,
@@ -28,6 +28,7 @@ import {
     DURATION_DEEP_NIGHT,
 } from './config.ts';
 import { getDayNightBias } from './cycle.ts';
+import { cameraRef } from './game-loop-core.ts';
 import {
     _scratchBaseSkyTop,
     _scratchBaseSkyBot,
@@ -71,7 +72,6 @@ import {
     setShaftGoldenHourBase,
 } from './game-loop-core.ts';
 import { updateSunShadowFollow } from './game-loop-postfx.ts';
-import { updateLocalLightHelpers } from '../rendering/lights.ts';
 import { updateTheme, getLastIsNight, setLastIsNight, setIsNight } from './hud.ts';
 
 // Reused every frame — the wind update must not allocate (see WIND_OPTIMIZATION.md).

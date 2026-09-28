@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'fs';
 
 let content = readFileSync('src/systems/music-reactivity.ts', 'utf8');
 
-content = content.replace(/    releaseNoteColor\(uniform, target\);\n    return false;\n}\n\n/g, '');
+content = content.replace(/ {4}releaseNoteColor\(uniform, target\);\n {4}return false;\n}\n\n/g, '');
 
 writeFileSync('src/systems/music-reactivity.ts', content);
 

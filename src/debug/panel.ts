@@ -1,6 +1,8 @@
 // src/debug/panel.ts
 // Debug UI panel for toggling initialization stages
 
+import { CONFIG } from '../core/config.ts';
+import { uAoStrength, uBloomRadius, uBloomThreshold } from '../foliage/post-processing-uniforms.ts';
 import { setIrradianceEnabled } from '../rendering/irradiance-probes.ts';
 import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
 import {
@@ -8,8 +10,6 @@ import {
     setShadowPcssEnabled,
     setShadowSoftness,
 } from '../rendering/shadow-softness.ts';
-import { CONFIG } from '../core/config.ts';
-import { uAoStrength, uBloomRadius, uBloomThreshold } from '../foliage/post-processing-uniforms.ts';
 import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import {

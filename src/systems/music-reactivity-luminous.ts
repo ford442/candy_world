@@ -1,13 +1,12 @@
 import * as THREE from 'three';
-import { MRState } from './music-reactivity-core.ts';
-import { LuminousPlantUniforms } from './biome-uniforms.ts';
-import { awakenedPersistence } from './awakened-persistence-api.ts';
-import { musicReactivitySystem } from './music-reactivity.ts';
-import type { AudioData } from '../foliage/types.ts';
-
-import { CHROMATIC_SCALE } from './music-reactivity-defaults.ts';
 import { CONFIG } from '../core/config.ts';
+import type { AudioData } from '../foliage/types.ts';
+import { awakenedPersistence } from './awakened-persistence-api.ts';
+import { LuminousPlantUniforms } from './biome-uniforms.ts';
 import { SkyUniforms } from './biome-uniforms.ts';
+import { MRState } from './music-reactivity-core.ts';
+import { CHROMATIC_SCALE } from './music-reactivity-defaults.ts';
+import { musicReactivitySystem } from './music-reactivity.ts';
     export function updateLuminousPlants(audioState: AudioData | null, isDay: boolean, _lastCameraPos: THREE.Vector3) {
         // ---------------------------------------------------------------
         // ⚡ LUMINOUS PLANTS (Scenic System)
