@@ -74,6 +74,11 @@ export function create(type: string, params?: WorldObjectParams): THREE.Object3D
     return entry.factory(params);
 }
 
+/** Every registered type key, in registration order. */
+export function getRegisteredTypes(): string[] {
+    return [..._registry.keys()];
+}
+
 export function getTypeMeta(type: string): WorldObjectMeta | undefined {
     const key = normalizeType(type);
     return _registry.get(key)?.meta;

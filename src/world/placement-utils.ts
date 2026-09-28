@@ -187,6 +187,8 @@ export interface PlantOnSurfaceOptions {
     alignToSlope?: boolean;
     /** Max tilt from world-up in radians (default: MAX_SLOPE_ANGLE ≈ 25°). */
     maxTiltRadians?: number;
+    /** Record a `?debugHeights` marker (default true). Previews that re-plant every frame pass false. */
+    registerDebugMarker?: boolean;
 }
 
 const _up = new THREE.Vector3(0, 1, 0);
@@ -282,6 +284,8 @@ export function plantOnSurface(
 
     obj.userData.footprintRadius = footprintRadius > 0 ? footprintRadius : undefined;
     obj.position.set(x, y, z);
-    registerPlantedInstance(x, y, z, entityType, footprintRadius || undefined, normal);
+    if (options.registerDebugMarker !== false) {
+        registerPlantedInstance(x, y, z, entityType, footprintRadius || undefined, normal);
+    }
     return y;
 }
