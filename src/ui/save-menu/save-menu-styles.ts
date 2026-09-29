@@ -238,7 +238,8 @@ export const MENU_STYLES = `
     transition: opacity 0.2s;
 }
 
-.candy-save-slot:hover .candy-save-slot__actions {
+.candy-save-slot:hover .candy-save-slot__actions,
+.candy-save-slot:focus-within .candy-save-slot__actions {
     opacity: 1;
 }
 
