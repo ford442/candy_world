@@ -6,6 +6,7 @@ import { BeatSync } from '../audio/beat-sync.ts';
 import { uBloomStrength } from '../foliage/post-processing-uniforms.ts';
 import { uCrescendoFogDensity } from '../foliage/sky.ts';
 import type { AudioData } from '../foliage/types.ts';
+import { smooth, simulateBloomTarget, simulateFogTarget } from './atmosphere-reactivity-core.ts';
 import { MRState, toChannels } from './music-reactivity-core.ts';
 
 export interface AtmosphereBloomBinding {
@@ -100,9 +101,6 @@ let _smoothedMelodyEnergy = 0;
 let _beatBloomSpike = 0;
 let _beatShaftShimmer = 0;
 
-function _smooth(current: number, target: number, k: number, deltaTime: number): number {
-    return current + (target - current) * (1.0 - Math.exp(-k * deltaTime));
-}
 
 function _resetAtmosphereBindings(): void {
     _bloomBinding = {
@@ -248,7 +246,7 @@ export function updateAtmosphereReactivity(
         }
     }
     const bassNorm = Math.min(1.0, bassAccum / bloomCh.length);
-    _smoothedBassEnergy = _smooth(
+    _smoothedBassEnergy = smooth(
         _smoothedBassEnergy,
         bassNorm,
         _bloomBinding.smoothing,
@@ -263,19 +261,16 @@ export function updateAtmosphereReactivity(
             totalVolume += channels[i].volume;
         }
         const averageVolume = totalVolume / channels.length;
-        mixTarget = Math.min(_fogBinding.max, averageVolume * _fogBinding.scale);
+        mixTarget = simulateFogTarget(averageVolume, _fogBinding.scale, _fogBinding.max, weatherFogBoost);
     }
-    if (weatherFogBoost > 0) {
-        mixTarget = Math.min(_fogBinding.max, mixTarget + weatherFogBoost * 0.35);
-    }
-    _smoothedMixEnergy = _smooth(_smoothedMixEnergy, mixTarget, _fogBinding.smoothing, deltaTime);
+    _smoothedMixEnergy = smooth(_smoothedMixEnergy, mixTarget, _fogBinding.smoothing, deltaTime);
 
     // Melody channel (sky_moon.melody_channel via MRState.skyMoonCh) → shaft opacity driver
     let melodyVol = 0;
     if (channels && MRState.skyMoonCh < channels.length) {
         melodyVol = channels[MRState.skyMoonCh].volume || 0;
     }
-    _smoothedMelodyEnergy = _smooth(
+    _smoothedMelodyEnergy = smooth(
         _smoothedMelodyEnergy,
         melodyVol,
         _shaftBinding.smoothing,
@@ -290,14 +285,14 @@ export function updateAtmosphereReactivity(
     if (_beatShaftShimmer < 0.001) _beatShaftShimmer = 0;
 
     if (!channels) {
-        _smoothedBassEnergy = _smooth(_smoothedBassEnergy, 0, _bloomBinding.smoothing, deltaTime);
-        _smoothedMixEnergy = _smooth(
+        _smoothedBassEnergy = smooth(_smoothedBassEnergy, 0, _bloomBinding.smoothing, deltaTime);
+        _smoothedMixEnergy = smooth(
             _smoothedMixEnergy,
             weatherFogBoost > 0 ? Math.min(_fogBinding.max, weatherFogBoost * 0.35) : 0,
             _fogBinding.smoothing,
             deltaTime
         );
-        _smoothedMelodyEnergy = _smooth(
+        _smoothedMelodyEnergy = smooth(
             _smoothedMelodyEnergy,
             0,
             _shaftBinding.smoothing,
@@ -306,15 +301,12 @@ export function updateAtmosphereReactivity(
     }
 
     const nightGate = 0.35 + (1.0 - dayNightBias) * 0.65;
-    const bloomBase =
-        _bloomBinding.rest +
-        (_bloomBinding.peak - _bloomBinding.rest) * _smoothedBassEnergy * nightGate;
-    const bloomTarget = bloomBase + _beatBloomSpike;
+    const bloomTarget = simulateBloomTarget(_smoothedBassEnergy, _bloomBinding.rest, _bloomBinding.peak, nightGate, _beatBloomSpike);
     const currentBloom = uBloomStrength.value as number;
-    uBloomStrength.value = _smooth(currentBloom, bloomTarget, _bloomBinding.smoothing, deltaTime);
+    uBloomStrength.value = smooth(currentBloom, bloomTarget, _bloomBinding.smoothing, deltaTime);
 
     const currentFog = uCrescendoFogDensity.value as number;
-    uCrescendoFogDensity.value = _smooth(
+    uCrescendoFogDensity.value = smooth(
         currentFog,
         _smoothedMixEnergy,
         _fogBinding.smoothing,
