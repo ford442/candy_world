@@ -189,6 +189,8 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
     const formationsMesh = new THREE.InstancedMesh(_sharedConeGeo, crystalMat, formationCount);
     formationsMesh.castShadow = true;
     formationsMesh.receiveShadow = true;
+    formationsMesh.userData.preventMaterialDispose = true;
+    formationsMesh.userData.preventGeometryDispose = true; // Shared cone geo
 
     for (let i = 0; i < formationCount; i++) {
         const t = 0.1 + Math.random() * 0.8; // Avoid very ends of tunnel
@@ -245,8 +247,13 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
 
     group.scale.setScalar(scale);
 
+    tunnelMesh.userData.preventMaterialDispose = true;
+
     // One authored cyan fill inside the first cave only (registry-capped).
-    tryAttachAuthoredCaveFill(group, [0, 0.5, -depth * 0.35]);
+    const lightHandle = tryAttachAuthoredCaveFill(group, [0, 0.5, -depth * 0.35]);
+    if (lightHandle) {
+        group.userData.caveLightHandle = lightHandle;
+    }
 
     return group;
 }

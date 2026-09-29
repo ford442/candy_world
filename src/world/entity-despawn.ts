@@ -20,6 +20,7 @@ import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 import { sugarCaveBatcher } from '../foliage/sugar-cave-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { waterfallBatcher } from '../foliage/waterfall-batcher.ts';
+import { releaseLocalLight } from '../rendering/lights.ts';
 import { unregisterPhysicsCave } from '../systems/physics/index.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import type { WeatherSystem } from './generation-utils.ts';
@@ -189,6 +190,11 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
     } else if (evictionClass === 'cave') {
         unregisterPhysicsCave(obj);
         weatherSystem?.unregisterCave?.(obj);
+        if (typeof obj.userData.caveLightHandle === 'string') {
+            releaseLocalLight(obj.userData.caveLightHandle);
+        }
+        waterfallBatcher.remove(obj.uuid);
+        obj.userData.waterfallActive = false;
     }
     // Discovery registration is intentionally left in place — the discovery
     // grid (WASM/AS) has no unregister API (see .swarm-state.md).
