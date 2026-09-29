@@ -152,7 +152,8 @@ RGBA8 encoding — is supported by the GLSL node backend, so enabling it on WebG
 later is a matter of relaxing `CONFIG.lighting.gi.disableOnLow`, not of writing a
 second code path. This was checked, not assumed: booting
 `?renderer=webgl&gi=on` builds and renders a GI-bearing unified material with no
-shader errors. See `docs/webgl-fallback.md`.
+shader errors (checked before the WebGL path was disabled; WebGPU is now required — see
+`docs/webgl-fallback.md`).
 
 ## Known v1 limitations
 

@@ -28,7 +28,9 @@ export function handlePlaylistUpload(e: Event): void {
             if (btn) {
                 btn.setAttribute('aria-busy', 'true');
                 btn.setAttribute('aria-disabled', 'true');
-                btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Processing...';
+                const textContent = btn.textContent?.trim() || 'Processing';
+                btn.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+                btn.appendChild(document.createTextNode(textContent + '...'));
             }
         };
 
@@ -196,8 +198,9 @@ export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
                 if (musicUploadBtn) {
                     musicUploadBtn.setAttribute('aria-busy', 'true');
                     musicUploadBtn.setAttribute('aria-disabled', 'true');
-                    musicUploadBtn.innerHTML =
-                        '<span class="spinner" aria-hidden="true"></span> Processing...';
+                    const textContent = musicUploadBtn.textContent?.trim() || 'Processing';
+                    musicUploadBtn.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+                    musicUploadBtn.appendChild(document.createTextNode(textContent + '...'));
                 }
 
                 // Brief delay for satisfying UX feedback

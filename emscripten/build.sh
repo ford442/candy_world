@@ -416,7 +416,7 @@ if [ $MISSING_COUNT -gt 0 ]; then
 fi
 
 # =============================================================================
-# ROBUST EXPORT LIST (fixes -O3 DCE + shell quoting trap)
+# ROBUST EXPORT LIST (fixes optimizer DCE + shell quoting trap)
 # =============================================================================
 echo "[INFO] Building export list (${#EXPORT_LIST[@]} functions)..."
 
@@ -434,7 +434,10 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 # ---------------------------------------------------------
 
 # Compiler flags for performance
-# - O2: Optimize for speed
+# - O2: Optimize for speed. This is the pinned level for BOTH the compile and
+#   link steps of the MT and ST artifacts. AGENTS.md documents the same level;
+#   change them together, and only after a measured -O3 pass keeps
+#   exports.txt + `npm run verify:emcc:manifest` green.
 # - msimd128: Enable SIMD for vectorized math operations
 # - mrelaxed-simd: Allow relaxed SIMD operations for better performance
 # - fno-rtti: Disable RTTI to reduce code size
@@ -455,6 +458,18 @@ COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops -fopenmp -p
 # - ALLOW_MEMORY_GROWTH=1: Allow dynamic memory allocation
 # - MODULARIZE=1: Generate ES6 module for clean importing
 # - EXPORT_ES6=1: Use ES6 export syntax
+#
+# WASM IMPORT/EXPORT NAME MINIFICATION (do NOT add a flag for it):
+# - MINIFY_WASM_IMPORTS_AND_EXPORTS / MINIFY_WASM_EXPORT_NAMES are *internal*
+#   Emscripten settings (src/settings_internal.js). Passing either with -s makes
+#   emcc exit with "is an internal setting and cannot be set from command line"
+#   (verified against EM_VERSION 4.0.10, pinned in emscripten-verify.yml).
+# - At -O2 with ASSERTIONS=0, emcc minifies wasm import/export names and the
+#   generated candy_native*.js glue maps them back, so Module._<name> keeps the
+#   C name. wasm-loader-core.ts / wasm-orchestrator.ts only go through the glue,
+#   never raw instance.exports, so this is safe. CANDY_DEBUG=1 (ASSERTIONS=1)
+#   turns minification off as a side effect.
+# - scripts/check-emcc-manifest.mjs fails if either setting reappears here.
 #
 # ASSERTIONS DISABLED (IMPORTANT):
 # - Setting ASSERTIONS=0 prevents Emscripten from aborting when exports are missing

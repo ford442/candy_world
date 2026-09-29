@@ -6,6 +6,9 @@
  *   1. Parse ANIMATION_FUNCTIONS + CORE_EXPORTS from build.sh
  *   2. Grep *.cpp for implementations (same patterns as function_exists)
  *   3. Assert committed emscripten/exports.txt equals the expected set
+ *   4. Assert the toolchain contract: one optimizer level across the MT/ST
+ *      compile + link flags, matching AGENTS.md, and no internal Emscripten
+ *      minify settings passed with -s (emcc rejects them)
  *
  * Exit codes:
  *   0 — manifest matches
@@ -26,6 +29,13 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const BUILD_SH = path.join(REPO_ROOT, 'emscripten', 'build.sh');
 const EXPORTS_TXT = path.join(REPO_ROOT, 'emscripten', 'exports.txt');
 const EMSCRIPTEN_DIR = path.join(REPO_ROOT, 'emscripten');
+const AGENTS_MD = path.join(REPO_ROOT, 'AGENTS.md');
+
+const FLAG_VARS = ['COMPILE_FLAGS', 'LINK_FLAGS', 'COMPILE_FLAGS_ST', 'LINK_FLAGS_ST'];
+
+// Internal settings (src/settings_internal.js): `-s NAME=...` makes emcc exit
+// with "is an internal setting and cannot be set from command line".
+const INTERNAL_MINIFY_SETTINGS = ['MINIFY_WASM_IMPORTS_AND_EXPORTS', 'MINIFY_WASM_EXPORT_NAMES'];
 
 const RETURN_TYPES =
   '(?:void|float|int|double|char|long|unsigned|bool|uint32_t|int32_t|size_t|uintptr_t)';
@@ -117,6 +127,59 @@ function sortedList(set) {
   return [...set].sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * Optimizer level + forbidden-flag contract between build.sh and AGENTS.md.
+ * Returns a list of problems (empty when the contract holds).
+ */
+function checkToolchainContract(buildSh) {
+  const problems = [];
+  const code = buildSh
+    .split(/\r?\n/)
+    .filter((l) => !l.trimStart().startsWith('#'))
+    .join('\n');
+
+  const levels = new Map();
+  for (const name of FLAG_VARS) {
+    const m = code.match(new RegExp(`^${name}="([^"]*)"`, 'm'));
+    if (!m) {
+      problems.push(`Could not find ${name}="..." in emscripten/build.sh`);
+      continue;
+    }
+    const opt = [...m[1].matchAll(/(?:^|\s)-O([0-3sz])(?=\s|$)/g)].map((x) => x[1]);
+    if (opt.length !== 1) {
+      problems.push(`${name} must carry exactly one -O level (found ${opt.length})`);
+      continue;
+    }
+    levels.set(name, opt[0]);
+  }
+  const distinct = new Set(levels.values());
+  if (distinct.size > 1) {
+    problems.push(
+      `Optimizer level differs across flag sets: ${[...levels].map(([k, v]) => `${k}=-O${v}`).join(', ')}`
+    );
+  }
+
+  const agents = readFile(AGENTS_MD);
+  const documented = agents.match(/emscripten\/build\.sh is -O([0-3sz])\b/);
+  if (!documented) {
+    problems.push('AGENTS.md must state "Optimization level in emscripten/build.sh is -O<n>"');
+  } else if (distinct.size === 1 && !distinct.has(documented[1])) {
+    problems.push(
+      `AGENTS.md documents -O${documented[1]} but build.sh uses -O${[...distinct][0]} — update both together`
+    );
+  }
+
+  for (const setting of INTERNAL_MINIFY_SETTINGS) {
+    if (new RegExp(`-s\\s*${setting}\\b`).test(code)) {
+      problems.push(
+        `build.sh passes -s ${setting}, an internal Emscripten setting — emcc rejects it on the command line`
+      );
+    }
+  }
+
+  return { problems, level: distinct.size === 1 ? [...distinct][0] : null };
+}
+
 function main() {
   const writeMode = process.argv.includes('--write');
 
@@ -126,6 +189,16 @@ function main() {
   console.log('');
 
   const buildSh = readFile(BUILD_SH);
+
+  const contract = checkToolchainContract(buildSh);
+  if (contract.problems.length > 0) {
+    console.error('❌ Emscripten toolchain contract violated:');
+    for (const p of contract.problems) console.error(`  - ${p}`);
+    console.error('');
+    process.exit(1);
+  }
+  console.log(`toolchain contract:         -O${contract.level} (MT+ST compile/link, AGENTS.md)`);
+
   const committedText = fs.existsSync(EXPORTS_TXT)
     ? fs.readFileSync(EXPORTS_TXT, 'utf8')
     : '';
