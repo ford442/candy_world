@@ -259,4 +259,12 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
 export function installBatcherTelemetry(): void {
     if (typeof window === 'undefined') return;
     window.__getBatcherTelemetry = collectBatcherTelemetry;
+    (window as any).__batcherCounts = () => {
+        const report = collectBatcherTelemetry();
+        const counts: Record<string, number> = {};
+        for (const entry of report.entries) {
+            counts[entry.id] = entry.instances;
+        }
+        return counts;
+    };
 }

@@ -90,6 +90,7 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "prepare": "simple-git-hooks",
+        "test:stream-evict": "tsx --import ./tests/support/register-hooks.mjs tests/stream-evict.test.mjs",
         "test:docs-symbols": "tsx --import ./tests/support/register-hooks.mjs scripts/check-docs-symbols.mjs",
         "test:plan-integrity": "node scripts/check-plan-integrity.mjs"
     },
