@@ -115,6 +115,11 @@ export function resolveStartupCapabilities(
     const row = GRAPHICS_TABLE[graphics];
     let materialSubset = row.warmup;
     if (input.isHeadlessOrCI) materialSubset = 'none';
+    // Lobby is one small room: warm only the core materials, skip outdoor extras.
+    const lobby = path === 'lobby';
+    if (lobby && (materialSubset === 'batched' || materialSubset === 'full')) {
+        materialSubset = 'minimal';
+    }
 
     const postfxQuality = applyUrlPostfx(forceLite ? 'off' : row.postfx, input.url.postfx);
 
@@ -124,8 +129,8 @@ export function resolveStartupCapabilities(
         warmup: { materialSubset },
         postfx: { quality: postfxQuality },
         deferred: {
-            aurora: forceLite ? false : row.aurora,
-            fluidFog: forceLite ? false : row.fluidFog,
+            aurora: forceLite || lobby ? false : row.aurora,
+            fluidFog: forceLite || lobby ? false : row.fluidFog,
         },
         shadows: {
             enabled: !forceLite && row.shadows !== 'off',

@@ -53,7 +53,21 @@ export interface WorldExtentConfig {
     grassCapacity: number;
     luminousPlantCount: number;
     fogFarCap: number;
+    /** Melody Lake, lake island, its luminous-plant ring and falling berries. */
+    outdoorSetpieces: boolean;
+    /** Background sky cloud layer (0 skips it). */
+    skyCloudCount: number;
+    fireflyCount: number;
+    /** Boids fauna scattered across the map after Start. */
+    fauna: boolean;
 }
+
+const OUTDOOR_POPULATION = {
+    outdoorSetpieces: true,
+    skyCloudCount: 150,
+    fireflyCount: 150,
+    fauna: true,
+} as const;
 
 const PLAY_EXTENT: WorldExtentConfig = {
     size: PLAY_WORLD_SIZE,
@@ -62,6 +76,7 @@ const PLAY_EXTENT: WorldExtentConfig = {
     grassCapacity: 2500,
     luminousPlantCount: 48,
     fogFarCap: PLAY_WORLD_HALF + 20,
+    ...OUTDOOR_POPULATION,
 };
 
 const EXPLORE_EXTENT: WorldExtentConfig = {
@@ -71,6 +86,7 @@ const EXPLORE_EXTENT: WorldExtentConfig = {
     grassCapacity: 10000,
     luminousPlantCount: 150,
     fogFarCap: 420,
+    ...OUTDOOR_POPULATION,
 };
 
 const CORE_EXTENT: WorldExtentConfig = {
@@ -80,6 +96,7 @@ const CORE_EXTENT: WorldExtentConfig = {
     grassCapacity: 800,
     luminousPlantCount: 24,
     fogFarCap: CORE_WORLD_HALF + 20,
+    ...OUTDOOR_POPULATION,
 };
 
 const LOBBY_EXTENT: WorldExtentConfig = {
@@ -89,6 +106,10 @@ const LOBBY_EXTENT: WorldExtentConfig = {
     grassCapacity: 120,
     luminousPlantCount: 8,
     fogFarCap: LOBBY_WORLD_HALF + 8,
+    outdoorSetpieces: false,
+    skyCloudCount: 0,
+    fireflyCount: 24,
+    fauna: false,
 };
 
 export function worldExtentForPath(path: StartupPath | string | undefined): WorldExtentConfig {

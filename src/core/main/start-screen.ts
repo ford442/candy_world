@@ -165,7 +165,8 @@ export function setupStartScreen(ctx: MainContext): void {
             setStartupPath(path);
         }
         try {
-            refreshStartupCapabilities({ profile });
+            // An explicit start-screen pick beats a `?boot=` / `?map=` URL flag for this session.
+            refreshStartupCapabilities({ profile, url: { boot: path } });
         } catch {
             /* capabilities cache is optional at this point */
         }
@@ -332,8 +333,11 @@ export function setupStartScreen(ctx: MainContext): void {
             // Platforms (caves / clouds) register during populate — snap again on solid shore.
             placePlayerAtConfiguredSpawn(camera);
 
-            initFaunaSystem();
-            initFaunaDebug(scene);
+            // Lobby is one room — fauna would scatter across the whole map outside it.
+            if (getStartupCapabilities().world.fauna) {
+                initFaunaSystem();
+                initFaunaDebug(scene);
+            }
 
             initCloudPlacer({ scene, camera, weatherSystem: ctx.weatherSystem ?? null });
 

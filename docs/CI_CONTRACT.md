@@ -14,10 +14,11 @@ it can go red.
 Wired into `.github/workflows/node-protocol-tests.yml`, which runs on every
 pull request against `main` and on every push to `main`.
 
-Contents: `build:wasm`, then all 31 node-only suites (WASM particle bounds,
+Contents: `build:wasm`, then all 32 node-only suites (WASM particle bounds,
 rigid-body/joint/soft-body physics, TS↔AS cross-tier parity, GPU chore
 scheduling, WebGPU capability probing, spawn tracking, entity snapshot
-round-trip and migration, player spawn, character controller, world health,
+round-trip and migration, player spawn, character controller and its
+native-assist ABI (skips without `build:emcc` output), world health,
 fauna behaviour, presence protocol, Sugar Caves and Sky Islands traversal,
 startup capabilities, world extent, local/clustered lights, irradiance probes,
 post-FX, ground system and unified-ground parity, foliage interaction, shadow
@@ -83,7 +84,7 @@ advertised four suites. Verified on disk at commit `90bd6c1`:
 | `test:docs-symbols` | npm script undefined, `scripts/check-docs-symbols.mjs` absent | **written and wired into `test:fast`** |
 | `test:plan-integrity` | npm script undefined, `scripts/check-plan-integrity.mjs` absent | **written and wired into `test:fast`** |
 | `test:save-entity-snapshot` | script defined, but `tests/save-entity-snapshot-roundtrip.test.mjs` does not exist — `npm run test:save-entity-snapshot` exits 1 with `ERR_MODULE_NOT_FOUND` | **npm script deleted** |
-| `test:character-native` | npm script undefined; `tests/character-controller-native.test.mjs` does not exist either, contrary to the claim that it arrived with PR #1771 | **dropped; nothing to wire** |
+| `test:character-native` | npm script undefined; `tests/character-controller-native.test.mjs` does not exist either. It arrived with PR #1771, and the stale #1779 squash deleted it | **restored in #1822 as a Node-only test and wired into `test:fast` (skips without `build:emcc` output). It gates for real in `emscripten-verify.yml`** |
 
 The chain itself is deleted. Two of the four legs now exist and gate PRs. The
 other two had no test file to point at, and writing a save-system round-trip
@@ -109,3 +110,13 @@ tier did NOT run" with an inflated count. AS gaps now get their own block
 naming `npm run build:wasm`. **If you add a new skip site to
 `tests/parity.mjs`, increment the counter for the tier it belongs to** —
 otherwise the summary goes back to blaming the wrong toolchain.
+
+**Fail-closed where the toolchain exists (#1822).** `emscripten-verify.yml`
+runs `test:parity` with `CANDY_PARITY_REQUIRE_CPP=1` right after `build:emcc`.
+With that flag set, any C++ skip exits 1. A native module that built but
+failed to load, or that lost an export, cannot pass as green there. Without
+the flag (the `test:fast` PR job) behaviour is unchanged: the run exits 0 and
+prints the skip block. The C++ tier covers only exports that `src/` calls:
+matrix compose, instance-pose write, and the `getGroundHeight` NaN guard. The
+never-called C++ twins of the colour write and the arpeggio accumulate were
+removed from `exports.txt`.
