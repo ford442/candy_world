@@ -11,11 +11,12 @@
 import { getEmitters, getTotalParticleCapacity } from '../../particles/emitter-api.ts';
 import { getClusteredLightingStats } from '../../rendering/clustered-lighting.ts';
 import { getIrradianceStats, isIrradianceEnabled } from '../../rendering/irradiance-probes.ts';
+import { getGpuTimings } from '../../rendering/gpu-timestamps.ts';
 import { getLocalLightStats } from '../../rendering/lights.ts';
 import { profiler } from '../../utils/profiler.ts';
 import { getRigidBodyCount, getAwakeRigidBodyCount } from '../physics/rigid-bodies.ts';
 import { areSunCascadesActive, getCascadeMapSizes } from '../shadow-cascades.ts';
-import { registerSystemTelemetry } from './systems-budget.ts';
+import { registerGpuTimingTelemetry, registerSystemTelemetry } from './systems-budget.ts';
 
 const BYTES_PER_MB = 1024 * 1024;
 
@@ -38,6 +39,18 @@ function postfxPasses(): { passes: number; enabled: boolean } {
  * closure, so a hot reload of the debug panel is harmless.
  */
 export function registerAllSystemTelemetry(): void {
+    registerGpuTimingTelemetry(() => {
+        const t = getGpuTimings();
+        if (!t.available) return { enabled: false, reason: t.reason };
+        if (!t.sampled) return { enabled: false, reason: 'waiting for first sample' };
+        return {
+            enabled: true,
+            gpuRenderMs: t.gpuRenderMs,
+            gpuComputeMs: t.gpuComputeMs,
+            passes: t.renderPasses + t.computePasses,
+        };
+    });
+
     registerSystemTelemetry('shadows', () => {
         const sizes = getCascadeMapSizes();
         const local = getLocalLightStats();

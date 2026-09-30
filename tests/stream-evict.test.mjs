@@ -32,7 +32,8 @@ global.cancelAnimationFrame = () => {};
 // Dynamic imports: static ones hoist above the globals above.
 const { ChunkStreamer } = await import('../src/world/chunk-streamer.ts');
 const { classifyForEviction, canDespawn } = await import('../src/world/entity-despawn.ts');
-const { create, getRegisteredTypes, registerBuiltinWorldObjectTypes } = await import('../src/world/foliage-registry.ts');
+const { create, getRegisteredTypes, registerBuiltinWorldObjectTypes } =
+    await import('../src/world/foliage-registry.ts');
 const { safeAddFoliage } = await import('../src/world/generation-entities.ts');
 const { animatedFoliage, foliageClouds } = await import('../src/world/state.ts');
 const { foliageCaves } = await import('../src/systems/physics/physics-types.ts');
@@ -47,7 +48,8 @@ const { luminousPlantBatcher } = await import('../src/foliage/luminous-plant-bat
 const { subwooferLotusBatcher } = await import('../src/foliage/subwoofer-lotus-batcher.ts');
 const { sugarCaveBatcher } = await import('../src/foliage/sugar-cave-batcher.ts');
 const { waterfallBatcher } = await import('../src/foliage/waterfall-batcher.ts');
-const { collectBatcherTelemetry, installBatcherTelemetry } = await import('../src/foliage/batcher-telemetry.ts');
+const { collectBatcherTelemetry, installBatcherTelemetry } =
+    await import('../src/foliage/batcher-telemetry.ts');
 
 registerBuiltinWorldObjectTypes();
 
@@ -156,7 +158,8 @@ function test1_classification() {
             unlisted.push(`${type} -> ${cls}`);
             continue;
         }
-        if (cls !== EXPECTED_CLASS[type]) mismatches.push(`${type}: got ${cls}, want ${EXPECTED_CLASS[type]}`);
+        if (cls !== EXPECTED_CLASS[type])
+            mismatches.push(`${type}: got ${cls}, want ${EXPECTED_CLASS[type]}`);
         // A 'full' teardown frees no batcher slot, so a full-class object must not own one.
         if (cls === 'full') {
             const ud = obj.userData;
@@ -171,7 +174,11 @@ function test1_classification() {
         `new world-object type(s) need a removeInstance path, a classifyForEviction branch and an entry in EXPECTED_CLASS: ${unlisted}`
     );
     assert.deepEqual(mismatches, [], `misclassified: ${mismatches}`);
-    assert.deepEqual(hiddenBatched, [], `'full' types that own a batcher slot (would leak it): ${hiddenBatched}`);
+    assert.deepEqual(
+        hiddenBatched,
+        [],
+        `'full' types that own a batcher slot (would leak it): ${hiddenBatched}`
+    );
     assert.ok(
         !Object.values(EXPECTED_CLASS).includes('never'),
         "no registry type may rely on the 'never' safety net"
@@ -195,7 +202,11 @@ function test1_classification() {
     for (const [name, ud] of proxies) {
         const o = new THREE.Object3D();
         o.userData = { ...ud, isBatched: true };
-        assert.notEqual(classifyForEviction(o), 'never', `${name} must not fall through to 'never'`);
+        assert.notEqual(
+            classifyForEviction(o),
+            'never',
+            `${name} must not fall through to 'never'`
+        );
         assert.notEqual(classifyForEviction(o), 'full', `${name} must not fall through to 'full'`);
     }
     console.log('  ✓ exact classes, no hidden batched "full" types, safety net intact');
@@ -206,7 +217,8 @@ function test1_classification() {
 // ---------------------------------------------------------------------------
 const arraysOf = (...meshes) => meshes.filter(Boolean).map((m) => m.instanceMatrix.array);
 const gemTotal = () => gemFruitBatcher['_counts'].reduce((a, b) => a + b, 0);
-const cloudCount = () => CloudBatcher.getInstance().count + CloudBatcher.getWalkableInstance().count;
+const cloudCount = () =>
+    CloudBatcher.getInstance().count + CloudBatcher.getWalkableInstance().count;
 const cloudArrays = () =>
     [CloudBatcher.getInstance(), CloudBatcher.getWalkableInstance()]
         .filter((b) => b.mesh)
@@ -228,7 +240,11 @@ const SPECIES = [
         spawn: () => spawnEntity('subwoofer_lotus'),
         live: () => subwooferLotusBatcher['_count'],
         arrays: () =>
-            arraysOf(subwooferLotusBatcher.padMesh, subwooferLotusBatcher.ringsMesh, subwooferLotusBatcher.centerMesh),
+            arraysOf(
+                subwooferLotusBatcher.padMesh,
+                subwooferLotusBatcher.ringsMesh,
+                subwooferLotusBatcher.centerMesh
+            ),
     },
     {
         // Production tags this type 'flower'; only animationType 'batchedCymbal' routes it here.
@@ -278,7 +294,11 @@ function test2_slotRecovery() {
             let tracked = 0;
             for (let i = 0; i < N; i++) tracked += sp.spawn();
             const rec = record();
-            assert.equal(rec.permanentCount, 0, `${sp.name}: spawned objects must all be evictable`);
+            assert.equal(
+                rec.permanentCount,
+                0,
+                `${sp.name}: spawned objects must all be evictable`
+            );
             assert.ok(tracked >= N, `${sp.name}: expected >= ${N} tracked objects, got ${tracked}`);
             for (const obj of rec.evictable) {
                 assert.equal(
@@ -288,20 +308,39 @@ function test2_slotRecovery() {
                 );
             }
             const loaded = sp.live();
-            assert.ok(loaded > base, `${sp.name}: load did not register any instances (${loaded} vs ${base})`);
+            assert.ok(
+                loaded > base,
+                `${sp.name}: load did not register any instances (${loaded} vs ${base})`
+            );
             // Gem and puff counts are randomised per entity, so only fixed-size species must refill exactly.
             if (peak >= 0 && sp.deterministic) {
-                assert.equal(loaded, peak, `${sp.name}: reload should refill the same slots (${loaded} vs ${peak})`);
+                assert.equal(
+                    loaded,
+                    peak,
+                    `${sp.name}: reload should refill the same slots (${loaded} vs ${peak})`
+                );
             }
             peak = loaded;
 
             evictAll();
             assert.equal(record().evictable.length, 0, `${sp.name}: evictable not cleared`);
-            assert.equal(sp.live(), base, `${sp.name}: cycle ${cycle}: count stuck at ${sp.live()} (baseline ${base})`);
+            assert.equal(
+                sp.live(),
+                base,
+                `${sp.name}: cycle ${cycle}: count stuck at ${sp.live()} (baseline ${base})`
+            );
             const after = sp.arrays();
             after.forEach((b, i) => {
-                assert.strictEqual(b, buffers[i], `${sp.name}: instanceMatrix.array was reallocated`);
-                assert.equal(b.length, lengths[i], `${sp.name}: instanceMatrix.array length changed`);
+                assert.strictEqual(
+                    b,
+                    buffers[i],
+                    `${sp.name}: instanceMatrix.array was reallocated`
+                );
+                assert.equal(
+                    b.length,
+                    lengths[i],
+                    `${sp.name}: instanceMatrix.array length changed`
+                );
             });
         }
         console.log(`  ✓ ${sp.name}: baseline ${base}, peak ${peak}, ${CYCLES} cycles flat`);
@@ -321,7 +360,10 @@ function test3_ghosts() {
         CloudBatcher.getInstance().clouds.length + CloudBatcher.getWalkableInstance().clouds.length;
     for (let i = 0; i < 4; i++) spawnEntity('cloud', { tier: 1 });
     spawnEntity('cloud', { tier: 2 });
-    assert.ok(getPlatforms().length > platformsBefore, 'walkable clouds should register ground platforms');
+    assert.ok(
+        getPlatforms().length > platformsBefore,
+        'walkable clouds should register ground platforms'
+    );
     // Keep the two LAST walkable clouds in the chunk the player is standing in (evictFarChunks(100, 100, 1)
     // spares it): their puff runs sit after the freed ones, so compaction has to slide them down.
     const survivorRecord = streamer['recordFor']('100,100');
@@ -331,7 +373,9 @@ function test3_ghosts() {
     const puffRows = (cloud) => {
         const { batchStart, batchCount } = cloud.userData;
         const mesh = CloudBatcher.getWalkableInstance().mesh;
-        return Array.from(mesh.instanceMatrix.array.subarray(batchStart * 16, (batchStart + batchCount) * 16));
+        return Array.from(
+            mesh.instanceMatrix.array.subarray(batchStart * 16, (batchStart + batchCount) * 16)
+        );
     };
     const rowsBefore = survivors.map(puffRows);
     const startsBefore = survivors.map((o) => o.userData.batchStart);
@@ -341,12 +385,19 @@ function test3_ghosts() {
     survivors.forEach((s, i) => {
         const b = CloudBatcher.getWalkableInstance();
         assert.ok(b.clouds.includes(s), 'survivor cloud must stay registered');
-        assert.ok(s.userData.batchStart < startsBefore[i], 'survivor run must slide down over the freed runs');
+        assert.ok(
+            s.userData.batchStart < startsBefore[i],
+            'survivor run must slide down over the freed runs'
+        );
         assert.ok(
             s.userData.batchStart >= 0 && s.userData.batchStart + s.userData.batchCount <= b.count,
             'survivor cloud run must stay inside the live range after compaction'
         );
-        assert.deepEqual(puffRows(s), rowsBefore[i], 'survivor puff transforms must move intact with their run');
+        assert.deepEqual(
+            puffRows(s),
+            rowsBefore[i],
+            'survivor puff transforms must move intact with their run'
+        );
         const walk = b.isWalkableAttribute.array;
         for (let k = 0; k < s.userData.batchCount; k++) {
             assert.equal(walk[s.userData.batchStart + k], 1, 'aIsWalkable must move with the run');
@@ -354,7 +405,11 @@ function test3_ghosts() {
     });
     // Now evict the survivors too.
     streamer['evictFarChunks'](500, 500, 1);
-    assert.equal(getPlatforms().length, platformsBefore, 'cloud ground platforms leaked after eviction');
+    assert.equal(
+        getPlatforms().length,
+        platformsBefore,
+        'cloud ground platforms leaked after eviction'
+    );
     assert.equal(foliageClouds.length, cloudsBefore, 'foliageClouds leaked after eviction');
     assert.equal(
         CloudBatcher.getInstance().clouds.length + CloudBatcher.getWalkableInstance().clouds.length,
@@ -379,7 +434,11 @@ function test3_ghosts() {
     mixed.removeInstance(first);
     assert.equal(mixed.count, 4);
     assert.equal(second.userData.batchStart, 0);
-    assert.deepEqual(Array.from(mixed.isWalkableAttribute.array.subarray(0, 4)), [0, 0, 0, 0], 'aIsWalkable must follow its run');
+    assert.deepEqual(
+        Array.from(mixed.isWalkableAttribute.array.subarray(0, 4)),
+        [0, 0, 0, 0],
+        'aIsWalkable must follow its run'
+    );
     mixed.removeInstance(second);
     assert.equal(mixed.count, 0);
     mixed.removeInstance(second); // double-evict is a no-op
@@ -394,7 +453,11 @@ function test3_ghosts() {
     const caveObj = record().evictable.find((o) => o.userData.type === 'cave');
     assert.ok(caveObj, 'cave should be tracked');
     assert.equal(foliageCaves.length, cavesBefore + 1, 'cave should register with physics');
-    assert.equal(weather.trackedCaves.length, trackedBefore + 1, 'cave should register with weather');
+    assert.equal(
+        weather.trackedCaves.length,
+        trackedBefore + 1,
+        'cave should register with weather'
+    );
     caveObj.updateMatrixWorld(true);
     updateCaveWaterLevel(caveObj, 1.0); // rain fills the cave -> waterfall instance added, keyed by cave.uuid
     assert.equal(waterfallBatcher.count, wfBefore + 1, 'rain should add a waterfall instance');
@@ -426,9 +489,17 @@ function test3_ghosts() {
     waterfallBatcher.add(giant.uuid, new THREE.Vector3(0, 8, 0), 6, 2); // what updateMushroomWaterfalls does in rain
     weather.mushroomWaterfalls.add(giant.uuid);
     evictAll();
-    assert.equal(weather.trackedMushrooms.length, mushBefore, 'weather kept a reference to an evicted mushroom');
+    assert.equal(
+        weather.trackedMushrooms.length,
+        mushBefore,
+        'weather kept a reference to an evicted mushroom'
+    );
     assert.equal(weather.mushroomWaterfalls.size, 0, 'mushroom waterfall bookkeeping leaked');
-    assert.equal(waterfallBatcher.count, wfBefore2, 'mushroom waterfall column ghost after eviction');
+    assert.equal(
+        waterfallBatcher.count,
+        wfBefore2,
+        'mushroom waterfall column ghost after eviction'
+    );
     console.log('  ✓ giant mushroom: weather tracking + waterfall released');
 
     // Gems hung on a non-gem_canopy tree species are freed with the tree.
@@ -449,7 +520,12 @@ function test3_ghosts() {
     // Sugar caves + standalone glowing flowers: proxy path, no global registrations.
     for (const [label, batcher, live, type] of [
         ['sugar_cave', sugarCaveBatcher, () => sugarCaveBatcher['_count'], 'sugar_cave'],
-        ['glowing_flower', glowingFlowerBatcher, () => glowingFlowerBatcher.count, 'glowing_flower'],
+        [
+            'glowing_flower',
+            glowingFlowerBatcher,
+            () => glowingFlowerBatcher.count,
+            'glowing_flower',
+        ],
     ]) {
         const base = live();
         const physBefore = foliageCaves.length;
@@ -470,7 +546,11 @@ function test3_ghosts() {
         evictAll();
         assert.equal(live(), base, `${label}: count stuck after eviction`);
         assert.equal(foliageCaves.length, physBefore, `${label}: must not touch physics caves`);
-        assert.equal(getPlatforms().length, platBefore, `${label}: must not touch ground platforms`);
+        assert.equal(
+            getPlatforms().length,
+            platBefore,
+            `${label}: must not touch ground platforms`
+        );
     }
     console.log('  ✓ sugar_cave / glowing_flower proxies: slots freed, no global registrations');
 }
@@ -486,7 +566,10 @@ function test4_swapWithLast() {
     subwooferLotusBatcher.register(b);
     const groupA = a.userData.interactiveGroup;
     const groupB = b.userData.interactiveGroup;
-    assert.ok(groupA.parent !== null && groupB.parent !== null, 'both groups should be in the scene');
+    assert.ok(
+        groupA.parent !== null && groupB.parent !== null,
+        'both groups should be in the scene'
+    );
     const slotA = a.userData.batchIndex;
     assert.equal(b.userData.batchIndex, slotA + 1);
     subwooferLotusBatcher.removeInstance(a);
@@ -501,7 +584,9 @@ function test4_swapWithLast() {
 // 6. Telemetry: live count + byteLength per batcher, and it tracks eviction.
 // ---------------------------------------------------------------------------
 function test5_telemetry() {
-    console.log('--- 5. window.__batcherCounts / __batcherBuffers report live counts + byteLength ---');
+    console.log(
+        '--- 5. window.__batcherCounts / __batcherBuffers report live counts + byteLength ---'
+    );
     installBatcherTelemetry();
     assert.equal(typeof window.__batcherCounts, 'function');
     assert.equal(typeof window.__batcherBuffers, 'function');
@@ -509,9 +594,21 @@ function test5_telemetry() {
     const report = collectBatcherTelemetry();
     const ids = new Set(report.entries.map((e) => e.id));
     for (const id of [
-        'tree', 'mushroom', 'flower', 'cloud', 'luminous', 'gem_canopy', 'waterfall', 'dandelion',
-        'candy_debris', 'subwoofer_lotus', 'glowing_flower', 'sugar_cave', 'kick_drum_geyser',
-        'night_market', 'fauna',
+        'tree',
+        'mushroom',
+        'flower',
+        'cloud',
+        'luminous',
+        'gem_canopy',
+        'waterfall',
+        'dandelion',
+        'candy_debris',
+        'subwoofer_lotus',
+        'glowing_flower',
+        'sugar_cave',
+        'kick_drum_geyser',
+        'night_market',
+        'fauna',
     ]) {
         assert.ok(ids.has(id), `telemetry is missing batcher "${id}"`);
     }
@@ -528,9 +625,17 @@ function test5_telemetry() {
     assert.equal(c1, c0 + N, '__batcherCounts should rise with live instances');
     assert.equal(b1.count, c1);
     assert.ok(b1.byteLength > 0, 'luminous byteLength should be reported');
-    assert.equal(b1.byteLength, b0.byteLength, 'byteLength must not grow when instances are added within capacity');
+    assert.equal(
+        b1.byteLength,
+        b0.byteLength,
+        'byteLength must not grow when instances are added within capacity'
+    );
     evictAll();
-    assert.equal(window.__batcherCounts().luminous, c0, '__batcherCounts should fall back after eviction');
+    assert.equal(
+        window.__batcherCounts().luminous,
+        c0,
+        '__batcherCounts should fall back after eviction'
+    );
     assert.equal(window.__batcherBuffers().luminous.byteLength, b0.byteLength);
     console.log('  ✓ live counts fall on eviction, byteLength stays flat');
 }
@@ -539,7 +644,13 @@ async function main() {
     console.log('🍬 Candy World Streamer Evict Parity Test');
     console.log('=========================================\n');
     let passed = 0;
-    for (const t of [test1_classification, test2_slotRecovery, test3_ghosts, test4_swapWithLast, test5_telemetry]) {
+    for (const t of [
+        test1_classification,
+        test2_slotRecovery,
+        test3_ghosts,
+        test4_swapWithLast,
+        test5_telemetry,
+    ]) {
         try {
             t();
             passed++;

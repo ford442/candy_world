@@ -171,6 +171,98 @@ function describeLimitRequest(
 }
 
 /**
+ * Features the world cannot boot without. Empty today: the probe's empty
+ * compute pipeline, the WGSL kernels and Three's node materials all run on
+ * core WebGPU. Anything added here makes `requestDevice` fail closed on
+ * adapters that lack it, so it must be something boot genuinely depends on.
+ */
+export const GPU_REQUIRED_FEATURES: readonly GPUFeatureName[] = [];
+
+/**
+ * Features requested **only when the adapter advertises them**, never required.
+ * Each one is something Three r171 actually reads through `hasFeature()` /
+ * `device.features.has()`, so adopting a pre-created device costs nothing
+ * compared with Three's own "request everything" descriptor:
+ *
+ * - `depth32float-stencil8` — FloatType depth-stencil textures.
+ * - `float32-filterable` — linear sampling of float render targets.
+ * - `rg11b10ufloat-renderable` — packed HDR targets in the post chain.
+ * - `clip-distances` — hardware clipping planes in WGSL.
+ *
+ * Everything else the adapter advertises stays in `adapter.features` for the
+ * probe report, not in `requiredFeatures`: features are not independent
+ * booleans, and requiring all of them can reject `requestDevice` outright.
+ */
+export const GPU_OPTIONAL_FEATURES: readonly GPUFeatureName[] = [
+    'depth32float-stencil8',
+    'float32-filterable',
+    'rg11b10ufloat-renderable',
+    'clip-distances',
+] as GPUFeatureName[];
+
+/**
+ * Optional, and only when GPU timings are wanted (see {@link wantsGpuTiming}).
+ * Three cannot add a feature to a device it did not create, so the probe has
+ * to ask for it up front for `trackTimestamp` to work.
+ */
+export const GPU_TIMING_FEATURE = 'timestamp-query' as GPUFeatureName;
+
+/**
+ * Whether to ask for `timestamp-query`: `?debug` (the systems-budget overlay)
+ * or the `high` post-FX tier (`?postfx=high`). `?gpuTiming=1|0` forces it.
+ */
+export function wantsGpuTiming(search?: string): boolean {
+    const query = search ?? (typeof location !== 'undefined' && location ? location.search : '');
+    const params = new URLSearchParams(query);
+    const forced = params.get('gpuTiming');
+    if (forced === '1' || forced === 'true') return true;
+    if (forced === '0' || forced === 'false') return false;
+    return params.has('debug') || params.get('postfx') === 'high';
+}
+
+/**
+ * The `requiredFeatures` allowlist: every required feature, plus each optional
+ * one the adapter advertises, plus `timestamp-query` when timings are wanted
+ * and available. Nothing the adapter merely happens to support gets in.
+ */
+export function resolveRequiredFeatures(
+    adapterFeatures: Iterable<string>,
+    options: { gpuTiming: boolean }
+): GPUFeatureName[] {
+    const supported = new Set(adapterFeatures);
+    const out: GPUFeatureName[] = [...GPU_REQUIRED_FEATURES];
+    for (const feature of GPU_OPTIONAL_FEATURES) {
+        if (supported.has(feature)) out.push(feature);
+    }
+    if (options.gpuTiming && supported.has(GPU_TIMING_FEATURE)) out.push(GPU_TIMING_FEATURE);
+    return out;
+}
+
+/** Adapter-supported / requested / granted feature trace for `window.webgpuProbe`. */
+export interface GpuFeatureRequest {
+    adapter: string[];
+    requested: string[];
+    /** What the device reports, or null before/without a device. */
+    granted: string[] | null;
+    /** Whether GPU pass timings were asked for this boot. */
+    timingWanted: boolean;
+}
+
+function describeFeatureRequest(
+    adapter: GPUAdapter | null,
+    requested: readonly string[],
+    device: GPUDevice | null,
+    timingWanted: boolean
+): GpuFeatureRequest {
+    return {
+        adapter: adapter?.features ? [...adapter.features].sort() : [],
+        requested: [...requested].sort(),
+        granted: device?.features ? [...device.features].sort() : null,
+        timingWanted,
+    };
+}
+
+/**
  * Canvas color space for the swap chain, chosen once at probe time.
  *
  * `display-p3` on HDR-capable displays (`(dynamic-range: high)`), `srgb`
@@ -356,6 +448,13 @@ export interface GpuProbeResult {
     adapterInfo: GpuAdapterInfo | null;
     /** The adapter-clamped `requiredLimits` the device was requested with. */
     requiredLimits: Record<string, number>;
+    /** The allowlisted `requiredFeatures` the device was requested with. */
+    requiredFeatures: GPUFeatureName[];
+    /**
+     * True when the device was granted `timestamp-query` — the renderer gets
+     * `trackTimestamp: true` only then.
+     */
+    timestampQuery: boolean;
     /** Swap-chain configuration (minus `device`), re-applied after Three's own configure. */
     canvas: GpuCanvasConfig;
 }
@@ -399,6 +498,8 @@ export interface GpuProbeReport {
     requiredLimits: Record<string, number>;
     /** Per-key floor / desired / adapter / requested / granted trace. */
     limitRequest: Record<string, GpuLimitRequest> | null;
+    /** Adapter-supported vs requested vs granted features. */
+    features: GpuFeatureRequest | null;
     /** Swap-chain format / alphaMode / colorSpace, or null before configure. */
     canvas: Omit<GpuCanvasConfig, 'usage'> | null;
     timestamp: string;
@@ -500,6 +601,8 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
     let adapterInfo: GpuAdapterInfo | null = null;
     let device: GPUDevice | null = null;
     let requiredLimits: Record<string, number> = GPU_REQUIRED_LIMITS;
+    let requiredFeatures: GPUFeatureName[] = [...GPU_REQUIRED_FEATURES];
+    const timingWanted = wantsGpuTiming();
     let canvasConfig: GpuCanvasConfig | null = null;
 
     const fail = (stage: GpuProbeStage, message: string, detail?: unknown): never => {
@@ -523,6 +626,9 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
                       requiredLimits,
                       device ? snapshotLimits(device.limits) : null
                   )
+                : null,
+            features: adapter
+                ? describeFeatureRequest(adapter, requiredFeatures, device, timingWanted)
                 : null,
             canvas: canvasConfig ? publicCanvasConfig(canvasConfig) : null,
             timestamp: new Date().toISOString(),
@@ -565,14 +671,17 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
     }
     adapterInfo = await readAdapterInfo(adapter, null);
 
-    // 3 — device. Match Three's own descriptor: every feature the adapter
-    // supports, so adopting this device cannot cost a feature. Limits are
-    // clamped to what this adapter advertises (spec floor on software
-    // adapters), so the request can never be rejected for asking too much.
+    // 3 — device. Features are an allowlist (required + optional-if-present,
+    // plus timestamp-query when timings are wanted) — never the adapter's
+    // whole set. Limits are clamped to what this adapter advertises (spec
+    // floor on software adapters), so the request cannot ask for too much.
     requiredLimits = resolveRequiredLimits(adapter, adapterInfo);
+    requiredFeatures = resolveRequiredFeatures(adapter.features ?? [], {
+        gpuTiming: timingWanted,
+    });
     try {
         device = await adapter.requestDevice({
-            requiredFeatures: Array.from(adapter.features) as GPUFeatureName[],
+            requiredFeatures,
             requiredLimits,
         });
     } catch (err) {
@@ -652,6 +761,7 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         powerPreference: GPU_POWER_PREFERENCE,
         requiredLimits,
         limitRequest: describeLimitRequest(adapter, requiredLimits, snapshotLimits(device.limits)),
+        features: describeFeatureRequest(adapter, requiredFeatures, device, timingWanted),
         canvas: publicCanvasConfig(canvasConfig),
         timestamp: new Date().toISOString(),
     });
@@ -666,6 +776,8 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         context: ctx,
         adapterInfo,
         requiredLimits,
+        requiredFeatures,
+        timestampQuery: Boolean(device.features?.has(GPU_TIMING_FEATURE)),
         canvas: canvasConfig,
     };
 }

@@ -8,9 +8,8 @@
 
 // Stub window before the module loads so its __spawnReport getter installs.
 globalThis.window = {};
-const { recordSpawnAttempt, getReport, reset, maybeRecordBackgroundFailure } = await import(
-    '../src/world/spawn-tracker.ts'
-);
+const { recordSpawnAttempt, getReport, reset, maybeRecordBackgroundFailure } =
+    await import('../src/world/spawn-tracker.ts');
 
 const MAX_LAST_ERRORS = 8;
 

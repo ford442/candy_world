@@ -218,6 +218,7 @@ export function getBudgetCapViolations(): BudgetCapViolation[] {
 export function __resetSystemBudgetsForTests(): void {
     _violations.clear();
     _providers.clear();
+    _gpuTimingProvider = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -296,4 +297,34 @@ export function collectSystemsBudget(): SystemBudgetRow[] {
         });
     }
     return rows;
+}
+
+// ---------------------------------------------------------------------------
+// GPU pass timings
+// ---------------------------------------------------------------------------
+
+/**
+ * Whole-frame GPU time from `timestamp-query`, summed per pass type. The
+ * per-system `frameMs` above are CPU `profiler` marks; this is the only GPU
+ * clock the overlay has, and it is not split per system.
+ */
+export type GpuTimingTelemetry =
+    | { enabled: true; gpuRenderMs: number; gpuComputeMs: number; passes: number }
+    | { enabled: false; reason: string };
+
+let _gpuTimingProvider: (() => GpuTimingTelemetry) | null = null;
+
+/** Registered by `systems-telemetry.ts` so this module stays renderer-free. */
+export function registerGpuTimingTelemetry(provider: () => GpuTimingTelemetry): void {
+    _gpuTimingProvider = provider;
+}
+
+/** Latest GPU timings, or why there are none. Never throws. */
+export function collectGpuTimings(): GpuTimingTelemetry {
+    if (!_gpuTimingProvider) return { enabled: false, reason: 'gpu timing not registered' };
+    try {
+        return _gpuTimingProvider();
+    } catch {
+        return { enabled: false, reason: 'telemetry error' };
+    }
 }

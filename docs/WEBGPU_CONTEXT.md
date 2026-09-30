@@ -78,6 +78,24 @@ Set explicitly in `src/core/init.ts`, with the values defined in `gpu-context.ts
 | `alpha`            | `true` → `alphaMode: 'premultiplied'`     | Three's default, pinned explicitly. HUD, loading screen, badges, and the accessibility menu are DOM layers composited over the canvas and depend on premultiplied blending.                                               |
 | `requiredLimits`   | adapter-clamped, see below                | Aligns the renderer's device with the compute tier's ceilings. Informational on the renderer: the device is already created by the probe.                                                                                 |
 | `outputColorSpace` | `'display-p3'` / `'srgb'` string literals | Chosen by the probe and mirrored onto the canvas `colorSpace` — see [Color space](#color-space). String literals stay: the Three enum regression is tracked separately.                                                   |
+| `trackTimestamp`   | `probe.timestampQuery`                    | `true` only when the device was granted `timestamp-query`. Three cannot add a feature to a device it did not create, so asking for timings without the feature would leave Three warning and the queries dead.            |
+
+### Feature allowlist
+
+`requiredFeatures` is an allowlist (`resolveRequiredFeatures()` in `gpu-context.ts`), never
+`[...adapter.features]`. Features are not independent booleans: requiring every advertised one can
+reject `requestDevice` on adapters where a feature needs limits we did not ask for.
+
+| List                    | Contents                                                                                    | Requested when                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `GPU_REQUIRED_FEATURES` | _(empty)_ — boot runs on core WebGPU                                                        | always (a missing one fails the `device` stage)                                       |
+| `GPU_OPTIONAL_FEATURES` | `depth32float-stencil8`, `float32-filterable`, `rg11b10ufloat-renderable`, `clip-distances` | the adapter advertises it — each is read by Three r171                                |
+| `GPU_TIMING_FEATURE`    | `timestamp-query`                                                                           | `?debug`, `?postfx=high`, or `?gpuTiming=1` (`=0` forces off), and the adapter has it |
+
+Everything else the adapter supports is only logged, in `window.webgpuProbe.features.adapter`.
+With timings granted, [`src/rendering/gpu-timestamps.ts`](../src/rendering/gpu-timestamps.ts)
+reads each pass's timestamp buffer every 30 frames, off the hot path — see
+[`PERF_BUDGETS.md`](PERF_BUDGETS.md#runtime-overlay).
 
 ### Limits matrix
 
@@ -190,7 +208,7 @@ and names the step that broke:
 | ----------- | ---------------------------------------------------------------------------------------- |
 | `navigator` | `navigator.gpu` exists at all                                                            |
 | `adapter`   | `requestAdapter()` yields an adapter — **this is where Chrome and Edge diverge**         |
-| `device`    | `requestDevice()` grants the device, with every adapter feature and our `requiredLimits` |
+| `device`    | `requestDevice()` grants the device, with the feature allowlist and our `requiredLimits` |
 | `configure` | the real world canvas configures as a swap chain                                         |
 | `pipeline`  | an empty `@compute` kernel compiles — culling, particles and gpu-chores all need this    |
 
@@ -226,6 +244,7 @@ the Chrome-vs-Edge adapter failure. `init.ts` now clears `renderer._getFallback`
   "limits": null,               // granted device limits (all numeric keys)
   "requiredLimits": { ... },    // what requestDevice was asked for (adapter-clamped)
   "limitRequest": null,         // per key: { floor, desired, adapter, requested, granted }
+  "features": null,             // { adapter: [...], requested: [...], granted: [...] | null, timingWanted }
   "canvas": null                // { format, alphaMode, colorSpace } once configured
 }
 ```

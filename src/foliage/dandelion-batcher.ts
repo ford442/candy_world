@@ -1,11 +1,25 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-    float, vec3, positionLocal, attribute, mix, sin, color,
-    instanceIndex, normalLocal, step, length
+    float,
+    vec3,
+    positionLocal,
+    attribute,
+    mix,
+    sin,
+    color,
+    instanceIndex,
+    normalLocal,
+    step,
+    length,
 } from 'three/tsl';
 import { CONFIG } from '../core/config.ts';
-import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, uCircadianPhase } from '../systems/biome-uniforms.ts';
+import {
+    BiomeUniforms,
+    uCircadianPoseOffset,
+    circadianDayGlowMult,
+    uCircadianPhase,
+} from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -32,9 +46,9 @@ const _scratchUp = new THREE.Vector3(0, 1, 0); // ⚡ OPTIMIZATION: Additional s
 const _scratchQuat = new THREE.Quaternion(); // ⚡ OPTIMIZATION: Additional scratch quat
 
 // Colors
-const COLOR_STEM = new THREE.Color(0x556B2F); // Olive Drab
-const COLOR_STALK = new THREE.Color(0xFFFFFF); // White
-const COLOR_TIP = new THREE.Color(0xFFD700);   // Gold
+const COLOR_STEM = new THREE.Color(0x556b2f); // Olive Drab
+const COLOR_STALK = new THREE.Color(0xffffff); // White
+const COLOR_TIP = new THREE.Color(0xffd700); // Gold
 
 export class DandelionBatcher {
     initialized: boolean;
@@ -68,10 +82,10 @@ export class DandelionBatcher {
         const stemColors = new Float32Array(stemCount * 3);
         const stemPuff = new Float32Array(stemCount * 3); // Zeros (no puff)
 
-        for(let i=0; i<stemCount; i++) {
-            stemColors[i*3] = COLOR_STEM.r;
-            stemColors[i*3+1] = COLOR_STEM.g;
-            stemColors[i*3+2] = COLOR_STEM.b;
+        for (let i = 0; i < stemCount; i++) {
+            stemColors[i * 3] = COLOR_STEM.r;
+            stemColors[i * 3 + 1] = COLOR_STEM.g;
+            stemColors[i * 3 + 2] = COLOR_STEM.b;
             // Puff Dir remains 0,0,0
         }
         stemGeo.setAttribute('color', new THREE.BufferAttribute(stemColors, 3));
@@ -97,11 +111,13 @@ export class DandelionBatcher {
             const theta = Math.sqrt(SEEDS_PER_HEAD * Math.PI) * phi;
 
             // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
-            _scratchVec3.set(
-                Math.sin(phi) * Math.cos(theta),
-                Math.sin(phi) * Math.sin(theta),
-                Math.cos(phi)
-            ).normalize();
+            _scratchVec3
+                .set(
+                    Math.sin(phi) * Math.cos(theta),
+                    Math.sin(phi) * Math.sin(theta),
+                    Math.cos(phi)
+                )
+                .normalize();
 
             // 2. Align Seed (Y-up aligns with Dir)
             // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
@@ -120,14 +136,14 @@ export class DandelionBatcher {
             const sColors = new Float32Array(sCount * 3);
             const sPuff = new Float32Array(sCount * 3);
 
-            for(let k=0; k<sCount; k++) {
-                sColors[k*3] = COLOR_STALK.r;
-                sColors[k*3+1] = COLOR_STALK.g;
-                sColors[k*3+2] = COLOR_STALK.b;
+            for (let k = 0; k < sCount; k++) {
+                sColors[k * 3] = COLOR_STALK.r;
+                sColors[k * 3 + 1] = COLOR_STALK.g;
+                sColors[k * 3 + 2] = COLOR_STALK.b;
 
-                sPuff[k*3] = _scratchVec3.x;
-                sPuff[k*3+1] = _scratchVec3.y;
-                sPuff[k*3+2] = _scratchVec3.z;
+                sPuff[k * 3] = _scratchVec3.x;
+                sPuff[k * 3 + 1] = _scratchVec3.y;
+                sPuff[k * 3 + 2] = _scratchVec3.z;
             }
             sGeo.setAttribute('color', new THREE.BufferAttribute(sColors, 3));
             sGeo.setAttribute('aPuffDir', new THREE.BufferAttribute(sPuff, 3));
@@ -142,14 +158,14 @@ export class DandelionBatcher {
             const tColors = new Float32Array(tCount * 3);
             const tPuff = new Float32Array(tCount * 3);
 
-            for(let k=0; k<tCount; k++) {
-                tColors[k*3] = COLOR_TIP.r;
-                tColors[k*3+1] = COLOR_TIP.g;
-                tColors[k*3+2] = COLOR_TIP.b;
+            for (let k = 0; k < tCount; k++) {
+                tColors[k * 3] = COLOR_TIP.r;
+                tColors[k * 3 + 1] = COLOR_TIP.g;
+                tColors[k * 3 + 2] = COLOR_TIP.b;
 
-                tPuff[k*3] = _scratchVec3.x;
-                tPuff[k*3+1] = _scratchVec3.y;
-                tPuff[k*3+2] = _scratchVec3.z;
+                tPuff[k * 3] = _scratchVec3.x;
+                tPuff[k * 3 + 1] = _scratchVec3.y;
+                tPuff[k * 3 + 2] = _scratchVec3.z;
             }
             tGeo.setAttribute('color', new THREE.BufferAttribute(tColors, 3));
             tGeo.setAttribute('aPuffDir', new THREE.BufferAttribute(tPuff, 3));
@@ -161,15 +177,14 @@ export class DandelionBatcher {
         // Ensure bounds are correct for culling
         unifiedGeo.computeBoundingSphere();
 
-
         // --- 2. Material (TSL Juice) ---
 
-        const mat = getCachedProceduralMaterial('dandelion_batch', 0xFFD700, () => {
+        const mat = getCachedProceduralMaterial('dandelion_batch', 0xffd700, () => {
             const m = createStandardNodeMaterial({
                 side: THREE.FrontSide,
                 vertexColors: true, // Use attribute('color')
                 roughness: 0.8,
-                metalness: 0.0
+                metalness: 0.0,
             });
 
             // Inputs
@@ -203,22 +218,35 @@ export class DandelionBatcher {
             const rim = createJuicyRimLight(vColor, float(2.0), float(3.0), normalLocal);
 
             // 🎨 PALETTE: Twilight Glow for dandelion tips
-            const glowPhaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
-            const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+            const glowPhaseOffset = positionLocal.x
+                .add(positionLocal.y)
+                .add(positionLocal.z)
+                .mul(5.0);
+            const idlePulse = sin(
+                uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)
+            )
+                .mul(float(CONFIG.glow.glowPulseAmplitude))
+                .add(1.0)
+                .mul(float(0.5))
+                .mul(uAudioLow.mul(0.3).add(0.7));
             const targetGlowColor = color(CONFIG.glow.glowColorMap['dandelion']);
             const twilightGlowTint = targetGlowColor
                 .mul(uTwilight)
                 .mul(float(CONFIG.glow.glowIntensityMax))
                 .mul(float(0.3).add(idlePulse));
-            const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.3));
-            const goldEmissionWithTwilight = goldEmission.add(twilightGlowTint).add(biomeTint).mul(dayGlow);
+            const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(
+                BiomeUniforms.musicalFlora.shimmer.mul(0.3)
+            );
+            const goldEmissionWithTwilight = goldEmission
+                .add(twilightGlowTint)
+                .add(biomeTint)
+                .mul(dayGlow);
 
             // Mix: If Gold, use Emission. Else Black. Add rim light globally for juiciness.
             m.emissiveNode = mix(vec3(0.0), goldEmissionWithTwilight, isGold).add(rim.mul(dayGlow));
 
             // Roughness: Gold is shiny (0.2), others are matte (0.8)
             m.roughnessNode = mix(float(0.8), float(0.2), isGold);
-
 
             // 3. Animation Logic (Puff + Shake + Sway + Push)
 
@@ -241,9 +269,15 @@ export class DandelionBatcher {
 
             // Apply Local Deformations
             const posPuffed = positionLocal.add(puffOffset).add(shakeOffset).add(nightDroop);
-            const circadianClose = vPuffDir.mul(float(1.0).sub(uCircadianPhase)).mul(-0.1).mul(seedFactor);
-            const circadianDroop = vec3(0, float(-0.3).mul(float(1.0).sub(uCircadianPhase)).mul(seedFactor), 0);
-
+            const circadianClose = vPuffDir
+                .mul(float(1.0).sub(uCircadianPhase))
+                .mul(-0.1)
+                .mul(seedFactor);
+            const circadianDroop = vec3(
+                0,
+                float(-0.3).mul(float(1.0).sub(uCircadianPhase)).mul(seedFactor),
+                0
+            );
 
             // C. Global Sway & Player Interaction
             // Apply to the *entire* geometry (Stem + Seeds)
@@ -254,7 +288,6 @@ export class DandelionBatcher {
 
             return m;
         });
-
 
         // --- 3. InstancedMesh Setup ---
 
@@ -275,15 +308,13 @@ export class DandelionBatcher {
     dispose() {
         if (!this.initialized) return;
 
-        [this.mesh].forEach(mesh => {
+        [this.mesh].forEach((mesh) => {
             if (!mesh) return;
             safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
         });
 
         this.initialized = false;
         this.count = 0;
-
-
     }
 
     register(logicObject: THREE.Object3D, options: any = {}) {
@@ -304,7 +335,7 @@ export class DandelionBatcher {
         _scratchMat.scale(_scratchScale);
 
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMat.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
+        _scratchMat.toArray(this.mesh!.instanceMatrix.array, i * 16);
         this.mesh!.instanceMatrix.needsUpdate = true;
         this.mesh!.count = this.count;
 
@@ -318,7 +349,8 @@ export class DandelionBatcher {
         if (!this.initialized || !this.mesh) return;
 
         const indexToRemove = logicObject.userData.batchIndex;
-        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count)
+            return;
 
         const lastIndex = this.count - 1;
 
@@ -349,7 +381,7 @@ export class DandelionBatcher {
         // Just hide it by scaling to zero
         this.dummy.scale.set(0, 0, 0);
         _scratchMat.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
-        _scratchMat.toArray(this.mesh.instanceMatrix.array, (batchIndex) * 16);
+        _scratchMat.toArray(this.mesh.instanceMatrix.array, batchIndex * 16);
         this.mesh.instanceMatrix.needsUpdate = true;
 
         console.log(`[DandelionBatcher] Harvested dandelion #${batchIndex}`);

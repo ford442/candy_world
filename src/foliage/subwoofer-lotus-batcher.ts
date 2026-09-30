@@ -1,15 +1,31 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
-    color, float, vec3, positionLocal, normalLocal,
-    mix, sin, abs, smoothstep,
-    mx_noise_float, uv, length, atan2, max
+    color,
+    float,
+    vec3,
+    positionLocal,
+    normalLocal,
+    mix,
+    sin,
+    abs,
+    smoothstep,
+    mx_noise_float,
+    uv,
+    length,
+    atan2,
+    max,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
-import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
+import {
+    BiomeUniforms,
+    uCircadianPoseOffset,
+    circadianDayGlowMult,
+    circadianNightGlowMult,
+} from '../systems/biome-uniforms.ts';
 import { discoverySystem } from '../systems/discovery.ts';
-import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { showToast } from '../utils/toast.ts';
 import { foliageGroup } from '../world/state.ts';
@@ -45,11 +61,15 @@ export class SubwooferLotusBatcher {
     }
 
     private init() {
-        const hexColor = 0x2E8B57;
+        const hexColor = 0x2e8b57;
 
         // 1. Base Pad
         const padMat = createClayMaterial(hexColor);
-        const circadianDroopPad = vec3(0, float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        const circadianDroopPad = vec3(
+            0,
+            float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y),
+            0
+        );
         padMat.positionNode = applyStandardDeformation(positionLocal.add(circadianDroopPad));
         this.padMesh = new THREE.InstancedMesh(sharedGeometries.unitCylinder, padMat, MAX_LOTUS);
         this.padMesh.count = 0;
@@ -59,53 +79,65 @@ export class SubwooferLotusBatcher {
         foliageGroup.add(this.padMesh);
 
         // 2. Rings
-const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, () => {
-    const mat = new MeshStandardNodeMaterial();
-    mat.colorNode = color(0xFFFFFF);
-    mat.roughnessNode = float(0.2);
-    mat.metalnessNode = float(0.5);
+        const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xffffff, () => {
+            const mat = new MeshStandardNodeMaterial();
+            mat.colorNode = color(0xffffff);
+            mat.roughnessNode = float(0.2);
+            mat.metalnessNode = float(0.5);
 
-    // Audio + glitch driven displacement (keep this)
-    const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
-    const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0)))
-        .mul(uGlitchIntensity).mul(0.5);
-    const displacement = bassPulse.add(glitchShake);
+            // Audio + glitch driven displacement (keep this)
+            const bassPulse = uAudioLow
+                .mul(0.8)
+                .mul(BiomeUniforms.crystallineNebula.amplitudeScale);
+            const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0)))
+                .mul(uGlitchIntensity)
+                .mul(0.5);
+            const displacement = bassPulse.add(glitchShake);
 
-    // Color + emission logic (keep this)
-    const normalColor = vec3(1.0, 1.0, 1.0);
-    const glitchColor = vec3(0.8, 0.0, 1.0);
-    const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
-    const shimmerTint = vec3(0.4, 0.0, 1.0);
-    const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
-    const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
+            // Color + emission logic (keep this)
+            const normalColor = vec3(1.0, 1.0, 1.0);
+            const glitchColor = vec3(0.8, 0.0, 1.0);
+            const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
+            const shimmerTint = vec3(0.4, 0.0, 1.0);
+            const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
+            const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
 
-    mat.colorNode = finalColor;
+            mat.colorNode = finalColor;
 
-    // Glow / twilight logic (keep this)
-    const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
-    const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset))
-        .mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5))
-        .mul(uAudioLow.mul(0.3).add(0.7));
-    const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
-    const twilightGlowTint = targetGlowColor
-        .mul(uTwilight)
-        .mul(float(CONFIG.glow.glowIntensityMax))
-        .mul(float(0.3).add(idlePulse));
+            // Glow / twilight logic (keep this)
+            const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
+            const idlePulse = sin(
+                uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)
+            )
+                .mul(float(CONFIG.glow.glowPulseAmplitude))
+                .add(1.0)
+                .mul(float(0.5))
+                .mul(uAudioLow.mul(0.3).add(0.7));
+            const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
+            const twilightGlowTint = targetGlowColor
+                .mul(uTwilight)
+                .mul(float(CONFIG.glow.glowIntensityMax))
+                .mul(float(0.3).add(idlePulse));
 
-    // 🎨 PALETTE: Juicy Rim Light (good)
-    const rimLight = createJuicyRimLight(finalColor, float(2.0), float(3.0), normalLocal);
-    // Circadian: lotus rests by day-floor at night; twilight tint still brightens after dusk.
-    mat.emissiveNode = emission.mul(circadianDayGlowMult(0.35))
-        .add(twilightGlowTint.mul(circadianNightGlowMult()))
-        .add(rimLight);
+            // 🎨 PALETTE: Juicy Rim Light (good)
+            const rimLight = createJuicyRimLight(finalColor, float(2.0), float(3.0), normalLocal);
+            // Circadian: lotus rests by day-floor at night; twilight tint still brightens after dusk.
+            mat.emissiveNode = emission
+                .mul(circadianDayGlowMult(0.35))
+                .add(twilightGlowTint.mul(circadianNightGlowMult()))
+                .add(rimLight);
 
-    // 🎨 PALETTE: Correct Wind Sway + Player Interaction composition
-    const circadianDroopRing = vec3(0, float(-0.8).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
-    const newPos = positionLocal.add(vec3(0.0, displacement, 0.0)).add(circadianDroopRing);
-    mat.positionNode = applyStandardDeformation(newPos);
+            // 🎨 PALETTE: Correct Wind Sway + Player Interaction composition
+            const circadianDroopRing = vec3(
+                0,
+                float(-0.8).mul(uCircadianPoseOffset).mul(positionLocal.y),
+                0
+            );
+            const newPos = positionLocal.add(vec3(0.0, displacement, 0.0)).add(circadianDroopRing);
+            mat.positionNode = applyStandardDeformation(newPos);
 
-    return mat;
-});
+            return mat;
+        });
 
         registerReactiveMaterial(ringMat);
 
@@ -148,7 +180,11 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
 
         centerMat.colorNode = vec3(0.0);
         centerMat.emissiveNode = finalPortal.add(hotCenter);
-        const circadianDroopCenter = vec3(0, float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        const circadianDroopCenter = vec3(
+            0,
+            float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y),
+            0
+        );
         centerMat.positionNode = applyStandardDeformation(positionLocal.add(circadianDroopCenter));
 
         this.centerMesh = new THREE.InstancedMesh(centerGeo, centerMat, MAX_LOTUS);
@@ -157,7 +193,7 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         foliageGroup.add(this.centerMesh);
     }
 
-    register(proxy: THREE.Object3D, options: { scale?: number, color?: number } = {}) {
+    register(proxy: THREE.Object3D, options: { scale?: number; color?: number } = {}) {
         if (this._count >= MAX_LOTUS) return;
 
         const scale = options.scale ?? 1.0;
@@ -180,7 +216,11 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         padMatrix.toArray(this.padMesh.instanceMatrix.array, i * 16);
 
         const nonPadScale = new THREE.Vector3(scale, scale, scale);
-        const nonPadMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, nonPadScale);
+        const nonPadMatrix = new THREE.Matrix4().compose(
+            proxy.position,
+            proxy.quaternion,
+            nonPadScale
+        );
         nonPadMatrix.toArray(this.ringsMesh.instanceMatrix.array, i * 16);
         nonPadMatrix.toArray(this.centerMesh.instanceMatrix.array, i * 16);
 
@@ -195,20 +235,24 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         interactiveGroup.userData.type = 'subwoofer_lotus';
         proxy.userData.type = 'subwoofer_lotus';
         proxy.userData.isBatched = true;
-        interactiveGroup.userData.interactionText = "Commune";
+        interactiveGroup.userData.interactionText = 'Commune';
 
         makeInteractive(interactiveGroup);
         interactiveGroup.userData.onInteract = () => {
             if (uGlitchIntensity.value > 0.5) {
-                const newlyDiscovered = discoverySystem.discover('bass_portal', 'Bass Portal', '🌀');
+                const newlyDiscovered = discoverySystem.discover(
+                    'bass_portal',
+                    'Bass Portal',
+                    '🌀'
+                );
                 if (newlyDiscovered) {
-                    showToast("Hidden Bass Portal Revealed!", "🌀");
+                    showToast('Hidden Bass Portal Revealed!', '🌀');
                 } else {
-                    showToast("The Bass Portal is unstable...", "🌀");
+                    showToast('The Bass Portal is unstable...', '🌀');
                 }
                 spawnImpact(interactiveGroup.position, 'dash');
             } else {
-                showToast("The Lotus hums with latent energy...", "🔊");
+                showToast('The Lotus hums with latent energy...', '🔊');
             }
         };
 
@@ -233,7 +277,8 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         if (!this.padMesh || !this.ringsMesh || !this.centerMesh) return;
 
         const indexToRemove = logicObject.userData.batchIndex;
-        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this._count) return;
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this._count)
+            return;
 
         const lastIndex = this._count - 1;
 
@@ -286,27 +331,27 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
     // This allows world generation to register first, then set position, then call updateInstance if needed.
     // Or we can just read the proxy position directly here.
     updateInstance(index: number, proxy: THREE.Object3D) {
-         if (index >= this._count) return;
-         const scale = proxy.userData.lotusScale ?? 1.0;
+        if (index >= this._count) return;
+        const scale = proxy.userData.lotusScale ?? 1.0;
 
-         // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy, THREE.Matrix4 instantiation and THREE.Vector3 instantiation by utilizing scratch objects
-         this._scratchScale.set(1.5 * scale, 0.2 * scale, 1.5 * scale);
-         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
-         this._scratchMatrix.toArray(this.padMesh.instanceMatrix.array, index * 16);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy, THREE.Matrix4 instantiation and THREE.Vector3 instantiation by utilizing scratch objects
+        this._scratchScale.set(1.5 * scale, 0.2 * scale, 1.5 * scale);
+        this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
+        this._scratchMatrix.toArray(this.padMesh.instanceMatrix.array, index * 16);
 
-         this._scratchScale.set(scale, scale, scale);
-         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
-         this._scratchMatrix.toArray(this.ringsMesh.instanceMatrix.array, index * 16);
-         this._scratchMatrix.toArray(this.centerMesh.instanceMatrix.array, index * 16);
+        this._scratchScale.set(scale, scale, scale);
+        this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
+        this._scratchMatrix.toArray(this.ringsMesh.instanceMatrix.array, index * 16);
+        this._scratchMatrix.toArray(this.centerMesh.instanceMatrix.array, index * 16);
 
-         this.padMesh.instanceMatrix.needsUpdate = true;
-         this.ringsMesh.instanceMatrix.needsUpdate = true;
-         this.centerMesh.instanceMatrix.needsUpdate = true;
+        this.padMesh.instanceMatrix.needsUpdate = true;
+        this.ringsMesh.instanceMatrix.needsUpdate = true;
+        this.centerMesh.instanceMatrix.needsUpdate = true;
 
-         if (this.logicObjects[index]) {
-             this.logicObjects[index].position.copy(proxy.position);
-             this.logicObjects[index].scale.setScalar(scale);
-         }
+        if (this.logicObjects[index]) {
+            this.logicObjects[index].position.copy(proxy.position);
+            this.logicObjects[index].scale.setScalar(scale);
+        }
     }
 
     dispose() {

@@ -31,6 +31,8 @@ const {
     getWebGPUProbeReport,
     applyCanvasColorSpace,
     resolveRequiredLimits,
+    resolveRequiredFeatures,
+    wantsGpuTiming,
     GPU_REQUIRED_LIMITS,
 } = await import('../src/rendering/gpu-context.ts');
 
@@ -260,11 +262,73 @@ async function expectFailure(canvas, stage) {
     assert.match(getWebGPUProbeReport().reason, /entryPoint not found/);
 }
 
-// --- The device is requested with the adapter's full feature set -----------
+// --- requiredFeatures is an allowlist, not the adapter's full set ---------
 {
+    const junk = ['texture-compression-bc', 'chromium-experimental-foo', 'subgroups'];
+
+    // Extra adapter features never leak into requiredFeatures.
+    assert.deepEqual(
+        resolveRequiredFeatures(['float32-filterable', 'timestamp-query', ...junk], {
+            gpuTiming: false,
+        }),
+        ['float32-filterable'],
+        'only allowlisted features the adapter has; timestamp-query needs gpuTiming'
+    );
+    // timestamp-query is requested when wanted and available…
+    assert.ok(
+        resolveRequiredFeatures(['timestamp-query', ...junk], { gpuTiming: true }).includes(
+            'timestamp-query'
+        )
+    );
+    // …and never when the adapter lacks it (SwiftShader / some iGPUs).
+    assert.deepEqual(resolveRequiredFeatures(junk, { gpuTiming: true }), []);
+
+    assert.equal(wantsGpuTiming('?debug=1'), true);
+    assert.equal(wantsGpuTiming('?postfx=high'), true);
+    assert.equal(wantsGpuTiming('?postfx=low'), false);
+    assert.equal(wantsGpuTiming(''), false);
+    assert.equal(wantsGpuTiming('?debug=1&gpuTiming=0'), false);
+    assert.equal(wantsGpuTiming('?gpuTiming=1'), true);
+}
+{
+    // End to end: no ?debug → adapter's timestamp-query is not requested.
     reset();
     let requestedDescriptor = null;
     const device = makeDevice();
+    installGpu(async () =>
+        makeAdapter(device, {
+            features: new Set([
+                'depth32float-stencil8',
+                'timestamp-query',
+                'texture-compression-bc',
+            ]),
+            requestDevice: async (descriptor) => {
+                requestedDescriptor = descriptor;
+                return device;
+            },
+        })
+    );
+    const probe = await probeWebGPU(makeCanvas());
+
+    assert.deepEqual(requestedDescriptor.requiredFeatures, ['depth32float-stencil8']);
+    assert.equal(probe.timestampQuery, false, 'no timestamp-query → no trackTimestamp');
+    assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
+    const features = getWebGPUProbeReport().features;
+    assert.deepEqual(features.adapter, [
+        'depth32float-stencil8',
+        'texture-compression-bc',
+        'timestamp-query',
+    ]);
+    assert.deepEqual(features.requested, ['depth32float-stencil8']);
+    assert.deepEqual(features.granted, [], 'granted mirrors device.features');
+    assert.equal(features.timingWanted, false);
+}
+{
+    // ?debug=1 + adapter with timestamp-query → requested, and granted drives trackTimestamp.
+    reset();
+    globalThis.location = { search: '?debug=1' };
+    let requestedDescriptor = null;
+    const device = makeDevice({ features: new Set(['timestamp-query']) });
     installGpu(async () =>
         makeAdapter(device, {
             requestDevice: async (descriptor) => {
@@ -273,14 +337,21 @@ async function expectFailure(canvas, stage) {
             },
         })
     );
-    await probeWebGPU(makeCanvas());
+    const probe = await probeWebGPU(makeCanvas());
+    delete globalThis.location;
 
-    assert.deepEqual(
-        [...requestedDescriptor.requiredFeatures].sort(),
-        ['depth32float-stencil8', 'timestamp-query'],
-        'every adapter feature is requested, matching what Three would ask for'
-    );
-    assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
+    assert.ok(requestedDescriptor.requiredFeatures.includes('timestamp-query'));
+    assert.equal(probe.timestampQuery, true);
+    assert.deepEqual(getWebGPUProbeReport().features.granted, ['timestamp-query']);
+}
+{
+    // Requested but not granted → timestampQuery stays false; boot still succeeds.
+    reset();
+    globalThis.location = { search: '?debug=1' };
+    const probe = await (installGpu(async () => makeAdapter(makeDevice())),
+    probeWebGPU(makeCanvas()));
+    delete globalThis.location;
+    assert.equal(probe.timestampQuery, false);
 }
 
 // --- Limits are clamped to the adapter: min(adapter, desired), never above ---

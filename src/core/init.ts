@@ -21,6 +21,7 @@ import {
     GPU_POWER_PREFERENCE,
     type GpuProbeResult,
 } from '../rendering/gpu-context.ts';
+import { installGpuTimestamps } from '../rendering/gpu-timestamps.ts';
 import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-probes.ts';
 import { initLocalLights } from '../rendering/lights.ts';
 import { resolveRendererBackend, type RendererBackend } from '../rendering/renderer-mode.ts';
@@ -164,6 +165,9 @@ function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): W
         requiredLimits: probe.requiredLimits,
         device: probe.device,
         context: probe.context,
+        // Only when the probe's device was granted `timestamp-query`; Three
+        // cannot add the feature to a device it did not create.
+        trackTimestamp: probe.timestampQuery,
     } as ConstructorParameters<typeof WebGPURenderer>[0]);
 
     (renderer as WebGPURenderer & { _getFallback: unknown })._getFallback = null;
@@ -251,6 +255,8 @@ export async function initScene(): Promise<SceneInitResult> {
     // before setSize so MSAA colorBuffer / swapchain resolve match the canvas.
     // Throws if Three landed on its WebGL backend despite the passing probe.
     await armGpuContext(renderer, probe);
+    // GPU pass timings for the debug overlay; a no-op without timestamp-query.
+    installGpuTimestamps(renderer, probe);
 
     const initialFog = getInitialFogDistances();
 

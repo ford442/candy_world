@@ -292,7 +292,11 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
                 'washMesh',
             ])
         ),
-        summarize('SugarCaveBatcher', 'sugar_cave', sugarCaveBatcher.mesh ? [sugarCaveBatcher.mesh] : []),
+        summarize(
+            'SugarCaveBatcher',
+            'sugar_cave',
+            sugarCaveBatcher.mesh ? [sugarCaveBatcher.mesh] : []
+        ),
         summarize(
             'KickDrumGeyserBatcher',
             'kick_drum_geyser',

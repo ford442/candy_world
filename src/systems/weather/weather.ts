@@ -22,10 +22,15 @@ import { EffectsManager } from './weather-effects.ts';
 
 // Scratch objects for optimization
 const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
-const _scratchSeasonalState: Cycle.SeasonalState = { season: 'Spring', sunInclination: 0, moonPhase: 0, yearProgress: 0 };
+const _scratchSeasonalState: Cycle.SeasonalState = {
+    season: 'Spring',
+    sunInclination: 0,
+    moonPhase: 0,
+    yearProgress: 0,
+};
 
 // Music-reactive weather constants
-const THUNDER_PULSE_THRESHOLD = 0.75;  // WeatherMusicTargets.thunderPulse value that triggers a storm charge boost
+const THUNDER_PULSE_THRESHOLD = 0.75; // WeatherMusicTargets.thunderPulse value that triggers a storm charge boost
 const THUNDER_STORM_CHARGE_BOOST = 0.05; // Storm charge increment per frame when thunder pulse fires
 
 export class WeatherSystem {
@@ -294,13 +299,22 @@ export class WeatherSystem {
         // Twilight Glow Update
         const twilightIntensity = this.atmosphereManager.getTwilightGlowIntensity(cyclePos);
         this.lastTwilightProgress = twilightIntensity;
-        try { if (uTwilight) uTwilight.value = twilightIntensity; } catch (e) { void e; }
+        try {
+            if (uTwilight) uTwilight.value = twilightIntensity;
+        } catch (e) {
+            void e;
+        }
 
         // Aurora Update
         this.effectsManager.updateAurora(twilightIntensity, this.state);
 
         // Rainbow Update
-        this.rainbowTimer = this.effectsManager.updateRainbow(dt, this.lastState, this.state, this.rainbowTimer);
+        this.rainbowTimer = this.effectsManager.updateRainbow(
+            dt,
+            this.lastState,
+            this.state,
+            this.rainbowTimer
+        );
         this.lastState = this.state;
 
         // Light level and cloud density
@@ -328,13 +342,14 @@ export class WeatherSystem {
         const sunPower = celestial.sunIntensity * (1.0 - this.cloudDensity * 0.7);
         const moonPower = celestial.moonIntensity * 0.3;
         const globalLight = Math.max(0, sunPower + moonPower);
-        const moisture = this.intensity + (this.stormCharge * 0.5);
+        const moisture = this.intensity + this.stormCharge * 0.5;
 
         let floraFavorability = globalLight * (0.5 + moisture);
         if (moisture > 0.9) floraFavorability *= 0.5;
 
         const fungiFavorability = (1.0 - globalLight) * (0.2 + moisture * 1.5);
-        const lanternFavorability = (this.state === WeatherState.STORM ? 1.0 : 0.0) + (1.0 - globalLight) * 0.2;
+        const lanternFavorability =
+            (this.state === WeatherState.STORM ? 1.0 : 0.0) + (1.0 - globalLight) * 0.2;
 
         // Plant growth from rain
         if (this.percussionRain && this.rainMesh && this.rainMesh.visible) {
@@ -351,10 +366,24 @@ export class WeatherSystem {
 
         // Spawning
         const isRaining = this.state === WeatherState.RAIN || this.state === WeatherState.STORM;
-        this.ecosystemManager.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight, this.onSpawnFoliage, isRaining);
+        this.ecosystemManager.handleSpawning(
+            time,
+            fungiFavorability,
+            lanternFavorability,
+            globalLight,
+            this.onSpawnFoliage,
+            isRaining
+        );
 
         // Waterfalls
-        this.ecosystemManager.updateMushroomWaterfalls(time, bassIntensity, this.state, this.intensity, this.trackedMushrooms, this.mushroomWaterfalls);
+        this.ecosystemManager.updateMushroomWaterfalls(
+            time,
+            bassIntensity,
+            this.state,
+            this.intensity,
+            this.trackedMushrooms,
+            this.mushroomWaterfalls
+        );
 
         // Update BerryBatcher
         BerryBatcher.getInstance().update(time, audioData);
@@ -371,11 +400,13 @@ export class WeatherSystem {
             const baseIntensity = this.intensity; // capture before rain blend
             this.intensity = THREE.MathUtils.clamp(
                 THREE.MathUtils.lerp(baseIntensity, WeatherMusicTargets.rainIntensity, w),
-                0, 1
+                0,
+                1
             );
             musicFogIntensity = THREE.MathUtils.clamp(
                 THREE.MathUtils.lerp(baseIntensity, WeatherMusicTargets.fogDensity, w),
-                0, 1
+                0,
+                1
             );
             // thunderPulse: threshold trigger — boost storm charge for a dramatic flash
             if (WeatherMusicTargets.thunderPulse > THUNDER_PULSE_THRESHOLD) {
@@ -384,7 +415,14 @@ export class WeatherSystem {
         }
 
         // Particle systems
-        this.effectsManager.updateParticleSystems(this.renderer, dt, bassIntensity, melodyVol, this.weatherType, this.state);
+        this.effectsManager.updateParticleSystems(
+            this.renderer,
+            dt,
+            bassIntensity,
+            melodyVol,
+            this.weatherType,
+            this.state
+        );
 
         // Storm-specific effects
         if (this.state === WeatherState.STORM) {
@@ -398,7 +436,11 @@ export class WeatherSystem {
             this.lightningTimer = lightningResult.lightningTimer;
             this.lightningActive = lightningResult.lightningActive;
 
-            this.atmosphereManager.chargeBerryGlow(bassIntensity, this.trackedTrees, this.trackedShrubs);
+            this.atmosphereManager.chargeBerryGlow(
+                bassIntensity,
+                this.trackedTrees,
+                this.trackedShrubs
+            );
         }
 
         // Storm charge accumulation
@@ -438,7 +480,7 @@ export class WeatherSystem {
             const fogTargets = computeAtmosphereFogTargets(
                 camera,
                 camera.position.y,
-                getDayNightBias(cyclePos),
+                getDayNightBias(cyclePos)
             );
             this.baseFogNear = fogTargets.near;
             this.baseFogFar = fogTargets.far;
@@ -453,7 +495,7 @@ export class WeatherSystem {
             this.baseFogFar,
             this.weatherType,
             this.fog,
-            dt,
+            dt
         );
     }
 
@@ -468,7 +510,9 @@ export class WeatherSystem {
 
             if (nextMode !== this.targetPaletteMode) {
                 this.targetPaletteMode = nextMode;
-                console.log(`[Weather] Season Changed: Pattern ${currentPattern} -> Mode ${nextMode}`);
+                console.log(
+                    `[Weather] Season Changed: Pattern ${currentPattern} -> Mode ${nextMode}`
+                );
 
                 this.effectsManager.triggerPalettePulse();
             }
@@ -491,7 +535,7 @@ export class WeatherSystem {
 
         if (isRaining) {
             // Grow: Base rate + bass boost
-            mushroomRate = 0.5 + (bassIntensity * 0.5);
+            mushroomRate = 0.5 + bassIntensity * 0.5;
         } else {
             if (globalLight > 0.6 && this.cloudDensity < 0.5) {
                 // Bright Sun + Dry: Shrink
@@ -508,7 +552,13 @@ export class WeatherSystem {
         }
     }
 
-    private updateWeatherState(bass: number, melody: number, groove: number, cycleWeatherBias: any = null, seasonal: any = null): void {
+    private updateWeatherState(
+        bass: number,
+        melody: number,
+        groove: number,
+        cycleWeatherBias: any = null,
+        seasonal: any = null
+    ): void {
         let audioState = WeatherState.CLEAR;
         let audioIntensity = 0;
 
@@ -546,14 +596,14 @@ export class WeatherSystem {
                 if (Math.random() < biasWeight) {
                     this.state = biasState;
                     this.targetIntensity = cycleWeatherBias.biasIntensity;
-                }
-                else {
+                } else {
                     this.state = audioState;
                     this.targetIntensity = audioIntensity;
                 }
             } else {
                 this.state = audioState;
-                this.targetIntensity = audioIntensity * (1 - biasWeight) + cycleWeatherBias.biasIntensity * biasWeight;
+                this.targetIntensity =
+                    audioIntensity * (1 - biasWeight) + cycleWeatherBias.biasIntensity * biasWeight;
             }
             this.weatherType = cycleWeatherBias.type || 'default';
         } else {
@@ -578,13 +628,32 @@ export class WeatherSystem {
         this.ecosystemManager.spawnFoliage(type, isGlowing, this.onSpawnFoliage);
     }
 
-    handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number): void {
+    handleSpawning(
+        time: number,
+        fungiScore: number,
+        lanternScore: number,
+        globalLight: number
+    ): void {
         const isRaining = this.state === WeatherState.RAIN || this.state === WeatherState.STORM;
-        this.ecosystemManager.handleSpawning(time, fungiScore, lanternScore, globalLight, this.onSpawnFoliage, isRaining);
+        this.ecosystemManager.handleSpawning(
+            time,
+            fungiScore,
+            lanternScore,
+            globalLight,
+            this.onSpawnFoliage,
+            isRaining
+        );
     }
 
     updateMushroomWaterfalls(time: number, bassIntensity: number): void {
-        this.ecosystemManager.updateMushroomWaterfalls(time, bassIntensity, this.state, this.intensity, this.trackedMushrooms, this.mushroomWaterfalls);
+        this.ecosystemManager.updateMushroomWaterfalls(
+            time,
+            bassIntensity,
+            this.state,
+            this.intensity,
+            this.trackedMushrooms,
+            this.mushroomWaterfalls
+        );
     }
 
     /**
@@ -608,11 +677,13 @@ export class WeatherSystem {
 
     updateFog(audioData: VisualState): void {
         if (camera) {
-            const cyclePos = (audioData as any)?.time ? (audioData as any).time % CYCLE_DURATION : 0;
+            const cyclePos = (audioData as any)?.time
+                ? (audioData as any).time % CYCLE_DURATION
+                : 0;
             const fogTargets = computeAtmosphereFogTargets(
                 camera,
                 camera.position.y,
-                getDayNightBias(cyclePos),
+                getDayNightBias(cyclePos)
             );
             this.baseFogNear = fogTargets.near;
             this.baseFogFar = fogTargets.far;
@@ -626,7 +697,7 @@ export class WeatherSystem {
             this.baseFogFar,
             this.weatherType,
             this.fog,
-            0.016,
+            0.016
         );
     }
 
@@ -662,7 +733,11 @@ export class WeatherSystem {
     }
 
     chargeBerryGlow(bassIntensity: number): void {
-        this.atmosphereManager.chargeBerryGlow(bassIntensity, this.trackedTrees, this.trackedShrubs);
+        this.atmosphereManager.chargeBerryGlow(
+            bassIntensity,
+            this.trackedTrees,
+            this.trackedShrubs
+        );
     }
 
     /**
@@ -716,9 +791,14 @@ export class WeatherSystem {
     forceState(state: WeatherState): void {
         this.state = state;
         switch (state) {
-            case WeatherState.STORM: this.targetIntensity = 1.0; break;
-            case WeatherState.RAIN: this.targetIntensity = 0.5; break;
-            default: this.targetIntensity = 0;
+            case WeatherState.STORM:
+                this.targetIntensity = 1.0;
+                break;
+            case WeatherState.RAIN:
+                this.targetIntensity = 0.5;
+                break;
+            default:
+                this.targetIntensity = 0;
         }
     }
 

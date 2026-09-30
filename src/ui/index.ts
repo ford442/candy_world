@@ -23,7 +23,7 @@ export {
     setLoadingDebug,
     setWasmPhase,
     setWasmError,
-    installLegacyAPI
+    installLegacyAPI,
 } from './loading-screen.ts';
 
 // Re-export as default

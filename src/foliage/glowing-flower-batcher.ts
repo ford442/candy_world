@@ -1,8 +1,16 @@
 import * as THREE from 'three';
 import {
-    color, float, vec3, attribute, positionLocal, positionWorld,
-    sin, smoothstep, uniform, mix,
-    varyingProperty
+    color,
+    float,
+    vec3,
+    attribute,
+    positionLocal,
+    positionWorld,
+    sin,
+    smoothstep,
+    uniform,
+    mix,
+    varyingProperty,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
@@ -90,12 +98,11 @@ export class GlowingFlowerBatcher {
         const baseStemPos = stemMat.positionNode;
         stemMat.positionNode = baseStemPos.mul(visibilityScale);
 
-
         // --- HEAD MATERIAL ---
         // Emissive Sphere + Pulse + Rim Light
         const headMat = createStandardNodeMaterial({
-            color: 0xFFFFFF, // Overridden by instanceColor
-            roughness: 0.8
+            color: 0xffffff, // Overridden by instanceColor
+            roughness: 0.8,
         });
 
         // 1. Color from Instance
@@ -105,7 +112,9 @@ export class GlowingFlowerBatcher {
         // Base Emissive = Instance Color
         // Pulse = Audio High (Melody)
         const pulse = uAudioHigh.mul(1.5).add(0.5); // 0.5 to 2.0
-        const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.4));
+        const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(
+            BiomeUniforms.musicalFlora.shimmer.mul(0.4)
+        );
         const baseEmissive = instanceColor.mul(pulse).add(biomeTint);
 
         // Juicy Rim Light (Cyan/White edge)
@@ -131,7 +140,6 @@ export class GlowingFlowerBatcher {
         // Apply to Head
         const headPos = positionLocal.mul(visibilityScale).add(standardDef);
         headMat.positionNode = headPos;
-
 
         // --- WASH MATERIAL (Volumetric Glow) ---
         // Additive blending, soft edges
@@ -163,19 +171,42 @@ export class GlowingFlowerBatcher {
         const washPos = positionLocal.mul(visibilityScale).add(standardDef);
         washMat.positionNode = washPos;
 
-
         // 3. Create InstancedMeshes
 
-        this.stemMesh = this.createInstancedMesh(stemGeo, stemMat, MAX_FLOWERS, 'GlowingFlower_Stem');
-        this.headMesh = this.createInstancedMesh(headGeo, headMat, MAX_FLOWERS, 'GlowingFlower_Head');
-        this.washMesh = this.createInstancedMesh(washGeo, washMat, MAX_FLOWERS, 'GlowingFlower_Wash');
+        this.stemMesh = this.createInstancedMesh(
+            stemGeo,
+            stemMat,
+            MAX_FLOWERS,
+            'GlowingFlower_Stem'
+        );
+        this.headMesh = this.createInstancedMesh(
+            headGeo,
+            headMat,
+            MAX_FLOWERS,
+            'GlowingFlower_Head'
+        );
+        this.washMesh = this.createInstancedMesh(
+            washGeo,
+            washMat,
+            MAX_FLOWERS,
+            'GlowingFlower_Wash'
+        );
 
         // TSL Safety: Initialize instanceColor manually to prevent runtime errors with TSL attributes
-        this.stemMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.stemMesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_FLOWERS * 3),
+            3
+        );
         this.stemMesh.geometry.setAttribute('instanceColor', this.stemMesh.instanceColor);
-        this.headMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.headMesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_FLOWERS * 3),
+            3
+        );
         this.headMesh.geometry.setAttribute('instanceColor', this.headMesh.instanceColor);
-        this.washMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.washMesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(MAX_FLOWERS * 3),
+            3
+        );
         this.washMesh.geometry.setAttribute('instanceColor', this.washMesh.instanceColor);
 
         // Add to Scene
@@ -187,7 +218,12 @@ export class GlowingFlowerBatcher {
         console.log(`[GlowingFlowerBatcher] Initialized with capacity ${MAX_FLOWERS}`);
     }
 
-    private createInstancedMesh(geo: THREE.BufferGeometry, mat: THREE.Material, count: number, name: string): THREE.InstancedMesh {
+    private createInstancedMesh(
+        geo: THREE.BufferGeometry,
+        mat: THREE.Material,
+        count: number,
+        name: string
+    ): THREE.InstancedMesh {
         const mesh = new THREE.InstancedMesh(geo, mat, count);
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         mesh.castShadow = false; // Emissive usually doesn't cast shadow? Stem should.
@@ -207,7 +243,7 @@ export class GlowingFlowerBatcher {
     dispose() {
         if (!this.initialized) return;
 
-        [this.stemMesh, this.headMesh, this.washMesh].forEach(mesh => {
+        [this.stemMesh, this.headMesh, this.washMesh].forEach((mesh) => {
             if (!mesh) return;
             safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
         });
@@ -226,7 +262,7 @@ export class GlowingFlowerBatcher {
         }
 
         const i = this.count;
-        const { color = 0xFFD700 } = options; // Default Gold
+        const { color = 0xffd700 } = options; // Default Gold
 
         // 1. Calculate Transforms
         _scratchMat.compose(logicObject.position, logicObject.quaternion, logicObject.scale);
@@ -238,7 +274,7 @@ export class GlowingFlowerBatcher {
         _scratchMat.makeScale(_scratchScale.x, _scratchScale.y, _scratchScale.z);
         _scratchMat.premultiply(baseMatrix);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
+        _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, i * 16);
 
         // Head Transform (At top of stem)
         // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
@@ -249,7 +285,7 @@ export class GlowingFlowerBatcher {
         _scratchMat2.premultiply(baseMatrix);
         const headWorld = _scratchMat2;
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        headWorld.toArray(this.headMesh!.instanceMatrix.array, (i) * 16);
+        headWorld.toArray(this.headMesh!.instanceMatrix.array, i * 16);
 
         // Wash Transform (At top of stem)
         // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
@@ -260,7 +296,7 @@ export class GlowingFlowerBatcher {
         _scratchMat3.premultiply(baseMatrix);
         const washWorld = _scratchMat3;
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        washWorld.toArray(this.washMesh!.instanceMatrix.array, (i) * 16);
+        washWorld.toArray(this.washMesh!.instanceMatrix.array, i * 16);
 
         // Color
         if (typeof color === 'number') _scratchColor.setHex(color);
@@ -319,7 +355,8 @@ export class GlowingFlowerBatcher {
         if (!this.initialized || !this.stemMesh || !this.headMesh || !this.washMesh) return;
 
         const indexToRemove = this.indexMap.get(logicObject.uuid);
-        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count)
+            return;
 
         const lastIndex = this.count - 1;
 

@@ -356,7 +356,13 @@ export function updateCandyDebris(delta: number): void {
 /** Telemetry-safe stats; zeroed when nothing has spawned yet. */
 export function getCandyDebrisStats(): DebrisStats {
     if (!CandyDebrisBatcher.peekMesh()) {
-        return { count: 0, capacity: MAX_DEBRIS, drawCalls: 0, castingShadows: false, byteLength: 0 };
+        return {
+            count: 0,
+            capacity: MAX_DEBRIS,
+            drawCalls: 0,
+            castingShadows: false,
+            byteLength: 0,
+        };
     }
     return CandyDebrisBatcher.getInstance().getStats();
 }

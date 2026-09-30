@@ -13,6 +13,7 @@ import {
 import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import {
+    collectGpuTimings,
     collectSystemsBudget,
     getBudgetCapViolations,
 } from '../systems/performance-budget/systems-budget.ts';
@@ -665,7 +666,13 @@ export class DebugPanel {
     private updateSystemsBudget(): void {
         if (!this.systemsBudgetEl) return;
 
-        const lines: string[] = ['Systems Budget (caps enforced)'];
+        const lines: string[] = ['Systems Budget (caps enforced, ms = CPU marks)'];
+        const gpu = collectGpuTimings();
+        lines.push(
+            gpu.enabled
+                ? `GPU render ${gpu.gpuRenderMs.toFixed(2)}ms  compute ${gpu.gpuComputeMs.toFixed(2)}ms  (${gpu.passes} passes)`
+                : `gpu — ${gpu.reason}`
+        );
         for (const row of collectSystemsBudget()) {
             const t = row.telemetry;
             if (!t) {
@@ -690,7 +697,7 @@ export class DebugPanel {
             const cost: string[] = [];
             if (typeof t.frameMs === 'number') {
                 cost.push(
-                    `${t.frameMs.toFixed(2)}/${row.budget.frameMs.toFixed(1)}ms${row.overFrameMs ? '!' : ''}`
+                    `cpu ${t.frameMs.toFixed(2)}/${row.budget.frameMs.toFixed(1)}ms${row.overFrameMs ? '!' : ''}`
                 );
             }
             if (typeof t.vramMb === 'number' && row.budget.vramMb > 0) {

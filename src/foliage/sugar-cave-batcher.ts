@@ -131,7 +131,8 @@ export class SugarCaveBatcher {
         if (!this._mesh) return;
 
         const indexToRemove = logicObject.userData.batchIndex;
-        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this._count) return;
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this._count)
+            return;
 
         const lastIndex = this._count - 1;
 

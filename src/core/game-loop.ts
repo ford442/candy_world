@@ -51,6 +51,7 @@ import { updatePhysicsPhase } from './game-loop-physics.ts';
 import { updatePostFX, renderPostProcessing } from './game-loop-postfx.ts';
 import { updateStreamingPhase } from './game-loop-streaming.ts';
 import { updateVisualsPhase } from './game-loop-visuals.ts';
+import { tickGpuTimestamps } from '../rendering/gpu-timestamps.ts';
 
 // Re-exports (public surface for main.ts / index.ts)
 export { initGameLoopDependencies, getGameTime, getAudioState, getBeatFlashIntensity };
@@ -233,6 +234,8 @@ export function animate() {
 
     // 8. Render
     renderPostProcessing();
+    // Counter only; every N frames it starts a GPU timestamp read it never awaits.
+    tickGpuTimestamps();
 
     if (!_firstFrameLogged) {
         console.log('[GameLoop] Render phase completed - First frame loop fully complete');

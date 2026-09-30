@@ -51,6 +51,18 @@ frame budget, estimated VRAM, and a `Rejected by cap` list of anything that hit
 a limit. A system that is switched off still gets a line saying why (`off — WebGL
 / low / CI`); a missing row means the module never loaded.
 
+**The per-system ms are CPU `profiler` marks** (labelled `cpu`), not GPU time —
+they cannot tell a GPU-bound clustered bin from a CPU-bound one. The first line
+of the section is the real GPU clock: `GPU render X ms  compute Y ms (N passes)`,
+the sum of every render / compute pass's `timestamp-query` duration, sampled
+every 30 frames by
+[`src/rendering/gpu-timestamps.ts`](../src/rendering/gpu-timestamps.ts). It is
+whole-frame, not per system. When the device was not granted `timestamp-query`
+(SwiftShader, some iGPUs, or not requested) the line reads
+`gpu — <reason>` and the budgets stay CPU-only. Tune new compute passes against
+the GPU line, not the CPU marks. See
+[`WEBGPU_CONTEXT.md`](WEBGPU_CONTEXT.md#feature-allowlist).
+
 Telemetry providers live in
 [`src/systems/performance-budget/systems-telemetry.ts`](../src/systems/performance-budget/systems-telemetry.ts)
 and are registered only on the `?debug=1` path, so a production boot pays
