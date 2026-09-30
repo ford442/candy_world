@@ -1,4 +1,5 @@
 import { initDebugPanelIfNeeded } from '../../debug/index.ts';
+import { getGpuContext } from '../../rendering/gpu-context.ts';
 import { initializeSaveSystemIntegration } from '../../systems/save-integration-lazy.ts';
 import { initAnalyticsDebugIfNeeded } from '../../ui/analytics-debug-lazy.ts';
 import {
@@ -11,7 +12,10 @@ import {
 import { installPresenceStartScreenUI } from '../../ui/presence-lazy.ts';
 import { installSaveMenuGlobals } from '../../ui/save-menu/lazy.ts';
 import { setBootProgressReporter } from '../../utils/boot-progress.ts';
-import { enableStartupProfiler } from '../../utils/startup-profiler.ts';
+import {
+    enableStartupProfiler,
+    setProfilerGpuContextSource,
+} from '../../utils/startup-profiler.ts';
 import { isCIorHeadless, getDeviceMemoryGB, CONFIG } from '../config.ts';
 import {
     applyStartupCapabilities,
@@ -78,6 +82,7 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
         }
     });
 
+    setProfilerGpuContextSource(getGpuContext);
     enableStartupProfiler({
         slowPhaseThreshold: 100,
         enableOverlay: false,

@@ -6,8 +6,6 @@
  * post-interactive deferred population phase driven by BackgroundProcessor.
  */
 
-import { DEFAULT_LOADING_PHASES } from '../ui/loading-screen-types';
-
 export interface LoadingTaskOptions {
     id: string;
     name: string;
