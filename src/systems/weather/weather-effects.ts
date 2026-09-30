@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { ComputeParticleSystem } from '../../compute/particle_compute.ts';
 import { CONFIG } from '../../core/config.ts';
 import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
 import { createAurora, uAuroraIntensity } from '../../foliage/aurora.ts';
@@ -10,7 +9,7 @@ import {
     uCloudLightningColor,
 } from '../../foliage/clouds.ts';
 import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
-import { createIntegratedRain } from '../../particles/compute-integration.ts';
+import { createIntegratedRain, createIntegratedSpores } from '../../particles/compute-integration.ts';
 import type { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles-types.ts';
 import {
     createPointLight,
@@ -46,7 +45,7 @@ export interface EffectsState {
     rainMesh: THREE.Points | null;
     mistMesh: THREE.Points | null;
     percussionRain: Phase4ComputeSystem | null;
-    melodicMist: ComputeParticleSystem | null;
+    melodicMist: Phase4ComputeSystem | null;
 }
 
 // ⚡ OPTIMIZATION: Module-scoped variables to eliminate per-frame allocations in weather particle updates
@@ -61,7 +60,7 @@ const _scratchParticleAudioDataRain = {
     windZ: 0,
     windSpeed: 0,
 };
-const _scratchParticleAudioDataMist = { kick: 0, low: 0, mid: 0 } as any;
+const _scratchParticleAudioDataMist = { low: 0, mid: 0, high: 0, beat: false, groove: 0 };
 
 export class EffectsManager {
     private scene: THREE.Scene;
@@ -136,7 +135,7 @@ export class EffectsManager {
     /**
      * Set renderer for particle systems
      */
-    setRenderer(renderer: any): void {
+    setRenderer(_renderer: any): void {
         if (!this.state.percussionRain) {
             this.state.rainMesh = createIntegratedRain({
                 count: 2000,
@@ -151,12 +150,16 @@ export class EffectsManager {
         }
 
         if (!this.state.melodicMist) {
-            this.state.melodicMist = new ComputeParticleSystem(1000, renderer, {
-                type: 'rain',
-                spawnCenter: new THREE.Vector3(0, 5, 0),
-                gravity: new THREE.Vector3(0, 0, 0),
-            });
-            this.state.mistMesh = this.state.melodicMist.createMesh();
+            // The spore preset is the shared system's low-ceiling, slow-drift field:
+            // 250 * 4 = 1000 particles, as the old standalone mist system used.
+            this.state.mistMesh = createIntegratedSpores({
+                count: 250,
+                areaSize: 25,
+                center: new THREE.Vector3(0, 5, 0),
+            }) as THREE.Points;
+            this.state.melodicMist =
+                (this.state.mistMesh.userData?.computeParticleSystem as Phase4ComputeSystem) ||
+                null;
             this.state.mistMesh.visible = false;
             this.scene.add(this.state.mistMesh);
         }
@@ -333,18 +336,9 @@ export class EffectsManager {
         }
 
         if (shouldShowMist && melodicMist) {
-            // old CPU update for mist
-            _scratchParticleAudioDataMist.kick = bassIntensity;
             _scratchParticleAudioDataMist.low = bassIntensity;
             _scratchParticleAudioDataMist.mid = melodyVol;
-            melodicMist.update(dt, _scratchParticleAudioDataMist, 0);
-
-            // Dynamic color behavior
-            if (weatherType === 'mist') {
-                melodicMist.setBaseColor(0xddffdd);
-            } else {
-                melodicMist.setBaseColor(0xaaffaa);
-            }
+            melodicMist.update(renderer, dt, _scratchVecZero, _scratchParticleAudioDataMist);
         }
     }
 

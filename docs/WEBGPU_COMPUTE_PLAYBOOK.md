@@ -62,7 +62,7 @@ if (!device) {
 Gate on policy before you allocate anything:
 
 ```ts
-import { preferGpuCompute, isGpuComputeReady, ensureGpuComputeReady } from '../compute/index.ts';
+import { preferGpuCompute, isGpuComputeReady, ensureGpuComputeReady } from '../compute/compute-orchestrator.ts';
 
 await ensureGpuComputeReady(); // idempotent; resolves false when unavailable
 if (!preferGpuCompute() || !isGpuComputeReady()) return false; // caller runs the CPU path
@@ -201,7 +201,7 @@ dream-like; every example and every default in a new pass should read that way.
 
 ## Hello, dispatch
 
-A minimal Tier 4b pass, matching the shape of `foliage-gpu-batch.ts` and `batcher-gpu-lod.ts`.
+A minimal Tier 4b pass, matching the shape of `foliage-gpu-batch.ts`.
 
 ```ts
 // src/compute/candy-glow-gpu.ts
@@ -375,7 +375,7 @@ if (glow.active) {
 | ---------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Particles              | [`COMPUTE_PARTICLES.md`](./COMPUTE_PARTICLES.md)     | [`src/particles/compute-particles.ts`](../src/particles/compute-particles.ts) — raw device, bind group, dispatch       |
 | Foliage pose / scalars | [`GPU_FOLIAGE.md`](./GPU_FOLIAGE.md)                 | `src/compute/foliage-gpu-batch.ts`, `src/compute/gpu-plant-pose.ts` — flagged pilot, 1-frame pipelining                |
-| LOD / culling          | [`COMPUTE_GPU_DEFAULT.md`](./COMPUTE_GPU_DEFAULT.md) | `src/compute/batcher-gpu-lod.ts`, `src/compute/gpu-culling-system.ts` — Tier 4a chores usage                           |
+| LOD / culling          | [`COMPUTE_GPU_DEFAULT.md`](./COMPUTE_GPU_DEFAULT.md) | CPU only (`src/systems/batcher-lod.ts`). The GPU LOD/culling passes were never wired in and were deleted in #1827       |
 | Clustered lights       | [`CLUSTERED_LIGHTS.md`](./CLUSTERED_LIGHTS.md)       | [`src/rendering/clustered-lighting.ts`](../src/rendering/clustered-lighting.ts) — CPU bin, GPU upload, no extra device |
 | Irradiance probes / GI | [`IRRADIANCE_PROBES.md`](./IRRADIANCE_PROBES.md)     | [`src/rendering/irradiance-probes.ts`](../src/rendering/irradiance-probes.ts)                                          |
 | Wind                   | [`WIND_OPTIMIZATION.md`](./WIND_OPTIMIZATION.md)     | `src/foliage/wind-compute.ts` — TSL compute node dispatched from `game-loop-compute.ts`                                |

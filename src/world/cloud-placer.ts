@@ -18,7 +18,7 @@ import { CONFIG } from '../core/config.ts';
 import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import { createCloud } from '../foliage/clouds.ts';
 import { getGroundHeight, registerWalkableCloudPlatform } from '../systems/ground-system.ts';
-import type { WeatherSystem } from '../systems/weather.ts';
+import type { WeatherSystem } from '../systems/weather/weather.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 

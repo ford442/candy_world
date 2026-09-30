@@ -201,8 +201,7 @@ class CodeSplittingStrategy {
         name: 'weather',
         description: 'Weather system and effects',
         files: [
-          'src/systems/weather.ts',
-          'src/systems/weather.core.ts',
+          'src/systems/weather/weather.ts',
           'src/systems/weather-types.ts',
           'src/foliage/rainbow.ts',
           'src/foliage/aurora.ts',
@@ -270,8 +269,8 @@ class CodeSplittingStrategy {
       },
       {
         feature: 'Weather Effects',
-        currentImport: `import { WeatherSystem } from './systems/weather.ts';`,
-        proposedImport: `const { WeatherSystem } = await import('./systems/weather.ts');`,
+        currentImport: `import { WeatherSystem } from './systems/weather/weather.ts';`,
+        proposedImport: `const { WeatherSystem } = await import('./systems/weather/weather.ts');`,
         trigger: 'Weather change event or after initial scene load',
         estimatedSavings: 150000
       },
@@ -418,8 +417,7 @@ export default defineConfig({
           
           // Weather effects
           'weather': [
-            './src/systems/weather.ts',
-            './src/systems/weather.core.ts',
+            './src/systems/weather/weather.ts',
             './src/foliage/aurora.ts',
             './src/foliage/stars.ts'
           ],
@@ -627,7 +625,7 @@ if (location.hash === '#debug') {
 `,
       'conditional-features': `// Feature-based code splitting
 const featureModules = {
-  'weather': () => import('./systems/weather.ts'),
+  'weather': () => import('./systems/weather/weather.ts'),
   'advanced-effects': () => import('./foliage/effects.ts'),
   'multiplayer': () => import('./systems/multiplayer.ts')
 };

@@ -5,7 +5,7 @@ import { initGroundDebug } from '../debug/tools-stub.ts';
 import { initPlacementDebug } from '../debug/tools-stub.ts';
 import { initCircadianDebug } from '../debug/tools-stub.ts';
 import type { InteractionSystem } from '../systems/interaction.ts';
-import type { WeatherSystem } from '../systems/weather.ts';
+import type { WeatherSystem } from '../systems/weather/weather.ts';
 import { getCameraShake } from './camera-shake.ts';
 import { CONFIG } from './config.ts';
 

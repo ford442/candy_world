@@ -3,7 +3,7 @@ import { BeatSync } from '../../audio/beat-sync.ts';
 import { StageLoader } from '../../debug/index.ts';
 import { validateNodeGeometries } from '../../foliage/index.ts';
 import { musicReactivitySystem } from '../../systems/music-reactivity.ts';
-import type { WeatherSystem } from '../../systems/weather.ts';
+import type { WeatherSystem } from '../../systems/weather/weather.ts';
 import { initWorldCritical } from '../../world/generation.ts';
 import { CONFIG } from '../config.ts';
 import type { MainContext } from './context.ts';

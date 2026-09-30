@@ -6,11 +6,13 @@ GPU compute is now the **preferred** path for high-volume simulation when WebGPU
 
 | Subsystem                                | GPU module                               | Fallback                                     |
 | ---------------------------------------- | ---------------------------------------- | -------------------------------------------- |
-| Instanced foliage LOD                    | `batcher-gpu-lod.ts` → `LOD_SELECT_WGSL` | `batcher-lod.ts` CPU distance loop           |
 | Foliage scalar batches (sway/bounce/hop) | `foliage-gpu-batch.ts` (`?gpuFoliage=1`) | AssemblyScript via `foliage-batcher-core.ts` |
 | SimpleFlower pose (pilot)                | `gpu-plant-pose.ts` (`?gpuFoliage=1`)    | `PlantPoseMachine`                           |
 | Particles (integrated systems)           | `compute-particles.ts` raw WebGPU        | `cpu-particle-system.ts`                     |
-| Frustum/LOD culling (library)            | `gpu-culling-system.ts` + `cullAsync()`  | `cpuCull()`                                  |
+
+Instanced foliage LOD and frustum culling are CPU-only (`batcher-lod.ts`). `batcher-gpu-lod.ts` and
+`gpu-culling-system.ts` were written for them but nothing in the app ever imported either, so
+they were deleted in #1827; `git show c18ab931:src/compute/gpu-culling-system.ts` recovers them.
 
 Instanced musical batchers (trees, flowers) already deform in **TSL vertex shaders** at draw time; pose machines still run on CPU for audio reactivity. Full GPU pose migration is a follow-up.
 
@@ -23,7 +25,7 @@ Instanced musical batchers (trees, flowers) already deform in **TSL vertex shade
 
 ## VRAM audit (#1346)
 
-`trackGpuBufferBytes()` in `compute-orchestrator.ts` accumulates buffer allocations from GPU LOD and foliage batch paths. Check `__computeVramBytes()` after exploring a full world.
+`trackGpuBufferBytes()` in `compute-orchestrator.ts` accumulates buffer allocations from the foliage batch paths. Check `__computeVramBytes()` after exploring a full world.
 
 ## Measurement
 
@@ -39,7 +41,6 @@ GPU foliage scalar shaders mirror `assembly/foliage.ts` `computeSway` / `compute
 ## Files
 
 - `src/compute/compute-orchestrator.ts` — policy + VRAM tracking
-- `src/compute/batcher-gpu-lod.ts` — pipelined instanced LOD (1-frame latency)
 - `src/compute/foliage-gpu-batch.ts` — pipelined WASM replacement for simple batches
 - `src/core/game-loop.ts` — `tickComputeOrchestrator()` each frame
 - `src/core/deferred-init.ts` — `ensureGpuComputeReady()` at boot
@@ -100,23 +101,26 @@ Contract worth knowing:
   the `instanceCount` word of both the 4-word `draw` and 5-word `drawIndexed` layouts.
 - **Workgroup size is 256** for every 1D kernel, which is what the block-sums sizing assumes.
 
-### Live consumer
+### No live consumer
 
-`GPUCullingSystem` (`src/compute/gpu-culling-system.ts`) runs frustum cull → LOD select →
-`encodePrefixSum` → `encodeCompact` in a single command buffer. The dense visible-index and
-LOD lists drive the indirect draw and `readbackResults()` with the same 1-frame latency as
-GPU LOD; `cull()` still returns the CPU result synchronously so existing callers are
-unaffected.
+The only consumer was `GPUCullingSystem` (`src/compute/gpu-culling-system.ts`), and nothing
+in the app imported it: `src/compute/index.ts`, its sole importer, had no importers either.
+It was deleted with the rest of that subtree in #1827. The library and its WGSL stay in
+`src/compute/chores/`, covered by `npm run test:chores` through the JS mirror, until #1597
+picks a live path. Until then `window.__computeStatus().lastFrameGpuChores` is always
+`false`.
 
 ### Fail-closed behaviour
 
-- `?no_gpu_compute`, `window.__computeDisabled` and CI/headless all route `cull()` to
-  `cpuCull()` via `preferGpuCompute()` — the chore pipelines are simply not encoded.
-- If chore pipelines fail to compile (a Chrome/Edge device mismatch, say), the culling
-  system logs the reason, drops to the CPU list build, and keeps rendering. It never
-  requests a second `GPUDevice` and never opens a WebGL context "for resources".
-- `window.__computeStatus().lastFrameGpuChores` reports whether a chore was encoded on the
-  most recent frame; `disabledReason` reports why not.
+What the next consumer must keep (the deleted culling system did all three):
+
+- Gate on `preferGpuCompute()`, so `?no_gpu_compute`, `window.__computeDisabled` and
+  CI/headless skip encoding the chore pipelines entirely.
+- If a chore pipeline fails to compile (a Chrome/Edge device mismatch, say), log the reason,
+  drop to the CPU path and keep rendering. Never request a second `GPUDevice` or open a
+  WebGL context "for resources".
+- Call `setLastFrameGpuChores()` so `window.__computeStatus().lastFrameGpuChores` reports
+  whether a chore was encoded on the most recent frame.
 
 > [!IMPORTANT]
 > These WASM/JS fallbacks cover a **compute pass that could not run on a working device**.
