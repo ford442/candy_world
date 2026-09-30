@@ -11,7 +11,7 @@ import {
     applyStandardDeformation,
     triplanarNoise,
     uAudioLow,
-} from './index.ts';
+} from './material-core.ts';
 import { uTwilight } from './sky.ts';
 
 const _scratchMatrix = new THREE.Matrix4();

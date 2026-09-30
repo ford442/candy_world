@@ -35,8 +35,8 @@ import {
     uWindSpeed,
     uWindStrength,
     createSugarSparkle,
-} from '../index.ts';
-import { applyBaseContactAO, getBaseContactHeight } from '../index.ts';
+} from '../material-core.ts';
+import { applyBaseContactAO, getBaseContactHeight } from '../material-core.ts';
 import {
     foliageDeformationOffset,
     scaleEmissiveByLod,

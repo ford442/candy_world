@@ -28,16 +28,15 @@ const modFloat = (x: any, y: any) => {
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
 import { registerDecorativeFill } from '../rendering/lights.ts';
+import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
 import {
-    registerReactiveMaterial,
-    attachReactivity,
     CandyPresets,
     uTime,
     uAudioLow,
     uAudioHigh,
     createJuicyRimLight,
     createSugarSparkle,
-} from './index.ts';
+} from './material-core.ts';
 import { uTwilight, uHorizonColor } from './sky.ts';
 
 export interface FloatingOrbOptions {

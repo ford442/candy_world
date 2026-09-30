@@ -1,7 +1,15 @@
 import * as THREE from 'three';
 import { color as tslColor, float, positionLocal, add } from 'three/tsl';
- // ⚡ OPTIMIZATION: Import Batcher
-import { registerReactiveMaterial, pickAnimation, createClayMaterial, sharedGeometries, uAudioLow, createJuicyRimLight, getCachedProceduralMaterial, applyStandardDeformation } from './index.ts';
+// ⚡ OPTIMIZATION: Import Batcher
+import { registerReactiveMaterial, pickAnimation } from './foliage-reactivity.ts';
+import {
+    createClayMaterial,
+    sharedGeometries,
+    uAudioLow,
+    createJuicyRimLight,
+    getCachedProceduralMaterial,
+    applyStandardDeformation,
+} from './material-core.ts';
 import { createLeafParticle } from './trees-core.ts';
 export { VineSwing } from './vine-swing.ts';
 export type { InputState, PlayerObject } from './vine-swing.ts';

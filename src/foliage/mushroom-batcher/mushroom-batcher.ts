@@ -8,7 +8,7 @@ import { foliageGroup } from '../../world/state.ts';
 import { initInstanceLodAttribute } from '../batcher-lod-utils.ts';
 import { uChromaticIntensity } from '../chromatic-nodes.ts';
 import { spawnImpact } from '../impacts.ts';
-import { uTime } from '../index.ts';
+import { uTime } from '../material-core.ts';
 import {
     MAX_MUSHROOMS,
     _scratchMatrix,
