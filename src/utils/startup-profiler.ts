@@ -80,13 +80,6 @@ let warmupMetrics = {
 // Generation chunk streaming counter
 let generationChunksStreamed = 0;
 
-// UI Elements
-export const uiState = {
-  overlayContainer: null as HTMLElement | null,
-  overlayCanvas: null as HTMLCanvasElement | null,
-  overlayCtx: null as CanvasRenderingContext2D | null,
-};
-
 // Original console methods (for hooking)
 let originalConsoleTime: typeof console.time;
 let originalConsoleTimeEnd: typeof console.timeEnd;
@@ -500,8 +493,18 @@ function outputReportToConsole(report: StartupReport): void {
 // ============================================================================
 // Overlay UI
 // ============================================================================
-import { createOverlay, drawOverlay, hideOverlay, showOverlay } from './startup-profiler-ui.ts';
-import { toggleOverlay } from './startup-profiler-ui.ts';
+import {
+  drawOverlay,
+  hideOverlay,
+  setOverlayExportHandler,
+  showOverlay,
+  toggleOverlay,
+} from './startup-profiler-ui.ts';
+
+// finalizeStartupProfile() runs generateReport() + saveReportToFile(), which stay private here.
+setOverlayExportHandler(() => {
+  finalizeStartupProfile();
+});
 
 // ============================================================================
 // Public API

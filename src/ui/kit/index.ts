@@ -28,4 +28,4 @@ export type { KitTheme } from './theme.ts';
 
 // Focus management: one audited implementation, shared by kit panels and the
 // existing menus (tests/focus-trap.test.ts).
-export { trapFocusInside } from '../../utils/interaction-utils.ts';
+export { trapFocusInside } from '../../utils/focus-trap.ts';

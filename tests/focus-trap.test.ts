@@ -5,7 +5,7 @@
  * Run with: npx tsx tests/focus-trap.test.ts
  */
 
-import { trapFocusInside } from '../src/utils/interaction-utils';
+import { trapFocusInside } from '../src/utils/focus-trap.ts';
 
 // ============================================================================
 // Minimal DOM Mocks

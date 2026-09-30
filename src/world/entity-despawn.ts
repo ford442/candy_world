@@ -3,7 +3,6 @@
 // state.ts tracking arrays, and the scene graph. Shared by ChunkStreamer
 // eviction and edit-history undo so both remove exactly the same things.
 import type * as THREE from 'three';
-import { unregisterCloudPlatform } from '../debug/tools-stub.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { CloudBatcher } from '../foliage/cloud-batcher.ts';
 import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
@@ -25,6 +24,7 @@ import { waterfallBatcher } from '../foliage/waterfall-batcher.ts';
 import { releaseLocalLight } from '../rendering/lights.ts';
 import { unregisterWalkableCloudPlatform } from '../systems/ground-system.ts';
 import { unregisterPhysicsCave } from '../systems/physics/index.ts';
+import { debugHooks } from '../utils/debug-hooks.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import type { WeatherSystem } from './generation-utils.ts';
 import {
@@ -205,7 +205,7 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
         CloudBatcher.getWalkableInstance().removeInstance(obj);
         if (obj.userData?.isWalkable) {
             unregisterWalkableCloudPlatform(obj);
-            unregisterCloudPlatform(obj);
+            debugHooks.unregisterCloudPlatform(obj);
         }
     } else if (evictionClass === 'cave') {
         unregisterPhysicsCave(obj);

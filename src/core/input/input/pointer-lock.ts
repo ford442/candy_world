@@ -1,5 +1,5 @@
 import { closeAccessibilityMenu } from '../../../ui/accessibility-menu-lazy.ts';
-import { trapFocusInside } from '../../../utils/interaction-utils.ts';
+import { trapFocusInside } from '../../../utils/focus-trap.ts';
 import { yieldToPaint } from '../../../utils/yield-to-paint.ts';
 import { isExploreActive } from '../../camera-modes.ts';
 import {

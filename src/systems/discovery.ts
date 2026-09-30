@@ -1,6 +1,6 @@
 // src/systems/discovery.ts
 
-import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { trapFocusInside } from '../utils/focus-trap.ts';
 import { showToast } from '../utils/toast.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { discoveryPersistence } from './discovery-persistence.ts';

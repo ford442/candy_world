@@ -1,10 +1,11 @@
-import { StageLoader } from '../../debug/index.ts';
+import { StageLoader, initParticleEmitterDebugIfNeeded } from '../../debug/index.ts';
 import { initPostProcessing } from '../../foliage/post-processing.ts';
 import { WebGPUUnavailableError } from '../../rendering/gpu-context.ts';
 import {
     publishRendererBreadcrumbs,
     installRendererHotSwitch,
 } from '../../rendering/renderer-mode.ts';
+import { player } from '../../systems/physics/physics-types.ts';
 import { showRendererBadge } from '../../ui/mode-badge-lazy.ts';
 import { showWebGPUFatalScreen } from '../../ui/webgpu-fatal.ts';
 import { installWorldExportTools } from '../../world/map-exporter.ts';
@@ -53,6 +54,8 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     const scene = sceneInitResult.scene;
     assignCoreExports(scene, sceneInitResult.camera, sceneInitResult.renderer);
     setCameraRef(sceneInitResult.camera);
+    const camera = sceneInitResult.camera;
+    void initParticleEmitterDebugIfNeeded(scene, () => player.position, () => camera);
 
     installRendererHotSwitch();
     publishRendererBreadcrumbs(requested, mode, fallbackReason);

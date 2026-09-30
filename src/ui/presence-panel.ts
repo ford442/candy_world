@@ -8,7 +8,7 @@ import {
     isPresenceOptedIn,
     setPresenceOptIn,
 } from '../systems/net/presence.ts';
-import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { trapFocusInside } from '../utils/focus-trap.ts';
 import { applyWorldSeed } from '../utils/seeded-random.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import {

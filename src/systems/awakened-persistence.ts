@@ -14,8 +14,16 @@ import {
     persistentIdFromString,
     POSITION_QUANTIZE,
 } from './awakened-persistent-id.ts';
-import { saveSystem } from './save-system/save-system.ts';
 import type { AwakenedFloraState } from './save-system/save-types.ts';
+
+// save-system.ts imports the awakened facade, so importing save-system here
+// closed an import cycle (#1827). save-system registers its trigger through
+// awakenedPersistence.setEventSaveTrigger() instead.
+let _triggerEventSave: (eventType: string) => void = () => {};
+
+export function setEventSaveTrigger(trigger: (eventType: string) => void): void {
+    _triggerEventSave = trigger;
+}
 
 // =============================================================================
 // Constants & types
@@ -421,7 +429,7 @@ export class AwakenedStore {
         this.saveDebounceTimer = setTimeout(() => {
             this.saveDebounceTimer = null;
             this.saveSync();
-            saveSystem.triggerEventSave('entity_awakened');
+            _triggerEventSave('entity_awakened');
         }, SAVE_DEBOUNCE_MS);
     }
 

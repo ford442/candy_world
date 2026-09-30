@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { hasUrlFlag } from '../core/config/url-flags.ts';
 import { CONFIG, FEATURE_FLAGS, getLoadMemoryTier } from '../core/config.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import {
@@ -16,16 +17,17 @@ import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { createIntegratedFireflies } from '../particles/index.ts';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
-import { DEBUG_CONFIG } from '../debug/stages.ts';
 import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
-import { updateProgress } from '../ui/loading-screen.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
+import { bootProgress } from '../utils/boot-progress.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
 import { initCollisionSystem } from '../utils/wasm-loader.ts';
 import { ChunkStreamer, setActiveChunkStreamer } from './chunk-streamer.ts';
 import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { safeAddFoliage, processMapEntity } from './generation-entities.ts';
+import { bumpWorldGenerationToken } from './generation-token.ts';
 import {
     DEFAULT_MAP_CHUNK_SIZE,
     getEntityBudgetMs,
@@ -58,7 +60,6 @@ import {
     worldGroup,
 } from './state.ts';
 import { createPathTerrain, rebuildTerrainForPath } from './terrain-mesh.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { LOBBY_FLOOR_TOP_Y, LOBBY_SPAWN_X, LOBBY_SPAWN_Z, PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
 import { setMapMetadataSeed } from './world-seed.ts';
 
@@ -80,8 +81,6 @@ async function decoratorStreamer(): Promise<DecoratorStreamerMod> {
     return decoratorStreamerMod;
 }
 
-// Single source of truth. Used to invalidate stale procedural generation tasks.
-export let worldGenerationToken = 0;
 registerBuiltinWorldObjectTypes();
 
 const STREAMING_PRIORITY_TYPES = [
@@ -343,9 +342,8 @@ export async function generateMap(
     onProgress?: WorldProgressCallback,
     bootPath: BootPath = DEFAULT_BOOT_PATH
 ): Promise<void> {
-    worldGenerationToken = Date.now();
-    (window as any).__currentWorldGenerationToken = worldGenerationToken;
-    const generationToken = worldGenerationToken;
+    const generationToken = bumpWorldGenerationToken();
+    (window as any).__currentWorldGenerationToken = generationToken;
     resetSpawnTracker();
     setActiveChunkStreamer(null);
     const { resetDecoratorStreamer } = await decoratorStreamer();
@@ -498,7 +496,7 @@ async function generateMapExplorePath(
 
         if ((i + 1) % 50 === 0) {
             const percentage = Math.floor(((i + 1) / Math.max(1, phase1Total)) * 100);
-            updateProgress(
+            bootProgress.updateProgress(
                 'map-generation',
                 percentage,
                 `Spawning visible bubble: ${i + 1}/${phase1Total}`
@@ -796,7 +794,9 @@ export async function generateCoreWorld(
     console.log(
         `[World] Core Only world generation complete. Spawned ${animatedFoliage.length} objects.`
     );
-    if (DEBUG_CONFIG.enabled) assertCoreWorldPlayable(weatherSystem);
+    // Same switch as DEBUG_CONFIG.enabled in debug/stages.ts (?debug), read here
+    // directly so world generation never imports src/debug/.
+    if (hasUrlFlag('debug')) assertCoreWorldPlayable(weatherSystem);
 }
 
 /** Debug-only check that CORE mode produced the minimum playable scene. */
@@ -1030,8 +1030,7 @@ export async function populateWorld(
     onProgress?: WorldProgressCallback,
     options?: { fastPopulation?: boolean; bootPath?: BootPath; lobby?: boolean }
 ): Promise<WorldMode> {
-    worldGenerationToken = Date.now();
-    const currentToken = worldGenerationToken;
+    const currentToken = bumpWorldGenerationToken();
     console.log(`[World] Starting populateWorld() in ${mode} mode`);
 
     // Fast Full Mode: apply aggressive population reduction on top of user config

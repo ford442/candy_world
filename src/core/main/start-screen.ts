@@ -9,8 +9,8 @@ import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { initWindDebug } from '../../systems/wind-debug.ts';
 import { setWindQuality } from '../../systems/wind-uniforms.ts';
 import { announce } from '../../ui/announcer.ts';
-import { showDeferredIndicator, hideDeferredIndicator } from '../../ui/loading-screen.ts';
 import { showSpawnFailureReport } from '../../ui/loading-screen-reporting.ts';
+import { showDeferredIndicator, hideDeferredIndicator } from '../../ui/loading-screen.ts';
 import { showModeBadge } from '../../ui/mode-badge-lazy.ts';
 import {
     installReadinessProgress,
@@ -21,7 +21,7 @@ import {
 } from '../../ui/readiness-progress.ts';
 import { globalBackgroundProcessor } from '../../utils/background-processor.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { showToast } from '../../utils/toast.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
