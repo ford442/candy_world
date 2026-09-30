@@ -248,7 +248,7 @@ import {
     uPlayerPosition,
     applyStandardDeformation,
     uPlayerVelocity,
-} from './index.ts';
+} from './material-core.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';
 
 // --- Cloud Batcher ---

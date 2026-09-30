@@ -4,9 +4,8 @@ import {
     positionLocal, vec3, float, sin, time, uv, add, color
 } from 'three/tsl';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-import {
-    CandyPresets, attachReactivity
-} from './index.ts';
+import { CandyPresets } from './material-core.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
 
 export interface IslandOptions {
     radius?: number;

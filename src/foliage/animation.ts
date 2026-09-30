@@ -14,7 +14,8 @@ import {
 } from '../utils/wasm-loader.ts';
 import { foliageBatcher } from './batcher/index.ts';
 import { spawnImpact } from './impacts.ts';
-import { reactiveMaterials, _foliageReactiveColor, median } from './index.ts';
+import { reactiveMaterials, _foliageReactiveColor } from './foliage-reactivity.ts';
+import { median } from './material-core.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 
 // WASM memory views for batch operations

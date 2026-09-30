@@ -12,7 +12,13 @@ import { CommonGeometries, getSphereGeometry } from '../utils/geometry-dedup.ts'
 import { foliageGroup } from '../world/state.ts';
 import { uChromaticIntensity } from './chromatic-nodes.ts';
 import { spawnImpact } from './impacts.ts';
-import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, applyStandardDeformation } from './index.ts';
+import {
+    CandyPresets,
+    uAudioLow,
+    uTime,
+    createJuicyRimLight,
+    applyStandardDeformation,
+} from './material-core.ts';
 
 // OPTIMIZED: BerryBatcher replaces thousands of individual InstancedMeshes
 // with a single large InstancedMesh for improved draw call performance.

@@ -7,7 +7,13 @@ import {
     mx_noise_float, normalLocal
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight } from './index.ts';
+import {
+    CandyPresets,
+    uAudioLow,
+    uAudioHigh,
+    createRimLight,
+    createJuicyRimLight,
+} from './material-core.ts';
 
 export const uWaveHeight = uniform(1.0); // Base wave height scaler
 

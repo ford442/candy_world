@@ -12,10 +12,8 @@ import { getActiveWave } from '../systems/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
-import {
-    foliageMaterials,
-    sharedGeometries,
-} from './index.ts';
+import { foliageMaterials } from './foliage-materials.ts';
+import { sharedGeometries } from './material-core.ts';
 import { foliageMotionPosition, scaleEmissiveByLod, applyFoliageLodMaterialFade } from './lod-nodes.ts';
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom, applyStandardDeformation } from './material-core.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';

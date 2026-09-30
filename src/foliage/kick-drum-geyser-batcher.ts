@@ -9,10 +9,10 @@ import { foliageGroup } from '../world/state.ts';
 import {
     CandyPresets,
     uTime,
-    registerReactiveMaterial,
     applyStandardDeformation,
-    createJuicyRimLight
-} from './index.ts';
+    createJuicyRimLight,
+} from './material-core.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 
 const MAX_GEYSERS = 500;
 

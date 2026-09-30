@@ -8,12 +8,18 @@ import { CONFIG } from "../../core/config.ts";
 import { BiomeUniforms, uCircadianPoseOffset } from "../../systems/biome-uniforms.ts";
 import { circadianNightGlowMult } from "../../systems/biome-uniforms.ts";
 import { applyAerialPerspective, aerialPerspectiveLodBoost } from "../aerial-perspective.ts";
+import { foliageMaterials } from '../foliage-materials.ts';
 import {
-    foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createJuicyRimLight, uPlayerPosition,
-    createSugarSparkle, getCachedProceduralMaterial,
-    applyBaseContactAO, getBaseContactHeight,
-} from "../index.ts";
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    createJuicyRimLight,
+    uPlayerPosition,
+    createSugarSparkle,
+    getCachedProceduralMaterial,
+    applyBaseContactAO,
+    getBaseContactHeight,
+} from '../material-core.ts';
 import {
     scaleEmissiveByLod,
     applyStandardDeformationWithLod,

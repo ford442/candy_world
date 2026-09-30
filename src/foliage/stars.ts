@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, sin, cos, pow, step, smoothstep } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { uAudioLow, uAudioHigh } from './index.ts';
+import { uAudioLow, uAudioHigh } from './material-core.ts';
 
 // Global uniforms
 // Removed uStarPulse to fix unison pulsing bug and use direct audio reactivity

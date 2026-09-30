@@ -10,7 +10,7 @@ import {
     perturbNormal,
     triplanarNoise,
     uAudioLow,
-} from './index.ts';
+} from './material-core.ts';
 import { uTwilight } from './sky.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
 

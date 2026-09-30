@@ -19,7 +19,7 @@ const hash = Fn(([n]: [ReturnType<typeof float>]) => {
     return modFloat(sin(n).mul(43758.5453), 1.0);
 });
 
-import { uTime, uAudioHigh, uAudioLow } from './index.ts';
+import { uTime, uAudioHigh, uAudioLow } from './material-core.ts';
 
 const MAX_PARTICLES = 1000; // Reduced from 4000 for WebGPU uniform buffer limits
 let _impactMesh: THREE.InstancedMesh | null = null;

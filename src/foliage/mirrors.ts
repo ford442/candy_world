@@ -7,7 +7,8 @@ import {
     texture, uniform
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { attachReactivity, createRimLight, getDreamEnvTexture, uAudioHigh, uTime } from './index.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
+import { createRimLight, getDreamEnvTexture, uAudioHigh, uTime } from './material-core.ts';
 
 // The "Dream Reflection" sky. Generated once in material-core and shared with
 // every preset that opts into `useDreamEnv`, so the mirrors and the candy

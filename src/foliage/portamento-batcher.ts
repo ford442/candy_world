@@ -22,14 +22,14 @@ import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 import {
-  createUnifiedMaterial,
-  registerReactiveMaterial,
-  applyStandardDeformation,
-  createJuicyRimLight,
-  uAudioHigh,
-  uAudioLow,
-  uTime
-} from './index.ts';
+    createUnifiedMaterial,
+    applyStandardDeformation,
+    createJuicyRimLight,
+    uAudioHigh,
+    uAudioLow,
+    uTime,
+} from './material-core.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';
 
