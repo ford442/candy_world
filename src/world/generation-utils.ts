@@ -238,6 +238,8 @@ export interface WeatherSystem {
     registerTree(obj: THREE.Object3D): void;
     registerShrub(obj: THREE.Object3D): void;
     registerMushroom(obj: THREE.Object3D): void;
+    /** Drop a mushroom (and any rain waterfall it owns) when its chunk is evicted. */
+    unregisterMushroom(obj: THREE.Object3D): void;
     registerCave(obj: THREE.Object3D): void;
     unregisterCave(obj: THREE.Object3D): void;
 }

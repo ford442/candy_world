@@ -284,17 +284,9 @@ src/compute/
 
 This pattern can be applied to other GPU compute systems:
 
-1. **GPU Particle System** (`src/compute/gpu-particle-system.ts`)
-   - Add `isComputeActive` flag based on particle count
-   - Skip dispatch in `update()` when count === 0
-
-2. **Mesh Deformation GPU** (`src/compute/mesh-deformation-gpu.ts`)
-   - Add dispatch control for deformation count
-
-3. **Culling System GPU** (`src/rendering/culling-system-gpu.ts`)
+1. **Culling System GPU** (`src/rendering/culling-system-gpu.ts`)
    - Add dispatch control for empty culling groups
 
-The safety utilities in `src/compute/webgpu-safety.ts` support all of these.
 
 ---
 

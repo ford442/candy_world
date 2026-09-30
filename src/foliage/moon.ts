@@ -5,7 +5,14 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { VisualState } from '../audio/audio-system.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { SkyUniforms, skyNoteColorNode } from '../systems/biome-uniforms.ts';
-import { attachReactivity, CandyPresets, uAudioLow, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
+import {
+    CandyPresets,
+    uAudioLow,
+    uAudioHigh,
+    uTime,
+    createJuicyRimLight,
+} from './material-core.ts';
 
 // Moon Configuration
 export const moonConfig = {

@@ -11,6 +11,7 @@ type AwakenedModule = typeof import('./awakened-persistence.ts');
 
 let _mod: AwakenedModule | null = null;
 let _load: Promise<AwakenedModule | null> | null = null;
+let _eventSaveTrigger: ((eventType: string) => void) | null = null;
 
 function ensure(): Promise<AwakenedModule | null> {
     if (!FEATURE_FLAGS.awakenedPersistence) return Promise.resolve(null);
@@ -18,6 +19,7 @@ function ensure(): Promise<AwakenedModule | null> {
     if (!_load) {
         _load = import('./awakened-persistence.ts').then((m) => {
             _mod = m;
+            if (_eventSaveTrigger) m.setEventSaveTrigger(_eventSaveTrigger);
             return m;
         });
     }
@@ -107,5 +109,11 @@ export const awakenedPersistence = {
 
     reset(): void {
         void ensure().then((m) => m?.awakenedPersistence.reset());
+    },
+
+    /** save-system.ts registers its event save here; the store calls it after persisting. */
+    setEventSaveTrigger(trigger: (eventType: string) => void): void {
+        _eventSaveTrigger = trigger;
+        _mod?.setEventSaveTrigger(trigger);
     },
 };

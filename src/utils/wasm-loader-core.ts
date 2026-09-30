@@ -10,7 +10,6 @@
  * - getNativeFunc() helper
  */
 
-import { updateProgress, setWasmPhase, setWasmError } from '../ui/loading-screen.ts';
 import {
     parallelWasmLoad,
     LOADING_PHASES,
@@ -25,8 +24,9 @@ import {
     patchWasmInstantiateAliases,
 } from './wasm-utils.ts';
 
-// Vite WASM import via vite-plugin-wasm
+// Vite's built-in `?init` WASM import (no plugin needed)
 import initCandyPhysics from '../wasm/candy_physics.wasm?init';
+import { bootProgress } from './boot-progress.ts';
 import { showToast } from './toast.ts';
 
 // =============================================================================
@@ -199,6 +199,7 @@ import {
     setEmscriptenInstance,
     setEmscriptenMemory,
     emscriptenInstance,
+    getNativeFuncVoid,
 } from './wasm-loader-cpp.ts';
 
 // =============================================================================
@@ -403,7 +404,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
         // Notify loading screen so the user sees a non-fatal warning (not a full
         // fatal error since JS fallbacks allow the game to continue).
         try {
-            setWasmPhase('Physics engine unavailable - using JS fallback', 0);
+            bootProgress.setWasmPhase('Physics engine unavailable - using JS fallback', 0);
         } catch (_) {
             /* loading screen may not be ready yet */
         }
@@ -436,7 +437,7 @@ async function startBootstrapIfAvailable(instance: ExtendedEmscriptenModule): Pr
  * @param msg - Progress message to display
  */
 export async function updateWasmProgress(percent: number, msg: string): Promise<void> {
-    updateProgress('wasm-init', percent, msg);
+    bootProgress.updateProgress('wasm-init', percent, msg);
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.textContent = msg;
@@ -682,45 +683,11 @@ export function getWasmMemory(): ArrayBuffer | null {
  * @returns The Emscripten memory ArrayBuffer or null if not initialized
  */
 
-/**
- * Get a native C++ function from the Emscripten module.
- * @param name - Function name without underscore prefix
- * @returns The function or null if not found
- */
-export function getNativeFunc<T extends (...args: any[]) => number>(name: string): T | null {
-    if (!emscriptenInstance) return null;
-    const inst = emscriptenInstance as ExtendedEmscriptenModule;
-    const underscoreName = '_' + name;
-    if (typeof inst[underscoreName] === 'function') {
-        return inst[underscoreName] as T;
-    }
-    if (typeof inst[name] === 'function') {
-        return inst[name] as T;
-    }
-    return null;
-}
-
-/**
- * Get a native C++ function that returns void.
- */
 
 function asExportFn<T extends (...args: never[]) => unknown>(
     v: WebAssembly.ExportValue | undefined
 ): T | null {
     return typeof v === 'function' ? (v as T) : null;
-}
-
-export function getNativeFuncVoid<T extends (...args: any[]) => void>(name: string): T | null {
-    if (!emscriptenInstance) return null;
-    const inst = emscriptenInstance as ExtendedEmscriptenModule;
-    const underscoreName = '_' + name;
-    if (typeof inst[underscoreName] === 'function') {
-        return inst[underscoreName] as T;
-    }
-    if (typeof inst[name] === 'function') {
-        return inst[name] as T;
-    }
-    return null;
 }
 
 // =============================================================================
@@ -795,7 +762,7 @@ export async function initWasm(): Promise<boolean> {
 
     for (let attempt = 0; attempt < EMCC_MAX_RETRIES; attempt++) {
         try {
-            setWasmPhase(
+            bootProgress.setWasmPhase(
                 `Booting Physics Engine… (Attempt ${attempt + 1}/${EMCC_MAX_RETRIES})`,
                 Math.round((attempt / EMCC_MAX_RETRIES) * 80)
             );
@@ -804,7 +771,7 @@ export async function initWasm(): Promise<boolean> {
 
             if (result && emscriptenInstance) {
                 await startBootstrapIfAvailable(emscriptenInstance);
-                setWasmPhase('Physics Engine ready', 100);
+                bootProgress.setWasmPhase('Physics Engine ready', 100);
                 loaded = true;
                 lastError = null;
                 break;
@@ -830,7 +797,7 @@ export async function initWasm(): Promise<boolean> {
                 await new Promise((r) => setTimeout(r, EMCC_RETRY_DELAYS_MS[attempt]));
             } else {
                 // All attempts exhausted
-                setWasmError(
+                bootProgress.setWasmError(
                     'Physics engine failed to load. Check your network connection and reload the page.'
                 );
             }

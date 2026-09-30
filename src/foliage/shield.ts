@@ -7,11 +7,7 @@ import {
     positionLocal,
     timerLocal
 } from 'three/tsl';
-import {
-    createUnifiedMaterial,
-    uTime,
-    uAudioLow
-} from './index.ts';
+import { createUnifiedMaterial, uTime, uAudioLow } from './material-core.ts';
 
 /**
  * Creates the "Arpeggio Shield" - a crystalline barrier.

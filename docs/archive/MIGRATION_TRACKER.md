@@ -1,5 +1,7 @@
 # Migration Tracker
 
+> **Archived 2026-09-30 (#1827)** from the repo root. Relative links below still resolve from the root, not from `docs/archive/`.
+
 > Lightweight backlog for incremental TS → WASM/C++ slices.  
 > Strategy: [`docs/archive/PERFORMANCE_MIGRATION_STRATEGY.md`](docs/archive/PERFORMANCE_MIGRATION_STRATEGY.md)  
 > Status dashboard: [`MIGRATION_STATUS.md`](MIGRATION_STATUS.md)  

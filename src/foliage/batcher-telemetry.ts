@@ -3,14 +3,20 @@ import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { getCandyDebrisStats, MAX_DEBRIS } from './candy-debris-batcher.ts';
 import { CloudBatcher } from './cloud-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
+import { FaunaBatcher } from './fauna-batcher.ts';
 import { flowerBatcher } from './flower-batcher.ts';
 import { gemFruitBatcher } from './gem-fruit-batcher.ts';
 import { glassMushroomBatcher } from './glass-mushroom-batcher.ts';
+import { glowingFlowerBatcher } from './glowing-flower-batcher.ts';
+import { kickDrumGeyserBatcher } from './kick-drum-geyser-batcher.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { luminousPlantBatcher } from './luminous-plant-batcher.ts';
 import { mushroomBatcher } from './mushroom-batcher/index.ts';
+import { nightMarketBatcher } from './night-market-batcher.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
+import { subwooferLotusBatcher } from './subwoofer-lotus-batcher.ts';
+import { sugarCaveBatcher } from './sugar-cave-batcher.ts';
 import { treeBatcher } from './tree-batcher.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
 
@@ -21,6 +27,13 @@ export interface BatcherTelemetryEntry {
     capacity: number;
     drawCalls: number;
     estimatedVramBytes: number;
+    /**
+     * Live `byteLength` of the per-instance buffers (instanceMatrix, instanceColor and
+     * instanced geometry attributes). Unlike `estimatedVramBytes` this is read off the
+     * typed arrays, so it moves if a batcher ever reallocates — a load → walk-away →
+     * return loop must leave it flat.
+     */
+    byteLength: number;
 }
 
 export interface BatcherTelemetryReport {
@@ -29,6 +42,7 @@ export interface BatcherTelemetryReport {
     totalCapacity: number;
     totalDrawCalls: number;
     totalEstimatedVramBytes: number;
+    totalByteLength: number;
     entries: BatcherTelemetryEntry[];
 }
 
@@ -77,6 +91,17 @@ function estimateMeshBytes(mesh: THREE.InstancedMesh): number {
     return bytes;
 }
 
+function instanceBufferBytes(mesh: THREE.InstancedMesh): number {
+    let bytes = mesh.instanceMatrix?.array?.byteLength ?? 0;
+    if (mesh.instanceColor?.array) bytes += mesh.instanceColor.array.byteLength;
+    const attrs = mesh.geometry.attributes;
+    for (const key in attrs) {
+        const attr = attrs[key] as THREE.BufferAttribute & { isInstancedBufferAttribute?: boolean };
+        if (attr.isInstancedBufferAttribute) bytes += attr.array.byteLength;
+    }
+    return bytes;
+}
+
 function summarize(
     label: string,
     id: string,
@@ -86,13 +111,15 @@ function summarize(
     let capacity = 0;
     let drawCalls = 0;
     let estimatedVramBytes = 0;
+    let byteLength = 0;
     for (const mesh of meshes) {
         instances += mesh.count;
         capacity += mesh.instanceMatrix.count;
         drawCalls += 1;
         estimatedVramBytes += estimateMeshBytes(mesh);
+        byteLength += instanceBufferBytes(mesh);
     }
-    return { id, label, instances, capacity, drawCalls, estimatedVramBytes };
+    return { id, label, instances, capacity, drawCalls, estimatedVramBytes, byteLength };
 }
 
 export function collectBatcherTelemetry(): BatcherTelemetryReport {
@@ -110,6 +137,7 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
         treeStats.helices.count +
         treeStats.roses.count;
 
+    const treeRecord = toRecord(treeBatcher);
     const flowerRecord = toRecord(flowerBatcher);
     const simpleFlowerRecord = toRecord(simpleFlowerBatcher);
     const arpeggioRecord = toRecord(arpeggioFernBatcher);
@@ -127,6 +155,16 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
             capacity: treeCapacity,
             drawCalls: 5,
             estimatedVramBytes: treeCapacity * 192,
+            byteLength: treeRecord
+                ? getMeshesFromRecord(treeRecord, [
+                      'trunks',
+                      'spheres',
+                      'capsules',
+                      'helices',
+                      'roses',
+                      'accordionLeaves',
+                  ]).reduce((sum, mesh) => sum + instanceBufferBytes(mesh), 0)
+                : 0,
         },
         // ⚡ OPTIMIZATION: Bypassed .filter() array allocation to prevent GC spikes
         summarize(
@@ -231,19 +269,62 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
                 capacity: MAX_DEBRIS,
                 drawCalls: debris.drawCalls,
                 estimatedVramBytes: MAX_DEBRIS * 76,
+                byteLength: debris.byteLength,
             };
         })(),
+        // Species the chunk streamer evicts (or, for fauna, a fixed ambient population):
+        // reported so a load → walk-away → return loop can be watched per batcher.
+        summarize(
+            'SubwooferLotusBatcher',
+            'subwoofer_lotus',
+            getMeshesFromRecord(toRecord(subwooferLotusBatcher) ?? {}, [
+                'padMesh',
+                'ringsMesh',
+                'centerMesh',
+            ])
+        ),
+        summarize(
+            'GlowingFlowerBatcher',
+            'glowing_flower',
+            getMeshesFromRecord(toRecord(glowingFlowerBatcher) ?? {}, [
+                'stemMesh',
+                'headMesh',
+                'washMesh',
+            ])
+        ),
+        summarize('SugarCaveBatcher', 'sugar_cave', sugarCaveBatcher.mesh ? [sugarCaveBatcher.mesh] : []),
+        summarize(
+            'KickDrumGeyserBatcher',
+            'kick_drum_geyser',
+            getMeshesFromRecord(toRecord(kickDrumGeyserBatcher) ?? {}, [
+                'baseMesh',
+                'coreMesh',
+                'plumeMesh',
+            ])
+        ),
+        summarize(
+            'NightMarketBatcher',
+            'night_market',
+            getMeshesFromRecord(toRecord(nightMarketBatcher) ?? {}, [
+                'frameMesh',
+                'awningMesh',
+                'lanternMesh',
+            ])
+        ),
+        summarize('FaunaBatcher', 'fauna', FaunaBatcher.getInstance().getMeshes()),
     ];
 
     let totalInstances = 0;
     let totalCapacity = 0;
     let totalDrawCalls = 0;
     let totalEstimatedVramBytes = 0;
+    let totalByteLength = 0;
     for (const entry of entries) {
         totalInstances += entry.instances;
         totalCapacity += entry.capacity;
         totalDrawCalls += entry.drawCalls;
         totalEstimatedVramBytes += entry.estimatedVramBytes;
+        totalByteLength += entry.byteLength;
     }
 
     return {
@@ -252,6 +333,7 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
         totalCapacity,
         totalDrawCalls,
         totalEstimatedVramBytes,
+        totalByteLength,
         entries,
     };
 }
@@ -266,5 +348,15 @@ export function installBatcherTelemetry(): void {
             counts[entry.id] = entry.instances;
         }
         return counts;
+    };
+    // Same keys as __batcherCounts, with the live instance-buffer byteLength alongside.
+    // A stream-out that really frees slots leaves `byteLength` flat and `count` falling.
+    window.__batcherBuffers = () => {
+        const report = collectBatcherTelemetry();
+        const buffers: Record<string, { count: number; byteLength: number }> = {};
+        for (const entry of report.entries) {
+            buffers[entry.id] = { count: entry.instances, byteLength: entry.byteLength };
+        }
+        return buffers;
     };
 }

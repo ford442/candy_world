@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../../core/config.ts';
-import { PlayerState as CorePlayerState, KeyStates } from '../physics.core.ts';
+import { PlayerState as CorePlayerState, KeyStates } from './physics-math.ts';
 
 // Re-export KeyStates for convenience
 export type { KeyStates };

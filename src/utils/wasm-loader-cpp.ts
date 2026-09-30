@@ -1,5 +1,45 @@
-import { getNativeFunc, getNativeFuncVoid } from './wasm-loader-core.ts';
-import type { EmscriptenModule } from './wasm-loader-types.ts';
+import type { EmscriptenModule, ExtendedEmscriptenModule } from './wasm-loader-types.ts';
+
+// =============================================================================
+// NATIVE FUNCTION LOOKUP
+// =============================================================================
+// These read `emscriptenInstance` (declared below), so they live here rather
+// than in wasm-loader-core.ts, which re-exports this module. Keeping them in
+// core made this module import core back (#1827).
+
+/**
+ * Get a native C++ function from the Emscripten module.
+ * @param name - Function name without underscore prefix
+ * @returns The function or null if not found
+ */
+export function getNativeFunc<T extends (...args: any[]) => number>(name: string): T | null {
+    if (!emscriptenInstance) return null;
+    const inst = emscriptenInstance as ExtendedEmscriptenModule;
+    const underscoreName = '_' + name;
+    if (typeof inst[underscoreName] === 'function') {
+        return inst[underscoreName] as T;
+    }
+    if (typeof inst[name] === 'function') {
+        return inst[name] as T;
+    }
+    return null;
+}
+
+/**
+ * Get a native C++ function that returns void.
+ */
+export function getNativeFuncVoid<T extends (...args: any[]) => void>(name: string): T | null {
+    if (!emscriptenInstance) return null;
+    const inst = emscriptenInstance as ExtendedEmscriptenModule;
+    const underscoreName = '_' + name;
+    if (typeof inst[underscoreName] === 'function') {
+        return inst[underscoreName] as T;
+    }
+    if (typeof inst[name] === 'function') {
+        return inst[name] as T;
+    }
+    return null;
+}
 
 // =============================================================================
 // C++ EMSCRIPTEN FUNCTION REFERENCES (CACHED)

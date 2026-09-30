@@ -248,7 +248,7 @@ import {
     uPlayerPosition,
     applyStandardDeformation,
     uPlayerVelocity,
-} from './index.ts';
+} from './material-core.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';
 
 // --- Cloud Batcher ---
@@ -390,9 +390,50 @@ export class CloudBatcher {
         }
 
         this.clouds.push(cloudGroup);
+        cloudGroup.userData.isBatched = true;
 
         // Initial Update
         this.updateCloudInstance(cloudGroup);
+    }
+
+    /**
+     * Free a cloud's puff run. A cloud owns a contiguous, variable-length run of
+     * instances, so swap-with-last would leave holes; instead every later cloud's
+     * run slides down by the freed length. Runs stay in `clouds[]` order and
+     * capacity is fully reclaimed. No-op unless this batcher registered `cloudGroup`
+     * (there is one instance per walkable / non-walkable tier).
+     */
+    removeInstance(cloudGroup: THREE.Object3D): void {
+        if (!this.initialized || !this.mesh || !cloudGroup) return;
+
+        const idx = this.clouds.indexOf(cloudGroup);
+        if (idx === -1) return;
+
+        const start = cloudGroup.userData.batchStart as number;
+        const removed = cloudGroup.userData.batchCount as number;
+        const tail = start + removed;
+
+        const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+        matrixArray.copyWithin(start * 16, tail * 16, this.count * 16);
+        if (this.isWalkableAttribute) {
+            const walkArray = this.isWalkableAttribute.array as Float32Array;
+            walkArray.copyWithin(start, tail, this.count);
+            this.isWalkableAttribute.needsUpdate = true;
+        }
+
+        for (let i = idx + 1; i < this.clouds.length; i++) {
+            this.clouds[i].userData.batchStart -= removed;
+        }
+        this.clouds.splice(idx, 1);
+
+        this.count -= removed;
+        this.mesh.count = this.count;
+        this.mesh.instanceMatrix.needsUpdate = true;
+
+        // A re-registered cloud must not trust stale run bookkeeping.
+        cloudGroup.userData.puffs = null;
+        cloudGroup.userData.batchStart = -1;
+        cloudGroup.userData.batchCount = 0;
     }
 
     updateCloudInstance(cloud: any) {

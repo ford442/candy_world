@@ -1,5 +1,5 @@
 import { StageLoader } from '../../debug/index.ts';
-import { fluidSystem } from '../../systems/fluid_system.ts';
+import { fluidSystem } from '../../systems/fluid-system.ts';
 import { invalidateHeightCache } from '../../systems/ground-system.ts';
 import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { recordWASMInit } from '../../utils/startup-profiler.ts';

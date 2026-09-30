@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { tryAttachAuthoredMushroomSpot } from '../rendering/lights.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
-import { sharedGeometries } from './index.ts';
+import { sharedGeometries } from './material-core.ts';
 import { mushroomBatcher } from './mushroom-batcher/index.ts';
 
 // Interface for Note Definition

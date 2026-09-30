@@ -9,12 +9,8 @@ import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
 import { initWindDebug } from '../../systems/wind-debug.ts';
 import { setWindQuality } from '../../systems/wind-uniforms.ts';
 import { announce } from '../../ui/announcer.ts';
-import {
-    showDeferredIndicator,
-    hideDeferredIndicator,
-    setDeferredProgress,
-    setDeferredFailures,
-} from '../../ui/loading-screen.ts';
+import { showSpawnFailureReport } from '../../ui/loading-screen-reporting.ts';
+import { showDeferredIndicator, hideDeferredIndicator } from '../../ui/loading-screen.ts';
 import { showModeBadge } from '../../ui/mode-badge-lazy.ts';
 import {
     installReadinessProgress,
@@ -25,7 +21,7 @@ import {
 } from '../../ui/readiness-progress.ts';
 import { globalBackgroundProcessor } from '../../utils/background-processor.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { showToast } from '../../utils/toast.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
@@ -396,12 +392,9 @@ export function setupStartScreen(ctx: MainContext): void {
 
             markReadinessPlayable();
 
-            showDeferredIndicator();
-            setDeferredFailures(0);
-            globalBackgroundProcessor.onProgress((completed, total) => {
-                setDeferredProgress(completed, total);
-                setDeferredFailures(getSpawnReport().failed);
-            });
+            // resetCounters() clears callbacks, so register them after it. The
+            // indicator (bar, ETA, spawn-failure badge) is driven from the
+            // LoadingManager state that reportDeferredProgress emits.
             globalBackgroundProcessor.resetCounters();
             showDeferredIndicator();
 
@@ -424,14 +417,12 @@ export function setupStartScreen(ctx: MainContext): void {
                     const report = { ...r, backgroundFailed: bgFailed };
                     (window as any).__worldPopulationReport = report;
                     if (r.failed > 0) {
+                        // The indicator (and its badge) just hid, so surface the
+                        // report directly: toast summary + console group of errors.
                         console.warn(
-                            `[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`
+                            `[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See window.__spawnReport.`
                         );
-                        showToast(
-                            `Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`,
-                            '⚠️',
-                            5000
-                        );
+                        showSpawnFailureReport();
                     } else if (r.attempted > 0) {
                         console.log(
                             `[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`

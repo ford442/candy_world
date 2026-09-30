@@ -11,8 +11,8 @@ import { showToast } from '../../utils/toast.ts';
 import { animatedFoliage } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { unlockSystem } from '../unlocks.ts';
+import { physicsFoliageGrid } from './physics-grids.ts';
 import { player, _lastInputState, _scratchCamDir, _scratchHeadOffset, _scratchPos, _clapColor, AudioState, KeyStates } from './physics-types.ts';
-import { physicsFoliageGrid } from './physics.ts';
 
 // --- Ability Handler ---
 export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStates) {

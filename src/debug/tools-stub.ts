@@ -5,6 +5,7 @@
  */
 import type * as THREE from 'three';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
+import { installDebugHooks } from '../utils/debug-hooks.ts';
 
 function urlFlag(key: string): boolean {
     try {
@@ -332,3 +333,13 @@ export function setFaunaDebugScene(scene: THREE.Scene): void {
     if (!urlFlag('debugFauna')) return;
     void loadFauna().then((m) => m?.setFaunaDebugScene(scene));
 }
+
+// World, systems and foliage code reach these through utils/debug-hooks.ts so
+// they never import src/debug/ (#1827 Part C.4).
+installDebugHooks({
+    registerPlantedInstance,
+    registerCloudPlatform,
+    unregisterCloudPlatform,
+    isFaunaDebugEnabled,
+    updateFaunaDebug,
+});

@@ -17,15 +17,14 @@ import { spawnImpact } from './impacts.ts';
 import {
     createClayMaterial,
     sharedGeometries,
-    registerReactiveMaterial,
     uAudioLow,
     uGlitchIntensity,
     uTime,
     getCachedProceduralMaterial,
     createJuicyRimLight,
-    applyStandardDeformation
-
-} from './index.ts';
+    applyStandardDeformation,
+} from './material-core.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { uTwilight } from './sky.ts';
 
 const MAX_LOTUS = getCIAdjustedCount(100, 0.2, 20);
@@ -195,6 +194,7 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         interactiveGroup.scale.setScalar(scale);
         interactiveGroup.userData.type = 'subwoofer_lotus';
         proxy.userData.type = 'subwoofer_lotus';
+        proxy.userData.isBatched = true;
         interactiveGroup.userData.interactionText = "Commune";
 
         makeInteractive(interactiveGroup);

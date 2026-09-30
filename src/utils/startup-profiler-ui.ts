@@ -5,7 +5,6 @@ import {
     ProfilerConfig,
 } from './startup-profiler-types.ts';
 import { formatBytes, formatDuration, getMemoryUsage } from './startup-profiler-utils.ts';
-import { uiState, finalizeStartupProfile } from './startup-profiler.ts';
 
 const overlayContainer: HTMLElement | null = null;
 const overlayCanvas: HTMLCanvasElement | null = null;
@@ -47,6 +46,21 @@ const _defaultRenderState: ProfilerRenderState = {
 };
 
 let _renderState: ProfilerRenderState = { ..._defaultRenderState };
+
+// Overlay DOM. Owned here, not by startup-profiler.ts: the profiler imports
+// this module, so reaching back for state closed an import cycle (#1827).
+const uiState = {
+    overlayContainer: null as HTMLElement | null,
+    overlayCanvas: null as HTMLCanvasElement | null,
+    overlayCtx: null as CanvasRenderingContext2D | null,
+};
+
+let _onExport: () => void = () => {};
+
+/** The overlay's Export button calls this; startup-profiler.ts sets it to finalizeStartupProfile. */
+export function setOverlayExportHandler(handler: () => void): void {
+    _onExport = handler;
+}
 
 /** Push a fresh snapshot of profiler state for the overlay renderer to use. */
 export function setProfilerRenderState(state: Partial<ProfilerRenderState>): void {
@@ -166,9 +180,7 @@ export function createOverlay(): void {
     document.getElementById('startup-profiler-close')?.addEventListener('click', hideOverlay);
     document.getElementById('startup-profiler-hide')?.addEventListener('click', hideOverlay);
     document.getElementById('startup-profiler-export')?.addEventListener('click', () => {
-        // typefix: behaviour-preserving — finalizeStartupProfile() internally calls
-        // generateReport() + saveReportToFile() which were previously private.
-        finalizeStartupProfile();
+        _onExport();
     });
 }
 

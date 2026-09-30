@@ -5,7 +5,7 @@
 
 import { showToast } from '../../utils/toast.ts';
 import { formatSongTitle } from './input-types.ts';
-import { getPlaylistManagerState } from './playlist-manager.ts';
+import { getPlaylistManagerState } from './playlist-state.ts';
 
 export function renderPlaylist(): void {
     const state = getPlaylistManagerState();

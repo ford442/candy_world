@@ -5,7 +5,7 @@ import { initGroundDebug } from '../debug/tools-stub.ts';
 import { initPlacementDebug } from '../debug/tools-stub.ts';
 import { initCircadianDebug } from '../debug/tools-stub.ts';
 import type { InteractionSystem } from '../systems/interaction.ts';
-import type { WeatherSystem } from '../systems/weather.ts';
+import type { WeatherSystem } from '../systems/weather/weather.ts';
 import { getCameraShake } from './camera-shake.ts';
 import { CONFIG } from './config.ts';
 
@@ -44,7 +44,11 @@ export function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher'
     }
 }
 
-export function safeSystemUpdate(updateFn: any, label: string, ...args: any[]) {
+export function safeSystemUpdate<A extends unknown[]>(
+    updateFn: ((...args: A) => unknown) | null | undefined,
+    label: string,
+    ...args: A
+): void {
     if (typeof updateFn !== 'function') return;
     try {
         updateFn(...args);

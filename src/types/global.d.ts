@@ -128,6 +128,7 @@ declare global {
             totalCapacity: number;
             totalDrawCalls: number;
             totalEstimatedVramBytes: number;
+            totalByteLength: number;
             entries: Array<{
                 id: string;
                 label: string;
@@ -135,8 +136,13 @@ declare global {
                 capacity: number;
                 drawCalls: number;
                 estimatedVramBytes: number;
+                byteLength: number;
             }>;
         };
+        /** Live instance count per batcher id (see batcher-telemetry.ts). */
+        __batcherCounts?: () => Record<string, number>;
+        /** Live instance count + instance-buffer byteLength per batcher id. */
+        __batcherBuffers?: () => Record<string, { count: number; byteLength: number }>;
         __getFogTelemetry?: () => {
             targetNear: number;
             targetFar: number;
@@ -207,7 +213,7 @@ declare module '*/src/utils/wasm-loader.ts' {
     export const LOADING_PHASES: any;
 }
 
-// Declare WASM module imports (Vite with vite-plugin-wasm)
+// Declare WASM module imports (Vite's built-in `?init` suffix)
 // Using a specific path pattern that TypeScript can resolve
 declare module '../wasm/candy_physics.wasm?init' {
     const initWasm: (importObject?: WebAssembly.Imports) => Promise<WebAssembly.Instance>;
@@ -228,7 +234,3 @@ declare module '*/src/utils/profiler.ts' {
     };
 }
 
-declare module '*/src/foliage/fluid_fog.js' {
-    import { Mesh } from 'three';
-    export function createFluidFog(width?: number, depth?: number): Mesh;
-}

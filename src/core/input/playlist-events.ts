@@ -7,7 +7,7 @@ import { AudioSystem } from '../../audio/audio-system';
 import { announce } from '../../ui/announcer.ts';
 import { showToast } from '../../utils/toast.ts';
 import { filterValidMusicFiles } from './input-types.ts';
-import { getPlaylistManagerState, togglePlaylist } from './playlist-manager.ts';
+import { getPlaylistManagerState, requestPlaylistToggle } from './playlist-state.ts';
 
 /**
  * Handle playlist file upload
@@ -96,7 +96,7 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
             state.closePlaylistBtn.classList.add('keyboard-active');
             // ♿ Aria: Removed setTimeout; state cleared on keyup to accurately mirror tactile hold
         }
-        togglePlaylist();
+        requestPlaylistToggle();
         return true;
     }
 

@@ -3,8 +3,8 @@ import { FEATURE_FLAGS } from '../core/config.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
 import { create } from './foliage-registry.ts';
-import { worldGenerationToken } from './generation-core.ts';
 import { safeAddFoliage } from './generation-entities.ts';
+import { getWorldGenerationToken } from './generation-token.ts';
 import {
     getProceduralEntityCount,
     DEFAULT_PROCEDURAL_CHUNK_SIZE,
@@ -345,7 +345,7 @@ export async function populateProceduralExtras(
     // Sort deferred extras nearest-first so the background processor populates the
     // area around the player before filling in the far horizon.
     deferredItems.sort((a, b) => a.distSq - b.distSq);
-    const proceduralTaskToken = worldGenerationToken;
+    const proceduralTaskToken = getWorldGenerationToken();
     for (const item of deferredItems) {
         // ⚡ OPTIMIZATION: Bypassed Math.sqrt() in hot procedural sorting loop using distance decay estimation
         const priority = Math.max(1, 60 - Math.floor(item.distSq / 16));
@@ -353,7 +353,7 @@ export async function populateProceduralExtras(
             id: item.id,
             execute: () => {
                 const currentToken =
-                    (window as any).__currentWorldGenerationToken ?? worldGenerationToken;
+                    (window as any).__currentWorldGenerationToken ?? getWorldGenerationToken();
                 if (
                     taskToken !== -1 &&
                     taskToken !== currentToken &&

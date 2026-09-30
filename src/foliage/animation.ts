@@ -1,6 +1,7 @@
 // src/foliage/animation.ts
 
 import * as THREE from 'three';
+import { isGpuFoliageDefaultPath } from '../compute/gpu-foliage-flag.ts';
 import { CONFIG } from '../core/config.ts';
 import {
     freqToHue,
@@ -13,9 +14,9 @@ import {
     OUTPUT_OFFSET,
 } from '../utils/wasm-loader.ts';
 import { foliageBatcher } from './batcher/index.ts';
+import { reactiveMaterials, _foliageReactiveColor } from './foliage-reactivity.ts';
 import { spawnImpact } from './impacts.ts';
-import { reactiveMaterials, _foliageReactiveColor, median } from './index.ts';
-import { isGpuFoliageDefaultPath } from '../compute/gpu-foliage-flag.ts';
+import { median } from './material-core.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 
 // WASM memory views for batch operations

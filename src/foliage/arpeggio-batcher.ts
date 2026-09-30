@@ -18,11 +18,11 @@ const arpeggioUniforms = getBiomeUniforms(ARPEGGIO_BIOME); // Future-proof: addi
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { applyAerialPerspective } from './aerial-perspective.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { applyGlitch } from './glitch.ts';
-import { uTime, uGlitchIntensity } from './index.ts';
+import { uTime, uGlitchIntensity } from './material-core.ts';
 import {
     createCandyMaterial,
-    registerReactiveMaterial,
     sharedGeometries,
     applyStandardDeformation,
     createJuicyRimLight,
@@ -30,7 +30,8 @@ import {
     uAudioHigh,
     uPlayerPosition,
     applyBaseContactAO,
-    getBaseContactHeight} from './index.ts';
+    getBaseContactHeight,
+} from './material-core.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 

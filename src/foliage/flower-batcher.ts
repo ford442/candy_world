@@ -11,12 +11,10 @@ import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
+import { foliageMaterials } from './foliage-materials.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
-import {
-    foliageMaterials,
-    sharedGeometries,
-} from './index.ts';
 import { foliageMotionPosition, scaleEmissiveByLod, applyFoliageLodMaterialFade } from './lod-nodes.ts';
+import { sharedGeometries } from './material-core.ts';
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom, applyStandardDeformation } from './material-core.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';

@@ -8,13 +8,13 @@ import {
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { grantInvisibility } from '../systems/physics/index.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
-    registerReactiveMaterial,
     uTime,
     uPlayerPosition,
     applyStandardDeformation,
-    createJuicyRimLight
-} from './index.ts';
+    createJuicyRimLight,
+} from './material-core.ts';
 
 export interface SilenceSpiritOptions {
     scale?: number;

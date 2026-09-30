@@ -390,6 +390,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                     .applyQuaternion(obj.quaternion)
                     .add(obj.position);
                 waterfallProxy.userData.type = 'waterfall';
+                waterfallProxy.userData.isBatched = true;
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 animatedFoliage.push(waterfallProxy as any);
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any

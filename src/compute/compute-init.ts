@@ -3,22 +3,13 @@
  * @brief One-shot GPU compute library initialisation for the live app.
  *
  * Calling `initGPUCompute()` from deferred-init.ts arms the shared
- * GPUComputeLibrary so that `MeshDeformationGPU`, `NoiseGeneratorGPU`, and
- * `GPUCullingSystem` all receive an already-warmed device on first use.
+ * GPUComputeLibrary so the GPU foliage passes (`foliage-gpu-batch.ts`,
+ * `gpu-plant-pose.ts`) receive an already-warmed device on first use.
  * On browsers without WebGPU the init silently resolves and the CPU / WASM
  * fallback paths remain the active route.
  *
- * Audit note (2026-06):
- *   Code search found ZERO direct `new MeshDeformationCompute(...)` or
- *   `new ProceduralNoiseCompute(...)` outside src/compute/.  The CPU classes
- *   are not called from hot paths — the app uses TSL vertex shaders for visual
- *   deformation and WASM for heightmap/physics instead.  The GPU wrapper
- *   classes are correctly built but were never wired into the live app.
- *
- *   This module is the wiring point.  Any future caller that imports from
- *   src/compute/ (e.g. createGPUWaveDeformation, NoiseGeneratorGPU) will find
- *   the device already initialised because deferred-init.ts calls
- *   initGPUCompute() early in the post-boot phase.
+ * The mesh-deformation, noise-generator, GPU-culling and GPU-LOD wrappers this
+ * used to warm up were never wired into the app and were deleted in #1827.
  */
 import { log } from "../utils/log.ts";
 import { getSharedGPUCompute, type ComputeMetrics } from './gpu-compute-library.ts';

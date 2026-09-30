@@ -5,7 +5,7 @@ import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import { color, mix, positionWorld, float, uniform, smoothstep, rangeFog, nodeObject, sin, pow } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { SkyUniforms, skyNoteColorNode } from '../systems/biome-uniforms.ts';
-import { uAudioLow, uAudioHigh, uTime } from './index.ts';
+import { uAudioLow, uAudioHigh, uTime } from './material-core.ts';
 
 // Export uniforms so main.js and weather.js can drive them
 export const uSkyTopColor = uniform(color(0x7EC8E3));     

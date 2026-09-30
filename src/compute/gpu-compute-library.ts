@@ -9,8 +9,8 @@ import { log } from "../utils/log.ts";
  * @description Unified WebGPU compute library for Candy World.
  *
  * Provides device management, buffer creation, pipeline caching, and
- * dispatch helpers used by MeshDeformationGPU, NoiseGeneratorGPU,
- * and CullingSystemGPU.
+ * dispatch helpers used by the GPU foliage passes (foliage-gpu-batch,
+ * gpu-plant-pose, gpu-foliage-animator).
  *
  * **Safety Guarantee**: All buffer allocations include a minimum size safeguard
  * to prevent WebGPU validation errors when registries are empty (CORE mode).

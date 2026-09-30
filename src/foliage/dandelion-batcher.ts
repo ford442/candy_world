@@ -16,8 +16,8 @@ import {
     uTime,
     createSugarSparkle,
     createJuicyRimLight,
-    getCachedProceduralMaterial
-} from './index.ts';
+    getCachedProceduralMaterial,
+} from './material-core.ts';
 import { uTwilight } from './sky.ts';
 
 const MAX_DANDELIONS = 500;
@@ -310,6 +310,7 @@ export class DandelionBatcher {
 
         // Store batch index on logic object for later updates (like harvesting)
         logicObject.userData.batchIndex = i;
+        logicObject.userData.isBatched = true;
         this.logicObjects[i] = logicObject;
     }
 

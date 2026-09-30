@@ -67,17 +67,6 @@ import { updateLuminousPlants } from './music-reactivity-luminous.ts';
 import { triggerSkyWave, updateSkyWavePropagation } from './music-reactivity-sky-wave.ts';
 import type { ActiveWave } from './music-wave.ts';
 
-// Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
-export const WEATHER_TARGET_DECAY_RATE = 5.0;
-
-// Pre-allocated static fallback to prevent per-frame object allocation when audio is inactive
-export const _emptyAudioState: AudioData = {
-    channelData: [],
-    kickTrigger: 0,
-    grooveAmount: 0,
-    beatPhase: 0,
-    patternIndex: 0,
-};
 const _scratchSpeciesList: string[] = [];
 
 // --- Type Definitions ---

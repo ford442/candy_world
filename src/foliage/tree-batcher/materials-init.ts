@@ -26,6 +26,14 @@ import { applyAerialPerspective, aerialPerspectiveLodBoost } from '../aerial-per
 import { applyInstanceAnimation } from '../animation-nodes.ts';
 import { initInstanceLodAttribute } from '../batcher-lod-utils.ts';
 import {
+    foliageDeformationOffset,
+    scaleEmissiveByLod,
+    lodHeroOnlyMultiplier,
+    lodHeroGate,
+    lodMidOnlyGate,
+    applyFoliageLodMaterialFade,
+} from '../lod-nodes.ts';
+import {
     CandyPresets,
     sharedGeometries,
     createJuicyRimLight,
@@ -35,16 +43,8 @@ import {
     uWindSpeed,
     uWindStrength,
     createSugarSparkle,
-} from '../index.ts';
-import { applyBaseContactAO, getBaseContactHeight } from '../index.ts';
-import {
-    foliageDeformationOffset,
-    scaleEmissiveByLod,
-    lodHeroOnlyMultiplier,
-    lodHeroGate,
-    lodMidOnlyGate,
-    applyFoliageLodMaterialFade,
-} from '../lod-nodes.ts';
+} from '../material-core.ts';
+import { applyBaseContactAO, getBaseContactHeight } from '../material-core.ts';
 import { uTwilight } from '../sky.ts';
 import type { TreeBatcherState } from './types.ts';
 

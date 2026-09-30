@@ -1,7 +1,7 @@
 import type { AudioSystem } from '../../audio/audio-system.ts';
 import type { BeatSync } from '../../audio/beat-sync.ts';
 import type { InteractionSystem } from '../../systems/interaction.ts';
-import type { WeatherSystem } from '../../systems/weather.ts';
+import type { WeatherSystem } from '../../systems/weather/weather.ts';
 import type { initLoadingScreen } from '../../ui/loading-screen.ts';
 import type { initScene } from '../init.ts';
 

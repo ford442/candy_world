@@ -12,7 +12,7 @@
  */
 
 import { getWebGPUProbeReport } from '../rendering/gpu-context.ts';
-import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { trapFocusInside } from '../utils/focus-trap.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 
 const OVERLAY_ID = 'webgpu-fatal';

@@ -1,8 +1,8 @@
 // src/foliage/clouds.ts
 
 import * as THREE from 'three';
-import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import { registerWalkableCloudPlatform } from '../systems/ground-system.ts';
+import { debugHooks } from '../utils/debug-hooks.ts';
 import { CloudBatcher, uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, getSharedCloudMaterial } from './cloud-batcher.ts';
 
 // Re-export for compatibility with weather.ts
@@ -60,7 +60,7 @@ export function createCloud(options: CloudOptions = {}): THREE.Group {
         if (group.userData.isWalkable) {
             group.userData.cloudScale = scale;
             registerWalkableCloudPlatform(group);
-            registerCloudPlatform(group);
+            debugHooks.registerCloudPlatform(group);
         }
     };
 

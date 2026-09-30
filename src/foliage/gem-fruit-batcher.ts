@@ -221,6 +221,7 @@ export class GemFruitBatcher {
         });
 
         treeGroup.userData.gemRefs = refs;
+        treeGroup.userData.isBatched = true;
         return { placed, refs };
     }
 

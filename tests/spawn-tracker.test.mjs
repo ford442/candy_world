@@ -6,12 +6,11 @@
  * Run: node tests/spawn-tracker.test.mjs
  */
 
-import {
-    recordSpawnAttempt,
-    getReport,
-    reset,
-    maybeRecordBackgroundFailure,
-} from '../src/world/spawn-tracker.ts';
+// Stub window before the module loads so its __spawnReport getter installs.
+globalThis.window = {};
+const { recordSpawnAttempt, getReport, reset, maybeRecordBackgroundFailure } = await import(
+    '../src/world/spawn-tracker.ts'
+);
 
 const MAX_LAST_ERRORS = 8;
 
@@ -163,16 +162,24 @@ test('AC1: broken entity type → failure visible in report', () => {
     // Badge would show "⚠ 1 failed" — verified via wiring in loading-screen-ui.ts
 });
 
-test('AC3: zero allocation on success path', () => {
-    // Confirm no Error objects created on success — just integer increments
-    const before = process.memoryUsage().heapUsed;
+test('AC3: success path does not build a report', () => {
+    const before = getReport();
     for (let i = 0; i < 10000; i++) recordSpawnAttempt('tree', true);
-    const after = process.memoryUsage().heapUsed;
-    // Allow up to 500 KB for 10k calls; actual cost should be ~0 net after GC
-    assert((r) => true, 'success path ran 10k times without throwing');
+    // Only the counters moved; the cached snapshot is untouched until read.
+    assert(before.succeeded === 0, 'earlier snapshot not rebuilt by success calls');
     const r = getReport();
+    assert(r !== before, 'fresh snapshot built on read');
     assert(r.succeeded === 10000, '10k successes counted');
     assert(r.failed === 0, 'no failures');
+});
+
+test('window.__spawnReport is a live view of the tracker', () => {
+    assert(window.__spawnReport.attempted === 0, 'present and empty after reset');
+    recordSpawnAttempt('cloud', false, new Error('boom'));
+    assert(window.__spawnReport.failed === 1, 'reflects failure without explicit publish');
+    assert(window.__spawnReport === getReport(), 'same cached snapshot as getReport()');
+    window.__resetSpawnReport();
+    assert(window.__spawnReport.failed === 0, 'survives reset and reflects cleared state');
 });
 
 // --------------------------------------------------------------------------

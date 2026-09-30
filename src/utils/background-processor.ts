@@ -141,6 +141,7 @@ export class BackgroundProcessor {
                         this.completedTasks++;
                     } catch (e) {
                         log.error('BackgroundProcessor', `Error executing task ${task.id}:`, e);
+                        maybeRecordBackgroundFailure(task.id, e);
                         this.failedTasks++;
                     }
                 }

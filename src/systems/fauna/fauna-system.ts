@@ -4,8 +4,8 @@
 
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
-import { updateFaunaDebug, isFaunaDebugEnabled } from '../../debug/tools-stub.ts';
 import { FaunaBatcher } from '../../foliage/fauna-batcher.ts';
+import { debugHooks } from '../../utils/debug-hooks.ts';
 import { profiler } from '../../utils/profiler.ts';
 import { World } from '../ecs/world.ts';
 import { sampleBakedGroundNormalInto, fillGroundHeightsBatch, _fdDelta } from '../ground-system.ts';
@@ -249,8 +249,8 @@ export class FaunaSystem {
         batcher.syncMatrices();
         profiler.mark('fauna.update', performance.now() - t0);
 
-        if (isFaunaDebugEnabled()) {
-            updateFaunaDebug(this._heap, this._bufferPtr, this._count, this._entries);
+        if (debugHooks.isFaunaDebugEnabled()) {
+            debugHooks.updateFaunaDebug(this._heap, this._bufferPtr, this._count, this._entries);
         }
     }
 
