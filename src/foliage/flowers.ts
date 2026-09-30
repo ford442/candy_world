@@ -30,9 +30,10 @@ import {
 } from '../utils/geometry-dedup.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { flowerBatcher } from './flower-batcher.ts'; // ⚡ OPTIMIZATION: New Unified Batcher
-import { spawnImpact } from './impacts.ts';
 import { foliageMaterials } from './foliage-materials.ts';
 import { registerReactiveMaterial, attachReactivity, pickAnimation } from './foliage-reactivity.ts';
+import { spawnImpact } from './impacts.ts';
+import { lanternBatcher } from './lantern-batcher.ts';
 import {
     createClayMaterial,
     createStandardNodeMaterial,
@@ -46,7 +47,6 @@ import {
     uAudioHigh,
     uAudioLow,
 } from './material-core.ts';
-import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { uTwilight } from './sky.ts';
 import { treeBatcher } from './tree-batcher.ts';

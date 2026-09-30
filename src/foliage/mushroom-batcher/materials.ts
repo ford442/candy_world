@@ -10,6 +10,10 @@ import { circadianNightGlowMult } from "../../systems/biome-uniforms.ts";
 import { applyAerialPerspective, aerialPerspectiveLodBoost } from "../aerial-perspective.ts";
 import { foliageMaterials } from '../foliage-materials.ts';
 import {
+    scaleEmissiveByLod,
+    applyStandardDeformationWithLod,
+    applyFoliageLodMaterialFade} from "../lod-nodes.ts";
+import {
     uTime,
     uAudioLow,
     uAudioHigh,
@@ -20,10 +24,6 @@ import {
     applyBaseContactAO,
     getBaseContactHeight,
 } from '../material-core.ts';
-import {
-    scaleEmissiveByLod,
-    applyStandardDeformationWithLod,
-    applyFoliageLodMaterialFade} from "../lod-nodes.ts";
 import { uTwilight } from "../sky.ts";
 import { modFloat } from "./constants.ts";
 

@@ -114,6 +114,7 @@
         "eslint": "^9.39.5",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-import": "^2.32.0",
+        "globals": "^14.0.0",
         "playwright": "1.63.0",
         "prettier": "^3.9.5",
         "simple-git-hooks": "^2.13.1",

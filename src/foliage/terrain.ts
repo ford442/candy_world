@@ -5,6 +5,7 @@ import {
     distance, max, uv, texture
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { $sn } from './material-core/tsl-types.ts';
 import {
     CandyPresets,
     uAudioLow,
@@ -12,7 +13,6 @@ import {
     createRimLight,
     uPlayerPosition,
 } from './material-core.ts';
-import { $sn } from './material-core/tsl-types.ts';
 
 /**
  * Creates an audio-reactive Terrain Material.

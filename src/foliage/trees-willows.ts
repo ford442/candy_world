@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { color as tslColor, float, positionLocal, normalLocal, add } from 'three/tsl';
  // Import explicit type for cast
-import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
 import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
+import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
 import {
     createClayMaterial,
     createGradientMaterial,

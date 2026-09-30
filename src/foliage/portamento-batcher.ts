@@ -21,6 +21,7 @@ import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     createUnifiedMaterial,
     applyStandardDeformation,
@@ -29,7 +30,6 @@ import {
     uAudioLow,
     uTime,
 } from './material-core.ts';
-import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';
 
