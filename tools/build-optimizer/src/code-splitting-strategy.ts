@@ -177,7 +177,7 @@ class CodeSplittingStrategy {
         description: 'TSL shaders and materials',
         files: [
           'src/rendering/materials.ts',
-          'src/rendering/material_types.ts',
+          'src/rendering/material-types.ts',
           'src/rendering/shader-warmup.ts'
         ],
         priority: 'high',
@@ -404,7 +404,7 @@ export default defineConfig({
           // Rendering and shaders
           'shaders': [
             './src/rendering/materials.ts',
-            './src/rendering/material_types.ts',
+            './src/rendering/material-types.ts',
             './src/rendering/shader-warmup.ts'
           ],
           

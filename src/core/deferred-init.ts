@@ -7,7 +7,7 @@ import { initCelestialBodies } from '../foliage/celestial-bodies.ts';
 import { createChromaticPulse } from '../foliage/chromatic.ts';
 import { createDandelionSeedSystem } from '../foliage/dandelion-seeds.ts';
 import { createDiscoveryEffect } from '../foliage/discovery-effect.ts';
-import { createFluidFog } from '../foliage/fluid_fog.ts';
+import { createFluidFog } from '../foliage/fluid-fog.ts';
 import { createImpactSystem } from '../foliage/impacts.ts';
 import { uTime } from '../foliage/index.ts';
 import { createMelodyRibbon } from '../foliage/ribbons.ts';

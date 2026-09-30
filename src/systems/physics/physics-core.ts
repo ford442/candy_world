@@ -45,7 +45,7 @@ import {
     sampleGroundFootprint,
     type GroundFootprintResult,
 } from '../ground-system.ts';
-import { calculateMovementInput } from '../physics.core.ts';
+import { calculateMovementInput } from './physics-math.ts';
 import { getLakeIce } from '../season-controller.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { resolveCharacterMovement } from './character-controller.ts';

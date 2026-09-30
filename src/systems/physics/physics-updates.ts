@@ -54,12 +54,12 @@ import {
 } from '../../world/state.ts';
 import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import { discoverySystem } from '../discovery.ts';
-import { DISCOVERY_MAP } from '../discovery_map.ts';
+import { DISCOVERY_MAP } from '../discovery-map.ts';
 import {
     getGroundHeight,
     sampleGroundNormal,
 } from '../ground-system.ts';
-import { getUnifiedGroundHeightTyped } from '../physics.core.ts';
+import { getUnifiedGroundHeightTyped } from './physics-math.ts';
 import { unlockSystem } from '../unlocks.ts';
 import {
     physicsFoliageGrid,

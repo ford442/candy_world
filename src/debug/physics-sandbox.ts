@@ -51,7 +51,7 @@ import {
     type RigidBodyHandle,
     type RigidBodyShape,
 } from '../systems/physics/rigid-bodies.ts';
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
+import { getUnifiedGroundHeightTyped } from '../systems/physics/physics-math.ts';
 
 interface PropSpec {
     name: string;

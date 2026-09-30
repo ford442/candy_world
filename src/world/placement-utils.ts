@@ -29,7 +29,7 @@ export const ENTITY_BASE_OFFSETS: Readonly<Record<string, number>> = {
     // --- Mushrooms (mushroom-batcher / glass-mushroom-batcher) ---
     // Stem pivot minY=0; slight sink so cap overhang reads rooted.
     mushroom: -0.02,
-    retrigger_mushroom: -0.02, // stem cylinder bottom at local y=0 (musical_flora.ts)
+    retrigger_mushroom: -0.02, // stem cylinder bottom at local y=0 (musical-flora.ts)
     glass_mushroom: 0, // glass-mushroom-batcher merged geo minY=0
 
     // --- Trees / shrubs (tree-batcher / portamento-batcher) ---

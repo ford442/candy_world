@@ -17,7 +17,7 @@ import {
     foliagePanningPads,
     animatedFoliage,
 } from '../../world/state.ts';
-import { DISCOVERY_MAP } from '../discovery_map.ts';
+import { DISCOVERY_MAP } from '../discovery-map.ts';
 
 // --- Lightweight Physics Spatial Grid (⚡ OPTIMIZATION) ---
 let _globalQueryId = 0;

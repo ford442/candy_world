@@ -9,7 +9,7 @@
  * @example
  * ```ts
  * import { OptimizedDiscoverySystem } from './discovery-optimized';
- * import { DISCOVERY_MAP } from './discovery_map';
+ * import { DISCOVERY_MAP } from './discovery-map';
  * 
  * const discovery = new OptimizedDiscoverySystem();
  * 
@@ -34,7 +34,7 @@ import { isEmscriptenReady, getEmscriptenInstance, getNativeFunc } from '../util
 import { getWasmInstance } from '../utils/wasm-loader.ts';
 import { discoveryPersistence, type PersistedDiscovery } from './discovery-persistence.ts';
 import { discoverySystem } from './discovery.ts';
-import { DISCOVERY_MAP } from './discovery_map.ts';
+import { DISCOVERY_MAP } from './discovery-map.ts';
 
 // Type definition for discovery info
 interface DiscoveryInfo {

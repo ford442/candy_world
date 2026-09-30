@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
-import { getUnifiedGroundHeightTyped } from '../src/systems/physics.core.ts';
+import { getUnifiedGroundHeightTyped } from '../src/systems/physics/physics-math.ts';
 
 import { registerWalkableIslandPlatform } from '../src/systems/ground-system.ts';
 function jsUnified(x, z, now, platforms) {

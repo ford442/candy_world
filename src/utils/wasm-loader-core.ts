@@ -13,7 +13,7 @@
 import { isSharedMemoryAvailable } from './wasm-orchestrator.ts';
 import { checkWasmFileExists, patchWasmInstantiateAliases } from './wasm-utils.ts';
 
-// Vite WASM import via vite-plugin-wasm
+// Vite's built-in `?init` WASM import (no plugin needed)
 import initCandyPhysics from '../wasm/candy_physics.wasm?init';
 import { bootProgress } from './boot-progress.ts';
 import { log } from './log.ts';
