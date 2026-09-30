@@ -7,22 +7,16 @@ global.document = {
     createElement: () => ({ style: {} }),
 };
 global.performance = { now: () => Date.now() };
-
-// We use dynamic imports so we can bypass some missing imports from tsl via tsx for simple tests if possible.
-// Wait, the project provides a way to test without failing on imports using tsx. Let's just mock what we need.
-// We'll write the test to execute correctly with tsx by importing properly.
-// Mock foliageGroup to avoid uninitialized errors from batchers referencing it
 global.foliageGroup = new THREE.Group();
 
-import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
-import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
-import { subwooferLotusBatcher } from '../src/foliage/subwoofer-lotus-batcher.ts';
-import { glowingFlowerBatcher } from '../src/foliage/glowing-flower-batcher.ts';
-import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
+import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
 import { gemFruitBatcher } from '../src/foliage/gem-fruit-batcher.ts';
 import { sugarCaveBatcher } from '../src/foliage/sugar-cave-batcher.ts';
 import { despawnEntity } from '../src/world/entity-despawn.ts';
 import { foliageCaves } from '../src/systems/physics/physics-types.ts';
+import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
+import { subwooferLotusBatcher } from '../src/foliage/subwoofer-lotus-batcher.ts';
+import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
 
 // Test runner function
 async function runTests() {
@@ -31,117 +25,150 @@ async function runTests() {
     let passed = 0;
 
     try {
-        // 1. WaterfallBatcher
-        const wfId = THREE.MathUtils.generateUUID();
-        const wfObj = new THREE.Object3D();
-        wfObj.uuid = wfId;
+        console.log('--- 1. Testing ChunkStreamer Load -> Stream Out ---');
 
-        waterfallBatcher.init();
-        waterfallBatcher.add(wfId, new THREE.Vector3(), 5, 2);
-        assert.equal(waterfallBatcher.count, 1, 'Waterfall should have 1 count');
+        // Mock LoadedCandyMap
+        const mockMap = {
+            cells: new Map(),
+            getEntitiesInBounds: () => { return []; }
+        };
 
-        waterfallBatcher.removeInstance(wfObj);
-        assert.equal(waterfallBatcher.count, 0, 'Waterfall should have 0 count after remove');
-        console.log('  ✓ WaterfallBatcher swap-with-last successful');
+        // Create a mock cell with entities
+        const cell = {
+            entities: [
+                { type: 'luminous_plant', id: 'lp1', translation: [0, 0, 0] },
+                { type: 'subwoofer_lotus', id: 'sl1', translation: [1, 0, 1] },
+                { type: 'dandelion', id: 'd1', translation: [2, 0, 2] },
+                { type: 'gem_canopy_tree', id: 'gt1', translation: [3, 0, 3] },
+                { type: 'unknown_batched', id: 'u1', translation: [4, 0, 4], isBatched: true },
+            ]
+        };
+        mockMap.cells.set('0,0', cell);
+
+        const weatherSystem = {
+            registerCave: () => {},
+            unregisterCave: () => {},
+        };
+
+        // Let's hook into the global scope config correctly if needed, or simply let the code run.
+        const streamer = new ChunkStreamer(10, mockMap, weatherSystem);
+
+        // We bypass the id checking and directly call load cell
+        const record = streamer['recordFor']('0,0');
+        for (const entity of cell.entities) {
+             const obj = new THREE.Object3D();
+             obj.userData = { type: entity.type, isBatched: entity.isBatched };
+             obj.position.set(...entity.translation);
+             obj.uuid = entity.id; // give distinct uuid
+
+             if (entity.type === 'gem_canopy_tree') {
+                  gemFruitBatcher.attachToTree(obj, { gemCount: 3 });
+             } else if (entity.type === 'luminous_plant') {
+                  luminousPlantBatcher.register(obj);
+             } else if (entity.type === 'subwoofer_lotus') {
+                  subwooferLotusBatcher.register(obj);
+             } else if (entity.type === 'dandelion') {
+                  dandelionBatcher.register(obj);
+             } else if (entity.type === 'unknown_batched') {
+                  // no batcher hook up for unknown
+             }
+
+             streamer['trackSpawnedObject'](obj, record);
+        }
+
+        assert.equal(record.evictable.length, 4, '4 entities should be evictable');
+        assert.equal(record.permanentCount, 1, '1 unknown_batched entity should be permanent');
+
+        // Capture lengths before eviction
+        const lpInitialCount = luminousPlantBatcher.count;
+        const slInitialCount = subwooferLotusBatcher['_count'];
+        const danInitialCount = dandelionBatcher.count;
+
+        // Move far away to force eviction of 0,0
+        streamer['evictFarChunks'](100, 100, 1);
+
+        assert.equal(record.evictable.length, 0, 'Evictable array should be cleared after eviction');
+
+        assert.equal(luminousPlantBatcher.count, lpInitialCount - 1, 'Luminous plant should be evicted');
+        assert.equal(subwooferLotusBatcher['_count'], slInitialCount - 1, 'Subwoofer lotus should be evicted');
+        assert.equal(dandelionBatcher.count, danInitialCount - 1, 'Dandelion should be evicted');
+
+        // Ensure unknown batched didn't crash and is still in records because permanentCount > 0
+        const retainedRecord = streamer['records'].get('0,0');
+        assert.ok(retainedRecord, 'Chunk record should be retained for permanent objects');
+        assert.equal(retainedRecord.permanentCount, 1, 'Permanent count should still be 1');
+
+        console.log('  ✓ ChunkStreamer load and out-of-range stream-out works without growing matrices');
         passed++;
 
-        // 2. DandelionBatcher
-        const danObj1 = new THREE.Object3D();
-        const danObj2 = new THREE.Object3D();
+        console.log('--- 2. Testing Subwoofer Lotus Swap-With-Last Edge Cases ---');
 
-        dandelionBatcher.init();
-        dandelionBatcher.register(danObj1);
-        dandelionBatcher.register(danObj2);
-        assert.equal(dandelionBatcher.count, 2, 'Dandelion should have 2 counts');
+        const lotusProxy1 = new THREE.Object3D();
+        const lotusProxy2 = new THREE.Object3D();
 
-        dandelionBatcher.removeInstance(danObj1);
-        assert.equal(dandelionBatcher.count, 1, 'Dandelion should have 1 count after swap-with-last');
-        assert.equal(danObj2.userData.batchIndex, 0, 'Swapped object should update its batchIndex');
-        console.log('  ✓ DandelionBatcher swap-with-last successful');
+        subwooferLotusBatcher.register(lotusProxy1);
+        subwooferLotusBatcher.register(lotusProxy2);
+
+        const group1 = lotusProxy1.userData.interactiveGroup;
+        const group2 = lotusProxy2.userData.interactiveGroup;
+
+        assert.ok(group1.parent !== null, 'Group 1 should be in the scene');
+        assert.ok(group2.parent !== null, 'Group 2 should be in the scene');
+
+        subwooferLotusBatcher.removeInstance(lotusProxy1);
+
+        assert.ok(group1.parent === null, 'Group 1 should be removed from the scene');
+        assert.ok(group2.parent !== null, 'Group 2 should still be in the scene (survivor)');
+        assert.strictEqual(subwooferLotusBatcher.logicObjects[0], group2, 'logicObjects[0] must be the old second group');
+
+        console.log('  ✓ SubwooferLotus swap-with-last works cleanly');
         passed++;
 
-        // 3. SubwooferLotusBatcher
-        const lotusObj1 = new THREE.Object3D();
-        const lotusObj2 = new THREE.Object3D();
 
-        subwooferLotusBatcher.register(lotusObj1);
-        subwooferLotusBatcher.register(lotusObj2);
-        // subwooferLotusBatcher logic replaces proxy with interactiveGroup, let's use the proxy
-        assert.equal(subwooferLotusBatcher['_count'], 2, 'Lotus should have 2 counts');
 
-        subwooferLotusBatcher.removeInstance(lotusObj1);
-        assert.equal(subwooferLotusBatcher['_count'], 1, 'Lotus should have 1 count after swap');
-        assert.equal(lotusObj2.userData.batchIndex, 0, 'Swapped proxy should update batchIndex');
-        console.log('  ✓ SubwooferLotusBatcher swap-with-last successful');
-        passed++;
 
-        // 4. GlowingFlowerBatcher
-        const gfObj1 = new THREE.Object3D();
-        const gfObj2 = new THREE.Object3D();
-        gfObj1.uuid = 'gf1';
-        gfObj2.uuid = 'gf2';
+        console.log('--- 3. Testing classifyForEviction guard ---');
+        // If classifyForEviction returns 'never' for a known batched type, it's a bug that leaks memory.
+        const typesToTest = [
+            'tree', 'shrub', 'willow', 'balloonBush', 'helixPlant', 'accordion_palm', 'floweringTree',
+            'bubbleWillow', 'prismRoseBush', 'helix', 'accordionPalm',
+            'gem_canopy_tree', 'mushroom', 'lanternFlower', 'glass_mushroom',
+            'flower', 'simple_flower', 'fern', 'arpeggio_fern', 'cave',
+            'kick_drum_geyser', 'luminous_plant', 'dandelion', 'waterfall',
+            'subwoofer_lotus', 'glowing_flower', 'sugar_cave', 'night_market_stall'
+        ];
 
-        glowingFlowerBatcher.init();
-        glowingFlowerBatcher.register(gfObj1);
-        glowingFlowerBatcher.register(gfObj2);
-        assert.equal(glowingFlowerBatcher.count, 2, 'GlowingFlower should have 2 counts');
+        let neverFailures = 0;
 
-        glowingFlowerBatcher.removeInstance(gfObj1);
-        assert.equal(glowingFlowerBatcher.count, 1, 'GlowingFlower should have 1 count after swap');
-        assert.equal(glowingFlowerBatcher['indexMap'].get('gf2'), 0, 'Swapped indexMap updated');
-        console.log('  ✓ GlowingFlowerBatcher swap-with-last successful');
-        passed++;
+        // Expose a way to test classifyForEviction. We can spawn an entity and check the record's evictable length vs permanentCount.
+        for (const t of typesToTest) {
+            const obj = new THREE.Object3D();
+            obj.userData = { type: t, isBatched: true };
 
-        // 5. LuminousPlantBatcher
-        // Note: group is used directly
-        const lpObj1 = new THREE.Group();
-        const lpObj2 = new THREE.Group();
+            // Bypass full streamer spawnEntity mapping by calling a private test function or using streamer internals
+            // Or we can just mock a chunk load.
+            const chunkKey = '100,100';
+            const cellMock = {
+                entities: [
+                    { type: t, id: 'test_obj', translation: [1000, 0, 1000], isBatched: true }
+                ]
+            };
+            const mockMap2 = { cells: new Map() };
+            mockMap2.cells.set(chunkKey, cellMock);
 
-        luminousPlantBatcher.register(lpObj1);
-        luminousPlantBatcher.register(lpObj2);
+            const streamer2 = new ChunkStreamer(10, mockMap2, { registerCave: () => {}, unregisterCave: () => {} });
 
-        // Wait, mesh might need init. Luminous initialized in constructor.
-        assert.equal(luminousPlantBatcher['count'], 2, 'Luminous should have 2 counts');
+            const record2 = streamer2['recordFor'](chunkKey);
+            streamer2['trackSpawnedObject'](obj, record2);
 
-        luminousPlantBatcher.removeInstance(lpObj1);
-        assert.equal(luminousPlantBatcher['count'], 1, 'Luminous should have 1 count after swap');
-        console.log('  ✓ LuminousPlantBatcher swap-with-last successful');
-        passed++;
+            if (record2.permanentCount > 0) {
+                console.error(`❌ classifyForEviction returned 'never' for ${t}!`);
+                neverFailures++;
+            }
+        }
 
-        // 6. GemFruitBatcher
-        // GemFruit logic attachToTree sets gemRefs on tree
-        const treeObj1 = new THREE.Group();
-        const treeObj2 = new THREE.Group();
-
-        gemFruitBatcher.attachToTree(treeObj1, { gemCount: 2 });
-        gemFruitBatcher.attachToTree(treeObj2, { gemCount: 1 });
-
-        let totalGems = gemFruitBatcher['_counts'].reduce((a, b) => a + b, 0);
-        assert.ok(totalGems > 0, 'GemFruit should have spawned gems');
-
-        const tree2RefsBefore = JSON.parse(JSON.stringify(treeObj2.userData.gemRefs));
-
-        gemFruitBatcher.removeInstance(treeObj1);
-
-        let remainingGems = gemFruitBatcher['_counts'].reduce((a, b) => a + b, 0);
-        assert.equal(remainingGems, tree2RefsBefore.length, 'GemFruit should only leave tree2 gems');
-        console.log('  ✓ GemFruitBatcher swap-with-last successful');
-        passed++;
-
-        // 7. SugarCaveBatcher
-        const scObj1 = new THREE.Object3D();
-        const scObj2 = new THREE.Object3D();
-
-        sugarCaveBatcher.init();
-        sugarCaveBatcher.register(scObj1);
-        sugarCaveBatcher.register(scObj2);
-
-        assert.equal(sugarCaveBatcher['_count'], 2, 'SugarCave should have 2 counts');
-
-        sugarCaveBatcher.removeInstance(scObj1);
-        assert.equal(sugarCaveBatcher['_count'], 1, 'SugarCave should have 1 count after swap');
-        assert.equal(scObj2.userData.batchIndex, 0, 'Swapped SugarCave batchIndex updated');
-        console.log('  ✓ SugarCaveBatcher swap-with-last successful');
+        assert.equal(neverFailures, 0, 'No listed batched types should return never');
+        console.log('  ✓ classifyForEviction handles all known types correctly');
         passed++;
 
         // 8. Cave

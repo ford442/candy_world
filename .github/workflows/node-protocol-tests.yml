@@ -36,3 +36,6 @@ jobs:
             # docs/CI_CONTRACT.md.
             - name: Node test suite (PR gate)
               run: pnpm run test:fast
+
+            - name: Stale-Squash Guard
+              run: node scripts/check-stale-squash.mjs

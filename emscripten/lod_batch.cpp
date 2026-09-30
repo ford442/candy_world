@@ -90,7 +90,6 @@ void batchUpdateLODMatrices_c(
 // =============================================================================
 // Process 4 objects at once for distance calculation
 
-EMSCRIPTEN_KEEPALIVE
 void batchDistanceCullLOD_c(
     float* positions,  // [x, y, z, radius, x, y, z, radius, ...]
     int count,
@@ -340,7 +339,6 @@ void batchComposeMatrices_c(
  * Write instance RGB colors with uniform intensity scale.
  * Parity with assembly/batch.ts batchWriteInstanceColors and TS reference.
  */
-EMSCRIPTEN_KEEPALIVE
 void batchWriteInstanceColors_c(
     float* colorsIn,
     float* colorsOut,
@@ -360,7 +358,6 @@ void batchWriteInstanceColors_c(
  * Parity with assembly/music_reactivity.ts accumulateArpeggioChannels.
  * volumes: packed [shimmer..., hueShift...] ; out: [shimmer, hueShift]
  */
-EMSCRIPTEN_KEEPALIVE
 void accumulateArpeggioChannels_c(
     float* volumes,
     int shimmerCount,

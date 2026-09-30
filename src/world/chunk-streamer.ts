@@ -18,6 +18,7 @@ import {
 } from '../systems/region-manager-core.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { classifyForEviction, despawnEntity } from './entity-despawn.ts';
+import { recordGenerationChunk } from '../utils/startup-profiler.ts';
 import { processMapEntity } from './generation-entities.ts';
 import { yieldControl, type WeatherSystem } from './generation-utils.ts';
 import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
@@ -188,6 +189,7 @@ export class ChunkStreamer {
                 continue;
             }
             spawned += this.spawnChunkSync(cx, cz, cell, ids);
+            recordGenerationChunk();
             await yieldControl();
         }
 
