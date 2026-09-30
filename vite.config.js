@@ -33,9 +33,10 @@ export default defineConfig({
                         return 'vendor';
                     }
                     // NOTE: audio + boot UI modules stay in `app` (separate chunks caused
-                    // Circular chunk: * ↔ app). weather/particles/compute stay in `weather`
-                    // — folding weather into `app` breaks init (TDZ); splitting particles
-                    // out of `weather` deadlocks boot. One benign weather ↔ app warning remains.
+                    // Circular chunk: * ↔ app). The one remaining warning is weather ↔ app:
+                    // core/main.ts awaits runBootstrap() at top level, so a lazy chunk that
+                    // imports `app` and is awaited during bootstrap deadlocks. `weather` is
+                    // therefore a static dependency of `app`. See docs/APP_CHUNK_SPLIT.md.
                     // Workers
                     if (id.includes('/src/workers/')) {
                         return 'workers';
@@ -81,9 +82,12 @@ export default defineConfig({
                     ) {
                         return 'analytics-debug';
                     }
-                    // World content decorators (procedural extras, gem canopy, mycelium)
+                    // World content decorators: generation-decorators.ts and every
+                    // generation-decorators-*.ts populator it re-exports. The populators
+                    // are only reachable through it, so they load with this chunk; the
+                    // catch-all below used to pin them in `app` (#1827).
                     if (
-                        id.includes('/src/world/generation-decorators.ts') ||
+                        id.includes('/src/world/generation-decorators') ||
                         id.includes('/src/world/decorator-streamer.ts')
                     ) {
                         return 'world-content';
@@ -91,7 +95,13 @@ export default defineConfig({
                     // Experimental soft-body solver: only the (lazy) demo imports
                     // it, so it rides the debug chunk rather than adding dead
                     // weight to `app`. Move it out if a real system adopts it.
-                    if (id.includes('/src/systems/physics/soft-body.ts')) {
+                    // Same for the systems telemetry table (debug panel only) and
+                    // the hero rig loader (hero animation demo only).
+                    if (
+                        id.includes('/src/systems/physics/soft-body.ts') ||
+                        id.includes('/src/systems/performance-budget/systems-telemetry.ts') ||
+                        id.includes('/src/systems/animation/hero-rig-loader.ts')
+                    ) {
                         return 'debug';
                     }
                     // Debug tools (panel, gizmos, ground/placement/circadian/fauna overlays)
@@ -123,11 +133,10 @@ export default defineConfig({
                     if (id.includes('/src/rendering/webgl-debug.ts')) {
                         return 'webgl-debug';
                     }
-                    if (id.includes('/src/world/map-loader.ts')) {
+                    // map-loader.ts plus the map-loader-*.ts helpers only it (and the
+                    // lazy debug export) imports.
+                    if (id.includes('/src/world/map-loader')) {
                         return 'map-loader';
-                    }
-                    if (id.includes('/src/core/input/playlist-manager.ts')) {
-                        return 'playlist-ui';
                     }
                     if (id.includes('/src/utils/startup-profiler')) {
                         return 'profiler';
@@ -141,7 +150,8 @@ export default defineConfig({
                         return 'accessibility-ui';
                     }
                     // camera-modes, hud-ui, interaction, playlist-ui stay in `app`
-                    // (separate chunks created Rollup circular-chunk graphs).
+                    // (separate chunks created Rollup circular-chunk graphs; app imports
+                    // them statically and they import app back).
                     if (id.includes('/src/systems/loading-manager.ts')) {
                         return 'loading-ui';
                     }
@@ -189,11 +199,11 @@ export default defineConfig({
                         return 'generative-music';
                     }
 
-                    // Weather + particles + compute — separate from `app`. Folding weather
-                    // into `app` breaks init order (TDZ). particles/compute must stay with
-                    // weather (not app) or dynamic weather load deadlocks at boot.
+                    // Weather + particles + compute — separate from `app` (size), statically
+                    // imported by it (see the top-level-await note above).
                     if (
                         id.includes('/src/systems/weather/') ||
+                        id.includes('/src/systems/weather-utils.ts') ||
                         id.includes('/src/particles/') ||
                         id.includes('/src/compute/') ||
                         id.includes('/src/foliage/berries.ts')

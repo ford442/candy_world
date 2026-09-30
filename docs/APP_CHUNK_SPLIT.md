@@ -10,6 +10,31 @@ photo mode, generative audio, debug overlays) were off.
 Vite warns when any chunk exceeds 500 KB raw. The `app` chunk can sit near that
 soft limit because foliage batchers + music-reactivity + physics stay co-located.
 
+## State after #1827 (2026-09-30)
+
+- **Runtime import cycles are at zero** from `src/main.ts` and gated by
+  `npm run test:cycles` and ESLint `import/no-cycle`. Every `is not a function`
+  TDZ failure recorded below came from evaluating a module inside a cycle, so a
+  peel can no longer TDZ at boot for that reason.
+- **One constraint is left: the top-level `await runBootstrap()` in
+  `src/core/main.ts`.** Until bootstrap resolves, the `app` chunk is still
+  evaluating. A lazy chunk that statically imports `app` and is awaited *inside*
+  `runBootstrap()` (scene, audio/world, input and WASM pipelines) waits for
+  `app`, which waits for it: boot deadlocks. Chunks loaded after bootstrap
+  (debug, save-ui, map-loader, world-content, ...) only wait, which is why they
+  work. This is what keeps `weather` a static dependency of `app`.
+- `app` is **737 KB** raw (was 760). Moved out: the `generation-decorators-*`
+  populators (to `world-content`), the `map-loader-*` helpers (to `map-loader`),
+  `weather-utils.ts` (to `weather`), systems telemetry and the hero rig loader
+  (to `debug`). Each was reachable only through the chunk it moved to, so its
+  load trigger and that chunk's imports did not change. `playlist-manager.ts`
+  moved back into `app` (it was a 6 KB circular chunk). `profiler` no longer
+  imports `app`: the GPU context source is injected from `loading-bootstrap.ts`.
+- **Remaining warning:** `Circular chunk: weather -> app -> weather`. Removing it
+  needs the top-level await gone (`void runBootstrap()` with an explicit error
+  path) and the particle/compute systems loaded lazily from the game loop. That
+  change needs a browser boot to verify, so it is left for a follow-up.
+
 ## Targets
 
 | Metric                  | Hard ceiling                               | Stretch | Notes                                                                                     |
@@ -49,8 +74,8 @@ Confirm flags-off: `pnpm run analyze:bundle` or grep `dist/chunks/app-*.js` for
 | `playlist-ui`      | ~10 KB        | ~3 KB   | Boot (circular with `app`)                            |
 | `awakened`         | ~9 KB         | ~3 KB   | `?awakened`                                           |
 
-**Accepted Rollup circular-chunk warnings:** `weather ↔ app`, `app ↔ playlist-ui`,
-`app ↔ profiler`. Do **not** reintroduce `Circular chunk: compute ↔ app`,
+**Accepted Rollup circular-chunk warnings:** `weather ↔ app` only (since #1827;
+`playlist-ui` and `profiler` were fixed). Do **not** reintroduce `Circular chunk: compute ↔ app`,
 `loading-ui ↔ app` (loading-screen DOM peel), `save-ui ↔ app` (discovery-persistence),
 or `world-gen ↔ app` — those TDZ at boot (`is not a function`).
 
@@ -151,7 +176,8 @@ When that is true **and** the user has not set a boot path via URL/storage,
 
 ## Budget
 
-`pnpm run budget:check` enforces `budgets.json` → `app: 620kb` (raw `app-*.js`).
+`pnpm run budget:check` enforces `budgets.json` → `app: 740kb` (raw `app-*.js`; 737 KB
+after #1827). The 620 KB target stands.
 A 600 KB ceiling was attempted; `world-gen`, loading-screen DOM, and
 `discovery-persistence` in `save-ui` each failed boot with TDZ (`is not a function`).
 
@@ -164,8 +190,9 @@ A 600 KB ceiling was attempted; `world-gen`, loading-screen DOM, and
 
 ## Follow-ups
 
-- Break `weather ↔ app` (particles lazy peel from foliage) without TDZ.
-- Stretch 500 KB: remaining circular `playlist-ui` / `profiler` true-async peels.
+- Break `weather ↔ app`: drop the top-level await in `core/main.ts`, then load
+  particles/compute lazily from the game loop (see "State after #1827").
+- Stretch 500 KB: make more of the boot graph lazy (world generation, map loading).
 - Config hygiene in parallel.
 
 ## Refs

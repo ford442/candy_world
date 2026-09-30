@@ -6,7 +6,7 @@
  * Outputs structured JSON report and provides browser overlay visualization.
  */
 
-import { getGpuContext } from '../rendering/gpu-context.ts';
+import type { GpuContext } from '../rendering/gpu-context.ts';
 import { log } from './log.ts';
 import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
 import {
@@ -160,10 +160,20 @@ function unhookInstancedMesh() {
  * we simply await the shared context and wrap that device's methods. The
  * profiler never requests an adapter or a device of its own.
  */
+// Set by core/main/loading-bootstrap.ts. Importing rendering/gpu-context.ts here
+// put this module's chunk (`profiler`) in a circular chunk with `app` (#1827).
+let gpuContextSource: (() => Promise<GpuContext>) | null = null;
+
+/** Where hookWebGPU() gets the shared device; call before enableStartupProfiler(). */
+export function setProfilerGpuContextSource(source: () => Promise<GpuContext>): void {
+  gpuContextSource = source;
+}
+
 function hookWebGPU() {
   if (typeof navigator === 'undefined' || !navigator.gpu) return;
+  if (!gpuContextSource) return;
 
-  void getGpuContext().then((ctx) => {
+  void gpuContextSource().then((ctx) => {
     const device = ctx.device;
     if (!device || instrumentedDevice === device) return;
     instrumentedDevice = device;
