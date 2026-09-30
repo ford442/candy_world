@@ -6,43 +6,17 @@
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { AudioSystem } from '../../audio/audio-system';
 import { announce } from '../../ui/announcer.ts';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
 import { handlePlaylistUpload } from './playlist-events.ts';
-import type { PlaylistManagerState } from './playlist-types.ts';
+import { getPlaylistManagerState, setPlaylistToggle } from './playlist-state.ts';
 import { renderPlaylist, updateJukeboxButtonState } from './playlist-ui.ts';
 
-// Shared State Instance
-const _state: PlaylistManagerState = {
-    isPlaylistOpen: false,
-    wasPausedBeforePlaylist: false,
-    lastFocusedElement: null,
-    releaseJukeboxFocus: null,
+const _state = getPlaylistManagerState();
 
-    playlistOverlay: null,
-    playlistBackdrop: null,
-    playlistList: null,
-    closePlaylistBtn: null,
-    playlistCloseX: null,
-    playlistUploadInput: null,
-    addSongsBtn: null,
-    openJukeboxBtn: null,
-    nowPlayingContainer: null,
-    nowPlayingText: null,
-
-    audioSystemRef: null,
-    controlsRef: null,
-    instructionsRef: null,
-};
-
-/**
- * Accessor for the shared state
- */
-export function getPlaylistManagerState(): PlaylistManagerState {
-    return _state;
-}
+export { getPlaylistManagerState };
 
 /**
  * Initialize playlist manager
@@ -380,6 +354,8 @@ export function togglePlaylist(): void {
         }
     }
 }
+
+setPlaylistToggle(togglePlaylist);
 
 /**
  * Get the "wasPausedBeforePlaylist" state for context restoration

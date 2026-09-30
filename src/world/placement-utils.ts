@@ -10,13 +10,13 @@ export { sampleEntityScale, sampleEntityHeight, biomeNormalizedDistance } from '
 export type { ScaleSampleOptions } from './entity-scale.ts';
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
-import { registerPlantedInstance } from '../debug/tools-stub.ts';
 import {
     getGroundHeight,
     sampleGroundNormal,
     sampleGroundFootprint,
     type GroundFootprintResult,
 } from '../systems/ground-system.ts';
+import { debugHooks } from '../utils/debug-hooks.ts';
 
 /**
  * Local-origin Y offset from ground contact to object root (world units).
@@ -297,7 +297,14 @@ export function plantOnSurface(
     obj.userData.footprintRadius = footprintRadius > 0 ? footprintRadius : undefined;
     obj.position.set(x, y, z);
     if (options.registerDebugMarker !== false) {
-        registerPlantedInstance(x, y, z, entityType, footprintRadius || undefined, normal);
+        debugHooks.registerPlantedInstance(
+            x,
+            y,
+            z,
+            entityType,
+            footprintRadius || undefined,
+            normal
+        );
     }
     return y;
 }

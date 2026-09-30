@@ -15,10 +15,10 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
-import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import { createCloud } from '../foliage/clouds.ts';
 import { getGroundHeight, registerWalkableCloudPlatform } from '../systems/ground-system.ts';
 import type { WeatherSystem } from '../systems/weather/weather.ts';
+import { debugHooks } from '../utils/debug-hooks.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 
@@ -192,7 +192,7 @@ export function placeCloudBlock(
 
     registerCloudPhysics(cloud);
     registerWalkableCloudPlatform(cloud);
-    registerCloudPlatform(cloud);
+    debugHooks.registerCloudPlatform(cloud);
 
     const record: CloudPlacementRecord = { id, x, y, z, size, rotation };
     if (options.persist !== false) {

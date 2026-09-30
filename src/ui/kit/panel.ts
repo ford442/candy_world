@@ -5,7 +5,7 @@
  * opt-in focus trap that reuses the audited `trapFocusInside` helper.
  */
 
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { el } from './dom.ts';
 
 export type PanelAnchor = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'none';

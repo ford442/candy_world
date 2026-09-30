@@ -20,7 +20,7 @@ import {
   AccessibilitySystem,
   getAccessibilitySystem,
 } from '../systems/accessibility';
-import { trapFocusInside } from '../utils/interaction-utils';
+import { trapFocusInside } from '../utils/focus-trap.ts';
 import { yieldToPaint } from '../utils/yield-to-paint';
 import { announce } from './announcer';
 

@@ -17,7 +17,7 @@ import {
     SettingsSaveData,
     KeyBindings,
 } from '../../systems/save-system/index.ts';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { announce } from '../announcer.ts';

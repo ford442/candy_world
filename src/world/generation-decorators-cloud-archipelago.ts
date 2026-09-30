@@ -1,6 +1,6 @@
 import { CONFIG } from '../core/config.ts';
-import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import { registerWalkableCloudPlatform } from '../systems/ground-system.ts';
+import { debugHooks } from '../utils/debug-hooks.ts';
 import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 import { CLOUD_ARCHIPELAGO, WeatherSystem, yieldControl } from './generation-utils.ts';
@@ -71,7 +71,7 @@ export async function populateCloudArchipelago(weatherSystem: WeatherSystem): Pr
 
         // Ensure walkable registration even if createCloud onPlacement already ran
         registerWalkableCloudPlatform(cloud);
-        registerCloudPlatform(cloud);
+        debugHooks.registerCloudPlatform(cloud);
 
         const nodeId = `approach:cloud:${i}`;
         registerSkyIslandNode({

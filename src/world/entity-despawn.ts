@@ -18,7 +18,6 @@ import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
 import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
 import { unregisterWalkableCloudPlatform } from '../systems/ground-system.ts';
-import { unregisterCloudPlatform } from '../debug/tools-stub.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
@@ -27,6 +26,7 @@ import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { waterfallBatcher } from '../foliage/waterfall-batcher.ts';
 import { releaseLocalLight } from '../rendering/lights.ts';
 import { unregisterPhysicsCave } from '../systems/physics/index.ts';
+import { debugHooks } from '../utils/debug-hooks.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import type { WeatherSystem } from './generation-utils.ts';
 import {
@@ -174,7 +174,7 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
         if (obj.userData?.isWalkable) {
             CloudBatcher.getWalkableInstance().removeInstance(obj);
             unregisterWalkableCloudPlatform(obj);
-            unregisterCloudPlatform(obj);
+            debugHooks.unregisterCloudPlatform(obj);
         } else {
             CloudBatcher.getInstance().removeInstance(obj);
         }

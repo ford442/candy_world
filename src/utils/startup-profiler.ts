@@ -9,7 +9,13 @@
 import { getGpuContext } from '../rendering/gpu-context.ts';
 import { log } from './log.ts';
 import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
-import { drawOverlay, hideOverlay, showOverlay, toggleOverlay } from './startup-profiler-ui.ts';
+import {
+  drawOverlay,
+  hideOverlay,
+  setOverlayExportHandler,
+  showOverlay,
+  toggleOverlay,
+} from './startup-profiler-ui.ts';
 import { getMemoryUsage, formatBytes, formatDuration } from './startup-profiler-utils.ts';
 
 // ============================================================================
@@ -77,13 +83,6 @@ let warmupMetrics = {
 
 // Generation chunk streaming counter
 let generationChunksStreamed = 0;
-
-// UI Elements
-export const uiState = {
-  overlayContainer: null as HTMLElement | null,
-  overlayCanvas: null as HTMLCanvasElement | null,
-  overlayCtx: null as CanvasRenderingContext2D | null,
-};
 
 // Original console methods (for hooking)
 let originalConsoleTime: typeof console.time;
@@ -488,6 +487,14 @@ function outputReportToConsole(report: StartupReport): void {
   console.log('[StartupProfiler] Raw report available at window.__startupProfile');
   (window as Window & { __startupProfile?: StartupReport }).__startupProfile = report;
 }
+
+// ============================================================================
+// Overlay export button
+// ============================================================================
+// finalizeStartupProfile() runs generateReport() + saveReportToFile(), which stay private here.
+setOverlayExportHandler(() => {
+  finalizeStartupProfile();
+});
 
 // ============================================================================
 // Public API

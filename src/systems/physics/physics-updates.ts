@@ -14,7 +14,8 @@
  * - checkVineAttachment(): Vine swing attachment
  * - initCppPhysics(): C++ engine initialization
  *
- * No external dependencies on physics-core.ts (avoids circular deps).
+ * Must not import physics-core.ts, which imports this module; the spatial
+ * grids come from the physics-grids.ts leaf.
  */
 
 import * as THREE from 'three';
@@ -67,7 +68,7 @@ import {
     physicsGeysersGrid,
     physicsPinesGrid,
     physicsPanningPadsGrid,
-} from './physics-core.ts';
+} from './physics-grids.ts';
 import {
     player,
     _scratchPlayerState,
