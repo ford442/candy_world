@@ -29,7 +29,7 @@ import {
     uPlayerPosition,
     sharedGeometries,
     createJuicyRimLight,
-} from './index.ts';
+} from './material-core.ts';
 
 export function createFireflies(count = 150, areaSize = 100) {
     // 1. Setup Buffers

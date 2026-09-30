@@ -16,13 +16,12 @@ import { spawnImpact } from './impacts.ts';
 import {
     createClayMaterial,
     createCandyMaterial,
-    registerReactiveMaterial,
-    attachReactivity,
     CandyPresets,
     uAudioLow,
     uTime,
-    uGlitchIntensity
-} from './index.ts';
+    uGlitchIntensity,
+} from './material-core.ts';
+import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
 
 // Interfaces for options

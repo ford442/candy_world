@@ -31,11 +31,9 @@ import {
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { flowerBatcher } from './flower-batcher.ts'; // ⚡ OPTIMIZATION: New Unified Batcher
 import { spawnImpact } from './impacts.ts';
+import { foliageMaterials } from './foliage-materials.ts';
+import { registerReactiveMaterial, attachReactivity, pickAnimation } from './foliage-reactivity.ts';
 import {
-    foliageMaterials,
-    registerReactiveMaterial,
-    attachReactivity,
-    pickAnimation,
     createClayMaterial,
     createStandardNodeMaterial,
     createTransparentNodeMaterial,
@@ -46,7 +44,8 @@ import {
     getCachedProceduralMaterial,
     uTime,
     uAudioHigh,
-    uAudioLow} from './index.ts';
+    uAudioLow,
+} from './material-core.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { uTwilight } from './sky.ts';

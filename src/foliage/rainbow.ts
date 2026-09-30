@@ -3,7 +3,7 @@ import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import { color, uv, mix, Fn, uniform, sin, time, smoothstep, float } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
-import { uAudioLow, uAudioHigh } from './index.ts';
+import { uAudioLow, uAudioHigh } from './material-core.ts';
 
 
 export const uRainbowOpacity = uniform(0.0);

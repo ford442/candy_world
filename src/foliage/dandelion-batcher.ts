@@ -16,8 +16,8 @@ import {
     uTime,
     createSugarSparkle,
     createJuicyRimLight,
-    getCachedProceduralMaterial
-} from './index.ts';
+    getCachedProceduralMaterial,
+} from './material-core.ts';
 import { uTwilight } from './sky.ts';
 
 const MAX_DANDELIONS = 500;

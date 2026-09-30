@@ -9,14 +9,13 @@ import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { spawnImpact } from './impacts.ts';
 import {
     createUnifiedMaterial,
-    registerReactiveMaterial,
-    attachReactivity,
     sharedGeometries,
     createStandardNodeMaterial,
     uPlayerPosition,
     applyStandardDeformation,
-    createJuicyRimLight
-} from './index.ts';
+    createJuicyRimLight,
+} from './material-core.ts';
+import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
 import { $sn } from './material-core/tsl-types.ts';
 import { UnifiedMaterialOptions } from './material-core.ts';
 

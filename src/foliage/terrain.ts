@@ -5,7 +5,13 @@ import {
     distance, max, uv, texture
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, uPlayerPosition } from './index.ts';
+import {
+    CandyPresets,
+    uAudioLow,
+    uAudioHigh,
+    createRimLight,
+    uPlayerPosition,
+} from './material-core.ts';
 import { $sn } from './material-core/tsl-types.ts';
 
 /**

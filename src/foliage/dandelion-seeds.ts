@@ -31,7 +31,7 @@ import {
     uWindDirection,
     uWindStrength,
     createSugarSparkle,
-} from './index.ts';
+} from './material-core.ts';
 import { createJuicyRimLight } from './material-core.ts';
 
 const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits

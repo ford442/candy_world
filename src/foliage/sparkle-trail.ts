@@ -10,7 +10,7 @@ const modFloat = (x: any, y: any) => {
     const yf = float(y);
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
-import { uTime, uAudioHigh, uAudioLow } from './index.ts';
+import { uTime, uAudioHigh, uAudioLow } from './material-core.ts';
 
 const TRAIL_SIZE = 2000; // Increased buffer size for richer trails
 
