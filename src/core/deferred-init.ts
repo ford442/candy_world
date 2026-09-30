@@ -56,8 +56,8 @@ export function initDeferredVisuals() {
         return;
     }
 
-    // Arm the GPU compute library in the background so MeshDeformationGPU,
-    // NoiseGeneratorGPU, and GPUCullingSystem find a warm device on first use.
+    // Arm the GPU compute library in the background so the GPU foliage passes
+    // (foliage-gpu-batch, gpu-plant-pose) find a warm device on first use.
     // Resolves silently when WebGPU is unavailable; CPU/WASM fallbacks stay active.
     void import('../compute/compute-init.ts')
         .then(({ initGPUCompute }) => {

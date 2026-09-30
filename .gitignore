@@ -54,6 +54,11 @@ candy-world-*.tar.gz
 /test-proxy.ts
 /test-a11y-loading.mjs
 /test-audio-compatibility.mjs
+# A root copy of the ESLint baseline; the live one is scripts/eslint-baseline.json (#1827)
+/eslint-baseline.json
+# asc --bindings output; the loader imports the .wasm with ?init, so nothing uses these
+src/wasm/candy_physics.js
+src/wasm/candy_physics.d.ts
 # Vendored OpenMP archive required by emscripten/build.sh (-L vendor -lomp)
 !emscripten/vendor/libomp.a
 tests/boot-timing-report.json
@@ -99,7 +104,6 @@ patch_*.diff
 /*_old.*
 /*.patch
 /*.txt
-!/REFACTORING_FINAL_SUMMARY.txt
 /REPORT_*.md
 # Shell accidents: `npm … > candy_world@1.0.0`, `… > vite`
 /*@*

@@ -515,7 +515,7 @@ export function
 
 ## 9. References
 
-- `/root/candy_world/MIGRATION_STATUS.md` - Overall migration progress
+- `docs/archive/MIGRATION_STATUS.md` - Overall migration progress (archived 2026-09)
 - `/root/candy_world/PERFORMANCE_MIGRATION_STRATEGY.md` - Strategy document
 - `/root/candy_world/PHASE2_ROADMAP.md` - Roadmap for Phase 2
 - `/root/candy_world/assembly/` - AssemblyScript source

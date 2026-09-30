@@ -22,7 +22,7 @@
 | **Main Loop**            | `src/core/main.ts` + `src/core/game-loop.ts` (+ `game-loop-*.ts` phases)   | Orchestrate Audio, Physics, Weather, and Rendering. Handle the startup sequence.                           |
 | **World Gen**            | `src/world/generation-core.ts`                                             | Loads `assets/map.json`, spawns static assets (grass) and procedural extras (mushrooms/flowers).           |
 | **Physics**              | `src/systems/physics/index.ts`                                             | Bridges JS and WASM. Handles player movement, collision, and gravity.                                      |
-| **Weather**              | `src/systems/weather.ts`                                                   | Simulates wind, rain, and storm cycles. Controls global light levels.                                      |
+| **Weather**              | `src/systems/weather/weather.ts`                                           | Simulates wind, rain, and storm cycles. Controls global light levels.                                      |
 | **Audio/Music**          | `src/audio/audio-system.ts`                                                | Wraps `libopenmpt` (WASM) to play tracker music. Analyzes channels for reactivity.                         |
 | **Reactivity**           | `src/systems/music-reactivity.ts`                                          | Maps specific audio channels to visual effects (color shift, bounce, scale).                               |
 | **Foliage / Materials**  | `src/foliage/material-core.ts`                                             | Shared TSL material factories (`CandyPresets`, `createClayMaterial`) and geometry helpers.                 |

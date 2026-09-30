@@ -426,7 +426,7 @@ Cross-Origin-Embedder-Policy: require-corp
 - Code Style / TypeScript: Note that `src/foliage/types.ts:ChannelData` must be kept in sync with the richer shape actually produced by `audio-system.ts` (or centralize the authoritative type).
 - Adding New Features / New Game System: Music reactivity is the canonical example of "data-driven JSON bindings + TSL uniform groups + zero-alloc update + batcher TSL consumers".
 - Documentation Standards: For music/biome/shader reactivity work, always reference `music-bindings.json` deltas + the specific batchers that consume the new uniforms.
-- Existing Documentation Files list: Add `weekly_plan.md` and `plan.md` (living planning artifacts) and `DEVELOPER_CONTEXT.md`.
+- Existing Documentation Files list: Add `weekly_plan.md` (living planning artifact) and `DEVELOPER_CONTEXT.md`.
 
 ---
 
@@ -539,11 +539,11 @@ When implementing large visual changes:
 - `SETUP_GUIDE.md` — Development environment setup and Emscripten installation
 - `IMPLEMENTATION_SUMMARY.md` — Feature implementation history
 - `PERFORMANCE_MIGRATION_STRATEGY.md` — WASM migration guidelines (includes the "15% Rule") — lives at `docs/archive/PERFORMANCE_MIGRATION_STRATEGY.md`
-- `MIGRATION_STATUS.md` — Living tier table (TS / AS / C++ / WebGPU coverage)
-- `MIGRATION_TRACKER.md` — Prioritized next 15% slices + issue links
+- `docs/archive/MIGRATION_STATUS.md` — Tier table (TS / AS / C++ / WebGPU coverage), last updated 2026-07; archived
+- `docs/archive/MIGRATION_TRACKER.md` — Prioritized 15% slices + issue links as of 2026-07; archived
 - `SKY_ENHANCEMENTS.md` — Sky/weather system details
 - `WEATHER_INTEGRATION_SUMMARY.md` — Weather system architecture
-- `plan.md` and `weekly_plan.md` — Living task boards and completed work log (highest signal for "what just landed")
+- `weekly_plan.md` — Living task board and completed work log (highest signal for "what just landed")
 - `DEVELOPER_CONTEXT.md` — High-level architecture, hotspots, and gotchas (read on onboarding)
 - `docs/webgl-fallback.md` — states that WebGL is not available; old notes archived under `docs/archive/`
 - `CLAUDE.md` — Additional developer context and conventions
