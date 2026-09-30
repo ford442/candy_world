@@ -292,6 +292,7 @@ export class GlowingFlowerBatcher {
         }
 
         this.indexMap.set(logicObject.uuid, i);
+        logicObject.userData.isBatched = true;
         this.logicObjects[i] = logicObject;
         this.count++;
 

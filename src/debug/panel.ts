@@ -741,12 +741,12 @@ export class DebugPanel {
         const bytesToMb = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
         const rows = topEntries.map((entry) => {
             const utilization = entry.capacity > 0 ? (entry.instances / entry.capacity) * 100 : 0;
-            return `${entry.label.padEnd(18)} ${String(entry.instances).padStart(4)}/${String(entry.capacity).padEnd(4)} ${utilization.toFixed(0).padStart(3)}%`;
+            return `${entry.label.padEnd(18)} ${String(entry.instances).padStart(4)}/${String(entry.capacity).padEnd(4)} ${utilization.toFixed(0).padStart(3)}% ${bytesToMb(entry.byteLength)}`;
         });
         this.batcherStatsEl.textContent =
             `Batcher Stats\n` +
             `Instances: ${telemetry.totalInstances}/${telemetry.totalCapacity}  Draws: ${telemetry.totalDrawCalls}\n` +
-            `Est. VRAM: ${bytesToMb(telemetry.totalEstimatedVramBytes)}\n` +
+            `Est. VRAM: ${bytesToMb(telemetry.totalEstimatedVramBytes)}  Instance bufs: ${bytesToMb(telemetry.totalByteLength)}\n` +
             rows.join('\n');
     }
 

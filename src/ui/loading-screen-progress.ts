@@ -371,20 +371,8 @@ export function hideDeferredIndicator(): void {
 /**
  * Set progress on the deferred indicator
  */
-export function setDeferredProgress(
-    completed: number,
-    total: number,
-    failed?: number,
-    etaMs?: number
-): void {
-    globalLoadingScreen?.setDeferredProgress(completed, total, failed, etaMs);
-}
-
-/**
- * Set deferred spawn failure count badge
- */
-export function setDeferredFailures(failed: number): void {
-    globalLoadingScreen?.setDeferredFailures(failed);
+export function setDeferredProgress(completed: number, total: number, etaMs?: number): void {
+    globalLoadingScreen?.setDeferredProgress(completed, total, etaMs);
 }
 
 /**

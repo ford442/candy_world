@@ -29,6 +29,11 @@ export class SugarCaveBatcher {
     private _count = 0;
     private logicObjects: THREE.Object3D[] = [];
 
+    /** Instanced mesh (null until first use) — read by batcher telemetry. */
+    get mesh(): THREE.InstancedMesh | null {
+        return this._mesh;
+    }
+
     init(): void {
         if (this._mesh) return;
 
@@ -117,6 +122,8 @@ export class SugarCaveBatcher {
         this.add(logicObject.position, logicObject.quaternion, logicObject.scale.y);
 
         logicObject.userData.batchIndex = i;
+        logicObject.userData.type = 'sugar_cave';
+        logicObject.userData.isBatched = true;
         this.logicObjects[i] = logicObject;
     }
 
