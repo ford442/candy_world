@@ -25,7 +25,7 @@ export {
 } from './culling/index.ts';
 
 // Material types and interfaces
-export * from './material_types.ts';
+export * from './material-types.ts';
 
 // Material creation functions and factory
 export {

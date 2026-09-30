@@ -1,12 +1,10 @@
 // vite.config.js
 import { defineConfig } from 'vite';
-import wasm from 'vite-plugin-wasm';
 
 
 // Set modern build target so top-level await in dependencies (e.g. three/examples WebGPU helper)
 // doesn't get transformed to an unsupported lower target during bundle/transpile.
 export default defineConfig({
-    plugins: [wasm()],
     base: './',
     build: {
         sourcemap: true,
@@ -244,13 +242,13 @@ export default defineConfig({
         legalComments: 'none',
     },
     // Ensure optimizeDeps only scans the app root entry (index.html) and targets
-    // modern JS (esnext) so top-level await in dependencies is preserved.
+    // es2022 (like build and esbuild above) so top-level await in dependencies is preserved.
     optimizeDeps: {
         // Force dependency scanning to the app's root index -- don't scan test HTML files
         // inside emsdk or other bundles which can include non-app modules such as loader.mjs.
         entries: ['./index.html'],
         esbuildOptions: {
-            target: 'esnext',
+            target: 'es2022',
         },
     },
     server: {
@@ -272,6 +270,5 @@ export default defineConfig({
     // Ensure the worker file is treated correctly if using Vite's worker import (optional but safe)
     worker: {
         format: 'es',
-        plugins: () => [wasm()],
     },
 });

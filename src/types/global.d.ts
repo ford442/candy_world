@@ -213,7 +213,7 @@ declare module '*/src/utils/wasm-loader.ts' {
     export const LOADING_PHASES: any;
 }
 
-// Declare WASM module imports (Vite with vite-plugin-wasm)
+// Declare WASM module imports (Vite's built-in `?init` suffix)
 // Using a specific path pattern that TypeScript can resolve
 declare module '../wasm/candy_physics.wasm?init' {
     const initWasm: (importObject?: WebAssembly.Imports) => Promise<WebAssembly.Instance>;
@@ -234,7 +234,3 @@ declare module '*/src/utils/profiler.ts' {
     };
 }
 
-declare module '*/src/foliage/fluid_fog.js' {
-    import { Mesh } from 'three';
-    export function createFluidFog(width?: number, depth?: number): Mesh;
-}

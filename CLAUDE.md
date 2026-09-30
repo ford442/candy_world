@@ -10,7 +10,7 @@ The primary play experience is first-person: click to pointer-lock, use mouse-lo
 ### Key Technologies
 
 - **Rendering**: Three.js with WebGPU renderer and TSL (Three.js Shading Language)
-- **Build System**: Vite (with WASM and top-level await plugins)
+- **Build System**: Vite (no plugins: WASM loads through Vite's built-in `?init` import, and the `es2022` target keeps top-level await)
 - **Language**: TypeScript (strict mode)
 - **Performance**: AssemblyScript compiled to WASM for physics and particle simulation
 - **Testing**: Playwright for smoke/boot tests, Node.js for WASM tests
@@ -157,7 +157,7 @@ This structure prioritizes loading the core scene first, with heavy systems (aud
 Ground height queries:
 ```typescript
 // Fast WASM-backed query (cached, spatial grid)
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
+import { getUnifiedGroundHeightTyped } from '../systems/physics/physics-math.ts';
 const height = getUnifiedGroundHeightTyped(x, z);
 
 // Alternative (direct WASM call)
@@ -306,7 +306,7 @@ npm run budget:check  # Verify chunk size constraints
 ### WASM Import Failures
 - Ensure `npm run build:wasm` completes successfully
 - Check `src/wasm/candy_physics.wasm` exists
-- Top-level await requires ES2022+ and Vite's top-level-await plugin
+- Top-level await requires the `es2022` build target (set in `vite.config.js` and `tsconfig.json`)
 
 ### Long Boot Times
 - First run after `npm run build`: Shader compilation (~30–60s), world generation (~20–30s)

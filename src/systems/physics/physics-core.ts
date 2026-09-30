@@ -46,7 +46,7 @@ import {
 } from '../ground-system.ts';
 
 const _characterGroundQuery = { sampleFootprint: sampleGroundFootprint, getGroundHeight };
-import { calculateMovementInput } from '../physics.core.ts';
+import { calculateMovementInput } from './physics-math.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { resolveCharacterMovement } from './character-controller.ts';
 import { handleAbilities } from './physics-abilities.ts';

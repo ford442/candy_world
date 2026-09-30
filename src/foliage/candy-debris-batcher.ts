@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { varyingProperty, float } from 'three/tsl';
 import { getCIAdjustedCount } from '../core/config.ts';
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
+import { getUnifiedGroundHeightTyped } from '../systems/physics/physics-math.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import { CandyPresets, createJuicyRimLight } from './material-core.ts';

@@ -44,7 +44,11 @@ export function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher'
     }
 }
 
-export function safeSystemUpdate(updateFn: any, label: string, ...args: any[]) {
+export function safeSystemUpdate<A extends unknown[]>(
+    updateFn: ((...args: A) => unknown) | null | undefined,
+    label: string,
+    ...args: A
+): void {
     if (typeof updateFn !== 'function') return;
     try {
         updateFn(...args);

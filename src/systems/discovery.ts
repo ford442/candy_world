@@ -4,7 +4,7 @@ import { trapFocusInside } from '../utils/focus-trap.ts';
 import { showToast } from '../utils/toast.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { discoveryPersistence } from './discovery-persistence.ts';
-import { DISCOVERY_MAP } from './discovery_map.ts';
+import { DISCOVERY_MAP } from './discovery-map.ts';
 
 /**
  * Manages the discovery of rare flora and environmental features.
