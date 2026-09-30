@@ -310,6 +310,7 @@ export class DandelionBatcher {
 
         // Store batch index on logic object for later updates (like harvesting)
         logicObject.userData.batchIndex = i;
+        logicObject.userData.isBatched = true;
         this.logicObjects[i] = logicObject;
     }
 

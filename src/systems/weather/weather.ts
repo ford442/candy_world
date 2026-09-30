@@ -194,6 +194,19 @@ export class WeatherSystem {
     }
 
     /**
+     * Stop tracking a mushroom. Giant mushrooms own a rain waterfall keyed by their
+     * uuid; without this an evicted giant would keep re-adding it every time it rains.
+     */
+    unregisterMushroom(mushroom: { uuid: string } | null): void {
+        if (!mushroom) return;
+        const index = this.trackedMushrooms.indexOf(mushroom);
+        if (index !== -1) this.trackedMushrooms.splice(index, 1);
+        if (this.mushroomWaterfalls.delete(mushroom.uuid)) {
+            waterfallBatcher.remove(mushroom.uuid);
+        }
+    }
+
+    /**
      * Register a cave for tracking
      */
     registerCave(cave: any): void {

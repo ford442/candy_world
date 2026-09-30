@@ -3,7 +3,9 @@
 // state.ts tracking arrays, and the scene graph. Shared by ChunkStreamer
 // eviction and edit-history undo so both remove exactly the same things.
 import type * as THREE from 'three';
+import { unregisterCloudPlatform } from '../debug/tools-stub.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
+import { CloudBatcher } from '../foliage/cloud-batcher.ts';
 import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { gemFruitBatcher } from '../foliage/gem-fruit-batcher.ts';
@@ -21,6 +23,7 @@ import { sugarCaveBatcher } from '../foliage/sugar-cave-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { waterfallBatcher } from '../foliage/waterfall-batcher.ts';
 import { releaseLocalLight } from '../rendering/lights.ts';
+import { unregisterWalkableCloudPlatform } from '../systems/ground-system.ts';
 import { unregisterPhysicsCave } from '../systems/physics/index.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import type { WeatherSystem } from './generation-utils.ts';
@@ -48,6 +51,9 @@ import {
  * would desync an InstancedMesh's index bookkeeping). Every currently-known
  * batched species with an eviction path is matched explicitly before this
  * fallback; it only guards a future batched species that hasn't been wired in yet.
+ * Batchers stamp `userData.isBatched` on every proxy they register, so a new
+ * species lands here (permanent, harmless) rather than in 'full' (torn down
+ * without a free-list) until it gets its own branch.
  */
 function isKnownBatchedType(obj: THREE.Object3D): boolean {
     return !!obj.userData?.isBatched;
@@ -73,6 +79,7 @@ export type EvictionClass =
     | 'glowingFlower'
     | 'sugarCave'
     | 'nightMarketStall'
+    | 'cloud'
     | 'never';
 
 export function classifyForEviction(obj: THREE.Object3D): EvictionClass {
@@ -80,6 +87,9 @@ export function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'tree' && obj.userData?.animationType === 'batchedPortamento') {
         return 'portamentoPine';
     }
+    // createCymbalDandelion stamps type 'flower' (interaction / discovery key on it),
+    // so its DandelionBatcher slot is only reachable through the animation tag.
+    if (obj.userData?.animationType === 'batchedCymbal') return 'dandelion';
     if (
         t === 'tree' ||
         t === 'shrub' ||
@@ -114,6 +124,7 @@ export function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'glowing_flower') return 'glowingFlower';
     if (t === 'sugar_cave') return 'sugarCave';
     if (t === 'night_market_stall') return 'nightMarketStall';
+    if (t === 'cloud') return 'cloud';
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -151,6 +162,7 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
 
     if (evictionClass === 'mushroom') {
         mushroomBatcher.removeInstance(obj);
+        weatherSystem?.unregisterMushroom?.(obj);
     } else if (evictionClass === 'lantern') {
         lanternBatcher.removeInstance(obj);
     } else if (evictionClass === 'glassMushroom') {
@@ -187,14 +199,29 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
         glowingFlowerBatcher.removeInstance(obj);
     } else if (evictionClass === 'sugarCave') {
         sugarCaveBatcher.removeInstance(obj);
+    } else if (evictionClass === 'cloud') {
+        // One CloudBatcher per tier; each removeInstance is a no-op for a cloud it doesn't own.
+        CloudBatcher.getInstance().removeInstance(obj);
+        CloudBatcher.getWalkableInstance().removeInstance(obj);
+        if (obj.userData?.isWalkable) {
+            unregisterWalkableCloudPlatform(obj);
+            unregisterCloudPlatform(obj);
+        }
     } else if (evictionClass === 'cave') {
         unregisterPhysicsCave(obj);
         weatherSystem?.unregisterCave?.(obj);
         if (typeof obj.userData.caveLightHandle === 'string') {
             releaseLocalLight(obj.userData.caveLightHandle);
         }
+        // The rain-fed waterfall column is keyed by the cave's uuid (updateCaveWaterLevel),
+        // not by its gate proxy; unregistering the cave stops it ever being removed otherwise.
         waterfallBatcher.remove(obj.uuid);
         obj.userData.waterfallActive = false;
+    }
+    // Gems can hang off any tree species (attachGemFruits), not just gem_canopy_tree,
+    // and the dispatch above only frees the tree's own batcher slots.
+    if (Array.isArray(obj.userData?.gemRefs) && obj.userData.gemRefs.length > 0) {
+        gemFruitBatcher.removeInstance(obj);
     }
     // Discovery registration is intentionally left in place — the discovery
     // grid (WASM/AS) has no unregister API (see .swarm-state.md).

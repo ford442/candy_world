@@ -235,6 +235,7 @@ export class LuminousPlantBatcher {
 
         this.uuidToIndex.set(group.uuid, id);
         this.logicObjects[id] = group;
+        group.userData.isBatched = true;
         this.count++;
         this.mesh.count = this.count;
 

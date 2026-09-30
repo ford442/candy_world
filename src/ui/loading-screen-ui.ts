@@ -236,24 +236,10 @@ export class LoadingScreen {
     }
 
     /**
-     * Update the deferred indicator's progress bar and count
+     * Update the deferred indicator's progress bar, count, ETA and spawn-failure badge.
+     * @param etaMs  Estimated milliseconds remaining (-1 = unknown).
      */
-    /**
-     * @param failedHint  Optional pre-computed failed count from LoadingManager state;
-     *                    falls back to SpawnTracker.getReport() when omitted.
-     * @param etaMs       Estimated milliseconds remaining (-1 = unknown).
-     */
-    setDeferredFailures(failed: number): void {
-        if (!this.deferredIndicator) return;
-        updateSpawnFailureBadge(this.deferredIndicator, failed);
-    }
-
-    setDeferredProgress(
-        completed: number,
-        total: number,
-        failedHint?: number,
-        etaMs: number = -1
-    ): void {
+    setDeferredProgress(completed: number, total: number, etaMs: number = -1): void {
         if (!this.deferredIndicator) return;
         const pct = total > 0 ? Math.min(100, Math.max(0, (completed / total) * 100)) : 0;
         const fill = this.deferredIndicator.querySelector(
@@ -278,9 +264,10 @@ export class LoadingScreen {
             }
         }
 
-        // Spawn failure badge — use hint from manager when available, else query tracker.
+        // Spawn failure badge counts objects that failed to spawn (spawn tracker),
+        // not failed background tasks — a broken entity is caught inside its task.
         try {
-            updateSpawnFailureBadge(this.deferredIndicator, failedHint);
+            updateSpawnFailureBadge(this.deferredIndicator);
         } catch {
             // tracker not ready — silent
         }
@@ -638,7 +625,6 @@ export class LoadingScreen {
             this.setDeferredProgress(
                 state.deferredCompleted,
                 state.deferredTotal,
-                state.deferredFailed,
                 state.deferredEtaMs
             );
         }

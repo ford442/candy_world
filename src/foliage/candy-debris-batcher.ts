@@ -68,6 +68,8 @@ export interface DebrisStats {
     capacity: number;
     drawCalls: number;
     castingShadows: boolean;
+    /** Live byteLength of the instance buffers (0 until the first burst builds the mesh). */
+    byteLength: number;
 }
 
 /** Faceted flake: an icosahedron squashed on Z so it reads as a broken chip. */
@@ -317,6 +319,9 @@ export class CandyDebrisBatcher {
             capacity: this.capacity,
             drawCalls: this.mesh && this.count > 0 ? 1 : 0,
             castingShadows: this.mesh?.castShadow ?? false,
+            byteLength:
+                (this.mesh?.instanceMatrix.array.byteLength ?? 0) +
+                (this.mesh?.instanceColor?.array.byteLength ?? 0),
         };
     }
 
@@ -351,7 +356,7 @@ export function updateCandyDebris(delta: number): void {
 /** Telemetry-safe stats; zeroed when nothing has spawned yet. */
 export function getCandyDebrisStats(): DebrisStats {
     if (!CandyDebrisBatcher.peekMesh()) {
-        return { count: 0, capacity: MAX_DEBRIS, drawCalls: 0, castingShadows: false };
+        return { count: 0, capacity: MAX_DEBRIS, drawCalls: 0, castingShadows: false, byteLength: 0 };
     }
     return CandyDebrisBatcher.getInstance().getStats();
 }

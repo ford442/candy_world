@@ -16,7 +16,6 @@ export {
     showDeferredIndicator,
     hideDeferredIndicator,
     setDeferredProgress,
-    setDeferredFailures,
     hideLoadingScreen,
     updateProgress,
     setLoadingStatus,

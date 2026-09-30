@@ -128,6 +128,7 @@ declare global {
             totalCapacity: number;
             totalDrawCalls: number;
             totalEstimatedVramBytes: number;
+            totalByteLength: number;
             entries: Array<{
                 id: string;
                 label: string;
@@ -135,8 +136,13 @@ declare global {
                 capacity: number;
                 drawCalls: number;
                 estimatedVramBytes: number;
+                byteLength: number;
             }>;
         };
+        /** Live instance count per batcher id (see batcher-telemetry.ts). */
+        __batcherCounts?: () => Record<string, number>;
+        /** Live instance count + instance-buffer byteLength per batcher id. */
+        __batcherBuffers?: () => Record<string, { count: number; byteLength: number }>;
         __getFogTelemetry?: () => {
             targetNear: number;
             targetFar: number;
