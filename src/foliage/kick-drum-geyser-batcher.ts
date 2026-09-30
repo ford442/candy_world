@@ -6,13 +6,13 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     CandyPresets,
     uTime,
     applyStandardDeformation,
     createJuicyRimLight,
 } from './material-core.ts';
-import { registerReactiveMaterial } from './foliage-reactivity.ts';
 
 const MAX_GEYSERS = 500;
 

@@ -39,6 +39,9 @@ importers:
       eslint-plugin-import:
         specifier: ^2.32.0
         version: 2.32.0(@typescript-eslint/parser@8.69.0(eslint@9.39.5)(typescript@5.9.3))(eslint@9.39.5)
+      globals:
+        specifier: ^14.0.0
+        version: 14.0.0
       playwright:
         specifier: 1.63.0
         version: 1.63.0

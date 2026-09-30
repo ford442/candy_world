@@ -6,7 +6,9 @@ import {
     positionLocal, positionWorld, vec3
 } from 'three/tsl';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
+import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
 import { spawnImpact } from './impacts.ts';
+import { $sn } from './material-core/tsl-types.ts';
 import {
     createUnifiedMaterial,
     sharedGeometries,
@@ -15,8 +17,6 @@ import {
     applyStandardDeformation,
     createJuicyRimLight,
 } from './material-core.ts';
-import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
-import { $sn } from './material-core/tsl-types.ts';
 import { UnifiedMaterialOptions } from './material-core.ts';
 
 export interface PanningPadOptions {

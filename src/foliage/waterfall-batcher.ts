@@ -18,6 +18,8 @@ const modFloat = (x: any, y: any) => {
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts';
+import { foliageMaterials } from './foliage-materials.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     sharedGeometries,
     uTime,
@@ -27,8 +29,6 @@ import {
     createJuicyRimLight,
     applyStandardDeformation,
 } from './material-core.ts';
-import { foliageMaterials } from './foliage-materials.ts';
-import { registerReactiveMaterial } from './foliage-reactivity.ts';
 
 const MAX_WATERFALLS = getCIAdjustedCount(50, 0.2, 10); // Reduced from 200 for WebGPU uniform buffer limits
 const SPLASHES_PER_WATERFALL = 8;

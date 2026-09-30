@@ -22,13 +22,14 @@ native-assist ABI (skips without `build:emcc` output), world health,
 fauna behaviour, presence protocol, Sugar Caves and Sky Islands traversal,
 startup capabilities, world extent, local/clustered lights, irradiance probes,
 post-FX, ground system and unified-ground parity, foliage interaction, shadow
-cascades, atmosphere reactivity, cookbook presets) plus two repo-integrity
-guards (`test:docs-symbols`, `test:plan-integrity`).
+cascades, atmosphere reactivity, cookbook presets) plus four repo-integrity
+guards (`test:docs-symbols`, `test:plan-integrity`, `test:foliage-barrel`,
+`test:cycles`).
 
 **What it catches:** any regression in the pure-logic layer — physics and WASM
 parity, world/entity data contracts, rendering *configuration* — plus docs that
-cite config knobs which do not exist, and find-and-replace vandalism of
-`weekly_plan.md`.
+cite config knobs which do not exist, find-and-replace vandalism of
+`weekly_plan.md`, and any new runtime import cycle reachable from `src/main.ts`.
 
 **What it does NOT catch:** anything that requires actually rendering a frame.
 No browser is launched. A shader that fails to compile, a black screen, a
@@ -51,11 +52,34 @@ Chromium with WebGPU. **Do not wire this into a CI job** without also adding
 before merging. That omission is exactly what turned `Node protocol tests` red
 on 2026-09-22 (commit `90bd6c1`).
 
-## `npm run typecheck` / `npm run lint` — ratchets
+## `npm run typecheck` / `npm run lint` / `npm run test:cycles` — ratchets
 
-Separate workflows (`typecheck.yml`, `lint.yml`). Both compare against a
-committed baseline and fail on any increase. Current baselines: 0 type errors,
-1959 ESLint warnings.
+Separate workflows (`typecheck.yml`, `lint.yml`; `test:cycles` runs in both
+`lint.yml` and `test:fast`). Each compares against a committed baseline in
+`scripts/` and fails on any increase. None of them writes its baseline as a side
+effect: lower counts are locked in with `-- --update`. Current baselines
+(2026-09-30, #1827): **0** type errors, **0** runtime import cycles, **4988**
+ESLint warnings / 0 errors.
+
+- `typecheck` counts every `error TSnnnn` line, including tsconfig and global
+  errors, and fails when tsc exits non-zero without a parseable error. Before
+  #1827 it counted only `src/…` lines, so a broken tsconfig read as 0 errors.
+- `test:cycles` (`scripts/cycles-ratchet.mjs`) builds the madge graph from
+  `src/main.ts` (type-only imports skipped) and gates on the number of modules
+  and imports inside strongly connected components. It does not gate on madge's
+  own `circular()` count, which depends on traversal order: the same graph gives
+  26 or 64 depending on `baseDir`, and adding a real cycle can make it go down.
+  The baseline must match exactly, so a PR that removes a cycle must also run
+  `npm run test:cycles -- --update`. Proven red by adding
+  `import '../foliage/index.ts'` to `src/utils/log.ts`: exit 1, naming that
+  import as the one that closes the loop.
+- `lint` now runs `recommendedTypeChecked` on `src/**/*.ts` (type-aware rules at
+  `warn`), `import/no-cycle` at `error`, and module-boundary
+  `no-restricted-imports` (no `src/debug/` from world/systems/foliage, no foliage
+  barrel from inside `src/foliage/`). The baseline went from 1888 to 4988 because
+  of the type-aware rules alone: the pre-#1827 rule set dropped to 1800.
+  Type-aware linting takes about 2 minutes, and `lint.yml` runs ESLint twice
+  (gate plus human-readable report).
 
 ## `Visual Regression Tests` — DISABLED 2026-09-23
 

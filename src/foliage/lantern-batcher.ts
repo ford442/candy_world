@@ -13,6 +13,7 @@ import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
 import { foliageGroup } from '../world/state.ts';
+import { foliageMaterials } from './foliage-materials.ts';
 import {
     sharedGeometries,
     uTime,
@@ -24,7 +25,6 @@ import {
     createStandardNodeMaterial,
     createUnifiedMaterial,
 } from './material-core.ts';
-import { foliageMaterials } from './foliage-materials.ts';
 import { uTwilight } from './sky.ts';
 
 const MAX_LANTERNS = getCIAdjustedCount(250, 0.2, 50); // Reduced from 1000 for WebGPU uniform buffer limits

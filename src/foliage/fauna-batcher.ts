@@ -12,8 +12,8 @@ import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { FaunaSpecies } from '../systems/fauna/types.ts';
 import { foliageGroup } from '../world/state.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
-import { CandyPresets, uTime, uAudioLow, createJuicyRimLight } from './material-core.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
+import { CandyPresets, uTime, uAudioLow, createJuicyRimLight } from './material-core.ts';
 
 const SPECIES_LABELS = ['gumdrop_beetle', 'jellybean_hopper', 'sugar_moth'] as const;
 
