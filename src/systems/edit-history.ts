@@ -1,6 +1,3 @@
-import { type EntitySnapshot } from './entity-snapshot-core.ts';
-
-
 /**
  * @file src/systems/edit-history.ts
  * @brief Undo/redo stack of world edits.
@@ -57,19 +54,37 @@ export class EditHistory {
         this.redoStack.length = 0; // Clear redo on new push
     }
 
-    undo(): void {
+    /**
+     * Revert the most recent command. A command that throws is dropped from
+     * history rather than moved to redo: its world state is unknown, and
+     * leaving it on the undo stack would block every earlier step.
+     */
+    undo(): boolean {
         const cmd = this.undoStack.pop();
-        if (!cmd) return;
-        cmd.revert();
+        if (!cmd) return false;
+        try {
+            cmd.revert();
+        } catch (err) {
+            console.warn('[EditHistory] Command failed to revert; dropped from history:', err);
+            return false;
+        }
         this.redoStack.push(cmd);
+        return true;
     }
 
-    redo(): void {
+    /** Re-apply the most recently undone command. Same drop-on-throw rule as undo(). */
+    redo(): boolean {
         const cmd = this.redoStack.pop();
-        if (!cmd) return;
-        cmd.apply();
+        if (!cmd) return false;
+        try {
+            cmd.apply();
+        } catch (err) {
+            console.warn('[EditHistory] Command failed to re-apply; dropped from history:', err);
+            return false;
+        }
         this.undoStack.push(cmd);
-
+        return true;
+    }
 
     clear(): void {
         this.undoStack.length = 0;
