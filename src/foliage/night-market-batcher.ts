@@ -288,8 +288,8 @@ export class NightMarketBatcher {
         proxy.userData.nightMarketSlot = i;
         proxy.userData.isBatched = true;
 
-        proxy.updateMatrix();
-        _scratchMatrix.copy(proxy.matrix);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and dummy.updateMatrix() overhead.
+        _scratchMatrix.compose(proxy.position, proxy.quaternion, proxy.scale);
         if (proxy.parent) {
             proxy.parent.updateMatrixWorld();
             _scratchMatrix.premultiply(proxy.parent.matrixWorld);
