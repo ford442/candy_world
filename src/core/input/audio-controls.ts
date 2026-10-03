@@ -34,12 +34,12 @@ export function initAudioControls(audioSystem: AudioSystem): void {
     if (volDownBtn) {
         const isMin = audioSystem.volume <= 0.01;
         volDownBtn.title = isMin ? "Minimum volume reached" : `Decrease Volume (-) • ${initialVolPct}%`;
-        volDownBtn.setAttribute('aria-label', isMin ? "Decrease Volume (Disabled: Minimum reached)" : `Decrease Volume (Current: ${initialVolPct}%)`);
+        volDownBtn.setAttribute('aria-label', 'Decrease Volume');
     }
     if (volUpBtn) {
         const isMax = audioSystem.volume >= 0.99;
         volUpBtn.title = isMax ? "Maximum volume reached" : `Increase Volume (+) • ${initialVolPct}%`;
-        volUpBtn.setAttribute('aria-label', isMax ? "Increase Volume (Disabled: Maximum reached)" : `Increase Volume (Current: ${initialVolPct}%)`);
+        volUpBtn.setAttribute('aria-label', 'Increase Volume');
     }
     if (toggleMuteBtn) toggleMuteBtn.title = audioSystem.isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';
 
@@ -116,26 +116,16 @@ export const adjustVolume = (delta: number) => {
         volDownBtn.setAttribute('aria-disabled', String(isMin));
         // 🎨 Palette: Explain why the button is disabled
         volDownBtn.title = isMin ? "Minimum volume reached" : `Decrease Volume (-) • ${percentage}%`;
-        volDownBtn.setAttribute('aria-label', isMin ? "Decrease Volume (Disabled: Minimum reached)" : `Decrease Volume (Current: ${percentage}%)`);
     }
     if (volUpBtn) {
         volUpBtn.setAttribute('aria-disabled', String(isMax));
         // 🎨 Palette: Explain why the button is disabled
         volUpBtn.title = isMax ? "Maximum volume reached" : `Increase Volume (+) • ${percentage}%`;
-        volUpBtn.setAttribute('aria-label', isMax ? "Increase Volume (Disabled: Maximum reached)" : `Increase Volume (Current: ${percentage}%)`);
     }
 
     const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
 
     showToast(`Volume: ${percentage}% ${icon}`, icon);
-
-    if (isMin) {
-        announcePolite('Volume at minimum');
-    } else if (isMax) {
-        announcePolite('Volume at maximum');
-    } else {
-        announceValueChange('Volume', `${percentage}%`);
-    }
 };
 
 /**
