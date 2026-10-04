@@ -18,7 +18,7 @@ export interface WorldCommand {
     apply(): void;
     /** Undo the edit. Throw if it cannot be reverted. */
     revert(): void;
-    serialize(): SerializedWorldCommand;
+    serialize(): SerializedWorldCommand | null;
 }
 
 export class EditHistory {
