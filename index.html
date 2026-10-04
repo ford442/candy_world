@@ -64,8 +64,6 @@
             id="nowPlayingContainer"
             class="now-playing-info"
             style="display: none;"
-            aria-live="polite"
-            aria-atomic="true"
         >
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
@@ -108,7 +106,7 @@
                 <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </button>
 
-        <button type="button" role="switch" aria-checked="false" id="toggleDayNight" class="toggle-button" aria-keyshortcuts="N" aria-label="Switch to Night" title="Switch to Night (N)">
+        <button type="button" role="switch" aria-checked="false" id="toggleDayNight" class="toggle-button" aria-keyshortcuts="N" aria-label="Night Mode" title="Switch to Night (N)">
                 <span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>
             </button>
 
@@ -218,7 +216,7 @@
     <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1" aria-hidden="true">
         <button type="button" id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox" title="Close Jukebox (Esc)"><span aria-hidden="true">×</span></button>
         <h2 id="playlist-title"><span aria-hidden="true">🎵</span> Jukebox</h2>
-        <ul id="playlist-list" aria-label="Current playlist" aria-live="polite" aria-atomic="true">
+        <ul id="playlist-list" aria-label="Current playlist">
         </ul>
         
         <div class="playlist-controls">

@@ -240,7 +240,8 @@ export const MENU_STYLES = `
 }
 
 .candy-save-slot:hover .candy-save-slot__actions,
-.candy-save-slot:focus-within .candy-save-slot__actions {
+.candy-save-slot:focus-within .candy-save-slot__actions,
+.candy-save-slot:focus-visible .candy-save-slot__actions {
     opacity: 1;
 }
 
