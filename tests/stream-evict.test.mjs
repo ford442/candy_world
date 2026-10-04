@@ -7,10 +7,13 @@ global.document = {
     createElement: () => ({ style: {} }),
 };
 global.performance = { now: () => Date.now() };
+import { waterfallBatcher } from "../src/foliage/waterfall-batcher.ts";
 global.foliageGroup = new THREE.Group();
 
 import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
 import { gemFruitBatcher } from '../src/foliage/gem-fruit-batcher.ts';
+import { despawnEntity } from '../src/world/entity-despawn.ts';
+import { foliageCaves } from '../src/systems/physics/physics-types.ts';
 import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
 import { subwooferLotusBatcher } from '../src/foliage/subwoofer-lotus-batcher.ts';
 import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
@@ -168,6 +171,41 @@ async function runTests() {
         console.log('  ✓ classifyForEviction handles all known types correctly');
         passed++;
 
+        // 8. Cave
+        const caveId = THREE.MathUtils.generateUUID();
+        const caveObj = new THREE.Group();
+        caveObj.uuid = caveId;
+        caveObj.userData.type = 'cave';
+        caveObj.userData.caveLightHandle = 'cave_light_123';
+        caveObj.userData.waterfallActive = true;
+
+        foliageCaves.push(caveObj);
+
+        // create a fake weather system for test
+        const trackedCaves = [caveObj];
+        const fakeWeatherSystem = {
+            unregisterCave: (c) => {
+                const idx = trackedCaves.indexOf(c);
+                if (idx !== -1) trackedCaves.splice(idx, 1);
+            }
+        };
+
+        waterfallBatcher.add(caveId, new THREE.Vector3(), 5, 2);
+
+        assert.equal(foliageCaves.length, 1, 'Cave should be in foliageCaves');
+        assert.equal(trackedCaves.length, 1, 'Cave should be in trackedCaves');
+
+        despawnEntity(caveObj, fakeWeatherSystem);
+
+        assert.equal(foliageCaves.length, 0, 'Cave should be removed from foliageCaves');
+        assert.equal(trackedCaves.length, 0, 'Cave should be removed from trackedCaves');
+        // Waterfall count might not be 0 since the previous test adds/removes but let's check
+        // wait, we removed waterfall above so count was 0, now we add 1, then despawnEntity removes it.
+        assert.equal(waterfallBatcher.count, 0, 'Cave waterfall should be removed from batcher');
+        assert.equal(caveObj.userData.waterfallActive, false, 'waterfallActive should be false');
+
+        console.log('  ✓ Cave despawn path successful');
+        passed++;
 
     } catch (err) {
         console.error('❌ Test failed!', err);
