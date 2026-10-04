@@ -13,6 +13,10 @@ export function setupExploreToggle(session: InputSession): void {
             toggleExploreBtn.innerHTML = active
                 ? '<span aria-hidden="true">🚶</span> First-Person <span class="key-badge" aria-hidden="true">Tab</span>'
                 : '<span aria-hidden="true">🎥</span> Explore Mode <span class="key-badge" aria-hidden="true">Tab</span>';
+            toggleExploreBtn.setAttribute(
+                'aria-label',
+                active ? 'Toggle First-person camera mode' : 'Toggle Explore camera mode'
+            );
             toggleExploreBtn.title = active
                 ? 'Return to first-person view (Tab)'
                 : 'Cinematic orbit camera (hold Tab)';

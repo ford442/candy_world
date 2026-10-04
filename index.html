@@ -64,8 +64,6 @@
             id="nowPlayingContainer"
             class="now-playing-info"
             style="display: none;"
-            aria-live="polite"
-            aria-atomic="true"
         >
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
@@ -108,14 +106,14 @@
                 <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </button>
 
-        <button type="button" role="switch" aria-checked="false" id="toggleDayNight" class="toggle-button" aria-keyshortcuts="N" aria-label="Day and night" title="Switch to Night (N)">
+        <button type="button" role="switch" aria-checked="false" id="toggleDayNight" class="toggle-button" aria-keyshortcuts="N" aria-label="Night Mode" title="Switch to Night (N)">
                 <span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>
             </button>
 
             <button type="button" id="volDownBtn" class="toggle-button" aria-label="Decrease Volume" aria-keyshortcuts="-" title="Decrease Volume (-)">
                 <span aria-hidden="true">&minus;</span> <span class="key-badge" aria-hidden="true">-</span>
             </button>
-        <button type="button" role="switch" aria-checked="false" id="toggleMuteBtn" class="toggle-button" aria-keyshortcuts="M" aria-label="Mute audio">
+        <button type="button" role="switch" aria-checked="false" id="toggleMuteBtn" class="toggle-button" aria-keyshortcuts="M" aria-label="Mute Audio">
                 <span aria-hidden="true">🔊</span> Mute <span class="key-badge" aria-hidden="true">M</span>
             </button>
             <button type="button" id="volUpBtn" class="toggle-button" aria-label="Increase Volume" aria-keyshortcuts="+" title="Increase Volume (+)">
@@ -126,7 +124,7 @@
                 Open Jukebox <span class="key-badge" aria-hidden="true">Q</span>
             </button>
 
-        <button type="button" role="switch" aria-checked="false" id="toggleExploreBtn" class="toggle-button" aria-keyshortcuts="Tab" aria-label="Explore camera" title="Cinematic orbit camera (hold Tab)">
+        <button type="button" role="switch" aria-checked="false" id="toggleExploreBtn" class="toggle-button" aria-keyshortcuts="Tab" aria-label="Toggle Explore camera mode" title="Cinematic orbit camera (hold Tab)">
                 <span aria-hidden="true">🎥</span> Explore Mode <span class="key-badge" aria-hidden="true">Tab</span>
             </button>
 
@@ -218,7 +216,7 @@
     <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1" aria-hidden="true">
         <button type="button" id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox" title="Close Jukebox (Esc)"><span aria-hidden="true">×</span></button>
         <h2 id="playlist-title"><span aria-hidden="true">🎵</span> Jukebox</h2>
-        <ul id="playlist-list" aria-label="Current playlist" aria-live="polite" aria-atomic="true">
+        <ul id="playlist-list" aria-label="Current playlist">
         </ul>
         
         <div class="playlist-controls">
