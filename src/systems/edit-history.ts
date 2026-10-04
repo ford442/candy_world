@@ -1,3 +1,5 @@
+import { type EntitySnapshot } from './entity-snapshot-core.ts';
+
 /**
  * @file src/systems/edit-history.ts
  * @brief Undo/redo stack of world edits.
@@ -18,7 +20,7 @@ export interface WorldCommand {
     apply(): void;
     /** Undo the edit. Throw if it cannot be reverted. */
     revert(): void;
-    serialize(): SerializedWorldCommand;
+    serialize(): SerializedWorldCommand | null;
 }
 
 export class EditHistory {
