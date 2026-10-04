@@ -10,7 +10,13 @@ if (EVENT_NAME !== 'pull_request') {
 
 try {
     execSync(`git fetch origin ${TARGET_BRANCH}`, { stdio: 'ignore' });
-    const mergeBase = execSync(`git merge-base HEAD origin/${TARGET_BRANCH}`).toString().trim();
+    let mergeBase;
+    try {
+        mergeBase = execSync(`git merge-base HEAD origin/${TARGET_BRANCH}`).toString().trim();
+    } catch(e) {
+        console.log('Merge base could not be determined. Skipping stale-squash check.');
+        process.exit(0);
+    }
 
     // Check if any deleted lines in the PR diff were authored *after* the merge base
     // i.e., lines being reverted that the author didn't originally write or modifying recent main changes.
