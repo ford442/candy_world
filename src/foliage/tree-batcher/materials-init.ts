@@ -406,9 +406,12 @@ export function initializeTreeBatcherMeshes(
         BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.hueShift)
     );
     (accordionLeafMat as any).deformationNode = accordionSwayDeform;
-    (accordionLeafMat as any).emissiveNode = BiomeUniforms.musicalFlora.noteColor
-        .mul(BiomeUniforms.musicalFlora.shimmer.add(0.5))
-        .mul(circadianDayGlowMult(0.25));
+    (accordionLeafMat as any).emissiveNode = add(
+        BiomeUniforms.musicalFlora.noteColor
+            .mul(BiomeUniforms.musicalFlora.shimmer.add(0.5))
+            .mul(circadianDayGlowMult(0.25)),
+        createJuicyRimLight(instanceColor, float(1.2).add(uAudioLow.mul(0.4)), float(3.0), null)
+    );
     applyFoliageLodMaterialFade(accordionLeafMat);
 
     const roseMat = CandyPresets.Sugar(0xff69b4, {
@@ -418,6 +421,12 @@ export function initializeTreeBatcherMeshes(
         sheen: 1.0,
         audioReactStrength: 0.8, // Strong glow response
     });
+
+    // 🎨 PALETTE: Juicy Rim Light for roses
+    roseMat.emissiveNode = add(
+        roseMat.emissiveNode ?? color(0x000000),
+        createJuicyRimLight(roseColor, float(1.4).add(uAudioHigh.mul(0.6)), float(2.8), null)
+    );
 
     applyFoliageLodMaterialFade(roseMat);
 
