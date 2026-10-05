@@ -224,7 +224,6 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     `;
 
         footer.textContent = 'Press ESC to close';
-        footer.setAttribute('aria-label', 'Footer help text');
 
         return footer;
     }
@@ -297,6 +296,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             const card = document.createElement('button');
             card.type = 'button';
             card.className = 'a11y-preset-card a11y-button';
+            card.setAttribute('aria-pressed', 'false');
             card.style.cssText = `
         ${this.getButtonStyle()}
         padding: 16px;
@@ -329,8 +329,10 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     private highlightActiveCard(container: HTMLElement, activeCard: HTMLElement): void {
         const cards = container.querySelectorAll('button');
         cards.forEach((card) => {
+            const isActive = card === activeCard;
             card.style.outline =
-                card === activeCard ? '2px solid var(--a11y-color, #00aaff)' : 'none';
+                isActive ? '2px solid var(--a11y-color, #00aaff)' : 'none';
+            card.setAttribute('aria-pressed', isActive.toString());
         });
     }
 

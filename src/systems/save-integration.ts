@@ -98,9 +98,10 @@ function gatherProgressData(playtime: number): SaveData['progress'] {
     };
 }
 
-export function applyLoadedData(data: SaveData): void {
+export function applyLoadedData(data: SaveData): { restored: number; alreadyLive: number; skipped: number } | void {
+    let applyResult;
     if (data.world && data.world.entitySnapshots) {
-        applyEntitySnapshots(data.world.entitySnapshots, getWeatherSystem());
+        applyResult = applyEntitySnapshots(data.world.entitySnapshots, getWeatherSystem());
     }
     if (data.player.position) {
         player.position.set(data.player.position.x, data.player.position.y, data.player.position.z);
@@ -135,6 +136,7 @@ export function applyLoadedData(data: SaveData): void {
     }
 
     saveSystem.updateSettings(data.settings);
+    return applyResult;
 }
 
 function setupEventSaves(): void {

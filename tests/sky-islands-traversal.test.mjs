@@ -35,6 +35,17 @@ function reconcileGroundedEyeY(currentY, groundY, delta, { isGrounded, velocityY
     return nextY;
 }
 
+import { SKY_ISLANDS } from '../src/world/generation-utils.ts';
+const LAYERS = SKY_ISLANDS.layers.map(layer => {
+    return {
+        id: layer.id,
+        x: SKY_ISLANDS.centerX + layer.offsetX,
+        z: SKY_ISLANDS.centerZ + layer.offsetZ,
+        y: layer.y,
+        radius: layer.radius
+    };
+});
+
 function applyPlatformOverride(x, z, terrainHeight, platforms) {
     let best = terrainHeight;
     for (const p of platforms) {
@@ -43,13 +54,6 @@ function applyPlatformOverride(x, z, terrainHeight, platforms) {
     }
     return best;
 }
-
-/** Mirror SKY_ISLANDS absolute Y tiers from generation-utils (with spaced XZ). */
-const LAYERS = [
-    { id: 'low_mist', x: -110, z: 118, y: 18, radius: 9 },
-    { id: 'mid_canopy', x: -84, z: 100, y: 32, radius: 11 },
-    { id: 'high_nebula', x: -132, z: 142, y: 48, radius: 8 },
-];
 
 function buildIslandPlatforms() {
     return LAYERS.map((l) => ({
@@ -118,33 +122,7 @@ function buildTraversalWaypoints(nodes) {
 }
 
 /** Mirror planRoostAnchors from src/systems/fauna/roosts.ts (#1363 task 7). */
-function planRoostAnchors(islands, opts, rng) {
-    const anchors = [];
-    const perIsland = Math.max(0, Math.floor(opts.perIsland));
-    if (perIsland === 0) return anchors;
-
-    for (const island of islands) {
-        if (!Number.isFinite(island.radius) || island.radius <= 0) continue;
-        if (!Number.isFinite(island.x) || !Number.isFinite(island.z)) continue;
-
-        const ring = island.radius * opts.ringInset;
-        const jitterAmp = island.radius * opts.jitter;
-
-        for (let i = 0; i < perIsland; i++) {
-            const angle = (i / perIsland) * Math.PI * 2 + (island.layerId.length % 7) * 0.31;
-            const jx = rng ? (rng() - 0.5) * 2 * jitterAmp : 0;
-            const jz = rng ? (rng() - 0.5) * 2 * jitterAmp : 0;
-            anchors.push({
-                islandId: island.id,
-                layerId: island.layerId,
-                x: island.x + Math.cos(angle) * ring + jx,
-                y: island.y,
-                z: island.z + Math.sin(angle) * ring + jz,
-            });
-        }
-    }
-    return anchors;
-}
+import { planRoostAnchors } from '../src/systems/fauna/roosts.ts';
 
 const ROOST_PLAN = { perIsland: 4, ringInset: 0.55, jitter: 0.12 };
 const ROOST_DECK_TOLERANCE = 2.5;

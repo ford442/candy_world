@@ -104,10 +104,6 @@ export function initInput(
         updateDayNightButtonState: (isPressed: boolean) => {
             if (session.toggleDayNightBtn) {
                 session.toggleDayNightBtn.setAttribute('aria-checked', String(isPressed));
-                session.toggleDayNightBtn.setAttribute(
-                    'aria-label',
-                    isPressed ? 'Switch to Day' : 'Switch to Night'
-                );
                 session.toggleDayNightBtn.title = isPressed ? 'Switch to Day (N)' : 'Switch to Night (N)';
                 session.toggleDayNightBtn.innerHTML = isPressed
                     ? '<span aria-hidden="true">☀️</span> Switch to Day <span class="key-badge" aria-hidden="true">N</span>'

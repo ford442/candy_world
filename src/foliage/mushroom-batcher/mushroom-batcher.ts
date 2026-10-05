@@ -9,7 +9,6 @@ import { initInstanceLodAttribute } from '../batcher-lod-utils.ts';
 import { uChromaticIntensity } from '../chromatic-nodes.ts';
 import { spawnImpact } from '../impacts.ts';
 import { uTime } from '../index.ts';
-
 import {
     MAX_MUSHROOMS,
     _scratchMatrix,

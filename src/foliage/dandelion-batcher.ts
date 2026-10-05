@@ -42,6 +42,7 @@ export class DandelionBatcher {
 
     mesh: THREE.InstancedMesh | null;
     dummy: THREE.Object3D; // For matrix calculations
+    private logicObjects: THREE.Object3D[] = [];
 
     constructor() {
         this.initialized = false;
@@ -309,6 +310,35 @@ export class DandelionBatcher {
 
         // Store batch index on logic object for later updates (like harvesting)
         logicObject.userData.batchIndex = i;
+        this.logicObjects[i] = logicObject;
+    }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.initialized || !this.mesh) return;
+
+        const indexToRemove = logicObject.userData.batchIndex;
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
+
+        const lastIndex = this.count - 1;
+
+        if (indexToRemove !== lastIndex) {
+            // Swap-with-last
+            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+            const destOffset = indexToRemove * 16;
+            const srcOffset = lastIndex * 16;
+            matrixArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
+
+            const swappedObject = this.logicObjects[lastIndex];
+            if (swappedObject) {
+                swappedObject.userData.batchIndex = indexToRemove;
+                this.logicObjects[indexToRemove] = swappedObject;
+            }
+        }
+
+        this.logicObjects[lastIndex] = undefined as any;
+        this.count--;
+        this.mesh.count = this.count;
+        this.mesh.instanceMatrix.needsUpdate = true;
     }
 
     harvest(batchIndex: number) {

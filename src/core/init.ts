@@ -12,13 +12,13 @@ import {
 } from 'three/webgpu';
 import { createCrescendoFogNode, uFogNear, uFogFar } from '../foliage/sky.ts';
 import {
+    applyCanvasColorSpace,
     armGpuContext,
     probeWebGPU,
     WebGPUUnavailableError,
     GPU_ALPHA,
     GPU_ANTIALIAS,
     GPU_POWER_PREFERENCE,
-    GPU_REQUIRED_LIMITS,
     type GpuProbeResult,
 } from '../rendering/gpu-context.ts';
 import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-probes.ts';
@@ -160,7 +160,8 @@ function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): W
         antialias: GPU_ANTIALIAS,
         alpha: GPU_ALPHA,
         powerPreference: GPU_POWER_PREFERENCE,
-        requiredLimits: GPU_REQUIRED_LIMITS,
+        // Informational only: with `device` provided Three requests nothing.
+        requiredLimits: probe.requiredLimits,
         device: probe.device,
         context: probe.context,
     } as ConstructorParameters<typeof WebGPURenderer>[0]);
@@ -225,11 +226,13 @@ export async function createRenderer(
 }
 
 /**
- * Initialize the Three.js scene with renderer (WebGPU with WebGL fallback), lighting, fog, and visual effects.
+ * Initialize the Three.js scene with renderer (WebGPU required), lighting, fog, and visual effects.
  *
  * Creates:
- * - WebGPU renderer with automatic WebGL fallback if unavailable
- * - Scene with TSL-driven fog node (WebGPU) and legacy fallback fog (all)
+ * - `WebGPURenderer` on the single probed device. There is **no** WebGL
+ *   fallback: a failed probe throws {@link WebGPUUnavailableError}, and
+ *   `?renderer=webgl` is ignored (see docs/webgl-fallback.md)
+ * - Scene with TSL-driven fog node plus a standard `THREE.Fog` for distances
  * - Perspective camera positioned at (0, 5, 0)
  * - Hemisphere ambient light + directional sunlight with shadows
  * - Sun glow, corona, and volumetric light shafts
@@ -283,12 +286,11 @@ export async function initScene(): Promise<SceneInitResult> {
             console.log('[Init] WebGPU attributeUtils.get polyfill applied.');
         }
 
-        // HDR Configuration (WebGPU backend only — Display P3 is not meaningful on GLSL fallback)
+        // Output color space comes from the probe, which already tagged the
+        // swap chain with it — the two must agree or P3 content is shown as
+        // sRGB (or vice versa). See docs/WEBGPU_CONTEXT.md#color-space.
         const onWebGpuBackend = !isWebGLNodeBackend(renderer);
-        const supportsHDR =
-            onWebGpuBackend &&
-            window.matchMedia &&
-            window.matchMedia('(dynamic-range: high)').matches;
+        const supportsHDR = onWebGpuBackend && probe.canvas.colorSpace === 'display-p3';
         if (supportsHDR) {
             console.log(
                 '[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.'
@@ -310,6 +312,13 @@ export async function initScene(): Promise<SceneInitResult> {
             webgpuRenderer.outputColorSpace = 'srgb';
             webgpuRenderer.toneMapping = THREE.ACESFilmicToneMapping;
         }
+
+        // Three's backend init re-configured the canvas without colorSpace;
+        // re-tag it with whatever outputColorSpace we actually landed on.
+        applyCanvasColorSpace(
+            probe,
+            webgpuRenderer.outputColorSpace === 'display-p3' ? 'display-p3' : 'srgb'
+        );
     }
 
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -417,7 +426,8 @@ export async function initScene(): Promise<SceneInitResult> {
         const softOpacity = fadeX.mul(fadeY).mul(uShaftOpacity);
         (shaftMaterial as MeshBasicNodeMaterial).opacityNode = softOpacity;
     } else {
-        // WebGL fallback: use standard material with static opacity
+        // Non-WebGPURenderer guard (unreachable at runtime — WebGPU is required):
+        // standard material with static opacity
         // Note: Opacity is updated dynamically in game-loop.ts based on sunrise/sunset.
         // Default starts at 0.0 (invisible) and matches uShaftOpacity uniform behavior.
         shaftMaterial = new THREE.MeshBasicMaterial({
@@ -469,17 +479,17 @@ export async function initScene(): Promise<SceneInitResult> {
 /**
  * Force a full scene warmup render to prevent shader compilation stutter.
  *
- * Only applies to WebGPU renderer. WebGL renderer returns immediately without
- * performing warmup, as WebGL is generally more stable during first render.
+ * The renderer is always WebGPU at runtime (WebGPU is required); the
+ * `isWebGPUMode` guard below only protects non-`WebGPURenderer` callers.
  *
  * Temporarily disables frustum culling, moves camera to capture all objects,
  * renders a 1x1 pixel frame to trigger shader compilation, then restores
  * all original states.
  *
- * @param renderer - The renderer instance (WebGPU or WebGL)
+ * @param renderer - The WebGPU renderer instance
  * @param scene - The Three.js scene to warm up
  * @param camera - The camera to use for warmup rendering
- * @returns Promise that resolves when warmup is complete (immediate for WebGL)
+ * @returns Promise that resolves when warmup is complete
  */
 export async function forceFullSceneWarmup(
     renderer: CandyRenderer,

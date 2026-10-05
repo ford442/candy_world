@@ -630,12 +630,11 @@ export class FlowerBatcher {
             // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setX overhead by writing directly to typed array
             const array = attr.array as Float32Array;
             const count = mesh.count;
-            for (let i = 0; i < count; i++) {
-                // _poseMachine covers up to MAX_PETALS, which is MAX_FLOWERS * 8
-                // Ensure we don't read out of bounds. Stamens can have up to MAX_FLOWERS * 3 instances.
-                // Stems and Centers have up to MAX_FLOWERS instances.
-                array[i] = poses[i];
-            }
+            // ⚡ OPTIMIZATION: Fast memory copy bypassing per-element loop overhead
+            // _poseMachine covers up to MAX_PETALS, which is MAX_FLOWERS * 8
+            // Ensure we don't read out of bounds. Stamens can have up to MAX_FLOWERS * 3 instances.
+            // Stems and Centers have up to MAX_FLOWERS instances.
+            array.set(poses.subarray(0, count));
             attr.needsUpdate = true;
         }
     }

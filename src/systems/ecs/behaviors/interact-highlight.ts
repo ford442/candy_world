@@ -14,8 +14,8 @@
  */
 
 import type * as THREE from 'three';
-import type { Entity } from '../types.ts';
 import type { Behavior, BehaviorOptions } from '../behavior.ts';
+import type { Entity } from '../types.ts';
 
 type HighlightTrigger = 'gaze' | 'proximity' | 'both';
 

@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { MeshPhysicalNodeMaterial } from 'three/webgpu';
+import { float, color as tslColor } from 'three/tsl';
 import { CONFIG, FEATURE_FLAGS, getLoadMemoryTier } from '../core/config.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import {
@@ -10,6 +12,7 @@ import {
     initGrassSystem,
     createIsland,
     luminousPlantBatcher,
+    createJuicyRimLight,
 } from '../foliage/index.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
@@ -40,6 +43,7 @@ import {
     yieldControl,
     SUGAR_CAVES,
     SKY_ISLANDS,
+    obstaclesData,
 } from './generation-utils.ts';
 import type { LoadedCandyMap } from './map-loader.ts';
 import {
@@ -49,12 +53,25 @@ import {
 } from './map-music-context.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
-import { animatedFoliage, obstacles, worldGroup } from './state.ts';
-import { createPathTerrain } from './terrain-mesh.ts';
-import { PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
+import {
+    animatedFoliage,
+    computeFoliageObjects,
+    cpuAnimatedFoliage,
+    foliageGroup,
+    worldGroup,
+} from './state.ts';
+import { createPathTerrain, rebuildTerrainForPath } from './terrain-mesh.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { LOBBY_FLOOR_TOP_Y, LOBBY_SPAWN_X, LOBBY_SPAWN_Z, PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
 import { setMapMetadataSeed } from './world-seed.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
+/** What initWorld built, so a start-screen path change can add or drop pieces. */
+let builtOutdoorSetpieces = false;
+let builtSkyClouds = false;
+let builtFireflyCount = 0;
+let builtGrassCapacity = 0;
+let builtGrassMeshes: THREE.Object3D[] = [];
 
 type DecoratorStreamerMod = typeof import('./decorator-streamer.ts');
 let decoratorStreamerMod: DecoratorStreamerMod | null = null;
@@ -198,6 +215,9 @@ export async function initWorld(
     // 0. Pre-flight Check
     validateFoliageMaterials(foliageMaterials);
 
+    const world = getStartupCapabilities().world;
+    builtOutdoorSetpieces = world.outdoorSetpieces;
+
     // Sky, stars, moon (fast — no yield needed)
     const sky = createSky();
     scene.add(sky);
@@ -227,19 +247,53 @@ export async function initWorld(
     // Initialize Vegetation Systems (yield first so browser can breathe)
     await yieldControl();
     if (FEATURE_FLAGS.grass) {
-        initGrassSystem(scene, getStartupCapabilities().world.grassCapacity);
+        builtGrassMeshes = initGrassSystem(scene, world.grassCapacity);
+        builtGrassCapacity = world.grassCapacity;
     }
 
     // Use CPU fallback for fireflies during startup. GPU compute init is async but can hang
     // on systems with partial WebGPU support; the CPU path is safe and fast enough for 150 particles.
-    if (FEATURE_FLAGS.fireflies) {
-        scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: false }));
+    if (FEATURE_FLAGS.fireflies && world.fireflyCount > 0) {
+        scene.add(
+            createIntegratedFireflies({
+                count: world.fireflyCount,
+                areaSize: Math.min(100, world.size),
+                useCompute: false,
+            })
+        );
+        builtFireflyCount = world.fireflyCount;
     }
 
     // Procedural Cloud Layer (Background)
-    await yieldControl();
-    generateCloudLayer(scene);
+    if (world.skyCloudCount > 0) {
+        await yieldControl();
+        generateCloudLayer(scene, world.skyCloudCount);
+        builtSkyClouds = true;
+    }
 
+    // Lobby boots skip the outdoor set (lake, island, luminous ring, berries) entirely.
+    if (world.outdoorSetpieces) {
+        await buildOutdoorSetpieces(scene, weatherSystem, world.luminousPlantCount);
+    }
+
+    // Add the main world group (containing all generated foliage) to the scene
+    scene.add(worldGroup);
+
+    // Generate Content if requested (triggered by start button in main.ts)
+    if (loadContent) {
+        generateMap(weatherSystem).catch((err) => {
+            console.error('[World] Failed to generate map:', err);
+        });
+    }
+
+    return { sky, moon, ground };
+}
+
+async function buildOutdoorSetpieces(
+    scene: THREE.Scene,
+    weatherSystem: WeatherSystem,
+    luminousCount: number
+): Promise<void> {
     // Melody Lake (Waveform Water)
     // Lake is at 20, 1.5, 20 with width 120, depth 100
     const melodyLake = createWaveformWater(120, 100);
@@ -254,7 +308,6 @@ export async function initWorld(
 
     // Add Luminous Plants around Lake Island (yield every 30 plants to stay responsive)
     if (FEATURE_FLAGS.luminousPlants) {
-        const luminousCount = getStartupCapabilities().world.luminousPlantCount;
         await yieldControl();
         for (let i = 0; i < luminousCount; i++) {
             const angle = Math.random() * Math.PI * 2;
@@ -285,18 +338,6 @@ export async function initWorld(
     // Falling Berries
     await yieldControl();
     initFallingBerries(scene);
-
-    // Add the main world group (containing all generated foliage) to the scene
-    scene.add(worldGroup);
-
-    // Generate Content if requested (triggered by start button in main.ts)
-    if (loadContent) {
-        generateMap(weatherSystem).catch((err) => {
-            console.error('[World] Failed to generate map:', err);
-        });
-    }
-
-    return { sky, moon, ground };
 }
 
 export async function generateMap(
@@ -767,11 +808,224 @@ function assertCoreWorldPlayable(weatherSystem: WeatherSystem | undefined): void
     if (!Number.isFinite(sampleGroundY(CONFIG.player.spawnX, CONFIG.player.spawnZ))) {
         missing.push('ground at spawn');
     }
-    if (obstacles.length === 0) missing.push('physics obstacle');
+    if (obstaclesData.length === 0) missing.push('physics obstacle');
     if (!weatherSystem) missing.push('weatherSystem');
     if (missing.length > 0) {
         console.warn(`[World] Core world incomplete — missing: ${missing.join(', ')}`);
     }
+}
+
+
+/** Half-width of the playable lobby floor (metres). Walls sit just outside. */
+const LOBBY_ROOM_HALF = 10;
+const LOBBY_WALL_HEIGHT = 6.5;
+const LOBBY_WALL_THICKNESS = 0.7;
+
+function removeFromArray<T>(arr: T[], item: T): void {
+    const idx = arr.indexOf(item);
+    if (idx !== -1) arr.splice(idx, 1);
+}
+
+/**
+ * `?boot=lobby` never builds the outdoor set. When Lobby was picked on the
+ * start screen instead, the Play-sized terrain and lake set already exist:
+ * dispose them (not just hide) and shrink the terrain to the lobby footprint
+ * so the edge clamp keeps the player near the room.
+ */
+async function prepareSceneForLobby(scene: THREE.Scene): Promise<void> {
+    if (builtOutdoorSetpieces) {
+        const doomed: THREE.Object3D[] = [];
+        scene.traverse((obj) => {
+            const t = obj.userData?.type;
+            if (t === 'water' || t === 'lake_island') doomed.push(obj);
+        });
+        for (const obj of doomed) {
+            removeFromArray(animatedFoliage, obj as any);
+            removeFromArray(cpuAnimatedFoliage, obj as any);
+            removeFromArray(computeFoliageObjects, obj as any);
+            if (obj.userData.type === 'lake_island') {
+                const i = obstaclesData.findIndex(
+                    (o) => o.x === obj.position.x && o.z === obj.position.z
+                );
+                if (i !== -1) obstaclesData.splice(i, 1);
+            }
+            safeRemoveAndDispose(obj.parent ?? foliageGroup, obj);
+        }
+        builtOutdoorSetpieces = false;
+    }
+    await rebuildTerrainForPath(scene);
+}
+
+function buildLobbyWalls(scene: THREE.Scene): void {
+    const floor = new THREE.Mesh(
+        new THREE.BoxGeometry(LOBBY_ROOM_HALF * 2 + 1.2, 0.45, LOBBY_ROOM_HALF * 2 + 1.2),
+        new THREE.MeshPhysicalMaterial({
+            color: 0xf8bbd0,
+            roughness: 0.28,
+            metalness: 0,
+            clearcoat: 0.85,
+            clearcoatRoughness: 0.2,
+        })
+    );
+    floor.position.set(0, LOBBY_FLOOR_TOP_Y - 0.22, 0);
+    floor.userData.type = 'lobby_floor';
+    floor.userData.isWalkable = true;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const wallMat = new MeshPhysicalNodeMaterial({
+        color: 0xffb6c8,
+        roughness: 0.22,
+        metalness: 0,
+        clearcoat: 1,
+        clearcoatRoughness: 0.18,
+    });
+    wallMat.emissiveNode = createJuicyRimLight(tslColor(0xffb6c8), float(1.0), float(3.0), null);
+    const half = LOBBY_ROOM_HALF;
+    const h = LOBBY_WALL_HEIGHT;
+    const thick = LOBBY_WALL_THICKNESS;
+    const doorWidth = 3.2;
+    const specs: Array<{ w: number; d: number; x: number; z: number }> = [
+        { w: half * 2 + thick, d: thick, x: 0, z: -half },
+        { w: (half * 2 - doorWidth) / 2, d: thick, x: -(half + doorWidth / 2) / 2, z: half },
+        { w: (half * 2 - doorWidth) / 2, d: thick, x: (half + doorWidth / 2) / 2, z: half },
+        { w: thick, d: half * 2 + thick, x: -half, z: 0 },
+        { w: thick, d: half * 2 + thick, x: half, z: 0 },
+    ];
+    // One shared unit box, scaled per wall.
+    const wallGeo = new THREE.BoxGeometry(1, 1, 1);
+    for (const spec of specs) {
+        const mesh = new THREE.Mesh(wallGeo, wallMat);
+        mesh.scale.set(spec.w, h, spec.d);
+        mesh.position.set(spec.x, h * 0.5, spec.z);
+        mesh.userData.type = 'lobby_wall';
+        mesh.userData.isObstacle = true;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+    }
+
+    const ceiling = new THREE.Mesh(
+        new THREE.BoxGeometry(half * 2 + thick, 0.35, half * 2 + thick),
+        new THREE.MeshStandardMaterial({
+            color: 0xffe4f0,
+            roughness: 0.35,
+            metalness: 0,
+            transparent: true,
+            opacity: 0.55,
+            depthWrite: false,
+        })
+    );
+    ceiling.position.set(0, h + 0.1, 0);
+    ceiling.userData.type = 'lobby_ceiling';
+    scene.add(ceiling);
+}
+
+/**
+ * Inverse of {@link prepareSceneForLobby}: the page booted as Lobby (URL or
+ * remembered path) but the player switched back to Play / Explore / Core on
+ * the start screen. Build the outdoor pieces initWorld skipped.
+ */
+async function restoreOutdoorSetForPath(
+    scene: THREE.Scene,
+    weatherSystem: WeatherSystem
+): Promise<void> {
+    const world = getStartupCapabilities().world;
+    if (!world.outdoorSetpieces || builtOutdoorSetpieces) return;
+    console.log('[World] Path changed from Lobby — building the outdoor set');
+
+    await rebuildTerrainForPath(scene);
+
+    if (FEATURE_FLAGS.grass && builtGrassCapacity < world.grassCapacity) {
+        for (const mesh of builtGrassMeshes) safeRemoveAndDispose(scene, mesh);
+        builtGrassMeshes = initGrassSystem(scene, world.grassCapacity);
+        builtGrassCapacity = world.grassCapacity;
+    }
+
+    const extraFireflies = world.fireflyCount - builtFireflyCount;
+    if (FEATURE_FLAGS.fireflies && extraFireflies > 0) {
+        scene.add(
+            createIntegratedFireflies({
+                count: extraFireflies,
+                areaSize: Math.min(100, world.size),
+                useCompute: false,
+            })
+        );
+        builtFireflyCount = world.fireflyCount;
+    }
+
+    if (!builtSkyClouds && world.skyCloudCount > 0) {
+        await yieldControl();
+        generateCloudLayer(scene, world.skyCloudCount);
+        builtSkyClouds = true;
+    }
+
+    await buildOutdoorSetpieces(scene, weatherSystem, world.luminousPlantCount);
+    builtOutdoorSetpieces = true;
+}
+
+export async function generateLobbyWorld(
+    scene: THREE.Scene,
+    weatherSystem: WeatherSystem,
+    onProgress?: WorldProgressCallback
+): Promise<void> {
+    console.log('[World] Lobby mode: building one-room candy lobby');
+    initCollisionSystem();
+    await prepareSceneForLobby(scene);
+    buildLobbyWalls(scene);
+
+    const spawnX = LOBBY_SPAWN_X;
+    const spawnZ = LOBBY_SPAWN_Z;
+
+    if (onProgress) onProgress(0, 3, '[World] Framing lobby room');
+
+    const placements: Array<{
+        type: string;
+        x: number;
+        z: number;
+        params?: Record<string, unknown>;
+    }> = [
+        { type: 'mushroom', x: spawnX + 3.2, z: spawnZ - 2.4 },
+        { type: 'mushroom', x: spawnX - 3.6, z: spawnZ + 1.8 },
+        { type: 'instrument_shrine', x: spawnX, z: spawnZ - 5.5, params: { scale: 1.1 } },
+        { type: 'retrigger_mushroom', x: spawnX + 5.2, z: spawnZ + 3.4 },
+        { type: 'flower', x: spawnX - 2.2, z: spawnZ + 4.6, params: { variant: 'glowing' } },
+        { type: 'flower', x: spawnX + 2.4, z: spawnZ + 5.0 },
+        { type: 'flower', x: spawnX - 5.4, z: spawnZ - 3.2, params: { variant: 'glowing' } },
+        { type: 'arpeggio_fern', x: spawnX + 4.8, z: spawnZ - 4.4 },
+        { type: 'luminous_plant', x: spawnX - 4.6, z: spawnZ - 5.0 },
+        { type: 'luminous_plant', x: spawnX + 1.6, z: spawnZ + 6.2 },
+    ];
+
+    let placed = 0;
+    for (const item of placements) {
+        const obj = create(item.type, item.params);
+        if (!obj) continue;
+        plantOnSurface(obj, item.x, item.z, { groundY: LOBBY_FLOOR_TOP_Y });
+        obj.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(obj, item.type === 'mushroom' || item.type === 'instrument_shrine', 0.6, weatherSystem);
+        placed += 1;
+    }
+    // The outdoor set normally parents this batcher; Lobby boots skip that set.
+    if (FEATURE_FLAGS.luminousPlants && !luminousPlantBatcher.mesh.parent) {
+        scene.add(luminousPlantBatcher.mesh);
+    }
+    if (onProgress) onProgress(1, 3, `[World] Lobby props (${placed})`, 'lobby');
+
+    for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2 + 0.4;
+        const cloud = create('cloud', { size: sampleEntityScale('cloud') });
+        if (!cloud) continue;
+        cloud.position.set(Math.cos(angle) * 6, 8.5 + (i % 2) * 0.8, Math.sin(angle) * 6);
+        cloud.userData.tier = 1;
+        safeAddFoliage(cloud, false, 0.8, weatherSystem);
+    }
+    if (onProgress) onProgress(2, 3, '[World] Lobby lantern-clouds', 'cloud');
+
+    await yieldControl();
+    if (onProgress) onProgress(3, 3, '[World] Lobby room ready');
+    console.log(`[World] Lobby ready (${placed} props + walls).`);
+>>>>>>> origin/main
 }
 
 export async function populateWorld(
@@ -779,7 +1033,7 @@ export async function populateWorld(
     weatherSystem: WeatherSystem,
     mode: WorldMode = 'CORE',
     onProgress?: WorldProgressCallback,
-    options?: { fastPopulation?: boolean; bootPath?: BootPath }
+    options?: { fastPopulation?: boolean; bootPath?: BootPath; lobby?: boolean }
 ): Promise<WorldMode> {
     worldGenerationToken = Date.now();
     const currentToken = worldGenerationToken;
@@ -793,6 +1047,15 @@ export async function populateWorld(
             'color:#81c784'
         );
     }
+
+    if (mode === 'LOBBY' || options?.lobby) {
+        console.log('%c[World] LOBBY Mode — one-room candy lobby', 'color:#ffd54f');
+        await generateLobbyWorld(scene, weatherSystem, onProgress);
+        console.log('[World] populateWorld() complete in LOBBY mode');
+        return 'LOBBY';
+    }
+
+    await restoreOutdoorSetForPath(scene, weatherSystem);
 
     if (mode === 'CORE') {
         console.log(

@@ -11,6 +11,7 @@ import {
 } from '../../foliage/clouds.ts';
 import { createRainbow, uRainbowOpacity } from '../../foliage/index.ts';
 import { createIntegratedRain } from '../../particles/compute-integration.ts';
+import type { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles-types.ts';
 import {
     createPointLight,
     getLightningLightId,
@@ -20,7 +21,6 @@ import {
 // src/systems/weather/weather-effects.ts
 // Visual effects management: rainbow, aurora, lightning, plant growth
 
-import type { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles-types.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import { WeatherState } from '../weather-types.ts';
 
@@ -366,7 +366,7 @@ export class EffectsManager {
      * Dispose of all effects
      */
     dispose(): void {
-        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow } =
+        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow, aurora } =
             this.state;
 
         if (percussionRain) {
@@ -386,6 +386,9 @@ export class EffectsManager {
         }
         if (rainbow) {
             safeRemoveAndDispose(this.scene, rainbow);
+        }
+        if (aurora) {
+            safeRemoveAndDispose(this.scene, aurora);
         }
     }
 }

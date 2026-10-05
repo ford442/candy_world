@@ -16,23 +16,13 @@ import {
     _targetGemCanopyColor,
     _targetSkyIslandsColor,
     _targetSugarCavesColor,
-    _waveColor,
     _whiteColor,
     getActiveWave as readActiveWave,
-    setActiveWave,
 } from './music-reactivity-core.ts';
 export * from './music-reactivity-core.ts';
 export { AtmosphereShaftState } from './atmosphere-reactivity.ts';
 export { computeWaveDistSq } from './music-wave.ts';
 import * as THREE from 'three';
-import { updateSkyWavePropagation } from './music-reactivity-sky-wave.ts';
-
-import { updateLuminousPlants } from './music-reactivity-luminous.ts';
-
-import { updateFoliageAnimationLoop } from './music-reactivity-foliage.ts';
-import { updateBiomeChannelBindings } from './music-reactivity-bindings.ts';
-import { NOTE_AUDIBLE_THRESHOLD, NOTE_COLOR_RELEASE_LERP, SILENT_DECAY, SILENT_DECAY_UNIFORMS, accumChannelVolume, firstAudibleNote, normalizeAccum, releaseNoteColor, applyNoteColor } from './music-reactivity-bindings.ts';
-
 import { BeatSync } from '../audio/beat-sync.ts';
 import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
@@ -59,7 +49,22 @@ import {
 } from './atmosphere-reactivity.ts';
 import { awakenedPersistence } from './awakened-persistence-api.ts';
 import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
+import {
+    NOTE_AUDIBLE_THRESHOLD,
+    NOTE_COLOR_RELEASE_LERP,
+    SILENT_DECAY,
+    SILENT_DECAY_UNIFORMS,
+    accumChannelVolume,
+    firstAudibleNote,
+    normalizeAccum,
+    releaseNoteColor,
+    applyNoteColor,
+} from './music-reactivity-bindings.ts';
+import { updateBiomeChannelBindings } from './music-reactivity-bindings.ts';
 import { CHROMATIC_SCALE, skyWaveUniformMap } from './music-reactivity-defaults.ts';
+import { updateFoliageAnimationLoop } from './music-reactivity-foliage.ts';
+import { updateLuminousPlants } from './music-reactivity-luminous.ts';
+import { triggerSkyWave, updateSkyWavePropagation } from './music-reactivity-sky-wave.ts';
 import type { ActiveWave } from './music-wave.ts';
 
 // Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
@@ -135,6 +140,9 @@ export class MusicReactivitySystem {
     };
 
     private _lastLogTime: number = 0;
+    private _beatSync: BeatSync | null = null;
+    private _beatCallback: (() => void) | null = null;
+    private _atmosphereUnsub: (() => void) | null = null;
 
     constructor() {
         this.scheduleNextBlink();
@@ -144,26 +152,29 @@ export class MusicReactivitySystem {
         this.weatherSystem = weatherSystem;
         if (beatSync) {
             this.registerBeatSync(beatSync);
-            registerAtmosphereBeatSync(beatSync);
+            this._atmosphereUnsub?.();
+            this._atmosphereUnsub = registerAtmosphereBeatSync(beatSync);
         }
         // Moon registration is handled explicitly via registerMoon()
     }
 
     registerBeatSync(beatSync: BeatSync) {
-        beatSync.onBeat((_state) => {
-            // Night-gate: only fire during dusk/dawn/night
-            if (uTwilight.value <= 0.1) return;
-            if (MRState.skyMoonNoteVal > 0) {
-                _waveColor.copy(BiomeUniforms.skyMoon.moonNoteColor.value);
-                MRState.activeWave = {
-                    color: _waveColor,
-                    timestamp: performance.now(),
-                    speed: 25.0,
-                }; // Let wave origin be undefined initially, use camera
-                setActiveWave(MRState.activeWave);
-                MRState.waveDecayStartTime = 0;
-            }
-        });
+        this.unregisterBeatSync();
+        this._beatSync = beatSync;
+        this._beatCallback = () => triggerSkyWave();
+        beatSync.onBeat(this._beatCallback);
+    }
+
+    unregisterBeatSync() {
+        if (this._beatSync && this._beatCallback) this._beatSync.offBeat(this._beatCallback);
+        this._beatSync = null;
+        this._beatCallback = null;
+    }
+
+    dispose() {
+        this.unregisterBeatSync();
+        this._atmosphereUnsub?.();
+        this._atmosphereUnsub = null;
     }
 
     registerMoon(moonMesh: THREE.Object3D) {
@@ -295,14 +306,6 @@ export class MusicReactivitySystem {
         this.moonState.blinkStartTime = performance.now();
     }
 
-
-
-
-
-
-
-
-
     updateTwilightGlow(time: number) {
         if (!this.weatherSystem) return;
 
@@ -344,7 +347,11 @@ export class MusicReactivitySystem {
             isDeepNight
         );
 
-        updateBiomeChannelBindings(audioState, getDayNightBias(time % CYCLE_DURATION), camera.position);
+        updateBiomeChannelBindings(
+            audioState,
+            getDayNightBias(time % CYCLE_DURATION),
+            camera.position
+        );
 
         // ---------------------------------------------------------------
         // ⚡ MOON DANCE — Note-colour hue reactivity for sky and moon glow

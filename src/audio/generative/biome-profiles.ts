@@ -127,6 +127,17 @@ export const BIOME_PROFILES: Record<string, BiomeMusicProfile> = {
         channelDensity: [0.55, 0.7, 0.85, 0.65, 0.5, 0.45, 0.4, 0.35],
         mood: 'muffled-crystal',
     },
+    night_market: {
+        id: 'night_market',
+        root: 'F',
+        scale: SCALES.major,
+        tempo: 96,
+        nightTempoScale: 1.0,
+        brightness: 0.6,
+        groove: 0.18,
+        channelDensity: [0.6, 0.75, 0.6, 0.7, 0.5, 0.45, 0.7, 0.4],
+        mood: 'festival',
+    },
 };
 
 export function getBiomeProfile(biomeId: string): BiomeMusicProfile {

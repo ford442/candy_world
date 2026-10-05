@@ -8,17 +8,8 @@
 // bookkeeping/spiral ordering instead of forking a parallel grid.
 import * as THREE from 'three';
 import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
-import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
-import { flowerBatcher } from '../foliage/flower-batcher.ts';
-import { glassMushroomBatcher } from '../foliage/glass-mushroom-batcher.ts';
-import { lanternBatcher } from '../foliage/lantern-batcher.ts';
-import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
-import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
-import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
-import { treeBatcher } from '../foliage/tree-batcher/index.ts';
-import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
-import { populatePhysicsGrids, unregisterPhysicsCave } from '../systems/physics/index.ts';
+import { populatePhysicsGrids } from '../systems/physics/index.ts';
 import {
     CellState,
     RegionManager,
@@ -26,28 +17,13 @@ import {
     type GridCell,
 } from '../systems/region-manager-core.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { classifyForEviction, despawnEntity } from './entity-despawn.ts';
 import { recordGenerationChunk } from '../utils/startup-profiler.ts';
 import { processMapEntity } from './generation-entities.ts';
 import { yieldControl, type WeatherSystem } from './generation-utils.ts';
 import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from './map-chunk-size.ts';
 import type { LoadedCandyMap, LoadedMapEntity, MapChunkIndex } from './map-loader.ts';
-import {
-    animatedFoliage,
-    cpuAnimatedFoliage,
-    foliageGroup,
-    foliageMushrooms,
-    foliageClouds,
-    foliageTrampolines,
-    foliagePanningPads,
-    foliageGeysers,
-    foliageTraps,
-    foliagePortamentoPines,
-    foliageVineLadders,
-    interactiveObjects,
-    computeFoliageObjects,
-    vineSwings,
-} from './state.ts';
+import { animatedFoliage } from './state.ts';
 import {
     PLAY_EVICT_RADIUS_M,
     PLAY_EVICT_RADIUS_PRESSURE_M,
@@ -79,70 +55,6 @@ interface ChunkRecord {
     evictable: THREE.Object3D[];
     /** Objects loaded into this chunk that are NOT safely removable (leave spawned permanently). */
     permanentCount: number;
-}
-
-/**
- * Safety-net fallback for classifyForEviction: any object flagged isBatched
- * that isn't matched by one of the specific type checks above falls back to
- * 'never' rather than being torn down without a removeInstance path (which
- * would desync an InstancedMesh's index bookkeeping). Every currently-known
- * batched species with an eviction path is matched explicitly before this
- * fallback; it only guards a future batched species that hasn't been wired in yet.
- */
-function isKnownBatchedType(obj: THREE.Object3D): boolean {
-    return !!obj.userData?.isBatched;
-}
-
-type EvictionClass =
-    | 'full'
-    | 'mushroom'
-    | 'lantern'
-    | 'glassMushroom'
-    | 'simpleFlower'
-    | 'flower'
-    | 'tree'
-    | 'arpeggioFern'
-    | 'portamentoPine'
-    | 'cave'
-    | 'kickDrumGeyser'
-    | 'never';
-
-function classifyForEviction(obj: THREE.Object3D): EvictionClass {
-    const t = obj.userData?.type;
-    if (t === 'tree' && obj.userData?.animationType === 'batchedPortamento') {
-        return 'portamentoPine';
-    }
-    if (
-        t === 'tree' ||
-        t === 'shrub' ||
-        t === 'willow' ||
-        t === 'balloonBush' ||
-        t === 'helixPlant' ||
-        t === 'accordion_palm' ||
-        t === 'floweringTree' ||
-        t === 'bubbleWillow' ||
-        t === 'prismRoseBush' ||
-        t === 'helix' ||
-        t === 'accordionPalm' ||
-        t === 'gem_canopy_tree'
-    ) {
-        return 'tree';
-    }
-    if (t === 'mushroom') return 'mushroom';
-    if (t === 'lanternFlower') return 'lantern';
-    if (t === 'glass_mushroom') return 'glassMushroom';
-    if (t === 'flower') return 'flower';
-    if (t === 'simple_flower' || (obj.userData?.isFlower && t !== 'flower')) return 'simpleFlower';
-    if (t === 'fern' || t === 'arpeggio_fern') return 'arpeggioFern';
-    if (t === 'cave') return 'cave';
-    if (t === 'kick_drum_geyser') return 'kickDrumGeyser';
-    if (isKnownBatchedType(obj)) return 'never';
-    return 'full';
-}
-
-function removeFromArray<T>(arr: T[], item: T): void {
-    const idx = arr.indexOf(item);
-    if (idx !== -1) arr.splice(idx, 1);
 }
 
 function chunkKey(cx: number, cz: number): string {
@@ -525,51 +437,10 @@ export class ChunkStreamer {
 
     private evictObject(obj: THREE.Object3D): void {
         try {
-            const evictionClass = (obj.userData as Record<string, unknown>)
-                .__evictionClass as EvictionClass;
-            if (evictionClass === 'mushroom') {
-                mushroomBatcher.removeInstance(obj);
-            } else if (evictionClass === 'lantern') {
-                lanternBatcher.removeInstance(obj);
-            } else if (evictionClass === 'glassMushroom') {
-                glassMushroomBatcher.removeInstance(obj);
-            } else if (evictionClass === 'kickDrumGeyser') {
-                kickDrumGeyserBatcher.removeInstance(obj);
-            } else if (evictionClass === 'simpleFlower') {
-                simpleFlowerBatcher.removeInstance(obj);
-            } else if (evictionClass === 'flower') {
-                flowerBatcher.removeInstance(obj);
-            } else if (evictionClass === 'tree') {
-                treeBatcher.removeInstance(obj);
-            } else if (evictionClass === 'arpeggioFern') {
-                arpeggioFernBatcher.removeInstance(obj);
-            } else if (evictionClass === 'portamentoPine') {
-                portamentoPineBatcher.removeInstance(obj);
-            } else if (evictionClass === 'cave') {
-                unregisterPhysicsCave(obj);
-                this.weatherSystem?.registerCave?.(obj);
-            }
+            despawnEntity(obj, this.weatherSystem);
             // Free the entity id so walking back into range re-spawns it.
-            // Discovery registration is intentionally left in place — the
-            // discovery grid (WASM/AS) has no unregister API (see .swarm-state.md).
             const entityId = (obj.userData as Record<string, unknown>)?.mapEntityId;
             if (typeof entityId === 'string') this.spawnedIds.delete(entityId);
-            removeFromArray(animatedFoliage, obj as any);
-            removeFromArray(cpuAnimatedFoliage, obj as any);
-            removeFromArray(foliageMushrooms, obj as any);
-            removeFromArray(foliageClouds, obj as any);
-            removeFromArray(foliageTrampolines, obj as any);
-            removeFromArray(foliagePanningPads, obj as any);
-            removeFromArray(foliageGeysers, obj as any);
-            removeFromArray(foliageTraps, obj as any);
-            removeFromArray(foliagePortamentoPines, obj as any);
-            removeFromArray(foliageVineLadders, obj as any);
-            removeFromArray(interactiveObjects, obj as any);
-            removeFromArray(computeFoliageObjects, obj as any);
-            for (let i = vineSwings.length - 1; i >= 0; i--) {
-                if (vineSwings[i].vine === obj) vineSwings.splice(i, 1);
-            }
-            safeRemoveAndDispose(foliageGroup, obj);
         } catch (error) {
             console.warn('[ChunkStreamer] Failed to evict object cleanly:', error);
         }

@@ -1,5 +1,5 @@
 {
-    "__meta__": { "chunkSize": 32, "entityCount": 2220, "sourceEntityCount": 2219 },
+    "__meta__": { "chunkSize": 32, "entityCount": 2226, "sourceEntityCount": 2225 },
     "-1,-1": [
         "balloon_bush_199",
         "starflower_200",
@@ -22,7 +22,9 @@
         "vibrato_violet_1639",
         "arpeggio_fern_1669",
         "fiber_optic_willow_1685",
-        "snare_trap_1703"
+        "snare_trap_1703",
+        "setpiece:night_market:stall:0",
+        "setpiece:night_market:stall:3"
     ],
     "-1,-3": [
         "accordion_palm_180",
@@ -1231,7 +1233,15 @@
         "fiber_optic_willow_1641",
         "bubble_willow_1684"
     ],
-    "0,-2": ["snare_trap_1640", "starflower_1644", "cloud_1666"],
+    "0,-2": [
+        "snare_trap_1640",
+        "starflower_1644",
+        "cloud_1666",
+        "setpiece:night_market:stall:1",
+        "setpiece:night_market:stall:2",
+        "setpiece:night_market:stall:4",
+        "setpiece:night_market:stall:5"
+    ],
     "0,-3": [
         "vibrato_violet_1638",
         "grass_1642",

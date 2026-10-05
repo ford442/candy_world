@@ -33,9 +33,9 @@ import {
     createJuicyRimLight,
 } from '../foliage/material-core.ts';
 import { isInLakeBasin } from '../systems/ground-system.ts';
-import { triggerHarpoon } from '../systems/physics/index.ts';
+import { triggerHarpoon, physicsGeysersGrid, physicsTrapsGrid } from '../systems/physics/index.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
+import { foliageClouds } from '../world/state.ts';
 
 // Projectile Configuration
 const SPEED = 60.0;
@@ -349,7 +349,7 @@ class ProjectilePool {
             }
 
             // Collision with Geysers (Charging)
-            const geysers = foliageGeysers || [];
+            const geysers = physicsGeysersGrid.findNearby(p.position.x, p.position.z, 2.0) || [];
             for (let j = geysers.length - 1; j >= 0; j--) {
                 const geyser = geysers[j];
                 // Check if hit the base (radius ~1.0)
@@ -381,7 +381,7 @@ class ProjectilePool {
             }
 
             // Collision with Snare Traps (Reflection)
-            const traps = foliageTraps || [];
+            const traps = physicsTrapsGrid.findNearby(p.position.x, p.position.z, 2.0) || [];
             for (let j = traps.length - 1; j >= 0; j--) {
                 const trap = traps[j];
                 // Check bounds (Radius ~0.8 * scale)
