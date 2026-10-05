@@ -199,4 +199,50 @@ export class FaunaBatcher {
         }
         return total;
     }
+
+    removeInstance(logicObject: THREE.Object3D): void {
+        if (!this._initialized || !logicObject) return;
+
+        const species = logicObject.userData.faunaSpecies as FaunaSpecies;
+        const slot = logicObject.userData.faunaSlot;
+
+        if (species === undefined || slot === undefined) return;
+
+        const sp = this._species[species];
+        if (!sp) return;
+
+        const idx = sp.slotToInstance.get(slot);
+        if (idx === undefined) return;
+
+        // Swap with last
+        const lastIdx = sp.count - 1;
+        if (idx !== lastIdx) {
+            // Copy matrix
+            const matrixArray = sp.mesh.instanceMatrix.array as Float32Array;
+            for (let i = 0; i < 16; i++) {
+                matrixArray[idx * 16 + i] = matrixArray[lastIdx * 16 + i];
+            }
+
+            // Copy phases and glows
+            sp.phases[idx] = sp.phases[lastIdx];
+            sp.glows[idx] = sp.glows[lastIdx];
+
+            // Update the map for the swapped object
+            // We need to find the slot that was pointing to lastIdx
+            for (const [s, i] of sp.slotToInstance.entries()) {
+                if (i === lastIdx) {
+                    sp.slotToInstance.set(s, idx);
+                    break;
+                }
+            }
+
+            sp.mesh.instanceMatrix.needsUpdate = true;
+            (sp.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute).needsUpdate = true;
+            (sp.mesh.geometry.getAttribute('aBiomeGlow') as THREE.InstancedBufferAttribute).needsUpdate = true;
+        }
+
+        sp.slotToInstance.delete(slot);
+        sp.count--;
+        sp.mesh.count = sp.count;
+    }
 }

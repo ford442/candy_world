@@ -25,6 +25,8 @@ import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 import { sugarCaveBatcher } from '../foliage/sugar-cave-batcher.ts';
 import { treeBatcher } from '../foliage/tree-batcher/index.ts';
 import { waterfallBatcher } from '../foliage/waterfall-batcher.ts';
+import { CloudBatcher } from '../foliage/cloud-batcher.ts';
+import { FaunaBatcher } from '../foliage/fauna-batcher.ts';
 import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
 import { populatePhysicsGrids, unregisterPhysicsCave } from '../systems/physics/index.ts';
 import {
@@ -120,6 +122,9 @@ type EvictionClass =
     | 'glowingFlower'
     | 'sugarCave'
     | 'nightMarketStall'
+    | 'cloud'
+    | 'fauna'
+    | 'candyDebris'
     | 'never';
 
 function classifyForEviction(obj: THREE.Object3D): EvictionClass {
@@ -161,6 +166,9 @@ function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'glowing_flower') return 'glowingFlower';
     if (t === 'sugar_cave') return 'sugarCave';
     if (t === 'night_market_stall') return 'nightMarketStall';
+    if (t === 'cloud') return 'cloud';
+    if (t === 'fauna') return 'fauna';
+    if (t === 'candy_debris') return 'candyDebris';
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -589,6 +597,12 @@ export class ChunkStreamer {
                 glowingFlowerBatcher.removeInstance(obj);
             } else if (evictionClass === 'sugarCave') {
                 sugarCaveBatcher.removeInstance(obj);
+            } else if (evictionClass === 'cloud') {
+                CloudBatcher.getInstance().removeInstance(obj);
+            } else if (evictionClass === 'fauna') {
+                FaunaBatcher.getInstance().removeInstance(obj);
+            } else if (evictionClass === 'candyDebris') {
+                // Candy debris is ephemeral; no-op. But defined for completeness.
             } else if (evictionClass === 'cave') {
                 unregisterPhysicsCave(obj);
                 this.weatherSystem?.unregisterCave?.(obj);

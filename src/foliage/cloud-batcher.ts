@@ -493,6 +493,51 @@ export class CloudBatcher {
         }
     }
 
+    removeInstance(logicObject: THREE.Object3D): void {
+        if (!this.initialized || !this.mesh || !logicObject) return;
+
+        const idx = this.clouds.indexOf(logicObject);
+        if (idx === -1) return;
+
+        const puffStart = logicObject.userData.batchStart;
+        const puffCount = logicObject.userData.batchCount;
+
+        // Remove from logical array (keep order for shifting)
+        this.clouds.splice(idx, 1);
+
+        const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+        const elementsToShift = this.count - (puffStart + puffCount);
+
+        if (elementsToShift > 0) {
+            // Shift instance matrix down
+            matrixArray.copyWithin(
+                puffStart * 16,
+                (puffStart + puffCount) * 16,
+                this.count * 16
+            );
+
+            // Shift walkable attributes down
+            if (this.isWalkableAttribute) {
+                const walkArray = this.isWalkableAttribute.array as Float32Array;
+                walkArray.copyWithin(
+                    puffStart,
+                    puffStart + puffCount,
+                    this.count
+                );
+                this.isWalkableAttribute.needsUpdate = true;
+            }
+
+            // Update indices of all clouds that shifted
+            for (let i = idx; i < this.clouds.length; i++) {
+                this.clouds[i].userData.batchStart -= puffCount;
+            }
+        }
+
+        this.count -= puffCount;
+        this.mesh.count = this.count;
+        this.mesh.instanceMatrix.needsUpdate = true;
+    }
+
     dispose(): void {
         if (this.mesh && this.mesh.parent) {
             safeRemoveAndDispose(this.mesh.parent, this.mesh, true);
