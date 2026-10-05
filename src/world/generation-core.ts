@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { MeshPhysicalNodeMaterial } from 'three/webgpu';
+import { float, color as tslColor } from 'three/tsl';
 import { CONFIG, FEATURE_FLAGS, getLoadMemoryTier } from '../core/config.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import {
@@ -10,6 +12,7 @@ import {
     initGrassSystem,
     createIsland,
     luminousPlantBatcher,
+    createJuicyRimLight,
 } from '../foliage/index.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
@@ -870,13 +873,14 @@ function buildLobbyWalls(scene: THREE.Scene): void {
     floor.receiveShadow = true;
     scene.add(floor);
 
-    const wallMat = new THREE.MeshPhysicalMaterial({
+    const wallMat = new MeshPhysicalNodeMaterial({
         color: 0xffb6c8,
         roughness: 0.22,
         metalness: 0,
         clearcoat: 1,
         clearcoatRoughness: 0.18,
     });
+    wallMat.emissiveNode = createJuicyRimLight(tslColor(0xffb6c8), float(1.0), float(3.0), null);
     const half = LOBBY_ROOM_HALF;
     const h = LOBBY_WALL_HEIGHT;
     const thick = LOBBY_WALL_THICKNESS;
