@@ -239,6 +239,7 @@ export interface WeatherSystem {
     registerShrub(obj: THREE.Object3D): void;
     registerMushroom(obj: THREE.Object3D): void;
     registerCave(obj: THREE.Object3D): void;
+    unregisterCave(obj: THREE.Object3D): void;
 }
 
 export type WorldProgressCallback = (
@@ -248,7 +249,7 @@ export type WorldProgressCallback = (
     entityType?: string
 ) => void;
 
-export type WorldMode = 'CORE' | 'FULL';
+export type WorldMode = 'CORE' | 'FULL' | 'LOBBY';
 
 export interface FoliageGrowthOptions {
     maxOffspring: number;

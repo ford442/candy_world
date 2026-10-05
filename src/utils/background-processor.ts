@@ -18,8 +18,6 @@ import { isCIorHeadless, getJsHeapUsageRatio, getLoadMemoryTier } from '../core/
  * so the GC can reclaim memory instead of locking the tab during load.
  */
 
-import { spawnTracker } from '../world/spawn-tracker.ts';
-
 export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;
@@ -69,7 +67,7 @@ function memoryAwareBudget(baseMs: number): number {
 function yieldForMemoryPressure(): Promise<void> {
     const heapRatio = getJsHeapUsageRatio();
     if (heapRatio < 0.7) return Promise.resolve();
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
         // Two rAFs give the browser a chance to run GC between deferred spawns.
         requestAnimationFrame(() => {
             requestAnimationFrame(() => resolve());
@@ -81,7 +79,8 @@ export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
     private isRunning: boolean = false;
     private maxMsPerFrame: number;
-    private onCompleteCallback: ((completed: number, total: number, failed: number) => void) | null = null;
+    private onCompleteCallback:
+        ((completed: number, total: number, failed: number) => void) | null = null;
     private onProgressCallback: ((completed: number, total: number) => void) | null = null;
     private totalTasks: number = 0;
     private completedTasks: number = 0;
@@ -100,7 +99,7 @@ export class BackgroundProcessor {
         if (priority <= 0 || this.queue.length === 0) {
             this.queue.push(task);
         } else {
-            const insertAt = this.queue.findIndex(queued => (queued.priority ?? 0) < priority);
+            const insertAt = this.queue.findIndex((queued) => (queued.priority ?? 0) < priority);
             if (insertAt === -1) {
                 this.queue.push(task);
             } else {
@@ -135,7 +134,10 @@ export class BackgroundProcessor {
                 const task = this.queue.shift();
                 if (task) {
                     try {
-                        const result = task.execute(); if (result instanceof Promise) { await result; }
+                        const result = task.execute();
+                        if (result instanceof Promise) {
+                            await result;
+                        }
                         this.completedTasks++;
                     } catch (e) {
                         log.error('BackgroundProcessor', `Error executing task ${task.id}:`, e);
@@ -157,7 +159,10 @@ export class BackgroundProcessor {
         log.info('BackgroundProcessor', `Starting with ${this.queue.length} tasks`);
 
         if (isCIorHeadless()) {
-            log.info('BackgroundProcessor', `CI bypass: Synchronously processing ${this.queue.length} tasks...`);
+            log.info(
+                'BackgroundProcessor',
+                `CI bypass: Synchronously processing ${this.queue.length} tasks...`
+            );
 
             // We create an async wrapper so we can await the tasks without making start() return a Promise
             const processAllSync = async () => {
@@ -214,13 +219,16 @@ export class BackgroundProcessor {
      */
     private scheduleNext(): void {
         if (hasIdleCallback) {
-            requestIdleCallback((deadline) => {
-                // Guarantee at least 1–2 ms so a forced-timeout callback (timeRemaining≈0)
-                // still makes forward progress instead of spinning with zero work done.
-                const aware = memoryAwareBudget(this.maxMsPerFrame);
-                const budget = Math.max(1, Math.min(deadline.timeRemaining() || aware, aware));
-                this.processChunk(budget);
-            }, { timeout: getJsHeapUsageRatio() >= 0.65 ? 250 : 500 });
+            requestIdleCallback(
+                (deadline) => {
+                    // Guarantee at least 1–2 ms so a forced-timeout callback (timeRemaining≈0)
+                    // still makes forward progress instead of spinning with zero work done.
+                    const aware = memoryAwareBudget(this.maxMsPerFrame);
+                    const budget = Math.max(1, Math.min(deadline.timeRemaining() || aware, aware));
+                    this.processChunk(budget);
+                },
+                { timeout: getJsHeapUsageRatio() >= 0.65 ? 250 : 500 }
+            );
         } else {
             requestAnimationFrame(() => {
                 this.processChunk(memoryAwareBudget(this.maxMsPerFrame));
@@ -255,7 +263,10 @@ export class BackgroundProcessor {
             // Check budget only after we've done at least one task, so a forced
             // callback with timeRemaining()=0 still drains one entry per slot
             // rather than spinning forever without touching the queue.
-            if (processed > 0 && (processed >= maxTasksThisChunk || performance.now() - chunkStart >= budgetMs)) {
+            if (
+                processed > 0 &&
+                (processed >= maxTasksThisChunk || performance.now() - chunkStart >= budgetMs)
+            ) {
                 break;
             }
 
@@ -270,7 +281,10 @@ export class BackgroundProcessor {
             } catch (e) {
                 if ((task.retryCount || 0) < 1) {
                     task.retryCount = (task.retryCount || 0) + 1;
-                    console.warn(`[BackgroundProcessor] Task ${task.id} failed, retrying once. Error:`, e);
+                    console.warn(
+                        `[BackgroundProcessor] Task ${task.id} failed, retrying once. Error:`,
+                        e
+                    );
                     this.queue.unshift(task);
                     continue;
                 }
@@ -297,8 +311,12 @@ export class BackgroundProcessor {
 
     private complete(): void {
         this.isRunning = false;
-        log.info('BackgroundProcessor', `Queue complete (${this.completedTasks}/${this.totalTasks}, ${this.failedTasks} failed)`);
-        if (this.onCompleteCallback) this.onCompleteCallback(this.completedTasks, this.totalTasks, this.failedTasks);
+        log.info(
+            'BackgroundProcessor',
+            `Queue complete (${this.completedTasks}/${this.totalTasks}, ${this.failedTasks} failed)`
+        );
+        if (this.onCompleteCallback)
+            this.onCompleteCallback(this.completedTasks, this.totalTasks, this.failedTasks);
     }
 
     /**

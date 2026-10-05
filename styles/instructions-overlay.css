@@ -81,6 +81,7 @@ canvas {
     opacity: 0.9;
     pointer-events: none;
     transition: all 0.3s ease;
+    filter: grayscale(100%) brightness(50%);
 }
 
 .secondary-button[aria-busy='true'] {
@@ -91,6 +92,7 @@ canvas {
     opacity: 0.9;
     pointer-events: none;
     transition: all 0.3s ease;
+    filter: grayscale(100%) brightness(50%);
 }
 
 .cta-button[aria-disabled='true'],
@@ -161,6 +163,13 @@ canvas {
 #toggleFullWorld[aria-checked='true'] {
     background: #a5d6a7;
     color: #1b3a1b;
+}
+#toggleLobby {
+    margin: 8px auto 4px;
+}
+#toggleLobby[aria-checked='true'] {
+    background: #ffe082;
+    color: #5d4037;
 }
 
 #readiness-progress {
@@ -270,6 +279,8 @@ canvas {
     opacity: 0.8;
     pointer-events: none;
     transform: scale(0.98);
+    transition: all 0.3s ease;
+    filter: grayscale(100%) brightness(50%);
 }
 .file-label:hover {
     background: #fff0f5;
@@ -293,6 +304,14 @@ canvas {
 }
 .toggle-button:hover {
     background: #584ab8;
+}
+
+/* ♿ Aria: Visual feedback for disabled toggles (like volume buttons at min/max) */
+.toggle-button[aria-disabled='true'] {
+    background: #a39bda;
+    cursor: not-allowed;
+    opacity: 0.7;
+    filter: grayscale(100%) brightness(80%);
 }
 .controls-container {
     margin-top: 20px;

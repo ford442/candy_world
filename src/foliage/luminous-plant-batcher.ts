@@ -253,6 +253,7 @@ export class LuminousPlantBatcher {
         if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
 
         const lastIndex = this.count - 1;
+        const removedPersistentId = this.indexToPersistentId[indexToRemove];
 
         if (indexToRemove !== lastIndex) {
             // Swap-with-last for matrix
@@ -293,11 +294,9 @@ export class LuminousPlantBatcher {
 
         // Clean up mapping
         this.uuidToIndex.delete(logicObject.uuid);
-        // The `removedPersistentId` logic here was messy and overwritten above.
-        // The swap already corrected `persistentIdToIndex` for the swapped object.
-        // The object we deleted (which was at `indexToRemove` initially) is lost.
-        // If we needed to safely delete its `persistentId` from the map, we should have captured it before the swap.
-        // It's safe to ignore for eviction since we're destroying it.
+        if (removedPersistentId) {
+            this.persistentIdToIndex.delete(removedPersistentId);
+        }
 
         this.logicObjects[lastIndex] = undefined as any;
         this.logicObjects.length = lastIndex;
@@ -435,4 +434,4 @@ export class LuminousPlantBatcher {
     }
 }
 
-export const luminousPlantBatcher = new LuminousPlantBatcher(CONFIG.luminousPlants?.density || 150);
+export const luminousPlantBatcher = LuminousPlantBatcher.getInstance();

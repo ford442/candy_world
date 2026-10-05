@@ -70,8 +70,15 @@ jobs:
       - name: Build AssemblyScript WASM
         run: pnpm run build:wasm
 
+      # build:emcc just ran, so a C++ SKIP here means the module failed to
+      # load or lost an export. It must fail, not read as green.
       - name: Cross-tier parity (TS ↔ AssemblyScript ↔ C++)
         run: pnpm run test:parity
+        env:
+          CANDY_PARITY_REQUIRE_CPP: '1'
+
+      - name: Native physics assist-only ABI (#1822)
+        run: pnpm run test:character-native
 
       - name: Fail if exports.txt drifted from the committed manifest
         run: |

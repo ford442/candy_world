@@ -12,7 +12,6 @@
 
 extern "C" {
 
-EMSCRIPTEN_KEEPALIVE
 void batchShiver_simd(float* input, int count, float time, float intensity, float* output) {
     int i = 0;
     int count4 = count & ~3;  // Process 4 at a time
@@ -91,7 +90,6 @@ void batchShiver_simd(float* input, int count, float time, float intensity, floa
  */
 EMSCRIPTEN_KEEPALIVE
 
-EMSCRIPTEN_KEEPALIVE
 void batchSpring_simd(float* input, int count, float time, float intensity, float* output) {
     int i = 0;
     int count4 = count & ~3;
@@ -181,7 +179,6 @@ void batchSpring_simd(float* input, int count, float time, float intensity, floa
  */
 EMSCRIPTEN_KEEPALIVE
 
-EMSCRIPTEN_KEEPALIVE
 void batchFloat_simd(float* input, int count, float time, float intensity, float* output) {
     int i = 0;
     int count4 = count & ~3;
@@ -265,7 +262,6 @@ void batchFloat_simd(float* input, int count, float time, float intensity, float
  */
 EMSCRIPTEN_KEEPALIVE
 
-EMSCRIPTEN_KEEPALIVE
 void batchCloudBob_simd(float* input, int count, float time, float intensity, float* output) {
     int i = 0;
     int count4 = count & ~3;
@@ -361,7 +357,6 @@ void batchCloudBob_simd(float* input, int count, float time, float intensity, fl
  */
 EMSCRIPTEN_KEEPALIVE
 
-EMSCRIPTEN_KEEPALIVE
 void batchRetrigger_simd(float* input, int count, float time, float retriggerSpeed, float intensity, float* output) {
     int i = 0;
     int count4 = count & ~3;

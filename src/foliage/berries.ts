@@ -25,6 +25,7 @@ const _scratchLocalPos = new THREE.Vector3();
 const _scratchLocalQuat = new THREE.Quaternion();
 const _scratchLocalScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
+const _scratchDummyAudio = { low: 0, mid: 0, high: 0, beat: false, groove: 0, windX: 0, windZ: 0, windSpeed: 0 };
 const _scratchZeroVector = new THREE.Vector3();
 
 // ⚡ OPTIMIZATION: Pre-calculate constants for loop efficiency
@@ -516,9 +517,7 @@ export function updateFallingBerries(delta: number, renderer?: THREE.Renderer): 
     if (computeParticleSystem && renderer) {
         // We pass a dummy player and audio data since this is environmentally updated
         _scratchZeroVector.set(0, 0, 0); // ⚡ OPTIMIZATION: Use scratch vector instead of new THREE.Vector3()
-        computeParticleSystem.update(renderer, delta, _scratchZeroVector, {
-            low: 0, mid: 0, high: 0, beat: false, groove: 0, windX: 0, windZ: 0, windSpeed: 0
-        });
+        computeParticleSystem.update(renderer, delta, _scratchZeroVector, _scratchDummyAudio);
     }
 
     const gravity = -9.8;

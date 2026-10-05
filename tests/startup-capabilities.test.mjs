@@ -93,8 +93,33 @@ function resolve(overrides = {}) {
     assert.equal(core.path, 'core');
     assert.equal(core.world.size, 120);
 
+    const lobby = resolve({ url: { boot: 'lobby' } });
+    assert.equal(lobby.path, 'lobby');
+    assert.equal(lobby.world.size, 24);
+    assert.equal(lobby.world.outdoorSetpieces, false);
+    assert.equal(lobby.world.skyCloudCount, 0);
+    assert.equal(lobby.world.fauna, false);
+    for (const caps of [instant, explore, core]) {
+        assert.equal(caps.world.outdoorSetpieces, true, `${caps.path} keeps the lake set`);
+        assert.equal(caps.world.fauna, true);
+        assert.equal(caps.world.skyCloudCount, 150);
+    }
+
     const wait = resolve({ profile: { path: 'play' }, url: { waitForFull: true } });
     assert.equal(wait.path, 'explore');
+}
+
+// Lobby trims warmup and outdoor deferred extras regardless of graphics tier
+{
+    const lobbyHigh = resolve({ profile: { path: 'lobby', graphics: 'high' } });
+    assert.equal(lobbyHigh.warmup.materialSubset, 'minimal');
+    assert.equal(lobbyHigh.deferred.aurora, false);
+    assert.equal(lobbyHigh.deferred.fluidFog, false);
+    assert.equal(lobbyHigh.postfx.quality, 'high', 'room keeps its post-processing');
+    assert.equal(lobbyHigh.shadows.resolution, 'high');
+
+    const lobbyCi = resolve({ profile: { path: 'lobby' }, isHeadlessOrCI: true });
+    assert.equal(lobbyCi.warmup.materialSubset, 'none', 'CI still skips warmup');
 }
 
 // Persisted path is honoured when URL is empty
@@ -106,11 +131,14 @@ function resolve(overrides = {}) {
 
 // URL / mapSize compat
 {
+    assert.equal(mapSizeToStartupPath('lobby'), 'lobby');
+    assert.equal(mapSizeToStartupPath('tiny'), 'lobby');
     assert.equal(mapSizeToStartupPath('small'), 'core');
     assert.equal(mapSizeToStartupPath('medium'), 'play');
     assert.equal(mapSizeToStartupPath('large'), 'explore');
     assert.equal(resolveBootPathFromUrl(new URLSearchParams('boot=instant')), 'play');
     assert.equal(resolveBootPathFromUrl(new URLSearchParams('boot=explore')), 'explore');
+    assert.equal(resolveBootPathFromUrl(new URLSearchParams('boot=lobby')), 'lobby');
     assert.equal(resolveBootPathFromUrl(new URLSearchParams('map=small')), 'core');
     assert.equal(resolveBootPathFromUrl(new URLSearchParams('map=large')), 'explore');
 }

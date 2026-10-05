@@ -20,10 +20,18 @@ export const PLAY_WORLD_SIZE = 180;
 export const EXPLORE_WORLD_SIZE = 400;
 /** CORE sandbox — already a small candy set. */
 export const CORE_WORLD_SIZE = 120;
+/** Lobby — one enclosed room, no horizon streaming. */
+export const LOBBY_WORLD_SIZE = 24;
+/** Lobby room is origin-centered so the tiny extent can clamp the player. */
+export const LOBBY_SPAWN_X = 0;
+export const LOBBY_SPAWN_Z = 0;
+/** Top of the lobby floor slab — above Melody Lake's carved basin. */
+export const LOBBY_FLOOR_TOP_Y = 2.4;
 
 export const PLAY_WORLD_HALF = PLAY_WORLD_SIZE / 2;
 export const EXPLORE_WORLD_HALF = EXPLORE_WORLD_SIZE / 2;
 export const CORE_WORLD_HALF = CORE_WORLD_SIZE / 2;
+export const LOBBY_WORLD_HALF = LOBBY_WORLD_SIZE / 2;
 
 /** Spawn tile + 1-ring must be ready before pointer-lock. */
 export const PLAY_SPAWN_RADIUS_CHUNKS = 1;
@@ -45,7 +53,21 @@ export interface WorldExtentConfig {
     grassCapacity: number;
     luminousPlantCount: number;
     fogFarCap: number;
+    /** Melody Lake, lake island, its luminous-plant ring and falling berries. */
+    outdoorSetpieces: boolean;
+    /** Background sky cloud layer (0 skips it). */
+    skyCloudCount: number;
+    fireflyCount: number;
+    /** Boids fauna scattered across the map after Start. */
+    fauna: boolean;
 }
+
+const OUTDOOR_POPULATION = {
+    outdoorSetpieces: true,
+    skyCloudCount: 150,
+    fireflyCount: 150,
+    fauna: true,
+} as const;
 
 const PLAY_EXTENT: WorldExtentConfig = {
     size: PLAY_WORLD_SIZE,
@@ -54,6 +76,7 @@ const PLAY_EXTENT: WorldExtentConfig = {
     grassCapacity: 2500,
     luminousPlantCount: 48,
     fogFarCap: PLAY_WORLD_HALF + 20,
+    ...OUTDOOR_POPULATION,
 };
 
 const EXPLORE_EXTENT: WorldExtentConfig = {
@@ -63,6 +86,7 @@ const EXPLORE_EXTENT: WorldExtentConfig = {
     grassCapacity: 10000,
     luminousPlantCount: 150,
     fogFarCap: 420,
+    ...OUTDOOR_POPULATION,
 };
 
 const CORE_EXTENT: WorldExtentConfig = {
@@ -72,11 +96,26 @@ const CORE_EXTENT: WorldExtentConfig = {
     grassCapacity: 800,
     luminousPlantCount: 24,
     fogFarCap: CORE_WORLD_HALF + 20,
+    ...OUTDOOR_POPULATION,
+};
+
+const LOBBY_EXTENT: WorldExtentConfig = {
+    size: LOBBY_WORLD_SIZE,
+    halfExtent: LOBBY_WORLD_HALF,
+    heightmapResolution: 32,
+    grassCapacity: 120,
+    luminousPlantCount: 8,
+    fogFarCap: LOBBY_WORLD_HALF + 8,
+    outdoorSetpieces: false,
+    skyCloudCount: 0,
+    fireflyCount: 24,
+    fauna: false,
 };
 
 export function worldExtentForPath(path: StartupPath | string | undefined): WorldExtentConfig {
     if (path === 'explore') return EXPLORE_EXTENT;
     if (path === 'core') return CORE_EXTENT;
+    if (path === 'lobby') return LOBBY_EXTENT;
     return PLAY_EXTENT;
 }
 

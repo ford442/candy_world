@@ -171,6 +171,10 @@ done
 
 # Define all animation function exports and check each one
 # Format: "c_function_name" (without underscore prefix)
+# List only functions src/ calls, by name or through getNativeFunc. #1822 removed
+# the *_simd twins, the SIMD/LOD cull kernels, and the unused colour/arpeggio
+# C++ twins. They stay in the source as internal helpers without
+# EMSCRIPTEN_KEEPALIVE, so the linker can drop any that nothing reaches.
 declare -A ANIMATION_FUNCTIONS=(
     # Math functions (math.cpp)
     ["hash"]="math"
@@ -183,9 +187,6 @@ declare -A ANIMATION_FUNCTIONS=(
     ["valueNoise2D_simd4"]="math"
     ["fbm2D_simd4"]="math"
     ["batchGroundHeight_simd"]="math"
-    ["fastInvSqrt_simd4"]="math"
-    ["batchFastSin_simd"]="math"
-    ["batchFastCos_simd"]="math"
     
     # OpenMP-parallelized batch functions (math.cpp)
     ["batchValueNoise_omp"]="math"
@@ -242,7 +243,6 @@ declare -A ANIMATION_FUNCTIONS=(
     # Agent 4: Frustum/distance culling functions
     ["batchFrustumCull_c"]="physics"
     ["batchDistanceCullIndexed_c"]="physics"
-    ["batchFrustumCullSIMD_c"]="physics"
     
     # Batch physics functions (physics.cpp)
     ["batchCollisionCheck_c"]="physics"
@@ -258,13 +258,10 @@ declare -A ANIMATION_FUNCTIONS=(
     
     # Agent 3: LOD batch update functions (lod_batch.cpp)
     ["batchUpdateLODMatrices_c"]="lod_batch"
-    ["batchDistanceCullLOD_c"]="lod_batch"
     ["batchScaleMatrices_c"]="lod_batch"
     ["batchTranslateMatrices_c"]="lod_batch"
     ["batchFadeColors_c"]="lod_batch"
     ["batchComposeMatrices_c"]="lod_batch"
-    ["batchWriteInstanceColors_c"]="lod_batch"
-    ["accumulateArpeggioChannels_c"]="lod_batch"
 
     # #1358: instanced batcher pose → matrix/color (batcher_instance.cpp)
     ["batchWriteInstancePose_c"]="batcher_instance"
@@ -288,13 +285,7 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchCloudBob_c"]="animation_batch"
     
     # Agent 1: SIMD-optimized animation batch functions
-    ["batchShiver_simd"]="animation_batch"
-    ["batchSpring_simd"]="animation_batch"
-    ["batchFloat_simd"]="animation_batch"
-    ["batchCloudBob_simd"]="animation_batch"
-    ["batchVineSway_simd"]="animation_batch"
     ["batchGeyserErupt_c"]="animation_batch"
-    ["batchRetrigger_simd"]="animation_batch"
     
     # Mesh deformation functions (mesh_deformation.cpp)
     ["deformMeshWave"]="mesh_deformation"
@@ -416,7 +407,7 @@ if [ $MISSING_COUNT -gt 0 ]; then
 fi
 
 # =============================================================================
-# ROBUST EXPORT LIST (fixes -O3 DCE + shell quoting trap)
+# ROBUST EXPORT LIST (fixes optimizer DCE + shell quoting trap)
 # =============================================================================
 echo "[INFO] Building export list (${#EXPORT_LIST[@]} functions)..."
 
@@ -434,7 +425,10 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 # ---------------------------------------------------------
 
 # Compiler flags for performance
-# - O2: Optimize for speed
+# - O2: Optimize for speed. This is the pinned level for BOTH the compile and
+#   link steps of the MT and ST artifacts. AGENTS.md documents the same level;
+#   change them together, and only after a measured -O3 pass keeps
+#   exports.txt + `npm run verify:emcc:manifest` green.
 # - msimd128: Enable SIMD for vectorized math operations
 # - mrelaxed-simd: Allow relaxed SIMD operations for better performance
 # - fno-rtti: Disable RTTI to reduce code size
@@ -455,6 +449,18 @@ COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops -fopenmp -p
 # - ALLOW_MEMORY_GROWTH=1: Allow dynamic memory allocation
 # - MODULARIZE=1: Generate ES6 module for clean importing
 # - EXPORT_ES6=1: Use ES6 export syntax
+#
+# WASM IMPORT/EXPORT NAME MINIFICATION (do NOT add a flag for it):
+# - MINIFY_WASM_IMPORTS_AND_EXPORTS / MINIFY_WASM_EXPORT_NAMES are *internal*
+#   Emscripten settings (src/settings_internal.js). Passing either with -s makes
+#   emcc exit with "is an internal setting and cannot be set from command line"
+#   (verified against EM_VERSION 4.0.10, pinned in emscripten-verify.yml).
+# - At -O2 with ASSERTIONS=0, emcc minifies wasm import/export names and the
+#   generated candy_native*.js glue maps them back, so Module._<name> keeps the
+#   C name. wasm-loader-core.ts / wasm-orchestrator.ts only go through the glue,
+#   never raw instance.exports, so this is safe. CANDY_DEBUG=1 (ASSERTIONS=1)
+#   turns minification off as a side effect.
+# - scripts/check-emcc-manifest.mjs fails if either setting reappears here.
 #
 # ASSERTIONS DISABLED (IMPORTANT):
 # - Setting ASSERTIONS=0 prevents Emscripten from aborting when exports are missing

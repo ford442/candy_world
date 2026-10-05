@@ -23,22 +23,7 @@ function test(name, fn) {
   }
 }
 
-function smooth(current, target, k, deltaTime) {
-  return current + (target - current) * (1.0 - Math.exp(-k * deltaTime));
-}
-
-function simulateBloomTarget(bassNorm, rest, peak, nightGate, beatSpike) {
-  const bloomBase = rest + (peak - rest) * bassNorm * nightGate;
-  return bloomBase + beatSpike;
-}
-
-function simulateFogTarget(averageVolume, scale, max, weatherFogBoost = 0) {
-  let mixTarget = Math.min(max, averageVolume * scale);
-  if (weatherFogBoost > 0) {
-    mixTarget = Math.min(max, mixTarget + weatherFogBoost * 0.35);
-  }
-  return mixTarget;
-}
+import { smooth, simulateBloomTarget, simulateFogTarget, accumulateArpeggioChannels, nightGateFromBias } from '../src/systems/atmosphere-reactivity-core.ts';
 
 console.log('🌫️  Atmosphere Reactivity Tests');
 console.log('================================\n');
@@ -89,34 +74,7 @@ test('beat pulse: spike decays to zero', () => {
 // Mirrors assembly/music_reactivity.ts + wasm-music-reactivity.ts TS fallback.
 // ---------------------------------------------------------------------------
 
-function accumulateArpeggioChannels(
-  volumes,
-  shimmerCount,
-  hueShiftCount,
-  nightGate,
-  intensityScale,
-  outResult
-) {
-  let shimmerAccum = 0.0;
-  for (let i = 0; i < shimmerCount; i++) shimmerAccum += volumes[i];
-  let hueShiftAccum = 0.0;
-  const end = shimmerCount + hueShiftCount;
-  for (let i = shimmerCount; i < end; i++) hueShiftAccum += volumes[i];
 
-  const shimmerDiv = shimmerCount > 1 ? shimmerCount : 1.0;
-  let shimmerVal = shimmerAccum / shimmerDiv;
-  if (shimmerVal > 1.0) shimmerVal = 1.0;
-  outResult[0] = shimmerVal * nightGate * intensityScale;
-
-  const hueShiftDiv = hueShiftCount > 1 ? hueShiftCount : 1.0;
-  let hueShiftVal = hueShiftAccum / hueShiftDiv;
-  if (hueShiftVal > 1.0) hueShiftVal = 1.0;
-  outResult[1] = hueShiftVal * nightGate * intensityScale;
-}
-
-function nightGateFromBias(dayNightBias) {
-  return 0.2 + (1.0 - dayNightBias) * 0.8;
-}
 
 console.log('\n🎵  Arpeggio Grove Accumulate');
 console.log('==============================\n');

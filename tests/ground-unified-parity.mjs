@@ -11,58 +11,27 @@ import { dirname, join } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
-// Inline JS core (mirror ground-height-core.ts — no TS import in node test)
-const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68 };
-const LAKE_BOTTOM = -2.0;
-const LAKE_ISLAND = { centerX: 20, centerZ: 20, radius: 12, peakHeight: 3.0, falloffRadius: 4, enabled: true };
-const LAKE_ISLAND_RADIUS_SQ = LAKE_ISLAND.radius * LAKE_ISLAND.radius;
+import { getUnifiedGroundHeightTyped } from '../src/systems/physics.core.ts';
 
-function rawTerrain(x, z) {
-    if (Number.isNaN(x) || Number.isNaN(z)) return 0;
-    return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
-        Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
-}
-
-function applyPlatformOverride(x, z, terrainHeight, platforms) {
-    let best = terrainHeight;
-    for (const p of platforms) {
-        if (x < p.minX || x > p.maxX || z < p.minZ || z > p.maxZ) continue;
-        if (p.maxY > best) best = p.maxY;
-    }
-    return best;
-}
-
-function applyLakeModifiers(x, z, height) {
-    if (x <= LAKE_BOUNDS.minX || x >= LAKE_BOUNDS.maxX || z <= LAKE_BOUNDS.minZ || z >= LAKE_BOUNDS.maxZ) {
-        return height;
-    }
-    if (LAKE_ISLAND.enabled) {
-        const dx = x - LAKE_ISLAND.centerX;
-        const dz = z - LAKE_ISLAND.centerZ;
-        const distSq = dx * dx + dz * dz;
-        if (distSq < LAKE_ISLAND_RADIUS_SQ) {
-            const dist = Math.sqrt(distSq);
-            const normalizedDist = dist / LAKE_ISLAND.radius;
-            const islandHeight = LAKE_ISLAND.peakHeight * Math.cos(normalizedDist * Math.PI / 2);
-            const edgeDist = LAKE_ISLAND.radius - dist;
-            const edgeBlend = Math.min(1.0, edgeDist / LAKE_ISLAND.falloffRadius);
-            const finalIslandHeight = 1.5 + islandHeight * edgeBlend;
-            return Math.max(height, finalIslandHeight);
-        }
-    }
-    const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
-    const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
-    const distEdge = Math.min(distX, distZ);
-    const blend = Math.min(1.0, distEdge / 10.0);
-    const targetHeight = height + (LAKE_BOTTOM - height) * blend;
-    return targetHeight < height ? targetHeight : height;
-}
-
+import { registerWalkableIslandPlatform } from '../src/systems/ground-system.ts';
 function jsUnified(x, z, now, platforms) {
-    let h = rawTerrain(x, z);
-    h = applyPlatformOverride(x, z, h, platforms);
-    h = applyLakeModifiers(x, z, h);
-    return h;
+    return getUnifiedGroundHeightTyped(x, z, now);
+}
+
+// We need to register the platforms in JS too, since the original code did applyPlatformOverride
+const testPlatforms = [
+    { minX: 5, maxX: 15, minZ: 5, maxZ: 15, maxY: 12.0 },
+];
+// Mock THREE.Object3D shape to register them in ground-system
+for (let i = 0; i < testPlatforms.length; i++) {
+    const p = testPlatforms[i];
+    // registerWalkableIslandPlatform takes islandRadius. The bounds are minX = cx - r*0.9
+    // so r*0.9 = 5 => r = 5.5555
+    registerWalkableIslandPlatform({
+        uuid: 'test_platform_' + i,
+        position: { x: (p.minX + p.maxX)/2, y: p.maxY, z: (p.minZ + p.maxZ)/2 },
+        userData: { isWalkable: true, islandRadius: 5 / 0.9 }
+    });
 }
 
 // Load AS WASM
