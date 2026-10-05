@@ -14,6 +14,7 @@ import {
     wasmBatchLerp
 } from './wasm-loader-core.ts';
 
+const MATH_STRIDE = 4; // 4 floats per result (rotX, rotY, rotZ, scale)
 
 // =============================================================================
 // TEST-ONLY / PARITY REFERENCE ENTRYPOINTS (#1351)

@@ -767,7 +767,7 @@ export async function createParticleSystemWithFallback(
             const system = new GPUParticleSystem(gpu, config);
             await system.initialize();
             return system;
-        } catch {
+        } catch (_error) {
             // WebGPU compute failed, trying fallback
         }
     }

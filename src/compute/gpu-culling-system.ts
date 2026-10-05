@@ -325,7 +325,7 @@ export class GPUCullingSystem {
             const chores = new GPUChoresLibrary(device);
             await chores.initialize();
             this.choresLib = chores;
-        } catch {
+        } catch (_error) {
             this.choresLib = null;
             setLastFrameGpuChores(false);
         }

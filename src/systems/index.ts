@@ -79,7 +79,8 @@ export {
     getCellKey,
     parseCellKey,
     worldToCell,
-    cellToBounds
+    cellToBounds,
+    distanceToCellSq
 } from './region-manager.ts';
 
 // Default export

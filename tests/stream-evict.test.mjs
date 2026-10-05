@@ -7,9 +7,9 @@ global.document = {
     createElement: () => ({ style: {} }),
 };
 global.performance = { now: () => Date.now() };
+import { waterfallBatcher } from "../src/foliage/waterfall-batcher.ts";
 global.foliageGroup = new THREE.Group();
 
-import { waterfallBatcher } from "../src/foliage/waterfall-batcher.ts";
 import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
 import { gemFruitBatcher } from '../src/foliage/gem-fruit-batcher.ts';
 import { despawnEntity } from '../src/world/entity-despawn.ts';
