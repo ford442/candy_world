@@ -1,3 +1,5 @@
+import { type EntitySnapshot } from './entity-snapshot-core.ts';
+
 /**
  * @file src/systems/edit-history.ts
  * @brief Undo/redo stack of world edits.
