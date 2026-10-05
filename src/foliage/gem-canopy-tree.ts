@@ -44,6 +44,7 @@ export function createGemCanopyTree(options: GemCanopyTreeOptions = {}): Foliage
                 gemCount: 6 + Math.floor(Math.random() * 3),
             }).refs
             : [];
+        group.userData.gemRefs = refs;
         const entityId = awakenedPersistence.resolvePersistentId(group);
         awakenedPersistence.registerPlacedEntity(
             entityId,

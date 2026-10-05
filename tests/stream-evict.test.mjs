@@ -1,15 +1,6 @@
 import * as THREE from 'three';
 import assert from 'node:assert';
 
-// Mocks to allow module imports to succeed without full DOM/WebGPU
-global.window = {};
-global.document = {
-    createElement: () => ({ style: {} }),
-};
-global.performance = { now: () => Date.now() };
-import { waterfallBatcher } from "../src/foliage/waterfall-batcher.ts";
-global.foliageGroup = new THREE.Group();
-
 import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
 import { gemFruitBatcher } from '../src/foliage/gem-fruit-batcher.ts';
 import { sugarCaveBatcher } from '../src/foliage/sugar-cave-batcher.ts';
@@ -19,6 +10,9 @@ import { foliageCaves } from '../src/systems/physics/physics-types.ts';
 import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
 import { subwooferLotusBatcher } from '../src/foliage/subwoofer-lotus-batcher.ts';
 import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
+import { optimizedDiscovery } from '../src/systems/discovery-optimized.ts';
+
+optimizedDiscovery.registerObject = () => {};
 
 // Test runner function
 async function runTests() {
@@ -53,7 +47,10 @@ async function runTests() {
         };
 
         // Let's hook into the global scope config correctly if needed, or simply let the code run.
-        const streamer = new ChunkStreamer(10, mockMap, weatherSystem);
+        const streamer = new ChunkStreamer(mockMap, weatherSystem, null, {
+            chunkSize: 10,
+            evictRingChunks: 1,
+        });
 
         // We bypass the id checking and directly call load cell
         const record = streamer['recordFor']('0,0');
@@ -158,7 +155,10 @@ async function runTests() {
             const mockMap2 = { cells: new Map() };
             mockMap2.cells.set(chunkKey, cellMock);
 
-            const streamer2 = new ChunkStreamer(10, mockMap2, { registerCave: () => {}, unregisterCave: () => {} });
+            const streamer2 = new ChunkStreamer(mockMap2, weatherSystem, null, {
+                chunkSize: 10,
+                evictRingChunks: 1,
+            });
 
             const record2 = streamer2['recordFor'](chunkKey);
             streamer2['trackSpawnedObject'](obj, record2);
