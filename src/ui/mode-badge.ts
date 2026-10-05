@@ -1,7 +1,7 @@
 import type { StartupProfile } from '../core/startup-profile.ts';
 import { profileBadgeLabel } from '../core/startup-profile.ts';
 
-export type WorldMode = 'CORE' | 'FULL';
+export type WorldMode = 'CORE' | 'FULL' | 'LOBBY';
 
 let modeBadge: HTMLDivElement | null = null;
 let rendererBadge: HTMLDivElement | null = null;
@@ -101,6 +101,10 @@ export function showModeBadge(mode: WorldMode, profile?: StartupProfile) {
         opacity: '0.98',
     });
 
+    modeBadge.setAttribute('role', 'status');
+
+    let badgeText = '';
+
     if (profile) {
         const path = profile.path;
         if (path === 'core') {
@@ -109,20 +113,33 @@ export function showModeBadge(mode: WorldMode, profile?: StartupProfile) {
         } else if (path === 'play') {
             modeBadge.style.background = 'rgba(165, 214, 167, 0.92)';
             modeBadge.style.color = '#1b3a1b';
+        } else if (path === 'lobby') {
+            modeBadge.style.background = 'rgba(255, 224, 130, 0.92)';
+            modeBadge.style.color = '#5d4037';
         } else {
             modeBadge.style.background = 'rgba(125, 211, 252, 0.92)';
             modeBadge.style.color = '#0f2a3a';
         }
-        modeBadge.innerText = profileBadgeLabel(profile);
+        badgeText = profileBadgeLabel(profile);
+        modeBadge.innerText = badgeText;
     } else if (mode === 'CORE') {
         modeBadge.style.background = 'rgba(255, 158, 205, 0.92)';
         modeBadge.style.color = '#2b0f1c';
-        modeBadge.innerText = 'CORE MODE';
+        badgeText = 'CORE MODE';
+        modeBadge.innerText = badgeText;
+    } else if (mode === 'LOBBY') {
+        modeBadge.style.background = 'rgba(255, 224, 130, 0.92)';
+        modeBadge.style.color = '#5d4037';
+        badgeText = 'LOBBY MODE';
+        modeBadge.innerText = badgeText;
     } else {
         modeBadge.style.background = 'rgba(125, 211, 252, 0.92)';
         modeBadge.style.color = '#0f2a3a';
-        modeBadge.innerText = 'FULL MODE';
+        badgeText = 'FULL MODE';
+        modeBadge.innerText = badgeText;
     }
+
+    modeBadge.setAttribute('aria-label', badgeText);
 
     document.body.appendChild(modeBadge);
 }

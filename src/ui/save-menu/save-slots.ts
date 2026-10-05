@@ -12,6 +12,7 @@ import {
 } from '../../systems/save-system/index.ts';
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
+import { announce } from '../announcer.ts';
 import type { SaveMenu } from './save-menu.ts';
 
 /**
@@ -82,7 +83,7 @@ export function renderLoadTab(
     slots: SaveSlotInfo[], 
     currentMode: 'load' | 'save' | 'full',
     selectedSlot: string | null,
-    menu: SaveMenu
+    _menu: SaveMenu
 ): string {
     const manualSlots = slots.filter(s => !s.isAutoSave && s.exists);
     const autoSlots = slots.filter(s => s.isAutoSave && s.exists);
@@ -170,7 +171,11 @@ export async function handleSlotAction(
         btnElement.setAttribute('aria-busy', 'true');
         btnElement.setAttribute('aria-disabled', 'true');
         const originalText = btnElement.innerHTML;
-        btnElement.innerHTML = '<span class="spinner" aria-hidden="true"></span>...';
+        const textContent = btnElement.textContent?.trim() || 'Processing';
+
+        // Build content safely
+        btnElement.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+        btnElement.appendChild(document.createTextNode(textContent + '...'));
 
         // Setup cleanup to restore state
         const cleanup = () => {
@@ -245,8 +250,13 @@ async function loadSave(
 ): Promise<void> {
     const data = await saveSystem.load(slotId);
     if (data) {
-        showToast(`Loaded: ${data.metadata.slotName}`, '📂', 3000);
-        onLoadCallback?.(data);
+        let msg = `Loaded: ${data.metadata.slotName}`;
+        const result = onLoadCallback?.(data) as any;
+        if (result) {
+            msg += ` (Restored ${result.restored}, Skipped ${result.skipped})`;
+        }
+        showToast(msg, '<span aria-hidden="true">📂</span>', 3000);
+        announce(msg, 'polite');
         menu?.close();
     } else {
         showToast('Failed to load save', '❌', 3000);
@@ -328,7 +338,11 @@ export async function handleQuickSave(
         btnElement.setAttribute('aria-busy', 'true');
         btnElement.setAttribute('aria-disabled', 'true');
         const originalText = btnElement.innerHTML;
-        btnElement.innerHTML = '<span class="spinner" aria-hidden="true"></span>...';
+        const textContent = btnElement.textContent?.trim() || 'Saving';
+
+        // Build content safely
+        btnElement.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+        btnElement.appendChild(document.createTextNode(textContent + '...'));
 
         try {
             await yieldToPaint();

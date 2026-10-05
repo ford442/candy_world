@@ -258,7 +258,10 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
             // the temporary mesh+render-target; the original scene materials are unaffected.
             const { ShaderWarmup } = await import('../rendering/shader-warmup.ts');
             const warmup = new ShaderWarmup();
-            const targets = warmup.getTargets();
+            // Lobby already warmed its minimal subset at startup; the scene pass
+            // below covers the room's own materials, so skip the preset re-run.
+            const targets =
+                getStartupCapabilities().path === 'lobby' ? [] : warmup.getTargets();
 
             for (let i = 0; i < targets.length; i += WARMUP_BATCH_SIZE) {
                 if (_warmupAborted) break;

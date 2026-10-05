@@ -79,6 +79,18 @@ export let updateFluidSolver: ((...args: number[]) => number) | null = null;
 export let getFluidVelocityX: ((...args: number[]) => number) | null = null;
 export let getFluidVelocityY: ((...args: number[]) => number) | null = null;
 export let getFluidDensity: ((...args: number[]) => number) | null = null;
+export let setPlayerState: ((...args: number[]) => number) | null = null;
+export let getPlayerX: ((...args: number[]) => number) | null = null;
+export let getPlayerY: ((...args: number[]) => number) | null = null;
+export let getPlayerZ: ((...args: number[]) => number) | null = null;
+export let getPlayerVX: ((...args: number[]) => number) | null = null;
+export let getPlayerVY: ((...args: number[]) => number) | null = null;
+export let getPlayerVZ: ((...args: number[]) => number) | null = null;
+export let valueNoise2D: ((...args: number[]) => number) | null = null;
+export let fbm: ((...args: number[]) => number) | null = null;
+export let fastInvSqrt: ((...args: number[]) => number) | null = null;
+export let fastDistance: ((...args: number[]) => number) | null = null;
+export let hash: ((...args: number[]) => number) | null = null;
 
 export function setEmscriptenInstance(instance: EmscriptenModule | null): void {
   emscriptenInstance = instance;
@@ -149,6 +161,20 @@ export function initCppFunctions(): void {
   getFluidVelocityX = getNativeFunc('getFluidVelocityX');
   getFluidVelocityY = getNativeFunc('getFluidVelocityY');
   getFluidDensity = getNativeFunc('getFluidDensity');
+
+  // Player & Math fallbacks
+  setPlayerState = getNativeFunc('setPlayerState');
+  getPlayerX = getNativeFunc('getPlayerX');
+  getPlayerY = getNativeFunc('getPlayerY');
+  getPlayerZ = getNativeFunc('getPlayerZ');
+  getPlayerVX = getNativeFunc('getPlayerVX');
+  getPlayerVY = getNativeFunc('getPlayerVY');
+  getPlayerVZ = getNativeFunc('getPlayerVZ');
+  valueNoise2D = getNativeFunc('valueNoise2D');
+  fbm = getNativeFunc('fbm');
+  fastInvSqrt = getNativeFunc('fastInvSqrt');
+  fastDistance = getNativeFunc('fastDistance');
+  hash = getNativeFunc('hash');
 
   console.log('[WASM] C++ Physics & Math functions mapped successfully');
 }

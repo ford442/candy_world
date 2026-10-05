@@ -18,7 +18,7 @@ import {
 
 export type GraphicsLevel = 'low' | 'medium' | 'high' | 'ultra';
 /** User/session path. `core` is the old CORE sandbox (URL / migration / fallback only). */
-export type StartupPath = 'play' | 'explore' | 'core';
+export type StartupPath = 'play' | 'explore' | 'core' | 'lobby';
 
 export interface StartupProfile {
     path: StartupPath;
@@ -31,9 +31,9 @@ export const PATH_STORAGE_KEY = 'candy.bootPath';
 export const MAP_STORAGE_KEY = 'candy.mapSize';
 
 const GRAPHICS_LEVELS: readonly GraphicsLevel[] = ['low', 'medium', 'high', 'ultra'];
-const STARTUP_PATHS: readonly StartupPath[] = ['play', 'explore', 'core'];
+const STARTUP_PATHS: readonly StartupPath[] = ['play', 'explore', 'core', 'lobby'];
 
-export type UrlBootFlag = 'instant' | 'play' | 'explore' | 'core';
+export type UrlBootFlag = 'instant' | 'play' | 'explore' | 'core' | 'lobby';
 
 function isGraphicsLevel(v: string | null | undefined): v is GraphicsLevel {
     return !!v && (GRAPHICS_LEVELS as readonly string[]).includes(v);
@@ -44,7 +44,7 @@ function isStartupPath(v: string | null | undefined): v is StartupPath {
 }
 
 function isUrlBootFlag(v: string | null | undefined): v is UrlBootFlag {
-    return v === 'instant' || v === 'play' || v === 'explore' || v === 'core';
+    return v === 'instant' || v === 'play' || v === 'explore' || v === 'core' || v === 'lobby';
 }
 
 export function readUrlParams(): URLSearchParams | null {
@@ -77,6 +77,9 @@ function writeStorage(key: string, value: string): void {
 /** Map leftover `candy.mapSize` / `?map=` onto a startup path. */
 export function mapSizeToStartupPath(mapSize: string | null | undefined): StartupPath | null {
     switch (mapSize) {
+        case 'tiny':
+        case 'lobby':
+            return 'lobby';
         case 'small':
             return 'core';
         case 'medium':
@@ -121,6 +124,8 @@ export function resolveBootPathFromUrl(params?: URLSearchParams | null): Startup
     if (isUrlBootFlag(boot)) {
         return boot === 'instant' ? 'play' : boot;
     }
+    // Debug aliases for forcing the CORE sandbox without the mode dialog.
+    if (search?.get('core') === '1' || search?.get('mode') === 'core') return 'core';
     return mapSizeToStartupPath(search?.get('map') ?? search?.get('mapSize'));
 }
 
@@ -211,6 +216,8 @@ export function pathLabel(path: StartupPath): string {
             return 'Explore';
         case 'core':
             return 'Core';
+        case 'lobby':
+            return 'Lobby';
     }
 }
 
@@ -220,6 +227,8 @@ export function profileDescription(profile: StartupProfile): string {
             return 'Full World — nearby map loads first; the horizon fills in as you walk.';
         case 'core':
             return 'Core sandbox — classic candy terrain near spawn. Dev / CI only.';
+        case 'lobby':
+            return 'Lobby — one candy room. Meet up, then enter the dream.';
         default:
             return 'Spawn area loads first; the horizon fills in as you walk.';
     }
@@ -243,8 +252,10 @@ export function profileLoadHint(profile: StartupProfile): string {
     const m =
         profile.path === 'core'
             ? 'quick sandbox'
-            : profile.path === 'explore'
-              ? 'nearby map + streaming horizon'
-              : 'spawn chunk + streaming horizon';
+            : profile.path === 'lobby'
+              ? 'one-room lobby, no horizon'
+              : profile.path === 'explore'
+                ? 'nearby map + streaming horizon'
+                : 'spawn chunk + streaming horizon';
     return `${g}, ${m}`;
 }

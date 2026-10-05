@@ -151,13 +151,16 @@ export class NightMarketBatcher {
 
         const tint = attribute('aStallTint', 'vec4');
         // PALETTE: frosted pastel counter — tint the light, never desaturate the albedo.
+        const baseColor = mix(tint.xyz, color(STRIPE_CREAM), float(0.35));
         const mat = CandyPresets.Sugar(0xffffff, {
-            colorNode: mix(tint.xyz, color(STRIPE_CREAM), float(0.35)),
+            colorNode: baseColor,
             roughness: 0.35,
         });
         // Warm lantern spill on the counter after dusk (emissive, not a GPU light).
         const spill = color(LANTERN_WARM).mul(nightOpenNode()).mul(float(0.12));
-        mat.emissiveNode = mat.emissiveNode ? (mat.emissiveNode as any).add(spill) : spill;
+        // 🎨 PALETTE: Juicy Rim Light for frame (candy edge on the counter/posts)
+        const frameRim = createJuicyRimLight(baseColor, float(1.5), float(3.0), mat.normalNode).mul(nightOpenNode());
+        mat.emissiveNode = mat.emissiveNode ? (mat.emissiveNode as any).add(spill).add(frameRim) : spill.add(frameRim);
 
         const mesh = new THREE.InstancedMesh(geo, mat, MAX_NIGHT_MARKET_STALLS);
         mesh.castShadow = true;
@@ -201,6 +204,10 @@ export class NightMarketBatcher {
             roughness: 0.4,
             side: THREE.DoubleSide,
         });
+        // 🎨 PALETTE: Lighter rim on the awning stripeColor path so the canopy reads as candy at dusk.
+        const awningRim = createJuicyRimLight(stripeColor, float(0.8), float(2.0), mat.normalNode).mul(open);
+        mat.emissiveNode = mat.emissiveNode ? (mat.emissiveNode as any).add(awningRim) : awningRim;
+
         const mesh = new THREE.InstancedMesh(geo, mat, MAX_NIGHT_MARKET_STALLS);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -281,10 +288,9 @@ export class NightMarketBatcher {
         proxy.userData.nightMarketSlot = i;
         proxy.userData.isBatched = true;
 
-        proxy.updateMatrix();
-        _scratchMatrix.copy(proxy.matrix);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy updateMatrix() overhead for zero-allocation batch writing
+        _scratchMatrix.compose(proxy.position, proxy.quaternion, proxy.scale);
         if (proxy.parent) {
-            proxy.parent.updateMatrixWorld();
             _scratchMatrix.premultiply(proxy.parent.matrixWorld);
         }
         this.writeMatrix(i, _scratchMatrix);

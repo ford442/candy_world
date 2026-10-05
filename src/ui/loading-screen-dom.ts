@@ -134,7 +134,7 @@ export function createLoadingScreenDOM(
         skipButton.type = 'button';
         skipButton.className = 'skip-button';
         skipButton.innerHTML =
-            '<span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>';
+            '<span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge" aria-hidden="true">Space</span>';
         skipButton.style.display = 'none';
         wireSkipButton(skipButton, onSkip);
         content.appendChild(skipButton);

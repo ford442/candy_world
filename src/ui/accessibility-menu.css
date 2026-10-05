@@ -11,7 +11,8 @@
     border-left: 3px solid var(--a11y-color, #00aaff) !important;
 }
 
-.a11y-tab[aria-selected="false"]:hover {
+.a11y-tab[aria-selected="false"]:hover,
+.a11y-tab[aria-selected="false"]:focus-visible {
     background: var(--menu-hover, #3a3a3a);
 }
 
@@ -19,7 +20,8 @@
     transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, box-shadow 0.2s;
 }
 
-.a11y-button:hover, .a11y-preset-card:hover {
+.a11y-button:hover, .a11y-preset-card:hover,
+.a11y-button:focus-visible, .a11y-preset-card:focus-visible {
     background: var(--menu-hover, #4a4a4a) !important;
 }
 

@@ -1,12 +1,14 @@
 import * as THREE from 'three';
-import { BiomeUniforms } from './biome-uniforms.ts';
-import { awakenedPersistence } from './awakened-persistence-api.ts';
+import { CONFIG } from '../core/config.ts';
 import type { AudioData, ChannelData } from '../foliage/types.ts';
+import { awakenedPersistence } from './awakened-persistence-api.ts';
+import { BiomeUniforms } from './biome-uniforms.ts';
 import {
     MRState,
     mapNoteToColor,
     applyArpeggioGroveChannelAccum,
     applyNebulaChannelAccum,
+    parseNoteToMIDI,
     _targetArpeggioColor,
     _targetNebulaColor,
     _targetGlobalColor,
@@ -17,7 +19,6 @@ import {
     _targetMoonColor
 } from './music-reactivity-core.ts';
 import { CHROMATIC_SCALE } from './music-reactivity-defaults.ts';
-import { CONFIG } from '../core/config.ts';
 
 /** Volume above which a channel counts as playing a note. */
 export const NOTE_AUDIBLE_THRESHOLD = 0.05;
@@ -59,7 +60,7 @@ export function firstAudibleNote(chList: readonly number[], channels: readonly C
     for (let i = 0; i < chList.length; i++) {
         const idx = chList[i];
         if (idx < channels.length && channels[idx].volume > NOTE_AUDIBLE_THRESHOLD) {
-            return parseInt(channels[idx].note) || 0;
+            return parseNoteToMIDI(channels[idx].note);
         }
     }
     return 0;
