@@ -57,6 +57,12 @@
             "hueShift": [4],
             "noteColor": [2],
             "_comment": "Subterranean Sugar Caves — crystal rib shimmer + muffled tracker hue (#1492)"
+        },
+        "night_market": {
+            "shimmer": [1, 6],
+            "hueShift": [3],
+            "noteColor": [6],
+            "_comment": "Festival Night Market (#1758) — lantern flare on melody + chord pad, awning ripple on harmony. Hard night gate (0 at full day)."
         }
     },
     "portamento_pine": {
@@ -83,7 +89,8 @@
             "global",
             "sky_islands",
             "gem_canopy",
-            "sugar_caves"
+            "sugar_caves",
+            "night_market"
         ],
         "decay_ms": 2000,
         "_comment": "Order in target_biomes controls stagger (earlier = hits first). Wave lerps the corresponding noteColor uniform so any foliage already consuming that uniform (portamento, wisteria, trees, mushrooms, etc.) receives the sky hue automatically."

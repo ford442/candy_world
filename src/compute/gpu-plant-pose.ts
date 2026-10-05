@@ -287,6 +287,11 @@ export function resetGpuPlantPoseSlot(index: number, value = 0): void {
  * Advance poses on GPU and read back currentPose values.
  * Returns null to fall back to CPU PlantPoseMachine.
  */
+// ⚡ OPTIMIZATION: Hoisted uniform buffers to avoid GC allocations per frame
+const _poseUniformBuf = new ArrayBuffer(UNIFORM_FLOATS * 4);
+const _poseF32 = new Float32Array(_poseUniformBuf);
+const _poseU32 = new Uint32Array(_poseUniformBuf);
+
 export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float32Array | null> {
     const { count, delta, channelIntensity, dayNightBias, config, wave } = params;
     if (!shouldRunGpuPlantPose(count)) return null;
@@ -298,9 +303,8 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
     const device = gpu.getDevice();
     if (!device) return null;
 
-    const uniformBuf = new ArrayBuffer(UNIFORM_FLOATS * 4);
-    const f32 = new Float32Array(uniformBuf);
-    const u32 = new Uint32Array(uniformBuf);
+    const f32 = _poseF32;
+    const u32 = _poseU32;
 
     f32[0] = delta;
     f32[1] = channelIntensity;

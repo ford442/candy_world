@@ -61,7 +61,7 @@ Shipped **Option 1 — Subterranean Sugar Caves**. Festival Night Market and Wea
 | Option                                      | Pitch                                                                                                                     | Status                                      |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | **1 — Subterranean Sugar Caves** _(chosen)_ | Descent under lake; crystal ribs; muffled tracker / generative reverb; new `music-bindings` biome; god-rays from fissures | **Landed** — see `docs/SUGAR_CAVES_SHIP.md` |
-| **2 — Festival Night Market**               | Night-only stalls, lantern batcher, chord-strike hooks, discovery stamps → awakened                                       | Deferred                                    |
+| **2 — Festival Night Market**               | Night-only stalls, lantern batcher, chord-strike hooks, discovery stamps → awakened                                       | **Landed** (#1758) — see `docs/FESTIVAL_NIGHT_MARKET.md` |
 | **3 — Weather Ecosystem v2**                | Seasonal cycle → foliage palette + fauna + generative profiles                                                            | Deferred                                    |
 
 ### C. Libraries (only if justified)

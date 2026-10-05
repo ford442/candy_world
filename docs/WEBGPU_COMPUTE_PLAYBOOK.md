@@ -8,7 +8,7 @@
 > - [`docs/WEBGPU_CONTEXT.md`](./WEBGPU_CONTEXT.md) — single-device architecture, limits matrix, device-lost policy
 > - [`docs/COMPUTE_GPU_DEFAULT.md`](./COMPUTE_GPU_DEFAULT.md) — which subsystems are GPU-default, Tier 4a vs 4b
 > - [`docs/COMPUTE_PARTICLES.md`](./COMPUTE_PARTICLES.md), [`docs/GPU_FOLIAGE.md`](./GPU_FOLIAGE.md) — worked, shipped examples
-> - [`docs/webgl-fallback.md`](./webgl-fallback.md) — the WebGL2 reference path and `?webglLite=1`
+> - [`docs/webgl-fallback.md`](./webgl-fallback.md) — why there is no WebGL path (compute has only GPU and CPU/WASM tiers)
 > - [`docs/TIER_PARITY.md`](./TIER_PARITY.md) — golden-vector harness for fallback parity
 >
 > Owner modules: [`src/rendering/gpu-context.ts`](../src/rendering/gpu-context.ts),

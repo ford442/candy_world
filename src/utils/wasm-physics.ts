@@ -27,6 +27,20 @@ import {
     wasmBatchGroundHeight,
     wasmFreqToHue,
     wasmLerp,
+    updatePhysicsCPP as cachedUpdatePhysicsCPP,
+    initPhysics as cachedInitPhysics,
+    setPlayerState as cachedSetPlayerState,
+    getPlayerX as cachedGetPlayerX,
+    getPlayerY as cachedGetPlayerY,
+    getPlayerZ as cachedGetPlayerZ,
+    getPlayerVX as cachedGetPlayerVX,
+    getPlayerVY as cachedGetPlayerVY,
+    getPlayerVZ as cachedGetPlayerVZ,
+    valueNoise2D as cachedValueNoise2D,
+    fbm as cachedFbm,
+    fastInvSqrt as cachedFastInvSqrt,
+    fastDistance as cachedFastDistance,
+    hash as cachedHash,
     getNativeFunc,
     POSITION_OFFSET,
     BATCH_UPLOAD_OFFSET,
@@ -432,21 +446,31 @@ export function checkCollision(playerX: number, playerZ: number, playerRadius: n
 // =============================================================================
 
 /**
- * Update physics using C++
+ * Native-assist-only obstacle/trampoline solver (see docs/CHARACTER_CONTROLLER.md).
+ *
+ * `resolveCharacterMovement` (character-controller.ts) is the sole authority
+ * for gravity, ground/air acceleration, ground Y-snap, coyote time, jump
+ * buffering, and jump. This call only tests obstacle/trampoline colliders
+ * against the caller-seeded player state (via `setPlayerState`, which must be
+ * called first) and reports back a constrained XZ position — read via
+ * `getPlayerState()` and diffed against the pre-call position to recover an
+ * effective velocity — plus a bounce `vy` when the return value is `2`.
+ *
  * @param delta - Delta time
- * @param inputX - Input X
- * @param inputZ - Input Z
- * @param speed - Speed
- * @param jump - Jump flag
- * @param sprint - Sprint flag
- * @param sneak - Sneak flag
- * @param grooveGravity - Groove gravity
- * @returns Physics result code
+ * @param inputX - Camera-relative, already speed-scaled target velocity X
+ * @param inputZ - Camera-relative, already speed-scaled target velocity Z
+ * @param speed - Unused by the native module; accepted for ABI compatibility
+ * @param jump - Unused by the native module; accepted for ABI compatibility
+ * @param sprint - Unused by the native module; accepted for ABI compatibility
+ * @param sneak - Unused by the native module; accepted for ABI compatibility
+ * @param grooveGravity - Unused by the native module; accepted for ABI compatibility
+ * @returns -1 if native unavailable, 0 if no obstacle contact, 1 on
+ *   obstacle/platform contact, 2 on a trampoline bounce (vy is authoritative)
  */
 export function updatePhysicsCPP(delta: number, inputX: number, inputZ: number, speed: number, jump: boolean, sprint: boolean, sneak: boolean, grooveGravity: number): number {
-    const f = getNativeFunc('updatePhysicsCPP');
-    if (f) {
-        return f(delta, inputX, inputZ, speed, jump ? 1 : 0, sprint ? 1 : 0, sneak ? 1 : 0, grooveGravity);
+    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
+    if (cachedUpdatePhysicsCPP) {
+        return cachedUpdatePhysicsCPP(delta, inputX, inputZ, speed, jump ? 1 : 0, sprint ? 1 : 0, sneak ? 1 : 0, grooveGravity);
     }
     return -1;
 }
@@ -458,8 +482,8 @@ export function updatePhysicsCPP(delta: number, inputX: number, inputZ: number, 
  * @param z - Initial Z position
  */
 export function initPhysics(x: number, y: number, z: number): void {
-    const f = getNativeFunc('initPhysics');
-    if (f) f(x, y, z);
+    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
+    if (cachedInitPhysics) cachedInitPhysics(x, y, z);
 }
 
 // =============================================================================
@@ -476,8 +500,8 @@ export function initPhysics(x: number, y: number, z: number): void {
  * @param vz - Z velocity
  */
 export function setPlayerState(x: number, y: number, z: number, vx: number, vy: number, vz: number): void {
-    const f = getNativeFunc('setPlayerState');
-    if (f) f(x, y, z, vx, vy, vz);
+    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
+    if (cachedSetPlayerState) cachedSetPlayerState(x, y, z, vx, vy, vz);
 }
 
 /**
@@ -486,13 +510,14 @@ export function setPlayerState(x: number, y: number, z: number, vx: number, vy: 
  * @returns Player state
  */
 export function getPlayerState(out: Partial<PlayerStateResult> = {}): PlayerStateResult {
+    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
     const result: PlayerStateResult = {
-        x: getNativeFunc('getPlayerX')?.() ?? 0,
-        y: getNativeFunc('getPlayerY')?.() ?? 0,
-        z: getNativeFunc('getPlayerZ')?.() ?? 0,
-        vx: getNativeFunc('getPlayerVX')?.() ?? 0,
-        vy: getNativeFunc('getPlayerVY')?.() ?? 0,
-        vz: getNativeFunc('getPlayerVZ')?.() ?? 0
+        x: cachedGetPlayerX?.() ?? 0,
+        y: cachedGetPlayerY?.() ?? 0,
+        z: cachedGetPlayerZ?.() ?? 0,
+        vx: cachedGetPlayerVX?.() ?? 0,
+        vy: cachedGetPlayerVY?.() ?? 0,
+        vz: cachedGetPlayerVZ?.() ?? 0
     };
     Object.assign(out, result);
     return result;
@@ -509,8 +534,8 @@ export function getPlayerState(out: Partial<PlayerStateResult> = {}): PlayerStat
  * @returns Noise value
  */
 export function valueNoise2D(x: number, y: number): number {
-    const f = getNativeFunc('valueNoise2D');
-    if (f) return f(x, y);
+    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
+    if (cachedValueNoise2D) return cachedValueNoise2D(x, y);
     const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
     return n - Math.floor(n);
 }
@@ -523,8 +548,8 @@ export function valueNoise2D(x: number, y: number): number {
  * @returns FBM value
  */
 export function fbm(x: number, y: number, octaves = 4): number {
-    const f = getNativeFunc('fbm');
-    if (f) return f(x, y, octaves);
+    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
+    if (cachedFbm) return cachedFbm(x, y, octaves);
     let value = 0, amp = 0.5, freq = 1;
     for (let i = 0; i < octaves; i++) {
         value += amp * valueNoise2D(x * freq, y * freq);
@@ -540,8 +565,8 @@ export function fbm(x: number, y: number, octaves = 4): number {
  * @returns 1/sqrt(x)
  */
 export function fastInvSqrt(x: number): number {
-    const f = getNativeFunc('fastInvSqrt');
-    if (f) return f(x);
+    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
+    if (cachedFastInvSqrt) return cachedFastInvSqrt(x);
     return 1 / Math.sqrt(x);
 }
 
@@ -556,8 +581,8 @@ export function fastInvSqrt(x: number): number {
  * @returns Distance
  */
 export function fastDistance(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number {
-    const f = getNativeFunc('fastDistance');
-    if (f) return f(x1, y1, z1, x2, y2, z2);
+    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
+    if (cachedFastDistance) return cachedFastDistance(x1, y1, z1, x2, y2, z2);
     const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
@@ -569,8 +594,8 @@ export function fastDistance(x1: number, y1: number, z1: number, x2: number, y2:
  * @returns Hash value
  */
 export function hash(x: number, y: number): number {
-    const f = getNativeFunc('hash');
-    if (f) return f(x, y);
+    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
+    if (cachedHash) return cachedHash(x, y);
     const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
     return (n - Math.floor(n)) * 2 - 1;
 }

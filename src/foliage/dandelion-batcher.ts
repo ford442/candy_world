@@ -42,6 +42,7 @@ export class DandelionBatcher {
 
     mesh: THREE.InstancedMesh | null;
     dummy: THREE.Object3D; // For matrix calculations
+    private logicObjects: THREE.Object3D[] = [];
 
     constructor() {
         this.initialized = false;
@@ -311,40 +312,36 @@ export class DandelionBatcher {
         logicObject.userData.batchIndex = i;
         logicObject.userData.type = 'cymbal_dandelion';
         logicObject.userData.isBatched = true;
-
-        // Ensure we track mapping for swap-with-last removal
-        if (!this._logicObjects) this._logicObjects = [];
-        this._logicObjects[i] = logicObject;
+        this.logicObjects[i] = logicObject;
     }
 
-    private _logicObjects: THREE.Object3D[] = [];
-
     removeInstance(logicObject: THREE.Object3D) {
-        if (!this.initialized || !this.mesh || !logicObject) return;
-        const index = logicObject.userData.batchIndex;
-        if (typeof index !== 'number' || index < 0 || index >= this.count) return;
+        if (!this.initialized || !this.mesh) return;
+
+        const indexToRemove = logicObject.userData.batchIndex;
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
 
         const lastIndex = this.count - 1;
 
-        // Swap if it's not already the last one
-        if (index !== lastIndex) {
+        if (indexToRemove !== lastIndex) {
+            // Swap-with-last
             const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
-            for (let i = 0; i < 16; i++) {
-                matrixArray[index * 16 + i] = matrixArray[lastIndex * 16 + i];
-            }
-            this.mesh.instanceMatrix.needsUpdate = true;
+            const destOffset = indexToRemove * 16;
+            const srcOffset = lastIndex * 16;
+            matrixArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
 
-            const swappedObject = this._logicObjects[lastIndex];
+            const swappedObject = this.logicObjects[lastIndex];
             if (swappedObject) {
-                swappedObject.userData.batchIndex = index;
-                this._logicObjects[index] = swappedObject;
+                swappedObject.userData.batchIndex = indexToRemove;
+                this.logicObjects[indexToRemove] = swappedObject;
             }
         }
 
-        this._logicObjects[lastIndex] = null as unknown as THREE.Object3D;
+        this.logicObjects[lastIndex] = undefined as any;
         logicObject.userData.batchIndex = -1;
         this.count--;
         this.mesh.count = this.count;
+        this.mesh.instanceMatrix.needsUpdate = true;
     }
 
     harvest(batchIndex: number) {

@@ -50,6 +50,8 @@ export class LuminousPlantBatcher {
     private uploadMin = Infinity;
     private uploadMax = -1;
     private flushScheduled = false;
+    private uuidToIndex = new Map<string, number>();
+    private logicObjects: THREE.Object3D[] = [];
 
     constructor(maxInstances: number = 1200) {
         this.maxInstances = maxInstances;
@@ -231,87 +233,79 @@ export class LuminousPlantBatcher {
             }
         }
 
+        this.uuidToIndex.set(group.uuid, id);
+        this.logicObjects[id] = group;
         this.count++;
         this.mesh.count = this.count;
 
         this.mesh.instanceMatrix.needsUpdate = true;
         phaseAttr.needsUpdate = true;
 
-        if (!this._logicObjects) this._logicObjects = [];
-        this._logicObjects[id] = group;
-        group.userData.batchIndex = id;
-        group.userData.isBatched = true;
-        group.userData.type = LUMINOUS_TYPE_ID;
-
         this.drainPendingBulk();
 
         return id;
     }
 
-    private _logicObjects: THREE.Object3D[] = [];
-
     removeInstance(logicObject: THREE.Object3D) {
-        if (!this.mesh || !logicObject) return;
-        const index = logicObject.userData.batchIndex;
-        if (typeof index !== 'number' || index < 0 || index >= this.count) return;
+        if (!this.mesh) return;
+
+        const indexToRemove = this.uuidToIndex.get(logicObject.uuid);
+        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
 
         const lastIndex = this.count - 1;
+        const removedPersistentId = this.indexToPersistentId[indexToRemove];
 
-        if (index !== lastIndex) {
-            // Swap Matrix
+        if (indexToRemove !== lastIndex) {
+            // Swap-with-last for matrix
             const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
-            for (let i = 0; i < 16; i++) {
-                matrixArray[index * 16 + i] = matrixArray[lastIndex * 16 + i];
-            }
-            this.mesh.instanceMatrix.needsUpdate = true;
+            matrixArray.copyWithin(indexToRemove * 16, lastIndex * 16, lastIndex * 16 + 16);
 
-            // Swap aPhaseOffset
+            // Swap-with-last for attributes
             const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
-            if (phaseAttr) {
-                phaseAttr.setX(index, phaseAttr.getX(lastIndex));
-                phaseAttr.needsUpdate = true;
-            }
+            const phaseArray = phaseAttr.array as Float32Array;
+            phaseArray[indexToRemove] = phaseArray[lastIndex];
 
-            // Swap Awakened Attrs
             if (AWAKENED_ATTR_ENABLED) {
                 const awakenedAttr = this.mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
                 const emissiveAttr = this.mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
                 if (awakenedAttr && emissiveAttr) {
-                    awakenedAttr.setX(index, awakenedAttr.getX(lastIndex));
-                    emissiveAttr.setX(index, emissiveAttr.getX(lastIndex));
+                    const awakenedArray = awakenedAttr.array as Float32Array;
+                    const emissiveArray = emissiveAttr.array as Float32Array;
+                    awakenedArray[indexToRemove] = awakenedArray[lastIndex];
+                    emissiveArray[indexToRemove] = emissiveArray[lastIndex];
                     awakenedAttr.needsUpdate = true;
                     emissiveAttr.needsUpdate = true;
                 }
+            }
 
-                // Swap Persistent ID mappings
-                const lastPersistentId = this.indexToPersistentId[lastIndex];
-                this.indexToPersistentId[index] = lastPersistentId;
-                if (lastPersistentId !== undefined && lastPersistentId !== 0) {
-                    this.persistentIdToIndex.set(lastPersistentId, index);
+            const swappedObject = this.logicObjects[lastIndex];
+            if (swappedObject) {
+                this.uuidToIndex.set(swappedObject.uuid, indexToRemove);
+                this.logicObjects[indexToRemove] = swappedObject;
+
+                // Also update persistentIdToIndex mapping if applicable
+                const persistentId = this.indexToPersistentId[lastIndex];
+                if (persistentId) {
+                    this.persistentIdToIndex.set(persistentId, indexToRemove);
+                    this.indexToPersistentId[indexToRemove] = persistentId;
                 }
             }
-
-            // Swap Logic Objects Map
-            const swappedObject = this._logicObjects[lastIndex];
-            if (swappedObject) {
-                swappedObject.userData.batchIndex = index;
-                this._logicObjects[index] = swappedObject;
-            }
         }
 
-        // Cleanup
-        if (AWAKENED_ATTR_ENABLED) {
-            const persistentId = this.indexToPersistentId[lastIndex];
-            if (persistentId !== undefined && persistentId !== 0) {
-                this.persistentIdToIndex.delete(persistentId);
-                this.indexToPersistentId[lastIndex] = 0;
-            }
+        // Clean up mapping
+        this.uuidToIndex.delete(logicObject.uuid);
+        if (removedPersistentId) {
+            this.persistentIdToIndex.delete(removedPersistentId);
         }
 
-        this._logicObjects[lastIndex] = null as unknown as THREE.Object3D;
-        logicObject.userData.batchIndex = -1;
+        this.logicObjects[lastIndex] = undefined as any;
+        this.logicObjects.length = lastIndex;
+        this.indexToPersistentId[lastIndex] = 0; // Clear it
+
         this.count--;
         this.mesh.count = this.count;
+        this.mesh.instanceMatrix.needsUpdate = true;
+        (this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute).needsUpdate = true;
     }
 
     /** Apply awakened glow by stable persistentId */
@@ -440,4 +434,4 @@ export class LuminousPlantBatcher {
     }
 }
 
-export const luminousPlantBatcher = new LuminousPlantBatcher(CONFIG.luminousPlants?.density || 150);
+export const luminousPlantBatcher = LuminousPlantBatcher.getInstance();
