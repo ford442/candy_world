@@ -121,7 +121,7 @@ export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.G
     makeInteractiveCylinder(group, 1.2, 0.2);
 
     // Metadata
-    group.userData.type = 'flower';
+    group.userData.type = 'glowing_flower';
     group.userData.isFlower = true; // Signals MusicReactivitySystem to skip CPU updates
     group.userData.radius = 0.3;
     group.userData.interactionText = '✨ Glow Flower';
