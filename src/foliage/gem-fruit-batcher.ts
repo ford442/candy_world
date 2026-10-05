@@ -197,6 +197,13 @@ export class GemFruitBatcher {
                 this._scratchQuat.setFromEuler(new THREE.Euler(0, angle + Math.random() * 0.5, Math.random() * 0.3));
 
                 this._scratchMatrix.compose(this._scratchPos, this._scratchQuat, this._scratchScale);
+                const armLen = 0.5 + Math.random() * 1.5;
+                const idx = this._registerInstanceForTree(gemType, this._scratchMatrix, armLen, treeGroup);
+                if (idx >= 0) {
+                    refs.push({ batcher: 'gem_fruit', gemType, instanceIndex: idx });
+                    placed++;
+                    updatedMeshes.add(this.meshes[gemType]);
+                }
 
                 const instanceIndex = this._registerInstanceForTree(gemType, this._scratchMatrix, drop + 0.2, treeGroup);
                 if (instanceIndex >= 0) {

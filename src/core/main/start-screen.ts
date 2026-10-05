@@ -32,7 +32,6 @@ import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
 import type { WorldMode } from '../../world/generation-utils.ts';
 import { populateWorld } from '../../world/generation.ts';
 import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
-import { spawnTracker } from '../../world/spawn-tracker.ts';
 import {
     reset as resetSpawnTracker,
     getReport as getSpawnReport,
@@ -166,7 +165,8 @@ export function setupStartScreen(ctx: MainContext): void {
             setStartupPath(path);
         }
         try {
-            refreshStartupCapabilities({ profile });
+            // An explicit start-screen pick beats a `?boot=` / `?map=` URL flag for this session.
+            refreshStartupCapabilities({ profile, url: { boot: path } });
         } catch {
             /* capabilities cache is optional at this point */
         }
@@ -234,7 +234,8 @@ export function setupStartScreen(ctx: MainContext): void {
         startButton.setAttribute('aria-disabled', 'true');
         startButton.setAttribute('title', 'Generating world...');
         const textContent = startButton.textContent?.trim() || 'Generating';
-        startButton.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+        startButton.innerHTML =
+            '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
         startButton.appendChild(document.createTextNode(textContent + '... '));
         const candyEmoji = document.createElement('span');
         candyEmoji.setAttribute('aria-hidden', 'true');
@@ -298,8 +299,11 @@ export function setupStartScreen(ctx: MainContext): void {
                     startButton.style.background = `linear-gradient(90deg, ${accent} ${percent}%, ${soft} ${percent}%)`;
 
                     if (percent - lastAnnounced >= 10 || percent === 100) {
-                        startButton.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
-                        startButton.appendChild(document.createTextNode(`Generating ${percent}%... `));
+                        startButton.innerHTML =
+                            '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
+                        startButton.appendChild(
+                            document.createTextNode(`Generating ${percent}%... `)
+                        );
                         const candyEmoji = document.createElement('span');
                         candyEmoji.setAttribute('aria-hidden', 'true');
                         candyEmoji.textContent = '🍭';
@@ -329,8 +333,11 @@ export function setupStartScreen(ctx: MainContext): void {
             // Platforms (caves / clouds) register during populate — snap again on solid shore.
             placePlayerAtConfiguredSpawn(camera);
 
-            initFaunaSystem();
-            initFaunaDebug(scene);
+            // Lobby is one room — fauna would scatter across the whole map outside it.
+            if (getStartupCapabilities().world.fauna) {
+                initFaunaSystem();
+                initFaunaDebug(scene);
+            }
 
             initCloudPlacer({ scene, camera, weatherSystem: ctx.weatherSystem ?? null });
 
@@ -393,7 +400,7 @@ export function setupStartScreen(ctx: MainContext): void {
             setDeferredFailures(0);
             globalBackgroundProcessor.onProgress((completed, total) => {
                 setDeferredProgress(completed, total);
-                setDeferredFailures(spawnTracker.getReport().failCount);
+                setDeferredFailures(getSpawnReport().failed);
             });
             globalBackgroundProcessor.resetCounters();
             showDeferredIndicator();
