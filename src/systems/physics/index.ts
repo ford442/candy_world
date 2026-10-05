@@ -13,6 +13,11 @@ export {
     PlayerState,
 } from './physics.ts';
 
+export {
+    physicsGeysersGrid,
+    physicsTrapsGrid
+} from './physics-core.ts';
+
 // Type exports
 export type { AudioState, PlayerExtended, KeyStates } from './physics-types.ts';
 
