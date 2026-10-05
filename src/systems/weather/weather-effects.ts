@@ -366,7 +366,7 @@ export class EffectsManager {
      * Dispose of all effects
      */
     dispose(): void {
-        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow } =
+        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow, aurora } =
             this.state;
 
         if (percussionRain) {
@@ -386,6 +386,9 @@ export class EffectsManager {
         }
         if (rainbow) {
             safeRemoveAndDispose(this.scene, rainbow);
+        }
+        if (aurora) {
+            safeRemoveAndDispose(this.scene, aurora);
         }
     }
 }

@@ -45,6 +45,25 @@ export async function createPathTerrain(): Promise<THREE.Mesh> {
     return mesh;
 }
 
+/**
+ * Rebuild the visual terrain at the current path's footprint when the path
+ * changed after boot (e.g. Lobby picked on the start screen). No-op when the
+ * active mesh already matches.
+ */
+export async function rebuildTerrainForPath(scene: THREE.Scene): Promise<void> {
+    const extent = getStartupCapabilities().world;
+    if (!activeGround || activeTerrainSize === extent.size) return;
+    const next = await buildTerrainMesh(extent.size, extent.heightmapResolution);
+    next.position.copy(activeGround.position);
+    scene.add(next);
+    safeRemoveAndDispose(scene, activeGround);
+    activeGround = next;
+    activeTerrainSize = extent.size;
+    expandedToExplore = extent.size >= EXPLORE_WORLD_SIZE;
+    publishTerrainFlag();
+    console.log(`[World] Terrain rebuilt for path at ${extent.size}×${extent.size}`);
+}
+
 async function buildTerrainMesh(size: number, resolution: number): Promise<THREE.Mesh> {
     const urlParams =
         typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;

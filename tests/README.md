@@ -88,17 +88,11 @@ This test:
 
 **Note**: Warnings (e.g., `CloudBatcher` capacity warnings) are OK and don't cause failure. Only errors fail the test.
 
-#### WebGL2 Smoke Test (`RENDERER=webgl`)
+#### No WebGL smoke (`RENDERER=webgl` exits 1)
 
-For headless CI or environments where WebGPU is unavailable (SwiftShader, software stacks):
-
-```bash
-RENDERER=webgl npm run test
-# or
-npm run test:smoke:webgl
-```
-
-Boots with `?renderer=webgl&webglLite=1` and asserts `window.usingWebGL === true`. See [docs/webgl-fallback.md](../docs/webgl-fallback.md).
+WebGPU is required, so `RENDERER=webgl npm run test` (and `npm run test:smoke:webgl`, if present)
+is refused with exit code 1 rather than booting GL for a green run. See
+[docs/webgl-fallback.md](../docs/webgl-fallback.md).
 
 #### Explore-path smoke (`BOOT_PATH=explore`)
 

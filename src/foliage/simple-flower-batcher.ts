@@ -379,9 +379,8 @@ export class SimpleFlowerBatcher {
             if (!attr) continue;
             const array = attr.array as Float32Array;
             const count = mesh.count;
-            for (let i = 0; i < count; i++) {
-                array[i] = poses[i];
-            }
+            // ⚡ OPTIMIZATION: Fast memory copy bypassing per-element loop overhead
+            array.set(poses.subarray(0, count));
             attr.needsUpdate = true;
         }
     }

@@ -194,8 +194,7 @@ npm run test:wasm
 # Integration: builds WASM then runs both test suites above
 npm run test:integration
 
-# Smoke test on WebGL2 path (recommended for headless / SwiftShader CI)
-RENDERER=webgl npm run test
+# (No WebGL smoke path: RENDERER=webgl npm run test exits 1 by design — WebGPU is required)
 
 # Verify Emscripten exports after a build (needs candy_native.wasm)
 npm run verify:emcc
@@ -276,42 +275,54 @@ The build system gracefully handles missing Emscripten:
 ### Emscripten Build Safety
 
 ```bash
-# Optimization level in emscripten/build.sh is -O3 for speed.
-# NOTE: Earlier versions warned against -O3 due to aggressive renaming;
-# the current build uses conditional export scanning to avoid linking errors.
+# Optimization level in emscripten/build.sh is -O2 — compile AND link, MT AND ST.
+# Change build.sh and this line together, and only after a measured -O3 pass
+# keeps exports.txt + `pnpm run verify:emcc:manifest` green. The manifest lint
+# fails if the two disagree.
 
-# MINIFY_WASM_IMPORTS_AND_EXPORTS=0 is MANDATORY
-# Without this, JS glue fails to find env imports
+# Artifacts: candy_native.{js,wasm} (MT: pthreads, SHARED_MEMORY, INITIAL_MEMORY=64MB,
+# MAXIMUM_MEMORY=512MB) and candy_native_st.{js,wasm} (ST: 64MB -> 256MB).
 
-# Assertions are DISABLED by default (ASSERTIONS=0)
-# Set CANDY_DEBUG=1 to enable for debugging
+# Do NOT pass -s MINIFY_WASM_IMPORTS_AND_EXPORTS=0 (or MINIFY_WASM_EXPORT_NAMES).
+# Both are *internal* Emscripten settings; emcc 4.0.10 rejects them on the
+# command line. At -O2 + ASSERTIONS=0 emcc minifies wasm import/export names and
+# the generated glue maps them back, so Module._<name> is stable. Our loaders only
+# go through the glue. The manifest lint fails if either flag reappears.
+
+# Assertions are DISABLED by default (ASSERTIONS=0) and ERROR_ON_UNDEFINED_SYMBOLS
+# is relaxed so missing exports fall back to JS. Set CANDY_DEBUG=1 to enable
+# assertions for debugging (this also disables name minification).
 ```
+
+### AssemblyScript Build (`build:wasm`)
+
+- Physics WASM (`src/wasm/candy_physics.wasm`) is **linear-memory MVP** + SIMD + bulk-memory:
+  `--enable simd --enable bulk-memory --initialMemory 5 --maximumMemory 256` is the contract
+  (`.wat` shows `(memory $0 5 256)`).
+- There is **no `asconfig.json`**, so there is no `--target`. Do not re-add `--target wasm-gc`
+  (it named a non-existent asconfig target and was a no-op).
+- `--enable gc` (Wasm GC proposal, WIP in asc) is **not** used. Opt in only if a feature
+  actually needs managed Wasm GC; dropping it produced a byte-identical `.wasm`.
 
 ### WebGPU Requirements
 
+- **WebGPU is required.** There is no WebGL renderer at runtime: a failed boot probe stops at a
+  diagnostics screen (`src/ui/webgpu-fatal.ts`). See `docs/WEBGPU_CONTEXT.md`.
 - Chrome 113+, Edge 113+, or WebGPU-enabled browser
 - SharedArrayBuffer requires COOP/COEP headers (configured in Vite dev server)
 - Uses Three.js WebGPU renderer with TSL (Three.js Shading Language)
 - Top-level await in dependencies is preserved by targeting `es2022` / `esnext`
+- One `GPUDevice` per page, requested only by `probeWebGPU()` in `src/rendering/gpu-context.ts`.
+  Requested limits are adapter-clamped (`min(adapter.limits[k], desired[k])`); read granted vs
+  requested from `window.webgpuProbe`.
 
-### WebGL2 Fallback Renderer
+### WebGL: not available
 
-Opt-in reference renderer for debugging, CI, and agent visual inspection (same pattern as Watershed, power_gen, BespokeSynth_WASM):
-
-| Toggle       | Value                                   |
-| ------------ | --------------------------------------- |
-| URL          | `?renderer=webgl` or `?renderer=webgpu` |
-| localStorage | `candy.renderer`                        |
-| Console      | `window.setRenderer('webgl')`           |
-| Debug panel  | `?debug=1` → WebGPU / WebGL2 buttons    |
-
-WebGL debug helpers (`?renderer=webgl`): `?wireframe=1` / **G**, `?matDebug=1` / **M**, `?webglLite=1` (disable compute, CORE world).
-
-CI smoke on WebGL path: `RENDERER=webgl npm run test`
-
-Key files: `src/rendering/renderer-mode.ts`, `src/rendering/webgl-debug.ts`, `src/core/init.ts`, `src/foliage/post-processing.ts`, `docs/webgl-fallback.md`
-
-Window breadcrumbs for Playwright: `window.rendererType`, `window.usingWebGL`, `window.rendererFallbackReason`, `#glCanvas.dataset.renderer`
+`?renderer=webgl`, `?webgl`, `?webglLite=1`, `localStorage candy.renderer=webgl` and
+`window.setRenderer('webgl')` are **ignored** (they log a warning; boot stays on WebGPU).
+`RENDERER=webgl npm run test` exits 1 by design. The old WebGL2 reference-path notes are archived
+in `docs/archive/webgl-fallback-restore-notes.md`; `src/rendering/webgl-debug.ts` is dormant code
+kept for a future restore and does nothing while the active backend is WebGPU.
 
 ### Memory Layout (AssemblyScript)
 
@@ -534,7 +545,7 @@ When implementing large visual changes:
 - `WEATHER_INTEGRATION_SUMMARY.md` — Weather system architecture
 - `plan.md` and `weekly_plan.md` — Living task boards and completed work log (highest signal for "what just landed")
 - `DEVELOPER_CONTEXT.md` — High-level architecture, hotspots, and gotchas (read on onboarding)
-- `docs/webgl-fallback.md` — WebGL2 fallback renderer toggle, debug helpers, and WebGL→WebGPU porting notes
+- `docs/webgl-fallback.md` — states that WebGL is not available; old notes archived under `docs/archive/`
 - `CLAUDE.md` — Additional developer context and conventions
 
 For music/biome/shader reactivity changes, also create or append a focused note (e.g. `MUSIC_WAVE_PROPAGATION.md` or `BIOME_BINDING.md`) and reference `music-bindings.json` + affected batchers.
@@ -595,7 +606,7 @@ These notes are for agents running in the Cursor Cloud VM. The startup update sc
 
 ### Headless GPU limitation (important)
 
-- This VM has **no real GPU**. The app's logic fully boots headless (`window.__sceneReady === true`), physics/WASM run, and all DOM/HUD UI (start screen, jukebox, accessibility) is interactive — but actual 3D geometry often does **not** rasterize: WebGL falls back to software (blank/clear-color canvas) and WebGPU via SwiftShader is unstable (frequent "WebGPU Device Lost: Device was destroyed" during draw).
+- This VM has **no real GPU**. The app's logic fully boots headless (`window.__sceneReady === true`), physics/WASM run, and all DOM/HUD UI (start screen, jukebox, accessibility) is interactive — but actual 3D geometry often does **not** rasterize: WebGPU via SwiftShader is unstable (frequent "WebGPU Device Lost: Device was destroyed" during draw).
 - Do not expect pixel-perfect 3D screenshots from the cloud VM. Treat `npm run test` (the smoke runner) as the canonical end-to-end check — it boots the full app, verifies scene readiness, and asserts the jukebox UI, and it **passes headless**.
 
 ### Running the app and tests

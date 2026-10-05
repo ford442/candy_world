@@ -24,8 +24,15 @@ function setNavigator(value) {
     });
 }
 
-const { probeWebGPU, WebGPUUnavailableError, __resetGpuContextForTests, getWebGPUProbeReport } =
-    await import('../src/rendering/gpu-context.ts');
+const {
+    probeWebGPU,
+    WebGPUUnavailableError,
+    __resetGpuContextForTests,
+    getWebGPUProbeReport,
+    applyCanvasColorSpace,
+    resolveRequiredLimits,
+    GPU_REQUIRED_LIMITS,
+} = await import('../src/rendering/gpu-context.ts');
 
 // --- Fakes -----------------------------------------------------------------
 
@@ -63,13 +70,15 @@ function makeAdapter(device, overrides = {}) {
 }
 
 let configureCalls = 0;
+let lastConfigure = null;
 function makeCanvas(overrides = {}) {
     return {
         getContext: (kind) => {
             assert.equal(kind, 'webgpu');
             return {
-                configure: () => {
+                configure: (descriptor) => {
                     configureCalls++;
+                    lastConfigure = descriptor;
                 },
             };
         },
@@ -97,6 +106,8 @@ function installGpu(requestAdapter) {
 function reset() {
     __resetGpuContextForTests();
     configureCalls = 0;
+    lastConfigure = null;
+    delete globalThis.window.matchMedia;
     delete globalThis.window.webgpuProbe;
 }
 
@@ -270,6 +281,158 @@ async function expectFailure(canvas, stage) {
         'every adapter feature is requested, matching what Three would ask for'
     );
     assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
+}
+
+// --- Limits are clamped to the adapter: min(adapter, desired), never above ---
+{
+    const MiB = 1024 * 1024;
+    const hw = (limits, extra = {}) => ({
+        limits,
+        isFallbackAdapter: false,
+        ...extra,
+    });
+    const info = { vendor: 'nvidia', architecture: 'ada', device: '', description: '' };
+
+    // Generous discrete adapter: storage rises to the 512 MiB soft ceiling,
+    // workgroup limits stay at what the kernels declare.
+    const big = resolveRequiredLimits(
+        hw({
+            maxBufferSize: 4096 * MiB,
+            maxStorageBufferBindingSize: 2048 * MiB,
+            maxComputeWorkgroupSizeX: 1024,
+            maxComputeInvocationsPerWorkgroup: 1024,
+            maxComputeWorkgroupStorageSize: 32768,
+        }),
+        info
+    );
+    assert.equal(big.maxStorageBufferBindingSize, 512 * MiB, 'storage uses the soft ceiling');
+    assert.equal(big.maxBufferSize, 512 * MiB);
+    assert.equal(big.maxComputeWorkgroupSizeX, 256, 'workgroup stays at the kernel size');
+    assert.equal(big.maxComputeWorkgroupStorageSize, 16384);
+
+    // Mid adapter: asks for exactly what it advertises, not more.
+    const mid = resolveRequiredLimits(
+        hw({
+            maxBufferSize: 300 * MiB,
+            maxStorageBufferBindingSize: 200 * MiB,
+            maxComputeWorkgroupSizeX: 256,
+            maxComputeInvocationsPerWorkgroup: 256,
+            maxComputeWorkgroupStorageSize: 16384,
+        }),
+        info
+    );
+    assert.equal(mid.maxStorageBufferBindingSize, 200 * MiB, 'clamped to the adapter');
+    assert.equal(mid.maxBufferSize, 300 * MiB);
+
+    // A binding can never be requested larger than its buffer.
+    const odd = resolveRequiredLimits(
+        hw({ maxBufferSize: 256 * MiB, maxStorageBufferBindingSize: 1024 * MiB }),
+        info
+    );
+    assert.ok(odd.maxStorageBufferBindingSize <= odd.maxBufferSize);
+
+    // Non-conformant adapter reporting below the spec floor: never ask above it.
+    const low = resolveRequiredLimits(hw({ maxStorageBufferBindingSize: 64 * MiB }), info);
+    assert.equal(low.maxStorageBufferBindingSize, 64 * MiB);
+
+    // SwiftShader (by name) and fallback adapters get exactly the spec floor,
+    // however much they advertise — the CI contract.
+    const generous = {
+        maxBufferSize: 4096 * MiB,
+        maxStorageBufferBindingSize: 2048 * MiB,
+        maxComputeWorkgroupSizeX: 1024,
+        maxComputeInvocationsPerWorkgroup: 1024,
+        maxComputeWorkgroupStorageSize: 32768,
+    };
+    const swiftshader = resolveRequiredLimits(hw(generous), {
+        vendor: 'google',
+        architecture: 'swiftshader',
+        device: '',
+        description: '',
+    });
+    assert.deepEqual(swiftshader, GPU_REQUIRED_LIMITS, 'SwiftShader never exceeds spec defaults');
+    const fallback = resolveRequiredLimits(hw(generous, { isFallbackAdapter: true }), info);
+    assert.deepEqual(fallback, GPU_REQUIRED_LIMITS, 'fallback adapters never exceed spec defaults');
+
+    // Adapter that exposes no limits object: spec floor (the pre-clamp behaviour).
+    assert.deepEqual(resolveRequiredLimits({}, null), GPU_REQUIRED_LIMITS);
+}
+
+// --- Probe report carries requested vs granted limits ------------------------
+{
+    reset();
+    const MiB = 1024 * 1024;
+    let requestedDescriptor = null;
+    const device = makeDevice({
+        limits: {
+            maxBufferSize: 512 * MiB,
+            maxStorageBufferBindingSize: 512 * MiB,
+            maxComputeWorkgroupSizeX: 256,
+            maxComputeInvocationsPerWorkgroup: 256,
+            maxComputeWorkgroupStorageSize: 16384,
+        },
+    });
+    installGpu(async () =>
+        makeAdapter(device, {
+            limits: {
+                maxBufferSize: 1024 * MiB,
+                maxStorageBufferBindingSize: 1024 * MiB,
+                maxComputeWorkgroupSizeX: 1024,
+                maxComputeInvocationsPerWorkgroup: 1024,
+                maxComputeWorkgroupStorageSize: 32768,
+            },
+            requestDevice: async (descriptor) => {
+                requestedDescriptor = descriptor;
+                return device;
+            },
+        })
+    );
+    const result = await probeWebGPU(makeCanvas());
+
+    assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 512 * MiB);
+    assert.deepEqual(result.requiredLimits, requestedDescriptor.requiredLimits);
+
+    const report = globalThis.window.webgpuProbe;
+    assert.deepEqual(report.requiredLimits, requestedDescriptor.requiredLimits);
+    const storage = report.limitRequest.maxStorageBufferBindingSize;
+    assert.equal(storage.floor, 128 * MiB);
+    assert.equal(storage.desired, 512 * MiB);
+    assert.equal(storage.adapter, 1024 * MiB);
+    assert.equal(storage.requested, 512 * MiB);
+    assert.equal(storage.granted, 512 * MiB);
+    assert.equal(report.limits.maxStorageBufferBindingSize, 512 * MiB, 'granted snapshot kept');
+}
+
+// --- Canvas colorSpace: passed on configure, follows the display -------------
+{
+    reset();
+    installGpu(async () => makeAdapter(makeDevice()));
+    await probeWebGPU(makeCanvas());
+    assert.equal(lastConfigure.colorSpace, 'srgb', 'SDR display → srgb swap chain');
+    assert.equal(lastConfigure.format, 'bgra8unorm', 'swap chain uses the preferred format');
+    assert.equal(lastConfigure.alphaMode, 'premultiplied');
+    assert.deepEqual(getWebGPUProbeReport().canvas, {
+        format: 'bgra8unorm',
+        alphaMode: 'premultiplied',
+        colorSpace: 'srgb',
+    });
+}
+{
+    reset();
+    globalThis.window.matchMedia = (q) => ({ matches: q === '(dynamic-range: high)' });
+    installGpu(async () => makeAdapter(makeDevice()));
+    const probe = await probeWebGPU(makeCanvas());
+    assert.equal(lastConfigure.colorSpace, 'display-p3', 'HDR display → display-p3 swap chain');
+    assert.equal(probe.canvas.colorSpace, 'display-p3');
+
+    // Three's backend init re-configures without colorSpace; re-applying must
+    // restore whatever outputColorSpace the renderer landed on.
+    applyCanvasColorSpace(probe, 'srgb');
+    assert.equal(lastConfigure.colorSpace, 'srgb');
+    assert.equal(lastConfigure.device, probe.device, 're-configure keeps the one device');
+    assert.equal(lastConfigure.format, 'bgra8unorm');
+    assert.equal(probe.canvas.colorSpace, 'srgb');
+    assert.equal(getWebGPUProbeReport().canvas.colorSpace, 'srgb', 'report follows the re-tag');
 }
 
 console.log('✓ webgpu-probe: all assertions passed');

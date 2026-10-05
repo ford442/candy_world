@@ -121,7 +121,7 @@ npm run test         # smoke / boot sequence (~2–3m)
 - [`AGENTS.md`](./AGENTS.md) — architecture, music-binding conventions, invariants (authoritative)
 - [`CLAUDE.md`](./CLAUDE.md) — commands, directory guide, patterns
 - [`docs/CANDY_MATERIAL_COOKBOOK.md`](./docs/CANDY_MATERIAL_COOKBOOK.md) — material recipes, reactive-plant tutorial, Foliage-Specific Patterns, & Common Gotchas / Performance Notes
-- [`docs/webgl-fallback.md`](./docs/webgl-fallback.md) — WebGPU↔WebGL2 parity & porting
+- [`docs/webgl-fallback.md`](./docs/webgl-fallback.md) — WebGL is not available (old parity/porting notes archived)
 - [`DEVELOPER_CONTEXT.md`](./DEVELOPER_CONTEXT.md) — complexity hotspots & "here be dragons"
 - [`SETUP_GUIDE.md`](./SETUP_GUIDE.md) — native module / Emscripten setup
 

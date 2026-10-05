@@ -138,16 +138,6 @@ export function cellToBounds(
     };
 }
 
-export function distanceToCell(
-    worldX: number,
-    worldZ: number,
-    cellX: number,
-    cellZ: number,
-    cellSize: number
-): number {
-    return Math.sqrt(distanceToCellSq(worldX, worldZ, cellX, cellZ, cellSize));
-}
-
 export function distanceToCellSq(
     worldX: number,
     worldZ: number,

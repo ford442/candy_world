@@ -15,6 +15,7 @@ import {
 import { foliageBatcher } from './batcher/index.ts';
 import { spawnImpact } from './impacts.ts';
 import { reactiveMaterials, _foliageReactiveColor, median } from './index.ts';
+import { isGpuFoliageDefaultPath } from '../compute/gpu-foliage-flag.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 
 // WASM memory views for batch operations
@@ -279,12 +280,18 @@ export function updateFoliageMaterials(
 
     const channels = audioData.channelData;
     const hasChannels = channels && channels.length > 0;
+    const isGpuPath = isGpuFoliageDefaultPath();
 
     // ⚡ OPTIMIZATION: Single O(N) loop over reactiveMaterials combining audio and weather reactivity
     const mats = reactiveMaterials as unknown as FoliageMaterial[];
     for (let i = 0; i < mats.length; i++) {
-        const mat = mats[i];
+        const mat = mats[i] as any;
         if (!mat) continue;
+
+        // ⚡ OPTIMIZATION: Skip CPU audio/color lerps for TSL materials
+        if (isGpuPath && (mat.colorNode || mat.emissiveNode)) {
+             continue;
+        }
 
         // 1. Audio Reactivity (Night/Day)
         if (isNight && hasChannels) {
@@ -296,7 +303,7 @@ export function updateFoliageMaterials(
                 _foliageReactiveColor.setHSL(hue, 1.0, 0.6);
 
                 // Check material type using 'type' string or property presence
-                if ((mat as any).isMeshBasicMaterial && mat.color) {
+                if (mat.isMeshBasicMaterial && mat.color) {
                     mat.color.lerp(_foliageReactiveColor, 0.3);
                 } else if (mat.emissive) {
                     mat.emissive.lerp(_foliageReactiveColor, 0.3);
@@ -304,7 +311,7 @@ export function updateFoliageMaterials(
             }
             const intensity = 0.2 + (ch?.volume || 0) + (ch?.trigger || 0) * 2.0;
 
-            if (!(mat as any).isMeshBasicMaterial && mat.emissiveIntensity !== undefined) {
+            if (!mat.isMeshBasicMaterial && mat.emissiveIntensity !== undefined) {
                 mat.emissiveIntensity = intensity;
             }
         } else if (!isNight) {
@@ -316,7 +323,7 @@ export function updateFoliageMaterials(
         }
 
         // 2. Weather Reactivity (Wet Effect)
-        if (globalWetAmount > 0 && (mat as any).isMaterial) {
+        if (globalWetAmount > 0 && mat.isMaterial) {
             applyWetEffect(mat, globalWetAmount);
         }
     }

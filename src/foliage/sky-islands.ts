@@ -21,7 +21,7 @@ import {
 } from 'three/tsl';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, createClayMaterial } from './material-core.ts';
+import { CandyPresets, createClayMaterial, createJuicyRimLight } from './material-core.ts';
 
 export type SkyIslandLayerKind = 'mist' | 'canopy' | 'nebula';
 
@@ -149,7 +149,10 @@ export function createSkyIsland(options: SkyIslandOptions = {}): THREE.Group {
     const baseEmissive = color(baseColor).mul(u.shimmer).mul(0.45);
     const noteTint = u.noteColor.mul(u.shimmer).mul(0.35);
     const fogLift = u.fogDensity ? u.fogDensity.mul(0.2) : float(0.03);
-    islandMat.emissiveNode = add(add(baseEmissive, noteTint), shimmerColor.mul(fogLift));
+    islandMat.emissiveNode = add(
+        add(add(baseEmissive, noteTint), shimmerColor.mul(fogLift)),
+        createJuicyRimLight(color(baseColor), float(1.5), float(3.0), null)
+    );
 
     const islandMesh = new THREE.Mesh(islandGeo, islandMat);
     islandMesh.castShadow = true;

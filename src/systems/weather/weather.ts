@@ -202,9 +202,12 @@ export class WeatherSystem {
         }
     }
 
+    /**
+     * Unregister a cave from tracking
+     */
     unregisterCave(cave: any): void {
         const index = this.trackedCaves.indexOf(cave);
-        if (index !== -1) {
+        if (index > -1) {
             this.trackedCaves.splice(index, 1);
         }
     }

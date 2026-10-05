@@ -112,6 +112,10 @@ export function renderPlaylist(): void {
         li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
 
+        // ♿ Aria: Make the empty state announce its status without double speak
+        li.setAttribute('role', 'status');
+        li.setAttribute('aria-label', 'Your playlist is empty. Drop some tracks in or browse to add music.');
+
         const iconContainer = document.createElement('div');
         iconContainer.className = 'jukebox-empty-icon-container';
         const icon = document.createElement('div');

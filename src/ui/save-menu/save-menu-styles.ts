@@ -179,7 +179,8 @@ export const MENU_STYLES = `
     position: relative;
 }
 
-.candy-save-slot:hover {
+.candy-save-slot:hover,
+.candy-save-slot:focus-within {
     background: rgba(255, 255, 255, 0.1);
     transform: translateY(-2px);
 }
@@ -238,7 +239,9 @@ export const MENU_STYLES = `
     transition: opacity 0.2s;
 }
 
-.candy-save-slot:hover .candy-save-slot__actions {
+.candy-save-slot:hover .candy-save-slot__actions,
+.candy-save-slot:focus-within .candy-save-slot__actions,
+.candy-save-slot:focus-visible .candy-save-slot__actions {
     opacity: 1;
 }
 
