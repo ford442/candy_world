@@ -1,6 +1,14 @@
 import * as THREE from 'three';
 import assert from 'node:assert';
 
+// Mocks to allow module imports to succeed without full DOM/WebGPU
+global.window = {};
+global.document = {
+    createElement: () => ({ style: {} }),
+};
+global.performance = { now: () => Date.now() };
+global.foliageGroup = new THREE.Group();
+
 import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
 import { gemFruitBatcher } from '../src/foliage/gem-fruit-batcher.ts';
 import { sugarCaveBatcher } from '../src/foliage/sugar-cave-batcher.ts';
