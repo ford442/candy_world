@@ -395,6 +395,52 @@ export class CloudBatcher {
         this.updateCloudInstance(cloudGroup);
     }
 
+
+    removeInstance(cloudGroup: any) {
+        if (!this.initialized || !this.mesh) return;
+
+        const start = cloudGroup.userData.batchStart;
+        const count = cloudGroup.userData.batchCount;
+
+        if (typeof start !== 'number' || typeof count !== 'number' || count <= 0) return;
+
+        const indexToRemove = this.clouds.indexOf(cloudGroup);
+        if (indexToRemove === -1) return;
+
+        const isLastCloud = indexToRemove === this.clouds.length - 1;
+
+        if (!isLastCloud) {
+            // Shift array data left
+            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+            matrixArray.copyWithin(start * 16, (start + count) * 16, this.count * 16);
+
+            if (this.isWalkableAttribute) {
+                const walkableArray = this.isWalkableAttribute.array as Float32Array;
+                walkableArray.copyWithin(start, start + count, this.count);
+            }
+
+            // Remove from tracking array
+            this.clouds.splice(indexToRemove, 1);
+
+            // Shift subsequent clouds' batchStart
+            for (let i = indexToRemove; i < this.clouds.length; i++) {
+                this.clouds[i].userData.batchStart -= count;
+            }
+        } else {
+            this.clouds.pop();
+        }
+
+        cloudGroup.userData.batchStart = undefined;
+        cloudGroup.userData.batchCount = undefined;
+
+        this.count -= count;
+        this.mesh.count = this.count;
+        this.mesh.instanceMatrix.needsUpdate = true;
+        if (this.isWalkableAttribute) {
+            this.isWalkableAttribute.needsUpdate = true;
+        }
+    }
+
     updateCloudInstance(cloud: any) {
         if (!this.mesh) return;
 

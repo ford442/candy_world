@@ -17,6 +17,8 @@ import { foliageCaves } from '../src/systems/physics/physics-types.ts';
 import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
 import { subwooferLotusBatcher } from '../src/foliage/subwoofer-lotus-batcher.ts';
 import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
+import { CloudBatcher } from '../src/foliage/cloud-batcher.ts';
+import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
 import { optimizedDiscovery } from '../src/systems/discovery-optimized.ts';
 
 optimizedDiscovery.registerObject = () => {};
@@ -42,6 +44,7 @@ async function runTests() {
                 { type: 'luminous_plant', id: 'lp1', translation: [0, 0, 0] },
                 { type: 'subwoofer_lotus', id: 'sl1', translation: [1, 0, 1] },
                 { type: 'dandelion', id: 'd1', translation: [2, 0, 2] },
+                { type: 'cloud', id: 'c1', translation: [2, 20, 2], isBatched: true },
                 { type: 'gem_canopy_tree', id: 'gt1', translation: [3, 0, 3] },
                 { type: 'unknown_batched', id: 'u1', translation: [4, 0, 4], isBatched: true },
             ]
@@ -75,6 +78,10 @@ async function runTests() {
                   subwooferLotusBatcher.register(obj);
              } else if (entity.type === 'dandelion') {
                   dandelionBatcher.register(obj);
+             } else if (entity.type === 'cloud') {
+                  // Fake a cloud proxy registration
+                  obj.userData.cloudScale = 1.0;
+                  CloudBatcher.getInstance().register(obj, { puffCount: 12 });
              } else if (entity.type === 'unknown_batched') {
                   // no batcher hook up for unknown
              }
@@ -82,13 +89,14 @@ async function runTests() {
              streamer['trackSpawnedObject'](obj, record);
         }
 
-        assert.equal(record.evictable.length, 4, '4 entities should be evictable');
+        assert.equal(record.evictable.length, 5, '5 entities should be evictable');
         assert.equal(record.permanentCount, 1, '1 unknown_batched entity should be permanent');
 
         // Capture lengths before eviction
         const lpInitialCount = luminousPlantBatcher.count;
         const slInitialCount = subwooferLotusBatcher['_count'];
         const danInitialCount = dandelionBatcher.count;
+        const cloudInitialCount = CloudBatcher.getInstance().count;
 
         // Move far away to force eviction of 0,0
         streamer['evictFarChunks'](100, 100, 1);
@@ -98,6 +106,7 @@ async function runTests() {
         assert.equal(luminousPlantBatcher.count, lpInitialCount - 1, 'Luminous plant should be evicted');
         assert.equal(subwooferLotusBatcher['_count'], slInitialCount - 1, 'Subwoofer lotus should be evicted');
         assert.equal(dandelionBatcher.count, danInitialCount - 1, 'Dandelion should be evicted');
+        assert.equal(CloudBatcher.getInstance().count, cloudInitialCount - 12, 'Cloud should be evicted');
 
         // Ensure unknown batched didn't crash and is still in records because permanentCount > 0
         const retainedRecord = streamer['records'].get('0,0');
@@ -141,7 +150,7 @@ async function runTests() {
             'gem_canopy_tree', 'mushroom', 'lanternFlower', 'glass_mushroom',
             'flower', 'simple_flower', 'fern', 'arpeggio_fern', 'cave',
             'kick_drum_geyser', 'luminous_plant', 'dandelion', 'waterfall',
-            'subwoofer_lotus', 'glowing_flower', 'sugar_cave', 'night_market_stall'
+            'subwoofer_lotus', 'glowing_flower', 'sugar_cave', 'night_market_stall', 'cloud'
         ];
 
         let neverFailures = 0;

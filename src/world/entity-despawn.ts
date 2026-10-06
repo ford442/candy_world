@@ -14,6 +14,9 @@ import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
 import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
+import { CloudBatcher } from '../foliage/cloud-batcher.ts';
+import { unregisterWalkableCloudPlatform } from '../systems/ground-system.ts';
+import { unregisterCloudPlatform } from '../debug/tools-stub.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
@@ -73,6 +76,7 @@ export type EvictionClass =
     | 'glowingFlower'
     | 'sugarCave'
     | 'nightMarketStall'
+    | 'cloud'
     | 'never';
 
 export function classifyForEviction(obj: THREE.Object3D): EvictionClass {
@@ -114,6 +118,7 @@ export function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'glowing_flower') return 'glowingFlower';
     if (t === 'sugar_cave') return 'sugarCave';
     if (t === 'night_market_stall') return 'nightMarketStall';
+    if (t === 'cloud') return 'cloud';
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -159,6 +164,14 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
         kickDrumGeyserBatcher.removeInstance(obj);
     } else if (evictionClass === 'nightMarketStall') {
         nightMarketBatcher.removeInstance(obj);
+    } else if (evictionClass === 'cloud') {
+        if (obj.userData?.isWalkable) {
+            CloudBatcher.getWalkableInstance().removeInstance(obj);
+            unregisterWalkableCloudPlatform(obj);
+            unregisterCloudPlatform(obj);
+        } else {
+            CloudBatcher.getInstance().removeInstance(obj);
+        }
     } else if (evictionClass === 'simpleFlower') {
         simpleFlowerBatcher.removeInstance(obj);
     } else if (evictionClass === 'flower') {
