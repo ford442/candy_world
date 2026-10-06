@@ -310,6 +310,8 @@ export class DandelionBatcher {
 
         // Store batch index on logic object for later updates (like harvesting)
         logicObject.userData.batchIndex = i;
+        logicObject.userData.type = 'cymbal_dandelion';
+        logicObject.userData.isBatched = true;
         this.logicObjects[i] = logicObject;
     }
 
@@ -336,6 +338,7 @@ export class DandelionBatcher {
         }
 
         this.logicObjects[lastIndex] = undefined as any;
+        logicObject.userData.batchIndex = -1;
         this.count--;
         this.mesh.count = this.count;
         this.mesh.instanceMatrix.needsUpdate = true;

@@ -7,7 +7,6 @@ global.document = {
     createElement: () => ({ style: {} }),
 };
 global.performance = { now: () => Date.now() };
-import { waterfallBatcher } from "../src/foliage/waterfall-batcher.ts";
 global.foliageGroup = new THREE.Group();
 
 import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
@@ -23,6 +22,9 @@ import { FaunaBatcher } from '../src/foliage/fauna-batcher.ts';
 import { FaunaSpecies } from '../src/systems/fauna/types.ts';
 import { CandyDebrisBatcher } from '../src/foliage/candy-debris-batcher.ts';
 
+import { optimizedDiscovery } from '../src/systems/discovery-optimized.ts';
+
+optimizedDiscovery.registerObject = () => {};
 
 // Test runner function
 async function runTests() {
@@ -61,7 +63,10 @@ async function runTests() {
         };
 
         // Let's hook into the global scope config correctly if needed, or simply let the code run.
-        const streamer = new ChunkStreamer(10, mockMap, weatherSystem);
+        const streamer = new ChunkStreamer(mockMap, weatherSystem, null, {
+            chunkSize: 10,
+            evictRingChunks: 1,
+        });
 
         // We bypass the id checking and directly call load cell
         const record = streamer['recordFor']('0,0');
@@ -183,7 +188,10 @@ async function runTests() {
             const mockMap2 = { cells: new Map() };
             mockMap2.cells.set(chunkKey, cellMock);
 
-            const streamer2 = new ChunkStreamer(10, mockMap2, { registerCave: () => {}, unregisterCave: () => {} });
+            const streamer2 = new ChunkStreamer(mockMap2, weatherSystem, null, {
+                chunkSize: 10,
+                evictRingChunks: 1,
+            });
 
             const record2 = streamer2['recordFor'](chunkKey);
             streamer2['trackSpawnedObject'](obj, record2);

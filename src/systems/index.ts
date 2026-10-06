@@ -80,7 +80,7 @@ export {
     parseCellKey,
     worldToCell,
     cellToBounds,
-    distanceToCell
+    distanceToCellSq
 } from './region-manager.ts';
 
 // Default export

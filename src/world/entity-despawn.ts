@@ -114,7 +114,7 @@ export function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'cave') return 'cave';
     if (t === 'kick_drum_geyser') return 'kickDrumGeyser';
     if (t === 'luminous_plant') return 'luminousPlant';
-    if (t === 'dandelion') return 'dandelion';
+    if (t === 'cymbal_dandelion' || t === 'dandelion') return 'dandelion';
     if (t === 'waterfall') return 'waterfall';
     if (t === 'subwoofer_lotus') return 'subwooferLotus';
     if (t === 'glowing_flower') return 'glowingFlower';
