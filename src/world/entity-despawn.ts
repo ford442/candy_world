@@ -1,3 +1,6 @@
+import { CloudBatcher } from '../foliage/cloud-batcher.ts';
+import { CandyDebrisBatcher } from '../foliage/candy-debris-batcher.ts';
+import { FaunaBatcher } from '../foliage/fauna-batcher.ts';
 // src/world/entity-despawn.ts
 // Single teardown path for a live map entity: batcher instance slot, the
 // state.ts tracking arrays, and the scene graph. Shared by ChunkStreamer
@@ -73,6 +76,9 @@ export type EvictionClass =
     | 'glowingFlower'
     | 'sugarCave'
     | 'nightMarketStall'
+    | 'cloud'
+    | 'fauna'
+    | 'candyDebris'
     | 'never';
 
 export function classifyForEviction(obj: THREE.Object3D): EvictionClass {
@@ -114,6 +120,9 @@ export function classifyForEviction(obj: THREE.Object3D): EvictionClass {
     if (t === 'glowing_flower') return 'glowingFlower';
     if (t === 'sugar_cave') return 'sugarCave';
     if (t === 'night_market_stall') return 'nightMarketStall';
+    if (t === 'cloud') return 'cloud';
+    if (t === 'fauna') return 'fauna';
+    if (t === 'candy_debris') return 'candyDebris';
     if (isKnownBatchedType(obj)) return 'never';
     return 'full';
 }
@@ -187,6 +196,15 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
         glowingFlowerBatcher.removeInstance(obj);
     } else if (evictionClass === 'sugarCave') {
         sugarCaveBatcher.removeInstance(obj);
+    } else if (evictionClass === 'cloud') {
+        CloudBatcher.getInstance().removeInstance(obj);
+
+    } else if (evictionClass === 'candyDebris') {
+        if (CandyDebrisBatcher.peekMesh()) CandyDebrisBatcher.getInstance().removeInstance(obj);
+    } else if (evictionClass === 'fauna') {
+        if (obj.userData?.faunaSpecies !== undefined && obj.userData?.slot !== undefined) {
+            FaunaBatcher.getInstance().removeInstance(obj.userData.faunaSpecies, obj.userData.slot);
+        }
     } else if (evictionClass === 'cave') {
         unregisterPhysicsCave(obj);
         weatherSystem?.unregisterCave?.(obj);
