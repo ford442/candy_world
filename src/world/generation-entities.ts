@@ -328,6 +328,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
         if (entityType === 'cloud') {
             obj.userData.tier = cloudTier;
             obj.userData.isWalkable = cloudTier === 1;
+            obj.userData.isBatched = true; // explicitly mark cloud as batched
         } else if (entityType === 'swingable_vine') {
             const vineLength = typeof createParams.length === 'number' ? createParams.length : 8;
             if (vineSwings) vineSwings.push(new VineSwing(obj, vineLength));

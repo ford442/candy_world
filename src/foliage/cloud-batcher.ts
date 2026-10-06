@@ -395,6 +395,48 @@ export class CloudBatcher {
         this.updateCloudInstance(cloudGroup);
     }
 
+
+    removeInstance(cloudGroup: any): void {
+        if (!this.initialized || !this.mesh || !cloudGroup || typeof cloudGroup.userData.batchStart !== 'number') return;
+
+        const cloudIndex = this.clouds.indexOf(cloudGroup);
+        if (cloudIndex === -1) return;
+
+        const start = cloudGroup.userData.batchStart;
+        const count = cloudGroup.userData.batchCount;
+        if (!count || count <= 0) return;
+
+        const oldTotalCount = this.count;
+        const endOfHole = start + count;
+
+        // 1. Shift the instance arrays to close the gap
+        if (endOfHole < oldTotalCount) {
+            const arr = this.mesh.instanceMatrix.array;
+            arr.copyWithin(start * 16, endOfHole * 16, oldTotalCount * 16);
+            if (this.isWalkableAttribute) {
+                const walkArr = this.isWalkableAttribute.array as Float32Array;
+                walkArr.copyWithin(start, endOfHole, oldTotalCount);
+            }
+        }
+
+        // 2. Decrement the global count
+        this.count -= count;
+        this.mesh.count = this.count;
+        this.mesh.instanceMatrix.needsUpdate = true;
+        if (this.isWalkableAttribute) this.isWalkableAttribute.needsUpdate = true;
+
+        // 3. Remove from logic array
+        this.clouds.splice(cloudIndex, 1);
+
+        // 4. Update the batchStart of all clouds that shifted
+        for (let i = cloudIndex; i < this.clouds.length; i++) {
+            this.clouds[i].userData.batchStart -= count;
+        }
+
+        cloudGroup.userData.batchStart = undefined;
+        cloudGroup.userData.batchCount = undefined;
+    }
+
     updateCloudInstance(cloud: any) {
         if (!this.mesh) return;
 
