@@ -195,7 +195,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [x] **#1843 Restore wiped work: aurora dispose leak + small fixes lost in #1192** — (a) aurora geometry/material in `WeatherEffects.dispose()`, (b) rainbow-blaster via `physicsGeysersGrid`/`physicsTrapsGrid.findNearby`. ← **Copilot prep target 2026-09-29** (weather + gameplay files only; zero overlap with kimi).
     - Status: Implemented ✅
     - Implementation Details: Added proper resource cleanup for aurora in `WeatherEffects.dispose()` and improved projectile performance by querying `physicsGeysersGrid` and `physicsTrapsGrid` instead of linearly scanning arrays in `updateRainbowBlaster`.
-- [ ] **#1842 Restore wiped work: focus-trap double-speak fix for discovery + photo-mode overlays (#1773, lost in #1779)** — a11y; leave to Aria loop or a quick Copilot pass.
+- [x] **#1842 Restore wiped work: focus-trap double-speak fix for discovery + photo-mode overlays (#1773, lost in #1779)** — a11y; leave to Aria loop or a quick Copilot pass.
 - [ ] **#1844 Restore wiped work: progressive boot pipeline with halt-on-failure (#1191, lost in #1192)** — Noah marks it low/optional debug tooling. Port, don't cherry-pick (`main.ts` is now `src/core/main/*`).
 
 **User idea pool — GitHub issues filed 2026-09-26 by `ford442` (Noah's own words). Foundation + two vision tickets.**
@@ -698,4 +698,6 @@ Status: Implemented ✅
     - #1756 round trip: `?debugPlace` now places through `restoreEntity` and re-applies dev-sidecar placements on boot; `night_market_stall` is snapshot-exportable.
     - `night_market` music block (bindings, BiomeUniforms, accumulators, hard night gate, sky-wave target, palette, generative profile); discovery stamps + chord-strike hook in `src/systems/night-market-stamps.ts`.
     - `test:night-market` (in `test:fast`), `night_market` VR viewpoint, ship note `docs/FESTIVAL_NIGHT_MARKET.md`.
+- [x] **2026-09-24** ✅ CHUNK STREAMING EVICTION PATHS (#1755)\n    - Status: Implemented ✅\n    - Implementation Details: Wired up `unregisterPhysicsCave` for `cave` entities so that they do not leak when their chunk is evicted by `ChunkStreamer`.\n
+- [x] **2026-10-06** ✅ PREVENT OVERLAY DOUBLE-ANNOUNCE (#1842)\n    - Status: Implemented ✅\n    - Implementation Details: Passed `{ skipAutoFocus: true }` to `trapFocusInside` in `DiscoverySystem` and `PhotoControlsOverlay` to prevent screen reader double-announcements during immediate manual child focus calls.\n
 - [x] **2026-09-24** ✅ CHUNK STREAMING EVICTION PATHS (#1755)\n - Status: Implemented ✅\n - Implementation Details: Wired up `unregisterPhysicsCave` for `cave` entities so that they do not leak when their chunk is evicted by `ChunkStreamer`.\n
