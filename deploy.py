@@ -39,7 +39,7 @@ DEPLOY_FOLDER: str = ""  # override remote target folder; empty = use PROJECT_NA
 
 # Optional deploy token (recommended for security).
 # Set via environment: export DEPLOY_TOKEN="your_long_token_from_vps_env"
-DEPLOY_TOKEN: Optional[str] = "6de44dca5425348f2e2ef9456fc820bfe56a5ace68bddeb6da4a1c2a9d9cadc0"
+DEPLOY_TOKEN: Optional[str] = os.environ.get("DEPLOY_TOKEN") or None
 # ============================================================
 
 
