@@ -296,6 +296,10 @@ npm run budget:check  # Verify chunk size constraints
 - **Commit messages**: Describe the *why*, not the *what*. Reference issues if applicable.
 - **Pull requests**: Squashed or rebased; comprehensive test results required before merge.
 
+## Stable Builds
+
+Known-good builds are `stable-YYYY-MM-DD[-label]` tags + GitHub Releases + `candy-world/stable/` on storage.noahcohn.com. Promote with `npm run release:stable -- <label>` from a clean `main` after a browser walk-around. If the full world won't boot, `?preset=minimal` is safe mode. See `docs/RELEASES.md`.
+
 ## Common Issues & Troubleshooting
 
 ### WebGPU Not Available

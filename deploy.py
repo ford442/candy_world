@@ -89,9 +89,12 @@ def build_zip(build_path: Path, skip_sizes=None) -> bytes:
     return buf.getvalue()
 
 
-def deploy_bundle(build_path: Path) -> bool:
+def deploy_bundle(build_path: Path, subfolder: str = "") -> bool:
     """Zip the build and upload it as a single bundle."""
     target_folder = DEPLOY_FOLDER or PROJECT_NAME
+    if subfolder:
+        # e.g. candy-world/releases/stable-2026-10-07 or candy-world/stable
+        target_folder = f"{target_folder}/{subfolder.strip('/')}"
     url = f"{CONTABO_BASE_URL}/api/deploy/{PROJECT_NAME}/bundle"
     headers = {}
     if DEPLOY_TOKEN:
@@ -154,8 +157,18 @@ def main():
     except Exception:
         print("Warning: Could not contact storage.noahcohn.com (continuing anyway).")
 
+    # --prefix <sub/folder> deploys under the project folder instead of over it
+    # (used by scripts/promote-stable.mjs for releases/<tag>/ and stable/).
+    subfolder = ""
+    if "--prefix" in sys.argv:
+        i = sys.argv.index("--prefix")
+        if i + 1 >= len(sys.argv):
+            print("ERROR: --prefix needs a value")
+            sys.exit(2)
+        subfolder = sys.argv[i + 1]
+
     print()
-    success = deploy_bundle(build_path)
+    success = deploy_bundle(build_path, subfolder)
 
     print(f"\n=== {'Deployment complete' if success else 'Deployment finished with errors'} ===")
     sys.exit(0 if success else 1)

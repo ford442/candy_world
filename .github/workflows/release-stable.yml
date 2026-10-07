@@ -1,0 +1,49 @@
+name: release stable
+
+# Pushing a stable-* tag (by hand or via `npm run release:stable`) rebuilds that
+# commit and makes sure its GitHub Release carries a dist zip. The local script
+# already attaches one; this covers tags pushed without it. See docs/RELEASES.md.
+
+permissions:
+    contents: write
+
+on:
+    push:
+        tags: ['stable-*']
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+
+            - name: Install deps
+              run: npm install --no-audit --no-fund
+
+            - name: Build
+              run: npm run build:ci
+
+            - name: WASM test
+              run: npm run test:wasm
+
+            - name: Zip dist
+              run: |
+                  printf '{"tag":"%s","commit":"%s","builtBy":"ci"}\n' "$GITHUB_REF_NAME" "$GITHUB_SHA" > dist/BUILD_INFO.json
+                  (cd dist && zip -qr "../candy-world-$GITHUB_REF_NAME.zip" .)
+
+            - name: Create or update release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  zip="candy-world-$GITHUB_REF_NAME.zip"
+                  if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+                      gh release view "$GITHUB_REF_NAME" --json assets -q '.assets[].name' | grep -qx "$zip" \
+                          || gh release upload "$GITHUB_REF_NAME" "$zip"
+                  else
+                      gh release create "$GITHUB_REF_NAME" "$zip" --title "$GITHUB_REF_NAME" \
+                          --notes "CI build of $GITHUB_SHA. Smoke test not run in CI; promote with npm run release:stable for a gated build."
+                  fi
