@@ -3,20 +3,44 @@ import { execSync } from 'node:child_process';
 const TARGET_BRANCH = process.env.GITHUB_BASE_REF || 'main';
 const EVENT_NAME = process.env.GITHUB_EVENT_NAME;
 
+console.log(`[Stale-Squash Guard] event=${EVENT_NAME ?? '(unset)'} base=${TARGET_BRANCH}`);
+
 if (EVENT_NAME !== 'pull_request') {
-    console.log('Not a pull request. Skipping stale-squash check.');
+    console.log(`Not a pull request (event "${EVENT_NAME ?? '(unset)'}"). Skipping stale-squash check.`);
     process.exit(0);
 }
 
-try {
-    execSync(`git fetch origin ${TARGET_BRANCH}`, { stdio: 'ignore' });
-    let mergeBase;
+// A guard that cannot compute its inputs must fail, not pass: under the default
+// depth-1 actions/checkout there is no merge-base, and exiting 0 here would make
+// the check silently skip itself on every PR.
+function gitOrDie(cmd, why) {
     try {
-        mergeBase = execSync(`git merge-base HEAD origin/${TARGET_BRANCH}`).toString().trim();
-    } catch(e) {
-        console.log('Merge base could not be determined. Skipping stale-squash check.');
-        process.exit(0);
+        return execSync(cmd, { stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim();
+    } catch (e) {
+        const stderr = e.stderr?.toString().trim() || e.message;
+        let shallow = '';
+        try {
+            shallow = execSync('git rev-parse --is-shallow-repository').toString().trim();
+        } catch {
+            /* not a git repo at all; stderr above already says so */
+        }
+        console.error(`❌ [Stale-Squash Guard] ${why}`);
+        console.error(`   command: ${cmd}`);
+        console.error(`   git said: ${stderr}`);
+        if (shallow === 'true') {
+            console.error('   this clone is shallow — set fetch-depth: 0 on actions/checkout');
+        }
+        process.exit(1);
     }
+}
+
+try {
+    gitOrDie(`git fetch origin ${TARGET_BRANCH}`, `Could not fetch origin/${TARGET_BRANCH}.`);
+    const mergeBase = gitOrDie(
+        `git merge-base HEAD origin/${TARGET_BRANCH}`,
+        `Merge base with origin/${TARGET_BRANCH} could not be determined; refusing to skip the check.`
+    );
+    console.log(`[Stale-Squash Guard] merge-base=${mergeBase}`);
 
     // Check if any deleted lines in the PR diff were authored *after* the merge base
     // i.e., lines being reverted that the author didn't originally write or modifying recent main changes.

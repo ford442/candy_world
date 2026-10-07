@@ -1,4 +1,3 @@
-import { getMemoryUsage, getMemoryTotal, formatBytes, formatDuration } from './startup-profiler-utils.ts';
 /**
  * @file startup-profiler.ts
  * @brief Comprehensive startup profiler dashboard for candy_world
@@ -7,13 +6,12 @@ import { getMemoryUsage, getMemoryTotal, formatBytes, formatDuration } from './s
  * Outputs structured JSON report and provides browser overlay visualization.
  */
 
-import * as THREE from 'three';
-
-// ============================================================================
-// Types & Interfaces
-// ============================================================================
 import { getGpuContext } from '../rendering/gpu-context.ts';
+import { log } from './log.ts';
 import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
+import { drawOverlay, hideOverlay, showOverlay, toggleOverlay } from './startup-profiler-ui.ts';
+import { getMemoryUsage, formatBytes, formatDuration } from './startup-profiler-utils.ts';
+
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -90,10 +88,6 @@ export const uiState = {
 // Original console methods (for hooking)
 let originalConsoleTime: typeof console.time;
 let originalConsoleTimeEnd: typeof console.timeEnd;
-let originalConsoleLog: typeof console.log;
-
-// InstancedMesh constructor tracking
-let originalInstancedMesh: typeof THREE.InstancedMesh;
 
 // ============================================================================
 // Console Hook
@@ -116,7 +110,6 @@ const TRACKED_PHASES = [
 function hookConsole() {
   originalConsoleTime = console.time;
   originalConsoleTimeEnd = console.timeEnd;
-  originalConsoleLog = console.log;
 
   console.time = (label: string) => {
     if (isEnabled && TRACKED_PHASES.some(p => label.includes(p) || p.includes(label))) {
@@ -143,8 +136,6 @@ function unhookConsole() {
 // ============================================================================
 
 function hookInstancedMesh() {
-  originalInstancedMesh = THREE.InstancedMesh;
-
   // Instead of reassigning THREE.InstancedMesh (which causes build errors due to ES modules),
   // we just track it when it's instantiated if we need to. Since we can't easily hook the constructor
   // without modifying Three.js or using a Proxy (which might be complex), we'll disable the hook for now.
@@ -171,7 +162,7 @@ function unhookInstancedMesh() {
  * profiler never requests an adapter or a device of its own.
  */
 function hookWebGPU() {
-  if (typeof navigator === 'undefined' || !(navigator as any).gpu) return;
+  if (typeof navigator === 'undefined' || !navigator.gpu) return;
 
   void getGpuContext().then((ctx) => {
     const device = ctx.device;
@@ -186,8 +177,9 @@ function hookWebGPU() {
             .filter(Boolean)
             .join(' ') || 'masked'
         : 'unknown';
-      console.log(
-        `[Profiler] Instrumenting shared WebGPU device · adapter=${adapter} · powerPreference=${ctx.powerPreference}`
+      log.info(
+        'Profiler',
+        `Instrumenting shared WebGPU device · adapter=${adapter} · powerPreference=${ctx.powerPreference}`
       );
     }
 
@@ -242,7 +234,7 @@ export function startPhase(name: string): void {
   memorySnapshots.push(memoryBefore);
 
   // Emit a performance mark so external profilers (Lighthouse, DevTools) can surface it
-  try { performance.mark(`candy:phase:${name}:start`); } catch (_e) { /* not all envs support this */ }
+  try { performance.mark(`candy:phase:${name}:start`); } catch { /* not all envs support this */ }
 }
 
 export function endPhase(name: string): PhaseTiming | null {
@@ -263,7 +255,7 @@ export function endPhase(name: string): PhaseTiming | null {
   try {
     performance.mark(`candy:phase:${name}:end`);
     performance.measure(`candy:${name}`, `candy:phase:${name}:start`, `candy:phase:${name}:end`);
-  } catch (_e) { /* not all envs support this */ }
+  } catch { /* not all envs support this */ }
   
   // Check for slow phase
   if (phase.duration > config.slowPhaseThreshold) {
@@ -411,8 +403,8 @@ function saveReportToFile(report: StartupReport): void {
     
     // Also output to console as a data URI for easy copying
     if (config.enableConsole) {
-      console.log('[StartupProfiler] Report ready for download: startup-profile.json');
-      console.log('[StartupProfiler] Report also stored in localStorage as "candy_world_startup_profile"');
+      log.info('StartupProfiler', 'Report ready for download: startup-profile.json');
+      log.info('StartupProfiler', 'Report also stored in localStorage as "candy_world_startup_profile"');
     }
   } catch (e) {
     console.warn('[StartupProfiler] Failed to save report:', e);
@@ -494,14 +486,8 @@ function outputReportToConsole(report: StartupReport): void {
   
   // Output raw JSON for programmatic access
   console.log('[StartupProfiler] Raw report available at window.__startupProfile');
-  (window as any).__startupProfile = report;
+  (window as Window & { __startupProfile?: StartupReport }).__startupProfile = report;
 }
-
-// ============================================================================
-// Overlay UI
-// ============================================================================
-import { createOverlay, drawOverlay, hideOverlay, showOverlay } from './startup-profiler-ui.ts';
-import { toggleOverlay } from './startup-profiler-ui.ts';
 
 // ============================================================================
 // Public API
@@ -565,7 +551,7 @@ export function enableStartupProfiler(userConfig: Partial<ProfilerConfig> = {}):
   }
   
   if (config.enableConsole) {
-    console.log('[StartupProfiler] Enabled - profiling startup performance');
+    log.info('StartupProfiler', 'Enabled - profiling startup performance');
   }
   
   // Start initial phase
@@ -588,7 +574,7 @@ export function disableStartupProfiler(): void {
   hideOverlay();
   
   if (config.enableConsole) {
-    console.log('[StartupProfiler] Disabled');
+    log.info('StartupProfiler', 'Disabled');
   }
 }
 
@@ -596,10 +582,10 @@ export function disableStartupProfiler(): void {
  * Finalize the startup profile and output the report
  * Call this when startup is complete
  */
-export function finalizeStartupProfile(): StartupReport {
+export function finalizeStartupProfile(): StartupReport | null {
   if (!isEnabled) {
     console.warn('[StartupProfiler] Not enabled, cannot finalize');
-    return null as any;
+    return null;
   }
   
   const report = generateReport();
@@ -646,7 +632,7 @@ export function getProfilerStatus(): {
  * Manually record a custom phase
  * Useful for tracking specific operations not covered by console.time
  */
-export function recordCustomPhase(phaseName: string, duration: number, metadata?: Record<string, any>): void {
+export function recordCustomPhase(phaseName: string, duration: number, metadata?: Record<string, unknown>): void {
   if (!isEnabled) return;
   
   const memoryBefore = getMemoryUsage();
@@ -664,7 +650,7 @@ export function recordCustomPhase(phaseName: string, duration: number, metadata?
   
   if (metadata) {
     if (config.enableConsole) {
-      console.log(`[StartupProfiler] Custom phase "${phaseName}": ${formatDuration(duration)}`, metadata);
+      log.info('StartupProfiler', `Custom phase "${phaseName}": ${formatDuration(duration)}`, metadata);
     }
   }
 }

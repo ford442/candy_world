@@ -24,7 +24,32 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
+import { log } from '../utils/log.ts';
 import { getWasmInstance } from '../utils/wasm-loader.ts';
+
+/** Material fields the batcher reads/writes; not every THREE.Material has them. */
+type ColoredMaterial = THREE.Material & {
+    color?: THREE.Color;
+    emissive?: THREE.Color;
+    emissiveIntensity?: number;
+};
+
+/** WASM exports this batcher binds to (absent when the AS build lacks them). */
+interface MaterialBatcherExports {
+    batchMaterialFlash?: (count: number, fadeSpeed: number, snapThreshold: number, flashScale: number) => number;
+    initMaterialEntry?: (index: number, ...args: number[]) => void;
+    triggerMaterialFlash?: (index: number, r: number, g: number, b: number, intensity: number) => void;
+    getMaterialResult?: (index: number, outPtr: number) => void;
+    materialNeedsFadeBack?: (index: number) => number;
+    getMaterialFlashIntensity?: (index: number) => number;
+    memory?: WebAssembly.Memory;
+}
+
+/** Optional reactivity tuning; CONFIG does not currently declare these, so defaults apply. */
+type ReactivityTuning = {
+    reactivity?: { fadeSpeed?: number; fadeSnapThreshold?: number };
+    flashScale?: number;
+};
 
 // Material entry tracking
 interface MaterialEntry {
@@ -44,14 +69,8 @@ const RESULT_STRIDE = 4; // r, g, b, emissiveIntensity
 const OFF_CURRENT_R = 0;
 const OFF_CURRENT_G = 1;
 const OFF_CURRENT_B = 2;
-const OFF_BASE_R = 3;
-const OFF_BASE_G = 4;
-const OFF_BASE_B = 5;
-const OFF_FLASH_R = 6;
-const OFF_FLASH_G = 7;
-const OFF_FLASH_B = 8;
+// 3-5 base rgb, 6-8 flash rgb, 10 emissive intensity: written and read by WASM only
 const OFF_FLASH_INTENSITY = 9;
-const OFF_EMISSIVE_INTENSITY = 10;
 const OFF_FLAGS = 11;
 
 // WASM memory offsets (must match AssemblyScript)
@@ -107,32 +126,33 @@ export class MaterialBatcher {
         
         const instance = getWasmInstance();
         if (!instance) {
-            console.log('[MaterialBatcher] WASM not available, using JS fallback');
+            log.info('MaterialBatcher', 'WASM not available, using JS fallback');
             return false;
         }
         
         // Bind WASM functions
-        this.wasmBatchFlash = (instance.exports as any).batchMaterialFlash;
-        this.wasmInitMaterial = (instance.exports as any).initMaterialEntry;
-        this.wasmTriggerFlash = (instance.exports as any).triggerMaterialFlash;
-        this.wasmGetResult = (instance.exports as any).getMaterialResult;
-        this.wasmNeedsFadeBack = (instance.exports as any).materialNeedsFadeBack;
-        this.wasmGetFlashIntensity = (instance.exports as any).getMaterialFlashIntensity;
+        const exports = instance.exports as MaterialBatcherExports;
+        this.wasmBatchFlash = exports.batchMaterialFlash ?? null;
+        this.wasmInitMaterial = exports.initMaterialEntry ?? null;
+        this.wasmTriggerFlash = exports.triggerMaterialFlash ?? null;
+        this.wasmGetResult = exports.getMaterialResult ?? null;
+        this.wasmNeedsFadeBack = exports.materialNeedsFadeBack ?? null;
+        this.wasmGetFlashIntensity = exports.getMaterialFlashIntensity ?? null;
         
         if (!this.wasmBatchFlash) {
-            console.log('[MaterialBatcher] WASM batch function not available, using JS fallback');
+            log.info('MaterialBatcher', 'WASM batch function not available, using JS fallback');
             return false;
         }
         
         // Allocate result buffer in WASM memory
-        const memory = (instance.exports as any).memory;
+        const memory = exports.memory;
         if (memory) {
             // Use a small buffer at a fixed offset after the result buffer
             this.resultPtr = 400000; // 400KB
         }
         
         this.initialized = true;
-        console.log('[MaterialBatcher] Initialized with WASM acceleration');
+        log.info('MaterialBatcher', 'Initialized with WASM acceleration');
         return true;
     }
     
@@ -181,7 +201,7 @@ export class MaterialBatcher {
         
         // Initialize in WASM
         if (this.initialized && this.wasmInitMaterial) {
-            const currentColor = (material as any).color || new THREE.Color(0xFFFFFF);
+            const currentColor = (material as ColoredMaterial).color || new THREE.Color(0xFFFFFF);
             
             this.wasmInitMaterial(
                 index,
@@ -235,10 +255,10 @@ export class MaterialBatcher {
             );
         } else {
             // JS fallback - set directly on userData for compatibility with existing code
-            (material as any).userData = (material as any).userData || {};
-            (material as any).userData.flashIntensity = intensity;
-            (material as any).userData.flashColor = color;
-            (material as any).userData.flashDecay = 0.05;
+            material.userData = material.userData || {};
+            material.userData.flashIntensity = intensity;
+            material.userData.flashColor = color;
+            material.userData.flashDecay = 0.05;
         }
     }
     
@@ -246,7 +266,7 @@ export class MaterialBatcher {
      * Update all batched materials
      * Call this once per frame
      */
-    update(deltaTime: number): void {
+    update(_deltaTime: number): void {
         if (this.materialList.length === 0) return;
         
         if (this.initialized && this.wasmBatchFlash) {
@@ -267,9 +287,10 @@ export class MaterialBatcher {
         this.syncToWasm();
         
         // Get config values
-        const fadeSpeed = (CONFIG as any).reactivity?.fadeSpeed ?? 0.06;
-        const snapThreshold = (CONFIG as any).reactivity?.fadeSnapThreshold ?? 0.06;
-        const flashScale = (CONFIG as any).flashScale ?? 2.0;
+        const tuning = CONFIG as ReactivityTuning;
+        const fadeSpeed = tuning.reactivity?.fadeSpeed ?? 0.06;
+        const snapThreshold = tuning.reactivity?.fadeSnapThreshold ?? 0.06;
+        const flashScale = tuning.flashScale ?? 2.0;
         
         // Batch process
         this.activeMaterials = this.wasmBatchFlash!(
@@ -290,11 +311,11 @@ export class MaterialBatcher {
         const instance = getWasmInstance();
         if (!instance) return;
         
-        const F32 = new Float32Array((instance.exports.memory as any).buffer);
+        const F32 = new Float32Array((instance.exports.memory as WebAssembly.Memory).buffer);
         
         for (const entry of this.materialList) {
             const base = MATERIAL_BUFFER_OFFSET + (entry.index * MATERIAL_STRIDE * 4);
-            const mat = entry.material as any;
+            const mat = entry.material as ColoredMaterial;
             
             // Update current color if it exists
             if (mat.color) {
@@ -324,11 +345,11 @@ export class MaterialBatcher {
         const instance = getWasmInstance();
         if (!instance) return;
         
-        const F32 = new Float32Array((instance.exports.memory as any).buffer);
+        const F32 = new Float32Array((instance.exports.memory as WebAssembly.Memory).buffer);
         
         for (const entry of this.materialList) {
             const resultBase = RESULT_BUFFER_OFFSET + (entry.index * RESULT_STRIDE * 4);
-            const mat = entry.material as any;
+            const mat = entry.material as ColoredMaterial;
             
             // Read results
             const r = F32[resultBase / 4];
@@ -364,7 +385,7 @@ export class MaterialBatcher {
         this.activeMaterials = 0;
         
         for (const entry of this.materialList) {
-            const mat = entry.material as any;
+            const mat = entry.material as ColoredMaterial;
             if (mat.userData?.flashIntensity > 0 || mat.userData?._needsFadeBack) {
                 this.activeMaterials++;
             }

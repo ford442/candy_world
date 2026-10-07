@@ -32,7 +32,7 @@
 import * as THREE from 'three';
 import { isEmscriptenReady, getEmscriptenInstance, getNativeFunc } from '../utils/wasm-loader-core.ts';
 import { getWasmInstance } from '../utils/wasm-loader.ts';
-import { discoveryPersistence } from './discovery-persistence.ts';
+import { discoveryPersistence, type PersistedDiscovery } from './discovery-persistence.ts';
 import { discoverySystem } from './discovery.ts';
 import { DISCOVERY_MAP } from './discovery_map.ts';
 
@@ -53,6 +53,19 @@ interface RegisteredObject {
 const CPP_DISCOVERY_RADIUS_SQ = 25.0;
 // Max results per queryDiscoveries call (small buffer, discoveries are rare)
 const CPP_MAX_QUERY_RESULTS = 16;
+
+/** AssemblyScript discovery exports (absent on builds without the discovery system). */
+interface DiscoveryExports {
+    initDiscoverySystem?: () => void;
+    registerDiscoveryObject?: (x: number, y: number, z: number, typeId: number) => number;
+    checkDiscoverySpatial?: (x: number, y: number, z: number, typeFilter: number) => number;
+    markDiscovered?: (id: number) => void;
+    isObjectDiscovered?: (id: number) => number;
+    getDiscoveryTypeId?: (id: number) => number;
+    resetAllDiscoveries?: () => void;
+    getUndiscoveredCount?: () => number;
+    memory?: WebAssembly.Memory;
+}
 
 /**
  * Optimized discovery system using WASM spatial grid.
@@ -105,7 +118,7 @@ export class OptimizedDiscoverySystem {
         // --- C++ / Emscripten path (preferred) ---
         if (isEmscriptenReady()) {
             try {
-                const emInst = getEmscriptenInstance() as any;
+                const emInst = getEmscriptenInstance();
                 const initGrid  = getNativeFunc('initDiscoveryGrid');
                 const register  = getNativeFunc('registerDiscoverable');
                 const query     = getNativeFunc('queryDiscoveries');
@@ -144,20 +157,21 @@ export class OptimizedDiscoverySystem {
             return;
         }
 
-        this.wasmInitDiscovery        = (instance.exports as any).initDiscoverySystem;
-        this.wasmRegisterObject       = (instance.exports as any).registerDiscoveryObject;
-        this.wasmCheckDiscovery       = (instance.exports as any).checkDiscoverySpatial;
-        this.wasmMarkDiscovered       = (instance.exports as any).markDiscovered;
-        this.wasmIsDiscovered         = (instance.exports as any).isObjectDiscovered;
-        this.wasmGetTypeId            = (instance.exports as any).getDiscoveryTypeId;
-        this.wasmResetAll             = (instance.exports as any).resetAllDiscoveries;
-        this.wasmGetUndiscoveredCount = (instance.exports as any).getUndiscoveredCount;
+        const exports = instance.exports as DiscoveryExports;
+        this.wasmInitDiscovery        = exports.initDiscoverySystem ?? null;
+        this.wasmRegisterObject       = exports.registerDiscoveryObject ?? null;
+        this.wasmCheckDiscovery       = exports.checkDiscoverySpatial ?? null;
+        this.wasmMarkDiscovered       = exports.markDiscovered ?? null;
+        this.wasmIsDiscovered         = exports.isObjectDiscovered ?? null;
+        this.wasmGetTypeId            = exports.getDiscoveryTypeId ?? null;
+        this.wasmResetAll             = exports.resetAllDiscoveries ?? null;
+        this.wasmGetUndiscoveredCount = exports.getUndiscoveredCount ?? null;
 
         if (this.wasmInitDiscovery) {
             // The discovery system writes to addresses up to ~276KB. Guard against
             // running on a WASM build whose initialMemory is too small (old 4-page
             // binaries only have 256KB), which would throw RuntimeError immediately.
-            const mem = (instance.exports as any).memory as WebAssembly.Memory;
+            const mem = exports.memory;
             const DISCOVERY_REQUIRED_BYTES = 280000;
             if (mem && mem.buffer.byteLength < DISCOVERY_REQUIRED_BYTES) {
                 console.warn('[OptimizedDiscovery] WASM memory too small for discovery system, using JS fallback');
@@ -344,10 +358,8 @@ export class OptimizedDiscoverySystem {
      * JavaScript fallback for discovery check
      * Uses O(N) distance check (original implementation)
      */
-    private checkDiscoveryJS(playerPos: THREE.Vector3): DiscoveryInfo | null {
-        const DISCOVERY_RADIUS_SQ = 5.0 * 5.0;
-
-        for (const [id, obj] of this.objectRegistry) {
+    private checkDiscoveryJS(_playerPos: THREE.Vector3): DiscoveryInfo | null {
+        for (const [, obj] of this.objectRegistry) {
             // Skip already discovered
             if (discoveryPersistence.hasDiscovery(obj.type) || discoverySystem.isDiscovered(obj.type)) {
                 continue;
@@ -431,7 +443,7 @@ export class OptimizedDiscoverySystem {
      * @param serverDiscoveries - Array of discoveries from server
      */
     syncWithServer(serverDiscoveries: Array<{ id: string; timestamp: number }>): void {
-        const formatted: any[] = [];
+        const formatted: PersistedDiscovery[] = [];
         for (let i = 0; i < serverDiscoveries.length; i++) {
             const d = serverDiscoveries[i];
             formatted.push({
@@ -542,7 +554,7 @@ export const optimizedDiscovery = new OptimizedDiscoverySystem();
  * Integration helper: Initialize discovery for all animated foliage
  * Call this after world generation is complete
  */
-export function initDiscoveryForFoliage(foliageObjects: any[]): void {
+export function initDiscoveryForFoliage(foliageObjects: THREE.Object3D[]): void {
     console.log(`[Discovery] Registering ${foliageObjects.length} objects...`);
 
     let registered = 0;
@@ -571,8 +583,11 @@ export function checkPlayerDiscovery(playerPos: THREE.Vector3): void {
 
     // Trigger visual effect
     if (discovery) {
-        if (typeof window !== 'undefined' && (window as any).triggerDiscoveryEffect) {
-            (window as any).triggerDiscoveryEffect(playerPos);
+        const effectWindow = typeof window !== 'undefined'
+            ? (window as Window & { triggerDiscoveryEffect?: (position: THREE.Vector3) => void })
+            : undefined;
+        if (effectWindow?.triggerDiscoveryEffect) {
+            effectWindow.triggerDiscoveryEffect(playerPos);
         }
     }
 }

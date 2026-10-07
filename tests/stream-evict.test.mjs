@@ -242,7 +242,21 @@ async function runTests() {
         console.log('  ✓ Cave despawn path successful');
         passed++;
 
-        // 8. CloudBatcher
+        // Standalone waterfall — the only path that reaches
+        // waterfallBatcher.removeInstance (caves call remove(uuid) directly).
+        const waterfallObj = new THREE.Object3D();
+        waterfallObj.userData.type = 'waterfall';
+        const wfBefore = waterfallBatcher.count;
+        waterfallBatcher.add(waterfallObj.uuid, new THREE.Vector3(5, 0, 5), 8, 3);
+        assert.equal(waterfallBatcher.count, wfBefore + 1, 'Waterfall should be added to batcher');
+
+        assert.equal(despawnEntity(waterfallObj, null), true, 'Waterfall should be evictable');
+        assert.equal(waterfallBatcher.count, wfBefore, 'Waterfall should be removed from batcher via removeInstance');
+
+        console.log('  ✓ Waterfall despawn path successful');
+        passed++;
+
+        // CloudBatcher
         const cloudObj1 = new THREE.Object3D();
         const cloudObj2 = new THREE.Object3D();
         const cloudBatcher = CloudBatcher.getInstance();
@@ -260,7 +274,7 @@ async function runTests() {
         console.log('  ✓ CloudBatcher removeInstance successful');
         passed++;
 
-        // 9. FaunaBatcher — removeInstance(species, slot), the signature despawnEntity calls
+        // FaunaBatcher — removeInstance(species, slot), the signature despawnEntity calls
         const faunaBatcher = FaunaBatcher.getInstance();
         faunaBatcher.init();
         const faunaBefore = faunaBatcher.getTotalCount();
