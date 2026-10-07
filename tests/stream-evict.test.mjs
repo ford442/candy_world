@@ -21,6 +21,7 @@ import { CloudBatcher } from '../src/foliage/cloud-batcher.ts';
 import { FaunaBatcher } from '../src/foliage/fauna-batcher.ts';
 import { FaunaSpecies } from '../src/systems/fauna/types.ts';
 import { CandyDebrisBatcher } from '../src/foliage/candy-debris-batcher.ts';
+import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
 
 import { optimizedDiscovery } from '../src/systems/discovery-optimized.ts';
 
