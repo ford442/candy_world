@@ -1,4 +1,4 @@
-import type { SeasonConfig } from '../../systems/season-core.ts';
+import type { ConfigType } from './types.ts';
 
 /**
  * Seasons (docs/SEASONS.md). The calendar runs on wall-clock time from the
@@ -9,7 +9,7 @@ import type { SeasonConfig } from '../../systems/season-core.ts';
  * (tests/season-core.test.ts enforces the floor), `chroma` never drops below 1,
  * and frost is a tinted cream, never white or grey.
  */
-export const SEASON_DEFAULTS: SeasonConfig = {
+export const SEASON_DEFAULTS: ConfigType['season'] = {
     enabled: true,
     realDaysPerSeason: 1,
     // Spring equinox 2026, 00:00 UTC.
@@ -18,6 +18,25 @@ export const SEASON_DEFAULTS: SeasonConfig = {
     transitionFraction: 0.25,
     // Pink-lilac powdered sugar.
     frostColor: 0xf7eaf6,
+    // Visual Impact: front odds set how much of the year is wet. Today's audio
+    // picker rained whenever the bass did; fronts leave roughly half the year clear.
+    weather: {
+        slotMinutes: 20,
+        rampMinutes: 4,
+        musicIntensityRange: 0.2,
+        rainIntensity: { min: 0.35, max: 0.75 },
+        stormIntensity: { min: 0.75, max: 1.0 },
+        odds: {
+            // Frequent short showers.
+            spring: { clear: 0.45, rain: 0.45, storm: 0.1 },
+            // Long clear spells broken by thunderstorms.
+            summer: { clear: 0.55, rain: 0.15, storm: 0.3 },
+            autumn: { clear: 0.55, rain: 0.35, storm: 0.1 },
+            // Steady, gentle precipitation; storms are rare.
+            winter: { clear: 0.55, rain: 0.4, storm: 0.05 },
+        },
+    },
+    windGustScale: { spring: 1.0, summer: 0.85, autumn: 1.5, winter: 1.15 },
     palette: {
         spring: {
             leaf: { color: 0x7ce87c, amount: 0, frost: 0, chroma: 1 },

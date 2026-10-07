@@ -23,7 +23,9 @@ already imported from `material-core` picks up the unified state unchanged.
 
 `updateVisualsPhase()` (`src/core/game-loop-visuals.ts`) calls `updateWind(delta,
 input)` exactly once per frame, feeding it weather wind, heading, BPM, low-band
-audio and storm intensity. Nothing else may write wind uniforms.
+audio, storm intensity and the season's gust scale (`CONFIG.season.windGustScale`,
+blended across season boundaries; autumn is the windy one). Nothing else may write
+wind uniforms.
 
 The update is **allocation-free**: the input object is a module-level scratch,
 gust is a scalar loop over a constant octave table, and direction is written with

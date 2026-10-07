@@ -57,6 +57,30 @@ The rules the palette must follow, and why albedo may change at all, are in
 [`CANDY_AESTHETIC_GUARDRAILS.md`](./CANDY_AESTHETIC_GUARDRAILS.md#seasonal-albedo-moves). How to opt a
 material in is in [`CANDY_MATERIAL_COOKBOOK.md`](./CANDY_MATERIAL_COOKBOOK.md#seasonal-tint-seasonrole).
 
+## Weather fronts
+
+Weather follows the same clock. Wall-clock time is cut into slots of
+`CONFIG.season.weather.slotMinutes` (20 minutes, about 1¼ game days). Each slot hashes from the seed
+to a front — clear, rain or storm, with a peak intensity — drawn from the odds of the season at the
+slot's midpoint (`CONFIG.season.weather.odds`): showery spring, stormy summer, gentle winter. The
+first `CONFIG.season.weather.rampMinutes` of a slot ramp from the previous front, and neighbouring
+slots of the same type merge into one long front, so a storm arrives, holds and clears instead of
+flickering. [`sampleWeatherFront`](../src/systems/weather/weather-fronts-core.ts) is a pure function
+of seed and time, so presence peers share a sky.
+
+| Who                          | Say over the weather                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `WeatherSystem.setWeather()` | Pins the type and intensity until `setWeather(null)`. Debug and visual regression only.      |
+| The front                    | Decides clear / rain / storm and the base intensity.                                         |
+| Music                        | Nudges intensity by up to `CONFIG.season.weather.musicIntensityRange`; never flips the type. |
+
+Mist and drizzle are now only flavours of a rain front (morning and dusk), not weather of their own.
+The announcer says when clouds gather, a storm builds or breaks or eases, and when the sky clears.
+
+Fronts leave roughly half the year clear. Before them, rain followed the bass line, so with music
+playing it rained most of the time; ground water, rain-grown mushrooms and rainbows are now rarer.
+Tune `CONFIG.season.weather.odds` if that reads too dry.
+
 ## Code map
 
 | File                                                                                    | Role                                                       |
@@ -80,3 +104,6 @@ imports none of them.
   builds the WGSL for every tinted material with three's own node builder under node, without a
   GPU, and checks the tint reaches the fragment stage. With [`naga`](https://github.com/gfx-rs/wgpu/tree/trunk/naga)
   on `PATH` it also validates every shader; without it the run says validation was skipped.
+- `npm run test:weather-fronts` ([`weather-fronts.test.ts`](../tests/weather-fronts.test.ts)):
+  peer determinism, continuity across slots, season odds, run length, no flicker, phases, the music
+  bound, override precedence, and zero allocation.

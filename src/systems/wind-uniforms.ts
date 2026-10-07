@@ -109,6 +109,8 @@ export interface WindUpdateInput {
     audioLow?: number;
     /** 0–1 storminess, drives turbulence. */
     stormIntensity?: number;
+    /** Season gust multiplier (CONFIG.season.windGustScale); 1 = no change. */
+    seasonGustScale?: number;
 }
 
 /**
@@ -131,7 +133,7 @@ export function updateWind(delta: number, input: WindUpdateInput): void {
     }
     const audioLow = input.audioLow || 0;
     const coupling = THREE.MathUtils.clamp(audioLow * (bpmFactor * 0.5 + 0.5), 0, 1);
-    _state.gust = 1.0 + swell + coupling * 0.25;
+    _state.gust = 1.0 + (swell + coupling * 0.25) * (input.seasonGustScale ?? 1);
     _state.musicCoupling = coupling;
 
     _state.turbulence = THREE.MathUtils.clamp(
