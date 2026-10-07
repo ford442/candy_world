@@ -108,6 +108,9 @@
         "test:foliage-barrel": "node scripts/check-foliage-barrel.mjs",
         "test:cycles": "node scripts/cycles-ratchet.mjs"
     },
+    "engines": {
+        "node": ">=24"
+    },
     "keywords": [],
     "author": "",
     "license": "ISC",
