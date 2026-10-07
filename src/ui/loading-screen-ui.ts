@@ -25,6 +25,16 @@ export class LoadingScreen {
     private progressFill: HTMLElement | null = null;
     private percentageText: HTMLElement | null = null;
     private taskText: HTMLElement | null = null;
+    private flavorText: HTMLElement | null = null;
+    private flavorIntervalId: number | null = null;
+    private readonly flavorMessages = [
+        'Watering the wisteria...',
+        'Tuning the geysers...',
+        'Planting dandelions...',
+        'Synthesizing sugar...',
+        'Polishing the lotus...',
+        'Reticulating splines...',
+    ];
     private timeText: HTMLElement | null = null;
     private skipButton: HTMLButtonElement | null = null;
     private spinner: HTMLElement | null = null;
@@ -114,6 +124,7 @@ export class LoadingScreen {
             this.progressFill = elements.progressFill;
             this.percentageText = elements.percentageText;
             this.taskText = elements.taskText;
+            this.flavorText = elements.flavorText;
             this.timeText = elements.timeText;
             this.skipButton = elements.skipButton;
         } else {
@@ -126,6 +137,7 @@ export class LoadingScreen {
                 '.progress-percentage'
             ) as HTMLElement;
             this.taskText = this.container.querySelector('.progress-task') as HTMLElement;
+            this.flavorText = this.container.querySelector('.progress-flavor-text') as HTMLElement;
             this.timeText = this.container.querySelector('.time-remaining') as HTMLElement;
             this.skipButton = this.container.querySelector('.skip-button') as HTMLButtonElement;
 
@@ -160,12 +172,14 @@ export class LoadingScreen {
                     this.container.classList.add('visible');
                 }
             });
+            this.startFlavorText();
             return;
         }
 
         this.createDOM();
         this.isVisible = true;
         this.isComplete = false;
+        this.startFlavorText();
 
         // Set aria-busy on the loading container to indicate loading is in progress
         this.container?.setAttribute('aria-busy', 'true');
@@ -301,6 +315,7 @@ export class LoadingScreen {
         if (!this.isVisible || this.isComplete) return;
 
         this.isComplete = true;
+        this.stopFlavorText();
 
         if (this.releaseFocusTrap) {
             this.releaseFocusTrap();
@@ -660,6 +675,8 @@ export class LoadingScreen {
         // Use a dedicated flag so hide() and animateProgress() don't misinterpret
         // this as a successful completion.
         this.hasFatalError = true;
+        this.stopFlavorText();
+        if (this.flavorText) this.flavorText.textContent = '';
 
         if (this.container) {
             this.container.classList.add('fatal-error');
@@ -720,7 +737,26 @@ export class LoadingScreen {
         log.error('LoadingScreen', 'Fatal error displayed:', message);
     }
 
+    private startFlavorText(): void {
+        if (!this.flavorText || this.flavorIntervalId !== null || this.hasFatalError) return;
+        const pick = (): void => {
+            if (!this.flavorText || this.isComplete) return;
+            const messages = this.flavorMessages;
+            this.flavorText.textContent = messages[Math.floor(Math.random() * messages.length)];
+        };
+        pick();
+        this.flavorIntervalId = window.setInterval(pick, 2500);
+    }
+
+    private stopFlavorText(): void {
+        if (this.flavorIntervalId !== null) {
+            window.clearInterval(this.flavorIntervalId);
+            this.flavorIntervalId = null;
+        }
+    }
+
     private destroy(): void {
+        this.stopFlavorText();
         if (this.releaseFocusTrap) {
             this.releaseFocusTrap();
             this.releaseFocusTrap = null;
@@ -753,6 +789,7 @@ export class LoadingScreen {
         this.progressFill = null;
         this.percentageText = null;
         this.taskText = null;
+        this.flavorText = null;
         this.timeText = null;
         this.skipButton = null;
         this.spinner = null;

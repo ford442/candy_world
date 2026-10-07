@@ -10,6 +10,7 @@ export interface LoadingScreenElements {
     progressFill: HTMLElement;
     percentageText: HTMLElement;
     taskText: HTMLElement;
+    flavorText: HTMLElement;
     timeText: HTMLElement | null;
     skipButton: HTMLButtonElement | null;
 }
@@ -116,8 +117,14 @@ export function createLoadingScreenDOM(
     progressDetails.appendChild(percentageText);
     progressDetails.appendChild(taskText);
 
+    // Decorative rotating flavor line; kept out of the accessibility tree and aria-valuetext.
+    const flavorText = document.createElement('span');
+    flavorText.className = 'progress-flavor-text';
+    flavorText.setAttribute('aria-hidden', 'true');
+
     progressSection.appendChild(progressBar);
     progressSection.appendChild(progressDetails);
+    progressSection.appendChild(flavorText);
     content.appendChild(progressSection);
 
     let timeText: HTMLElement | null = null;
@@ -176,6 +183,7 @@ export function createLoadingScreenDOM(
         progressFill,
         percentageText,
         taskText,
+        flavorText,
         timeText,
         skipButton,
     };
