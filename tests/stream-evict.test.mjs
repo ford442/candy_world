@@ -20,13 +20,8 @@ import { foliageCaves } from '../src/systems/physics/physics-types.ts';
 import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
 import { subwooferLotusBatcher } from '../src/foliage/subwoofer-lotus-batcher.ts';
 import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
-import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
-import { CloudBatcher } from '../src/foliage/cloud-batcher.ts';
-import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
-import { FaunaBatcher } from '../src/foliage/fauna-batcher.ts';
 import { FaunaSpecies } from '../src/systems/fauna/types.ts';
 import { CandyDebrisBatcher } from '../src/foliage/candy-debris-batcher.ts';
-import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
 
 import { optimizedDiscovery } from '../src/systems/discovery-optimized.ts';
 
@@ -265,25 +260,21 @@ async function runTests() {
         console.log('  ✓ CloudBatcher removeInstance successful');
         passed++;
 
-        // 9. FaunaBatcher
-        const faunaObj1 = new THREE.Object3D();
-        const faunaObj2 = new THREE.Object3D();
+        // 9. FaunaBatcher — removeInstance(species, slot), the signature despawnEntity calls
         const faunaBatcher = FaunaBatcher.getInstance();
         faunaBatcher.init();
+        const faunaBefore = faunaBatcher.getTotalCount();
 
-        const fIdx1 = faunaBatcher.addInstance(0, 0, 0, 0, 'global', 0, 0);
-        faunaObj1.userData.faunaSpecies = 0;
-        faunaObj1.userData.faunaSlot = 0;
+        faunaBatcher.addInstance(0, 0, 0, 0, 'global', 0, 100);
+        faunaBatcher.addInstance(0, 0, 0, 0, 'global', 0, 101);
 
-        const fIdx2 = faunaBatcher.addInstance(0, 0, 0, 0, 'global', 0, 1);
-        faunaObj2.userData.faunaSpecies = 0;
-        faunaObj2.userData.faunaSlot = 1;
+        assert.equal(faunaBatcher.getTotalCount(), faunaBefore + 2, 'Fauna should have 2 more counts');
 
-        assert.equal(faunaBatcher.getTotalCount(), 2, 'Fauna should have 2 counts');
-
-        faunaBatcher.removeInstance(faunaObj1);
-        assert.equal(faunaBatcher.getTotalCount(), 1, 'Fauna should have 1 count after swap');
-        assert.equal(faunaBatcher['_species'][0].slotToInstance.get(1), 0, 'Swapped Fauna index updated');
+        const removedIndex = faunaBatcher['_species'][0].slotToInstance.get(100);
+        faunaBatcher.removeInstance(0, 100);
+        assert.equal(faunaBatcher.getTotalCount(), faunaBefore + 1, 'Fauna should have 1 fewer count after swap');
+        assert.equal(faunaBatcher['_species'][0].slotToInstance.get(101), removedIndex, 'Swapped Fauna index updated');
+        assert.equal(faunaBatcher['_species'][0].slotToInstance.has(100), false, 'Removed Fauna slot unmapped');
         console.log('  ✓ FaunaBatcher swap-with-last successful');
         passed++;
 

@@ -326,14 +326,6 @@ export class CandyDebrisBatcher {
         };
     }
 
-    removeInstance(logicObject: THREE.Object3D): void {
-        // Candy debris isn't logically grouped into persistent "Object3D"
-        // wrappers in the same way foliage is, it's just a burst system.
-        // However, we satisfy the ChunkStreamer interface here.
-        // Usually, debris despawns itself via lifetime, so we just clear.
-        // We'll leave it as a no-op since debris is ephemeral and not mapped by ChunkStreamer.
-    }
-
     dispose(): void {
         if (this.mesh) safeRemoveAndDispose(foliageGroup, this.mesh);
         this.mesh = null;
