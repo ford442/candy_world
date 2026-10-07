@@ -76,23 +76,7 @@ export class EffectsManager {
             rainbow: null,
             aurora: null,
             rainbowTimer: 0,
-            lightningLight: (() => {
-                const handle = createPointLight({
-                    id: getLightningLightId(),
-                    role: 'weather',
-                    parent: scene,
-                    position: [0, 50, 0],
-                    color: 0xffe6ff,
-                    intensity: 0,
-                    distance: 200,
-                    decay: 2,
-                    castShadow: false,
-                });
-                if (!handle?.light || !(handle.light as THREE.PointLight).isPointLight) {
-                    throw new Error('[Lights] weather lightning requires a point-pool slot');
-                }
-                return handle.light as THREE.PointLight;
-            })(),
+            lightningLight: this.acquireLightning(),
             lightningActive: false,
             lightningTimer: 0,
             rainMesh: null,
@@ -145,10 +129,33 @@ export class EffectsManager {
         }
     }
 
+    // A fixed id means a slot still held by another manager is shared, not stolen.
+    private acquireLightning(): THREE.PointLight {
+        const handle = createPointLight({
+            id: getLightningLightId(),
+            role: 'weather',
+            parent: this.scene,
+            position: [0, 50, 0],
+            color: 0xffe6ff,
+            intensity: 0,
+            distance: 200,
+            decay: 2,
+            castShadow: false,
+        });
+        if (!handle?.light || !(handle.light as THREE.PointLight).isPointLight) {
+            throw new Error('[Lights] weather lightning requires a point-pool slot');
+        }
+        return handle.light as THREE.PointLight;
+    }
+
     /**
-     * Initialize lightning light
+     * Initialize lightning light (re-acquires the pool slot after dispose())
      */
     initLightning(): void {
+        if (!this.lightningHeld) {
+            this.state.lightningLight = this.acquireLightning();
+            this.lightningHeld = true;
+        }
         const light = this.state.lightningLight;
         light.position.set(0, 50, 0);
         if (!light.parent) this.scene.add(light);

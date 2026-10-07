@@ -84,5 +84,24 @@ try {
 assert(threw === null, `second dispose() does not throw${threw ? `: ${threw}` : ''}`);
 assert(geo.calls === 1 && mat.calls === 1, 'second dispose() does not re-dispose the aurora');
 
+console.log('initLightning() after dispose() re-acquires the pool slot');
+assert(state.lightningLight.parent === null, 'released lightning light is unparented');
+assert(state.lightningLight.visible === false, 'released lightning light is hidden');
+effects.initLightning();
+const relit = state.lightningLight;
+assert(relit.parent === scene, 're-acquired lightning light is in the scene');
+assert(relit.visible === true, 're-acquired lightning light is visible');
+effects.initLightning();
+assert(state.lightningLight === relit, 'initLightning() while held keeps the same light');
+effects.dispose();
+assert(relit.parent === null && relit.visible === false, 'dispose() releases it again');
+threw = null;
+try {
+    effects.dispose();
+} catch (e) {
+    threw = e;
+}
+assert(threw === null, 'dispose() after re-init is safe to call twice');
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
