@@ -39,6 +39,10 @@
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).
+//
+// Debug hooks (window.setTimeOfDay / window.setCircadianTimeOfDay) install only
+// in dev builds, under automated captures (webdriver / __IS_FULL_BOOT_TEST), or
+// with ?debug=1 or ?debugCircadian=1 — see areDebugHooksEnabled().
 // ---------------------------------------------------------------------------
 
 export function hasUrlFlag(key: string): boolean {
@@ -55,6 +59,43 @@ export function getUrlFlag(key: string): string | null {
         return new URLSearchParams(window.location.search).get(key);
     } catch {
         return null; // non-browser (test) environment
+    }
+}
+
+/**
+ * Whether window-level debug hooks (time of day, later season) may be installed.
+ * Visual regression qualifies through `__IS_FULL_BOOT_TEST`, which is why the
+ * hooks cannot sit behind `?debugCircadian` alone: the capture tool never passes it.
+ */
+export function areDebugHooksEnabled(): boolean {
+    return (
+        import.meta.env?.DEV === true ||
+        isAutomatedRun() ||
+        getUrlFlag('debug') === '1' ||
+        getUrlFlag('debugCircadian') === '1'
+    );
+}
+
+/**
+ * Playwright / visual-regression only. Deliberately not isCIorHeadless(): its
+ * user-agent test (/headless|playwright|ci|test/i) also matches "Macintosh",
+ * which would install debug hooks for every Mac player.
+ */
+function isAutomatedRun(): boolean {
+    try {
+        if (
+            typeof window !== 'undefined' &&
+            (window as Window & { __IS_FULL_BOOT_TEST?: boolean }).__IS_FULL_BOOT_TEST === true
+        ) {
+            return true;
+        }
+        if (typeof navigator !== 'undefined' && navigator.webdriver === true) return true;
+        return (
+            typeof localStorage !== 'undefined' &&
+            localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true'
+        );
+    } catch {
+        return false;
     }
 }
 

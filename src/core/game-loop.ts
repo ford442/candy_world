@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
 import { ensureHeroAnimationDemo, isHeroAnimationDemoEnabled } from '../debug/tools-stub.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
+import { setFireflyMeshesVisible } from '../foliage/firefly-registry.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { updateHeroAnimations } from '../systems/animation/clip-player.ts';
 import { updateBehaviorSystem } from '../systems/ecs/behaviors/index.ts';
@@ -32,7 +33,6 @@ import {
     setLoggedWebGPULimits,
     WebGPURendererWithDeviceLimits,
     timeOffsetRef,
-    firefliesRef,
     beatFlashIntensity,
     setBeatFlashIntensity,
     cameraZoomPulse,
@@ -184,7 +184,7 @@ export function animate() {
         gt + timeOffsetRef.value,
         audioState,
         visualsState.isNightNow,
-        visualsState.cyclePos >= 0.2 + 0.3 + 0.1 + 0.1 // deep night start approx, exact logic is in config
+        visualsState.isDeepNight
     );
 
     // 4. PostFX and Camera phase
@@ -194,9 +194,7 @@ export function animate() {
 
     updateExploreCameraPhase(delta, exploreActive);
 
-    if (firefliesRef) {
-        firefliesRef.visible = visualsState.cyclePos >= 0.2 + 0.3 + 0.1 + 0.1;
-    }
+    setFireflyMeshesVisible(visualsState.isNightNow);
 
     // 5. Compute passes
     updateComputePhase();

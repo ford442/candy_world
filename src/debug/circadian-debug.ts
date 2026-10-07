@@ -10,8 +10,8 @@
  * and live uniform values so Palette can spot species that stay "always awake".
  */
 
-import { CYCLE_DURATION } from '../core/config.ts';
 import { getDayNightBias } from '../core/cycle.ts';
+import { applyTimeOfDayPreset } from '../core/time-of-day-presets.ts';
 import { uTwilight } from '../foliage/sky.ts';
 import { uCircadianPhase, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
@@ -68,13 +68,8 @@ export function initCircadianDebug(opts?: {
         _getGameTime = opts.getGameTime;
     }
 
-    try {
-        (window as any).setTimeOfDay = setCircadianTimeOfDay;
-        (window as any).setCircadianTimeOfDay = setCircadianTimeOfDay;
-    } catch {
-        /* non-browser */
-    }
-
+    // window.setTimeOfDay is installed by core/time-of-day-presets.ts, which
+    // visual regression can reach without this module's ?debugCircadian flag.
     if (!DEBUG_CIRCADIAN) return;
 
     _panel = document.createElement('div');
@@ -162,17 +157,7 @@ export function setCircadianTimeOfDay(tod: string): void {
         console.warn('[circadian-debug] setCircadianTimeOfDay: not initialized');
         return;
     }
-    const map: Record<string, number> = {
-        dawn: 30,
-        day: 270,
-        sunset: 510,
-        night: 780,
-    };
-    const target = map[tod] ?? map.day;
-    _timeOffset.value = target - (_getGameTime() % CYCLE_DURATION);
-    circadianController.setDayTarget(tod === 'day' || tod === 'dawn');
-    // Snap controller toward target so VR frames don't wait for the 3s lerp.
-    for (let i = 0; i < 12; i++) circadianController.update(1.0);
+    applyTimeOfDayPreset(tod, _timeOffset, _getGameTime());
 }
 
 /** Live day/night bias from current clock (debug / VR). */

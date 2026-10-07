@@ -149,17 +149,61 @@ export function getCelestialState(tRaw: number, out?: { sunIntensity: number; mo
  * No heap allocations — pure arithmetic on the cycle position.
  */
 export function getDayNightBias(cyclePos: number): number {
-    const t = cyclePos % CYCLE_DURATION;
+    const t = getCyclePos(cyclePos);
     // Sunrise: ramp 0 → 1
     if (t < DURATION_SUNRISE) return t / DURATION_SUNRISE;
     // Day: full brightness
     const dayEnd = DURATION_SUNRISE + DURATION_DAY;
     if (t < dayEnd) return 1.0;
     // Sunset: ramp 1 → 0
-    const sunsetEnd = dayEnd + DURATION_SUNSET;
-    if (t < sunsetEnd) return 1.0 - (t - dayEnd) / DURATION_SUNSET;
+    if (t < NIGHT_START) return 1.0 - (t - dayEnd) / DURATION_SUNSET;
     // Night
     return 0.0;
+}
+
+/** Cycle position (s) where night begins: the end of sunset. */
+export const NIGHT_START = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET;
+/** Cycle position (s) where deep night begins; deep night and pre-dawn run to the wrap. */
+export const DEEP_NIGHT_START = NIGHT_START + DURATION_DUSK_NIGHT;
+
+/**
+ * Wrap world time (s) into [0, CYCLE_DURATION). Every phase test must go through
+ * this: summing the phase durations by hand is how the visuals loop once ended up
+ * wrapping at 840 s while the palette and day/night bias wrapped at 960 s.
+ */
+export function getCyclePos(t: number): number {
+    const p = t % CYCLE_DURATION;
+    return p < 0 ? p + CYCLE_DURATION : p;
+}
+
+/** True from the end of sunset until the wrap back to sunrise. */
+export function isNightCyclePos(cyclePos: number): boolean {
+    return cyclePos >= NIGHT_START;
+}
+
+/** True through deep night and pre-dawn (the last stretch before sunrise). */
+export function isDeepNight(cyclePos: number): boolean {
+    return cyclePos >= DEEP_NIGHT_START;
+}
+
+// The sun crosses the horizon halfway through sunrise and halfway through sunset,
+// so the time-of-day presets (dawn 30 s, sunset 510 s) frame a low sun.
+const SUN_RISE_POS = DURATION_SUNRISE / 2;
+const SUN_SET_POS = NIGHT_START - DURATION_SUNSET / 2;
+const SUN_DAY_ARC = SUN_SET_POS - SUN_RISE_POS;
+
+/**
+ * Sun elevation angle (radians) for a cycle position: 0 at sunrise on the
+ * horizon, π/2 at noon, π at sunset, and through (π, 2π) below the horizon all
+ * night. `sin()` of the result is the sun's height.
+ */
+export function getSunArcAngle(cyclePos: number): number {
+    const p = getCyclePos(cyclePos);
+    if (p >= SUN_RISE_POS && p < SUN_SET_POS) {
+        return (Math.PI * (p - SUN_RISE_POS)) / SUN_DAY_ARC;
+    }
+    const intoNight = getCyclePos(p - SUN_SET_POS);
+    return Math.PI + (Math.PI * intoNight) / (CYCLE_DURATION - SUN_DAY_ARC);
 }
 
 // Year = 40 Days (10 days per season)

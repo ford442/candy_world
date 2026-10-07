@@ -8,6 +8,7 @@ import type { InteractionSystem } from '../systems/interaction.ts';
 import type { WeatherSystem } from '../systems/weather.ts';
 import { getCameraShake } from './camera-shake.ts';
 import { CONFIG } from './config.ts';
+import { installTimeOfDayHooks } from './time-of-day-presets.ts';
 
 export type ParticleAudioData = {
     low: number;
@@ -175,7 +176,6 @@ export let audioSystemRef: AudioSystem | null = null;
 export let beatSyncRef: BeatSync | null = null;
 export let interactionSystemRef: InteractionSystem | null = null;
 export let moonRef: THREE.Object3D | null = null;
-export let firefliesRef: THREE.Object3D | null = null;
 export let controlsRef: any = null;
 export let sunLightRef: THREE.DirectionalLight | null = null;
 export let ambientLightRef: THREE.AmbientLight | THREE.HemisphereLight | null = null;
@@ -210,7 +210,6 @@ export function initGameLoopDependencies(deps: {
     beatSync: BeatSync;
     interactionSystem: InteractionSystem;
     moon: THREE.Object3D;
-    fireflies: THREE.Object3D | null;
     controls: any;
     sunLight: THREE.DirectionalLight;
     ambientLight: THREE.AmbientLight | THREE.HemisphereLight;
@@ -231,7 +230,6 @@ export function initGameLoopDependencies(deps: {
     beatSyncRef = deps.beatSync;
     interactionSystemRef = deps.interactionSystem;
     moonRef = deps.moon;
-    firefliesRef = deps.fireflies;
     controlsRef = deps.controls;
     sunLightRef = deps.sunLight;
     ambientLightRef = deps.ambientLight;
@@ -249,6 +247,7 @@ export function initGameLoopDependencies(deps: {
         timeOffset: deps.timeOffset,
         getGameTime: () => gameTime,
     });
+    installTimeOfDayHooks(deps.timeOffset, () => gameTime);
 }
 
 export function getGameTime(): number {

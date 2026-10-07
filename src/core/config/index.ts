@@ -3,7 +3,14 @@
  * @see ../config.ts barrel
  */
 
-export { hasUrlFlag, getUrlFlag, _hasFlag, _getFlag, FEATURE_FLAGS } from './url-flags.ts';
+export {
+    hasUrlFlag,
+    getUrlFlag,
+    areDebugHooksEnabled,
+    _hasFlag,
+    _getFlag,
+    FEATURE_FLAGS,
+} from './url-flags.ts';
 
 export {
     isCIorHeadless,

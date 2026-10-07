@@ -20,14 +20,14 @@ import { WeatherState } from '../systems/weather-types.ts';
 import { updateWindDebug } from '../systems/wind-debug.ts';
 import { updateWind, type WindUpdateInput } from '../systems/wind-uniforms.ts';
 import { profiler } from '../utils/profiler.ts';
+import { DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET } from './config.ts';
 import {
-    DURATION_SUNRISE,
-    DURATION_DAY,
-    DURATION_SUNSET,
-    DURATION_DUSK_NIGHT,
-    DURATION_DEEP_NIGHT,
-} from './config.ts';
-import { getDayNightBias } from './cycle.ts';
+    getCyclePos,
+    getDayNightBias,
+    getSunArcAngle,
+    isDeepNight,
+    isNightCyclePos,
+} from './cycle.ts';
 import { cameraRef } from './game-loop-core.ts';
 import {
     _scratchBaseSkyTop,
@@ -92,16 +92,10 @@ export function updateVisualsPhase(
     _exploreActive: boolean,
     _playerPos: THREE.Vector3
 ) {
-    const cyclePos =
-        (gameTime + timeOffsetRef.value) %
-        (DURATION_SUNRISE +
-            DURATION_DAY +
-            DURATION_SUNSET +
-            DURATION_DUSK_NIGHT +
-            DURATION_DEEP_NIGHT);
-    const dayNightBias = getDayNightBias(gameTime + timeOffsetRef.value);
+    const cyclePos = getCyclePos(gameTime + timeOffsetRef.value);
+    const dayNightBias = getDayNightBias(cyclePos);
 
-    const isNightNow = cyclePos >= DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET;
+    const isNightNow = isNightCyclePos(cyclePos);
     setIsNight(isNightNow);
     if (isNightNow !== getLastIsNight()) {
         updateTheme(isNightNow);
@@ -193,18 +187,8 @@ export function updateVisualsPhase(
         }
     }
 
-    const timeOfDay =
-        Math.PI *
-        2 *
-        (cyclePos /
-            (DURATION_SUNRISE +
-                DURATION_DAY +
-                DURATION_SUNSET +
-                DURATION_DUSK_NIGHT +
-                DURATION_DEEP_NIGHT));
-    _scratchSunVector
-        .set(Math.cos(timeOfDay - Math.PI / 2), Math.sin(timeOfDay - Math.PI / 2), 0.5)
-        .normalize();
+    const sunArc = getSunArcAngle(cyclePos);
+    _scratchSunVector.set(Math.cos(sunArc), Math.sin(sunArc), 0.5).normalize();
     _scratchLightDir.copy(_scratchSunVector).multiplyScalar(-1);
 
     if (sunLightRef) {
@@ -360,6 +344,7 @@ export function updateVisualsPhase(
     return {
         cyclePos,
         isNightNow,
+        isDeepNight: isDeepNight(cyclePos),
         weatherStateStr,
         weatherIntensity,
         dayNightBias,
