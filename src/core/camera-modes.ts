@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import { getGroundHeight } from '../systems/ground-system.ts';
+import { getPlayerGroundHeight } from '../systems/ground-system.ts';
 import { player } from '../systems/physics/index.ts';
 import { announcePolite } from '../ui/announcer.ts';
 import { CONFIG } from './config.ts';
@@ -62,7 +62,7 @@ export function isExploreActive(): boolean {
 }
 
 export function snapCameraToGround(camera: THREE.PerspectiveCamera): THREE.Vector3 {
-    const groundY = getGroundHeight(camera.position.x, camera.position.z);
+    const groundY = getPlayerGroundHeight(camera.position.x, camera.position.z);
     const eyeY = groundY + CONFIG.player.eyeHeight;
     player.position.set(camera.position.x, eyeY, camera.position.z);
     player.velocity.set(0, 0, 0);

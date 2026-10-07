@@ -113,9 +113,13 @@ water, ground reads as the water surface, and because swimming is an eye-height 
 simply walks. The island is untouched, and a 7 m strip along the Sugar Caves descent never freezes, so
 the caves stay reachable all year.
 
-The switch never catches the player: the lake waits to freeze while they are swimming under it, and
-waits to thaw while they are standing on it. Freezing depends only on frost, a smooth function of
-seed and clock, so peers agree without hysteresis.
+Freezing waits while the player is in the water beneath where the ice would form (swimming or
+wading, whatever they are doing), so nobody is lifted onto it. Thawing never waits: anyone standing
+on the ice when it melts drops into the lake, which looks open by then. Everything that puts the player
+on the ground (movement, the eye-height follow, dancing, the camera snap, spawning) uses the
+ice-aware `getPlayerGroundHeight`; world generation does not, so nothing is planted on the ice.
+Freezing depends only on frost, a smooth function of seed and clock, so peers agree without
+hysteresis.
 
 ## Saving and presence
 
@@ -170,8 +174,9 @@ imports none of them.
 - `test:season-wgsl` also builds the berry, gem-fruit, firefly and luminous materials and checks the
   density mask reached the vertex stage.
 - `npm run test:lake-ice` ([`lake-ice.test.ts`](../tests/lake-ice.test.ts)): the island and the
-  descent hole never freeze, the ice holds weight only when solid, the switch never catches the
-  player, and the real character controller rests on the ice.
+  descent hole never freeze, the ice holds weight only when solid, freezing waits for swimmers and
+  waders while thawing never waits, the player-facing ground height sees the ice, and the real
+  character controller rests on it.
 - `npm run test:season-determinism` ([`season-determinism.test.ts`](../tests/season-determinism.test.ts)):
   two peers with 2 s of clock skew and different join times see the same season, palette, front and
   lake, except across a transition inside their skew; different rooms differ.

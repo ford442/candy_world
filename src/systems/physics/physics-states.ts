@@ -13,7 +13,7 @@ import {
     foliageVineLadders
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
-import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
+import { getPlayerGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
 import { calculateWaterLevel } from '../physics.core.ts';
 import { 
     player, 

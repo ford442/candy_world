@@ -51,7 +51,7 @@ import { DISCOVERY_MAP } from '../discovery_map.ts';
 import {
     reconcileGroundedEyeY,
     isInLakeBasin,
-    getGroundHeight,
+    getPlayerGroundHeight,
     sampleGroundFootprint,
     type GroundFootprintResult,
 } from '../ground-system.ts';
@@ -59,7 +59,7 @@ import { calculateMovementInput } from '../physics.core.ts';
 import { getLakeIce } from '../season-controller.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { resolveCharacterMovement } from './character-controller.ts';
-import { iceAwareFootprint, iceAwareGroundHeight, updateLakeIcePhysics } from './lake-ice-core.ts';
+import { iceAwareFootprint, updateLakeIcePhysics } from './lake-ice-core.ts';
 
 // Winter ice is a ground-height rule (lake-ice-core.ts), so every ground query the
 // player's movement makes goes through it. Built once: no per-frame closures.
@@ -69,13 +69,10 @@ const _iceFootprint: GroundFootprintResult = {
     maxY: 0,
     normal: new THREE.Vector3(0, 1, 0),
 };
-function iceGroundHeight(x: number, z: number): number {
-    return iceAwareGroundHeight(x, z, getGroundHeight(x, z));
-}
 const _characterGroundQuery = {
     sampleFootprint: (x: number, z: number, radius: number, points: number): GroundFootprintResult =>
         iceAwareFootprint(x, z, sampleGroundFootprint(x, z, radius, points), _iceFootprint),
-    getGroundHeight: iceGroundHeight,
+    getGroundHeight: getPlayerGroundHeight,
 };
 import { handleAbilities } from './physics-abilities.ts';
 import {
@@ -316,6 +313,15 @@ export function updatePhysics(
         }
     }
 
+    // Winter lake ice holds weight once it is more than half frozen. Runs before
+    // the state switch so swimmers, dancers and climbers are all accounted for.
+    updateLakeIcePhysics(
+        getLakeIce() > 0.5,
+        player.position.x,
+        player.position.z,
+        player.position.y - CONFIG.player.eyeHeight
+    );
+
     // 2. Check Triggers & State Transitions
     updateStateTransitions(camera, keyStates);
 
@@ -477,14 +483,6 @@ function updateDefaultState(
     }
 
     const inLakeBasin = isInLakeBasin(player.position.x, player.position.z);
-    // The surface holds weight once it is more than half frozen.
-    updateLakeIcePhysics(
-        getLakeIce() > 0.5,
-        player.position.x,
-        player.position.z,
-        player.position.y - CONFIG.player.eyeHeight,
-        player.currentState === PlayerState.SWIMMING
-    );
     let onGround = -1;
     if (inLakeBasin) physicsPathStats.lakeBasin++;
     const effectiveJumpInput = keyStates.jump ? 1 : 0;
@@ -663,7 +661,6 @@ function updateDefaultState(
         const nextY = reconcileGroundedEyeY(prevY, player.position.x, player.position.z, delta, {
             isGrounded: player.isGrounded,
             velocityY: player.velocity.y,
-            groundY: iceGroundHeight(player.position.x, player.position.z),
         });
         if (nextY !== prevY) {
             player.position.y = nextY;
@@ -735,7 +732,6 @@ function updateDefaultState(
         const nextY = reconcileGroundedEyeY(prevY, player.position.x, player.position.z, delta, {
             isGrounded: player.isGrounded,
             velocityY: player.velocity.y,
-            groundY: iceGroundHeight(player.position.x, player.position.z),
         });
         if (nextY !== prevY) {
             player.position.y = nextY;

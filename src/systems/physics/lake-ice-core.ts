@@ -61,23 +61,21 @@ export function isLakeIceSolid(): boolean {
 }
 
 /**
- * Move the ice toward `wantSolid`, unless the switch would catch the player:
- * freezing over someone swimming in the basin would snap them on top of the
- * ice, and thawing under someone standing on it would drop them in mid-stride.
- * The switch waits until they move. Returns the resulting state.
+ * Move the ice toward `wantSolid`. Freezing waits while the player is in the
+ * water beneath where the ice would form (swimming or wading, in any player
+ * state): solid ice there would lift them onto it. Thawing never waits: a
+ * thaw that held while someone stood on the ice would let them walk on open
+ * water for as long as they kept moving. Returns the resulting state.
  */
 export function updateLakeIcePhysics(
     wantSolid: boolean,
     playerX: number,
     playerZ: number,
-    playerFootY: number,
-    swimming: boolean
+    playerFootY: number
 ): boolean {
     if (wantSolid === _solid) return _solid;
-    if (isOverLakeIce(playerX, playerZ)) {
-        if (wantSolid && swimming) return _solid;
-        if (!wantSolid && Math.abs(playerFootY - LAKE_ICE_Y) < 1.0) return _solid;
-    }
+    if (wantSolid && playerFootY < LAKE_ICE_Y - 0.05 && isOverLakeIce(playerX, playerZ))
+        return _solid;
     _solid = wantSolid;
     return _solid;
 }

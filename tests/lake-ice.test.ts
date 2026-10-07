@@ -115,28 +115,63 @@ section('Holding weight');
     );
 }
 
-section('Never catching the player');
+section('Freezing and thawing');
 {
     __setLakeIceSolidForTests(false);
     check(
         'freezing waits while the player swims under the ice',
-        !updateLakeIcePhysics(true, 60, 50, -0.5, true)
+        !updateLakeIcePhysics(true, 60, 50, -0.5)
     );
     check(
-        'freezing goes ahead once they leave the water',
-        updateLakeIcePhysics(true, 60, 50, 1.5, false)
+        'freezing waits while the player wades below the surface',
+        !updateLakeIcePhysics(true, 60, 50, 1.2)
     );
     check(
-        'thawing waits while the player stands on the ice',
-        updateLakeIcePhysics(false, 60, 50, LAKE_ICE_Y, false)
+        'freezing goes ahead once their feet are above the surface',
+        updateLakeIcePhysics(true, 60, 50, 1.6)
     );
-    check('thawing goes ahead once they step off', !updateLakeIcePhysics(false, 100, 0, 3, false));
+    __setLakeIceSolidForTests(false);
+    check('freezing goes ahead once they leave the lake', updateLakeIcePhysics(true, 100, 0, -3));
     __setLakeIceSolidForTests(false);
     check(
         'swimming in the descent hole does not hold back the freeze',
-        updateLakeIcePhysics(true, 9, 11, -1, true)
+        updateLakeIcePhysics(true, 9, 11, -1)
     );
-    check('state is readable', isLakeIceSolid());
+
+    // Regression: a thaw that waited for the player to step off let them walk
+    // the whole lake on invisible ice. Thawing never waits.
+    __setLakeIceSolidForTests(true);
+    check(
+        'thawing does not wait for a player standing on the ice',
+        !updateLakeIcePhysics(false, 60, 50, LAKE_ICE_Y)
+    );
+    check('state is readable', !isLakeIceSolid());
+}
+
+section('Player-facing ground (dance start, camera snap, spawn, eye reconcile)');
+{
+    const { getEyeTargetY, getGroundHeight, getPlayerGroundHeight } =
+        await import('../src/systems/ground-system.ts');
+    const terrain = getGroundHeight(60, 50);
+    __setLakeIceSolidForTests(false);
+    check(
+        'thawed: the player stands on the terrain',
+        getPlayerGroundHeight(60, 50) === terrain,
+        `terrain ${terrain}`
+    );
+    __setLakeIceSolidForTests(true);
+    check(
+        'frozen: the player stands on the ice, plain terrain height is unchanged',
+        terrain < LAKE_ICE_Y &&
+            getPlayerGroundHeight(60, 50) === LAKE_ICE_Y &&
+            getGroundHeight(60, 50) === terrain,
+        `terrain ${terrain}`
+    );
+    check(
+        'frozen: the eye target sits on the ice',
+        Math.abs(getEyeTargetY(60, 50) - (LAKE_ICE_Y + CONFIG.player.eyeHeight)) < 1e-9
+    );
+    __setLakeIceSolidForTests(false);
 }
 
 section('The character controller stands on it');
