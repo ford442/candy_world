@@ -195,7 +195,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [x] **#1843 Restore wiped work: aurora dispose leak + small fixes lost in #1192** — (a) aurora geometry/material in `WeatherEffects.dispose()`, (b) rainbow-blaster via `physicsGeysersGrid`/`physicsTrapsGrid.findNearby`. ← **Copilot prep target 2026-09-29** (weather + gameplay files only; zero overlap with kimi).
     - Status: Implemented ✅
     - Implementation Details: Added proper resource cleanup for aurora in `WeatherEffects.dispose()` and improved projectile performance by querying `physicsGeysersGrid` and `physicsTrapsGrid` instead of linearly scanning arrays in `updateRainbowBlaster`.
-- [ ] **#1842 Restore wiped work: focus-trap double-speak fix for discovery + photo-mode overlays (#1773, lost in #1779)** — a11y; leave to Aria loop or a quick Copilot pass.
+- [x] **#1842 Restore wiped work: focus-trap double-speak fix for discovery + photo-mode overlays (#1773, lost in #1779)** — a11y; leave to Aria loop or a quick Copilot pass.
 - [ ] **#1844 Restore wiped work: progressive boot pipeline with halt-on-failure (#1191, lost in #1192)** — Noah marks it low/optional debug tooling. Port, don't cherry-pick (`main.ts` is now `src/core/main/*`).
 
 **User idea pool — GitHub issues filed 2026-09-26 by `ford442` (Noah's own words). Foundation + two vision tickets.**

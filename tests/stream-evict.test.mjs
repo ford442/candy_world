@@ -11,6 +11,7 @@ global.foliageGroup = new THREE.Group();
 
 import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
 import { gemFruitBatcher } from '../src/foliage/gem-fruit-batcher.ts';
+import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
 import { sugarCaveBatcher } from '../src/foliage/sugar-cave-batcher.ts';
 import { despawnEntity } from '../src/world/entity-despawn.ts';
 import { foliageCaves } from '../src/systems/physics/physics-types.ts';
