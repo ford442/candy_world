@@ -48,6 +48,74 @@ const _scratchImpactOptions = { color: new THREE.Color(), direction: new THREE.V
 const _scratchVec3 = new THREE.Vector3();
 const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
 
+// Hit volumes for grid-backed target selection
+export const GEYSER_HIT_RADIUS = 1.5;
+const GEYSER_HIT_MAX_DY = 2.0;
+// Trap hit radius is 1.0 * scale.x; this must cover the largest trap scale (config
+// snare_trap range tops out at 1.0, authored maps at ~1.2) or the grid query misses it.
+export const MAX_TRAP_QUERY_RADIUS = 2.5;
+let _warnedTrapRadius = false;
+
+/**
+ * Nearest geyser whose base the point is inside, or null. Candidates parented to
+ * nothing were despawned since the last grid rebuild and are skipped.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function pickGeyserHit(x: number, y: number, z: number, candidates: readonly any[]): any {
+    let best = null;
+    let bestDistSq = GEYSER_HIT_RADIUS * GEYSER_HIT_RADIUS;
+    for (let j = 0; j < candidates.length; j++) {
+        const geyser = candidates[j];
+        if (!geyser.parent) continue;
+        const dx = x - geyser.position.x;
+        const dy = y - geyser.position.y;
+        const dz = z - geyser.position.z;
+        if (Math.abs(dy) >= GEYSER_HIT_MAX_DY) continue;
+        const distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq < bestDistSq) {
+            best = geyser;
+            bestDistSq = distSq;
+        }
+    }
+    return best;
+}
+
+/** Nearest snare trap whose (scaled) radius contains the point, or null. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function pickTrapHit(x: number, y: number, z: number, candidates: readonly any[]): any {
+    let best = null;
+    let bestDistSq = Infinity;
+    for (let j = 0; j < candidates.length; j++) {
+        const trap = candidates[j];
+        if (!trap.parent) continue;
+        const radius = 1.0 * (trap.scale.x || 1.0);
+        if (radius > MAX_TRAP_QUERY_RADIUS && !_warnedTrapRadius && import.meta.env?.DEV) {
+            _warnedTrapRadius = true;
+            console.warn(
+                `[Blaster] Trap radius ${radius} exceeds MAX_TRAP_QUERY_RADIUS (${MAX_TRAP_QUERY_RADIUS}); grid hits may be missed.`
+            );
+        }
+        const dx = x - trap.position.x;
+        const dy = y - trap.position.y;
+        const dz = z - trap.position.z;
+        const distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq < radius * radius && distSq < bestDistSq) {
+            best = trap;
+            bestDistSq = distSq;
+        }
+    }
+    return best;
+}
+
+// findNearby returns the grid's shared scratch array: consume it right here, never keep it.
+export function findGeyserHit(x: number, y: number, z: number) {
+    return pickGeyserHit(x, y, z, physicsGeysersGrid.findNearby(x, z, GEYSER_HIT_RADIUS));
+}
+
+export function findTrapHit(x: number, y: number, z: number) {
+    return pickTrapHit(x, y, z, physicsTrapsGrid.findNearby(x, z, MAX_TRAP_QUERY_RADIUS));
+}
+
 class ProjectilePool {
     mesh: THREE.InstancedMesh;
     projectiles: {
@@ -349,27 +417,15 @@ class ProjectilePool {
             }
 
             // Collision with Geysers (Charging)
-            const geysers = physicsGeysersGrid.findNearby(p.position.x, p.position.z, 2.0) || [];
-            for (let j = geysers.length - 1; j >= 0; j--) {
-                const geyser = geysers[j];
-                // Check if hit the base (radius ~1.0)
-                // Geyser is at y=ground. Check distSq to base.
-                const dx = p.position.x - geyser.position.x;
-                const dy = p.position.y - geyser.position.y;
-                const dz = p.position.z - geyser.position.z;
-                const distSq = dx * dx + dy * dy + dz * dz;
-                const hitRadius = 1.5;
+            const geyser = findGeyserHit(p.position.x, p.position.y, p.position.z);
+            if (geyser) {
+                hit = true;
+                // Trigger Charge
+                geyser.userData.chargeLevel = (geyser.userData.chargeLevel || 0) + 0.5;
+                // Clamp charge? Let it go high for super boost!
 
-                if (distSq < hitRadius * hitRadius && Math.abs(dy) < 2.0) {
-                    hit = true;
-                    // Trigger Charge
-                    geyser.userData.chargeLevel = (geyser.userData.chargeLevel || 0) + 0.5;
-                    // Clamp charge? Let it go high for super boost!
-
-                    // Visuals
-                    spawnImpact(geyser.position, 'jump');
-                    break;
-                }
+                // Visuals
+                spawnImpact(geyser.position, 'jump');
             }
 
             // Collision with Water (Waveform Harpoon)
@@ -381,49 +437,34 @@ class ProjectilePool {
             }
 
             // Collision with Snare Traps (Reflection)
-            const traps = physicsTrapsGrid.findNearby(p.position.x, p.position.z, 2.0) || [];
-            for (let j = traps.length - 1; j >= 0; j--) {
-                const trap = traps[j];
-                // Check bounds (Radius ~0.8 * scale)
-                const radius = 1.0 * (trap.scale.x || 1.0);
-                const dx = p.position.x - trap.position.x;
-                const dy = p.position.y - trap.position.y;
-                const dz = p.position.z - trap.position.z;
-                const distSq = dx * dx + dy * dy + dz * dz;
+            const trap = findTrapHit(p.position.x, p.position.y, p.position.z);
+            if (trap) {
+                if (unlockSystem.isUnlocked('snap_core')) {
+                    // Hit! Reflect!
+                    // Calculate Normal: Outward from trap center
+                    _scratchVec3.subVectors(p.position, trap.position).normalize();
 
-                if (distSq < radius * radius) {
-                    if (unlockSystem.isUnlocked('snap_core')) {
-                        // Hit! Reflect!
-                        // Calculate Normal: Outward from trap center
-                        _scratchVec3.subVectors(p.position, trap.position).normalize();
+                    // Reflect Velocity
+                    p.velocity.reflect(_scratchVec3);
 
-                        // Reflect Velocity
-                        p.velocity.reflect(_scratchVec3);
+                    // Trigger Snap Animation (Immediate Close)
+                    trap.userData.snapState = 1.0;
 
-                        // Trigger Snap Animation (Immediate Close)
-                        trap.userData.snapState = 1.0;
+                    // Visuals
+                    spawnImpact(p.position, 'snare');
 
-                        // Visuals
-                        spawnImpact(p.position, 'snare');
+                    // Don't destroy projectile, just bounce
+                    // Reduce life slightly to prevent infinite bounces
+                    p.life -= 0.5;
 
-                        // Don't destroy projectile, just bounce
-                        // Reduce life slightly to prevent infinite bounces
-                        p.life -= 0.5;
-
-                        // Ensure projectile is pushed out to avoid multi-frame collisions?
-                        // Move it slightly along normal
-                        p.position.addScaledVector(_scratchVec3, 0.5);
-
-                        // Break this loop (handled collision for this frame)
-                        // But continue inner loop? No, break checking traps for this projectile
-                        break;
-                    } else {
-                        // Hit! Without upgrade, destroy projectile and trigger trap
-                        p.life = 0;
-                        trap.userData.snapState = 1.0;
-                        spawnImpact(p.position, 'snare');
-                        break;
-                    }
+                    // Ensure projectile is pushed out to avoid multi-frame collisions?
+                    // Move it slightly along normal
+                    p.position.addScaledVector(_scratchVec3, 0.5);
+                } else {
+                    // Hit! Without upgrade, destroy projectile and trigger trap
+                    p.life = 0;
+                    trap.userData.snapState = 1.0;
+                    spawnImpact(p.position, 'snare');
                 }
             }
 
