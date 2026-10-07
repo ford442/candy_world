@@ -10,7 +10,11 @@
  *   window.setSeason(name | null)         pin / unpin at runtime (dev, CI, ?debug=1)
  */
 import { CONFIG, areDebugHooksEnabled, getUrlFlag } from '../core/config.ts';
-import { writeSeasonSpawn, writeSeasonUniforms } from '../foliage/material-core/season-nodes.ts';
+import {
+    writeLakeIce,
+    writeSeasonSpawn,
+    writeSeasonUniforms,
+} from '../foliage/material-core/season-nodes.ts';
 import { announce } from '../ui/announcer.ts';
 import { getWorldSeed, getWorldSeedVersion } from '../world/world-seed.ts';
 import {
@@ -48,10 +52,32 @@ let _pinned = -1;
 let _speed = 1;
 let _loadMs = 0;
 let _lastAnnounced = -1;
+// Lake ice, 0..1, eased toward frozen/open in real seconds.
+let _lakeIce = 0;
+let _lastRefreshMs = 0;
 
 type SeasonWindow = Window & { setSeason?: (name: string | null) => void };
 
-function refresh(nowMs: number): void {
+/** Ease the lake toward frozen (frost ≥ freezeAt) or open. `snap` jumps straight there. */
+function updateLakeIce(nowMs: number, snap: boolean): void {
+    const lake = CONFIG.season.lake;
+    const target = _state.frost >= lake.freezeAt ? 1 : 0;
+    const dt =
+        _lastRefreshMs > 0 ? Math.max(0, Math.min((nowMs - _lastRefreshMs) / 1000, 0.25)) : 0;
+    _lastRefreshMs = nowMs;
+    if (snap || lake.easeSeconds <= 0) {
+        _lakeIce = target;
+    } else {
+        const step = dt / lake.easeSeconds;
+        _lakeIce =
+            target > _lakeIce
+                ? Math.min(target, _lakeIce + step)
+                : Math.max(target, _lakeIce - step);
+    }
+    writeLakeIce(_lakeIce);
+}
+
+function refresh(nowMs: number, snapLake = false): void {
     const version = getWorldSeedVersion();
     if (version !== _seedVersion) {
         _seedVersion = version;
@@ -74,6 +100,7 @@ function refresh(nowMs: number): void {
         blendSeasonScalar(_state, spawn.dandelionSeeds),
         blendSeasonScalar(_state, CONFIG.season.luminousBoost)
     );
+    updateLakeIce(nowMs, snapLake);
 }
 
 export const seasonController = {
@@ -86,7 +113,7 @@ export const seasonController = {
         const speed = Number(getUrlFlag('seasonSpeed'));
         _speed = Number.isFinite(speed) && speed > 0 ? speed : 1;
         srgbHexToLinear(CONFIG.season.frostColor, _frostRgb, 0);
-        refresh(nowMs);
+        refresh(nowMs, true);
         // The season a session boots into is not news.
         _lastAnnounced = _state.current;
 
@@ -107,7 +134,7 @@ export const seasonController = {
     /** Pin a season by name, or pass null to return to the calendar. Never saved. */
     setOverride(name: string | null): void {
         _pinned = parseSeasonName(name);
-        refresh(Date.now());
+        refresh(Date.now(), true);
         _lastAnnounced = _state.current;
     },
 
@@ -115,6 +142,11 @@ export const seasonController = {
         return SEASON_NAMES[_state.current];
     },
 };
+
+/** Lake ice 0..1; physics treats the surface as solid above 0.5. */
+export function getLakeIce(): number {
+    return _lakeIce;
+}
 
 /** Live season state. Read-only for callers; the same object every frame. */
 export function getSeasonState(): Readonly<SeasonState> {

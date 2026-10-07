@@ -549,6 +549,15 @@ export interface ConfigType {
         music: SeasonMusicConfig;
         /** Multiplier on luminous-plant glow — winter nights glow brighter. */
         luminousBoost: Record<SeasonName, number>;
+        /** Winter lake ice (docs/SEASONS.md, "Frozen lake"). */
+        lake: {
+            /** Season frost (winter weight) at which the lake freezes. */
+            freezeAt: number;
+            /** Seconds the surface takes to freeze or thaw; it holds weight halfway. */
+            easeSeconds: number;
+            /** sRGB hex ice tint: an icy pastel, never grey. */
+            iceColor: number;
+        };
     };
 
     presence: {

@@ -48,12 +48,32 @@ import {
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
-import { reconcileGroundedEyeY, isInLakeBasin, getGroundHeight, sampleGroundFootprint } from '../ground-system.ts';
-
-const _characterGroundQuery = { sampleFootprint: sampleGroundFootprint, getGroundHeight };
+import {
+    reconcileGroundedEyeY,
+    isInLakeBasin,
+    getPlayerGroundHeight,
+    sampleGroundFootprint,
+    type GroundFootprintResult,
+} from '../ground-system.ts';
 import { calculateMovementInput } from '../physics.core.ts';
+import { getLakeIce } from '../season-controller.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { resolveCharacterMovement } from './character-controller.ts';
+import { iceAwareFootprint, updateLakeIcePhysics } from './lake-ice-core.ts';
+
+// Winter ice is a ground-height rule (lake-ice-core.ts), so every ground query the
+// player's movement makes goes through it. Built once: no per-frame closures.
+const _iceFootprint: GroundFootprintResult = {
+    minY: 0,
+    avgY: 0,
+    maxY: 0,
+    normal: new THREE.Vector3(0, 1, 0),
+};
+const _characterGroundQuery = {
+    sampleFootprint: (x: number, z: number, radius: number, points: number): GroundFootprintResult =>
+        iceAwareFootprint(x, z, sampleGroundFootprint(x, z, radius, points), _iceFootprint),
+    getGroundHeight: getPlayerGroundHeight,
+};
 import { handleAbilities } from './physics-abilities.ts';
 import {
     updateSwimmingState,
@@ -292,6 +312,15 @@ export function updatePhysics(
             }
         }
     }
+
+    // Winter lake ice holds weight once it is more than half frozen. Runs before
+    // the state switch so swimmers, dancers and climbers are all accounted for.
+    updateLakeIcePhysics(
+        getLakeIce() > 0.5,
+        player.position.x,
+        player.position.z,
+        player.position.y - CONFIG.player.eyeHeight
+    );
 
     // 2. Check Triggers & State Transitions
     updateStateTransitions(camera, keyStates);

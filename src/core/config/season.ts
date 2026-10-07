@@ -58,6 +58,7 @@ export const SEASON_DEFAULTS: ConfigType['season'] = {
         reverbWet: { spring: 0, summer: 0, autumn: 0.12, winter: 0.3 },
     },
     luminousBoost: { spring: 1, summer: 0.9, autumn: 1.1, winter: 1.4 },
+    lake: { freezeAt: 0.5, easeSeconds: 8, iceColor: 0xd8e6ff },
     palette: {
         spring: {
             leaf: { color: 0x7ce87c, amount: 0, frost: 0, chroma: 1 },

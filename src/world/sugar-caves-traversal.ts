@@ -5,12 +5,13 @@
 import * as THREE from 'three';
 import { FEATURE_FLAGS } from '../core/config.ts';
 import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
+import { LAKE_DESCENT } from '../systems/ground-height-core.ts';
 import { registerPlatform } from '../systems/ground-system.ts';
 import { SUGAR_CAVES } from './generation-utils.ts';
 import { isSugarCavesUnlocked, tryUnlockSugarCavesFromProgress } from './part-ii-unlock.ts';
 
-const LAKE_DESCENT_X = 18;
-const LAKE_DESCENT_Z = 22;
+const LAKE_DESCENT_X = LAKE_DESCENT.ax;
+const LAKE_DESCENT_Z = LAKE_DESCENT.az;
 const LAKE_DESCENT_RADIUS = 6;
 const CAVE_FLOOR_Y = -12;
 

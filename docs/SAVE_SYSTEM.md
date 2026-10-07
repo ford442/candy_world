@@ -281,25 +281,23 @@ import { saveSystem, createPlayerSaveData } from './systems/save-system.ts';
 
 ### Integrating with World State
 
-```typescript
-import { createWorldSaveData } from './systems/save-system.ts';
+`src/systems/save-integration.ts` (`gatherWorldData`) records the live time of day, weather and
+season:
 
-(saveSystem as any).gatherWorldData = () => {
-    return createWorldSaveData(
-        timeOfDay, // 0-1
-        {
-            state: weatherSystem.currentState,
-            intensity: weatherSystem.intensity,
-            stormCharge: weatherSystem.stormCharge
-        },
-        {
-            season: seasonSystem.currentSeason,
-            progress: seasonSystem.progress,
-            moonPhase: celestialSystem.moonPhase
-        }
-    );
-};
+```typescript
+const weather = getWeatherSystem();
+const season = getSeasonState(); // systems/season-controller.ts
+createWorldSaveData(
+    timeOfDayFromCyclePos(weather.cyclePos), // 0 = midnight, 0.5 = noon
+    { state: weather.state, intensity: weather.intensity, stormCharge: weather.stormCharge },
+    { season: SEASON_NAMES[season.current], progress: season.seasonProgress, moonPhase: weather.moonPhase }
+);
 ```
+
+These fields are **informational**: `applyLoadedData` does not apply them. The season and the
+weather fronts are functions of the world seed and the wall clock ([`SEASONS.md`](./SEASONS.md)), so
+loading a save never rewinds them, and time of day restarts with each session. No schema bump was
+needed: `WorldSaveData` already had the fields; they used to be written as constants.
 
 ### Integrating with Progress Systems
 

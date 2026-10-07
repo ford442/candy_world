@@ -31,6 +31,7 @@ import {
     setGroundCacheTTL,
     type GroundPlatform,
 } from './ground-height-core.ts';
+import { iceAwareGroundHeight } from './physics/lake-ice-core.ts';
 
 // Re-export constants and types for existing call sites
 export { LAKE_BOUNDS, LAKE_BOTTOM, LAKE_ISLAND, LAKE_ISLAND_RADIUS_SQ };
@@ -152,8 +153,18 @@ export { isNativeUnifiedGroundReady, getUnifiedGroundBackend };
 /**
  * Target first-person eye Y at (x, z): authoritative ground + configured eye offset.
  */
+/**
+ * Ground height for the player: getGroundHeight plus winter lake ice
+ * (physics/lake-ice-core.ts). Use this, not getGroundHeight, wherever the
+ * player or camera is put on the ground; world generation and placement keep
+ * the plain terrain height so nothing is planted on the ice.
+ */
+export function getPlayerGroundHeight(x: number, z: number): number {
+    return iceAwareGroundHeight(x, z, getGroundHeight(x, z));
+}
+
 export function getEyeTargetY(x: number, z: number): number {
-    return getGroundHeight(x, z) + CONFIG.player.eyeHeight;
+    return getPlayerGroundHeight(x, z) + CONFIG.player.eyeHeight;
 }
 
 export function invalidateHeightCache(): void {

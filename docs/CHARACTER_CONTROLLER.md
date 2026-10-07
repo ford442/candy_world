@@ -109,6 +109,12 @@ resolveCharacterMovement(delta, player, _targetVelocity, keyStates.jump, jumpTri
 });
 ```
 
+In production the footprint goes through the winter lake-ice rule (`iceAwareFootprint` in
+`systems/physics/lake-ice-core.ts`), and the height is `getPlayerGroundHeight` (`ground-system.ts`):
+while the lake is frozen, open water reports the ice surface as ground. `getEyeTargetY`, and so
+`reconcileGroundedEyeY`, use the same player-facing height, as do the dance start, the camera snap and
+player spawn. World generation and placement keep the plain `getGroundHeight`.
+
 `groundQuery` is an **injected parameter, not a static import** of
 `ground-system.ts`. That module transitively imports the WASM bridge
 (`utils/wasm-loader.ts`), which does a Vite-only

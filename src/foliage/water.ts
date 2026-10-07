@@ -4,10 +4,14 @@ import * as THREE from 'three';
 import {
     color, float, vec3, vec2, Fn, uniform, sin, cos, time, positionLocal,
     uv, normalize, smoothstep, mix, abs, max, positionWorld,
-    mx_noise_float, normalLocal
+    mx_noise_float, normalLocal, dot, clamp, length
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { CONFIG } from '../core/config.ts';
+import { LAKE_DESCENT } from '../systems/ground-height-core.ts';
+import { LAKE_ICE_HOLE_HALF_WIDTH } from '../systems/physics/lake-ice-core.ts';
 import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight } from './index.ts';
+import { uLakeIce } from './material-core/season-nodes.ts';
 
 export const uWaveHeight = uniform(1.0); // Base wave height scaler
 
@@ -61,8 +65,9 @@ export function createWaveformWater(width: number = 400, depth: number = 400): T
     const pos = positionLocal;
     const displacement = waterDisplacement(pos);
 
-    // Update Y position
-    const newPos = vec3(pos.x, pos.y.add(displacement), pos.z);
+    // Update Y position. Winter ice stills the whole surface (the open strip over
+    // the Sugar Caves descent included — it reads as still black water).
+    const newPos = vec3(pos.x, pos.y.add(displacement.mul(float(1.0).sub(uLakeIce))), pos.z);
     material.positionNode = newPos;
 
     // Recalculate Normals for correct lighting on waves
@@ -77,7 +82,22 @@ export function createWaveformWater(width: number = 400, depth: number = 400): T
     const waterColor = material.colorNode; // The base color from SeaJelly
 
     // Mix foam into base color
-    material.colorNode = mix(waterColor ?? color(0x00FFFF), foamColor, heightFactor.mul(0.5));
+    const liquidColor = mix(waterColor ?? color(0x00FFFF), foamColor, heightFactor.mul(0.5));
+
+    // --- Winter ice (CONFIG.season.lake; physics in systems/physics/lake-ice-core.ts) ---
+    // Ice everywhere except a strip over the Sugar Caves descent, matching the physics hole.
+    const descentA = vec2(LAKE_DESCENT.ax, LAKE_DESCENT.az);
+    const descentAB = vec2(LAKE_DESCENT.bx - LAKE_DESCENT.ax, LAKE_DESCENT.bz - LAKE_DESCENT.az);
+    const toA = vec2(positionWorld.x, positionWorld.z).sub(descentA);
+    const along = clamp(dot(toA, descentAB).div(dot(descentAB, descentAB)), 0.0, 1.0);
+    const holeDistance = length(toA.sub(descentAB.mul(along)));
+    const iceMask = uLakeIce.mul(
+        smoothstep(LAKE_ICE_HOLE_HALF_WIDTH, LAKE_ICE_HOLE_HALF_WIDTH + 1.5, holeDistance)
+    );
+    // PALETTE: icy pastel, never grey (docs/CANDY_AESTHETIC_GUARDRAILS.md).
+    material.colorNode = mix(liquidColor, color(CONFIG.season.lake.iceColor), iceMask.mul(0.85));
+    material.roughnessNode = mix(material.roughnessNode ?? float(0.1), float(0.35), iceMask);
+    material.transmissionNode = mix(float(0.9), float(0.25), iceMask);
 
     // --- PALETTE Polish: Melody Sparkles & Rim Light ---
 
@@ -94,7 +114,8 @@ export function createWaveformWater(width: number = 400, depth: number = 400): T
     // "Bioluminescent" look: Cyan/White mix
     const sparkleColor = vec3(0.6, 1.0, 1.0);
     // 🎨 PALETTE: Make sparkles pop aggressively on high energy
-    const sparkleIntensity = uAudioHigh.pow(float(1.5)).mul(sparkleMask).mul(5.0); // Boosted brightness
+    const sparkleIntensity = uAudioHigh.pow(float(1.5)).mul(sparkleMask).mul(5.0) // Boosted brightness
+        .mul(float(1.0).sub(iceMask.mul(0.7))); // frozen water barely glitters
 
     // 2. Rim Light (Edge Definition)
     // Helps the water separate from the dark background/sky

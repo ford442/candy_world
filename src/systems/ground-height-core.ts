@@ -29,6 +29,13 @@ export const LAKE_ISLAND = {
 
 export const LAKE_ISLAND_RADIUS_SQ = LAKE_ISLAND.radius * LAKE_ISLAND.radius;
 
+/**
+ * The Sugar Caves descent: a ramp of walkable platforms from the lake island
+ * (a) down to the cave mouth (b). It runs under open water, so winter ice
+ * leaves a hole along it (systems/physics/lake-ice-core.ts).
+ */
+export const LAKE_DESCENT = { ax: 18, az: 22, bx: 0, bz: 0 } as const;
+
 export interface GroundPlatform {
     id: string;
     minX: number;
