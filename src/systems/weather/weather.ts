@@ -84,6 +84,10 @@ export class WeatherSystem {
     private overrideFront = -1;
     private overrideIntensity = 0;
     private lastFrontPhase = -1;
+    // Bass and groove smoothed over about a second: weather follows the track's
+    // energy, not each kick (kickTrigger drops to 0 between beats).
+    private musicBass = 0;
+    private musicGroove = 0;
 
     // Player Control Factor
     cloudDensity: number;
@@ -319,7 +323,16 @@ export class WeatherSystem {
         this.handlePatternChange(currentPattern);
 
         const cyclePos = Cycle.getCyclePos(time);
-        this.updateFrontState(bassIntensity, groove, hasAudio, cyclePos);
+        // AudioSystem.update() returns a frame even with nothing playing, so
+        // "has audio" means something is audible this frame.
+        let audible = bassIntensity > 0;
+        for (let i = 0; i < channels.length && !audible; i++) {
+            if (((channels[i] as { volume?: number } | undefined)?.volume ?? 0) > 0.01) audible = true;
+        }
+        const smoothing = 1 - Math.exp(-dt * 1.5);
+        this.musicBass += (bassIntensity - this.musicBass) * smoothing;
+        this.musicGroove += (groove - this.musicGroove) * smoothing;
+        this.updateFrontState(this.musicBass, this.musicGroove, hasAudio && audible, cyclePos);
 
         // Ground Water Update
         this.updateGroundWater(frames);

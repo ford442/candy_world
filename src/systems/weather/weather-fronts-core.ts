@@ -198,8 +198,9 @@ export function applyMusicIntensity(base: number, drive: number, range: number):
 }
 
 /**
- * Music drive from the audio frame: −1 (quiet) .. 1 (heavy bass and groove),
- * 0 with no audio, so a silent session leaves the fronts as scheduled.
+ * Music drive: −1 (quiet) .. 1 (heavy bass and groove), 0 with nothing audible,
+ * so a silent session leaves the fronts as scheduled. Pass bass and groove
+ * smoothed over about a second; raw kick triggers swing 0..1 every beat.
  */
 export function musicDrive(bass: number, groove: number, hasAudio: boolean): number {
     if (!hasAudio) return 0;
