@@ -45,6 +45,7 @@ import {
     lodMidOnlyGate,
     applyFoliageLodMaterialFade,
 } from '../lod-nodes.ts';
+import { applySeasonTint } from '../material-core/season-nodes.ts';
 import { uTwilight } from '../sky.ts';
 import type { TreeBatcherState } from './types.ts';
 
@@ -60,7 +61,10 @@ export function initializeTreeBatcherMeshes(
     // PALETTE: Upgrade to "Clay Bark"
     // Use instanceColor but darken bottom for grounding
     const instanceColor = varyingProperty('vec3', 'vInstanceColor');
-    const trunkColorRaw = mix(instanceColor.mul(0.6), instanceColor, positionLocal.y);
+    const trunkColorRaw = applySeasonTint(
+        mix(instanceColor.mul(0.6), instanceColor, positionLocal.y),
+        'bark'
+    );
     const trunkColorGrounded = applyBaseContactAO(
         trunkColorRaw,
         positionLocal.y,
@@ -122,13 +126,14 @@ export function initializeTreeBatcherMeshes(
     state.trunks.castShadow = true;
     state.trunks.receiveShadow = true;
     state.trunks.count = 0;
+    state.trunks.userData.seasonRole = 'bark';
     foliageGroup.add(state.trunks);
 
     // --- 2. Sphere Batch (Leaves/Blooms) ---
     // PALETTE: "Flutter" + "Squash" Juice
     const sphereInstanceColor = varyingProperty('vec3', 'vInstanceColor');
     const sphereColor = applyAerialPerspective(
-        sphereInstanceColor as unknown as ReturnType<typeof vec3>,
+        applySeasonTint(sphereInstanceColor, 'leaf'),
         positionWorld,
         aerialPerspectiveLodBoost()
     );
@@ -244,12 +249,13 @@ export function initializeTreeBatcherMeshes(
     state.spheres.castShadow = true;
     state.spheres.receiveShadow = true;
     state.spheres.count = 0;
+    state.spheres.userData.seasonRole = 'leaf';
     foliageGroup.add(state.spheres);
 
     // --- 3. Capsule Batch (Branches) ---
     const capsuleColorRaw = varyingProperty('vec3', 'vInstanceColor');
     const capsuleColorGrounded = applyBaseContactAO(
-        capsuleColorRaw as unknown as ReturnType<typeof vec3>,
+        applySeasonTint(capsuleColorRaw, 'bark'),
         positionLocal.y,
         float(getBaseContactHeight('tree'))
     );
@@ -304,12 +310,13 @@ export function initializeTreeBatcherMeshes(
     state.capsules.castShadow = true;
     state.capsules.receiveShadow = true;
     state.capsules.count = 0;
+    state.capsules.userData.seasonRole = 'bark';
     foliageGroup.add(state.capsules);
 
     // --- 4. Helix Batch (Vines/Strange Plants) ---
     // PALETTE: Neon Pulse
     const helixColor = applyAerialPerspective(
-        varyingProperty('vec3', 'vInstanceColor') as unknown as ReturnType<typeof vec3>,
+        applySeasonTint(varyingProperty('vec3', 'vInstanceColor'), 'leaf'),
         positionWorld,
         aerialPerspectiveLodBoost()
     );
@@ -372,12 +379,13 @@ export function initializeTreeBatcherMeshes(
     state.helices.castShadow = true;
     state.helices.receiveShadow = true;
     state.helices.count = 0;
+    state.helices.userData.seasonRole = 'leaf';
     foliageGroup.add(state.helices);
 
     // --- 5. Rose Batch (TorusKnot) ---
     // PALETTE: Velvet/Sugar Look
     const roseColor = applyAerialPerspective(
-        varyingProperty('vec3', 'vInstanceColor') as unknown as ReturnType<typeof vec3>,
+        applySeasonTint(varyingProperty('vec3', 'vInstanceColor'), 'petal'),
         positionWorld,
         aerialPerspectiveLodBoost()
     );
@@ -402,8 +410,11 @@ export function initializeTreeBatcherMeshes(
     // Sway intensity driven by shimmer, hue shift by hueShift
     const baseSway = foliageDeformationOffset(positionLocal);
     const accordionSwayDeform = baseSway.mul(BiomeUniforms.musicalFlora.shimmer.add(1.0));
-    (accordionLeafMat as any).colorNode = instanceColor.add(
-        BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.hueShift)
+    (accordionLeafMat as any).colorNode = applySeasonTint(
+        instanceColor.add(
+            BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.hueShift)
+        ),
+        'leaf'
     );
     (accordionLeafMat as any).deformationNode = accordionSwayDeform;
     (accordionLeafMat as any).emissiveNode = add(
@@ -468,6 +479,8 @@ export function initializeTreeBatcherMeshes(
     state.roses.castShadow = true;
     state.roses.receiveShadow = true;
     state.roses.count = 0;
+    state.roses.userData.seasonRole = 'petal';
+    state.accordionLeaves.userData.seasonRole = 'leaf';
     foliageGroup.add(state.roses);
     foliageGroup.add(state.accordionLeaves);
 

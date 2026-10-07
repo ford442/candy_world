@@ -43,6 +43,8 @@ export interface Viewpoint {
   fov?: number;
   timeOfDay?: 'day' | 'night' | 'sunset' | 'dawn';
   weather?: 'clear' | 'rain' | 'storm';
+  /** Season to pin (src/systems/season-controller.ts). Default 'spring', so the live calendar never moves a baseline. */
+  season?: 'spring' | 'summer' | 'autumn' | 'winter';
   waitForStable: number; // ms to wait for stable frame
 }
 
@@ -449,6 +451,13 @@ export class ScreenshotCapture {
       if (typeof vp.fov === 'number' && Number.isFinite(vp.fov)) {
         cam.fov = vp.fov;
         cam.updateProjectionMatrix();
+      }
+
+      // Pin the season first: the game's calendar runs on wall-clock time, so an
+      // unpinned capture would render whatever season it is on capture day.
+      const setSeason = (window as any).setSeason;
+      if (typeof setSeason === 'function') {
+        setSeason(vp.season ?? 'spring');
       }
 
       // Set time of day — prefer window.setTimeOfDay / setCircadianTimeOfDay

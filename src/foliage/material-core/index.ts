@@ -6,5 +6,6 @@ export * from './quality-gate.ts';
 export * from './env-map.ts';
 export * from './unified-material.ts';
 export * from './base-contact-ao.ts';
+export * from './season-nodes.ts';
 export * from './presets.ts';
 export * from './legacy-materials.ts';

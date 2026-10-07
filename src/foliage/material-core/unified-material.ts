@@ -28,9 +28,11 @@ import {
     globalClusteredLighting,
 } from '../../rendering/clustered-lighting.ts';
 import { getIrradianceNode } from '../../rendering/irradiance-probes.ts';
+import type { SeasonRole } from '../../systems/season-core.ts';
 import { applyGlitch } from '../glitch.ts';
 import { applyDreamEnv } from './env-map.ts';
 import { isClearcoatEnabled } from './quality-gate.ts';
+import { applySeasonTint } from './season-nodes.ts';
 import {
     uTime,
     uAudioHigh,
@@ -98,6 +100,13 @@ export interface UnifiedMaterialOptions {
     rimStrength?: number;
     rimColor?: number | string | THREE.Color;
     rimPower?: number;
+    /**
+     * Seasonal albedo role (docs/SEASONS.md). Applied to the seeded colour
+     * before anything else reads it. Pass it only when `colorNode` is the raw
+     * albedo; graphs that already include aerial perspective must wrap their
+     * raw colour with `applySeasonTint` themselves.
+     */
+    seasonRole?: SeasonRole;
 }
 
 export function createUnifiedMaterial(
@@ -147,6 +156,7 @@ export function createUnifiedMaterial(
         rimStrength = 0.0,
         rimColor = 0xffffff,
         rimPower = 3.0,
+        seasonRole,
     } = options;
 
     const material = new MeshPhysicalNodeMaterial();
@@ -155,6 +165,9 @@ export function createUnifiedMaterial(
         material.colorNode = colorNode;
     } else {
         material.colorNode = color(hexColor);
+    }
+    if (seasonRole) {
+        material.colorNode = applySeasonTint(material.colorNode, seasonRole);
     }
 
     if (contactDarkening > 0.0) {

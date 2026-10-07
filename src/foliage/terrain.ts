@@ -29,6 +29,7 @@ export function createTerrainMaterial(
         bumpStrength: 0.15, // Subtle bump for texture
         noiseScale: 20.0, // Texture scale
         triplanar: true, // Avoid UV stretching on large plane
+        seasonRole: 'ground',
         ...options
     });
 

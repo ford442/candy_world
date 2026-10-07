@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { time, positionLocal, positionWorld, sin, vec3, color, normalView, float, max, sign, length } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, createJuicyRimLight, applyStandardDeformation, calculatePlayerPush } from './material-core.ts';
+import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, createJuicyRimLight, applyStandardDeformation, calculatePlayerPush, applySeasonTint } from './material-core.ts';
 import { uSkyDarkness } from './sky.ts';
 
 let grassMeshes: THREE.InstancedMesh[] = [];
@@ -53,7 +53,7 @@ export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.Instanc
 
     // --- Material Colors ---
     // Base Colors
-    const baseColor = color(0x7CFC00);
+    const baseColor = applySeasonTint(color(0x7CFC00), 'leaf');
 
     // --- 🎨 PALETTE: Juicy Rim Light ---
     // Audio-reactive juicy rim light for music reactivity + visual consistency with other foliage.

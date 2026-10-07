@@ -14,6 +14,7 @@ export const DEFAULT_WORLD_SEED = CONFIG.world.seed;
 const SEED_STORAGE_KEY = 'candy_world_seed';
 
 let _mapSeed: number | null = null;
+let _seedVersion = 0;
 
 function hashString(s: string): number {
     let h = 0;
@@ -39,7 +40,17 @@ export function readSeedFromURL(): number | null {
 export function setMapMetadataSeed(seed: number | undefined): void {
     if (typeof seed === 'number' && Number.isFinite(seed)) {
         _mapSeed = Math.floor(seed);
+        _seedVersion++;
     }
+}
+
+/**
+ * Bumps whenever the resolved seed may have changed. Per-frame readers (the
+ * season controller) compare this instead of calling getWorldSeed(), which
+ * parses the URL on every call.
+ */
+export function getWorldSeedVersion(): number {
+    return _seedVersion;
 }
 
 /** Active world seed for generation and presence room key. */

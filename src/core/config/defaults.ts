@@ -2,6 +2,7 @@ import { AUDIO_DEFAULTS } from './audio.ts';
 import { FAUNA_DEFAULTS } from './fauna.ts';
 import { GROUND_DEFAULTS, PLAYER_DEFAULTS } from './ground.ts';
 import { PRESENCE_DEFAULTS } from './presence.ts';
+import { SEASON_DEFAULTS } from './season.ts';
 import type { ConfigType } from './types.ts';
 
 export const CONFIG: ConfigType = {
@@ -688,6 +689,7 @@ export const CONFIG: ConfigType = {
     },
 
     fauna: FAUNA_DEFAULTS,
+    season: SEASON_DEFAULTS,
     presence: PRESENCE_DEFAULTS,
 
     compute: {

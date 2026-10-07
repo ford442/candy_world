@@ -16,6 +16,7 @@ import { updateIrradianceProbes } from '../rendering/irradiance-probes.ts';
 import { updateLocalLightHelpers } from '../rendering/lights.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
+import { getSeasonState, seasonController } from '../systems/season-controller.ts';
 import { WeatherState } from '../systems/weather-types.ts';
 import { updateWindDebug } from '../systems/wind-debug.ts';
 import { updateWind, type WindUpdateInput } from '../systems/wind-uniforms.ts';
@@ -105,6 +106,7 @@ export function updateVisualsPhase(
     circadianController.setDayTarget(!isNightNow);
     circadianController.update(delta);
     nightMarketBatcher.update(circadianController.getPhase());
+    seasonController.update(Date.now());
 
     if (isCircadianDebugEnabled()) {
         updateCircadianDebug(dayNightBias);
@@ -113,6 +115,7 @@ export function updateVisualsPhase(
     let weatherState = WeatherState.CLEAR;
     let weatherIntensity = 0;
     if (weatherSystemRef) {
+        weatherSystemRef.setSeasonState(getSeasonState());
         weatherSystemRef.update(t, audioState);
         weatherSystemRef.updateBerrySeasonalSize(cyclePos);
         weatherState = weatherSystemRef.state;
