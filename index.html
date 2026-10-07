@@ -11,6 +11,20 @@
     <script>
         // Preload map.json only for paths that stream it (Play / Explore).
         // Mirrors resolveBootPathFromUrl + candy.bootPath in src/core/startup-profile.ts.
+        // ?preset=minimal expands to the existing kill-switch flags before any
+        // module reads location.search (see docs/RELEASES.md).
+        (function () {
+            try {
+                var q = new URLSearchParams(location.search);
+                if (q.get('preset') !== 'minimal') return;
+                q.delete('preset');
+                q.set('boot', 'core');
+                ['safe', 'no_batchers', 'no_luminous', 'no_musical', 'no_fauna', 'no_gpu_compute'].forEach(function (k) {
+                    q.set(k, '');
+                });
+                history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
+            } catch (e) { /* no history API — boot normally */ }
+        })();
         (function () {
             var path = null;
             try {
@@ -79,6 +93,7 @@
             <button type="button" role="switch" aria-checked="false" id="toggleLobby" class="toggle-button" aria-describedby="mode-description" aria-label="Lobby — tiny one-room map">
                 <span aria-hidden="true">🏠</span> Lobby
             </button>
+            <a href="?preset=minimal" class="safe-mode-link" title="Core map with heavy systems off — use if the full world fails to load">Safe mode</a>
 
             <div id="readiness-progress"
                  role="progressbar"

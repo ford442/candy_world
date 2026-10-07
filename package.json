@@ -24,6 +24,7 @@
         "build:optimized": "npm run build:wasm && npm run build:emcc && npm run optimize && vite build",
         "test": "node --experimental-detect-module tests/smoke-runner.mjs",
         "test:wasm": "node tests/wasm.mjs",
+        "release:stable": "node scripts/promote-stable.mjs",
         "test:rigidbody": "node tests/rigid-body.mjs",
         "test:joints": "node tests/joints.mjs",
         "test:joint-fallback": "tsx tests/joint-fallback.test.mjs",

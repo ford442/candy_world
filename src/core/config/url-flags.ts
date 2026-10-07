@@ -40,6 +40,10 @@
 //   ?seasonSpeed=N        — run the season calendar N× fast from page load
 //                           (docs/SEASONS.md)
 //
+//   ?preset=minimal       — safe mode: boot=core + safe + no_batchers, no_luminous,
+//                           no_musical, no_fauna, no_gpu_compute (expanded by the
+//                           inline script in index.html before modules load)
+//
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).
 //
