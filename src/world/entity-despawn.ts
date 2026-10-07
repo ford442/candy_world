@@ -17,7 +17,6 @@ import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
 import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
-import { CloudBatcher } from '../foliage/cloud-batcher.ts';
 import { unregisterWalkableCloudPlatform } from '../systems/ground-system.ts';
 import { unregisterCloudPlatform } from '../debug/tools-stub.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
