@@ -112,9 +112,9 @@ export function renderPlaylist(): void {
         li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
 
-        // ♿ Aria: Make the empty state announce its status without double speak
+        // ♿ Aria: A status region named by its visible copy (aria-labelledby
+        // below), so screen readers don't hear a second, hard-coded label.
         li.setAttribute('role', 'status');
-        li.setAttribute('aria-label', 'Your playlist is empty. Drop some tracks in or browse to add music.');
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'jukebox-empty-icon-container';
@@ -143,6 +143,7 @@ export function renderPlaylist(): void {
         li.appendChild(iconContainer);
         li.appendChild(text);
         li.appendChild(browseBtn);
+        li.setAttribute('aria-labelledby', 'jukebox-empty-desc');
         state.playlistList?.appendChild(li);
     }
 }
