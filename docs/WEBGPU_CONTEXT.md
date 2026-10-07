@@ -3,9 +3,10 @@
 > Owner module: [`src/rendering/gpu-context.ts`](../src/rendering/gpu-context.ts)
 > Issues: #1448 (single device), #1625 (hard-fail boot probe), #1753 (adapter-clamped limits, canvas color space)
 
-> **WebGPU is required to enter the world.** A failed boot probe stops boot at a
-> diagnostics screen; it does **not** start a WebGL renderer. See
-> [Boot probe & hard-fail](#boot-probe--hard-fail).
+> **WebGPU is preferred; WebGL2 is the fallback.** A failed boot probe boots the world on
+> `WebGPURenderer({ forceWebGL: true })` and says so in the UI. Only when WebGL2 fails too does boot
+> stop at a diagnostics screen. See [Boot probe & WebGL2 fallback](#boot-probe--webgl2-fallback)
+> and [`webgl-fallback.md`](./webgl-fallback.md).
 
 > Adding a compute pass? Follow [`docs/WEBGPU_COMPUTE_PLAYBOOK.md`](./WEBGPU_COMPUTE_PLAYBOOK.md) —
 > this doc is the architecture; the playbook is the step-by-step recipe and PR checklist.
@@ -29,6 +30,7 @@ no recovery and a black canvas.
 ```
 src/core/init.ts
   await probeWebGPU(canvas)         // THE adapter + device request (see below)
+        └─ throws → WebGPURenderer({ forceWebGL: true }) + settleWebGLContext()  // fallback
   new WebGPURenderer({ canvas, device, context, antialias, alpha, ... })
         └─ renderer._getFallback = null   // no silent WebGL swap-in
   await armGpuContext(renderer, probe)
@@ -51,10 +53,10 @@ const device = await awaitGpuDevice();
 if (!device) return this.initCPUFallback(); // WASM / CPU tier, never a throw
 ```
 
-`awaitGpuDevice()` resolves `null` — never rejects, never hangs — after device loss, or when no
-context was armed at all (a 10 s guard covers tools and tests that boot outside `initScene`). Note
-the asymmetry, and it is deliberate: **compute** fails closed to its WASM/CPU tier, but a **missing
-device** fails boot. A CPU tier is a substitute for a compute pass, never for a renderer.
+`awaitGpuDevice()` resolves `null` — never rejects, never hangs — after device loss, on the WebGL2
+fallback (immediately: the failed probe settles the context), or when no context was armed at all
+(a 10 s guard covers tools and tests that boot outside `initScene`). **Compute** fails closed to its
+WASM/CPU tier; a **missing device** switches the renderer to WebGL2, where no GPU compute runs.
 
 | Consumer                              | Behaviour without the shared device                                                                                                                                                   |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -180,7 +182,7 @@ Each limit is logged as `granted/requested`.
 It is published from module load, so it is always readable — before arming it reports
 `available: false`. The smoke test asserts its shape on the WebGPU path.
 
-## Boot probe & hard-fail
+## Boot probe & WebGL2 fallback
 
 `probeWebGPU(canvas)` in `gpu-context.ts` is the single gate, and the only caller of
 `requestAdapter` / `requestDevice` in the app. It walks the whole path the world needs, in order,
@@ -194,21 +196,28 @@ and names the step that broke:
 | `configure` | the real world canvas configures as a swap chain                                         |
 | `pipeline`  | an empty `@compute` kernel compiles — culling, particles and gpu-chores all need this    |
 
-Any failure throws `WebGPUUnavailableError` (carrying `.stage`), which `runScenePipeline` turns into
-the blocking screen in [`src/ui/webgpu-fatal.ts`](../src/ui/webgpu-fatal.ts): advice for the stage,
-the browser brand, and copyable diagnostics JSON. **No renderer is constructed.**
+Any failure throws `WebGPUUnavailableError` (carrying `.stage`). `createRenderer()` catches it and
+boots `WebGPURenderer({ forceWebGL: true })` instead, then calls `settleWebGLContext(reason)` so
+`__gpuContext.backend` reads `webgl`. The probe report keeps the failing stage, and the renderer
+badge, `window.rendererFallbackReason` and the console all name it — see
+[`webgl-fallback.md`](./webgl-fallback.md).
 
-`WebGPU.isAvailable()` is _not_ the gate — it only checks that `navigator.gpu` exists, which is
-exactly the case that used to boot to WebGL: the object is present and the adapter request dies
-later. It is kept only to surface Three's browser-specific advisory text.
+Only when WebGL2 cannot start either (stage `webgl`) — or when the probe passed and the WebGPU
+renderer still failed (stage `renderer`, see `armGpuContext`) — does `runScenePipeline` show the
+blocking screen in [`src/ui/webgpu-fatal.ts`](../src/ui/webgpu-fatal.ts): advice for the stage, the
+browser brand, and copyable diagnostics JSON.
+
+`WebGPU.isAvailable()` is _not_ the gate — it only checks that `navigator.gpu` exists; the object
+can be present while the adapter request dies later.
 
 ### Why the probe has to exist
 
 `WebGPURenderer`'s constructor unconditionally installs a `getFallback` that swaps in `WebGLBackend`
 whenever `WebGPUBackend.init()` throws, and `Renderer.init()` takes it with nothing but a
 `console.warn`. The world then renders — on WebGL — and looks fine. That silent render is what hid
-the Chrome-vs-Edge adapter failure. `init.ts` now clears `renderer._getFallback`, and
-`armGpuContext` throws if `backend.isWebGLBackend` is ever true.
+the Chrome-vs-Edge adapter failure. `init.ts` therefore clears `renderer._getFallback` on both
+renderers, and `armGpuContext` throws if a probed WebGPU renderer lands on `WebGLBackend`. The
+WebGL2 path is chosen explicitly, from the probe verdict, and is always announced.
 
 ### Reading the verdict
 
@@ -239,22 +248,8 @@ Unit coverage: [`tests/webgpu-probe.test.mjs`](../tests/webgpu-probe.test.mjs)
 (`npm run test:webgpu-probe`) drives every stage against fakes and asserts one `requestAdapter` per
 page.
 
-## WebGL: not available
+## WebGL2 fallback
 
-There is **no WebGL renderer**, not even as a debug path. Every WebGL input is ignored:
-
-| Input                                   | Status                                                                  |
-| --------------------------------------- | ----------------------------------------------------------------------- |
-| `?renderer=webgl` / `webgl2` / `?webgl` | Warn, then ignored — `resolveRendererBackend()` always returns `webgpu` |
-| `?webglLite=1`                          | No WebGL boot. `?lite` still only trims world density                   |
-| `?wireframe=1` / `?matDebug=1`          | No-ops (WebGL-only helpers); debug-panel buttons are disabled           |
-| `localStorage candy.renderer`           | Ignored; `switchRendererPreference('webgl')` refuses out loud           |
-| `RENDERER=webgl npm run test`           | The smoke runner exits 1 rather than booting GL to make CI green        |
-
-None of these can rescue boot. A green run on a backend the app will not ship is worse than no run
-at all.
-
-`src/rendering/webgl-debug.ts` and the `mode === 'webgl'` branches downstream are dormant — they
-never execute while the active backend is WebGPU — and are kept only so a future, explicitly scoped
-restore flips `resolveRendererBackend()` and the probe's fatality in one place. The old reference-path
-notes are archived in [`archive/webgl-fallback-restore-notes.md`](./archive/webgl-fallback-restore-notes.md).
+Covered in [`webgl-fallback.md`](./webgl-fallback.md): when it engages, how to force it
+(`?renderer=webgl`, `?webglLite=1`, `localStorage candy.renderer`), what is reduced (low tier, no
+GPU compute — `renderer.compute()` is a no-op), and how to smoke it (`RENDERER=webgl npm run test`).

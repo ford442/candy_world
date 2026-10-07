@@ -10,6 +10,8 @@
 //   FULL_BOOT=1         Deprecated alias of BOOT_PATH=explore
 //   FULL_BOOT=fast      Same Explore URL (no wait-for-full)
 //   (default)           Play path: wait for __sceneReady + jukebox, no Enter click
+//   RENDERER=webgl      Hide navigator.gpu so boot takes the real WebGL2 fallback,
+//                       then assert the fallback is active and announced
 //
 // URL flags: ?boot=play|explore|core|instant  ?graphics=low|medium|high
 
@@ -23,18 +25,10 @@ const IS_FULL_BOOT =
     BOOT_PATH === 'explore' || (FULL_BOOT && FULL_BOOT !== '0' && FULL_BOOT !== 'false');
 const IS_FAST_FULL = FULL_BOOT === 'fast';
 const RENDERER = process.env.RENDERER?.toLowerCase();
-// WebGPU is required to enter the world this phase, so there is no WebGL boot to
-// smoke. RENDERER=webgl is refused rather than quietly booting GL — a green run
-// on a backend the app will not ship is worse than no run at all.
+// RENDERER=webgl smokes the WebGL2 fallback the way a real browser without
+// WebGPU reaches it: navigator.gpu is hidden, so the boot probe fails at its
+// `navigator` stage and createRenderer() must fall back (not hard-fail).
 const WEBGL_BOOT_REQUESTED = RENDERER === 'webgl' || RENDERER === 'webgl2';
-if (WEBGL_BOOT_REQUESTED) {
-    console.error(
-        `\n✗ RENDERER=${RENDERER} is not supported: WebGPU is required to enter the world.\n` +
-            '  The WebGL boot path is disabled this phase (see docs/WEBGPU_CONTEXT.md).\n' +
-            '  Re-run without RENDERER, or wait for the WebGL restore wave.\n'
-    );
-    process.exit(1);
-}
 // Extra query params appended to the boot URL, e.g. EXTRA_QS=debugPhysics=1
 // to smoke a debug-flagged subsystem through the normal harness.
 const EXTRA_QS = process.env.EXTRA_QS?.replace(/^[?&]/, '') ?? '';
@@ -250,6 +244,15 @@ async function runSmokeTest() {
             window.__IS_CI_TEST = true;
             localStorage.setItem('__IS_FULL_BOOT_TEST', 'true');
         });
+        if (WEBGL_BOOT_REQUESTED) {
+            console.log('RENDERER=webgl — hiding navigator.gpu to exercise the WebGL2 fallback');
+            await page.addInitScript(() => {
+                Object.defineProperty(Navigator.prototype, 'gpu', {
+                    get: () => undefined,
+                    configurable: true,
+                });
+            });
+        }
 
         // Navigate to localhost:4173 with boot-path URL params
         const gfxParam = IS_FULL_BOOT && !IS_FAST_FULL ? 'medium' : 'low';
@@ -297,10 +300,29 @@ async function runSmokeTest() {
         console.log(
             `Renderer: ${rendererInfo.rendererType ?? 'unknown'} (canvas=${rendererInfo.canvasRenderer ?? 'n/a'})`
         );
-        // Hard-fail contract: the world never renders on WebGL this phase.
-        if (rendererInfo.usingWebGL) {
+        const badge = await page.evaluate(
+            () => document.getElementById('renderer-badge')?.innerText ?? null
+        );
+        if (WEBGL_BOOT_REQUESTED) {
+            // Fallback contract: no WebGPU → WebGL2 world, announced, never silent.
+            const ok =
+                rendererInfo.usingWebGL &&
+                rendererInfo.canvasRenderer === 'webgl' &&
+                /^webgpu-unavailable: navigator/.test(rendererInfo.fallbackReason ?? '') &&
+                badge === 'WEBGL2 FALLBACK';
+            if (!ok) {
+                console.error(
+                    `[CONSOLE ERROR] WebGL2 fallback did not engage: ${JSON.stringify({ ...rendererInfo, badge })}`
+                );
+                hasError = true;
+            } else {
+                console.log(`✓ WebGL2 fallback active (${rendererInfo.fallbackReason})`);
+            }
+        } else if (rendererInfo.usingWebGL) {
+            // The default smoke launches Chromium with WebGPU on; landing on WebGL
+            // means the probe failed here, and the reason is logged below.
             console.error(
-                '[CONSOLE ERROR] World booted on WebGL — the WebGPU hard-fail probe did not hold'
+                `[CONSOLE ERROR] World fell back to WebGL2 on the WebGPU smoke: ${rendererInfo.fallbackReason}`
             );
             hasError = true;
         }
@@ -311,6 +333,13 @@ async function runSmokeTest() {
         if (!probe) {
             console.error('[CONSOLE ERROR] window.webgpuProbe was never published');
             hasError = true;
+        } else if (WEBGL_BOOT_REQUESTED) {
+            if (probe.ok !== false || probe.stage !== 'navigator') {
+                console.error(
+                    `[CONSOLE ERROR] Expected the probe to fail at "navigator": ${JSON.stringify(probe)}`
+                );
+                hasError = true;
+            }
         } else if (probe.ok !== true) {
             console.error(
                 `[CONSOLE ERROR] WebGPU probe failed at "${probe.stage}" on ` +
@@ -348,6 +377,17 @@ async function runSmokeTest() {
                         `powerPreference=${gpuContext.powerPreference} ` +
                         `maxStorageBufferBindingSize=${gpuContext.limits.maxStorageBufferBindingSize}`
                 );
+            }
+        } else if (rendererInfo.usingWebGL) {
+            // No GPUDevice on WebGL2: compute consumers must see an unavailable
+            // context tagged with the backend actually rendering.
+            if (gpuContext.backend !== 'webgl' || gpuContext.available !== false) {
+                console.error(
+                    `[CONSOLE ERROR] GPU context does not reflect WebGL2: ${JSON.stringify(gpuContext)}`
+                );
+                hasError = true;
+            } else {
+                console.log('✓ GPU context: backend=webgl, compute on CPU/WASM tier');
             }
         }
 

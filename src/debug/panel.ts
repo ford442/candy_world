@@ -109,11 +109,11 @@ export class DebugPanel {
       <div style="color:#0f0;font-weight:bold;font-size:11px;">Renderer</div>
       <div style="display:flex;gap:6px;">
         <button id="debug-renderer-webgpu" style="flex:1;background:#103040;border:1px solid #37cfff;color:#7dd3fc;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">WebGPU</button>
-        <button id="debug-renderer-webgl" disabled title="WebGL is not available — WebGPU is required (see docs/WEBGPU_CONTEXT.md)" style="opacity:0.45;flex:1;background:#401028;border:1px solid #ff9ecd;color:#ffd1dc;padding:4px 6px;cursor:not-allowed;font-size:10px;border-radius:3px;">WebGL2</button>
+        <button id="debug-renderer-webgl" style="flex:1;background:#401028;border:1px solid #ff9ecd;color:#ffd1dc;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">WebGL2</button>
       </div>
       <div style="display:flex;gap:6px;">
-        <button id="debug-wireframe" disabled title="WebGL is not available — WebGPU is required (see docs/WEBGPU_CONTEXT.md)" style="opacity:0.45;flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:not-allowed;font-size:10px;border-radius:3px;">Wireframe (G)</button>
-        <button id="debug-matdebug" disabled title="WebGL is not available — WebGPU is required (see docs/WEBGPU_CONTEXT.md)" style="opacity:0.45;flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:not-allowed;font-size:10px;border-radius:3px;">Mat Debug (M)</button>
+        <button id="debug-wireframe" title="WebGL2 renderer only" style="flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">Wireframe (G)</button>
+        <button id="debug-matdebug" title="WebGL2 renderer only" style="flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">Mat Debug (M)</button>
       </div>
       <div style="color:#0f0;font-weight:bold;font-size:11px;">Lightweight GI</div>
       <div style="display:flex;gap:6px;">

@@ -29,9 +29,10 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
             sceneInitResult = await initScene();
         });
     } catch (err) {
-        // WebGPU is required to enter the world this phase. A failed probe gets
-        // the blocking diagnostics screen and boot stops here — we deliberately
-        // do not start a WebGL renderer to keep the page looking alive.
+        // A failed WebGPU probe already fell back to WebGL2 inside initScene();
+        // reaching here means neither backend could start (stage `webgl`), or
+        // the probe passed and the WebGPU renderer still failed (stage
+        // `renderer`). Show the blocking diagnostics screen and stop boot.
         if (err instanceof WebGPUUnavailableError) {
             showWebGPUFatalScreen(err);
         }
@@ -67,14 +68,12 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     };
     installWorldExportTools();
 
-    // GPU is armed — re-resolve capabilities with isFallbackAdapter / WebGL now known
-    // so postfx/warmup/deferred gates match the actual adapter before the TSL graph builds.
+    // Renderer is up — re-resolve capabilities with isFallbackAdapter / WebGL now known
+    // so postfx/warmup/deferred gates match the actual backend before the TSL graph builds.
     refreshStartupCapabilities({
         forceWebGL: mode === 'webgl',
     });
 
-    // `mode` is always 'webgpu' this phase — createRenderer() hard-fails instead
-    // of falling back. The branch stays for the WebGL restore wave (#1597 era).
     loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Initializing post-processing...');
 
     await StageLoader.loadStage('postProcessing', async () => {

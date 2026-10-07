@@ -2,7 +2,6 @@
 import { defineConfig } from 'vite';
 import wasm from 'vite-plugin-wasm';
 
-
 // Set modern build target so top-level await in dependencies (e.g. three/examples WebGPU helper)
 // doesn't get transformed to an unsupported lower target during bundle/transpile.
 export default defineConfig({

@@ -28,8 +28,11 @@
  *            ──▶ applyCanvasColorSpace(probe, …)   (Three's configure drops colorSpace)
  * ```
  *
- * WebGPU is **required**: a failed probe throws `WebGPUUnavailableError` and
- * boot stops at a hard-fail screen. There is no WebGL rescue in this phase.
+ * A failed probe throws `WebGPUUnavailableError`. `init.ts` catches it and boots
+ * Three's WebGL2 backend instead, then calls {@link settleWebGLContext} so the
+ * context reports `backend: 'webgl'` and every compute consumer fails closed to
+ * its CPU/WASM tier. Only when WebGL2 is unavailable too does boot stop at the
+ * hard-fail screen.
  *
  * Consumers:
  * ```ts
@@ -252,8 +255,8 @@ type DeviceLostListener = (reason: string) => void;
 // =============================================================================
 
 const UNAVAILABLE: GpuContext = {
-    // There is no WebGL path in this phase: `webgpu` + `available: false` means
-    // "the only supported backend, not brought up yet", never "we fell back".
+    // `webgpu` + `available: false` means "not brought up (yet)". A WebGL2
+    // fallback is recorded explicitly by `settleWebGLContext()`.
     backend: 'webgpu',
     available: false,
     device: null,
@@ -327,14 +330,24 @@ function settle(next: GpuContext): GpuContext {
  * report says *which* WebGPU step died, not just "it didn't work".
  */
 export type GpuProbeStage =
-    'navigator' | 'adapter' | 'device' | 'canvas' | 'configure' | 'pipeline' | 'renderer';
+    | 'navigator'
+    | 'adapter'
+    | 'device'
+    | 'canvas'
+    | 'configure'
+    | 'pipeline'
+    | 'renderer'
+    /** WebGPU failed *and* the WebGL2 fallback could not start either. */
+    | 'webgl';
 
 /**
- * WebGPU could not be brought up, so boot must stop.
+ * WebGPU could not be brought up.
  *
- * There is no WebGL rescue in this phase: a silent GL render is precisely what
- * hides the Chrome-vs-Edge adapter bug this probe exists to expose. Callers
- * show the hard-fail screen instead of constructing a renderer.
+ * `createRenderer()` catches this and falls back to WebGL2 — visibly, never
+ * silently: a quiet GL render is what once hid the Chrome-vs-Edge adapter bug
+ * this probe exists to expose, so the stage and reason are kept on
+ * `window.webgpuProbe` and shown on the renderer badge. When WebGL2 is
+ * unavailable as well, boot stops at the hard-fail screen.
  */
 export class WebGPUUnavailableError extends Error {
     readonly stage: GpuProbeStage;
@@ -534,7 +547,9 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
             /* destroy is best-effort */
         }
         settle({ ...UNAVAILABLE, reason: `${stage}: ${message}` });
-        console.error(
+        // A warning, not an error: the caller falls back to WebGL2, and only
+        // reports a fatal error when that fails too.
+        console.warn(
             `[GPUContext] WebGPU probe failed at "${stage}" on ${browser.name} ${browser.version}: ${message}`
         );
         throw new WebGPUUnavailableError(stage, message, detail);
@@ -786,7 +801,7 @@ export async function armGpuContext(renderer: unknown, probe: GpuProbeResult): P
     };
 
     if (!r?.isWebGPURenderer) {
-        return fatal('Renderer is not a WebGPURenderer — WebGPU is required to enter the world');
+        return fatal('Renderer is not a WebGPURenderer — cannot adopt the probed WebGPU device');
     }
 
     try {
@@ -980,6 +995,18 @@ export function getGpuContext(): Promise<GpuContext> {
 /** Current context without awaiting. Safe before arming (reports unavailable). */
 export function getGpuContextSync(): GpuContext {
     return context;
+}
+
+/**
+ * Record that the world is rendering on Three's WebGL2 backend.
+ *
+ * There is no `GPUDevice` on this path, so `available` stays false and every
+ * `awaitGpuDevice()` caller fails closed to its CPU/WASM tier immediately. The
+ * probe report keeps the WebGPU failure (stage + reason) that caused this.
+ */
+export function settleWebGLContext(reason: string): GpuContext {
+    armed = true;
+    return settle({ ...UNAVAILABLE, backend: 'webgl', reason });
 }
 
 /** True when the shared device exists and has not been lost. */
