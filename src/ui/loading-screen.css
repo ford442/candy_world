@@ -355,6 +355,24 @@
   opacity: 0;
 }
 
+/* Rotating flavor line under the task row */
+.progress-flavor-text {
+  display: block;
+  min-height: 1.2em;
+  margin-top: 4px;
+  font-family: var(--font-family);
+  font-size: 0.85rem;
+  font-style: italic;
+  text-align: center;
+  color: #8a7a8c;
+  animation: flavor-pulse 2s infinite ease-in-out;
+}
+
+@keyframes flavor-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 /* Dark theme */
 .loading-screen.theme-dark .progress-percentage {
   color: var(--candy-pink);
@@ -362,6 +380,10 @@
 
 .loading-screen.theme-dark .progress-task {
   color: rgba(255, 255, 255, 0.7);
+}
+
+.loading-screen.theme-dark .progress-flavor-text {
+  color: rgba(177, 156, 217, 0.7);
 }
 
 /* =============================================================================
@@ -718,6 +740,10 @@
     animation: none;
   }
   
+  .progress-flavor-text {
+    animation: none;
+  }
+
   .progress-fill {
     transition: none;
   }
