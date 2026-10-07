@@ -14,6 +14,7 @@
 import { getWebGPUProbeReport } from '../rendering/gpu-context.ts';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
+import { markBootFatal } from './boot-fatal.ts';
 
 const OVERLAY_ID = 'webgpu-fatal';
 
@@ -48,6 +49,7 @@ function stageAdvice(stage: unknown): string {
 export function showWebGPUFatalScreen(error: unknown): void {
     if (typeof document === 'undefined' || !document.body) return;
     if (document.getElementById(OVERLAY_ID)) return;
+    markBootFatal();
 
     const report = (getWebGPUProbeReport() ?? {}) as Record<string, unknown>;
     const stage = report.stage ?? (error as { stage?: string })?.stage ?? 'unknown';
@@ -117,6 +119,8 @@ export function showWebGPUFatalScreen(error: unknown): void {
         #${OVERLAY_ID} .secondary {
           background: transparent; color: #ffd1dc; border-color: rgba(255, 209, 220, 0.45);
         }
+        #${OVERLAY_ID} .alt-modes { margin: 16px 0 0; font-size: 12px; opacity: 0.85; }
+        #${OVERLAY_ID} .alt-modes a { color: #ffc2d8; }
         #${OVERLAY_ID} button:focus-visible { outline: 3px solid #ffe9f2; outline-offset: 2px; }
       </style>
       <div class="card">
@@ -137,6 +141,10 @@ export function showWebGPUFatalScreen(error: unknown): void {
           <button type="button" class="primary" id="webgpu-fatal-reload">Reload</button>
           <button type="button" class="secondary" id="webgpu-fatal-copy">Copy diagnostics</button>
         </div>
+        <p class="alt-modes">
+          Lighter modes still need WebGPU, but may help on weak or blocklisted GPUs:
+          <a href="?lite=1">Lite mode</a> · <a href="?preset=minimal">Safe mode</a>
+        </p>
       </div>
     `;
 

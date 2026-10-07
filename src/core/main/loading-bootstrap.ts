@@ -1,6 +1,7 @@
 import { initDebugPanelIfNeeded } from '../../debug/index.ts';
 import { initializeSaveSystemIntegration } from '../../systems/save-integration-lazy.ts';
 import { initAnalyticsDebugIfNeeded } from '../../ui/analytics-debug-lazy.ts';
+import { markBootFatal } from '../../ui/boot-fatal.ts';
 import { initLoadingScreen, installLegacyAPI } from '../../ui/loading-screen.ts';
 import { installPresenceStartScreenUI } from '../../ui/presence-lazy.ts';
 import { installSaveMenuGlobals } from '../../ui/save-menu/lazy.ts';
@@ -41,9 +42,9 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
         const err = event.reason;
         const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');
         console.error('[Bootstrap] Unhandled rejection during startup:', err);
-        // The WebGPU hard-fail screen already explains the fault in far more
-        // detail; don't let this generic handler stack a second message on it.
-        if (document.getElementById('webgpu-fatal')) return;
+        // A fatal screen (WebGPU hard-fail or an earlier error) already
+        // explains the fault; don't stack a second message on it.
+        if (!markBootFatal()) return;
         try {
             loadingScreen.showFatalError(
                 `Startup failed: ${msg}\n\nRefresh the page to try again.`

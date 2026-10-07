@@ -15,6 +15,7 @@ import {
 } from './loading-screen-dom.ts';
 import { LoadingScreenProgress, setLoadingScreenClass } from './loading-screen-progress.ts';
 import { updateSpawnFailureBadge } from './loading-screen-reporting.ts';
+import { hideBootLoadingUI } from './boot-fatal.ts';
 import { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
 import './loading-screen.css';
 
@@ -677,6 +678,7 @@ export class LoadingScreen {
         this.hasFatalError = true;
         this.stopFlavorText();
         if (this.flavorText) this.flavorText.textContent = '';
+        hideBootLoadingUI();
 
         if (this.container) {
             this.container.classList.add('fatal-error');
