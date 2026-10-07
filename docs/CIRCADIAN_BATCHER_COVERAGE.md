@@ -43,8 +43,8 @@ Helpers (prefer these over hand-rolled `mix`):
 Console: `setTimeOfDay('night'|'day'|'sunset'|'dawn')`, `logCircadianCoverage()`.
 
 `setTimeOfDay` / `setCircadianTimeOfDay` come from `src/core/time-of-day-presets.ts`, not the debug
-module, so they also exist in dev builds, with `?debug=1`, and under CI / headless / visual-regression
-captures. The presets are cycle positions in seconds: dawn 30 and sunset 510 are the sun's horizon
+module, so they also exist in dev builds, with `?debug=1`, and under automated captures (Playwright
+`navigator.webdriver` or `__IS_FULL_BOOT_TEST`, which visual regression sets). The presets are cycle positions in seconds: dawn 30 and sunset 510 are the sun's horizon
 crossings, day 270 is noon, night 780 is deep night. The day/night cycle is 960 s
 (`getCyclePos` in `src/core/cycle.ts`); night runs from 540 s to the wrap.
 
