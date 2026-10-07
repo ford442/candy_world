@@ -11,6 +11,10 @@ on:
 jobs:
     lint:
         runs-on: ubuntu-latest
+        timeout-minutes: 20
+        concurrency:
+            group: ${{ github.workflow }}-${{ github.ref }}
+            cancel-in-progress: false
 
         steps:
             - uses: actions/checkout@v4

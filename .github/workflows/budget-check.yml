@@ -11,6 +11,10 @@ on:
 jobs:
   budget:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     env:
       NODE_OPTIONS: "--max-old-space-size=4096"   # guard against Rollup/TSL OOM
 
