@@ -181,6 +181,15 @@
 .playlist-btn:hover {
     background: #fff0f5;
 }
+.playlist-btn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 6px #ff4081;
+    position: relative;
+    z-index: 5;
+    border-radius: 6px;
+}
 .playlist-btn[aria-current='true'] {
     background: #ff6b6b;
     color: white;
