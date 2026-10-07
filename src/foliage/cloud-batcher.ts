@@ -396,45 +396,49 @@ export class CloudBatcher {
     }
 
 
-    removeInstance(cloudGroup: any): void {
-        if (!this.initialized || !this.mesh || !cloudGroup || typeof cloudGroup.userData.batchStart !== 'number') return;
-
-        const cloudIndex = this.clouds.indexOf(cloudGroup);
-        if (cloudIndex === -1) return;
+    removeInstance(cloudGroup: any) {
+        if (!this.initialized || !this.mesh) return;
 
         const start = cloudGroup.userData.batchStart;
         const count = cloudGroup.userData.batchCount;
-        if (!count || count <= 0) return;
 
-        const oldTotalCount = this.count;
-        const endOfHole = start + count;
+        if (typeof start !== 'number' || typeof count !== 'number' || count <= 0) return;
 
-        // 1. Shift the instance arrays to close the gap
-        if (endOfHole < oldTotalCount) {
-            const arr = this.mesh.instanceMatrix.array;
-            arr.copyWithin(start * 16, endOfHole * 16, oldTotalCount * 16);
+        const indexToRemove = this.clouds.indexOf(cloudGroup);
+        if (indexToRemove === -1) return;
+
+        const isLastCloud = indexToRemove === this.clouds.length - 1;
+
+        if (!isLastCloud) {
+            // Shift array data left
+            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+            matrixArray.copyWithin(start * 16, (start + count) * 16, this.count * 16);
+
             if (this.isWalkableAttribute) {
-                const walkArr = this.isWalkableAttribute.array as Float32Array;
-                walkArr.copyWithin(start, endOfHole, oldTotalCount);
+                const walkableArray = this.isWalkableAttribute.array as Float32Array;
+                walkableArray.copyWithin(start, start + count, this.count);
             }
-        }
 
-        // 2. Decrement the global count
-        this.count -= count;
-        this.mesh.count = this.count;
-        this.mesh.instanceMatrix.needsUpdate = true;
-        if (this.isWalkableAttribute) this.isWalkableAttribute.needsUpdate = true;
+            // Remove from tracking array
+            this.clouds.splice(indexToRemove, 1);
 
-        // 3. Remove from logic array
-        this.clouds.splice(cloudIndex, 1);
-
-        // 4. Update the batchStart of all clouds that shifted
-        for (let i = cloudIndex; i < this.clouds.length; i++) {
-            this.clouds[i].userData.batchStart -= count;
+            // Shift subsequent clouds' batchStart
+            for (let i = indexToRemove; i < this.clouds.length; i++) {
+                this.clouds[i].userData.batchStart -= count;
+            }
+        } else {
+            this.clouds.pop();
         }
 
         cloudGroup.userData.batchStart = undefined;
         cloudGroup.userData.batchCount = undefined;
+
+        this.count -= count;
+        this.mesh.count = this.count;
+        this.mesh.instanceMatrix.needsUpdate = true;
+        if (this.isWalkableAttribute) {
+            this.isWalkableAttribute.needsUpdate = true;
+        }
     }
 
     updateCloudInstance(cloud: any) {

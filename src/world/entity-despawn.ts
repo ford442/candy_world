@@ -17,6 +17,9 @@ import { lanternBatcher } from '../foliage/lantern-batcher.ts';
 import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
 import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
+import { CloudBatcher } from '../foliage/cloud-batcher.ts';
+import { unregisterWalkableCloudPlatform } from '../systems/ground-system.ts';
+import { unregisterCloudPlatform } from '../debug/tools-stub.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
@@ -168,6 +171,14 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
         kickDrumGeyserBatcher.removeInstance(obj);
     } else if (evictionClass === 'nightMarketStall') {
         nightMarketBatcher.removeInstance(obj);
+    } else if (evictionClass === 'cloud') {
+        if (obj.userData?.isWalkable) {
+            CloudBatcher.getWalkableInstance().removeInstance(obj);
+            unregisterWalkableCloudPlatform(obj);
+            unregisterCloudPlatform(obj);
+        } else {
+            CloudBatcher.getInstance().removeInstance(obj);
+        }
     } else if (evictionClass === 'simpleFlower') {
         simpleFlowerBatcher.removeInstance(obj);
     } else if (evictionClass === 'flower') {
@@ -196,9 +207,6 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
         glowingFlowerBatcher.removeInstance(obj);
     } else if (evictionClass === 'sugarCave') {
         sugarCaveBatcher.removeInstance(obj);
-    } else if (evictionClass === 'cloud') {
-        CloudBatcher.getInstance().removeInstance(obj);
-
     } else if (evictionClass === 'candyDebris') {
         if (CandyDebrisBatcher.peekMesh()) CandyDebrisBatcher.getInstance().removeInstance(obj);
     } else if (evictionClass === 'fauna') {
