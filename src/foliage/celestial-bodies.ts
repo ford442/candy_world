@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import { color, float, vec3, vec4, uniform, mix, sin, cos, time, positionLocal, attribute } from 'three/tsl';
 import { MeshBasicNodeMaterial, PointsNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
-import { attachReactivity, CandyPresets, uAudioLow, uAudioHigh, uTime } from './index.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
+import { CandyPresets, uAudioLow, uAudioHigh, uTime } from './material-core.ts';
 
 // Helper to place objects on a distant sky sphere
 function getRandomSkyPosition(radius: number): THREE.Vector3 {

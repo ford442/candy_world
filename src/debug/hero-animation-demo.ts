@@ -22,7 +22,7 @@ import {
     unregisterHeroRig,
 } from '../systems/animation/clip-player.ts';
 import { HERO_TEST_ASSET, loadHeroRig } from '../systems/animation/hero-rig-loader.ts';
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
+import { getUnifiedGroundHeightTyped } from '../systems/physics/physics-math.ts';
 
 /** Registry key for the staged rig. */
 const RIG = 'debug.hero';

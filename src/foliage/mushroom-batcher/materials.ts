@@ -8,16 +8,22 @@ import { CONFIG } from "../../core/config.ts";
 import { BiomeUniforms, uCircadianPoseOffset } from "../../systems/biome-uniforms.ts";
 import { circadianNightGlowMult } from "../../systems/biome-uniforms.ts";
 import { applyAerialPerspective, aerialPerspectiveLodBoost } from "../aerial-perspective.ts";
-import {
-    foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createJuicyRimLight, uPlayerPosition,
-    createSugarSparkle, getCachedProceduralMaterial,
-    applyBaseContactAO, getBaseContactHeight,
-} from "../index.ts";
+import { foliageMaterials } from '../foliage-materials.ts';
 import {
     scaleEmissiveByLod,
     applyStandardDeformationWithLod,
     applyFoliageLodMaterialFade} from "../lod-nodes.ts";
+import {
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    createJuicyRimLight,
+    uPlayerPosition,
+    createSugarSparkle,
+    getCachedProceduralMaterial,
+    applyBaseContactAO,
+    getBaseContactHeight,
+} from '../material-core.ts';
 import { applySeasonTint } from "../material-core/season-nodes.ts";
 import { uTwilight } from "../sky.ts";
 import { modFloat } from "./constants.ts";

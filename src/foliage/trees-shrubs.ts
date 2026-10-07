@@ -2,7 +2,13 @@ import * as THREE from 'three';
  // Import explicit type for cast
 import { createBerryCluster } from './berries.ts';
  // ⚡ OPTIMIZATION: Import Batcher
-import { registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, sharedGeometries, createStandardNodeMaterial, getCachedProceduralMaterial } from './index.ts';
+import { registerReactiveMaterial, attachReactivity, pickAnimation } from './foliage-reactivity.ts';
+import {
+    createClayMaterial,
+    sharedGeometries,
+    createStandardNodeMaterial,
+    getCachedProceduralMaterial,
+} from './material-core.ts';
 import { treeBatcher } from './tree-batcher.ts';
 import { enhanceWithFloralJuice } from './trees-core.ts';
 const _scratchPhysicsVec1 = new THREE.Vector3();

@@ -1,4 +1,4 @@
-// src/systems/discovery_map.ts
+// src/systems/discovery-map.ts
 
 // Define a map of discoverable items with their display names and icons.
 // This is separated from physics logic to keep concerns clean.

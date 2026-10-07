@@ -14,7 +14,8 @@
  * - checkVineAttachment(): Vine swing attachment
  * - initCppPhysics(): C++ engine initialization
  *
- * No external dependencies on physics-core.ts (avoids circular deps).
+ * Must not import physics-core.ts, which imports this module; the spatial
+ * grids come from the physics-grids.ts leaf.
  */
 
 import * as THREE from 'three';
@@ -53,12 +54,12 @@ import {
 } from '../../world/state.ts';
 import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import { discoverySystem } from '../discovery.ts';
-import { DISCOVERY_MAP } from '../discovery_map.ts';
+import { DISCOVERY_MAP } from '../discovery-map.ts';
 import {
     getGroundHeight,
     sampleGroundNormal,
 } from '../ground-system.ts';
-import { getUnifiedGroundHeightTyped } from '../physics.core.ts';
+import { getUnifiedGroundHeightTyped } from './physics-math.ts';
 import { unlockSystem } from '../unlocks.ts';
 import {
     physicsFoliageGrid,
@@ -67,7 +68,7 @@ import {
     physicsGeysersGrid,
     physicsPinesGrid,
     physicsPanningPadsGrid,
-} from './physics-core.ts';
+} from './physics-grids.ts';
 import {
     player,
     _scratchPlayerState,

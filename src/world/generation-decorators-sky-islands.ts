@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { registerCloudPlatform } from '../debug/tools-stub.ts';
 import { sugarCaveBatcher } from '../foliage/index.ts';
 import { createSkyIsland, skyIslandBatcher } from '../foliage/sky-islands.ts';
 import {
@@ -7,6 +6,7 @@ import {
     registerWalkableCloudPlatform,
     getGroundHeight,
 } from '../systems/ground-system.ts';
+import { debugHooks } from '../utils/debug-hooks.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
 import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
@@ -175,7 +175,7 @@ export async function populateSkyIslands(weatherSystem: WeatherSystem): Promise<
                 cloud.userData.mapEntityType = 'cloud';
                 if (safeAddFoliage(cloud, false, 0, weatherSystem)) {
                     registerWalkableCloudPlatform(cloud);
-                    registerCloudPlatform(cloud);
+                    debugHooks.registerCloudPlatform(cloud);
                     const cid = `mist:cloud:${c}`;
                     registerSkyIslandNode({
                         id: cid,

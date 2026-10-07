@@ -1,10 +1,21 @@
 import { initDebugPanelIfNeeded } from '../../debug/index.ts';
+import { getGpuContext } from '../../rendering/gpu-context.ts';
 import { initializeSaveSystemIntegration } from '../../systems/save-integration-lazy.ts';
 import { initAnalyticsDebugIfNeeded } from '../../ui/analytics-debug-lazy.ts';
-import { initLoadingScreen, installLegacyAPI } from '../../ui/loading-screen.ts';
+import {
+    initLoadingScreen,
+    installLegacyAPI,
+    setWasmError,
+    setWasmPhase,
+    updateProgress,
+} from '../../ui/loading-screen.ts';
 import { installPresenceStartScreenUI } from '../../ui/presence-lazy.ts';
 import { installSaveMenuGlobals } from '../../ui/save-menu/lazy.ts';
-import { enableStartupProfiler } from '../../utils/startup-profiler.ts';
+import { setBootProgressReporter } from '../../utils/boot-progress.ts';
+import {
+    enableStartupProfiler,
+    setProfilerGpuContextSource,
+} from '../../utils/startup-profiler.ts';
 import { isCIorHeadless, getDeviceMemoryGB, CONFIG } from '../config.ts';
 import {
     applyStartupCapabilities,
@@ -14,6 +25,11 @@ import {
 } from '../startup/capabilities.ts';
 import { loadStartupProfile } from '../startup-profile.ts';
 import type { LoadingScreen } from './context.ts';
+
+// The WASM loader and world generation report through utils/boot-progress.ts so
+// they never import the UI (#1827 Part C.2). Installed at evaluation, not in
+// runLoadingBootstrap(), so no report made before boot starts is dropped.
+setBootProgressReporter({ updateProgress, setWasmPhase, setWasmError });
 
 export interface LoadingBootstrapResult {
     loadingScreen: LoadingScreen;
@@ -66,6 +82,7 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
         }
     });
 
+    setProfilerGpuContextSource(getGpuContext);
     enableStartupProfiler({
         slowPhaseThreshold: 100,
         enableOverlay: false,

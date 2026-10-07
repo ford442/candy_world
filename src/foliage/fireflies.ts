@@ -29,7 +29,7 @@ import {
     uPlayerPosition,
     sharedGeometries,
     createJuicyRimLight,
-} from './index.ts';
+} from './material-core.ts';
 import { instanceKey01, seasonDensityKeep, uSeasonSpawn } from './material-core/season-nodes.ts';
 
 export function createFireflies(count = 150, areaSize = 100) {

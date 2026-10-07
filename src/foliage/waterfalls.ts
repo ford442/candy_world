@@ -23,14 +23,8 @@ import {
     add,
 } from 'three/tsl';
 import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
-import {
-    registerReactiveMaterial,
-    attachReactivity,
-    CandyPresets,
-    uAudioHigh,
-    uTime,
-    createJuicyRimLight,
-} from './index.ts';
+import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
+import { CandyPresets, uAudioHigh, uTime, createJuicyRimLight } from './material-core.ts';
 /**
  * Creates a bioluminescent waterfall connecting two points.
  * @param {THREE.Vector3} startPos - Top position

@@ -10,19 +10,18 @@ import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.ts';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
 import { spawnDandelionExplosion } from './dandelion-seeds.ts';
+import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
 import { gemFruitBatcher } from './gem-fruit-batcher.ts';
 import { applyGlitch } from './glitch.ts';
 import { spawnImpact } from './impacts.ts';
 import {
     createClayMaterial,
     createCandyMaterial,
-    registerReactiveMaterial,
-    attachReactivity,
     CandyPresets,
     uAudioLow,
     uTime,
-    uGlitchIntensity
-} from './index.ts';
+    uGlitchIntensity,
+} from './material-core.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
 
 // Interfaces for options

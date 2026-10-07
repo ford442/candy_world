@@ -11,14 +11,8 @@ import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 
 const _scratchLODMatrix = new THREE.Matrix4();
-import {
-    CandyPresets,
-    uTime,
-    uAudioLow,
-    uAudioHigh,
-    uWindSpeed
-} from './index.ts';
 import { applyStandardDeformationWithLod } from './lod-nodes.ts';
+import { CandyPresets, uTime, uAudioLow, uAudioHigh, uWindSpeed } from './material-core.ts';
 
 // --- Configuration ---
 

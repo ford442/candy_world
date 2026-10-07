@@ -1,12 +1,6 @@
-// src/main.ts
-// Application entry point - re-exports from core modules
-// This file is kept as the entry point for backward compatibility
-
-import { addCameraShake } from './core/game-loop.ts';
-
-// Re-export for other modules that import from main.ts
-export { addCameraShake };
-export { scene, camera, renderer, player } from './core/main.ts';
-
-// Import core main to trigger initialization
+// src/main.ts — the Vite entry (index.html). Boot lives in core/main.ts.
+// game-loop.ts is imported first only to keep the module evaluation order boot
+// has always had. Nothing is re-exported from here: the scene/camera/renderer
+// singletons live in core/main/exports.ts (#1827).
+import './core/game-loop.ts';
 import './core/main.ts';

@@ -10,7 +10,13 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
 import { LAKE_DESCENT } from '../systems/ground-height-core.ts';
 import { LAKE_ICE_HOLE_HALF_WIDTH } from '../systems/physics/lake-ice-core.ts';
-import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight } from './index.ts';
+import {
+    CandyPresets,
+    uAudioLow,
+    uAudioHigh,
+    createRimLight,
+    createJuicyRimLight,
+} from './material-core.ts';
 import { uLakeIce } from './material-core/season-nodes.ts';
 
 export const uWaveHeight = uniform(1.0); // Base wave height scaler

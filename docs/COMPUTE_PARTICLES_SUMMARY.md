@@ -52,7 +52,7 @@
    - Performance benchmarks
    - Browser support matrix
 
-8. **`/src/particles/COMPUTE_PARTICLES_USAGE.md`** (5.7KB)
+8. **`docs/COMPUTE_PARTICLES_USAGE.md`** (5.7KB)
    - Integration guide for existing codebase
    - Migration examples
 
@@ -62,7 +62,7 @@
    - Added exports for compute particle system
    - Added integration helper exports
 
-10. **`/src/particles/particle_config.ts`**
+10. **`/src/particles/particle_config.ts`** (deleted in #1827 with its last importers; `ParticleAudioData` lives in `compute-particles-types.ts`)
     - Extended `ParticleAudioData` interface with compute-specific fields
 
 ## Performance Gains

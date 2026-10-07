@@ -16,8 +16,8 @@ import {
     uTime,
     createSugarSparkle,
     createJuicyRimLight,
-    getCachedProceduralMaterial
-} from './index.ts';
+    getCachedProceduralMaterial,
+} from './material-core.ts';
 import { applySeasonTint } from './material-core/season-nodes.ts';
 import { uTwilight } from './sky.ts';
 

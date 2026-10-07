@@ -13,8 +13,7 @@ import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
 import { uploadPositionsFlat, batchDistanceCull, WASM_POSITION_OBJECT_CAPACITY } from '../utils/wasm-batch.ts';
 import { MRState, _scratchSphere } from './music-reactivity-core.ts';
-import { _frustum, _projScreenMatrix } from './music-reactivity-core.ts';
-import { _emptyAudioState } from './music-reactivity.ts';
+import { _frustum, _projScreenMatrix, _emptyAudioState } from './music-reactivity-core.ts';
 
 let _batchPositionsBuffer = new Float32Array(0);
 let _batchPositionsCapacity = 0;

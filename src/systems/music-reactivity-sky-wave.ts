@@ -3,10 +3,15 @@ import { CONFIG } from '../core/config.ts';
 import { uTwilight } from '../foliage/sky.ts';
 import type { AudioData } from '../foliage/types.ts';
 import { WeatherMusicTargets } from './music-reactivity-core.ts';
-import { MRState, _whiteColor, setActiveWave, skyWaveRing } from './music-reactivity-core.ts';
+import {
+    MRState,
+    WEATHER_TARGET_DECAY_RATE,
+    _whiteColor,
+    setActiveWave,
+    skyWaveRing,
+} from './music-reactivity-core.ts';
 import { BiomeUniforms } from './biome-uniforms.ts';
 import { skyWaveUniformMap } from './music-reactivity-defaults.ts';
-import { WEATHER_TARGET_DECAY_RATE } from './music-reactivity.ts';
 import { WAVE_SLOT_COUNT } from './music-wave.ts';
 
 // Night gate: fully off below TWILIGHT_GATE_LO (daytime), fully on above TWILIGHT_GATE_HI.

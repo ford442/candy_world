@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { texture, vec4, color, vec3, uv, mx_noise_float, positionLocal, mix, smoothstep, normalLocal } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { fluidSystem } from '../systems/fluid_system.ts';
-import { uTime } from './index.ts';
+import { fluidSystem } from '../systems/fluid-system.ts';
+import { uTime } from './material-core.ts';
 
 export function createFluidFog(width = 100, depth = 100) {
     // High resolution grid to allow for vertex displacement based on fluid density/velocity

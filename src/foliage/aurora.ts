@@ -6,7 +6,13 @@ import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, StorageInstancedBuffer
 import { getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { getSphereGeometry } from '../utils/geometry-dedup.ts';
-import { uAudioLow, uAudioHigh, CandyPresets, uTime, createJuicyRimLight } from './index.ts';
+import {
+    uAudioLow,
+    uAudioHigh,
+    CandyPresets,
+    uTime,
+    createJuicyRimLight,
+} from './material-core.ts';
 
 // Global uniforms for Aurora control
 export const uAuroraIntensity = uniform(0.0); // 0.0 to 1.0

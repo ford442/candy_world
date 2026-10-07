@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
+import type { AudioData } from '../foliage/types.ts';
 import { accumulateArpeggioChannels } from '../utils/wasm-music-reactivity.ts';
 import type { MapMusicOverrides } from '../world/map-loader.ts';
 import { getMapMusicContext } from '../world/map-music-context.ts';
@@ -64,6 +65,20 @@ let _arpeggioVolScratch = new Float32Array(16);
 const _arpeggioOutScratch = new Float32Array(2);
 
 // ⚡ OPTIMIZATION: Module-scoped colors for zero-allocation note lerping
+
+// Shared with music-reactivity-foliage.ts / -sky-wave.ts. Defined here rather
+// than in music-reactivity.ts, which imports those modules (#1827).
+// Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
+export const WEATHER_TARGET_DECAY_RATE = 5.0;
+
+// Pre-allocated static fallback to prevent per-frame object allocation when audio is inactive
+export const _emptyAudioState: AudioData = {
+    channelData: [],
+    kickTrigger: 0,
+    grooveAmount: 0,
+    beatPhase: 0,
+    patternIndex: 0,
+};
 
 export const MRState = {
     arpeggioShimmerCh: defaultArpeggioShimmerCh as readonly number[],

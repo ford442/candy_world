@@ -814,6 +814,7 @@ export function createProgressSaveData(
 // =============================================================================
 
 export const saveSystem = new SaveSystem();
+awakenedPersistence.setEventSaveTrigger((eventType) => saveSystem.triggerEventSave(eventType));
 
 // =============================================================================
 // DEBUG COMMANDS (Exposed to window)

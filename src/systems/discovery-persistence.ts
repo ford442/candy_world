@@ -6,7 +6,7 @@
  * conflict resolution, and export/import functionality.
  */
 
-import { DISCOVERY_MAP, type DiscoveryItem } from './discovery_map.ts';
+import { DISCOVERY_MAP, type DiscoveryItem } from './discovery-map.ts';
 
 // =============================================================================
 // Type Definitions

@@ -10,11 +10,17 @@ import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
-    sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, uWindSpeed, uWindDirection,
-    createJuicyRimLight, applyStandardDeformation,
-    createStandardNodeMaterial
-} from './index.ts';
+    sharedGeometries,
+    uTime,
+    uAudioLow,
+    uAudioHigh,
+    uWindSpeed,
+    uWindDirection,
+    createJuicyRimLight,
+    applyStandardDeformation,
+    createStandardNodeMaterial,
+} from './material-core.ts';
+import { foliageMaterials } from './foliage-materials.ts';
 import { uTwilight } from './sky.ts';
 
 // Use the instanced color varying populated by InstancedMeshNode

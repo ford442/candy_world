@@ -14,7 +14,7 @@ import {
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { getPlayerGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
-import { calculateWaterLevel } from '../physics.core.ts';
+import { calculateWaterLevel } from './physics-math.ts';
 import { 
     player, 
     PlayerState, 
@@ -113,7 +113,7 @@ export function updateStateTransitions(camera: THREE.Camera, keyStates: KeyState
     }
 
     // B. Check Water Level / Cave Flooding
-    // MIGRATED: Now uses TypeScript version from physics.core.ts
+    // MIGRATED: Now uses TypeScript version from physics-math.ts
     const waterLevel = calculateWaterLevel(playerPos, foliageCaves);
 
     const wasSwimming = player.currentState === PlayerState.SWIMMING;
