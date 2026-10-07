@@ -11,15 +11,14 @@ import { createFluidFog } from '../foliage/fluid_fog.ts';
 import { createImpactSystem } from '../foliage/impacts.ts';
 import { uTime } from '../foliage/index.ts';
 import { createMelodyRibbon } from '../foliage/ribbons.ts';
-import { createShield } from '../foliage/shield.ts';
 import { createSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { createStrobePulse } from '../foliage/strobe.ts';
 import { ensureGameplay, preloadGameplay } from '../gameplay/lazy.ts';
 import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence-api.ts';
+import { log } from '../utils/log.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
-import { animatedFoliage } from '../world/state.ts';
 import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
-import { isWebGLNodeBackend, syncDrawingBufferFromWindow } from './init.ts';
+import { isWebGLNodeBackend, syncDrawingBufferFromWindow, type CandyRenderer } from './init.ts';
 import { getStartupCapabilities } from './startup/capabilities.ts';
 
 // Deferred visual elements
@@ -27,24 +26,24 @@ let aurora: THREE.Object3D | null = null;
 let chromaticPulse: THREE.Object3D | null = null;
 let strobePulse: THREE.Object3D | null = null;
 let celestialBodiesInitialized = false;
-let melodyRibbon: any = null;
-let sparkleTrail: any = null;
-let impactSystem: any = null;
+let melodyRibbon: THREE.Group | null = null;
+let sparkleTrail: THREE.Points | null = null;
+let impactSystem: THREE.InstancedMesh | null = null;
 let fluidFog: THREE.Mesh | null = null;
 let playerShieldMesh: THREE.Object3D | null = null;
 let dandelionSeedSystem: THREE.Object3D | null = null;
-let discoveryEffect: any = null;
+let discoveryEffect: ReturnType<typeof createDiscoveryEffect> | null = null;
 let harpoonLine: THREE.Mesh | null = null;
 
 // Scene references (set during initialization)
 let sceneRef: THREE.Scene | null = null;
 let cameraRef: THREE.Camera | null = null;
-let rendererRef: any = null;
+let rendererRef: CandyRenderer | null = null;
 
 export function initDeferredVisualsDependencies(
     scene: THREE.Scene,
     camera: THREE.Camera,
-    renderer: any
+    renderer: CandyRenderer
 ) {
     sceneRef = scene;
     cameraRef = camera;
@@ -78,13 +77,13 @@ export function initDeferredVisuals() {
         if (!sceneRef) return;
         if (gp.jitterMineSystem.mesh && !gp.jitterMineSystem.mesh.parent) {
             sceneRef.add(gp.jitterMineSystem.mesh);
-            console.log('[Deferred] Jitter Mine System initialized');
+            log.info('Deferred', 'Jitter Mine System initialized');
         }
         gp.chordStrikeSystem.addToScene(sceneRef);
         if (!harpoonLine) {
             harpoonLine = gp.createHarpoonLine();
             sceneRef.add(harpoonLine);
-            console.log('[Deferred] Harpoon Line initialized');
+            log.info('Deferred', 'Harpoon Line initialized');
         }
     });
 
@@ -101,14 +100,14 @@ export function initDeferredVisuals() {
     if (deferredCaps.fluidFog && !fluidFog) {
         fluidFog = createFluidFog(200, 200); // 200x200 patch at center
         sceneRef.add(fluidFog);
-        console.log('[Deferred] Fluid Fog initialized');
+        log.info('Deferred', 'Fluid Fog initialized');
     }
 
     if (deferredCaps.aurora && !aurora) {
         aurora = createAurora();
         sceneRef.add(aurora);
         harmonyOrbSystem.addToScene(sceneRef); // Add Harmony Orbs
-        console.log('[Deferred] Aurora & Systems initialized');
+        log.info('Deferred', 'Aurora & Systems initialized');
     }
 
     // WebGPU HDR post uses rgba16float. Camera overlays that call
@@ -122,13 +121,13 @@ export function initDeferredVisuals() {
     if (deferredCaps.aurora && !chromaticPulse && useViewportPulseOverlays) {
         chromaticPulse = createChromaticPulse();
         cameraRef.add(chromaticPulse);
-        console.log('[Deferred] Chromatic Pulse overlay initialized (WebGL)');
+        log.info('Deferred', 'Chromatic Pulse overlay initialized (WebGL)');
     }
 
     if (deferredCaps.aurora && !strobePulse && useViewportPulseOverlays) {
         strobePulse = createStrobePulse();
         cameraRef.add(strobePulse);
-        console.log('[Deferred] Strobe Pulse overlay initialized (WebGL)');
+        log.info('Deferred', 'Strobe Pulse overlay initialized (WebGL)');
     }
     console.timeEnd('Environmental Effects');
 
@@ -137,7 +136,7 @@ export function initDeferredVisuals() {
     if (!celestialBodiesInitialized) {
         initCelestialBodies(sceneRef);
         celestialBodiesInitialized = true;
-        console.log('[Deferred] Celestial bodies initialized');
+        log.info('Deferred', 'Celestial bodies initialized');
     }
     console.timeEnd('Celestial Elements');
 
@@ -145,34 +144,34 @@ export function initDeferredVisuals() {
     console.time('Musical Elements');
     if (!melodyRibbon) {
         melodyRibbon = createMelodyRibbon(sceneRef);
-        console.log('[Deferred] Melody Ribbon initialized');
+        log.info('Deferred', 'Melody Ribbon initialized');
     }
 
     if (!sparkleTrail) {
         sparkleTrail = createSparkleTrail();
         sceneRef.add(sparkleTrail);
-        console.log('[Deferred] Sparkle Trail initialized');
+        log.info('Deferred', 'Sparkle Trail initialized');
     }
 
     if (!impactSystem) {
         impactSystem = createImpactSystem();
         sceneRef.add(impactSystem);
-        console.log('[Deferred] Impact System initialized');
+        log.info('Deferred', 'Impact System initialized');
     }
 
     if (!dandelionSeedSystem) {
         dandelionSeedSystem = createDandelionSeedSystem();
         sceneRef.add(dandelionSeedSystem);
-        console.log('[Deferred] Dandelion Seed System initialized');
+        log.info('Deferred', 'Dandelion Seed System initialized');
     }
 
     if (!discoveryEffect) {
         discoveryEffect = createDiscoveryEffect();
         sceneRef.add(discoveryEffect.mesh);
-        console.log('[Deferred] Discovery Effect initialized');
+        log.info('Deferred', 'Discovery Effect initialized');
 
         // Export to global for easy triggering from discovery-optimized.ts
-        (window as any).triggerDiscoveryEffect = (position: THREE.Vector3) => {
+        (window as Window & { triggerDiscoveryEffect?: (position: THREE.Vector3) => void }).triggerDiscoveryEffect = (position: THREE.Vector3) => {
             if (discoveryEffect && discoveryEffect.trigger) {
                 // Ensure we use the current global shader time
                 discoveryEffect.trigger(position, uTime.value);
@@ -215,21 +214,22 @@ export function abortWarmup(): void {
     _warmupAborted = true;
 }
 
-export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, renderer: any) {
+export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, renderer: CandyRenderer) {
     _warmupAborted = false;
 
     setTimeout(async () => {
         startPhase('Shader Warmup');
         performance.mark('candy:shader-warmup-start');
-        console.log('[Deferred] Starting incremental shader pre-compilation...');
+        log.info('Deferred', 'Starting incremental shader pre-compilation...');
 
         // Check CI and instant-boot bypass here
         if (
             isCIorHeadless() ||
-            (typeof window !== 'undefined' && (window as any).__bootInstant === true)
+            (typeof window !== 'undefined' && window.__bootInstant === true)
         ) {
-            console.log(
-                '[Deferred] Skipping incremental shader pre-compilation in CI / instant-boot mode to prevent WebGPU Device Lost or dev stalls'
+            log.info(
+                'Deferred',
+                'Skipping incremental shader pre-compilation in CI / instant-boot mode to prevent WebGPU Device Lost or dev stalls'
             );
             endPhase('Shader Warmup');
             return;
@@ -240,7 +240,7 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
         if (renderer.clippingPlanes === undefined || renderer.clippingPlanes === null) {
             renderer.clippingPlanes = [];
             renderer.localClippingEnabled = false;
-            console.log('[Deferred] Re-applied clipping planes fix (Safety Force).');
+            log.info('Deferred', 'Re-applied clipping planes fix (Safety Force).');
         }
 
         // Keep the rainbow blaster warmup — it uses a distinct particle material.
@@ -274,7 +274,7 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
                     const mat = target.create();
                     try {
                         await warmup.warmupSingle(mat, renderer, target.name);
-                    } catch (_e) {
+                    } catch {
                         // Non-fatal: continue with next material.
                     }
                 }
@@ -294,8 +294,8 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
             if (!_warmupAborted) {
                 const frustum = new THREE.Frustum();
                 const projMatrix = new THREE.Matrix4().multiplyMatrices(
-                    (camera as any).projectionMatrix,
-                    (camera as any).matrixWorldInverse
+                    camera.projectionMatrix,
+                    camera.matrixWorldInverse
                 );
                 frustum.setFromProjectionMatrix(projMatrix);
 
@@ -336,7 +336,7 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
                             // Clone so warmupSingle can dispose the temporary copy.
                             const clone = mat.clone();
                             await sceneWarmup.warmupSingle(clone, renderer, `scene_${mat.id}`);
-                        } catch (_e) {
+                        } catch {
                             /* skip */
                         }
                     }
@@ -353,7 +353,8 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
                 sceneWarmup.dispose();
             }
 
-            console.log(
+            log.info(
+                'Deferred',
                 `✅ Scene shaders pre-compiled (${warmupBatches} batch${warmupBatches !== 1 ? 'es' : ''}, ` +
                     `max ${warmupBatchMaxMs.toFixed(0)} ms/batch).`
             );
@@ -374,11 +375,11 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
                 'candy:shader-warmup-start',
                 'candy:shader-warmup-end'
             );
-        } catch (_e) {
+        } catch {
             /* ignore if marks were cleared */
         }
 
-        console.log('[Deferred] Shader compilation complete');
+        log.info('Deferred', 'Shader compilation complete');
         endPhase('Shader Warmup');
     }, 2000); // 2-second delay lets the browser settle after initial load.
 }
