@@ -156,6 +156,7 @@
 /* 🎨 Palette: Soft Disabled State */
 /* Maintains focusability for keyboard users while indicating unavailability */
 .toggle-button[aria-disabled='true'] {
+    filter: grayscale(100%) brightness(50%);
     opacity: 0.5;
     cursor: not-allowed;
     background: #6a5acd; /* Reset hover color */
