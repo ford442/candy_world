@@ -14,13 +14,23 @@ let passed = 0;
 let failed = 0;
 
 function assert(cond, label) {
-    if (cond) { console.log(`  ✓ ${label}`); passed++; }
-    else { console.error(`  ✗ ${label}`); failed++; }
+    if (cond) {
+        console.log(`  ✓ ${label}`);
+        passed++;
+    } else {
+        console.error(`  ✗ ${label}`);
+        failed++;
+    }
 }
 
 function test(name, fn) {
     console.log(`\n${name}`);
-    try { fn(); } catch (e) { console.error(`  ✗ threw: ${e.message}`); failed++; }
+    try {
+        fn();
+    } catch (e) {
+        console.error(`  ✗ threw: ${e.message}`);
+        failed++;
+    }
 }
 
 // ---- tests ----
@@ -34,7 +44,7 @@ test('getEyeTargetY adds configured eye height', () => {
 test('reconcile: raises when sinking below terrain eye', () => {
     // Assuming x=0, z=0 which has groundY = -2, so eyeY = -0.2
     const y = reconcileGroundedEyeY(-2.0, 0, 0, 0.016, { isGrounded: true, velocityY: 0 });
-    assert(Math.abs(y - (-0.2)) < 0.001, 'snapped up to ground 3 + 1.8');
+    assert(Math.abs(y - -0.2) < 0.001, 'snapped up to ground 3 + 1.8');
 });
 
 test('reconcile: smooths downhill when grounded near terrain', () => {
@@ -60,7 +70,11 @@ test('computePlacementY: ground mode uses base offset table', () => {
     const raw = computePlacementY(0, 0, { mode: 'ground', entityType: 'mushroom' });
     const expected = -2.0 - 0.02; // rawTerrain(0, 0) is -2
     assert(Math.abs(raw - expected) < 0.001, 'mushroom base at ground');
-    assert(Math.abs(computePlacementY(0, 0, { mode: 'ground', entityType: 'unknown_type' }) - (-2.0)) < 0.001, 'unknown types default to 0 offset');
+    assert(
+        Math.abs(computePlacementY(0, 0, { mode: 'ground', entityType: 'unknown_type' }) - -2.0) <
+            0.001,
+        'unknown types default to 0 offset'
+    );
 });
 
 console.log(`\n---\n${passed} passed, ${failed} failed`);
