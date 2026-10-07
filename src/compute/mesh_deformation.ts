@@ -252,8 +252,8 @@ export class MeshDeformationCompute {
 
         // We need to use Emscripten's memory
         // Copy original positions to WASM, process, copy back
-        const emscriptenModule = (window as unknown as { candyNative?: { _malloc?: unknown } }).candyNative;
-        if (!emscriptenModule || !emscriptenModule._malloc) return false;
+        const emscriptenModule = (window as unknown as { candyNative?: { _malloc?: (bytes: number) => number, HEAP8?: { buffer: ArrayBuffer }, _free?: (ptr: number) => void } }).candyNative;
+        if (!emscriptenModule || !emscriptenModule._malloc || !emscriptenModule.HEAP8 || !emscriptenModule._free) return false;
 
         const bytes = vertexCount * 3 * 4; // 3 floats per vertex, 4 bytes per float
         const ptr = emscriptenModule._malloc(bytes);
