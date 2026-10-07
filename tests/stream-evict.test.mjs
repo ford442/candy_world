@@ -18,6 +18,11 @@ import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
 import { subwooferLotusBatcher } from '../src/foliage/subwoofer-lotus-batcher.ts';
 import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
 import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
+import { CloudBatcher } from '../src/foliage/cloud-batcher.ts';
+import { FaunaBatcher } from '../src/foliage/fauna-batcher.ts';
+import { FaunaSpecies } from '../src/systems/fauna/types.ts';
+import { CandyDebrisBatcher } from '../src/foliage/candy-debris-batcher.ts';
+
 import { optimizedDiscovery } from '../src/systems/discovery-optimized.ts';
 
 optimizedDiscovery.registerObject = () => {};
@@ -43,6 +48,10 @@ async function runTests() {
                 { type: 'luminous_plant', id: 'lp1', translation: [0, 0, 0] },
                 { type: 'subwoofer_lotus', id: 'sl1', translation: [1, 0, 1] },
                 { type: 'dandelion', id: 'd1', translation: [2, 0, 2] },
+                { type: 'cloud', id: 'c1', translation: [2, 10, 2], isBatched: true },
+                { type: 'fauna', id: 'f1', translation: [3, 0, 2], isBatched: true },
+                { type: 'candy_debris', id: 'cd1', translation: [4, 0, 2], isBatched: true },
+
                 { type: 'gem_canopy_tree', id: 'gt1', translation: [3, 0, 3] },
                 { type: 'unknown_batched', id: 'u1', translation: [4, 0, 4], isBatched: true },
             ]
@@ -76,6 +85,16 @@ async function runTests() {
                   subwooferLotusBatcher.register(obj);
              } else if (entity.type === 'dandelion') {
                   dandelionBatcher.register(obj);
+             } else if (entity.type === 'cloud') {
+                  CloudBatcher.getInstance().register(obj);
+             } else if (entity.type === 'fauna') {
+                  FaunaBatcher.getInstance().init();
+                  obj.userData.faunaSpecies = FaunaSpecies.SugarMoth;
+                  obj.userData.slot = FaunaBatcher.getInstance().addInstance(FaunaSpecies.SugarMoth, 3, 0, 2, 'global', 0, 0);
+             } else if (entity.type === 'candy_debris') {
+                 // Debris despawns itself via lifetime, so just registering it to test classification
+                 // Force peekMesh to return something by initiating a burst
+                 CandyDebrisBatcher.getInstance().burst({ count: 1, origin: new THREE.Vector3() });
              } else if (entity.type === 'unknown_batched') {
                   // no batcher hook up for unknown
              }
@@ -83,13 +102,15 @@ async function runTests() {
              streamer['trackSpawnedObject'](obj, record);
         }
 
-        assert.equal(record.evictable.length, 4, '4 entities should be evictable');
+        assert.equal(record.evictable.length, 7, '7 entities should be evictable');
         assert.equal(record.permanentCount, 1, '1 unknown_batched entity should be permanent');
 
         // Capture lengths before eviction
         const lpInitialCount = luminousPlantBatcher.count;
         const slInitialCount = subwooferLotusBatcher['_count'];
         const danInitialCount = dandelionBatcher.count;
+        const cbInitialCount = CloudBatcher.getInstance().count;
+        const fbInitialCount = FaunaBatcher.getInstance().getTotalCount();
 
         // Move far away to force eviction of 0,0
         streamer['evictFarChunks'](100, 100, 1);
@@ -99,6 +120,11 @@ async function runTests() {
         assert.equal(luminousPlantBatcher.count, lpInitialCount - 1, 'Luminous plant should be evicted');
         assert.equal(subwooferLotusBatcher['_count'], slInitialCount - 1, 'Subwoofer lotus should be evicted');
         assert.equal(dandelionBatcher.count, danInitialCount - 1, 'Dandelion should be evicted');
+        // A cloud registers 'puffCount' puffs (between 12 and 19), so it won't be exactly -1.
+        // It should be cbInitialCount - puffCount, meaning < cbInitialCount.
+        // We just assert it is smaller.
+        assert.ok(CloudBatcher.getInstance().count < cbInitialCount, 'Cloud should be evicted');
+        assert.equal(FaunaBatcher.getInstance().getTotalCount(), fbInitialCount - 1, 'Fauna should be evicted');
 
         // Ensure unknown batched didn't crash and is still in records because permanentCount > 0
         const retainedRecord = streamer['records'].get('0,0');

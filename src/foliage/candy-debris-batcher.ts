@@ -210,6 +210,12 @@ export class CandyDebrisBatcher {
         return spawned;
     }
 
+
+    /** Ephemeral burst systems satisfy the ChunkStreamer eviction interface by doing nothing */
+    removeInstance(logicObject: any): void {
+        // No-op: shards despawn themselves via lifetime constraints
+    }
+
     update(delta: number): void {
         const mesh = this.mesh;
         if (!mesh || this.count === 0) return;
