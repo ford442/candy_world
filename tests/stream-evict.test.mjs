@@ -17,6 +17,7 @@ import { foliageCaves } from '../src/systems/physics/physics-types.ts';
 import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
 import { subwooferLotusBatcher } from '../src/foliage/subwoofer-lotus-batcher.ts';
 import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
+import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
 import { CloudBatcher } from '../src/foliage/cloud-batcher.ts';
 import { FaunaBatcher } from '../src/foliage/fauna-batcher.ts';
 import { FaunaSpecies } from '../src/systems/fauna/types.ts';
@@ -225,6 +226,7 @@ async function runTests() {
                 if (idx !== -1) trackedCaves.splice(idx, 1);
             }
         };
+
 
         waterfallBatcher.add(caveId, new THREE.Vector3(), 5, 2);
 
