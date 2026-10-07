@@ -138,6 +138,11 @@ export default defineConfig({
                     if (id.includes('/src/world/map-loader')) {
                         return 'map-loader';
                     }
+                    // log.ts is an import-free leaf used by app and profiler alike; in
+                    // `app` it made profiler -> app -> profiler a circular chunk.
+                    if (id.endsWith('/src/utils/log.ts')) {
+                        return 'log';
+                    }
                     if (id.includes('/src/utils/startup-profiler')) {
                         return 'profiler';
                     }
