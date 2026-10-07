@@ -698,4 +698,6 @@ Status: Implemented ✅
     - #1756 round trip: `?debugPlace` now places through `restoreEntity` and re-applies dev-sidecar placements on boot; `night_market_stall` is snapshot-exportable.
     - `night_market` music block (bindings, BiomeUniforms, accumulators, hard night gate, sky-wave target, palette, generative profile); discovery stamps + chord-strike hook in `src/systems/night-market-stamps.ts`.
     - `test:night-market` (in `test:fast`), `night_market` VR viewpoint, ship note `docs/FESTIVAL_NIGHT_MARKET.md`.
+- [x] **2026-09-24** ✅ CHUNK STREAMING EVICTION PATHS (#1755)\n    - Status: Implemented ✅\n    - Implementation Details: Wired up `unregisterPhysicsCave` for `cave` entities so that they do not leak when their chunk is evicted by `ChunkStreamer`.\n
+- [x] **2026-10-06** ✅ PREVENT OVERLAY DOUBLE-ANNOUNCE (#1842)\n    - Status: Implemented ✅\n    - Implementation Details: Passed `{ skipAutoFocus: true }` to `trapFocusInside` in `DiscoverySystem` and `PhotoControlsOverlay` to prevent screen reader double-announcements during immediate manual child focus calls.\n
 - [x] **2026-09-24** ✅ CHUNK STREAMING EVICTION PATHS (#1755)\n - Status: Implemented ✅\n - Implementation Details: Wired up `unregisterPhysicsCave` for `cave` entities so that they do not leak when their chunk is evicted by `ChunkStreamer`.\n
