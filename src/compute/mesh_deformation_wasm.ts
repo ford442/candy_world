@@ -132,7 +132,7 @@ export class WasmMeshDeformation {
             (this.type === DeformationType.WOBBLE && this.wasmDeformWobble);
         
         if (!hasRequiredFunc) {
-            console.log(`[WasmMeshDeformation] WASM not available for type '${this.type}', using JS fallback`);
+            console.warn(`[WasmMeshDeformation] WASM not available for type '${this.type}', using JS fallback`);
             return;
         }
         
@@ -167,7 +167,7 @@ export class WasmMeshDeformation {
             }
             
             this.useWasm = true;
-            console.log(`[WasmMeshDeformation] Initialized with ${this.vertexCount} vertices in WASM`);
+            // console.log(`[WasmMeshDeformation] Initialized with ${this.vertexCount} vertices in WASM`);
             
         } catch (e) {
             console.warn('[WasmMeshDeformation] Failed to allocate WASM memory:', e);
