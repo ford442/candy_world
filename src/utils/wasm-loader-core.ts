@@ -11,23 +11,12 @@
  */
 
 import { updateProgress, setWasmPhase, setWasmError } from '../ui/loading-screen.ts';
-import {
-    parallelWasmLoad,
-    LOADING_PHASES,
-    initSharedBuffer,
-    getSharedBuffer,
-    isSharedMemoryAvailable,
-    type ParallelWasmLoadOptions,
-} from './wasm-orchestrator.ts';
-import {
-    checkWasmFileExists,
-    inspectWasmExports,
-    patchWasmInstantiateAliases,
-} from './wasm-utils.ts';
+import { isSharedMemoryAvailable } from './wasm-orchestrator.ts';
+import { checkWasmFileExists, patchWasmInstantiateAliases } from './wasm-utils.ts';
 
 // Vite WASM import via vite-plugin-wasm
 import initCandyPhysics from '../wasm/candy_physics.wasm?init';
-import { showToast } from './toast.ts';
+import { log } from './log.ts';
 
 // =============================================================================
 // STATE EXPORTS
@@ -224,7 +213,6 @@ export const AnimationType = {
 export type AnimationTypeValue = (typeof AnimationType)[keyof typeof AnimationType];
 
 export * from './wasm-loader-types.ts';
-import { getEmscriptenMemory } from './wasm-loader-cpp.ts';
 import type {
     EmscriptenModule,
     ExtendedEmscriptenModule,
@@ -384,7 +372,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
             validateWasmExports(instance);
             cacheWasmFunctions(instance);
 
-            console.log('[WASM] AssemblyScript module initialized via Top-Level Await');
+            log.info('WASM', 'AssemblyScript module initialized via Top-Level Await');
             lastError = null;
             break;
         } catch (e) {
@@ -404,7 +392,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
         // fatal error since JS fallbacks allow the game to continue).
         try {
             setWasmPhase('Physics engine unavailable - using JS fallback', 0);
-        } catch (_) {
+        } catch {
             /* loading screen may not be ready yet */
         }
     }
@@ -424,7 +412,7 @@ async function startBootstrapIfAvailable(instance: ExtendedEmscriptenModule): Pr
         const { startBootstrap } = await import('./bootstrap-loader.ts');
         if (startBootstrap && startBootstrap(instance)) {
             bootstrapStarted = true;
-            console.log('[WASM] Bootstrap terrain pre-computation started');
+            log.info('WASM', 'Bootstrap terrain pre-computation started');
         }
     } catch (e) {
         console.warn('[WASM] Bootstrap loader error:', e);
@@ -441,7 +429,7 @@ export async function updateWasmProgress(percent: number, msg: string): Promise<
     if (startButton) {
         startButton.textContent = msg;
     }
-    console.log('[WASM Progress]', msg);
+    log.info('WASM Progress', msg);
     await new Promise((r) => setTimeout(r, 20));
 }
 
@@ -482,7 +470,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         // 2. Check if WASM file exists and RESOLVE THE CORRECT PATH
         const wasmCheck = await checkWasmFileExists(wasmFilename);
         if (!wasmCheck.exists) {
-            console.log(`[WASM] ${wasmFilename} not found. Using JS fallback.`);
+            log.warn('WASM', `${wasmFilename} not found. Using JS fallback.`);
             // If threaded failed (e.g. file missing), try ST if we haven't already
             if (isThreaded) {
                 return loadEmscriptenModule(true);
@@ -493,14 +481,13 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         // Construct the full resolved path based on checkWasmFileExists result
         const prefix = wasmCheck.path || '';
         const cleanPrefix = prefix.endsWith('/') ? prefix : prefix ? `${prefix}/` : '';
-        const resolvedWasmPath = `${cleanPrefix}${wasmFilename}`;
         const resolvedJsPath = jsFilename.includes('://')
             ? jsFilename
             : `${cleanPrefix}${jsFilename}`;
 
         const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
         const jsUrl = new URL(resolvedJsPath, base).href;
-        console.log('Loading WASM:', jsUrl);
+        log.info('WASM', 'Loading WASM:', jsUrl);
 
         // Load the JS factory
         let createCandyNative:
@@ -509,7 +496,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             const module = await import(/* @vite-ignore */ jsUrl);
             createCandyNative = module.default;
         } catch (e) {
-            console.log(`[WASM] ${jsFilename} not found. Fallback?`, e);
+            log.warn('WASM', `${jsFilename} not found. Fallback?`, e);
             if (isThreaded) return loadEmscriptenModule(true);
             return false;
         }
@@ -555,7 +542,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         let swapped = false;
 
         if (nativeWA && nativeWA !== originalWA) {
-            console.log('[WASM] Swapping to Native WebAssembly for Emscripten init');
+            log.info('WASM', 'Swapping to Native WebAssembly for Emscripten init');
             window.WebAssembly = nativeWA;
             swapped = true;
         }
@@ -575,7 +562,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
                         ).href;
                     return scriptDirectory + path;
                 },
-                print: (text: string) => console.log('[Native]', text),
+                print: (text: string) => log.info('Native', text),
                 printErr: (text: string) => console.warn('[Native Err]', text),
 
                 // IMPORTANT: Do NOT set wasmBinary in config.
@@ -587,7 +574,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
                         module: WebAssembly.Module
                     ) => void
                 ) => {
-                    console.log('[Native] Manual instantiation hook triggered');
+                    log.info('Native', 'Manual instantiation hook triggered');
 
                     const run = async () => {
                         try {
@@ -595,7 +582,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
 
                             // Fallback fetch if pre-fetch failed
                             if (!bytes) {
-                                console.log('[Native] Fetching binary inside hook...');
+                                log.info('Native', 'Fetching binary inside hook...');
                                 const base =
                                     typeof document !== 'undefined'
                                         ? document.baseURI
@@ -616,7 +603,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
                             // we get a valid Module/Instance pair from the native implementation.
                             const result = await WA.instantiate(bytes, imports);
 
-                            console.log('[Native] Manual instantiation success');
+                            log.info('Native', 'Manual instantiation success');
 
                             // Standardize result
                             const instance = result.instance;
@@ -639,13 +626,13 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             const instance = await createCandyNative(config);
             setEmscriptenInstance(instance);
 
-            console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
+            log.info('WASM', `Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
         } catch (e) {
             console.warn('[WASM] Instantiation failed:', e);
 
             // If threaded failed, try ST (recursive call will handle clean up/restore via finally)
             if (isThreaded) {
-                console.log('[WASM] Falling back to Single-Threaded build...');
+                log.warn('WASM', 'Falling back to Single-Threaded build...');
                 // We must restore before recursing, which finally block does
                 return loadEmscriptenModule(true);
             }
@@ -654,7 +641,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             // Restore original environment
             if (swapped) {
                 window.WebAssembly = originalWA;
-                console.log('[WASM] Restored original WebAssembly');
+                log.info('WASM', 'Restored original WebAssembly');
             }
             restore();
         }
@@ -798,7 +785,7 @@ export async function initWasm(): Promise<boolean> {
         startButton.style.cursor = 'wait';
     }
 
-    console.log('[WASM] initWasm called - loading Emscripten with retry');
+    log.info('WASM', 'initWasm called - loading Emscripten with retry');
 
     let loaded = false;
     let lastError: unknown;
@@ -855,7 +842,7 @@ export async function initWasm(): Promise<boolean> {
         startButton.style.cursor = 'pointer';
 
         // ♿ Aria: Announce that the loading is complete and the button is ready
-        console.log('Game ready. Press Enter to start exploration.');
+        log.info('WASM', 'Game ready. Press Enter to start exploration.');
         // ♿ Aria: Announce that the loading is complete and the button is ready.
         // Dynamic import keeps the announcer chunk off the WASM boot path.
         void import('../ui/announcer.ts').then(({ announce }) => {
@@ -873,7 +860,7 @@ export async function initWasm(): Promise<boolean> {
 
 // Deprecated: Parallel loading is no longer needed as AS is bundled synchronously (via TLA)
 export async function initWasmParallel(options: InitWasmParallelOptions = {}): Promise<boolean> {
-    console.log('[WASM] initWasmParallel routed to standard initWasm');
+    log.info('WASM', 'initWasmParallel routed to standard initWasm');
     if (options.onProgress) {
         // Simple shim for progress
         options.onProgress('start', 'Initializing...');
