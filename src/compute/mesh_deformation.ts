@@ -252,7 +252,7 @@ export class MeshDeformationCompute {
 
         // We need to use Emscripten's memory
         // Copy original positions to WASM, process, copy back
-        const emscriptenModule = (window as any).candyNative;
+        const emscriptenModule = (window as unknown as { candyNative?: { _malloc?: unknown } }).candyNative;
         if (!emscriptenModule || !emscriptenModule._malloc) return false;
 
         const bytes = vertexCount * 3 * 4; // 3 floats per vertex, 4 bytes per float
