@@ -1,0 +1,58 @@
+import type { SeasonConfig } from '../../systems/season-core.ts';
+
+/**
+ * Seasons (docs/SEASONS.md). The calendar runs on wall-clock time from the
+ * world seed, so everyone in a presence room shares a season.
+ *
+ * Palette rules (docs/CANDY_AESTHETIC_GUARDRAILS.md, "Seasonal albedo moves"):
+ * spring is the identity season, every colour stays a saturated pastel
+ * (tests/season-core.test.ts enforces the floor), `chroma` never drops below 1,
+ * and frost is a tinted cream, never white or grey.
+ */
+export const SEASON_DEFAULTS: SeasonConfig = {
+    enabled: true,
+    realDaysPerSeason: 1,
+    // Spring equinox 2026, 00:00 UTC.
+    epochMs: Date.UTC(2026, 2, 20),
+    seedPhase: true,
+    transitionFraction: 0.25,
+    // Pink-lilac powdered sugar.
+    frostColor: 0xf7eaf6,
+    palette: {
+        spring: {
+            leaf: { color: 0x7ce87c, amount: 0, frost: 0, chroma: 1 },
+            petal: { color: 0xff8fc8, amount: 0, frost: 0, chroma: 1 },
+            cap: { color: 0xff8f8f, amount: 0, frost: 0, chroma: 1 },
+            ground: { color: 0x9be36a, amount: 0, frost: 0, chroma: 1 },
+            bark: { color: 0xb0745e, amount: 0, frost: 0, chroma: 1 },
+            water: { color: 0x4fd3ff, amount: 0, frost: 0, chroma: 1 },
+        },
+        // Saturated candy: the authored colours, louder, leaves a touch fresher.
+        summer: {
+            leaf: { color: 0x6fe07a, amount: 0.1, frost: 0, chroma: 1.2 },
+            petal: { color: 0xff6fb5, amount: 0, frost: 0, chroma: 1.25 },
+            cap: { color: 0xff7a7a, amount: 0, frost: 0, chroma: 1.15 },
+            ground: { color: 0x9be36a, amount: 0.15, frost: 0, chroma: 1.1 },
+            bark: { color: 0xb0745e, amount: 0, frost: 0, chroma: 1.05 },
+            water: { color: 0x4fd3ff, amount: 0.15, frost: 0, chroma: 1.15 },
+        },
+        // Butterscotch and plum.
+        autumn: {
+            leaf: { color: 0xf2a541, amount: 0.55, frost: 0, chroma: 1 },
+            petal: { color: 0xc774c9, amount: 0.35, frost: 0, chroma: 1 },
+            cap: { color: 0xe3955a, amount: 0.3, frost: 0, chroma: 1 },
+            ground: { color: 0xd9a066, amount: 0.35, frost: 0, chroma: 1 },
+            bark: { color: 0xb0745e, amount: 0.3, frost: 0, chroma: 1 },
+            water: { color: 0x8a8fe0, amount: 0.2, frost: 0, chroma: 1 },
+        },
+        // Powdered sugar over icy lilac, never grey.
+        winter: {
+            leaf: { color: 0xc9c2f2, amount: 0.3, frost: 0.55, chroma: 1 },
+            petal: { color: 0xf2c2de, amount: 0.25, frost: 0.4, chroma: 1 },
+            cap: { color: 0xf7cfe4, amount: 0.15, frost: 0.7, chroma: 1 },
+            ground: { color: 0xe6e0fa, amount: 0.35, frost: 0.75, chroma: 1 },
+            bark: { color: 0xbf8fa8, amount: 0.1, frost: 0.2, chroma: 1 },
+            water: { color: 0xbfe3f7, amount: 0.4, frost: 0, chroma: 1 },
+        },
+    },
+};

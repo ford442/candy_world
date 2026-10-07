@@ -170,6 +170,7 @@ export class PortamentoPineBatcher {
 
     // 2. Needles: Glowing Emerald Glass
     const needleMat = createUnifiedMaterial(0x2E8B57, {
+        seasonRole: 'leaf',
         transmission: 0.4,
         roughness: 0.2,
         sheen: 1.0,

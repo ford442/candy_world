@@ -59,6 +59,12 @@ npm run test:visual -- --update
 | `lake_edge` | Lake shoreline and reflection consistency | 3s |
 | `horizon_lod` | Distant LOD tier transitions | 3s |
 | `gem_corridor_scale` | Gem canopy corridor scale/population | 3s |
+| `season_summer_forest` | Forest in summer — saturated candy palette | 3s |
+| `season_autumn_forest` | Forest in autumn — butterscotch and plum | 3s |
+| `season_winter_forest` | Forest in winter — powdered-sugar frost | 3s |
+| `season_winter_lake` | Lake edge in winter — icy water, frosted shore | 3s |
+
+Every viewpoint pins a season (default `spring`) through `window.setSeason`, because the game's season follows the wall-clock calendar.
 
 ## Spatial coherence regression
 

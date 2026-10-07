@@ -16,6 +16,8 @@ export interface Viewpoint {
   fov?: number;
   timeOfDay?: 'day' | 'night' | 'sunset' | 'dawn';
   weather?: 'clear' | 'rain' | 'storm';
+  /** Season to pin (src/systems/season-controller.ts). Default 'spring', so the live calendar never moves a baseline. */
+  season?: 'spring' | 'summer' | 'autumn' | 'winter';
   waitForStable: number;
 }
 

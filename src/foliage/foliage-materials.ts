@@ -24,7 +24,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
     // Basic organics
     // PALETTE UPDATE: Apply Interaction + Wind to standard Stem
     stem: (() => {
-        const mat = CandyPresets.Clay(0x66AA55);
+        const mat = CandyPresets.Clay(0x66AA55, { seasonRole: 'leaf' });
         // Combine Player Push + Wind Sway
         mat.positionNode = applyStandardDeformation(positionLocal);
 
@@ -37,14 +37,14 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
     })(),
 
     get flowerCenter() { return CandyPresets.Velvet(0x442211, { audioReactStrength: 0.5 }); },
-    get vine() { return CandyPresets.Clay(0x558833); },
-    get wood() { return createUnifiedMaterial(0x8B4513, { roughness: 0.9, bumpStrength: 0.3, noiseScale: 3.0 }); },
-    get leaf() { return createUnifiedMaterial(0x228B22, { roughness: 0.6, side: THREE.DoubleSide, bumpStrength: 0.1 }); },
+    get vine() { return CandyPresets.Clay(0x558833, { seasonRole: 'leaf' }); },
+    get wood() { return createUnifiedMaterial(0x8B4513, { roughness: 0.9, bumpStrength: 0.3, noiseScale: 3.0, seasonRole: 'bark' }); },
+    get leaf() { return createUnifiedMaterial(0x228B22, { roughness: 0.6, side: THREE.DoubleSide, bumpStrength: 0.1, seasonRole: 'leaf' }); },
     
     // Restored/Upgraded Materials
     // PALETTE UPDATE: Apply Interaction + Wind to Flower Stem
     flowerStem: (() => {
-        const mat = CandyPresets.Clay(0x66AA55);
+        const mat = CandyPresets.Clay(0x66AA55, { seasonRole: 'leaf' });
         // Combine Player Push + Wind Sway
         mat.positionNode = applyStandardDeformation(positionLocal);
 
@@ -107,7 +107,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
     })(),
     
     mushroomStem: (() => {
-        const mat = CandyPresets.Clay(0xF5F5DC);
+        const mat = CandyPresets.Clay(0xF5F5DC, { seasonRole: 'bark' });
         // ⚡ TSL Shaping: Apply curved profile to standard cylinder
         // Profile: r = 1.0 - (t - 0.3)^2 * 0.5
         const t = positionLocal.y; // unitCylinder is 0..1 in Y
@@ -133,11 +133,11 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
     // Diverse Mushroom Caps
     get mushroomCap() {
         return [
-            CandyPresets.Clay(0xFF6B6B),        // Matte Red
-            CandyPresets.Gummy(0xFF9F43),       // Orange Gummy
-            CandyPresets.Sugar(0xFDCB6E),       // Sugared Yellow
-            CandyPresets.Crystal(0x54A0FF),     // Blue Crystal
-            CandyPresets.OilSlick(0x222222)             // Rare Oil
+            CandyPresets.Clay(0xFF6B6B, { seasonRole: 'cap' }),        // Matte Red
+            CandyPresets.Gummy(0xFF9F43, { seasonRole: 'cap' }),       // Orange Gummy
+            CandyPresets.Sugar(0xFDCB6E, { seasonRole: 'cap' }),       // Sugared Yellow
+            CandyPresets.Crystal(0x54A0FF, { seasonRole: 'cap' }),     // Blue Crystal
+            CandyPresets.OilSlick(0x222222, { seasonRole: 'cap' })     // Rare Oil
         ];
     },
 
@@ -149,10 +149,10 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
 
     get flowerPetal() {
         return [
-            CandyPresets.Velvet(0xFF69B4, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
-            CandyPresets.Gummy(0xFFD700, { side: THREE.DoubleSide, audioReactStrength: 0.8, deformationNode: calculateFlowerBloom(positionLocal) }),
-            CandyPresets.Crystal(0xFFFFFF, { side: THREE.DoubleSide, audioReactStrength: 0.5, deformationNode: calculateFlowerBloom(positionLocal) }),
-            CandyPresets.Sugar(0x9933FF, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
+            CandyPresets.Velvet(0xFF69B4, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal), seasonRole: 'petal' }),
+            CandyPresets.Gummy(0xFFD700, { side: THREE.DoubleSide, audioReactStrength: 0.8, deformationNode: calculateFlowerBloom(positionLocal), seasonRole: 'petal' }),
+            CandyPresets.Crystal(0xFFFFFF, { side: THREE.DoubleSide, audioReactStrength: 0.5, deformationNode: calculateFlowerBloom(positionLocal), seasonRole: 'petal' }),
+            CandyPresets.Sugar(0x9933FF, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal), seasonRole: 'petal' }),
         ];
     },
 

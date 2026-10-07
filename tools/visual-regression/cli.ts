@@ -299,7 +299,7 @@ Usage: npm run test:visual [options]
 Options:
   --config, -c <path>       Config file path
   --url, -u <url>           Base URL (default: http://localhost:5173)
-  --viewpoints, -v <list>   Comma-separated viewpoints (spawn,lake,forest,forest_horizon,night,particles,weather,sunset,slope_foot,lake_edge,horizon_lod,gem_corridor_scale,circadian_night,circadian_night_mycelium)
+  --viewpoints, -v <list>   Comma-separated viewpoints (spawn,lake,forest,forest_horizon,night,particles,weather,sunset,slope_foot,lake_edge,horizon_lod,gem_corridor_scale,circadian_night,circadian_night_mycelium,season_summer_forest,season_autumn_forest,season_winter_forest,season_winter_lake)
   --qualities, -q <list>    Comma-separated qualities (low,medium,high,ultra)
   --viewports, -p <list>    Comma-separated viewports (mobile,desktop,ultrawide,tablet)
   --threshold, -t <float>   Diff threshold (default: 0.05)

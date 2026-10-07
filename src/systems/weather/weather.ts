@@ -14,6 +14,7 @@ import { uTwilight } from '../../foliage/sky.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 import { computeAtmosphereFogTargets } from '../atmosphere-fog.ts';
 import { WeatherMusicTargets } from '../music-reactivity.ts';
+import { SEASON_NAMES, SPRING, SUMMER, WINTER, type SeasonName, type SeasonState } from '../season-core.ts';
 import { WeatherState } from '../weather-types.ts';
 import { calculateTimeOfDayBias } from '../weather-utils.ts';
 import { AtmosphereManager } from './weather-atmosphere.ts';
@@ -22,7 +23,8 @@ import { EffectsManager } from './weather-effects.ts';
 
 // Scratch objects for optimization
 const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
-const _scratchSeasonalState: Cycle.SeasonalState = { season: 'Spring', sunInclination: 0, moonPhase: 0, yearProgress: 0 };
+// Sky-light inputs for the atmosphere manager: sun height from the season calendar, moon from game time.
+const _scratchSkyLight = { sunInclination: 1, moonPhase: 0 };
 
 // Music-reactive weather constants
 const THUNDER_PULSE_THRESHOLD = 0.75;  // WeatherMusicTargets.thunderPulse value that triggers a storm charge boost
@@ -41,7 +43,9 @@ export class WeatherSystem {
     weatherType: string;
     darknessFactor: number;
     targetPaletteMode: string | null;
-    currentSeason: string;
+    currentSeason: SeasonName;
+    /** Live state from the season controller, set each frame before update(). */
+    seasonState: Readonly<SeasonState> | null;
 
     // Player Control Factor
     cloudDensity: number;
@@ -163,7 +167,8 @@ export class WeatherSystem {
         this.baseFogFar = (scene.fog as THREE.Fog) ? (scene.fog as THREE.Fog).far : 100;
 
         this.lastTwilightProgress = 0;
-        this.currentSeason = 'Spring';
+        this.currentSeason = 'spring';
+        this.seasonState = null;
         this.currentLightLevel = 0;
         this.weatherType = 'audio';
         this.darknessFactor = 0;
@@ -243,6 +248,11 @@ export class WeatherSystem {
     /**
      * Main update loop - orchestrates all weather systems
      */
+    /** Season controller state for this frame (systems/season-controller.ts). */
+    setSeasonState(state: Readonly<SeasonState>): void {
+        this.seasonState = state;
+    }
+
     update(time: number, audioData: VisualState | null): void {
         if (!audioData) return;
         const dt = 0.016;
@@ -258,9 +268,10 @@ export class WeatherSystem {
         const melodyVol = (channels[2] as any)?.volume || 0;
 
         const celestial = Cycle.getCelestialState(time, _scratchCelestialState);
-        const seasonal = Cycle.getSeasonalState(time, _scratchSeasonalState);
-
-        this.currentSeason = seasonal.season;
+        const season = this.seasonState;
+        _scratchSkyLight.sunInclination = season ? season.sunInclination : 1;
+        _scratchSkyLight.moonPhase = Cycle.getMoonPhase(time);
+        if (season) this.currentSeason = SEASON_NAMES[season.current];
 
         const currentPattern = audioData.patternIndex || 0;
 
@@ -269,7 +280,7 @@ export class WeatherSystem {
 
         const cyclePos = time % CYCLE_DURATION;
         const cycleWeatherBias = calculateTimeOfDayBias(cyclePos);
-        this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);
+        this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, season ? season.current : -1);
 
         // Ground Water Update
         this.updateGroundWater();
@@ -294,7 +305,7 @@ export class WeatherSystem {
         this.lastState = this.state;
 
         // Light level and cloud density
-        this.currentLightLevel = this.atmosphereManager.getGlobalLightLevel(celestial, seasonal);
+        this.currentLightLevel = this.atmosphereManager.getGlobalLightLevel(celestial, _scratchSkyLight);
         this.targetIntensity *= this.cloudDensity;
 
         const highVol = (channels[3] as any)?.volume || 0;
@@ -312,7 +323,7 @@ export class WeatherSystem {
         );
 
         // Darkness logic
-        this.atmosphereManager.applyDarknessLogic(celestial, seasonal.moonPhase);
+        this.atmosphereManager.applyDarknessLogic(celestial, _scratchSkyLight.moonPhase);
 
         // Calculate favorability scores
         const sunPower = celestial.sunIntensity * (1.0 - this.cloudDensity * 0.7);
@@ -498,7 +509,7 @@ export class WeatherSystem {
         }
     }
 
-    private updateWeatherState(bass: number, melody: number, groove: number, cycleWeatherBias: any = null, seasonal: any = null): void {
+    private updateWeatherState(bass: number, melody: number, groove: number, cycleWeatherBias: any = null, season: number = -1): void {
         let audioState = WeatherState.CLEAR;
         let audioIntensity = 0;
 
@@ -510,15 +521,15 @@ export class WeatherSystem {
             audioIntensity = 0.5;
         }
 
-        if (seasonal) {
+        if (season >= 0) {
             const r = Math.random();
-            if (seasonal.season === 'Winter') {
+            if (season === WINTER) {
                 if (audioState === WeatherState.STORM && r > 0.3) audioState = WeatherState.RAIN;
             }
-            if (seasonal.season === 'Summer') {
+            if (season === SUMMER) {
                 if (audioState === WeatherState.RAIN && r > 0.7) audioState = WeatherState.STORM;
             }
-            if (seasonal.season === 'Spring') {
+            if (season === SPRING) {
                 if (audioState === WeatherState.CLEAR && r > 0.9) {
                     audioState = WeatherState.RAIN;
                     audioIntensity = 0.3;

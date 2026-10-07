@@ -45,6 +45,7 @@ export { AUDIO_DEFAULTS } from './audio.ts';
 export { FAUNA_DEFAULTS } from './fauna.ts';
 export { GROUND_DEFAULTS, PLAYER_DEFAULTS } from './ground.ts';
 export { PRESENCE_DEFAULTS } from './presence.ts';
+export { SEASON_DEFAULTS } from './season.ts';
 
 export { type ConfigType } from './types.ts';
 export { CONFIG } from './defaults.ts';

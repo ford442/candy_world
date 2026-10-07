@@ -173,6 +173,50 @@
             "fov": 60,
             "timeOfDay": "night",
             "waitForStable": 3000
+        },
+        {
+            "name": "season_summer_forest",
+            "description": "Forest pose in summer - saturated candy palette (docs/SEASONS.md)",
+            "biomeAnchor": "procedural forest quadrant (~-60, -60)",
+            "cameraPosition": { "x": -40, "y": 12, "z": -40 },
+            "cameraTarget": { "x": -60, "y": 5, "z": -60 },
+            "fov": 60,
+            "timeOfDay": "day",
+            "season": "summer",
+            "waitForStable": 3000
+        },
+        {
+            "name": "season_autumn_forest",
+            "description": "Forest pose in autumn - butterscotch and plum palette",
+            "biomeAnchor": "procedural forest quadrant (~-60, -60)",
+            "cameraPosition": { "x": -40, "y": 12, "z": -40 },
+            "cameraTarget": { "x": -60, "y": 5, "z": -60 },
+            "fov": 60,
+            "timeOfDay": "day",
+            "season": "autumn",
+            "waitForStable": 3000
+        },
+        {
+            "name": "season_winter_forest",
+            "description": "Forest pose in winter - powdered-sugar frost on canopies and ground",
+            "biomeAnchor": "procedural forest quadrant (~-60, -60)",
+            "cameraPosition": { "x": -40, "y": 12, "z": -40 },
+            "cameraTarget": { "x": -60, "y": 5, "z": -60 },
+            "fov": 60,
+            "timeOfDay": "day",
+            "season": "winter",
+            "waitForStable": 3000
+        },
+        {
+            "name": "season_winter_lake",
+            "description": "Lake edge in winter - icy water tint and frosted shore",
+            "biomeAnchor": "LAKE_BOUNDS east rim (maxX:78); LAKE_ISLAND center (20, 20)",
+            "cameraPosition": { "x": 72, "y": 8, "z": 18 },
+            "cameraTarget": { "x": 20, "y": 0, "z": 20 },
+            "fov": 65,
+            "timeOfDay": "day",
+            "season": "winter",
+            "waitForStable": 3000
         }
     ]
 }

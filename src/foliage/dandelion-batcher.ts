@@ -18,6 +18,7 @@ import {
     createJuicyRimLight,
     getCachedProceduralMaterial
 } from './index.ts';
+import { applySeasonTint } from './material-core/season-nodes.ts';
 import { uTwilight } from './sky.ts';
 
 const MAX_DANDELIONS = 500;
@@ -177,7 +178,7 @@ export class DandelionBatcher {
             const vPuffDir = attribute('aPuffDir', 'vec3');
 
             // 1. Base Color logic
-            m.colorNode = vColor;
+            m.colorNode = applySeasonTint(vColor, 'petal');
 
             // 2. Emission & Roughness Logic
             // Detect Gold Tip: Red > 0.5 (Stalk/Tip) AND Blue < 0.1 (Stem/Tip has low blue? No Stem has 0.18, Stalk has 1.0)

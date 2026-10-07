@@ -97,6 +97,7 @@ export class MushroomBatcher {
 
         // 4. InstancedMesh
         this.mesh = new THREE.InstancedMesh(geometry, materials, MAX_MUSHROOMS);
+        this.mesh.userData.seasonRole = 'cap';
 
         // PALETTE: Initialize instanceColor manually since we use TSL
         const colors = new Float32Array(MAX_MUSHROOMS * 3);

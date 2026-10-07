@@ -169,6 +169,24 @@ Reference circadian emissive gate: [`luminous-plant-batcher.ts`](../src/foliage/
 (`mix(nightGlowMultiplier, 1.0, uCircadianPhase)`). Reactive emissive that ignores
 `uCircadianPhase` will glow in broad daylight.
 
+### Seasonal tint (`seasonRole`)
+
+Foliage that should change with the seasons ([`SEASONS.md`](./SEASONS.md)) picks one role:
+`leaf`, `petal`, `cap`, `ground`, `bark` or `water`.
+
+- If the material's colour is the raw albedo, pass `seasonRole` to the preset:
+  `CandyPresets.Clay(0x66aa55, { seasonRole: 'leaf' })`. The tint is applied before contact
+  darkening, SSS, GI and audio glow read the colour.
+- If your `colorNode` already includes aerial perspective or contact AO, or you assign `colorNode`
+  after building the material, wrap the **raw** colour yourself:
+  `applyAerialPerspective(applySeasonTint(instanceColor, 'leaf'), positionWorld)`. Tinting after
+  aerial perspective would re-tint the distance haze.
+- Batchers registered with `registerFoliageBatcherLod` should also set
+  `mesh.userData.seasonRole`, so far impostors get the same tint on the CPU and don't pop.
+- Leave light sources, faces and eyes, fauna, particles and underground materials untinted.
+
+The tint is uniform-driven, so changing season never recompiles a shader.
+
 ---
 
 ## Music reactivity gotchas

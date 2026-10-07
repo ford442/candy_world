@@ -120,6 +120,7 @@ export class FlowerBatcher {
         // Provide aPoseState so TSL attribute('aPoseState') resolves during warmup and runtime
         this.stems.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
         this.ensureInstanceColor(this.stems);
+        this.stems.userData.seasonRole = 'leaf';
         foliageGroup.add(this.stems);
 
         // --- 2. Centers (Sphere) ---
@@ -170,6 +171,7 @@ export class FlowerBatcher {
 
             const mat = CandyPresets.Velvet(0xFFFFFF, {
                 colorNode: instanceColor, // Use instance color
+                seasonRole: 'petal',
                 deformationNode: petalDeformation, // Apply deformation with breathing
                 side: THREE.DoubleSide,
                 audioReactStrength: 1.0,
@@ -215,6 +217,7 @@ export class FlowerBatcher {
         this.petalsSimple.frustumCulled = false;
         this.petalsSimple.count = 0;
         this.petalsSimple.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
+        this.petalsSimple.userData.seasonRole = 'petal';
         foliageGroup.add(this.petalsSimple);
 
         // Multi Petals (Sphere)
@@ -228,6 +231,7 @@ export class FlowerBatcher {
         this.petalsMulti.frustumCulled = false;
         this.petalsMulti.count = 0;
         this.petalsMulti.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
+        this.petalsMulti.userData.seasonRole = 'petal';
         foliageGroup.add(this.petalsMulti);
 
         // Spiral Petals (Cone)
@@ -241,6 +245,7 @@ export class FlowerBatcher {
         this.petalsSpiral.frustumCulled = false;
         this.petalsSpiral.count = 0;
         this.petalsSpiral.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
+        this.petalsSpiral.userData.seasonRole = 'petal';
         foliageGroup.add(this.petalsSpiral);
 
         for (const mesh of [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral]) {

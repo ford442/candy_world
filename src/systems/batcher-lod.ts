@@ -9,8 +9,20 @@ import { CONFIG } from '../core/config.ts';
 import { uAerialFogColor } from '../foliage/aerial-perspective.ts';
 import { INSTANCE_LOD_ATTR, ensureInstanceLodAttribute } from '../foliage/batcher-lod-utils.ts';
 import { syncFoliageLodUniforms, uLodDebugHighlight } from '../foliage/lod-nodes.ts';
+import { seasonFrostCpu, seasonRoleCpu } from '../foliage/material-core/season-nodes.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
+import {
+    SEASON_ROLE_INDEX,
+    SEASON_ROLE_STRIDE,
+    tintRgbInPlace,
+    type SeasonRole,
+} from './season-core.ts';
+
+// Impostors are flat billboards, so frost uses one representative up-facing
+// value: roughly how much of a canopy's visible surface faces the sky.
+const IMPOSTOR_NORMAL_Y = 0.5;
+const _impostorTint = new Float32Array(3);
 
 export interface FoliageLodConfig {
     enabled: boolean;
@@ -325,6 +337,9 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
         const attrArray = attr.array as Float32Array;
         const matrixArray = mesh.instanceMatrix.array as Float32Array;
         const colorArray = mesh.instanceColor?.array as Float32Array | undefined;
+        // Same seasonal tint the mesh's material applies, so the far handoff doesn't pop.
+        const seasonRole = mesh.userData.seasonRole as SeasonRole | undefined;
+        const seasonRoleOff = seasonRole ? SEASON_ROLE_INDEX[seasonRole] * SEASON_ROLE_STRIDE : -1;
 
         for (let i = 0; i < count; i++) {
             const offset = i * 16;
@@ -359,9 +374,25 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
                         const dst = impostor.instanceColor.array as Float32Array;
                         const srcOff = i * 3;
                         const dstOff = impostorCount * 3;
-                        const sr = colorArray[srcOff];
-                        const sg = colorArray[srcOff + 1];
-                        const sb = colorArray[srcOff + 2];
+                        let sr = colorArray[srcOff];
+                        let sg = colorArray[srcOff + 1];
+                        let sb = colorArray[srcOff + 2];
+                        if (seasonRoleOff >= 0) {
+                            _impostorTint[0] = sr;
+                            _impostorTint[1] = sg;
+                            _impostorTint[2] = sb;
+                            tintRgbInPlace(
+                                _impostorTint,
+                                0,
+                                seasonRoleCpu,
+                                seasonRoleOff,
+                                seasonFrostCpu,
+                                IMPOSTOR_NORMAL_Y
+                            );
+                            sr = _impostorTint[0];
+                            sg = _impostorTint[1];
+                            sb = _impostorTint[2];
+                        }
                         dst[dstOff] = sr * (1 - aerialMix) + fogR * aerialMix;
                         dst[dstOff + 1] = sg * (1 - aerialMix) + fogG * aerialMix;
                         dst[dstOff + 2] = sb * (1 - aerialMix) + fogB * aerialMix;

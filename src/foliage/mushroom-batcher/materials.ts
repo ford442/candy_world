@@ -18,6 +18,7 @@ import {
     scaleEmissiveByLod,
     applyStandardDeformationWithLod,
     applyFoliageLodMaterialFade} from "../lod-nodes.ts";
+import { applySeasonTint } from "../material-core/season-nodes.ts";
 import { uTwilight } from "../sky.ts";
 import { modFloat } from "./constants.ts";
 
@@ -149,7 +150,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
             m.colorNode = applyBaseContactAO(
-                color(0xF5F5DC),
+                applySeasonTint(color(0xF5F5DC), 'bark'),
                 positionLocal.y,
                 float(getBaseContactHeight('mushroom')),
             );
@@ -171,7 +172,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
 
         // Base color from instance (set via register/setColorAt)
         // Uses the vInstanceColor varying populated by InstancedMeshNode
-        const baseColor = varyingProperty('vec3', 'vInstanceColor');
+        const baseColor = applySeasonTint(varyingProperty('vec3', 'vInstanceColor'), 'cap');
 
         // Add Juicy Rim Light! (Pop against background)
         // 🎨 PALETTE: Make rim light react to bass for pulsing edge glow

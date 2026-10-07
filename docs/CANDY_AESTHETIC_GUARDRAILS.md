@@ -60,6 +60,29 @@ Read docs/CANDY_AESTHETIC_GUARDRAILS.md before touching CSM/GI/AO/SSR/SSS or add
 | Physically-correct exposure sweeps | Auto-exposure hunting makes the pastel sky drift                      |
 | Desaturating albedo for "realism"  | Albedo is never desaturated — tint the _light_, never the base colour |
 
+The one sanctioned albedo change is the seasonal tint below. It is a deliberate policy exception,
+not a loophole: it never desaturates, and it is the only code allowed to move base colours.
+
+---
+
+## Seasonal albedo moves
+
+Seasons ([`SEASONS.md`](./SEASONS.md)) repaint foliage through `applySeasonTint` /
+`seasonRole` ([`season-nodes.ts`](../src/foliage/material-core/season-nodes.ts)). Leaves turning
+butterscotch is an albedo change by nature, so the rule above is relaxed for it under these terms:
+
+- **Spring is identity.** Spring's palette entries are amount 0, frost 0, chroma 1, and the tint is
+  exact at those values: the authored art is what spring shows.
+- **Hue moves, luminance stays.** The tint moves a colour toward an authored pastel at the
+  colour's own luminance. `chroma` may raise saturation (summer) but never lower it.
+- **Every palette colour is a saturated pastel.** `npm run test:season` fails any entry in
+  `CONFIG.season.palette` (and `CONFIG.season.frostColor`) below HSL saturation 0.25, below chroma
+  0.04, or outside lightness 0.4–0.95.
+- **Winter is powdered sugar, not grey.** Frost mixes toward a tinted cream on upward faces only,
+  and never more than 80%.
+- **Exempt:** anything that emits light (lanterns, luminous plants, gem fruit, Night Market), faces
+  and eyes, fauna, particles, and everything underground.
+
 ---
 
 ## Palette reminders
@@ -92,7 +115,8 @@ Read docs/CANDY_AESTHETIC_GUARDRAILS.md before touching CSM/GI/AO/SSR/SSS or add
 - [ ] Screenshot attached, or the look described in words ("pastel bounce off the pink caps").
 - [ ] **If it looks like a renderer sample, it is wrong.** Re-tune before merging.
 - [ ] No new grey: shadows, cavities, and bounce still carry hue.
-- [ ] Albedo untouched — light was tinted, base colours were not desaturated.
+- [ ] Albedo untouched — light was tinted, base colours were not desaturated (seasonal roles
+      excepted; see [Seasonal albedo moves](#seasonal-albedo-moves)).
 - [ ] `low` tier checked visually and still reads as candy.
 - [ ] Motion-heavy effects respect `prefers-reduced-motion`.
 - [ ] Tuned constants carry a `// PALETTE:` or `// Visual Impact:` comment.

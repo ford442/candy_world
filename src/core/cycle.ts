@@ -206,57 +206,14 @@ export function getSunArcAngle(cyclePos: number): number {
     return Math.PI + (Math.PI * intoNight) / (CYCLE_DURATION - SUN_DAY_ARC);
 }
 
-// Year = 40 Days (10 days per season)
-const YEAR_LENGTH = CYCLE_DURATION * 40; // 40 in-game days per year
-// Moon cycle = 8 days so it slowly drifts against the 10-day seasons
-const MOON_CYCLE_LENGTH = CYCLE_DURATION * 8; // Full moon every 8 days
+// Moon cycle = 8 game days. Seasons now run on a wall-clock calendar
+// (systems/season-core.ts); the moon stays on game time because night darkness
+// and fog read it every frame.
+const MOON_CYCLE_LENGTH = CYCLE_DURATION * 8;
 
-export interface SeasonalState {
-    season: 'Spring' | 'Summer' | 'Autumn' | 'Winter';
-    sunInclination: number;
-    moonPhase: number;
-    yearProgress: number;
-}
-
-export function getSeasonalState(tRaw: number, out?: SeasonalState): SeasonalState {
-    // 1. Calculate Year Progress (0.0 to 1.0)
-    // 0.0 = Spring Start
-    // 0.25 = Summer Start
-    // 0.5 = Autumn Start
-    // 0.75 = Winter Start
-    const yearProgress = (tRaw % YEAR_LENGTH) / YEAR_LENGTH;
-    
-    let season: 'Spring' | 'Summer' | 'Autumn' | 'Winter' = 'Spring';
-    if (yearProgress > 0.75) season = 'Winter';
-    else if (yearProgress > 0.5) season = 'Autumn';
-    else if (yearProgress > 0.25) season = 'Summer';
-
-    // 2. Calculate Sun Inclination (Declination)
-    // Summer (0.25) = Highest (+23.5 deg equiv), Winter (0.75) = Lowest (-23.5 deg equiv)
-    // We map this to a factor 0.0 (Winter) to 1.0 (Summer)
-    // Sine wave peaks at 0.25 (Summer Solstice)
-    const sunInclination = (Math.sin((yearProgress * Math.PI * 2) - (Math.PI / 2)) * 0.5) + 0.5;
-
-    // 3. Calculate Moon Phase
-    // 0.0 = New Moon, 0.5 = Full Moon, 1.0 = New Moon
-    const moonProgress = (tRaw % MOON_CYCLE_LENGTH) / MOON_CYCLE_LENGTH;
-    
-    // Simple visual phase (0 = Empty, 1 = Full)
-    // Full at 0.5
-    const moonPhase = 1.0 - Math.abs(moonProgress - 0.5) * 2.0;
-
-    if (out) {
-        out.season = season;
-        out.sunInclination = sunInclination;
-        out.moonPhase = moonPhase;
-        out.yearProgress = yearProgress;
-        return out;
-    }
-
-    return {
-        season,
-        sunInclination, // 0.0 (Low/Winter) to 1.0 (High/Summer)
-        moonPhase,      // 0.0 (New) to 1.0 (Full)
-        yearProgress
-    };
+/** Moon phase for world time: 0 = new, 1 = full (at the cycle midpoint). */
+export function getMoonPhase(tRaw: number): number {
+    const p = tRaw % MOON_CYCLE_LENGTH;
+    const moonProgress = (p < 0 ? p + MOON_CYCLE_LENGTH : p) / MOON_CYCLE_LENGTH;
+    return 1.0 - Math.abs(moonProgress - 0.5) * 2.0;
 }

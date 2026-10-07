@@ -1,4 +1,5 @@
 import type { PlantPoseConfig } from '../../foliage/plant-pose-machine.ts';
+import type { SeasonConfig } from '../../systems/season-core.ts';
 import type { EntityScaleEntry } from './palette.ts';
 
 export interface ConfigType {
@@ -523,6 +524,9 @@ export interface ConfigType {
             };
         };
     };
+
+    /** Seasons: wall-clock calendar, palette and frost (docs/SEASONS.md). */
+    season: SeasonConfig;
 
     presence: {
         /** Master enable — also requires FEATURE_FLAGS.presence and Supabase env vars. */

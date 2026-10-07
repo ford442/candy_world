@@ -29,6 +29,7 @@ import {
     uAudioLow,
     uPlayerPosition
 } from './index.ts';
+import { applySeasonTint } from './material-core/season-nodes.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';
 
@@ -155,7 +156,7 @@ export class SimpleFlowerBatcher {
             audioReactStrength: 1.0 // Adds subtle vibration/pulse
         });
 
-        petalMat.colorNode = instanceColor;
+        petalMat.colorNode = applySeasonTint(instanceColor, 'petal');
         petalMat.sheenNode = instanceColor;
 
         // 3. Add Juicy Rim Light (Neon Edge)

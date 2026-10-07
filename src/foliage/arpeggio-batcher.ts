@@ -31,6 +31,7 @@ import {
     uPlayerPosition,
     applyBaseContactAO,
     getBaseContactHeight} from './index.ts';
+import { applySeasonTint } from './material-core/season-nodes.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 
@@ -321,7 +322,7 @@ export class ArpeggioFernBatcher {
         // Mix instance color into base color, then apply distance-driven aerial perspective
         material.colorNode = applyBaseContactAO(
             applyAerialPerspective(
-                mixedColor.mul(baseInstanceColor),
+                applySeasonTint(mixedColor.mul(baseInstanceColor), 'leaf'),
                 positionWorld,
             ),
             positionLocal.y,

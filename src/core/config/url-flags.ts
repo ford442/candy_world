@@ -36,6 +36,9 @@
 //                           (WebGL / CI) unless forced with ?softBody=force
 //   ?heroAnim=1           — hero clip animation staging area: one glTF rig on a
 //                           pedestal near spawn (J cycles clips, K stop/start)
+//   ?season=autumn        — pin a season (spring|summer|autumn|winter); never saved
+//   ?seasonSpeed=N        — run the season calendar N× fast from page load
+//                           (docs/SEASONS.md)
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).

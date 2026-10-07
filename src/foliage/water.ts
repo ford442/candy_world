@@ -48,6 +48,7 @@ export function createWaveformWater(width: number = 400, depth: number = 400): T
     // Use SeaJelly preset for the "Cute Clay" water look
     // Wobbly, wet, very translucent, high transmission
     const material = CandyPresets.SeaJelly(0x44AAFF, {
+        seasonRole: 'water',
         roughness: 0.1,
         metalness: 0.1,
         transmission: 0.9,
