@@ -66,6 +66,9 @@ const _scratchParticleAudioDataMist = { kick: 0, low: 0, mid: 0 } as any;
 export class EffectsManager {
     private scene: THREE.Scene;
     private state: EffectsState;
+    // The lightning light belongs to the shared point pool under a fixed id; a second
+    // release could free a slot that a newer EffectsManager has since re-acquired.
+    private lightningHeld = true;
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -110,6 +113,7 @@ export class EffectsManager {
      * Initialize rainbow effect
      */
     initRainbow(): void {
+        this.disposeRainbow();
         this.state.rainbow = createRainbow();
         this.state.rainbow.position.set(0, -20, -100);
         this.state.rainbow.scale.setScalar(2.0);
@@ -120,8 +124,25 @@ export class EffectsManager {
      * Initialize aurora effect
      */
     initAurora(): void {
+        this.disposeAurora();
         this.state.aurora = createAurora();
         this.scene.add(this.state.aurora);
+    }
+
+    // createAurora()/createRainbow() build fresh geometry + material per call (only the
+    // module-level uniforms are shared), so a re-init must release the previous mesh.
+    private disposeAurora(): void {
+        if (this.state.aurora) {
+            safeRemoveAndDispose(this.scene, this.state.aurora);
+            this.state.aurora = null;
+        }
+    }
+
+    private disposeRainbow(): void {
+        if (this.state.rainbow) {
+            safeRemoveAndDispose(this.scene, this.state.rainbow);
+            this.state.rainbow = null;
+        }
     }
 
     /**
@@ -366,29 +387,31 @@ export class EffectsManager {
      * Dispose of all effects
      */
     dispose(): void {
-        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow, aurora } =
-            this.state;
+        const state = this.state;
 
-        if (percussionRain) {
-            percussionRain.dispose();
-            if (rainMesh) {
-                safeRemoveAndDispose(this.scene, rainMesh);
-            }
+        if (state.percussionRain) {
+            state.percussionRain.dispose();
+            state.percussionRain = null;
         }
-        if (melodicMist) {
-            melodicMist.dispose();
-            if (mistMesh) {
-                safeRemoveAndDispose(this.scene, mistMesh);
-            }
+        // Meshes are released on their own: the integrated-rain fallback can hand back a
+        // rainMesh without a compute system, which the old nested check never removed.
+        if (state.rainMesh) {
+            safeRemoveAndDispose(this.scene, state.rainMesh);
+            state.rainMesh = null;
         }
-        if (lightningLight) {
+        if (state.melodicMist) {
+            state.melodicMist.dispose();
+            state.melodicMist = null;
+        }
+        if (state.mistMesh) {
+            safeRemoveAndDispose(this.scene, state.mistMesh);
+            state.mistMesh = null;
+        }
+        if (this.lightningHeld) {
             releaseLocalLight(getLightningLightId());
+            this.lightningHeld = false;
         }
-        if (rainbow) {
-            safeRemoveAndDispose(this.scene, rainbow);
-        }
-        if (aurora) {
-            safeRemoveAndDispose(this.scene, aurora);
-        }
+        this.disposeRainbow();
+        this.disposeAurora();
     }
 }
