@@ -424,3 +424,8 @@ input:focus-visible + label,
     position: relative;
     top: -1px;
 }
+
+/* 🎨 Palette: Accessibility Polish */
+.secondary-button[aria-disabled='true'] {
+    filter: grayscale(100%) brightness(50%);
+}
