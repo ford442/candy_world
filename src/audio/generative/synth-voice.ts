@@ -9,6 +9,9 @@ export class SynthVoice {
     private ctx: AudioContext;
     private masterGain: GainNode;
     private filterCutoffBase: number;
+    /** Send into a shared convolver; built the first time a season asks for reverb. */
+    private reverbSend: GainNode | null = null;
+    private reverbWet = 0;
 
     constructor(ctx: AudioContext, masterGain: GainNode, filterCutoffBase = 2400) {
         this.ctx = ctx;
@@ -18,6 +21,39 @@ export class SynthVoice {
 
     setBrightness(brightness: number): void {
         this.filterCutoffBase = 800 + brightness * 7200;
+    }
+
+    /** Reverb send level 0..1 (winter adds space). 0 costs nothing: no convolver is built. */
+    setReverbWet(wet: number): void {
+        const w = Math.max(0, Math.min(1, wet));
+        if (w > 0.001 && !this.reverbSend) this.buildReverb();
+        if (this.reverbSend && w !== this.reverbWet) {
+            this.reverbSend.gain.setTargetAtTime(w, this.ctx.currentTime, 0.5);
+        }
+        this.reverbWet = w;
+    }
+
+    /** One stereo convolver with a seeded noise-burst impulse response, built once. */
+    private buildReverb(): void {
+        const seconds = 2.4;
+        const length = Math.floor(this.ctx.sampleRate * seconds);
+        const ir = this.ctx.createBuffer(2, length, this.ctx.sampleRate);
+        let seed = 0x5eed;
+        for (let c = 0; c < 2; c++) {
+            const data = ir.getChannelData(c);
+            for (let i = 0; i < length; i++) {
+                seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+                const decay = 1 - i / length;
+                data[i] = (seed / 2147483648 - 1) * decay * decay * decay;
+            }
+        }
+        const convolver = this.ctx.createConvolver();
+        convolver.buffer = ir;
+        const send = this.ctx.createGain();
+        send.gain.value = 0;
+        send.connect(convolver);
+        convolver.connect(this.masterGain);
+        this.reverbSend = send;
     }
 
     playNote(
@@ -72,6 +108,7 @@ export class SynthVoice {
         } else {
             gain.connect(this.masterGain);
         }
+        if (this.reverbSend && this.reverbWet > 0.001) gain.connect(this.reverbSend);
 
         osc.start(t);
         osc.stop(t + durationSec + release + 0.05);

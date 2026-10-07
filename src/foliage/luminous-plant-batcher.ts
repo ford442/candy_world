@@ -15,6 +15,7 @@ import {
     scaleEmissiveByLod,
     applyStandardDeformationWithLod,
     applyFoliageLodMaterialFade} from './lod-nodes.ts';
+import { uSeasonLuminousBoost } from './material-core/season-nodes.ts';
 import { uTime, createJuicyRimLight, applyBaseContactAO, getBaseContactHeight } from './material-core.ts';
 import { uTwilight } from './sky.ts';
 
@@ -132,7 +133,8 @@ export class LuminousPlantBatcher {
             emissiveWithCircadian = emissiveWithCircadian.mul(awakenedBoost).add(persistentGlow);
         }
 
-        mat.emissiveNode = scaleEmissiveByLod(emissiveWithCircadian);
+        // Winter nights glow brighter (CONFIG.season.luminousBoost).
+        mat.emissiveNode = scaleEmissiveByLod(emissiveWithCircadian.mul(uSeasonLuminousBoost));
 
         const skyWaveTint = luminousUniforms.noteColor.mul(0.18);
         mat.emissiveNode = (mat.emissiveNode as any).add(skyWaveTint);

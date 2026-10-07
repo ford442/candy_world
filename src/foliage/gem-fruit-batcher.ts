@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import {
-    color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep, normalLocal
+    color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep, normalLocal, fract
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getCIAdjustedCount } from '../core/config.ts';
@@ -13,6 +13,7 @@ import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { sampleEntityScale } from '../world/entity-scale.ts';
 import { foliageGroup } from '../world/state.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
+import { seasonDensityKeep, uSeasonSpawn } from './material-core/season-nodes.ts';
 import {
     CandyPresets,
     uTime,
@@ -84,7 +85,11 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
         swayed.x.mul(sin(twist)).add(swayed.z.mul(cos(twist)))
     );
     // Pendulum + wind: applyStandardDeformation gives the broad atmospheric drift and player interaction.
-    mat.positionNode = applyStandardDeformation(twisted);
+    // Seasons thin the gems (CONFIG.season.spawnScale.gemFruit). aPhase is uniform
+    // in [0, 2π) and moves with its instance on swap-with-last removal, so it is a
+    // stable per-gem key.
+    const seasonKeep = seasonDensityKeep(fract(aPhase.mul(1 / (Math.PI * 2))), uSeasonSpawn.gemFruit);
+    mat.positionNode = applyStandardDeformation(twisted.mul(seasonKeep));
 
     // Visual Impact: emissive pulse on shimmer — visible bloom response on crescendo.
     // shimmerGlow is the sustained melody glow; beatPulse is the kick-hit flash.

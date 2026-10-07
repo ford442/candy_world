@@ -32,6 +32,7 @@ import {
     uWindStrength,
     createSugarSparkle,
 } from './index.ts';
+import { seasonSpawnCpu } from './material-core/season-nodes.ts';
 import { createJuicyRimLight } from './material-core.ts';
 
 const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
@@ -293,7 +294,9 @@ export function spawnDandelionExplosion(center: THREE.Vector3, count: number = 2
         _spawnHeadStart = _head;
     }
 
-    const limit = Math.min(count, ud.maxSpawnsPerFrame - _currentStageOffset);
+    // Fewer seeds per burst out of season (CONFIG.season.spawnScale.dandelionSeeds).
+    const seasonal = Math.round(count * seasonSpawnCpu.dandelionSeeds);
+    const limit = Math.min(seasonal, ud.maxSpawnsPerFrame - _currentStageOffset);
     if (limit <= 0) return;
 
     const now =

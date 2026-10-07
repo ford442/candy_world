@@ -1,3 +1,4 @@
+import type { SeasonMusicModifier } from '../../systems/season-core.ts';
 import type { ChannelData, VisualState } from '../audio-system-core.ts';
 import { decayTowards, noteToFreq } from '../audio-system-core.ts';
 import {
@@ -7,6 +8,7 @@ import {
     type BiomeMusicProfile,
 } from './biome-profiles.ts';
 import { noteNameToChromaticIndex } from './scales.ts';
+import { applySeasonMusicModifier } from './season-music.ts';
 import { GenerativeSequencer, NUM_CHANNELS, CHANNEL_VOICES, STEPS_PER_BAR } from './sequencer.ts';
 import { SynthVoice } from './synth-voice.ts';
 
@@ -42,6 +44,13 @@ export class GenerativeEngine {
     private onNoteCallback: GenerativeNoteCallback | null = null;
     private readonly seed: number;
     private masterVolume = 1.0;
+    /** Season shaping applied after every biome blend; identity until the game loop sets it. */
+    private readonly seasonMod: SeasonMusicModifier = {
+        tempoScale: 1,
+        brightnessShift: 0,
+        densityScale: 1,
+        reverbWet: 0,
+    };
 
     constructor(options: GenerativeEngineOptions = {}) {
         this.seed = options.seed ?? 0xca4d0001;
@@ -118,9 +127,19 @@ export class GenerativeEngine {
         const from = getBiomeProfile(this.previousBiome);
         const to = getBiomeProfile(this.targetBiome);
         blendProfiles(from, to, this.biomeBlend, _blendScratch);
+        applySeasonMusicModifier(_blendScratch, this.seasonMod);
         this.activeProfile = _blendScratch;
         this.sequencer.setProfile(this.activeProfile);
         this.synth?.setBrightness(this.activeProfile.brightness);
+        this.synth?.setReverbWet(this.seasonMod.reverbWet);
+    }
+
+    /** Season shaping (systems/season-core.ts); takes effect at the next biome update. */
+    setSeasonModifier(mod: Readonly<SeasonMusicModifier>): void {
+        this.seasonMod.tempoScale = mod.tempoScale;
+        this.seasonMod.brightnessShift = mod.brightnessShift;
+        this.seasonMod.densityScale = mod.densityScale;
+        this.seasonMod.reverbWet = mod.reverbWet;
     }
 
     setDayNightBias(bias: number): void {

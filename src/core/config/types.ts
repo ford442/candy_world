@@ -1,5 +1,6 @@
 import type { PlantPoseConfig } from '../../foliage/plant-pose-machine.ts';
-import type { SeasonConfig, SeasonName } from '../../systems/season-core.ts';
+import type { FaunaSeasonConfig } from '../../systems/fauna/behavior.ts';
+import type { SeasonConfig, SeasonMusicConfig, SeasonName } from '../../systems/season-core.ts';
 import type { WeatherFrontConfig } from '../../systems/weather/weather-fronts-core.ts';
 import type { EntityScaleEntry } from './palette.ts';
 
@@ -532,6 +533,22 @@ export interface ConfigType {
         weather: WeatherFrontConfig;
         /** Gust swell multiplier per season (autumn is the windy one). */
         windGustScale: Record<SeasonName, number>;
+        /** Fauna population, roosting and migration. */
+        fauna: FaunaSeasonConfig;
+        /**
+         * Share of each spawned population shown, per season. Spring is 1: seasons
+         * can only thin what world generation placed, never add to it.
+         */
+        spawnScale: {
+            berries: Record<SeasonName, number>;
+            gemFruit: Record<SeasonName, number>;
+            fireflies: Record<SeasonName, number>;
+            dandelionSeeds: Record<SeasonName, number>;
+        };
+        /** Generative soundtrack shaping, layered on the biome profile. */
+        music: SeasonMusicConfig;
+        /** Multiplier on luminous-plant glow — winter nights glow brighter. */
+        luminousBoost: Record<SeasonName, number>;
     };
 
     presence: {

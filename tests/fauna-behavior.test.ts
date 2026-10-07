@@ -11,11 +11,21 @@
 
 import {
     FaunaBehaviorRunner,
+    applyFaunaSeason,
+    computeActiveFaunaCount,
+    createFaunaSeasonModifiers,
     getFaunaSpeciesProfile,
     listFaunaSpeciesProfiles,
     registerFaunaSpecies,
     setFaunaScatterSink,
 } from '../src/systems/fauna/behavior.ts';
+import { SEASON_DEFAULTS } from '../src/core/config/season.ts';
+import {
+    SPRING,
+    WINTER,
+    computeSeasonState,
+    createSeasonState,
+} from '../src/systems/season-core.ts';
 import {
     FAUNA_BOID_STRIDE,
     FaunaSpecies,
@@ -285,7 +295,148 @@ console.log('\nEdge cases');
 }
 
 // ---------------------------------------------------------------------------
-// 7. Allocation budget
+// 7. Seasons (CONFIG.season.fauna)
+// ---------------------------------------------------------------------------
+
+console.log('\nSeasons');
+{
+    const ring = (n: number) =>
+        Array.from({ length: n }, (_, i) => ({
+            species: (i % 3) as FaunaSpecies,
+            x: Math.cos(i) * 20,
+            z: Math.sin(i) * 20,
+        }));
+
+    // Identity modifiers are bit-for-bit the pre-season behaviour.
+    {
+        const a = makeFixture(ring(12));
+        const b = makeFixture(ring(12));
+        const plain = new FaunaBehaviorRunner(7);
+        const seasonal = new FaunaBehaviorRunner(7);
+        seasonal.setSeasonModifiers(createFaunaSeasonModifiers());
+        for (let i = 0; i < 3000; i++) {
+            const px = Math.sin(i * 0.01) * 25;
+            plain.update(a.entries, a.heap, 0, 1 / 60, px, 1, 0);
+            seasonal.update(b.entries, b.heap, 0, 1 / 60, px, 1, 0);
+        }
+        const sameHeap = a.heap.every((v, i) => v === b.heap[i]);
+        const sameStates = a.entries.every(
+            (e, i) => e.component.state === b.entries[i].component.state
+        );
+        check('identity season modifiers change nothing', sameHeap && sameStates);
+    }
+
+    // Winter roosting: a higher settle chance keeps more critters settled.
+    {
+        const settledShare = (settleScale: number): number => {
+            const { entries, heap } = makeFixture(
+                Array.from({ length: 20 }, (_, i) => ({
+                    species: FaunaSpecies.GumdropBeetle,
+                    x: i,
+                    z: 0,
+                }))
+            );
+            const runner = new FaunaBehaviorRunner(11);
+            const mods = createFaunaSeasonModifiers();
+            mods.settleScale = settleScale;
+            runner.setSeasonModifiers(mods);
+            let settled = 0;
+            let samples = 0;
+            for (let i = 0; i < 6000; i++) {
+                const stats = runner.update(entries, heap, 0, 1 / 60, 500, 1, 500);
+                settled += stats.idle + stats.perch;
+                samples += entries.length;
+            }
+            return settled / samples;
+        };
+        const base = settledShare(1);
+        const winter = settledShare(3);
+        check(
+            'a higher settle scale keeps more critters settled',
+            winter > base * 1.5,
+            `${base.toFixed(3)} → ${winter.toFixed(3)}`
+        );
+    }
+
+    // Parked critters are skipped entirely.
+    {
+        const { entries, heap } = makeFixture([
+            { species: FaunaSpecies.SugarMoth, x: 50, z: 50 },
+            { species: FaunaSpecies.GumdropBeetle, x: 0, z: 0 },
+        ]);
+        const runner = new FaunaBehaviorRunner(5);
+        const mods = createFaunaSeasonModifiers();
+        mods.activeCount = 1;
+        runner.setSeasonModifiers(mods);
+        const before = heap.slice();
+        const stats = runner.update(entries, heap, 0, 1 / 60, 0, 1, 0); // player on top of the beetle
+        const b = FAUNA_BOID_STRIDE;
+        const untouched = heap.slice(b, 2 * b).every((v, i) => v === before[b + i]);
+        check(
+            'entries at or above activeCount are not simulated',
+            untouched && entries[1].component.state === FaunaState.Wander && stats.flee === 0
+        );
+    }
+
+    // Autumn migration nudges perching species toward a roost, nobody else.
+    {
+        const { entries, heap } = makeFixture([
+            { species: FaunaSpecies.SugarMoth, x: 0, z: 0 },
+            { species: FaunaSpecies.GumdropBeetle, x: 0, z: 1 },
+        ]);
+        const runner = new FaunaBehaviorRunner(9);
+        // Never settle, so every frame is a roam frame.
+        const mods = createFaunaSeasonModifiers();
+        mods.settleScale = 0;
+        mods.migrationStrength = 0.6;
+        mods.migrationTargets = new Float32Array([100, 0]);
+        mods.migrationTargetCount = 1;
+        runner.setSeasonModifiers(mods);
+        runner.update(entries, heap, 0, 1 / 60, 500, 1, 500);
+        const moth = heap[3];
+        const beetle = Math.hypot(heap[FAUNA_BOID_STRIDE + 3], heap[FAUNA_BOID_STRIDE + 5]);
+        check(
+            'migration pulls a moth toward its roost',
+            moth > 0 && Math.abs(heap[5]) < 1e-6,
+            `vx ${moth}`
+        );
+        check('migration leaves species that cannot perch alone', beetle === 0);
+
+        heap[0] = 98; // within the arrive radius
+        heap[3] = 0;
+        runner.update(entries, heap, 0, 1 / 60, 500, 1, 500);
+        check('migrants stop pulling once they reach the roost', heap[3] === 0);
+    }
+
+    // Season → modifiers.
+    {
+        check('roost flocks are never parked', computeActiveFaunaCount(96, 30, 0.1) === 30);
+        check('flock scale thins terrain critters', computeActiveFaunaCount(96, 10, 0.5) === 48);
+        check('full flock is everyone', computeActiveFaunaCount(96, 10, 1) === 96);
+
+        const cal = { ...SEASON_DEFAULTS, seedPhase: false };
+        const winter = computeSeasonState(0, 1, cal, WINTER, createSeasonState());
+        const spring = computeSeasonState(0, 1, cal, SPRING, createSeasonState());
+        const out = createFaunaSeasonModifiers();
+        applyFaunaSeason(spring, SEASON_DEFAULTS.fauna, 96, 12, null, out);
+        check(
+            'spring is the identity season for fauna',
+            out.activeCount === 96 &&
+                out.settleScale === 1 &&
+                out.settleDurationScale === 1 &&
+                out.migrationStrength === 0
+        );
+        applyFaunaSeason(winter, SEASON_DEFAULTS.fauna, 96, 12, null, out);
+        check(
+            'winter thins the flock and roosts more',
+            out.activeCount < 96 && out.activeCount >= 12 && out.settleScale > 1,
+            `active ${out.activeCount}, settle ×${out.settleScale}`
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 8. Allocation budget
 // ---------------------------------------------------------------------------
 
 console.log('\nAllocation');
@@ -299,6 +450,13 @@ console.log('\nAllocation');
     const { entries, heap } = makeFixture(specs);
     const runner = new FaunaBehaviorRunner(10);
     runner.resize(COUNT);
+    // Exercise the seasonal paths too: migration and settle scaling.
+    const seasonMods = createFaunaSeasonModifiers();
+    seasonMods.settleScale = 2;
+    seasonMods.migrationStrength = 0.6;
+    seasonMods.migrationTargets = new Float32Array([40, 40, -40, 40]);
+    seasonMods.migrationTargetCount = 2;
+    runner.setSeasonModifiers(seasonMods);
 
     const gc = (globalThis as any).gc as (() => void) | undefined;
     const ITERATIONS = 20000;

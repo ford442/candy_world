@@ -73,6 +73,10 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera();
 // applySeasonTint's frost gate; present in a fragment shader only if the tint was built.
 const FROST_GATE = 'smoothstep( 0.2, 0.85,';
+// seasonDensityKeep's soft edge; present in a vertex shader only if the keep-mask was built.
+const DENSITY_EDGE = '- 0.04 )';
+// Vertex shaders from the most recent build() call.
+const vertexShaders = [];
 
 const NAGA = spawnSync('naga', ['--version'], { encoding: 'utf8' }).status === 0;
 const wgslDir = NAGA ? mkdtempSync(join(tmpdir(), 'season-wgsl-')) : null;
@@ -100,6 +104,7 @@ function validateWgsl(label, stage, code) {
 function build(label, object) {
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     const shaders = [];
+    vertexShaders.length = 0;
     for (const material of materials) {
         try {
             const target = Array.isArray(object.material) ? object.clone() : object;
@@ -114,6 +119,7 @@ function build(label, object) {
             if (!validateWgsl(label, 'vertex', b.vertexShader)) return [];
             if (!validateWgsl(label, 'fragment', b.fragmentShader)) return [];
             shaders.push(b.fragmentShader);
+            vertexShaders.push(b.vertexShader);
         } catch (err) {
             assert(false, `${label}: WGSL build threw — ${err.message}`);
             return [];
@@ -252,6 +258,29 @@ for (const preset of ['Clay', 'Gummy', 'Sugar', 'Velvet', 'Crystal', 'SeaJelly',
     const { portamentoPineBatcher } = await import('../src/foliage/portamento-batcher.ts');
     portamentoPineBatcher.init();
     expectTinted('portamento needles (leaf role)', portamentoPineBatcher.needleMesh);
+}
+
+{
+    const expectThinned = (label, object) => {
+        const shaders = build(label, object);
+        if (shaders.length === 0) return;
+        assert(
+            vertexShaders.every((vs) => vs.includes(DENSITY_EDGE)),
+            `${label}: builds and carries the seasonal density mask`
+        );
+    };
+    const { BerryBatcher } = await import('../src/foliage/berries.ts');
+    expectThinned('berries (spawnScale.berries)', BerryBatcher.getInstance().mesh);
+
+    const { gemFruitBatcher } = await import('../src/foliage/gem-fruit-batcher.ts');
+    expectThinned('gem fruit (spawnScale.gemFruit)', gemFruitBatcher.meshes[0]);
+
+    const { createFireflies } = await import('../src/foliage/fireflies.ts');
+    expectThinned('fireflies (spawnScale.fireflies)', createFireflies(16, 10));
+
+    const { luminousPlantBatcher } = await import('../src/foliage/luminous-plant-batcher.ts');
+    const luminous = build('luminous plants (luminousBoost)', luminousPlantBatcher.mesh);
+    assert(luminous.length === 1, 'luminous plants (luminousBoost): builds');
 }
 
 if (NAGA) {

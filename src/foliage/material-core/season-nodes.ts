@@ -9,7 +9,7 @@
  * light consume it, so distance haze and grounding act on the seasonal colour.
  */
 import * as THREE from 'three';
-import { dot, max, min, mix, normalWorld, smoothstep, uniform, vec3 } from 'three/tsl';
+import { dot, float, hash, max, min, mix, normalWorld, smoothstep, uniform, vec3 } from 'three/tsl';
 import type { Node } from 'three/webgpu';
 import {
     LUMA_B,
@@ -77,4 +77,54 @@ export function applySeasonTint(base: Node | ColorNode, role: SeasonRole): Color
     const tinted = mix(saturated, min(_roleTarget[i].mul(lum), vec3(1.0)), params.x);
     const frost = params.y.mul(smoothstep(0.2, 0.85, normalWorld.y)).mul(0.8);
     return mix(tinted, uSeasonFrostColor, frost) as unknown as ColorNode;
+}
+
+/**
+ * Share of each seasonal population shown (CONFIG.season.spawnScale), applied
+ * in the vertex stage by `seasonDensityKeep`. 1 = everything world generation
+ * placed; seasons only ever thin it.
+ */
+export const uSeasonSpawn = {
+    berries: uniform(1.0),
+    gemFruit: uniform(1.0),
+    fireflies: uniform(1.0),
+};
+
+/** Luminous-plant glow multiplier (CONFIG.season.luminousBoost). */
+export const uSeasonLuminousBoost = uniform(1.0);
+
+/** CPU copies of the spawn scales, for CPU-side spawners (dandelion seeds, falling berries). */
+export const seasonSpawnCpu = { berries: 1, gemFruit: 1, fireflies: 1, dandelionSeeds: 1 };
+
+export function writeSeasonSpawn(
+    berries: number,
+    gemFruit: number,
+    fireflies: number,
+    dandelionSeeds: number,
+    luminousBoost: number
+): void {
+    uSeasonSpawn.berries.value = berries;
+    uSeasonSpawn.gemFruit.value = gemFruit;
+    uSeasonSpawn.fireflies.value = fireflies;
+    uSeasonLuminousBoost.value = luminousBoost;
+    seasonSpawnCpu.berries = berries;
+    seasonSpawnCpu.gemFruit = gemFruit;
+    seasonSpawnCpu.fireflies = fireflies;
+    seasonSpawnCpu.dandelionSeeds = dandelionSeeds;
+}
+
+/** Stable 0..1 key for an instance index (PCG hash). Use only where indices never get reshuffled. */
+export function instanceKey01(index: Node): ColorNode {
+    return hash($sn(index)) as unknown as ColorNode;
+}
+
+/**
+ * Vertex-scale multiplier: 1 for instances kept at `density`, 0 for the rest.
+ * `key01` must be uniform in [0, 1) and fixed per instance, so the same
+ * instances disappear first every time. The soft edge fades instances in and
+ * out as density drifts across a season boundary. Exactly 1 at density 1.
+ */
+export function seasonDensityKeep(key01: Node | ColorNode, density: Node | ColorNode): ColorNode {
+    const k = $sn(key01 as Node);
+    return smoothstep(k.sub(0.04), k, float($sn(density as Node))) as unknown as ColorNode;
 }

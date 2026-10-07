@@ -20,6 +20,7 @@
  * allocates nothing per frame — no closures, no temporaries.
  */
 
+import { blendSeasonScalar, type SeasonName, type SeasonState } from '../season-core.ts';
 import { FAUNA_BOID_STRIDE, FaunaSpecies, FaunaState, type FaunaSpawnEntry } from './types.ts';
 
 /**
@@ -156,6 +157,82 @@ function mulberry32(seed: number): () => number {
     };
 }
 
+/** Per-season fauna shaping (CONFIG.season.fauna). Spring is the identity. */
+export interface FaunaSeasonConfig {
+    /** Share of the spawned population that is out and about. Roost flocks always stay. */
+    flockScale: Record<SeasonName, number>;
+    /** Multiplier on each species' settle chance — winter critters roost more. */
+    settleScale: Record<SeasonName, number>;
+    /** Multiplier on how long a settled critter stays put. */
+    settleDurationScale: Record<SeasonName, number>;
+    /** Pull (m/s²) toward the sky-island roosts for species that can perch; 0 = none. */
+    migration: Record<SeasonName, number>;
+}
+
+/**
+ * What the runner applies this frame. Identity values (`createFaunaSeasonModifiers`)
+ * leave every critter exactly as it was before seasons existed.
+ */
+export interface FaunaSeasonModifiers {
+    /** Entries at index ≥ this are parked: not simulated, hidden by the system. */
+    activeCount: number;
+    settleScale: number;
+    settleDurationScale: number;
+    migrationStrength: number;
+    /** Roost targets as x,z pairs; null when no roosts were seated. */
+    migrationTargets: Float32Array | null;
+    migrationTargetCount: number;
+}
+
+export function createFaunaSeasonModifiers(): FaunaSeasonModifiers {
+    return {
+        activeCount: Number.MAX_SAFE_INTEGER,
+        settleScale: 1,
+        settleDurationScale: 1,
+        migrationStrength: 0,
+        migrationTargets: null,
+        migrationTargetCount: 0,
+    };
+}
+
+/**
+ * How many critters are active. Roost flocks occupy the lowest slots and are
+ * never parked, so thinning the population trims terrain critters first.
+ */
+export function computeActiveFaunaCount(
+    total: number,
+    roostCount: number,
+    flockScale: number
+): number {
+    const scaled = Math.round(total * Math.max(0, Math.min(1, flockScale)));
+    return Math.min(total, Math.max(roostCount, scaled));
+}
+
+/** Fill `out` for the current season. Allocation-free. */
+export function applyFaunaSeason(
+    state: SeasonState,
+    cfg: FaunaSeasonConfig,
+    total: number,
+    roostCount: number,
+    targets: Float32Array | null,
+    out: FaunaSeasonModifiers
+): FaunaSeasonModifiers {
+    out.activeCount = computeActiveFaunaCount(
+        total,
+        roostCount,
+        blendSeasonScalar(state, cfg.flockScale)
+    );
+    out.settleScale = blendSeasonScalar(state, cfg.settleScale);
+    out.settleDurationScale = blendSeasonScalar(state, cfg.settleDurationScale);
+    out.migrationStrength = blendSeasonScalar(state, cfg.migration);
+    out.migrationTargets = targets;
+    out.migrationTargetCount = targets ? targets.length >> 1 : 0;
+    return out;
+}
+
+/** Migrants stop pulling once this close (m) to their roost, so they mill around it. */
+const MIGRATION_ARRIVE_RADIUS_SQ = 6 * 6;
+
 export interface FaunaBehaviorStats {
     roam: number;
     flee: number;
@@ -179,11 +256,17 @@ export class FaunaBehaviorRunner {
     /** Seconds until this critter may be impulsed again. */
     private _cooldown = new Float32Array(0);
     private readonly _rng: () => number;
+    private _season: FaunaSeasonModifiers | null = null;
 
     readonly stats: FaunaBehaviorStats = { roam: 0, flee: 0, perch: 0, idle: 0, scattered: 0 };
 
     constructor(seed = 0xfa) {
         this._rng = mulberry32(seed);
+    }
+
+    /** Season shaping, read every update; null (the default) is the identity. */
+    setSeasonModifiers(modifiers: FaunaSeasonModifiers | null): void {
+        this._season = modifiers;
     }
 
     /** Grow the timer arrays to hold `count` entries. Idempotent. */
@@ -221,10 +304,18 @@ export class FaunaBehaviorRunner {
         const clampedDt = Math.max(0, Math.min(dt, 0.1));
         this.resize(entries.length);
 
+        const season = this._season;
+        const active = season ? Math.min(entries.length, season.activeCount) : entries.length;
+        const settleScale = season ? season.settleScale : 1;
+        const settleDurationScale = season ? season.settleDurationScale : 1;
+        const migration = season ? season.migrationStrength : 0;
+        const targets = season ? season.migrationTargets : null;
+        const targetCount = season ? season.migrationTargetCount : 0;
+
         let burstX = 0;
         let burstZ = 0;
 
-        for (let i = 0; i < entries.length; i++) {
+        for (let i = 0; i < active; i++) {
             const component = entries[i].component;
             const profile = _profiles.get(component.species);
             if (!profile) {
@@ -291,14 +382,28 @@ export class FaunaBehaviorRunner {
             }
 
             // --- Roam: occasionally settle ---
-            if (this._rng() < profile.settleChancePerSecond * clampedDt) {
+            if (this._rng() < profile.settleChancePerSecond * settleScale * clampedDt) {
                 component.state = profile.canPerch ? FaunaState.Perch : FaunaState.Rest;
                 this._settleTimer[i] =
-                    profile.settleDurationMin +
-                    this._rng() * (profile.settleDurationMax - profile.settleDurationMin);
+                    (profile.settleDurationMin +
+                        this._rng() * (profile.settleDurationMax - profile.settleDurationMin)) *
+                    settleDurationScale;
                 if (component.state === FaunaState.Perch) stats.perch++;
                 else stats.idle++;
             } else {
+                // Seasonal migration: perching species drift toward a roost. A
+                // gentle velocity nudge — boids still steers, separates and flocks.
+                if (migration > 0 && targets && targetCount > 0 && profile.canPerch) {
+                    const t = (i % targetCount) * 2;
+                    const mx = targets[t] - x;
+                    const mz = targets[t + 1] - z;
+                    const md2 = mx * mx + mz * mz;
+                    if (md2 > MIGRATION_ARRIVE_RADIUS_SQ) {
+                        const pull = (migration * clampedDt) / Math.sqrt(md2);
+                        heap[b + 3] += mx * pull;
+                        heap[b + 5] += mz * pull;
+                    }
+                }
                 stats.roam++;
             }
         }

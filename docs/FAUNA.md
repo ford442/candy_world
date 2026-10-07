@@ -175,6 +175,27 @@ Skip this for anything the batcher draws. See §5.
   plain indexed loop over pre-sized `Float32Array` timers. `tests/fauna-behavior.test.ts`
   asserts a zero-allocation steady state; keep new logic allocation-free.
 
+### Seasons
+
+`CONFIG.season.fauna` ([`SEASONS.md`](./SEASONS.md)) shapes the swarm without
+touching the boid rules. `FaunaSystem` hands the runner a `FaunaSeasonModifiers`
+each frame:
+
+- **Flock size.** `flockScale` parks the top of the population: parked
+  critters are skipped by boids and the runner, and collapse to a zero-scale
+  matrix (which batcher-lod gives no impostor). Roost flocks hold the lowest
+  slots and are never parked, so winter thins the terrain critters first.
+  Parked critters resume where they stopped.
+- **Roosting.** `settleScale` and `settleDurationScale` multiply each
+  species' settle chance and duration; winter settles three times as often.
+- **Migration.** `migration` is a gentle pull (m/s²) toward the sky-island
+  roost spawn points for species that can perch, applied only while roaming
+  and only beyond 6 m. Autumn moths drift toward the islands; boids still
+  steers.
+
+Spring is the identity: with spring modifiers the runner is bit-for-bit the
+pre-season behaviour (asserted in the test).
+
 ---
 
 ## 5. Opt-in extras
@@ -246,5 +267,6 @@ npm run test           # smoke — boot + world health
 
 `tests/fauna-behavior.test.ts` drives the runner against a hand-built slab, so
 it covers the scatter trigger, the hysteresis band, the settle cycle, the
-scatter sink and the allocation budget without booting the app. Run it with
+scatter sink, the season modifiers and the allocation budget without booting
+the app. Run it with
 `NODE_OPTIONS=--expose-gc` for the strict zero-allocation assertion.

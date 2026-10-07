@@ -10,7 +10,7 @@
  *   window.setSeason(name | null)         pin / unpin at runtime (dev, CI, ?debug=1)
  */
 import { CONFIG, areDebugHooksEnabled, getUrlFlag } from '../core/config.ts';
-import { writeSeasonUniforms } from '../foliage/material-core/season-nodes.ts';
+import { writeSeasonSpawn, writeSeasonUniforms } from '../foliage/material-core/season-nodes.ts';
 import { announce } from '../ui/announcer.ts';
 import { getWorldSeed, getWorldSeedVersion } from '../world/world-seed.ts';
 import {
@@ -18,6 +18,7 @@ import {
     SEASON_ROLE_STRIDE,
     SEASON_ROLES,
     blendSeasonPalette,
+    blendSeasonScalar,
     computeSeasonState,
     createSeasonState,
     parseSeasonName,
@@ -65,6 +66,14 @@ function refresh(nowMs: number): void {
     );
     blendSeasonPalette(_state, _prepared, _roleParams);
     writeSeasonUniforms(_roleParams, _frostRgb);
+    const spawn = CONFIG.season.spawnScale;
+    writeSeasonSpawn(
+        blendSeasonScalar(_state, spawn.berries),
+        blendSeasonScalar(_state, spawn.gemFruit),
+        blendSeasonScalar(_state, spawn.fireflies),
+        blendSeasonScalar(_state, spawn.dandelionSeeds),
+        blendSeasonScalar(_state, CONFIG.season.luminousBoost)
+    );
 }
 
 export const seasonController = {
