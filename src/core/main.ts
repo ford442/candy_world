@@ -12,4 +12,9 @@ import { setupGlobalKeyboardTactileFeedback } from '../utils/interaction-utils.t
 import { runBootstrap } from './main/bootstrap.ts';
 
 setupGlobalKeyboardTactileFeedback();
-await runBootstrap();
+// Not a top-level await: this module is bundled into the `app` chunk, which
+// sits in a static import cycle with `weather`. While a TLA here is pending the
+// whole cycle stays "evaluating", so the boot's own `import('weather.ts')`
+// waits on itself forever. A rejection still reaches the bootstrap's
+// `unhandledrejection` handler, which shows the startup error.
+void runBootstrap();
