@@ -181,6 +181,47 @@ export class FaunaBatcher {
         }
     }
 
+
+    /** Swap-with-last removal for ChunkStreamer eviction / chunk unloading. */
+    removeInstance(species: FaunaSpecies, slot: number): void {
+        const sp = this._species[species];
+        const idx = sp.slotToInstance.get(slot);
+        if (idx === undefined) return;
+
+        const lastIdx = sp.count - 1;
+        if (idx !== lastIdx) {
+            // Find the slot that currently maps to lastIdx
+            let lastSlot = -1;
+            for (const [k, v] of sp.slotToInstance.entries()) {
+                if (v === lastIdx) {
+                    lastSlot = k;
+                    break;
+                }
+            }
+
+            // Move the last element's data to the freed index
+            const matrixArray = sp.mesh.instanceMatrix.array as Float32Array;
+            for (let i = 0; i < 16; i++) {
+                matrixArray[idx * 16 + i] = matrixArray[lastIdx * 16 + i];
+            }
+            sp.phases[idx] = sp.phases[lastIdx];
+            sp.glows[idx] = sp.glows[lastIdx];
+
+            // Update mapping
+            if (lastSlot !== -1) {
+                sp.slotToInstance.set(lastSlot, idx);
+            }
+        }
+
+        sp.slotToInstance.delete(slot);
+        sp.count--;
+        sp.mesh.count = sp.count;
+
+        sp.mesh.instanceMatrix.needsUpdate = true;
+        (sp.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute).needsUpdate = true;
+        (sp.mesh.geometry.getAttribute('aBiomeGlow') as THREE.InstancedBufferAttribute).needsUpdate = true;
+    }
+
     getMeshes(): THREE.InstancedMesh[] {
         // ⚡ OPTIMIZATION: Zero-allocation loop replacing .map() to prevent GC spikes
         const len = this._species.length;
