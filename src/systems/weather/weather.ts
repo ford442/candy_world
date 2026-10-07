@@ -77,6 +77,9 @@ export class WeatherSystem {
     currentSeason: SeasonName;
     /** Live state from the season controller, set each frame before update(). */
     seasonState: Readonly<SeasonState> | null;
+    /** Last frame's cycle position (s) and moon phase, for save metadata. */
+    cyclePos = 0;
+    moonPhase = 0;
 
     // Fronts (weather-fronts-core.ts) own the state; setWeather() overrides them.
     private frontSample = createWeatherFrontSample();
@@ -323,6 +326,8 @@ export class WeatherSystem {
         this.handlePatternChange(currentPattern);
 
         const cyclePos = Cycle.getCyclePos(time);
+        this.cyclePos = cyclePos;
+        this.moonPhase = _scratchSkyLight.moonPhase;
         // AudioSystem.update() returns a frame even with nothing playing, so
         // "has audio" means something is audible this frame.
         let audible = bassIntensity > 0;

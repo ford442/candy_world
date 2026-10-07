@@ -128,3 +128,10 @@ export function seasonDensityKeep(key01: Node | ColorNode, density: Node | Color
     const k = $sn(key01 as Node);
     return smoothstep(k.sub(0.04), k, float($sn(density as Node))) as unknown as ColorNode;
 }
+
+/** 0 = open water, 1 = frozen lake (eased by the season controller). */
+export const uLakeIce = uniform(0.0);
+
+export function writeLakeIce(ice: number): void {
+    uLakeIce.value = ice;
+}

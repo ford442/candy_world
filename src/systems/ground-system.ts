@@ -164,6 +164,11 @@ export function invalidateHeightCache(): void {
 export interface GroundedEyeReconcileOptions {
     isGrounded: boolean;
     velocityY: number;
+    /**
+     * Ground height the caller already resolved, e.g. with winter lake ice
+     * applied (physics/lake-ice-core.ts). Defaults to getGroundHeight(x, z).
+     */
+    groundY?: number;
 }
 
 /**
@@ -176,7 +181,8 @@ export function reconcileGroundedEyeY(
     delta: number,
     opts: GroundedEyeReconcileOptions
 ): number {
-    const eyeY = getEyeTargetY(x, z);
+    const eyeY =
+        opts.groundY !== undefined ? opts.groundY + CONFIG.player.eyeHeight : getEyeTargetY(x, z);
 
     if (currentY < eyeY) {
         return eyeY;

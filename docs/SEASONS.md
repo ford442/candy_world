@@ -14,7 +14,7 @@ The season is a pure function of **(world seed, wall-clock time)**:
 - Everyone in a presence room shares a seed (room = `candy:${seed}`), so they share a season
   without any protocol change. Clock skew of a few seconds is invisible: seasons cross-fade over
   `CONFIG.season.transitionFraction` of a season (default a quarter, centred on each boundary).
-- Nothing is saved. Loading an old save never changes the season.
+- Nothing is saved. Loading an old save never changes the season (see "Saving and presence").
 
 The day/night cycle (16 minutes of game time, see [`cycle.ts`](../src/core/cycle.ts)) is
 independent of the season. The moon stays on game time.
@@ -103,6 +103,40 @@ and each is exact at its identity value. Tempo is kept within ±8% on purpose: g
 120 / BPM, so a season's tempo also stretches the day. Reverb is a single convolver send that is only
 built the first time a season asks for it.
 
+## Frozen lake
+
+When the season's frost passes `CONFIG.season.lake.freezeAt`, the lake freezes over
+`CONFIG.season.lake.easeSeconds`: waves still, the surface turns an icy pastel
+(`CONFIG.season.lake.iceColor`), and halfway through it holds weight. The lake has no collider, so
+ice is a ground-height rule ([`lake-ice-core.ts`](../src/systems/physics/lake-ice-core.ts)): over open
+water, ground reads as the water surface, and because swimming is an eye-height check the player
+simply walks. The island is untouched, and a 7 m strip along the Sugar Caves descent never freezes, so
+the caves stay reachable all year.
+
+The switch never catches the player: the lake waits to freeze while they are swimming under it, and
+waits to thaw while they are standing on it. Freezing depends only on frost, a smooth function of
+seed and clock, so peers agree without hysteresis.
+
+## Saving and presence
+
+Nothing about seasons or weather is saved or sent. The save file records the live season, weather
+and time of day for reference ([`SAVE_SYSTEM.md`](./SAVE_SYSTEM.md)), but loading never applies
+them. Presence peers share a seed, so they share the season, the fronts and the lake.
+
+## Deferred from the original pitch
+
+| Item                                    | Why it waits                                                                                         |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Kick-drum geysers firing more in summer | Geysers only erupt from the night-gated sky wave, and the kick channel they read is never filled in. |
+| Longer summer days, Night Market hours  | The day length is a constant read across the codebase; nights already grew 40% with the cycle fix.   |
+| Heat shimmer                            | Post-FX does not run in CI or screenshots, so it could not be verified.                              |
+| Sky-wave cue on weather changes         | The sky wave is night-gated; the announcer marks transitions instead.                                |
+| Snow particles                          | Winter precipitation still renders as rain.                                                          |
+| Autumn leaf debris                      | Candy debris has no drag or flutter; leaves need their own emitter.                                  |
+| Mode shift to dorian / minor            | Would override each biome's own scale, and needs tuning by ear.                                      |
+| Animated fireflies                      | Their compute node is never dispatched — a separate bug.                                             |
+| HUD season indicator                    | The announcer covers season changes for now.                                                         |
+
 ## Code map
 
 | File                                                                                    | Role                                                       |
@@ -135,3 +169,9 @@ imports none of them.
   bit-for-bit identity in every biome, winter is slower and darker, bounds, no compounding.
 - `test:season-wgsl` also builds the berry, gem-fruit, firefly and luminous materials and checks the
   density mask reached the vertex stage.
+- `npm run test:lake-ice` ([`lake-ice.test.ts`](../tests/lake-ice.test.ts)): the island and the
+  descent hole never freeze, the ice holds weight only when solid, the switch never catches the
+  player, and the real character controller rests on the ice.
+- `npm run test:season-determinism` ([`season-determinism.test.ts`](../tests/season-determinism.test.ts)):
+  two peers with 2 s of clock skew and different join times see the same season, palette, front and
+  lake, except across a transition inside their skew; different rooms differ.

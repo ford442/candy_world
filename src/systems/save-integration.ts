@@ -3,7 +3,7 @@
  * Wires SaveSystem gather/apply hooks to live game state.
  */
 
-import { FEATURE_FLAGS } from '../core/config.ts';
+import { CYCLE_DURATION, FEATURE_FLAGS } from '../core/config.ts';
 import { awakenedPersistence } from './awakened-persistence-api.ts';
 import { discoverySystem } from './discovery.ts';
 import { player } from './physics/index.ts';
@@ -16,8 +16,14 @@ import {
     createProgressSaveData,
     type SaveData,
 } from './save-system/index.ts';
+import { getSeasonState } from './season-controller.ts';
+import { SEASON_NAMES } from './season-core.ts';
 import { unlockSystem } from './unlocks.ts';
 import { getWeatherSystem } from './weather/lazy.ts';
+
+// Saved timeOfDay is 0 at midnight and 0.5 at noon; the cycle starts at sunrise
+// with noon at 270 s and the middle of the night at 750 s.
+const MIDNIGHT_CYCLE_POS = 750;
 
 type SaveSystemInternals = {
     gatherPlayerData: () => SaveData['player'];
@@ -70,11 +76,29 @@ function gatherPlayerData(): SaveData['player'] {
     );
 }
 
+/**
+ * Time of day, weather and season are recorded for reference only.
+ * applyLoadedData deliberately ignores them: the season and the weather fronts
+ * are functions of the world seed and the wall clock (docs/SEASONS.md), so
+ * loading a save must not rewind them, and time of day restarts each session.
+ */
 function gatherWorldData(): SaveData['world'] {
+    const weather = getWeatherSystem();
+    const season = getSeasonState();
+    const cyclePos = weather ? weather.cyclePos : 0;
+    const sinceMidnight = (cyclePos - MIDNIGHT_CYCLE_POS + CYCLE_DURATION) % CYCLE_DURATION;
     const worldData = createWorldSaveData(
-        0.5,
-        { state: 'clear', intensity: 0, stormCharge: 0 },
-        { season: 'spring', progress: 0, moonPhase: 0 }
+        sinceMidnight / CYCLE_DURATION,
+        {
+            state: weather ? weather.state : 'clear',
+            intensity: weather ? weather.intensity : 0,
+            stormCharge: weather ? weather.stormCharge : 0,
+        },
+        {
+            season: SEASON_NAMES[season.current],
+            progress: season.seasonProgress,
+            moonPhase: weather ? weather.moonPhase : 0,
+        }
     );
     worldData.entitySnapshots = serializeEntitySnapshots();
     return worldData;
@@ -100,6 +124,7 @@ function gatherProgressData(playtime: number): SaveData['progress'] {
 
 export function applyLoadedData(data: SaveData): { restored: number; alreadyLive: number; skipped: number } | void {
     let applyResult;
+    // world.timeOfDay / weather* / season* are not applied: see gatherWorldData.
     if (data.world && data.world.entitySnapshots) {
         applyResult = applyEntitySnapshots(data.world.entitySnapshots, getWeatherSystem());
     }

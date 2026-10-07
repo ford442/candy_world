@@ -109,6 +109,12 @@ resolveCharacterMovement(delta, player, _targetVelocity, keyStates.jump, jumpTri
 });
 ```
 
+In production both functions are wrapped by the winter lake-ice rule
+(`iceAwareFootprint` / `iceAwareGroundHeight` in `systems/physics/lake-ice-core.ts`): while the lake
+is frozen, open water reports the ice surface as ground. `reconcileGroundedEyeY` receives the same
+ice-aware height through its `groundY` option, so the platform-elevation follow never drags the
+player down through the ice.
+
 `groundQuery` is an **injected parameter, not a static import** of
 `ground-system.ts`. That module transitively imports the WASM bridge
 (`utils/wasm-loader.ts`), which does a Vite-only

@@ -16,7 +16,10 @@ A signature subterranean biome layer: the **Subterranean Sugar Caves** — the v
 
 ### Traversal + Part II unlock
 
-- `src/world/sugar-caves-traversal.ts` — lake descent platforms + walkable cave floor.
+- `src/world/sugar-caves-traversal.ts` — lake descent platforms + walkable cave floor. The ramp
+  follows `LAKE_DESCENT` (`src/systems/ground-height-core.ts`); in winter the lake freezes but leaves
+  an open strip along it (`src/systems/physics/lake-ice-core.ts`), so the caves are reachable all
+  year — see [`SEASONS.md`](./SEASONS.md).
 - `src/world/part-ii-unlock.ts` — awakened-flora threshold unlocks the descent narrative.
 - `tests/sugar-caves-traversal.test.mjs` — unlock + viewpoint regression.
 
