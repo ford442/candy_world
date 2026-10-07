@@ -17,11 +17,12 @@ import { updateLocalLightHelpers } from '../rendering/lights.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
 import { getSeasonState, seasonController } from '../systems/season-controller.ts';
+import { blendSeasonScalar } from '../systems/season-core.ts';
 import { WeatherState } from '../systems/weather-types.ts';
 import { updateWindDebug } from '../systems/wind-debug.ts';
 import { updateWind, type WindUpdateInput } from '../systems/wind-uniforms.ts';
 import { profiler } from '../utils/profiler.ts';
-import { DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET } from './config.ts';
+import { CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET } from './config.ts';
 import {
     getCyclePos,
     getDayNightBias,
@@ -82,6 +83,7 @@ const _windInput: WindUpdateInput = {
     bpm: 120,
     audioLow: 0,
     stormIntensity: 0,
+    seasonGustScale: 1,
 };
 
 export function updateVisualsPhase(
@@ -116,7 +118,7 @@ export function updateVisualsPhase(
     let weatherIntensity = 0;
     if (weatherSystemRef) {
         weatherSystemRef.setSeasonState(getSeasonState());
-        weatherSystemRef.update(t, audioState);
+        weatherSystemRef.update(t, audioState, delta);
         weatherSystemRef.updateBerrySeasonalSize(cyclePos);
         weatherState = weatherSystemRef.state;
         weatherIntensity = weatherSystemRef.intensity;
@@ -128,6 +130,10 @@ export function updateVisualsPhase(
         _windInput.bpm = audioState?.bpm || 120;
         _windInput.audioLow = audioState?.low || 0;
         _windInput.stormIntensity = weatherState === WeatherState.STORM ? weatherIntensity : 0;
+        _windInput.seasonGustScale = blendSeasonScalar(
+            getSeasonState(),
+            CONFIG.season.windGustScale
+        );
         updateWind(delta, _windInput);
         updateWindDebug();
     }

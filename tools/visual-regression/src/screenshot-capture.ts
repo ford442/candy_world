@@ -474,8 +474,9 @@ export class ScreenshotCapture {
         }
       }
 
-      if (vp.weather && game?.weatherSystem?.setWeather) {
-        game.weatherSystem.setWeather(vp.weather);
+      // Weather follows wall-clock fronts too, so pin it: clear unless the viewpoint says otherwise.
+      if (game?.weatherSystem?.setWeather) {
+        game.weatherSystem.setWeather(vp.weather ?? 'clear');
       }
 
       if (game?.clock) {

@@ -14,17 +14,48 @@ import { uTwilight } from '../../foliage/sky.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 import { computeAtmosphereFogTargets } from '../atmosphere-fog.ts';
 import { WeatherMusicTargets } from '../music-reactivity.ts';
-import { SEASON_NAMES, SPRING, SUMMER, WINTER, type SeasonName, type SeasonState } from '../season-core.ts';
+import { announce } from '../../ui/announcer.ts';
+import { SEASON_NAMES, type SeasonName, type SeasonState } from '../season-core.ts';
 import { WeatherState } from '../weather-types.ts';
-import { calculateTimeOfDayBias } from '../weather-utils.ts';
+import { rainFlavour } from '../weather-utils.ts';
 import { AtmosphereManager } from './weather-atmosphere.ts';
 import { EcosystemManager } from './weather-ecosystem.ts';
 import { EffectsManager } from './weather-effects.ts';
+import {
+    FRONT_ANNOUNCEMENTS,
+    FRONT_CLEAR,
+    FRONT_RAIN,
+    FRONT_STORM,
+    createWeatherFrontSample,
+    musicDrive,
+    resolveWeatherTarget,
+    sampleWeatherFront,
+    type WeatherTarget,
+} from './weather-fronts-core.ts';
 
 // Scratch objects for optimization
 const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
 // Sky-light inputs for the atmosphere manager: sun height from the season calendar, moon from game time.
 const _scratchSkyLight = { sunInclination: 1, moonPhase: 0 };
+
+// Weather keeps running before the audio system has produced a frame: fronts
+// follow the wall clock, so the sky shouldn't wait for music.
+const SILENT_AUDIO: VisualState = {
+    beatPhase: 0,
+    kickTrigger: 0,
+    grooveAmount: 0,
+    activeChannels: 0,
+    channelData: [],
+    bpm: 120,
+    patternIndex: 0,
+    row: 0,
+};
+
+const FRONT_TO_STATE: readonly WeatherState[] = [WeatherState.CLEAR, WeatherState.RAIN, WeatherState.STORM];
+
+function stateToFront(state: WeatherState): number {
+    return state === WeatherState.STORM ? FRONT_STORM : state === WeatherState.RAIN ? FRONT_RAIN : FRONT_CLEAR;
+}
 
 // Music-reactive weather constants
 const THUNDER_PULSE_THRESHOLD = 0.75;  // WeatherMusicTargets.thunderPulse value that triggers a storm charge boost
@@ -46,6 +77,13 @@ export class WeatherSystem {
     currentSeason: SeasonName;
     /** Live state from the season controller, set each frame before update(). */
     seasonState: Readonly<SeasonState> | null;
+
+    // Fronts (weather-fronts-core.ts) own the state; setWeather() overrides them.
+    private frontSample = createWeatherFrontSample();
+    private weatherTarget: WeatherTarget = { type: FRONT_CLEAR, intensity: 0 };
+    private overrideFront = -1;
+    private overrideIntensity = 0;
+    private lastFrontPhase = -1;
 
     // Player Control Factor
     cloudDensity: number;
@@ -253,9 +291,11 @@ export class WeatherSystem {
         this.seasonState = state;
     }
 
-    update(time: number, audioData: VisualState | null): void {
-        if (!audioData) return;
-        const dt = 0.016;
+    update(time: number, audioState: VisualState | null, dt: number = 1 / 60): void {
+        const hasAudio = audioState !== null;
+        const audioData = audioState ?? SILENT_AUDIO;
+        // Per-frame constants below were tuned at 60 fps.
+        const frames = dt * 60;
 
         this.cloudDensity = Math.min(1.0, this.cloudDensity + this.cloudRegenRate);
 
@@ -278,12 +318,11 @@ export class WeatherSystem {
         // Pattern-Change Seasons Logic
         this.handlePatternChange(currentPattern);
 
-        const cyclePos = time % CYCLE_DURATION;
-        const cycleWeatherBias = calculateTimeOfDayBias(cyclePos);
-        this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, season ? season.current : -1);
+        const cyclePos = Cycle.getCyclePos(time);
+        this.updateFrontState(bassIntensity, groove, hasAudio, cyclePos);
 
         // Ground Water Update
-        this.updateGroundWater();
+        this.updateGroundWater(frames);
 
         // Update Caves
         if (this.trackedCaves.length > 0) {
@@ -360,8 +399,9 @@ export class WeatherSystem {
         // Update BerryBatcher
         BerryBatcher.getInstance().update(time, audioData);
 
-        // Intensity transition
-        this.intensity += (this.targetIntensity - this.intensity) * this.transitionSpeed;
+        // Intensity transition: transitionSpeed per 60 fps frame, frame-rate independent.
+        this.intensity +=
+            (this.targetIntensity - this.intensity) * (1 - Math.pow(1 - this.transitionSpeed, frames));
 
         // --- Music-driven weather blend ---
         // When enabled, lerp base intensity and fog toward music channel targets.
@@ -369,10 +409,13 @@ export class WeatherSystem {
         let musicFogIntensity = this.intensity;
         if (CONFIG.weather.musicReactivity.enabled) {
             const w = CONFIG.weather.musicReactivity.blendWeight;
+            const range = CONFIG.season.weather.musicIntensityRange;
             const baseIntensity = this.intensity; // capture before rain blend
+            // Music nudges a front, it doesn't replace it: same ±range as the front's music drive.
             this.intensity = THREE.MathUtils.clamp(
                 THREE.MathUtils.lerp(baseIntensity, WeatherMusicTargets.rainIntensity, w),
-                0, 1
+                Math.max(0, baseIntensity - range),
+                Math.min(1, baseIntensity + range)
             );
             musicFogIntensity = THREE.MathUtils.clamp(
                 THREE.MathUtils.lerp(baseIntensity, WeatherMusicTargets.fogDensity, w),
@@ -380,7 +423,7 @@ export class WeatherSystem {
             );
             // thunderPulse: threshold trigger — boost storm charge for a dramatic flash
             if (WeatherMusicTargets.thunderPulse > THUNDER_PULSE_THRESHOLD) {
-                this.stormCharge = Math.min(2.0, this.stormCharge + THUNDER_STORM_CHARGE_BOOST);
+                this.stormCharge = Math.min(2.0, this.stormCharge + THUNDER_STORM_CHARGE_BOOST * frames);
             }
         }
 
@@ -404,9 +447,9 @@ export class WeatherSystem {
 
         // Storm charge accumulation
         if (this.state !== WeatherState.CLEAR) {
-            this.stormCharge = Math.min(2.0, this.stormCharge + 0.001);
+            this.stormCharge = Math.min(2.0, this.stormCharge + 0.001 * frames);
         } else {
-            this.stormCharge = Math.max(0, this.stormCharge - 0.0005);
+            this.stormCharge = Math.max(0, this.stormCharge - 0.0005 * frames);
         }
 
         // Wind update
@@ -476,13 +519,13 @@ export class WeatherSystem {
         }
     }
 
-    private updateGroundWater(): void {
+    private updateGroundWater(frames: number): void {
         if (this.state === WeatherState.RAIN) {
-            this.groundWaterLevel = Math.min(1.0, this.groundWaterLevel + 0.0005);
+            this.groundWaterLevel = Math.min(1.0, this.groundWaterLevel + 0.0005 * frames);
         } else if (this.state === WeatherState.STORM) {
-            this.groundWaterLevel = Math.min(1.0, this.groundWaterLevel + 0.0015);
+            this.groundWaterLevel = Math.min(1.0, this.groundWaterLevel + 0.0015 * frames);
         } else {
-            this.groundWaterLevel = Math.max(0.0, this.groundWaterLevel - 0.0003);
+            this.groundWaterLevel = Math.max(0.0, this.groundWaterLevel - 0.0003 * frames);
         }
     }
 
@@ -509,58 +552,51 @@ export class WeatherSystem {
         }
     }
 
-    private updateWeatherState(bass: number, melody: number, groove: number, cycleWeatherBias: any = null, season: number = -1): void {
-        let audioState = WeatherState.CLEAR;
-        let audioIntensity = 0;
-
-        if (bass > 0.7 && groove > 0.5) {
-            audioState = WeatherState.STORM;
-            audioIntensity = 1.0;
-        } else if (bass > 0.3 || melody > 0.4) {
-            audioState = WeatherState.RAIN;
-            audioIntensity = 0.5;
-        }
-
-        if (season >= 0) {
-            const r = Math.random();
-            if (season === WINTER) {
-                if (audioState === WeatherState.STORM && r > 0.3) audioState = WeatherState.RAIN;
-            }
-            if (season === SUMMER) {
-                if (audioState === WeatherState.RAIN && r > 0.7) audioState = WeatherState.STORM;
-            }
-            if (season === SPRING) {
-                if (audioState === WeatherState.CLEAR && r > 0.9) {
-                    audioState = WeatherState.RAIN;
-                    audioIntensity = 0.3;
-                }
-            }
-        }
-
-        if (cycleWeatherBias) {
-            const biasWeight = 0.4;
-            let biasState = WeatherState.CLEAR;
-            if (cycleWeatherBias.biasState === 'storm') biasState = WeatherState.STORM;
-            else if (cycleWeatherBias.biasState === 'rain') biasState = WeatherState.RAIN;
-
-            if (audioState !== biasState) {
-                if (Math.random() < biasWeight) {
-                    this.state = biasState;
-                    this.targetIntensity = cycleWeatherBias.biasIntensity;
-                }
-                else {
-                    this.state = audioState;
-                    this.targetIntensity = audioIntensity;
-                }
-            } else {
-                this.state = audioState;
-                this.targetIntensity = audioIntensity * (1 - biasWeight) + cycleWeatherBias.biasIntensity * biasWeight;
-            }
-            this.weatherType = cycleWeatherBias.type || 'default';
+    /**
+     * Fronts decide clear / rain / storm (weather-fronts-core.ts); music only
+     * nudges intensity; setWeather() overrides both.
+     */
+    private updateFrontState(bass: number, groove: number, hasAudio: boolean, cyclePos: number): void {
+        const season = this.seasonState;
+        const front = this.frontSample;
+        if (season) {
+            sampleWeatherFront(
+                season.nowMs,
+                season.seed,
+                CONFIG.season,
+                CONFIG.season.weather,
+                season.pinned,
+                front
+            );
         } else {
-            this.state = audioState;
-            this.targetIntensity = audioIntensity;
-            this.weatherType = 'audio';
+            front.type = FRONT_CLEAR;
+            front.intensity = 0;
+            front.phase = 0;
+            front.ramp = 1;
+        }
+
+        const target = resolveWeatherTarget(
+            this.overrideFront,
+            this.overrideIntensity,
+            front,
+            musicDrive(bass, groove, hasAudio),
+            CONFIG.season.weather.musicIntensityRange,
+            this.weatherTarget
+        );
+        this.state = FRONT_TO_STATE[target.type];
+        this.targetIntensity = target.intensity;
+        this.weatherType =
+            this.state === WeatherState.RAIN
+                ? rainFlavour(cyclePos)
+                : this.state === WeatherState.STORM
+                  ? 'thunderstorm'
+                  : 'clear';
+
+        if (this.overrideFront < 0 && front.phase !== this.lastFrontPhase) {
+            // The phase a session boots into is not news.
+            const message = this.lastFrontPhase === -1 ? null : FRONT_ANNOUNCEMENTS[front.phase];
+            if (message) announce(message, 'polite');
+            this.lastFrontPhase = front.phase;
         }
     }
 
@@ -714,13 +750,26 @@ export class WeatherSystem {
         return this.intensity;
     }
 
-    forceState(state: WeatherState): void {
-        this.state = state;
-        switch (state) {
-            case WeatherState.STORM: this.targetIntensity = 1.0; break;
-            case WeatherState.RAIN: this.targetIntensity = 0.5; break;
-            default: this.targetIntensity = 0;
+    /**
+     * Pin the weather (debug, visual regression) until called with null, which
+     * hands control back to the fronts. Intensity snaps so a capture doesn't
+     * wait out the ease.
+     */
+    setWeather(state: WeatherState | 'clear' | 'rain' | 'storm' | null, intensity?: number): void {
+        if (state === null) {
+            this.overrideFront = -1;
+            return;
         }
+        const front = stateToFront(state as WeatherState);
+        this.overrideFront = front;
+        this.overrideIntensity = front === FRONT_CLEAR ? 0 : (intensity ?? (front === FRONT_STORM ? 1.0 : 0.5));
+        this.state = FRONT_TO_STATE[front];
+        this.targetIntensity = this.overrideIntensity;
+        this.intensity = this.overrideIntensity;
+    }
+
+    forceState(state: WeatherState): void {
+        this.setWeather(state);
     }
 
     /**

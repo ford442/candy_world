@@ -1,5 +1,6 @@
 import type { PlantPoseConfig } from '../../foliage/plant-pose-machine.ts';
-import type { SeasonConfig } from '../../systems/season-core.ts';
+import type { SeasonConfig, SeasonName } from '../../systems/season-core.ts';
+import type { WeatherFrontConfig } from '../../systems/weather/weather-fronts-core.ts';
 import type { EntityScaleEntry } from './palette.ts';
 
 export interface ConfigType {
@@ -525,8 +526,13 @@ export interface ConfigType {
         };
     };
 
-    /** Seasons: wall-clock calendar, palette and frost (docs/SEASONS.md). */
-    season: SeasonConfig;
+    /** Seasons: wall-clock calendar, palette, frost and weather fronts (docs/SEASONS.md). */
+    season: SeasonConfig & {
+        /** Multi-slot weather fronts that replace the per-frame weather picker. */
+        weather: WeatherFrontConfig;
+        /** Gust swell multiplier per season (autumn is the windy one). */
+        windGustScale: Record<SeasonName, number>;
+    };
 
     presence: {
         /** Master enable — also requires FEATURE_FLAGS.presence and Supabase env vars. */

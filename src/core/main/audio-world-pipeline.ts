@@ -28,6 +28,9 @@ export async function runAudioWorldPipeline(ctx: MainContext): Promise<void> {
         loadingScreen.updateProgress(70, 'Initializing weather system...');
         const { loadWeatherSystem } = await import('../../systems/weather/lazy.ts');
         ctx.weatherSystem = (await loadWeatherSystem(scene, renderer as any)) as WeatherSystem;
+        // Visual regression pins weather through window.game.weatherSystem.setWeather().
+        const game = (window as Window & { game?: Record<string, unknown> }).game;
+        if (game) game.weatherSystem = ctx.weatherSystem;
     });
 
     console.timeEnd('Audio & Systems Init');
