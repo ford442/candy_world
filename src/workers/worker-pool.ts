@@ -14,17 +14,14 @@
  * - ~2-3x speedup for world generation on multi-core systems
  */
 
+import { log } from '../utils/log.ts';
 import type {
   PhysicsRequest,
-  PhysicsResponse,
-  WorldGenRequest,
-  WorldGenResponse,
   WorkerMessage,
   WorkerStats
 } from './worker-types';
 
 // Worker pool configuration
-const DEFAULT_POOL_SIZE = 2;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 100; // ms
 const WORKER_IDLE_TIMEOUT = 30000; // 30 seconds
@@ -32,7 +29,6 @@ const PING_INTERVAL = 30000; // 30 seconds
 
 // Feature detection
 const isWorkerSupported = typeof Worker !== 'undefined';
-const isOffscreenCanvasSupported = typeof OffscreenCanvas !== 'undefined';
 
 // Worker URLs (will be resolved by bundler)
 const PHYSICS_WORKER_URL = new URL('./physics-worker.ts', import.meta.url).href;
@@ -49,8 +45,8 @@ interface PooledWorker {
   isReady: boolean;
   lastUsed: number;
   pendingRequests: Map<string, {
-    resolve: (value: any) => void;
-    reject: (reason: any) => void;
+    resolve: (value: unknown) => void;
+    reject: (reason: unknown) => void;
     retries: number;
     requestId: string;
   }>;
@@ -91,7 +87,7 @@ export class WorkerPool {
     this.useWorkers = options.useWorkers !== false && isWorkerSupported;
     
     if (!this.useWorkers) {
-      console.log('[WorkerPool] Workers disabled or not supported - will use main thread fallback');
+      log.info('WorkerPool', 'Workers disabled or not supported - will use main thread fallback');
     }
   }
 
@@ -102,13 +98,13 @@ export class WorkerPool {
     if (this.isInitialized) return true;
     
     if (!this.useWorkers) {
-      console.log('[WorkerPool] Running in fallback mode (main thread)');
+      log.info('WorkerPool', 'Running in fallback mode (main thread)');
       this.isInitialized = true;
       return true;
     }
 
     try {
-      console.log('[WorkerPool] Initializing worker pool...');
+      log.info('WorkerPool', 'Initializing worker pool...');
       
       // Create physics workers
       const physicsCount = 2; // Physics is latency-sensitive, fewer workers
@@ -126,11 +122,11 @@ export class WorkerPool {
       this.startHealthCheck();
       
       this.isInitialized = true;
-      console.log(`[WorkerPool] Initialized with ${this.physicsWorkers.length} physics and ${this.worldGenWorkers.length} world gen workers`);
+      log.info('WorkerPool', `Initialized with ${this.physicsWorkers.length} physics and ${this.worldGenWorkers.length} world gen workers`);
       return true;
     } catch (error) {
       console.error('[WorkerPool] Failed to initialize:', error);
-      console.log('[WorkerPool] Falling back to main thread execution');
+      log.warn('WorkerPool', 'Falling back to main thread execution');
       this.useWorkers = false;
       this.isInitialized = true;
       return true;
@@ -291,7 +287,7 @@ export class WorkerPool {
     console.error(`[WorkerPool] Worker ${pooledWorker.type}-${pooledWorker.id} error:`, error);
     
     // Reject all pending requests
-    for (const [requestId, pending] of pooledWorker.pendingRequests) {
+    for (const [, pending] of pooledWorker.pendingRequests) {
       // Check if we should retry
       if (pending.retries < MAX_RETRIES) {
         this.stats.retriedRequests++;
@@ -360,7 +356,7 @@ export class WorkerPool {
    */
   private sendRequest<T extends WorkerMessage>(
     type: 'physics' | 'worldgen',
-    request: any,
+    request: T extends WorkerMessage ? Omit<T, 'requestId'> : never,
     timeout: number = 30000
   ): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -466,7 +462,7 @@ export class WorkerPool {
     onProgress?: (current: number, total: number) => void
   ): Promise<any[]> {
     if (!this.useWorkers) {
-      console.log('[WorkerPool] Using main thread fallback for world generation');
+      log.info('WorkerPool', 'Using main thread fallback for world generation');
       // Return empty array - caller should handle fallback
       return [];
     }
@@ -525,7 +521,7 @@ export class WorkerPool {
   /**
    * Fallback: Check position validity on main thread
    */
-  private fallbackCheckPositionValidity(x: number, z: number, radius: number): boolean {
+  private fallbackCheckPositionValidity(x: number, z: number, _radius: number): boolean {
     const distFromCenterSq = x * x + z * z;
     if (distFromCenterSq < 15 * 15) return false;
     return true;
@@ -556,7 +552,7 @@ export class WorkerPool {
         // Keep minimum pool size
         const pool = worker.type === 'physics' ? this.physicsWorkers : this.worldGenWorkers;
         if (pool.length > 1) {
-          console.log(`[WorkerPool] Terminating idle ${worker.type} worker ${worker.id}`);
+          log.info('WorkerPool', `Terminating idle ${worker.type} worker ${worker.id}`);
           worker.worker.terminate();
           const index = pool.indexOf(worker);
           if (index > -1) {
@@ -616,7 +612,7 @@ export class WorkerPool {
     this.worldGenWorkers = [];
     
     this.isInitialized = false;
-    console.log('[WorkerPool] All workers terminated');
+    log.info('WorkerPool', 'All workers terminated');
   }
 }
 
