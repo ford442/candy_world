@@ -1,8 +1,8 @@
 /**
  * Unit tests for ground-height / eye-height reconciliation logic (issue #1265).
- * Inlines pure functions so no browser or WASM boot is required.
+ * Imports the production implementation (no browser/WASM boot required).
  *
- * Run: node tests/ground-system.test.mjs
+ * Run: npm run test:ground
  */
 
 import { getEyeTargetY, reconcileGroundedEyeY } from '../src/systems/ground-system.ts';

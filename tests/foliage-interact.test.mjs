@@ -1,8 +1,8 @@
 /**
  * Unit tests for batch foliage interaction JS fallbacks.
- * Inlines pure functions (no wasm-loader import — avoids Vite/UI graph).
+ * Imports the production implementation (no browser/WASM boot required).
  *
- * Run: node tests/foliage-interact.test.mjs
+ * Run: npm run test:foliage-interact
  */
 
 import { geyserLaunchJS, padForcesJS, vineProximityJS } from '../src/utils/wasm-foliage-interact.ts';
