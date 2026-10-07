@@ -30,6 +30,7 @@ import {
     sharedGeometries,
     createJuicyRimLight,
 } from './index.ts';
+import { instanceKey01, seasonDensityKeep, uSeasonSpawn } from './material-core/season-nodes.ts';
 
 export function createFireflies(count = 150, areaSize = 100) {
     // 1. Setup Buffers
@@ -156,7 +157,9 @@ export function createFireflies(count = 150, areaSize = 100) {
     const audioPulse = uAudioHigh.mul(0.5);
     const scalePulse = sin(uTime.mul(5.0).add(instancePhase)).mul(0.1);
 
-    const finalScale = baseScale.add(scalePulse).add(audioPulse.mul(0.2));
+    // Seasons thin the swarm (CONFIG.season.spawnScale.fireflies).
+    const seasonKeep = seasonDensityKeep(instanceKey01(instanceIndex), uSeasonSpawn.fireflies);
+    const finalScale = baseScale.add(scalePulse).add(audioPulse.mul(0.2)).mul(seasonKeep);
 
     // Simple squash: when moving fast up/down (Y velocity), stretch Y
     const yVelAbs = instanceVel.y.abs();

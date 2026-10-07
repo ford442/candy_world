@@ -13,6 +13,12 @@ import { foliageGroup } from '../world/state.ts';
 import { uChromaticIntensity } from './chromatic-nodes.ts';
 import { spawnImpact } from './impacts.ts';
 import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, applyStandardDeformation } from './index.ts';
+import {
+    instanceKey01,
+    seasonDensityKeep,
+    seasonSpawnCpu,
+    uSeasonSpawn,
+} from './material-core/season-nodes.ts';
 
 // OPTIMIZED: BerryBatcher replaces thousands of individual InstancedMeshes
 // with a single large InstancedMesh for improved draw call performance.
@@ -366,7 +372,13 @@ function createHeartbeatMaterial(): THREE.Material {
     const beatSpeed = float(8.0);
     const heartbeat = sin(uTime.mul(beatSpeed).add(phase)).pow(4.0);
     const kickForce = uAudioLow.mul(0.25);
-    const scaleFactor = float(1.0).add(heartbeat.mul(kickForce)).mul(uBerrySeasonScale);
+    // Seasons thin the berries (CONFIG.season.spawnScale.berries). Berries are never
+    // removed from the batch, so the instance index is a stable key.
+    const seasonKeep = seasonDensityKeep(instanceKey01(instanceIndex), uSeasonSpawn.berries);
+    const scaleFactor = float(1.0)
+        .add(heartbeat.mul(kickForce))
+        .mul(uBerrySeasonScale)
+        .mul(seasonKeep);
 
     // 🎨 PALETTE: Add TSL Wind Sway and Player Interaction
     const posScaled = positionLocal.mul(scaleFactor);
@@ -545,7 +557,7 @@ export function shakeBerriesLoose(cluster: THREE.Group, intensity: number): void
     const count = cluster.userData.count || 0;
     // Use Batcher helper to find positions
     for (let i = 0; i < count; i++) {
-        if (Math.random() < intensity * 0.02) {
+        if (Math.random() < intensity * 0.02 * seasonSpawnCpu.berries) {
             BerryBatcher.getInstance().getBerryWorldPosition(cluster, i, _scratchWorldPos);
             spawnFallingBerry(_scratchWorldPos, cluster.userData.berryColor || 0xFF6600);
         }

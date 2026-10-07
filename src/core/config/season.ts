@@ -37,6 +37,27 @@ export const SEASON_DEFAULTS: ConfigType['season'] = {
         },
     },
     windGustScale: { spring: 1.0, summer: 0.85, autumn: 1.5, winter: 1.15 },
+    fauna: {
+        flockScale: { spring: 1, summer: 0.9, autumn: 0.75, winter: 0.45 },
+        settleScale: { spring: 1, summer: 1, autumn: 1.2, winter: 3 },
+        settleDurationScale: { spring: 1, summer: 1, autumn: 1, winter: 2.5 },
+        // Autumn moths drift toward the sky-island roosts.
+        migration: { spring: 0, summer: 0, autumn: 0.6, winter: 0 },
+    },
+    spawnScale: {
+        berries: { spring: 1, summer: 0.85, autumn: 0.7, winter: 0.3 },
+        gemFruit: { spring: 1, summer: 0.8, autumn: 1, winter: 0.35 },
+        fireflies: { spring: 1, summer: 1, autumn: 0.5, winter: 0.15 },
+        dandelionSeeds: { spring: 1, summer: 0.7, autumn: 0.4, winter: 0.2 },
+    },
+    music: {
+        // Game time runs at 120/BPM, so tempo also stretches the day; keep within ±8%.
+        tempoScale: { spring: 1, summer: 1.03, autumn: 0.97, winter: 0.93 },
+        brightnessShift: { spring: 0, summer: 0.08, autumn: -0.08, winter: -0.15 },
+        densityScale: { spring: 1, summer: 1.1, autumn: 0.9, winter: 0.75 },
+        reverbWet: { spring: 0, summer: 0, autumn: 0.12, winter: 0.3 },
+    },
+    luminousBoost: { spring: 1, summer: 0.9, autumn: 1.1, winter: 1.4 },
     palette: {
         spring: {
             leaf: { color: 0x7ce87c, amount: 0, frost: 0, chroma: 1 },

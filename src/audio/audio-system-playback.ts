@@ -1,4 +1,5 @@
 import { CONFIG } from '../core/config.ts';
+import type { SeasonMusicModifier } from '../systems/season-core.ts';
 import {
     AudioSystemCore,
     noteToFreq,
@@ -91,6 +92,11 @@ export class AudioSystem extends AudioSystemCore {
 
     setGenerativeDayNight(bias: number): void {
         this.generativeEngine?.setDayNightBias(bias);
+    }
+
+    /** Season shaping for the generative soundtrack (docs/SEASONS.md). */
+    setGenerativeSeason(mod: Readonly<SeasonMusicModifier>): void {
+        this.generativeEngine?.setSeasonModifier(mod);
     }
 
     isGenerativeActive(): boolean {

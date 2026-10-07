@@ -81,6 +81,28 @@ Fronts leave roughly half the year clear. Before them, rain followed the bass li
 playing it rained most of the time; ground water, rain-grown mushrooms and rainbows are now rarer.
 Tune `CONFIG.season.weather.odds` if that reads too dry.
 
+## Fauna, flora and music
+
+| Knob                          | What it does                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `CONFIG.season.fauna`         | Flock size, roosting and autumn migration toward the sky islands ([`FAUNA.md`](./FAUNA.md#seasons)).          |
+| `CONFIG.season.spawnScale`    | Share of berries, gem fruit, fireflies and dandelion seeds shown.                                             |
+| `CONFIG.season.music`         | Generative soundtrack tempo, filter brightness, arrangement density and reverb, layered on the biome profile. |
+| `CONFIG.season.luminousBoost` | Luminous-plant glow; winter nights glow brighter.                                                             |
+| `CONFIG.season.windGustScale` | Gust swell on the shared wind; autumn is the windy one ([`WIND_OPTIMIZATION.md`](./WIND_OPTIMIZATION.md)).    |
+
+Spring is 1 (or 0) everywhere, so spring is today's world. **Seasons only thin what world generation
+placed; they never add.** Berries, gem fruit and fireflies are thinned on the GPU: `seasonDensityKeep`
+scales an instance to zero when a stable per-instance key (the instance index, or the gem's phase,
+which moves with it on removal) is above the season's density, with a soft edge so a density change
+fades rather than pops. No streaming, spawning or CPU work changes. Dandelion bursts spawn fewer
+seeds, and fewer berries shake loose.
+
+Music modifiers are applied to the biome crossfade right after each blend, so they never compound,
+and each is exact at its identity value. Tempo is kept within ±8% on purpose: game time runs at
+120 / BPM, so a season's tempo also stretches the day. Reverb is a single convolver send that is only
+built the first time a season asks for it.
+
 ## Code map
 
 | File                                                                                    | Role                                                       |
@@ -107,3 +129,9 @@ imports none of them.
 - `npm run test:weather-fronts` ([`weather-fronts.test.ts`](../tests/weather-fronts.test.ts)):
   peer determinism, continuity across slots, season odds, run length, no flicker, phases, the music
   bound, override precedence, and zero allocation.
+- `npm run test:fauna` ([`fauna-behavior.test.ts`](../tests/fauna-behavior.test.ts)): identity
+  modifiers change nothing, roosting, parked critters, migration, and the season mapping.
+- `npm run test:season-music` ([`season-music.test.ts`](../tests/season-music.test.ts)): spring is
+  bit-for-bit identity in every biome, winter is slower and darker, bounds, no compounding.
+- `test:season-wgsl` also builds the berry, gem-fruit, firefly and luminous materials and checks the
+  density mask reached the vertex stage.

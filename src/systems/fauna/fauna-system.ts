@@ -10,7 +10,14 @@ import { profiler } from '../../utils/profiler.ts';
 import { World } from '../ecs/world.ts';
 import { sampleBakedGroundNormalInto, fillGroundHeightsBatch, _fdDelta } from '../ground-system.ts';
 import { player } from '../physics/physics-types.ts';
-import { FaunaBehaviorRunner, setFaunaScatterSink, type FaunaBehaviorStats } from './behavior.ts';
+import { getSeasonState } from '../season-controller.ts';
+import {
+    FaunaBehaviorRunner,
+    applyFaunaSeason,
+    createFaunaSeasonModifiers,
+    setFaunaScatterSink,
+    type FaunaBehaviorStats,
+} from './behavior.ts';
 import {
     allocateBoidsBuffer,
     bindBoidsWasm,
@@ -18,7 +25,7 @@ import {
     updateBoidsBatch,
 } from './boids-bridge.ts';
 import { spawnFaunaPopulation } from './spawn.ts';
-import { FAUNA_BOID_STRIDE, FaunaSpecies, type FaunaSpawnEntry } from './types.ts';
+import { FAUNA_BOID_STRIDE, FaunaSpecies, FaunaState, type FaunaSpawnEntry } from './types.ts';
 
 const _up = new THREE.Vector3(0, 1, 0);
 const _normal = new THREE.Vector3();
@@ -31,6 +38,8 @@ const _pos = new THREE.Vector3();
 const _scale = new THREE.Vector3(1, 1, 1);
 const _fdTx = new THREE.Vector3();
 const _fdTz = new THREE.Vector3();
+// Parked critters collapse to nothing; batcher-lod skips zero-scale instances, so no billboard either.
+const _parkedMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
 export class FaunaSystem {
     private static _instance: FaunaSystem | null = null;
@@ -43,6 +52,12 @@ export class FaunaSystem {
     private _initialized = false;
     private _behavior: FaunaBehaviorRunner | null = null;
     private _stats: FaunaBehaviorStats | null = null;
+
+    // Seasons park part of the population (see CONFIG.season.fauna).
+    private readonly _season = createFaunaSeasonModifiers();
+    private _roostCount = 0;
+    private _roostTargets: Float32Array | null = null;
+    private _active = 0;
 
     private _fallbackCount = 0;
     private _fallbackPositions: Float32Array | null = null;
@@ -104,9 +119,25 @@ export class FaunaSystem {
             );
         }
 
+        // Roost flocks are seated first, so they hold the lowest slots. Their
+        // spawn points double as autumn migration targets.
+        let roosts = 0;
+        while (roosts < this._count && this._entries[roosts].component.biome === 'sky_islands') roosts++;
+        this._roostCount = roosts;
+        if (roosts > 0) {
+            this._roostTargets = new Float32Array(roosts * 2);
+            for (let i = 0; i < roosts; i++) {
+                const b = this._entries[i].component.slot * FAUNA_BOID_STRIDE;
+                this._roostTargets[i * 2] = this._heap[b];
+                this._roostTargets[i * 2 + 1] = this._heap[b + 2];
+            }
+        }
+        this._active = this._count;
+
         if (CONFIG.fauna?.behavior?.enabled !== false) {
             this._behavior = new FaunaBehaviorRunner(CONFIG.fauna?.behavior?.seed ?? 0xfa);
             this._behavior.resize(this._count);
+            this._behavior.setSeasonModifiers(this._season);
             installScatterSink();
         }
 
@@ -119,10 +150,22 @@ export class FaunaSystem {
         if (!this._initialized || !this._heap || this._count === 0) return;
         const t0 = performance.now();
 
+        applyFaunaSeason(
+            getSeasonState(),
+            CONFIG.season.fauna,
+            this._count,
+            this._roostCount,
+            this._roostTargets,
+            this._season
+        );
+        const active = this._season.activeCount;
+        if (active < this._active) this._park(active, this._active);
+        this._active = active;
+
         updateBoidsBatch(
             this._heap,
             this._bufferPtr,
-            this._count,
+            active,
             dt,
             player.position.x,
             player.position.z,
@@ -157,7 +200,8 @@ export class FaunaSystem {
         }
 
         // Pass 1: Try baked normals, collect misses
-        for (const { component } of this._entries) {
+        for (let e = 0; e < active; e++) {
+            const component = this._entries[e].component;
             const b = base + component.slot * FAUNA_BOID_STRIDE;
             const x = this._heap[b];
             const z = this._heap[b + 2];
@@ -183,7 +227,8 @@ export class FaunaSystem {
             fillGroundHeightsBatch(this._fallbackPositions, this._fallbackHeights!, this._fallbackCount * 4);
         }
 
-        for (const { component } of this._entries) {
+        for (let e = 0; e < active; e++) {
+            const component = this._entries[e].component;
             if (component.fallbackIndex !== undefined && component.fallbackIndex >= 0) {
                 const off = component.fallbackIndex * 4;
                 const hL = this._fallbackHeights![off];
@@ -251,6 +296,16 @@ export class FaunaSystem {
 
         if (isFaunaDebugEnabled()) {
             updateFaunaDebug(this._heap, this._bufferPtr, this._count, this._entries);
+        }
+    }
+
+    /** Hide entries [from, to): parked critters keep their slab state and resume where they stopped. */
+    private _park(from: number, to: number): void {
+        const batcher = FaunaBatcher.getInstance();
+        for (let e = from; e < to; e++) {
+            const component = this._entries[e].component;
+            component.state = FaunaState.Rest;
+            batcher.setInstanceMatrix(component.species, component.slot, _parkedMatrix, component.biome, 0);
         }
     }
 

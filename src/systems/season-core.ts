@@ -370,3 +370,39 @@ export function tintRgbInPlace(
     rgb[off + 1] = cg + (frostRgb[1] - cg) * f;
     rgb[off + 2] = cb + (frostRgb[2] - cb) * f;
 }
+
+/** Per-season generative-music shaping (CONFIG.season.music). */
+export interface SeasonMusicConfig {
+    /** Tempo multiplier. Game time is BPM-scaled, so this also stretches the day; keep it near 1. */
+    tempoScale: Record<SeasonName, number>;
+    /** Added to profile brightness (filter cutoff). */
+    brightnessShift: Record<SeasonName, number>;
+    /** Multiplier on every channel's activity. */
+    densityScale: Record<SeasonName, number>;
+    /** Reverb send, 0..1. */
+    reverbWet: Record<SeasonName, number>;
+}
+
+/** Blended music modifier for the current season. Identity: 1, 0, 1, 0. */
+export interface SeasonMusicModifier {
+    tempoScale: number;
+    brightnessShift: number;
+    densityScale: number;
+    reverbWet: number;
+}
+
+export function createSeasonMusicModifier(): SeasonMusicModifier {
+    return { tempoScale: 1, brightnessShift: 0, densityScale: 1, reverbWet: 0 };
+}
+
+export function blendSeasonMusicModifier(
+    state: SeasonState,
+    cfg: SeasonMusicConfig,
+    out: SeasonMusicModifier
+): SeasonMusicModifier {
+    out.tempoScale = blendSeasonScalar(state, cfg.tempoScale);
+    out.brightnessShift = blendSeasonScalar(state, cfg.brightnessShift);
+    out.densityScale = blendSeasonScalar(state, cfg.densityScale);
+    out.reverbWet = blendSeasonScalar(state, cfg.reverbWet);
+    return out;
+}

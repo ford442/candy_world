@@ -360,7 +360,11 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
             attrArray[i] = next;
             accumulateStats(next, cfg);
 
-            if (impostor) {
+            // Instances collapsed to zero scale (parked fauna, removed slots) get no billboard.
+            const c0 = matrixArray[offset];
+            const c1 = matrixArray[offset + 1];
+            const c2 = matrixArray[offset + 2];
+            if (impostor && c0 * c0 + c1 * c1 + c2 * c2 > 1e-8) {
                 const factor = next;
                 const alpha = impostorAlphaFromFactor(factor, cfg);
                 if (alpha > 0.001 && factor < 3 && impostorCount < _impostorCapacity && distSq < farCullSq) {
