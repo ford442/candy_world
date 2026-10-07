@@ -39,7 +39,13 @@
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).
+//
+// Debug hooks (window.setTimeOfDay / window.setCircadianTimeOfDay) install only
+// in dev builds, under CI / headless / visual-regression captures, or with
+// ?debug=1 or ?debugCircadian=1 — see areDebugHooksEnabled().
 // ---------------------------------------------------------------------------
+
+import { isCIorHeadless } from './runtime.ts';
 
 export function hasUrlFlag(key: string): boolean {
     try {
@@ -56,6 +62,20 @@ export function getUrlFlag(key: string): string | null {
     } catch {
         return null; // non-browser (test) environment
     }
+}
+
+/**
+ * Whether window-level debug hooks (time of day, later season) may be installed.
+ * Visual regression qualifies through `__IS_FULL_BOOT_TEST`, which is why the
+ * hooks cannot sit behind `?debugCircadian` alone: the capture tool never passes it.
+ */
+export function areDebugHooksEnabled(): boolean {
+    return (
+        import.meta.env?.DEV === true ||
+        isCIorHeadless() ||
+        getUrlFlag('debug') === '1' ||
+        getUrlFlag('debugCircadian') === '1'
+    );
 }
 
 /** @internal postfx resolution */

@@ -90,7 +90,6 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
             beatSync: ctx.beatSync!,
             interactionSystem: ctx.interactionSystem!,
             moon: ctx.moon,
-            fireflies: null,
             controls: ctx.controls,
             sunLight: sceneInit.sunLight,
             ambientLight: sceneInit.ambientLight,

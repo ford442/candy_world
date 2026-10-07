@@ -3,6 +3,7 @@ import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { float, color as tslColor } from 'three/tsl';
 import { CONFIG, FEATURE_FLAGS, getLoadMemoryTier } from '../core/config.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
+import { registerFireflyMesh } from '../foliage/firefly-registry.ts';
 import {
     createSky,
     createStars,
@@ -254,13 +255,13 @@ export async function initWorld(
     // Use CPU fallback for fireflies during startup. GPU compute init is async but can hang
     // on systems with partial WebGPU support; the CPU path is safe and fast enough for 150 particles.
     if (FEATURE_FLAGS.fireflies && world.fireflyCount > 0) {
-        scene.add(
-            createIntegratedFireflies({
-                count: world.fireflyCount,
-                areaSize: Math.min(100, world.size),
-                useCompute: false,
-            })
-        );
+        const fireflies = createIntegratedFireflies({
+            count: world.fireflyCount,
+            areaSize: Math.min(100, world.size),
+            useCompute: false,
+        });
+        registerFireflyMesh(fireflies);
+        scene.add(fireflies);
         builtFireflyCount = world.fireflyCount;
     }
 
@@ -944,13 +945,13 @@ async function restoreOutdoorSetForPath(
 
     const extraFireflies = world.fireflyCount - builtFireflyCount;
     if (FEATURE_FLAGS.fireflies && extraFireflies > 0) {
-        scene.add(
-            createIntegratedFireflies({
-                count: extraFireflies,
-                areaSize: Math.min(100, world.size),
-                useCompute: false,
-            })
-        );
+        const fireflies = createIntegratedFireflies({
+            count: extraFireflies,
+            areaSize: Math.min(100, world.size),
+            useCompute: false,
+        });
+        registerFireflyMesh(fireflies);
+        scene.add(fireflies);
         builtFireflyCount = world.fireflyCount;
     }
 
