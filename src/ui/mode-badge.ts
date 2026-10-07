@@ -56,10 +56,19 @@ export function showRendererBadge(
     }
 
     rendererBadge.innerText = label;
-    if (isFallback && fallbackReason) {
-        rendererBadge.title = `Requested WebGPU; using WebGL (${fallbackReason})`;
+    rendererBadge.setAttribute('role', 'status');
+    rendererBadge.dataset.backend = activeBackend;
+    if (isFallback) {
+        rendererBadge.setAttribute(
+            'aria-label',
+            'Renderer: WebGL2 fallback. WebGPU is unavailable, so some effects are reduced.'
+        );
+        rendererBadge.title = `Requested WebGPU; using WebGL2 (${fallbackReason ?? 'unknown reason'})`;
     } else if (activeBackend === 'webgl') {
-        rendererBadge.title = 'WebGL2 reference renderer — G: wireframe, M: material debug';
+        rendererBadge.setAttribute('aria-label', 'Renderer: WebGL2');
+        rendererBadge.title = 'WebGL2 renderer — G: wireframe, M: material debug';
+    } else {
+        rendererBadge.setAttribute('aria-label', 'Renderer: WebGPU');
     }
 
     document.body.appendChild(rendererBadge);

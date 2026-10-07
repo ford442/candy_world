@@ -1,7 +1,6 @@
 // src/core/init.ts
 
 import * as THREE from 'three';
-import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import { color, uniform, uv, float, smoothstep } from 'three/tsl';
 import {
@@ -15,6 +14,7 @@ import {
     applyCanvasColorSpace,
     armGpuContext,
     probeWebGPU,
+    settleWebGLContext,
     WebGPUUnavailableError,
     GPU_ALPHA,
     GPU_ANTIALIAS,
@@ -42,12 +42,12 @@ import {
 } from './config.ts';
 
 /**
- * Candy World always uses WebGPURenderer, on a real WebGPU backend.
- *
- * Three's internal GLSL node backend (`forceWebGL` / `getFallback`) is disabled
- * this phase: `createRenderer()` hard-fails instead of falling back, and
- * `createNodeRenderer()` clears `_getFallback` so it cannot be swapped in
- * silently. See docs/WEBGPU_CONTEXT.md.
+ * Candy World always uses `WebGPURenderer`: on a real WebGPU backend when the
+ * boot probe passes, or on Three's GLSL node backend (`forceWebGL: true`, i.e.
+ * WebGL2) when it does not. TSL materials and fog work on both; compute does
+ * not run on the WebGL2 path. Three's own silent `getFallback` stays disabled —
+ * the fallback is chosen explicitly by `createRenderer()` and shown in the UI.
+ * See docs/WEBGPU_CONTEXT.md.
  */
 export type CandyRenderer = WebGPURenderer;
 
@@ -173,24 +173,104 @@ function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): W
 
 export interface CreateRendererResult {
     renderer: CandyRenderer;
-    mode: 'webgpu';
+    mode: RendererBackend;
     requested: RendererBackend;
-    fallbackReason: null;
-    probe: GpuProbeResult;
+    /** Why WebGL2 is active (`explicit-webgl`, or `webgpu-unavailable: <stage>: <reason>`). */
+    fallbackReason: string | null;
+    /** The passing WebGPU probe; null on the WebGL2 path. */
+    probe: GpuProbeResult | null;
+}
+
+/** Probe stages that already claimed a `webgpu` context on the world canvas. */
+const STAGES_HOLDING_WEBGPU_CONTEXT = new Set(['configure', 'pipeline']);
+
+function isWebGL2Available(): boolean {
+    try {
+        const gl = document.createElement('canvas').getContext('webgl2');
+        if (!gl) return false;
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 /**
- * Create the renderer, or fail boot.
+ * A canvas holds one context type for life. When the probe got as far as
+ * `getContext('webgpu')` before failing, WebGL2 can only start on a fresh
+ * element. Nothing has bound listeners to `#glCanvas` yet (input wiring runs
+ * after the scene pipeline), so swapping the node in place is safe.
+ */
+function replaceCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
+    const fresh = canvas.cloneNode(false) as HTMLCanvasElement;
+    canvas.replaceWith(fresh);
+    return fresh;
+}
+
+/**
+ * Boot Three's GLSL node backend (WebGL2). Throws {@link WebGPUUnavailableError}
+ * with stage `webgl` when WebGL2 cannot start either — that is the only case
+ * that still ends at the hard-fail screen.
+ */
+async function createWebGLRenderer(
+    canvas: HTMLCanvasElement,
+    reason: string
+): Promise<WebGPURenderer> {
+    if (!isWebGL2Available()) {
+        throw new WebGPUUnavailableError(
+            'webgl',
+            `WebGL2 is unavailable too (${reason}) — this browser cannot render the world`
+        );
+    }
+
+    const renderer = new WebGPURenderer({
+        canvas,
+        antialias: GPU_ANTIALIAS,
+        alpha: GPU_ALPHA,
+        powerPreference: GPU_POWER_PREFERENCE,
+        forceWebGL: true,
+    } as ConstructorParameters<typeof WebGPURenderer>[0]);
+    (renderer as WebGPURenderer & { _getFallback: unknown })._getFallback = null;
+
+    try {
+        await renderer.init();
+    } catch (err) {
+        throw new WebGPUUnavailableError(
+            'webgl',
+            `WebGL2 renderer failed to start: ${err instanceof Error ? err.message : String(err)}`,
+            err
+        );
+    }
+    if (!isWebGLNodeBackend(renderer)) {
+        throw new WebGPUUnavailableError('webgl', 'Renderer did not start on the WebGL2 backend');
+    }
+
+    // No GPUDevice on this path: compute consumers fail closed to their
+    // CPU/WASM tier, and per-frame TSL compute dispatch stays off.
+    settleWebGLContext(reason);
+    (window as Window & { __computeDisabled?: boolean }).__computeDisabled = true;
+    // Three runs TSL compute on WebGL2 through transform feedback, which cannot
+    // express most of our kernels (too many varyings, storage textures) and
+    // spams GL errors every frame. Several systems dispatch straight through
+    // `renderer.compute()`, so enforce the policy here rather than per caller.
+    renderer.compute = () => undefined;
+    renderer.computeAsync = async () => {};
+    return renderer;
+}
+
+/**
+ * Create the renderer: WebGPU when the probe passes, WebGL2 otherwise.
  *
- * WebGPU is required to enter the world in this phase. `probeWebGPU()` walks
- * adapter → device → canvas configure → empty compute pipeline before anything
- * is constructed; if any step fails it throws {@link WebGPUUnavailableError}
- * and we do **not** start a WebGL renderer. `?renderer=webgl` and `?webglLite`
- * cannot rescue boot either — see `resolveRendererBackend()`.
+ * `probeWebGPU()` walks adapter → device → canvas configure → empty compute
+ * pipeline before anything is constructed. Any failure — `navigator.gpu`
+ * missing, `requestAdapter()` resolving null, a rejected device — falls back to
+ * `WebGPURenderer({ forceWebGL: true })`. The probe report keeps the stage and
+ * reason, and the caller publishes them on the renderer badge, so the fallback
+ * is never silent. `?renderer=webgl` (or a stored preference) skips the probe.
  *
  * @param canvas The canvas element to render to
- * @param preference Resolved renderer preference (always `webgpu` this phase)
- * @throws {WebGPUUnavailableError} When WebGPU is unusable on this browser.
+ * @param preference Resolved renderer preference
+ * @throws {WebGPUUnavailableError} With stage `webgl` when neither backend can start.
  */
 export async function createRenderer(
     canvas: HTMLCanvasElement,
@@ -200,20 +280,37 @@ export async function createRenderer(
         throw new WebGPUUnavailableError('canvas', 'No #glCanvas element to render into');
     }
 
-    // `WebGPU.isAvailable()` only checks that `navigator.gpu` exists, which is
-    // exactly the case that used to boot to WebGL: the object is there, the
-    // adapter request dies later. The probe is the real gate; this only gives
-    // the user the browser-specific advisory Three writes.
-    if (!WebGPU.isAvailable() && !document.getElementById('webgpu-warning')) {
-        const warning = WebGPU.getErrorMessage();
-        if (warning) {
-            warning.id = 'webgpu-warning';
-            warning.style.zIndex = '1'; // Behind the loading screen / fatal error
-            document.body.appendChild(warning);
-        }
+    if (preference === 'webgl') {
+        const reason = 'explicit-webgl';
+        console.log('[Init] WebGL2 requested — creating WebGPURenderer on the GLSL node backend');
+        return {
+            renderer: await createWebGLRenderer(canvas, reason),
+            mode: 'webgl',
+            requested: preference,
+            fallbackReason: reason,
+            probe: null,
+        };
     }
 
-    const probe = await probeWebGPU(canvas);
+    let probe: GpuProbeResult;
+    try {
+        probe = await probeWebGPU(canvas);
+    } catch (err) {
+        if (!(err instanceof WebGPUUnavailableError)) throw err;
+
+        const reason = `webgpu-unavailable: ${err.stage}: ${err.message}`;
+        console.warn(`[Init] WebGPU unavailable (${err.stage}) — falling back to WebGL2`);
+        const target = STAGES_HOLDING_WEBGPU_CONTEXT.has(err.stage)
+            ? replaceCanvas(canvas)
+            : canvas;
+        return {
+            renderer: await createWebGLRenderer(target, reason),
+            mode: 'webgl',
+            requested: preference,
+            fallbackReason: reason,
+            probe: null,
+        };
+    }
 
     console.log('[Init] WebGPU probe passed — creating WebGPURenderer on the probed device');
     return {
@@ -226,12 +323,12 @@ export async function createRenderer(
 }
 
 /**
- * Initialize the Three.js scene with renderer (WebGPU required), lighting, fog, and visual effects.
+ * Initialize the Three.js scene with renderer (WebGPU, or WebGL2 fallback), lighting, fog, and visual effects.
  *
  * Creates:
- * - `WebGPURenderer` on the single probed device. There is **no** WebGL
- *   fallback: a failed probe throws {@link WebGPUUnavailableError}, and
- *   `?renderer=webgl` is ignored (see docs/webgl-fallback.md)
+ * - `WebGPURenderer` on the single probed device, or on the WebGL2 (GLSL node)
+ *   backend when the probe fails or `?renderer=webgl` is set (see
+ *   docs/webgl-fallback.md)
  * - Scene with TSL-driven fog node plus a standard `THREE.Fog` for distances
  * - Perspective camera positioned at (0, 5, 0)
  * - Hemisphere ambient light + directional sunlight with shadows
@@ -247,10 +344,19 @@ export async function initScene(): Promise<SceneInitResult> {
     const requested = resolveRendererBackend();
     const { renderer, mode, fallbackReason, probe } = await createRenderer(canvas, requested);
 
-    // Adopt the probed device as the process-wide GPU context. Must complete
-    // before setSize so MSAA colorBuffer / swapchain resolve match the canvas.
-    // Throws if Three landed on its WebGL backend despite the passing probe.
-    await armGpuContext(renderer, probe);
+    if (probe) {
+        // Adopt the probed device as the process-wide GPU context. Must complete
+        // before setSize so MSAA colorBuffer / swapchain resolve match the canvas.
+        // Throws if Three landed on its WebGL backend despite the passing probe.
+        await armGpuContext(renderer, probe);
+    } else {
+        // Bootstrap cached capabilities before the backend was known. Re-resolve
+        // now so the shadow / postfx decisions below take the WebGL2 clamp.
+        // Dynamic import: a static one closes an init ↔ capabilities cycle
+        // (TDZ at module evaluation); bootstrap has already loaded the module.
+        const { refreshStartupCapabilities } = await import('./startup/capabilities.ts');
+        refreshStartupCapabilities({ forceWebGL: true });
+    }
 
     const initialFog = getInitialFogDistances();
 
@@ -289,7 +395,7 @@ export async function initScene(): Promise<SceneInitResult> {
         // Output color space comes from the probe, which already tagged the
         // swap chain with it — the two must agree or P3 content is shown as
         // sRGB (or vice versa). See docs/WEBGPU_CONTEXT.md#color-space.
-        const onWebGpuBackend = !isWebGLNodeBackend(renderer);
+        const onWebGpuBackend = probe !== null && !isWebGLNodeBackend(renderer);
         const supportsHDR = onWebGpuBackend && probe.canvas.colorSpace === 'display-p3';
         if (supportsHDR) {
             console.log(
@@ -315,10 +421,12 @@ export async function initScene(): Promise<SceneInitResult> {
 
         // Three's backend init re-configured the canvas without colorSpace;
         // re-tag it with whatever outputColorSpace we actually landed on.
-        applyCanvasColorSpace(
-            probe,
-            webgpuRenderer.outputColorSpace === 'display-p3' ? 'display-p3' : 'srgb'
-        );
+        if (probe) {
+            applyCanvasColorSpace(
+                probe,
+                webgpuRenderer.outputColorSpace === 'display-p3' ? 'display-p3' : 'srgb'
+            );
+        }
     }
 
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -426,7 +534,7 @@ export async function initScene(): Promise<SceneInitResult> {
         const softOpacity = fadeX.mul(fadeY).mul(uShaftOpacity);
         (shaftMaterial as MeshBasicNodeMaterial).opacityNode = softOpacity;
     } else {
-        // Non-WebGPURenderer guard (unreachable at runtime — WebGPU is required):
+        // Non-WebGPURenderer guard (unreachable — both backends use WebGPURenderer):
         // standard material with static opacity
         // Note: Opacity is updated dynamically in game-loop.ts based on sunrise/sunset.
         // Default starts at 0.0 (invisible) and matches uShaftOpacity uniform behavior.
@@ -479,7 +587,7 @@ export async function initScene(): Promise<SceneInitResult> {
 /**
  * Force a full scene warmup render to prevent shader compilation stutter.
  *
- * The renderer is always WebGPU at runtime (WebGPU is required); the
+ * Runs on both backends (`WebGPURenderer` compiles TSL to WGSL or GLSL); the
  * `isWebGPUMode` guard below only protects non-`WebGPURenderer` callers.
  *
  * Temporarily disables frustum culling, moves camera to capture all objects,
