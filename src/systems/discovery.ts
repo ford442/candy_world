@@ -249,7 +249,7 @@ class DiscoverySystem {
         // Trap focus inside the overlay
         yieldToPaint(50).then(() => {
             if (document.getElementById('discovery-log-overlay')) {
-                this.releaseFocusTrap = trapFocusInside(overlay);
+                this.releaseFocusTrap = trapFocusInside(overlay, { skipAutoFocus: true });
                 // Focus close button for accessibility
                 closeBtn.focus({ preventScroll: true });
             }

@@ -36,6 +36,7 @@ export function createCloud(options: CloudOptions = {}): THREE.Group {
     // The visuals are handled by CloudBatcher (1 Draw Call for all clouds)
     const group = new THREE.Group();
     group.userData.type = 'cloud';
+    group.userData.isBatched = true;
     group.userData.tier = tier;
     group.userData.isRainCloud = false;
     group.userData.isWalkable = tier === 1;

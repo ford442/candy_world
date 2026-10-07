@@ -66,6 +66,7 @@
         "test:explore": "node tests/explore-camera.test.mjs",
         "test:batcher-lod": "node tests/batcher-lod.test.mjs",
         "test:entity-snapshot": "tsx --import ./tests/support/register-hooks.mjs tests/entity-snapshot.test.mjs",
+        "test:stream-evict": "tsx --import ./tests/support/register-hooks.mjs tests/stream-evict.test.mjs",
         "test:edit-history": "tsx tests/edit-history.test.mjs",
         "test:world-commands": "tsx --import ./tests/support/register-hooks.mjs tests/world-commands.test.mjs",
         "test:fast": "npm run build:wasm && npm run test:wasm && npm run test:budgets && npm run test:rigidbody && npm run test:joints && npm run test:joint-fallback && npm run test:softbody && npm run test:heroanim && npm run test:parity && npm run test:chores && npm run test:webgpu-probe && npm run test:cookbook-presets && npm run test:spawn-tracker && npm run test:entity-snapshot && npm run test:entity-snapshot-apply && npm run test:stream-evict && npm run test:edit-history && npm run test:world-commands && npm run test:player-spawn && npm run test:character && npm run test:world-health && npm run test:fauna && npm run test:presence && npm run test:sugar-caves && npm run test:night-market && npm run test:capabilities && npm run test:world-extent && npm run test:lights && npm run test:clustered && npm run test:gi && npm run test:postfx && npm run test:ground && npm run test:ground-unified && npm run test:sky-islands && npm run test:foliage-interact && npm run test:cascades && npm run test:atmosphere && npm run test:docs-symbols && npm run test:plan-integrity",
@@ -91,7 +92,6 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "prepare": "simple-git-hooks",
-        "test:stream-evict": "tsx --import ./tests/support/register-hooks.mjs tests/stream-evict.test.mjs",
         "test:entity-snapshot-apply": "tsx --import ./tests/support/register-hooks.mjs tests/entity-snapshot-apply.test.mjs",
         "test:docs-symbols": "tsx --import ./tests/support/register-hooks.mjs scripts/check-docs-symbols.mjs",
         "test:plan-integrity": "node scripts/check-plan-integrity.mjs"

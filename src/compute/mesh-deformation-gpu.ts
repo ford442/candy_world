@@ -25,8 +25,6 @@ import {
     MESH_DEFORM_WAVE_WGSL,
     MESH_DEFORM_JIGGLE_WGSL,
     MESH_DEFORM_WOBBLE_WGSL,
-    NORMAL_RECOMPUTE_WGSL,
-    NORMAL_NORMALIZE_WGSL,
 } from './gpu-compute-shaders.ts';
 import {
     MeshDeformationCompute,
@@ -130,7 +128,7 @@ export class MeshDeformationGPU {
         try {
             await this.gpuLib.initDevice();
         } catch {
-            console.log('[GPU] MeshDeformationGPU: WebGPU unavailable, using CPU fallback');
+            console.warn('[GPU] MeshDeformationGPU: WebGPU unavailable, using CPU fallback');
             return;
         }
 
@@ -171,7 +169,7 @@ export class MeshDeformationGPU {
                 `mesh-deform-${this.cpuFallback.type}-bind`
             );
 
-            console.log(`[GPU] MeshDeformationGPU (${this.cpuFallback.type}) initialised — ${this.vertexCount} vertices`);
+            // console.log(`[GPU] MeshDeformationGPU (${this.cpuFallback.type}) initialised — ${this.vertexCount} vertices`);
         } catch (e) {
             console.warn('[GPU] MeshDeformationGPU init failed:', e);
             this.pipeline = null;

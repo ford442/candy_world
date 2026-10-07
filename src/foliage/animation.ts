@@ -265,9 +265,6 @@ export function updateFoliageMaterials(
 ): void {
     if (!audioData) return;
 
-    const channels = audioData.channelData;
-    const hasChannels = channels && channels.length > 0;
-
     // Calculate global wetAmount once per frame outside the loop
     let globalWetAmount = 0;
     if (weatherState && weatherIntensity > 0) {
@@ -278,6 +275,11 @@ export function updateFoliageMaterials(
         }
     }
 
+    // ⚡ OPTIMIZATION: Fast-path skip if no reactivity applies this frame
+    if (!isNight && globalWetAmount === 0) return;
+
+    const channels = audioData.channelData;
+    const hasChannels = channels && channels.length > 0;
     const isGpuPath = isGpuFoliageDefaultPath();
 
     // ⚡ OPTIMIZATION: Single O(N) loop over reactiveMaterials combining audio and weather reactivity
@@ -376,21 +378,34 @@ export function animateFoliage(
 
                     // ⚡ OPTIMIZATION: Cache property access to avoid dynamic lookups
                     const matIsMeshBasicMaterial = (mat as any).isMeshBasicMaterial;
+                    let matUserData = mat.userData;
+                    if (matUserData === undefined) {
+                        matUserData = {};
+                        mat.userData = matUserData;
+                    }
+                    if (matUserData.hasColorNode === undefined) {
+                        matUserData.hasColorNode = !!(mat as any).colorNode;
+                        matUserData.hasEmissiveNode = !!(mat as any).emissiveNode;
+                    }
 
                     // stronger blend for higher intensity; immediate override when very strong
                     const t = Math.min(1, fi * 1.2) * 0.8;
 
                     if (matIsMeshBasicMaterial && mat.color) {
-                        if (fi > 0.7) mat.color.copy(fc);
-                        else mat.color.lerp(fc, t);
+                        if (!matUserData.hasColorNode) {
+                            if (fi > 0.7) mat.color.copy(fc);
+                            else mat.color.lerp(fc, t);
+                        }
                     } else if (mat.emissive) {
-                        if (fi > 0.7) mat.emissive.copy(fc);
-                        else mat.emissive.lerp(fc, t);
-                        // ensure visible intensity (min floor) scaled by global flashScale
-                        mat.emissiveIntensity = Math.max(
-                            0.2,
-                            fi * ((CONFIG as any).flashScale || 2.0)
-                        );
+                        if (!matUserData.hasEmissiveNode) {
+                            if (fi > 0.7) mat.emissive.copy(fc);
+                            else mat.emissive.lerp(fc, t);
+                            // ensure visible intensity (min floor) scaled by global flashScale
+                            mat.emissiveIntensity = Math.max(
+                                0.2,
+                                fi * ((CONFIG as any).flashScale || 2.0)
+                            );
+                        }
                     }
                 }
 
@@ -418,10 +433,18 @@ export function animateFoliage(
 
                     // ⚡ OPTIMIZATION: Cache property access to avoid dynamic lookups
                     const matIsMeshBasicMaterial = (mat as any).isMeshBasicMaterial;
-                    const matUserData = mat.userData;
+                    let matUserData = mat.userData;
+                    if (matUserData === undefined) {
+                        matUserData = {};
+                        mat.userData = matUserData;
+                    }
+                    if (matUserData.hasColorNode === undefined) {
+                        matUserData.hasColorNode = !!(mat as any).colorNode;
+                        matUserData.hasEmissiveNode = !!(mat as any).emissiveNode;
+                    }
 
                     if (matIsMeshBasicMaterial) {
-                        if (matUserData && matUserData.baseColor && mat.color) {
+                        if (!matUserData.hasColorNode && matUserData.baseColor && mat.color) {
                             // ⚡ OPTIMIZATION: Inline color distance check to avoid method-call overhead
                             const c = mat.color;
                             const b = matUserData.baseColor;
@@ -437,20 +460,22 @@ export function animateFoliage(
                             }
                         }
                     } else if (mat.emissive) {
-                        if (matUserData && matUserData.baseEmissive) {
-                            mat.emissive.lerp(matUserData.baseEmissive, fadeT);
-                        }
-                        // lerp emissiveIntensity back toward 0
-                        const current = mat.emissiveIntensity || 0;
-                        if (current > snapThreshold) {
-                            mat.emissiveIntensity = THREE.MathUtils.lerp(current, 0, fadeT);
-                            allFadedBack = false;
-                        } else {
-                            // If intensity is very low, snap back to base to avoid residual tint
-                            if (matUserData && matUserData.baseEmissive) {
-                                mat.emissive.copy(matUserData.baseEmissive);
+                        if (!matUserData.hasEmissiveNode) {
+                            if (matUserData.baseEmissive) {
+                                mat.emissive.lerp(matUserData.baseEmissive, fadeT);
                             }
-                            mat.emissiveIntensity = 0;
+                            // lerp emissiveIntensity back toward 0
+                            const current = mat.emissiveIntensity || 0;
+                            if (current > snapThreshold) {
+                                mat.emissiveIntensity = THREE.MathUtils.lerp(current, 0, fadeT);
+                                allFadedBack = false;
+                            } else {
+                                // If intensity is very low, snap back to base to avoid residual tint
+                                if (matUserData.baseEmissive) {
+                                    mat.emissive.copy(matUserData.baseEmissive);
+                                }
+                                mat.emissiveIntensity = 0;
+                            }
                         }
                     }
                 }

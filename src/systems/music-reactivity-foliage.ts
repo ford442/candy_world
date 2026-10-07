@@ -38,11 +38,6 @@ function ensureBatchPositionsCapacity(neededCount: number) {
         isDay: boolean,
         isDeepNight: boolean
     ) {
-        // ⚡ OPTIMIZATION: Short-circuit CPU math if the GPU compute shader is handling instances
-        if (shouldUseFoliageGpuBatch(cpuAnimatedFoliage?.length || 0)) {
-            return;
-        }
-
         if (typeof isDay !== 'boolean') {
             console.warn('[Music] isDay parameter missing');
             return;

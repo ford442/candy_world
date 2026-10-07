@@ -11,15 +11,15 @@ global.foliageGroup = new THREE.Group();
 
 import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
 import { gemFruitBatcher } from '../src/foliage/gem-fruit-batcher.ts';
+import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
 import { sugarCaveBatcher } from '../src/foliage/sugar-cave-batcher.ts';
+import { CloudBatcher } from '../src/foliage/cloud-batcher.ts';
+import { FaunaBatcher } from '../src/foliage/fauna-batcher.ts';
 import { despawnEntity } from '../src/world/entity-despawn.ts';
 import { foliageCaves } from '../src/systems/physics/physics-types.ts';
 import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
 import { subwooferLotusBatcher } from '../src/foliage/subwoofer-lotus-batcher.ts';
 import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
-import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
-import { CloudBatcher } from '../src/foliage/cloud-batcher.ts';
-import { FaunaBatcher } from '../src/foliage/fauna-batcher.ts';
 import { FaunaSpecies } from '../src/systems/fauna/types.ts';
 import { CandyDebrisBatcher } from '../src/foliage/candy-debris-batcher.ts';
 
@@ -48,10 +48,9 @@ async function runTests() {
                 { type: 'luminous_plant', id: 'lp1', translation: [0, 0, 0] },
                 { type: 'subwoofer_lotus', id: 'sl1', translation: [1, 0, 1] },
                 { type: 'dandelion', id: 'd1', translation: [2, 0, 2] },
-                { type: 'cloud', id: 'c1', translation: [2, 10, 2], isBatched: true },
+                { type: 'cloud', id: 'c1', translation: [2, 20, 2], isBatched: true },
                 { type: 'fauna', id: 'f1', translation: [3, 0, 2], isBatched: true },
                 { type: 'candy_debris', id: 'cd1', translation: [4, 0, 2], isBatched: true },
-
                 { type: 'gem_canopy_tree', id: 'gt1', translation: [3, 0, 3] },
                 { type: 'unknown_batched', id: 'u1', translation: [4, 0, 4], isBatched: true },
             ]
@@ -86,11 +85,13 @@ async function runTests() {
              } else if (entity.type === 'dandelion') {
                   dandelionBatcher.register(obj);
              } else if (entity.type === 'cloud') {
-                  CloudBatcher.getInstance().register(obj);
+                 // Fake a cloud proxy registration
+                 obj.userData.cloudScale = 1.0;
+                 CloudBatcher.getInstance().register(obj, { puffCount: 12 });
              } else if (entity.type === 'fauna') {
-                  FaunaBatcher.getInstance().init();
-                  obj.userData.faunaSpecies = FaunaSpecies.SugarMoth;
-                  obj.userData.slot = FaunaBatcher.getInstance().addInstance(FaunaSpecies.SugarMoth, 3, 0, 2, 'global', 0, 0);
+                 FaunaBatcher.getInstance().init();
+                 obj.userData.faunaSpecies = FaunaSpecies.SugarMoth;
+                 obj.userData.slot = FaunaBatcher.getInstance().addInstance(FaunaSpecies.SugarMoth, 3, 0, 2, 'global', 0, 0);
              } else if (entity.type === 'candy_debris') {
                  // Debris despawns itself via lifetime, so just registering it to test classification
                  // Force peekMesh to return something by initiating a burst
@@ -109,7 +110,7 @@ async function runTests() {
         const lpInitialCount = luminousPlantBatcher.count;
         const slInitialCount = subwooferLotusBatcher['_count'];
         const danInitialCount = dandelionBatcher.count;
-        const cbInitialCount = CloudBatcher.getInstance().count;
+        const cloudInitialCount = CloudBatcher.getInstance().count;
         const fbInitialCount = FaunaBatcher.getInstance().getTotalCount();
 
         // Move far away to force eviction of 0,0
@@ -120,10 +121,7 @@ async function runTests() {
         assert.equal(luminousPlantBatcher.count, lpInitialCount - 1, 'Luminous plant should be evicted');
         assert.equal(subwooferLotusBatcher['_count'], slInitialCount - 1, 'Subwoofer lotus should be evicted');
         assert.equal(dandelionBatcher.count, danInitialCount - 1, 'Dandelion should be evicted');
-        // A cloud registers 'puffCount' puffs (between 12 and 19), so it won't be exactly -1.
-        // It should be cbInitialCount - puffCount, meaning < cbInitialCount.
-        // We just assert it is smaller.
-        assert.ok(CloudBatcher.getInstance().count < cbInitialCount, 'Cloud should be evicted');
+        assert.equal(CloudBatcher.getInstance().count, cloudInitialCount - 12, 'Cloud should be evicted');
         assert.equal(FaunaBatcher.getInstance().getTotalCount(), fbInitialCount - 1, 'Fauna should be evicted');
 
         // Ensure unknown batched didn't crash and is still in records because permanentCount > 0
@@ -168,7 +166,7 @@ async function runTests() {
             'gem_canopy_tree', 'mushroom', 'lanternFlower', 'glass_mushroom',
             'flower', 'simple_flower', 'fern', 'arpeggio_fern', 'cave',
             'kick_drum_geyser', 'luminous_plant', 'dandelion', 'waterfall',
-            'subwoofer_lotus', 'glowing_flower', 'sugar_cave', 'night_market_stall'
+            'subwoofer_lotus', 'glowing_flower', 'sugar_cave', 'night_market_stall', 'cloud'
         ];
 
         let neverFailures = 0;
@@ -244,7 +242,7 @@ async function runTests() {
         console.log('  ✓ Cave despawn path successful');
         passed++;
 
-        // 9. Standalone waterfall — the only path that reaches
+        // Standalone waterfall — the only path that reaches
         // waterfallBatcher.removeInstance (caves call remove(uuid) directly).
         const waterfallObj = new THREE.Object3D();
         waterfallObj.userData.type = 'waterfall';
@@ -256,6 +254,42 @@ async function runTests() {
         assert.equal(waterfallBatcher.count, wfBefore, 'Waterfall should be removed from batcher via removeInstance');
 
         console.log('  ✓ Waterfall despawn path successful');
+        passed++;
+
+        // CloudBatcher
+        const cloudObj1 = new THREE.Object3D();
+        const cloudObj2 = new THREE.Object3D();
+        const cloudBatcher = CloudBatcher.getInstance();
+        cloudBatcher.init();
+        cloudBatcher.register(cloudObj1, { puffCount: 5 });
+        cloudBatcher.register(cloudObj2, { puffCount: 5 });
+
+        assert.equal(cloudBatcher.clouds.length, 2, 'Cloud should have 2 logical counts');
+        assert.equal(cloudBatcher.count, 10, 'Cloud should have 10 puff counts');
+
+        cloudBatcher.removeInstance(cloudObj1);
+        assert.equal(cloudBatcher.clouds.length, 1, 'Cloud should have 1 logical count after remove');
+        assert.equal(cloudBatcher.count, 5, 'Cloud should have 5 puff counts after remove');
+        assert.equal(cloudObj2.userData.batchStart, 0, 'Swapped Cloud batchStart updated');
+        console.log('  ✓ CloudBatcher removeInstance successful');
+        passed++;
+
+        // FaunaBatcher — removeInstance(species, slot), the signature despawnEntity calls
+        const faunaBatcher = FaunaBatcher.getInstance();
+        faunaBatcher.init();
+        const faunaBefore = faunaBatcher.getTotalCount();
+
+        faunaBatcher.addInstance(0, 0, 0, 0, 'global', 0, 100);
+        faunaBatcher.addInstance(0, 0, 0, 0, 'global', 0, 101);
+
+        assert.equal(faunaBatcher.getTotalCount(), faunaBefore + 2, 'Fauna should have 2 more counts');
+
+        const removedIndex = faunaBatcher['_species'][0].slotToInstance.get(100);
+        faunaBatcher.removeInstance(0, 100);
+        assert.equal(faunaBatcher.getTotalCount(), faunaBefore + 1, 'Fauna should have 1 fewer count after swap');
+        assert.equal(faunaBatcher['_species'][0].slotToInstance.get(101), removedIndex, 'Swapped Fauna index updated');
+        assert.equal(faunaBatcher['_species'][0].slotToInstance.has(100), false, 'Removed Fauna slot unmapped');
+        console.log('  ✓ FaunaBatcher swap-with-last successful');
         passed++;
 
     } catch (err) {

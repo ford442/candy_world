@@ -91,7 +91,7 @@ export class NoiseGeneratorGPU {
         try {
             await this.gpuLib.initDevice();
         } catch {
-            console.log('[GPU] NoiseGeneratorGPU: WebGPU unavailable, using CPU fallback');
+            console.warn('[GPU] NoiseGeneratorGPU: WebGPU unavailable, using CPU fallback');
             return;
         }
 
@@ -135,7 +135,7 @@ export class NoiseGeneratorGPU {
                 'noise-uniforms'
             );
 
-            console.log(`[GPU] NoiseGeneratorGPU initialised — ${this.width}×${this.height}`);
+            // console.log(`[GPU] NoiseGeneratorGPU initialised — ${this.width}×${this.height}`);
         } catch (e) {
             console.warn('[GPU] NoiseGeneratorGPU init failed:', e);
             this.rgbaPipeline = null;
