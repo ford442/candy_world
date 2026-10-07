@@ -13,6 +13,8 @@ import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
 import { gemFruitBatcher } from '../src/foliage/gem-fruit-batcher.ts';
 import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
 import { sugarCaveBatcher } from '../src/foliage/sugar-cave-batcher.ts';
+import { CloudBatcher } from '../src/foliage/cloud-batcher.ts';
+import { FaunaBatcher } from '../src/foliage/fauna-batcher.ts';
 import { despawnEntity } from '../src/world/entity-despawn.ts';
 import { foliageCaves } from '../src/systems/physics/physics-types.ts';
 import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
@@ -244,6 +246,46 @@ async function runTests() {
         assert.equal(caveObj.userData.waterfallActive, false, 'waterfallActive should be false');
 
         console.log('  ✓ Cave despawn path successful');
+        passed++;
+
+        // 8. CloudBatcher
+        const cloudObj1 = new THREE.Object3D();
+        const cloudObj2 = new THREE.Object3D();
+        const cloudBatcher = CloudBatcher.getInstance();
+        cloudBatcher.init();
+        cloudBatcher.register(cloudObj1, { puffCount: 5 });
+        cloudBatcher.register(cloudObj2, { puffCount: 5 });
+
+        assert.equal(cloudBatcher.clouds.length, 2, 'Cloud should have 2 logical counts');
+        assert.equal(cloudBatcher.count, 10, 'Cloud should have 10 puff counts');
+
+        cloudBatcher.removeInstance(cloudObj1);
+        assert.equal(cloudBatcher.clouds.length, 1, 'Cloud should have 1 logical count after remove');
+        assert.equal(cloudBatcher.count, 5, 'Cloud should have 5 puff counts after remove');
+        assert.equal(cloudObj2.userData.batchStart, 0, 'Swapped Cloud batchStart updated');
+        console.log('  ✓ CloudBatcher removeInstance successful');
+        passed++;
+
+        // 9. FaunaBatcher
+        const faunaObj1 = new THREE.Object3D();
+        const faunaObj2 = new THREE.Object3D();
+        const faunaBatcher = FaunaBatcher.getInstance();
+        faunaBatcher.init();
+
+        const fIdx1 = faunaBatcher.addInstance(0, 0, 0, 0, 'global', 0, 0);
+        faunaObj1.userData.faunaSpecies = 0;
+        faunaObj1.userData.faunaSlot = 0;
+
+        const fIdx2 = faunaBatcher.addInstance(0, 0, 0, 0, 'global', 0, 1);
+        faunaObj2.userData.faunaSpecies = 0;
+        faunaObj2.userData.faunaSlot = 1;
+
+        assert.equal(faunaBatcher.getTotalCount(), 2, 'Fauna should have 2 counts');
+
+        faunaBatcher.removeInstance(faunaObj1);
+        assert.equal(faunaBatcher.getTotalCount(), 1, 'Fauna should have 1 count after swap');
+        assert.equal(faunaBatcher['_species'][0].slotToInstance.get(1), 0, 'Swapped Fauna index updated');
+        console.log('  ✓ FaunaBatcher swap-with-last successful');
         passed++;
 
     } catch (err) {

@@ -265,9 +265,6 @@ export function updateFoliageMaterials(
 ): void {
     if (!audioData) return;
 
-    const channels = audioData.channelData;
-    const hasChannels = channels && channels.length > 0;
-
     // Calculate global wetAmount once per frame outside the loop
     let globalWetAmount = 0;
     if (weatherState && weatherIntensity > 0) {
@@ -278,6 +275,11 @@ export function updateFoliageMaterials(
         }
     }
 
+    // ⚡ OPTIMIZATION: Fast-path skip if no reactivity applies this frame
+    if (!isNight && globalWetAmount === 0) return;
+
+    const channels = audioData.channelData;
+    const hasChannels = channels && channels.length > 0;
     const isGpuPath = isGpuFoliageDefaultPath();
 
     // ⚡ OPTIMIZATION: Single O(N) loop over reactiveMaterials combining audio and weather reactivity
