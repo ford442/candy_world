@@ -12,6 +12,7 @@ global.foliageGroup = new THREE.Group();
 import { ChunkStreamer } from '../src/world/chunk-streamer.ts';
 import { gemFruitBatcher } from '../src/foliage/gem-fruit-batcher.ts';
 import { sugarCaveBatcher } from '../src/foliage/sugar-cave-batcher.ts';
+import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
 import { despawnEntity } from '../src/world/entity-despawn.ts';
 import { foliageCaves } from '../src/systems/physics/physics-types.ts';
 import { luminousPlantBatcher } from '../src/foliage/luminous-plant-batcher.ts';
@@ -242,6 +243,20 @@ async function runTests() {
         assert.equal(caveObj.userData.waterfallActive, false, 'waterfallActive should be false');
 
         console.log('  ✓ Cave despawn path successful');
+        passed++;
+
+        // 9. Standalone waterfall — the only path that reaches
+        // waterfallBatcher.removeInstance (caves call remove(uuid) directly).
+        const waterfallObj = new THREE.Object3D();
+        waterfallObj.userData.type = 'waterfall';
+        const wfBefore = waterfallBatcher.count;
+        waterfallBatcher.add(waterfallObj.uuid, new THREE.Vector3(5, 0, 5), 8, 3);
+        assert.equal(waterfallBatcher.count, wfBefore + 1, 'Waterfall should be added to batcher');
+
+        assert.equal(despawnEntity(waterfallObj, null), true, 'Waterfall should be evictable');
+        assert.equal(waterfallBatcher.count, wfBefore, 'Waterfall should be removed from batcher via removeInstance');
+
+        console.log('  ✓ Waterfall despawn path successful');
         passed++;
 
     } catch (err) {
