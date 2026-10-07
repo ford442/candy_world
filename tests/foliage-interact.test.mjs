@@ -1,11 +1,15 @@
 /**
  * Unit tests for batch foliage interaction JS fallbacks.
- * Inlines pure functions (no wasm-loader import — avoids Vite/UI graph).
+ * Imports the production implementation (no browser/WASM boot required).
  *
- * Run: node tests/foliage-interact.test.mjs
+ * Run: npm run test:foliage-interact
  */
 
-import { geyserLaunchJS, padForcesJS, vineProximityJS } from '../src/utils/wasm-foliage-interact.ts';
+import {
+    geyserLaunchJS,
+    padForcesJS,
+    vineProximityJS,
+} from '../src/utils/wasm-foliage-interact.ts';
 const GEYSER_STRIDE = 5;
 const PAD_STRIDE = 6;
 const VINE_STRIDE = 4;
@@ -14,32 +18,47 @@ let passed = 0;
 let failed = 0;
 
 function assert(cond, label) {
-    if (cond) { console.log(`  ✓ ${label}`); passed++; }
-    else { console.error(`  ✗ ${label}`); failed++; }
+    if (cond) {
+        console.log(`  ✓ ${label}`);
+        passed++;
+    } else {
+        console.error(`  ✗ ${label}`);
+        failed++;
+    }
 }
 
 function test(name, fn) {
     console.log(`\n${name}`);
-    try { fn(); } catch (e) { console.error(`  ✗ threw: ${e.message}`); failed++; }
+    try {
+        fn();
+    } catch (e) {
+        console.error(`  ✗ threw: ${e.message}`);
+        failed++;
+    }
 }
 
 test('geyser: no hit when far away', () => {
     const geysers = new Float32Array(GEYSER_STRIDE);
-    geysers[3] = 1.0; geysers[4] = 5.0;
+    geysers[3] = 1.0;
+    geysers[4] = 5.0;
     const r = geyserLaunchJS(10, 1, 10, 0, 0.016, geysers, 1);
     assert(!r.hit, 'miss when dist > 1.5');
 });
 
 test('geyser: lift when in plume', () => {
     const geysers = new Float32Array(GEYSER_STRIDE);
-    geysers[3] = 1.0; geysers[4] = 5.0;
+    geysers[3] = 1.0;
+    geysers[4] = 5.0;
     const r = geyserLaunchJS(0, 1.0, 0, 0, 0.1, geysers, 1);
     assert(r.hit && r.vy > 0, 'lift in plume');
 });
 
 test('pad: snap when bob low', () => {
     const pads = new Float32Array(PAD_STRIDE);
-    pads[1] = 2; pads[3] = 1; pads[4] = 1; pads[5] = 0.2;
+    pads[1] = 2;
+    pads[3] = 1;
+    pads[4] = 1;
+    pads[5] = 0.2;
     const topY = 2.1;
     const r = padForcesJS(0, topY, 0, -1, pads, 1);
     assert(r.hit && r.action === 'snap', 'snap');
@@ -47,14 +66,18 @@ test('pad: snap when bob low', () => {
 
 test('pad: launch when bob high', () => {
     const pads = new Float32Array(PAD_STRIDE);
-    pads[1] = 2; pads[3] = 1; pads[4] = 1; pads[5] = 0.8;
+    pads[1] = 2;
+    pads[3] = 1;
+    pads[4] = 1;
+    pads[5] = 0.8;
     const r = padForcesJS(0, 2.1, 0, 0, pads, 1);
     assert(r.hit && r.action === 'launch' && r.vy === 20, 'launch');
 });
 
 test('vine: attach zone', () => {
     const vines = new Float32Array(VINE_STRIDE);
-    vines[1] = 10; vines[3] = 5;
+    vines[1] = 10;
+    vines[3] = 5;
     const r = vineProximityJS(0.5, 8, 0.2, 0, 0, 0, vines, 1);
     assert(r.inAttachZone && r.candidateIndex === 0, 'attach zone');
 });
