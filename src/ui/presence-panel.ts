@@ -26,6 +26,27 @@ export function installPresenceStartScreenUI(): void {
     const modeSelect = document.getElementById('mode-select');
     if (!modeSelect || document.getElementById(PRESENCE_UI_ID)) return;
 
+const style = document.createElement('style');
+    style.textContent = `
+        #presence-opt-in .toggle-button {
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s, filter 0.2s;
+        }
+        #presence-opt-in .toggle-button[aria-disabled="true"] {
+            filter: grayscale(100%) brightness(50%);
+            cursor: not-allowed;
+            pointer-events: auto; /* Ensure it stays focusable and soft-disabled */
+        }
+        #presence-opt-in .toggle-button:active:not([aria-disabled="true"]) {
+            transform: scale(0.95);
+        }
+        #presence-opt-in .toggle-button:focus-visible {
+            outline: 3px solid #ff69b4;
+            outline-offset: 2px;
+        }
+    `;
+    document.head.appendChild(style);
+
     const configured = isPresenceBackendConfigured();
     const wrapper = document.createElement('div');
     wrapper.setAttribute('role', 'dialog');
@@ -59,7 +80,7 @@ export function installPresenceStartScreenUI(): void {
     }
 
     // Switch styling matching memory guidelines
-    checkbox.style.cssText = 'margin-top:3px;appearance:none;width:36px;height:20px;background:rgba(255,255,255,0.5);border-radius:10px;position:relative;cursor:pointer;border:2px solid transparent;transition:all 0.2s;flex-shrink:0;';
+    checkbox.style.cssText = 'margin-top:3px;appearance:none;width:36px;height:20px;background:rgba(255,255,255,0.5);border-radius:10px;position:relative;border:2px solid transparent;flex-shrink:0;';
 
     // Switch handle
     const handle = document.createElement('span');
@@ -69,15 +90,6 @@ export function installPresenceStartScreenUI(): void {
         handle.style.transform = 'translateX(16px)';
     }
     checkbox.appendChild(handle);
-
-    // Focus visible outline via injected style if needed, but we'll use CSS class or inline
-    checkbox.addEventListener('focus', () => {
-        checkbox.style.outline = '3px solid #ff69b4';
-        checkbox.style.outlineOffset = '2px';
-    });
-    checkbox.addEventListener('blur', () => {
-        checkbox.style.outline = 'none';
-    });
 
     const copy = document.createElement('span');
     copy.innerHTML = configured
