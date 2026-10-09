@@ -341,6 +341,7 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
         const seasonRole = mesh.userData.seasonRole as SeasonRole | undefined;
         const seasonRoleOff = seasonRole ? SEASON_ROLE_INDEX[seasonRole] * SEASON_ROLE_STRIDE : -1;
 
+        let needsUpdate = false;
         for (let i = 0; i < count; i++) {
             const offset = i * 16;
             const px = matrixArray[offset + 12];
@@ -355,60 +356,76 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
             // ⚡ OPTIMIZATION: Bypassed redundant second loop and double distance calculations by updating impostors inline.
             const target = computeTargetLodFactorSq(distSq, cfg);
             const current = smoothed[i];
-            const next = current + (target - current) * blendT;
-            smoothed[i] = next;
-            attrArray[i] = next;
-            accumulateStats(next, cfg);
+            const diff = Math.abs(target - current);
+
+            if (diff > 1e-3) {
+                const next = current + (target - current) * blendT;
+                smoothed[i] = next;
+                attrArray[i] = next;
+                accumulateStats(next, cfg);
+                needsUpdate = true;
+            } else if (current !== target) {
+                smoothed[i] = target;
+                attrArray[i] = target;
+                accumulateStats(target, cfg);
+                needsUpdate = true;
+            } else {
+                accumulateStats(target, cfg);
+            }
 
             // Instances collapsed to zero scale (parked fauna, removed slots) get no billboard.
-            const c0 = matrixArray[offset];
-            const c1 = matrixArray[offset + 1];
-            const c2 = matrixArray[offset + 2];
-            if (impostor && c0 * c0 + c1 * c1 + c2 * c2 > 1e-8) {
-                const factor = next;
-                const alpha = impostorAlphaFromFactor(factor, cfg);
-                if (alpha > 0.001 && factor < 3 && impostorCount < _impostorCapacity && distSq < farCullSq) {
-                    const scaleVal = maxScales ? maxScales[i] : 1;
-                    const size = scaleVal * cfg.impostorScaleMul;
+            if (impostor) {
+                const c0 = matrixArray[offset];
+                const c1 = matrixArray[offset + 1];
+                const c2 = matrixArray[offset + 2];
+                if (c0 * c0 + c1 * c1 + c2 * c2 > 1e-8) {
+                    const factor = smoothed[i];
+                    const alpha = impostorAlphaFromFactor(factor, cfg);
+                    if (alpha > 0.001 && factor < 3 && impostorCount < _impostorCapacity && distSq < farCullSq) {
+                        const scaleVal = maxScales ? maxScales[i] : 1;
+                        const size = scaleVal * cfg.impostorScaleMul;
 
-                    _billboardMatrixFromCamera(camera, px, py, pz, size, size * cfg.impostorAspect);
-                    _billboardMatrix.toArray(impostor.instanceMatrix.array, impostorCount * 16);
+                        _billboardMatrixFromCamera(camera, px, py, pz, size, size * cfg.impostorAspect);
+                        _billboardMatrix.toArray(impostor.instanceMatrix.array, impostorCount * 16);
 
-                    if (impostor.instanceColor && colorArray) {
-                        const dst = impostor.instanceColor.array as Float32Array;
-                        const srcOff = i * 3;
-                        const dstOff = impostorCount * 3;
-                        let sr = colorArray[srcOff];
-                        let sg = colorArray[srcOff + 1];
-                        let sb = colorArray[srcOff + 2];
-                        if (seasonRoleOff >= 0) {
-                            _impostorTint[0] = sr;
-                            _impostorTint[1] = sg;
-                            _impostorTint[2] = sb;
-                            tintRgbInPlace(
-                                _impostorTint,
-                                0,
-                                seasonRoleCpu,
-                                seasonRoleOff,
-                                seasonFrostCpu,
-                                IMPOSTOR_NORMAL_Y
-                            );
-                            sr = _impostorTint[0];
-                            sg = _impostorTint[1];
-                            sb = _impostorTint[2];
+                        if (impostor.instanceColor && colorArray) {
+                            const dst = impostor.instanceColor.array as Float32Array;
+                            const srcOff = i * 3;
+                            const dstOff = impostorCount * 3;
+                            let sr = colorArray[srcOff];
+                            let sg = colorArray[srcOff + 1];
+                            let sb = colorArray[srcOff + 2];
+                            if (seasonRoleOff >= 0) {
+                                _impostorTint[0] = sr;
+                                _impostorTint[1] = sg;
+                                _impostorTint[2] = sb;
+                                tintRgbInPlace(
+                                    _impostorTint,
+                                    0,
+                                    seasonRoleCpu,
+                                    seasonRoleOff,
+                                    seasonFrostCpu,
+                                    IMPOSTOR_NORMAL_Y
+                                );
+                                sr = _impostorTint[0];
+                                sg = _impostorTint[1];
+                                sb = _impostorTint[2];
+                            }
+                            dst[dstOff] = sr * (1 - aerialMix) + fogR * aerialMix;
+                            dst[dstOff + 1] = sg * (1 - aerialMix) + fogG * aerialMix;
+                            dst[dstOff + 2] = sb * (1 - aerialMix) + fogB * aerialMix;
                         }
-                        dst[dstOff] = sr * (1 - aerialMix) + fogR * aerialMix;
-                        dst[dstOff + 1] = sg * (1 - aerialMix) + fogG * aerialMix;
-                        dst[dstOff + 2] = sb * (1 - aerialMix) + fogB * aerialMix;
-                    }
 
-                    alphaArray![impostorCount] = alpha;
-                    impostorCount++;
+                        alphaArray![impostorCount] = alpha;
+                        impostorCount++;
+                    }
                 }
             }
         }
 
-        attr.needsUpdate = true;
+        if (needsUpdate) {
+            attr.needsUpdate = true;
+        }
     }
 
     if (impostor) {
