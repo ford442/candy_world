@@ -65,7 +65,7 @@ export interface AbilitySlot {
     clearPulse(): void;
 }
 
-function createAbilitySlot(options: AbilitySlotOptions): AbilitySlot {
+export function createAbilitySlot(options: AbilitySlotOptions): AbilitySlot {
     const { id, name, key, icon, badge = false, toggle = false, hidden = false } = options;
 
     const hint = createShortcutHint({ key, corner: true });
@@ -122,7 +122,7 @@ function createAbilitySlot(options: AbilitySlotOptions): AbilitySlot {
         },
         pulse(kick: number) {
             const scale = 1.0 + kick * 0.15;
-            const pressed = root.classList.contains('pressed');
+            const pressed = root.classList.contains('keyboard-active');
             const finalScale = pressed ? scale * 0.9 : scale;
             root.style.transform = `scale(${finalScale.toFixed(3)})`;
         },
