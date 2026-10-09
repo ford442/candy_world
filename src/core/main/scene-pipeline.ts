@@ -5,6 +5,7 @@ import {
     publishRendererBreadcrumbs,
     installRendererHotSwitch,
 } from '../../rendering/renderer-mode.ts';
+import { markBootFatal } from '../../ui/boot-fatal.ts';
 import { player } from '../../systems/physics/physics-types.ts';
 import { showRendererBadge } from '../../ui/mode-badge-lazy.ts';
 import { showWebGPUFatalScreen } from '../../ui/webgpu-fatal.ts';
@@ -25,26 +26,33 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     console.time('Core Scene Setup');
 
     let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
-    try {
-        await StageLoader.loadStage('core', async () => {
+    // StageLoader.loadStage catches and logs, so keep the real error ourselves.
+    let initError: unknown;
+    await StageLoader.loadStage('core', async () => {
+        try {
             sceneInitResult = await initScene();
-        });
-    } catch (err) {
-        // A failed WebGPU probe already fell back to WebGL2 inside initScene();
-        // reaching here means neither backend could start (stage `webgl`), or
-        // the probe passed and the WebGPU renderer still failed (stage
-        // `renderer`). Show the blocking diagnostics screen and stop boot.
-        if (err instanceof WebGPUUnavailableError) {
-            showWebGPUFatalScreen(err);
+        } catch (err) {
+            initError = err;
+            throw err;
         }
-        throw err;
+    });
+
+    // WebGPU is required to enter the world this phase. A failed probe gets
+    // the blocking diagnostics screen and boot stops here — we deliberately
+    // do not start a WebGL renderer to keep the page looking alive.
+    if (initError instanceof WebGPUUnavailableError) {
+        showWebGPUFatalScreen(initError);
+        throw initError;
     }
 
     if (!sceneInitResult) {
-        const msg = 'Core scene initialization was skipped or failed';
+        const detail = initError instanceof Error ? initError.message : 'skipped or failed';
+        const msg = `Core scene initialization ${initError ? 'failed' : 'was skipped'}: ${detail}`;
         console.error('[Startup] Core Scene Setup failed');
-        loadingScreen.showFatalError(`Failed to initialize 3D scene.\n${msg}`);
-        throw new Error(msg);
+        if (markBootFatal()) {
+            loadingScreen.showFatalError(`Failed to initialize 3D scene.\n${msg}`);
+        }
+        throw initError ?? new Error(msg);
     }
 
     ctx.sceneInitResult = sceneInitResult;
