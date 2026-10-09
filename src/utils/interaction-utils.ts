@@ -234,7 +234,8 @@ export function setupGlobalKeyboardTactileFeedback() {
                             '.candy-save-menu__close, .candy-save-menu__tab, .candy-save-slot, ' +
                             '.candy-save-slot__btn, .candy-save-menu__btn, .candy-keybind, ' +
                             '.candy-file-label, .a11y-floating-button, .playlist-btn, .playlist-remove-btn, ' +
-                            '.close-icon-btn, .candy-toggle, .discovery-close-btn'
+                            '.close-icon-btn, .candy-toggle, .discovery-close-btn, ' +
+                            '.action-btn, .icon-btn, .wait-full-toggle, .jukebox-browse-btn'
                     )
                 ) {
                     activeElement.classList.add('keyboard-active');
