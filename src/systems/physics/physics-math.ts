@@ -1,4 +1,4 @@
-// src/systems/physics.core.ts
+// src/systems/physics/physics-math.ts (was systems/physics.core.ts, one character from physics/physics-core.ts)
 // Core physics calculation functions (Phase 1: JS -> TS Migration)
 // Following PERFORMANCE_MIGRATION_STRATEGY.md - Extract only hot functions (~15%)
 
@@ -7,7 +7,7 @@ import {
     isInLakeBasin,
     isOnLakeIsland,
     getGroundHeight,
-} from './ground-system.ts';
+} from '../ground-system.ts';
 
 // Re-export lake helpers so existing call sites keep working without edits.
 // Use live re-exports (not `export const x = imported`) so circular chunk

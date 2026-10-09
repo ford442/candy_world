@@ -3,7 +3,7 @@ import {
     GlobalProgressState,
     TaskState,
 } from '../systems/loading-manager.ts';
-import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { trapFocusInside } from '../utils/focus-trap.ts';
 import { log } from '../utils/log.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { announce } from './announcer.ts';

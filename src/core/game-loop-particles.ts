@@ -4,7 +4,7 @@ import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateAllIntegratedSystems } from '../particles/compute-integration.ts';
 import { updateEmitters } from '../particles/emitter-api.ts';
 import { getParticles } from '../particles/lazy.ts';
-import { fluidSystem } from '../systems/fluid_system.ts';
+import { fluidSystem } from '../systems/fluid-system.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { player } from '../systems/physics/index.ts';
 import { WeatherState } from '../systems/weather-types.ts';

@@ -6,10 +6,16 @@
  * Outputs structured JSON report and provides browser overlay visualization.
  */
 
-import { getGpuContext } from '../rendering/gpu-context.ts';
+import type { GpuContext } from '../rendering/gpu-context.ts';
 import { log } from './log.ts';
 import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
-import { drawOverlay, hideOverlay, showOverlay, toggleOverlay } from './startup-profiler-ui.ts';
+import {
+  drawOverlay,
+  hideOverlay,
+  setOverlayExportHandler,
+  showOverlay,
+  toggleOverlay,
+} from './startup-profiler-ui.ts';
 import { getMemoryUsage, formatBytes, formatDuration } from './startup-profiler-utils.ts';
 
 // ============================================================================
@@ -77,13 +83,6 @@ let warmupMetrics = {
 
 // Generation chunk streaming counter
 let generationChunksStreamed = 0;
-
-// UI Elements
-export const uiState = {
-  overlayContainer: null as HTMLElement | null,
-  overlayCanvas: null as HTMLCanvasElement | null,
-  overlayCtx: null as CanvasRenderingContext2D | null,
-};
 
 // Original console methods (for hooking)
 let originalConsoleTime: typeof console.time;
@@ -161,10 +160,20 @@ function unhookInstancedMesh() {
  * we simply await the shared context and wrap that device's methods. The
  * profiler never requests an adapter or a device of its own.
  */
+// Set by core/main/loading-bootstrap.ts. Importing rendering/gpu-context.ts here
+// put this module's chunk (`profiler`) in a circular chunk with `app` (#1827).
+let gpuContextSource: (() => Promise<GpuContext>) | null = null;
+
+/** Where hookWebGPU() gets the shared device; call before enableStartupProfiler(). */
+export function setProfilerGpuContextSource(source: () => Promise<GpuContext>): void {
+  gpuContextSource = source;
+}
+
 function hookWebGPU() {
   if (typeof navigator === 'undefined' || !navigator.gpu) return;
+  if (!gpuContextSource) return;
 
-  void getGpuContext().then((ctx) => {
+  void gpuContextSource().then((ctx) => {
     const device = ctx.device;
     if (!device || instrumentedDevice === device) return;
     instrumentedDevice = device;
@@ -488,6 +497,14 @@ function outputReportToConsole(report: StartupReport): void {
   console.log('[StartupProfiler] Raw report available at window.__startupProfile');
   (window as Window & { __startupProfile?: StartupReport }).__startupProfile = report;
 }
+
+// ============================================================================
+// Overlay export button
+// ============================================================================
+// finalizeStartupProfile() runs generateReport() + saveReportToFile(), which stay private here.
+setOverlayExportHandler(() => {
+  finalizeStartupProfile();
+});
 
 // ============================================================================
 // Public API

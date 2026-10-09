@@ -33,7 +33,7 @@ import {
     uWindDirection,
     uWindStrength,
     uPlayerPosition,
-} from './index.ts';
+} from './material-core.ts';
 
 export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE.Vector3(0, 5, 0)) {
     // 1. Setup Buffers

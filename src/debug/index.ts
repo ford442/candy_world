@@ -14,4 +14,4 @@ export {
   type StageMetadata,
 } from './stages.ts';
 
-export { initDebugPanelIfNeeded } from './lazy.ts';
+export { initDebugPanelIfNeeded, initParticleEmitterDebugIfNeeded } from './lazy.ts';

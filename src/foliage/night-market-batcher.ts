@@ -40,7 +40,7 @@ import { registerDecorativeFill, releaseLocalLight } from '../rendering/lights.t
 import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
-import { CandyPresets, createJuicyRimLight, uAudioLow, uTime } from './index.ts';
+import { CandyPresets, createJuicyRimLight, uAudioLow, uTime } from './material-core.ts';
 
 export const MAX_NIGHT_MARKET_STALLS = getCIAdjustedCount(64, 0.25, 16);
 

@@ -1,8 +1,19 @@
 import * as THREE from 'three';
 import { color as tslColor, float, positionLocal, normalLocal, add } from 'three/tsl';
  // Import explicit type for cast
+import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
 import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
-import { registerReactiveMaterial, attachReactivity, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uAudioHigh, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, applyStandardDeformation } from './index.ts';
+import {
+    createClayMaterial,
+    createGradientMaterial,
+    sharedGeometries,
+    uAudioLow,
+    uAudioHigh,
+    createStandardNodeMaterial,
+    createJuicyRimLight,
+    getCachedProceduralMaterial,
+    applyStandardDeformation,
+} from './material-core.ts';
 import { uTwilight } from './sky.ts';
 import { treeBatcher } from './tree-batcher.ts';
 import { enhanceWithFloralJuice } from './trees-core.ts';

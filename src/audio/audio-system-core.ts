@@ -398,12 +398,12 @@ export abstract class AudioSystemCore {
                 this.handleVisualUpdate(data);
             } else if (type === 'SONG_END') {
                 console.warn("AudioSystem: Song finished (Worklet).");
-                this.playNext();
+                void this.playNext();
             } else if (type === 'READY') {
                 this.isReady = true;
                 console.warn("AudioSystem: Worklet Ready.");
                 if (this.playlist.length > 0 && this.currentIndex === -1) {
-                    this.playNext(0);
+                    void this.playNext(0);
                 }
             } else if (type === 'ERROR') {
                 console.error("AudioSystem: Worklet Error:", error);
@@ -465,7 +465,7 @@ export abstract class AudioSystemCore {
         console.warn("AudioSystem: ScriptProcessor Ready.");
 
         if (this.playlist.length > 0 && this.currentIndex === -1) {
-            this.playNext(0);
+            void this.playNext(0);
         }
     }
 

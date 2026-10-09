@@ -2,17 +2,17 @@
  * @file webgpu-fatal.ts
  * @description Blocking boot screen for "this browser cannot run Candy World".
  *
- * WebGPU is required to enter the world. When `probeWebGPU()` fails there is no
- * WebGL rescue in this phase — booting the GL renderer instead is exactly what
- * used to hide the Chrome-vs-Edge adapter failure behind a picture that looked
- * fine. So we stop here and show the user what broke, with the probe JSON right
- * on screen so a bug report can be copied in one click.
+ * A failed `probeWebGPU()` normally falls back to WebGL2 (see `createRenderer()`
+ * in `src/core/init.ts`), so this screen is only reached when WebGL2 cannot
+ * start either (stage `webgl`), or when the probe passed but the WebGPU renderer
+ * still failed (stage `renderer`). We stop here and show what broke, with the
+ * probe JSON on screen so a bug report can be copied in one click.
  *
  * @see docs/WEBGPU_CONTEXT.md
  */
 
 import { getWebGPUProbeReport } from '../rendering/gpu-context.ts';
-import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { trapFocusInside } from '../utils/focus-trap.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { markBootFatal } from './boot-fatal.ts';
 
@@ -30,7 +30,10 @@ const STAGE_ADVICE: Record<string, string> = {
     pipeline:
         'The GPU device cannot compile compute shaders, which Candy World needs for foliage, culling and particles.',
     renderer: 'The renderer failed to start on WebGPU, and this build will not fall back to WebGL.',
+    webgl: 'WebGL2 could not start either. Turn on hardware acceleration in your browser settings, update your graphics driver, or try another browser.',
 };
+
+const WEBGL_ADVICE = STAGE_ADVICE.webgl;
 
 function stageAdvice(stage: unknown): string {
     return (
@@ -57,6 +60,11 @@ export function showWebGPUFatalScreen(error: unknown): void {
         (report.reason as string | null) ??
         (error instanceof Error ? error.message : String(error ?? 'Unknown error'));
     const browser = (report.browser ?? {}) as { name?: string; version?: string };
+    // Both backends failed: the probe report names the WebGPU stage, the error
+    // names the WebGL2 one. Show both.
+    const webglFailed = (error as { stage?: string })?.stage === 'webgl';
+    const webglReason = webglFailed && error instanceof Error ? error.message : null;
+    const showWebGLLine = webglFailed && stage !== 'webgl';
 
     // Stop the loading screen's spinner/ticker from animating underneath.
     document.getElementById('loading-container')?.classList.add('fatal-error');
@@ -70,7 +78,13 @@ export function showWebGPUFatalScreen(error: unknown): void {
     overlay.setAttribute('aria-describedby', 'webgpu-fatal-body');
 
     const diagnostics = JSON.stringify(
-        { stage, reason, ...report, error: error instanceof Error ? error.stack : String(error) },
+        {
+            stage,
+            reason,
+            ...report,
+            webglReason,
+            error: error instanceof Error ? error.stack : String(error),
+        },
         null,
         2
     );
@@ -124,11 +138,19 @@ export function showWebGPUFatalScreen(error: unknown): void {
         #${OVERLAY_ID} button:focus-visible { outline: 3px solid #ffe9f2; outline-offset: 2px; }
       </style>
       <div class="card">
-        <h1 id="webgpu-fatal-title">Candy World needs WebGPU</h1>
+        <h1 id="webgpu-fatal-title">${
+            webglFailed ? 'Candy World needs WebGPU or WebGL2' : 'Candy World needs WebGPU'
+        }</h1>
         <div class="stage">probe failed at: ${escapeHtml(String(stage))}</div>
         <div id="webgpu-fatal-body">
           <p>${escapeHtml(stageAdvice(stage))}</p>
-          <p class="reason">${escapeHtml(reason)}</p>
+          <p class="reason">${escapeHtml(reason)}</p>${
+              showWebGLLine
+                  ? `
+          <p>${escapeHtml(WEBGL_ADVICE)}</p>
+          <p class="reason">${escapeHtml(webglReason ?? '')}</p>`
+                  : ''
+          }
           <p>Detected browser: <strong>${escapeHtml(
               `${browser.name ?? 'unknown'} ${browser.version ?? ''}`.trim()
           )}</strong></p>

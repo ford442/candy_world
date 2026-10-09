@@ -5,12 +5,9 @@ import {
 } from 'three/tsl';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
 import { spawnImpact } from './impacts.ts';
-import {
-    createUnifiedMaterial,
-    sharedGeometries,
-    attachReactivity
-} from './index.ts';
+import { createUnifiedMaterial, sharedGeometries } from './material-core.ts';
 
 const _scratchPos = new THREE.Vector3();
 const _scratchUp = new THREE.Vector3(0, 1, 0);

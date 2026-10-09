@@ -21,7 +21,7 @@ import { profiler } from '../../utils/profiler.ts';
 import { getWasmInstance, getWasmMemory } from '../../utils/wasm-loader-core.ts';
 import type { WasmExports } from '../../utils/wasm-loader-types.ts';
 import { withinCap } from '../performance-budget/systems-budget.ts';
-import { getUnifiedGroundHeightTyped } from '../physics.core.ts';
+import { getUnifiedGroundHeightTyped } from './physics-math.ts';
 import { stepRigidBodiesJS, type FallbackPlayerProxy } from './rigid-body-fallback.ts';
 import {
     MAX_DYNAMIC_BODIES,

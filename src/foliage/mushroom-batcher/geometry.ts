@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sharedGeometries } from '../index.ts';
+import { sharedGeometries } from '../material-core.ts';
 import {
     _scratchPos,
     _scratchMatrix,

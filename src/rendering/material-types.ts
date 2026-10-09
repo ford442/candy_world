@@ -1,5 +1,5 @@
 /**
- * @file material_types.ts
+ * @file material-types.ts
  * @description TypeScript interfaces and types for the Candy World material system
  */
 

@@ -7,7 +7,13 @@ Customize the constants at the top for your project.
 
 Usage:
   1. Build your project:  npm run build   (or python build, etc.)
-  2. python deploy.py
+  2. python deploy.py [--prefix <sub/folder>] [--dry-run]
+
+  --dry-run  Build the zip in memory exactly as a real deploy does, print the
+             file count, compressed size and target folder, then exit 0 with no
+             network call (no health check, no remote-size diff, no upload).
+             Because the remote-size diff is skipped, the archive holds every
+             file, i.e. an upper bound on what a real deploy would send.
 
 This script contacts https://storage.noahcohn.com (your Contabo storage manager)
 to upload your entire build as a single zip archive.  The server extracts it and
@@ -89,12 +95,23 @@ def build_zip(build_path: Path, skip_sizes=None) -> bytes:
     return buf.getvalue()
 
 
-def deploy_bundle(build_path: Path, subfolder: str = "") -> bool:
+def deploy_bundle(build_path: Path, subfolder: str = "", dry_run: bool = False) -> bool:
     """Zip the build and upload it as a single bundle."""
     target_folder = DEPLOY_FOLDER or PROJECT_NAME
     if subfolder:
         # e.g. candy-world/releases/stable-2026-10-07 or candy-world/stable
         target_folder = f"{target_folder}/{subfolder.strip('/')}"
+
+    if dry_run:
+        print("DRY RUN: building zip archive (no network calls)...")
+        zip_bytes = build_zip(build_path)
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            file_count = len(zf.namelist())
+        print(f"\nDry run: {file_count} file(s), {len(zip_bytes) / 1024:.1f} KB compressed "
+              f"({len(zip_bytes)} bytes)")
+        print(f"Dry run: target folder '{target_folder}' on {CONTABO_BASE_URL}")
+        print("Dry run: nothing uploaded.")
+        return True
     url = f"{CONTABO_BASE_URL}/api/deploy/{PROJECT_NAME}/bundle"
     headers = {}
     if DEPLOY_TOKEN:
@@ -144,18 +161,21 @@ def deploy_bundle(build_path: Path, subfolder: str = "") -> bool:
 def main():
     print(f"\n=== Deploying '{PROJECT_NAME}' via Contabo -> storage.1ink.us ===\n")
 
+    dry_run = "--dry-run" in sys.argv
+
     build_path = Path(BUILD_DIR)
     if not build_path.exists() or not build_path.is_dir():
         print(f"ERROR: Build directory '{BUILD_DIR}/' does not exist.")
         print("Please run your build command first (e.g. `npm run build`).")
         sys.exit(1)
 
-    try:
-        health = requests.get(f"{CONTABO_BASE_URL}/api/deploy/health", timeout=10)
-        if health.status_code == 200:
-            print(f"Contabo deploy service: {health.json().get('status', 'unknown')}")
-    except Exception:
-        print("Warning: Could not contact storage.noahcohn.com (continuing anyway).")
+    if not dry_run:
+        try:
+            health = requests.get(f"{CONTABO_BASE_URL}/api/deploy/health", timeout=10)
+            if health.status_code == 200:
+                print(f"Contabo deploy service: {health.json().get('status', 'unknown')}")
+        except Exception:
+            print("Warning: Could not contact storage.noahcohn.com (continuing anyway).")
 
     # --prefix <sub/folder> deploys under the project folder instead of over it
     # (used by scripts/promote-stable.mjs for releases/<tag>/ and stable/).
@@ -168,8 +188,11 @@ def main():
         subfolder = sys.argv[i + 1]
 
     print()
-    success = deploy_bundle(build_path, subfolder)
+    success = deploy_bundle(build_path, subfolder, dry_run)
 
+    if dry_run:
+        print("\n=== Dry run complete ===")
+        sys.exit(0 if success else 1)
     print(f"\n=== {'Deployment complete' if success else 'Deployment finished with errors'} ===")
     sys.exit(0 if success else 1)
 

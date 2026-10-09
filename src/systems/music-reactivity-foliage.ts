@@ -11,23 +11,8 @@ import { mushroomBatcher } from '../foliage/mushroom-batcher/index.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
-import { uploadPositionsFlat, batchDistanceCull, WASM_POSITION_OBJECT_CAPACITY } from '../utils/wasm-batch.ts';
 import { MRState, _scratchSphere } from './music-reactivity-core.ts';
-import { _frustum, _projScreenMatrix } from './music-reactivity-core.ts';
-import { _emptyAudioState } from './music-reactivity.ts';
-
-let _batchPositionsBuffer = new Float32Array(0);
-let _batchPositionsCapacity = 0;
-
-function ensureBatchPositionsCapacity(neededCount: number) {
-    if (neededCount <= _batchPositionsCapacity) return;
-    let next = Math.max(_batchPositionsCapacity * 2, 16);
-    while (next < neededCount) next *= 2;
-    const nextBuf = new Float32Array(next * 4);
-    nextBuf.set(_batchPositionsBuffer.subarray(0, _batchPositionsCapacity * 4));
-    _batchPositionsBuffer = nextBuf;
-    _batchPositionsCapacity = next;
-}
+import { _frustum, _projScreenMatrix, _emptyAudioState } from './music-reactivity-core.ts';
 
     export function updateFoliageAnimationLoop(
         time: number,
@@ -53,46 +38,21 @@ function ensureBatchPositionsCapacity(neededCount: number) {
             const cy = camera.position.y;
             const cz = camera.position.z;
 
-            // Ensure buffer has enough capacity (zero allocation if it's already large enough)
             const n = cpuAnimatedFoliage.length;
-            ensureBatchPositionsCapacity(n);
-            const wasmCount = Math.min(n, WASM_POSITION_OBJECT_CAPACITY);
-
-            // Fill float buffer densely in a tight loop
-            const buf = _batchPositionsBuffer;
-            for (let i = 0; i < n; i++) {
-                const obj = cpuAnimatedFoliage[i];
-                if (!obj) continue;
-
-                const base = i * 4;
-                buf[base] = obj.position.x;
-                buf[base + 1] = obj.position.y;
-                buf[base + 2] = obj.position.z;
-                buf[base + 3] =
-                    (obj.userData.radius || 2.0) * (obj.scale.x > 1.0 ? obj.scale.x : 1.0);
-            }
-
-            // Upload to WASM via flat float array (capped to AS position buffer capacity)
-            uploadPositionsFlat(buf, wasmCount);
-
-            // ⚡ OPTIMIZATION: Bypassed CPU distance math with WASM batchDistanceCull
-            const { flags } =
-                wasmCount > 0
-                    ? batchDistanceCull(cx, cy, cz, 250, wasmCount)
-                    : { flags: null as Float32Array | null };
 
             for (let i = 0; i < n; i++) {
                 const obj = cpuAnimatedFoliage[i];
                 if (!obj) continue;
-
-                // Base max distance check (from WASM flags) — only for indices uploaded to WASM
-                if (flags && i < wasmCount && flags[i] === 0) {
-                    continue;
-                }
 
                 const ox = obj.position.x;
                 const oy = obj.position.y;
                 const oz = obj.position.z;
+
+                // ⚡ OPTIMIZATION: Zero-allocation distance check replacing buggy WASM batch cull
+                const dx = ox - cx;
+                const dy = oy - cy;
+                const dz = oz - cz;
+                if (dx * dx + dy * dy + dz * dz > 62500) continue; // 250 * 250
 
                 // Frustum Culling
                 let isVisible = false;

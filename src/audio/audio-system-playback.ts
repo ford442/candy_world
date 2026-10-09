@@ -126,7 +126,7 @@ export class AudioSystem extends AudioSystemCore {
         }
 
         if (this.audioContext.state === 'suspended') {
-            this.audioContext.resume();
+            void this.audioContext.resume();
         }
 
         const t = this.audioContext.currentTime;
@@ -232,7 +232,7 @@ export class AudioSystem extends AudioSystemCore {
 
         if (frames === 0) {
             // console.log('AudioSystem: Song finished (ScriptProcessor).');
-            this.playNext();
+            void this.playNext();
             return;
         }
 
@@ -436,7 +436,7 @@ export class AudioSystem extends AudioSystemCore {
         }
 
         if (this.audioContext && this.audioContext.state === 'suspended') {
-            await this.audioContext.resume();
+            await void this.audioContext.resume();
         }
 
         try {
@@ -480,7 +480,7 @@ export class AudioSystem extends AudioSystemCore {
             await this.play();
         } catch {
             console.error('Error loading file:');
-            this.playNext();
+            void this.playNext();
         }
     }
 
@@ -529,7 +529,7 @@ export class AudioSystem extends AudioSystemCore {
             this.play();
         } catch {
             console.error('Failed to load module:');
-            this.playNext(); // Skip broken files
+            void this.playNext(); // Skip broken files
         }
     }
 
@@ -580,7 +580,7 @@ export class AudioSystem extends AudioSystemCore {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
         }
-        if (this.audioContext.state === 'suspended') await this.audioContext.resume();
+        if (this.audioContext.state === 'suspended') await void this.audioContext.resume();
 
         // Ensure audio processing node is initialized
         if (this.useScriptProcessorNode) {

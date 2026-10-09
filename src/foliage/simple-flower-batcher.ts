@@ -16,19 +16,19 @@ import { BiomeUniforms, circadianDayGlowMult } from '../systems/biome-uniforms.t
 import { getActiveWave } from '../systems/music-wave.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
+import { foliageMaterials } from './foliage-materials.ts';
 import {
-    foliageMaterials,
     sharedGeometries,
     CandyPresets,
     createClayMaterial,
     calculateFlowerBloom,
-            applyStandardDeformation,
+    applyStandardDeformation,
     createJuicyRimLight,
     uTime,
     uAudioHigh,
     uAudioLow,
-    uPlayerPosition
-} from './index.ts';
+    uPlayerPosition,
+} from './material-core.ts';
 import { applySeasonTint } from './material-core/season-nodes.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';

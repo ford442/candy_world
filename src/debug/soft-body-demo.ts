@@ -15,7 +15,7 @@
 
 import * as THREE from 'three';
 import { ClothSim, type SoftBodyPlayerProxy } from '../systems/physics/soft-body.ts';
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
+import { getUnifiedGroundHeightTyped } from '../systems/physics/physics-math.ts';
 
 /** Grid resolution: 14×10 = 140 particles, ~700 constraints. */
 const COLS = 14;

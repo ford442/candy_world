@@ -1,6 +1,6 @@
 import { CYCLE_DURATION } from '../../core/config.ts';
 import { announcePolite } from '../../ui/announcer.ts';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { PHOTO_PRESETS, type PhotoPreset } from './photo-presets.ts';
 
 export interface PhotoControlValues {

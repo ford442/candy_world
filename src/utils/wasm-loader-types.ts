@@ -379,7 +379,8 @@ export interface WasmExports {
         cameraY: number,
         cameraZ: number,
         maxDistSq: number,
-        objectCount: number
+        objectCount: number,
+        flagsPtr: number
     ) => number;
     // Hot-path Physics exports (from assembly/physics.ts)
     batchGroundHeight?: (positionsPtr: number, count: number, outputPtr: number) => void;

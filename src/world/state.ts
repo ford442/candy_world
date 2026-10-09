@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { VineSwing } from '../foliage/trees.ts';
-import { FoliageObject } from '../foliage/types.ts';
+import type { FoliageObject } from '../foliage/types.ts';
+import type { VineSwing } from '../foliage/vine-swing.ts';
 
 export const animatedFoliage: FoliageObject[] = [];
 export const cpuAnimatedFoliage: FoliageObject[] = [];

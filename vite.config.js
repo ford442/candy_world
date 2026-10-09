@@ -1,12 +1,9 @@
 // vite.config.js
 import { defineConfig } from 'vite';
-import wasm from 'vite-plugin-wasm';
-
 
 // Set modern build target so top-level await in dependencies (e.g. three/examples WebGPU helper)
 // doesn't get transformed to an unsupported lower target during bundle/transpile.
 export default defineConfig({
-    plugins: [wasm()],
     base: './',
     build: {
         sourcemap: true,
@@ -35,9 +32,10 @@ export default defineConfig({
                         return 'vendor';
                     }
                     // NOTE: audio + boot UI modules stay in `app` (separate chunks caused
-                    // Circular chunk: * ↔ app). weather/particles/compute stay in `weather`
-                    // — folding weather into `app` breaks init (TDZ); splitting particles
-                    // out of `weather` deadlocks boot. One benign weather ↔ app warning remains.
+                    // Circular chunk: * ↔ app). The one remaining warning is weather ↔ app:
+                    // core/main.ts awaits runBootstrap() at top level, so a lazy chunk that
+                    // imports `app` and is awaited during bootstrap deadlocks. `weather` is
+                    // therefore a static dependency of `app`. See docs/APP_CHUNK_SPLIT.md.
                     // Workers
                     if (id.includes('/src/workers/')) {
                         return 'workers';
@@ -83,9 +81,12 @@ export default defineConfig({
                     ) {
                         return 'analytics-debug';
                     }
-                    // World content decorators (procedural extras, gem canopy, mycelium)
+                    // World content decorators: generation-decorators.ts and every
+                    // generation-decorators-*.ts populator it re-exports. The populators
+                    // are only reachable through it, so they load with this chunk; the
+                    // catch-all below used to pin them in `app` (#1827).
                     if (
-                        id.includes('/src/world/generation-decorators.ts') ||
+                        id.includes('/src/world/generation-decorators') ||
                         id.includes('/src/world/decorator-streamer.ts')
                     ) {
                         return 'world-content';
@@ -93,7 +94,13 @@ export default defineConfig({
                     // Experimental soft-body solver: only the (lazy) demo imports
                     // it, so it rides the debug chunk rather than adding dead
                     // weight to `app`. Move it out if a real system adopts it.
-                    if (id.includes('/src/systems/physics/soft-body.ts')) {
+                    // Same for the systems telemetry table (debug panel only) and
+                    // the hero rig loader (hero animation demo only).
+                    if (
+                        id.includes('/src/systems/physics/soft-body.ts') ||
+                        id.includes('/src/systems/performance-budget/systems-telemetry.ts') ||
+                        id.includes('/src/systems/animation/hero-rig-loader.ts')
+                    ) {
                         return 'debug';
                     }
                     // Debug tools (panel, gizmos, ground/placement/circadian/fauna overlays)
@@ -125,11 +132,15 @@ export default defineConfig({
                     if (id.includes('/src/rendering/webgl-debug.ts')) {
                         return 'webgl-debug';
                     }
-                    if (id.includes('/src/world/map-loader.ts')) {
+                    // map-loader.ts plus the map-loader-*.ts helpers only it (and the
+                    // lazy debug export) imports.
+                    if (id.includes('/src/world/map-loader')) {
                         return 'map-loader';
                     }
-                    if (id.includes('/src/core/input/playlist-manager.ts')) {
-                        return 'playlist-ui';
+                    // log.ts is an import-free leaf used by app and profiler alike; in
+                    // `app` it made profiler -> app -> profiler a circular chunk.
+                    if (id.endsWith('/src/utils/log.ts')) {
+                        return 'log';
                     }
                     if (id.includes('/src/utils/startup-profiler')) {
                         return 'profiler';
@@ -143,7 +154,8 @@ export default defineConfig({
                         return 'accessibility-ui';
                     }
                     // camera-modes, hud-ui, interaction, playlist-ui stay in `app`
-                    // (separate chunks created Rollup circular-chunk graphs).
+                    // (separate chunks created Rollup circular-chunk graphs; app imports
+                    // them statically and they import app back).
                     if (id.includes('/src/systems/loading-manager.ts')) {
                         return 'loading-ui';
                     }
@@ -175,6 +187,16 @@ export default defineConfig({
                     if (id.includes('/src/rendering/shader-warmup.ts')) {
                         return 'shader-warmup';
                     }
+                    // Season calendar + weather enums: pure leaves (no imports) read at
+                    // module top level by both `app` and `weather`. Left in `app`, the
+                    // weather chunk evaluates first across the weather ↔ app cycle and
+                    // hits a TDZ (`SPRING`, `WeatherState.CLEAR`) that stops boot.
+                    if (
+                        id.includes('/src/systems/season-core.ts') ||
+                        id.includes('/src/systems/weather-types.ts')
+                    ) {
+                        return 'weather-shared';
+                    }
                     // CPU cluster bin (no app imports — peeling avoids a clustered ↔ app cycle)
                     if (id.includes('/src/rendering/clustered-bin.ts')) {
                         return 'clustered-lights';
@@ -191,11 +213,11 @@ export default defineConfig({
                         return 'generative-music';
                     }
 
-                    // Weather + particles + compute — separate from `app`. Folding weather
-                    // into `app` breaks init order (TDZ). particles/compute must stay with
-                    // weather (not app) or dynamic weather load deadlocks at boot.
+                    // Weather + particles + compute — separate from `app` (size), statically
+                    // imported by it (see the top-level-await note above).
                     if (
                         id.includes('/src/systems/weather/') ||
+                        id.includes('/src/systems/weather-utils.ts') ||
                         id.includes('/src/particles/') ||
                         id.includes('/src/compute/') ||
                         id.includes('/src/foliage/berries.ts')
@@ -244,13 +266,13 @@ export default defineConfig({
         legalComments: 'none',
     },
     // Ensure optimizeDeps only scans the app root entry (index.html) and targets
-    // modern JS (esnext) so top-level await in dependencies is preserved.
+    // es2022 (like build and esbuild above) so top-level await in dependencies is preserved.
     optimizeDeps: {
         // Force dependency scanning to the app's root index -- don't scan test HTML files
         // inside emsdk or other bundles which can include non-app modules such as loader.mjs.
         entries: ['./index.html'],
         esbuildOptions: {
-            target: 'esnext',
+            target: 'es2022',
         },
     },
     server: {
@@ -272,6 +294,5 @@ export default defineConfig({
     // Ensure the worker file is treated correctly if using Vite's worker import (optional but safe)
     worker: {
         format: 'es',
-        plugins: () => [wasm()],
     },
 });

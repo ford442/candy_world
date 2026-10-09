@@ -6,20 +6,13 @@ import '../utils/seeded-random.ts';
 
 import '../../style.css';
 
-export { scene, camera, renderer, player, addCameraShake } from './main/exports.ts';
-
 import { setupGlobalKeyboardTactileFeedback } from '../utils/interaction-utils.ts';
-import { markBootFatal } from '../ui/boot-fatal.ts';
-import { setWasmError as showLoadingFatalError } from '../ui/loading-screen.ts';
 import { runBootstrap } from './main/bootstrap.ts';
 
 setupGlobalKeyboardTactileFeedback();
-// Catch here so a failed boot doesn't reject this module. Every lazy chunk that
-// imports it would otherwise re-raise the same unhandled rejection. Chunks that
-// load after a failed boot see unset exports; nothing past the start screen runs.
-await runBootstrap().catch((err: unknown) => {
-    console.error('[Bootstrap] Startup failed:', err);
-    if (!markBootFatal()) return;
-    const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');
-    showLoadingFatalError(`Startup failed: ${msg}\n\nRefresh the page to try again.`);
-});
+// Not a top-level await: this module is bundled into the `app` chunk, which
+// sits in a static import cycle with `weather`. While a TLA here is pending the
+// whole cycle stays "evaluating", so the boot's own `import('weather.ts')`
+// waits on itself forever. A rejection still reaches the bootstrap's
+// `unhandledrejection` handler, which shows the startup error.
+void runBootstrap();

@@ -4,7 +4,16 @@ import { uWindStrength } from '../systems/wind-uniforms.ts';
 import { createBerryCluster } from './berries.ts';
  // Import explicit type for cast
  // ⚡ OPTIMIZATION: Import Batcher
-import { registerReactiveMaterial, attachReactivity, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, createJuicyRimLight, getCachedProceduralMaterial , calculatePlayerPush} from './index.ts';
+import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
+import {
+    createClayMaterial,
+    createGradientMaterial,
+    sharedGeometries,
+    uAudioLow,
+    createJuicyRimLight,
+    getCachedProceduralMaterial,
+    calculatePlayerPush,
+} from './material-core.ts';
 import { treeBatcher } from './tree-batcher.ts';
 const _scratchPhysicsVec1 = new THREE.Vector3();
 const _scratchPhysicsVec2 = new THREE.Vector3();

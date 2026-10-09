@@ -31,7 +31,7 @@ import {
     uWindDirection,
     uWindStrength,
     createSugarSparkle,
-} from './index.ts';
+} from './material-core.ts';
 import { seasonSpawnCpu } from './material-core/season-nodes.ts';
 import { createJuicyRimLight } from './material-core.ts';
 

@@ -1,4 +1,4 @@
-import { StageLoader } from '../../debug/index.ts';
+import { StageLoader, initParticleEmitterDebugIfNeeded } from '../../debug/index.ts';
 import { initPostProcessing } from '../../foliage/post-processing.ts';
 import { WebGPUUnavailableError } from '../../rendering/gpu-context.ts';
 import {
@@ -6,6 +6,7 @@ import {
     installRendererHotSwitch,
 } from '../../rendering/renderer-mode.ts';
 import { markBootFatal } from '../../ui/boot-fatal.ts';
+import { player } from '../../systems/physics/physics-types.ts';
 import { showRendererBadge } from '../../ui/mode-badge-lazy.ts';
 import { showWebGPUFatalScreen } from '../../ui/webgpu-fatal.ts';
 import { installWorldExportTools } from '../../world/map-exporter.ts';
@@ -62,6 +63,8 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     const scene = sceneInitResult.scene;
     assignCoreExports(scene, sceneInitResult.camera, sceneInitResult.renderer);
     setCameraRef(sceneInitResult.camera);
+    const camera = sceneInitResult.camera;
+    void initParticleEmitterDebugIfNeeded(scene, () => player.position, () => camera);
 
     installRendererHotSwitch();
     publishRendererBreadcrumbs(requested, mode, fallbackReason);
@@ -76,14 +79,12 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     };
     installWorldExportTools();
 
-    // GPU is armed — re-resolve capabilities with isFallbackAdapter / WebGL now known
-    // so postfx/warmup/deferred gates match the actual adapter before the TSL graph builds.
+    // Renderer is up — re-resolve capabilities with isFallbackAdapter / WebGL now known
+    // so postfx/warmup/deferred gates match the actual backend before the TSL graph builds.
     refreshStartupCapabilities({
         forceWebGL: mode === 'webgl',
     });
 
-    // `mode` is always 'webgpu' this phase — createRenderer() hard-fails instead
-    // of falling back. The branch stays for the WebGL restore wave (#1597 era).
     loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Initializing post-processing...');
 
     await StageLoader.loadStage('postProcessing', async () => {

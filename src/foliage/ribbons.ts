@@ -6,7 +6,7 @@ import {
     mx_noise_float
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { createUnifiedMaterial } from './index.ts';
+import { createUnifiedMaterial } from './material-core.ts';
 
 /**
  * Melody Ribbon System

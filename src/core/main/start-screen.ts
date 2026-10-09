@@ -25,7 +25,7 @@ import {
 } from '../../ui/readiness-progress.ts';
 import { globalBackgroundProcessor } from '../../utils/background-processor.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
-import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { showToast } from '../../utils/toast.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';

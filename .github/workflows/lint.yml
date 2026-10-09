@@ -34,6 +34,9 @@ jobs:
             - name: ESLint ratchet (fail-closed gate)
               run: npm run lint
 
+            - name: Import-cycle ratchet (fail-closed gate)
+              run: npm run test:cycles
+
             - name: Verify Map Chunk Index
               run: npm run verify:chunk-index
 

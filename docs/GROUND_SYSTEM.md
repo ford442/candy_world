@@ -34,7 +34,7 @@ platforms).
 All main-thread systems now read from `GroundSystem` instead of duplicating
 lake/island math or calling the raw WASM terrain function directly:
 
-- `src/systems/physics.core.ts` — re-exports lake helpers; height via GroundSystem.
+- `src/systems/physics/physics-math.ts` — re-exports lake helpers; height via GroundSystem.
 - `src/systems/physics/physics-core.ts` — uses `isInLakeBasin` from GroundSystem.
 - `src/systems/physics/physics-states.ts` — local unified helper delegates to
   GroundSystem.

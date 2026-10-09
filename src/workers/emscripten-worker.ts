@@ -6,7 +6,7 @@
  * compilation overhead to a background thread.
  * 
  * Usage:
- *   const worker = new Worker('./emscripten.worker.ts', { type: 'module' });
+ *   const worker = new Worker('./emscripten-worker.ts', { type: 'module' });
  *   worker.postMessage({ url: '/path/to/module.wasm' });
  *   worker.onmessage = (e) => {
  *     if (e.data.type === 'SUCCESS') {

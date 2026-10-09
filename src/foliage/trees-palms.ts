@@ -3,7 +3,15 @@ import { color as tslColor, float , positionLocal, normalLocal, add} from 'three
 import { MeshStandardNodeMaterial } from 'three/webgpu';
  // Import explicit type for cast
  // ⚡ OPTIMIZATION: Import Batcher
-import { registerReactiveMaterial, createClayMaterial, getCachedProceduralMaterial , applyStandardDeformation, createJuicyRimLight, uAudioLow, uAudioHigh} from './index.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
+import {
+    createClayMaterial,
+    getCachedProceduralMaterial,
+    applyStandardDeformation,
+    createJuicyRimLight,
+    uAudioLow,
+    uAudioHigh,
+} from './material-core.ts';
 const _scratchPhysicsVec1 = new THREE.Vector3();
 const _scratchPhysicsVec2 = new THREE.Vector3();
 export interface AccordionPalmOptions {
