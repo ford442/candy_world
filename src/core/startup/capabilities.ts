@@ -168,6 +168,7 @@ export function gatherStartupCapabilityInputs(): ResolveStartupCapabilitiesInput
     let forceWebGL = false;
     try {
         forceWebGL =
+            ctx.backend === 'webgl' ||
             resolveRendererBackend() === 'webgl' ||
             (typeof window !== 'undefined' && (window as any).usingWebGL === true);
     } catch {

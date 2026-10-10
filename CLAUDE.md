@@ -14,7 +14,7 @@ The primary play experience is first-person: click to pointer-lock, use mouse-lo
 - **Language**: TypeScript (strict mode)
 - **Performance**: AssemblyScript compiled to WASM for physics and particle simulation
 - **Testing**: Playwright for smoke/boot tests, Node.js for WASM tests
-- **Browser Support**: Chrome 113+, Edge 113+, or browsers with WebGPU enabled (WebGPU is required; there is no WebGL fallback)
+- **Browser Support**: WebGPU (Chrome 113+, Edge 113+) is preferred; without it the world falls back to WebGL2 via `WebGPURenderer({ forceWebGL: true })` with reduced effects
 
 ## Development Commands
 
@@ -274,7 +274,7 @@ npm run budget:check  # Verify chunk size constraints
 ### Compile Flags (toolchain contract)
 - **AssemblyScript** (`build:wasm`): linear-memory MVP + `--enable simd --enable bulk-memory`, `--initialMemory 5 --maximumMemory 256`. No `asconfig.json`, so no `--target`; `--enable gc` (Wasm GC) is not used.
 - **Emscripten** (`emscripten/build.sh`): `-O2` for compile and link, MT and ST. Do not pass `-s MINIFY_WASM_IMPORTS_AND_EXPORTS` (internal setting; emcc rejects it). `npm run verify:emcc:manifest` enforces the `-O` level against `AGENTS.md`.
-- **WebGPU** is required (no WebGL fallback). Device limits are adapter-clamped, and the canvas `colorSpace` matches `outputColorSpace` — see `docs/WEBGPU_CONTEXT.md`.
+- **WebGPU** is preferred; a failed boot probe falls back to WebGL2 (badge shows `WEBGL2 FALLBACK`, no GPU compute). Device limits are adapter-clamped, and the canvas `colorSpace` matches `outputColorSpace` — see `docs/WEBGPU_CONTEXT.md` and `docs/webgl-fallback.md`.
 
 ### Map/World Constants (`src/world/generation.ts`)
 - `DEFAULT_MAP_CHUNK_SIZE` — Chunk resolution (default: 8)

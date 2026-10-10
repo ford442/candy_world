@@ -1,7 +1,6 @@
 // vite.config.js
 import { defineConfig } from 'vite';
 
-
 // Set modern build target so top-level await in dependencies (e.g. three/examples WebGPU helper)
 // doesn't get transformed to an unsupported lower target during bundle/transpile.
 export default defineConfig({
@@ -187,6 +186,16 @@ export default defineConfig({
                     // Shader warmup (loading-screen phase — not first-paint brain)
                     if (id.includes('/src/rendering/shader-warmup.ts')) {
                         return 'shader-warmup';
+                    }
+                    // Season calendar + weather enums: pure leaves (no imports) read at
+                    // module top level by both `app` and `weather`. Left in `app`, the
+                    // weather chunk evaluates first across the weather ↔ app cycle and
+                    // hits a TDZ (`SPRING`, `WeatherState.CLEAR`) that stops boot.
+                    if (
+                        id.includes('/src/systems/season-core.ts') ||
+                        id.includes('/src/systems/weather-types.ts')
+                    ) {
+                        return 'weather-shared';
                     }
                     // CPU cluster bin (no app imports — peeling avoids a clustered ↔ app cycle)
                     if (id.includes('/src/rendering/clustered-bin.ts')) {

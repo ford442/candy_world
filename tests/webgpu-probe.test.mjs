@@ -1,9 +1,10 @@
 /**
- * Unit tests for the WebGPU hard-fail boot probe.
+ * Unit tests for the WebGPU boot probe and the WebGL2 fallback bookkeeping.
  *
  * The contract under test: `probeWebGPU()` is the only adapter/device request,
  * it fails at a *named* stage, and it never hands back a half-built device that
- * a caller could mistake for a working one.
+ * a caller could mistake for a working one. When it fails, the context records
+ * the WebGL2 fallback without losing that stage.
  *
  * Run: npm run test:webgpu-probe
  */
@@ -32,7 +33,11 @@ const {
     applyCanvasColorSpace,
     resolveRequiredLimits,
     GPU_REQUIRED_LIMITS,
+    settleWebGLContext,
+    getGpuContextSync,
+    awaitGpuDevice,
 } = await import('../src/rendering/gpu-context.ts');
+const { resolveRendererBackend } = await import('../src/rendering/renderer-mode.ts');
 
 // --- Fakes -----------------------------------------------------------------
 
@@ -277,8 +282,8 @@ async function expectFailure(canvas, stage) {
 
     assert.deepEqual(
         [...requestedDescriptor.requiredFeatures].sort(),
-        ['depth32float-stencil8', 'timestamp-query'],
-        'every adapter feature is requested, matching what Three would ask for'
+        [],
+        'no extra features requested by default'
     );
     assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
 }
@@ -433,6 +438,40 @@ async function expectFailure(canvas, stage) {
     assert.equal(lastConfigure.format, 'bgra8unorm');
     assert.equal(probe.canvas.colorSpace, 'srgb');
     assert.equal(getWebGPUProbeReport().canvas.colorSpace, 'srgb', 'report follows the re-tag');
+}
+
+// --- WebGL2 fallback contract -----------------------------------------------
+// A failed probe no longer ends boot: init.ts falls back to WebGL2 and records
+// it here. The probe report must keep the WebGPU stage that caused it, and
+// compute consumers must fail closed immediately (no 10 s wait for a device).
+{
+    reset();
+    setNavigator({ userAgent: 'Mozilla/5.0 Chrome/141.0.0.0' });
+    await expectFailure(makeCanvas(), 'navigator');
+    const ctx = settleWebGLContext('webgpu-unavailable: navigator: no gpu');
+    assert.equal(ctx.backend, 'webgl');
+    assert.equal(ctx.available, false);
+    assert.equal(getGpuContextSync().backend, 'webgl');
+    assert.equal(globalThis.window.__gpuContext.backend, 'webgl', 'published for tests/debug');
+    assert.equal(getWebGPUProbeReport().stage, 'navigator', 'probe report keeps the WebGPU cause');
+    const started = Date.now();
+    assert.equal(await awaitGpuDevice(), null, 'no device on WebGL2');
+    assert.ok(Date.now() - started < 1000, 'awaitGpuDevice fails closed without waiting');
+}
+
+// Renderer selection: WebGPU by default, WebGL2 only when asked for.
+{
+    globalThis.window.localStorage = { getItem: () => null, setItem() {} };
+    assert.equal(resolveRendererBackend(''), 'webgpu');
+    assert.equal(resolveRendererBackend('?lite'), 'webgpu', '?lite trims density, not the backend');
+    assert.equal(resolveRendererBackend('?renderer=webgl'), 'webgl');
+    assert.equal(resolveRendererBackend('?renderer=webgl2'), 'webgl');
+    assert.equal(resolveRendererBackend('?webgl'), 'webgl');
+    assert.equal(resolveRendererBackend('?webglLite=1'), 'webgl');
+    globalThis.window.localStorage = { getItem: () => 'webgl', setItem() {} };
+    assert.equal(resolveRendererBackend(''), 'webgl', 'stored preference applies');
+    assert.equal(resolveRendererBackend('?renderer=webgpu'), 'webgpu', 'URL beats storage');
+    delete globalThis.window.localStorage;
 }
 
 console.log('✓ webgpu-probe: all assertions passed');

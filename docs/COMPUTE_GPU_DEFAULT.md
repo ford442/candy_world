@@ -124,9 +124,10 @@ What the next consumer must keep (the deleted culling system did all three):
 
 > [!IMPORTANT]
 > These WASM/JS fallbacks cover a **compute pass that could not run on a working device**.
-> They are not a substitute for a **missing device**: if the WebGPU boot probe fails there is
-> no renderer at all, and boot hard-fails rather than dropping to WebGL. Compute fails closed;
-> the device does not. See [`WEBGPU_CONTEXT.md`](./WEBGPU_CONTEXT.md#boot-probe--hard-fail).
+> On a **missing device** (failed WebGPU boot probe) the world renders on the WebGL2 fallback,
+> where no GPU compute runs at all: every system stays on these WASM/JS tiers for the session.
+> See [`WEBGPU_CONTEXT.md`](./WEBGPU_CONTEXT.md#boot-probe--webgl2-fallback) and
+> [`webgl-fallback.md`](./webgl-fallback.md).
 
 ### VRAM
 

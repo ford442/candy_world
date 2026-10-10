@@ -88,10 +88,14 @@ This test:
 
 **Note**: Warnings (e.g., `CloudBatcher` capacity warnings) are OK and don't cause failure. Only errors fail the test.
 
-#### No WebGL smoke (`RENDERER=webgl` exits 1)
+#### WebGL2 fallback smoke (`RENDERER=webgl`)
 
-WebGPU is required, so `RENDERER=webgl npm run test` (and `npm run test:smoke:webgl`, if present)
-is refused with exit code 1 rather than booting GL for a green run. See
+`RENDERER=webgl npm run test` hides `navigator.gpu` before the page loads, so boot takes the same
+path as a browser without WebGPU: the probe fails at `navigator` and `createRenderer()` falls back
+to WebGL2. The run asserts `window.usingWebGL`, `canvas[data-renderer="webgl"]`, a
+`rendererFallbackReason` of `webgpu-unavailable: navigator: …`, the `WEBGL2 FALLBACK` badge, and
+`__gpuContext.backend === 'webgl'`. Combine with `BOOT_PATH=explore` to enter the Full world on
+WebGL2. The default run (no `RENDERER`) still fails if the world lands on WebGL2. See
 [docs/webgl-fallback.md](../docs/webgl-fallback.md).
 
 #### Explore-path smoke (`BOOT_PATH=explore`)

@@ -1,10 +1,9 @@
 # WebGL2 Fallback Renderer — archived restore notes
 
 > [!CAUTION]
-> **Archived. None of this works today.** WebGPU is required to enter the world; every WebGL input
-> below is ignored at runtime. The current contract is
-> [`docs/WEBGPU_CONTEXT.md`](../WEBGPU_CONTEXT.md#webgl-not-available). This file is kept only as
-> reference material for a future, explicitly scoped WebGL restore.
+> **Archived reference notes.** The WebGL2 fallback is live again; its current contract is
+> [`docs/webgl-fallback.md`](../webgl-fallback.md). Details below (CI URLs, post-FX parity, the
+> `EffectComposer` path) predate it and may not match today's code.
 
 Candy World ships with **WebGPU** as the default renderer and an opt-in **WebGL2** reference path via Three.js `WebGPURenderer` with `forceWebGL: true` (GLSL node backend). Legacy `THREE.WebGLRenderer` is no longer used — TSL node materials require the node renderer backend.
 

@@ -194,7 +194,8 @@ npm run test:wasm
 # Integration: builds WASM then runs both test suites above
 npm run test:integration
 
-# (No WebGL smoke path: RENDERER=webgl npm run test exits 1 by design — WebGPU is required)
+# WebGL2 fallback smoke: hides navigator.gpu so boot falls back to WebGL2, then asserts it
+RENDERER=webgl npm run test
 
 # Verify Emscripten exports after a build (needs candy_native.wasm)
 npm run verify:emcc
@@ -306,9 +307,11 @@ The build system gracefully handles missing Emscripten:
 
 ### WebGPU Requirements
 
-- **WebGPU is required.** There is no WebGL renderer at runtime: a failed boot probe stops at a
-  diagnostics screen (`src/ui/webgpu-fatal.ts`). See `docs/WEBGPU_CONTEXT.md`.
-- Chrome 113+, Edge 113+, or WebGPU-enabled browser
+- **WebGPU is preferred, WebGL2 is the fallback.** When the boot probe fails (no `navigator.gpu`,
+  `requestAdapter()` → null, …) the world boots on `WebGPURenderer({ forceWebGL: true })`. Only if
+  WebGL2 fails too does boot stop at the diagnostics screen (`src/ui/webgpu-fatal.ts`). See
+  `docs/WEBGPU_CONTEXT.md` and `docs/webgl-fallback.md`.
+- Chrome 113+, Edge 113+, or WebGPU-enabled browser for the full experience
 - SharedArrayBuffer requires COOP/COEP headers (configured in Vite dev server)
 - Uses Three.js WebGPU renderer with TSL (Three.js Shading Language)
 - Top-level await in dependencies is preserved by targeting `es2022` / `esnext`
@@ -316,13 +319,15 @@ The build system gracefully handles missing Emscripten:
   Requested limits are adapter-clamped (`min(adapter.limits[k], desired[k])`); read granted vs
   requested from `window.webgpuProbe`.
 
-### WebGL: not available
+### WebGL2 fallback
 
-`?renderer=webgl`, `?webgl`, `?webglLite=1`, `localStorage candy.renderer=webgl` and
-`window.setRenderer('webgl')` are **ignored** (they log a warning; boot stays on WebGPU).
-`RENDERER=webgl npm run test` exits 1 by design. The old WebGL2 reference-path notes are archived
-in `docs/archive/webgl-fallback-restore-notes.md`; `src/rendering/webgl-debug.ts` is dormant code
-kept for a future restore and does nothing while the active backend is WebGPU.
+Automatic when WebGPU cannot start; forced with `?renderer=webgl`, `?webgl`, `?webglLite=1`,
+`localStorage candy.renderer=webgl` or `window.setRenderer('webgl')`. On WebGL2 the graphics tier
+is clamped to `low` (no shadows / post-FX), `__computeDisabled` is set and `renderer.compute()` is
+a no-op, so every compute system runs its CPU/WASM tier. The renderer badge reads
+`WEBGL2 FALLBACK`; the reason is on `window.rendererFallbackReason` and the WebGPU stage that
+failed stays on `window.webgpuProbe`. `RENDERER=webgl npm run test` smokes it. See
+`docs/webgl-fallback.md`.
 
 ### Memory Layout (AssemblyScript)
 
@@ -545,7 +550,7 @@ When implementing large visual changes:
 - `WEATHER_INTEGRATION_SUMMARY.md` — Weather system architecture
 - `weekly_plan.md` — Living task board and completed work log (highest signal for "what just landed")
 - `DEVELOPER_CONTEXT.md` — High-level architecture, hotspots, and gotchas (read on onboarding)
-- `docs/webgl-fallback.md` — states that WebGL is not available; old notes archived under `docs/archive/`
+- `docs/webgl-fallback.md` — WebGL2 fallback: when it engages, what is reduced, how to test it
 - `CLAUDE.md` — Additional developer context and conventions
 
 For music/biome/shader reactivity changes, also create or append a focused note (e.g. `MUSIC_WAVE_PROPAGATION.md` or `BIOME_BINDING.md`) and reference `music-bindings.json` + affected batchers.
@@ -560,7 +565,9 @@ Install Emscripten or work in JavaScript fallback mode. See `SETUP_GUIDE.md` for
 
 ### WebGPU not available
 
-Requires Chrome/Edge 113+ with WebGPU enabled. Check `chrome://flags`.
+The world falls back to WebGL2 (badge: `WEBGL2 FALLBACK`). For the full experience use
+Chrome/Edge 113+ with WebGPU enabled; check `chrome://gpu` and `window.webgpuProbe` for the stage
+that failed.
 
 ### SharedArrayBuffer errors
 
