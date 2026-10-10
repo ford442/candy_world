@@ -36,7 +36,6 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
             throw err;
         }
     });
-
     // WebGPU is required to enter the world this phase. A failed probe gets
     // the blocking diagnostics screen and boot stops here — we deliberately
     // do not start a WebGL renderer to keep the page looking alive.

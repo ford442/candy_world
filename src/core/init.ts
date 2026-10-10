@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import { color, uniform, uv, float, smoothstep } from 'three/tsl';
+import { timestampQueryGranted } from '../rendering/gpu-context.ts';
 import {
     WebGPURenderer,
     MeshBasicNodeMaterial,
@@ -164,6 +165,7 @@ function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): W
         requiredLimits: probe.requiredLimits,
         device: probe.device,
         context: probe.context,
+        trackTimestamp: timestampQueryGranted(probe),
     } as ConstructorParameters<typeof WebGPURenderer>[0]);
 
     (renderer as WebGPURenderer & { _getFallback: unknown })._getFallback = null;

@@ -66,6 +66,8 @@ interface SpeciesSlot {
     phases: Float32Array;
     glows: Float32Array;
     slotToInstance: Map<number, number>;
+    phaseDirty?: boolean;
+    glowDirty?: boolean;
 }
 
 export class FaunaBatcher {
@@ -142,6 +144,8 @@ export class FaunaBatcher {
         const m = new THREE.Matrix4().makeTranslation(x, y, z);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
         m.toArray(sp.mesh.instanceMatrix.array, idx * 16);
+        sp.phaseDirty = true;
+        sp.glowDirty = true;
         return idx;
     }
 
@@ -157,21 +161,32 @@ export class FaunaBatcher {
         if (idx === undefined) return;
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
         matrix.toArray(sp.mesh.instanceMatrix.array, idx * 16);
-        sp.phases[idx] = phase;
+        if (sp.phases[idx] !== phase) {
+            sp.phases[idx] = phase;
+            sp.phaseDirty = true;
+        }
     }
 
     syncMatrices(): void {
         for (const sp of this._species) {
             if (sp.count > 0) {
                 sp.mesh.instanceMatrix.needsUpdate = true;
-                const phaseAttr = sp.mesh.geometry.getAttribute(
-                    'aPhase'
-                ) as THREE.InstancedBufferAttribute;
-                const glowAttr = sp.mesh.geometry.getAttribute(
-                    'aBiomeGlow'
-                ) as THREE.InstancedBufferAttribute;
-                phaseAttr.needsUpdate = true;
-                glowAttr.needsUpdate = true;
+
+                if (sp.phaseDirty) {
+                    const phaseAttr = sp.mesh.geometry.getAttribute(
+                        'aPhase'
+                    ) as THREE.InstancedBufferAttribute;
+                    phaseAttr.needsUpdate = true;
+                    sp.phaseDirty = false;
+                }
+
+                if (sp.glowDirty) {
+                    const glowAttr = sp.mesh.geometry.getAttribute(
+                        'aBiomeGlow'
+                    ) as THREE.InstancedBufferAttribute;
+                    glowAttr.needsUpdate = true;
+                    sp.glowDirty = false;
+                }
             }
         }
     }
