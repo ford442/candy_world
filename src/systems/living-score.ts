@@ -17,13 +17,13 @@ export interface ScoreCue {
 }
 
 // Readonly struct arrays to avoid allocations on iteration
-let cueChannels: number[] = [];
-let cueBiomes: string[] = [];
-let cueInstruments: number[] = [];
-let cueNotes: string[] = [];
-let cueRowMods: number[] = [];
-let cueEvents: string[] = [];
-let cueIds: string[] = [];
+const cueChannels: number[] = [];
+const cueBiomes: string[] = [];
+const cueInstruments: number[] = [];
+const cueNotes: string[] = [];
+const cueRowMods: number[] = [];
+const cueEvents: string[] = [];
+const cueIds: string[] = [];
 
 let _cuesLoaded = false;
 let initialized = false;
@@ -154,19 +154,21 @@ function fireScoreEvent(cueIndex: number, nightGate: number, marketGate: number)
             sugarCavesShimmerEnvelope = 1.0 * nightGate;
             break;
 
-        case 'faunaImpulse':
+        case 'faunaImpulse': {
             const fsInst = FaunaSystem.getInstance();
             if (typeof (fsInst as any).applyScoreImpulse === 'function') {
                 (fsInst as any).applyScoreImpulse(5.0);
             }
             break;
+        }
 
-        case 'weatherBump':
+        case 'weatherBump': {
             const ws = getWeatherSystem();
             if (ws) {
                 ws.intensity = Math.min(1.0, ws.intensity + 0.1);
             }
             break;
+        }
     }
 }
 
