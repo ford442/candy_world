@@ -232,6 +232,39 @@ async function testExtremeVelocity(wasmInstance) {
 }
 
 /**
+ * Test 4: Batch distance cull flags override bug
+ */
+async function testBatchDistanceCull(wasmInstance) {
+  console.log('Test 4: Batch distance cull flags override bug...');
+
+  const memory = wasmInstance.exports.memory;
+  const batchDistanceCull = wasmInstance.exports.batchDistanceCull;
+  const F32 = new Float32Array(memory.buffer);
+  const OUTPUT_OFFSET_FLOATS = 8192 / 4;
+
+  // Set positions (at offset 0)
+  F32[0] = 10; F32[1] = 0; F32[2] = 0; F32[3] = 1; // x, y, z, r
+  F32[4] = 20; F32[5] = 0; F32[6] = 0; F32[7] = 1;
+
+  // Sentinel value
+  F32[OUTPUT_OFFSET_FLOATS] = 7;
+  F32[OUTPUT_OFFSET_FLOATS + 1] = 7;
+
+  // Call with 6 arguments (including flagsPtr at 8192)
+  batchDistanceCull(0, 0, 0, 225, 2, 8192); // distSq = 15*15 = 225
+
+  // Assert flags were written to 8192
+  if (F32[OUTPUT_OFFSET_FLOATS] !== 1 || F32[OUTPUT_OFFSET_FLOATS + 1] !== 0) {
+    throw new Error(`testBatchDistanceCull failed: Expected flags [1, 0] at 8192, got [${F32[OUTPUT_OFFSET_FLOATS]}, ${F32[OUTPUT_OFFSET_FLOATS + 1]}]`);
+  }
+
+  // Assert position buffer at 0 was untouched
+  if (F32[0] !== 10) {
+    throw new Error(`testBatchDistanceCull failed: Position buffer was overwritten! Expected 10, got ${F32[0]}`);
+  }
+}
+
+/**
  * Run all tests
  */
 async function runAllTests() {
@@ -250,6 +283,9 @@ async function runAllTests() {
     console.log();
 
     await testExtremeVelocity(wasmInstance);
+    console.log();
+
+    await testBatchDistanceCull(wasmInstance);
     console.log();
 
     console.log('✅ All WASM tests passed!');

@@ -22,6 +22,7 @@ import {
     animationView,
     outputView,
     wasmBatchMushroomSpawnCandidates,
+    OUTPUT_OFFSET,
     type WasmExports,
     type Mushroom,
     type AnimationData,
@@ -140,9 +141,9 @@ export function batchDistanceCull(cameraX: number, cameraY: number, cameraZ: num
     if (cappedCount <= 0) return { visibleCount: objectCount, flags: null };
 
     const exports = wasmInstance.exports as WasmExports;
-    const visibleCount = exports.batchDistanceCull!(cameraX, cameraY, cameraZ, maxDistSq, cappedCount);
+    const visibleCount = exports.batchDistanceCull!(cameraX, cameraY, cameraZ, maxDistSq, cappedCount, OUTPUT_OFFSET);
 
-    return { visibleCount, flags: outputView!.slice(0, cappedCount) };
+    return { visibleCount, flags: outputView!.subarray(0, cappedCount) };
 }
 
 // =============================================================================

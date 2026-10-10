@@ -625,6 +625,8 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
             /* destroy is best-effort */
         }
         settle({ ...UNAVAILABLE, reason: `${stage}: ${message}` });
+        // A warning, not an error: the caller falls back to WebGL2, and only
+        // reports a fatal error when that fails too.
         console.warn(
             `[GPUContext] WebGPU probe failed at "${stage}" on ${browser.name} ${browser.version}: ${message}`
         );

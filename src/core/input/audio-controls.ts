@@ -125,6 +125,9 @@ export const adjustVolume = (delta: number) => {
     const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
 
     showToast(`Volume: ${percentage}% ${icon}`, icon);
+
+    // ♿ Aria: Announce volume changes for screen readers
+    announceValueChange('Volume', percentage, 0, 100);
 };
 
 /**
