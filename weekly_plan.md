@@ -207,7 +207,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
     - Implementation Details: Bypassed `src/foliage/index.ts` across the codebase. Updated `src/world/generation-entities.ts`, `src/world/foliage-registry.ts`, `src/world/terrain-mesh.ts`, `src/rendering/shader-warmup.ts`, `src/core/game-loop-visuals.ts`, `src/core/deferred-init.ts`, `src/core/game-loop-physics.ts`, `src/systems/glitch-grenade.ts`, `src/systems/weather/weather-effects.ts`, `src/core/main/audio-world-pipeline.ts`, `src/world/generation-decorators-sky-islands.ts`, and `src/world/generation-core.ts` to import directly from defining modules. Verified with `test:foliage-barrel` and `test:cycles`.
 - [ ] **#1828 ⚙️ Native tier: make the C++ build actually run in production (COOP/COEP, ST fallback, one loader, off-thread physics)** — after #1845.
 - [ ] **#1824 WebGPU device feature allowlist + timestamp-query GPU budget** — builds on #1753 (landed).
-- [ ] **#1826 Living Score — tracker rows as a world script** — music-reactivity vision.
+- [x] **#1826 Living Score — tracker rows as a world script** — music-reactivity vision. ✅
 - [ ] **#1829 🍂 Seasons and weather narratives — a 40-day year** — content vision.
 
 **User idea pool — GitHub issues filed 2026-09-13 by `ford442` (Noah's OWN words — FRESHEST this run, filed two days ago; PRIMARY source). A five-part foundation batch (#1752–#1756) gating one content capstone (#1758), plus three standalone build/native/authoring tickets. Noah is driving this batch himself: #1752 has open PR #1771 and #1753 was dispatched today, so those two are off the table for delegation.**
@@ -696,6 +696,9 @@ Status: Implemented ✅
 - [x] **2026-09-23** ✅ FESTIVAL NIGHT MARKET (#1758)
     - Night-only lantern stalls on the existing map (six `night_market_stall` setpieces south of the Play spawn), batched in `src/foliage/night-market-batcher.ts` (3 draw calls, circadian fold/unfurl, lantern mesh hidden in full day).
     - #1755 contract from day one: `removeInstance` swap-remove + `ChunkStreamer` eviction class; decorative light descriptors via `lights.ts`, released on evict.
+- [x] **2026-10-06** ✅ LIVING SCORE (#1826)
+    - Status: Implemented ✅
+    - Implementation Details: Wrote `living-score.ts` which edge-detects tracker rows through `AudioSystem.onRowEdge` to fire one-shot deterministic cues from `score-cues.json` without allocations. Cues target specific uniforms (e.g. `lanternPhrase` via night gate, `cavePulse`), geometry bursts (`geyserBurst`), system overrides (`weatherBump`), and fauna scatter (`faunaImpulse`), heavily leveraging the zero-allocation SoA architecture.
     - #1756 round trip: `?debugPlace` now places through `restoreEntity` and re-applies dev-sidecar placements on boot; `night_market_stall` is snapshot-exportable.
     - `night_market` music block (bindings, BiomeUniforms, accumulators, hard night gate, sky-wave target, palette, generative profile); discovery stamps + chord-strike hook in `src/systems/night-market-stamps.ts`.
     - `test:night-market` (in `test:fast`), `night_market` VR viewpoint, ship note `docs/FESTIVAL_NIGHT_MARKET.md`.
