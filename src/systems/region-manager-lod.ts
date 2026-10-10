@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
-import { batchDistanceCull, uploadPositionsFlat } from '../utils/wasm-batch.ts';
+import { batchDistanceCull, uploadPositionsFlat, WASM_POSITION_OBJECT_CAPACITY } from '../utils/wasm-batch.ts';
 import { updateFoliageBatcherLOD } from './batcher-lod.ts';
 import type { RegionManager } from './region-manager-core.ts';
 import {
@@ -86,7 +86,7 @@ export function getCellsToUnload(
         }
     }
 
-    if (count > 0 && count <= 5000) {
+    if (count > 0 && count <= WASM_POSITION_OBJECT_CAPACITY) {
         uploadPositionsFlat(_scratchPositions, count);
         const { flags } = batchDistanceCull(cx, 0, cz, r, count);
         if (flags) {
@@ -144,7 +144,7 @@ export function getDistantCells(manager: RegionManager, minRadius: number): Grid
         }
     }
 
-    if (count > 0 && count <= 5000) {
+    if (count > 0 && count <= WASM_POSITION_OBJECT_CAPACITY) {
         uploadPositionsFlat(_scratchPositions, count);
         const { flags } = batchDistanceCull(manager.playerCellX, 0, manager.playerCellZ, minRadius, count);
         if (flags) {

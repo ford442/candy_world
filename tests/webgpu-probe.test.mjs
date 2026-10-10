@@ -282,8 +282,8 @@ async function expectFailure(canvas, stage) {
 
     assert.deepEqual(
         [...requestedDescriptor.requiredFeatures].sort(),
-        ['depth32float-stencil8', 'timestamp-query'],
-        'every adapter feature is requested, matching what Three would ask for'
+        [],
+        'no extra features requested by default'
     );
     assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
 }

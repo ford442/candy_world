@@ -47,6 +47,7 @@ import { updateFoliagePhase } from './game-loop-foliage.ts';
 import { updateGameplayPhase } from './game-loop-gameplay.ts';
 import { updateInteractionPhase, updateExploreCameraPhase } from './game-loop-input.ts';
 import { updateParticlesPhase } from './game-loop-particles.ts';
+import { updateLivingScore } from '../systems/living-score.ts';
 import { updatePhysicsPhase } from './game-loop-physics.ts';
 import { updatePostFX, renderPostProcessing } from './game-loop-postfx.ts';
 import { updateStreamingPhase } from './game-loop-streaming.ts';

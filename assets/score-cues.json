@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "cues": [
+    { "id": "market.lantern_fill", "biome": "night_market", "channel": 3, "instrument": 12, "rowMod": 16, "event": "lanternPhrase" },
+    { "id": "grove.geyser", "biome": "arpeggio_grove", "channel": 1, "note": "C-5", "event": "geyserBurst" },
+    { "id": "cave.shimmer", "biome": "sugar_caves", "channel": 2, "rowMod": 8, "event": "cavePulse" }
+  ]
+}

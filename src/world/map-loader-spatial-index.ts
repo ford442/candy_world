@@ -122,27 +122,35 @@ export class LoadedCandyMapImpl implements LoadedCandyMap {
         maxX: number;
         maxY?: number;
         maxZ: number;
-    }): LoadedMapEntity[] {
+    }, out: LoadedMapEntity[] = []): LoadedMapEntity[] {
         const minY = bounds.minY ?? Number.NEGATIVE_INFINITY;
         const maxY = bounds.maxY ?? Number.POSITIVE_INFINITY;
-        return this.getNearestEntities({
+
+        const nearest = this.getNearestEntities({
             origin: { x: (bounds.minX + bounds.maxX) * 0.5, z: (bounds.minZ + bounds.maxZ) * 0.5 },
             // Half the diagonal covers the box from its center — the exact
             // filter below keeps results correct either way, this just
             // trims the number of spatial cells scanned to find them.
             radius: Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) * 0.5,
             out: [],
-        }).filter((entity) => {
+        });
+
+        for (let i = 0; i < nearest.length; i++) {
+            const entity = nearest[i];
             const [x, y, z] = entity.position;
-            return (
+            if (
                 x >= bounds.minX &&
                 x <= bounds.maxX &&
                 y >= minY &&
                 y <= maxY &&
                 z >= bounds.minZ &&
                 z <= bounds.maxZ
-            );
-        });
+            ) {
+                out.push(entity);
+            }
+        }
+
+        return out;
     }
 
     getNearestEntities(query: {
