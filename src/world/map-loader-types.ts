@@ -141,7 +141,7 @@ export interface LoadedCandyMap {
         maxX: number;
         maxY?: number;
         maxZ: number;
-    }): LoadedMapEntity[];
+    }, out?: LoadedMapEntity[]): LoadedMapEntity[];
     getNearestEntities(query: {
         origin: Vec3 | { x: number; z: number };
         radius: number;
