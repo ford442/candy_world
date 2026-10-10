@@ -74,6 +74,7 @@ export const updateMuteUI = (isMuted: boolean) => {
         toggleMuteBtn.setAttribute('aria-checked', String(isMuted));
         toggleMuteBtn.innerHTML = isMuted ? '<span aria-hidden="true">🔇</span> Unmute <span class="key-badge" aria-hidden="true">M</span>' : '<span aria-hidden="true">🔊</span> Mute <span class="key-badge" aria-hidden="true">M</span>';
         toggleMuteBtn.title = isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';
+        toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute audio' : 'Mute audio');
     }
 };
 
