@@ -26,7 +26,13 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
     const { color = 0x32cd32 } = options;
     const group = new THREE.Group();
     // Shared geometry: Sphere
-    const base = new THREE.Mesh(sharedGeometries.sphere, createClayMaterial(color));
+    const baseMat = getCachedProceduralMaterial(`shrub_base_${color}`, color, () => {
+        const mat = createClayMaterial(color);
+        enhanceWithFloralJuice(mat);
+        return mat;
+    });
+    registerReactiveMaterial(baseMat);
+    const base = new THREE.Mesh(sharedGeometries.sphere, baseMat);
     const size = 1 + Math.random() * 0.5;
     base.scale.setScalar(size);
     base.position.y = 0.5;
