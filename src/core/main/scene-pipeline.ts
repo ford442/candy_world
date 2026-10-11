@@ -31,6 +31,14 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     await StageLoader.loadStage('core', async () => {
         try {
             sceneInitResult = await initScene();
+        });
+    } catch (err) {
+        // A failed WebGPU probe already fell back to WebGL2 inside initScene();
+        // reaching here means neither backend could start (stage `webgl`), or
+        // the probe passed and the WebGPU renderer still failed (stage
+        // `renderer`). Show the blocking diagnostics screen and stop boot.
+        if (err instanceof WebGPUUnavailableError) {
+            showWebGPUFatalScreen(err);
         } catch (err) {
             initError = err;
             throw err;

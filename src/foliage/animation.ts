@@ -276,8 +276,8 @@ export function updateFoliageMaterials(
         }
     }
 
-    // ⚡ OPTIMIZATION: Fast-path skip if no reactivity applies this frame
-    if (!isNight && globalWetAmount === 0) return;
+    // ⚡ OPTIMIZATION: We cannot entirely early-out here because materials might need `_needsFadeBack` processed
+    // to reset their emissiveness when day breaks. We handle fast-path skips per-material instead.
 
     const channels = audioData.channelData;
     const hasChannels = channels && channels.length > 0;
@@ -296,6 +296,7 @@ export function updateFoliageMaterials(
 
         // 1. Audio Reactivity (Night/Day)
         if (isNight && hasChannels) {
+            mat._needsFadeBack = true;
             const chIndex = (i % 4) + 1;
             const ch = channels[Math.min(chIndex, channels.length - 1)];
 
@@ -315,12 +316,13 @@ export function updateFoliageMaterials(
             if (!mat.isMeshBasicMaterial && mat.emissiveIntensity !== undefined) {
                 mat.emissiveIntensity = intensity;
             }
-        } else if (!isNight) {
+        } else if (!isNight && mat._needsFadeBack) {
             // Day mode - reset emissive
             if (mat.emissive) {
                 mat.emissive.setHex(0x000000);
                 mat.emissiveIntensity = 0;
             }
+            mat._needsFadeBack = false;
         }
 
         // 2. Weather Reactivity (Wet Effect)

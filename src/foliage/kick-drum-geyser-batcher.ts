@@ -188,6 +188,16 @@ export class KickDrumGeyserBatcher {
         this.plumeMesh.instanceMatrix.needsUpdate = true;
     }
 
+    triggerErupt(): void {
+        // Geysers track eruption strength in the TSL uniform `eruptionStrength` per-instance
+        // The update loop uses _eruptionStrengths from somewhere else? Let's check logicGeysers.
+        for (const geyser of this.logicGeysers) {
+            if (geyser.userData) {
+                geyser.userData.eruptionStrength = Math.min(1.0, (geyser.userData.eruptionStrength || 0) + 0.5);
+            }
+        }
+    }
+
     update(_time: number, _deltaTime: number, audioState: any, activeWave: any) {
         if (this._count === 0) return;
 

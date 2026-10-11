@@ -20,6 +20,7 @@ export class AudioSystem extends AudioSystemCore {
     generativeEngine: GenerativeEngine | null = null;
     musicSourceMode: MusicSourceMode;
     private _generativeAttached = false;
+    public onRowEdge?: (order: number, row: number, channelData: any[]) => void;
 
     constructor(useScriptProcessorNode: boolean = false, deferWorklet: boolean = false) {
         super(useScriptProcessorNode, deferWorklet);
@@ -690,6 +691,8 @@ export class AudioSystem extends AudioSystemCore {
     }
 
     handleVisualUpdate(data: unknown): void {
+        const prevOrder = this.visualState.patternIndex;
+        const prevRow = this.visualState.row;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { bpm, channelData, anyTrigger, order, row } = data as { bpm: number; channelData: any[]; anyTrigger: boolean; order: number; row: number }; // Ensure Worklet sends order/row!
         this.visualState.bpm = bpm || 120;
@@ -740,6 +743,13 @@ export class AudioSystem extends AudioSystemCore {
             dest.instrument = src.instrument;
             dest.activeEffect = src.activeEffect;
             dest.effectValue = src.effectValue;
+        }
+
+        // Edge detection for Living Score
+        if (prevOrder !== this.visualState.patternIndex || prevRow !== this.visualState.row) {
+            if (this.onRowEdge) {
+                this.onRowEdge(this.visualState.patternIndex, this.visualState.row, channelData);
+            }
         }
     }
 
