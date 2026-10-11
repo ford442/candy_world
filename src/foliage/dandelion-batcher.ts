@@ -20,6 +20,7 @@ import {
 } from './material-core.ts';
 import { applySeasonTint } from './material-core/season-nodes.ts';
 import { uTwilight } from './sky.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 
 const MAX_DANDELIONS = 500;
 const SEEDS_PER_HEAD = 24;
@@ -256,6 +257,7 @@ export class DandelionBatcher {
             return m;
         });
 
+        registerReactiveMaterial(mat);
 
         // --- 3. InstancedMesh Setup ---
 
