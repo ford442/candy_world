@@ -346,17 +346,17 @@ export abstract class AudioSystemCore {
                 };
 
                 // from '...'
-                rewritten = rewritten.replace(/(from\s+)(['"])([^'"\n]+)\2/g, (m, p1, q, spec) => {
+                rewritten = rewritten.replace(/(from\s+)(['"])([^'"\n]+)\2/g, (m: string, p1: string, q: string, spec: string) => {
                     const abs = makeAbsolute(spec);
                     return `${p1}${q}${abs}${q}`;
                 });
                 // import '...'
-                rewritten = rewritten.replace(/(import\s+)(['"])([^'"\n]+)\2/g, (m, p1, q, spec) => {
+                rewritten = rewritten.replace(/(import\s+)(['"])([^'"\n]+)\2/g, (m: string, p1: string, q: string, spec: string) => {
                     const abs = makeAbsolute(spec);
                     return `${p1}${q}${abs}${q}`;
                 });
                 // dynamic import('...')
-                rewritten = rewritten.replace(/(import\()(['"])([^'"\n]+)\2(\))/g, (m, p1, q, spec, p4) => {
+                rewritten = rewritten.replace(/(import\()(['"])([^'"\n]+)\2(\))/g, (m: string, p1: string, q: string, spec: string, p4: string) => {
                     const abs = makeAbsolute(spec);
                     return `${p1}${q}${abs}${q}${p4}`;
                 });

@@ -269,6 +269,8 @@ export class DebugPanel {
       <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">O</kbd> - Toggle Startup Overlay</div>
       <div style="margin-top: 6px; color: #0f0;">GI:</div>
       <div>Probe gizmos when <code>?debug=1</code> / <code>?gi=debug</code>. Off restores hemisphere+sun.</div>
+      <div style="margin-top: 6px; color: #0f0;">Boot Presets (?boot=):</div>
+      <div>scene → sandbox → standard → full</div>
       <div style="margin-top: 6px; color: #0f0;">Status Legend:</div>
       <div>⏳ Loading • ✅ Success • ❌ Failed • ⏭️ Skipped</div>
     `;
