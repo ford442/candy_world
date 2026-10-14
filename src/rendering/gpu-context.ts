@@ -615,6 +615,7 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
             canvas: canvasConfig ? publicCanvasConfig(canvasConfig) : null,
             timestamp: new Date().toISOString(),
         });
+        // A half-built device would otherwise sit pinned until GC.
         try {
             device?.destroy();
         } catch {
@@ -629,10 +630,13 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         throw new WebGPUUnavailableError(stage, message, detail);
     };
 
+    // 1 — navigator.gpu
     if (typeof navigator === 'undefined' || !navigator.gpu) {
         return fail('navigator', 'navigator.gpu is missing — this browser exposes no WebGPU implementation');
     }
 
+    // 2 — adapter. Returns null (not throws) when the GPU is blocklisted or
+    // the browser has no usable backend; this is the Chrome/Edge split point.
     try {
         adapter = await navigator.gpu.requestAdapter({ powerPreference: GPU_POWER_PREFERENCE });
     } catch (err) {
@@ -646,7 +650,10 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
     }
     adapterInfo = await readAdapterInfo(adapter, null);
 
-    // Allowlist, not Array.from(adapter.features). timestamp-query is optional.
+    // 3 — device. An allowlist of features (selectRequiredFeatures), not
+    // Array.from(adapter.features); timestamp-query is optional. Limits are
+    // clamped to what this adapter advertises (spec floor on software
+    // adapters), so the request can never be rejected for asking too much.
     requiredLimits = resolveRequiredLimits(adapter, adapterInfo);
     requiredFeatures = selectRequiredFeatures(adapter);
     try {
@@ -657,6 +664,7 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
     if (!device) return fail('device', 'requestDevice() resolved without a device');
     adapterInfo = (await readAdapterInfo(adapter, device)) ?? adapterInfo;
 
+    // 4 — canvas context
     let ctx: GPUCanvasContext | null = null;
     try {
         ctx = canvas.getContext('webgpu') as GPUCanvasContext | null;
@@ -670,6 +678,9 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         );
     }
 
+    // 5 — configure the swap chain as Three will, plus the colorSpace Three
+    // omits. The swap chain is 8-bit (`getPreferredCanvasFormat()`, usually
+    // `bgra8unorm`); HDR lives in the `rgba16float` render targets upstream.
     canvasConfig = {
         format: navigator.gpu.getPreferredCanvasFormat(),
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
@@ -682,6 +693,9 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         return fail('configure', `context.configure() threw: ${describeError(err)}`, err);
     }
 
+    // 6 — empty compute pipeline. Compute is not optional here: culling,
+    // particles and the gpu-chores library all dispatch, and a device that
+    // cannot compile WGSL compute is not a device we can ship the world on.
     try {
         device.pushErrorScope('validation');
         const module = device.createShaderModule({ code: PROBE_SHADER, label: 'webgpu-probe' });
@@ -693,6 +707,8 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         const scoped = await device.popErrorScope();
         if (scoped) return fail('pipeline', `compute pipeline validation failed: ${scoped.message}`, scoped);
     } catch (err) {
+        // `fail()` throws, so a validation error caught here would otherwise be
+        // reported (and the device destroyed) a second time.
         if (err instanceof WebGPUUnavailableError) throw err;
         return fail('pipeline', `compute pipeline creation failed: ${describeError(err)}`, err);
     }
