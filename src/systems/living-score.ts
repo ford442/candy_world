@@ -1,10 +1,11 @@
-
+import type { ChannelData } from '../audio/audio-system-core.ts';
 import { AudioSystem } from '../audio/audio-system-playback.ts';
-import { nightGateFromBias } from './atmosphere-reactivity-core.ts';
-import { getBiomeUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
+import { hasUrlFlag } from '../core/config/url-flags.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
+import { nightGateFromBias } from './atmosphere-reactivity-core.ts';
+import { BiomeUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
+import { triggerFaunaImpulse } from './fauna/fauna-system.ts';
 import { getWeatherSystem } from './weather/lazy.ts';
-import { FaunaSystem } from './fauna/fauna-system.ts';
 
 export interface ScoreCue {
     id: string;
@@ -26,6 +27,7 @@ const cueEvents: string[] = [];
 const cueIds: string[] = [];
 
 let _cuesLoaded = false;
+let _cuesLoading = false;
 let initialized = false;
 
 // Debug tracking
@@ -34,12 +36,14 @@ let debugCurrentOrder = 0;
 let debugCurrentRow = 0;
 
 export async function initLivingScore(): Promise<void> {
+    if (_cuesLoaded || _cuesLoading) return;
+    _cuesLoading = true;
     try {
         const res = await fetch('/assets/score-cues.json');
         if (!res.ok) return;
-        const data = await res.json();
+        const data = (await res.json()) as { cues?: ScoreCue[] };
         if (data && Array.isArray(data.cues)) {
-            const cues = data.cues as ScoreCue[];
+            const cues = data.cues;
             for (const cue of cues) {
                 cueIds.push(cue.id);
                 cueBiomes.push(cue.biome);
@@ -60,7 +64,7 @@ export async function initLivingScore(): Promise<void> {
 interface EdgeEvent {
     order: number;
     row: number;
-    channels: any[];
+    channels: ChannelData[];
 }
 
 let pendingEdge: EdgeEvent | null = null;
@@ -77,22 +81,25 @@ export function attachLivingScoreAudioListener(audioSystem: AudioSystem): void {
 
 let sugarCavesShimmerEnvelope = 0;
 
-export function updateLivingScore(audioSystem: AudioSystem, dayNightBias: number, dt: number): void {
+export function updateLivingScore(
+    audioSystem: AudioSystem,
+    dayNightBias: number,
+    dt: number
+): void {
     if (!_cuesLoaded) return;
     if (!initialized) attachLivingScoreAudioListener(audioSystem);
 
     // Apply envelope decays for luminous plants and cave shimmer
-    if (LuminousPlantUniforms.intensity) {
-        LuminousPlantUniforms.intensity.value = Math.max(0.1, LuminousPlantUniforms.intensity.value - dt * 1.5);
+    const luminous = LuminousPlantUniforms.intensity;
+    if (luminous) {
+        luminous.value = Math.max(0.1, luminous.value - dt * 1.5);
     }
 
     // We maintain our own envelope for sugar cave shimmer since bindings overwrite it
     sugarCavesShimmerEnvelope = Math.max(0, sugarCavesShimmerEnvelope - dt * 2.0);
     if (sugarCavesShimmerEnvelope > 0) {
-        getBiomeUniforms('sugar_caves').shimmer.value = Math.max(
-            getBiomeUniforms('sugar_caves').shimmer.value,
-            sugarCavesShimmerEnvelope
-        );
+        const caves = BiomeUniforms.sugarCaves.shimmer;
+        caves.value = Math.max(caves.value, sugarCavesShimmerEnvelope);
     }
 
     if (!pendingEdge) return;
@@ -118,7 +125,7 @@ export function updateLivingScore(audioSystem: AudioSystem, dayNightBias: number
         if (match && cueNotes[i] !== '' && noteStr !== cueNotes[i]) {
             match = false;
         }
-        if (match && cueRowMods[i] > 0 && (row % cueRowMods[i]) !== 0) {
+        if (match && cueRowMods[i] > 0 && row % cueRowMods[i] !== 0) {
             match = false;
         }
 
@@ -137,12 +144,11 @@ function fireScoreEvent(cueIndex: number, nightGate: number, marketGate: number)
     const event = cueEvents[cueIndex];
 
     switch (event) {
-        case 'lanternPhrase':
-            getBiomeUniforms('night_market').shimmer.value = Math.max(
-                getBiomeUniforms('night_market').shimmer.value,
-                1.0 * marketGate
-            );
+        case 'lanternPhrase': {
+            const lanterns = BiomeUniforms.nightMarket.shimmer;
+            lanterns.value = Math.max(lanterns.value, 1.0 * marketGate);
             break;
+        }
 
         case 'geyserBurst':
             if (kickDrumGeyserBatcher && typeof kickDrumGeyserBatcher.triggerErupt === 'function') {
@@ -154,13 +160,9 @@ function fireScoreEvent(cueIndex: number, nightGate: number, marketGate: number)
             sugarCavesShimmerEnvelope = 1.0 * nightGate;
             break;
 
-        case 'faunaImpulse': {
-            const fsInst = FaunaSystem.getInstance();
-            if (typeof (fsInst as any).applyScoreImpulse === 'function') {
-                (fsInst as any).applyScoreImpulse(5.0);
-            }
+        case 'faunaImpulse':
+            triggerFaunaImpulse(5);
             break;
-        }
 
         case 'weatherBump': {
             const ws = getWeatherSystem();
@@ -179,13 +181,11 @@ function recordDebugCue(id: string) {
     }
 }
 
-import { hasUrlFlag } from '../core/config/url-flags.ts';
-
 export function getLivingScoreDebugState() {
     return {
         order: debugCurrentOrder,
         row: debugCurrentRow,
-        lastFiredCues: debugCues
+        lastFiredCues: debugCues,
     };
 }
 
@@ -197,10 +197,16 @@ function updateScoreDebugUI() {
         if (!hasUrlFlag('debugScore')) return;
         scoreDebugOverlay = document.createElement('div');
         Object.assign(scoreDebugOverlay.style, {
-            position: 'fixed', bottom: '10px', right: '10px',
-            background: 'rgba(0,0,0,0.8)', color: '#0f0',
-            padding: '10px', fontFamily: 'monospace', fontSize: '12px',
-            zIndex: '9999', pointerEvents: 'none'
+            position: 'fixed',
+            bottom: '10px',
+            right: '10px',
+            background: 'rgba(0,0,0,0.8)',
+            color: '#0f0',
+            padding: '10px',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            zIndex: '9999',
+            pointerEvents: 'none',
         });
         document.body.appendChild(scoreDebugOverlay);
     }
@@ -211,6 +217,6 @@ function updateScoreDebugUI() {
         Order: ${state.order}<br>
         Row: ${state.row}<br>
         Cues:<br>
-        ${state.lastFiredCues.map(c => `- ${c}`).join('<br>')}
+        ${state.lastFiredCues.map((c) => `- ${c}`).join('<br>')}
     `;
 }

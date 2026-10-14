@@ -8,6 +8,7 @@ import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     createStandardNodeMaterial,
     applyStandardDeformation,
@@ -20,7 +21,6 @@ import {
 } from './material-core.ts';
 import { applySeasonTint } from './material-core/season-nodes.ts';
 import { uTwilight } from './sky.ts';
-import { registerReactiveMaterial } from './foliage-reactivity.ts';
 
 const MAX_DANDELIONS = 500;
 const SEEDS_PER_HEAD = 24;
