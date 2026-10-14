@@ -8,6 +8,7 @@ import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     createStandardNodeMaterial,
     applyStandardDeformation,

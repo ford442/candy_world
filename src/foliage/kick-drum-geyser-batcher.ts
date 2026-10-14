@@ -193,7 +193,9 @@ export class KickDrumGeyserBatcher {
         // The update loop uses _eruptionStrengths from somewhere else? Let's check logicGeysers.
         for (const geyser of this.logicGeysers) {
             if (geyser.userData) {
-                geyser.userData.eruptionStrength = Math.min(1.0, (geyser.userData.eruptionStrength || 0) + 0.5);
+                const bag = geyser.userData as { eruptionStrength?: number };
+                const prev = bag.eruptionStrength ?? 0;
+                bag.eruptionStrength = prev + 0.5 > 1 ? 1 : prev + 0.5;
             }
         }
     }
