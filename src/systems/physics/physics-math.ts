@@ -169,7 +169,7 @@ export function calculateWaterLevel(
                 .copy(cave.userData.gatePosition)
                 .applyMatrix4(cave.matrixWorld);
             // ⚡ OPTIMIZATION: Converted cave water proximity check to use distanceToSquared
-            if (playerPos.distanceToSquared(gatePos) < 6.25) {
+            if ((playerPos.x - gatePos.x) * (playerPos.x - gatePos.x) + (playerPos.y - gatePos.y) * (playerPos.y - gatePos.y) + (playerPos.z - gatePos.z) * (playerPos.z - gatePos.z) < 6.25) {
                 waterLevel = gatePos.y + 5; // Water exists here
             }
         }

@@ -130,7 +130,11 @@ export function registerPhysicsCave(cave: THREE.Object3D) {
 
 export function unregisterPhysicsCave(cave: THREE.Object3D) {
     const index = foliageCaves.indexOf(cave);
-    if (index !== -1) foliageCaves.splice(index, 1);
+    // ⚡ OPTIMIZATION: Bypassed splice array allocation to prevent GC spikes
+    if (index !== -1) {
+        foliageCaves[index] = foliageCaves[foliageCaves.length - 1];
+        foliageCaves.pop();
+    }
 }
 
 /**
