@@ -283,9 +283,9 @@ export class AudioSystem extends AudioSystemCore {
         for (let ch = 0; ch < numChannels; ch++) {
             const vu = lib._openmpt_module_get_current_channel_vu_mono(modPtr, ch);
             const cell = rowData[ch];
-            const noteMatch = extractNote(cell as PatternRowCell | null);
-            const instrument = extractInstrument(cell as PatternRowCell | null);
-            const { activeEffect, intensity } = decodeEffectCode(cell as PatternRowCell | null);
+            const noteMatch = extractNote(cell);
+            const instrument = extractInstrument(cell);
+            const { activeEffect, intensity } = decodeEffectCode(cell);
 
             if (noteMatch) anyTrigger = true;
 
@@ -337,7 +337,7 @@ export class AudioSystem extends AudioSystemCore {
 
     // --- Playlist Management ---
 
-    async addToQueue(fileList: File[] | FileList): Promise<void> {
+    addToQueue(fileList: File[] | FileList): void {
         if (!this.isReady) return;
 
         const initialLength = this.playlist.length;
