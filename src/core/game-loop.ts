@@ -11,6 +11,7 @@ import { updateImpacts } from '../foliage/impacts.ts';
 import { updateHeroAnimations } from '../systems/animation/clip-player.ts';
 import { updateBehaviorSystem } from '../systems/ecs/behaviors/index.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
+import { initLivingScore, updateLivingScore } from '../systems/living-score.ts';
 import { updatePresenceSystem } from '../systems/net/lazy.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { player } from '../systems/physics/index.ts';
@@ -26,6 +27,7 @@ import {
     getAudioState,
     getBeatFlashIntensity,
     sceneRef,
+    audioSystemRef,
     cameraRef,
     rendererRef,
     postProcessingRef,
@@ -47,7 +49,6 @@ import { updateFoliagePhase } from './game-loop-foliage.ts';
 import { updateGameplayPhase } from './game-loop-gameplay.ts';
 import { updateInteractionPhase, updateExploreCameraPhase } from './game-loop-input.ts';
 import { updateParticlesPhase } from './game-loop-particles.ts';
-import { updateLivingScore } from '../systems/living-score.ts';
 import { updatePhysicsPhase } from './game-loop-physics.ts';
 import { updatePostFX, renderPostProcessing } from './game-loop-postfx.ts';
 import { updateStreamingPhase } from './game-loop-streaming.ts';
@@ -61,6 +62,9 @@ export { addCameraShake } from './camera-shake.ts';
 const clock = new THREE.Clock();
 
 let _firstFrameLogged = false;
+// initLivingScore() is async, so calling it every frame allocates a Promise
+// per frame even after its own once-guard returns. Call it once.
+let _livingScoreBooted = false;
 
 export function animate() {
     if (!_firstFrameLogged) {
@@ -168,6 +172,13 @@ export function animate() {
     );
 
     updateGenerativeAudioContext(player.position, visualsState.dayNightBias);
+    if (audioSystemRef) {
+        if (!_livingScoreBooted) {
+            _livingScoreBooted = true;
+            void initLivingScore();
+        }
+        updateLivingScore(audioSystemRef, visualsState.dayNightBias, delta);
+    }
 
     // 2b. Foliage materials + batcher LOD (after sky/fog uniforms settle)
     updateFoliagePhase(

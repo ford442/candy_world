@@ -1,3 +1,9 @@
+import {
+    BootHaltError,
+    initProgressiveBoot,
+    installBootDebugHooks,
+    reportBootHalt,
+} from '../../debug/index.ts';
 import type { InteractionSystem } from '../../systems/interaction.ts';
 import { runAudioWorldPipeline } from './audio-world-pipeline.ts';
 import type { MainContext } from './context.ts';
@@ -27,13 +33,22 @@ function createInitialContext(loadingScreen: MainContext['loadingScreen']): Main
 }
 
 export async function runBootstrap(): Promise<void> {
+    // Presets and halt/dependency switches must be in place before any stage runs.
+    initProgressiveBoot();
+    installBootDebugHooks();
+
     const { loadingScreen } = runLoadingBootstrap();
     const ctx = createInitialContext(loadingScreen);
 
-    await runScenePipeline(ctx);
-    await runAudioWorldPipeline(ctx);
-    await runInputPipeline(ctx);
-    await runWasmPipeline(ctx);
+    try {
+        await runScenePipeline(ctx);
+        await runAudioWorldPipeline(ctx);
+        await runInputPipeline(ctx);
+        await runWasmPipeline(ctx);
+    } catch (err) {
+        if (err instanceof BootHaltError) reportBootHalt(err);
+        throw err;
+    }
     runShaderWarmup(ctx);
     setupStartScreen(ctx);
     scheduleDeferredLoading(ctx);

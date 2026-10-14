@@ -1,8 +1,14 @@
 name: Node protocol tests
 
+permissions:
+    contents: read
+
 on:
     pull_request:
         branches: [main]
+        # labeled/unlabeled re-run the baseline-direction check when a person
+        # adds or removes `ratchet-reset` (docs/CI_CONTRACT.md).
+        types: [opened, synchronize, reopened, labeled, unlabeled]
     push:
         branches: [main]
 
@@ -14,15 +20,15 @@ jobs:
             group: ${{ github.workflow }}-${{ github.ref }}
             cancel-in-progress: false
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v7
               with:
                   fetch-depth: 0
 
-            - uses: pnpm/action-setup@v4
+            - uses: pnpm/action-setup@v6
               with:
                   version: 9
 
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v7
               with:
                   node-version: 24
                   cache: pnpm
@@ -44,4 +50,42 @@ jobs:
               run: pnpm run test:fast
 
             - name: Stale-Squash Guard
+              if: github.event_name == 'pull_request'
               run: node scripts/check-stale-squash.mjs
+
+    # After a squash lands on main: the guard in push mode recovers the
+    # branch's fork point from refs/pull/<N>/head and, on a hit, files one
+    # `stale-squash-landed` issue. It never fails the run on a detection (it
+    # cannot un-merge). A separate job so that issues: write is never held by
+    # the job that runs PR code, and with no concurrency group, so a second
+    # quick merge cannot replace this run while it is pending.
+    stale-squash-landed:
+        if: github.event_name == 'push'
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read
+            issues: write
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
+
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+
+            - name: Stale-Squash Guard (push mode)
+              id: stale
+              run: node scripts/check-stale-squash.mjs
+
+            - name: File the stale-squash issue
+              if: steps.stale.outputs.stale != ''
+              uses: actions/github-script@v9
+              env:
+                  STALE: ${{ steps.stale.outputs.stale }}
+              with:
+                  script: |
+                      const fileIssue = require('./scripts/stale-squash-issue.cjs');
+                      const res = await fileIssue({ github, context, stale: JSON.parse(process.env.STALE) });
+                      core.info(`stale-squash issue ${res.action}: #${res.number}`);

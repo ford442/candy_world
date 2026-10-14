@@ -193,7 +193,9 @@ export class KickDrumGeyserBatcher {
         // The update loop uses _eruptionStrengths from somewhere else? Let's check logicGeysers.
         for (const geyser of this.logicGeysers) {
             if (geyser.userData) {
-                geyser.userData.eruptionStrength = Math.min(1.0, (geyser.userData.eruptionStrength || 0) + 0.5);
+                const bag = geyser.userData as { eruptionStrength?: number };
+                const prev = bag.eruptionStrength ?? 0;
+                bag.eruptionStrength = prev + 0.5 > 1 ? 1 : prev + 0.5;
             }
         }
     }
@@ -206,6 +208,8 @@ export class KickDrumGeyserBatcher {
 
         const baseArray = this.baseMesh.instanceMatrix.array;
         const plumeArray = this.plumeMesh.instanceMatrix.array;
+
+        let plumeDirty = false;
 
         // ⚡ OPTIMIZATION: Hoisted wave radius + deferred sqrt; skip plume writes when scaleY is unchanged.
         let elapsedSec = 0;
@@ -267,6 +271,8 @@ export class KickDrumGeyserBatcher {
             // dirty check
             if (Math.abs(plumeArray[baseIndex + 5] - (baseArray[baseIndex + 5] * scaleY)) < 1e-6) continue;
 
+            plumeDirty = true;
+
             plumeArray[baseIndex + 0] = baseArray[baseIndex + 0];
             plumeArray[baseIndex + 1] = baseArray[baseIndex + 1];
             plumeArray[baseIndex + 2] = baseArray[baseIndex + 2];
@@ -289,7 +295,9 @@ export class KickDrumGeyserBatcher {
             plumeArray[baseIndex + 15] = baseArray[baseIndex + 15];
         }
 
-        this.plumeMesh.instanceMatrix.needsUpdate = true;
+        if (plumeDirty) {
+            this.plumeMesh.instanceMatrix.needsUpdate = true;
+        }
     }
 
     dispose() {
