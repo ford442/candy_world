@@ -206,7 +206,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [x] **#1821 Break the foliage barrel hub — world/state must be a leaf again** — likely the first slice of #1827. **Status: Implemented ✅**
     - Implementation Details: Bypassed `src/foliage/index.ts` across the codebase. Updated `src/world/generation-entities.ts`, `src/world/foliage-registry.ts`, `src/world/terrain-mesh.ts`, `src/rendering/shader-warmup.ts`, `src/core/game-loop-visuals.ts`, `src/core/deferred-init.ts`, `src/core/game-loop-physics.ts`, `src/systems/glitch-grenade.ts`, `src/systems/weather/weather-effects.ts`, `src/core/main/audio-world-pipeline.ts`, `src/world/generation-decorators-sky-islands.ts`, and `src/world/generation-core.ts` to import directly from defining modules. Verified with `test:foliage-barrel` and `test:cycles`.
 - [ ] **#1828 ⚙️ Native tier: make the C++ build actually run in production (COOP/COEP, ST fallback, one loader, off-thread physics)** — after #1845.
-- [ ] **#1824 WebGPU device feature allowlist + timestamp-query GPU budget** — builds on #1753 (landed).
+- [x] **#1824 WebGPU device feature allowlist + timestamp-query GPU budget** — builds on #1753 (landed).
 - [x] **#1826 Living Score — tracker rows as a world script** — music-reactivity vision. ✅
 - [ ] **#1829 🍂 Seasons and weather narratives — a 40-day year** — content vision.
 
