@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { StageLoader } from '../../debug/index.ts';
+import { runBootStage } from '../../debug/index.ts';
 import {
     uBloomStrength,
     uColorSaturation,
@@ -38,7 +38,7 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
     // its slots (Candy UI Kit — src/ui/ability-hud.ts).
     mountAbilityHud();
 
-    await StageLoader.loadStage('input', () => {
+    await runBootStage('input', () => {
         ctx.inputSystem = initInput(
             camera,
             ctx.audioSystem!,
@@ -56,7 +56,7 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
         };
     }
 
-    await StageLoader.loadStage('interaction', () => {
+    await runBootStage('interaction', () => {
         ctx.interactionSystem = new InteractionSystem(camera, ctx.inputSystem.updateReticleState);
     });
 
@@ -71,7 +71,7 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
     initDeferredVisualsDependencies(scene, camera, renderer);
 
     const sceneInit = ctx.sceneInitResult!;
-    await StageLoader.loadStage('gameLoop', () => {
+    await runBootStage('gameLoop', () => {
         if (!ctx.interactionSystem) {
             console.warn('[gameLoop] InteractionSystem not initialized, using dummy');
             ctx.interactionSystem = {

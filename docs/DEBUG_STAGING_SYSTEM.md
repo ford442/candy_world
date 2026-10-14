@@ -4,6 +4,8 @@
 
 The Candy World debug staging system provides a way to isolate and debug initialization failures by selectively enabling/disabling subsystems during application startup. This is especially useful when dealing with complex initialization sequences where failures in one subsystem can cascade to others.
 
+For halt-on-failure, dependency skipping and the `?halt=` / `?boot=` presets, see [PROGRESSIVE_BOOT.md](PROGRESSIVE_BOOT.md).
+
 ## Features
 
 - **Selective Stage Loading**: Enable/disable individual initialization stages via URL parameter

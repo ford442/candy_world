@@ -20,7 +20,7 @@ scheduling, WebGPU capability probing, spawn tracking, entity snapshot
 round-trip and migration, player spawn, character controller and its
 native-assist ABI (skips without `build:emcc` output), world health,
 fauna behaviour, presence protocol, Sugar Caves and Sky Islands traversal,
-startup capabilities, world extent, local/clustered lights, irradiance probes,
+startup capabilities, progressive boot stages, world extent, local/clustered lights, irradiance probes,
 post-FX, ground system and unified-ground parity, foliage interaction, shadow
 cascades, atmosphere reactivity, cookbook presets) plus five repo-integrity
 guards (`test:docs-symbols`, `test:plan-integrity`, `test:foliage-barrel`,
