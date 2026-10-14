@@ -7,6 +7,7 @@ import {
     extractInstrument,
     decodeEffectCode,
     VisualState,
+    type ChannelData,
     SCRIPT_PROCESSOR_VISUAL_UPDATE_FREQUENCY,
     decayTowards,
     SAMPLE_RATE,
@@ -20,7 +21,7 @@ export class AudioSystem extends AudioSystemCore {
     generativeEngine: GenerativeEngine | null = null;
     musicSourceMode: MusicSourceMode;
     private _generativeAttached = false;
-    public onRowEdge?: (order: number, row: number, channelData: any[]) => void;
+    public onRowEdge?: (order: number, row: number, channelData: ChannelData[]) => void;
 
     constructor(useScriptProcessorNode: boolean = false, deferWorklet: boolean = false) {
         super(useScriptProcessorNode, deferWorklet);
@@ -748,7 +749,11 @@ export class AudioSystem extends AudioSystemCore {
         // Edge detection for Living Score
         if (prevOrder !== this.visualState.patternIndex || prevRow !== this.visualState.row) {
             if (this.onRowEdge) {
-                this.onRowEdge(this.visualState.patternIndex, this.visualState.row, channelData);
+                this.onRowEdge(
+                    this.visualState.patternIndex,
+                    this.visualState.row,
+                    this.visualState.channelData
+                );
             }
         }
     }

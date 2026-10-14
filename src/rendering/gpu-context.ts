@@ -380,13 +380,6 @@ export interface GpuFeatureReport {
     timestampQuery: boolean;
 }
 
-const EMPTY_FEATURES: GpuFeatureReport = {
-    adapter: [],
-    requested: [],
-    granted: null,
-    timestampQuery: false,
-};
-
 /** `?debug=1` or `?graphics=high`. Never throws; a bad location means "do not request". */
 export function wantsTimestampQuery(): boolean {
     if (typeof location === 'undefined') return false;
@@ -420,10 +413,13 @@ export function selectRequiredFeatures(
     return out;
 }
 
-function listFeatures(set: any): GPUFeatureName[] {
+function listFeatures(set: GPUSupportedFeatures | undefined): GPUFeatureName[] {
+    if (!set) return [];
     const out: GPUFeatureName[] = [];
-    set?.forEach?.((name: any) => out.push(name as GPUFeatureName));
-    return out.sort();
+    // The DOM set iterates feature names as string, wider than the GPUFeatureName union.
+    for (const name of set) out.push(name as GPUFeatureName);
+    out.sort();
+    return out;
 }
 
 function describeFeatures(
