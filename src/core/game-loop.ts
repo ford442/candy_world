@@ -62,6 +62,9 @@ export { addCameraShake } from './camera-shake.ts';
 const clock = new THREE.Clock();
 
 let _firstFrameLogged = false;
+// initLivingScore() is async, so calling it every frame allocates a Promise
+// per frame even after its own once-guard returns. Call it once.
+let _livingScoreBooted = false;
 
 export function animate() {
     if (!_firstFrameLogged) {
@@ -170,7 +173,10 @@ export function animate() {
 
     updateGenerativeAudioContext(player.position, visualsState.dayNightBias);
     if (audioSystemRef) {
-        void initLivingScore();
+        if (!_livingScoreBooted) {
+            _livingScoreBooted = true;
+            void initLivingScore();
+        }
         updateLivingScore(audioSystemRef, visualsState.dayNightBias, delta);
     }
 
