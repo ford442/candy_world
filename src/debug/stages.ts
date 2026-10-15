@@ -64,6 +64,21 @@ export const DEBUG_CONFIG = {
   stages: DEBUG_STAGES,
 };
 
+let stageGatingForced = false;
+
+/**
+ * Honour the DEBUG_STAGES flags even without ?debug=1 (a ?boot=<preset> URL
+ * does this). Off by default: in normal play every stage runs.
+ */
+export function setStageGating(forced: boolean): void {
+  stageGatingForced = forced;
+}
+
+/** True when DEBUG_STAGES flags decide which stages run. */
+export function isStageGatingActive(): boolean {
+  return DEBUG_CONFIG.enabled || stageGatingForced;
+}
+
 /**
  * Stage loading result
  */
@@ -71,6 +86,10 @@ export interface StageResult {
   success: boolean;
   duration: number;
   error?: string;
+  /** True when the stage did not run (gated off, or blocked by a dependency). */
+  skipped?: boolean;
+  /** The raw value the stage threw, so callers can test it with instanceof. */
+  cause?: unknown;
 }
 
 /**
@@ -156,11 +175,11 @@ export class StageLoader {
   ): Promise<StageResult> {
     const startTime = performance.now();
     
-    // Check if stage is enabled (only respect flags when debug mode is active)
-    if (DEBUG_CONFIG.enabled && !DEBUG_STAGES[name]) {
+    // Check if stage is enabled (only respect flags when staging is active)
+    if (isStageGatingActive() && !DEBUG_STAGES[name]) {
       console.log(`%c[${name}] ⏭️  SKIPPED`, 'color: gray; font-weight: bold');
       updateStageStatus(name, StageStatus.SKIPPED, 0);
-      return { success: true, duration: 0 };
+      return { success: true, duration: 0, skipped: true };
     }
 
     // Update status to loading
@@ -193,7 +212,7 @@ export class StageLoader {
       
       updateStageStatus(name, StageStatus.FAILED, duration, errorMsg);
       
-      return { success: false, duration, error: errorMsg };
+      return { success: false, duration, error: errorMsg, cause: e };
     }
   }
 
