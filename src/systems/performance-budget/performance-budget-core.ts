@@ -31,6 +31,9 @@
 import { getGpuContextSync } from '../../rendering/gpu-context.ts';
 import {
     BudgetMode,
+    PERFORMANCE_BUDGETS,
+} from './performance-budget-types.ts';
+import type {
     BudgetType,
     BudgetConfig,
     InstanceBudget,
@@ -38,12 +41,14 @@ import {
     PerformanceMetrics,
     BudgetViolation,
     AdaptiveSettings,
-    PERFORMANCE_BUDGETS,
 } from './performance-budget-types.ts';
 
 // Re-export types for convenience
 export {
     BudgetMode,
+    PERFORMANCE_BUDGETS,
+};
+export type {
     BudgetType,
     BudgetConfig,
     InstanceBudget,
@@ -51,7 +56,6 @@ export {
     PerformanceMetrics,
     BudgetViolation,
     AdaptiveSettings,
-    PERFORMANCE_BUDGETS,
 };
 
 /**
@@ -64,6 +68,20 @@ export {
  * - Hardware-based budget auto-detection
  */
 export class PerformanceBudget {
+
+    /**
+     * Set the current GPU frame time from an asynchronous query.
+     */
+    setGpuFrameTime(ms: number | null): void {
+        this.currentMetrics.gpuFrameTime = ms;
+        if (ms !== null) {
+            this.gpuFrameTimeHistory.push(ms);
+            if (this.gpuFrameTimeHistory.length > this.historyLength) {
+                this.gpuFrameTimeHistory.shift();
+            }
+        }
+    }
+
     // Configuration
     private config: PerformanceBudgetConfig;
     private budgets: Map<BudgetType, BudgetConfig> = new Map();
@@ -73,6 +91,7 @@ export class PerformanceBudget {
     private frameStartTime = 0;
     private currentMetrics: PerformanceMetrics = {
         frameTime: 0,
+        gpuFrameTime: null,
         memory: 0,
         instances: 0,
         drawCalls: 0,
@@ -82,6 +101,7 @@ export class PerformanceBudget {
 
     // Tracking history for adaptive mode
     private frameTimeHistory: number[] = [];
+    private gpuFrameTimeHistory: number[] = [];
     private readonly historyLength = 60; // 1 second at 60fps
     private consecutiveOverBudgetFrames: Map<BudgetType, number> = new Map();
 
@@ -135,6 +155,15 @@ export class PerformanceBudget {
             graceFrames: 3,
             adaptiveThreshold: 0.9,
         });
+
+        if (this.config.gpuFrameTime !== undefined) {
+            this.budgets.set('gpuFrameTime', {
+                limit: this.config.gpuFrameTime,
+                mode: defaultMode,
+                graceFrames: 3,
+                adaptiveThreshold: 0.9,
+            });
+        }
 
         this.budgets.set('memory', {
             limit: this.config.memory,
@@ -311,6 +340,21 @@ export class PerformanceBudget {
     /**
      * Get average frame time over the last N frames
      */
+
+    /**
+     * Get average GPU frame time over the last N frames
+     */
+    getAverageGpuFrameTime(frames = 60): number | null {
+        const recent = this.gpuFrameTimeHistory.slice(-frames);
+        if (recent.length === 0) return null;
+
+        let totalTime = 0;
+        for (let i = 0; i < recent.length; i++) {
+            totalTime += recent[i];
+        }
+        return totalTime / recent.length;
+    }
+
     getAverageFrameTime(frames = 60): number {
         const recent = this.frameTimeHistory.slice(-frames);
         if (recent.length === 0) return 0;
@@ -589,6 +633,9 @@ export class PerformanceBudget {
         switch (type) {
             case 'frameTime':
                 return this.getAverageFrameTime(5) > budget.limit;
+            case 'gpuFrameTime':
+                const avgGpu = this.getAverageGpuFrameTime(5);
+                return avgGpu !== null && avgGpu > budget.limit;
             case 'memory':
                 return this.currentMetrics.memory > budget.limit;
             case 'instances':
@@ -612,6 +659,8 @@ export class PerformanceBudget {
         switch (type) {
             case 'frameTime':
                 return budget.limit - this.currentMetrics.frameTime;
+            case 'gpuFrameTime':
+                return this.currentMetrics.gpuFrameTime !== null ? budget.limit - this.currentMetrics.gpuFrameTime : 0;
             case 'memory':
                 return budget.limit - this.currentMetrics.memory;
             case 'instances':
@@ -635,6 +684,8 @@ export class PerformanceBudget {
         switch (type) {
             case 'frameTime':
                 return (this.currentMetrics.frameTime / budget.limit) * 100;
+            case 'gpuFrameTime':
+                return this.currentMetrics.gpuFrameTime !== null ? (this.currentMetrics.gpuFrameTime / budget.limit) * 100 : 0;
             case 'memory':
                 return (this.currentMetrics.memory / budget.limit) * 100;
             case 'instances':
@@ -912,6 +963,7 @@ export class PerformanceBudget {
     resetMetrics(): void {
         this.currentMetrics = {
             frameTime: 0,
+            gpuFrameTime: null,
             memory: 0,
             instances: 0,
             drawCalls: 0,
@@ -919,6 +971,7 @@ export class PerformanceBudget {
             timestamp: 0,
         };
         this.frameTimeHistory = [];
+        this.gpuFrameTimeHistory = [];
         this.consecutiveOverBudgetFrames.clear();
         this.violations = [];
         this.shaderCompilationCount = 0;
@@ -938,6 +991,7 @@ export class PerformanceBudget {
     } {
         const isOverBudget: Record<BudgetType, boolean> = {
             frameTime: this.isOverBudget('frameTime'),
+            gpuFrameTime: this.isOverBudget('gpuFrameTime'),
             memory: this.isOverBudget('memory'),
             instances: this.isOverBudget('instances'),
             drawCalls: this.isOverBudget('drawCalls'),
@@ -946,6 +1000,7 @@ export class PerformanceBudget {
 
         const utilization: Record<BudgetType, number> = {
             frameTime: this.getBudgetUtilization('frameTime'),
+            gpuFrameTime: this.getBudgetUtilization('gpuFrameTime'),
             memory: this.getBudgetUtilization('memory'),
             instances: this.getBudgetUtilization('instances'),
             drawCalls: this.getBudgetUtilization('drawCalls'),
