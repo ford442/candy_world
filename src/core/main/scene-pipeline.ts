@@ -35,15 +35,19 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     try {
         core = await runBootStage('core', async () => {
             sceneInitResult = await initScene();
-        });
-    } catch (err) {
-        // Only a halt (?halt / ?debug) throws, and it wraps what the stage threw.
-        const cause = err instanceof BootHaltError ? err.cause : err;
-        if (cause instanceof WebGPUUnavailableError) {
-            showWebGPUFatalScreen(cause);
+        } catch (err) {
+        // A failed WebGPU probe already fell back to WebGL2 inside initScene();
+        // reaching here means neither backend could start (stage `webgl`), or
+        // the probe passed and the WebGPU renderer still failed (stage
+        // `renderer`). Show the blocking diagnostics screen and stop boot.
+        if (err instanceof WebGPUUnavailableError) {
+            showWebGPUFatalScreen(err);
+        } else {
+            initError = err;
+            throw err;
         }
-        throw err;
-    }
+        }
+    });
 
     // Neither WebGPU nor the WebGL2 fallback started. Stage failures are
     // returned rather than thrown, so the error rides on `cause`.
