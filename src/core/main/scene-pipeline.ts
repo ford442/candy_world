@@ -28,8 +28,8 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
     // StageLoader.loadStage catches and logs, so keep the real error ourselves.
     let initError: unknown;
-    await StageLoader.loadStage('core', async () => {
-        try {
+    try {
+        await StageLoader.loadStage('core', async () => {
             sceneInitResult = await initScene();
         });
     } catch (err) {
@@ -39,11 +39,11 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
         // `renderer`). Show the blocking diagnostics screen and stop boot.
         if (err instanceof WebGPUUnavailableError) {
             showWebGPUFatalScreen(err);
-        } catch (err) {
+        } else {
             initError = err;
             throw err;
         }
-    });
+    }
 
     // WebGPU is required to enter the world this phase. A failed probe gets
     // the blocking diagnostics screen and boot stops here — we deliberately
