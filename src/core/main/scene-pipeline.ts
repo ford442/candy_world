@@ -49,6 +49,8 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
         }
     }
 
+
+
     // Neither WebGPU nor the WebGL2 fallback started. Stage failures are
     // returned rather than thrown, so the error rides on `cause`.
     if (core.cause instanceof WebGPUUnavailableError) {
