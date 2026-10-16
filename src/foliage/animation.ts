@@ -20,6 +20,7 @@ import { median } from './material-core.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 
 // WASM memory views for batch operations
+const foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
 let growthDataView: Float32Array | null = null;
 let bloomDataView: Float32Array | null = null;
 let scaleAnimDataView: Float32Array | null = null;
@@ -296,7 +297,7 @@ export function updateFoliageMaterials(
 
         // 1. Audio Reactivity (Night/Day)
         if (isNight && hasChannels) {
-            mat._needsFadeBack = true;
+            foliageNeedsFadeBack.add(mat as FoliageMaterial);
             const chIndex = (i % 4) + 1;
             const ch = channels[Math.min(chIndex, channels.length - 1)];
 
@@ -316,13 +317,13 @@ export function updateFoliageMaterials(
             if (!mat.isMeshBasicMaterial && mat.emissiveIntensity !== undefined) {
                 mat.emissiveIntensity = intensity;
             }
-        } else if (!isNight && mat._needsFadeBack) {
+        } else if (!isNight && foliageNeedsFadeBack.has(mat as FoliageMaterial)) {
             // Day mode - reset emissive
             if (mat.emissive) {
                 mat.emissive.setHex(0x000000);
                 mat.emissiveIntensity = 0;
             }
-            mat._needsFadeBack = false;
+            foliageNeedsFadeBack.delete(mat as FoliageMaterial);
         }
 
         // 2. Weather Reactivity (Wet Effect)

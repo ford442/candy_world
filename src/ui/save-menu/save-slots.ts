@@ -90,9 +90,9 @@ export function renderLoadTab(
     
     if (manualSlots.length === 0 && autoSlots.length === 0) {
         return `
-            <div class="candy-empty-state">
+            <div class="candy-empty-state" role="status" aria-labelledby="candy-empty-state-text">
                 <div class="candy-empty-state__icon" aria-hidden="true">📝</div>
-                <div class="candy-empty-state__text">No memories found yet. Embark on a journey to save your progress!</div>
+                <div id="candy-empty-state-text" class="candy-empty-state__text">No memories found yet. Embark on a journey to save your progress!</div>
                 ${currentMode === 'full' ? `
                 <div class="candy-save-menu__actions">
                     <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="switch-to-save">
