@@ -3,7 +3,6 @@
 import * as THREE from 'three';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import { color, uniform, uv, float, smoothstep } from 'three/tsl';
-import { timestampQueryGranted } from '../rendering/gpu-context.ts';
 import {
     WebGPURenderer,
     MeshBasicNodeMaterial,
@@ -16,6 +15,7 @@ import {
     armGpuContext,
     probeWebGPU,
     settleWebGLContext,
+    timestampQueryGranted,
     WebGPUUnavailableError,
     GPU_ALPHA,
     GPU_ANTIALIAS,

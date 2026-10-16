@@ -1,16 +1,13 @@
 import * as THREE from 'three';
-import { color as tslColor, float, positionLocal, add } from 'three/tsl';
+
 // ⚡ OPTIMIZATION: Import Batcher
 import { registerReactiveMaterial, pickAnimation } from './foliage-reactivity.ts';
 import {
     createClayMaterial,
     sharedGeometries,
-    uAudioLow,
-    createJuicyRimLight,
     getCachedProceduralMaterial,
-    applyStandardDeformation,
 } from './material-core.ts';
-import { createLeafParticle } from './trees-core.ts';
+import { createLeafParticle, enhanceWithFloralJuice } from './trees-core.ts';
 export { VineSwing } from './vine-swing.ts';
 export type { InputState, PlayerObject } from './vine-swing.ts';
 export interface VineOptions {
@@ -32,12 +29,7 @@ export function createVine(options: VineOptions = {}): THREE.Group {
     // Create the material ONCE outside the loop, add TSL Juice, and register it.
     const vineMat = getCachedProceduralMaterial(`vine_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyStandardDeformation(positionLocal);
-        const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        mat.emissiveNode = add(
-            mat.emissiveNode ?? tslColor(0x000000),
-            createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode)
-        );
+        enhanceWithFloralJuice(mat);
         return mat;
     });
     registerReactiveMaterial(vineMat);
@@ -72,14 +64,10 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
     const segLen = length / segmentCount;
     const vineMat = getCachedProceduralMaterial(`swingable_vine_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyStandardDeformation(positionLocal);
-        const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        mat.emissiveNode = add(
-            mat.emissiveNode ?? tslColor(0x000000),
-            createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode)
-        );
+        enhanceWithFloralJuice(mat);
         return mat;
     });
+    registerReactiveMaterial(vineMat);
     for (let i = 0; i < segmentCount; i++) {
         const mat = vineMat;
         const segmentGroup = new THREE.Group();
@@ -121,14 +109,10 @@ export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
     const segLen = length / segmentCount;
     const vineMat = getCachedProceduralMaterial(`vine_ladder_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyStandardDeformation(positionLocal);
-        const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        mat.emissiveNode = add(
-            mat.emissiveNode ?? tslColor(0x000000),
-            createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode)
-        );
+        enhanceWithFloralJuice(mat);
         return mat;
     });
+    registerReactiveMaterial(vineMat);
     for (let i = 0; i < segmentCount; i++) {
         const segmentGroup = new THREE.Group();
         segmentGroup.position.y = -i * segLen;

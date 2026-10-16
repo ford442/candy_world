@@ -141,7 +141,7 @@ export class InteractionSystem {
             if (!found) {
                 if (obj.userData?.onProximityEnter) {
                     // ⚡ OPTIMIZATION: Replaced distanceTo() with distanceToSquared() and removed Math.sqrt() overhead.
-                    try { obj.userData.onProximityEnter(playerPosition.distanceToSquared(obj.position)); } catch(e) { console.warn('Proximity Enter Error:', e); }
+                    try { obj.userData.onProximityEnter((playerPosition.x - obj.position.x) * (playerPosition.x - obj.position.x) + (playerPosition.y - obj.position.y) * (playerPosition.y - obj.position.y) + (playerPosition.z - obj.position.z) * (playerPosition.z - obj.position.z)); } catch(e) { console.warn('Proximity Enter Error:', e); }
                 }
             }
         }

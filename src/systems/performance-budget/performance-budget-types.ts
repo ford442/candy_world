@@ -20,6 +20,7 @@ export enum BudgetMode {
 /** Budget types that can be tracked */
 export type BudgetType = 
   | 'frameTime' 
+  | 'gpuFrameTime'
   | 'memory' 
   | 'instances' 
   | 'drawCalls' 
@@ -48,6 +49,8 @@ export interface InstanceBudget {
 export interface PerformanceBudgetConfig {
   /** Target frame time in milliseconds (16.67ms = 60fps) */
   frameTime: number;
+  /** GPU frame time in milliseconds */
+  gpuFrameTime?: number;
   /** Memory budget in megabytes */
   memory: number;
   /** Maximum total instances across all types */
@@ -65,6 +68,7 @@ export interface PerformanceBudgetConfig {
 /** Performance metrics snapshot */
 export interface PerformanceMetrics {
   frameTime: number;
+  gpuFrameTime: number | null;
   memory: number;
   instances: number;
   drawCalls: number;
@@ -117,6 +121,7 @@ export const PERFORMANCE_BUDGETS = {
   /** Mobile devices - 30fps target, 128MB memory */
   mobile: {
     frameTime: 33.33,
+    gpuFrameTime: 33.33,
     memory: 128,
     instances: 500,
     drawCalls: 100,
@@ -127,6 +132,7 @@ export const PERFORMANCE_BUDGETS = {
   /** Desktop devices - 60fps target, 512MB memory */
   desktop: {
     frameTime: 16.67,
+    gpuFrameTime: 16.67,
     memory: 512,
     instances: 2000,
     drawCalls: 500,
@@ -137,6 +143,7 @@ export const PERFORMANCE_BUDGETS = {
   /** High-end devices - 90fps target, 1GB memory */
   highEnd: {
     frameTime: 11.11,
+    gpuFrameTime: 11.11,
     memory: 1024,
     instances: 5000,
     drawCalls: 1000,

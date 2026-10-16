@@ -1,4 +1,4 @@
-import { StageLoader } from '../../debug/index.ts';
+import { runBootStage } from '../../debug/index.ts';
 import { initFaunaDebug } from '../../debug/tools-stub.ts';
 import { isWebGLLiteMode } from '../../rendering/webgl-debug.ts';
 import { initFaunaSystem } from '../../systems/fauna/index.ts';
@@ -250,7 +250,7 @@ export function setupStartScreen(ctx: MainContext): void {
 
         let activeWorldMode: WorldMode = requestedMode;
 
-        const worldGenResult = await StageLoader.loadStage('worldGeneration', async () => {
+        const worldGenResult = await runBootStage('worldGeneration', async () => {
             const previewMushroom = (window as any).previewMushroom;
             if (typeof previewMushroom !== 'undefined' && previewMushroom) {
                 safeRemoveAndDispose(scene, previewMushroom);
@@ -465,7 +465,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 id: 'deferred_visuals',
                 priority: 100,
                 execute: () => {
-                    StageLoader.loadStage('deferredVisuals', () => {
+                    void runBootStage('deferredVisuals', () => {
                         console.log('[Deferred] Loading celestial bodies and aurora...');
                         startPhase('Deferred Visuals Init');
                         initDeferredVisuals();
