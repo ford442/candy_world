@@ -1,4 +1,4 @@
-import { StageLoader } from '../../debug/index.ts';
+import { printBootSummary, runBootStage } from '../../debug/index.ts';
 import { preloadGameplay } from '../../gameplay/lazy.ts';
 import { isCIorHeadless, CONFIG } from '../config.ts';
 import { animate } from '../game-loop.ts';
@@ -10,7 +10,7 @@ export function runShaderWarmup(ctx: MainContext): void {
     void (async function warmupAndStartLoop() {
         const { loadingScreen, worldGenerationActive } = ctx;
 
-        await StageLoader.loadStage('shaderWarmup', async () => {
+        await runBootStage('shaderWarmup', async () => {
             if (CONFIG.safeMode || isCIorHeadless()) {
                 console.warn('[Startup] safeMode active — skipping shader warmup');
                 return;
@@ -72,6 +72,8 @@ export function runShaderWarmup(ctx: MainContext): void {
             loadingScreen.updateProgress(100, 'Scene ready!');
             loadingScreen.completePhase('shader-warmup');
         });
+        // Last stage on the critical boot path; a no-op unless ?halt/?debug/?boot is set.
+        printBootSummary();
 
         try {
             (window as any).__sceneReady = true;
