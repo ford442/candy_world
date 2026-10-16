@@ -29,12 +29,13 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
 
     loadingScreen.startPhase('core-scene');
     console.time('Core Scene Setup');
-
+  
 let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
     // runBootStage catches stage failures and returns them on `cause`/`error`.
     const core: StageResult = await runBootStage('core', async () => {
         sceneInitResult = await initScene();
     });
+
 
 
     // Neither WebGPU nor the WebGL2 fallback started. Stage failures are
