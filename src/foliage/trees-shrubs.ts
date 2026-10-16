@@ -6,7 +6,6 @@ import { registerReactiveMaterial, attachReactivity, pickAnimation } from './fol
 import {
     createClayMaterial,
     sharedGeometries,
-    createStandardNodeMaterial,
     getCachedProceduralMaterial,
 } from './material-core.ts';
 import { treeBatcher } from './tree-batcher.ts';
@@ -108,11 +107,10 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
     const mesh = new THREE.Mesh(tubeGeo, mat);
     mesh.castShadow = true;
     group.add(mesh);
-    const tipMat = createStandardNodeMaterial({
-        color: 0xffffff,
-        emissive: 0xfffacd,
-        emissiveIntensity: 0.5,
-        roughness: 0.5,
+    const tipMat = getCachedProceduralMaterial(`helix_plant_tip_${color}`, 0xfffacd, () => {
+        const m = createClayMaterial(0xfffacd);
+        enhanceWithFloralJuice(m);
+        return m;
     });
     registerReactiveMaterial(tipMat);
     const tip = new THREE.Mesh(sharedGeometries.sphereLow, tipMat);
