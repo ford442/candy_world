@@ -30,20 +30,11 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     loadingScreen.startPhase('core-scene');
     console.time('Core Scene Setup');
 
-    let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
-    let core: StageResult;
-    try {
-        core = await runBootStage('core', async () => {
-            sceneInitResult = await initScene();
-        });
-    } catch (err) {
-        // Only a halt (?halt / ?debug) throws, and it wraps what the stage threw.
-        const cause = err instanceof BootHaltError ? err.cause : err;
-        if (cause instanceof WebGPUUnavailableError) {
-            showWebGPUFatalScreen(cause);
-        }
-        throw err;
-    }
+let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
+    // runBootStage catches stage failures and returns them on `cause`/`error`.
+    const core: StageResult = await runBootStage('core', async () => {
+        sceneInitResult = await initScene();
+    });
 
     // Neither WebGPU nor the WebGL2 fallback started. Stage failures are
     // returned rather than thrown, so the error rides on `cause`.
