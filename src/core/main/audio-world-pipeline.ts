@@ -1,6 +1,6 @@
 import { AudioSystem } from '../../audio/audio-system.ts';
 import { BeatSync } from '../../audio/beat-sync.ts';
-import { StageLoader } from '../../debug/index.ts';
+import { runBootStage } from '../../debug/index.ts';
 import { validateNodeGeometries } from '../../foliage/index.ts';
 import { musicReactivitySystem } from '../../systems/music-reactivity.ts';
 import type { WeatherSystem } from '../../systems/weather/weather.ts';
@@ -15,7 +15,7 @@ export async function runAudioWorldPipeline(ctx: MainContext): Promise<void> {
     loadingScreen.startPhase('audio-init');
     console.time('Audio & Systems Init');
 
-    await StageLoader.loadStage('audio', () => {
+    await runBootStage('audio', () => {
         // deferWorklet=true: skip worklet fetch during the loading screen critical
         // path.  initDeferred() is called after the first rendered frame below.
         ctx.audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode, true);
@@ -24,7 +24,7 @@ export async function runAudioWorldPipeline(ctx: MainContext): Promise<void> {
         ctx.beatSync = new BeatSync(ctx.audioSystem!);
     });
 
-    await StageLoader.loadStage('weather', async () => {
+    await runBootStage('weather', async () => {
         loadingScreen.updateProgress(70, 'Initializing weather system...');
         const { loadWeatherSystem } = await import('../../systems/weather/lazy.ts');
         ctx.weatherSystem = (await loadWeatherSystem(scene, renderer as any)) as WeatherSystem;
@@ -54,7 +54,7 @@ export async function runAudioWorldPipeline(ctx: MainContext): Promise<void> {
     console.time('World Generation');
     loadingScreen.updateProgress(10, 'Loading critical world...');
 
-    await StageLoader.loadStage('worldCritical', async () => {
+    await runBootStage('worldCritical', async () => {
         loadingScreen.updateProgress(20, 'Generating terrain...');
         const result = await initWorldCritical(scene, ctx.weatherSystem!);
         ctx.moon = result.moon;
@@ -65,7 +65,7 @@ export async function runAudioWorldPipeline(ctx: MainContext): Promise<void> {
     loadingScreen.updateProgress(100, 'Base world ready');
     loadingScreen.completePhase('world-generation');
 
-    await StageLoader.loadStage('musicReactivity', () => {
+    await runBootStage('musicReactivity', () => {
         musicReactivitySystem.init(scene, ctx.weatherSystem!, ctx.beatSync);
         if (ctx.moon) {
             musicReactivitySystem.registerMoon(ctx.moon);

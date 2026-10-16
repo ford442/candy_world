@@ -1,4 +1,9 @@
-import { StageLoader, initParticleEmitterDebugIfNeeded } from '../../debug/index.ts';
+import {
+    BootHaltError,
+    initParticleEmitterDebugIfNeeded,
+    runBootStage,
+    type StageResult,
+} from '../../debug/index.ts';
 import { initPostProcessing } from '../../foliage/post-processing.ts';
 import { WebGPUUnavailableError } from '../../rendering/gpu-context.ts';
 import {
@@ -24,35 +29,32 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
 
     loadingScreen.startPhase('core-scene');
     console.time('Core Scene Setup');
-
-    let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
-    // StageLoader.loadStage catches and logs, so keep the real error ourselves.
-    let initError: unknown;
-    await StageLoader.loadStage('core', async () => {
-        try {
-            sceneInitResult = await initScene();
-        } catch (err) {
-            initError = err;
-            throw err;
-        }
+  
+let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
+    // runBootStage catches stage failures and returns them on `cause`/`error`.
+    const core: StageResult = await runBootStage('core', async () => {
+        sceneInitResult = await initScene();
     });
 
-    // WebGPU is required to enter the world this phase. A failed probe gets
-    // the blocking diagnostics screen and boot stops here — we deliberately
-    // do not start a WebGL renderer to keep the page looking alive.
-    if (initError instanceof WebGPUUnavailableError) {
-        showWebGPUFatalScreen(initError);
-        throw initError;
+
+
+    // Neither WebGPU nor the WebGL2 fallback started. Stage failures are
+    // returned rather than thrown, so the error rides on `cause`.
+    if (core.cause instanceof WebGPUUnavailableError) {
+        showWebGPUFatalScreen(core.cause);
+        throw core.cause;
     }
 
     if (!sceneInitResult) {
-        const detail = initError instanceof Error ? initError.message : 'skipped or failed';
-        const msg = `Core scene initialization ${initError ? 'failed' : 'was skipped'}: ${detail}`;
+        const detail =
+            core.cause instanceof Error ? core.cause.message : (core.error ?? 'skipped or failed');
+        const failed = core.cause != null || (core.error != null && !core.skipped);
+        const msg = `Core scene initialization ${failed ? 'failed' : 'was skipped'}: ${detail}`;
         console.error('[Startup] Core Scene Setup failed');
         if (markBootFatal()) {
             loadingScreen.showFatalError(`Failed to initialize 3D scene.\n${msg}`);
         }
-        throw initError ?? new Error(msg);
+        throw core.cause instanceof Error ? core.cause : new Error(msg);
     }
 
     ctx.sceneInitResult = sceneInitResult;
@@ -87,7 +89,7 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
 
     loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Initializing post-processing...');
 
-    await StageLoader.loadStage('postProcessing', async () => {
+    await runBootStage('postProcessing', async () => {
         ctx.postProcessing = await initPostProcessing(
             sceneInitResult!.renderer,
             sceneInitResult!.scene,

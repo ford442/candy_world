@@ -86,7 +86,7 @@ export function makeInteractiveCylinder(group: THREE.Object3D, height: number, r
             _vA.applyMatrix4(matrixWorld);
 
             // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
-            const distSq = raycaster.ray.origin.distanceToSquared(_vA);
+            const distSq = (raycaster.ray.origin.x - _vA.x) * (raycaster.ray.origin.x - _vA.x) + (raycaster.ray.origin.y - _vA.y) * (raycaster.ray.origin.y - _vA.y) + (raycaster.ray.origin.z - _vA.z) * (raycaster.ray.origin.z - _vA.z);
             if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far)
                 return;
 
@@ -152,7 +152,7 @@ export function makeInteractiveSphere(
             _vA.applyMatrix4(matrixWorld);
 
             // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
-            const distSq = raycaster.ray.origin.distanceToSquared(_vA);
+            const distSq = (raycaster.ray.origin.x - _vA.x) * (raycaster.ray.origin.x - _vA.x) + (raycaster.ray.origin.y - _vA.y) * (raycaster.ray.origin.y - _vA.y) + (raycaster.ray.origin.z - _vA.z) * (raycaster.ray.origin.z - _vA.z);
             if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far)
                 return;
 

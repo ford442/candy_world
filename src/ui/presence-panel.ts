@@ -246,7 +246,7 @@ const style = document.createElement('style');
 
     const peerStatus = document.createElement('div');
     peerStatus.id = 'presence-peer-status';
-    peerStatus.className = 'sr-only';
+    peerStatus.className = 'visually-hidden';
     peerStatus.setAttribute('aria-live', 'polite');
     wrapper.appendChild(peerStatus);
 
