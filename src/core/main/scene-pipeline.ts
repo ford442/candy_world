@@ -31,23 +31,23 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     console.time('Core Scene Setup');
 
     let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
-    let core: StageResult;
+    let core: StageResult | undefined;
     try {
         core = await runBootStage('core', async () => {
             sceneInitResult = await initScene();
-        } catch (err) {
+        });
+    } catch (err: unknown) {
         // A failed WebGPU probe already fell back to WebGL2 inside initScene();
         // reaching here means neither backend could start (stage `webgl`), or
         // the probe passed and the WebGPU renderer still failed (stage
         // `renderer`). Show the blocking diagnostics screen and stop boot.
         if (err instanceof WebGPUUnavailableError) {
             showWebGPUFatalScreen(err);
+            throw err;
         } else {
-            initError = err;
             throw err;
         }
-        }
-    });
+    }
 
     // Neither WebGPU nor the WebGL2 fallback started. Stage failures are
     // returned rather than thrown, so the error rides on `cause`.
