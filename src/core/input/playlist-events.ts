@@ -28,9 +28,17 @@ export function handlePlaylistUpload(e: Event): void {
             if (btn) {
                 btn.setAttribute('aria-busy', 'true');
                 btn.setAttribute('aria-disabled', 'true');
-                const textContent = btn.textContent?.trim() || 'Processing';
-                btn.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
-                btn.appendChild(document.createTextNode(textContent + '...'));
+
+                // Hide existing decorative icons, but preserve keyboard badges
+                const firstIcon = btn.querySelector('.icon-music, .icon-upload, [class^="icon-"]') as HTMLElement;
+                if (firstIcon) firstIcon.style.display = 'none';
+
+                // Prepend spinner
+                const spinner = document.createElement('span');
+                spinner.className = 'spinner temp-spinner';
+                spinner.setAttribute('aria-hidden', 'true');
+                spinner.style.marginRight = '6px';
+                btn.insertBefore(spinner, btn.firstChild);
             }
         };
 
@@ -38,7 +46,12 @@ export function handlePlaylistUpload(e: Event): void {
             if (btn) {
                 btn.removeAttribute('aria-busy');
                 btn.removeAttribute('aria-disabled');
-                btn.innerHTML = originalHtml;
+
+                const spinner = btn.querySelector('.temp-spinner');
+                if (spinner) spinner.remove();
+
+                const firstIcon = btn.querySelector('.icon-music, .icon-upload, [class^="icon-"]') as HTMLElement;
+                if (firstIcon) firstIcon.style.display = '';
             }
         };
 
@@ -198,9 +211,17 @@ export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
                 if (musicUploadBtn) {
                     musicUploadBtn.setAttribute('aria-busy', 'true');
                     musicUploadBtn.setAttribute('aria-disabled', 'true');
-                    const textContent = musicUploadBtn.textContent?.trim() || 'Processing';
-                    musicUploadBtn.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
-                    musicUploadBtn.appendChild(document.createTextNode(textContent + '...'));
+
+                    // Hide existing decorative icons, but preserve keyboard badges
+                    const firstIcon = musicUploadBtn.querySelector('.icon-music, .icon-upload, [class^="icon-"]') as HTMLElement;
+                    if (firstIcon) firstIcon.style.display = 'none';
+
+                    // Prepend spinner
+                    const spinner = document.createElement('span');
+                    spinner.className = 'spinner temp-spinner';
+                    spinner.setAttribute('aria-hidden', 'true');
+                    spinner.style.marginRight = '6px';
+                    musicUploadBtn.insertBefore(spinner, musicUploadBtn.firstChild);
                 }
 
                 // Brief delay for satisfying UX feedback
@@ -238,7 +259,12 @@ export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
                     if (musicUploadBtn) {
                         musicUploadBtn.removeAttribute('aria-busy');
                         musicUploadBtn.removeAttribute('aria-disabled');
-                        musicUploadBtn.innerHTML = originalHtml;
+
+                        const spinner = musicUploadBtn.querySelector('.temp-spinner');
+                        if (spinner) spinner.remove();
+
+                        const firstIcon = musicUploadBtn.querySelector('.icon-music, .icon-upload, [class^="icon-"]') as HTMLElement;
+                        if (firstIcon) firstIcon.style.display = '';
                     }
                     target.value = '';
                 }, 500);
