@@ -105,6 +105,7 @@
         "format:check": "prettier --check .",
         "prepare": "simple-git-hooks",
         "test:entity-snapshot-apply": "tsx --import ./tests/support/register-hooks.mjs tests/entity-snapshot-apply.test.mjs",
+        "test:perf-gpu": "tsx tests/performance-budget-gpu.test.mjs",
         "test:docs-symbols": "tsx --import ./tests/support/register-hooks.mjs scripts/check-docs-symbols.mjs",
         "test:plan-integrity": "node scripts/check-plan-integrity.mjs",
         "test:baselines": "node scripts/check-baseline-direction.mjs",
