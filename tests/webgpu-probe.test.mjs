@@ -36,6 +36,7 @@ const {
     settleWebGLContext,
     getGpuContextSync,
     awaitGpuDevice,
+    selectRequiredFeatures,
 } = await import('../src/rendering/gpu-context.ts');
 const { resolveRendererBackend } = await import('../src/rendering/renderer-mode.ts');
 
@@ -263,6 +264,75 @@ async function expectFailure(canvas, stage) {
     installGpu(async () => makeAdapter(device));
     await expectFailure(makeCanvas(), 'pipeline');
     assert.match(getWebGPUProbeReport().reason, /entryPoint not found/);
+}
+
+
+// --- Features are properly requested ------------------------------------------
+{
+    reset();
+    let requestedDescriptor = null;
+    const device = makeDevice();
+    installGpu(async () =>
+        makeAdapter(device, {
+            features: {
+                has: (name) => name === 'timestamp-query' || name === 'foo',
+                keys: () => ['timestamp-query', 'foo'], [Symbol.iterator]: function*() { yield 'timestamp-query'; yield 'foo'; }
+            },
+            requestDevice: async (descriptor) => {
+                requestedDescriptor = descriptor;
+                return device;
+            },
+        })
+    );
+
+    globalThis.window.location = { search: '' }; // no timestamp
+    await probeWebGPU(makeCanvas());
+
+    assert.deepEqual(
+        [...requestedDescriptor.requiredFeatures].sort(),
+        [],
+        'no extra features requested by default'
+    );
+    assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
+
+    reset();
+    installGpu(async () =>
+        makeAdapter(device, {
+            features: {
+                has: (name) => name === 'timestamp-query' || name === 'foo',
+                keys: () => ['timestamp-query', 'foo'], [Symbol.iterator]: function*() { yield 'timestamp-query'; yield 'foo'; }
+            },
+            requestDevice: async (descriptor) => {
+                requestedDescriptor = descriptor;
+                return device;
+            },
+        })
+    );
+    globalThis.window.location = { search: '?debug=1' }; // want timestamp
+    await probeWebGPU(makeCanvas());
+
+    assert.deepEqual(
+        [...requestedDescriptor.requiredFeatures].sort(),
+        ['timestamp-query'],
+        'timestamp-query requested when wanted and supported'
+    );
+
+    globalThis.window.location = undefined; // Reset
+}
+
+// --- selectRequiredFeatures unit test ------------------------------------------
+{
+    // 1. Without timestamp
+    const adapter1 = { features: { has: (name) => name === 'foo' || name === 'bar' } };
+    assert.deepEqual(selectRequiredFeatures(adapter1, { timestampQuery: false }), [], 'Unknown features are not requested');
+
+    // 2. With timestamp, adapter doesn't have it
+    const adapter2 = { features: { has: (name) => name === 'foo' } };
+    assert.deepEqual(selectRequiredFeatures(adapter2, { timestampQuery: true }), [], 'timestamp-query not requested if not supported');
+
+    // 3. With timestamp, adapter has it
+    const adapter3 = { features: { has: (name) => name === 'timestamp-query' || name === 'foo' } };
+    assert.deepEqual(selectRequiredFeatures(adapter3, { timestampQuery: true }), ['timestamp-query'], 'timestamp-query requested when wanted and supported');
 }
 
 // --- The device is requested with the adapter's full feature set -----------
