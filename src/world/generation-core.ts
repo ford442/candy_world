@@ -278,6 +278,9 @@ export async function initWorld(
 
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
+    // foliageGroup is no longer parented to worldGroup (flattened in #1370), so it
+    // must be attached to the scene directly or every batcher mesh is unrendered.
+    scene.add(foliageGroup);
 
     // Generate Content if requested (triggered by start button in main.ts)
     if (loadContent) {
