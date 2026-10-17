@@ -511,7 +511,12 @@ export class SaveMenu {
 
                     const nextTab = tabs[nextIndex];
                     nextTab.focus({ preventScroll: true });
+                    // ♿ Aria: Add tactile feedback for arrow key navigation
+                    nextTab.classList.add('keyboard-active');
                     nextTab.click(); // Selection follows focus
+                    setTimeout(() => {
+                        nextTab.classList.remove('keyboard-active');
+                    }, 50);
 
                     const tabId = nextTab.dataset.tab as MenuTab;
                     if (tabId) {

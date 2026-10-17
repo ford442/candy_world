@@ -373,8 +373,7 @@ export function updateFaunaSystem(dt: number, time: number): void {
     FaunaSystem.getInstance().update(dt, time);
 }
 
-export function triggerFaunaImpulse(): void {
+export function triggerFaunaImpulse(_strength = 5): void {
     // Shoves nearby dynamic bodies if scatter sink is installed.
-    // In Candy World, a global impulse can be simulated by triggering behavior runners or scatter sink
-    // We do nothing for now unless there's a specific requirement.
+    // The living-score fauna cue calls this; the rigid-body shove is not wired yet.
 }
