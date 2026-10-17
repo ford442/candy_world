@@ -64,7 +64,13 @@ import {
     worldGroup,
 } from './state.ts';
 import { createPathTerrain, rebuildTerrainForPath } from './terrain-mesh.ts';
-import { LOBBY_FLOOR_TOP_Y, LOBBY_SPAWN_X, LOBBY_SPAWN_Z, PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
+import {
+    LOBBY_FLOOR_TOP_Y,
+    LOBBY_SPAWN_X,
+    LOBBY_SPAWN_Z,
+    PLAY_SPAWN_RADIUS_CHUNKS,
+    PLAY_WORLD_SIZE,
+} from './world-extent.ts';
 import { setMapMetadataSeed } from './world-seed.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
@@ -819,7 +825,6 @@ function assertCoreWorldPlayable(weatherSystem: WeatherSystem | undefined): void
     }
 }
 
-
 /** Half-width of the playable lobby floor (metres). Walls sit just outside. */
 const LOBBY_ROOM_HALF = 10;
 const LOBBY_WALL_HEIGHT = 6.5;
@@ -1007,7 +1012,12 @@ export async function generateLobbyWorld(
         if (!obj) continue;
         plantOnSurface(obj, item.x, item.z, { groundY: LOBBY_FLOOR_TOP_Y });
         obj.rotation.y = Math.random() * Math.PI * 2;
-        safeAddFoliage(obj, item.type === 'mushroom' || item.type === 'instrument_shrine', 0.6, weatherSystem);
+        safeAddFoliage(
+            obj,
+            item.type === 'mushroom' || item.type === 'instrument_shrine',
+            0.6,
+            weatherSystem
+        );
         placed += 1;
     }
     // The outdoor set normally parents this batcher; Lobby boots skip that set.
