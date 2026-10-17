@@ -232,7 +232,6 @@ export class KickDrumGeyserBatcher {
         }
 
         // O(N) zero-allocation hot path
-        let needsUpload = false;
         for (let i = 0; i < this._count; i++) {
             const baseIndex = i * 16;
             let localKick = globalKick;
