@@ -1,48 +1,31 @@
-// Shared memory offsets
-// 0-4095: Position data (x, y, z, radius) for up to 256 objects (16 bytes each)
-export const POSITION_OFFSET: i32 = 0;
-// 4096-8191: Animation state (currentY, targetY, velocity, phase)
-export const ANIMATION_OFFSET: i32 = 4096;
-// 8192-12287: Output buffer for batch operations
-export const OUTPUT_OFFSET: i32 = 8192;
-// 12288-16383: Material data for shader analysis (Strategy 3)
-export const MATERIAL_DATA_OFFSET: i32 = 12288;
-
-// New Offsets for Physics
-// 16384-16415: Player State IO (8 floats: x,y,z, vx,vy,vz, isGrounded, padding)
-export const PLAYER_STATE_OFFSET: i32 = 16384;
-
-// Physics Collision Memory Layout
-// INCREASED to 4096 to support full world generation (3000+ objects)
-export const MAX_COLLISION_OBJECTS: i32 = 4096;
-export const COLLISION_STRIDE: i32 = 32; // bytes
-
-// 16416 - 147488: Collision Object Data (128KB)
-export const COLLISION_OFFSET: i32 = 16416;
+// Fixed linear-memory regions come from the generated layout table
+// (scripts/memory-layout.mjs -> assembly/memory_layout.ts). Never add a raw
+// offset here: add a region to the table so the overlap check can see it.
+export {
+    POSITION_OFFSET,
+    ANIMATION_OFFSET,
+    OUTPUT_OFFSET,
+    MATERIAL_DATA_OFFSET,
+    PLAYER_STATE_OFFSET,
+    MAX_COLLISION_OBJECTS,
+    COLLISION_STRIDE,
+    COLLISION_OFFSET,
+    GRID_COLS,
+    GRID_ROWS,
+    GRID_HEADS_OFFSET,
+    GRID_NEXT_OFFSET,
+    MAX_DYNAMIC_PLANTS,
+    DYNAMIC_RADII_OFFSET,
+    BATCH_UPLOAD_OFFSET,
+    MAX_DISCOVERY_OBJECTS,
+    MEMORY_LAYOUT_END,
+    HEAP_BASE_FLOOR,
+} from './memory_layout';
 
 // Spatial Grid Constants
 export const GRID_CELL_SIZE: f32 = 16.0;
-export const GRID_COLS: i32 = 16;
-export const GRID_ROWS: i32 = 16;
 export const GRID_ORIGIN_X: f32 = -128.0;
 export const GRID_ORIGIN_Z: f32 = -128.0;
-
-// Grid Heads (16*16 * 4 bytes = 1KB)
-// Automatically calculated based on COLLISION_OFFSET + (MAX * STRIDE)
-export const GRID_HEADS_OFFSET: i32 = COLLISION_OFFSET + (MAX_COLLISION_OBJECTS * COLLISION_STRIDE);
-
-// Grid Next Pointers (MAX * 4 bytes = 16KB)
-export const GRID_NEXT_OFFSET: i32 = GRID_HEADS_OFFSET + (GRID_COLS * GRID_ROWS * 4);
-
-// Dynamic Foliage Radii Sync (Max 512 dynamic plants * 4 bytes = 2KB)
-export const MAX_DYNAMIC_PLANTS: i32 = 512;
-export const DYNAMIC_RADII_OFFSET: i32 = GRID_NEXT_OFFSET + (MAX_COLLISION_OBJECTS * 4);
-
-// Batch Upload Buffer (Supports max objects * 8 floats per object * 4 bytes = 128KB)
-export const BATCH_UPLOAD_OFFSET: i32 = DYNAMIC_RADII_OFFSET + (MAX_DYNAMIC_PLANTS * 4);
-
-// Discovery System (shared with emscripten/discovery.cpp)
-export const MAX_DISCOVERY_OBJECTS: i32 = 3000;
 
 // -----------------------------------------------------------------------------
 // Dynamic Rigid Bodies (see assembly/rigidbody.ts, docs/PERF_BUDGETS.md)
