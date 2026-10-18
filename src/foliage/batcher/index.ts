@@ -11,8 +11,6 @@ export type { BatchState, ExtendedBatchState } from './foliage-batcher-types.ts'
 // Constants
 export {
     BATCH_SIZE,
-    BATCH_MEMORY_START,
-    EXTENDED_BATCH_START,
     ENTRY_STRIDE,
     RESULT_STRIDE
 } from './foliage-batcher-types.ts';

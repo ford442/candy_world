@@ -22,12 +22,12 @@ import {
     cppAddGroundPlatform,
     cppInvalidateGroundCache,
     cppSetGroundCacheTTL,
-    getWasmInstance,
     getWasmMemory,
     getEmscriptenInstance,
     isWasmReady,
     isEmscriptenReady,
 } from '../utils/wasm-loader-core.ts';
+import { asFree, asMalloc, asMemoryBuffer, emHeapF32 } from './native-memory.ts';
 
 // Persistent batch buffers (AssemblyScript path)
 let _batchInPtr: number | null = null;
@@ -116,43 +116,37 @@ export function fillUnifiedGroundHeights(
                 const cap = Math.max(count, _cppBatchCapacity * 2 || 64);
                 _cppBatchInPtr = em._malloc(cap * 2 * 4);
                 _cppBatchOutPtr = em._malloc(cap * 4);
-                _cppBatchCapacity = cap;
+                _cppBatchCapacity = _cppBatchInPtr && _cppBatchOutPtr ? cap : 0;
             }
-            if (_cppBatchInPtr && _cppBatchOutPtr) {
-                em.HEAPF32!.set(positions.subarray(0, count * 2), _cppBatchInPtr >> 2);
+            const heapIn = emHeapF32(em);
+            if (_cppBatchInPtr && _cppBatchOutPtr && heapIn) {
+                heapIn.set(positions.subarray(0, count * 2), _cppBatchInPtr >> 2);
                 cppBatchUnifiedGroundHeight(_cppBatchInPtr, count, _cppBatchOutPtr, now);
-                out.set(em.HEAPF32!.subarray(_cppBatchOutPtr >> 2, (_cppBatchOutPtr >> 2) + count));
+                // Re-read the heap: the call may have grown memory.
+                const heapOut = emHeapF32(em)!;
+                out.set(heapOut.subarray(_cppBatchOutPtr >> 2, (_cppBatchOutPtr >> 2) + count));
                 return;
             }
         }
     }
 
-    // 2. AssemblyScript batch
+    // 2. AssemblyScript batch (unmanaged malloc blocks, reused across frames)
     if (wasmBatchUnifiedGroundHeight && isWasmReady() && getWasmMemory()) {
-        const exports = getWasmInstance()!.exports as {
-            malloc?: (n: number) => number;
-            free?: (p: number) => void;
-            __new?: (size: number, id: number) => number;
-            __free?: (p: number) => void;
-        };
-        const wasmMalloc = exports.malloc ?? exports.__new;
-        const wasmFree = exports.free ?? exports.__free;
-        if (wasmMalloc && wasmFree) {
-            if (_batchCapacity < count) {
-                if (_batchInPtr) wasmFree(_batchInPtr);
-                if (_batchOutPtr) wasmFree(_batchOutPtr);
-                const cap = Math.max(count, _batchCapacity * 2 || 64);
-                _batchInPtr = wasmMalloc(cap * 2 * 4, 1);
-                _batchOutPtr = wasmMalloc(cap * 4, 1);
-                _batchCapacity = cap;
-            }
-            if (_batchInPtr && _batchOutPtr) {
-                const mem = getWasmMemory()!;
-                new Float32Array(mem, _batchInPtr, count * 2).set(positions.subarray(0, count * 2));
-                wasmBatchUnifiedGroundHeight(_batchInPtr, count, _batchOutPtr, now);
-                out.set(new Float32Array(mem, _batchOutPtr, count));
-                return;
-            }
+        if (_batchCapacity < count) {
+            if (_batchInPtr) asFree(_batchInPtr);
+            if (_batchOutPtr) asFree(_batchOutPtr);
+            const cap = Math.max(count, _batchCapacity * 2 || 64);
+            _batchInPtr = asMalloc(cap * 2 * 4);
+            _batchOutPtr = asMalloc(cap * 4);
+            _batchCapacity = _batchInPtr && _batchOutPtr ? cap : 0;
+        }
+        if (_batchInPtr && _batchOutPtr) {
+            new Float32Array(asMemoryBuffer()!, _batchInPtr, count * 2).set(
+                positions.subarray(0, count * 2)
+            );
+            wasmBatchUnifiedGroundHeight(_batchInPtr, count, _batchOutPtr, now);
+            out.set(new Float32Array(asMemoryBuffer()!, _batchOutPtr, count));
+            return;
         }
     }
 

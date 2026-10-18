@@ -20,6 +20,7 @@ import {
 } from './behavior.ts';
 import {
     allocateBoidsBuffer,
+    type BoidsBuffer,
     bindBoidsWasm,
     freeBoidsBuffer,
     updateBoidsBatch,
@@ -45,7 +46,9 @@ export class FaunaSystem {
     private static _instance: FaunaSystem | null = null;
 
     readonly world = new World();
-    private _bufferPtr = 0;
+    private _boids: BoidsBuffer | null = null;
+    // Current view of the boid slab (slot 0 at index 0). Refreshed after every
+    // native step because native memory growth detaches the previous view.
     private _heap: Float32Array | null = null;
     private _entries: FaunaSpawnEntry[] = [];
     private _count = 0;
@@ -85,21 +88,15 @@ export class FaunaSystem {
         bindBoidsWasm();
 
         const maxCount = CONFIG.fauna?.maxInstances ?? 96;
-        const alloc = allocateBoidsBuffer(maxCount);
-        if (alloc) {
-            this._bufferPtr = alloc.ptr;
-            this._heap = alloc.view;
-        } else {
-            this._bufferPtr = 0;
-            this._heap = new Float32Array(maxCount * FAUNA_BOID_STRIDE);
-        }
+        this._boids = allocateBoidsBuffer(maxCount);
+        this._heap = this._boids.view;
 
         FaunaBatcher.getInstance().init();
 
         this._entries = spawnFaunaPopulation({
             world: this.world,
             buffer: this._heap,
-            bufferByteOffset: this._bufferPtr,
+            bufferByteOffset: 0,
             maxCount,
             seed: CONFIG.fauna?.seed ?? 42,
         });
@@ -147,7 +144,7 @@ export class FaunaSystem {
     }
 
     update(dt: number, time: number): void {
-        if (!this._initialized || !this._heap || this._count === 0) return;
+        if (!this._initialized || !this._boids || this._count === 0) return;
         const t0 = performance.now();
 
         applyFaunaSeason(
@@ -162,17 +159,10 @@ export class FaunaSystem {
         if (active < this._active) this._park(active, this._active);
         this._active = active;
 
-        updateBoidsBatch(
-            this._heap,
-            this._bufferPtr,
-            active,
-            dt,
-            player.position.x,
-            player.position.z,
-            time
-        );
+        updateBoidsBatch(this._boids, active, dt, player.position.x, player.position.z, time);
+        this._heap = this._boids.view;
 
-        const base = this._bufferPtr >> 2;
+        const base = 0;
 
         // State machine runs on this frame's positions; its velocity writes are
         // consumed by the next boids step.
@@ -295,7 +285,7 @@ export class FaunaSystem {
         profiler.mark('fauna.update', performance.now() - t0);
 
         if (debugHooks.isFaunaDebugEnabled()) {
-            debugHooks.updateFaunaDebug(this._heap, this._bufferPtr, this._count, this._entries);
+            debugHooks.updateFaunaDebug(this._heap, 0, this._count, this._entries);
         }
     }
 
@@ -310,10 +300,8 @@ export class FaunaSystem {
     }
 
     dispose(): void {
-        if (this._bufferPtr) {
-            freeBoidsBuffer(this._bufferPtr);
-        }
-        this._bufferPtr = 0;
+        if (this._boids) freeBoidsBuffer(this._boids);
+        this._boids = null;
         this._heap = null;
         this._fallbackPositions = null;
         this._fallbackHeights = null;
