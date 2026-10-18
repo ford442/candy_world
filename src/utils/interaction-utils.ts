@@ -224,7 +224,10 @@ export function setupGlobalKeyboardTactileFeedback() {
         if (e.repeat) return;
         if (e.key === 'Enter' || e.key === ' ') {
             const activeElement = document.activeElement as HTMLElement;
-            if (activeElement && !activeElement.classList.contains('keyboard-active')) {
+            const isDisabled = activeElement?.getAttribute('aria-disabled') === 'true' ||
+                               (activeElement as HTMLButtonElement)?.disabled;
+
+            if (activeElement && !isDisabled && !activeElement.classList.contains('keyboard-active')) {
                 if (
                     activeElement.matches(
                         '.toggle-button, .cta-button, .secondary-button, .file-label, ' +
