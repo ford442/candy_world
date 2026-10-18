@@ -3,7 +3,7 @@ import {
     wasmSpawnBurst,
     cppBatchGroundHeightSimd,
     getEmscriptenInstance,
-    emscriptenMemory
+    getEmscriptenMemory
 } from './wasm-loader-core.ts';
 
 // =============================================================================
@@ -89,7 +89,7 @@ export function spawnBurst(
  * @returns Array of height values [y0, y1, y2...]
  */
 export function getHeightmapBatch(coordinates: Float32Array): Float32Array {
-    if (!cppBatchGroundHeightSimd || !emscriptenMemory) {
+    if (!cppBatchGroundHeightSimd || !getEmscriptenMemory()) {
         // Fallback if WASM function isn't ready
         console.warn("[WASM Batch] cppBatchGroundHeightSimd not found, using JS fallback");
         const count = coordinates.length / 2;
@@ -115,7 +115,7 @@ export function getHeightmapBatch(coordinates: Float32Array): Float32Array {
 
     try {
         // Copy data to WASM memory
-        const wasmHeap = new Float32Array((emscriptenMemory as any).buffer || emscriptenMemory);
+        const wasmHeap = new Float32Array(getEmscriptenMemory()!);
         wasmHeap.set(coordinates, inputPtr / 4);
 
         // Execute batch calculation
@@ -123,7 +123,7 @@ export function getHeightmapBatch(coordinates: Float32Array): Float32Array {
 
         // Extract results
         const result = new Float32Array(count);
-        const wasmView = new Float32Array((emscriptenMemory as any).buffer || emscriptenMemory, outputPtr, count);
+        const wasmView = new Float32Array(getEmscriptenMemory()!, outputPtr, count);
         result.set(wasmView);
 
         let hasNan = false;

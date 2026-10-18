@@ -9,8 +9,8 @@ import {
     shouldUseFoliageGpuBatch,
 } from '../../compute/foliage-gpu-batch.ts';
 import type { FoliageGpuBatchMode } from '../../compute/foliage-gpu-batch.ts';
-import { isCIorHeadless } from '../../core/config.ts';
 import { FoliageEcsBridge, type SimpleAnimType } from '../../systems/ecs/foliage-ecs-bridge.ts';
+import { asFree, asMalloc } from '../../utils/native-memory.ts';
 import { getWasmInstance } from '../../utils/wasm-loader.ts';
 import {
     getVibratoAmount,
@@ -32,9 +32,7 @@ import {
 } from './foliage-batcher-effects.ts';
 import {
     BATCH_SIZE,
-    BATCH_MEMORY_START,
     BATCH_ARRAY_SIZE,
-    EXTENDED_BATCH_START,
     ENTRY_STRIDE,
     ENTRY_SIZE,
     RESULT_STRIDE,
@@ -79,6 +77,9 @@ export class FoliageBatcher {
     };
 
     private simpleBatchesInitialized = false;
+    // Set when malloc failed, so the queue falls back to JS without retrying every call.
+    private extendedUnavailable = false;
+    private simpleBatchesUnavailable = false;
 
     // OPTIMIZATION: Cached Float32Array view to prevent GC spikes in hot loops
     private cachedMemoryView: Float32Array | null = null;
@@ -130,7 +131,7 @@ export class FoliageBatcher {
     }
 
     private createBatch(needsOriginalY = false, needsWobble = false, twoOutputs = false): BatchState {
-        // Memory will be allocated from fixed offsets in WASM linear memory
+        // WASM memory is malloc'd lazily in initBatchMemory
         return {
             count: 0,
             offsets: new Float32Array(BATCH_SIZE),
@@ -160,15 +161,17 @@ export class FoliageBatcher {
         };
     }
 
-    private initBatchMemory(batch: BatchState, memoryOffset: number) {
-        if (batch.ptrOffsets !== 0) return; // Already initialized
+    /**
+     * Give a batch its own block in AS memory (assembly/allocator.ts malloc).
+     * Returns false, leaving every pointer 0, when the allocator is unavailable.
+     */
+    private initBatchMemory(batch: BatchState): boolean {
+        if (batch.ptrOffsets !== 0) return true; // Already initialized
 
-        const instance = getWasmInstance();
-        if (!instance) return;
-
-        // Use fixed memory offsets instead of dynamic allocation
-        // This avoids the need for __new and __pin which aren't exported
-        let currentOffset = memoryOffset;
+        const arrays =
+            3 + (batch.originalYs ? 1 : 0) + (batch.wobbleBoosts ? 1 : 0) + (batch.outScalars2 ? 1 : 0);
+        let currentOffset = asMalloc(arrays * BATCH_ARRAY_SIZE);
+        if (!currentOffset) return false;
 
         batch.ptrOffsets = currentOffset;
         currentOffset += BATCH_ARRAY_SIZE;
@@ -193,117 +196,94 @@ export class FoliageBatcher {
             batch.ptrOutScalars2 = currentOffset;
             currentOffset += BATCH_ARRAY_SIZE;
         }
+        return true;
     }
 
-    private initExtendedBatchMemory(batch: ExtendedBatchState, memoryOffset: number) {
-        if (batch.ptrInput !== 0) return;
+    private releaseBatchMemory(batch: BatchState) {
+        asFree(batch.ptrOffsets);
+        batch.ptrOffsets = 0;
+        batch.ptrIntensities = 0;
+        batch.ptrOutScalars = 0;
+        batch.ptrOriginalYs = 0;
+        batch.ptrWobbleBoosts = 0;
+        batch.ptrOutScalars2 = 0;
+    }
 
-        const instance = getWasmInstance();
-        if (!instance) return;
+    private initExtendedBatchMemory(batch: ExtendedBatchState): boolean {
+        if (batch.ptrInput !== 0) return true;
 
-        batch.ptrInput = memoryOffset;
-        batch.ptrOutput = memoryOffset + (BATCH_SIZE * ENTRY_SIZE);
+        const ptr = asMalloc(BATCH_SIZE * ENTRY_SIZE + BATCH_SIZE * RESULT_STRIDE * 4);
+        if (!ptr) return false;
+
+        batch.ptrInput = ptr;
+        batch.ptrOutput = ptr + (BATCH_SIZE * ENTRY_SIZE);
+        return true;
+    }
+
+    private releaseExtendedBatchMemory(batch: ExtendedBatchState) {
+        asFree(batch.ptrInput);
+        batch.ptrInput = 0;
+        batch.ptrOutput = 0;
+    }
+
+    /** Allocate every batch in the group, or none of them. */
+    private initExtendedGroup(batches: ExtendedBatchState[]): boolean {
+        if (batches.every((b) => this.initExtendedBatchMemory(b))) return true;
+        batches.forEach((b) => this.releaseExtendedBatchMemory(b));
+        return false;
     }
 
     init() {
         const instance = getWasmInstance();
         if (this.initialized || !instance) return;
 
-        // Allocate memory for each batch type at fixed offsets
-        // Calculate offsets for each batch (5 arrays max per batch)
-        let currentOffset = BATCH_MEMORY_START;
-
-        // Sway batch (3 arrays: offsets, intensities, outScalars)
-        this.initBatchMemory(this.batches.sway, currentOffset);
-        currentOffset += BATCH_ARRAY_SIZE * 3;
-
-        // Bounce batch (4 arrays: offsets, intensities, originalYs, outScalars)
-        this.initBatchMemory(this.batches.bounce, currentOffset);
-        currentOffset += BATCH_ARRAY_SIZE * 4;
-
-        // Hop batch (4 arrays: offsets, intensities, originalYs, outScalars)
-        this.initBatchMemory(this.batches.hop, currentOffset);
-        currentOffset += BATCH_ARRAY_SIZE * 4;
-
-        // GentleSway batch (3 arrays: offsets, intensities, outScalars)
-        this.initBatchMemory(this.batches.gentleSway, currentOffset);
-        currentOffset += BATCH_ARRAY_SIZE * 3;
-
-        // Wobble batch (5 arrays: offsets, intensities, wobbleBoosts, outScalars, outScalars2)
-        this.initBatchMemory(this.batches.wobble, currentOffset);
-        currentOffset += BATCH_ARRAY_SIZE * 5;
+        const batches = [
+            this.batches.sway,
+            this.batches.bounce,
+            this.batches.hop,
+            this.batches.gentleSway,
+            this.batches.wobble,
+        ];
+        if (!batches.every((b) => this.initBatchMemory(b))) {
+            batches.forEach((b) => this.releaseBatchMemory(b));
+            console.warn('[FoliageBatcher] WASM malloc unavailable; using JS animation fallback');
+            return;
+        }
 
         this.initialized = true;
-        console.log('[FoliageBatcher] WASM memory allocated using fixed offsets for batching');
-        console.log(`[FoliageBatcher] Total memory used: ${currentOffset - BATCH_MEMORY_START} bytes`);
+        const bytes = batches.reduce(
+            (sum, b) =>
+                sum +
+                BATCH_ARRAY_SIZE *
+                    (3 + (b.originalYs ? 1 : 0) + (b.wobbleBoosts ? 1 : 0) + (b.outScalars2 ? 1 : 0)),
+            0
+        );
+        console.log(`[FoliageBatcher] WASM batch memory allocated: ${bytes} bytes`);
     }
 
     private initExtended() {
         const instance = getWasmInstance();
-        if (this.extendedInitialized || !instance) return;
+        if (this.extendedInitialized || this.extendedUnavailable || !instance) return;
 
-        if (isCIorHeadless()) {
-            console.log('[FoliageBatcher] Skipping extended WASM allocation in CI to prevent crash');
-            this.extendedInitialized = true;
+        if (!this.initExtendedGroup(Object.values(this.extendedBatches))) {
+            this.extendedUnavailable = true;
+            console.warn('[FoliageBatcher] Extended WASM malloc failed; using JS fallback');
             return;
         }
 
-        let currentOffset = EXTENDED_BATCH_START;
-        const batchSize = (BATCH_SIZE * ENTRY_SIZE) + (BATCH_SIZE * RESULT_STRIDE * 4);
-
-        // Initialize each extended batch
-        this.initExtendedBatchMemory(this.extendedBatches.snareSnap, currentOffset);
-        currentOffset += batchSize;
-
-        this.initExtendedBatchMemory(this.extendedBatches.accordion, currentOffset);
-        currentOffset += batchSize;
-
-        this.initExtendedBatchMemory(this.extendedBatches.fiberWhip, currentOffset);
-        currentOffset += batchSize;
-
-        this.initExtendedBatchMemory(this.extendedBatches.spiralWave, currentOffset);
-        currentOffset += batchSize;
-
-        this.initExtendedBatchMemory(this.extendedBatches.vibratoShake, currentOffset);
-        currentOffset += batchSize;
-
-        this.initExtendedBatchMemory(this.extendedBatches.tremoloPulse, currentOffset);
-        currentOffset += batchSize;
-
-        this.initExtendedBatchMemory(this.extendedBatches.cymbalShake, currentOffset);
-        currentOffset += batchSize;
-
-        this.initExtendedBatchMemory(this.extendedBatches.panningBob, currentOffset);
-        currentOffset += batchSize;
-
-        this.initExtendedBatchMemory(this.extendedBatches.spiritFade, currentOffset);
-        currentOffset += batchSize;
-
         this.extendedInitialized = true;
         console.log('[FoliageBatcher] Extended WASM memory allocated for new animation types');
-        console.log(`[FoliageBatcher] Extended memory used: ${currentOffset - EXTENDED_BATCH_START} bytes`);
     }
 
     private initSimpleBatches() {
         const instance = getWasmInstance();
-        if (this.simpleBatchesInitialized || !instance) return;
+        if (this.simpleBatchesInitialized || this.simpleBatchesUnavailable || !instance) return;
 
-        if (isCIorHeadless()) {
-            console.log('[FoliageBatcher] Skipping simple WASM allocation in CI to prevent crash');
-            this.simpleBatchesInitialized = true;
+        if (!this.initExtendedGroup(Object.values(this.simpleBatches))) {
+            this.simpleBatchesUnavailable = true;
+            console.warn('[FoliageBatcher] Simple-batch WASM malloc failed; using JS fallback');
             return;
         }
-
-        let currentOffset = EXTENDED_BATCH_START + (BATCH_SIZE * (ENTRY_SIZE + RESULT_STRIDE * 4) * 9); // After existing batches
-        const batchSize = (BATCH_SIZE * ENTRY_SIZE) + (BATCH_SIZE * RESULT_STRIDE * 4);
-
-        this.initExtendedBatchMemory(this.simpleBatches.shiver, currentOffset);
-        currentOffset += batchSize;
-        this.initExtendedBatchMemory(this.simpleBatches.spring, currentOffset);
-        currentOffset += batchSize;
-        this.initExtendedBatchMemory(this.simpleBatches.float, currentOffset);
-        currentOffset += batchSize;
-        this.initExtendedBatchMemory(this.simpleBatches.cloudBob, currentOffset);
 
         this.simpleBatchesInitialized = true;
     }
@@ -576,7 +556,7 @@ export class FoliageBatcher {
             func(batch.count, time, batch.ptrOffsets, batch.ptrIntensities, batch.ptrOutScalars);
 
             const outPtr = batch.ptrOutScalars >>> 2;
-            const res = F32.subarray(outPtr, outPtr + batch.count);
+            const res = this.getMemoryView(instance).subarray(outPtr, outPtr + batch.count);
 
             for (let i = 0; i < batch.count; i++) {
                 apply(batch.objects[i], res[i]);
@@ -668,7 +648,7 @@ export class FoliageBatcher {
             func(batch.count, time, batch.ptrOriginalYs, batch.ptrOffsets, batch.ptrIntensities, kick, batch.ptrOutScalars);
 
             const outPtr = batch.ptrOutScalars >>> 2;
-            const res = F32.subarray(outPtr, outPtr + batch.count);
+            const res = this.getMemoryView(instance).subarray(outPtr, outPtr + batch.count);
 
             for (let i = 0; i < batch.count; i++) {
                 apply(batch.objects[i], res[i]);
@@ -720,11 +700,12 @@ export class FoliageBatcher {
 
             const outPtr1 = batch.ptrOutScalars >>> 2;
             const outPtr2 = (batch.ptrOutScalars2!) >>> 2;
+            const out = this.getMemoryView(instance);
 
             for (let i = 0; i < batch.count; i++) {
                 const obj = batch.objects[i];
-                obj.rotation.x = F32[outPtr1 + i];
-                obj.rotation.z = F32[outPtr2 + i];
+                obj.rotation.x = out[outPtr1 + i];
+                obj.rotation.z = out[outPtr2 + i];
                 // Decay wobble state
                 if (obj.userData.wobbleCurrent) {
                     obj.userData.wobbleCurrent *= 0.9;
@@ -781,7 +762,7 @@ export class FoliageBatcher {
 
             // Read results
             const outPtr = batch.ptrOutput >>> 2;
-            const results = F32.subarray(outPtr, outPtr + batch.count * RESULT_STRIDE);
+            const results = this.getMemoryView(instance).subarray(outPtr, outPtr + batch.count * RESULT_STRIDE);
 
             // Apply results to objects
             // OPTIMIZATION: Removed 'results.subarray' allocation in loop
@@ -957,7 +938,7 @@ export class FoliageBatcher {
 
             // Read results
             const outPtr = batch.ptrOutput >>> 2;
-            const results = F32.subarray(outPtr, outPtr + batch.count * RESULT_STRIDE);
+            const results = this.getMemoryView(instance).subarray(outPtr, outPtr + batch.count * RESULT_STRIDE);
 
             // Apply to objects
             for (let i = 0; i < batch.count; i++) {

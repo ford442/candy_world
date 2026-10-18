@@ -13,11 +13,16 @@
 // BATCH CONFIGURATION
 // =============================================================================
 
-/** Maximum materials per batch */
-export const MAX_MATERIALS: i32 = 2000;
+import {
+    MAX_MATERIALS,
+    MATERIAL_STRIDE,
+    MATERIAL_RESULT_STRIDE as RESULT_STRIDE,
+    MATERIAL_BUFFER_OFFSET,
+    MATERIAL_RESULT_OFFSET as RESULT_BUFFER_OFFSET
+} from "./memory_layout";
 
-/** Memory layout: 12 floats per material (48 bytes) */
-const MATERIAL_STRIDE: i32 = 12;
+/** Maximum materials per batch; MATERIAL_STRIDE (12) floats per material (48 bytes) */
+export { MAX_MATERIALS };
 
 /** Memory layout offsets (in floats) */
 const OFF_CURRENT_R: i32 = 0;
@@ -42,12 +47,8 @@ const FLAG_NEEDS_FADE: i32 = 4;
 // BATCH STATE
 // =============================================================================
 
-// Material data buffer (at fixed offset to avoid allocations)
-const MATERIAL_BUFFER_OFFSET: i32 = 200000; // 200KB - after other data
-
-// Results buffer (output colors)
-const RESULT_BUFFER_OFFSET: i32 = 300000; // 300KB
-const RESULT_STRIDE: i32 = 4; // r, g, b, emissiveIntensity
+// Material data and result (r, g, b, emissiveIntensity) buffers sit at fixed
+// offsets from the generated layout table to avoid allocations.
 
 // =============================================================================
 // BATCH PROCESSING FUNCTIONS

@@ -12,8 +12,6 @@ export {
     FoliageObject,
     // Constants
     BATCH_SIZE,
-    BATCH_MEMORY_START,
-    EXTENDED_BATCH_START,
     ENTRY_STRIDE,
     RESULT_STRIDE,
     // Audio helpers

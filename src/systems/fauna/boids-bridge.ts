@@ -3,8 +3,12 @@
  * JS fallback mirrors the WASM spatial-grid boids when AS is unavailable.
  */
 
-import { wasmMemory, wasmInstance, wasmUpdateBoids, cppUpdateBoids, emscriptenMemory } from '../../utils/wasm-loader-core.ts';
-import type { WasmExports } from '../../utils/wasm-loader-types.ts';
+import { asAllocF32, asFree, emAllocF32, type NativeF32 } from '../../utils/native-memory.ts';
+import {
+    cppUpdateBoids,
+    getEmscriptenInstance,
+    wasmUpdateBoids,
+} from '../../utils/wasm-loader-core.ts';
 import { FAUNA_BOID_STRIDE } from './types.ts';
 
 const MAX_BOIDS = 256;
@@ -255,63 +259,71 @@ export function bindBoidsWasm(): void {
     // wasmUpdateBoids is populated by wasm-loader-core cacheWasmFunctions at boot.
 }
 
+export type BoidsBackend = 'cpp' | 'as' | 'js';
+
+/**
+ * Boid slab owned by exactly one backend. A native slab lives in that module's
+ * memory and is only ever passed to that module's updateBoids, so a pointer is
+ * never 0 and never crosses between the C++ and AS heaps.
+ */
+export class BoidsBuffer {
+    constructor(
+        readonly backend: BoidsBackend,
+        private readonly native: NativeF32 | null,
+        private readonly js: Float32Array | null
+    ) {}
+
+    /** Byte pointer in the owning module's memory (0 for the JS backend). */
+    get ptr(): number {
+        return this.native ? this.native.ptr : 0;
+    }
+
+    /** Slot 0 is at index 0. Re-derived after native memory growth: do not cache. */
+    get view(): Float32Array {
+        return this.native ? this.native.view : this.js!;
+    }
+}
+
 export function updateBoidsBatch(
-    heap: Float32Array,
-    byteOffset: number,
+    buffer: BoidsBuffer,
     count: number,
     dt: number,
     playerX: number,
     playerZ: number,
     time: number
 ): void {
-    // ⚡ OPTIMIZATION: Try C++ Boids Scale-Up first
-    if (cppUpdateBoids && emscriptenMemory) {
-        cppUpdateBoids(byteOffset, count, dt, playerX, playerZ, time);
-        return;
-    }
-    if (wasmUpdateBoids && wasmMemory) {
-        wasmUpdateBoids(byteOffset, count, dt, playerX, playerZ, time);
-        return;
-    }
-    updateBoidsJS(heap, byteOffset, count, dt, playerX, playerZ, time);
-}
-
-export function allocateBoidsBuffer(count: number): { ptr: number; view: Float32Array } | null {
-    if (cppUpdateBoids && emscriptenMemory) {
-        // C++ module uses its own malloc
-        const malloc = (window as any).candyNative?._malloc || (window as any).candyNative?.malloc;
-        if (malloc) {
-            const bytes = count * FAUNA_BOID_STRIDE * 4;
-            const ptr = malloc(bytes);
-            if (ptr) {
-                const view = new Float32Array((emscriptenMemory as any).buffer || emscriptenMemory, ptr, count * FAUNA_BOID_STRIDE);
-                return { ptr, view };
-            }
+    const ptr = buffer.ptr;
+    if (ptr !== 0) {
+        // ⚡ OPTIMIZATION: Try C++ Boids Scale-Up first
+        if (buffer.backend === 'cpp' && cppUpdateBoids) {
+            cppUpdateBoids(ptr, count, dt, playerX, playerZ, time);
+            return;
         }
-    }
-
-    if (!wasmInstance || !wasmMemory) return null;
-    const malloc = (wasmInstance.exports as WasmExports).malloc as
-        ((n: number) => number) | undefined;
-    if (!malloc) return null;
-    const bytes = count * FAUNA_BOID_STRIDE * 4;
-    const ptr = malloc(bytes);
-    if (!ptr) return null;
-    const view = new Float32Array(wasmMemory.buffer, ptr, count * FAUNA_BOID_STRIDE);
-    return { ptr, view };
-}
-
-export function freeBoidsBuffer(ptr: number): void {
-    if (!ptr) return;
-    if (cppUpdateBoids && emscriptenMemory) {
-        const free = (window as any).candyNative?._free || (window as any).candyNative?.free;
-        if (free) {
-            free(ptr);
+        if (buffer.backend === 'as' && wasmUpdateBoids) {
+            wasmUpdateBoids(ptr, count, dt, playerX, playerZ, time);
             return;
         }
     }
+    updateBoidsJS(buffer.view, 0, count, dt, playerX, playerZ, time);
+}
 
-    if (!wasmInstance) return;
-    const free = (wasmInstance.exports as WasmExports).free as ((p: number) => void) | undefined;
-    free?.(ptr);
+/** Allocate a slab for `count` boids: C++ heap, then AS heap, then a JS array. */
+export function allocateBoidsBuffer(count: number): BoidsBuffer {
+    const floats = count * FAUNA_BOID_STRIDE;
+    if (cppUpdateBoids) {
+        const native = emAllocF32(getEmscriptenInstance(), floats);
+        if (native) return new BoidsBuffer('cpp', native, null);
+    }
+    if (wasmUpdateBoids) {
+        const native = asAllocF32(floats);
+        if (native) return new BoidsBuffer('as', native, null);
+    }
+    return new BoidsBuffer('js', null, new Float32Array(floats));
+}
+
+export function freeBoidsBuffer(buffer: BoidsBuffer): void {
+    const ptr = buffer.ptr;
+    if (!ptr) return;
+    if (buffer.backend === 'cpp') getEmscriptenInstance()?._free?.(ptr);
+    else asFree(ptr);
 }
