@@ -604,7 +604,7 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
             adapter: adapterInfo,
             adapterName: describeAdapter(adapterInfo),
             isFallbackAdapter: Boolean(
-                (adapter as any)?.isFallbackAdapter
+                (adapter as GPUAdapter & { isFallbackAdapter?: boolean })?.isFallbackAdapter
             ),
             limits: device ? snapshotLimits(device.limits) : null,
             powerPreference: GPU_POWER_PREFERENCE,

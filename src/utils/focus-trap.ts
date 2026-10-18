@@ -12,7 +12,7 @@
  */
 export function trapFocusInside(
     element: HTMLElement,
-    options?: { skipAutoFocus?: boolean }
+    options?: { skipAutoFocus?: boolean; onEscape?: () => void }
 ): () => void {
     // 1. Select all potentially focusable elements within the modal
     const focusableSelectors = [
@@ -26,7 +26,15 @@ export function trapFocusInside(
         '[tabindex]:not([tabindex="-1"])',
     ].join(', ');
 
+    const savedActiveElement = document.activeElement as HTMLElement | null;
+
     const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && options?.onEscape) {
+            e.preventDefault();
+            options.onEscape();
+            return;
+        }
+
         const isTabPressed = e.key === 'Tab' || e.keyCode === 9;
 
         if (!isTabPressed) {
@@ -69,6 +77,9 @@ export function trapFocusInside(
 
     // 4. Return a cleanup function to prevent memory leaks
     return function cleanup() {
+        if (savedActiveElement && savedActiveElement.isConnected) {
+            savedActiveElement.focus({ preventScroll: true });
+        }
         element.removeEventListener('keydown', handleKeyDown);
     };
 }

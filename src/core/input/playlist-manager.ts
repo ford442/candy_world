@@ -256,7 +256,6 @@ export function togglePlaylist(): void {
             ? _state.instructionsRef.style.display !== 'none'
             : false;
 
-        _state.lastFocusedElement = document.activeElement;
         _state.controlsRef.unlock(); // Unlock mouse so we can click
 
         // Note: releasePauseMenuFocus is managed by the main input module
@@ -281,7 +280,7 @@ export function togglePlaylist(): void {
             // Wait for paint before intensive DOM manipulations and focus trapping
             yieldToPaint(50).then(() => {
                 if (_state.isPlaylistOpen && _state.playlistOverlay) {
-                    _state.releaseJukeboxFocus = trapFocusInside(_state.playlistOverlay, { skipAutoFocus: true });
+                    _state.releaseJukeboxFocus = trapFocusInside(_state.playlistOverlay, { skipAutoFocus: true, onEscape: () => togglePlaylist() });
 
                     announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
 
@@ -342,18 +341,10 @@ export function togglePlaylist(): void {
                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                      const session = (window as any).__inputSession;
                      if (session && _state.instructionsRef && _state.instructionsRef.style.display !== 'none') {
-                         session.focus.releasePauseMenuFocus = trapFocusInside(_state.instructionsRef, { skipAutoFocus: true });
+                         session.focus.releasePauseMenuFocus = trapFocusInside(_state.instructionsRef, { skipAutoFocus: true, onEscape: () => session.controls.lock() });
                      }
                 });
             }
-            // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
-            yieldToPaint(50).then(() => {
-                if (_state.lastFocusedElement && _state.lastFocusedElement instanceof HTMLElement && _state.lastFocusedElement.isConnected && (!_state.playlistOverlay || !_state.playlistOverlay.contains(_state.lastFocusedElement))) {
-                    _state.lastFocusedElement.focus({ preventScroll: true });
-                } else if (_state.openJukeboxBtn) {
-                    _state.openJukeboxBtn.focus({ preventScroll: true });
-                }
-            });
             // Do NOT lock controls, stay unlocked
         } else {
             // Return to Game
