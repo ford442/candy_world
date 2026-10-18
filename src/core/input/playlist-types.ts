@@ -21,6 +21,7 @@ export interface PlaylistManagerState {
     openJukeboxBtn: HTMLElement | null;
     nowPlayingContainer: HTMLElement | null;
     nowPlayingText: HTMLElement | null;
+    nowPlayingStatusText: HTMLElement | null;
 
     audioSystemRef: AudioSystem | null;
     controlsRef: PointerLockControls | null;
