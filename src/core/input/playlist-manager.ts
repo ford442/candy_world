@@ -41,6 +41,7 @@ export function initPlaylistManager(
     _state.openJukeboxBtn = document.getElementById('openJukeboxBtn');
     _state.nowPlayingContainer = document.getElementById('nowPlayingContainer');
     _state.nowPlayingText = document.getElementById('nowPlayingText');
+    _state.nowPlayingStatusText = document.getElementById('now-playing-status');
 
     // Initialize state
     if (audioSystem.getPlaylist) {
@@ -50,12 +51,15 @@ export function initPlaylistManager(
         // 🎨 Palette: Restore Now Playing info if music is already running
         const currentIdx = audioSystem.getCurrentIndex();
         if (currentIdx >= 0 && playlist[currentIdx]) {
+            const trackName = formatSongTitle(playlist[currentIdx].name);
             if (_state.nowPlayingContainer && _state.nowPlayingText) {
-                const trackName = formatSongTitle(playlist[currentIdx].name);
                 _state.nowPlayingText.innerText = trackName;
                 _state.nowPlayingContainer.style.display = 'flex';
                 _state.nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
                 document.title = `🎵 ${trackName} - Candy World`;
+            }
+            if (_state.nowPlayingStatusText) {
+                _state.nowPlayingStatusText.innerText = `Now Playing: ${trackName}`;
             }
         }
     }
@@ -88,6 +92,9 @@ export function initPlaylistManager(
                 _state.nowPlayingText.innerText = trackName;
                 _state.nowPlayingContainer.style.display = 'flex';
                 _state.nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
+            }
+            if (_state.nowPlayingStatusText) {
+                _state.nowPlayingStatusText.innerText = `Now Playing: ${trackName}`;
             }
 
             // 🎨 Palette: Update Browser Tab Title

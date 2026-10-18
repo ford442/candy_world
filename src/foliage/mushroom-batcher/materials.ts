@@ -269,20 +269,36 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         };
 
         // 4. Eye
-        const eyeMat = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
-        eyeMat.positionNode = faceDeform(positionLocal);
+        const eyeMat = getCachedProceduralMaterial('mushroom_eye_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
+            m.positionNode = faceDeform(positionLocal);
+            applyFoliageLodMaterialFade(m);
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         // 5. Pupil
-        const pupilMat = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
-        pupilMat.positionNode = faceDeform(positionLocal);
+        const pupilMat = getCachedProceduralMaterial('mushroom_pupil_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
+            m.positionNode = faceDeform(positionLocal);
+            applyFoliageLodMaterialFade(m);
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         // 6. Mouth
-        const mouthMat = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
-        mouthMat.positionNode = faceDeform(positionLocal);
+        const mouthMat = getCachedProceduralMaterial('mushroom_mouth_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
+            m.positionNode = faceDeform(positionLocal);
+            applyFoliageLodMaterialFade(m);
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         // 7. Cheek
-        const cheekMat = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
-        cheekMat.positionNode = faceDeform(positionLocal);
+        const cheekMat = getCachedProceduralMaterial('mushroom_cheek_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
+            m.positionNode = faceDeform(positionLocal);
+            applyFoliageLodMaterialFade(m);
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         return [stemMat, capMat, gillMat, spotMat, eyeMat, pupilMat, mouthMat, cheekMat];
     }

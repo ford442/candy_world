@@ -166,16 +166,15 @@ export const skyLutData = new Float32Array(128 * 4);
 (function buildSkyLut() {
     const c = new Color();
 
-    // Use configurable note colors from CONFIG (preferred)
-    // Falls back to the old rainbow if CONFIG.noteColorMap is not available
-    const noteColorMap = CONFIG?.noteColorMap?.global || {};
+    // Use the sky palette from CONFIG (preferred), then the global palette
+    const noteColorMap = CONFIG?.noteColorMap?.sky || CONFIG?.noteColorMap?.global || {};
 
     for (let i = 0; i < 128; i++) {
         const chromaticIdx = Math.floor((i * 12) / 128);
         const pitchClass = chromaticIdx % 12;
         const noteName = CHROMATIC_SCALE[pitchClass];
 
-        const hexColor = noteColorMap[noteName] || 0xffffff;
+        const hexColor = noteColorMap[noteName] || CONFIG?.noteColorMap?.global?.[noteName] || 0xffffff;
 
         c.setHex(hexColor);
 

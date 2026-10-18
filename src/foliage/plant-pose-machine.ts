@@ -86,9 +86,6 @@ export class PlantPoseMachine {
         // Day/night baseline: the resting pose even when music is silent.
         const baseline = nightTarget + (dayTarget - nightTarget) * dayNightBias;
 
-        // Peak pose when the envelope is fully engaged.
-        const envelopePeak = dayTarget * sustainLevel;
-
         // Smooth-step factor for currentPose → targetPose lerp.
         // Clamp to [0,1] so large delta values don't overshoot.
         const lerpK = Math.min(1.0, attackRate * delta);
@@ -128,8 +125,11 @@ export class PlantPoseMachine {
                 if (this._envelopeLevel[i] < 0.0) this._envelopeLevel[i] = 0.0;
             }
 
-            // --- Target pose: baseline shifted by envelope contribution ---
-            this._targetPose[i] = baseline + (envelopePeak - baseline) * this._envelopeLevel[i];
+            // --- Target pose: driven by day/night cycle, boosted by music (#1186) ---
+            // The music envelope can push a plant open at night, but never
+            // pulls it below its day/night resting pose (no daytime shrink).
+            const musicTarget = nightTarget + (dayTarget - nightTarget) * (this._envelopeLevel[i] * sustainLevel);
+            this._targetPose[i] = Math.max(baseline, musicTarget);
 
             // --- Smooth currentPose toward targetPose ---
             this._currentPose[i] += (this._targetPose[i] - this._currentPose[i]) * lerpK;
