@@ -1,3 +1,4 @@
+import { emMemoryBuffer } from './native-memory.ts';
 import type { EmscriptenModule, ExtendedEmscriptenModule } from './wasm-loader-types.ts';
 
 // =============================================================================
@@ -94,6 +95,7 @@ export const cppBatchRetriggerSimd: ((inputPtr: number, count: number, time: num
 
 /** Emscripten module (native C functions) */
 export let emscriptenInstance: EmscriptenModule | null = null;
+/** Snapshot taken at load; may be stale after memory growth. Use getEmscriptenMemory(). */
 export let emscriptenMemory: ArrayBufferLike | null = null;
 
 // Physics / animation stubs referenced by initCppFunctions
@@ -221,4 +223,11 @@ export function initCppFunctions(): void {
 
 export function setEmscriptenMemory(val: ArrayBuffer | null) { emscriptenMemory = val; }
 
-export function getEmscriptenMemory(): ArrayBufferLike | null { return emscriptenMemory; }
+/**
+ * Current Emscripten memory buffer. Read fresh from the module because
+ * ALLOW_MEMORY_GROWTH detaches (ST) or outgrows (MT) any buffer cached earlier;
+ * prefer this over the `emscriptenMemory` snapshot.
+ */
+export function getEmscriptenMemory(): ArrayBufferLike | null {
+  return emMemoryBuffer(emscriptenInstance) ?? emscriptenMemory;
+}

@@ -11,7 +11,7 @@
 
 import {
     getEmscriptenInstance,
-    emscriptenMemory,
+    getEmscriptenMemory,
     getNativeFunc,
     isEmscriptenReady,
 } from './wasm-loader-core.ts';
@@ -140,10 +140,10 @@ export function writeInstancePose(
     const needColors = !!(colorsIn && colorsOut);
     const f = isEmscriptenReady() ? getNativeFunc('batchWriteInstancePose_c') : null;
 
-    if (f && emscriptenMemory && ensureHeap(count, needColors)) {
+    if (f && getEmscriptenMemory() && ensureHeap(count, needColors)) {
         const em = getEmscriptenInstance()!;
-        const memoryBuffer = (emscriptenMemory as { buffer?: ArrayBuffer }).buffer || emscriptenMemory;
-        const heapF32 = new Float32Array(memoryBuffer as ArrayBuffer);
+        // Read after ensureHeap: its malloc may have grown (and detached) memory.
+        let heapF32 = new Float32Array(getEmscriptenMemory()!);
 
         heapF32.set(positions.subarray(0, count * 3), _ptrPos >> 2);
         heapF32.set(quaternions.subarray(0, count * 4), _ptrQuat >> 2);
@@ -168,6 +168,7 @@ export function writeInstancePose(
             count
         );
 
+        heapF32 = new Float32Array(getEmscriptenMemory()!);
         matricesOut.set(heapF32.subarray(_ptrMat >> 2, (_ptrMat >> 2) + count * 16), 0);
         if (needColors && colorsOut) {
             colorsOut.set(heapF32.subarray(_ptrColorOut >> 2, (_ptrColorOut >> 2) + count * 3), 0);

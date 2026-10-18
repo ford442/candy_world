@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { computeLayout } from '../scripts/memory-layout.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const __filename = fileURLToPath(import.meta.url);
@@ -265,6 +266,89 @@ async function testBatchDistanceCull(wasmInstance) {
 }
 
 /**
+ * Test 5: the runtime heap never overlaps the fixed regions.
+ *
+ * Regression for the AS heap being placed at the bottom of memory, inside the
+ * hand-placed regions: filling the collision table overwrote the TLSF root and
+ * the next allocation aborted. Fill every fixed region to capacity, allocate
+ * through both the managed runtime and the exported malloc, and check that
+ * neither side clobbered the other.
+ */
+async function testHeapAboveFixedRegions() {
+  console.log('Test 5: Runtime heap sits above every fixed region...');
+
+  const { exports } = await loadWasm();
+  const layout = computeLayout();
+  const heapBase = exports.getHeapBase();
+
+  if (exports.MEMORY_LAYOUT_END.value !== layout.end) {
+    throw new Error(`MEMORY_LAYOUT_END ${exports.MEMORY_LAYOUT_END.value} != table ${layout.end}; rebuild WASM`);
+  }
+  if (heapBase < layout.end) {
+    throw new Error(`__heap_base ${heapBase} is inside the fixed regions (end ${layout.end})`);
+  }
+
+  // Fill the collision table the way world generation does, then stamp every
+  // other region with 1.0f — the value that used to land on the TLSF root.
+  exports.initCollisionSystem();
+  for (let i = 0; i < exports.MAX_COLLISION_OBJECTS.value + 16; i++) {
+    exports.addCollisionObject(1, (i % 200) - 100, 0, ((i * 7) % 200) - 100, 1, 2, 0, 0);
+  }
+  const collision = layout.regions.find((r) => r.name === 'COLLISION');
+  const snapshot = new Map();
+  for (const r of layout.regions) {
+    const view = new Float32Array(exports.memory.buffer, r.offset, r.bytes / 4);
+    if (r !== collision) view.fill(1.0);
+    snapshot.set(r.name, view.slice());
+  }
+
+  // Managed allocations (StaticArray temporaries) and unmanaged malloc blocks.
+  const planesPtr = exports.malloc(24 * 4);
+  const blocks = [];
+  for (let i = 0; i < 200; i++) {
+    exports.analyzeMaterials(layout.regions[0].offset, 4);
+    exports.batchFrustumTest(0, 0, planesPtr, 0);
+    const size = 16 + (i % 13) * 64;
+    const ptr = exports.malloc(size);
+    if (!ptr) throw new Error(`malloc(${size}) returned 0 on block ${i}`);
+    if (ptr < heapBase) throw new Error(`malloc returned ${ptr}, below __heap_base ${heapBase}`);
+    new Uint8Array(exports.memory.buffer, ptr, size).fill(0xab);
+    blocks.push({ ptr, size });
+    if (i % 3 === 0) {
+      const victim = blocks.splice(blocks.length >> 1, 1)[0];
+      exports.free(victim.ptr);
+    }
+  }
+
+  const sorted = [...blocks].sort((a, b) => a.ptr - b.ptr);
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].ptr < sorted[i - 1].ptr + sorted[i - 1].size) {
+      throw new Error(`malloc blocks overlap at ${sorted[i - 1].ptr} and ${sorted[i].ptr}`);
+    }
+  }
+  for (const { ptr, size } of blocks) {
+    if (!new Uint8Array(exports.memory.buffer, ptr, size).every((b) => b === 0xab)) {
+      throw new Error(`malloc block at ${ptr} was overwritten`);
+    }
+  }
+  for (const r of layout.regions) {
+    const now = new Float32Array(exports.memory.buffer, r.offset, r.bytes / 4);
+    const before = snapshot.get(r.name);
+    for (let i = 0; i < now.length; i++) {
+      if (!Object.is(now[i], before[i])) {
+        throw new Error(`fixed region ${r.name} changed at +${i * 4} after heap activity`);
+      }
+    }
+  }
+
+  blocks.forEach(({ ptr }) => exports.free(ptr));
+  exports.free(planesPtr);
+  exports.free(0); // no-op, must not trap
+
+  console.log(`✓ Test 5 passed: heap base ${heapBase} >= layout end ${layout.end}, 200 allocations clean`);
+}
+
+/**
  * Run all tests
  */
 async function runAllTests() {
@@ -286,6 +370,9 @@ async function runAllTests() {
     console.log();
 
     await testBatchDistanceCull(wasmInstance);
+    console.log();
+
+    await testHeapAboveFixedRegions();
     console.log();
 
     console.log('✅ All WASM tests passed!');

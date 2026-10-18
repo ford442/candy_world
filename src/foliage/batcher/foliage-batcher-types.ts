@@ -7,18 +7,10 @@ export type { FoliageObject };
 // Batch configuration
 export const BATCH_SIZE = 4000; // Max objects per type per batch
 
-// Memory layout for batch processing (in bytes)
-// We allocate memory starting at 16KB boundary (after the WASM's standard memory regions)
-// Standard WASM regions: POSITION_OFFSET (0), ANIMATION_OFFSET (4096), OUTPUT_OFFSET (8192), MATERIAL_DATA_OFFSET (12288)
-// Starting at 16KB (16384) provides safe separation from these regions
-// Each batch needs space for: offsets, intensities, originalYs, wobbleBoosts, outScalars, outScalars2
-// Each array is BATCH_SIZE * 4 bytes = 16000 bytes
-export const BATCH_MEMORY_START = 16384; // Start at 16KB boundary for alignment
+// Memory layout for batch processing (in bytes). Each batch gets its own block
+// from the AS allocator (assembly/allocator.ts); there are no fixed offsets.
+// Each array is BATCH_SIZE * 4 bytes = 16000 bytes.
 export const BATCH_ARRAY_SIZE = BATCH_SIZE * 4; // Size in bytes per array (16000 bytes)
-
-// Extended memory for additional batch types (Phase 1 Migration)
-// Located after existing batch memory (ends at ~96KB, so we start at 128KB for safety)
-export const EXTENDED_BATCH_START = 131072; // 128KB
 export const ENTRY_STRIDE = 6; // offset, intensity, originalY/param0, wobbleBoost/param1, param2, param3
 export const ENTRY_SIZE = ENTRY_STRIDE * 4; // 24 bytes per entry
 export const RESULT_STRIDE = 4; // 4 floats per result

@@ -10,6 +10,7 @@
  * - getNativeFunc() helper
  */
 
+import { createNativeModule, firstNativeModule } from './native-instantiate.ts';
 import { isSharedMemoryAvailable } from './wasm-orchestrator.ts';
 import { checkWasmFileExists, patchWasmInstantiateAliases } from './wasm-utils.ts';
 
@@ -17,6 +18,17 @@ import { checkWasmFileExists, patchWasmInstantiateAliases } from './wasm-utils.t
 import initCandyPhysics from '../wasm/candy_physics.wasm?init';
 import { bootProgress } from './boot-progress.ts';
 import { log } from './log.ts';
+import { bindAssemblyScriptMemory } from './native-memory.ts';
+import {
+    POSITION_OFFSET,
+    POSITION_BYTES,
+    ANIMATION_OFFSET,
+    ANIMATION_BYTES,
+    OUTPUT_OFFSET,
+    OUTPUT_BYTES,
+    PLAYER_STATE_OFFSET,
+    PLAYER_STATE_BYTES,
+} from './native-memory-layout.ts';
 
 // =============================================================================
 // STATE EXPORTS
@@ -195,12 +207,14 @@ import {
 // CONSTANTS
 // =============================================================================
 
-/** Memory layout constants */
-export const POSITION_OFFSET = 0;
-export const ANIMATION_OFFSET = 4096;
-export const OUTPUT_OFFSET = 8192;
-export const PLAYER_STATE_OFFSET = 16384;
-export const BATCH_UPLOAD_OFFSET = 149536; // Matching assembly/constants.ts DYNAMIC_RADII_OFFSET + 2048
+/** Memory layout constants (generated from scripts/memory-layout.mjs) */
+export {
+    POSITION_OFFSET,
+    ANIMATION_OFFSET,
+    OUTPUT_OFFSET,
+    PLAYER_STATE_OFFSET,
+    BATCH_UPLOAD_OFFSET,
+} from './native-memory-layout.ts';
 
 /** Animation type constants */
 export const AnimationType = {
@@ -284,10 +298,24 @@ const wasiStubs: WasiStubs = {
     },
 };
 
+/** Decode an AssemblyScript string (UTF-16, byte length at ptr - 4). */
+function readAsString(ptr: number): string {
+    if (!wasmMemory || !ptr) return '';
+    const buffer = wasmMemory.buffer;
+    if (ptr < 4 || ptr > buffer.byteLength) return `<string @${ptr}>`;
+    const byteLength = new Uint32Array(buffer, ptr - 4, 1)[0];
+    if (ptr + byteLength > buffer.byteLength) return `<string @${ptr}>`;
+    return String.fromCharCode(...new Uint16Array(buffer, ptr, byteLength >>> 1));
+}
+
 const importObject: WasmImportObject = {
     env: {
+        // AS emits `unreachable` after abort anyway; throwing surfaces a readable
+        // message instead of a bare RuntimeError, and never lets execution continue.
         abort: (msg: number, file: number, line: number, col: number) => {
-            console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
+            const text = `${readAsString(msg)} at ${readAsString(file)}:${line}:${col}`;
+            console.error(`[WASM] abort: ${text}`);
+            throw new Error(`WASM abort: ${text}`);
         },
         seed: () => Date.now() * Math.random(),
         now: () => Date.now(),
@@ -305,11 +333,8 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
 
     if (exports.memory) {
         wasmMemory = exports.memory;
-        const memBuffer = wasmMemory.buffer;
-        positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
-        animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
-        outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
-        playerStateView = new Float32Array(memBuffer, PLAYER_STATE_OFFSET, 8);
+        bindAssemblyScriptMemory(exports);
+        refreshWasmViews();
     }
 
     wasmGetGroundHeight = exports.getGroundHeight;
@@ -354,6 +379,24 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
 
     wasmUpdateParticles = asExportFn(exports.updateParticles);
     wasmSpawnBurst = asExportFn(exports.spawnBurst);
+}
+
+let viewsBuffer: ArrayBufferLike | null = null;
+
+/**
+ * Re-create the fixed-region views if AS memory grew since they were made.
+ * Growth detaches the old buffer, so call this before touching positionView,
+ * animationView, outputView or playerStateView after any native call.
+ */
+export function refreshWasmViews(): void {
+    if (!wasmMemory) return;
+    const buffer = wasmMemory.buffer;
+    if (buffer === viewsBuffer) return;
+    viewsBuffer = buffer;
+    positionView = new Float32Array(buffer, POSITION_OFFSET, POSITION_BYTES / 4);
+    animationView = new Float32Array(buffer, ANIMATION_OFFSET, ANIMATION_BYTES / 4);
+    outputView = new Float32Array(buffer, OUTPUT_OFFSET, OUTPUT_BYTES / 4);
+    playerStateView = new Float32Array(buffer, PLAYER_STATE_OFFSET, PLAYER_STATE_BYTES / 4);
 }
 
 // Immediately initialize the AssemblyScript WASM module with retry logic.
@@ -441,225 +484,176 @@ export async function updateWasmProgress(percent: number, msg: string): Promise<
  */
 export async function loadEmscriptenModule(forceSingleThreaded = false): Promise<boolean> {
     // SINGLE-THREADED FALLBACK STRATEGY:
-    // 1. If SharedArrayBuffer is missing, forcing ST.
-    // 2. If forceSingleThreaded=true is passed (recursive fallback), use ST.
-    // 3. We attempt to load 'candy_native.wasm' (threaded).
-    // 4. If that fails (file missing, instantiation error, worker error), we recursively call loadEmscriptenModule(true).
+    // 1. If SharedArrayBuffer is missing, or forceSingleThreaded=true, only try ST.
+    // 2. Otherwise try 'candy_native.wasm' (threaded) first.
+    // 3. Any failure there (file missing, instantiation error or timeout, worker
+    //    error) moves on to ST; if ST fails too, JS fallbacks stay active.
 
     // typeof SharedArrayBuffer !== 'undefined' alone doesn't guarantee a shared
     // WebAssembly.Memory can actually be constructed (e.g. COOP/COEP present
     // but the runtime still rejects atomics); isSharedMemoryAvailable() does a
     // real try/catch construction test instead of a weaker duplicate check.
     const canUseThreads = isSharedMemoryAvailable() && !forceSingleThreaded;
+    if (!canUseThreads) {
+        console.warn('[Native] Using Single-Threaded Fallback (No SharedArrayBuffer or forced ST)');
+    }
+
+    const variants = canUseThreads ? [true, false] : [false];
+    const instance = await firstNativeModule(
+        variants.map((threaded) => ({
+            label: threaded ? 'Pthreads' : 'Single-Threaded',
+            load: () => loadEmscriptenVariant(threaded),
+        })),
+        (label, err) => {
+            if (err) console.warn(`[WASM] ${label} native build failed:`, err);
+            else log.warn('WASM', `${label} native build unavailable`);
+        }
+    );
+    if (!instance) return false;
+
+    setEmscriptenInstance(instance);
+    if (instance.wasmMemory) {
+        setEmscriptenMemory(instance.wasmMemory.buffer as ArrayBuffer);
+    } else if (instance.HEAP8) {
+        setEmscriptenMemory(instance.HEAP8.buffer as ArrayBuffer);
+    }
+
+    // Initialize cached C++ function references
+    initCppFunctions();
+
+    return true;
+}
+
+/**
+ * Load one Emscripten build. Resolves null when its files are missing, and
+ * rejects when it fails to instantiate (including a hang past
+ * NATIVE_INIT_TIMEOUT_MS), so the caller can move on to the next variant.
+ */
+async function loadEmscriptenVariant(
+    isThreaded: boolean
+): Promise<ExtendedEmscriptenModule | null> {
+    const wasmFilename = isThreaded ? 'candy_native.wasm' : 'candy_native_st.wasm';
+    const jsFilename = isThreaded ? 'candy_native.js' : 'candy_native_st.js';
+
+    await updateWasmProgress(10, 'Loading Native Engine...');
+
+    // Check if WASM file exists and RESOLVE THE CORRECT PATH
+    const wasmCheck = await checkWasmFileExists(wasmFilename);
+    if (!wasmCheck.exists) {
+        log.warn('WASM', `${wasmFilename} not found. Using JS fallback.`);
+        return null;
+    }
+
+    // Construct the full resolved path based on checkWasmFileExists result
+    const prefix = wasmCheck.path || '';
+    const cleanPrefix = prefix.endsWith('/') ? prefix : prefix ? `${prefix}/` : '';
+    const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
+    const jsUrl = new URL(`${cleanPrefix}${jsFilename}`, base).href;
+    const wasmUrl = new URL(`${cleanPrefix}${wasmFilename}`, base).href;
+    log.info('WASM', 'Loading WASM:', jsUrl);
+
+    // Load the JS factory
+    let createCandyNative:
+        ((config: Record<string, unknown>) => Promise<ExtendedEmscriptenModule>) | undefined;
+    try {
+        const module = await import(/* @vite-ignore */ jsUrl);
+        createCandyNative = module.default;
+    } catch (e) {
+        log.warn('WASM', `${jsFilename} not found. Fallback?`, e);
+        return null;
+    }
+    if (!createCandyNative) return null;
+
+    await updateWasmProgress(
+        30,
+        isThreaded ? 'Spawning Physics Workers...' : 'Initializing Physics (ST)...'
+    );
+
+    // Apply aliases (patches NativeWA if available)
+    const restore = patchWasmInstantiateAliases();
+
+    // MANUAL FETCH: Pre-fetch binary
+    let wasmBinary: ArrayBuffer | null = null;
+    try {
+        const resp = await fetch(wasmUrl);
+        if (resp.ok) {
+            wasmBinary = await resp.arrayBuffer();
+        } else {
+            console.warn(`[WASM] Pre-fetch failed with status: ${resp.status}`);
+        }
+    } catch (e) {
+        console.warn('[WASM] Failed to pre-fetch binary:', e);
+        // Help diagnose common server configuration issues
+        if (e instanceof Error && e.message.toLowerCase().includes('content decoding')) {
+            console.error(
+                "[WASM] CRITICAL: Content Decoding Failed! The server is likely sending 'Content-Encoding: gzip' for an uncompressed .wasm file. This is a common issue with Vite preview/dev servers."
+            );
+        }
+    }
+
+    // POLYFILL BYPASS:
+    // If the environment has a NativeWebAssembly object that differs from window.WebAssembly (polyfill),
+    // we MUST swap it in. This ensures Emscripten creates a valid native Memory object and
+    // that the Module we compile is a real WebAssembly.Module, transferable to the Worker.
+    const originalWA = window.WebAssembly;
+    const nativeWA = window.NativeWebAssembly;
+    let swapped = false;
+
+    if (nativeWA && nativeWA !== originalWA) {
+        log.info('WASM', 'Swapping to Native WebAssembly for Emscripten init');
+        window.WebAssembly = nativeWA;
+        swapped = true;
+    }
 
     try {
-        await updateWasmProgress(10, 'Loading Native Engine...');
+        const config: Record<string, unknown> = {
+            // Critical: Explicitly tell Emscripten where to find the file
+            locateFile: (path: string, scriptDirectory: string) => {
+                if (path.endsWith('.wasm')) return wasmUrl;
+                return scriptDirectory + path;
+            },
+            print: (text: string) => log.info('Native', text),
+            printErr: (text: string) => console.warn('[Native Err]', text),
+            // IMPORTANT: Do NOT set wasmBinary in config; createNativeModule
+            // installs the instantiateWasm hook below instead.
+        };
 
-        let wasmFilename = 'candy_native.wasm';
-        let jsFilename = 'candy_native.js';
-        let isThreaded = true;
+        // Bypass Emscripten's internal instantiation. A failure here rejects
+        // (instead of leaving the factory pending) so ST/JS fallbacks run.
+        const instantiate = async (imports: WebAssembly.Imports) => {
+            log.info('Native', 'Manual instantiation hook triggered');
+            let bytes = wasmBinary;
 
-        if (!canUseThreads) {
-            console.warn(
-                '[Native] Using Single-Threaded Fallback (No SharedArrayBuffer or forced ST)'
-            );
-            wasmFilename = 'candy_native_st.wasm';
-            jsFilename = 'candy_native_st.js';
-            isThreaded = false;
-        }
-
-        // 2. Check if WASM file exists and RESOLVE THE CORRECT PATH
-        const wasmCheck = await checkWasmFileExists(wasmFilename);
-        if (!wasmCheck.exists) {
-            log.warn('WASM', `${wasmFilename} not found. Using JS fallback.`);
-            // If threaded failed (e.g. file missing), try ST if we haven't already
-            if (isThreaded) {
-                return loadEmscriptenModule(true);
+            // Fallback fetch if pre-fetch failed
+            if (!bytes) {
+                log.info('Native', 'Fetching binary inside hook...');
+                const response = await fetch(wasmUrl);
+                if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+                bytes = await response.arrayBuffer();
             }
-            return false;
+
+            // Use the CURRENT global WebAssembly (which should be Native if swapped).
+            // instantiate() directly instead of compile() + instantiate() works around
+            // missing compile() in some polyfills and yields a valid Module/Instance pair.
+            const result = await window.WebAssembly.instantiate(bytes, imports);
+            log.info('Native', 'Manual instantiation success');
+
+            // We must pass a valid Module object if Pthreads are used, so the
+            // worker can receive it. Some polyfills might not return one.
+            return { instance: result.instance, module: result.module };
+        };
+
+        // Initialize Emscripten (will use Native WA for Memory creation)
+        const instance = await createNativeModule(createCandyNative, config, instantiate);
+        log.info('WASM', `Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
+        return instance;
+    } finally {
+        // Restore original environment
+        if (swapped) {
+            window.WebAssembly = originalWA;
+            log.info('WASM', 'Restored original WebAssembly');
         }
-
-        // Construct the full resolved path based on checkWasmFileExists result
-        const prefix = wasmCheck.path || '';
-        const cleanPrefix = prefix.endsWith('/') ? prefix : prefix ? `${prefix}/` : '';
-        const resolvedJsPath = jsFilename.includes('://')
-            ? jsFilename
-            : `${cleanPrefix}${jsFilename}`;
-
-        const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
-        const jsUrl = new URL(resolvedJsPath, base).href;
-        log.info('WASM', 'Loading WASM:', jsUrl);
-
-        // Load the JS factory
-        let createCandyNative:
-            ((config: Record<string, unknown>) => Promise<ExtendedEmscriptenModule>) | undefined;
-        try {
-            const module = await import(/* @vite-ignore */ jsUrl);
-            createCandyNative = module.default;
-        } catch (e) {
-            log.warn('WASM', `${jsFilename} not found. Fallback?`, e);
-            if (isThreaded) return loadEmscriptenModule(true);
-            return false;
-        }
-
-        if (!createCandyNative) return false;
-
-        if (isThreaded) {
-            await updateWasmProgress(30, 'Spawning Physics Workers...');
-        } else {
-            await updateWasmProgress(30, 'Initializing Physics (ST)...');
-        }
-
-        // Apply aliases (patches NativeWA if available)
-        const restore = patchWasmInstantiateAliases();
-
-        // MANUAL FETCH: Pre-fetch binary
-        let wasmBinary: ArrayBuffer | null = null;
-        try {
-            const base = typeof document !== 'undefined' ? document.baseURI : self.location.href;
-            const fetchWasmUrl = new URL(`${cleanPrefix}${wasmFilename}`, base).href;
-            const resp = await fetch(fetchWasmUrl);
-            if (resp.ok) {
-                wasmBinary = await resp.arrayBuffer();
-            } else {
-                console.warn(`[WASM] Pre-fetch failed with status: ${resp.status}`);
-            }
-        } catch (e) {
-            console.warn('[WASM] Failed to pre-fetch binary:', e);
-            // Help diagnose common server configuration issues
-            if (e instanceof Error && e.message.toLowerCase().includes('content decoding')) {
-                console.error(
-                    "[WASM] CRITICAL: Content Decoding Failed! The server is likely sending 'Content-Encoding: gzip' for an uncompressed .wasm file. This is a common issue with Vite preview/dev servers."
-                );
-            }
-        }
-
-        // POLYFILL BYPASS:
-        // If the environment has a NativeWebAssembly object that differs from window.WebAssembly (polyfill),
-        // we MUST swap it in. This ensures Emscripten creates a valid native Memory object and
-        // that the Module we compile is a real WebAssembly.Module, transferable to the Worker.
-        const originalWA = window.WebAssembly;
-        const nativeWA = window.NativeWebAssembly;
-        let swapped = false;
-
-        if (nativeWA && nativeWA !== originalWA) {
-            log.info('WASM', 'Swapping to Native WebAssembly for Emscripten init');
-            window.WebAssembly = nativeWA;
-            swapped = true;
-        }
-
-        try {
-            const config: Record<string, unknown> = {
-                // Critical: Explicitly tell Emscripten where to find the file
-                locateFile: (path: string, scriptDirectory: string) => {
-                    const base =
-                        typeof document !== 'undefined' ? document.baseURI : self.location.href;
-                    if (path.endsWith('.wasm'))
-                        return new URL(`${cleanPrefix}${wasmFilename}`, base).href;
-                    if (path.endsWith('.worker.js'))
-                        return new URL(
-                            `${cleanPrefix}${wasmFilename.replace('.wasm', '.worker.js')}`,
-                            base
-                        ).href;
-                    return scriptDirectory + path;
-                },
-                print: (text: string) => log.info('Native', text),
-                printErr: (text: string) => console.warn('[Native Err]', text),
-
-                // IMPORTANT: Do NOT set wasmBinary in config.
-                // Bypass internal instantiation logic completely
-                instantiateWasm: (
-                    imports: WebAssembly.Imports,
-                    successCallback: (
-                        instance: WebAssembly.Instance,
-                        module: WebAssembly.Module
-                    ) => void
-                ) => {
-                    log.info('Native', 'Manual instantiation hook triggered');
-
-                    const run = async () => {
-                        try {
-                            let bytes = wasmBinary;
-
-                            // Fallback fetch if pre-fetch failed
-                            if (!bytes) {
-                                log.info('Native', 'Fetching binary inside hook...');
-                                const base =
-                                    typeof document !== 'undefined'
-                                        ? document.baseURI
-                                        : self.location.href;
-                                const fetchWasmUrl = new URL(`${cleanPrefix}${wasmFilename}`, base)
-                                    .href;
-                                const response = await fetch(fetchWasmUrl);
-                                if (!response.ok)
-                                    throw new Error(`Fetch failed: ${response.status}`);
-                                bytes = await response.arrayBuffer();
-                            }
-
-                            // Use the CURRENT global WebAssembly (which should be Native if swapped)
-                            const WA = window.WebAssembly;
-
-                            // We use instantiate() directly instead of compile() + instantiate().
-                            // This works around missing compile() in some polyfills and ensures
-                            // we get a valid Module/Instance pair from the native implementation.
-                            const result = await WA.instantiate(bytes, imports);
-
-                            log.info('Native', 'Manual instantiation success');
-
-                            // Standardize result
-                            const instance = result.instance;
-                            const module = result.module || null; // Some polyfills might not return module
-
-                            // We must pass a valid Module object if Pthreads are used,
-                            // so the worker can receive it.
-                            successCallback(instance, module!);
-                        } catch (e) {
-                            console.error('[Native] Manual instantiation failed:', e);
-                        }
-                    };
-
-                    run();
-                    return {}; // Async indicates to Emscripten we are handling it
-                },
-            };
-
-            // Initialize Emscripten (will use Native WA for Memory creation)
-            const instance = await createCandyNative(config);
-            setEmscriptenInstance(instance);
-
-            log.info('WASM', `Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
-        } catch (e) {
-            console.warn('[WASM] Instantiation failed:', e);
-
-            // If threaded failed, try ST (recursive call will handle clean up/restore via finally)
-            if (isThreaded) {
-                log.warn('WASM', 'Falling back to Single-Threaded build...');
-                // We must restore before recursing, which finally block does
-                return loadEmscriptenModule(true);
-            }
-            return false;
-        } finally {
-            // Restore original environment
-            if (swapped) {
-                window.WebAssembly = originalWA;
-                log.info('WASM', 'Restored original WebAssembly');
-            }
-            restore();
-        }
-
-        if (emscriptenInstance!.wasmMemory) {
-            setEmscriptenMemory(emscriptenInstance!.wasmMemory.buffer as ArrayBuffer);
-        } else if (emscriptenInstance!.HEAP8) {
-            setEmscriptenMemory(emscriptenInstance!.HEAP8.buffer as ArrayBuffer);
-        }
-
-        // Initialize cached C++ function references
-        initCppFunctions();
-
-        return true;
-    } catch (e) {
-        console.warn('[WASM] Native module unavailable:', e);
-        return false;
+        restore();
     }
 }
 

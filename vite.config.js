@@ -1,12 +1,23 @@
 // vite.config.js
 import { defineConfig } from 'vite';
 
+// REQUIRED for SharedArrayBuffer (Pthreads): without cross-origin isolation the
+// MT native build cannot load and the loader drops to single-threaded. Served
+// by dev AND preview so `vite preview` and the smoke test run what production
+// should run; the deploy host must send the same pair (docs/NATIVE_LAYER.md).
+const crossOriginIsolationHeaders = {
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Embedder-Policy': 'require-corp',
+};
+
 // Set modern build target so top-level await in dependencies (e.g. three/examples WebGPU helper)
 // doesn't get transformed to an unsupported lower target during bundle/transpile.
 export default defineConfig({
     base: './',
     build: {
-        sourcemap: true,
+        // 'hidden': maps are still emitted for symbolication but no
+        // sourceMappingURL comment points browsers (or deploy.py zips) at them.
+        sourcemap: 'hidden',
         minify: true,
         target: 'es2022',
         // Ensures assets don't get lost in complex folder structures
@@ -279,11 +290,7 @@ export default defineConfig({
         },
     },
     server: {
-        headers: {
-            // These headers are REQUIRED for SharedArrayBuffer (Pthreads)
-            'Cross-Origin-Opener-Policy': 'same-origin',
-            'Cross-Origin-Embedder-Policy': 'require-corp',
-        },
+        headers: crossOriginIsolationHeaders,
         // Keep Vite from serving files outside the repository root by default.
         fs: {
             strict: true,
@@ -293,6 +300,9 @@ export default defineConfig({
         watch: {
             ignored: ['**/emsdk/**'],
         },
+    },
+    preview: {
+        headers: crossOriginIsolationHeaders,
     },
     // Ensure the worker file is treated correctly if using Vite's worker import (optional but safe)
     worker: {

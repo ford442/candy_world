@@ -85,6 +85,10 @@ def build_zip(build_path: Path, skip_sizes=None) -> bytes:
             parts = rel.parts
             if any(p in (".git", "node_modules", "__pycache__") for p in parts):
                 continue
+            # Source maps are emitted 'hidden' (no sourceMappingURL) for local
+            # symbolication only; don't ship them.
+            if file.suffix == ".map":
+                continue
             rel_s = str(rel).replace("\\", "/")
             local_size = file.stat().st_size
             if (skip_sizes or {}).get(rel_s) == local_size:
