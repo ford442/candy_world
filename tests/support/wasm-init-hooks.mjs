@@ -27,7 +27,10 @@ export async function load(url, context, nextLoad) {
         const source = `
             import { readFileSync } from 'node:fs';
             const bytes = readFileSync(${JSON.stringify(wasmPath)});
-            export default async (imports) => (await WebAssembly.instantiate(bytes, imports)).instance;
+            export default async (imports) => {
+                const result = await WebAssembly.instantiate(bytes, imports);
+                return result.instance || result;
+            };
         `;
         return { format: 'module', source, shortCircuit: true };
     }
