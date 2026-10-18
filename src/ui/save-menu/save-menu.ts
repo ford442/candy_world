@@ -133,7 +133,7 @@ export class SaveMenu {
         // Trap Focus
         yieldToPaint(50).then(() => {
             if (this.container && this.isOpen()) {
-                this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true });
+                this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true, onEscape: () => this.close() });
                 // Manually focus the active tab to prevent screen reader double-speak from close button
                 const activeTab = this.container.querySelector(
                     '.candy-save-menu__tab[aria-selected="true"]'
