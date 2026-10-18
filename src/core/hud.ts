@@ -36,7 +36,6 @@ let _lastMineReady: boolean | null = null;
 let _currentEnergyPulseScale: number = 1.0;
 let _lastPhaseCount: number | null = null;
 let _lastPhaseActive: boolean | null = null;
-let _lastPhaseReady: boolean | null = null;
 let _lastPhaseAnnouncedSecond = -1;
 let _lastStrikeState: boolean = false;
 
@@ -333,15 +332,6 @@ export function updatePhaseHUD(
 
         // Check Availability (Ammo) - Update only on state change or count change
         if (stateChanged || countChanged) {
-            // ♿ Aria: announce Phase Shift becoming usable (e.g. a Tremolo Bulb
-            // picked up while empty), matching the Dash / Jitter Mine ready cues.
-            // Skipped on the active→inactive edge, which already announces the count.
-            const phaseReady = phaseCount > 0;
-            if (phaseReady && _lastPhaseReady === false && !stateChanged) {
-                announce('Phase Shift ready', 'polite');
-            }
-            _lastPhaseReady = phaseReady;
-
             if (phaseCount > 0) {
                 slot.setReady(true);
                 const bulbs = `${phaseCount} Bulb${phaseCount !== 1 ? 's' : ''}`;

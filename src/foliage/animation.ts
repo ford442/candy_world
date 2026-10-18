@@ -19,14 +19,7 @@ import { median } from './material-core.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 
 // WASM memory views for batch operations
-let foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
-let _dayResetMatCount = 0;
-
-/** Clear materials to fade back on level unload */
-export function clearFoliageAnimationState(): void {
-    foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
-    _dayResetMatCount = 0;
-}
+const foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
 let growthDataView: Float32Array | null = null;
 let bloomDataView: Float32Array | null = null;
 let scaleAnimDataView: Float32Array | null = null;
@@ -303,9 +296,6 @@ export function updateFoliageMaterials(
 
     // ⚡ OPTIMIZATION: Single O(N) loop over reactiveMaterials combining audio and weather reactivity
     const mats = reactiveMaterials as unknown as FoliageMaterial[];
-    if (!isNight && !hasChannels && globalWetAmount === 0 && _dayResetMatCount === 0) {
-        return;
-    }
     for (let i = 0; i < mats.length; i++) {
         const mat = mats[i] as any;
         if (!mat) continue;
@@ -317,10 +307,7 @@ export function updateFoliageMaterials(
 
         // 1. Audio Reactivity (Night/Day)
         if (isNight && hasChannels) {
-            if (!foliageNeedsFadeBack.has(mat as FoliageMaterial)) {
-                foliageNeedsFadeBack.add(mat as FoliageMaterial);
-                _dayResetMatCount++;
-            }
+            foliageNeedsFadeBack.add(mat as FoliageMaterial);
             const chIndex = (i % 4) + 1;
             const ch = channels[Math.min(chIndex, channels.length - 1)];
 
@@ -346,10 +333,7 @@ export function updateFoliageMaterials(
                 mat.emissive.setHex(0x000000);
                 mat.emissiveIntensity = 0;
             }
-            if (foliageNeedsFadeBack.has(mat as FoliageMaterial)) {
-                foliageNeedsFadeBack.delete(mat as FoliageMaterial);
-                _dayResetMatCount--;
-            }
+            foliageNeedsFadeBack.delete(mat as FoliageMaterial);
         }
 
         // 2. Weather Reactivity (Wet Effect)

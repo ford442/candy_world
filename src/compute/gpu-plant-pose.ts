@@ -77,9 +77,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     let baseline = u.nightTarget + (u.dayTarget - u.nightTarget) * u.dayNightBias;
-    // #1186: music opens the plant at night but never pulls it below baseline.
-    let musicTarget = u.nightTarget + (u.dayTarget - u.nightTarget) * (env * u.sustainLevel);
-    let targetPose = max(baseline, musicTarget);
+    let envelopePeak = u.dayTarget * u.sustainLevel;
+    let targetPose = baseline + (envelopePeak - baseline) * env;
 
     var pose = state[i].currentPose;
     let lerpK = min(1.0, u.attackRate * u.delta);
@@ -403,6 +402,7 @@ export function computePlantPoseFrameTS(
 ): void {
     const { attackRate, releaseRate, sustainLevel, dayTarget, nightTarget, triggerThreshold } = config;
     const baseline = nightTarget + (dayTarget - nightTarget) * dayNightBias;
+    const envelopePeak = dayTarget * sustainLevel;
     const lerpK = Math.min(1.0, attackRate * delta);
 
     for (let i = 0; i < count; i++) {
@@ -431,8 +431,7 @@ export function computePlantPoseFrameTS(
             if (envelopeLevels[i] < 0.0) envelopeLevels[i] = 0.0;
         }
 
-        const musicTarget = nightTarget + (dayTarget - nightTarget) * (envelopeLevels[i] * sustainLevel);
-        const targetPose = Math.max(baseline, musicTarget);
+        const targetPose = baseline + (envelopePeak - baseline) * envelopeLevels[i];
         currentPoses[i] += (targetPose - currentPoses[i]) * lerpK;
     }
 }

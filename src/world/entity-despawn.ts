@@ -184,16 +184,10 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
         flowerBatcher.removeInstance(obj);
     } else if (evictionClass === 'tree') {
         treeBatcher.removeInstance(obj);
-        // A bubble willow planted by the Gem Canopy decorator (attachGemFruits)
-        // owns GemFruitBatcher instances in userData.gemRefs; free them with
-        // the tree or they outlive it as floating gems. No-op without refs.
-        gemFruitBatcher.removeInstance(obj);
     } else if (evictionClass === 'arpeggioFern') {
         arpeggioFernBatcher.removeInstance(obj);
     } else if (evictionClass === 'portamentoPine') {
         portamentoPineBatcher.removeInstance(obj);
-        // Same for gem-bearing portamento pines (attachGemFruits).
-        gemFruitBatcher.removeInstance(obj);
     } else if (evictionClass === 'gemFruit') {
         gemFruitBatcher.removeInstance(obj);
         // Also remove the underlying tree

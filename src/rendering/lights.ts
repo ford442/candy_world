@@ -556,7 +556,7 @@ export function createPointLight(options: PointLightOptions = {}): LocalLightHan
     slot.id = id;
     slot.role = options.role ?? 'authored';
     slot.authoredIntensity = light.intensity;
-    slot.castsShadow = applyLocalShadow(light, options.castShadow === true, options.shadowSoftness);
+    slot.castsShadow = applyLocalShadow(light, options.castShadow === true);
     if (_analyticMuted && !slot.castsShadow) light.intensity = 0;
     attachHelper(slot);
     publishBreadcrumb();
@@ -609,7 +609,7 @@ export function createSpotLight(options: SpotLightOptions = {}): LocalLightHandl
     slot.id = id;
     slot.role = options.role ?? 'authored';
     slot.authoredIntensity = light.intensity;
-    slot.castsShadow = applyLocalShadow(light, options.castShadow === true, options.shadowSoftness);
+    slot.castsShadow = applyLocalShadow(light, options.castShadow === true);
     if (_analyticMuted && !slot.castsShadow) light.intensity = 0;
     attachHelper(slot);
     publishBreadcrumb();
