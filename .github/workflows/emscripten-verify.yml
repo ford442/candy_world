@@ -20,14 +20,15 @@ on:
             - 'scripts/check-emcc-manifest.mjs'
             - '.github/workflows/emscripten-verify.yml'
             - 'package.json'
+            - '.emsdk-version'
     schedule:
         # Nightly sanity on main (UTC)
         - cron: '17 6 * * *'
     workflow_dispatch:
 
 env:
-    EM_VERSION: '4.0.10'
     CANDY_DEBUG: '0'
+    CANDY_STRICT_EMSDK: '1'
     FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -37,6 +38,9 @@ jobs:
         # under the same push block — tags always run. Scheduled + dispatch always run.
         steps:
             - uses: actions/checkout@v4
+
+            - name: Read pinned emsdk version
+              run: echo "EM_VERSION=$(tr -d '[:space:]' < .emsdk-version)" >> "$GITHUB_ENV"
 
             - name: Setup emsdk
               uses: emscripten-core/setup-emsdk@v16
@@ -82,6 +86,12 @@ jobs:
 
             - name: Native physics assist-only ABI (#1822)
               run: pnpm run test:character-native
+
+            # Batch ground paths through the production bridges, C++ ↔ AS ↔ JS.
+            - name: Native batch parity
+              run: pnpm run test:native-batch-parity
+              env:
+                  CANDY_PARITY_REQUIRE_CPP: '1'
 
             - name: Fail if exports.txt drifted from the committed manifest
               run: |

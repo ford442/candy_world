@@ -1,4 +1,4 @@
-import { POSITION_OFFSET, ANIMATION_OFFSET, MATERIAL_DATA_OFFSET } from "./constants";
+import { POSITION_OFFSET, ANIMATION_OFFSET, MATERIAL_DATA_OFFSET, OUTPUT_OFFSET } from "./constants";
 import { getGroundHeight, lerp, hslToRgb, distSq3D } from "./math";
 
 // Constants for batch operations
@@ -195,7 +195,6 @@ export function batchMushroomSpawnCandidates(
 
     // Limits
     const MAX_CANDIDATES = 64;
-    const OUTPUT_OFFSET = 8192; // Assuming standard output offset
 
     // Iterate a fixed number of attempts or based on something?
     // Original loop was objectCount based to try spawning near existing objects?

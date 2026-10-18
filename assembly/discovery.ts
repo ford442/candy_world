@@ -18,6 +18,12 @@ import {
     GRID_ORIGIN_Z,
     MAX_DISCOVERY_OBJECTS
 } from "./constants";
+import {
+    DISCOVERY_STRIDE,
+    DISCOVERY_BUFFER_OFFSET,
+    DISCOVERY_GRID_HEADS_OFFSET,
+    DISCOVERY_GRID_NEXT_OFFSET
+} from "./memory_layout";
 
 // =============================================================================
 // DISCOVERY SYSTEM CONFIGURATION
@@ -28,8 +34,7 @@ import {
 /** Discovery check radius squared (5 meters default) */
 export const DISCOVERY_RADIUS_SQ: f32 = 25.0; // 5 * 5
 
-/** Memory layout: 8 floats per discovery object (32 bytes) */
-const DISCOVERY_STRIDE: i32 = 8;
+// Memory layout: DISCOVERY_STRIDE (8) floats per discovery object (32 bytes)
 
 /** Memory offsets (in floats) */
 const OFF_POS_X: i32 = 0;
@@ -49,18 +54,9 @@ const FLAG_DISCOVERABLE: i32 = 2;
 // MEMORY LAYOUT
 // =============================================================================
 
-// Memory layout (relative to WASM linear memory start):
-//   constants.ts static layout ends at ~166944 (DYNAMIC_RADII_OFFSET + MAX_DYNAMIC_PLANTS*4)
-//   Discovery buffer: 167168 + 3000*32 = 263168
-//   Discovery grid heads: 263168 + 16*16*4 = 264192
-//   Discovery grid next: 264192 + 3000*4 = 276192  →  ceil(276192/65536) = 5 pages required
-
-/** Discovery data buffer offset — starts right after the static constants.ts layout */
-const DISCOVERY_BUFFER_OFFSET: i32 = 167168; // ~163KB, aligned to 256-byte boundary
-
-/** Spatial grid for discovery objects (maps grid cell -> object indices) */
-const DISCOVERY_GRID_HEADS_OFFSET: i32 = 263168; // after discovery buffer
-const DISCOVERY_GRID_NEXT_OFFSET: i32 = 264192; // after grid heads (16*16*4 = 1024 bytes)
+// Buffer and spatial-grid regions come from the generated layout table
+// (scripts/memory-layout.mjs): DISCOVERY_BUFFER_OFFSET, DISCOVERY_GRID_HEADS_OFFSET,
+// DISCOVERY_GRID_NEXT_OFFSET.
 
 // =============================================================================
 // SPATIAL GRID FUNCTIONS

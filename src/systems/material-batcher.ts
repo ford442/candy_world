@@ -26,6 +26,13 @@ import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { log } from '../utils/log.ts';
 import { getWasmInstance } from '../utils/wasm-loader.ts';
+import {
+    MAX_MATERIALS,
+    MATERIAL_STRIDE,
+    MATERIAL_RESULT_STRIDE as RESULT_STRIDE,
+    MATERIAL_BUFFER_OFFSET,
+    MATERIAL_RESULT_OFFSET as RESULT_BUFFER_OFFSET,
+} from '../utils/native-memory-layout.ts';
 
 /** Material fields the batcher reads/writes; not every THREE.Material has them. */
 type ColoredMaterial = THREE.Material & {
@@ -60,10 +67,8 @@ interface MaterialEntry {
     baseColor: THREE.Color;
 }
 
-// Configuration
-const MAX_MATERIALS = 2000;
-const MATERIAL_STRIDE = 12; // floats per material
-const RESULT_STRIDE = 4; // r, g, b, emissiveIntensity
+// MAX_MATERIALS, strides and the WASM buffer offsets come from the generated
+// layout table (scripts/memory-layout.mjs). RESULT_STRIDE: r, g, b, emissive.
 
 // Memory layout (must match AssemblyScript)
 const OFF_CURRENT_R = 0;
@@ -72,10 +77,6 @@ const OFF_CURRENT_B = 2;
 // 3-5 base rgb, 6-8 flash rgb, 10 emissive intensity: written and read by WASM only
 const OFF_FLASH_INTENSITY = 9;
 const OFF_FLAGS = 11;
-
-// WASM memory offsets (must match AssemblyScript)
-const MATERIAL_BUFFER_OFFSET = 200000;
-const RESULT_BUFFER_OFFSET = 300000;
 
 // Flag bits
 const FLAG_BASIC = 1;
@@ -104,7 +105,6 @@ export class MaterialBatcher {
     
     // Result buffer (reused)
     private resultBuffer = new Float32Array(RESULT_STRIDE);
-    private resultPtr = 0;
     
     // Stats
     private activeMaterials = 0;
@@ -142,13 +142,6 @@ export class MaterialBatcher {
         if (!this.wasmBatchFlash) {
             log.info('MaterialBatcher', 'WASM batch function not available, using JS fallback');
             return false;
-        }
-        
-        // Allocate result buffer in WASM memory
-        const memory = exports.memory;
-        if (memory) {
-            // Use a small buffer at a fixed offset after the result buffer
-            this.resultPtr = 400000; // 400KB
         }
         
         this.initialized = true;

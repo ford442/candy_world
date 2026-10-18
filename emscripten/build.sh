@@ -98,14 +98,26 @@ if ! command -v em++ >/dev/null 2>&1; then
     # Remove stale artifacts to prevent loading outdated WASM
     echo "[INFO] Removing stale WASM artifacts..."
     rm -f "$REPO_ROOT/public/candy_native.js" \
-          "$REPO_ROOT/public/candy_native.wasm" \
-          "$REPO_ROOT/public/candy_native.worker.js"
+          "$REPO_ROOT/public/candy_native.wasm"
     
     echo "[OK] Build skipped. JS fallback mode enabled."
     exit 0
 fi
 
 echo "[INFO] Found em++ at: $(which em++)"
+
+# The emsdk version is pinned in .emsdk-version (CI and release builds install
+# exactly that). A different local version builds, but is not what ships;
+# CANDY_STRICT_EMSDK=1 turns the warning into a failure.
+PINNED_EMSDK="$(tr -d '[:space:]' < "$REPO_ROOT/.emsdk-version" 2>/dev/null)"
+ACTUAL_EMSDK="$(em++ --version 2>/dev/null | head -n1 | sed -E 's/.* ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
+if [ -n "$PINNED_EMSDK" ] && [ "$PINNED_EMSDK" != "$ACTUAL_EMSDK" ]; then
+    echo "[WARN] em++ is $ACTUAL_EMSDK but .emsdk-version pins $PINNED_EMSDK"
+    echo "       Install the pinned SDK: ./emsdk install $PINNED_EMSDK && ./emsdk activate $PINNED_EMSDK"
+    if [ "$CANDY_STRICT_EMSDK" = "1" ]; then
+        exit 1
+    fi
+fi
 
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 OUTPUT_WASM="$REPO_ROOT/public/candy_native.wasm"
@@ -198,17 +210,6 @@ declare -A ANIMATION_FUNCTIONS=(
     ["fastCos"]="math"
     ["fastPow2"]="math"
     
-    # Math SIMD/OpenMP functions (math.cpp)
-    ["valueNoise2D_simd4"]="math"
-    ["fbm2D_simd4"]="math"
-    ["batchGroundHeight_simd"]="math"
-    ["batchValueNoise_omp"]="math"
-    ["batchFbm_omp"]="math"
-    ["batchDistSq3D_omp"]="math"
-    ["fastSin"]="math"
-    ["fastCos"]="math"
-    ["fastPow2"]="math"
-
     # Unified ground height (ground.cpp)
     ["clearGroundPlatforms"]="ground"
     ["addGroundPlatform"]="ground"
@@ -434,6 +435,10 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 # - fno-rtti: Disable RTTI to reduce code size
 # - pthread: Enable threading support for parallel operations
 # - fopenmp: Enable OpenMP for parallel batch operations
+# - flto: Link-time optimization across the translation units
+# - fno-exceptions: No C++ exceptions anywhere in emscripten/*.cpp
+# - CANDY_PTHREAD_POOL_SIZE: math.cpp caps the OpenMP team at the pool size,
+#   so `#pragma omp parallel` never waits on workers the pool never spawned
 #
 # NOTE: -ffast-math is intentionally NOT used. math.cpp's getGroundHeight()
 # NaN guard (std::isnan) depends on IEEE-compliant float semantics;
@@ -441,11 +446,20 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 # isnan() to a constant `false`. tests/parity.mjs also asserts TS/AS/C++
 # numeric agreement to |Δ| <= 1e-5, which -ffast-math's reassociation can
 # violate in a compiler-version-dependent way.
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
+PTHREAD_POOL_SIZE=4
+COMPILE_FLAGS="-O2 -flto -fno-exceptions -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops -fopenmp -pthread -matomics -DCANDY_PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -I."
+
+# Runtime methods JS needs on Module. HEAP8/HEAPU8/HEAP32/HEAPF32 must be listed
+# or Module.HEAPF32 is undefined (and every `em.HEAPF32.set(...)` throws);
+# Emscripten refreshes these views itself after memory growth.
+RUNTIME_METHODS='["ccall","cwrap","wasmMemory","HEAP8","HEAPU8","HEAP32","HEAPF32"]'
 
 # Linker flags
-# - USE_PTHREADS=1: Enable pthread support (requires SharedArrayBuffer)
-# - PTHREAD_POOL_SIZE=4: Pre-spawn 4 worker threads
+# - pthread: Enable pthread support (requires SharedArrayBuffer); replaces the
+#   deprecated -s USE_PTHREADS=1. emsdk >= 3.1.58 emits no .worker.js file.
+# - PTHREAD_POOL_SIZE: Pre-spawn worker threads (also the OpenMP team size)
+# - STACK_SIZE: replaces the deprecated TOTAL_STACK
+# - no -lembind: nothing uses EMSCRIPTEN_BINDINGS
 # - ALLOW_MEMORY_GROWTH=1: Allow dynamic memory allocation
 # - MODULARIZE=1: Generate ES6 module for clean importing
 # - EXPORT_ES6=1: Use ES6 export syntax
@@ -454,7 +468,7 @@ COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops -fopenmp -p
 # - MINIFY_WASM_IMPORTS_AND_EXPORTS / MINIFY_WASM_EXPORT_NAMES are *internal*
 #   Emscripten settings (src/settings_internal.js). Passing either with -s makes
 #   emcc exit with "is an internal setting and cannot be set from command line"
-#   (verified against EM_VERSION 4.0.10, pinned in emscripten-verify.yml).
+#   (verified against emsdk 4.0.10, pinned in .emsdk-version).
 # - At -O2 with ASSERTIONS=0, emcc minifies wasm import/export names and the
 #   generated candy_native*.js glue maps them back, so Module._<name> keeps the
 #   C name. wasm-loader-core.ts / wasm-orchestrator.ts only go through the glue,
@@ -474,9 +488,9 @@ else
     echo "[INFO] Assertions DISABLED for production"
 fi
 
-LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
--s EXPORTED_RUNTIME_METHODS=["ccall","cwrap","wasmMemory"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
+LINK_FLAGS="-O2 -flto -std=c++17 -s PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -s WASM=1 -s WASM_BIGINT=0 \
+-s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+-s EXPORTED_RUNTIME_METHODS=$RUNTIME_METHODS -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web,worker -s SHARED_MEMORY=1 \
 -matomics -fopenmp -msimd128 -mrelaxed-simd -pthread -L$SCRIPT_DIR/vendor -lomp"
 
@@ -489,7 +503,7 @@ echo "[INFO] Compiling C++ to WebAssembly..."
 echo "[INFO] Output: $OUTPUT_JS"
 
 # Clean old files
-rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "$REPO_ROOT/public/candy_native.worker.js" "penmp" "penmp.wasm" 2>/dev/null || true
+rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "penmp" "penmp.wasm" 2>/dev/null || true
 
 # Compile with error handling
 BUILD_SUCCESS=0
@@ -514,7 +528,6 @@ if [ $BUILD_SUCCESS -eq 1 ] && [ -f "$OUTPUT_WASM" ]; then
     echo "Generated files:"
     echo "  - public/candy_native.js"
     echo "  - public/candy_native.wasm"
-    echo "  - public/candy_native.worker.js"
     
     # Get file sizes
     if [ -f "$OUTPUT_WASM" ]; then
@@ -556,7 +569,7 @@ else
     echo ""
     
     # Clean up partial artifacts
-    rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "$REPO_ROOT/public/candy_native.worker.js" 2>/dev/null || true
+    rm -f "$OUTPUT_JS" "$OUTPUT_WASM" 2>/dev/null || true
     
     # Don't fail the overall build - JS fallbacks will work
     # But we won't try to build the ST version if the compiler failed completely
@@ -574,12 +587,12 @@ OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
 
 # Compiler flags for ST (remove pthread, atomics, etc)
 # NOTE: -ffast-math intentionally omitted; see COMPILE_FLAGS comment above.
-COMPILE_FLAGS_ST="-O2 -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops"
+COMPILE_FLAGS_ST="-O2 -flto -fno-exceptions -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops"
 
 # Linker flags for ST (remove pthread, shared memory)
-LINK_FLAGS_ST="-O2 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
--s EXPORTED_RUNTIME_METHODS=["ccall","cwrap","wasmMemory"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
+LINK_FLAGS_ST="-O2 -flto -std=c++17 -s WASM=1 -s WASM_BIGINT=0 \
+-s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+-s EXPORTED_RUNTIME_METHODS=$RUNTIME_METHODS -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web \
 -msimd128 -mrelaxed-simd"
 

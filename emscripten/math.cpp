@@ -4,6 +4,16 @@
 #include <wasm_simd128.h>
 #include "omp.h"
 
+#if defined(_OPENMP) && defined(CANDY_PTHREAD_POOL_SIZE)
+// Cap the OpenMP team at the pre-spawned pthread pool (build.sh passes
+// PTHREAD_POOL_SIZE). Every `#pragma omp parallel` in emscripten/*.cpp would
+// otherwise ask for one thread per core and block waiting for workers the
+// pool never created.
+__attribute__((constructor)) static void candyConfigureOpenMP() {
+    omp_set_num_threads(CANDY_PTHREAD_POOL_SIZE);
+}
+#endif
+
 // Static helper functions do not need to be exported, so they can stay as C++
 static float lerp(float a, float b, float t) {
     return a + (b - a) * t;
@@ -13,50 +23,40 @@ static float smoothstep(float t) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-// SIMD helper: approximate sin using Taylor series (valid for [-pi, pi])
-// sin(x) ≈ x - x^3/6 + x^5/120 - x^7/5040
+// SIMD helper: sin(x) for any finite x, |error| < 4e-6.
+// Reduce to [-pi, pi], fold into [-pi/2, pi/2] with sin(pi - x) = sin(x), then
+// a degree-9 Taylor polynomial. (The previous degree-5 series over the whole
+// [-pi, pi] range was off by ~0.6 near +/-pi, which put batchGroundHeight_simd
+// more than a unit away from getGroundHeight; tests/native-batch-parity.)
 static inline v128_t simd_f32x4_sin(v128_t x) {
-    // Reduce to [-pi, pi] range
-    v128_t two_pi = wasm_f32x4_splat(6.28318530718f);
-    v128_t inv_two_pi = wasm_f32x4_splat(0.15915494309f);
-    
-    // x = x - round(x * inv_2pi) * 2pi
+    const v128_t two_pi = wasm_f32x4_splat(6.28318530718f);
+    const v128_t inv_two_pi = wasm_f32x4_splat(0.15915494309f);
+    const v128_t pi = wasm_f32x4_splat(3.14159265359f);
+    const v128_t half_pi = wasm_f32x4_splat(1.57079632679f);
+
+    // x = x - round(x * inv_2pi) * 2pi  ->  [-pi, pi]
     v128_t k = wasm_f32x4_nearest(wasm_f32x4_mul(x, inv_two_pi));
     x = wasm_f32x4_sub(x, wasm_f32x4_mul(k, two_pi));
-    
-    // Taylor series: x - x^3/6 + x^5/120
+
+    // Fold into [-pi/2, pi/2]
+    v128_t above = wasm_f32x4_gt(x, half_pi);
+    x = wasm_v128_bitselect(wasm_f32x4_sub(pi, x), x, above);
+    v128_t below = wasm_f32x4_lt(x, wasm_f32x4_neg(half_pi));
+    x = wasm_v128_bitselect(wasm_f32x4_sub(wasm_f32x4_neg(pi), x), x, below);
+
+    // x * (1 - x^2/(2*3) * (1 - x^2/(4*5) * (1 - x^2/(6*7) * (1 - x^2/(8*9)))))
     v128_t x2 = wasm_f32x4_mul(x, x);
-    v128_t x3 = wasm_f32x4_mul(x2, x);
-    v128_t x5 = wasm_f32x4_mul(x3, x2);
-    
-    v128_t term1 = x;
-    v128_t term2 = wasm_f32x4_mul(x3, wasm_f32x4_splat(1.0f / 6.0f));
-    v128_t term3 = wasm_f32x4_mul(x5, wasm_f32x4_splat(1.0f / 120.0f));
-    
-    return wasm_f32x4_sub(wasm_f32x4_add(term1, term3), term2);
+    const v128_t one = wasm_f32x4_splat(1.0f);
+    v128_t p = wasm_f32x4_sub(one, wasm_f32x4_mul(x2, wasm_f32x4_splat(1.0f / 72.0f)));
+    p = wasm_f32x4_sub(one, wasm_f32x4_mul(wasm_f32x4_mul(x2, wasm_f32x4_splat(1.0f / 42.0f)), p));
+    p = wasm_f32x4_sub(one, wasm_f32x4_mul(wasm_f32x4_mul(x2, wasm_f32x4_splat(1.0f / 20.0f)), p));
+    p = wasm_f32x4_sub(one, wasm_f32x4_mul(wasm_f32x4_mul(x2, wasm_f32x4_splat(1.0f / 6.0f)), p));
+    return wasm_f32x4_mul(x, p);
 }
 
-// SIMD helper: approximate cos using Taylor series
-// cos(x) ≈ 1 - x^2/2 + x^4/24 - x^6/720
+// SIMD helper: cos(x) = sin(x + pi/2), same accuracy as simd_f32x4_sin.
 static inline v128_t simd_f32x4_cos(v128_t x) {
-    // Reduce to [-pi, pi] range
-    v128_t two_pi = wasm_f32x4_splat(6.28318530718f);
-    v128_t inv_two_pi = wasm_f32x4_splat(0.15915494309f);
-    
-    v128_t k = wasm_f32x4_nearest(wasm_f32x4_mul(x, inv_two_pi));
-    x = wasm_f32x4_sub(x, wasm_f32x4_mul(k, two_pi));
-    
-    // Taylor series: 1 - x^2/2 + x^4/24 - x^6/720
-    v128_t x2 = wasm_f32x4_mul(x, x);
-    v128_t x4 = wasm_f32x4_mul(x2, x2);
-    v128_t x6 = wasm_f32x4_mul(x4, x2);
-    
-    v128_t term1 = wasm_f32x4_splat(1.0f);
-    v128_t term2 = wasm_f32x4_mul(x2, wasm_f32x4_splat(0.5f));
-    v128_t term3 = wasm_f32x4_mul(x4, wasm_f32x4_splat(1.0f / 24.0f));
-    v128_t term4 = wasm_f32x4_mul(x6, wasm_f32x4_splat(1.0f / 720.0f));
-    
-    return wasm_f32x4_add(wasm_f32x4_sub(term1, term2), wasm_f32x4_sub(term3, term4));
+    return simd_f32x4_sin(wasm_f32x4_add(x, wasm_f32x4_splat(1.57079632679f)));
 }
 
 extern "C" {
