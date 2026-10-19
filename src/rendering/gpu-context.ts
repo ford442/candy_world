@@ -158,7 +158,7 @@ function describeLimitRequest(
     requested: Record<string, number>,
     granted: Record<string, number> | null
 ): Record<string, GpuLimitRequest> {
-    const supported = (adapter as (GPUAdapter & { limits?: GPUSupportedLimits }) | null)?.limits;
+    const supported = (adapter)?.limits;
     const out: Record<string, GpuLimitRequest> = {};
     for (const key of Object.keys(requested)) {
         const advertised = (supported as unknown as Record<string, unknown> | undefined)?.[key];
@@ -382,7 +382,8 @@ export interface GpuFeatureReport {
 
 /** `?debug=1` or `?graphics=high`. Never throws; a bad location means "do not request". */
 export function wantsTimestampQuery(): boolean {
-    if (typeof location === 'undefined') return false;
+    if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;
+    const location = window.location;
     try {
         const q = new URLSearchParams(location.search);
         if (q.get('debug') === '1' || q.has('debug')) return true;
@@ -603,7 +604,7 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
             adapter: adapterInfo,
             adapterName: describeAdapter(adapterInfo),
             isFallbackAdapter: Boolean(
-                (adapter as (GPUAdapter & { isFallbackAdapter?: boolean }) | null)?.isFallbackAdapter
+                (adapter as GPUAdapter & { isFallbackAdapter?: boolean })?.isFallbackAdapter
             ),
             limits: device ? snapshotLimits(device.limits) : null,
             powerPreference: GPU_POWER_PREFERENCE,
@@ -667,7 +668,7 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
     // 4 — canvas context
     let ctx: GPUCanvasContext | null = null;
     try {
-        ctx = canvas.getContext('webgpu') as GPUCanvasContext | null;
+        ctx = canvas.getContext('webgpu');
     } catch (err) {
         return fail('canvas', `canvas.getContext('webgpu') threw: ${describeError(err)}`, err);
     }

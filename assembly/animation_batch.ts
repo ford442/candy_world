@@ -65,10 +65,6 @@ const ENTRY_STRIDE: i32 = 6;
 // Results are 4 floats per object: posY, rotX, rotY, rotZ
 const RESULT_STRIDE: i32 = 4;
 
-// Memory layout offsets (must match foliage-batcher.ts)
-const INPUT_OFFSET: i32 = 65536;    // Start at 64KB
-const RESULT_OFFSET: i32 = 155536;  // After 4000 * 24 bytes of input
-
 // =============================================================================
 // BATCH PROCESSING FUNCTIONS
 // =============================================================================

@@ -370,10 +370,10 @@ export interface WasmExports {
     stepRigidBodies?: (dt: number, nowMs: number) => number;
     checkPositionValidity?: (x: number, z: number, radius: number) => number;
     addCollisionObjectsBatch?: (ptr: number, count: number) => void;
+    /** Unmanaged TLSF allocation (assembly/allocator.ts); never use __new as malloc */
     malloc?: (size: number) => number;
-    __new?: (size: number) => number;
     free?: (ptr: number) => void;
-    __free?: (ptr: number) => void;
+    getHeapBase?: () => number;
     batchDistanceCull?: (
         cameraX: number,
         cameraY: number,

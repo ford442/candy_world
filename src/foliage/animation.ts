@@ -3,15 +3,14 @@
 import * as THREE from 'three';
 import { isGpuFoliageDefaultPath } from '../compute/gpu-foliage-flag.ts';
 import { CONFIG } from '../core/config.ts';
+import { asAllocF32, type NativeF32 } from '../utils/native-memory.ts';
 import {
     freqToHue,
     isWasmReady,
-    wasmMemory,
     wasmSmoothWobble,
     wasmBatchGrowth,
     wasmBatchBloom,
     wasmBatchScaleAnimation,
-    OUTPUT_OFFSET,
 } from '../utils/wasm-loader.ts';
 import { foliageBatcher } from './batcher/index.ts';
 import { reactiveMaterials, _foliageReactiveColor } from './foliage-reactivity.ts';
@@ -20,30 +19,39 @@ import { median } from './material-core.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 
 // WASM memory views for batch operations
-let foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
+const foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
 let _dayResetMatCount = 0;
-
-/** Clear materials to fade back on level unload */
-export function clearFoliageAnimationState(): void {
-    foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
-    _dayResetMatCount = 0;
-}
 let growthDataView: Float32Array | null = null;
 let bloomDataView: Float32Array | null = null;
 let scaleAnimDataView: Float32Array | null = null;
 let wobbleBufferView: Float32Array | null = null;
 
-/**
- * Initialize WASM memory views for batch operations
- */
-function initWasmViews(): void {
-    if (!wasmMemory) return;
-    const buffer = wasmMemory.buffer;
-    // Allocate views at OUTPUT_OFFSET for batch operations
-    growthDataView = new Float32Array(buffer, OUTPUT_OFFSET, 1024);
-    bloomDataView = new Float32Array(buffer, OUTPUT_OFFSET + 4096, 1024);
-    scaleAnimDataView = new Float32Array(buffer, OUTPUT_OFFSET + 8192, 1024);
-    wobbleBufferView = new Float32Array(buffer, OUTPUT_OFFSET + 12288, 256);
+// One scratch block in AS memory for the batch helpers below, malloc'd on first
+// use. Views are re-derived on every access because AS memory can grow (and
+// detach the old buffer) during any native call.
+const SCRATCH_GROWTH = 0; // 1024 floats
+const SCRATCH_BLOOM = 1024; // 1024 floats
+const SCRATCH_SCALE = 2048; // 1024 floats
+const SCRATCH_WOBBLE = 3072; // 256 floats
+const SCRATCH_FLOATS = 3328;
+let wasmScratch: NativeF32 | null = null;
+let wasmScratchFailed = false;
+
+function scratchBlock(): NativeF32 | null {
+    if (!wasmScratch && !wasmScratchFailed && isWasmReady()) {
+        wasmScratch = asAllocF32(SCRATCH_FLOATS);
+        wasmScratchFailed = !wasmScratch;
+    }
+    return wasmScratch;
+}
+
+function scratchView(offset: number, length: number): Float32Array | null {
+    const block = scratchBlock();
+    return block ? block.view.subarray(offset, offset + length) : null;
+}
+
+function scratchPtr(offset: number): number {
+    return scratchBlock()!.ptr + offset * 4;
 }
 
 export * from './types.ts';
@@ -54,10 +62,7 @@ const _scratchWhite = new THREE.Color(0xffffff);
 const _scratchDarkColor = new THREE.Color(); // For applyWetEffect
 
 export function triggerGrowth(plants: FoliageObject[], intensity: number): void {
-    // Initialize WASM views on first use
-    if (isWasmReady() && !growthDataView) {
-        initWasmViews();
-    }
+    growthDataView = scratchView(SCRATCH_GROWTH, 1024);
 
     // Use WASM batch processing if available and we have enough plants
     if (isWasmReady() && wasmBatchGrowth && growthDataView && plants.length >= 4) {
@@ -91,7 +96,8 @@ export function triggerGrowth(plants: FoliageObject[], intensity: number): void 
         }
 
         // Call WASM batch function
-        wasmBatchGrowth(OUTPUT_OFFSET, batchSize);
+        wasmBatchGrowth(scratchPtr(SCRATCH_GROWTH), batchSize);
+        growthDataView = scratchView(SCRATCH_GROWTH, 1024);
 
         // Apply results
         dataIdx = 0;
@@ -152,10 +158,7 @@ function processGrowthJS(plant: FoliageObject, intensity: number): void {
 }
 
 export function triggerBloom(flowers: FoliageObject[], intensity: number): void {
-    // Initialize WASM views on first use
-    if (isWasmReady() && !bloomDataView) {
-        initWasmViews();
-    }
+    bloomDataView = scratchView(SCRATCH_BLOOM, 1024);
 
     // Filter flowers first
     const flowerList: FoliageObject[] = [];
@@ -189,7 +192,8 @@ export function triggerBloom(flowers: FoliageObject[], intensity: number): void 
         }
 
         // Call WASM batch function
-        wasmBatchBloom(OUTPUT_OFFSET + 4096, batchSize);
+        wasmBatchBloom(scratchPtr(SCRATCH_BLOOM), batchSize);
+        bloomDataView = scratchView(SCRATCH_BLOOM, 1024);
 
         // Apply results
         dataIdx = 0;
@@ -293,6 +297,7 @@ export function updateFoliageMaterials(
 
     // ⚡ OPTIMIZATION: Single O(N) loop over reactiveMaterials combining audio and weather reactivity
     const mats = reactiveMaterials as unknown as FoliageMaterial[];
+
     if (!isNight && !hasChannels && globalWetAmount === 0 && _dayResetMatCount === 0) {
         return;
     }
@@ -307,10 +312,8 @@ export function updateFoliageMaterials(
 
         // 1. Audio Reactivity (Night/Day)
         if (isNight && hasChannels) {
-            if (!foliageNeedsFadeBack.has(mat as FoliageMaterial)) {
-                foliageNeedsFadeBack.add(mat as FoliageMaterial);
-                _dayResetMatCount++;
-            }
+            if (!foliageNeedsFadeBack.has(mat as FoliageMaterial)) _dayResetMatCount++;
+            foliageNeedsFadeBack.add(mat as FoliageMaterial);
             const chIndex = (i % 4) + 1;
             const ch = channels[Math.min(chIndex, channels.length - 1)];
 
@@ -336,10 +339,8 @@ export function updateFoliageMaterials(
                 mat.emissive.setHex(0x000000);
                 mat.emissiveIntensity = 0;
             }
-            if (foliageNeedsFadeBack.has(mat as FoliageMaterial)) {
-                foliageNeedsFadeBack.delete(mat as FoliageMaterial);
+            foliageNeedsFadeBack.delete(mat as FoliageMaterial);
                 _dayResetMatCount--;
-            }
         }
 
         // 2. Weather Reactivity (Wet Effect)
@@ -532,10 +533,7 @@ export function animateFoliage(
         const duration = foliageObject.userData.scaleAnimTime || 0.08;
         const t = Math.min(1.0, elapsed / (duration * 1000));
 
-        // Initialize WASM views on first use
-        if (isWasmReady() && !scaleAnimDataView) {
-            initWasmViews();
-        }
+        scaleAnimDataView = scratchView(SCRATCH_SCALE, 1024);
 
         if (isWasmReady() && wasmBatchScaleAnimation && scaleAnimDataView && t < 1.0) {
             // Use WASM for scale animation calculation
@@ -550,7 +548,8 @@ export function animateFoliage(
             scaleAnimDataView[4] = lerpFactor;
 
             // Call WASM function
-            wasmBatchScaleAnimation(OUTPUT_OFFSET + 8192, 1);
+            wasmBatchScaleAnimation(scratchPtr(SCRATCH_SCALE), 1);
+            scaleAnimDataView = scratchView(SCRATCH_SCALE, 1024)!;
 
             // Apply results
             foliageObject.scale.x = scaleAnimDataView[5];
@@ -584,10 +583,7 @@ export function animateFoliage(
     if (foliageObject.userData.type === 'mushroom') {
         const buf = foliageObject.userData.noteBuffer || [];
 
-        // Initialize WASM views on first use
-        if (isWasmReady() && !wobbleBufferView) {
-            initWasmViews();
-        }
+        wobbleBufferView = scratchView(SCRATCH_WOBBLE, 256);
 
         // Use WASM if available and buffer has data
         if (isWasmReady() && wasmSmoothWobble && wobbleBufferView && buf.length > 0) {
@@ -602,7 +598,7 @@ export function animateFoliage(
 
             // Call WASM smoothWobble function
             const newWobble = wasmSmoothWobble(
-                OUTPUT_OFFSET + 12288, // wobbleBuffer location
+                scratchPtr(SCRATCH_WOBBLE), // wobbleBuffer location
                 bufferSize,
                 currentWobble,
                 cfg.scale || 1.0,

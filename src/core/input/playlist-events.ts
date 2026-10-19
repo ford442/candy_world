@@ -21,6 +21,9 @@ export function handlePlaylistUpload(e: Event): void {
     if (files && files.length > 0) {
         const browseBtn = state.playlistList?.querySelector('.jukebox-browse-btn') as HTMLElement | null;
 
+        const originalAddSongsHtml = state.addSongsBtn ? state.addSongsBtn.innerHTML : '';
+        const originalBrowseHtml = browseBtn ? browseBtn.innerHTML : '';
+
         const setBusy = (btn: HTMLElement | null) => {
             if (btn) {
                 btn.setAttribute('aria-busy', 'true');
@@ -39,7 +42,7 @@ export function handlePlaylistUpload(e: Event): void {
             }
         };
 
-        const restoreBusy = (btn: HTMLElement | null) => {
+        const restoreBusy = (btn: HTMLElement | null, originalHtml: string) => {
             if (btn) {
                 btn.removeAttribute('aria-busy');
                 btn.removeAttribute('aria-disabled');
@@ -82,8 +85,8 @@ export function handlePlaylistUpload(e: Event): void {
                 announce('Failed to add songs, invalid format.', 'polite');
             }
 
-            restoreBusy(state.addSongsBtn);
-            restoreBusy(browseBtn);
+            restoreBusy(state.addSongsBtn, originalAddSongsHtml);
+            restoreBusy(browseBtn, originalBrowseHtml);
             target.value = '';
         }, 500);
     } else {
@@ -204,6 +207,7 @@ export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
             const target = event.target as HTMLInputElement;
             const files = target.files;
             if (files && files.length > 0) {
+                const originalHtml = musicUploadBtn ? musicUploadBtn.innerHTML : '';
                 if (musicUploadBtn) {
                     musicUploadBtn.setAttribute('aria-busy', 'true');
                     musicUploadBtn.setAttribute('aria-disabled', 'true');

@@ -22,12 +22,14 @@ import {
     animationView,
     outputView,
     wasmBatchMushroomSpawnCandidates,
+    refreshWasmViews,
     OUTPUT_OFFSET,
     type WasmExports,
     type Mushroom,
     type AnimationData,
     type PositionData
 } from './wasm-loader-core.ts';
+import { MATERIAL_DATA_OFFSET, MAX_POSITION_OBJECTS } from './native-memory-layout.ts';
 
 
 // =============================================================================
@@ -35,13 +37,14 @@ import {
 // =============================================================================
 
 /** Max objects the AssemblyScript position buffer can hold (4096 bytes / 16). */
-export const WASM_POSITION_OBJECT_CAPACITY = 256;
+export const WASM_POSITION_OBJECT_CAPACITY = MAX_POSITION_OBJECTS;
 
 /**
  * Upload positions to WASM
  * @param objects - Array of position data
  */
 export function uploadPositions(objects: PositionData[]): void {
+    refreshWasmViews();
     if (!positionView) return;
     const count = Math.min(objects.length, 256);
     for (let i = 0; i < count; i++) {
@@ -60,6 +63,7 @@ export function uploadPositions(objects: PositionData[]): void {
  * @param count - Number of items
  */
 export function uploadPositionsFlat(buf: Float32Array, count: number): void {
+    refreshWasmViews();
     if (!positionView) return;
     const capacity = Math.floor(positionView.length / 4);
     const limit = Math.min(count, capacity, WASM_POSITION_OBJECT_CAPACITY);
@@ -72,6 +76,7 @@ export function uploadPositionsFlat(buf: Float32Array, count: number): void {
  * @param mushrooms - Array of mushroom objects
  */
 export function uploadMushroomSpecs(mushrooms: Mushroom[]): void {
+    refreshWasmViews();
     if (!positionView || !animationView) return;
     const count = Math.min(mushrooms.length, 256);
     for (let i = 0; i < count; i++) {
@@ -94,6 +99,7 @@ export function uploadMushroomSpecs(mushrooms: Mushroom[]): void {
  * @param objectCount - Number of objects
  */
 export function copySharedPositions(sharedView: Float32Array, objectCount: number): void {
+    refreshWasmViews();
     if (!positionView) return;
     const maxCount = Math.min(objectCount, Math.floor(positionView.length / 4));
     for (let i = 0; i < maxCount * 4; i++) {
@@ -106,6 +112,7 @@ export function copySharedPositions(sharedView: Float32Array, objectCount: numbe
  * @param animData - Array of animation data
  */
 export function uploadAnimationData(animData: AnimationData[]): void {
+    refreshWasmViews();
     if (!animationView) return;
     const count = Math.min(animData.length, 256);
     for (let i = 0; i < count; i++) {
@@ -134,6 +141,7 @@ export function uploadAnimationData(animData: AnimationData[]): void {
 export function batchDistanceCull(cameraX: number, cameraY: number, cameraZ: number, maxDistance: number, objectCount: number): DistanceCullResult {
     const maxDistSq = maxDistance * maxDistance;
     if (!wasmInstance) return { visibleCount: objectCount, flags: null };
+    refreshWasmViews();
     const wasmCapacity = positionView
         ? Math.min(Math.floor(positionView.length / 4), WASM_POSITION_OBJECT_CAPACITY)
         : WASM_POSITION_OBJECT_CAPACITY;
@@ -142,6 +150,7 @@ export function batchDistanceCull(cameraX: number, cameraY: number, cameraZ: num
 
     const exports = wasmInstance.exports as WasmExports;
     const visibleCount = exports.batchDistanceCull!(cameraX, cameraY, cameraZ, maxDistSq, cappedCount, OUTPUT_OFFSET);
+    refreshWasmViews();
 
     return { visibleCount, flags: outputView!.subarray(0, cappedCount) };
 }
@@ -184,6 +193,7 @@ export function batchMushroomSpawnCandidates(
  * @returns Array of spawn candidates
  */
 export function readSpawnCandidates(candidateCount: number): SpawnCandidate[] {
+    refreshWasmViews();
     if (!outputView) return [];
     const arr: SpawnCandidate[] = [];
     const maxCount = Math.min(candidateCount, 128);
@@ -229,7 +239,7 @@ export function analyzeMaterials(materials: MaterialInfo[]): MaterialAnalysisRes
     }
     
     const count = Math.min(materials.length, 256);
-    const MATERIAL_OFFSET = 12288;
+    const MATERIAL_OFFSET = MATERIAL_DATA_OFFSET;
     if (!wasmMemory) return { uniqueCount: 0, shaders: [] };
     
     const materialView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, count * 4);
