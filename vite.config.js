@@ -109,7 +109,10 @@ export default defineConfig({
                         !id.endsWith('/debug/stages.ts') &&
                         !id.endsWith('/debug/index.ts') &&
                         !id.endsWith('/debug/lazy.ts') &&
-                        !id.endsWith('/debug/tools-stub.ts')
+                        !id.endsWith('/debug/tools-stub.ts') &&
+                        // Awaited during runBootstrap(); the debug chunk loads after it.
+                        !id.endsWith('/debug/boot-registry.ts') &&
+                        !id.endsWith('/debug/progressive-bootstrap.ts')
                     ) {
                         return 'debug';
                     }

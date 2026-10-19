@@ -347,8 +347,9 @@ export async function populateProceduralExtras(
     deferredItems.sort((a, b) => a.distSq - b.distSq);
     const proceduralTaskToken = getWorldGenerationToken();
     for (const item of deferredItems) {
-        // ⚡ OPTIMIZATION: Bypassed Math.sqrt() in hot procedural sorting loop using distance decay estimation
-        const priority = Math.max(1, 60 - Math.floor(item.distSq / 16));
+        // Linear distance falloff (#1376): distSq/16 collapsed every extra beyond ~31u
+        // to priority 1. One sqrt per enqueue is negligible.
+        const priority = Math.max(1, 60 - Math.floor(Math.sqrt(item.distSq) / 4));
         globalBackgroundProcessor.enqueue({
             id: item.id,
             execute: () => {

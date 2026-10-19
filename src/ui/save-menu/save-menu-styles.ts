@@ -361,7 +361,6 @@ export const MENU_STYLES = `
 .candy-save-slot__btn[aria-disabled="true"] {
     cursor: not-allowed;
     transform: none;
-    pointer-events: none;
     filter: grayscale(100%) brightness(50%);
     transition: all 0.3s ease;
 }

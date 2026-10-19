@@ -63,6 +63,9 @@
         <span id="now-playing-text"></span>
     </div>
 
+    <!-- ♿ Aria: Persistent visually hidden status region for track changes -->
+    <div id="now-playing-status" class="visually-hidden" role="status" aria-atomic="true"></div>
+
     <div id="drag-overlay" aria-hidden="true">
         <div class="drag-content">
             <div class="drag-icon" aria-hidden="true">📂</div>
@@ -299,7 +302,7 @@
         <!-- Main Loading Screen Container -->
         <div id="candy-loading-screen" class="loading-screen theme-candy" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Initializing..." aria-label="Game loading progress" aria-live="polite" aria-atomic="true" style="display: none;" tabindex="-1">
             <div class="loading-content">
-                <h1 class="loading-title">🍭 Candy World <span class="loading-dots">...</span></h1>
+                <h1 class="loading-title" tabindex="-1">🍭 Candy World <span class="loading-dots">...</span></h1>
                 <div class="loading-spinner"></div>
                 <div class="progress-section" aria-hidden="true">
                     <div class="progress-bar">

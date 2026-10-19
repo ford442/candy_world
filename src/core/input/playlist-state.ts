@@ -22,6 +22,7 @@ const _state: PlaylistManagerState = {
     openJukeboxBtn: null,
     nowPlayingContainer: null,
     nowPlayingText: null,
+    nowPlayingStatusText: null,
 
     audioSystemRef: null,
     controlsRef: null,

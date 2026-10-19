@@ -950,3 +950,7 @@
         opacity: 0.7;
     }
 }
+
+.loading-title:focus:not(:focus-visible) {
+  outline: none;
+}

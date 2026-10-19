@@ -1,4 +1,4 @@
-import { StageLoader } from '../../debug/index.ts';
+import { runBootStage } from '../../debug/index.ts';
 import { fluidSystem } from '../../systems/fluid-system.ts';
 import { invalidateHeightCache } from '../../systems/ground-system.ts';
 import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
@@ -11,7 +11,7 @@ export async function runWasmPipeline(ctx: MainContext): Promise<void> {
     const { loadingScreen } = ctx;
 
     loadingScreen.startPhase('wasm-init');
-    await StageLoader.loadStage('wasm', async () => {
+    await runBootStage('wasm', async () => {
         try {
             const wasmOk = await initWasm();
             if (wasmOk) {

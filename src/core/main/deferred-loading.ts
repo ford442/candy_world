@@ -1,4 +1,4 @@
-import { StageLoader } from '../../debug/index.ts';
+import { runBootStage } from '../../debug/index.ts';
 import { DeferredLoader, LoadPriority } from '../../systems/deferred-loader.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { initDeferredWorldContent } from '../../world/generation.ts';
@@ -8,7 +8,7 @@ import { scene } from './exports.ts';
 
 export function scheduleDeferredLoading(ctx: MainContext): void {
     function startDeferredWorldLoading() {
-        StageLoader.loadStage('deferredWorld', async () => {
+        runBootStage('deferredWorld', async () => {
             const { loadParticles } = await import('../../particles/lazy.ts');
             await loadParticles();
             await initDeferredWorldContent(scene, ctx.weatherSystem!, (pct, label) => {
