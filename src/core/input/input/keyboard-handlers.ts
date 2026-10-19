@@ -1,3 +1,5 @@
+import { toggleBuildMode } from '../../../systems/build-mode.ts';
+import { sceneRef } from '../../game-loop-core.ts';
 import { discoverySystem } from '../../../systems/discovery.ts';
 import { getPhotoMode, isPhotoModeActive, togglePhotoMode } from '../../../systems/photo-mode/lazy.ts';
 import { trapFocusInside } from '../../../utils/focus-trap.ts';
@@ -277,6 +279,18 @@ export function createKeyboardHandlers(
             case 'Space':
                 if (isExploreActive()) break;
                 keyStates.jump = true;
+                break;
+            case 'KeyB':
+                if (event.repeat) return;
+                if (sceneRef) toggleBuildMode(sceneRef);
+                break;
+            case 'KeyB':
+                if (event.repeat) return;
+                if (sceneRef) toggleBuildMode(sceneRef);
+                break;
+            case 'KeyB':
+                if (event.repeat) return;
+                if (sceneRef) toggleBuildMode(sceneRef);
                 break;
             case 'KeyN':
                 if (event.repeat) return;
