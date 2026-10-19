@@ -1,4 +1,5 @@
 export * from './constants';
+export * from './allocator';
 export * from './math';
 export * from './memory';
 export * from './physics';

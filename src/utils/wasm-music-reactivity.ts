@@ -11,7 +11,8 @@
  *   absent               — default ON when WASM export is present
  */
 
-import { wasmInstance, getWasmMemory } from './wasm-loader-core.ts';
+import { asFree, asMalloc, asMemoryBuffer, hasAsAllocator } from './native-memory.ts';
+import { wasmInstance } from './wasm-loader-core.ts';
 import type { WasmExports } from './wasm-loader-core.ts';
 
 let _inPtr = 0;
@@ -140,32 +141,29 @@ export function accumulateArpeggioChannelsNative(
         return true;
     }
 
-    const wasmMalloc = exports.malloc || exports.__new;
-    const wasmFree = exports.free || exports.__free;
-
-    if (!wasmMalloc) return false;
+    // Unmanaged blocks (assembly/allocator.ts): the GC never frees them, so the
+    // pointers stay valid across frames until we free them here.
+    if (!hasAsAllocator()) return false;
 
     if (_capacity < totalCount) {
-        if (_inPtr && wasmFree) wasmFree(_inPtr);
-        if (_outPtr && wasmFree) wasmFree(_outPtr);
+        asFree(_inPtr);
+        asFree(_outPtr);
         const newCap = Math.max(totalCount, _capacity * 2 || 32);
 
-        _inPtr = wasmMalloc(newCap * 4);
-        _outPtr = wasmMalloc(2 * 4);
-        _capacity = newCap;
+        _inPtr = asMalloc(newCap * 4);
+        _outPtr = asMalloc(2 * 4);
+        _capacity = _inPtr && _outPtr ? newCap : 0;
     }
 
     if (!_inPtr || !_outPtr) return false;
 
-    const mem = getWasmMemory();
-    if (!mem) return false;
-
     // Fast copy
-    new Float32Array((mem as unknown as { buffer: ArrayBuffer }).buffer || mem, _inPtr, totalCount).set(volumes.subarray(0, totalCount));
+    new Float32Array(asMemoryBuffer()!, _inPtr, totalCount).set(volumes.subarray(0, totalCount));
 
     accumulateArpeggioChannels(_inPtr, shimmerCount, hueShiftCount, nightGate, intensityScale, _outPtr);
 
-    const outView = new Float32Array((mem as unknown as { buffer: ArrayBuffer }).buffer || mem, _outPtr, 2);
+    // Re-read the buffer: the call may have grown (and detached) memory.
+    const outView = new Float32Array(asMemoryBuffer()!, _outPtr, 2);
     outResult[0] = outView[0];
     outResult[1] = outView[1];
 

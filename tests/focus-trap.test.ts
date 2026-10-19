@@ -255,4 +255,48 @@ test('Hidden elements are excluded from focus cycle', () => {
 // Run
 // ============================================================================
 
+
+test('Escape key calls onEscape callback', () => {
+  const container = createMockElement('div');
+  const btn1 = createMockElement('button');
+  container.querySelectorAll = () => [btn1];
+
+  let escapeCalled = false;
+  const cleanup = trapFocusInside(container as any, { onEscape: () => { escapeCalled = true; } });
+
+  const event = {
+    type: 'keydown',
+    key: 'Escape',
+    keyCode: 27,
+    shiftKey: false,
+    defaultPrevented: false,
+    preventDefault() { this.defaultPrevented = true; },
+  } as unknown as KeyboardEvent;
+
+  container.dispatchEvent(event);
+
+  assertEqual(escapeCalled, true, 'Escape callback should be invoked');
+  assertEqual(event.defaultPrevented, true, 'Escape event should prevent default');
+  cleanup();
+});
+
+test('Cleanup restores focus to the previously active element', () => {
+  const container = createMockElement('div');
+  const btnInside = createMockElement('button');
+  container.querySelectorAll = () => [btnInside];
+
+  const externalBtn = createMockElement('button');
+  // Add a fake isConnected property so it passes the check
+  (externalBtn as any).isConnected = true;
+  externalBtn.focus();
+
+  const cleanup = trapFocusInside(container as any);
+
+  assertEqual(mockDocument.activeElement, btnInside, 'Focus should move inside the trap');
+
+  cleanup();
+
+  assertEqual(mockDocument.activeElement, externalBtn, 'Focus should be restored to the external button');
+});
+
 runTests();

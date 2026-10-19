@@ -62,18 +62,10 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
             }
             setTimeout(() => {
                 if (session.instructions) session.instructions.style.display = 'none';
-                if (session.focus.lastFocusedElement && typeof session.focus.lastFocusedElement.focus === 'function') {
-                    session.focus.lastFocusedElement.focus({ preventScroll: true });
-                    session.focus.lastFocusedElement = null;
-                }
                 setPausedTitle(session, false);
                 setStartButtonEnterLabel(session);
             }, 200);
         } else {
-            if (session.focus.lastFocusedElement && typeof session.focus.lastFocusedElement.focus === 'function') {
-                session.focus.lastFocusedElement.focus({ preventScroll: true });
-                session.focus.lastFocusedElement = null;
-            }
         }
 
         // If we locked, force playlist closed just in case
@@ -105,7 +97,6 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
             }
 
             if (session.instructions) {
-                session.focus.lastFocusedElement = document.activeElement as HTMLElement;
                 session.instructions.style.display = 'flex';
                 session.instructions.style.opacity = '0';
                 session.instructions.style.backdropFilter = 'blur(0px)';
@@ -130,7 +121,7 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
 
                 yieldToPaint(50).then(() => {
                     if (session.instructions && session.instructions.style.display !== 'none') {
-                        session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true });
+                        session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true, onEscape: () => session.controls.lock() });
                         if (session.startButton) {
                             session.startButton.focus({ preventScroll: true });
                         }

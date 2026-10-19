@@ -39,11 +39,10 @@ git clone https://github.com/emscripten-core/emsdk.git
 # Enter the directory
 cd emsdk
 
-# Install the latest SDK tools
-./emsdk install latest
-
-# Activate the latest SDK
-./emsdk activate latest
+# Install and activate the SDK version pinned in candy_world/.emsdk-version
+# (CI and release builds use exactly this version)
+./emsdk install 4.0.10
+./emsdk activate 4.0.10
 
 # Add emsdk to PATH (add this to your ~/.bashrc or ~/.zshrc)
 source ./emsdk_env.sh

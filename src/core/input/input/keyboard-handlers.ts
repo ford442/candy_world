@@ -121,7 +121,6 @@ export function createKeyboardHandlers(
                 return;
             } else if (session.shouldPreventMenuOnUnlock && session.shouldPreventMenuOnUnlock()) {
                 if (session.instructions) {
-                    session.focus.lastFocusedElement = document.activeElement as HTMLElement;
                     session.instructions.style.display = 'flex';
                     session.instructions.style.opacity = '0';
                     session.instructions.style.backdropFilter = 'blur(0px)';
@@ -150,7 +149,7 @@ export function createKeyboardHandlers(
 
                     yieldToPaint(50).then(() => {
                         if (session.instructions && session.instructions.style.display !== 'none') {
-                            session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true });
+                            session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true, onEscape: () => session.controls.lock() });
                             if (session.startButton) {
                                 session.startButton.focus({ preventScroll: true });
                             }
