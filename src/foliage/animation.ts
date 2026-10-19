@@ -297,7 +297,6 @@ export function updateFoliageMaterials(
 
     // ⚡ OPTIMIZATION: Single O(N) loop over reactiveMaterials combining audio and weather reactivity
     const mats = reactiveMaterials as unknown as FoliageMaterial[];
-
     if (!isNight && !hasChannels && globalWetAmount === 0 && _dayResetMatCount === 0) {
         return;
     }
@@ -312,7 +311,9 @@ export function updateFoliageMaterials(
 
         // 1. Audio Reactivity (Night/Day)
         if (isNight && hasChannels) {
-            if (!foliageNeedsFadeBack.has(mat as FoliageMaterial)) _dayResetMatCount++;
+            if (!foliageNeedsFadeBack.has(mat as FoliageMaterial)) {
+                _dayResetMatCount++;
+            }
             foliageNeedsFadeBack.add(mat as FoliageMaterial);
             const chIndex = (i % 4) + 1;
             const ch = channels[Math.min(chIndex, channels.length - 1)];
@@ -340,7 +341,7 @@ export function updateFoliageMaterials(
                 mat.emissiveIntensity = 0;
             }
             foliageNeedsFadeBack.delete(mat as FoliageMaterial);
-                _dayResetMatCount--;
+            _dayResetMatCount--;
         }
 
         // 2. Weather Reactivity (Wet Effect)

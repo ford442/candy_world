@@ -291,14 +291,16 @@ function resolveBodyPairs(pool: Float32Array, highWater: number): void {
             const dSq = dx * dx + dy * dy + dz * dz;
             if (dSq >= sum * sum) continue;
 
+            // ⚡ OPTIMIZATION: Bypassed repeated Math.sqrt() in O(N^2) inner loop by calculating inverse distance once
             const dist = Math.sqrt(dSq);
             let nx = 0;
             let ny = 1;
             let nz = 0;
             if (dist > 1e-4) {
-                nx = dx / dist;
-                ny = dy / dist;
-                nz = dz / dist;
+                const invDist = 1 / dist;
+                nx = dx * invDist;
+                ny = dy * invDist;
+                nz = dz * invDist;
             }
 
             const pen = sum - dist;
@@ -358,14 +360,16 @@ function resolvePlayerProxy(
         const dSq = dx * dx + dy * dy + dz * dz;
         if (dSq >= sum * sum) continue;
 
+        // ⚡ OPTIMIZATION: Bypassed repeated Math.sqrt() by calculating inverse distance once for player collision
         const dist = Math.sqrt(dSq);
         let nx = 1;
         let ny = 0;
         let nz = 0;
         if (dist > 1e-4) {
-            nx = dx / dist;
-            ny = dy / dist;
-            nz = dz / dist;
+            const invDist = 1 / dist;
+            nx = dx * invDist;
+            ny = dy * invDist;
+            nz = dz * invDist;
         }
 
         const pen = sum - dist;
