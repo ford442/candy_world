@@ -202,6 +202,9 @@ Kill the multi-minute Enter → playable wait. Build a true **chunk gate** so th
 
 **Scope of the swarm (#1548) — touch ONLY:** `src/world/generation-core.ts`, `src/world/map-loader.ts`, `src/world/generation-decorators.ts`, new `src/world/chunk-streamer.ts`, `src/systems/region-manager-core.ts`, `src/utils/background-processor.ts`, `src/core/game-loop*.ts`, `tools/map-generator/**` (new `build-chunk-index.ts`), new `assets/map-chunks.json`, and its own `package.json` script (`generate:chunk-index` only). **Do NOT touch** `src/core/startup-profile.ts`, `src/core/main/start-screen.ts`, `shader-warmup.ts`, `config/postfx.ts`, `deferred-init.ts`, `index.html`, `tests/smoke-runner.mjs` — those are the Copilot slice (#1547) and would collide. Treat the boot path ("play"/"explore") as an **input parameter**, not something to redesign.
 
+- [x] **#1974 Player world authoring: unified versioned WorldDocument + in-world build mode** (Status: Implemented ✅)
+    - Implementation Details: Implemented player-facing build mode (`src/systems/build-mode.ts`) abstracted from the development tools (`debug-place`). Allows placing/removing objects and persisting them via `EntitySnapshot` to normal `SaveSystem` without the dev URL flags. Bound toggle to 'B' key.
+
 ## Ideas
 
 <!--

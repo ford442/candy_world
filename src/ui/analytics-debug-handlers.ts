@@ -172,7 +172,7 @@ export class AnalyticsDebugOverlay {
     // Trap focus inside the overlay
     yieldToPaint(50).then(() => {
       if (this.isVisible && this.elements?.container) {
-        this.releaseFocusTrap = trapFocusInside(this.elements.container, { skipAutoFocus: true });
+        this.releaseFocusTrap = trapFocusInside(this.elements.container, { skipAutoFocus: true, onEscape: () => this.hide() });
         // Analytics panel does not have tabs; focus the container title to prevent double-speak,
         // or default to the close button
         const title = this.elements.container.querySelector('.analytics-debug-title') as HTMLElement;

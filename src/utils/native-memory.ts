@@ -17,12 +17,19 @@ type BufferSource = () => ArrayBufferLike | null;
 /** Typed view over `length` floats at `ptr`, re-derived after memory growth. */
 export class NativeF32 {
     private _view: Float32Array | null = null;
+    private readonly source: BufferSource;
+    readonly ptr: number;
+    readonly length: number;
 
     constructor(
-        private readonly source: BufferSource,
-        readonly ptr: number,
-        readonly length: number
-    ) {}
+        source: BufferSource,
+        ptr: number,
+        length: number
+    ) {
+        this.source = source;
+        this.ptr = ptr;
+        this.length = length;
+    }
 
     /** Current view. Do not hold it across a call into native code. */
     get view(): Float32Array {
