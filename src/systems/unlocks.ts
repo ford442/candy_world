@@ -16,69 +16,69 @@ export interface UnlockDefinition {
 }
 
 export const UNLOCK_DEFINITIONS: Record<string, UnlockDefinition> = {
-    'arpeggio_shield': {
+    arpeggio_shield: {
         id: 'arpeggio_shield',
         name: 'Arpeggio Shield',
         description: 'A crystalline barrier powered by harmonic resonance.',
         requirements: [{ itemId: 'fern_core', count: 3 }],
-        icon: '🛡️'
+        icon: '🛡️',
     },
-    'jitter_mines': {
+    jitter_mines: {
         id: 'jitter_mines',
         name: 'Jitter Mines',
         description: 'Proximity mines crafted from unstable vibrato nectar.',
         requirements: [{ itemId: 'vibrato_nectar', count: 5 }],
-        icon: '💣'
+        icon: '💣',
     },
-    'shrine_master': {
+    shrine_master: {
         id: 'shrine_master',
         name: 'Shrine Master',
         description: 'Unlock the secrets of the ancients.',
         requirements: [{ itemId: 'shrine_token', count: 3 }],
-        icon: '🏛️'
+        icon: '🏛️',
     },
-    'chord_strike': {
+    chord_strike: {
         id: 'chord_strike',
         name: 'Chord Strike',
         description: 'A devastating blast powered by pure melody. (Press V)',
         requirements: [{ itemId: 'harmony_orb', count: 3 }],
-        icon: '🎶'
+        icon: '🎶',
     },
-    'resonance_tuner': {
+    resonance_tuner: {
         id: 'resonance_tuner',
         name: 'Resonance Tuner',
         description: 'Fine-tune your frequency perception to detect hidden harmonics.',
         requirements: [{ itemId: 'chime_shard', count: 10 }],
-        icon: '🎵'
+        icon: '🎵',
     },
-    'snap_core': {
+    snap_core: {
         id: 'snap_core',
         name: 'Snap Core',
         description: 'A rhythmic core that reflects incoming projectiles.',
         requirements: [{ itemId: 'snap_shard', count: 3 }],
-        icon: '💥'
+        icon: '💥',
     },
-    'island_scholar': {
+    island_scholar: {
         id: 'island_scholar',
         name: 'Island Scholar',
         description: 'Discovered the hidden core of Melody Lake Island.',
         requirements: [{ itemId: 'lake_core', count: 1 }],
-        icon: '🏝️'
+        icon: '🏝️',
     },
-    'groove_boots': {
+    groove_boots: {
         id: 'groove_boots',
         name: 'Groove Boots',
         description: 'Magic boots that let you move faster when the beat swings.',
         requirements: [{ itemId: 'bounce_shroom', count: 5 }],
-        icon: '🥾'
+        icon: '🥾',
     },
-    'wind_anchor': {
+    wind_anchor: {
         id: 'wind_anchor',
         name: 'Wind Anchor',
         description: 'Grants immunity to the pushing forces of the BPM Wind.',
         requirements: [{ itemId: 'heavy_stone', count: 3 }],
-        icon: '⚓'
-    }
+        icon: '⚓',
+    },
 };
 
 class UnlockSystem {
@@ -114,7 +114,7 @@ class UnlockSystem {
             if (typeof localStorage === 'undefined') return;
             const data = {
                 inventory: this.inventory,
-                unlocks: Array.from(this.unlocks)
+                unlocks: Array.from(this.unlocks),
             };
             localStorage.setItem(this.storageKey, JSON.stringify(data));
         } catch (e) {
@@ -135,7 +135,9 @@ class UnlockSystem {
         this.inventory[itemId] += amount;
 
         showToast(`Harvested: ${displayName} (${this.inventory[itemId]})`, '🎒', 3000);
-        console.log(`[UnlockSystem] Harvested ${amount}x ${itemId}. Total: ${this.inventory[itemId]}`);
+        console.log(
+            `[UnlockSystem] Harvested ${amount}x ${itemId}. Total: ${this.inventory[itemId]}`
+        );
 
         this.checkUnlocks();
         this.save();
@@ -153,7 +155,9 @@ class UnlockSystem {
         }
         this.inventory[itemId] -= amount;
         this.save();
-        console.log(`[UnlockSystem] Consumed ${amount}x ${itemId}. Remaining: ${this.inventory[itemId]}`);
+        console.log(
+            `[UnlockSystem] Consumed ${amount}x ${itemId}. Remaining: ${this.inventory[itemId]}`
+        );
         return true;
     }
 

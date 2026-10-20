@@ -29,5 +29,5 @@ export {
     applyTremoloPulse,
     applyCymbalShake,
     applyPanningBob,
-    applySpiritFade
+    applySpiritFade,
 } from './batcher/index.ts';

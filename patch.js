@@ -1,7 +1,7 @@
 const fs = require('fs');
 let code = fs.readFileSync('src/foliage/animation.ts', 'utf8');
 code = code.replace(
-`export function updateFoliageMaterials(
+    `export function updateFoliageMaterials(
     offset: number,
     isDaytime: boolean,
     audioData: any,
@@ -9,7 +9,7 @@ code = code.replace(
     state: string
 ) {
     const time = performance.now() * 0.001;`,
-`export let _dayResetMatCount = 0; // Exported for metrics only
+    `export let _dayResetMatCount = 0; // Exported for metrics only
 
 export function updateFoliageMaterials(
     offset: number,
@@ -29,7 +29,7 @@ export function updateFoliageMaterials(
 );
 
 code = code.replace(
-`        if (shouldReset) {
+    `        if (shouldReset) {
             if (activeMaterial.emissiveIntensity > 0.01) {
                 // Smoothly fade back to default emissive
                 activeMaterial.emissiveIntensity = Math.max(
@@ -38,7 +38,7 @@ code = code.replace(
                 );
             }
         }`,
-`        if (shouldReset) {
+    `        if (shouldReset) {
             if (activeMaterial.emissiveIntensity > 0.01) {
                 // Smoothly fade back to default emissive
                 activeMaterial.emissiveIntensity = Math.max(

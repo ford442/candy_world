@@ -1,12 +1,12 @@
 /**
  * Accessibility Menu Core Module
- * 
+ *
  * Handles the core logic and state management for the Accessibility Menu.
  * Includes:
  * - Type definitions for menu structure
  * - AccessibilityMenu class with state and lifecycle methods
  * - Core navigation and state switching logic
- * 
+ *
  * WCAG 2.1 Compliance:
  * - 1.3.1 Info and Relationships (A) - Proper labeling
  * - 1.4.3 Contrast (AA) - Minimum 4.5:1 contrast
@@ -16,10 +16,7 @@
  * - 4.1.2 Name, Role, Value (A) - ARIA attributes
  */
 
-import {
-  AccessibilitySystem,
-  getAccessibilitySystem,
-} from '../systems/accessibility';
+import { AccessibilitySystem, getAccessibilitySystem } from '../systems/accessibility';
 import { trapFocusInside } from '../utils/focus-trap.ts';
 import { yieldToPaint } from '../utils/yield-to-paint';
 import { announce } from './announcer';
@@ -28,26 +25,21 @@ import { announce } from './announcer';
 // Menu Section Types
 // ============================================================================
 
-export type MenuSection = 
-  | 'presets'
-  | 'motor'
-  | 'visual'
-  | 'cognitive'
-  | 'auditory'
-  | 'screen-reader';
+export type MenuSection =
+    'presets' | 'motor' | 'visual' | 'cognitive' | 'auditory' | 'screen-reader';
 
 export interface MenuItem {
-  id: string;
-  label: string;
-  description?: string;
-  type: 'toggle' | 'slider' | 'select' | 'button' | 'color' | 'keybind';
-  section: MenuSection;
-  defaultValue?: unknown;
-  min?: number;
-  max?: number;
-  step?: number;
-  options?: { value: string; label: string }[];
-  action?: () => void;
+    id: string;
+    label: string;
+    description?: string;
+    type: 'toggle' | 'slider' | 'select' | 'button' | 'color' | 'keybind';
+    section: MenuSection;
+    defaultValue?: unknown;
+    min?: number;
+    max?: number;
+    step?: number;
+    options?: { value: string; label: string }[];
+    action?: () => void;
 }
 
 // ============================================================================
@@ -59,166 +51,178 @@ export interface MenuItem {
  * Provides state management, lifecycle hooks, and focus trapping.
  */
 export class AccessibilityMenuCore {
-  protected container: HTMLElement | null = null;
-  protected overlay: HTMLElement | null = null;
-  protected isOpen = false;
-  protected a11y: AccessibilitySystem;
-  protected currentSection: MenuSection = 'presets';
-  protected menuItems: MenuItem[] = [];
-  protected focusIndex = 0;
-  protected saveButton: HTMLButtonElement | null = null;
-  protected releaseFocusTrap: (() => void) | null = null;
-  protected boundKeyHandler = this.handleKeyDown.bind(this);
+    protected container: HTMLElement | null = null;
+    protected overlay: HTMLElement | null = null;
+    protected isOpen = false;
+    protected a11y: AccessibilitySystem;
+    protected currentSection: MenuSection = 'presets';
+    protected menuItems: MenuItem[] = [];
+    protected focusIndex = 0;
+    protected saveButton: HTMLButtonElement | null = null;
+    protected releaseFocusTrap: (() => void) | null = null;
+    protected boundKeyHandler = this.handleKeyDown.bind(this);
 
-  constructor() {
-    this.a11y = getAccessibilitySystem();
-  }
+    constructor() {
+        this.a11y = getAccessibilitySystem();
+    }
 
-  // ============================================================================
-  // Menu Lifecycle
-  // ============================================================================
+    // ============================================================================
+    // Menu Lifecycle
+    // ============================================================================
 
-  open(): void {
-    if (this.isOpen) return;
-    
-    this.createMenu();
-    this.isOpen = true;
-    document.addEventListener('keydown', this.boundKeyHandler);
-    
-    // Force DOM reflow
-    void this.overlay!.offsetWidth;
-    void this.container!.offsetWidth;
+    open(): void {
+        if (this.isOpen) return;
 
-    // Apply active CSS styles
-    this.overlay!.style.opacity = '1';
-    this.container!.style.opacity = '1';
-    this.container!.style.transform = 'scale(1)';
+        this.createMenu();
+        this.isOpen = true;
+        document.addEventListener('keydown', this.boundKeyHandler);
 
-    // Trap focus after transition
-    if (this.container) {
-      yieldToPaint(50).then(() => {
-        if (this.container && this.isOpen) {
-          this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true, onEscape: () => this.close() });
-          // Manually focus the active tab to prevent screen reader double-speak from close button
-          const activeTab = this.container.querySelector('.a11y-tab[aria-selected="true"]') as HTMLElement;
-          if (activeTab) {
-              activeTab.focus({ preventScroll: true });
-          } else {
-              const firstTab = this.container.querySelector('.a11y-tab') as HTMLElement;
-              if (firstTab) firstTab.focus({ preventScroll: true });
-          }
+        // Force DOM reflow
+        void this.overlay!.offsetWidth;
+        void this.container!.offsetWidth;
+
+        // Apply active CSS styles
+        this.overlay!.style.opacity = '1';
+        this.container!.style.opacity = '1';
+        this.container!.style.transform = 'scale(1)';
+
+        // Trap focus after transition
+        if (this.container) {
+            yieldToPaint(50).then(() => {
+                if (this.container && this.isOpen) {
+                    this.releaseFocusTrap = trapFocusInside(this.container, {
+                        skipAutoFocus: true,
+                        onEscape: () => this.close(),
+                    });
+                    // Manually focus the active tab to prevent screen reader double-speak from close button
+                    const activeTab = this.container.querySelector(
+                        '.a11y-tab[aria-selected="true"]'
+                    ) as HTMLElement;
+                    if (activeTab) {
+                        activeTab.focus({ preventScroll: true });
+                    } else {
+                        const firstTab = this.container.querySelector('.a11y-tab') as HTMLElement;
+                        if (firstTab) firstTab.focus({ preventScroll: true });
+                    }
+                }
+            });
+            announce('Accessibility menu opened. Use Tab to navigate, Enter to select.', 'polite');
         }
-      });
-      announce('Accessibility menu opened. Use Tab to navigate, Enter to select.', 'polite');
+
+        const openA11yBtn = document.getElementById('openA11yBtn');
+        if (openA11yBtn) openA11yBtn.setAttribute('aria-expanded', 'true');
+        const a11yMenuButton = document.getElementById('a11y-menu-button');
+        if (a11yMenuButton) a11yMenuButton.setAttribute('aria-expanded', 'true');
     }
 
-    const openA11yBtn = document.getElementById('openA11yBtn');
-    if (openA11yBtn) openA11yBtn.setAttribute('aria-expanded', 'true');
-    const a11yMenuButton = document.getElementById('a11y-menu-button');
-    if (a11yMenuButton) a11yMenuButton.setAttribute('aria-expanded', 'true');
-  }
+    close(): void {
+        if (!this.isOpen) return;
 
-  close(): void {
-    if (!this.isOpen) return;
+        // Release focus
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
 
-    // Release focus
-    if (this.releaseFocusTrap) {
-      this.releaseFocusTrap();
-      this.releaseFocusTrap = null;
+        // Remove elements
+        if (this.container) {
+            this.container.style.opacity = '0';
+            this.container.style.transform = 'scale(0.95)';
+        }
+        if (this.overlay) {
+            this.overlay.style.opacity = '0';
+        }
+
+        setTimeout(() => {
+            if (this.overlay && this.overlay.parentNode) {
+                this.overlay.parentNode.removeChild(this.overlay);
+            }
+            this.container = null;
+            this.overlay = null;
+        }, 300);
+
+        document.removeEventListener('keydown', this.boundKeyHandler);
+        this.isOpen = false;
+
+        const openA11yBtn = document.getElementById('openA11yBtn');
+        if (openA11yBtn) openA11yBtn.setAttribute('aria-expanded', 'false');
+        const a11yMenuButton = document.getElementById('a11y-menu-button');
+        if (a11yMenuButton) a11yMenuButton.setAttribute('aria-expanded', 'false');
+
+        announce('Accessibility menu closed', 'polite');
     }
 
+    // ============================================================================
+    // Menu Creation (delegated to rendering module)
+    // ============================================================================
 
-    // Remove elements
-    if (this.container) {
-      this.container.style.opacity = '0';
-      this.container.style.transform = 'scale(0.95)';
-    }
-    if (this.overlay) {
-      this.overlay.style.opacity = '0';
+    protected createMenu(): void {
+        throw new Error('createMenu() must be implemented by subclass or mixin');
     }
 
-    setTimeout(() => {
-      if (this.overlay && this.overlay.parentNode) {
-        this.overlay.parentNode.removeChild(this.overlay);
-      }
-      this.container = null;
-      this.overlay = null;
-    }, 300);
+    // ============================================================================
+    // Keyboard Navigation (delegated to handlers module)
+    // ============================================================================
 
-    document.removeEventListener('keydown', this.boundKeyHandler);
-    this.isOpen = false;
+    protected handleKeyDown(event: KeyboardEvent): void {
+        throw new Error('handleKeyDown() must be implemented by subclass or mixin');
+    }
 
-    const openA11yBtn = document.getElementById('openA11yBtn');
-    if (openA11yBtn) openA11yBtn.setAttribute('aria-expanded', 'false');
-    const a11yMenuButton = document.getElementById('a11y-menu-button');
-    if (a11yMenuButton) a11yMenuButton.setAttribute('aria-expanded', 'false');
-    
-    announce('Accessibility menu closed', 'polite');
-  }
+    // ============================================================================
+    // State Management
+    // ============================================================================
 
-  // ============================================================================
-  // Menu Creation (delegated to rendering module)
-  // ============================================================================
+    protected switchSection(section: MenuSection): void {
+        this.currentSection = section;
+        this.refreshMainPanel();
+        this.updateSidebarSelection();
+        announce(`Switched to ${this.formatActionName(section)} settings`, 'polite');
+        const newTab = this.container?.querySelector(`#tab-${section}`) as HTMLElement;
+        if (newTab) newTab.focus({ preventScroll: true });
+    }
 
-  protected createMenu(): void {
-    throw new Error('createMenu() must be implemented by subclass or mixin');
-  }
+    protected refreshMainPanel(): void {
+        const panel = this.container?.querySelector('[role="tabpanel"]') as HTMLElement;
+        if (!panel) return;
 
-  // ============================================================================
-  // Keyboard Navigation (delegated to handlers module)
-  // ============================================================================
+        panel.id = `panel-${this.currentSection}`;
+        panel.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
+        this.renderSection(panel, this.currentSection);
+    }
 
-  protected handleKeyDown(event: KeyboardEvent): void {
-    throw new Error('handleKeyDown() must be implemented by subclass or mixin');
-  }
+    protected renderSection(container: HTMLElement, section: MenuSection): void {
+        // To be overridden by rendering subclass
+    }
 
-  // ============================================================================
-  // State Management
-  // ============================================================================
+    protected updateSidebarSelection(): void {
+        const buttons = this.container?.querySelectorAll(
+            '[role="tab"]'
+        ) as NodeListOf<HTMLButtonElement>;
+        const sections = [
+            'presets',
+            'motor',
+            'visual',
+            'cognitive',
+            'auditory',
+            'screen-reader',
+        ] as const;
 
-  protected switchSection(section: MenuSection): void {
-    this.currentSection = section;
-    this.refreshMainPanel();
-    this.updateSidebarSelection();
-    announce(`Switched to ${this.formatActionName(section)} settings`, 'polite');
-    const newTab = this.container?.querySelector(`#tab-${section}`) as HTMLElement;
-    if (newTab) newTab.focus({ preventScroll: true });
-  }
+        buttons?.forEach((btn, index) => {
+            const isActive = sections[index] === this.currentSection;
+            btn.setAttribute('aria-selected', isActive.toString());
+            btn.tabIndex = isActive ? 0 : -1;
+            btn.style.background = isActive ? 'var(--menu-active, #4a4a4a)' : 'transparent';
+        });
+    }
 
-  protected refreshMainPanel(): void {
-    const panel = this.container?.querySelector('[role="tabpanel"]') as HTMLElement;
-    if (!panel) return;
+    // ============================================================================
+    // Utility Methods
+    // ============================================================================
 
-    panel.id = `panel-${this.currentSection}`;
-    panel.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
-    this.renderSection(panel, this.currentSection);
-  }
-
-  protected renderSection(container: HTMLElement, section: MenuSection): void {
-    // To be overridden by rendering subclass
-  }
-
-  protected updateSidebarSelection(): void {
-    const buttons = this.container?.querySelectorAll('[role="tab"]') as NodeListOf<HTMLButtonElement>;
-    const sections = ['presets', 'motor', 'visual', 'cognitive', 'auditory', 'screen-reader'] as const;
-    
-    buttons?.forEach((btn, index) => {
-      const isActive = sections[index] === this.currentSection;
-      btn.setAttribute('aria-selected', isActive.toString());
-      btn.tabIndex = isActive ? 0 : -1;
-      btn.style.background = isActive ? 'var(--menu-active, #4a4a4a)' : 'transparent';
-    });
-  }
-
-  // ============================================================================
-  // Utility Methods
-  // ============================================================================
-
-  protected formatActionName(action: string): string {
-    return action
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, str => str.toUpperCase())
-      .trim();
-  }
-
+    protected formatActionName(action: string): string {
+        return action
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/^./, (str) => str.toUpperCase())
+            .trim();
+    }
 }
