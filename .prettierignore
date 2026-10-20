@@ -10,3 +10,5 @@ package-lock.json
 
 # AssemblyScript (decorators not valid JS/TS for prettier)
 assembly/
+assembly/memory_layout.ts
+src/utils/native-memory-layout.ts

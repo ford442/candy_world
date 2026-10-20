@@ -236,6 +236,11 @@ npm run budget:check  # Verify chunk size constraints
 
 ## Testing
 
+### Native memory tests
+- `npm run check:memory-layout`: static layout check (overlaps, `--memoryBase`, raw offsets, built binary)
+- `npm run test:native-memory`: heap/boids/growth/instantiate-fallback tests against the real AS build
+- `npm run test:native-batch-parity`: C++ ↔ AS ↔ JS batch ground heights through the production bridges (C++ tier needs `build:emcc`; `CANDY_PARITY_REQUIRE_CPP=1` makes it mandatory)
+
 ### WASM Physics Test (`npm run test:wasm`)
 - Verifies particle physics stays within world bounds
 - Bounds: X[±128], Y[-100, 500], Z[±128]
@@ -272,8 +277,9 @@ npm run budget:check  # Verify chunk size constraints
 - Grid dimensions
 
 ### Compile Flags (toolchain contract)
-- **AssemblyScript** (`build:wasm`): linear-memory MVP + `--enable simd --enable bulk-memory`, `--initialMemory 5 --maximumMemory 256`. No `asconfig.json`, so no `--target`; `--enable gc` (Wasm GC) is not used.
-- **Emscripten** (`emscripten/build.sh`): `-O2` for compile and link, MT and ST. Do not pass `-s MINIFY_WASM_IMPORTS_AND_EXPORTS` (internal setting; emcc rejects it). `npm run verify:emcc:manifest` enforces the `-O` level against `AGENTS.md`.
+- **AssemblyScript** (`build:wasm`): linear-memory MVP + `--enable simd --enable bulk-memory`, `--memoryBase 589824 --initialMemory 16 --maximumMemory 256`. No `--exportRuntime`, no `--enable reference-types`. No `asconfig.json`, so no `--target`; `--enable gc` (Wasm GC) is not used. `--memoryBase` must equal `HEAP_BASE_FLOOR` from the memory layout table (`scripts/memory-layout.mjs`); `npm run check:memory-layout` enforces it.
+- **Emscripten** (`emscripten/build.sh`): `-O2 -flto -fno-exceptions` for compile and link, MT and ST; `-pthread`, `PTHREAD_POOL_SIZE=4` (MT); `STACK_SIZE=16MB`; no `-lembind`; `EXPORTED_RUNTIME_METHODS` includes `HEAP8,HEAPU8,HEAP32,HEAPF32`. Do not pass `-s MINIFY_WASM_IMPORTS_AND_EXPORTS` (internal setting; emcc rejects it). `npm run verify:emcc:manifest` enforces the `-O` level against `AGENTS.md`. emsdk is pinned in `.emsdk-version`.
+- **Native memory**: fixed AS regions come only from the generated layout; JS buffers in native memory use `malloc`/`free` through `src/utils/native-memory.ts`, whose views re-derive after `memory.grow`. See `docs/NATIVE_LAYER.md`.
 - **WebGPU** is preferred; a failed boot probe falls back to WebGL2 (badge shows `WEBGL2 FALLBACK`, no GPU compute). Device limits are adapter-clamped, and the canvas `colorSpace` matches `outputColorSpace` — see `docs/WEBGPU_CONTEXT.md` and `docs/webgl-fallback.md`.
 
 ### Map/World Constants (`src/world/generation.ts`)

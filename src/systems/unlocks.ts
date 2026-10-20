@@ -95,6 +95,7 @@ class UnlockSystem {
 
     private load(): void {
         try {
+            if (typeof localStorage === 'undefined') return;
             const data = localStorage.getItem(this.storageKey);
             if (data) {
                 const parsed = JSON.parse(data);
@@ -110,6 +111,7 @@ class UnlockSystem {
 
     private save(): void {
         try {
+            if (typeof localStorage === 'undefined') return;
             const data = {
                 inventory: this.inventory,
                 unlocks: Array.from(this.unlocks)

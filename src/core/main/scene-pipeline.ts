@@ -1,7 +1,9 @@
 import {
+    BootHaltError,
     initParticleEmitterDebugIfNeeded,
+    runBootStage,
+    type StageResult,
 } from '../../debug/index.ts';
-import { StageLoader } from '../../debug/stages.ts';
 import { initPostProcessing } from '../../foliage/post-processing.ts';
 import { WebGPUUnavailableError } from '../../rendering/gpu-context.ts';
 import {
@@ -30,31 +32,38 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     console.time('Core Scene Setup');
 
     let sceneInitResult: Awaited<ReturnType<typeof initScene>> | undefined;
-    let initError: unknown = null;
-    await StageLoader.loadStage('core', async () => {
-        try {
+    let core: StageResult;
+    try {
+        core = await runBootStage('core', async () => {
             sceneInitResult = await initScene();
-        } catch (err) {
-            // A failed WebGPU probe already fell back to WebGL2 inside initScene();
-            // reaching here means neither backend could start (stage `webgl`), or
-            // the probe passed and the WebGPU renderer still failed (stage
-            // `renderer`). Show the blocking diagnostics screen and stop boot.
-            if (err instanceof WebGPUUnavailableError) {
-                showWebGPUFatalScreen(err);
-            } else {
-                initError = err;
-                throw err;
-            }
-        }
-    });
+        });
+    } catch (err: unknown) {
+        // A failed WebGPU probe already fell back to WebGL2 inside initScene();
+        // reaching here means neither backend could start (stage `webgl`), or
+        // the probe passed and the WebGPU renderer still failed (stage
+        // `renderer`). Show the blocking diagnostics screen and stop boot.
+        const cause = err instanceof BootHaltError ? err.cause : err;
+        if (cause instanceof WebGPUUnavailableError) showWebGPUFatalScreen(cause);
+        throw err;
+    }
 
-    if (initError || !sceneInitResult) {
+    // Neither WebGPU nor the WebGL2 fallback started. Stage failures are
+    // returned rather than thrown, so the error rides on `cause`.
+    if (core.cause instanceof WebGPUUnavailableError) {
+        showWebGPUFatalScreen(core.cause);
+        throw core.cause;
+    }
+
+    if (!sceneInitResult) {
+        const detail =
+            core.cause instanceof Error ? core.cause.message : (core.error ?? 'skipped or failed');
+        const failed = core.cause != null || (core.error != null && !core.skipped);
+        const msg = `Core scene initialization ${failed ? 'failed' : 'was skipped'}: ${detail}`;
+        console.error('[Startup] Core Scene Setup failed');
         if (markBootFatal()) {
-            loadingScreen.showFatalError(`Failed to initialize 3D scene.
-${initError instanceof Error ? initError.message : 'Unknown error'}`);
+            loadingScreen.showFatalError(`Failed to initialize 3D scene.\n${msg}`);
         }
-        // eslint-disable-next-line @typescript-eslint/only-throw-error
-        throw initError || new Error('Scene init failed');
+        throw core.cause instanceof Error ? core.cause : new Error(msg);
     }
 
     ctx.sceneInitResult = sceneInitResult;
@@ -90,7 +99,7 @@ ${initError instanceof Error ? initError.message : 'Unknown error'}`);
 
     loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Initializing post-processing...');
 
-    await StageLoader.loadStage('postProcessing', async () => {
+    await runBootStage('postProcessing', async () => {
         ctx.postProcessing = await initPostProcessing(
             sceneInitResult!.renderer,
             sceneInitResult!.scene,

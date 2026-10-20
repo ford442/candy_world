@@ -21,14 +21,34 @@ jobs:
               with:
                   node-version: 24
 
+            - name: Read pinned emsdk version
+              run: echo "EM_VERSION=$(tr -d '[:space:]' < .emsdk-version)" >> "$GITHUB_ENV"
+
+            # Ship what we test: stable releases carry the C++ (MT + ST) build.
+            - name: Setup emsdk
+              uses: emscripten-core/setup-emsdk@v16
+              with:
+                  version: ${{ env.EM_VERSION }}
+                  actions-cache-folder: emsdk-cache
+
             - name: Install deps
               run: npm install --no-audit --no-fund
 
-            - name: Build
-              run: npm run build:ci
+            - name: Build (AssemblyScript + Emscripten + Vite)
+              run: npm run build
+              env:
+                  CANDY_STRICT_EMSDK: '1'
 
-            - name: WASM test
-              run: npm run test:wasm
+            - name: Require the native build
+              run: test -f dist/candy_native.wasm && test -f dist/candy_native_st.wasm
+
+            - name: WASM tests
+              run: npm run check:memory-layout && npm run test:wasm && npm run test:native-memory
+
+            - name: Cross-tier parity (TS ↔ AssemblyScript ↔ C++)
+              run: npm run test:parity && npm run test:native-batch-parity
+              env:
+                  CANDY_PARITY_REQUIRE_CPP: '1'
 
             - name: Zip dist
               run: |

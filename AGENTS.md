@@ -281,8 +281,14 @@ The build system gracefully handles missing Emscripten:
 # keeps exports.txt + `pnpm run verify:emcc:manifest` green. The manifest lint
 # fails if the two disagree.
 
-# Artifacts: candy_native.{js,wasm} (MT: pthreads, SHARED_MEMORY, INITIAL_MEMORY=64MB,
+# Artifacts: candy_native.{js,wasm} (MT: -pthread, SHARED_MEMORY, INITIAL_MEMORY=64MB,
 # MAXIMUM_MEMORY=512MB) and candy_native_st.{js,wasm} (ST: 64MB -> 256MB).
+# Both: -flto -fno-exceptions, STACK_SIZE=16MB, no -lembind, and
+# EXPORTED_RUNTIME_METHODS includes HEAP8/HEAPU8/HEAP32/HEAPF32 (the JS bridges
+# read Module.HEAPF32; without it they fall back to views over wasmMemory).
+# MT: PTHREAD_POOL_SIZE=4, and math.cpp caps the OpenMP team at the same size.
+# emsdk is pinned in .emsdk-version (4.0.10); build.sh warns on any other
+# version and CI/release builds set CANDY_STRICT_EMSDK=1 to make it fatal.
 
 # Do NOT pass -s MINIFY_WASM_IMPORTS_AND_EXPORTS=0 (or MINIFY_WASM_EXPORT_NAMES).
 # Both are *internal* Emscripten settings; emcc 4.0.10 rejects them on the
@@ -298,8 +304,18 @@ The build system gracefully handles missing Emscripten:
 ### AssemblyScript Build (`build:wasm`)
 
 - Physics WASM (`src/wasm/candy_physics.wasm`) is **linear-memory MVP** + SIMD + bulk-memory:
-  `--enable simd --enable bulk-memory --initialMemory 5 --maximumMemory 256` is the contract
-  (`.wat` shows `(memory $0 5 256)`).
+  `--enable simd --enable bulk-memory --memoryBase 589824 --initialMemory 16 --maximumMemory 256`
+  is the contract (`.wat` shows `(memory $0 16 256)`). No `--exportRuntime` and no
+  `--enable reference-types`.
+- Fixed linear-memory regions live in **one table**, `scripts/memory-layout.mjs`, which generates
+  `assembly/memory_layout.ts` and `src/utils/native-memory-layout.ts`. `--memoryBase` must equal
+  its `HEAP_BASE_FLOOR` so the AS runtime heap (StaticArrays, `malloc`) starts above every
+  region. `npm run check:memory-layout` fails on overlaps, stale generated files, a mismatched
+  `--memoryBase`, or a raw offset declared outside the table.
+- JS-owned buffers in AS memory come from the exported `malloc`/`free` (`assembly/allocator.ts`,
+  via `src/utils/native-memory.ts`). Never use `__new` as malloc, and never hold a TypedArray
+  over native memory across a native call (memory growth detaches it): use `NativeF32.view`.
+  See `docs/NATIVE_LAYER.md`.
 - There is **no `asconfig.json`**, so there is no `--target`. Do not re-add `--target wasm-gc`
   (it named a non-existent asconfig target and was a no-op).
 - `--enable gc` (Wasm GC proposal, WIP in asc) is **not** used. Opt in only if a feature

@@ -68,7 +68,6 @@ export class AccessibilityMenuCore {
   protected focusIndex = 0;
   protected saveButton: HTMLButtonElement | null = null;
   protected releaseFocusTrap: (() => void) | null = null;
-  protected lastFocusedElement: HTMLElement | null = null;
   protected boundKeyHandler = this.handleKeyDown.bind(this);
 
   constructor() {
@@ -82,8 +81,6 @@ export class AccessibilityMenuCore {
   open(): void {
     if (this.isOpen) return;
     
-    this.lastFocusedElement = document.activeElement as HTMLElement;
-
     this.createMenu();
     this.isOpen = true;
     document.addEventListener('keydown', this.boundKeyHandler);
@@ -101,7 +98,7 @@ export class AccessibilityMenuCore {
     if (this.container) {
       yieldToPaint(50).then(() => {
         if (this.container && this.isOpen) {
-          this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true });
+          this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true, onEscape: () => this.close() });
           // Manually focus the active tab to prevent screen reader double-speak from close button
           const activeTab = this.container.querySelector('.a11y-tab[aria-selected="true"]') as HTMLElement;
           if (activeTab) {
@@ -130,10 +127,6 @@ export class AccessibilityMenuCore {
       this.releaseFocusTrap = null;
     }
 
-    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
-      this.lastFocusedElement.focus({ preventScroll: true });
-    }
-    this.lastFocusedElement = null;
 
     // Remove elements
     if (this.container) {

@@ -210,12 +210,17 @@ function solveSpring(joints: Float32Array, bodies: Float32Array, j: number, h: n
     const dx = wbx - wax;
     const dy = wby - way;
     const dz = wbz - waz;
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const dSq = dx * dx + dy * dy + dz * dz;
+
     // Coincident anchors give no direction; there is nothing to push along.
-    if (dist < 1e-4) return;
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const nz = dz / dist;
+    if (dSq < 1e-8) return;
+
+    // ⚡ OPTIMIZATION: Calculate distance and inverse distance once to avoid repeated divisions
+    const dist = Math.sqrt(dSq);
+    const invDist = 1 / dist;
+    const nx = dx * invDist;
+    const ny = dy * invDist;
+    const nz = dz * invDist;
 
     const rest = joints[j + J.P0];
     const k = joints[j + J.P1];
@@ -294,9 +299,12 @@ function projectRigid(joints: Float32Array, bodies: Float32Array, j: number, typ
         const rx = dx - axial * nx;
         const ry = dy - axial * ny;
         const rz = dz - axial * nz;
-        const rl = Math.sqrt(rx * rx + ry * ry + rz * rz);
-        if (rl > 1e-5) {
-            const s = arm / rl;
+        const rlSq = rx * rx + ry * ry + rz * rz;
+
+        if (rlSq > 1e-10) {
+            // ⚡ OPTIMIZATION: Bypassed repeated Math.sqrt() division by using inverse length
+            const invRl = 1 / Math.sqrt(rlSq);
+            const s = arm * invRl;
             tx = rx * s;
             ty = ry * s;
             tz = rz * s;
@@ -315,11 +323,13 @@ function projectRigid(joints: Float32Array, bodies: Float32Array, j: number, typ
             ox -= d * nx;
             oy -= d * ny;
             oz -= d * nz;
-            const ol = Math.sqrt(ox * ox + oy * oy + oz * oz);
-            if (ol > 1e-5) {
-                tx = (ox / ol) * arm;
-                ty = (oy / ol) * arm;
-                tz = (oz / ol) * arm;
+            const olSq = ox * ox + oy * oy + oz * oz;
+            if (olSq > 1e-10) {
+                // ⚡ OPTIMIZATION: Bypassed repeated Math.sqrt() division by using inverse length
+                const invOl = 1 / Math.sqrt(olSq);
+                tx = ox * invOl * arm;
+                ty = oy * invOl * arm;
+                tz = oz * invOl * arm;
             }
         }
     }
@@ -329,8 +339,12 @@ function projectRigid(joints: Float32Array, bodies: Float32Array, j: number, typ
     let cy = (ty - dy) * soft;
     let cz = (tz - dz) * soft;
 
-    const mag = Math.sqrt(cx * cx + cy * cy + cz * cz);
-    if (!Number.isFinite(mag) || mag <= SETTLE_EPS) return;
+    const magSq = cx * cx + cy * cy + cz * cz;
+    if (magSq <= SETTLE_EPS * SETTLE_EPS) return;
+
+    // ⚡ OPTIMIZATION: Deferred Math.sqrt() until we know the magnitude exceeds settle epsilon
+    const mag = Math.sqrt(magSq);
+    if (!Number.isFinite(mag)) return;
     if (mag > MAX_CORRECTION) {
         const s = MAX_CORRECTION / mag;
         cx *= s;
@@ -435,11 +449,13 @@ export function writeJointRecord(
         let nx = p0;
         let ny = p1;
         let nz = p2;
-        const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
-        if (len > 1e-5) {
-            nx /= len;
-            ny /= len;
-            nz /= len;
+        const lenSq = nx * nx + ny * ny + nz * nz;
+        if (lenSq > 1e-10) {
+            // ⚡ OPTIMIZATION: Calculated inverse length to avoid multiple divisions
+            const invLen = 1 / Math.sqrt(lenSq);
+            nx *= invLen;
+            ny *= invLen;
+            nz *= invLen;
         } else {
             nx = 0;
             ny = 1;
@@ -455,7 +471,8 @@ export function writeJointRecord(
         const rz = dz - axial * nz;
         joints[j + J.P3] = Math.sqrt(rx * rx + ry * ry + rz * rz);
     } else if (type === JOINT_TYPE.SPRING) {
-        const measured = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        // ⚡ OPTIMIZATION: Deferred Math.sqrt() evaluation; only compute measured if p0 < 0
+        const measured = p0 < 0 ? Math.sqrt(dx * dx + dy * dy + dz * dz) : 0;
         joints[j + J.P0] = p0 < 0 ? measured : Math.max(p0, 0);
         joints[j + J.P1] = clamp(p1, 0, SPRING_MAX_STIFFNESS);
         joints[j + J.P2] = clamp(p2, 0, SPRING_MAX_DAMPING);

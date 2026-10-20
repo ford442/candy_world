@@ -51,6 +51,8 @@ import {
     type Trampoline,
     type PlayerState
 } from './wasm-loader-core.ts';
+import { BATCH_UPLOAD_BYTES } from './native-memory-layout.ts';
+import { asFree, asMalloc, asMemoryBuffer, emHeapF32 } from './native-memory.ts';
 
 let _collisionScratchBuffer = new Float32Array(1024);
 
@@ -289,12 +291,14 @@ export function uploadCollisionObjects(
         // Upload batch to WASM
         const wasmBatchUpload = exports.addCollisionObjectsBatch;
         if (wasmBatchUpload) {
-            // Write directly to statically allocated memory buffer
+            // Write directly to the fixed staging region; clamp so a huge world
+            // can never spill past BATCH_UPLOAD into the next region.
             const dataPtr = BATCH_UPLOAD_OFFSET;
-            const wasmFloatView = new Float32Array(wasmMemory!.buffer, dataPtr, batchData.length);
-            wasmFloatView.set(batchData);
+            const uploadCount = Math.min(totalCount, BATCH_UPLOAD_BYTES / (BATCH_SIZE * 4));
+            const wasmFloatView = new Float32Array(wasmMemory!.buffer, dataPtr, uploadCount * BATCH_SIZE);
+            wasmFloatView.set(batchData.subarray(0, uploadCount * BATCH_SIZE));
 
-            wasmBatchUpload(dataPtr, totalCount);
+            wasmBatchUpload(dataPtr, uploadCount);
         }
     } else {
         // Fallback: Sequential upload (for backwards compatibility)
@@ -617,56 +621,9 @@ export function hash(x: number, y: number): number {
  * @returns Array of height values corresponding to each x, z pair
  */
 export function getGroundHeightBatch(positions: Float32Array): Float32Array {
-    if (!cppBatchGroundHeightSimd || !wasmInstance || !wasmMemory) {
-        // Fallback to scalar JS loop
-        const result = new Float32Array(positions.length / 2);
-        for (let i = 0; i < result.length; i++) {
-            result[i] = getGroundHeight(positions[i * 2], positions[i * 2 + 1]);
-        }
-        return result;
-    }
-
-    const count = positions.length / 2;
-    const byteLength = positions.byteLength;
-    const outByteLength = count * 4; // 4 bytes per float
-
-    // Allocate memory
-    const malloc = wasmInstance.exports.malloc as (size: number) => number;
-    const free = wasmInstance.exports.free as (ptr: number) => void;
-
-    const posPtr = malloc(byteLength);
-    const outPtr = malloc(outByteLength);
-
-    if (!posPtr || !outPtr) {
-        if (posPtr) free(posPtr);
-        if (outPtr) free(outPtr);
-        console.warn('Failed to allocate WASM memory for batched ground height');
-
-        // Fallback
-        const result = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-            result[i] = getGroundHeight(positions[i * 2], positions[i * 2 + 1]);
-        }
-        return result;
-    }
-
-    try {
-        // Copy positions to WASM memory
-        const memory = new Float32Array(wasmMemory!.buffer);
-        memory.set(positions, posPtr / 4);
-
-        // Execute batch calculation
-        cppBatchGroundHeightSimd!(posPtr, count, outPtr);
-
-        // Read results
-        const result = new Float32Array(count);
-        result.set(new Float32Array(wasmMemory!.buffer, outPtr, count));
-
-        return result;
-    } finally {
-        free(posPtr);
-        free(outPtr);
-    }
+    // Each backend allocates in its own linear memory; batchGroundHeight keeps
+    // C++ pointers with C++ and AS pointers with AS.
+    return batchGroundHeight(positions);
 }
 
 export function getGroundHeight(x: number, z: number): number {
@@ -687,42 +644,43 @@ export function batchGroundHeight(positions: Float32Array): Float32Array {
     const output = new Float32Array(count);
 
     // 1. C++ SIMD (fastest, but optional)
-    if (cppBatchGroundHeightSimd && getEmscriptenInstance() && getEmscriptenInstance()!._malloc! && getEmscriptenInstance()!._free!) {
+    const em = getEmscriptenInstance();
+    if (cppBatchGroundHeightSimd && em?._malloc && em._free) {
         if (_batchGroundHeightCapacity < count) {
-            if (_batchGroundHeightInPtr) getEmscriptenInstance()!._free!(_batchGroundHeightInPtr);
-            if (_batchGroundHeightOutPtr) getEmscriptenInstance()!._free!(_batchGroundHeightOutPtr);
+            if (_batchGroundHeightInPtr) em._free(_batchGroundHeightInPtr);
+            if (_batchGroundHeightOutPtr) em._free(_batchGroundHeightOutPtr);
             const newCapacity = Math.max(count, _batchGroundHeightCapacity * 2 || 1024);
-            _batchGroundHeightInPtr = getEmscriptenInstance()!._malloc!(newCapacity * 2 * 4); // x, z pairs
-            _batchGroundHeightOutPtr = getEmscriptenInstance()!._malloc!(newCapacity * 4);
-            _batchGroundHeightCapacity = newCapacity;
+            _batchGroundHeightInPtr = em._malloc(newCapacity * 2 * 4); // x, z pairs
+            _batchGroundHeightOutPtr = em._malloc(newCapacity * 4);
+            _batchGroundHeightCapacity =
+                _batchGroundHeightInPtr && _batchGroundHeightOutPtr ? newCapacity : 0;
         }
 
-        if (_batchGroundHeightInPtr && _batchGroundHeightOutPtr) {
-            getEmscriptenInstance()!.HEAPF32!.set(positions, _batchGroundHeightInPtr >> 2);
+        const heapIn = emHeapF32(em);
+        if (_batchGroundHeightInPtr && _batchGroundHeightOutPtr && heapIn) {
+            heapIn.set(positions, _batchGroundHeightInPtr >> 2);
             cppBatchGroundHeightSimd(_batchGroundHeightInPtr, count, _batchGroundHeightOutPtr);
-            output.set(getEmscriptenInstance()!.HEAPF32!.subarray(_batchGroundHeightOutPtr >> 2, (_batchGroundHeightOutPtr >> 2) + count));
+            // Re-read the heap: the call may have grown memory.
+            const outStart = _batchGroundHeightOutPtr >> 2;
+            output.set(emHeapF32(em)!.subarray(outStart, outStart + count));
             return output;
         }
     }
 
     // 2. AssemblyScript batch (always available after TLA)
     if (wasmBatchGroundHeight && wasmInstance && wasmMemory) {
-        const exports = wasmInstance.exports as WasmExports;
-        const wasmMalloc = exports.malloc || exports.__new;
-        const wasmFree = exports.free || exports.__free;
-        if (wasmMalloc && wasmFree) {
-            const inPtr = wasmMalloc(positions.length * 4);
-            const outPtr = wasmMalloc(count * 4);
-            if (inPtr && outPtr) {
-                const wasmF32 = new Float32Array(wasmMemory.buffer, inPtr, positions.length);
-                wasmF32.set(positions);
-                wasmBatchGroundHeight(inPtr, count, outPtr);
-                output.set(new Float32Array(wasmMemory.buffer, outPtr, count));
-                wasmFree(inPtr);
-                wasmFree(outPtr);
-                return output;
-            }
+        const inPtr = asMalloc(positions.length * 4);
+        const outPtr = asMalloc(count * 4);
+        if (inPtr && outPtr) {
+            new Float32Array(asMemoryBuffer()!, inPtr, positions.length).set(positions);
+            wasmBatchGroundHeight(inPtr, count, outPtr);
+            output.set(new Float32Array(asMemoryBuffer()!, outPtr, count));
+            asFree(inPtr);
+            asFree(outPtr);
+            return output;
         }
+        asFree(inPtr);
+        asFree(outPtr);
     }
 
     // 3. JS fallback — inline formula to avoid 16k function-call overhead

@@ -1,3 +1,5 @@
+import { toggleBuildMode } from '../../../systems/build-mode.ts';
+import { sceneRef } from '../../game-loop-core.ts';
 import { discoverySystem } from '../../../systems/discovery.ts';
 import { getPhotoMode, isPhotoModeActive, togglePhotoMode } from '../../../systems/photo-mode/lazy.ts';
 import { trapFocusInside } from '../../../utils/focus-trap.ts';
@@ -153,7 +155,6 @@ export function createKeyboardHandlers(
                 return;
             } else if (session.shouldPreventMenuOnUnlock && session.shouldPreventMenuOnUnlock()) {
                 if (session.instructions) {
-                    session.focus.lastFocusedElement = document.activeElement as HTMLElement;
                     session.instructions.style.display = 'flex';
                     session.instructions.style.opacity = '0';
                     session.instructions.style.backdropFilter = 'blur(0px)';
@@ -182,7 +183,7 @@ export function createKeyboardHandlers(
 
                     yieldToPaint(50).then(() => {
                         if (session.instructions && session.instructions.style.display !== 'none') {
-                            session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true });
+                            session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true, onEscape: () => session.controls.lock() });
                             if (session.startButton) {
                                 session.startButton.focus({ preventScroll: true });
                             }
@@ -314,6 +315,18 @@ export function createKeyboardHandlers(
             case 'Space':
                 if (isExploreActive()) break;
                 keyStates.jump = true;
+                break;
+            case 'KeyB':
+                if (event.repeat) return;
+                if (sceneRef) toggleBuildMode(sceneRef);
+                break;
+            case 'KeyB':
+                if (event.repeat) return;
+                if (sceneRef) toggleBuildMode(sceneRef);
+                break;
+            case 'KeyB':
+                if (event.repeat) return;
+                if (sceneRef) toggleBuildMode(sceneRef);
                 break;
             case 'KeyN':
                 if (event.repeat) return;
