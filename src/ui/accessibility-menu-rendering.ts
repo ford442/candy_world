@@ -5,7 +5,7 @@
  */
 
 import { AccessibilityMenuCore, MenuSection } from './accessibility-menu-core';
-import { announce } from './announcer';
+import { announce, announceValueChange } from './announcer';
 
 /**
  * Extension of AccessibilityMenuCore with rendering methods.
@@ -868,6 +868,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             const val = parseFloat(slider.value);
             valueDisplay.textContent = val.toFixed(2);
             onChange(val);
+            announceValueChange(label, val, min, max);
         };
 
         sliderWrapper.appendChild(slider);
