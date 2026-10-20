@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
+import { isAutomation } from '../core/platform/run-mode.ts';
 import { luminousPlantBatcher } from '../foliage/luminous-plant-batcher.ts';
 import { trackEvent } from './analytics/index.ts';
 import {
@@ -85,7 +86,7 @@ const AWAKEN_RADIUS_SQ = 30 * 30;
 function isHeadless(): boolean {
     return typeof window === 'undefined' ||
         (typeof import.meta !== 'undefined' && (import.meta as { env?: { CI?: string } }).env?.CI === 'true') ||
-        (typeof navigator !== 'undefined' && navigator.userAgent.includes('Headless'));
+        isAutomation();
 }
 
 function normalizeLegacyState(raw: AwakenedFloraState): { id: number; meta: AwakenedMeta } | null {

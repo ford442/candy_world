@@ -1,4 +1,5 @@
-import { isCIorHeadless, getJsHeapUsageRatio, getLoadMemoryTier } from '../core/config.ts';
+import { getJsHeapUsageRatio, getLoadMemoryTier } from '../core/config.ts';
+import { isAutomation } from '../core/platform/run-mode.ts';
 /**
  * Time-Budgeted Background Processor
  *
@@ -128,7 +129,7 @@ export class BackgroundProcessor {
      * Start processing the queue
      */
     public async start(): Promise<void> {
-        if (isCIorHeadless()) {
+        if (isAutomation()) {
             log.info('BackgroundProcessor', 'CI/Headless mode detected, running synchronously.');
             while (this.queue.length > 0) {
                 const task = this.queue.shift();
@@ -158,7 +159,7 @@ export class BackgroundProcessor {
 
         log.info('BackgroundProcessor', `Starting with ${this.queue.length} tasks`);
 
-        if (isCIorHeadless()) {
+        if (isAutomation()) {
             log.info(
                 'BackgroundProcessor',
                 `CI bypass: Synchronously processing ${this.queue.length} tasks...`

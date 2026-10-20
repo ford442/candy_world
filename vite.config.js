@@ -47,6 +47,12 @@ export default defineConfig({
                     // core/main.ts awaits runBootstrap() at top level, so a lazy chunk that
                     // imports `app` and is awaited during bootstrap deadlocks. `weather` is
                     // therefore a static dependency of `app`. See docs/APP_CHUNK_SPLIT.md.
+                    // Run mode / platform capabilities (#1972): a leaf that `weather`
+                    // calls during its own evaluation, i.e. before `app` has run. In
+                    // `app` its module state would still be in TDZ at that point.
+                    if (id.includes('/src/core/platform/')) {
+                        return 'platform';
+                    }
                     // Workers
                     if (id.includes('/src/workers/')) {
                         return 'workers';

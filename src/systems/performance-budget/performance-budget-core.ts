@@ -28,6 +28,7 @@
  * ```
  */
 
+import { isMobileUserAgent } from '../../core/platform/user-agent.ts';
 import { getGpuContextSync } from '../../rendering/gpu-context.ts';
 import {
     BudgetMode,
@@ -261,10 +262,7 @@ export class PerformanceBudget {
         }
 
         // Check for mobile user agent
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-            navigator.userAgent
-        );
-        if (isMobile) score -= 2;
+        if (isMobileUserAgent()) score -= 2;
 
         // Determine tier based on score
         let tier: 'mobile' | 'desktop' | 'highEnd';

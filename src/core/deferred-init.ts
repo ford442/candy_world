@@ -17,8 +17,9 @@ import { ensureGameplay, preloadGameplay } from '../gameplay/lazy.ts';
 import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence-api.ts';
 import { log } from '../utils/log.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
-import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
+import { FEATURE_FLAGS } from './config.ts';
 import { isWebGLNodeBackend, syncDrawingBufferFromWindow, type CandyRenderer } from './init.ts';
+import { isAutomation } from './platform/run-mode.ts';
 import { getStartupCapabilities } from './startup/capabilities.ts';
 
 // Deferred visual elements
@@ -224,7 +225,7 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
 
         // Check CI and instant-boot bypass here
         if (
-            isCIorHeadless() ||
+            isAutomation() ||
             (typeof window !== 'undefined' && window.__bootInstant === true)
         ) {
             log.info(

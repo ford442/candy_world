@@ -23,7 +23,7 @@ import {
     If,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
-import { isCIorHeadless } from '../core/config.ts';
+import { getPlatformCapabilities } from '../core/platform/capabilities.ts';
 import {
     uTime,
     uAudioHigh,
@@ -361,7 +361,7 @@ export function updateDandelionSeeds(renderer: any) {
         ud.uSpawnCount.value = _currentStageOffset;
         ud.uSpawnIndex.value = _spawnHeadStart;
 
-        if (!isCIorHeadless()) {
+        if (getPlatformCapabilities().computeAvailable) {
             renderer.compute(ud.computeNode);
         }
 

@@ -4,7 +4,7 @@ import {
     exp, rotate, normalize, vec4, vec3, smoothstep, mix, floor
 } from 'three/tsl';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
-import { isCIorHeadless } from '../core/config.ts';
+import { getPlatformCapabilities } from '../core/platform/capabilities.ts';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -513,7 +513,7 @@ export function updateImpacts(renderer: any, time: number) {
             userData.uSpawnIndex.value = userData.head;
 
             // Execute compute
-            if (!isCIorHeadless()) { renderer.compute(userData.computeNode); }
+            if (getPlatformCapabilities().computeAvailable) { renderer.compute(userData.computeNode); }
 
             // Advance head
             userData.head = (userData.head + totalSpawns) % userData.bufferSize;

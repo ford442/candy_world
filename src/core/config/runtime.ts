@@ -1,23 +1,7 @@
-export function isCIorHeadless(): boolean {
-    return (
-        (typeof navigator !== 'undefined' &&
-            /headless|playwright|ci|test/i.test(navigator.userAgent || '')) ||
-        (typeof window !== 'undefined' && (window as any).__IS_FULL_BOOT_TEST === true) ||
-        (typeof localStorage !== 'undefined' &&
-            localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true') ||
-        (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
-    );
-}
+import { getDeviceMemoryGB } from '../platform/capabilities.ts';
+import { isAutomation } from '../platform/run-mode.ts';
 
-/**
- * Approximate device RAM in GB via `navigator.deviceMemory` (Chrome/Edge).
- * Returns `undefined` when the API is unavailable (Firefox, Safari, etc.).
- */
-export function getDeviceMemoryGB(): number | undefined {
-    if (typeof navigator === 'undefined') return undefined;
-    const gb = (navigator as any).deviceMemory;
-    return typeof gb === 'number' && gb > 0 ? gb : undefined;
-}
+export { getDeviceMemoryGB };
 
 /**
  * JS heap usage ratio when `performance.memory` is available (Chromium).
@@ -99,13 +83,13 @@ export function shouldPreferLightWorldLoad(): boolean {
 }
 
 /**
- * Returns a CI/headless- or memory-adjusted count.
- * - CI/headless: aggressive reduction to prevent Playwright OOM.
+ * Returns an automation- or memory-adjusted count.
+ * - Automation (`getRunMode()`): aggressive reduction to prevent Playwright OOM.
  * - Consumer browsers: scales by `getLoadMemoryScale()` so low-RAM Windows
  *   machines do not lock up during Full-mode population.
  */
 export function getCIAdjustedCount(fullCount: number, ciMultiplier = 0.15, minCount = 5): number {
-    if (isCIorHeadless()) {
+    if (isAutomation()) {
         const adjusted = Math.max(minCount, Math.floor(fullCount * ciMultiplier));
         console.log(`[CI Adjusted] ${fullCount} → ${adjusted} (multiplier: ${ciMultiplier})`);
         return adjusted;

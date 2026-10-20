@@ -6,7 +6,8 @@
  * Disable GPU compute via `?no_gpu_compute` or `window.__computeDisabled`.
  */
 
-import { isCIorHeadless, CONFIG } from '../core/config.ts';
+import { CONFIG } from '../core/config.ts';
+import { isAutomation } from '../core/platform/run-mode.ts';
 import { initGPUCompute } from './compute-init.ts';
 import { getSharedGPUCompute } from './gpu-compute-library.ts';
 
@@ -42,7 +43,7 @@ function isExplicitlyDisabled(): boolean {
     if (typeof window === 'undefined') return true;
     if (readDisabledFromUrl()) return true;
     if ((window as unknown as { __computeDisabled?: boolean }).__computeDisabled === true) return true;
-    if (isCIorHeadless()) return true;
+    if (isAutomation()) return true;
     return false;
 }
 
@@ -63,8 +64,8 @@ export function getComputeOrchestratorStatus(): ComputeOrchestratorStatus {
         gpuReady: isGpuComputeReady(),
         gpuAvailable: lib.hasWebGPU(),
         disabledReason: isExplicitlyDisabled()
-            ? isCIorHeadless()
-                ? 'ci/headless'
+            ? isAutomation()
+                ? 'automation'
                 : readDisabledFromUrl()
                   ? 'no_gpu_compute'
                   : '__computeDisabled'

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { vec4, attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos, Fn, instanceIndex, storage, uniform, If, length, floor } from 'three/tsl';
 import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
-import { isCIorHeadless } from '../core/config.ts';
+import { getPlatformCapabilities } from '../core/platform/capabilities.ts';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -242,6 +242,6 @@ export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3
 
     // Execute the compute shader
     if (renderer && renderer.compute && spawnCount > 0) {
-        if (!isCIorHeadless()) { renderer.compute(userData.computeNode); }
+        if (getPlatformCapabilities().computeAvailable) { renderer.compute(userData.computeNode); }
     }
 }

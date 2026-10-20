@@ -11,7 +11,8 @@ import { getGpuContextSync } from '../../rendering/gpu-context.ts';
 import { resolveRendererBackend } from '../../rendering/renderer-mode.ts';
 import { worldExtentForPath, type WorldExtentConfig } from '../../world/world-extent.ts';
 import { CONFIG } from '../config/defaults.ts';
-import { isCIorHeadless, getLoadMemoryTier, type LoadMemoryTier } from '../config/runtime.ts';
+import { getLoadMemoryTier, type LoadMemoryTier } from '../config/runtime.ts';
+import { isAutomation } from '../platform/run-mode.ts';
 import {
     clampGraphicsForStart,
     isWaitForFullRequested,
@@ -42,7 +43,8 @@ export interface ResolveStartupCapabilitiesInput {
     deviceTier: LoadMemoryTier;
     isFallbackAdapter: boolean;
     forceWebGL: boolean;
-    isHeadlessOrCI: boolean;
+    /** Test harness run (`getRunMode() === 'automation'`) or `?safe=1`. */
+    isAutomation: boolean;
     url: {
         postfx?: string | null;
         boot?: string | null;
@@ -107,14 +109,14 @@ export function resolveStartupCapabilities(
     input: ResolveStartupCapabilitiesInput
 ): StartupCapabilities {
     const path = applyUrlPath(input.profile.path, input.url);
-    const forceLite = input.isFallbackAdapter || input.forceWebGL || input.isHeadlessOrCI;
+    const forceLite = input.isFallbackAdapter || input.forceWebGL || input.isAutomation;
 
     let graphics = clampGraphicsForStart(input.profile.graphics);
     if (forceLite) graphics = 'low';
 
     const row = GRAPHICS_TABLE[graphics];
     let materialSubset = row.warmup;
-    if (input.isHeadlessOrCI) materialSubset = 'none';
+    if (input.isAutomation) materialSubset = 'none';
     // Lobby is one small room: warm only the core materials, skip outdoor extras.
     const lobby = path === 'lobby';
     if (lobby && (materialSubset === 'batched' || materialSubset === 'full')) {
@@ -180,7 +182,7 @@ export function gatherStartupCapabilityInputs(): ResolveStartupCapabilitiesInput
         deviceTier: getLoadMemoryTier(),
         isFallbackAdapter: fallback,
         forceWebGL,
-        isHeadlessOrCI: isCIorHeadless() || CONFIG.safeMode,
+        isAutomation: isAutomation() || CONFIG.safeMode,
         url: {
             postfx: params?.get('postfx') ?? null,
             boot: params?.get('boot') ?? null,

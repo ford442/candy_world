@@ -95,7 +95,7 @@ async function main() {
             window.__IS_CI_TEST = true;
         });
 
-        const url = 'http://localhost:4173/?boot=instant&graphics=low';
+        const url = 'http://localhost:4173/?boot=instant&graphics=low&freezeLoop=1';
         console.log(`Navigating to ${url}`);
         const navStart = Date.now();
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});

@@ -1,7 +1,7 @@
 # WebGPU Context — Single-Device Architecture
 
 > Owner module: [`src/rendering/gpu-context.ts`](../src/rendering/gpu-context.ts)
-> Issues: #1448 (single device), #1625 (hard-fail boot probe), #1753 (adapter-clamped limits, canvas color space)
+> Issues: #1448 (single device), #1625 (hard-fail boot probe), #1753 (adapter-clamped limits, canvas color space), #1972 (run mode, platform capabilities, P3 registration)
 
 > **WebGPU is preferred; WebGL2 is the fallback.** A failed boot probe boots the world on
 > `WebGPURenderer({ forceWebGL: true })` and says so in the UI. Only when WebGL2 fails too does boot
@@ -130,21 +130,67 @@ There are two different surfaces, and they are deliberately different:
 | Swap chain (`canvas.configure`) | `navigator.gpu.getPreferredCanvasFormat()` — usually `bgra8unorm` (8-bit) | `colorSpace` = `renderer.outputColorSpace` |
 
 HDR lives in the half-float targets; tone mapping + Three's output transform write the 8-bit swap
-chain. The swap chain is **not** `rgba16float` / `toneMapping: { mode: 'extended' }`, so "HDR" here
-means wide-gamut `display-p3` output, not extended-range pixels.
+chain. The swap chain is **not** `rgba16float` / `toneMapping: { mode: 'extended' }`, so the canvas
+is **sRGB with ACES tone mapping on every display, HDR ones included** (#1972).
 
-How the two are kept in agreement:
+Display P3 is gated on real extended range, not on `(dynamic-range: high)`:
 
-1. `probeWebGPU()` picks the color space once — `display-p3` when `(dynamic-range: high)` matches,
-   else `srgb` (`resolveCanvasColorSpace()`) — and passes it as `colorSpace` on `configure`.
-2. `init.ts` sets `renderer.outputColorSpace` from `probe.canvas.colorSpace` (with the existing
-   `srgb` fallback if Three rejects P3).
+- `resolveHdrSupport(display, extendedRange)` (`src/core/platform/capabilities.ts`) returns
+  `canvas: 'display-p3'` only when both are true. `extendedRange` is the constant
+  `EXTENDED_RANGE_CONFIGURED`, `false` today, because Three 0.171's `WebGPUBackend` configures
+  `getPreferredCanvasFormat()` without `toneMapping`.
+- Three 0.171 registers only `srgb` / `srgb-linear`. An unregistered `outputColorSpace` makes the
+  output transform's `ColorManagement.getPrimaries()` throw a TypeError on first render, and the
+  `try` around the assignment never sees it. `ensureOutputColorSpace()`
+  (`src/rendering/color-spaces.ts`) registers Display P3 from `three/addons/math/ColorSpaces.js`
+  via `ColorManagement.define` before P3 is selected, and returns `srgb` for anything Three still
+  doesn't know.
+- `LinearToneMapping` is used only together with an extended-range P3 swap chain. Into an 8-bit
+  swap chain it just clips highlights, so SDR keeps ACES.
+- Turning on extended range means configuring `rgba16float` + `toneMapping: { mode: 'extended' }`
+  in the probe and in `applyCanvasColorSpace()`, then flipping `EXTENDED_RANGE_CONFIGURED`.
+
+How the two surfaces are kept in agreement:
+
+1. `probeWebGPU()` picks the color space once (`resolveCanvasColorSpace()`, i.e. the rule above)
+   and passes it as `colorSpace` on `configure`.
+2. `init.ts` sets `renderer.outputColorSpace` from `probe.canvas.colorSpace` and
+   `platformCaps.hdr`, going through `ensureOutputColorSpace()`.
 3. `WebGPUBackend.init()` (three 0.171) calls `configure()` again **without** `colorSpace`, which
    resets it to `srgb`. `init.ts` therefore calls `applyCanvasColorSpace(probe, outputColorSpace)`
    after arming, re-tagging the same device/format/alphaMode with the color space the renderer
    actually uses.
 
 `window.webgpuProbe.canvas` reports `{ format, alphaMode, colorSpace }` as finally applied.
+
+## Run mode & platform capabilities
+
+Behaviour never branches on the user-agent string. `src/core/platform/` answers two separate
+questions (#1972):
+
+| Module            | Answers                                                                                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run-mode.ts`     | `getRunMode()`: `'automation'` only for `navigator.webdriver`, `window.__IS_FULL_BOOT_TEST` or a `HeadlessChrome/` token, otherwise `'player'`. `isAutomation()` |
+| `capabilities.ts` | `getPlatformCapabilities()`: frozen `{ runMode, backend, tier, computeAvailable, timestampQuery, hdr, maxPixelRatio }`                                           |
+| `user-agent.ts`   | `readUserAgent()`, the only raw `navigator.userAgent` read, for reporting (analytics, profiler, probe report)                                                    |
+
+- The old `isCIorHeadless()` regex `/headless|playwright|ci|test/i` matched "Ma**ci**ntosh". Every
+  Mac player booted in CI mode (low graphics, post-FX/GI/AO/shadows/compute off, 15% foliage) and
+  never got `setAnimationLoop`. It is gone, and an ESLint `no-restricted-syntax` rule rejects
+  `navigator.userAgent` outside `src/core/platform/`.
+- Call sites ask the specific question: per-frame `renderer.compute()` dispatches check
+  `computeAvailable` (WebGPU backend and a player); the reduced harness profile (post-FX/GI/AO/local
+  shadows off, warmup skipped, particle stubs, `getCIAdjustedCount`) checks `isAutomation()`.
+- `initPlatformCapabilities()` runs in `initScene()` once the backend, adapter and granted features
+  are known, and publishes `window.__platformCapabilities`. Before that, `getPlatformCapabilities()`
+  returns an uncached provisional answer.
+- `tier` comes from `?graphics=`, backend / fallback adapter, `navigator.deviceMemory` and the
+  adapter's light-load hint. It is published for diagnostics; graphics decisions still go through
+  `StartupCapabilities` (`src/core/startup/capabilities.ts`). No GPU-time probe yet.
+- The animation loop always starts. `?freezeLoop=1` is the only way to boot to `__sceneReady`
+  without it; the smoke, boot-timing, population and visual-regression harnesses pass it.
+- `src/core/platform/` is a leaf with its own Vite chunk (`platform`). `weather` calls into it while
+  it evaluates, before `app` has run, and module state inside `app` would still be in TDZ then.
 
 ## Device-lost policy
 

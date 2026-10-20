@@ -117,6 +117,24 @@ export default tseslint.config(
         },
     },
     {
+        // #1972: a UA regex ("ci" in "Macintosh") put every Mac in CI mode. Ask
+        // core/platform (getRunMode, getPlatformCapabilities) instead; reporting
+        // code reads the raw string through readUserAgent().
+        files: ['src/**/*.ts', 'src/**/*.js'],
+        ignores: ['src/core/platform/**'],
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                {
+                    selector:
+                        "MemberExpression[property.name='userAgent'][object.name='navigator']",
+                    message:
+                        'Read navigator.userAgent only in src/core/platform/. Use getRunMode() / getPlatformCapabilities(), or readUserAgent() for reporting.',
+                },
+            ],
+        },
+    },
+    {
         files: ['src/utils/log.ts'],
         rules: {
             // log.ts is the single allowed console sink.
