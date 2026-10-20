@@ -24,8 +24,8 @@
  */
 
 import * as THREE from 'three';
-import { isCIorHeadless } from '../../core/config/runtime.ts';
 import { getUrlFlag } from '../../core/config/url-flags.ts';
+import { isAutomation } from '../../core/platform/run-mode.ts';
 import { getGraphicsTier } from './quality-gate.ts';
 
 /** 🎨 PALETTE: dream-sky gradient. Hue rides from candy blue toward violet. */
@@ -118,7 +118,7 @@ export function isDreamEnvEnabled(): boolean {
     if (flag === 'off') return (_resolved = false);
     if (flag === 'on') return (_resolved = true);
 
-    if (isCIorHeadless()) return (_resolved = false);
+    if (isAutomation()) return (_resolved = false);
 
     if (getGraphicsTier() === 'low') return (_resolved = false);
 

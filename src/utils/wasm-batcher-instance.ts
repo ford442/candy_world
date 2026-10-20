@@ -54,7 +54,10 @@ function ensureHeap(count: number, needColors: boolean): boolean {
     }
 
     return !!(
-        _ptrPos && _ptrQuat && _ptrScale && _ptrMat &&
+        _ptrPos &&
+        _ptrQuat &&
+        _ptrScale &&
+        _ptrMat &&
         (!needColors || (_ptrColorIn && _ptrColorOut))
     );
 }
@@ -83,10 +86,18 @@ export function writeInstancePoseTS(
         const sy = scales[i * 3 + 1];
         const sz = scales[i * 3 + 2];
 
-        const x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
-        const xx = qx * x2, xy = qx * y2, xz = qx * z2;
-        const yy = qy * y2, yz = qy * z2, zz = qz * z2;
-        const wx = qw * x2, wy = qw * y2, wz = qw * z2;
+        const x2 = qx + qx,
+            y2 = qy + qy,
+            z2 = qz + qz;
+        const xx = qx * x2,
+            xy = qx * y2,
+            xz = qx * z2;
+        const yy = qy * y2,
+            yz = qy * z2,
+            zz = qz * z2;
+        const wx = qw * x2,
+            wy = qw * y2,
+            wz = qw * z2;
 
         const mIdx = i * 16;
         matricesOut[mIdx + 0] = (1 - (yy + zz)) * sx;
@@ -157,16 +168,7 @@ export function writeInstancePose(
             colorOutPtr = _ptrColorOut;
         }
 
-        f(
-            _ptrPos,
-            _ptrQuat,
-            _ptrScale,
-            colorInPtr,
-            _ptrMat,
-            colorOutPtr,
-            colorIntensity,
-            count
-        );
+        f(_ptrPos, _ptrQuat, _ptrScale, colorInPtr, _ptrMat, colorOutPtr, colorIntensity, count);
 
         heapF32 = new Float32Array(getEmscriptenMemory()!);
         matricesOut.set(heapF32.subarray(_ptrMat >> 2, (_ptrMat >> 2) + count * 16), 0);

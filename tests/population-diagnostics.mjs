@@ -75,7 +75,7 @@ async function run() {
         });
         page.on('pageerror', (err) => console.error(`[PAGE ERROR] ${err.message}\n${err.stack}`));
 
-        await page.goto('http://localhost:4173/?boot=explore', {
+        await page.goto('http://localhost:4173/?boot=explore&freezeLoop=1', {
             waitUntil: 'domcontentloaded',
             timeout: 30000,
         });

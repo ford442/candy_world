@@ -62,7 +62,8 @@ import {
     cameraPosition,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial, PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
-import { getCIAdjustedCount, isCIorHeadless } from '../core/config.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
+import { isAutomation } from '../core/platform/run-mode.ts';
 import {
     uTime,
     uAudioLow,
@@ -203,7 +204,7 @@ export class ComputeParticleSystem {
         this.count = config.count || 10000;
 
         // Check CI bypass here
-        if (isCIorHeadless() && (config.type === 'berries' || config.type === 'gem_sparks')) {
+        if (isAutomation() && (config.type === 'berries' || config.type === 'gem_sparks')) {
             console.log(
                 `[ComputeParticles] Stub mode activated for ${config.type} in CI/test (headless memory limit)`
             );
@@ -1056,7 +1057,7 @@ export function createComputePollen(config: PollenConfig = {}): ComputeParticleS
  * @returns ComputeParticleSystem instance
  */
 export function createComputeBerries(config: BerryConfig = {}): ComputeParticleSystem {
-    if (isCIorHeadless()) {
+    if (isAutomation()) {
         return new ComputeParticleSystem({
             type: 'berries',
             count: 1,
@@ -1112,7 +1113,7 @@ export function createComputeSparks(config: SparkConfig = {}): ComputeParticleSy
  * Tiny additive motes that drift on noise and twinkle to gem_canopy music bindings.
  */
 export function createComputeGemSparks(config: GemSparkConfig = {}): ComputeParticleSystem {
-    if (isCIorHeadless()) {
+    if (isAutomation()) {
         return new ComputeParticleSystem({
             type: 'gem_sparks',
             count: 1,

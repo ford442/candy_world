@@ -15,7 +15,6 @@ export function computePlantPoseFrameTS(
 ) {
   const { attackRate, releaseRate, sustainLevel, dayTarget, nightTarget, triggerThreshold } = config;
   const baseline = nightTarget + (dayTarget - nightTarget) * dayNightBias;
-  const envelopePeak = dayTarget * sustainLevel;
   const lerpK = Math.min(1.0, attackRate * delta);
 
   for (let i = 0; i < count; i++) {
@@ -44,7 +43,8 @@ export function computePlantPoseFrameTS(
       if (envelopeLevels[i] < 0.0) envelopeLevels[i] = 0.0;
     }
 
-    const targetPose = baseline + (envelopePeak - baseline) * envelopeLevels[i];
+    const musicTarget = nightTarget + (dayTarget - nightTarget) * (envelopeLevels[i] * sustainLevel);
+    const targetPose = Math.max(baseline, musicTarget);
     currentPoses[i] += (targetPose - currentPoses[i]) * lerpK;
   }
 }

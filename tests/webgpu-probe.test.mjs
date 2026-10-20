@@ -266,7 +266,6 @@ async function expectFailure(canvas, stage) {
     assert.match(getWebGPUProbeReport().reason, /entryPoint not found/);
 }
 
-
 // --- Features are properly requested ------------------------------------------
 {
     reset();
@@ -276,7 +275,11 @@ async function expectFailure(canvas, stage) {
         makeAdapter(device, {
             features: {
                 has: (name) => name === 'timestamp-query' || name === 'foo',
-                keys: () => ['timestamp-query', 'foo'], [Symbol.iterator]: function*() { yield 'timestamp-query'; yield 'foo'; }
+                keys: () => ['timestamp-query', 'foo'],
+                [Symbol.iterator]: function* () {
+                    yield 'timestamp-query';
+                    yield 'foo';
+                },
             },
             requestDevice: async (descriptor) => {
                 requestedDescriptor = descriptor;
@@ -300,7 +303,11 @@ async function expectFailure(canvas, stage) {
         makeAdapter(device, {
             features: {
                 has: (name) => name === 'timestamp-query' || name === 'foo',
-                keys: () => ['timestamp-query', 'foo'], [Symbol.iterator]: function*() { yield 'timestamp-query'; yield 'foo'; }
+                keys: () => ['timestamp-query', 'foo'],
+                [Symbol.iterator]: function* () {
+                    yield 'timestamp-query';
+                    yield 'foo';
+                },
             },
             requestDevice: async (descriptor) => {
                 requestedDescriptor = descriptor;
@@ -324,15 +331,27 @@ async function expectFailure(canvas, stage) {
 {
     // 1. Without timestamp
     const adapter1 = { features: { has: (name) => name === 'foo' || name === 'bar' } };
-    assert.deepEqual(selectRequiredFeatures(adapter1, { timestampQuery: false }), [], 'Unknown features are not requested');
+    assert.deepEqual(
+        selectRequiredFeatures(adapter1, { timestampQuery: false }),
+        [],
+        'Unknown features are not requested'
+    );
 
     // 2. With timestamp, adapter doesn't have it
     const adapter2 = { features: { has: (name) => name === 'foo' } };
-    assert.deepEqual(selectRequiredFeatures(adapter2, { timestampQuery: true }), [], 'timestamp-query not requested if not supported');
+    assert.deepEqual(
+        selectRequiredFeatures(adapter2, { timestampQuery: true }),
+        [],
+        'timestamp-query not requested if not supported'
+    );
 
     // 3. With timestamp, adapter has it
     const adapter3 = { features: { has: (name) => name === 'timestamp-query' || name === 'foo' } };
-    assert.deepEqual(selectRequiredFeatures(adapter3, { timestampQuery: true }), ['timestamp-query'], 'timestamp-query requested when wanted and supported');
+    assert.deepEqual(
+        selectRequiredFeatures(adapter3, { timestampQuery: true }),
+        ['timestamp-query'],
+        'timestamp-query requested when wanted and supported'
+    );
 }
 
 // --- The device is requested with the adapter's full feature set -----------
@@ -497,11 +516,15 @@ async function expectFailure(canvas, stage) {
     globalThis.window.matchMedia = (q) => ({ matches: q === '(dynamic-range: high)' });
     installGpu(async () => makeAdapter(makeDevice()));
     const probe = await probeWebGPU(makeCanvas());
-    assert.equal(lastConfigure.colorSpace, 'display-p3', 'HDR display → display-p3 swap chain');
-    assert.equal(probe.canvas.colorSpace, 'display-p3');
+    // #1972: P3 needs a real extended-range swap chain, which is not configured
+    // (8-bit preferred format, no toneMapping), so an HDR display still gets sRGB.
+    assert.equal(lastConfigure.colorSpace, 'srgb', 'HDR display, SDR swap chain → srgb');
+    assert.equal(probe.canvas.colorSpace, 'srgb');
 
     // Three's backend init re-configures without colorSpace; re-applying must
     // restore whatever outputColorSpace the renderer landed on.
+    applyCanvasColorSpace(probe, 'display-p3');
+    assert.equal(lastConfigure.colorSpace, 'display-p3');
     applyCanvasColorSpace(probe, 'srgb');
     assert.equal(lastConfigure.colorSpace, 'srgb');
     assert.equal(lastConfigure.device, probe.device, 're-configure keeps the one device');

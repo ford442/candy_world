@@ -119,7 +119,8 @@ export class FaunaSystem {
         // Roost flocks are seated first, so they hold the lowest slots. Their
         // spawn points double as autumn migration targets.
         let roosts = 0;
-        while (roosts < this._count && this._entries[roosts].component.biome === 'sky_islands') roosts++;
+        while (roosts < this._count && this._entries[roosts].component.biome === 'sky_islands')
+            roosts++;
         this._roostCount = roosts;
         if (roosts > 0) {
             this._roostTargets = new Float32Array(roosts * 2);
@@ -198,10 +199,14 @@ export class FaunaSystem {
 
             if (!sampleBakedGroundNormalInto(x, z, _normal)) {
                 const off = this._fallbackCount * 8;
-                this._fallbackPositions[off]     = x - _fdDelta; this._fallbackPositions[off + 1] = z;
-                this._fallbackPositions[off + 2] = x + _fdDelta; this._fallbackPositions[off + 3] = z;
-                this._fallbackPositions[off + 4] = x;            this._fallbackPositions[off + 5] = z - _fdDelta;
-                this._fallbackPositions[off + 6] = x;            this._fallbackPositions[off + 7] = z + _fdDelta;
+                this._fallbackPositions[off] = x - _fdDelta;
+                this._fallbackPositions[off + 1] = z;
+                this._fallbackPositions[off + 2] = x + _fdDelta;
+                this._fallbackPositions[off + 3] = z;
+                this._fallbackPositions[off + 4] = x;
+                this._fallbackPositions[off + 5] = z - _fdDelta;
+                this._fallbackPositions[off + 6] = x;
+                this._fallbackPositions[off + 7] = z + _fdDelta;
                 component.fallbackIndex = this._fallbackCount;
                 this._fallbackCount++;
             } else {
@@ -214,7 +219,11 @@ export class FaunaSystem {
 
         // Pass 2: Batch process misses
         if (this._fallbackCount > 0) {
-            fillGroundHeightsBatch(this._fallbackPositions, this._fallbackHeights!, this._fallbackCount * 4);
+            fillGroundHeightsBatch(
+                this._fallbackPositions,
+                this._fallbackHeights!,
+                this._fallbackCount * 4
+            );
         }
 
         for (let e = 0; e < active; e++) {
@@ -295,7 +304,13 @@ export class FaunaSystem {
         for (let e = from; e < to; e++) {
             const component = this._entries[e].component;
             component.state = FaunaState.Rest;
-            batcher.setInstanceMatrix(component.species, component.slot, _parkedMatrix, component.biome, 0);
+            batcher.setInstanceMatrix(
+                component.species,
+                component.slot,
+                _parkedMatrix,
+                component.biome,
+                0
+            );
         }
     }
 

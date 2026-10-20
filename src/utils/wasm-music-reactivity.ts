@@ -160,7 +160,14 @@ export function accumulateArpeggioChannelsNative(
     // Fast copy
     new Float32Array(asMemoryBuffer()!, _inPtr, totalCount).set(volumes.subarray(0, totalCount));
 
-    accumulateArpeggioChannels(_inPtr, shimmerCount, hueShiftCount, nightGate, intensityScale, _outPtr);
+    accumulateArpeggioChannels(
+        _inPtr,
+        shimmerCount,
+        hueShiftCount,
+        nightGate,
+        intensityScale,
+        _outPtr
+    );
 
     // Re-read the buffer: the call may have grown (and detached) memory.
     const outView = new Float32Array(asMemoryBuffer()!, _outPtr, 2);

@@ -306,15 +306,15 @@ export function updateFoliageMaterials(
 
         // ⚡ OPTIMIZATION: Skip CPU audio/color lerps for TSL materials
         if (isGpuPath && (mat.colorNode || mat.emissiveNode)) {
-             continue;
+            continue;
         }
 
         // 1. Audio Reactivity (Night/Day)
         if (isNight && hasChannels) {
             if (!foliageNeedsFadeBack.has(mat as FoliageMaterial)) {
+                foliageNeedsFadeBack.add(mat as FoliageMaterial);
                 _dayResetMatCount++;
             }
-            foliageNeedsFadeBack.add(mat as FoliageMaterial);
             const chIndex = (i % 4) + 1;
             const ch = channels[Math.min(chIndex, channels.length - 1)];
 
@@ -340,8 +340,10 @@ export function updateFoliageMaterials(
                 mat.emissive.setHex(0x000000);
                 mat.emissiveIntensity = 0;
             }
-            foliageNeedsFadeBack.delete(mat as FoliageMaterial);
-            _dayResetMatCount--;
+            if (foliageNeedsFadeBack.has(mat as FoliageMaterial)) {
+                foliageNeedsFadeBack.delete(mat as FoliageMaterial);
+                _dayResetMatCount--;
+            }
         }
 
         // 2. Weather Reactivity (Wet Effect)

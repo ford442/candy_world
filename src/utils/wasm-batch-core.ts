@@ -1,7 +1,7 @@
 /**
  * @file wasm-batch-core.ts
  * @brief Core batch operations: uploads, culling, spawning, and material analysis
- * 
+ *
  * Handles:
  * - Batch uploads: uploadPositions, uploadMushroomSpecs, copySharedPositions, uploadAnimationData
  * - Culling: batchDistanceCull
@@ -9,13 +9,13 @@
  * - Materials: analyzeMaterials, getUniqueShaderCount
  */
 
-import { 
-    SpawnCandidate, 
-    MaterialAnalysisResult, 
+import {
+    SpawnCandidate,
+    MaterialAnalysisResult,
     DistanceCullResult,
-    MaterialInfo 
+    MaterialInfo,
 } from './wasm-batch-types.ts';
-import { 
+import {
     wasmInstance,
     wasmMemory,
     positionView,
@@ -27,10 +27,9 @@ import {
     type WasmExports,
     type Mushroom,
     type AnimationData,
-    type PositionData
+    type PositionData,
 } from './wasm-loader-core.ts';
 import { MATERIAL_DATA_OFFSET, MAX_POSITION_OBJECTS } from './native-memory-layout.ts';
-
 
 // =============================================================================
 // BATCH UPLOAD FUNCTIONS
@@ -121,7 +120,7 @@ export function uploadAnimationData(animData: AnimationData[]): void {
         animationView[idx] = data.offset || 0;
         animationView[idx + 1] = data.type || 0;
         animationView[idx + 2] = data.originalY || 0;
-        animationView[idx + 3] = (typeof data.colorIndex === 'number') ? data.colorIndex : 0;
+        animationView[idx + 3] = typeof data.colorIndex === 'number' ? data.colorIndex : 0;
     }
 }
 
@@ -138,7 +137,13 @@ export function uploadAnimationData(animData: AnimationData[]): void {
  * @param objectCount - Number of objects
  * @returns Distance cull result
  */
-export function batchDistanceCull(cameraX: number, cameraY: number, cameraZ: number, maxDistance: number, objectCount: number): DistanceCullResult {
+export function batchDistanceCull(
+    cameraX: number,
+    cameraY: number,
+    cameraZ: number,
+    maxDistance: number,
+    objectCount: number
+): DistanceCullResult {
     const maxDistSq = maxDistance * maxDistance;
     if (!wasmInstance) return { visibleCount: objectCount, flags: null };
     refreshWasmViews();
@@ -149,7 +154,14 @@ export function batchDistanceCull(cameraX: number, cameraY: number, cameraZ: num
     if (cappedCount <= 0) return { visibleCount: objectCount, flags: null };
 
     const exports = wasmInstance.exports as WasmExports;
-    const visibleCount = exports.batchDistanceCull!(cameraX, cameraY, cameraZ, maxDistSq, cappedCount, OUTPUT_OFFSET);
+    const visibleCount = exports.batchDistanceCull!(
+        cameraX,
+        cameraY,
+        cameraZ,
+        maxDistSq,
+        cappedCount,
+        OUTPUT_OFFSET
+    );
     refreshWasmViews();
 
     return { visibleCount, flags: outputView!.subarray(0, cappedCount) };
@@ -172,17 +184,26 @@ export function batchDistanceCull(cameraX: number, cameraY: number, cameraZ: num
  * @returns Number of candidates
  */
 export function batchMushroomSpawnCandidates(
-    time: number, 
-    windX: number, 
-    windZ: number, 
-    windSpeed: number, 
-    objectCount: number, 
-    spawnThreshold: number, 
-    minDistance: number, 
+    time: number,
+    windX: number,
+    windZ: number,
+    windSpeed: number,
+    objectCount: number,
+    spawnThreshold: number,
+    minDistance: number,
     maxDistance: number
 ): number {
     if (wasmBatchMushroomSpawnCandidates && wasmInstance) {
-        return wasmBatchMushroomSpawnCandidates(time, windX, windZ, windSpeed, objectCount, spawnThreshold, minDistance, maxDistance);
+        return wasmBatchMushroomSpawnCandidates(
+            time,
+            windX,
+            windZ,
+            windSpeed,
+            objectCount,
+            spawnThreshold,
+            minDistance,
+            maxDistance
+        );
     }
     return 0;
 }
@@ -222,7 +243,12 @@ export function analyzeMaterials(materials: MaterialInfo[]): MaterialAnalysisRes
     const exports = wasmInstance?.exports as WasmExports | undefined;
     if (!exports?.analyzeMaterials) {
         const seen = new Map<string, boolean>();
-        const shaders: Array<{ vertexId: number; fragmentId: number; blendMode: number; flags: number }> = [];
+        const shaders: Array<{
+            vertexId: number;
+            fragmentId: number;
+            blendMode: number;
+            flags: number;
+        }> = [];
         for (const mat of materials) {
             const key = `${mat.vertexShaderId}-${mat.fragmentShaderId}-${mat.blendingMode}-${mat.flags || 0}`;
             if (!seen.has(key)) {
@@ -231,17 +257,17 @@ export function analyzeMaterials(materials: MaterialInfo[]): MaterialAnalysisRes
                     vertexId: mat.vertexShaderId || 0,
                     fragmentId: mat.fragmentShaderId || 0,
                     blendMode: mat.blendingMode || 0,
-                    flags: mat.flags || 0
+                    flags: mat.flags || 0,
                 });
             }
         }
         return { uniqueCount: shaders.length, shaders };
     }
-    
+
     const count = Math.min(materials.length, 256);
     const MATERIAL_OFFSET = MATERIAL_DATA_OFFSET;
     if (!wasmMemory) return { uniqueCount: 0, shaders: [] };
-    
+
     const materialView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, count * 4);
     for (let i = 0; i < count; i++) {
         const mat = materials[i];
@@ -251,17 +277,26 @@ export function analyzeMaterials(materials: MaterialInfo[]): MaterialAnalysisRes
         materialView[idx + 2] = mat.blendingMode || 0;
         materialView[idx + 3] = mat.flags || 0;
     }
-    
+
     const uniqueCount = exports.analyzeMaterials(MATERIAL_OFFSET, count);
-    const outputView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, Math.min(uniqueCount, 64) * 4);
-    const shaders: Array<{ vertexId: number; fragmentId: number; blendMode: number; flags: number }> = [];
+    const outputView = new Int32Array(
+        wasmMemory.buffer,
+        MATERIAL_OFFSET,
+        Math.min(uniqueCount, 64) * 4
+    );
+    const shaders: Array<{
+        vertexId: number;
+        fragmentId: number;
+        blendMode: number;
+        flags: number;
+    }> = [];
     for (let i = 0; i < Math.min(uniqueCount, 64); i++) {
         const idx = i * 4;
         shaders.push({
             vertexId: outputView[idx],
             fragmentId: outputView[idx + 1],
             blendMode: outputView[idx + 2],
-            flags: outputView[idx + 3]
+            flags: outputView[idx + 3],
         });
     }
     return { uniqueCount, shaders };

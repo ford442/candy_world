@@ -1,19 +1,19 @@
 import { harmonyOrbSystem } from '../foliage/aurora.ts';
 import { windComputeSystem } from '../foliage/wind-compute.ts';
 import { computeFoliageObjects } from '../world/state.ts';
-import { isCIorHeadless } from './config.ts';
 import { rendererRef } from './game-loop-core.ts';
+import { getPlatformCapabilities } from './platform/capabilities.ts';
 
 export function updateComputePhase() {
     if (!(window as any).__computeDisabled) {
         try {
             const windComputeNode = windComputeSystem.getComputeNode();
             if (windComputeNode) {
-                if (!isCIorHeadless()) { rendererRef.compute(windComputeNode); }
+                if (getPlatformCapabilities().computeAvailable) { rendererRef.compute(windComputeNode); }
             }
 
             if (harmonyOrbSystem.computeNode) {
-                if (!isCIorHeadless()) { rendererRef.compute(harmonyOrbSystem.computeNode); }
+                if (getPlatformCapabilities().computeAvailable) { rendererRef.compute(harmonyOrbSystem.computeNode); }
             }
 
             // ⚡ OPTIMIZATION: Bypassed checking the massive animatedFoliage array.
@@ -21,7 +21,7 @@ export function updateComputePhase() {
             for (const obj of computeFoliageObjects) {
                 if (obj.userData.computeNode) {
                     if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
-                        if (!isCIorHeadless()) { rendererRef.compute(obj.userData.computeNode); }
+                        if (getPlatformCapabilities().computeAvailable) { rendererRef.compute(obj.userData.computeNode); }
                     }
                 }
             }

@@ -49,14 +49,14 @@ A quiet GL render once hid the Chrome-vs-Edge adapter bug, so the fallback is al
 
 ## What is reduced on WebGL2
 
-| Area              | WebGL2 behaviour                                                                                                                                                            |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Graphics tier     | Clamped to `low` by `resolveStartupCapabilities()` (`forceWebGL`)                                                                                                           |
-| Shadows / post-FX | Off (low tier)                                                                                                                                                              |
-| GPU compute       | Off: `__computeDisabled` is set and `renderer.compute()` / `computeAsync()` are no-ops. Three runs TSL compute through transform feedback, which cannot express our kernels |
-| Compute consumers | `awaitGpuDevice()` resolves `null` immediately → CPU/WASM tiers (particles, culling, chores)                                                                                |
-| Fog               | TSL `scene.fogNode` still compiles to GLSL                                                                                                                                  |
-| Physics / spawn   | Unchanged — ground height is WASM/JS, independent of the renderer                                                                                                           |
+| Area              | WebGL2 behaviour                                                                                                                                                                                                                   |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Graphics tier     | Clamped to `low` by `resolveStartupCapabilities()` (`forceWebGL`)                                                                                                                                                                  |
+| Shadows / post-FX | Off (low tier)                                                                                                                                                                                                                     |
+| GPU compute       | Off: `getPlatformCapabilities().computeAvailable` is false, `__computeDisabled` is set and `renderer.compute()` / `computeAsync()` are no-ops. Three runs TSL compute through transform feedback, which cannot express our kernels |
+| Compute consumers | `awaitGpuDevice()` resolves `null` immediately → CPU/WASM tiers (particles, culling, chores)                                                                                                                                       |
+| Fog               | TSL `scene.fogNode` still compiles to GLSL                                                                                                                                                                                         |
+| Physics / spawn   | Unchanged — ground height is WASM/JS, independent of the renderer                                                                                                                                                                  |
 
 Full and Lite (`?lite`) both enter the world on WebGL2; the Play / Explore / Core paths are the same.
 
@@ -80,8 +80,10 @@ RENDERER=webgl BOOT_PATH=explore npm run test  # enter the Full world on WebGL2
 npm run test                                   # WebGPU; fails if the world lands on WebGL2
 ```
 
-Headless runs never start the animation loop (`isCIorHeadless()`), so they do not exercise
-physics. To check spawn/ground on WebGL2 in a real loop, open `?renderer=webgl&debugPlayer=1` and
+The smoke harness boots with `?freezeLoop=1`, which skips `setAnimationLoop`, so it does not
+exercise physics. Players always get the loop: run mode (`getRunMode()`, see
+[`WEBGPU_CONTEXT.md`](./WEBGPU_CONTEXT.md#run-mode--platform-capabilities)) only reduces effects
+for harnesses, and never by user agent. To check spawn/ground on WebGL2 in a real loop, open `?renderer=webgl&debugPlayer=1` and
 watch `window.__groundMetrics` (`playerAboveEye` ≈ 0 when standing).
 
 Older porting notes (parity table, WebGL → WebGPU checklist) are in

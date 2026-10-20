@@ -674,7 +674,6 @@ export function getWasmMemory(): ArrayBuffer | null {
  * @returns The Emscripten memory ArrayBuffer or null if not initialized
  */
 
-
 function asExportFn<T extends (...args: never[]) => unknown>(
     v: WebAssembly.ExportValue | undefined
 ): T | null {

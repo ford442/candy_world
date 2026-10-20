@@ -16,6 +16,7 @@ import { updatePresenceSystem } from '../systems/net/lazy.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { player } from '../systems/physics/index.ts';
 import { profiler } from '../utils/profiler.ts';
+import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import { updateSugarCavesTraversal } from '../world/sugar-caves-traversal.ts';
 import { isExploreActive } from './camera-modes.ts';
 import { updateAudioPhase, updateGenerativeAudioContext } from './game-loop-audio.ts';
@@ -85,6 +86,7 @@ export function animate() {
     }
 
     profiler.startFrame();
+    performanceBudget.beginFrame();
 
     if (!_loggedWebGPULimits) {
         const limits = (rendererRef as WebGPURendererWithDeviceLimits).backend?.device?.limits;
@@ -249,4 +251,20 @@ export function animate() {
     }
 
     profiler.endFrame();
+    performanceBudget.endFrame();
+
+    if (rendererRef && rendererRef.info) {
+        // GPU frame times are typically read async after the frame completes.
+        // WebGPURenderer resolves timestamps internally during render().
+        // We pull the computed values here at the end of the frame loop.
+        const computeTime = (rendererRef.info.compute && rendererRef.info.compute.timestamp) || 0;
+        const renderTime = (rendererRef.info.render && rendererRef.info.render.timestamp) || 0;
+        const totalGpuTime = computeTime + renderTime;
+
+        if (totalGpuTime > 0) {
+            performanceBudget.setGpuFrameTime(totalGpuTime);
+        } else {
+            performanceBudget.setGpuFrameTime(null);
+        }
+    }
 }

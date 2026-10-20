@@ -16,8 +16,8 @@
 import * as THREE from 'three';
 import { CONFIG } from '../core/config/defaults.ts';
 import { resolveShadowSettings } from '../core/config/postfx.ts';
-import { isCIorHeadless } from '../core/config/runtime.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
+import { isAutomation } from '../core/platform/run-mode.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import { recordCapRejection } from '../systems/performance-budget/systems-budget.ts';
 import { applyLocalShadowSoftness } from './shadow-softness.ts';
@@ -275,7 +275,7 @@ export function localShadowsAllowed(): boolean {
     if (_webglBackend) return false;
     if (_testAllowShadows === false) return false;
     if (_testAllowShadows === true) return true;
-    if (isCIorHeadless()) return false;
+    if (isAutomation()) return false;
     try {
         const caps = getStartupCapabilities();
         if (!caps.shadows.enabled) return false;
@@ -556,7 +556,7 @@ export function createPointLight(options: PointLightOptions = {}): LocalLightHan
     slot.id = id;
     slot.role = options.role ?? 'authored';
     slot.authoredIntensity = light.intensity;
-    slot.castsShadow = applyLocalShadow(light, options.castShadow === true);
+    slot.castsShadow = applyLocalShadow(light, options.castShadow === true, options.shadowSoftness);
     if (_analyticMuted && !slot.castsShadow) light.intensity = 0;
     attachHelper(slot);
     publishBreadcrumb();
@@ -609,7 +609,7 @@ export function createSpotLight(options: SpotLightOptions = {}): LocalLightHandl
     slot.id = id;
     slot.role = options.role ?? 'authored';
     slot.authoredIntensity = light.intensity;
-    slot.castsShadow = applyLocalShadow(light, options.castShadow === true);
+    slot.castsShadow = applyLocalShadow(light, options.castShadow === true, options.shadowSoftness);
     if (_analyticMuted && !slot.castsShadow) light.intensity = 0;
     attachHelper(slot);
     publishBreadcrumb();

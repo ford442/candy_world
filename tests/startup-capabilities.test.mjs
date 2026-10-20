@@ -11,7 +11,7 @@ const base = {
     deviceTier: 'high',
     isFallbackAdapter: false,
     forceWebGL: false,
-    isHeadlessOrCI: false,
+    isAutomation: false,
     url: {},
 };
 
@@ -63,7 +63,7 @@ function resolve(overrides = {}) {
     assert.equal(webgl.graphics, 'low');
     assert.equal(webgl.postfx.quality, 'off');
 
-    const ci = resolve({ isHeadlessOrCI: true, profile: { graphics: 'high' } });
+    const ci = resolve({ isAutomation: true, profile: { graphics: 'high' } });
     assert.equal(ci.graphics, 'low');
     assert.equal(ci.warmup.materialSubset, 'none');
     assert.equal(ci.postfx.quality, 'off');
@@ -118,7 +118,7 @@ function resolve(overrides = {}) {
     assert.equal(lobbyHigh.postfx.quality, 'high', 'room keeps its post-processing');
     assert.equal(lobbyHigh.shadows.resolution, 'high');
 
-    const lobbyCi = resolve({ profile: { path: 'lobby' }, isHeadlessOrCI: true });
+    const lobbyCi = resolve({ profile: { path: 'lobby' }, isAutomation: true });
     assert.equal(lobbyCi.warmup.materialSubset, 'none', 'CI still skips warmup');
 }
 

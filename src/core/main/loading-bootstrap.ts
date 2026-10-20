@@ -17,7 +17,8 @@ import {
     enableStartupProfiler,
     setProfilerGpuContextSource,
 } from '../../utils/startup-profiler.ts';
-import { isCIorHeadless, getDeviceMemoryGB, CONFIG } from '../config.ts';
+import { getDeviceMemoryGB, CONFIG } from '../config.ts';
+import { isAutomation } from '../platform/run-mode.ts';
 import {
     applyStartupCapabilities,
     formatStartupLogLine,
@@ -37,8 +38,12 @@ export interface LoadingBootstrapResult {
 }
 
 export function runLoadingBootstrap(): LoadingBootstrapResult {
-    if (CONFIG.safeMode || isCIorHeadless()) {
-        console.warn('[Startup] safeMode active (?safe=1) — shader warmup and compute disabled');
+    if (CONFIG.safeMode || isAutomation()) {
+        console.warn(
+            CONFIG.safeMode
+                ? '[Startup] safeMode active (?safe=1) — shader warmup and compute disabled'
+                : '[Startup] automation run — shader warmup and compute disabled'
+        );
         (window as any).__computeDisabled = true;
     }
 

@@ -8,20 +8,15 @@
 
 import * as THREE from 'three';
 import { getCIAdjustedCount } from '../core/config.ts';
+import { isAutomation } from '../core/platform/run-mode.ts';
 import { createFireflies as createLegacyFireflies } from '../foliage/fireflies.ts';
 import { createNeonPollen as createLegacyPollen } from '../foliage/pollen.ts';
 import type { ParticleAudioData } from './compute-particles.ts';
 import { ComputeParticleSystem, createComputeFireflies, createComputePollen, createComputeSparks, createComputeBerries, createComputeRain, createComputeGemSparks, addComputeSystem } from './compute-particles.ts';
 
-// ⚡ OPTIMIZATION: Detect Headless/CI environments to aggressively scale down particle
-// counts and prevent WebGPU Device Lost errors caused by massive VRAM buffer allocations.
-export const PARTICLE_QUALITY =
-    (typeof navigator !== 'undefined' && /headless|playwright|ci|test/i.test(navigator.userAgent || '')) ||
-    (typeof window !== 'undefined' && (window as any).__IS_FULL_BOOT_TEST === true) ||
-    (typeof localStorage !== 'undefined' && localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true') ||
-    (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
-        ? 'ci'
-        : 'full';
+// ⚡ OPTIMIZATION: Test harnesses (getRunMode() === 'automation') aggressively scale down
+// particle counts to prevent WebGPU Device Lost errors from massive VRAM buffer allocations.
+export const PARTICLE_QUALITY: 'automation' | 'full' = isAutomation() ? 'automation' : 'full';
 
 console.log(`[ComputeIntegration] PARTICLE_QUALITY determined as: ${PARTICLE_QUALITY}`);
 
@@ -72,9 +67,9 @@ export function createIntegratedFireflies(options: IntegratedFireflyOptions = {}
     const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
     
     // Scale down for CI to prevent device crash
-    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+    const ciScale = PARTICLE_QUALITY === 'automation' ? 0.01 : 1.0;
 
-    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+    if (PARTICLE_QUALITY === 'automation') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         // Use GPU compute - 300x more particles!
@@ -143,9 +138,9 @@ export function createIntegratedPollen(options: IntegratedPollenOptions = {}): T
     const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
     
     // Scale down for CI to prevent device crash
-    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+    const ciScale = PARTICLE_QUALITY === 'automation' ? 0.01 : 1.0;
 
-    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+    if (PARTICLE_QUALITY === 'automation') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         const targetCount = skipHeavyParticles ? count : Math.min(count * 15, 50000);
@@ -215,9 +210,9 @@ export function createIntegratedSpores(options: IntegratedSporesOptions = {}): T
 
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
     const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
-    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+    const ciScale = PARTICLE_QUALITY === 'automation' ? 0.01 : 1.0;
 
-    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+    if (PARTICLE_QUALITY === 'automation') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         // Spores hang in the air — keep multiplier modest so 200+ stay visible but cheap.
@@ -297,9 +292,9 @@ export function createIntegratedSparks(options: IntegratedSparksOptions = {}): T
     const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
 
     // Scale down for CI to prevent device crash
-    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+    const ciScale = PARTICLE_QUALITY === 'automation' ? 0.01 : 1.0;
 
-    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+    if (PARTICLE_QUALITY === 'automation') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         const targetCount = skipHeavyParticles ? count : Math.min(count * 5, 50000);
@@ -362,9 +357,9 @@ export function createIntegratedBerries(options: IntegratedBerriesOptions = {}):
     const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
 
     // Scale down for CI to prevent device crash
-    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+    const ciScale = PARTICLE_QUALITY === 'automation' ? 0.01 : 1.0;
 
-    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+    if (PARTICLE_QUALITY === 'automation') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         try {
@@ -423,9 +418,9 @@ export function createIntegratedGemSparks(options: IntegratedGemSparksOptions = 
         useCompute = true,
     } = options;
 
-    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+    const ciScale = PARTICLE_QUALITY === 'automation' ? 0.01 : 1.0;
 
-    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+    if (PARTICLE_QUALITY === 'automation') return new THREE.Group();
 
     if (!useCompute) return new THREE.Group();
 
@@ -469,9 +464,9 @@ export function createIntegratedRain(options: IntegratedRainOptions = {}): THREE
     const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
 
     // Scale down for CI to prevent device crash
-    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+    const ciScale = PARTICLE_QUALITY === 'automation' ? 0.01 : 1.0;
 
-    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+    if (PARTICLE_QUALITY === 'automation') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         try {
@@ -652,7 +647,7 @@ export async function loadDeferredSystems(
             }
 
             // Yield multiple frames between systems in CI to let GC/GPU queue drain
-            const waitFrames = PARTICLE_QUALITY === 'ci' ? 3 : 1;
+            const waitFrames = PARTICLE_QUALITY === 'automation' ? 3 : 1;
             for (let i = 0; i < waitFrames; i++) {
                 await new Promise(resolve => requestAnimationFrame(resolve));
             }

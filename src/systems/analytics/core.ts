@@ -7,6 +7,7 @@
  * and local-only mode support.
  */
 
+import { readUserAgent } from '../../core/platform/user-agent.ts';
 import { log } from '../../utils/log.ts';
 import { PerformanceTracker } from './performance.ts';
 import {
@@ -199,7 +200,7 @@ export class AnalyticsSystem {
     // Track session start event
     this.trackEventInternal('session_start', {
       sessionId,
-      userAgent: navigator.userAgent,
+      userAgent: readUserAgent(),
       screenResolution: `${window.screen.width}x${window.screen.height}`,
       language: navigator.language,
       platform: navigator.platform,
@@ -764,7 +765,7 @@ export class AnalyticsSystem {
       events: allEvents,
       performance: this.performanceTracker.getPerformanceMetrics(),
       appVersion: '1.0.0', // Should match package.json
-      userAgent: navigator.userAgent,
+      userAgent: readUserAgent(),
       screenResolution: `${window.screen.width}x${window.screen.height}`,
     };
   }
