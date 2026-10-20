@@ -22,12 +22,12 @@ foliage interaction checks → pads, geysers, traps, etc.
 
 ## Entry points
 
-| Symbol | File | Role |
-|--------|------|------|
-| `stepCharacter` | `physics-updates.ts` | Single kinematic integration step |
-| `probeCapsuleGround` | `physics-updates.ts` | Capsule footprint ground sample |
-| `CHARACTER_CONTROLLER` | `physics-types.ts` | Tunable config block |
-| `resetCharacterControllerState` | `physics-types.ts` | Clear coyote/buffer timers on spawn |
+| Symbol                          | File                 | Role                                |
+| ------------------------------- | -------------------- | ----------------------------------- |
+| `stepCharacter`                 | `physics-updates.ts` | Single kinematic integration step   |
+| `probeCapsuleGround`            | `physics-updates.ts` | Capsule footprint ground sample     |
+| `CHARACTER_CONTROLLER`          | `physics-types.ts`   | Tunable config block                |
+| `resetCharacterControllerState` | `physics-types.ts`   | Clear coyote/buffer timers on spawn |
 
 ## Features
 
@@ -61,39 +61,39 @@ When grounded and moving, probes forward at `stepProbeDistance`. If ledge ΔY is
 
 All values live in `CHARACTER_CONTROLLER` ([`physics-types.ts`](../src/systems/physics/physics-types.ts)).
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `capsuleRadius` | `0.35` | Horizontal footprint probe radius (world units) |
-| `skinWidth` | `0.08` | Grounding snap epsilon |
-| `maxSlopeDeg` | `42` | Walk threshold; steeper slopes slide |
-| `maxStepHeight` | `0.4` | Max auto step-up without jumping |
-| `coyoteMs` | `120` | Grace period after leaving ground for jump |
-| `jumpBufferMs` | `120` | Jump input queued before landing |
-| `airControl` | `0.35` | Horizontal input authority while airborne (0–1) |
-| `terminalFallSpeed` | `55` | Max downward velocity (units/s) |
-| `moveAccel` | `15` | Ground horizontal acceleration |
-| `jumpVelocity` | `8.0` | Ground jump initial vy |
-| `slopeSlideAccel` | `12` | Downhill slide acceleration on steep slopes |
-| `stepProbeDistance` | `0.45` | Forward ledge probe distance |
-| `footprintSamples` | `4` | Cardinal ring samples (1–4) |
+| Field               | Default | Description                                     |
+| ------------------- | ------- | ----------------------------------------------- |
+| `capsuleRadius`     | `0.35`  | Horizontal footprint probe radius (world units) |
+| `skinWidth`         | `0.08`  | Grounding snap epsilon                          |
+| `maxSlopeDeg`       | `42`    | Walk threshold; steeper slopes slide            |
+| `maxStepHeight`     | `0.4`   | Max auto step-up without jumping                |
+| `coyoteMs`          | `120`   | Grace period after leaving ground for jump      |
+| `jumpBufferMs`      | `120`   | Jump input queued before landing                |
+| `airControl`        | `0.35`  | Horizontal input authority while airborne (0–1) |
+| `terminalFallSpeed` | `55`    | Max downward velocity (units/s)                 |
+| `moveAccel`         | `15`    | Ground horizontal acceleration                  |
+| `jumpVelocity`      | `8.0`   | Ground jump initial vy                          |
+| `slopeSlideAccel`   | `12`    | Downhill slide acceleration on steep slopes     |
+| `stepProbeDistance` | `0.45`  | Forward ledge probe distance                    |
+| `footprintSamples`  | `4`     | Cardinal ring samples (1–4)                     |
 
 ### Related CONFIG values (not in CHARACTER_CONTROLLER)
 
-| Field | Location | Default | Interaction |
-|-------|----------|---------|-------------|
-| `eyeHeight` | `CONFIG.player` | `1.8` | Eye ↔ feet offset |
-| `platformElevationThreshold` | `CONFIG.ground` | `1.25` | `reconcileGroundedEyeY` skips smoothing when above terrain by this amount |
-| `followLerpSpeed` | `CONFIG.ground` | `12` | Camera Y lerp in `updatePhysics` (visual only) |
+| Field                        | Location        | Default | Interaction                                                               |
+| ---------------------------- | --------------- | ------- | ------------------------------------------------------------------------- |
+| `eyeHeight`                  | `CONFIG.player` | `1.8`   | Eye ↔ feet offset                                                         |
+| `platformElevationThreshold` | `CONFIG.ground` | `1.25`  | `reconcileGroundedEyeY` skips smoothing when above terrain by this amount |
+| `followLerpSpeed`            | `CONFIG.ground` | `12`    | Camera Y lerp in `updatePhysics` (visual only)                            |
 
 ## Ability integration
 
 `handleAbilities` runs **before** `stepCharacter` and is not modified by this feature:
 
-| Ability | Effect | Controller interaction |
-|---------|--------|------------------------|
-| Dash / dodge roll | Adds to `velocity.xz` | Preserved; air control only steers input wish |
-| Double jump | Sets `vy = 11.5` when airborne | Separate from ground jump / coyote |
-| Ground jump | — | Owned by `stepCharacter` (coyote + buffer) |
+| Ability           | Effect                         | Controller interaction                        |
+| ----------------- | ------------------------------ | --------------------------------------------- |
+| Dash / dodge roll | Adds to `velocity.xz`          | Preserved; air control only steers input wish |
+| Double jump       | Sets `vy = 11.5` when airborne | Separate from ground jump / coyote            |
+| Ground jump       | —                              | Owned by `stepCharacter` (coyote + buffer)    |
 
 ## WASM collision
 
