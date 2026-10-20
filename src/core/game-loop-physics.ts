@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { updateGroundDebug, isGroundDebugEnabled } from '../debug/tools-stub.ts';
 import { updatePlacementDebug, isPlacementDebugEnabled } from '../debug/tools-stub.ts';
-import { updateBuildMode, isBuildModeActive } from '../systems/build-mode.ts';
 import {
     updatePhysicsSandbox,
     setPhysicsSandboxPlayer,

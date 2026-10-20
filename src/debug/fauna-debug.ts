@@ -69,7 +69,7 @@ export function updateFaunaDebug(
     const posAttr = _arrows.geometry.getAttribute('position') as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
     const m = new THREE.Matrix4();
-    const up = new THREE.Vector3(0, 1, 0);
+
 
     _rings.count = count;
     for (let i = 0; i < count; i++) {
