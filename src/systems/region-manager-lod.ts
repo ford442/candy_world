@@ -86,36 +86,17 @@ export function getCellsToUnload(
         }
     }
 
-    if (count > 0) {
-        let chunkStart = 0;
-        let useWasm = true;
-
-        while (chunkStart < count) {
-            const chunkCount = Math.min(count - chunkStart, WASM_POSITION_OBJECT_CAPACITY);
-            const chunkPositions = _scratchPositions.subarray(chunkStart * 3, (chunkStart + chunkCount) * 3);
-
-            uploadPositionsFlat(chunkPositions, chunkCount);
-            const { flags } = batchDistanceCull(cx, 0, cz, r, chunkCount);
-
-            if (flags) {
-                for (let i = 0; i < chunkCount; i++) {
-                    if (flags[i] === 0.0) {
-                        result.push(_scratchCells[chunkStart + i]);
-                    }
+    if (count > 0 && count <= WASM_POSITION_OBJECT_CAPACITY) {
+        uploadPositionsFlat(_scratchPositions, count);
+        const { flags } = batchDistanceCull(cx, 0, cz, r, count);
+        if (flags) {
+            for (let i = 0; i < count; i++) {
+                if (flags[i] === 0.0) {
+                    result.push(_scratchCells[i]);
                 }
-            } else {
-                useWasm = false;
-                break;
             }
-            chunkStart += chunkCount;
-        }
-
-        if (useWasm) {
             for (let i = 0; i < count; i++) _scratchCells[i] = null as any;
             return result;
-        } else {
-            // clear result if we partially filled it and fallback triggered
-            result.length = 0;
         }
     }
 
@@ -163,32 +144,16 @@ export function getDistantCells(manager: RegionManager, minRadius: number): Grid
         }
     }
 
-    if (count > 0) {
-        let chunkStart = 0;
-        let useWasm = true;
-
-        while (chunkStart < count) {
-            const chunkCount = Math.min(count - chunkStart, WASM_POSITION_OBJECT_CAPACITY);
-            const chunkPositions = _scratchPositions.subarray(chunkStart * 3, (chunkStart + chunkCount) * 3);
-
-            uploadPositionsFlat(chunkPositions, chunkCount);
-            const { flags } = batchDistanceCull(manager.playerCellX, 0, manager.playerCellZ, minRadius, chunkCount);
-
-            if (flags) {
-                for (let i = 0; i < chunkCount; i++) {
-                    if (flags[i] === 0.0) {
-                        result.push(_scratchCells[chunkStart + i]);
-                    }
+    if (count > 0 && count <= WASM_POSITION_OBJECT_CAPACITY) {
+        uploadPositionsFlat(_scratchPositions, count);
+        const { flags } = batchDistanceCull(manager.playerCellX, 0, manager.playerCellZ, minRadius, count);
+        if (flags) {
+            for (let i = 0; i < count; i++) {
+                if (flags[i] === 0.0) {
+                    result.push(_scratchCells[i]);
                 }
-            } else {
-                useWasm = false;
-                break;
             }
-            chunkStart += chunkCount;
-        }
-
-        if (!useWasm) {
-            result.length = 0;
+        } else {
             for (let i = 0; i < count; i++) {
                 const cell = _scratchCells[i];
                 const dx = cell.x - manager.playerCellX;

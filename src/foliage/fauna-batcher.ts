@@ -68,6 +68,7 @@ interface SpeciesSlot {
     slotToInstance: Map<number, number>;
     phaseDirty?: boolean;
     glowDirty?: boolean;
+    matrixDirty?: boolean;
 }
 
 export class FaunaBatcher {
@@ -144,6 +145,7 @@ export class FaunaBatcher {
         const m = new THREE.Matrix4().makeTranslation(x, y, z);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
         m.toArray(sp.mesh.instanceMatrix.array, idx * 16);
+        sp.matrixDirty = true;
         sp.phaseDirty = true;
         sp.glowDirty = true;
         return idx;
@@ -159,8 +161,22 @@ export class FaunaBatcher {
         const sp = this._species[species];
         const idx = sp.slotToInstance.get(slot);
         if (idx === undefined) return;
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
-        matrix.toArray(sp.mesh.instanceMatrix.array, idx * 16);
+
+        let matrixChanged = false;
+        const offset = idx * 16;
+        const currentArray = sp.mesh.instanceMatrix.array;
+        const newArray = matrix.elements;
+        for (let i = 0; i < 16; i++) {
+            if (currentArray[offset + i] !== newArray[i]) {
+                currentArray[offset + i] = newArray[i];
+                matrixChanged = true;
+            }
+        }
+
+        if (matrixChanged) {
+            sp.matrixDirty = true;
+        }
+
         if (sp.phases[idx] !== phase) {
             sp.phases[idx] = phase;
             sp.phaseDirty = true;
@@ -170,7 +186,10 @@ export class FaunaBatcher {
     syncMatrices(): void {
         for (const sp of this._species) {
             if (sp.count > 0) {
-                sp.mesh.instanceMatrix.needsUpdate = true;
+                if (sp.matrixDirty) {
+                    sp.mesh.instanceMatrix.needsUpdate = true;
+                    sp.matrixDirty = false;
+                }
 
                 if (sp.phaseDirty) {
                     const phaseAttr = sp.mesh.geometry.getAttribute(
@@ -227,9 +246,9 @@ export class FaunaBatcher {
         sp.count--;
         sp.mesh.count = sp.count;
 
-        sp.mesh.instanceMatrix.needsUpdate = true;
-        (sp.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute).needsUpdate = true;
-        (sp.mesh.geometry.getAttribute('aBiomeGlow') as THREE.InstancedBufferAttribute).needsUpdate = true;
+        sp.matrixDirty = true;
+        sp.phaseDirty = true;
+        sp.glowDirty = true;
     }
 
     getMeshes(): THREE.InstancedMesh[] {
