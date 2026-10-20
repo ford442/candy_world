@@ -56,11 +56,14 @@ function createCloudMaterial() {
     // Strength: 1.0 at center, 0.0 at edge
     const playerStrength = float(1.0).sub(smoothstep(0.0, 1.0, distFactor));
 
-    // Squash Y down, Bulge XZ out
-    const playerSquashAmount = playerStrength.mul(0.6); // Max 60% squash
+    // Squash Y down, Bulge XZ out + velocity impact (#1254: juicy jump-through)
+    const baseSquash = playerStrength.mul(0.6); // Max 60% squash at rest
+    // Fast vertical movement (jumping / landing) adds extra squash
+    const verticalVelSquash = uPlayerVelocity.y.abs().mul(0.015).mul(playerStrength).clamp(0.0, 0.4);
+    const playerSquashAmount = baseSquash.add(verticalVelSquash);
     const playerSquishScale = vec3(
         float(1.0).add(playerSquashAmount.mul(0.5)), // Expand X
-        float(1.0).sub(playerSquashAmount), // Compress Y
+        float(1.0).sub(playerSquashAmount).max(0.4), // Compress Y, clamp at 0.4
         float(1.0).add(playerSquashAmount.mul(0.5)) // Expand Z
     );
 

@@ -64,7 +64,13 @@ import {
     worldGroup,
 } from './state.ts';
 import { createPathTerrain, rebuildTerrainForPath } from './terrain-mesh.ts';
-import { LOBBY_FLOOR_TOP_Y, LOBBY_SPAWN_X, LOBBY_SPAWN_Z, PLAY_SPAWN_RADIUS_CHUNKS, PLAY_WORLD_SIZE } from './world-extent.ts';
+import {
+    LOBBY_FLOOR_TOP_Y,
+    LOBBY_SPAWN_X,
+    LOBBY_SPAWN_Z,
+    PLAY_SPAWN_RADIUS_CHUNKS,
+    PLAY_WORLD_SIZE,
+} from './world-extent.ts';
 import { setMapMetadataSeed } from './world-seed.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
@@ -278,6 +284,9 @@ export async function initWorld(
 
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
+    // foliageGroup is no longer parented to worldGroup (flattened in #1370), so it
+    // must be attached to the scene directly or every batcher mesh is unrendered.
+    scene.add(foliageGroup);
 
     // Generate Content if requested (triggered by start button in main.ts)
     if (loadContent) {
@@ -395,7 +404,7 @@ export async function generateMap(
             'candy:map-generation-start',
             'candy:map-generation-end'
         );
-    } catch (_e) {
+    } catch {
         /* ignore if marks were cleared */
     }
 
@@ -816,7 +825,6 @@ function assertCoreWorldPlayable(weatherSystem: WeatherSystem | undefined): void
     }
 }
 
-
 /** Half-width of the playable lobby floor (metres). Walls sit just outside. */
 const LOBBY_ROOM_HALF = 10;
 const LOBBY_WALL_HEIGHT = 6.5;
@@ -1004,7 +1012,12 @@ export async function generateLobbyWorld(
         if (!obj) continue;
         plantOnSurface(obj, item.x, item.z, { groundY: LOBBY_FLOOR_TOP_Y });
         obj.rotation.y = Math.random() * Math.PI * 2;
-        safeAddFoliage(obj, item.type === 'mushroom' || item.type === 'instrument_shrine', 0.6, weatherSystem);
+        safeAddFoliage(
+            obj,
+            item.type === 'mushroom' || item.type === 'instrument_shrine',
+            0.6,
+            weatherSystem
+        );
         placed += 1;
     }
     // The outdoor set normally parents this batcher; Lobby boots skip that set.

@@ -86,7 +86,10 @@ export function makeInteractiveCylinder(group: THREE.Object3D, height: number, r
             _vA.applyMatrix4(matrixWorld);
 
             // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
-            const distSq = (raycaster.ray.origin.x - _vA.x) * (raycaster.ray.origin.x - _vA.x) + (raycaster.ray.origin.y - _vA.y) * (raycaster.ray.origin.y - _vA.y) + (raycaster.ray.origin.z - _vA.z) * (raycaster.ray.origin.z - _vA.z);
+            const distSq =
+                (raycaster.ray.origin.x - _vA.x) * (raycaster.ray.origin.x - _vA.x) +
+                (raycaster.ray.origin.y - _vA.y) * (raycaster.ray.origin.y - _vA.y) +
+                (raycaster.ray.origin.z - _vA.z) * (raycaster.ray.origin.z - _vA.z);
             if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far)
                 return;
 
@@ -152,7 +155,10 @@ export function makeInteractiveSphere(
             _vA.applyMatrix4(matrixWorld);
 
             // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
-            const distSq = (raycaster.ray.origin.x - _vA.x) * (raycaster.ray.origin.x - _vA.x) + (raycaster.ray.origin.y - _vA.y) * (raycaster.ray.origin.y - _vA.y) + (raycaster.ray.origin.z - _vA.z) * (raycaster.ray.origin.z - _vA.z);
+            const distSq =
+                (raycaster.ray.origin.x - _vA.x) * (raycaster.ray.origin.x - _vA.x) +
+                (raycaster.ray.origin.y - _vA.y) * (raycaster.ray.origin.y - _vA.y) +
+                (raycaster.ray.origin.z - _vA.z) * (raycaster.ray.origin.z - _vA.z);
             if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far)
                 return;
 
@@ -224,10 +230,15 @@ export function setupGlobalKeyboardTactileFeedback() {
         if (e.repeat) return;
         if (e.key === 'Enter' || e.key === ' ') {
             const activeElement = document.activeElement as HTMLElement;
-            const isDisabled = activeElement?.getAttribute('aria-disabled') === 'true' ||
-                               (activeElement as HTMLButtonElement)?.disabled;
+            const isDisabled =
+                activeElement?.getAttribute('aria-disabled') === 'true' ||
+                (activeElement as HTMLButtonElement)?.disabled;
 
-            if (activeElement && !isDisabled && !activeElement.classList.contains('keyboard-active')) {
+            if (
+                activeElement &&
+                !isDisabled &&
+                !activeElement.classList.contains('keyboard-active')
+            ) {
                 if (
                     activeElement.matches(
                         '.toggle-button, .cta-button, .secondary-button, .file-label, ' +

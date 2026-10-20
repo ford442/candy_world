@@ -30,9 +30,6 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
                 session.controls.lock();
             }
         });
-
-
-
     }
 
     session.controls.addEventListener('lock', () => {
@@ -56,7 +53,9 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
         if (session.instructions) {
             session.instructions.style.opacity = '0';
             session.instructions.style.backdropFilter = 'blur(0px)';
-            const content = session.instructions.querySelector('.instructions-content') as HTMLElement;
+            const content = session.instructions.querySelector(
+                '.instructions-content'
+            ) as HTMLElement;
             if (content) {
                 content.style.transform = 'scale(0.95)';
             }
@@ -99,9 +98,12 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
                 session.instructions.style.display = 'flex';
                 session.instructions.style.opacity = '0';
                 session.instructions.style.backdropFilter = 'blur(0px)';
-                session.instructions.style.transition = 'opacity 0.2s ease, backdrop-filter 0.2s ease';
+                session.instructions.style.transition =
+                    'opacity 0.2s ease, backdrop-filter 0.2s ease';
 
-                const content = session.instructions.querySelector('.instructions-content') as HTMLElement;
+                const content = session.instructions.querySelector(
+                    '.instructions-content'
+                ) as HTMLElement;
                 if (content) {
                     content.style.transform = 'scale(0.95)';
                     content.style.transition =
@@ -120,7 +122,10 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
 
                 yieldToPaint(50).then(() => {
                     if (session.instructions && session.instructions.style.display !== 'none') {
-                        session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true, onEscape: () => session.controls.lock() });
+                        session.focus.releasePauseMenuFocus = trapFocusInside(
+                            session.instructions,
+                            { skipAutoFocus: true, onEscape: () => session.controls.lock() }
+                        );
                         if (session.startButton) {
                             session.startButton.focus({ preventScroll: true });
                         }

@@ -205,6 +205,24 @@ async function runTests() {
         console.log('  ✓ classifyForEviction handles all known types correctly');
         passed++;
 
+        // Gem fruit hung on a non-gem_canopy host (bubble willow / portamento
+        // pine with attachGemFruits, as generation-decorators-gem-canopy.ts
+        // plants them) must leave with its host tree.
+        const gemTotal = () => gemFruitBatcher.meshes.reduce((n, m) => n + m.count, 0);
+        for (const hostType of ['bubbleWillow', 'tree']) {
+            const host = new THREE.Group();
+            host.userData = { type: hostType };
+            if (hostType === 'tree') host.userData.animationType = 'batchedPortamento';
+            const gemsBefore = gemTotal();
+            const { refs } = gemFruitBatcher.attachToTree(host, { gemCount: 3 });
+            assert.ok(refs.length > 0, `${hostType}: gems should attach`);
+            assert.equal(gemTotal(), gemsBefore + refs.length, `${hostType}: gem instances added`);
+            assert.equal(despawnEntity(host, null), true, `${hostType}: host should be evictable`);
+            assert.equal(gemTotal(), gemsBefore, `${hostType}: gem fruit should be evicted with its host`);
+        }
+        console.log('  ✓ Gem fruit evicted with bubble willow / portamento pine hosts');
+        passed++;
+
         // 8. Cave
         const caveId = THREE.MathUtils.generateUUID();
         const caveObj = new THREE.Group();

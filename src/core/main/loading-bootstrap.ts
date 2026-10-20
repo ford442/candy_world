@@ -65,7 +65,7 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
             loadingScreen.showFatalError(
                 `Startup failed: ${msg}\n\nRefresh the page to try again.`
             );
-        } catch (_) {
+        } catch {
             const fallback =
                 document.getElementById('loading-overlay') ??
                 document.getElementById('loading-container');
