@@ -1,8 +1,5 @@
 import { register } from "node:module";
-
-
-import { pathToFileURL } from "node:url";
-register("./support/wasm-init-hooks.mjs", import.meta.url);
+register(new URL("./support/wasm-init-hooks.mjs", import.meta.url), import.meta.url);
 
 /**
  * Batch ground-height parity across C++ ↔ AssemblyScript ↔ JS, driven through
