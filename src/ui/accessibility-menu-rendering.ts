@@ -875,6 +875,11 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             announceValueChange(label, val, min, max);
         };
 
+        slider.onchange = () => {
+            const val = parseFloat(slider.value);
+            announceValueChange(label, val, min, max);
+        };
+
         sliderWrapper.appendChild(slider);
         sliderWrapper.appendChild(valueDisplay);
 
