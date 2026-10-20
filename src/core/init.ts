@@ -655,7 +655,7 @@ export async function forceFullSceneWarmup(
 
     try {
         renderer.render(scene, camera);
-    } catch (e) {
+    } catch {
         console.warn('Warmup error', e);
     }
 

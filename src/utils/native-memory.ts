@@ -21,11 +21,7 @@ export class NativeF32 {
     readonly ptr: number;
     readonly length: number;
 
-    constructor(
-        source: BufferSource,
-        ptr: number,
-        length: number
-    ) {
+    constructor(source: BufferSource, ptr: number, length: number) {
         this.source = source;
         this.ptr = ptr;
         this.length = length;

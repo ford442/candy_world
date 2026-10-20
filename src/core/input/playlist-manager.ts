@@ -36,7 +36,9 @@ export function initPlaylistManager(
     _state.playlistList = document.getElementById('playlist-list');
     _state.closePlaylistBtn = document.getElementById('closePlaylistBtn');
     _state.playlistCloseX = document.getElementById('playlistCloseX');
-    _state.playlistUploadInput = document.getElementById('playlistUploadInput') as HTMLInputElement | null;
+    _state.playlistUploadInput = document.getElementById(
+        'playlistUploadInput'
+    ) as HTMLInputElement | null;
     _state.addSongsBtn = document.getElementById('addSongsBtn');
     _state.openJukeboxBtn = document.getElementById('openJukeboxBtn');
     _state.nowPlayingContainer = document.getElementById('nowPlayingContainer');
@@ -280,7 +282,10 @@ export function togglePlaylist(): void {
             // Wait for paint before intensive DOM manipulations and focus trapping
             yieldToPaint(50).then(() => {
                 if (_state.isPlaylistOpen && _state.playlistOverlay) {
-                    _state.releaseJukeboxFocus = trapFocusInside(_state.playlistOverlay, { skipAutoFocus: true, onEscape: () => togglePlaylist() });
+                    _state.releaseJukeboxFocus = trapFocusInside(_state.playlistOverlay, {
+                        skipAutoFocus: true,
+                        onEscape: () => togglePlaylist(),
+                    });
 
                     announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
 
@@ -338,11 +343,18 @@ export function togglePlaylist(): void {
                 _state.instructionsRef.style.display = 'flex';
 
                 yieldToPaint(50).then(() => {
-                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                     const session = (window as any).__inputSession;
-                     if (session && _state.instructionsRef && _state.instructionsRef.style.display !== 'none') {
-                         session.focus.releasePauseMenuFocus = trapFocusInside(_state.instructionsRef, { skipAutoFocus: true, onEscape: () => session.controls.lock() });
-                     }
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const session = (window as any).__inputSession;
+                    if (
+                        session &&
+                        _state.instructionsRef &&
+                        _state.instructionsRef.style.display !== 'none'
+                    ) {
+                        session.focus.releasePauseMenuFocus = trapFocusInside(
+                            _state.instructionsRef,
+                            { skipAutoFocus: true, onEscape: () => session.controls.lock() }
+                        );
+                    }
                 });
             }
             // Do NOT lock controls, stay unlocked
@@ -378,4 +390,9 @@ export function getLastFocusedElement(): Element | null {
 
 // Re-export everything else for backward compatibility with consumer modules
 export { renderPlaylist, updateJukeboxButtonState } from './playlist-ui.ts';
-export { handlePlaylistUpload, handlePlaylistKeyDown, handlePlaylistKeyUp, initLegacyMusicUpload } from './playlist-events.ts';
+export {
+    handlePlaylistUpload,
+    handlePlaylistKeyDown,
+    handlePlaylistKeyUp,
+    initLegacyMusicUpload,
+} from './playlist-events.ts';
