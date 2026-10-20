@@ -405,7 +405,7 @@ export async function initScene(): Promise<SceneInitResult> {
             );
             try {
                 webgpuRenderer.outputColorSpace = 'display-p3';
-            } catch (e) {
+            } catch {
                 console.warn('[Init] Failed to set display-p3, falling back to srgb.');
                 webgpuRenderer.outputColorSpace = 'srgb';
             }

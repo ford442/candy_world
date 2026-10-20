@@ -633,9 +633,10 @@ export class PerformanceBudget {
         switch (type) {
             case 'frameTime':
                 return this.getAverageFrameTime(5) > budget.limit;
-            case 'gpuFrameTime':
+            case 'gpuFrameTime': {
                 const avgGpu = this.getAverageGpuFrameTime(5);
                 return avgGpu !== null && avgGpu > budget.limit;
+            }
             case 'memory':
                 return this.currentMetrics.memory > budget.limit;
             case 'instances':

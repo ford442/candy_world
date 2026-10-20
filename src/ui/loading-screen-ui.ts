@@ -743,10 +743,35 @@ export class LoadingScreen {
         if (!this.flavorText || this.flavorIntervalId !== null || this.hasFatalError) return;
         const pick = (): void => {
             if (!this.flavorText || this.isComplete) return;
+
+            const reduceMotion =
+                (typeof document !== 'undefined' &&
+                    document.body.classList.contains('a11y-motion-reduced')) ||
+                (typeof window !== 'undefined' &&
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+            if (reduceMotion) {
+                const messages = this.flavorMessages;
+                this.flavorText.textContent = messages[Math.floor(Math.random() * messages.length)];
+                return;
+            }
+
+            this.flavorText.classList.add('fade-out');
+
+            setTimeout(() => {
+                if (!this.flavorText || this.isComplete) return;
+                const messages = this.flavorMessages;
+                this.flavorText.textContent = messages[Math.floor(Math.random() * messages.length)];
+                this.flavorText.classList.remove('fade-out');
+            }, 500); // Wait for CSS transition (0.5s)
+        };
+
+        // Initial pick immediately
+        if (this.flavorText && !this.isComplete) {
             const messages = this.flavorMessages;
             this.flavorText.textContent = messages[Math.floor(Math.random() * messages.length)];
-        };
-        pick();
+        }
+
         this.flavorIntervalId = window.setInterval(pick, 2500);
     }
 

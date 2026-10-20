@@ -742,6 +742,7 @@
   
   .progress-flavor-text {
     animation: none;
+    transition: none;
   }
 
   .progress-fill {
