@@ -124,8 +124,9 @@ Rules:
   Use the pipelined take-last-frame pattern, or `readBuffer()` off the hot path during init.
 - **Skip empty work:** `gpu.shouldSkipDispatch(activeCount, 'MyPass')` — CORE mode registries are
   legitimately zero-length and a zero dispatch is wasted encoder time.
-- **Never dispatch in CI/headless.** `updateComputePhase()` guards every `renderer.compute()` with
-  `!isCIorHeadless()`; a raw pass gets the same guard for free via `preferGpuCompute()`.
+- **Never dispatch in automation or on WebGL2.** `updateComputePhase()` guards every
+  `renderer.compute()` with `getPlatformCapabilities().computeAvailable`; a raw pass gets the
+  automation guard for free via `preferGpuCompute()`.
 - **Wrap the whole phase in try/catch and disable on throw.** One bad pass must not kill the loop —
   mirror `updateComputePhase()`: log, set `window.__computeDisabled = true`, keep rendering.
 

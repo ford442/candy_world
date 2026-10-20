@@ -13,7 +13,6 @@ export {
 } from './url-flags.ts';
 
 export {
-    isCIorHeadless,
     getDeviceMemoryGB,
     getJsHeapUsageRatio,
     getLoadMemoryTier,

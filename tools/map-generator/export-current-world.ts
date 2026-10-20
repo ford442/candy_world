@@ -164,7 +164,7 @@ async function main(): Promise<void> {
         if (!builtMapFile) {
             throw new Error('No built map asset found in dist/assets. Run npm run build before export:map.');
         }
-        await page.goto(`http://localhost:${PREVIEW_PORT}?map=/assets/${builtMapFile}`, { waitUntil: 'domcontentloaded', timeout: 35000 });
+        await page.goto(`http://localhost:${PREVIEW_PORT}?map=/assets/${builtMapFile}&freezeLoop=1`, { waitUntil: 'domcontentloaded', timeout: 35000 });
         await page.waitForFunction(() => (window as any).__sceneReady === true, undefined, { timeout: 90000 });
         await page.waitForFunction(() => typeof (window as any).exportCurrentWorldToMap === 'function', undefined, { timeout: 15000 });
 

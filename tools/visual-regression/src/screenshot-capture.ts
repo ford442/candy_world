@@ -367,7 +367,10 @@ export class ScreenshotCapture {
       shadows: options.quality.shadows.toString(),
       particleDensity: options.quality.particleDensity.toString(),
       visualRegression: 'true',
-      skipIntro: 'true'
+      skipIntro: 'true',
+      // Keeps the pre-#1972 behaviour, when __IS_FULL_BOOT_TEST also skipped
+      // setAnimationLoop. Drop it to capture viewpoints from a running loop.
+      freezeLoop: '1'
     });
 
     if (options.seed !== undefined) {

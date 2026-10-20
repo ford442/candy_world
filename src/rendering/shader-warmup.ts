@@ -24,7 +24,8 @@ import {
     MeshBasicNodeMaterial,
     MeshPhysicalNodeMaterial,
 } from 'three/webgpu';
-import { CONFIG, isCIorHeadless } from '../core/config.ts';
+import { CONFIG } from '../core/config.ts';
+import { isAutomation } from '../core/platform/run-mode.ts';
 import { getStartupCapabilities, type MaterialSubset } from '../core/startup/capabilities.ts';
 import { CandyPresets, foliageMaterials, isClearcoatEnabled } from '../foliage/index.ts';
 import { createTerrainMaterial } from '../foliage/terrain.ts';
@@ -669,7 +670,7 @@ export async function warmupAllShaders(
     onProgress?: WarmupProgressCallback,
     options?: Partial<ShaderWarmupOptions>
 ): Promise<WarmupStats> {
-    if (CONFIG.safeMode || isCIorHeadless()) {
+    if (CONFIG.safeMode || isAutomation()) {
         console.warn('[ShaderWarmup] Bypassed due to safeMode or CI mode');
         return { total: 0, completed: 0, failed: 0, totalTime: 0, averageTime: 0 };
     }

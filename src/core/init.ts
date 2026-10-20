@@ -10,6 +10,7 @@ import {
     StorageBufferAttribute,
 } from 'three/webgpu';
 import { createCrescendoFogNode, uFogNear, uFogFar } from '../foliage/sky.ts';
+import { ensureOutputColorSpace } from '../rendering/color-spaces.ts';
 import {
     applyCanvasColorSpace,
     armGpuContext,
@@ -40,7 +41,9 @@ import {
     resolveShadowSettings,
     areGodRaysEnabled,
     resolvePostfxQuality,
+    shouldPreferLightWorldLoad,
 } from './config.ts';
+import { initPlatformCapabilities } from './platform/capabilities.ts';
 
 /**
  * Candy World always uses `WebGPURenderer`: on a real WebGPU backend when the
@@ -360,6 +363,19 @@ export async function initScene(): Promise<SceneInitResult> {
         refreshStartupCapabilities({ forceWebGL: true });
     }
 
+    // Backend, adapter and granted features are known now: freeze the platform
+    // capabilities (after armGpuContext, which seeds the light-load hint).
+    const platformCaps = initPlatformCapabilities({
+        backend: mode === 'webgpu' ? 'webgpu' : 'webgl2',
+        fallbackAdapter:
+            probe !== null &&
+            Boolean(
+                (probe.adapter as GPUAdapter & { isFallbackAdapter?: boolean }).isFallbackAdapter
+            ),
+        gpuPrefersLite: shouldPreferLightWorldLoad(),
+        timestampQuery: timestampQueryGranted(probe),
+    });
+
     const initialFog = getInitialFogDistances();
 
     // TSL-driven Crescendo Fog (WebGPURenderer — WGSL or GLSL node backend)
@@ -396,26 +412,32 @@ export async function initScene(): Promise<SceneInitResult> {
 
         // Output color space comes from the probe, which already tagged the
         // swap chain with it — the two must agree or P3 content is shown as
-        // sRGB (or vice versa). See docs/WEBGPU_CONTEXT.md#color-space.
+        // sRGB (or vice versa). P3 is used only with a real extended-range swap
+        // chain, and is registered with Three first: Three 0.171 knows only
+        // sRGB, and an unknown space throws in the output transform (#1972).
+        // See docs/WEBGPU_CONTEXT.md#color-space.
         const onWebGpuBackend = probe !== null && !isWebGLNodeBackend(renderer);
-        const supportsHDR = onWebGpuBackend && probe.canvas.colorSpace === 'display-p3';
-        if (supportsHDR) {
+        const extendedP3 =
+            onWebGpuBackend &&
+            platformCaps.hdr.extendedRange &&
+            probe.canvas.colorSpace === 'display-p3' &&
+            ensureOutputColorSpace('display-p3') === 'display-p3';
+        if (extendedP3) {
             console.log(
-                '[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.'
+                '[Init] Extended-range swap chain — Display P3 output, linear tone mapping.'
             );
-            try {
-                webgpuRenderer.outputColorSpace = 'display-p3';
-            } catch {
-                console.warn('[Init] Failed to set display-p3, falling back to srgb.');
-                webgpuRenderer.outputColorSpace = 'srgb';
-            }
-            // Extended tone mapping for values > 1.0
+            webgpuRenderer.outputColorSpace = 'display-p3';
+            // Values > 1.0 survive only because the swap chain is extended range.
             webgpuRenderer.toneMapping = THREE.LinearToneMapping;
         } else {
             if (!onWebGpuBackend) {
                 console.log('[Init] GLSL node backend — using standard SDR configuration.');
             } else {
-                console.log('[Init] HDR not supported, using standard SDR configuration.');
+                console.log(
+                    platformCaps.hdr.display
+                        ? '[Init] HDR display, SDR swap chain — sRGB output with ACES.'
+                        : '[Init] HDR not supported, using standard SDR configuration.'
+                );
             }
             webgpuRenderer.outputColorSpace = 'srgb';
             webgpuRenderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -432,7 +454,7 @@ export async function initScene(): Promise<SceneInitResult> {
     }
 
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio for better performance
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, platformCaps.maxPixelRatio)); // Cap pixel ratio for better performance
     renderer.toneMappingExposure = 1.0;
 
     // --- Lighting ---
@@ -655,7 +677,7 @@ export async function forceFullSceneWarmup(
 
     try {
         renderer.render(scene, camera);
-    } catch {
+    } catch (e) {
         console.warn('Warmup error', e);
     }
 

@@ -6,7 +6,6 @@ import { player } from '../systems/physics/index.ts';
 import { areSunCascadesActive, updateSunCascadeDirection } from '../systems/shadow-cascades.ts';
 import { profiler } from '../utils/profiler.ts';
 import { CONFIG, areGodRaysEnabled, isDofEnabled, isDofManual } from './config.ts';
-import { isCIorHeadless } from './config.ts';
 import {
     _SHAFT_FRUSTUM_DOT,
     _SHAFT_OPACITY_CAP,
@@ -27,6 +26,7 @@ import {
     setShadowSnapCellZ,
     postProcessingRef,
 } from './game-loop-core.ts';
+import { isAutomation } from './platform/run-mode.ts';
 
 const _godRaysEnabled = areGodRaysEnabled();
 const _dofEnabled = isDofEnabled();
@@ -244,7 +244,7 @@ export function updatePostFX(delta: number) {
 }
 
 export function renderPostProcessing() {
-    if (!isCIorHeadless() && postProcessingRef) {
+    if (!isAutomation() && postProcessingRef) {
         const t0 = performance.now();
         postProcessingRef.render();
         // CPU-side submit cost only — GPU pass time needs a real timestamp

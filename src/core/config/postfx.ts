@@ -1,6 +1,6 @@
+import { isAutomation } from '../platform/run-mode.ts';
 import { getStartupCapabilities, type ShadowResolution } from '../startup/capabilities.ts';
 import { CONFIG } from './defaults.ts';
-import { isCIorHeadless } from './runtime.ts';
 import { _hasFlag, _getFlag } from './url-flags.ts';
 
 // ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ export function isAoEnabled(): boolean {
     const aoFlag = _getFlag('ao');
     if (aoFlag === 'off' || aoFlag === '0') return false;
     const forcedOn = _hasFlag('ao') || aoFlag === '1' || aoFlag === 'on' || aoFlag === '';
-    if (!forcedOn && isCIorHeadless()) return false;
+    if (!forcedOn && isAutomation()) return false;
     if (forcedOn) return true;
     if (CONFIG.postfx.aoEnabled) return true;
     return resolvePostfxQuality() === 'high';
@@ -142,7 +142,7 @@ export function clampCascadeCount(count: number): number {
  */
 export function resolveShadowSettings(): ShadowSettings {
     const cfg = CONFIG.lighting.shadows;
-    if (!cfg.enabled || cfg.forceDisable || isCIorHeadless()) {
+    if (!cfg.enabled || cfg.forceDisable || isAutomation()) {
         return { ...SHADOW_OFF };
     }
 
@@ -242,7 +242,7 @@ export function resolveGiSettings(): GiSettings {
     const forced = flag === 'on' || flag === 'high' || flag === 'debug';
 
     if (!forced) {
-        if (isCIorHeadless()) return GI_OFF;
+        if (isAutomation()) return GI_OFF;
         if (_getFlag('postfx') === 'off') return GI_OFF;
     }
 

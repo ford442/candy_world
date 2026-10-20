@@ -44,6 +44,12 @@
  */
 
 import { setGpuPrefersLightWorldLoad } from '../core/config/runtime.ts';
+import {
+    detectDisplayHdr,
+    EXTENDED_RANGE_CONFIGURED,
+    resolveHdrSupport,
+} from '../core/platform/capabilities.ts';
+import { readUserAgent } from '../core/platform/user-agent.ts';
 import type { RendererBackend } from './renderer-mode.ts';
 
 // =============================================================================
@@ -176,23 +182,15 @@ function describeLimitRequest(
 /**
  * Canvas color space for the swap chain, chosen once at probe time.
  *
- * `display-p3` on HDR-capable displays (`(dynamic-range: high)`), `srgb`
- * otherwise. `init.ts` sets `renderer.outputColorSpace` from the probe result,
- * so the swap-chain tag and Three's output transform always agree.
+ * `display-p3` only when the display is HDR **and** the swap chain is really
+ * configured for extended range ({@link EXTENDED_RANGE_CONFIGURED}); `srgb`
+ * otherwise, including on HDR displays today (#1972). `init.ts` sets
+ * `renderer.outputColorSpace` from the probe result and registers Display P3
+ * with Three before selecting it, so the swap-chain tag and Three's output
+ * transform always agree.
  */
 export function resolveCanvasColorSpace(): PredefinedColorSpace {
-    try {
-        if (
-            typeof window !== 'undefined' &&
-            typeof window.matchMedia === 'function' &&
-            window.matchMedia('(dynamic-range: high)').matches
-        ) {
-            return 'display-p3';
-        }
-    } catch {
-        /* matchMedia unavailable — fall through to sRGB */
-    }
-    return 'srgb';
+    return resolveHdrSupport(detectDisplayHdr(), EXTENDED_RANGE_CONFIGURED).canvas;
 }
 
 /**
@@ -507,7 +505,7 @@ function describeBrowser(): BrowserBrand {
             platform?: string;
         };
     };
-    const ua = navigator.userAgent ?? '';
+    const ua = readUserAgent();
     const brands = nav.userAgentData?.brands ?? [];
     const brandList = brands.map((b) => `${b.brand} ${b.version}`.trim());
 

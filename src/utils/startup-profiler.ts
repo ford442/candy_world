@@ -6,6 +6,7 @@
  * Outputs structured JSON report and provides browser overlay visualization.
  */
 
+import { readUserAgent } from '../core/platform/user-agent.ts';
 import type { GpuContext } from '../rendering/gpu-context.ts';
 import { log } from './log.ts';
 import { PhaseTiming, WebGPUMetrics, InstancedMeshMetrics, StartupReport, ProfilerConfig } from './startup-profiler-types.ts';
@@ -337,7 +338,7 @@ function generateReport(): StartupReport {
   
   return {
     timestamp: new Date().toISOString(),
-    userAgent: navigator.userAgent,
+    userAgent: readUserAgent(),
     totalTime,
     phases: [...completedPhases],
     memory: {

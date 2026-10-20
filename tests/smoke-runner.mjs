@@ -256,9 +256,12 @@ async function runSmokeTest() {
 
         // Navigate to localhost:4173 with boot-path URL params
         const gfxParam = IS_FULL_BOOT && !IS_FAST_FULL ? 'medium' : 'low';
+        // freezeLoop=1: headless WebGPU can wedge under a running loop. This used
+        // to be implied by the UA check that also froze every Mac (#1972); the app
+        // now starts the loop unless a harness asks for a still frame.
         const profileQs = IS_FULL_BOOT
-            ? `boot=explore&graphics=${gfxParam}`
-            : `graphics=${gfxParam}`;
+            ? `boot=explore&graphics=${gfxParam}&freezeLoop=1`
+            : `graphics=${gfxParam}&freezeLoop=1`;
         const extraQs = EXTRA_QS ? `&${EXTRA_QS}` : '';
         const bootUrl = `http://localhost:4173/?${profileQs}${extraQs}`;
         console.log(`\nNavigating to ${bootUrl}`);

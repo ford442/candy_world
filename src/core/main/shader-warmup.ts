@@ -1,8 +1,9 @@
 import { printBootSummary, runBootStage } from '../../debug/index.ts';
 import { preloadGameplay } from '../../gameplay/lazy.ts';
-import { isCIorHeadless, CONFIG } from '../config.ts';
+import { CONFIG } from '../config.ts';
 import { animate } from '../game-loop.ts';
 import { syncDrawingBufferFromWindow } from '../init.ts';
+import { isAutomation, isLoopFreezeRequested } from '../platform/run-mode.ts';
 import type { MainContext } from './context.ts';
 import { renderer } from './exports.ts';
 
@@ -11,8 +12,8 @@ export function runShaderWarmup(ctx: MainContext): void {
         const { loadingScreen, worldGenerationActive } = ctx;
 
         await runBootStage('shaderWarmup', async () => {
-            if (CONFIG.safeMode || isCIorHeadless()) {
-                console.warn('[Startup] safeMode active — skipping shader warmup');
+            if (CONFIG.safeMode || isAutomation()) {
+                console.warn('[Startup] safeMode / automation — skipping shader warmup');
                 return;
             }
             loadingScreen.startPhase('shader-warmup');
@@ -23,10 +24,6 @@ export function runShaderWarmup(ctx: MainContext): void {
             let batchCount = 0;
 
             try {
-                if (CONFIG.safeMode || isCIorHeadless()) {
-                    console.warn('[Startup] safeMode active — skipping shader warmup');
-                    return;
-                }
                 const { ShaderWarmup } = await import('../../rendering/shader-warmup.ts');
                 const warmup = new ShaderWarmup();
                 const targets = warmup.getTargets();
@@ -81,14 +78,17 @@ export function runShaderWarmup(ctx: MainContext): void {
         } catch (e) {
             console.warn('[Startup] Error setting __sceneReady', e);
         }
-        if (!isCIorHeadless()) {
+        // The only setAnimationLoop call in src/. Players always get it; a harness
+        // that needs a still frame asks with ?freezeLoop=1 (#1972: a UA check here
+        // left every Mac without frames).
+        if (isLoopFreezeRequested()) {
+            console.warn('[Startup] ?freezeLoop=1 — not starting the animation loop');
+        } else {
             try {
                 renderer.setAnimationLoop(animate);
             } catch (e) {
                 console.warn('[Startup] setAnimationLoop threw', e);
             }
-        } else {
-            console.warn('[Startup] CI/Headless detected - NOT calling renderer.setAnimationLoop to avoid wedge');
         }
         void preloadGameplay();
 

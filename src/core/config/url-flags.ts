@@ -1,3 +1,5 @@
+import { isAutomation } from '../platform/run-mode.ts';
+
 // ---------------------------------------------------------------------------
 // FEATURE FLAGS
 //
@@ -77,33 +79,10 @@ export function getUrlFlag(key: string): string | null {
 export function areDebugHooksEnabled(): boolean {
     return (
         import.meta.env?.DEV === true ||
-        isAutomatedRun() ||
+        isAutomation() ||
         getUrlFlag('debug') === '1' ||
         getUrlFlag('debugCircadian') === '1'
     );
-}
-
-/**
- * Playwright / visual-regression only. Deliberately not isCIorHeadless(): its
- * user-agent test (/headless|playwright|ci|test/i) also matches "Macintosh",
- * which would install debug hooks for every Mac player.
- */
-function isAutomatedRun(): boolean {
-    try {
-        if (
-            typeof window !== 'undefined' &&
-            (window as Window & { __IS_FULL_BOOT_TEST?: boolean }).__IS_FULL_BOOT_TEST === true
-        ) {
-            return true;
-        }
-        if (typeof navigator !== 'undefined' && navigator.webdriver === true) return true;
-        return (
-            typeof localStorage !== 'undefined' &&
-            localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true'
-        );
-    } catch {
-        return false;
-    }
 }
 
 /** @internal postfx resolution */
