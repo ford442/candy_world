@@ -225,7 +225,7 @@ export abstract class AudioSystemCore {
 
         if (!deferWorklet) {
             this._initCalled = true;
-            this.init();
+            void this.init();
         }
     }
 
@@ -393,7 +393,7 @@ export abstract class AudioSystemCore {
 
         // Wire up messages from the audio thread
         this.workletNode.port.onmessage = (event) => {
-            const { type, data, error } = event.data || {};
+            const { type, data, error } = (event.data || {}) as { type: string, data: any, error: any };
             if (type === 'VISUAL_UPDATE') {
                 this.handleVisualUpdate(data);
             } else if (type === 'SONG_END') {
