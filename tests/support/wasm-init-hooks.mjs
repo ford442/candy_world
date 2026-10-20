@@ -41,10 +41,13 @@ export async function load(url, context, nextLoad) {
             return { format: 'module', source: 'export default {};', shortCircuit: true };
         }
         const wasmPath = fileURLToPath(new URL(parsed.pathname, parsed));
+        // Read on call, not on import, as Vite's `?init` fetches on call: a
+        // missing binary (suites that run before build:wasm) rejects the init
+        // promise and the loader falls back to JS instead of the import crashing.
         const source = `
             import { readFileSync } from 'node:fs';
-            const bytes = readFileSync(${JSON.stringify(wasmPath)});
             export default async (imports) => {
+                const bytes = readFileSync(${JSON.stringify(wasmPath)});
                 const result = await WebAssembly.instantiate(bytes, imports);
                 return result.instance || result;
             };
