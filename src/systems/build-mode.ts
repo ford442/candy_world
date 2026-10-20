@@ -69,7 +69,7 @@ let _hoverMarker: THREE.Mesh | null = null;
 let _panel: HTMLElement | null = null;
 
 const _hit = new THREE.Vector3();
-let _ghostState = { hit: false, status: 'ok' as GhostStatus, msg: '' };
+const _ghostState = { hit: false, status: 'ok' as GhostStatus, msg: '' };
 let _frame = 0;
 
 export function isBuildModeActive(): boolean {
