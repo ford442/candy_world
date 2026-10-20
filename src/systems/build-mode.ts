@@ -16,15 +16,8 @@ import {
     snapshotEntity,
     type EntitySnapshot,
 } from './entity-snapshot-core.ts';
-import {
-    getGroundHeight,
-    isInLakeBasin,
-    sampleGroundNormal,
-} from './ground-system.ts';
-import {
-    PlaceCommand,
-    RemoveCommand,
-} from './world-commands.ts';
+import { getGroundHeight, isInLakeBasin, sampleGroundNormal } from './ground-system.ts';
+import { PlaceCommand, RemoveCommand } from './world-commands.ts';
 import { announce } from '../ui/announcer.ts';
 import { getRegisteredTypes, registerBuiltinWorldObjectTypes } from '../world/foliage-registry.ts';
 import {
@@ -34,7 +27,7 @@ import {
     getMaxSlopeAngle,
     plantOnSurface,
     sampleGroundY,
-    getFootprintSamples
+    getFootprintSamples,
 } from '../world/placement-utils.ts';
 import { animatedFoliage } from '../world/state.ts';
 
@@ -106,7 +99,11 @@ function enableBuildMode(scene: THREE.Scene): void {
     if (_ghost) _ghost.visible = true;
 
     window.addEventListener('keydown', onKeyDown, { capture: true });
-    window.addEventListener('wheel', onWheel as EventListener, { passive: false } as EventListenerOptions);
+    window.addEventListener(
+        'wheel',
+        onWheel as EventListener,
+        { passive: false } as EventListenerOptions
+    );
     window.addEventListener('mousedown', onMouseDown, { capture: true });
     window.addEventListener('contextmenu', onContextMenu, { capture: true });
 
@@ -122,7 +119,11 @@ function disableBuildMode(): void {
     if (_hoverMarker) _hoverMarker.visible = false;
 
     window.removeEventListener('keydown', onKeyDown, { capture: true });
-    window.removeEventListener('wheel', onWheel as EventListener, { passive: false } as EventListenerOptions);
+    window.removeEventListener(
+        'wheel',
+        onWheel as EventListener,
+        { passive: false } as EventListenerOptions
+    );
     window.removeEventListener('mousedown', onMouseDown, { capture: true });
     window.removeEventListener('contextmenu', onContextMenu, { capture: true });
 
@@ -178,7 +179,8 @@ function buildPanel(): HTMLElement {
     `;
 
     const select = document.createElement('select');
-    select.style.cssText = 'background: #333; color: #fff; padding: 4px; border: 1px solid #555; border-radius: 4px;';
+    select.style.cssText =
+        'background: #333; color: #fff; padding: 4px; border: 1px solid #555; border-radius: 4px;';
     for (const t of _types) {
         const opt = document.createElement('option');
         opt.value = t;
@@ -350,7 +352,7 @@ function onWheel(e: WheelEvent): void {
     if (!_isActive) return;
     if (_panel && _panel.contains(e.target as Node)) return;
     e.preventDefault();
-    _scale += (e.deltaY < 0 ? 0.1 : -0.1);
+    _scale += e.deltaY < 0 ? 0.1 : -0.1;
     _scale = Math.max(0.1, Math.min(5.0, _scale));
 }
 
@@ -364,7 +366,8 @@ function onMouseDown(e: MouseEvent): void {
     if (!_isActive || !_ghostState.hit || !_ghost) return;
     if (_panel && _panel.contains(e.target as Node)) return;
 
-    if (e.button === 0) { // LMB -> Place
+    if (e.button === 0) {
+        // LMB -> Place
         if (_ghostState.status === 'bad') {
             announce('Cannot place here', 'polite');
             return;
@@ -377,18 +380,26 @@ function onMouseDown(e: MouseEvent): void {
                 id: 'player_placed_' + Date.now(),
                 type: _currentType,
                 position: [_ghost.position.x, _ghost.position.y, _ghost.position.z],
-                rotation: { quat: [_ghost.quaternion.x, _ghost.quaternion.y, _ghost.quaternion.z, _ghost.quaternion.w] },
+                rotation: {
+                    quat: [
+                        _ghost.quaternion.x,
+                        _ghost.quaternion.y,
+                        _ghost.quaternion.z,
+                        _ghost.quaternion.w,
+                    ],
+                },
                 scale: _scale,
                 category: 'prop',
                 layer: 'ground',
                 placement: 'ground',
-                params: { provenance: 'authored' }
-            }
+                params: { provenance: 'authored' },
+            },
         };
 
         editHistory.execute(new PlaceCommand(snap));
         announce(`Placed ${_currentType}`, 'polite');
-    } else if (e.button === 2) { // RMB -> Remove
+    } else if (e.button === 2) {
+        // RMB -> Remove
         const hover = findNearestHover();
         if (hover) {
             const snap = snapshotEntity(hover);

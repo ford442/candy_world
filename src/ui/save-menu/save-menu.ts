@@ -133,7 +133,10 @@ export class SaveMenu {
         // Trap Focus
         yieldToPaint(50).then(() => {
             if (this.container && this.isOpen()) {
-                this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true, onEscape: () => this.close() });
+                this.releaseFocusTrap = trapFocusInside(this.container, {
+                    skipAutoFocus: true,
+                    onEscape: () => this.close(),
+                });
                 // Manually focus the active tab to prevent screen reader double-speak from close button
                 const activeTab = this.container.querySelector(
                     '.candy-save-menu__tab[aria-selected="true"]'
@@ -616,7 +619,8 @@ export class SaveMenu {
             const textContent = btnElement.textContent?.trim() || 'Processing';
 
             // Rebuild content safely to avoid interpreting textContent as HTML
-            btnElement.innerHTML = '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px; margin-right: 8px;"><span class="visually-hidden">Processing...</span></span>';
+            btnElement.innerHTML =
+                '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px; margin-right: 8px;"><span class="visually-hidden">Processing...</span></span>';
             const textSpan = document.createElement('span');
             textSpan.textContent = textContent;
             btnElement.appendChild(textSpan);

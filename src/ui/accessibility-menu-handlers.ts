@@ -16,9 +16,6 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
     // ============================================================================
 
     protected handleKeyDown(event: KeyboardEvent): void {
-
-
-
         // ♿ Aria: Keyboard navigation for Tabs (Up/Down/Left/Right Arrows)
         if (
             event.key === 'ArrowUp' ||

@@ -312,7 +312,7 @@ export function updateFoliageMaterials(
 
         // ⚡ OPTIMIZATION: Skip CPU audio/color lerps for TSL materials
         if (isGpuPath && (mat.colorNode || mat.emissiveNode)) {
-             continue;
+            continue;
         }
 
         // 1. Audio Reactivity (Night/Day)

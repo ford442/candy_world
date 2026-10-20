@@ -1,7 +1,11 @@
 import { toggleBuildMode } from '../../../systems/build-mode.ts';
 import { sceneRef } from '../../game-loop-core.ts';
 import { discoverySystem } from '../../../systems/discovery.ts';
-import { getPhotoMode, isPhotoModeActive, togglePhotoMode } from '../../../systems/photo-mode/lazy.ts';
+import {
+    getPhotoMode,
+    isPhotoModeActive,
+    togglePhotoMode,
+} from '../../../systems/photo-mode/lazy.ts';
 import { trapFocusInside } from '../../../utils/focus-trap.ts';
 import { yieldToPaint } from '../../../utils/yield-to-paint.ts';
 import { isExploreActive } from '../../camera-modes.ts';
@@ -21,7 +25,6 @@ import {
     setStartButtonResumeLabel,
 } from './menu-helpers.ts';
 import type { InputSession } from './session.ts';
-
 
 // Cache D-Pad elements
 let dpadForward: HTMLElement | null = null;
@@ -158,7 +161,8 @@ export function createKeyboardHandlers(
                     session.instructions.style.display = 'flex';
                     session.instructions.style.opacity = '0';
                     session.instructions.style.backdropFilter = 'blur(0px)';
-                    session.instructions.style.transition = 'opacity 0.2s ease, backdrop-filter 0.2s ease';
+                    session.instructions.style.transition =
+                        'opacity 0.2s ease, backdrop-filter 0.2s ease';
 
                     const content = session.instructions.querySelector(
                         '.instructions-content'
@@ -183,7 +187,10 @@ export function createKeyboardHandlers(
 
                     yieldToPaint(50).then(() => {
                         if (session.instructions && session.instructions.style.display !== 'none') {
-                            session.focus.releasePauseMenuFocus = trapFocusInside(session.instructions, { skipAutoFocus: true, onEscape: () => session.controls.lock() });
+                            session.focus.releasePauseMenuFocus = trapFocusInside(
+                                session.instructions,
+                                { skipAutoFocus: true, onEscape: () => session.controls.lock() }
+                            );
                             if (session.startButton) {
                                 session.startButton.focus({ preventScroll: true });
                             }
@@ -203,7 +210,11 @@ export function createKeyboardHandlers(
         }
 
         if (event.code === 'Enter') {
-            if (!isPlaylistOpen && session.instructions && session.instructions.style.display !== 'none') {
+            if (
+                !isPlaylistOpen &&
+                session.instructions &&
+                session.instructions.style.display !== 'none'
+            ) {
                 if (
                     session.startButton &&
                     !session.startButton.disabled &&
@@ -215,7 +226,11 @@ export function createKeyboardHandlers(
             }
         }
 
-        if (!isPlaylistOpen && session.instructions && session.instructions.style.display !== 'none') {
+        if (
+            !isPlaylistOpen &&
+            session.instructions &&
+            session.instructions.style.display !== 'none'
+        ) {
             const keyChar = event.key.toUpperCase();
             const code = event.code;
             const keys = session.instructions.querySelectorAll('kbd.key');

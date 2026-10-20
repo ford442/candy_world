@@ -9,11 +9,7 @@ export type { FoliageObject } from './foliage-batcher-types.ts';
 export type { BatchState, ExtendedBatchState } from './foliage-batcher-types.ts';
 
 // Constants
-export {
-    BATCH_SIZE,
-    ENTRY_STRIDE,
-    RESULT_STRIDE
-} from './foliage-batcher-types.ts';
+export { BATCH_SIZE, ENTRY_STRIDE, RESULT_STRIDE } from './foliage-batcher-types.ts';
 
 // Audio analysis helpers (for advanced use cases)
 export {
@@ -21,7 +17,7 @@ export {
     getTremoloAmount,
     getHighFreqAmount,
     getAverageVolume,
-    getPanActivity
+    getPanActivity,
 } from './foliage-batcher-audio.ts';
 
 // Effect apply functions (for advanced use cases)
@@ -34,5 +30,5 @@ export {
     applyTremoloPulse,
     applyCymbalShake,
     applyPanningBob,
-    applySpiritFade
+    applySpiritFade,
 } from './foliage-batcher-effects.ts';

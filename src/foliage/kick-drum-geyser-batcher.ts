@@ -1,7 +1,5 @@
 import * as THREE from 'three';
-import {
-    color, float, vec3, vec4, sin, cos, positionLocal, normalLocal, add
-} from 'three/tsl';
+import { color, float, vec3, vec4, sin, cos, positionLocal, normalLocal, add } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
@@ -26,7 +24,6 @@ export class KickDrumGeyserBatcher {
     private _scratchVec3 = new THREE.Vector3();
     private _scratchPos = new THREE.Vector3();
 
-
     // Data arrays for animation
     private _offsets: Float32Array;
     private _maxHeights: Float32Array;
@@ -44,10 +41,10 @@ export class KickDrumGeyserBatcher {
         // Base Clay Mesh
         const baseGeo = new THREE.RingGeometry(0.1, 0.4, 8, 1);
         baseGeo.rotateX(-Math.PI / 2);
-        const baseMat = CandyPresets.Clay(0x1A0A00, {
+        const baseMat = CandyPresets.Clay(0x1a0a00, {
             roughness: 0.9,
-            emissive: 0xFF4500,
-            emissiveIntensity: 0.1
+            emissive: 0xff4500,
+            emissiveIntensity: 0.1,
         });
         this.baseMesh = new THREE.InstancedMesh(baseGeo, baseMat, MAX_GEYSERS);
         this.baseMesh.count = 0;
@@ -57,13 +54,16 @@ export class KickDrumGeyserBatcher {
         // Core Gummy Mesh
         const coreGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.1, 8);
         coreGeo.translate(0, -0.05, 0);
-        const coreMat = CandyPresets.Gummy(0xFF4500, {
+        const coreMat = CandyPresets.Gummy(0xff4500, {
             roughness: 0.3,
-            emissive: 0xFF4500,
-            emissiveIntensity: 0.8
+            emissive: 0xff4500,
+            emissiveIntensity: 0.8,
         });
         // 🎨 PALETTE: Add juicy rim light to geyser core
-        coreMat.emissiveNode = add(coreMat.emissiveNode ?? color(0x000000), createJuicyRimLight(color(0xFF4500), float(1.5), float(3.0), normalLocal));
+        coreMat.emissiveNode = add(
+            coreMat.emissiveNode ?? color(0x000000),
+            createJuicyRimLight(color(0xff4500), float(1.5), float(3.0), normalLocal)
+        );
         registerReactiveMaterial(coreMat);
         this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, MAX_GEYSERS);
         this.coreMesh.count = 0;
@@ -78,7 +78,7 @@ export class KickDrumGeyserBatcher {
             transparent: true,
             opacity: 0.8,
             blending: THREE.AdditiveBlending,
-            depthWrite: false
+            depthWrite: false,
         });
 
         // ⚡ OPTIMIZATION: TSL Node for Plume Animation (Wave-based scale handled in CPU update logic, but we can add jitter here)
@@ -92,9 +92,13 @@ export class KickDrumGeyserBatcher {
         );
 
         // 🎨 PALETTE: Add wind sway and player interaction to the geyser plumes
-        const circadianDroop = vec3(0, float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y), 0);
+        const circadianDroop = vec3(
+            0,
+            float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y),
+            0
+        );
         plumeMat.positionNode = applyStandardDeformation(plumePos.add(circadianDroop));
-        plumeMat.colorNode = vec4(color(0xFF4500), float(0.8));
+        plumeMat.colorNode = vec4(color(0xff4500), float(0.8));
 
         this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, MAX_GEYSERS);
         this.plumeMesh.count = 0;
@@ -215,7 +219,9 @@ export class KickDrumGeyserBatcher {
         let elapsedSec = 0;
         let speed = 25;
         let waveRadiusSq = 0;
-        let ox = 0, oy = 0, oz = 0;
+        let ox = 0,
+            oy = 0,
+            oz = 0;
 
         if (activeWave) {
             elapsedSec = (performance.now() - activeWave.timestamp) / 1000;
@@ -270,7 +276,8 @@ export class KickDrumGeyserBatcher {
             const scaleY = targetHeight + 0.01; // 0.01 to prevent singular matrix warning
 
             // dirty check
-            if (Math.abs(plumeArray[baseIndex + 5] - (baseArray[baseIndex + 5] * scaleY)) < 1e-6) continue;
+            if (Math.abs(plumeArray[baseIndex + 5] - baseArray[baseIndex + 5] * scaleY) < 1e-6)
+                continue;
 
             plumeDirty = true;
 

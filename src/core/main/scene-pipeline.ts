@@ -75,7 +75,11 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     assignCoreExports(scene, sceneInitResult.camera, sceneInitResult.renderer);
     setCameraRef(sceneInitResult.camera);
     const camera = sceneInitResult.camera;
-    void initParticleEmitterDebugIfNeeded(scene, () => player.position, () => camera);
+    void initParticleEmitterDebugIfNeeded(
+        scene,
+        () => player.position,
+        () => camera
+    );
 
     installRendererHotSwitch();
     publishRendererBreadcrumbs(requested, mode, fallbackReason);
