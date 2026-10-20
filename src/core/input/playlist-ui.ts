@@ -4,6 +4,7 @@
  */
 
 import { showToast } from '../../utils/toast.ts';
+import { announce } from '../../ui/announcer.ts';
 import { formatSongTitle } from './input-types.ts';
 import { getPlaylistManagerState } from './playlist-state.ts';
 
@@ -70,12 +71,14 @@ export function renderPlaylist(): void {
 
             // 🎨 Palette: Provide explicit feedback for destructive action
             showToast(`Removed ${displayName}`, '🗑️', 3000);
+            announce(`Removed ${displayName}`, 'polite');
 
             // UX: Restore Focus to an appropriate element
             requestAnimationFrame(() => {
                 // If it was active and the element is gone, or it was the last song
                 const remainingSongs = state.audioSystemRef!.getPlaylist().length;
                 if (remainingSongs === 0) {
+                    announce('Playlist is now empty', 'polite');
                     // Fallback to empty state button if list is now empty
                     const emptyBtn =
                         state.playlistList?.querySelector('.jukebox-browse-btn') ||

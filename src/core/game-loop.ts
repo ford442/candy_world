@@ -13,6 +13,7 @@ import { updateBehaviorSystem } from '../systems/ecs/behaviors/index.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
 import { initLivingScore, updateLivingScore } from '../systems/living-score.ts';
 import { updatePresenceSystem } from '../systems/net/lazy.ts';
+import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { player } from '../systems/physics/index.ts';
 import { profiler } from '../utils/profiler.ts';
@@ -85,6 +86,7 @@ export function animate() {
     }
 
     profiler.startFrame();
+    performanceBudget.beginFrame();
 
     if (!_loggedWebGPULimits) {
         const limits = (rendererRef as WebGPURendererWithDeviceLimits).backend?.device?.limits;
@@ -249,4 +251,26 @@ export function animate() {
     }
 
     profiler.endFrame();
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+    const rendererInfo = rendererRef?.info;
+    if (rendererInfo) {
+        // GPU frame times are typically read async after the frame completes.
+        // WebGPURenderer resolves timestamps internally during render().
+        // We pull the computed values here at the end of the frame loop.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+        const computeTime = (rendererInfo.compute && rendererInfo.compute.timestamp) || 0;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+        const renderTime = (rendererInfo.render && rendererInfo.render.timestamp) || 0;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const totalGpuTime = computeTime + renderTime;
+
+        if (totalGpuTime > 0) {
+            performanceBudget.setGpuFrameTime(Number(totalGpuTime));
+        } else {
+            performanceBudget.setGpuFrameTime(null);
+        }
+    }
+
+    performanceBudget.endFrame();
 }

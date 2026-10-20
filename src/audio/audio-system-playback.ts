@@ -351,7 +351,7 @@ export class AudioSystem extends AudioSystemCore {
 
         // If we weren't playing anything, start the first new song
         if (this.currentIndex === -1 || !this.isPlaying) {
-            this.playNext(initialLength); // Start from the first new file
+            void this.playNext(initialLength); // Start from the first new file
         }
     }
 
@@ -378,7 +378,7 @@ export class AudioSystem extends AudioSystemCore {
     // --- NEW: Helper for UI clicking ---
     playAtIndex(index: number): void {
         if (index >= 0 && index < this.playlist.length) {
-            this.playNext(index);
+            void this.playNext(index);
         }
     }
 
@@ -407,7 +407,7 @@ export class AudioSystem extends AudioSystemCore {
                     newIndex = 0; // Loop to start
                 }
                 // Play the track at the new/same index
-                this.playNext(newIndex);
+                void this.playNext(newIndex);
             } else if (index < this.currentIndex) {
                 // Removed a track before current, shift index down
                 this.currentIndex--;
@@ -438,7 +438,7 @@ export class AudioSystem extends AudioSystemCore {
         }
 
         if (this.audioContext && this.audioContext.state === 'suspended') {
-            await void this.audioContext.resume();
+            await this.audioContext.resume();
         }
 
         try {
@@ -582,7 +582,7 @@ export class AudioSystem extends AudioSystemCore {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
         }
-        if (this.audioContext.state === 'suspended') await void this.audioContext.resume();
+        if (this.audioContext.state === 'suspended') await this.audioContext.resume();
 
         // Ensure audio processing node is initialized
         if (this.useScriptProcessorNode) {
@@ -724,7 +724,7 @@ export class AudioSystem extends AudioSystemCore {
         }
 
         for (let i = 0; i < channelData.length; i++) {
-            const src = channelData[i];
+            const src = channelData[i] as { volume: number; note: string; instrument?: number; activeEffect?: number; effectValue?: number };
             const dest = this.visualState.channelData[i];
             dest.volume = src.volume;
             if (src.note) {
@@ -741,9 +741,9 @@ export class AudioSystem extends AudioSystemCore {
                     this.onNoteCallback(src.note, src.volume, i); // note, velocity (using volume as proxy), channelIndex
                 }
             }
-            dest.instrument = src.instrument;
-            dest.activeEffect = src.activeEffect;
-            dest.effectValue = src.effectValue;
+            if (src.instrument !== undefined) dest.instrument = src.instrument;
+            if (src.activeEffect !== undefined) dest.activeEffect = src.activeEffect;
+            if (src.effectValue !== undefined) dest.effectValue = src.effectValue;
         }
 
         // Edge detection for Living Score

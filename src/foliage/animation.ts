@@ -20,6 +20,7 @@ import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.
 
 // WASM memory views for batch operations
 const foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
+let _dayResetMatCount = 0;
 let growthDataView: Float32Array | null = null;
 let bloomDataView: Float32Array | null = null;
 let scaleAnimDataView: Float32Array | null = null;
@@ -296,6 +297,9 @@ export function updateFoliageMaterials(
 
     // ⚡ OPTIMIZATION: Single O(N) loop over reactiveMaterials combining audio and weather reactivity
     const mats = reactiveMaterials as unknown as FoliageMaterial[];
+    if (!isNight && !hasChannels && globalWetAmount === 0 && _dayResetMatCount === 0) {
+        return;
+    }
     for (let i = 0; i < mats.length; i++) {
         const mat = mats[i] as any;
         if (!mat) continue;
@@ -307,6 +311,9 @@ export function updateFoliageMaterials(
 
         // 1. Audio Reactivity (Night/Day)
         if (isNight && hasChannels) {
+            if (!foliageNeedsFadeBack.has(mat as FoliageMaterial)) {
+                _dayResetMatCount++;
+            }
             foliageNeedsFadeBack.add(mat as FoliageMaterial);
             const chIndex = (i % 4) + 1;
             const ch = channels[Math.min(chIndex, channels.length - 1)];
@@ -334,6 +341,7 @@ export function updateFoliageMaterials(
                 mat.emissiveIntensity = 0;
             }
             foliageNeedsFadeBack.delete(mat as FoliageMaterial);
+            _dayResetMatCount--;
         }
 
         // 2. Weather Reactivity (Wet Effect)
