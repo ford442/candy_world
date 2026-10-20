@@ -1,3 +1,9 @@
+import { register } from "node:module";
+
+
+import { pathToFileURL } from "node:url";
+register("./support/wasm-init-hooks.mjs", import.meta.url);
+
 /**
  * Batch ground-height parity across C++ ↔ AssemblyScript ↔ JS, driven through
  * the production bridges (src/utils/wasm-physics.ts, wasm-ground.ts).
@@ -14,7 +20,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 globalThis.window = globalThis.window ?? globalThis;
 globalThis.document = globalThis.document ?? {
