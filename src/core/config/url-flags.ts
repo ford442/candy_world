@@ -49,7 +49,10 @@ export function isPresenceFeatureEnabled(): boolean {
     const flag = getUrlFlag('presence');
     if (flag === '1' || flag === '') return true;
     try {
-        if (typeof localStorage !== 'undefined' && localStorage.getItem('candy_presence_opt_in') === '1') {
+        if (
+            typeof localStorage !== 'undefined' &&
+            localStorage.getItem('candy_presence_opt_in') === '1'
+        ) {
             return true;
         }
     } catch {
@@ -97,4 +100,3 @@ if (typeof window !== 'undefined') {
         console.warn(`[FeatureFlags] Disabled via URL: ${disabled.join(', ')}`);
     }
 }
-

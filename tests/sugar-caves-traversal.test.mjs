@@ -28,7 +28,10 @@ function assert(cond, msg) {
 
 assert(SUGAR_CAVES.enabled === true, 'sugar caves config enabled');
 assert(typeof SUGAR_CAVES_TRAVERSAL.caveFloorY === 'number', 'cave floor Y exported');
-assert(getSugarCavesViewpoint().cameraPosition.y > SUGAR_CAVES_TRAVERSAL.caveFloorY, 'viewpoint above floor');
+assert(
+    getSugarCavesViewpoint().cameraPosition.y > SUGAR_CAVES_TRAVERSAL.caveFloorY,
+    'viewpoint above floor'
+);
 
 const unlockedBefore = isSugarCavesUnlocked();
 tryUnlockSugarCavesFromProgress(3);

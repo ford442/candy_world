@@ -27,19 +27,27 @@ function assert(cond, msg) {
 const peers = new Map();
 const now = 10_000;
 
-assert(isValidPose({
-    id: 'a',
-    pos: [0, 1, 2],
-    quat: [0, 0, 0, 1],
-    biome: 'global',
-    ts: now,
-}), 'valid pose accepted');
+assert(
+    isValidPose({
+        id: 'a',
+        pos: [0, 1, 2],
+        quat: [0, 0, 0, 1],
+        biome: 'global',
+        ts: now,
+    }),
+    'valid pose accepted'
+);
 
 assert(!isValidPose({ id: 'bad' }), 'invalid pose rejected');
 
-mergePresenceMeta(peers, {
-    peer1: [{ id: 'peer1', label: 'Alpha', emoji: '🍬' }],
-}, 'self', 16);
+mergePresenceMeta(
+    peers,
+    {
+        peer1: [{ id: 'peer1', label: 'Alpha', emoji: '🍬' }],
+    },
+    'self',
+    16
+);
 assert(peers.size === 1 && peers.get('peer1')?.label === 'Alpha', 'presence meta merged');
 
 ingestPose(peers, 'self', {

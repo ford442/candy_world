@@ -303,11 +303,7 @@ export class PresenceSystem {
         announce(`An explorer entered the ${name}`, 'polite');
         if (peer.snapshots.length > 0) {
             const snap = peer.snapshots[peer.snapshots.length - 1];
-            spawnImpact(
-                { x: snap.pos[0], y: snap.pos[1], z: snap.pos[2] },
-                'spore',
-                0xffb6e8
-            );
+            spawnImpact({ x: snap.pos[0], y: snap.pos[1], z: snap.pos[2] }, 'spore', 0xffb6e8);
         }
     }
 
@@ -319,12 +315,7 @@ export class PresenceSystem {
     private _mergePresenceState(): void {
         if (!this._channel) return;
         const state = this._channel.presenceState<PresenceMeta>();
-        mergePresenceMeta(
-            this._peers,
-            state,
-            this._sessionId,
-            CONFIG.presence?.maxPeers ?? 16
-        );
+        mergePresenceMeta(this._peers, state, this._sessionId, CONFIG.presence?.maxPeers ?? 16);
         this._emitPeerListUpdate();
     }
 

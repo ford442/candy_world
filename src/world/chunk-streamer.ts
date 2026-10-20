@@ -138,11 +138,7 @@ function loadChunk(chunkKey: string, priority: number): void {
 }
 
 /** Call from game loop — streams rings around the player. */
-export function updateChunkStreamer(
-    playerX: number,
-    playerZ: number,
-    delta: number
-): void {
+export function updateChunkStreamer(playerX: number, playerZ: number, delta: number): void {
     if (!_enabled || !_index) return;
     _updateAccumulator += delta;
     if (_updateAccumulator < 0.35) return;

@@ -51,18 +51,21 @@ export function installPresenceStartScreenUI(): void {
     checkbox.setAttribute('role', 'switch');
     checkbox.id = 'presence-join-checkbox';
 
-    const isInitiallyChecked = isPresenceOptedIn() || new URLSearchParams(location.search).has('presence');
+    const isInitiallyChecked =
+        isPresenceOptedIn() || new URLSearchParams(location.search).has('presence');
     checkbox.setAttribute('aria-checked', String(isInitiallyChecked));
     if (!configured) {
         checkbox.setAttribute('aria-disabled', 'true');
     }
 
     // Switch styling matching memory guidelines
-    checkbox.style.cssText = 'margin-top:3px;appearance:none;width:36px;height:20px;background:rgba(255,255,255,0.5);border-radius:10px;position:relative;cursor:pointer;border:2px solid transparent;transition:all 0.2s;flex-shrink:0;';
+    checkbox.style.cssText =
+        'margin-top:3px;appearance:none;width:36px;height:20px;background:rgba(255,255,255,0.5);border-radius:10px;position:relative;cursor:pointer;border:2px solid transparent;transition:all 0.2s;flex-shrink:0;';
 
     // Switch handle
     const handle = document.createElement('span');
-    handle.style.cssText = 'position:absolute;top:2px;left:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);';
+    handle.style.cssText =
+        'position:absolute;top:2px;left:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);';
     if (isInitiallyChecked) {
         checkbox.style.background = '#FF6B6B';
         handle.style.transform = 'translateX(16px)';
@@ -213,7 +216,8 @@ export function installPresenceStartScreenUI(): void {
     wrapper.appendChild(note);
 
     const privacyRow = document.createElement('div');
-    privacyRow.style.cssText = 'margin-top:10px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;';
+    privacyRow.style.cssText =
+        'margin-top:10px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;';
     const hideSelfBtn = document.createElement('button');
     hideSelfBtn.type = 'button';
     hideSelfBtn.className = 'toggle-button';

@@ -479,7 +479,9 @@ export async function generateMap(
                             );
                             return;
                         }
-                        processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
+                        processMapEntity(item as MapEntity, weatherSystem, {
+                            streamed: streamFlag,
+                        });
                     },
                 });
                 queuedDeferred++;
