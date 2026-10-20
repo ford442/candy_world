@@ -5,6 +5,7 @@ import { AtmosphereShaftState } from '../systems/music-reactivity.ts';
 import { player } from '../systems/physics/index.ts';
 import { areSunCascadesActive, updateSunCascadeDirection } from '../systems/shadow-cascades.ts';
 import { profiler } from '../utils/profiler.ts';
+import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import { CONFIG, areGodRaysEnabled, isDofEnabled, isDofManual } from './config.ts';
 import { isCIorHeadless } from './config.ts';
 import {
@@ -26,6 +27,7 @@ import {
     _shadowSnapCellZ,
     setShadowSnapCellZ,
     postProcessingRef,
+    rendererRef,
 } from './game-loop-core.ts';
 
 const _godRaysEnabled = areGodRaysEnabled();
@@ -250,5 +252,18 @@ export function renderPostProcessing() {
         // CPU-side submit cost only — GPU pass time needs a real timestamp
         // query, which is why the ms budget is authoritative on hardware only.
         profiler.mark('postfx.render', performance.now() - t0);
+
+        if (rendererRef && rendererRef.info) {
+            const computeTime = (rendererRef.info.compute && rendererRef.info.compute.timestamp) || 0;
+            const renderTime = (rendererRef.info.render && rendererRef.info.render.timestamp) || 0;
+            const totalGpuTime = computeTime + renderTime;
+
+            // WebGPURenderer natively tracks timestamp queries if the device granted the feature.
+            if (totalGpuTime > 0) {
+                performanceBudget.setGpuFrameTime(totalGpuTime);
+            } else {
+                performanceBudget.setGpuFrameTime(null);
+            }
+        }
     }
 }
