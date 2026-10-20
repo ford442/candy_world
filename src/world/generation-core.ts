@@ -395,7 +395,7 @@ export async function generateMap(
             'candy:map-generation-start',
             'candy:map-generation-end'
         );
-    } catch (_e) {
+    } catch {
         /* ignore if marks were cleared */
     }
 
