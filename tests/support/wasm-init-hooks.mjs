@@ -33,6 +33,18 @@ export async function resolve(specifier, context, nextResolve) {
 }
 
 export async function load(url, context, nextLoad) {
+    if (WASM_INIT_RE.test(url)) {
+        const wasmPath = fileURLToPath(url.replace(/\?init$/, ''));
+        const source = `
+            import { readFileSync } from 'node:fs';
+            const bytes = readFileSync(${JSON.stringify(wasmPath)});
+            export default async (imports) => {
+                const result = await WebAssembly.instantiate(bytes, imports);
+                return result.instance || result;
+            };
+        `;
+        return { format: 'module', source, shortCircuit: true };
+    }
 
     const result = await nextLoad(url, context);
     if (url.includes('/src/') && result.source != null) {

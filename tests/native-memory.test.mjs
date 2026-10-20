@@ -1,5 +1,7 @@
 import { register } from "node:module";
-register(new URL("./support/wasm-init-hooks.mjs", import.meta.url), import.meta.url);
+
+import { pathToFileURL } from "node:url";
+register("./support/wasm-init-hooks.mjs", import.meta.url);
 
 /**
  * Native-layer memory safety, against the real AssemblyScript build.
