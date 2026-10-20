@@ -39,7 +39,7 @@ export function runShaderWarmup(ctx: MainContext): void {
                         const mat = target.create();
                         try {
                             await warmup.warmupSingle(mat, renderer, target.name);
-                        } catch (_e) {
+                        } catch {
                             /* skip non-critical failures */
                         }
                     }

@@ -335,14 +335,6 @@ export function createKeyboardHandlers(
                 if (event.repeat) return;
                 if (sceneRef) toggleBuildMode(sceneRef);
                 break;
-            case 'KeyB':
-                if (event.repeat) return;
-                if (sceneRef) toggleBuildMode(sceneRef);
-                break;
-            case 'KeyB':
-                if (event.repeat) return;
-                if (sceneRef) toggleBuildMode(sceneRef);
-                break;
             case 'KeyN':
                 if (event.repeat) return;
                 triggerButtonPressDown('toggleDayNight');

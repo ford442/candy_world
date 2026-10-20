@@ -19,14 +19,8 @@ import { median } from './material-core.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 
 // WASM memory views for batch operations
-let foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
+const foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
 let _dayResetMatCount = 0;
-
-/** Clear materials to fade back on level unload */
-export function clearFoliageAnimationState(): void {
-    foliageNeedsFadeBack = new WeakSet<FoliageMaterial>();
-    _dayResetMatCount = 0;
-}
 let growthDataView: Float32Array | null = null;
 let bloomDataView: Float32Array | null = null;
 let scaleAnimDataView: Float32Array | null = null;

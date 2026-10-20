@@ -64,7 +64,6 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
                 setPausedTitle(session, false);
                 setStartButtonEnterLabel(session);
             }, 200);
-        } else {
         }
 
         // If we locked, force playlist closed just in case
