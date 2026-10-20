@@ -69,7 +69,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 #### `/src/core` — Core Systems
 
 - **`main.ts`**: Entry point, initialization pipeline, loading screen
-- **`game-loop.ts`**: Animation loop, frame timing, delta calculations
+- **`game-loop.ts`**: Animation loop, frame timing, delta calculations; runs the frame through the `SystemScheduler` (`scheduler/`), with systems declared in `game-loop-systems.ts`. Phase order and how to register a system: `docs/SCHEDULER.md`
 - **`hud.ts`**: Heads-up display, day/night toggle, theme updates
 - **`config.ts`**: Global configuration (colors, physics bounds, grid settings)
 - **`init.js`**: Scene creation (camera, renderer, lights, fog)
