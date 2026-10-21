@@ -260,31 +260,8 @@ export class CPUParticleSystem {
         return i;
     }
 
-    /** Linear-falloff attractor pass, matching the WGSL kernel's shared loop. */
-    private applyAttractors(deltaTime: number): void {
-        if (this.attractors.length === 0) return;
-        for (let a = 0; a < this.attractors.length; a++) {
-            const { position, strength, radius } = this.attractors[a];
-            if (radius <= 0) continue;
-            const radiusSq = radius * radius;
-            for (let i = 0; i < this.count; i++) {
-                if (this.lives[i] <= 0) continue;
-                const idx = i * 3;
-                const dx = position.x - this.positions[idx];
-                const dy = position.y - this.positions[idx + 1];
-                const dz = position.z - this.positions[idx + 2];
-                const distSq = dx * dx + dy * dy + dz * dz;
-                if (distSq >= radiusSq || distSq < 1e-8) continue;
-                // ⚡ OPTIMIZATION: Bypassed Math.sqrt() + two divides in the attractor×particle loop; one invsqrt, same linear falloff.
-                const invDist = 1 / Math.sqrt(distSq);
-                const force = (invDist - 1 / radius) * strength * deltaTime;
-                this.velocities[idx] += dx * force;
-                this.velocities[idx + 1] += dy * force;
-                this.velocities[idx + 2] += dz * force;
-            }
-        }
-    }
-
+    // ⚡ OPTIMIZATION: Batched attractor application and quad expansion into a single
+    // pass over the particle array, eliminating function call overhead and multiple loops.
     update(deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void {
         const posAttr = this.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
         const quadPositions = posAttr.array as Float32Array;
@@ -297,38 +274,79 @@ export class CPUParticleSystem {
             simulateCpuParticles(this.buffers, simParams);
         }
 
-        this.applyAttractors(deltaTime);
+        const count = this.count;
+        const attractors = this.attractors;
+        const numAttractors = attractors.length;
+        const positions = this.positions;
+        const velocities = this.velocities;
+        const lives = this.lives;
+        const sizes = this.sizes;
 
-        for (let i = 0; i < this.count; i++) {
-            this.updateQuadVertices(i, quadPositions);
+        for (let i = 0; i < count; i++) {
+            const isAlive = lives[i] > 0;
+            const idx = i * 3;
+            const px = positions[idx];
+            const py = positions[idx + 1];
+            const pz = positions[idx + 2];
+
+            // Apply attractors only if alive
+            if (isAlive && numAttractors > 0) {
+                let vx = velocities[idx];
+                let vy = velocities[idx + 1];
+                let vz = velocities[idx + 2];
+                let velChanged = false;
+
+                for (let a = 0; a < numAttractors; a++) {
+                    const attractor = attractors[a];
+                    const radius = attractor.radius;
+                    if (radius <= 0) continue;
+
+                    const dx = attractor.position.x - px;
+                    const dy = attractor.position.y - py;
+                    const dz = attractor.position.z - pz;
+                    const distSq = dx * dx + dy * dy + dz * dz;
+
+                    if (distSq >= radius * radius || distSq < 1e-8) continue;
+
+                    // ⚡ OPTIMIZATION: Bypassed Math.sqrt() + two divides in the attractor×particle loop; one invsqrt, same linear falloff.
+                    const invDist = 1 / Math.sqrt(distSq);
+                    const force = (invDist - 1 / radius) * attractor.strength * deltaTime;
+
+                    vx += dx * force;
+                    vy += dy * force;
+                    vz += dz * force;
+                    velChanged = true;
+                }
+
+                if (velChanged) {
+                    velocities[idx] = vx;
+                    velocities[idx + 1] = vy;
+                    velocities[idx + 2] = vz;
+                }
+            }
+
+            // Expand quad vertices - size is 0 if dead to hide it
+            const size = isAlive ? sizes[i] : 0;
+            const baseIdx = i * 12; // i * 4 * 3
+
+            quadPositions[baseIdx]     = px - size;
+            quadPositions[baseIdx + 1] = py - size;
+            quadPositions[baseIdx + 2] = pz;
+
+            quadPositions[baseIdx + 3] = px + size;
+            quadPositions[baseIdx + 4] = py - size;
+            quadPositions[baseIdx + 5] = pz;
+
+            quadPositions[baseIdx + 6] = px - size;
+            quadPositions[baseIdx + 7] = py + size;
+            quadPositions[baseIdx + 8] = pz;
+
+            quadPositions[baseIdx + 9]  = px + size;
+            quadPositions[baseIdx + 10] = py + size;
+            quadPositions[baseIdx + 11] = pz;
         }
 
         posAttr.needsUpdate = true;
-    }
-
-    private updateQuadVertices(i: number, positions: Float32Array): void {
-        const idx = i * 3;
-        const px = this.positions[idx];
-        const py = this.positions[idx + 1];
-        const pz = this.positions[idx + 2];
-        const size = this.sizes[i];
-        const baseIdx = i * 4 * 3;
-
-        positions[baseIdx] = px - size;
-        positions[baseIdx + 1] = py - size;
-        positions[baseIdx + 2] = pz;
-
-        positions[baseIdx + 3] = px + size;
-        positions[baseIdx + 4] = py - size;
-        positions[baseIdx + 5] = pz;
-
-        positions[baseIdx + 6] = px - size;
-        positions[baseIdx + 7] = py + size;
-        positions[baseIdx + 8] = pz;
-
-        positions[baseIdx + 9] = px + size;
-        positions[baseIdx + 10] = py + size;
-        positions[baseIdx + 11] = pz;
     }
 
     dispose(): void {
