@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call */
 // src/core/game-loop.ts
 // Thin animate() coordinator — tick phases live in sibling game-loop-*.ts modules.
 // Frame order is intentional; do not reorder phases without a gameplay audit.
@@ -70,10 +70,8 @@ let _firstFrameLogged = false;
 let _livingScoreBooted = false;
 
 
-// Register systems to the scheduler
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 scheduler.register('AUDIO', (ctx: any) => {
-
     ctx.audioState = updateAudioPhase(ctx.delta);
 
     const currentBPM = ctx.audioState?.bpm || 120;
@@ -120,19 +118,17 @@ scheduler.register('AUDIO', (ctx: any) => {
     }
 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 scheduler.register('INPUT', (ctx: any) => {
-
     updateInteractionPhase(ctx.delta);
 });
 
-    scheduler.register('STREAMING', () => {
+scheduler.register('STREAMING', () => {
     updateStreamingPhase(player.position);
 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 scheduler.register('VISUALS', (ctx: any) => {
-
     ctx.exploreActive = isExploreActive();
     ctx.visualsState = updateVisualsPhase(
         ctx.delta,
@@ -154,9 +150,8 @@ scheduler.register('VISUALS', (ctx: any) => {
     }
 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 scheduler.register('FOLIAGE', (ctx: any) => {
-
     updateFoliagePhase(
         ctx.delta,
         ctx.audioState,
@@ -167,9 +162,8 @@ scheduler.register('FOLIAGE', (ctx: any) => {
     );
 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 scheduler.register('PARTICLES', (ctx: any) => {
-
     updateParticlesPhase(
         ctx.delta,
         ctx.gameTime + timeOffsetRef.value,
@@ -179,9 +173,8 @@ scheduler.register('PARTICLES', (ctx: any) => {
     );
 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 scheduler.register('POSTFX', (ctx: any) => {
-
     profiler.measure('PostFX', () => {
         updatePostFX(ctx.delta);
     });
@@ -190,9 +183,8 @@ scheduler.register('POSTFX', (ctx: any) => {
     setFireflyMeshesVisible(ctx.visualsState.isNightNow);
 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 scheduler.register('COMPUTE', (ctx: any) => {
-
     updateComputePhase();
     tickComputeOrchestrator();
 
@@ -208,9 +200,8 @@ scheduler.register('COMPUTE', (ctx: any) => {
     if (cameraRef) updatePresenceSystem(ctx.delta, cameraRef, player.position);
 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 scheduler.register('PHYSICS', (ctx: any) => {
-
     const devOrbitActive = ctx.exploreActive;
     updatePhysicsPhase(ctx.delta, devOrbitActive, ctx.audioState);
     if (!_firstFrameLogged) {
@@ -218,21 +209,19 @@ scheduler.register('PHYSICS', (ctx: any) => {
     }
 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 scheduler.register('GAMEPLAY', (ctx: any) => {
-
     updateGameplayPhase(ctx.delta, ctx.gameTime + timeOffsetRef.value, ctx.exploreActive, ctx.audioState);
     if (!_firstFrameLogged) {
         console.log('[GameLoop] Gameplay phase completed');
     }
 });
 
-    scheduler.register('RENDER', () => {
+scheduler.register('RENDER', () => {
     renderPostProcessing();
 });
 
 let _systemsRegistered = false;
-
 
 export function animate() {
     if (!_firstFrameLogged) {
@@ -280,42 +269,42 @@ export function animate() {
         // Systems are registered on import
     }
 
-        scheduler.updateContext({ delta, rawDelta });
+    scheduler.updateContext({ delta, rawDelta });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const ctx = scheduler.getContext();
 
     // 1. Audio and Beat phase
-        scheduler.execute('AUDIO');
+    scheduler.execute('AUDIO');
 
     // 1a. Input
-        scheduler.execute('INPUT');
+    scheduler.execute('INPUT');
 
     // 1b. Chunk streaming
-        scheduler.execute('STREAMING');
+    scheduler.execute('STREAMING');
 
     // 2. Visuals phase
-        scheduler.execute('VISUALS');
+    scheduler.execute('VISUALS');
 
     // 2b. Foliage materials + batcher LOD
-        scheduler.execute('FOLIAGE');
+    scheduler.execute('FOLIAGE');
 
     // 3. Particles and Music Reactivity phase
-        scheduler.execute('PARTICLES');
+    scheduler.execute('PARTICLES');
 
     // 4. PostFX and Camera phase
-        scheduler.execute('POSTFX');
+    scheduler.execute('POSTFX');
 
     // 5. Compute passes
-        scheduler.execute('COMPUTE');
+    scheduler.execute('COMPUTE');
 
     // 6. Physics Phase
-        scheduler.execute('PHYSICS');
+    scheduler.execute('PHYSICS');
 
     // 7. Gameplay Phase
-        scheduler.execute('GAMEPLAY');
+    scheduler.execute('GAMEPLAY');
 
     // 8. Render
-        scheduler.execute('RENDER');
+    scheduler.execute('RENDER');
 
     if (!_firstFrameLogged) {
         console.log('[GameLoop] Render phase completed - First frame loop fully complete');
