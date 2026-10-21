@@ -289,7 +289,7 @@ export class CPUParticleSystem {
             const py = positions[idx + 1];
             const pz = positions[idx + 2];
 
-            // Apply attractors only if alive
+            // Apply attractors
             if (isAlive && numAttractors > 0) {
                 let vx = velocities[idx];
                 let vy = velocities[idx + 1];
@@ -325,7 +325,7 @@ export class CPUParticleSystem {
                 }
             }
 
-            // Expand quad vertices - size is 0 if dead to hide it
+            // Expand quad vertices
             const size = isAlive ? sizes[i] : 0;
             const baseIdx = i * 12; // i * 4 * 3
 
