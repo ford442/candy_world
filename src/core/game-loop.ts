@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 // src/core/game-loop.ts
 // Thin animate() coordinator — tick phases live in sibling game-loop-*.ts modules.
 // Frame order is intentional; do not reorder phases without a gameplay audit.
@@ -17,6 +17,7 @@ import { updatePresenceSystem } from '../systems/net/lazy.ts';
 import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { player } from '../systems/physics/index.ts';
+import { scheduler } from '../systems/scheduler/system-scheduler.ts';
 import { profiler } from '../utils/profiler.ts';
 import { updateSugarCavesTraversal } from '../world/sugar-caves-traversal.ts';
 import { isExploreActive } from './camera-modes.ts';
@@ -70,8 +71,9 @@ let _livingScoreBooted = false;
 
 
 // Register systems to the scheduler
-    scheduler.register('AUDIO', (ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('AUDIO', (ctx: any) => {
+
     ctx.audioState = updateAudioPhase(ctx.delta);
 
     const currentBPM = ctx.audioState?.bpm || 120;
@@ -118,8 +120,9 @@ let _livingScoreBooted = false;
     }
 });
 
-    scheduler.register('INPUT', (ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('INPUT', (ctx: any) => {
+
     updateInteractionPhase(ctx.delta);
 });
 
@@ -127,8 +130,9 @@ let _livingScoreBooted = false;
     updateStreamingPhase(player.position);
 });
 
-    scheduler.register('VISUALS', (ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('VISUALS', (ctx: any) => {
+
     ctx.exploreActive = isExploreActive();
     ctx.visualsState = updateVisualsPhase(
         ctx.delta,
@@ -150,7 +154,8 @@ let _livingScoreBooted = false;
     }
 });
 
-    scheduler.register('FOLIAGE', (ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('FOLIAGE', (ctx: any) => {
 
     updateFoliagePhase(
         ctx.delta,
@@ -162,7 +167,8 @@ let _livingScoreBooted = false;
     );
 });
 
-    scheduler.register('PARTICLES', (ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('PARTICLES', (ctx: any) => {
 
     updateParticlesPhase(
         ctx.delta,
@@ -173,7 +179,8 @@ let _livingScoreBooted = false;
     );
 });
 
-    scheduler.register('POSTFX', (ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('POSTFX', (ctx: any) => {
 
     profiler.measure('PostFX', () => {
         updatePostFX(ctx.delta);
@@ -183,7 +190,8 @@ let _livingScoreBooted = false;
     setFireflyMeshesVisible(ctx.visualsState.isNightNow);
 });
 
-    scheduler.register('COMPUTE', (ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('COMPUTE', (ctx: any) => {
 
     updateComputePhase();
     tickComputeOrchestrator();
@@ -200,8 +208,9 @@ let _livingScoreBooted = false;
     if (cameraRef) updatePresenceSystem(ctx.delta, cameraRef, player.position);
 });
 
-    scheduler.register('PHYSICS', (ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('PHYSICS', (ctx: any) => {
+
     const devOrbitActive = ctx.exploreActive;
     updatePhysicsPhase(ctx.delta, devOrbitActive, ctx.audioState);
     if (!_firstFrameLogged) {
@@ -209,8 +218,9 @@ let _livingScoreBooted = false;
     }
 });
 
-    scheduler.register('GAMEPLAY', (ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('GAMEPLAY', (ctx: any) => {
+
     updateGameplayPhase(ctx.delta, ctx.gameTime + timeOffsetRef.value, ctx.exploreActive, ctx.audioState);
     if (!_firstFrameLogged) {
         console.log('[GameLoop] Gameplay phase completed');
@@ -271,6 +281,8 @@ export function animate() {
     }
 
         scheduler.updateContext({ delta, rawDelta });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const ctx = scheduler.getContext();
 
     // 1. Audio and Beat phase
         scheduler.execute('AUDIO');
