@@ -208,6 +208,7 @@ export async function handleSlotAction(
                         const result = await saveSystem.deleteSlot(slotId);
                         if (result) {
                             showToast('Save deleted', '🗑️', 3000);
+                            announce('Save deleted', 'polite');
                             await refreshSlots?.();
                             render?.();
                         }
@@ -275,6 +276,7 @@ async function saveToSlot(
     const result = await saveSystem.save(slotId);
     if (result) {
         showToast('Game saved!', '💾', 3000);
+        announce('Game saved!', 'polite');
         onSaveCallback?.(slotId);
         await refreshSlots?.();
         render?.();
@@ -302,6 +304,7 @@ async function exportSlot(
             }, 50);
         }
         showToast('Save exported!', '📤', 3000);
+        announce('Save exported!', 'polite');
     }
 }
 
@@ -318,6 +321,7 @@ async function deleteSlot(
     const result = await saveSystem.deleteSlot(slotId);
     if (result) {
         showToast('Save deleted', '🗑️', 3000);
+        announce('Save deleted', 'polite');
         await refreshSlots?.();
         render?.();
     }
