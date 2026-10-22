@@ -661,7 +661,7 @@ Next Steps: Proceed to #1973 (slice 2) for fixed-step simulation, or handle #196
 Date: ${today}
 Mode: **USER IDEA**
 Focus: **#1973 Foundation: phase-ordered SystemScheduler (slice 1)** — Introduced `SystemScheduler` class to coordinate update phases (`AUDIO`, `INPUT`, `STREAMING`, `VISUALS`, etc.) inside `game-loop.ts`. This eliminates the hardcoded `updateXPhase` sequence and lays the foundation for deterministic replay and fixed-step simulation.
-Outcome: ✅ LANDED ${today} - Created `src/systems/scheduler/system-scheduler.ts` and successfully migrated the `animate()` loop in `src/core/game-loop.ts` to use `scheduler.execute(phase)`.
+Outcome: ✅ LANDED ${today} - Implemented the system scheduler.
 Next Steps: Proceed to #1973 (slice 2) for fixed-step simulation, or handle #1966 (Jules bot issue B).
 
 

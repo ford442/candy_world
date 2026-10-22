@@ -620,10 +620,20 @@ export class SaveMenu {
 
             // Rebuild content safely to avoid interpreting textContent as HTML
             btnElement.innerHTML =
-                '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px; margin-right: 8px;"><span class="visually-hidden">Processing...</span></span>';
-            const textSpan = document.createElement('span');
-            textSpan.textContent = textContent;
-            btnElement.appendChild(textSpan);
+                '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px; margin-right: 8px;" aria-hidden="true"></span>';
+
+            const a11ySpan = document.createElement('span');
+            a11ySpan.className = 'visually-hidden';
+            a11ySpan.setAttribute('role', 'status');
+            a11ySpan.setAttribute('aria-live', 'polite');
+            a11ySpan.textContent = textContent + '...';
+            btnElement.appendChild(a11ySpan);
+
+            // Also show text visually but hidden from screen readers to avoid double announcement
+            const visualSpan = document.createElement('span');
+            visualSpan.setAttribute('aria-hidden', 'true');
+            visualSpan.textContent = textContent;
+            btnElement.appendChild(visualSpan);
         };
 
         const restoreState = () => {

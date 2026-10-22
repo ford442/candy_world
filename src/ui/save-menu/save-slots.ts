@@ -175,7 +175,19 @@ export async function handleSlotAction(
 
         // Build content safely
         btnElement.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
-        btnElement.appendChild(document.createTextNode(textContent + '...'));
+
+        const a11ySpan = document.createElement('span');
+        a11ySpan.className = 'visually-hidden';
+        a11ySpan.setAttribute('role', 'status');
+        a11ySpan.setAttribute('aria-live', 'polite');
+        a11ySpan.textContent = textContent + '...';
+        btnElement.appendChild(a11ySpan);
+
+        // Also show text visually but hidden from screen readers to avoid double announcement
+        const visualSpan = document.createElement('span');
+        visualSpan.setAttribute('aria-hidden', 'true');
+        visualSpan.textContent = textContent + '...';
+        btnElement.appendChild(visualSpan);
 
         // Setup cleanup to restore state
         const cleanup = () => {
@@ -342,7 +354,19 @@ export async function handleQuickSave(
 
         // Build content safely
         btnElement.innerHTML = '<span class="spinner" aria-hidden="true" style="margin-right: 6px;"></span>';
-        btnElement.appendChild(document.createTextNode(textContent + '...'));
+
+        const a11ySpan = document.createElement('span');
+        a11ySpan.className = 'visually-hidden';
+        a11ySpan.setAttribute('role', 'status');
+        a11ySpan.setAttribute('aria-live', 'polite');
+        a11ySpan.textContent = textContent + '...';
+        btnElement.appendChild(a11ySpan);
+
+        // Also show text visually but hidden from screen readers to avoid double announcement
+        const visualSpan = document.createElement('span');
+        visualSpan.setAttribute('aria-hidden', 'true');
+        visualSpan.textContent = textContent + '...';
+        btnElement.appendChild(visualSpan);
 
         try {
             await yieldToPaint();
