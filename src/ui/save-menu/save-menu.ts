@@ -643,12 +643,14 @@ export class SaveMenu {
                 await yieldToPaint();
                 saveSystem.updateSettings(this.settings);
                 showToast('Settings saved!', '⚙️', 3000);
+                announce('Settings saved', 'polite');
                 setTimeout(restoreState, 300); // Brief delay for visual feedback
                 break;
             case 'reset-settings':
                 if (confirm('Reset all settings to defaults?')) {
                     // Would need to import default settings from save-system
                     showToast('Settings reset', '🔄', 3000);
+                    announce('Settings reset', 'polite');
                 }
                 break;
             case 'export-current':
@@ -698,6 +700,7 @@ export class SaveMenu {
         const currentSlot = saveSystem.getCurrentSlotId();
         if (!currentSlot) {
             showToast('No current save to export', '⚠️', 3000);
+            announce('No current save to export', 'assertive');
             return;
         }
 
@@ -706,6 +709,7 @@ export class SaveMenu {
             const textarea = this.container?.querySelector('#export-area') as HTMLTextAreaElement;
             if (textarea) textarea.value = data;
             showToast('Save exported!', '📤', 3000);
+            announce('Save exported', 'polite');
         }
     }
 
@@ -715,6 +719,7 @@ export class SaveMenu {
             const textarea = this.container?.querySelector('#export-area') as HTMLTextAreaElement;
             if (textarea) textarea.value = data;
             showToast('All saves exported!', '📦', 3000);
+            announce('All saves exported', 'polite');
         }
     }
 
@@ -724,8 +729,10 @@ export class SaveMenu {
             try {
                 await navigator.clipboard.writeText(textarea.value);
                 showToast('Copied to clipboard!', '📋', 3000);
+                announce('Copied to clipboard', 'polite');
             } catch {
                 showToast('Failed to copy', '❌', 3000);
+                announce('Failed to copy', 'assertive');
             }
         }
     }
@@ -734,6 +741,7 @@ export class SaveMenu {
         const textarea = this.container?.querySelector('#export-area') as HTMLTextAreaElement;
         if (!textarea?.value) {
             showToast('Nothing to download', '⚠️', 3000);
+            announce('Nothing to download', 'polite');
             return;
         }
 
@@ -747,12 +755,14 @@ export class SaveMenu {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         showToast('Save downloaded!', '💾', 3000);
+        announce('Save downloaded', 'polite');
     }
 
     private async importData(): Promise<void> {
         const textarea = this.container?.querySelector('#import-area') as HTMLTextAreaElement;
         if (!textarea?.value.trim()) {
             showToast('No data to import', '⚠️', 3000);
+            announce('No data to import', 'assertive');
             return;
         }
 
@@ -777,6 +787,7 @@ export class SaveMenu {
             if (textarea && event.target?.result) {
                 textarea.value = event.target.result as string;
                 showToast('File loaded, ready to import!', '📁', 3000);
+                announce('File loaded, ready to import', 'polite');
             }
             // Reset input value to allow selecting the same file again
             input.value = '';
@@ -796,6 +807,7 @@ export class SaveMenu {
         const result = await saveSystem.deleteAllData();
         if (result) {
             showToast('All data deleted', '🗑️', 5000);
+            announce('All data deleted', 'assertive');
             await this.refreshSlots();
             this.render();
         }
