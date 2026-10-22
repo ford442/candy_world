@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call */
 // src/core/game-loop.ts
 // Thin animate() coordinator — tick phases live in sibling game-loop-*.ts modules.
 // Frame order is intentional; do not reorder phases without a gameplay audit.
@@ -13,10 +14,11 @@ import { updateBehaviorSystem } from '../systems/ecs/behaviors/index.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
 import { initLivingScore, updateLivingScore } from '../systems/living-score.ts';
 import { updatePresenceSystem } from '../systems/net/lazy.ts';
+import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { player } from '../systems/physics/index.ts';
+import { scheduler } from '../systems/scheduler/system-scheduler.ts';
 import { profiler } from '../utils/profiler.ts';
-import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import { updateSugarCavesTraversal } from '../world/sugar-caves-traversal.ts';
 import { isExploreActive } from './camera-modes.ts';
 import { updateAudioPhase, updateGenerativeAudioContext } from './game-loop-audio.ts';
@@ -67,6 +69,160 @@ let _firstFrameLogged = false;
 // per frame even after its own once-guard returns. Call it once.
 let _livingScoreBooted = false;
 
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('AUDIO', (ctx: any) => {
+    ctx.audioState = updateAudioPhase(ctx.delta);
+
+    const currentBPM = ctx.audioState?.bpm || 120;
+    ctx.timeFactor = 120 / Math.max(10, currentBPM);
+    const gt = getGameTime() + ctx.delta * ctx.timeFactor;
+    setGameTime(gt);
+    ctx.gameTime = gt;
+
+    const currentBeatPhase = ctx.audioState?.beatPhase || 0;
+    if (currentBeatPhase < lastBeatPhase && lastBeatPhase > 0.8) {
+        const kickTrigger = ctx.audioState?.kickTrigger || 0;
+        if (kickTrigger > 0.3) {
+            setBeatFlashIntensity(0.5 + kickTrigger * 0.5);
+            setCameraZoomPulse(2 + kickTrigger * 3);
+        }
+    }
+    setLastBeatPhase(currentBeatPhase);
+
+    let bfi = beatFlashIntensity;
+    if (bfi > 0) {
+        bfi *= 0.9;
+        if (bfi < 0.01) bfi = 0;
+        setBeatFlashIntensity(bfi);
+    }
+
+    let czp = cameraZoomPulse;
+    if (czp > 0) {
+        if (cameraRef) cameraRef.fov = baseFOV - czp;
+        if (cameraRef) cameraRef.updateProjectionMatrix();
+        czp *= 0.85;
+        if (czp < 0.1) {
+            czp = 0;
+            if (cameraRef) cameraRef.fov = baseFOV;
+            if (cameraRef) cameraRef.updateProjectionMatrix();
+        }
+        setCameraZoomPulse(czp);
+    }
+
+    let cs = cameraShake;
+    if (cs > 0) {
+        cs *= 0.9;
+        if (cs < 0.001) cs = 0;
+        setCameraShakeCore(cs);
+    }
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('INPUT', (ctx: any) => {
+    updateInteractionPhase(ctx.delta);
+});
+
+scheduler.register('STREAMING', () => {
+    updateStreamingPhase(player.position);
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('VISUALS', (ctx: any) => {
+    ctx.exploreActive = isExploreActive();
+    ctx.visualsState = updateVisualsPhase(
+        ctx.delta,
+        ctx.gameTime + timeOffsetRef.value,
+        ctx.gameTime,
+        ctx.audioState,
+        getBeatFlashIntensity(),
+        ctx.exploreActive,
+        player.position
+    );
+
+    updateGenerativeAudioContext(player.position, ctx.visualsState.dayNightBias);
+    if (audioSystemRef) {
+        if (!_livingScoreBooted) {
+            _livingScoreBooted = true;
+            void initLivingScore();
+        }
+        updateLivingScore(audioSystemRef, ctx.visualsState.dayNightBias, ctx.delta);
+    }
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('FOLIAGE', (ctx: any) => {
+    updateFoliagePhase(
+        ctx.delta,
+        ctx.audioState,
+        ctx.visualsState.isNightNow,
+        ctx.visualsState.weatherStateStr,
+        ctx.visualsState.weatherIntensity,
+        ctx.visualsState.dayNightBias
+    );
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('PARTICLES', (ctx: any) => {
+    updateParticlesPhase(
+        ctx.delta,
+        ctx.gameTime + timeOffsetRef.value,
+        ctx.audioState,
+        ctx.visualsState.isNightNow,
+        ctx.visualsState.isDeepNight
+    );
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('POSTFX', (ctx: any) => {
+    profiler.measure('PostFX', () => {
+        updatePostFX(ctx.delta);
+    });
+
+    updateExploreCameraPhase(ctx.delta, ctx.exploreActive);
+    setFireflyMeshesVisible(ctx.visualsState.isNightNow);
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('COMPUTE', (ctx: any) => {
+    updateComputePhase();
+    tickComputeOrchestrator();
+
+    updateImpacts(rendererRef, ctx.gameTime + timeOffsetRef.value);
+    updateDandelionSeeds(rendererRef);
+    updateFaunaSystem(ctx.delta, ctx.gameTime + timeOffsetRef.value);
+    updateBehaviorSystem(ctx.delta, ctx.gameTime + timeOffsetRef.value);
+    updateHeroAnimations(ctx.delta);
+    if (isHeroAnimationDemoEnabled() && sceneRef && player.position) {
+        ensureHeroAnimationDemo(sceneRef, player.position);
+    }
+    updateSugarCavesTraversal(player.position.x, player.position.y, player.position.z);
+    if (cameraRef) updatePresenceSystem(ctx.delta, cameraRef, player.position);
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('PHYSICS', (ctx: any) => {
+    const devOrbitActive = ctx.exploreActive;
+    updatePhysicsPhase(ctx.delta, devOrbitActive, ctx.audioState);
+    if (!_firstFrameLogged) {
+        console.log('[GameLoop] Physics phase completed');
+    }
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+scheduler.register('GAMEPLAY', (ctx: any) => {
+    updateGameplayPhase(ctx.delta, ctx.gameTime + timeOffsetRef.value, ctx.exploreActive, ctx.audioState);
+    if (!_firstFrameLogged) {
+        console.log('[GameLoop] Gameplay phase completed');
+    }
+});
+
+scheduler.register('RENDER', () => {
+    renderPostProcessing();
+});
+
+let _systemsRegistered = false;
+
 export function animate() {
     if (!_firstFrameLogged) {
         console.log('[GameLoop] Entered animate() first frame');
@@ -108,143 +264,47 @@ export function animate() {
     photoMode?.update(rawDelta);
     const simDelta = photoMode?.getSimulationDelta(rawDelta) ?? rawDelta;
     const delta = Math.min(simDelta, 0.1);
+    if (!_systemsRegistered) {
+        _systemsRegistered = true;
+        // Systems are registered on import
+    }
+
+    scheduler.updateContext({ delta, rawDelta });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const ctx = scheduler.getContext();
 
     // 1. Audio and Beat phase
-    const audioState = updateAudioPhase(delta);
+    scheduler.execute('AUDIO');
 
-    const currentBPM = audioState?.bpm || 120;
-    const timeFactor = 120 / Math.max(10, currentBPM);
-    const gt = getGameTime() + delta * timeFactor;
-    setGameTime(gt);
+    // 1a. Input
+    scheduler.execute('INPUT');
 
-    const currentBeatPhase = audioState?.beatPhase || 0;
-    if (currentBeatPhase < lastBeatPhase && lastBeatPhase > 0.8) {
-        const kickTrigger = audioState?.kickTrigger || 0;
-        if (kickTrigger > 0.3) {
-            setBeatFlashIntensity(0.5 + kickTrigger * 0.5);
-            setCameraZoomPulse(2 + kickTrigger * 3);
-        }
-    }
-    setLastBeatPhase(currentBeatPhase);
+    // 1b. Chunk streaming
+    scheduler.execute('STREAMING');
 
-    let bfi = beatFlashIntensity;
-    if (bfi > 0) {
-        bfi *= 0.9;
-        if (bfi < 0.01) bfi = 0;
-        setBeatFlashIntensity(bfi);
-    }
+    // 2. Visuals phase
+    scheduler.execute('VISUALS');
 
-    let czp = cameraZoomPulse;
-    if (czp > 0) {
-        cameraRef.fov = baseFOV - czp;
-        cameraRef.updateProjectionMatrix();
-        czp *= 0.85;
-        if (czp < 0.1) {
-            czp = 0;
-            cameraRef.fov = baseFOV;
-            cameraRef.updateProjectionMatrix();
-        }
-        setCameraZoomPulse(czp);
-    }
-
-    let cs = cameraShake;
-    if (cs > 0) {
-        cs *= 0.9;
-        if (cs < 0.001) cs = 0;
-        setCameraShakeCore(cs);
-    }
-
-    updateInteractionPhase(delta);
-
-    // 1b. Chunk streaming (#1546/#1548) — no-op unless the "play" boot path
-    // is active; drives horizon load/evict as the player crosses chunk bounds.
-    updateStreamingPhase(player.position);
-
-    const exploreActive = isExploreActive();
-
-    // 2. Visuals phase (Weather, Lighting, Shadows, Day/Night, Sky, TSL Uniforms)
-    const visualsState = updateVisualsPhase(
-        delta,
-        gt + timeOffsetRef.value,
-        gt,
-        audioState,
-        getBeatFlashIntensity(),
-        exploreActive,
-        player.position
-    );
-
-    updateGenerativeAudioContext(player.position, visualsState.dayNightBias);
-    if (audioSystemRef) {
-        if (!_livingScoreBooted) {
-            _livingScoreBooted = true;
-            void initLivingScore();
-        }
-        updateLivingScore(audioSystemRef, visualsState.dayNightBias, delta);
-    }
-
-    // 2b. Foliage materials + batcher LOD (after sky/fog uniforms settle)
-    updateFoliagePhase(
-        delta,
-        audioState,
-        visualsState.isNightNow,
-        visualsState.weatherStateStr,
-        visualsState.weatherIntensity,
-        visualsState.dayNightBias
-    );
+    // 2b. Foliage materials + batcher LOD
+    scheduler.execute('FOLIAGE');
 
     // 3. Particles and Music Reactivity phase
-    updateParticlesPhase(
-        delta,
-        gt + timeOffsetRef.value,
-        audioState,
-        visualsState.isNightNow,
-        visualsState.isDeepNight
-    );
+    scheduler.execute('PARTICLES');
 
     // 4. PostFX and Camera phase
-    profiler.measure('PostFX', () => {
-        updatePostFX(delta);
-    });
-
-    updateExploreCameraPhase(delta, exploreActive);
-
-    setFireflyMeshesVisible(visualsState.isNightNow);
+    scheduler.execute('POSTFX');
 
     // 5. Compute passes
-    updateComputePhase();
-    tickComputeOrchestrator();
-
-    updateImpacts(rendererRef, gt + timeOffsetRef.value);
-    updateDandelionSeeds(rendererRef);
-    updateFaunaSystem(delta, gt + timeOffsetRef.value);
-    // Entity behaviors (bob/interact highlight) — after fauna so a behavior can
-    // read this frame's entity transforms, before the hero mixer tick.
-    updateBehaviorSystem(delta, gt + timeOffsetRef.value);
-    // Hero clip animation: one mixer tick for every registered rig, after the
-    // systems that may have changed which clip a rig should be playing. Systems
-    // themselves call playHeroClip/stopHeroClip and never touch the loop.
-    updateHeroAnimations(delta);
-    if (isHeroAnimationDemoEnabled() && sceneRef && player.position) {
-        ensureHeroAnimationDemo(sceneRef, player.position);
-    }
-    updateSugarCavesTraversal(player.position.x, player.position.y, player.position.z);
-    updatePresenceSystem(delta, cameraRef, player.position);
+    scheduler.execute('COMPUTE');
 
     // 6. Physics Phase
-    const devOrbitActive = exploreActive;
-    updatePhysicsPhase(delta, devOrbitActive, audioState);
-    if (!_firstFrameLogged) {
-        console.log('[GameLoop] Physics phase completed');
-    }
+    scheduler.execute('PHYSICS');
 
     // 7. Gameplay Phase
-    updateGameplayPhase(delta, gt + timeOffsetRef.value, exploreActive, audioState);
-    if (!_firstFrameLogged) {
-        console.log('[GameLoop] Gameplay phase completed');
-    }
+    scheduler.execute('GAMEPLAY');
 
     // 8. Render
-    renderPostProcessing();
+    scheduler.execute('RENDER');
 
     if (!_firstFrameLogged) {
         console.log('[GameLoop] Render phase completed - First frame loop fully complete');
