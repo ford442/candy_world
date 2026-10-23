@@ -276,7 +276,7 @@ async function saveToSlot(
     const result = await saveSystem.save(slotId);
     if (result) {
         showToast('Game saved!', '💾', 3000);
-        announce('Game saved!', 'polite');
+        announce('Game saved', 'polite');
         onSaveCallback?.(slotId);
         await refreshSlots?.();
         render?.();
@@ -304,7 +304,7 @@ async function exportSlot(
             }, 50);
         }
         showToast('Save exported!', '📤', 3000);
-        announce('Save exported!', 'polite');
+        announce('Save exported', 'polite');
     }
 }
 
