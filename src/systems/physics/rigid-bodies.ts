@@ -402,22 +402,29 @@ export function applyRigidBodyRadialImpulse(
         const dSq = dx * dx + dy * dy + dz * dz;
         if (dSq > rSq) continue;
 
-        const dist = Math.sqrt(dSq);
-        const falloff = 1 - dist / radius;
         let nx = 0;
         let ny = 1;
         let nz = 0;
-        if (dist > 1e-4) {
-            nx = dx / dist;
-            ny = dy / dist + upBias;
-            nz = dz / dist;
-            const nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (nl > 1e-4) {
-                nx /= nl;
-                ny /= nl;
-                nz /= nl;
+        let dist = 0;
+
+        if (dSq > 1e-8) {
+            // ⚡ OPTIMIZATION: Bypassed repeated divisions and Math.sqrt() in hot loop by using inverse distance once
+            const invDist = 1 / Math.sqrt(dSq);
+            dist = dSq * invDist;
+            nx = dx * invDist;
+            ny = dy * invDist + upBias;
+            nz = dz * invDist;
+
+            const nlSq = nx * nx + ny * ny + nz * nz;
+            if (nlSq > 1e-8) {
+                const invNl = 1 / Math.sqrt(nlSq);
+                nx *= invNl;
+                ny *= invNl;
+                nz *= invNl;
             }
         }
+
+        const falloff = 1 - dist / radius;
         const j = strength * falloff * invMass;
         pool[b + F.VX] += nx * j;
         pool[b + F.VY] += ny * j;

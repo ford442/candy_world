@@ -349,19 +349,29 @@ export function rbApplyRadialImpulse(
     const dSq = dx * dx + dy * dy + dz * dz;
     if (dSq > rSq) continue;
 
-    const dist = Mathf.sqrt(dSq);
+    let nx: f32 = 0.0, ny: f32 = 1.0, nz: f32 = 0.0;
+    let dist: f32 = 0.0;
+
+    if (dSq > 1e-8) {
+      // ⚡ OPTIMIZATION: Bypassed repeated divisions and Mathf.sqrt() in hot loop by using inverse distance once
+      const invDist: f32 = 1.0 / Mathf.sqrt(dSq);
+      dist = dSq * invDist;
+      nx = dx * invDist;
+      ny = dy * invDist + upBias;
+      nz = dz * invDist;
+
+      const nlSq = nx * nx + ny * ny + nz * nz;
+      if (nlSq > 1e-8) {
+        const invNl: f32 = 1.0 / Mathf.sqrt(nlSq);
+        nx *= invNl;
+        ny *= invNl;
+        nz *= invNl;
+      }
+    }
+
     // Linear falloff; at the epicentre push straight up rather than dividing
     // by ~0 and producing a NaN direction.
     const falloff: f32 = 1.0 - dist / radius;
-    let nx: f32 = 0.0, ny: f32 = 1.0, nz: f32 = 0.0;
-    if (dist > 1e-4) {
-      nx = dx / dist;
-      ny = dy / dist + upBias;
-      nz = dz / dist;
-      const nl = Mathf.sqrt(nx * nx + ny * ny + nz * nz);
-      if (nl > 1e-4) { nx /= nl; ny /= nl; nz /= nl; }
-    }
-
     const j: f32 = strength * falloff * invMass;
     unchecked(p[b + F_VX] += nx * j);
     unchecked(p[b + F_VY] += ny * j);
