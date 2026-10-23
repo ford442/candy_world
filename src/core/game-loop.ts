@@ -64,6 +64,10 @@ export { addCameraShake } from './camera-shake.ts';
 // --- Animation Loop State ---
 const clock = new THREE.Clock();
 
+const FIXED_TIME_STEP = 1.0 / 60.0;
+const MAX_STEPS = 5;
+let accumulator = 0;
+
 let _firstFrameLogged = false;
 // initLivingScore() is async, so calling it every frame allocates a Promise
 // per frame even after its own once-guard returns. Call it once.
@@ -269,18 +273,42 @@ export function animate() {
         // Systems are registered on import
     }
 
+    accumulator += delta;
+    let steps = 0;
+
+    while (accumulator >= FIXED_TIME_STEP && steps < MAX_STEPS) {
+        scheduler.updateContext({ delta: FIXED_TIME_STEP, rawDelta: rawDelta });
+
+        // 1. Audio and Beat phase
+        scheduler.execute('AUDIO');
+
+        // 1a. Input
+        scheduler.execute('INPUT');
+
+        // 1b. Chunk streaming
+        scheduler.execute('STREAMING');
+
+        // 5. Compute passes
+        scheduler.execute('COMPUTE');
+
+        // 6. Physics Phase
+        scheduler.execute('PHYSICS');
+
+        // 7. Gameplay Phase
+        scheduler.execute('GAMEPLAY');
+
+        accumulator -= FIXED_TIME_STEP;
+        steps++;
+    }
+
+    if (accumulator >= FIXED_TIME_STEP) {
+        accumulator = 0; // Prevent spiral of death
+    }
+
+    // Update context for visuals using the original frame delta
     scheduler.updateContext({ delta, rawDelta });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const ctx = scheduler.getContext();
-
-    // 1. Audio and Beat phase
-    scheduler.execute('AUDIO');
-
-    // 1a. Input
-    scheduler.execute('INPUT');
-
-    // 1b. Chunk streaming
-    scheduler.execute('STREAMING');
 
     // 2. Visuals phase
     scheduler.execute('VISUALS');
@@ -293,15 +321,6 @@ export function animate() {
 
     // 4. PostFX and Camera phase
     scheduler.execute('POSTFX');
-
-    // 5. Compute passes
-    scheduler.execute('COMPUTE');
-
-    // 6. Physics Phase
-    scheduler.execute('PHYSICS');
-
-    // 7. Gameplay Phase
-    scheduler.execute('GAMEPLAY');
 
     // 8. Render
     scheduler.execute('RENDER');
