@@ -191,7 +191,12 @@ export function showWebGPUFatalScreen(error: unknown): void {
     });
 
     yieldToPaint(50).then(() => {
-        trapFocusInside(overlay, { skipAutoFocus: true });
+        trapFocusInside(overlay, {
+            skipAutoFocus: true,
+            onEscape: () => {
+                // Fatal screen cannot be dismissed
+            }
+        });
         reload.focus({ preventScroll: true });
     });
 
