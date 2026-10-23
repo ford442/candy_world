@@ -540,6 +540,7 @@ export class SaveMenu {
             const result = await saveSystem.save(id);
             if (result) {
                 showToast('Game saved!', '💾', 3000);
+                announce('Game saved!', 'polite');
                 this.onSaveCallback?.(id);
                 await this.refreshSlots();
                 this.render();
@@ -564,6 +565,7 @@ export class SaveMenu {
             const result = await saveSystem.save(id);
             if (result) {
                 showToast('Game saved!', '💾', 3000);
+                announce('Game saved!', 'polite');
                 this.onSaveCallback?.(id);
                 await this.refreshSlots();
                 this.render();
