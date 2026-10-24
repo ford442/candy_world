@@ -94,6 +94,8 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
     // 🎨 PALETTE: Apply Standard Deformation (which already includes player interaction)
     // AND explicitly add Wind Sway on top to make the gem fruits more dynamic
     // and visually cohesive with the twilight candy theme.
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     mat.positionNode = applyStandardDeformation(baseDeformed).add(calculateWindSway(baseDeformed, { amplitude: float(1.5) }));
 
     // Visual Impact: emissive pulse on shimmer — visible bloom response on crescendo.
