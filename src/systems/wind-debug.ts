@@ -64,7 +64,7 @@ export function updateWindDebug(): void {
 /** Remove the arrow (scene teardown / hot reload). */
 export function disposeWindDebug(scene: THREE.Scene): void {
     if (!_arrow) return;
-    // ⚡ OPTIMIZATION: Bypassed incomplete THREE.ArrowHelper dispose to prevent VRAM leak
+    // ⚡ OPTIMIZATION: Replaced manual scene.remove with safeRemoveAndDispose to prevent VRAM leaks.
     safeRemoveAndDispose(scene, _arrow);
     _arrow = null;
     _enabled = false;
