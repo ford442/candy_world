@@ -117,7 +117,6 @@ export const FEATURE_FLAGS = {
     fireflies: !hasUrlFlag('no_fireflies'),
     grass: !hasUrlFlag('no_grass'),
     fauna: !hasUrlFlag('no_fauna'),
-    reliableBoot: !hasUrlFlag('no_reliable_boot'),
     /**
      * Persist soft glow for music-awakened flora across reloads.
      * Runtime URL flag (?awakened) — default off for safe rollout.
