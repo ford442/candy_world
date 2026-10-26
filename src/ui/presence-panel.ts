@@ -286,7 +286,7 @@ const style = document.createElement('style');
     modeSelect.insertAdjacentElement('afterend', wrapper);
 
     yieldToPaint(50).then(() => {
-        const releaseTrap = trapFocusInside(wrapper, { skipAutoFocus: true });
+        const releaseTrap = trapFocusInside(wrapper, { skipAutoFocus: true, onEscape: () => { window.dispatchEvent(new CustomEvent("candy:start-screen-hidden")); } });
 
         // Presence panel lives on the start screen; when start screen hides, we should release
         const cleanup = () => {

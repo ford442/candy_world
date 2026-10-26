@@ -151,6 +151,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         // --- Material Definitions ---
 
         // 0. Stem
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const stemMat = getCachedProceduralMaterial('mushroom_stem_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
@@ -168,6 +169,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         // PALETTE: Upgraded to use instanceColor + Juicy Rim Light
         // mushroomCap is an array of materials in common.ts
         const capList = foliageMaterials.mushroomCap as MeshStandardNodeMaterial[];
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const capMat = getCachedProceduralMaterial('mushroom_cap_wind', 0xFFFFFF, () => {
             const m = capList[0].clone();
             const defPos = deform(positionLocal);
@@ -240,6 +242,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         (capMat as any).emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const gillMat = getCachedProceduralMaterial('mushroom_gill_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
@@ -250,6 +253,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         }) as MeshStandardNodeMaterial;
 
         // 3. Spots
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const spotMat = getCachedProceduralMaterial('mushroom_spot_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
@@ -269,6 +273,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         };
 
         // 4. Eye
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const eyeMat = getCachedProceduralMaterial('mushroom_eye_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
             m.positionNode = faceDeform(positionLocal);
@@ -277,6 +282,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         }) as MeshStandardNodeMaterial;
 
         // 5. Pupil
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const pupilMat = getCachedProceduralMaterial('mushroom_pupil_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
             m.positionNode = faceDeform(positionLocal);
@@ -285,6 +291,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         }) as MeshStandardNodeMaterial;
 
         // 6. Mouth
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const mouthMat = getCachedProceduralMaterial('mushroom_mouth_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
             m.positionNode = faceDeform(positionLocal);
@@ -293,6 +300,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         }) as MeshStandardNodeMaterial;
 
         // 7. Cheek
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const cheekMat = getCachedProceduralMaterial('mushroom_cheek_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
             m.positionNode = faceDeform(positionLocal);
