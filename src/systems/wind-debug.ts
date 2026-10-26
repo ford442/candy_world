@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { getWindState, getWindStrength } from './wind-uniforms.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 let _arrow: THREE.ArrowHelper | null = null;
 let _enabled = false;
@@ -63,8 +64,8 @@ export function updateWindDebug(): void {
 /** Remove the arrow (scene teardown / hot reload). */
 export function disposeWindDebug(scene: THREE.Scene): void {
     if (!_arrow) return;
-    scene.remove(_arrow);
-    _arrow.dispose();
+    // ⚡ OPTIMIZATION: Replaced manual scene.remove with safeRemoveAndDispose to prevent VRAM leaks.
+    safeRemoveAndDispose(scene, _arrow);
     _arrow = null;
     _enabled = false;
 }
