@@ -21,7 +21,7 @@ export function createDeferredIndicator(): HTMLElement {
     indicator.className = 'deferred-indicator';
     indicator.setAttribute('aria-hidden', 'true');
     indicator.innerHTML =
-        '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-eta" aria-hidden="true"></span><span class="deferred-fail" aria-hidden="true" role="button" tabindex="0" style="display:none;color:#ff6b6b;font-weight:600;margin-left:6px;cursor:pointer;">⚠ <span class="fail-count">0</span></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
+        '<span id="deferred-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></span><span class="deferred-spinner" aria-hidden="true"></span><span class="deferred-text" aria-hidden="true">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-eta" aria-hidden="true"></span><span class="deferred-fail" aria-hidden="true" role="button" tabindex="0" style="display:none;color:#ff6b6b;font-weight:600;margin-left:6px;cursor:pointer;">⚠ <span class="fail-count">0</span></span><span class="deferred-bar" aria-hidden="true"><span class="deferred-bar-fill"></span></span>';
     document.body.appendChild(indicator);
     return indicator;
 }
