@@ -8,8 +8,8 @@
  */
 
 import * as THREE from 'three';
-import { getWindState, getWindStrength } from './wind-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { getWindState, getWindStrength } from './wind-uniforms.ts';
 
 let _arrow: THREE.ArrowHelper | null = null;
 let _enabled = false;
