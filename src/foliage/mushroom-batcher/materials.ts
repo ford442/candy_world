@@ -271,7 +271,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         // 4. Eye
         const eyeMat = getCachedProceduralMaterial('mushroom_eye_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
-            m.positionNode = faceDeform(positionLocal);
+            m.positionNode = applyStandardDeformationWithLod(faceDeform(positionLocal));
             applyFoliageLodMaterialFade(m);
             return m;
         }) as MeshStandardNodeMaterial;
@@ -279,7 +279,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         // 5. Pupil
         const pupilMat = getCachedProceduralMaterial('mushroom_pupil_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
-            m.positionNode = faceDeform(positionLocal);
+            m.positionNode = applyStandardDeformationWithLod(faceDeform(positionLocal));
             applyFoliageLodMaterialFade(m);
             return m;
         }) as MeshStandardNodeMaterial;
@@ -287,7 +287,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         // 6. Mouth
         const mouthMat = getCachedProceduralMaterial('mushroom_mouth_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
-            m.positionNode = faceDeform(positionLocal);
+            m.positionNode = applyStandardDeformationWithLod(faceDeform(positionLocal));
             applyFoliageLodMaterialFade(m);
             return m;
         }) as MeshStandardNodeMaterial;
@@ -295,7 +295,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         // 7. Cheek
         const cheekMat = getCachedProceduralMaterial('mushroom_cheek_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
-            m.positionNode = faceDeform(positionLocal);
+            m.positionNode = applyStandardDeformationWithLod(faceDeform(positionLocal));
             applyFoliageLodMaterialFade(m);
             return m;
         }) as MeshStandardNodeMaterial;
