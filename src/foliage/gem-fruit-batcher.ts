@@ -210,12 +210,7 @@ export class GemFruitBatcher {
                     updatedMeshes.add(this.meshes[gemType]);
                 }
 
-                const instanceIndex = this._registerInstanceForTree(gemType, this._scratchMatrix, drop + 0.2, treeGroup);
-                if (instanceIndex >= 0) {
-                    placed++;
-                    refs.push({ batcher: 'gem_fruit', instanceIndex, gemType });
-                    updatedMeshes.add(this.meshes[gemType]);
-                }
+
             }
         }
         // ⚡ OPTIMIZATION: Hoisted buffer needsUpdate flags outside the registration loop to eliminate redundant WebGPU uploads
