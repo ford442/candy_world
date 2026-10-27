@@ -5,6 +5,7 @@ import { showToast } from '../utils/toast.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { discoveryPersistence } from './discovery-persistence.ts';
 import { DISCOVERY_MAP } from './discovery-map.ts';
+import { emitProgress, progressKindOfDiscovery } from './progress-events.ts';
 
 /**
  * Manages the discovery of rare flora and environmental features.
@@ -68,6 +69,7 @@ class DiscoverySystem {
 
             showToast(`New Discovery: ${displayName}!`, icon, 5000);
             console.log(`[Discovery] Discovered: ${displayName} (${id})`);
+            emitProgress({ kind: progressKindOfDiscovery(id), id });
             return true;
         }
         return false;

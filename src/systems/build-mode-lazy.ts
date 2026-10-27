@@ -8,6 +8,7 @@
 import type * as THREE from 'three';
 import { showToast } from '../utils/toast.ts';
 import { isWorldEntered } from '../world/document/lazy.ts';
+import { getBuildModeLock, isBuildModeActive } from './build-mode-state.ts';
 
 let _load: Promise<typeof import('./authoring/build-mode.ts')> | null = null;
 
@@ -15,6 +16,11 @@ export function toggleBuildMode(scene: THREE.Scene): void {
     if (!isWorldEntered()) {
         // The start-screen preview is regenerated on Enter: edits there would vanish.
         showToast('Enter the world to start building', '🏗️', 2500);
+        return;
+    }
+    const lock = getBuildModeLock();
+    if (lock && !isBuildModeActive()) {
+        showToast(lock, '🔒', 3500);
         return;
     }
     if (!_load) {

@@ -28,7 +28,8 @@ co-presence.
 | Fauna                 | C++ boids (#1478), `src/systems/fauna/*`, sky-island roosts                                           |
 | Awakened flora        | `awakened-persistence` (on by default since #1974; `?no_awakened` off)                                |
 | Vertical exploration  | Sky Islands — `docs/SKY_ISLANDS.md`, `sky-island-graph.ts`                                            |
-| Lazy net (foundation) | `src/systems/net/lazy.ts` (`import()` when flag on) → `presence` chunk; see `docs/APP_CHUNK_SPLIT.md` |
+| Lazy net (foundation) | `src/systems/net/lazy.ts` (`import()` when flag on) → `net` chunk; see `docs/APP_CHUNK_SPLIT.md` |
+| Shared worlds         | Publish, share links, live co-editing (#1975) — `docs/SHARED_WORLDS.md`                               |
 | Content layer         | Sugar Caves — `docs/SUGAR_CAVES_SHIP.md`, `part-ii-unlock.ts`                                         |
 
 ## Prerequisites (do not skip)

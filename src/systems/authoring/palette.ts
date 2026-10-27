@@ -162,25 +162,9 @@ export function buildPalette(
 // Paint palette
 // ---------------------------------------------------------------------------
 
-/**
- * Recolours are limited to these. Every entry is a saturated pastel by the
- * rules in docs/CANDY_AESTHETIC_GUARDRAILS.md (HSL saturation ≥ 0.25,
- * lightness 0.4–0.95); tests/build-mode.test.ts holds them to it.
- */
-export const CANDY_PAINT_PALETTE: ReadonlyArray<{ name: string; hex: number }> = [
-    { name: 'Hot pink', hex: 0xff69b4 },
-    { name: 'Blush', hex: 0xffd1dc },
-    { name: 'Peach', hex: 0xffb38a },
-    { name: 'Butter', hex: 0xffe68a },
-    { name: 'Mint', hex: 0x98fb98 },
-    { name: 'Sky', hex: 0x87cefa },
-    { name: 'Lavender', hex: 0xc3b1e1 },
-    { name: 'Lilac', hex: 0xe0b0ff },
-];
-
-export function isCandyPaint(hex: unknown): hex is number {
-    return typeof hex === 'number' && CANDY_PAINT_PALETTE.some((c) => c.hex === hex);
-}
+// The colours themselves live in a renderer-free leaf so the shared-world
+// validator (and the validate-world edge function) can check them too.
+export { CANDY_PAINT_PALETTE, isCandyPaint } from '../../world/document/paint-palette.ts';
 
 /** HSL of a 0xRRGGBB colour, each in [0, 1]. */
 export function hexToHsl(hex: number): { h: number; s: number; l: number } {

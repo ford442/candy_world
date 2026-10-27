@@ -51,6 +51,12 @@ export default defineConfig({
                     if (id.includes('/node_modules/valibot/')) {
                         return 'save-ui';
                     }
+                    // Shared worlds + presence (#1975): supabase-js is only reached
+                    // through the lazy `net` chunk, so single-player boot never
+                    // downloads it. Must come before the node_modules → vendor rule.
+                    if (id.includes('/node_modules/@supabase/')) {
+                        return 'net';
+                    }
                     // Vendor chunk - all third-party dependencies
                     if (id.includes('node_modules')) {
                         return 'vendor';
@@ -153,14 +159,20 @@ export default defineConfig({
                     ) {
                         return 'debug';
                     }
-                    // Presence (Supabase + avatars + start-screen panel). Stubs stay in app.
+                    // Networking (#1975): presence, shared worlds, co-editing, the
+                    // presence and Worlds start-screen panels. The stubs `app` calls
+                    // (lazy.ts, shared-worlds-lazy.ts, the env-only supabase-config.ts,
+                    // biome-at-position.ts) stay in app.
                     if (
                         (id.includes('/src/systems/net/') &&
                             !id.endsWith('/net/lazy.ts') &&
+                            !id.endsWith('/net/shared-worlds-lazy.ts') &&
+                            !id.endsWith('/net/supabase-config.ts') &&
                             !id.endsWith('/net/biome-at-position.ts')) ||
-                        id.includes('/src/ui/presence-panel.ts')
+                        id.includes('/src/ui/presence-panel.ts') ||
+                        id.includes('/src/ui/worlds-panel.ts')
                     ) {
-                        return 'presence';
+                        return 'net';
                     }
                     // Photo mode (except thin lazy stub)
                     if (

@@ -24,7 +24,11 @@ import {
 } from '../../world/foliage-registry.ts';
 import { MUSICAL_FLORA_TYPES } from '../../world/generation-entities.ts';
 import { animatedFoliage } from '../../world/state.ts';
-import { reportBuildModeState } from '../build-mode-state.ts';
+import {
+    reportBuildCursor,
+    reportBuildModeState,
+    setBuildSelectionSource,
+} from '../build-mode-state.ts';
 import { editHistory, type WorldCommand } from '../edit-history.ts';
 import { nextSnapshotId, snapshotEntity, type EntitySnapshot } from '../entity-snapshot-core.ts';
 import { SYSTEM_BUDGETS } from '../performance-budget/systems-budget.ts';
@@ -158,6 +162,7 @@ function enableBuildMode(scene: THREE.Scene): void {
     }
     _ui.setVisible(true);
     renderUi();
+    setBuildSelectionSource(() => [..._selection.keys()]);
 
     if (!_unregisterSystem) {
         _unregisterSystem = registerSystem({
@@ -203,6 +208,7 @@ function disableBuildMode(): void {
     _ghost?.setVisible(false);
     _ui?.setVisible(false);
     syncSelectionRings();
+    reportBuildCursor(false, 0, 0, 0, _tool);
 
     window.removeEventListener('keydown', onKeyDown, { capture: true });
     window.removeEventListener('wheel', onWheel, { capture: true });
@@ -316,6 +322,7 @@ export function updateBuildMode(camera: THREE.Camera): void {
     }
 
     _target = _held || !_state.hit ? null : findTarget(_state.x, _state.z);
+    reportBuildCursor(_state.hit, _state.x, _state.y, _state.z, _tool);
     const showGhost = _tool === 'place' || !!_held;
     _ghost.update(showGhost ? _state : { ..._state, hit: false }, _scale, targetPosition());
     syncSelectionRings();

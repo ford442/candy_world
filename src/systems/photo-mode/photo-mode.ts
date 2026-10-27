@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import { capturePhotoPng } from './photo-capture.ts';
+import { getSharedWorldThumbnailAction } from '../net/shared-worlds-lazy.ts';
+import { capturePhotoPng, capturePhotoThumbnail } from './photo-capture.ts';
 import { PhotoControlsOverlay, type PhotoControlValues } from './photo-controls.ts';
 import { defaultPhotoSettings } from './photo-presets.ts';
 
@@ -166,9 +167,18 @@ export class PhotoModeManager {
         document.body.classList.add('photo-mode-active');
         this.setHudVisible(!this.values.hideHud);
 
+        const thumbnail = getSharedWorldThumbnailAction();
         this.overlay = new PhotoControlsOverlay({
             initial: this.values,
             reducedMotion: this.reducedMotion,
+            extraActions: thumbnail
+                ? [
+                      {
+                          label: thumbnail.label,
+                          onClick: () => void this.setWorldThumbnail(thumbnail),
+                      },
+                  ]
+                : [],
             onChange: (v, field) => {
                 this.values = v;
                 if (field === 'hideHud') this.setHudVisible(!v.hideHud);
@@ -250,6 +260,22 @@ export class PhotoModeManager {
         } catch (err) {
             console.error('[PhotoMode] Capture failed', err);
             this.opts.announcePolite('Photo capture failed');
+        }
+    }
+
+    /** Shared worlds (#1975): this frame becomes the world's gallery thumbnail. */
+    private async setWorldThumbnail(action: { run(image: Blob): Promise<string> }): Promise<void> {
+        if (!this.active) return;
+        try {
+            const image = await capturePhotoThumbnail({
+                renderer: this.opts.renderer,
+                renderFrame: this.opts.renderFrame,
+            });
+            await action.run(image);
+            this.opts.announcePolite('World thumbnail set');
+        } catch (err) {
+            console.error('[PhotoMode] Thumbnail upload failed', err);
+            this.opts.announcePolite('Could not set the world thumbnail');
         }
     }
 

@@ -41,6 +41,10 @@ jobs:
       - name: Check budget
         run: pnpm run budget:check
 
+      # Shared worlds (#1975): supabase-js stays in the lazy `net` chunk.
+      - name: Single-player boot loads no networking code
+        run: pnpm run check:net-chunk
+
       - name: Upload budget report
         if: always()
         uses: actions/upload-artifact@v7

@@ -8,15 +8,11 @@ import {
     isPresenceOptedIn,
     setPresenceOptIn,
 } from '../systems/net/presence.ts';
+import { buildShareUrl, ensureSeedInUrl, hasExplicitSeedInURL } from '../systems/net/share-links.ts';
 import { trapFocusInside } from '../utils/focus-trap.ts';
 import { applyWorldSeed } from '../utils/seeded-random.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
-import {
-    buildShareUrl,
-    ensureSeedInUrl,
-    getWorldSeed,
-    hasExplicitSeedInURL,
-} from '../world/world-seed.ts';
+import { getWorldSeed } from '../world/world-seed.ts';
 
 const PRESENCE_UI_ID = 'presence-opt-in';
 
@@ -252,7 +248,7 @@ const style = document.createElement('style');
 
     window.addEventListener('candy:presence-peers', (e: Event) => {
         const detail = (e as CustomEvent).detail as {
-            peers: Array<{ id: string; label: string; emoji: string; muted: boolean }>;
+            peers: Array<{ id: string; label: string; emoji: string; muted: boolean; kickable?: boolean }>;
             peerCount: number;
             maxPeers: number;
         };
@@ -275,6 +271,19 @@ const style = document.createElement('style');
                 else presenceSystem.mutePeer(p.id);
             });
             li.appendChild(muteBtn);
+            if (p.kickable) {
+                // Shared world owners (#1975): remove the explorer from the world.
+                const kickBtn = document.createElement('button');
+                kickBtn.type = 'button';
+                kickBtn.className = 'toggle-button';
+                kickBtn.style.fontSize = '0.7rem';
+                kickBtn.textContent = 'Remove';
+                kickBtn.setAttribute('aria-label', `Remove ${p.label} from this world`);
+                kickBtn.addEventListener('click', () => {
+                    void import('../systems/net/presence.ts').then((m) => m.presenceSystem.kickPeer(p.id));
+                });
+                li.appendChild(kickBtn);
+            }
             peerList.appendChild(li);
         }
         peerStatus.textContent =

@@ -16,6 +16,7 @@ import { isAutomation } from '../platform/run-mode.ts';
 //                           the Sugar Caves door counts awakened flora)
 //   ?legacyRead=0         — stop reading the pre-WorldDocument stores (on this release)
 //   ?presence=1           — show shared-presence opt-in UI (still requires explicit join)
+//   ?world=<uuid>         — open a shared world and join its room (docs/SHARED_WORLDS.md)
 //   ?generative=1         — in-browser generative soundtrack (or ?music=generative)
 //   ?photo=1              — cinematic photo mode (or ?mode=photo)
 //   ?lights=1             — show local point/spot helpers (also implied by ?debug=1)
@@ -94,6 +95,8 @@ export const _getFlag = getUrlFlag;
 
 export function isPresenceFeatureEnabled(): boolean {
     if (hasUrlFlag('presence')) return true;
+    // A shared world link (#1975) joins that world's room.
+    if (hasUrlFlag('world')) return true;
     const flag = getUrlFlag('presence');
     if (flag === '1' || flag === '') return true;
     try {

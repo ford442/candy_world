@@ -4,14 +4,14 @@
  *
  * Resolution order: URL `?seed=` → map metadata (when loaded) → CONFIG.world.seed.
  * Used by seeded-random, fauna spawn, and multiplayer presence room keys.
+ * Share links (presence rooms, shared worlds) are built in `systems/net/share-links.ts`,
+ * in the lazy `net` chunk.
  */
 
 import { CONFIG } from '../core/config.ts';
 
 /** Matches `assets/map.json` metadata.seed — keep in sync with CONFIG.world.seed. */
 export const DEFAULT_WORLD_SEED = CONFIG.world.seed;
-
-const SEED_STORAGE_KEY = 'candy_world_seed';
 
 /** `metadata.version` of `assets/map.json`; a WorldDocument records it next to the seed. */
 export const DEFAULT_MAP_VERSION = '1.0';
@@ -71,40 +71,14 @@ export function getWorldSeed(): number {
     return CONFIG.world.seed;
 }
 
-/** Whether the URL explicitly sets a seed (share link / room join). */
-export function hasExplicitSeedInURL(): boolean {
-    return readSeedFromURL() !== null;
-}
-
-/** Persist seed choice for share links across reloads. */
-export function rememberWorldSeed(seed: number): void {
+/** The shared world a `?world=<uuid>` link opens (#1975), or null. Link builders: `systems/net/share-links.ts`. */
+export function readSharedWorldIdFromURL(search?: string): string | null {
     try {
-        localStorage.setItem(SEED_STORAGE_KEY, String(seed));
+        const raw = new URLSearchParams(search ?? window.location.search).get('world')?.trim();
+        return raw && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(raw)
+            ? raw.toLowerCase()
+            : null;
     } catch {
-        /* ignore quota / private mode */
+        return null;
     }
-}
-
-/** Add `?seed=` to the URL without reload when missing. */
-export function ensureSeedInUrl(seed: number = getWorldSeed()): void {
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    if (url.searchParams.has('seed')) return;
-    url.searchParams.set('seed', String(seed));
-    window.history.replaceState({}, '', url.toString());
-}
-
-/** Build a shareable link for the current room. */
-export function buildShareUrl(
-    seed: number = getWorldSeed(),
-    opts?: { presence?: boolean }
-): string {
-    const url = new URL(window.location.href);
-    url.searchParams.set('seed', String(seed));
-    if (opts?.presence) {
-        url.searchParams.set('presence', '1');
-    } else {
-        url.searchParams.delete('presence');
-    }
-    return url.toString();
 }

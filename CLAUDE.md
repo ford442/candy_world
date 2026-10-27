@@ -88,6 +88,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - **`material-batcher.ts`**: Material optimization and batching
 - **`performance-budget/`**: Performance monitoring and alerts
 - **`authoring/`**: In-world build mode (lazy `authoring` chunk; `B` toggles via `build-mode-lazy.ts`). Edits are `world-commands.ts` commands through `edit-history.ts`. See `docs/AUTHORING.md`
+- **`net/`**: Presence and shared worlds (lazy `net` chunk, which also holds supabase-js): publish/open `?world=` links, live co-editing (`world-sync-protocol.ts`, last-writer-wins per entity), the `validate-world` write path. Schema, RLS and the edge function are in `supabase/`. See `docs/SHARED_WORLDS.md`
 
 #### `/src/rendering` — Graphics & Post-Processing
 
@@ -113,7 +114,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 
 - **`generation.ts`**: Terrain, chunk generation, heightmap
 - **`state.ts`**: World state, foliage tracking, animation state
-- **`document/`**: The versioned `WorldDocument` (valibot schema, migrations, IndexedDB store, `.candyworld` codec, legacy importer, command-log session). See `docs/SAVE_SYSTEM.md`
+- **`document/`**: The versioned `WorldDocument` (valibot schema, migrations, IndexedDB store, `.candyworld` codec, legacy importer, command-log session; `remote-store.ts` / `shared-sync.ts` for shared worlds). See `docs/SAVE_SYSTEM.md`
 
 #### `/src/gameplay` — Gameplay Mechanics
 
@@ -265,6 +266,13 @@ npm run budget:check  # Verify chunk size constraints
 - `npm run check:memory-layout`: static layout check (overlaps, `--memoryBase`, raw offsets, built binary)
 - `npm run test:native-memory`: heap/boids/growth/instantiate-fallback tests against the real AS build
 - `npm run test:native-batch-parity`: C++ ↔ AS ↔ JS batch ground heights through the production bridges (C++ tier needs `build:emcc`; `CANDY_PARITY_REQUIRE_CPP=1` makes it mandatory)
+
+### Shared worlds tests
+
+- `npm run test:world-sync`: co-editing protocol (convergence under reordering, duplicates and loss)
+- `npm run test:shared-worlds`: validator, `validate-world` handler, remote store, offline sync/merge
+- `npm run test:supabase-rls`: migration + advisor-style lints + every RLS policy on a plain Postgres (`PGHOST`… ; skipped without one)
+- `npm run check:net-chunk` (after `vite build`): single-player boot never reaches the `net` chunk or supabase-js
 
 ### WASM Physics Test (`npm run test:wasm`)
 
@@ -421,6 +429,7 @@ npm run optimize        # Apply all optimizations (experimental)
 
 - **Architecture**: `docs/ARCHITECTURE.md` — Frame phases, system registration, the fixed step, entity ownership
 - **Authoring**: `docs/AUTHORING.md` — Build mode, world commands, the WorldDocument command log
+- **Shared worlds**: `docs/SHARED_WORLDS.md` — Publishing, share links, the co-editing protocol and conflict model, RLS
 - **Tests**: `tests/README.md` — Detailed test documentation
 - **Copilot Instructions**: `.github/copilot-instructions.md` — Visual style, materials, TSL usage
 - **Map Generation**: `tools/map-generator/` — Custom terrain generation tool

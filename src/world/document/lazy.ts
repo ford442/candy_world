@@ -6,6 +6,10 @@
 
 import { getUrlFlag } from '../../core/config/url-flags.ts';
 import { isAutomation } from '../../core/platform/run-mode.ts';
+import {
+    isSharedWorldLink,
+    openSharedWorldFromLink,
+} from '../../systems/net/shared-worlds-lazy.ts';
 
 let _worldEntered = false;
 
@@ -26,7 +30,17 @@ export function isWorldEntered(): boolean {
  */
 export function loadWorldDocumentAfterWorldLoad(): void {
     _worldEntered = true;
+    // A `?world=` link (#1975) opens that shared world instead; if it can't
+    // be opened, the player's own world for the seed opens as usual.
+    if (isSharedWorldLink()) {
+        openSharedWorldFromLink(openOwnWorld);
+        return;
+    }
     if (isAutomation() && getUrlFlag('authoring') !== '1') return;
+    openOwnWorld();
+}
+
+function openOwnWorld(): void {
     void import('./active.ts')
         .then((m) => m.onWorldGenerated())
         .catch((err) => console.warn('[WorldDocument] Could not open the saved world:', err));

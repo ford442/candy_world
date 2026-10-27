@@ -13,7 +13,7 @@
  */
 
 import * as v from 'valibot';
-import type { EntitySnapshot } from '../../systems/entity-snapshot-core.ts';
+import type { EntitySnapshot } from '../../systems/entity-snapshot-types.ts';
 
 /** Bump with a matching hop in `migrations.ts`. */
 export const WORLD_DOCUMENT_SCHEMA = 1;
@@ -38,7 +38,7 @@ const IdListSchema = v.pipe(v.array(IdSchema), v.maxLength(MAX_PROGRESS_ENTRIES)
  * replay depends on are checked; the rest of the map record is carried through
  * (`migrateSnapshot` and `processMapEntity` own their own shapes).
  */
-const EntitySnapshotSchema = v.looseObject({
+export const EntitySnapshotSchema = v.looseObject({
     schemaVersion: v.pipe(v.number(), v.integer(), v.minValue(1)),
     id: IdSchema,
     entity: v.looseObject({

@@ -15,6 +15,7 @@ import {
     persistentIdFromString,
     POSITION_QUANTIZE,
 } from './awakened-persistent-id.ts';
+import { emitProgress } from './progress-events.ts';
 import type { AwakenedFloraState } from './save-system/save-types.ts';
 
 // save-system.ts imports the awakened facade, so importing save-system here
@@ -194,6 +195,8 @@ export class AwakenedStore {
 
         this.applyVisualState(persistentId, merged);
         this.scheduleDebouncedSave();
+
+        if (isNew) emitProgress({ kind: 'awakened', id: String(persistentId), type: merged.type });
 
         if (isNew && !this.analyticsFired.has(persistentId)) {
             this.analyticsFired.add(persistentId);
