@@ -5,8 +5,10 @@
  * editor invite, C opens the link in a fresh context (a private window).
  * Checks the acceptance criteria in a real browser: same entities for the
  * same link (snapshot hash), 50 interleaved place/move/remove/undo ops
- * converging, shared progress within 1 s, the host's write-back, viewer
- * lock, and malformed / over-cap / rate-limited commands dropped and logged.
+ * converging, shared progress within 1 s (and made-up progress dropped), the
+ * host's write-back, viewer lock, malformed / over-cap / rate-limited commands
+ * dropped and logged, no direct REST write to a document, and kicks: an
+ * editor's forged one goes nowhere, the owner's removes the peer.
  *
  * Needs: a stack with the migrations applied (`supabase start`), its URL and
  * publishable key, and the app dev server built against them:
@@ -17,7 +19,8 @@
  * Env: CANDY_E2E_APP_URL (default http://127.0.0.1:5173/), CANDY_E2E_SUPABASE_URL
  * (default http://127.0.0.1:54321), CANDY_E2E_FUNCTIONS_URL (serve
  * validate-world from elsewhere, e.g. `deno run` of
- * supabase/functions/validate-world/index.ts, when the stack has no edge runtime).
+ * supabase/functions/validate-world/index.ts with SUPABASE_URL and
+ * SUPABASE_SERVICE_ROLE_KEY, when the stack has no edge runtime).
  * Not part of test:fast: it needs the stack and a WebGPU-capable Chromium.
  */
 
@@ -277,16 +280,14 @@ try {
     const t0 = Date.now();
     await A.page.evaluate(async () =>
         (await import('/src/systems/discovery.ts')).discoverySystem.discover(
-            'e2e_shared_find',
-            'Shared find',
-            '🧪'
+            'harmony_orb',
+            'Harmony Orb',
+            '🔮'
         )
     );
     await B.page.waitForFunction(
         async () =>
-            (await import('/src/systems/discovery.ts')).discoverySystem.isDiscovered(
-                'e2e_shared_find'
-            ),
+            (await import('/src/systems/discovery.ts')).discoverySystem.isDiscovered('harmony_orb'),
         null,
         { timeout: 5000, polling: 20 }
     );
@@ -317,6 +318,31 @@ try {
         marked && awakenedMs >= 0 && awakenedMs < 1000,
         'awakening a flower in B awakens it in A within 1 s',
         `${awakenedMs} ms`
+    );
+
+    // 4a. Progress is checked: a made-up id, or an author not in the room, is dropped.
+    const progressBefore = (await roomInfo(A)).stats.dropped;
+    await B.page.evaluate(async () => {
+        const room = window.__sharedWorld;
+        const send = (payload) =>
+            room.editChannel.send({ type: 'broadcast', event: 'progress', payload });
+        await send({ author: room.peerId, kind: 'discovery', id: 'made_up_find' });
+        await send({ author: 'ghost-peer', kind: 'discovery', id: 'silence_spirit' });
+    });
+    await sleep(800);
+    const progressAfter = (await roomInfo(A)).stats.dropped;
+    const forged = await A.page.evaluate(async () => {
+        const { discoverySystem } = await import('/src/systems/discovery.ts');
+        return (
+            discoverySystem.isDiscovered('made_up_find') ||
+            discoverySystem.isDiscovered('silence_spirit')
+        );
+    });
+    check(
+        (progressAfter.malformed ?? 0) > (progressBefore.malformed ?? 0) &&
+            (progressAfter.blocked ?? 0) > (progressBefore.blocked ?? 0) &&
+            !forged,
+        'made-up progress and progress from outside the room are dropped'
     );
 
     // 4b. A builder's cursor shows for the other builder.
@@ -461,6 +487,53 @@ try {
     );
     const logged = A.logs.filter((l) => l.includes('Dropped inbound')).length;
     check(logged > 0, 'drops are logged', `${logged} log lines`);
+
+    // 7. One write path: an editor's direct REST write to the document is refused.
+    const errorsBefore = B.errors.length;
+    const rest = await B.page.evaluate(async (id) => {
+        const { getSupabaseClient } = await import('/src/systems/net/supabase-client.ts');
+        const { error } = await getSupabaseClient()
+            .from('worlds')
+            .update({ rev: 999999 })
+            .eq('id', id);
+        return error ? error.message : 'accepted';
+    }, pub.id);
+    check(rest !== 'accepted', "an editor's direct REST write to the document is refused", rest);
+    // The browser logs that refused request as a resource error: expected, not a fault.
+    B.errors = [
+        ...B.errors.slice(0, errorsBefore),
+        ...B.errors.slice(errorsBefore).filter((e) => !/status of 403/.test(e)),
+    ];
+
+    // 8. Kicks: an editor's forged one goes nowhere; the owner's removes the peer.
+    await B.page.evaluate(async (target) => {
+        const room = window.__sharedWorld;
+        await room.ownerChannel.send({
+            type: 'broadcast',
+            event: 'kick',
+            payload: { author: room.peerId, target },
+        });
+    }, a.peer);
+    await sleep(1500);
+    const ownerStays = await A.page.evaluate(() => window.__sharedWorld?.active === true);
+    check(ownerStays, "an editor's forged kick never reaches the room (the owner stays)");
+    await A.page.evaluate((peer) => window.__sharedWorld.kick(peer), c.peer);
+    let cLeft = false;
+    try {
+        await C.page.waitForFunction(() => !window.__sharedWorld, null, {
+            timeout: 5000,
+            polling: 100,
+        });
+        cLeft = true;
+    } catch {
+        /* reported below */
+    }
+    const bIgnores = await B.page.evaluate((peer) => window.__sharedWorld.kicked.has(peer), c.peer);
+    check(
+        cLeft && bIgnores,
+        "the owner's kick removes the peer for everyone",
+        `C left: ${cLeft}, B ignores C: ${bIgnores}`
+    );
 
     for (const p of [A, B, C])
         check(

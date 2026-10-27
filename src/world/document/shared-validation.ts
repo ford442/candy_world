@@ -14,7 +14,7 @@
  */
 
 import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from '../map-chunk-size.ts';
-import { authoredEntityStates } from './entity-state.ts';
+import { netEntityChanges } from './entity-state.ts';
 import { isCandyPaint } from './paint-palette.ts';
 import { validateWorldDocument, type DocumentCommand, type WorldDocumentV1 } from './schema.ts';
 
@@ -29,6 +29,12 @@ export const SHARED_WORLD_LIMITS = {
     maxTitleLength: 80,
     /** Entries in a world's co-editing clock (`entity_clock`). */
     maxClockEntries: 50_000,
+    /**
+     * How far one write may move a world's Lamport clock (`worlds.rev`), in a
+     * room message or a stored write. A forged huge rev would otherwise make
+     * every later edit of an entity lose to it.
+     */
+    maxRevJump: 100_000,
 } as const;
 
 export type SharedWorldRejection = 'schema' | 'identity' | 'too_large' | 'over_cap' | 'palette';
@@ -57,14 +63,20 @@ export function sharedChunkKey(x: number, z: number): string {
     return `${Math.floor(x / size)},${Math.floor(z / size)}`;
 }
 
-/** Authored entities a command log leaves in the world, in total and per chunk. */
+/**
+ * Authored entities a command log leaves in the world, in total and per chunk:
+ * every entity it touches whose final state is present. A piece moved back to
+ * where the base world had it still counts (replay re-places it, as build
+ * mode's own count does), and so does a no-op move of an id the base world
+ * never had, which replay would place.
+ */
 export function countDocumentEntities(commands: readonly DocumentCommand[]): {
     total: number;
     perChunk: Map<string, number>;
 } {
     const perChunk = new Map<string, number>();
     let total = 0;
-    for (const after of authoredEntityStates(commands).values()) {
+    for (const { after } of netEntityChanges(commands).values()) {
         if (!after) continue;
         const [x, , z] = after.entity.position;
         const key = sharedChunkKey(x, z);
@@ -74,17 +86,27 @@ export function countDocumentEntities(commands: readonly DocumentCommand[]): {
     return { total, perChunk };
 }
 
-/** Ids whose paint command sets a colour outside `CANDY_PAINT_PALETTE`. */
-export function offPalettePaints(commands: readonly DocumentCommand[]): string[] {
+function colorOf(snapshot: { entity: { params?: unknown } }): unknown {
+    return (snapshot.entity.params as { color?: unknown } | undefined)?.color;
+}
+
+/**
+ * Ids given a colour outside `CANDY_PAINT_PALETTE`: by a paint, a placement,
+ * or a move that changes the colour (a paint by another name).
+ */
+export function offPaletteColors(commands: readonly DocumentCommand[]): string[] {
     const out: string[] = [];
     const visit = (cmd: DocumentCommand): void => {
         if (cmd.type === 'batch') {
             for (const child of cmd.commands) visit(child);
             return;
         }
-        if (cmd.type !== 'paint') return;
-        const color = (cmd.to.entity.params as { color?: unknown } | undefined)?.color;
-        if (color !== undefined && !isCandyPaint(color)) out.push(cmd.to.id);
+        if (cmd.type === 'remove') return;
+        const to = cmd.type === 'place' ? cmd.snapshot : cmd.to;
+        const color = colorOf(to);
+        if (color === undefined || isCandyPaint(color)) return;
+        if (cmd.type === 'move' && color === colorOf(cmd.from)) return;
+        out.push(to.id);
     };
     for (const cmd of commands) visit(cmd);
     return out;
@@ -134,9 +156,9 @@ export function validateSharedWorld(raw: unknown): SharedWorldCheck {
         );
     }
 
-    const offPalette = offPalettePaints(doc.commands);
+    const offPalette = offPaletteColors(doc.commands);
     if (offPalette.length > 0) {
-        return reject('palette', `Paint outside the candy palette on "${offPalette[0]}".`);
+        return reject('palette', `A colour outside the candy palette on "${offPalette[0]}".`);
     }
 
     return {
@@ -166,14 +188,22 @@ export function isClockStamp(value: unknown): value is ClockStamp {
     );
 }
 
-/** A stored clock, or null when it is malformed or too large. */
-export function parseEntityClock(raw: unknown): EntityClock | null {
+/**
+ * A stored clock, or null when it is malformed, too large, or holds a stamp
+ * past `maxRev` (a forged rev would make that entity's state unchangeable).
+ */
+export function parseEntityClock(
+    raw: unknown,
+    maxRev = Number.MAX_SAFE_INTEGER
+): EntityClock | null {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const out: EntityClock = {};
     let n = 0;
     for (const [id, stamp] of Object.entries(raw as Record<string, unknown>)) {
         if (++n > SHARED_WORLD_LIMITS.maxClockEntries) return null;
-        if (id.length === 0 || id.length > 128 || !isClockStamp(stamp)) return null;
+        if (id.length === 0 || id.length > 128 || !isClockStamp(stamp) || stamp[0] > maxRev) {
+            return null;
+        }
         out[id] = [stamp[0], stamp[1]];
     }
     return out;

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { FEATURE_FLAGS } from '../src/core/config.ts';
 import {
+    checkMoveBudget,
     checkPlacementBudget,
     chunkKeyOf,
     countAuthored,
@@ -131,10 +132,48 @@ test('per-chunk and world caps reject the placement past them', () => {
     );
     assert.equal(checkPlacementBudget(counts, 200, 200).ok, true, 'another chunk has room');
 
-    const world = { total: SYSTEM_BUDGETS.authoring.caps.total, perChunk: new Map() };
+    const world = {
+        total: SYSTEM_BUDGETS.authoring.caps.total,
+        perChunk: new Map(),
+        ids: new Set<string>(),
+    };
     const worldFull = checkPlacementBudget(world, 0, 0);
     assert.equal(worldFull.ok, false);
     if (!worldFull.ok) assert.match(worldFull.message, /world is full/);
+});
+
+test('moves respect the chunk and world caps too', () => {
+    const cap = SYSTEM_BUDGETS.authoring.caps.perChunk;
+    const full = new Map([[chunkKeyOf(1, 1), cap]]);
+    const counts = { total: cap + 1, perChunk: full, ids: new Set(['in-full', 'outside']) };
+    full.set(chunkKeyOf(200, 200), 1);
+    const into = checkMoveBudget(counts, [{ id: 'outside', from: [200, 200], to: [2, 2] }]);
+    assert.equal(into.ok, false, 'a piece moved into a full grove is refused');
+    if (!into.ok) assert.match(into.message, /grove is full/);
+    assert.equal(
+        checkMoveBudget(counts, [{ id: 'in-full', from: [1, 1], to: [2, 2] }]).ok,
+        true,
+        'moving within the full grove is fine'
+    );
+    assert.equal(
+        checkMoveBudget(counts, [{ id: 'in-full', from: [1, 1], to: [200, 200] }]).ok,
+        true,
+        'moving out of it is fine'
+    );
+    assert.equal(
+        checkMoveBudget(counts, [{ id: 'map-piece', from: [1, 1], to: [1, 1] }]).ok,
+        false,
+        'a map piece nudged in a full grove becomes one more authored piece'
+    );
+    const world = {
+        total: SYSTEM_BUDGETS.authoring.caps.total,
+        perChunk: new Map(),
+        ids: new Set<string>(['a']),
+    };
+    assert.equal(checkMoveBudget(world, [{ id: 'a', from: [0, 0], to: [100, 0] }]).ok, true);
+    const mapMove = checkMoveBudget(world, [{ id: 'b', from: [0, 0], to: [100, 0] }]);
+    assert.equal(mapMove.ok, false);
+    if (!mapMove.ok) assert.match(mapMove.message, /world is full/);
 });
 
 test('the shared placement snapshot carries the planted transform', () => {

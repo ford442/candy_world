@@ -1,7 +1,9 @@
 /**
- * validate-world edge function entry: binds `handleValidateWorld` to the
- * caller's JWT through supabase-js, so RLS on `public.worlds` applies to the
- * write. Deploy: `supabase functions deploy validate-world` (docs/SHARED_WORLDS.md).
+ * validate-world edge function entry: binds `handleValidateWorld` to
+ * supabase-js. The caller comes from the request's JWT (checked by the auth
+ * server); reads and writes use the service role, because clients have no
+ * write grant on a world's document and the handler is the access check.
+ * Deploy: `supabase functions deploy validate-world` (docs/SHARED_WORLDS.md).
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -9,34 +11,49 @@ import {
     WorldStoreError,
     handleValidateWorld,
     type NewWorldRow,
+    type WorldCaller,
     type WorldPatch,
     type WorldRow,
     type WorldWriteStore,
 } from './handler.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-function storeFor(req: Request, worldId: string | null): WorldWriteStore {
-    const headers: Record<string, string> = {
-        Authorization: req.headers.get('Authorization') ?? '',
-    };
-    // Lets the caller's own unlisted world be read back (see worlds_select).
-    if (worldId) headers['x-candy-world-id'] = worldId;
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: { headers },
-        auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const worlds = () => client.from('worlds');
-    const raise = (error: { message: string; code?: string }): never => {
-        throw new WorldStoreError(error.message, error.code);
-    };
+const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+});
+
+const raise = (error: { message: string; code?: string }): never => {
+    throw new WorldStoreError(error.message, error.code);
+};
+
+function storeFor(req: Request): WorldWriteStore {
+    const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+    const worlds = () => admin.from('worlds');
 
     return {
+        async caller(): Promise<WorldCaller | null> {
+            if (!jwt) return null;
+            const { data, error } = await admin.auth.getUser(jwt);
+            if (error || !data.user) return null;
+            return { id: data.user.id, anonymous: data.user.is_anonymous === true };
+        },
         async get(id: string): Promise<WorldRow | null> {
             const { data, error } = await worlds().select('*').eq('id', id).maybeSingle();
             if (error) raise(error);
             return (data as WorldRow | null) ?? null;
+        },
+        async memberRole(worldId: string, userId: string): Promise<'editor' | 'viewer' | null> {
+            const { data, error } = await admin
+                .from('world_editors')
+                .select('role')
+                .eq('world_id', worldId)
+                .eq('user_id', userId)
+                .maybeSingle();
+            if (error) raise(error);
+            const role = (data as { role?: unknown } | null)?.role;
+            return role === 'editor' || role === 'viewer' ? role : null;
         },
         async insert(row: NewWorldRow): Promise<WorldRow> {
             const { data, error } = await worlds().insert(row).select('*').single();
@@ -53,17 +70,4 @@ function storeFor(req: Request, worldId: string | null): WorldWriteStore {
     };
 }
 
-/** The doc id, read without trusting the body (validation happens in the handler). */
-async function peekWorldId(req: Request): Promise<string | null> {
-    try {
-        const body = (await req.clone().json()) as { doc?: { id?: unknown } };
-        return typeof body?.doc?.id === 'string' ? body.doc.id : null;
-    } catch {
-        return null;
-    }
-}
-
-Deno.serve(async (req: Request) => {
-    const worldId = req.method === 'POST' ? await peekWorldId(req) : null;
-    return handleValidateWorld(req, storeFor(req, worldId));
-});
+Deno.serve((req: Request) => handleValidateWorld(req, storeFor(req)));

@@ -549,6 +549,90 @@ test('palette clamp: off-palette paint becomes the nearest candy colour', () => 
     );
 });
 
+test('palette clamp covers placements and recolouring moves', () => {
+    const place = clampCommandPalette({ type: 'place', snapshot: snap('n', 0, 0, 0x123456) });
+    assert.ok(
+        isCandyPaint((place as { snapshot: EntitySnapshot }).snapshot.entity.params?.color),
+        'a placement in an off-palette colour is clamped'
+    );
+    const recolour = clampCommandPalette({
+        type: 'move',
+        from: snap('m', 0, 0, 0xff69b4),
+        to: snap('m', 1, 1, 0x010101),
+    });
+    assert.ok(
+        isCandyPaint((recolour as { to: EntitySnapshot }).to.entity.params?.color),
+        'a move that recolours is a paint'
+    );
+    const mapPiece: DocumentCommand = {
+        type: 'move',
+        from: snap('q', 0, 0, 0x010101),
+        to: snap('q', 4, 4, 0x010101),
+    };
+    assert.deepEqual(clampCommandPalette(mapPiece), mapPiece, 'a move keeping its colour stays');
+    const wire = parseCmdMessage({
+        author: 'peer-a',
+        seq: 1,
+        rev: 1,
+        baseRev: 0,
+        command: { type: 'place', snapshot: snap('n', 0, 0, 0x123456) },
+    });
+    assert.ok(wire.ok);
+    const doc = createEmptyDocument({ seed: 1, mapVersion: '1.0', now: 1 });
+    doc.commands = [{ type: 'place', snapshot: snap('n', 0, 0, 0x123456) }];
+    const check = validateSharedWorld(doc);
+    assert.ok(!check.ok && check.code === 'palette', 'and the stored document is refused');
+});
+
+test('a local edit past the caps is refused before it is stamped', () => {
+    const r = new SharedWorldReplica('self', { commands: [] }, { total: 3, perChunk: 2 });
+    r.local({ type: 'place', snapshot: snap('a', 1, 1) });
+    r.local({ type: 'place', snapshot: snap('b', 2, 2) });
+    assert.equal(
+        r.capRefusal({ type: 'place', snapshot: snap('c', 3, 3) })?.includes('chunk'),
+        true
+    );
+    const far = snap('c', 100, 100);
+    assert.equal(r.capRefusal({ type: 'place', snapshot: far }), null);
+    r.local({ type: 'place', snapshot: far });
+    assert.match(
+        r.capRefusal({ type: 'move', from: far, to: snap('c', 3, 3) }) ?? '',
+        /chunk/,
+        'a move into the full chunk'
+    );
+    assert.equal(
+        r.capRefusal({ type: 'move', from: snap('a', 1, 1), to: snap('a', 3, 3) }),
+        null,
+        'a move within it'
+    );
+    assert.match(r.capRefusal({ type: 'place', snapshot: snap('d', 300, 300) }) ?? '', /world/);
+    assert.equal(r.capRefusal({ type: 'remove', snapshot: snap('a', 1, 1) }), null);
+});
+
+test('a re-sent edit gets through after the dedupe window gave up on it', () => {
+    const a = new SharedWorldReplica('peer-a', { commands: [] }, null);
+    const b = new SharedWorldReplica('peer-b', { commands: [] }, null);
+    const lost = b.local({ type: 'place', snapshot: snap('lost', 5, 5) }).message;
+    let at = snap('busy', 0, 0);
+    for (let i = 0; i < 1100; i++) {
+        const to = snap('busy', i + 1, 0);
+        const { message } = b.local({ type: 'move', from: at, to });
+        a.receive(clone(message));
+        at = to;
+    }
+    assert.equal(a.receive(clone(lost)).status, 'duplicate', 'the straggler is taken as seen');
+    const { resend } = b.reconcile({
+        commands: a.documentCommands(),
+        rev: a.rev,
+        entityClock: a.exportClock(),
+    });
+    const again = resend.find((m) => m.seq === lost.seq);
+    assert.ok(again?.resend, 'the re-send is marked');
+    const outcome = a.receive(clone(again!));
+    assert.equal(outcome.status, 'applied');
+    assert.equal(a.hash(), b.hash(), 'and the replicas agree');
+});
+
 test('rate limit, dedupe, clock guard, stamps and host election', () => {
     const limiter = new PeerRateLimiter({ perSecond: 2, burst: 3 });
     assert.deepEqual(

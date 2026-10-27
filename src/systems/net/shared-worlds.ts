@@ -85,7 +85,7 @@ export function sharedWorlds(): Promise<SharedWorldsContext | null> {
 
 /** The live room for the open shared world, if any. */
 export function getSharedWorldRoom(): SharedWorldSession | null {
-    return _room;
+    return _room?.active ? _room : null;
 }
 
 function stripInviteFromUrl(): void {
@@ -134,11 +134,22 @@ export async function openSharedWorldFromLink(fallback: () => void): Promise<voi
 
     const record = opened.record;
     const canEdit = record?.role === 'owner' || record?.role === 'editor';
+    let live = true;
     if (canEdit && opened.source !== 'remote') {
         // Unsynced local edits go up first (a no-op when there are none), so
         // the room starts from one world.
         const pushed = await ctx.sync.push(doc);
         doc = pushed.doc;
+        if (pushed.status === 'failed' || pushed.status === 'offline') {
+            // This copy isn't the stored world: build on it alone, and let the
+            // next save try the push again.
+            live = false;
+            showToast(
+                `Couldn't share your changes yet (${pushed.message ?? pushed.status}); live co-editing is off`,
+                '📡',
+                6000
+            );
+        }
     }
 
     const session = await openSharedDocument(doc);
@@ -156,22 +167,23 @@ export async function openSharedWorldFromLink(fallback: () => void): Promise<voi
         canEdit ? '🏗️' : '🌸',
         4000
     );
-    if (!record) return;
+    const synced = ctx.sync.syncedState(id);
+    if (!record || !live || !synced) return;
 
-    const fresh = (await ctx.remote.fetch(id).catch(() => null)) ?? record;
+    // The replica starts from the document and the row state it was synced
+    // against; anything written since arrives through the room's first reconcile.
     _room = new SharedWorldSession({
         client: ctx.client,
         backend: ctx.backend,
         remote: ctx.remote,
         sync: ctx.sync,
-        record: { ...fresh, role: record.role },
-        doc,
+        record,
+        base: { doc, ...synced },
         session,
         history: editHistory,
         userId: ctx.user.id,
     });
-    const live = await _room.start();
-    if (!live) {
+    if (!(await _room.start())) {
         _room = null;
         showToast(
             'Live co-editing is unavailable; your edits sync when the world saves',
@@ -183,7 +195,7 @@ export async function openSharedWorldFromLink(fallback: () => void): Promise<voi
 
 /** A published world was saved locally: push it, unless a live room is saving it. */
 export async function onSharedDocumentSaved(doc: WorldDocumentV1): Promise<void> {
-    if (_room && _room.worldId === doc.id) return;
+    if (_room?.active && _room.worldId === doc.id) return;
     const now = Date.now();
     if (now - _lastPush < PUSH_MIN_MS) return;
     _lastPush = now;
@@ -275,7 +287,7 @@ export async function keepWorldsWithEmail(email: string): Promise<string | null>
 
 /** Photo mode's "Set as world thumbnail", while an editable shared world is open. */
 export function thumbnailAction(): { label: string; run(image: Blob): Promise<string> } | null {
-    const room = _room;
+    const room = getSharedWorldRoom();
     if (!room || !room.editable) return null;
     return {
         label: 'Set as world thumbnail',
