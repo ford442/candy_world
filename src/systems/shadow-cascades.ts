@@ -24,12 +24,14 @@ import { profiler } from '../utils/profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 
 /**
- * `@types/three` for r171 declares CSMShadowNode's fields and `updateFrustums()`
- * but omits the `init()` / `dispose()` lifecycle the JS actually exports.
- * Declare the missing surface structurally rather than casting through `any`.
+ * `@types/three` declares CSMShadowNode's fields and `updateFrustums()` but not
+ * the `_init()` / `dispose()` lifecycle the JS has. r186 made `init()` private
+ * (`_init()`, run lazily from `setup()` when `camera` is still null); we run it
+ * up front so the per-cascade lights exist for the map-size taper, and
+ * `setup()` then skips it. Declared structurally rather than cast through `any`.
  */
 type CSMShadowNodeLifecycle = CSMShadowNode & {
-    init(context: { camera: THREE.Camera; renderer: Renderer }): void;
+    _init(context: { camera: THREE.Camera; renderer: Renderer }): void;
     dispose(): void;
 };
 
@@ -68,8 +70,8 @@ export function isCascadeSupported(renderer: Renderer | null | undefined): boole
 /**
  * Attach a cascade rig to the sun light.
  *
- * The light MUST already be in the scene graph — `CSMShadowNode.init()` parents
- * its per-cascade light proxies to `light.parent`.
+ * The light MUST already be in the scene graph — `CSMShadowNode` parents its
+ * per-cascade light proxies to `light.parent`.
  *
  * @returns the handle, or null when CSM is unavailable/disabled (caller keeps
  *          the legacy single follow map).
@@ -95,7 +97,7 @@ export function initSunCascades(
     try {
         // Cascade ortho extents are derived from the camera frustum, so the shadow
         // camera's own near/far are irrelevant here — but mapSize and bias are
-        // cloned per cascade by init(), so they must be set first. filterNode is
+        // cloned per cascade by _init(), so they must be set first. filterNode is
         // *not* cloned by LightShadow.copy() — applyShadowSoftness() binds it
         // after this returns.
         sunLight.shadow.mapSize.set(settings.mapSize, settings.mapSize);
@@ -111,7 +113,7 @@ export function initSunCascades(
             lightMargin: cfg.cascadeLightMargin,
         }) as CSMShadowNodeLifecycle;
         node.fade = cfg.cascadeFade;
-        node.init({ camera, renderer });
+        node._init({ camera, renderer });
 
         // AnalyticLightNode picks this up when it builds the light's shadow graph.
         (sunLight.shadow as THREE.DirectionalLightShadow & { shadowNode?: unknown }).shadowNode =
