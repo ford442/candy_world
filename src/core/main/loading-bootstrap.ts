@@ -12,6 +12,7 @@ import {
 } from '../../ui/loading-screen.ts';
 import { installPresenceStartScreenUI } from '../../ui/presence-lazy.ts';
 import { installSaveMenuGlobals } from '../../ui/save-menu/lazy.ts';
+import { installWorldsStartScreenUI } from '../../ui/worlds-panel-lazy.ts';
 import { setBootProgressReporter } from '../../utils/boot-progress.ts';
 import {
     enableStartupProfiler,
@@ -58,6 +59,7 @@ export function runLoadingBootstrap(): LoadingBootstrapResult {
     installLegacyAPI();
 
     installPresenceStartScreenUI();
+    installWorldsStartScreenUI();
 
     window.addEventListener('unhandledrejection', (event) => {
         const err = event.reason;

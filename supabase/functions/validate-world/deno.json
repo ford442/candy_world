@@ -1,0 +1,6 @@
+{
+    "imports": {
+        "@supabase/supabase-js": "npm:@supabase/supabase-js@2.115.0",
+        "valibot": "npm:valibot@1.5.0"
+    }
+}

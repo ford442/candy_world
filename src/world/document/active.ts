@@ -20,6 +20,7 @@ import { importLegacyStoresOnce } from './legacy-import.ts';
 import type { ParseResult } from './migrations.ts';
 import { createEmptyDocument, type DocumentPlayer, type WorldDocumentV1 } from './schema.ts';
 import { WorldDocumentSession, type ReplayResult } from './session.ts';
+import { LocalStorageSyncMetaStore } from './shared-sync.ts';
 import { createDefaultDocumentStore, type DocumentStore } from './store.ts';
 
 const ACTIVE_KEY_PREFIX = 'candy_world_active_document:';
@@ -96,10 +97,26 @@ async function openInitial(store: DocumentStore): Promise<WorldDocumentV1> {
     return doc ?? createEmptyDocument({ seed, mapVersion, title: 'My Candy World' });
 }
 
+/** Fired (detail: the saved document) when a published world is saved locally. */
+export const SHARED_DOCUMENT_SAVED_EVENT = 'candy:shared-document-saved';
+
+/**
+ * A world that has been published syncs on save too (#1975): the local copy
+ * stays the source of truth, and `shared-worlds-lazy.ts` pushes it when it
+ * can. Unpublished worlds never load the `net` chunk.
+ */
+function syncIfShared(doc: WorldDocumentV1): void {
+    if (!new LocalStorageSyncMetaStore().get(doc.id)) return;
+    window.dispatchEvent(new CustomEvent(SHARED_DOCUMENT_SAVED_EVENT, { detail: doc }));
+}
+
 function installAutosave(session: WorldDocumentSession): void {
     if (typeof window === 'undefined') return;
     const flush = () => {
-        session.save().catch((err) => console.warn('[WorldDocument] Save failed:', err));
+        session
+            .save()
+            .then(syncIfShared)
+            .catch((err) => console.warn('[WorldDocument] Save failed:', err));
     };
     window.setInterval(flush, PERIODIC_SAVE_MS);
     document.addEventListener('visibilitychange', () => {
@@ -142,6 +159,53 @@ export function ensureActiveWorldDocument(): Promise<WorldDocumentSession> {
         _opening = null;
     });
     return _opening;
+}
+
+/**
+ * Open a shared world's document as the open world (#1975), after the base
+ * world for its seed has generated. Unlike a per-seed world it is not
+ * remembered as this seed's active world: without its link, the next visit
+ * opens the player's own world again.
+ */
+export async function openSharedDocument(doc: WorldDocumentV1): Promise<WorldDocumentSession> {
+    if (_session || _opening) {
+        const session = _session ?? (await _opening!);
+        if (session.id !== doc.id) await session.save();
+        await session.switchTo(doc);
+        await session.save(true);
+        return session;
+    }
+    _opening = (async () => {
+        const session = new WorldDocumentSession(doc, {
+            history: editHistory,
+            store: getDocumentStore(),
+            readPlayer: readPlayerPose,
+        });
+        await session.mergeProgress();
+        const result = session.replay();
+        log.info('WorldDocument', `Opened shared world ${doc.id}: ${result.applied} edits`);
+        await session.save(true);
+        installAutosave(session);
+        _session = session;
+        return session;
+    })();
+    _opening.catch(() => {
+        _opening = null;
+    });
+    return _opening;
+}
+
+/**
+ * The world to publish: the open one, else this seed's stored one (the
+ * start screen), else a new empty one. It is stored and made this seed's
+ * active world, so the published copy and the local copy are one document.
+ */
+export async function documentForPublishing(): Promise<WorldDocumentV1> {
+    const store = getDocumentStore();
+    const doc = _session ? await _session.save() : await openInitial(store);
+    await store.save(doc);
+    writeActiveId(doc.id);
+    return doc;
 }
 
 /**

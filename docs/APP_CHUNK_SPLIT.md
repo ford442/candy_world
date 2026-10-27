@@ -64,7 +64,7 @@ Confirm flags-off: `pnpm run analyze:bundle` or grep `dist/chunks/app-*.js` for
 | `accessibility-ui` | ~37 KB        | ~10 KB  | Accessibility menu                                    |
 | `analytics-debug`  | ~36 KB        | ~9 KB   | `?debug=1` / `/stats`                                 |
 | `debug`            | ~30 KB        | ~10 KB  | `?debug=*`                                            |
-| `presence`         | ~20 KB        | ~7 KB   | `FEATURE_FLAGS.presence`                              |
+| `net`              | ~273 KB       | ~77 KB  | `FEATURE_FLAGS.presence`, a `?world=` link, the Worlds panel (supabase-js lives here, not in `vendor`; #1975) |
 | `gameplay`         | ~16 KB        | ~5 KB   | After `__sceneReady` / first ability                  |
 | `map-loader`       | ~16 KB        | ~5 KB   | Enter / map fetch                                     |
 | `world-content`    | ~14 KB        | ~5 KB   | Procedural extras                                     |
@@ -97,7 +97,7 @@ flowchart LR
     utils["wasm-loader"]
   end
   subgraph async_chunks["Flag / stage dynamic import"]
-    presence["presence"]
+    net["net"]
     photo["photo-mode"]
     gen["generative-music"]
     mapLoader["map-loader"]
@@ -137,7 +137,7 @@ foliage/index → animation → batcher → ecs/world → wasm-loader → loadin
 | Area                                                       | Separate chunk                     |
 | ---------------------------------------------------------- | ---------------------------------- |
 | weather / particles / compute                              | `weather` (do not fold into `app`) |
-| `src/systems/net/*` except `lazy.ts` + `biome-at-position` | `presence`                         |
+| `src/systems/net/*` except the stubs (`lazy.ts`, `shared-worlds-lazy.ts`, `supabase-config.ts`, `biome-at-position`), `@supabase/*` | `net` |
 | `src/systems/photo-mode/*` except `lazy.ts`                | `photo-mode`                       |
 | `src/world/map-loader.ts`                                  | `map-loader`                       |
 
@@ -150,7 +150,7 @@ post-FX uniforms and explore-camera APIs via `PhotoModeInitOptions`.
 | Chunk              | Trigger                                                                          | Entry stub                                           |
 | ------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | `debug`            | `?debugHeights` / `?debugPlace` / `?debugCircadian` / `?debugFauna` / `?debug=1` | `src/debug/tools-stub.ts`, `src/debug/lazy.ts`       |
-| `presence`         | `FEATURE_FLAGS.presence`                                                         | `src/systems/net/lazy.ts`, `src/ui/presence-lazy.ts` |
+| `net`              | `FEATURE_FLAGS.presence`, `?world=`, the Worlds panel (`docs/SHARED_WORLDS.md`)  | `src/systems/net/lazy.ts`, `src/systems/net/shared-worlds-lazy.ts`, `src/ui/presence-lazy.ts`, `src/ui/worlds-panel-lazy.ts` |
 | `photo-mode`       | `FEATURE_FLAGS.photoMode` or **P**                                               | `src/systems/photo-mode/lazy.ts`                     |
 | `generative-music` | `enableGenerativeMode()` / `?generative=1`                                       | `audio-system-playback.ts`                           |
 | `awakened`         | `FEATURE_FLAGS.awakenedPersistence`                                              | `src/systems/awakened-persistence-api.ts`            |

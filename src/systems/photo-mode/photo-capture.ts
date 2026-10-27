@@ -82,11 +82,8 @@ async function compositeStamp(
     return canvas.toDataURL('image/png');
 }
 
-/**
- * Render one frame at upscaled resolution and export PNG.
- */
-export async function capturePhotoPng(options: CaptureOptions): Promise<string> {
-    const scale = Math.min(Math.max(options.scale ?? 2, 1), 3);
+/** Render one frame at `scale`× the window and read it back as a PNG data URL. */
+async function renderFrameDataUrl(options: CaptureOptions, scale: number): Promise<string> {
     const renderer = options.renderer;
     const prevSize = new THREE.Vector2();
     renderer.getSize(prevSize);
@@ -110,24 +107,64 @@ export async function capturePhotoPng(options: CaptureOptions): Promise<string> 
             await backend.device.queue.onSubmittedWorkDone();
         }
 
-        let dataUrl = renderer.domElement.toDataURL('image/png');
-
-        const stamp: CaptureStamp = options.stamp ?? {
-            seed: 0,
-            x: 0,
-            y: 0,
-            z: 0,
-        };
-
-        if (options.watermark !== false) {
-            dataUrl = await compositeStamp(dataUrl, stamp, true);
-        }
-
-        const filename = options.filename ?? `candy-world-${stamp.seed}-${Date.now()}.png`;
-        downloadDataUrl(dataUrl, filename);
-        return dataUrl;
+        return renderer.domElement.toDataURL('image/png');
     } finally {
         renderer.setPixelRatio(prevRatio);
         renderer.setSize(prevSize.x, prevSize.y, false);
     }
+}
+
+/**
+ * Render one frame at upscaled resolution and export PNG.
+ */
+export async function capturePhotoPng(options: CaptureOptions): Promise<string> {
+    const scale = Math.min(Math.max(options.scale ?? 2, 1), 3);
+    let dataUrl = await renderFrameDataUrl(options, scale);
+
+    const stamp: CaptureStamp = options.stamp ?? {
+        seed: 0,
+        x: 0,
+        y: 0,
+        z: 0,
+    };
+
+    if (options.watermark !== false) {
+        dataUrl = await compositeStamp(dataUrl, stamp, true);
+    }
+
+    const filename = options.filename ?? `candy-world-${stamp.seed}-${Date.now()}.png`;
+    downloadDataUrl(dataUrl, filename);
+    return dataUrl;
+}
+
+/**
+ * Render one frame as a small JPEG (a shared world's thumbnail, #1975):
+ * no watermark, no download, at most `maxWidth` pixels wide.
+ */
+export async function capturePhotoThumbnail(
+    options: Pick<CaptureOptions, 'renderer' | 'renderFrame'>,
+    maxWidth = 640
+): Promise<Blob> {
+    const source = await renderFrameDataUrl(options, 1);
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = source;
+    });
+    const width = Math.min(maxWidth, img.width);
+    const height = Math.round((img.height / img.width) * width);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('No 2D canvas for the thumbnail');
+    ctx.drawImage(img, 0, 0, width, height);
+    return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+            (blob) => (blob ? resolve(blob) : reject(new Error('Thumbnail encoding failed'))),
+            'image/jpeg',
+            0.85
+        );
+    });
 }

@@ -15,6 +15,9 @@ import { isSugarCavesUnlocked, unlockSugarCaves } from '../part-ii-unlock.ts';
 import { normalizeAwakened, splitStamps } from './legacy-records.ts';
 import type { DocumentProgress } from './schema.ts';
 
+// Pure, so shared-world sync can merge progress without the live systems.
+export { unionProgress } from './progress-union.ts';
+
 export function readLiveProgress(now = Date.now()): DocumentProgress {
     const { discoveries, stamps } = splitStamps(discoverySystem.getDiscoveredIds());
     return {
@@ -47,23 +50,4 @@ export async function mergeLiveProgress(progress: DocumentProgress): Promise<voi
             emissiveScale: a.emissiveScale,
         }))
     );
-}
-
-/** Union two progress records (used when a loaded document meets live progress). */
-export function unionProgress(a: DocumentProgress, b: DocumentProgress): DocumentProgress {
-    const inventory = { ...a.inventory };
-    for (const key in b.inventory) inventory[key] = Math.max(inventory[key] ?? 0, b.inventory[key]);
-    const awakened = new Map(a.awakened.map((r) => [r.persistentId, r]));
-    for (const r of b.awakened) {
-        const existing = awakened.get(r.persistentId);
-        if (!existing || r.awakenedAt < existing.awakenedAt) awakened.set(r.persistentId, r);
-    }
-    return {
-        discoveries: [...new Set([...a.discoveries, ...b.discoveries])],
-        unlocks: [...new Set([...a.unlocks, ...b.unlocks])],
-        inventory,
-        awakened: [...awakened.values()],
-        stamps: [...new Set([...a.stamps, ...b.stamps])],
-        partII: { sugarCavesUnlocked: a.partII.sugarCavesUnlocked || b.partII.sugarCavesUnlocked },
-    };
 }

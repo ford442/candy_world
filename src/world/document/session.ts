@@ -65,6 +65,7 @@ export class WorldDocumentSession {
     private saveTimer: ReturnType<typeof setTimeout> | null = null;
     private lastSavedJson = '';
     private readonly listeners: Array<() => void> = [];
+    private commandSource: (() => DocumentCommand[]) | null = null;
 
     constructor(
         doc: WorldDocumentV1,
@@ -83,8 +84,19 @@ export class WorldDocumentSession {
         return this.doc.meta.title;
     }
 
+    /**
+     * Hand the command log to someone else: a shared world's co-editing
+     * replica (#1975) holds the merged log of every peer's edits, so the saved
+     * document is its log, not this session's undo-ordered one. Null restores
+     * the session's own.
+     */
+    setCommandSource(source: (() => DocumentCommand[]) | null): void {
+        this.commandSource = source;
+    }
+
     /** Authored edits, in replay order. */
     commands(): DocumentCommand[] {
+        if (this.commandSource) return this.commandSource();
         const out = this.base.slice();
         for (const cmd of this.live) {
             const data = cmd.serialize();
@@ -116,6 +128,7 @@ export class WorldDocumentSession {
 
     /** Fold the unreachable prefix of `live` into `base` once it is long enough. */
     compact(threshold = COMPACTION_THRESHOLD): void {
+        if (this.commandSource) return;
         let n = 0;
         while (n < this.live.length && !this.deps.history.isUndoable(this.live[n])) n++;
         if (n === 0) return;

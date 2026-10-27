@@ -144,7 +144,9 @@ menu still open a document on demand.
 - Picking through the C++ `batchRaycast_c`: targeting is the nearest
   identified entity within 2.5 m of the ground hit.
 - Paint for batchers without a colour hook; growable batcher capacity.
-- Shared worlds and co-editing (#1975) plug a remote `DocumentStore` in.
+- Shared worlds and live co-editing (#1975) are in
+  [`SHARED_WORLDS.md`](./SHARED_WORLDS.md): a remote `DocumentStore`, and the
+  same commands broadcast between builders.
 
 ## Tests
 

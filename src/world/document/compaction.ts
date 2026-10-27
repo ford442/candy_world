@@ -4,9 +4,9 @@
  *
  * Every command is a set of per-entity transitions `before → after` (a missing
  * side means "not in the world"): place is `∅ → s`, remove is `s → ∅`, move and
- * paint are `a → b`, batch is its children's transitions. Folding keeps, per
- * entity id, the state before its first transition and after its last, then
- * emits one command per entity whose state changed:
+ * paint are `a → b`, batch is its children's transitions (`entity-state.ts`).
+ * Folding keeps, per entity id, the state before its first transition and
+ * after its last, then emits one command per entity whose state changed:
  *
  *   ∅ → s : place(s)      s → ∅ : remove(s)      a → b : move(a, b)
  *
@@ -14,61 +14,12 @@
  * replaying the original (tests/world-document-replay.test.ts).
  */
 
-import type { EntitySnapshot } from '../../systems/entity-snapshot-core.ts';
+import { netEntityChanges, sameJson } from './entity-state.ts';
 import type { DocumentCommand } from './schema.ts';
 
-interface Transition {
-    id: string;
-    before: EntitySnapshot | null;
-    after: EntitySnapshot | null;
-}
-
-function transitionsOf(cmd: DocumentCommand, out: Transition[]): void {
-    switch (cmd.type) {
-        case 'place':
-            out.push({ id: cmd.snapshot.id, before: null, after: cmd.snapshot });
-            break;
-        case 'remove':
-            out.push({ id: cmd.snapshot.id, before: cmd.snapshot, after: null });
-            break;
-        case 'move':
-        case 'paint':
-            out.push({ id: cmd.to.id, before: cmd.from, after: cmd.to });
-            break;
-        case 'batch':
-            for (const child of cmd.commands) transitionsOf(child, out);
-            break;
-    }
-}
-
-/** Order-insensitive deep equality for JSON values. */
-function sameJson(a: unknown, b: unknown): boolean {
-    if (a === b) return true;
-    if (typeof a !== typeof b || a === null || b === null || typeof a !== 'object') return false;
-    if (Array.isArray(a) !== Array.isArray(b)) return false;
-    if (Array.isArray(a)) {
-        const bArr = b as unknown[];
-        return a.length === bArr.length && a.every((v, i) => sameJson(v, bArr[i]));
-    }
-    const ao = a as Record<string, unknown>;
-    const bo = b as Record<string, unknown>;
-    const aKeys = Object.keys(ao).filter((k) => ao[k] !== undefined);
-    const bKeys = Object.keys(bo).filter((k) => bo[k] !== undefined);
-    return aKeys.length === bKeys.length && aKeys.every((k) => sameJson(ao[k], bo[k]));
-}
-
 export function compactCommands(commands: readonly DocumentCommand[]): DocumentCommand[] {
-    const net = new Map<string, { before: EntitySnapshot | null; after: EntitySnapshot | null }>();
-    const transitions: Transition[] = [];
-    for (const cmd of commands) transitionsOf(cmd, transitions);
-    for (const t of transitions) {
-        const entry = net.get(t.id);
-        if (entry) entry.after = t.after;
-        else net.set(t.id, { before: t.before, after: t.after });
-    }
-
     const out: DocumentCommand[] = [];
-    for (const { before, after } of net.values()) {
+    for (const { before, after } of netEntityChanges(commands).values()) {
         if (!before && after) out.push({ type: 'place', snapshot: after });
         else if (before && !after) out.push({ type: 'remove', snapshot: before });
         else if (before && after && !sameJson(before, after)) {

@@ -41,8 +41,9 @@ interface WorldDocumentV1 {
 - **Storage.** `DocumentStore` (`load` / `save` / `list` / `delete`,
   `store.ts`). `IndexedDbDocumentStore` uses this save database
   (`CandyWorldSaveDB` v2 adds a `documents` object store);
-  `MemoryDocumentStore` backs tests and browsers without IndexedDB. The
-  shared-worlds store (#1975) implements the same interface.
+  `MemoryDocumentStore` backs tests and browsers without IndexedDB.
+  `RemoteDocumentStore` (shared worlds, #1975) implements the same interface;
+  see [`SHARED_WORLDS.md`](./SHARED_WORLDS.md).
 - **The open world.** `src/world/document/active.ts` opens one document per
   world seed after world generation: the stored one, else the legacy import
   below, else an empty one. Its progress is merged into the live systems
