@@ -58,10 +58,10 @@ export function initWebGLPostProcessing(
     const bloomPass = new UnrealBloomPass(resolution, 1.0, opts.bloomRadius, opts.bloomThreshold);
     composer.addPass(bloomPass);
 
+    // Called by rendering/viewport.ts after every resize (scene-pipeline subscribes it).
     const handleResize = () => {
         composer.setSize(window.innerWidth, window.innerHeight);
     };
-    window.addEventListener('resize', handleResize);
 
     return {
         render: () => {

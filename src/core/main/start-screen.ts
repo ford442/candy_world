@@ -478,7 +478,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 id: 'shader_warmup',
                 priority: 90,
                 execute: () => {
-                    runDeferredWarmup(scene, camera, renderer);
+                    runDeferredWarmup(scene, camera, renderer, ctx.postProcessing?.compileTarget);
                 },
             });
 

@@ -47,6 +47,21 @@ A quiet GL render once hid the Chrome-vs-Edge adapter bug, so the fallback is al
 - `window.rendererType`, `usingWebGL`, `#glCanvas[data-renderer="webgl"]`.
 - Console: `[Init] WebGPU unavailable (<stage>) — falling back to WebGL2`.
 
+## Context loss
+
+A lost GL context used to leave a silent black canvas. `createWebGLRenderer()` now calls
+`watchWebGLContextLoss(renderer, canvas)` (`src/rendering/gpu-context.ts`):
+
+- `webglcontextlost` (cancelled, so the browser may restore it) and Three's `renderer.onDeviceLost`
+  both route into the same handler as a WebGPU device loss: `window.__gpuContext.lost` becomes
+  `true`, `onGpuDeviceLost` listeners fire, `renderer._isDeviceLost` stops `render()`, and the
+  **Graphics stopped — Reload** banner appears.
+- `webglcontextrestored` only sets `window.__gpuContext.contextRestored`. Three 0.171 does not
+  rebuild its GL programs, buffers or textures, so the banner stays and a reload is still needed.
+
+To check by hand on `?renderer=webgl`:
+`game.renderer.backend.gl.getExtension('WEBGL_lose_context').loseContext()`.
+
 ## What is reduced on WebGL2
 
 | Area              | WebGL2 behaviour                                                                                                                                                                                                                   |
@@ -55,6 +70,7 @@ A quiet GL render once hid the Chrome-vs-Edge adapter bug, so the fallback is al
 | Shadows / post-FX | Off (low tier)                                                                                                                                                                                                                     |
 | GPU compute       | Off: `getPlatformCapabilities().computeAvailable` is false, `__computeDisabled` is set and `renderer.compute()` / `computeAsync()` are no-ops. Three runs TSL compute through transform feedback, which cannot express our kernels |
 | Compute consumers | `awaitGpuDevice()` resolves `null` immediately → CPU/WASM tiers (particles, culling, chores)                                                                                                                                       |
+| Pixel ratio       | 1, whatever `?graphics=` says (`resolveMaxPixelRatio`)                                                                                                                                                                             |
 | Fog               | TSL `scene.fogNode` still compiles to GLSL                                                                                                                                                                                         |
 | Physics / spawn   | Unchanged — ground height is WASM/JS, independent of the renderer                                                                                                                                                                  |
 

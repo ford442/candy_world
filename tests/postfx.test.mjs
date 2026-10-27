@@ -70,7 +70,10 @@ function withGraphics(graphics) {
     );
     assert.match(deferred, /isWebGLNodeBackend/);
     assert.match(deferred, /useViewportPulseOverlays/);
-    assert.match(warmup, /HalfFloatType/);
+    // Warmup compiles the real scene (real target, pipelines kept), not 1×1 clones.
+    assert.match(warmup, /compileAsync\(scene, camera\)/);
+    assert.doesNotMatch(warmup, /new THREE\.RenderTarget\(/);
+    assert.match(webgpuPost, /compileTarget/);
 }
 
 console.log('postfx tests passed');

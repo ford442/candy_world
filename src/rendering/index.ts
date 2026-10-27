@@ -67,15 +67,12 @@ export {
     type MaterialFallbackOptions
 } from './webgpu-limits.ts';
 
-// Shader warm-up system
+// Shader warm-up (progressive compileAsync on the real scene)
 export {
-    ShaderWarmup,
-    warmupShader,
-    warmupAllShaders,
-    getWarmupShaderList,
-    getWarmupPriorityOrder,
-    type WarmupStats,
-    type WarmupProgressCallback,
-    type ShaderWarmupOptions,
-    type WarmupTarget
+    compileSceneProgressively,
+    collectCompileSet,
+    WARMUP_LAYER,
+    type CompileTarget,
+    type ProgressiveCompileOptions,
+    type ProgressiveCompileStats
 } from './shader-warmup.ts';

@@ -1,717 +1,242 @@
 /**
- * Shader Warm-up System for Candy World
+ * Shader warm-up: compile the real scene's pipelines before they are drawn.
  *
- * Problem: TSL materials compile shaders on first use, causing frame drops (10-50ms each)
- * when new foliage types appear. With ~12+ unique shaders, this can cause 120-600ms of hitching.
+ * TSL materials build their node graph, WGSL/GLSL module and render pipeline
+ * on first draw (10–50 ms each), which hitches when a new foliage type enters
+ * view. This compiles them ahead of time with `renderer.compileAsync()`.
  *
- * Solution: Pre-compile all shaders at startup using 1x1 pixel renders, spreading the cost
- * across a loading screen where frame drops are acceptable.
+ * The previous warm-up rendered a fresh clone of each preset material into a
+ * 1×1 HalfFloat target with no depth or MSAA and then disposed it, which also
+ * released the pipeline; only the browser's own shader cache kept anything.
+ * Compiling the real objects with the real camera and the real render target
+ * keeps the render objects, node builder states and pipelines the next frame
+ * looks up, so the first real frame finds them already built.
  *
- * @example
- * ```typescript
- * // At game startup
- * const warmup = new ShaderWarmup();
- * await warmup.warmAll(renderer, scene, camera, (current, total, name) => {
- *   console.log(`Compiling shaders... ${current}/${total} (${name})`);
- * });
- * ```
+ * Progressive: `compileAsync(scene, camera)` would project and build the whole
+ * scene in one synchronous task. Instead each call sees one chunk of objects
+ * through a spare camera layer ({@link WARMUP_LAYER}), and the event loop gets
+ * a turn between chunks. The scene itself is still the root, so fog, the
+ * environment and the full light list match a real frame and the compiled
+ * programs are the ones the frame will use. Layers, culling flags and the
+ * render target are swapped and restored synchronously around each call:
+ * Three projects and builds before its first `await`, and no frame can run in
+ * between, so a running game loop never sees the swapped state.
  */
 
-import * as THREE from 'three';
-import { vec3, positionLocal } from 'three/tsl';
-import {
-    MeshStandardNodeMaterial,
-    MeshBasicNodeMaterial,
-    MeshPhysicalNodeMaterial,
-} from 'three/webgpu';
-import { CONFIG } from '../core/config.ts';
-import { isAutomation } from '../core/platform/run-mode.ts';
-import { getStartupCapabilities, type MaterialSubset } from '../core/startup/capabilities.ts';
-import { CandyPresets, foliageMaterials, isClearcoatEnabled } from '../foliage/index.ts';
-import { createTerrainMaterial } from '../foliage/terrain.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import type * as THREE from 'three';
 
-const MINIMAL_TARGET_NAMES = new Set([
-    'TerrainMaterial',
-    'CandyPresets.Clay',
-    'mushroomCap',
-    'stem',
-    'flowerPetal',
-    'flowerStem',
-]);
+/** Camera layer used only during a compile call. Nothing else in src/ uses it. */
+export const WARMUP_LAYER = 31;
 
-const BATCHED_EXCLUDED_NAMES = new Set(['CandyPresets.OilSlick', 'CandyPresets.Velvet']);
+/** Objects per `compileAsync` call. */
+export const DEFAULT_CHUNK_SIZE = 48;
 
-function filterTargetsBySubset(targets: WarmupTarget[], subset: MaterialSubset): WarmupTarget[] {
-    if (subset === 'none') return [];
-    if (subset === 'full') return targets;
-    if (subset === 'minimal') {
-        return targets.filter((t) => MINIMAL_TARGET_NAMES.has(t.name));
-    }
-    return targets.filter((t) => !BATCHED_EXCLUDED_NAMES.has(t.name));
+/** The render target (and MRT) the scene is really drawn into. */
+export interface CompileTarget {
+    renderTarget: THREE.RenderTarget | null;
+    mrt?: unknown;
 }
 
-// Warm-up target types
-export type WarmupTarget = {
-    name: string;
-    priority: number; // Lower = compile first (critical materials)
-    create: () => THREE.Material;
-};
-
-/**
- * Shader compilation statistics
- */
-export interface WarmupStats {
-    total: number;
-    completed: number;
-    failed: number;
-    totalTime: number;
-    averageTime: number;
+export interface ProgressiveCompileOptions {
+    /**
+     * Target the scene pass draws into (the post-FX scene pass). Defaults to
+     * the target `renderer.render()` would use: Three's tone-mapping frame
+     * buffer target, or the canvas.
+     */
+    target?: (() => CompileTarget | null) | null;
+    chunkSize?: number;
+    onProgress?: (compiled: number, total: number) => void;
+    /** Checked between chunks; return true to stop early. A lost device also stops it. */
+    shouldAbort?: () => boolean;
 }
 
-/**
- * Progress callback for UI updates
- */
-export type WarmupProgressCallback = (
-    current: number,
-    total: number,
-    materialName: string,
-    elapsedMs: number
-) => void;
-
-/**
- * Configuration for shader warm-up
- */
-export interface ShaderWarmupOptions {
-    /** Pixel dimensions for warm-up render target (default: 1) */
-    renderSize: number;
-    /** Delay between compilations to prevent blocking (default: 0) */
-    yieldDelayMs: number;
-    /** Whether to compile materials in parallel batches (default: false for sequential) */
-    parallel: boolean;
-    /** Batch size for parallel compilation (default: 3) */
-    batchSize: number;
+export interface ProgressiveCompileStats {
+    objects: number;
+    chunks: number;
+    failedChunks: number;
+    maxChunkMs: number;
+    totalMs: number;
+    aborted: boolean;
 }
 
-const DEFAULT_OPTIONS: ShaderWarmupOptions = {
-    renderSize: 1,
-    yieldDelayMs: 0,
-    parallel: false,
-    batchSize: 3,
-};
+/** The slice of `WebGPURenderer` this module uses. */
+export interface CompilingRenderer {
+    compileAsync(scene: THREE.Object3D, camera: THREE.Camera): Promise<void>;
+    getRenderTarget(): THREE.RenderTarget | null;
+    setRenderTarget(target: THREE.RenderTarget | null): void;
+    getMRT?(): unknown;
+    setMRT?(mrt: unknown): unknown;
+}
 
-/**
- * Creates a minimal geometry for shader warm-up
- * Using a single triangle for maximum efficiency
- */
-function createWarmupGeometry(): THREE.BufferGeometry {
-    const geometry = new THREE.BufferGeometry();
-    const vertices = new Float32Array([
-        -1,
-        -1,
-        0, // v1
-        3,
-        -1,
-        0, // v2 (extends beyond viewport)
-        -1,
-        3,
-        0, // v3 (extends beyond viewport)
-    ]);
-    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    geometry.setAttribute(
-        'normal',
-        new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]), 3)
-    );
-    geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 0, 2, 0, 0, 2]), 2));
-    // Provide dummy attributes so TSL materials that reference them don't crash during warmup.
-    geometry.setAttribute(
-        'instanceColor',
-        new THREE.BufferAttribute(new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1]), 3)
-    );
-    geometry.setAttribute('aPoseState', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 1));
-    geometry.setAttribute(
-        'aState',
-        new THREE.BufferAttribute(new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 4)
-    );
-    geometry.setAttribute(
-        'aVelocity',
-        new THREE.BufferAttribute(new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 4)
-    );
-    return geometry;
+/** Internals read off the renderer (Three 0.171 `Renderer` / `WebGPUBackend`). */
+function rendererDevice(renderer: CompilingRenderer): GPUDevice | null {
+    return (renderer as { backend?: { device?: GPUDevice | null } }).backend?.device ?? null;
+}
+
+/** Set by Three (and gpu-context.ts) once the device or GL context is lost. */
+function isRendererLost(renderer: CompilingRenderer): boolean {
+    return (renderer as { _isDeviceLost?: boolean })._isDeviceLost === true;
 }
 
 /**
- * Gets all unique materials from foliageMaterials object
+ * Three 0.171's `WebGPUPipelineUtils` wraps `createRenderPipelineAsync()` in a
+ * promise that only resolves: if creation rejects (device lost, or a shader
+ * the driver refuses), that promise never settles, `compileAsync()` hangs
+ * forever and the rejection goes unhandled, which the bootstrap reports as a
+ * fatal startup error. While a compile call is building, route a rejected
+ * async creation to the synchronous `createRenderPipeline()`. That is what a
+ * normal frame does: it returns an invalid pipeline and reports the error
+ * through `uncapturederror` (or does nothing on a lost device), so the warmup
+ * fails exactly like a first draw would, and keeps going.
  */
-function getFoliageMaterialTargets(): WarmupTarget[] {
-    const targets: WarmupTarget[] = [];
-    const seen = new Set<string>();
+function guardAsyncPipelines(device: GPUDevice | null | undefined): () => void {
+    if (!device || typeof device.createRenderPipelineAsync !== 'function') return () => {};
+    const own = Object.prototype.hasOwnProperty.call(device, 'createRenderPipelineAsync');
+    const original = device.createRenderPipelineAsync;
+    device.createRenderPipelineAsync = (descriptor: GPURenderPipelineDescriptor) =>
+        original.call(device, descriptor).catch(() => device.createRenderPipeline(descriptor));
+    return () => {
+        if (own) device.createRenderPipelineAsync = original;
+        else delete (device as { createRenderPipelineAsync?: unknown }).createRenderPipelineAsync;
+    };
+}
 
-    for (const [key, matOrArray] of Object.entries(foliageMaterials)) {
-        const materials = Array.isArray(matOrArray) ? matOrArray : [matOrArray];
+type Renderable = THREE.Object3D & { frustumCulled: boolean };
 
-        for (let i = 0; i < materials.length; i++) {
-            const mat = materials[i];
-            const uniqueKey = `${key}_${i}`;
+function isRenderable(obj: THREE.Object3D): obj is Renderable {
+    const o = obj as { isMesh?: boolean; isLine?: boolean; isPoints?: boolean; isSprite?: boolean };
+    return Boolean(o.isMesh || o.isLine || o.isPoints || o.isSprite);
+}
 
-            if (seen.has(uniqueKey)) continue;
-            seen.add(uniqueKey);
+/**
+ * Objects and lights a real frame through `camera` would project: visible
+ * (with visible ancestors) and on one of the camera's layers.
+ */
+export function collectCompileSet(
+    scene: THREE.Object3D,
+    camera: THREE.Camera
+): { objects: Renderable[]; lights: THREE.Object3D[] } {
+    const objects: Renderable[] = [];
+    const lights: THREE.Object3D[] = [];
+    scene.traverseVisible((obj) => {
+        if (!obj.layers.test(camera.layers)) return;
+        if ((obj as { isLight?: boolean }).isLight) lights.push(obj);
+        else if (isRenderable(obj)) objects.push(obj);
+    });
+    return { objects, lights };
+}
 
-            // Skip non-Node materials
-            if (
-                !(mat instanceof MeshStandardNodeMaterial) &&
-                !(mat instanceof MeshBasicNodeMaterial)
-            ) {
-                continue;
-            }
+function defaultTarget(renderer: CompilingRenderer): CompileTarget | null {
+    // `render()` draws into this when tone mapping / an output color space is
+    // active; compiling against the canvas would build pipelines for the wrong
+    // color format.
+    const fb = (
+        renderer as { _getFrameBufferTarget?: () => THREE.RenderTarget | null }
+    )._getFrameBufferTarget?.();
+    return fb ? { renderTarget: fb } : null;
+}
 
-            // Priority: Critical UI/FX materials first, then gameplay, then decorative
-            let priority = 100;
-            if (['lightBeam', 'opticTip'].includes(key)) priority = 10;
-            else if (['flowerPetal', 'mushroomCap', 'stem', 'flowerStem'].includes(key))
-                priority = 20;
-            else if (
-                ['mushroomStem', 'mushroomGills', 'mushroomCheek', 'mushroomSpots'].includes(key)
-            )
-                priority = 30;
-            else if (['eye', 'pupil', 'mouth', 'clayMouth'].includes(key)) priority = 40;
-            else if (key === 'wood' || key === 'leaf' || key === 'vine') priority = 50;
+/**
+ * Start compiling one chunk. The returned promise settles when the backend's
+ * async pipeline creation finishes; all state is restored before this returns.
+ */
+export function compileChunk(
+    renderer: CompilingRenderer,
+    scene: THREE.Object3D,
+    camera: THREE.Camera,
+    chunk: readonly Renderable[],
+    lights: readonly THREE.Object3D[],
+    target: CompileTarget | null
+): Promise<void> {
+    const cameraMask = camera.layers.mask;
+    const objectMasks = chunk.map((o) => o.layers.mask);
+    const objectCulled = chunk.map((o) => o.frustumCulled);
+    const lightMasks = lights.map((l) => l.layers.mask);
+    const prevTarget = target ? renderer.getRenderTarget() : null;
+    const prevMrt = target ? renderer.getMRT?.() : undefined;
+    const restorePipelines = guardAsyncPipelines(rendererDevice(renderer));
 
-            targets.push({
-                name: `${key}${materials.length > 1 ? `_${i}` : ''}`,
-                priority,
-                create: () => mat.clone(),
-            });
+    try {
+        for (const o of chunk) {
+            o.layers.enable(WARMUP_LAYER);
+            // The frustum is whatever the last frame left; compile off-screen
+            // objects too.
+            o.frustumCulled = false;
+        }
+        for (const l of lights) l.layers.enable(WARMUP_LAYER);
+        camera.layers.set(WARMUP_LAYER);
+        if (target) {
+            renderer.setRenderTarget(target.renderTarget);
+            renderer.setMRT?.(target.mrt ?? null);
+        }
+        return renderer.compileAsync(scene, camera);
+    } finally {
+        restorePipelines();
+        camera.layers.mask = cameraMask;
+        for (let i = 0; i < chunk.length; i++) {
+            chunk[i].layers.mask = objectMasks[i];
+            chunk[i].frustumCulled = objectCulled[i];
+        }
+        for (let i = 0; i < lights.length; i++) lights[i].layers.mask = lightMasks[i];
+        if (target) {
+            renderer.setRenderTarget(prevTarget);
+            renderer.setMRT?.(prevMrt ?? null);
         }
     }
-
-    return targets;
 }
 
-/**
- * Gets CandyPreset material targets
- */
-function getPresetTargets(): WarmupTarget[] {
-    const presets = [
-        { name: 'Clay', color: 0xddeeff, priority: 15 },
-        { name: 'Sugar', color: 0xffffff, priority: 25 },
-        { name: 'Gummy', color: 0xff6b6b, priority: 25 },
-        { name: 'SeaJelly', color: 0x44aaff, priority: 35 },
-        { name: 'Crystal', color: 0x54a0ff, priority: 35 },
-        { name: 'Velvet', color: 0xff69b4, priority: 45 },
-        { name: 'OilSlick', color: 0x222222, priority: 55 },
-    ];
-
-    return presets.map((preset) => ({
-        name: `CandyPresets.${preset.name}`,
-        priority: preset.priority,
-        create: () => CandyPresets[preset.name](preset.color),
-    }));
-}
+const yieldToEventLoop = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 /**
- * Gets the surface-knob variants that are *not* reachable from a bare preset.
- *
- * `getPresetTargets()` covers every default graph shape — `Sugar` ships the
- * clearcoat lobe, `Gummy` and `Crystal` ship the dream env — but a clearcoat or
- * an env swaps a whole extra lighting term into the node graph, so an *override*
- * that turns one on where the preset had it off is a genuinely new pipeline.
- * Miss it and the first Gummy shard or remote peer to enter the frustum hitches.
- *
- * Deliberately two entries, not a matrix. The only graph shapes the presets
- * leave uncovered are "coat *and* env together" and "coat on a bare physical
- * material"; every other combination differs only in uniform values, which
- * three's program cache does not fork on. Both are skipped entirely when the
- * coat is gated off (`low` tier), where they would compile to the un-coated
- * graph the presets already warmed.
+ * Compile every object a frame of `scene` through `camera` would draw, in
+ * chunks, yielding between them. Failures are logged and skipped: an object
+ * that fails here fails (or compiles) on first draw exactly as before.
  */
-function getSurfaceVariantTargets(): WarmupTarget[] {
-    if (!isClearcoatEnabled()) return [];
-
-    return [
-        {
-            // The documented `Gummy` + clearcoat opt-in (cookbook, "Surface
-            // knobs"): transmission + translucency + env + coat, the heaviest
-            // graph the preset vocabulary can produce.
-            name: 'CandyPresets.Gummy+coat',
-            priority: 40,
-            create: () => CandyPresets.Gummy(0xff6b6b, { clearcoat: 0.8, clearcoatRoughness: 0.1 }),
-        },
-        {
-            // Shape of the remote-peer avatar material
-            // (`src/systems/net/remote-avatars.ts`): a bare physical material
-            // with a coat, built outside the preset vocabulary entirely — so
-            // nothing else in this list compiles it.
-            name: 'PhysicalClearcoat_Base',
-            priority: 50,
-            create: () =>
-                new MeshPhysicalNodeMaterial({
-                    roughness: 0.25,
-                    metalness: 0,
-                    clearcoat: 0.85,
-                    clearcoatRoughness: 0.15,
-                }),
-        },
-    ];
-}
-
-/**
- * Gets special material targets (terrain, water, etc.)
- */
-function getSpecialTargets(): WarmupTarget[] {
-    return [
-        {
-            name: 'TerrainMaterial',
-            priority: 5, // Very high priority - visible immediately
-            create: () => createTerrainMaterial(0x66aa55),
-        },
-        // Water is created dynamically with specific parameters, but we warm up the base preset
-        {
-            name: 'WaterMaterial_Base',
-            priority: 30,
-            create: () =>
-                CandyPresets.SeaJelly(0x44aaff, {
-                    roughness: 0.1,
-                    metalness: 0.1,
-                    transmission: 0.9,
-                    ior: 1.33,
-                    thickness: 2.0,
-                    animateMoisture: true,
-                }),
-        },
-    ];
-}
-
-/**
- * Shader Warm-up Manager
- *
- * Pre-compiles TSL shaders to eliminate first-use frame drops.
- *
- * Expected time savings:
- * - Each shader compile: 10-50ms (depending on complexity)
- * - Total shaders to warm: ~15-20
- * - Total potential hitch: 150-1000ms
- * - With warm-up: Distributed across loading screen, zero hitches during gameplay
- */
-export class ShaderWarmup {
-    private warmedMaterials = new Set<string>();
-    private warmupGeometry: THREE.BufferGeometry;
-    private warmupCamera: THREE.OrthographicCamera;
-    private options: ShaderWarmupOptions;
-    private stats: WarmupStats = {
-        total: 0,
-        completed: 0,
-        failed: 0,
-        totalTime: 0,
-        averageTime: 0,
+export async function compileSceneProgressively(
+    renderer: CompilingRenderer,
+    scene: THREE.Object3D,
+    camera: THREE.Camera,
+    options: ProgressiveCompileOptions = {}
+): Promise<ProgressiveCompileStats> {
+    const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_CHUNK_SIZE);
+    const start = performance.now();
+    const { objects, lights } = collectCompileSet(scene, camera);
+    const stats: ProgressiveCompileStats = {
+        objects: objects.length,
+        chunks: 0,
+        failedChunks: 0,
+        maxChunkMs: 0,
+        totalMs: 0,
+        aborted: false,
     };
 
-    constructor(options: Partial<ShaderWarmupOptions> = {}) {
-        this.options = { ...DEFAULT_OPTIONS, ...options };
-        this.warmupGeometry = createWarmupGeometry();
-
-        // Orthographic camera for consistent 1x1 rendering
-        this.warmupCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-        this.warmupCamera.position.z = 1;
-    }
-
-    /**
-     * Gets warm-up targets sorted by priority, filtered by graphics subset.
-     */
-    getTargets(subset?: MaterialSubset): WarmupTarget[] {
-        const resolved = subset ?? getStartupCapabilities().warmup.materialSubset;
-        const allTargets = [
-            ...getPresetTargets(),
-            ...getSurfaceVariantTargets(),
-            ...getSpecialTargets(),
-            ...getFoliageMaterialTargets(),
-        ];
-
-        return filterTargetsBySubset(
-            allTargets.sort((a, b) => a.priority - b.priority),
-            resolved
-        );
-    }
-
-    /**
-     * Warms up a single material by rendering it once
-     * Uses a 1x1 pixel render target to force shader compilation
-     * without visible artifacts or performance impact.
-     */
-    async warmupSingle(
-        material: THREE.Material,
-        renderer: THREE.Renderer,
-        name: string
-    ): Promise<boolean> {
-        if (this.warmedMaterials.has(name)) {
-            return true;
+    for (let i = 0; i < objects.length; i += chunkSize) {
+        // A lost device makes every later chunk a no-op (Three returns early).
+        if (isRendererLost(renderer) || options.shouldAbort?.()) {
+            stats.aborted = true;
+            break;
         }
-
-        const startTime = performance.now();
-
+        const chunkStart = performance.now();
+        const target = options.target ? options.target() : defaultTarget(renderer);
         try {
-            // Track which material is currently being warmed up for diagnostics
-            if (typeof window !== 'undefined') {
-                (window as any).__lastWarmupMaterialName = name;
-            }
-
-            // Always warm up with an InstancedMesh (1 instance) so that:
-            // 1. TSL varyingProperty('vec3', 'vInstanceColor') resolves — InstancedMeshNode assigns
-            //    the instance color to this varying, making it available in fragment shaders.
-            // 2. Materials that reference instanceIndex or other instanced attributes compile
-            //    without "vertex attribute not found" warnings.
-            const mesh = new THREE.InstancedMesh(this.warmupGeometry, material, 1);
-            mesh.frustumCulled = false;
-            // Provide a dummy instance color so TSL varyingProperty('vec3', 'vInstanceColor') resolves.
-            mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array([1, 1, 1]), 3);
-
-            // Create a minimal scene for this material
-            const scene = new THREE.Scene();
-            scene.add(mesh);
-
-            // Add minimal lighting for standard materials
-            if (material instanceof MeshStandardNodeMaterial) {
-                const light = new THREE.DirectionalLight(0xffffff, 1);
-                light.position.set(1, 1, 1);
-                scene.add(light);
-                scene.add(new THREE.AmbientLight(0x404040));
-            }
-
-            // 1×1 HDR target matching the WebGPU drawing buffer (rgba16float).
-            // UnsignedByteType here leaves a 1×1 rgba8unorm that later full-size
-            // CopyTextureToTexture calls try to read as the current framebuffer.
-            const renderTarget = new THREE.RenderTarget(
-                this.options.renderSize,
-                this.options.renderSize,
-                { type: THREE.HalfFloatType, depthBuffer: false }
+            await compileChunk(
+                renderer,
+                scene,
+                camera,
+                objects.slice(i, i + chunkSize),
+                lights,
+                target
             );
-
-            const gpuRenderer = renderer as THREE.Renderer & {
-                getRenderTarget?: () => THREE.RenderTarget | null;
-                setRenderTarget?: (target: THREE.RenderTarget | null) => void;
-            };
-            try {
-                gpuRenderer.setRenderTarget?.(renderTarget);
-                renderer.render(scene, this.warmupCamera);
-            } finally {
-                gpuRenderer.setRenderTarget?.(null);
-                renderTarget.dispose();
-            }
-
-            // ⚡ OPTIMIZATION: Explicitly dispose temporary warmup meshes to prevent VRAM leaks.
-            if (mesh.geometry && mesh.geometry !== this.warmupGeometry) {
-                mesh.geometry.dispose();
-            }
-
-            if (material) {
-                if (Array.isArray(material)) {
-                    material.forEach((m) => m.dispose());
-                } else {
-                    material.dispose();
-                }
-            }
-
-            safeRemoveAndDispose(scene, mesh);
-
-            if (material instanceof MeshStandardNodeMaterial) {
-                for (let i = scene.children.length - 1; i >= 0; i--) {
-                    const child = scene.children[i];
-                    if (child instanceof THREE.Light) {
-                        // ⚡ OPTIMIZATION: Dispose temporary warmup lights to prevent VRAM leaks. Iterate backwards to safely remove from array.
-                        safeRemoveAndDispose(scene, child);
-                    }
-                }
-            }
-
-            this.warmedMaterials.add(name);
-
-            const elapsed = performance.now() - startTime;
-            this.stats.completed++;
-            this.stats.totalTime += elapsed;
-            this.stats.averageTime = this.stats.totalTime / this.stats.completed;
-
-            return true;
-        } catch (error) {
-            console.warn(`[ShaderWarmup] Failed to warm up "${name}":`, error);
-            this.stats.failed++;
-            return false;
+        } catch (err) {
+            stats.failedChunks++;
+            console.warn('[ShaderWarmup] compileAsync failed for a chunk (non-fatal):', err);
         }
+        stats.chunks++;
+        stats.maxChunkMs = Math.max(stats.maxChunkMs, performance.now() - chunkStart);
+        options.onProgress?.(Math.min(i + chunkSize, objects.length), objects.length);
+        await yieldToEventLoop();
     }
 
-    /**
-     * Warms up all shaders
-     *
-     * @param renderer - The WebGPU renderer
-     * @param onProgress - Optional callback for progress updates
-     * @returns Statistics about the warm-up process
-     *
-     * @example
-     * ```typescript
-     * const stats = await warmup.warmAll(renderer, (current, total, name, elapsed) => {
-     *   loadingBar.progress = current / total;
-     *   loadingText.text = `Compiling shaders... ${current}/${total} (${name})`;
-     * });
-     * console.log(`Warmed ${stats.completed} shaders in ${stats.totalTime.toFixed(0)}ms`);
-     * ```
-     */
-    async warmAll(
-        renderer: THREE.Renderer,
-        onProgress?: WarmupProgressCallback
-    ): Promise<WarmupStats> {
-        const targets = this.getTargets();
-        this.stats = {
-            total: targets.length,
-            completed: 0,
-            failed: 0,
-            totalTime: 0,
-            averageTime: 0,
-        };
-
-        console.log(`[ShaderWarmup] Starting warm-up for ${targets.length} shaders...`);
-        const startTime = performance.now();
-
-        if (this.options.parallel) {
-            await this.warmParallel(targets, renderer, onProgress);
-        } else {
-            await this.warmSequential(targets, renderer, onProgress);
-        }
-
-        const totalTime = performance.now() - startTime;
-
-        console.log(
-            `[ShaderWarmup] Complete! ${this.stats.completed}/${this.stats.total} shaders warmed ` +
-                `in ${totalTime.toFixed(0)}ms (avg: ${this.stats.averageTime.toFixed(1)}ms per shader)`
-        );
-
-        if (this.stats.failed > 0) {
-            console.warn(`[ShaderWarmup] ${this.stats.failed} shaders failed to compile`);
-        }
-
-        return { ...this.stats, totalTime };
-    }
-
-    /**
-     * Sequential warm-up (default) - more predictable, less memory pressure
-     */
-    private async warmSequential(
-        targets: WarmupTarget[],
-        renderer: THREE.Renderer,
-        onProgress?: WarmupProgressCallback
-    ): Promise<void> {
-        for (let i = 0; i < targets.length; i++) {
-            const target = targets[i];
-            const material = target.create();
-
-            const success = await this.warmupSingle(material, renderer, target.name);
-
-            if (onProgress) {
-                onProgress(i + 1, targets.length, target.name, this.stats.averageTime);
-            }
-
-            // Yield to event loop if requested
-            if (this.options.yieldDelayMs > 0) {
-                await new Promise((resolve) => setTimeout(resolve, this.options.yieldDelayMs));
-            } else if (i % 3 === 0) {
-                // Minimal yield every few shaders to prevent complete blocking
-                await new Promise((resolve) => requestAnimationFrame(resolve));
-            }
-        }
-    }
-
-    /**
-     * Parallel warm-up - faster but higher memory usage
-     */
-    private async warmParallel(
-        targets: WarmupTarget[],
-        renderer: THREE.Renderer,
-        onProgress?: WarmupProgressCallback
-    ): Promise<void> {
-        const { batchSize } = this.options;
-
-        for (let i = 0; i < targets.length; i += batchSize) {
-            const batch = targets.slice(i, i + batchSize);
-
-            await Promise.all(
-                batch.map(async (target, batchIndex) => {
-                    const material = target.create();
-                    const success = await this.warmupSingle(material, renderer, target.name);
-
-                    if (onProgress) {
-                        const globalIndex = i + batchIndex + 1;
-                        onProgress(
-                            globalIndex,
-                            targets.length,
-                            target.name,
-                            this.stats.averageTime
-                        );
-                    }
-                })
-            );
-
-            // Yield between batches
-            if (this.options.yieldDelayMs > 0 || i + batchSize < targets.length) {
-                await new Promise((resolve) => setTimeout(resolve, this.options.yieldDelayMs || 1));
-            }
-        }
-    }
-
-    /**
-     * Checks if a material has already been warmed up
-     */
-    isWarmed(name: string): boolean {
-        return this.warmedMaterials.has(name);
-    }
-
-    /**
-     * Gets the set of warmed material names
-     */
-    getWarmedMaterials(): Set<string> {
-        return new Set(this.warmedMaterials);
-    }
-
-    /**
-     * Clears the warmed set (useful for hot-reloading scenarios)
-     */
-    clear(): void {
-        this.warmedMaterials.clear();
-    }
-
-    /**
-     * Disposes of internal resources
-     */
-    dispose(): void {
-        this.warmupGeometry.dispose();
-        this.clear();
-    }
-}
-
-/**
- * Convenience function to warm up a single shader
- *
- * @param material - The material to warm up
- * @param renderer - The WebGPU renderer
- * @param scene - Optional scene to use (creates minimal scene if not provided)
- * @param camera - Optional camera to use (creates orthographic camera if not provided)
- * @returns Promise resolving to success status
- *
- * @example
- * ```typescript
- * const myMaterial = CandyPresets.Gummy(0xFF0000);
- * await warmupShader(myMaterial, renderer);
- * // Material is now compiled and ready for use
- * ```
- */
-export async function warmupShader(
-    material: THREE.Material,
-    renderer: THREE.Renderer,
-    scene?: THREE.Scene,
-    camera?: THREE.Camera
-): Promise<boolean> {
-    const warmup = new ShaderWarmup();
-
-    if (scene && camera) {
-        // Use provided scene/camera
-        const renderTarget = new THREE.RenderTarget(1, 1, {
-            type: THREE.HalfFloatType,
-            depthBuffer: false,
-        });
-        const gpuRenderer = renderer as THREE.Renderer & {
-            setRenderTarget?: (target: THREE.RenderTarget | null) => void;
-        };
-
-        try {
-            gpuRenderer.setRenderTarget?.(renderTarget);
-            renderer.render(scene, camera);
-        } finally {
-            gpuRenderer.setRenderTarget?.(null);
-            renderTarget.dispose();
-        }
-        warmup.dispose();
-        return true;
-    }
-
-    // Use minimal setup
-    const result = await warmup.warmupSingle(material, renderer, 'single-shader');
-    warmup.dispose();
-    return result;
-}
-
-/**
- * Convenience function to warm up all shaders at once
- *
- * @param renderer - The WebGPU renderer
- * @param scene - Optional scene (not used, kept for API consistency)
- * @param camera - Optional camera (not used, kept for API consistency)
- * @param onProgress - Optional progress callback
- * @param options - Optional warm-up configuration
- * @returns Promise resolving to warm-up statistics
- *
- * @example
- * ```typescript
- * // Simple usage
- * await warmupAllShaders(renderer);
- *
- * // With progress UI
- * await warmupAllShaders(renderer, null, null, (current, total, name) => {
- *   updateLoadingScreen(`Compiling shaders... ${current}/${total}`);
- * });
- *
- * // With custom options
- * await warmupAllShaders(renderer, null, null, onProgress, {
- *   parallel: true,
- *   batchSize: 4
- * });
- * ```
- */
-export async function warmupAllShaders(
-    renderer: THREE.Renderer,
-    scene?: THREE.Scene | null,
-    camera?: THREE.Camera | null,
-    onProgress?: WarmupProgressCallback,
-    options?: Partial<ShaderWarmupOptions>
-): Promise<WarmupStats> {
-    if (CONFIG.safeMode || isAutomation()) {
-        console.warn('[ShaderWarmup] Bypassed due to safeMode or CI mode');
-        return { total: 0, completed: 0, failed: 0, totalTime: 0, averageTime: 0 };
-    }
-    const warmup = new ShaderWarmup(options);
-    const stats = await warmup.warmAll(renderer, onProgress);
-    warmup.dispose();
+    stats.totalMs = performance.now() - start;
     return stats;
 }
-
-/**
- * Gets a list of all shader names that will be warmed up
- * Useful for debugging or displaying total count in UI
- */
-export function getWarmupShaderList(): string[] {
-    const warmup = new ShaderWarmup();
-    const targets = warmup.getTargets();
-    warmup.dispose();
-    return targets.map((t) => t.name);
-}
-
-/**
- * Gets the default priority order for shaders
- * Lower numbers = compiled first
- */
-export function getWarmupPriorityOrder(): { priority: number; names: string[] }[] {
-    const warmup = new ShaderWarmup();
-    const targets = warmup.getTargets();
-    warmup.dispose();
-
-    const grouped = new Map<number, string[]>();
-
-    for (const target of targets) {
-        if (!grouped.has(target.priority)) {
-            grouped.set(target.priority, []);
-        }
-        grouped.get(target.priority)!.push(target.name);
-    }
-
-    return Array.from(grouped.entries())
-        .sort((a, b) => a[0] - b[0])
-        .map(([priority, names]) => ({ priority, names }));
-}
-
-export default ShaderWarmup;

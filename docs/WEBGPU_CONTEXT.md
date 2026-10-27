@@ -187,26 +187,103 @@ questions (#1972):
 - `tier` comes from `?graphics=`, backend / fallback adapter, `navigator.deviceMemory` and the
   adapter's light-load hint. It is published for diagnostics; graphics decisions still go through
   `StartupCapabilities` (`src/core/startup/capabilities.ts`). No GPU-time probe yet.
+- `maxPixelRatio` is tier-scaled: `low` and every WebGL2 boot render at 1, `medium`/`high` keep
+  the historical 1.5 (Chrome reports at most 8 GB of `deviceMemory`, so most Chrome players are
+  `medium`). See [Viewport](#viewport-pixel-ratio-and-resize).
 - The animation loop always starts. `?freezeLoop=1` is the only way to boot to `__sceneReady`
   without it; the smoke, boot-timing, population and visual-regression harnesses pass it.
 - `src/core/platform/` is a leaf with its own Vite chunk (`platform`). `weather` calls into it while
   it evaluates, before `app` has run, and module state inside `app` would still be in TDZ then.
 
+## Viewport, pixel ratio and resize
+
+`src/rendering/viewport.ts` is the only code that sizes the renderer. `initScene()` calls
+`installViewport(renderer, camera, caps.maxPixelRatio)`, which:
+
+- sets `pixelRatio = min(devicePixelRatio, maxPixelRatio)`, the window size and the camera aspect;
+- re-applies all three on `window` `resize` (one listener; `init.ts` and both post-FX graphs used to
+  add their own);
+- watches `matchMedia('(resolution: <dpr>dppx)')` and re-applies when it stops matching (window
+  dragged to a monitor with a different DPR, browser zoom), re-arming for the new DPR;
+- then calls each `onViewportResize()` subscriber. `scene-pipeline.ts` subscribes the post-FX
+  `syncSize` (WebGPU: `postProcessing.needsUpdate`; the composer path: `composer.setSize`).
+
+The canvas sits directly in `<body>`, whose height is its content, so there is no viewport-sized
+container a `ResizeObserver` could watch without missing height-only resizes; the window stays the
+size source.
+
+## Shader warmup
+
+`compileSceneProgressively()` (`src/rendering/shader-warmup.ts`) calls `renderer.compileAsync()` on
+the real scene with the real camera, in chunks of 48 objects with an event-loop turn between them.
+It runs at boot (`core/main/shader-warmup.ts`, before world generation) and again 2 s after world
+generation (`runDeferredWarmup()` in `core/deferred-init.ts`). Both skip automation; the boot pass
+also skips `safeMode`, the deferred pass `?boot=instant`.
+
+- **Why:** the old warm-up rendered a clone of each preset material into a 1×1 HalfFloat target
+  without depth or MSAA, then disposed it, which released the pipeline. Only the browser shader
+  cache benefited. Compiling the real objects keeps their render objects, node builder states and
+  pipelines for the next frame.
+- **Chunks without changing the program:** the scene stays the root of every call (so fog, the
+  environment and the full light list are the frame's), and each chunk is selected through camera
+  layer 31 (`WARMUP_LAYER`). Layers, `frustumCulled`, the render target and MRT are swapped and
+  restored synchronously around the call: Three projects and builds before its first `await`.
+- **Target:** Three keys render objects and pipelines on the render target. The post-FX scene pass
+  draws into its own `rgba16float` target with the renderer's MSAA, so `initWebGPUPostProcessing()`
+  exposes `compileTarget()` (the pass target, with samples mirrored from `PassNode.setup()`, and its
+  MRT). Without post-FX the default is the target `render()` itself uses
+  (`renderer._getFrameBufferTarget()`), or the canvas.
+- **A failed pipeline cannot hang boot:** Three 0.171 wraps `createRenderPipelineAsync()` in a
+  promise that only resolves, so a rejection (device lost, a shader the driver refuses) left
+  `compileAsync()` pending forever and surfaced as an unhandled rejection, which the bootstrap shows
+  as a fatal startup error. During each call a rejected async creation falls back to the sync
+  `createRenderPipeline()`, which is what a normal frame does. Warmup also stops once the renderer
+  reports `_isDeviceLost`.
+- `forceFullSceneWarmup()` (never called) and the per-material `ShaderWarmup` class are gone.
+
+## GPU frame time (timestamp-query)
+
+`timestamp-query` is requested only for `?debug` and `?graphics=high`, and the renderer is then
+built with `trackTimestamp`. Three 0.171 writes per-pass timestamps but reads them back only from
+`renderAsync()` / `computeAsync()`; the game loop renders synchronously, so
+`renderer.info.render.timestamp` was always 0 and the budget never got a GPU time.
+`createGpuFrameTimer()` (`src/rendering/gpu-frame-timer.ts`) wraps the backend's
+`prepareTimestampBuffer()` to note each frame's passes and, every 30 frames, maps their result
+buffers and calls `performanceBudget.setGpuFrameTime(sum of pass durations)`. One readback is in
+flight at a time; Three skips its copy into a mapped buffer, so nothing stalls. Without the feature
+the timer is a no-op and `gpuFrameTime` stays `null`.
+
 ## Device-lost policy
 
-1. `gpu-context.ts` registers **both** `device.lost` and `renderer.onDeviceLost` (Three's default
-   only logged). Both route into one handler that runs at most once.
+1. `gpu-context.ts` registers **both** `device.lost` and `renderer.onDeviceLost`. Three's default
+   handler logged and set `renderer._isDeviceLost`; ours sets that flag too, so `render()` and
+   `compileAsync()` stop submitting work, and stubs `compute()` / `computeAsync()`, which ignore the
+   flag in Three 0.171 (per-frame dispatches otherwise threw a `createBuffer` page error every frame
+   on the dead device). Both route into one handler that runs at most once. On
+   the WebGL2 fallback, `watchWebGLContextLoss()` routes `webglcontextlost` into the same handler
+   (see [`webgl-fallback.md`](./webgl-fallback.md#context-loss)).
 2. The shared context flips to `available: false`, `device: null`, `lost: true`. Any later
    `awaitGpuDevice()` returns `null`, so newly created systems start on their CPU tier.
 3. Registered `onGpuDeviceLost` listeners fire. `GPUComputeLibrary` soft-disables itself and drops
    its pipeline and layout caches (they belonged to the dead device); each `ComputeParticleSystem`
    clears its GPU state so `update()` stops dispatching. A listener that throws is caught and
    logged — it cannot break the others.
-4. A soft-fallback banner appears, styled after the existing renderer badge in
-   `src/ui/mode-badge.ts`: a fixed `role="status"` pill with a **Reload** button. No modal, no input
-   capture, no new UI system.
-5. Everything is logged at `warn` level and nothing throws, so a lost device degrades the session
-   instead of ending it.
+4. A banner appears, styled after the existing renderer badge in `src/ui/mode-badge.ts`: a fixed
+   `role="alert"` pill reading **Graphics stopped —** with a **Reload** button. Rendering really has
+   stopped (Three has no device to draw with), so it no longer says "effects reduced". No modal, no
+   input capture, no new UI system. Re-probing and re-initialising the renderer in place is not
+   attempted: every pipeline, buffer and texture belonged to the dead device.
+5. Everything is logged at `warn` level and nothing throws.
+
+To check by hand, run `game.renderer.backend.device.destroy()` in devtools: the banner appears and
+`window.__gpuContext.lost` is `true`.
+
+### Uncaptured errors
+
+`armGpuContext()` also listens for the device's `uncapturederror`. Each error is recorded as
+`{ type: 'validation' | 'out-of-memory' | 'internal' | 'unknown', message, at }` on
+`window.__gpuContext.errors` (`count`, plus the last 20 in `recent`); the first three are echoed with
+`console.warn`. The event is not cancelled, so the browser still logs it as well.
 
 All losses are treated as faults, including `reason: 'destroyed'` — nothing in the app destroys the
 shared device any more, so a destroy means something external tore it down.
@@ -224,7 +301,8 @@ maxStorageBufferBindingSize=134217728/134217728 maxComputeWorkgroupSizeX=256/256
 Each limit is logged as `granted/requested`.
 
 `window.__gpuContext` carries `backend`, `available`, `lost`, `lostReason`, `reason`,
-`powerPreference`, `requiredLimits`, `adapter`, `adapterName`, `limits`, `alpha`, and `antialias`.
+`powerPreference`, `requiredLimits`, `adapter`, `adapterName`, `limits`, `alpha`, `antialias`,
+`contextRestored` (WebGL2) and `errors` (`{ count, recent }`, see above).
 It is published from module load, so it is always readable — before arming it reports
 `available: false`. The smoke test asserts its shape on the WebGPU path.
 
