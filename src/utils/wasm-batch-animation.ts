@@ -289,7 +289,10 @@ export function batchComposeMatrices_c(
 
     // Use .buffer safely
     const memoryBuffer = (emscriptenMemory as any).buffer || emscriptenMemory;
-    const heapF32 = new Float32Array(memoryBuffer);
+    let heapF32 = _cachedHeapF32;
+    if (!heapF32 || heapF32.buffer !== memoryBuffer || heapF32.length === 0) {
+        heapF32 = _cachedHeapF32 = new Float32Array(memoryBuffer);
+    }
 
     // Copy input data to WASM memory
     heapF32.set(positions.subarray(0, count * 3), _composePtrPos >> 2);
@@ -538,7 +541,11 @@ export function updateParticlesWASM(
 
     if (!ptrP || !ptrV) return;
 
-    const heapF32 = new Float32Array(emscriptenMemory);
+    let heapF32 = _cachedHeapF32;
+    const memoryBuffer = (emscriptenMemory as any).buffer || emscriptenMemory;
+    if (!heapF32 || heapF32.buffer !== memoryBuffer || heapF32.length === 0) {
+        heapF32 = _cachedHeapF32 = new Float32Array(memoryBuffer);
+    }
     heapF32.set(positions, ptrP >> 2);
     heapF32.set(velocities, ptrV >> 2);
 
