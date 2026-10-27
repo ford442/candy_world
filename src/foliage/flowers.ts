@@ -158,7 +158,11 @@ export function createStarflower(
     stem.castShadow = true;
     group.add(stem);
 
-    const center = new THREE.Mesh(sharedGeometries.unitSphere, foliageMaterials.flowerCenter);
+    // Own copy: animateFoliage flashes a reactive mesh's emissive in place.
+    const center = new THREE.Mesh(
+        sharedGeometries.unitSphere,
+        (foliageMaterials.flowerCenter as THREE.Material).clone()
+    );
     center.scale.setScalar(0.09);
     center.position.y = stemH;
     group.add(center);

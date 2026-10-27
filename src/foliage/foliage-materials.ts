@@ -162,3 +162,21 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
     get mouth() { return CandyPresets.Clay(0x2D3436); },
     get clayMouth() { return CandyPresets.Clay(0x2D3436); }
 };
+
+// The getters above used to build a new material (and its node graph) on every
+// read, so `validateFoliageMaterials` and shader warmup each built throwaway
+// copies. Each getter now runs once: its first read replaces it with a plain
+// property holding that instance. Callers that need their own copy `.clone()`.
+for (const [key, desc] of Object.entries(Object.getOwnPropertyDescriptors(foliageMaterials))) {
+    if (!desc.get) continue;
+    const build = desc.get.bind(foliageMaterials) as () => THREE.Material | THREE.Material[];
+    Object.defineProperty(foliageMaterials, key, {
+        configurable: true,
+        enumerable: true,
+        get() {
+            const value = build();
+            Object.defineProperty(foliageMaterials, key, { value, writable: true, enumerable: true });
+            return value;
+        },
+    });
+}

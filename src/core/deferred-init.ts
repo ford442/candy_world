@@ -202,6 +202,7 @@ export function applyAwakenedPersistenceAfterWorldLoad(): void {
 // Runs 2 seconds after world generation and compiles the generated world with
 // `renderer.compileAsync()` in chunks (rendering/shader-warmup.ts), so the
 // pipelines the next frames need already exist and no task blocks for long.
+// Objects the boot pass already compiled are skipped, so nothing compiles twice.
 
 /** Set to true to cancel an in-progress deferred warmup (e.g. on scene transition). */
 let _warmupAborted = false;
@@ -265,7 +266,7 @@ export function runDeferredWarmup(
 
             log.info(
                 'Deferred',
-                `✅ Scene shaders pre-compiled (${stats.objects} objects, ${warmupBatches} chunk${warmupBatches !== 1 ? 's' : ''}, ` +
+                `✅ Scene shaders pre-compiled (${stats.objects} objects, ${stats.alreadyCompiled} from boot, ${warmupBatches} chunk${warmupBatches !== 1 ? 's' : ''}, ` +
                     `max ${warmupBatchMaxMs.toFixed(0)} ms/chunk${stats.aborted ? ', aborted' : ''}).`
             );
         } catch (e) {

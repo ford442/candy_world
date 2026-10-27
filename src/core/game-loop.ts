@@ -4,6 +4,7 @@
 // (phases, fixed step and how to add a system: docs/ARCHITECTURE.md).
 
 import * as THREE from 'three';
+import { installFrameHitchCounter } from '../rendering/frame-hitches.ts';
 import { createGpuFrameTimer, type GpuFrameTimer } from '../rendering/gpu-frame-timer.ts';
 import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
@@ -44,6 +45,8 @@ let _entryLogged = false;
 let _firstFrameLogged = false;
 /** Created on the first rendered frame; a no-op unless timestamp-query was granted. */
 let gpuFrameTimer: GpuFrameTimer | null = null;
+/** First-frame time and hitches in the first 30 s of play (shader-compile stalls). */
+const frameHitches = installFrameHitchCounter();
 
 export function animate() {
     if (!_entryLogged) {
@@ -64,6 +67,7 @@ export function animate() {
     }
     _entryLogged = true;
 
+    frameHitches.beginFrame(performance.now());
     profiler.startFrame();
     performanceBudget.beginFrame();
 
@@ -112,4 +116,5 @@ export function animate() {
         );
         gpuFrameTimer.endFrame();
     }
+    frameHitches.endFrame(performance.now());
 }

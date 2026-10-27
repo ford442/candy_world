@@ -12,6 +12,11 @@
  * keeps the render objects, node builder states and pipelines the next frame
  * looks up, so the first real frame finds them already built.
  *
+ * Once per object: the boot pass compiles the scene that exists before world
+ * generation and the deferred pass the generated world. Each renderer
+ * remembers which objects it compiled, with which material, so the deferred
+ * pass skips what boot already built and only a swapped material compiles again.
+ *
  * Progressive: `compileAsync(scene, camera)` would project and build the whole
  * scene in one synchronous task. Instead each call sees one chunk of objects
  * through a spare camera layer ({@link WARMUP_LAYER}), and the event loop gets
@@ -52,6 +57,8 @@ export interface ProgressiveCompileOptions {
 
 export interface ProgressiveCompileStats {
     objects: number;
+    /** Visible objects skipped because this renderer already compiled them. */
+    alreadyCompiled: number;
     chunks: number;
     failedChunks: number;
     maxChunkMs: number;
@@ -101,7 +108,19 @@ function guardAsyncPipelines(device: GPUDevice | null | undefined): () => void {
     };
 }
 
-type Renderable = THREE.Object3D & { frustumCulled: boolean };
+type Renderable = THREE.Object3D & { frustumCulled: boolean; material?: unknown };
+
+/** Per renderer: each compiled object and the material it was compiled with. */
+const compiledByRenderer = new WeakMap<object, WeakMap<THREE.Object3D, unknown>>();
+
+function compiledFor(renderer: CompilingRenderer): WeakMap<THREE.Object3D, unknown> {
+    let compiled = compiledByRenderer.get(renderer);
+    if (!compiled) {
+        compiled = new WeakMap();
+        compiledByRenderer.set(renderer, compiled);
+    }
+    return compiled;
+}
 
 function isRenderable(obj: THREE.Object3D): obj is Renderable {
     const o = obj as { isMesh?: boolean; isLine?: boolean; isPoints?: boolean; isSprite?: boolean };
@@ -200,17 +219,21 @@ export async function compileSceneProgressively(
 ): Promise<ProgressiveCompileStats> {
     const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_CHUNK_SIZE);
     const start = performance.now();
-    const { objects, lights } = collectCompileSet(scene, camera);
+    const visible = collectCompileSet(scene, camera);
+    const compiled = compiledFor(renderer);
+    const objects = visible.objects.filter((o) => compiled.get(o) !== o.material);
+    const { lights } = visible;
     const stats: ProgressiveCompileStats = {
         objects: objects.length,
+        alreadyCompiled: visible.objects.length - objects.length,
         chunks: 0,
         failedChunks: 0,
         maxChunkMs: 0,
         totalMs: 0,
-        aborted: false,
+        aborted: isRendererLost(renderer),
     };
 
-    for (let i = 0; i < objects.length; i += chunkSize) {
+    for (let i = 0; i < objects.length && !stats.aborted; i += chunkSize) {
         // A lost device makes every later chunk a no-op (Three returns early).
         if (isRendererLost(renderer) || options.shouldAbort?.()) {
             stats.aborted = true;
@@ -218,15 +241,10 @@ export async function compileSceneProgressively(
         }
         const chunkStart = performance.now();
         const target = options.target ? options.target() : defaultTarget(renderer);
+        const chunk = objects.slice(i, i + chunkSize);
         try {
-            await compileChunk(
-                renderer,
-                scene,
-                camera,
-                objects.slice(i, i + chunkSize),
-                lights,
-                target
-            );
+            await compileChunk(renderer, scene, camera, chunk, lights, target);
+            for (const o of chunk) compiled.set(o, o.material);
         } catch (err) {
             stats.failedChunks++;
             console.warn('[ShaderWarmup] compileAsync failed for a chunk (non-fatal):', err);

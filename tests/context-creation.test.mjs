@@ -62,6 +62,7 @@ const { resolveMaxPixelRatio, resolvePlatformCapabilities } =
 const viewport = await import('../src/rendering/viewport.ts');
 const warmup = await import('../src/rendering/shader-warmup.ts');
 const timer = await import('../src/rendering/gpu-frame-timer.ts');
+const hitches = await import('../src/rendering/frame-hitches.ts');
 
 const quiet = async (fn) => {
     const warn = console.warn;
@@ -248,7 +249,7 @@ await quiet(async () => {
     const realTarget = new THREE.RenderTarget(1, 1);
     const passTarget = new THREE.RenderTarget(1, 1);
     const seen = [];
-    const renderer = {
+    let renderer = {
         target: realTarget,
         mrt: 'frame-mrt',
         getRenderTarget() {
@@ -306,7 +307,26 @@ await quiet(async () => {
     assert.equal(renderer.target, realTarget);
     assert.equal(renderer.mrt, 'frame-mrt');
 
+    // Each object compiles once per renderer: a second pass (the deferred
+    // warmup after boot's) skips them, and a swapped material compiles again.
+    seen.length = 0;
+    const again = await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    assert.equal(again.objects, 0);
+    assert.equal(again.alreadyCompiled, 5);
+    assert.equal(seen.length, 0, 'nothing left to compile');
+    meshes[3].material = new THREE.MeshBasicMaterial();
+    const swapped = await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    assert.equal(swapped.objects, 1);
+    assert.deepEqual(seen.at(-1).projected, [meshes[3]]);
+    meshes[3].material = mat;
+
     // A throwing chunk is restored and skipped; abort stops between chunks.
+    // A fresh renderer has compiled nothing yet.
+    renderer = { ...renderer };
     let n = 0;
     renderer.compileAsync = () => {
         if (n++ === 0) throw new Error('boom');
@@ -426,6 +446,39 @@ await quiet(async () => {
             (d) => d.currentTimestampQueryBuffers.resultBuffer.mapState === 'unmapped'
         )
     );
+}
+
+// --- First-30 s frame hitch counter ----------------------------------------
+{
+    let done = null;
+    const c = hitches.createFrameHitchCounter((r) => (done = { ...r }));
+    // First frame: 120 ms of work (a cold pipeline), then 16 ms frames with
+    // one 60 ms and one 140 ms interval.
+    let t = 1000;
+    c.beginFrame(t);
+    c.endFrame(t + 120);
+    t += 125;
+    const intervals = [16, 60, 16, 140, 16];
+    for (const dt of intervals) {
+        c.beginFrame(t);
+        c.endFrame(t + 4);
+        t += dt;
+    }
+    const r = c.report();
+    assert.equal(r.firstFrameMs, 120);
+    assert.equal(r.frames, 1 + intervals.length);
+    assert.equal(r.over50, 3, 'the 125 ms first interval, 60 ms and 140 ms');
+    assert.equal(r.over100, 2);
+    assert.equal(r.worstMs, 140);
+    assert.equal(r.done, false);
+    assert.equal(done, null);
+
+    // The window closes once, and the numbers freeze.
+    c.beginFrame(1000 + hitches.HITCH_WINDOW_MS);
+    assert.equal(c.report().done, true);
+    assert.equal(done.frames, r.frames);
+    c.beginFrame(1000 + hitches.HITCH_WINDOW_MS + 500);
+    assert.equal(c.report().frames, done.frames, 'frozen after the window');
 }
 
 console.log('context-creation: all assertions passed');
