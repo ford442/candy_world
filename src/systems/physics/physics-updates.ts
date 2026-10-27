@@ -26,6 +26,7 @@ import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uStrobeIntensity } from '../../foliage/strobe-nodes.ts';
+import { simRng } from '../../utils/sim-rng.ts';
 import { showToast } from '../../utils/toast.ts';
 import {
     batchGeyserLaunch,
@@ -73,6 +74,7 @@ import {
     KeyStates,
     AudioState,
     foliageCaves,
+    physicsClock,
 } from './physics-types.ts';
 
 interface PhysicsSyncObject {
@@ -142,7 +144,7 @@ export function checkFloraDiscovery(playerPos: THREE.Vector3) {
             }
         }
     }
-    if (player.velocity.lengthSq() > 400 && Math.random() < 0.3) {
+    if (player.velocity.lengthSq() > 400 && simRng.next() < 0.3) {
         spawnImpact(player.position, 'trail');
     }
 }
@@ -273,7 +275,8 @@ export function checkVibratoViolets(delta: number, audioState: AudioState | null
  */
 export function checkPortamentoPines(delta: number) {
     const playerPos = player.position;
-    const now = performance.now();
+    // Simulation time, so the launch cooldown replays identically.
+    const now = physicsClock.ms;
     const nearbyPines = physicsPinesGrid.findNearby(playerPos.x, playerPos.z, 5.0);
     for (let i = 0; i < nearbyPines.length; i++) {
         const pine = nearbyPines[i];
@@ -344,7 +347,7 @@ export function checkSnareTraps(delta: number) {
                     player.velocity.addScaledVector(pushDir, 60.0 * delta * snapState);
                     player.velocity.y = Math.max(player.velocity.y, 15.0 * snapState);
                     player.isGrounded = false;
-                    if (Math.random() < 0.2) {
+                    if (simRng.next() < 0.2) {
                         if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
                         spawnImpact(player.position, 'snare');
                         addCameraShake(0.6);

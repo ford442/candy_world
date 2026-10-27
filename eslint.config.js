@@ -135,6 +135,22 @@ export default tseslint.config(
         },
     },
     {
+        // #1973: simulation and world generation draw from seeded streams, so a
+        // seed plus an input log replays the same world and the same run.
+        files: ['src/systems/physics/**/*.ts', 'src/systems/fauna/**/*.ts', 'src/world/**/*.ts'],
+        rules: {
+            'no-restricted-properties': [
+                'error',
+                {
+                    object: 'Math',
+                    property: 'random',
+                    message:
+                        'Use simRng (utils/sim-rng.ts, ctx.rng in a system) in fixed-step simulation, or getSeededRandom() (utils/seeded-random.ts) in world generation.',
+                },
+            ],
+        },
+    },
+    {
         files: ['src/utils/log.ts'],
         rules: {
             // log.ts is the single allowed console sink.

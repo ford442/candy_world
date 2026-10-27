@@ -7,6 +7,7 @@ import {
     getGroundHeight,
 } from '../systems/ground-system.ts';
 import { debugHooks } from '../utils/debug-hooks.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
 import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
@@ -48,25 +49,25 @@ export async function populateSugarCaves(weatherSystem: WeatherSystem): Promise<
 
     for (let i = 0; i < count; i++) {
         const t = i / Math.max(1, count - 1);
-        const x = startX + dx * t + (Math.random() - 0.5) * 6.0;
-        const z = startZ + dz * t + (Math.random() - 0.5) * 6.0;
+        const x = startX + dx * t + (getSeededRandom() - 0.5) * 6.0;
+        const z = startZ + dz * t + (getSeededRandom() - 0.5) * 6.0;
 
         // Ensure caves are placed underground relative to unified ground height
         const terrainY = sampleGroundY(x, z);
-        const caveY = terrainY - 5.0 - Math.random() * 4.0;
+        const caveY = terrainY - 5.0 - getSeededRandom() * 4.0;
 
         _scratchPos.set(x, caveY, z);
 
         // Random orientation
         _scratchQuat.setFromEuler(
             new THREE.Euler(
-                (Math.random() - 0.5) * Math.PI,
-                Math.random() * Math.PI * 2,
-                (Math.random() - 0.5) * Math.PI
+                (getSeededRandom() - 0.5) * Math.PI,
+                getSeededRandom() * Math.PI * 2,
+                (getSeededRandom() - 0.5) * Math.PI
             )
         );
 
-        const scale = 0.8 + Math.random() * 0.8;
+        const scale = 0.8 + getSeededRandom() * 0.8;
         sugarCaveBatcher.add(_scratchPos, _scratchQuat, scale);
 
         if (i % 20 === 19) await yieldControl();
@@ -244,7 +245,7 @@ export async function populateSkyIslands(weatherSystem: WeatherSystem): Promise<
                 const a = (m / 5) * Math.PI * 2;
                 const mx = x + Math.cos(a) * (layer.radius * 0.45);
                 const mz = z + Math.sin(a) * (layer.radius * 0.45);
-                const mush = create('glass_mushroom', { scale: 0.7 + Math.random() * 0.4 });
+                const mush = create('glass_mushroom', { scale: 0.7 + getSeededRandom() * 0.4 });
                 if (!mush) continue;
                 mush.position.set(mx, y, mz);
                 mush.userData.biome = 'sky_islands';

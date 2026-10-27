@@ -137,6 +137,8 @@ declare global {
                 estimatedVramBytes: number;
             }>;
         };
+        /** The frame's SystemScheduler (#1973): `getStats()`, `getOrder()`, `setEnabled(id, on)`. */
+        __frameScheduler?: import('../core/scheduler/scheduler.ts').SystemScheduler;
         __getFogTelemetry?: () => {
             targetNear: number;
             targetFar: number;

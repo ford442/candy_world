@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FEATURE_FLAGS } from '../core/config.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
 import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
@@ -52,8 +53,8 @@ export async function populateProceduralExtras(
         let validPosition = false;
 
         while (attempts < 10) {
-            x = (Math.random() - 0.5) * range;
-            z = (Math.random() - 0.5) * range;
+            x = (getSeededRandom() - 0.5) * range;
+            z = (getSeededRandom() - 0.5) * range;
             if (isPositionValid(x, z, 1.5)) {
                 validPosition = true;
                 break;
@@ -65,7 +66,7 @@ export async function populateProceduralExtras(
         const groundY = sampleGroundY(x, z);
 
         // Determine object type and criticality
-        const rand = Math.random();
+        const rand = getSeededRandom();
 
         // Define a closure to spawn this specific extra
         const spawnExtra = () => {
@@ -80,7 +81,7 @@ export async function populateProceduralExtras(
 
             try {
                 if (rand < 0.3) {
-                    if (Math.random() < 0.5) {
+                    if (getSeededRandom() < 0.5) {
                         obj = create('flower');
                         exportType = 'flower';
                         exportVariant = 'simple';
@@ -111,7 +112,7 @@ export async function populateProceduralExtras(
                         });
                     isObstacle = true;
                 } else if (rand < 0.55) {
-                    const treeType = Math.random();
+                    const treeType = getSeededRandom();
                     if (treeType < 0.33) {
                         obj = create('bubble_willow');
                         exportType = 'bubble_willow';
@@ -132,7 +133,7 @@ export async function populateProceduralExtras(
                     radius = 1.5;
                 } else if (rand < 0.75) {
                     if (FEATURE_FLAGS.musicalFlora) {
-                        const type = Math.random();
+                        const type = getSeededRandom();
                         if (type < 0.15) {
                             obj = create('arpeggio_fern', {
                                 scale: sampleEntityScale('arpeggio_fern'),
@@ -152,7 +153,7 @@ export async function populateProceduralExtras(
                         } else if (type < 0.5) {
                             obj = create('retrigger_mushroom', {
                                 scale: sampleEntityScale('retrigger_mushroom'),
-                                retriggerSpeed: 2 + Math.floor(Math.random() * 6),
+                                retriggerSpeed: 2 + Math.floor(getSeededRandom() * 6),
                             });
                             exportType = 'retrigger_mushroom';
                         } else if (type < 0.6) {
@@ -174,7 +175,7 @@ export async function populateProceduralExtras(
                             exportType = 'cymbal_dandelion';
                         } else {
                             const panBias = x < 0 ? -1 : 1;
-                            const padRadius = 1.2 + Math.random();
+                            const padRadius = 1.2 + getSeededRandom();
                             obj = create('panning_pad', { radius: padRadius, panBias });
                             exportType = 'panning_pad';
                             exportParams.radius = padRadius;
@@ -194,9 +195,9 @@ export async function populateProceduralExtras(
                     }
                 } else if (rand < 0.9) {
                     // Vertical Ecosystem: Tiered Clouds
-                    const tierRoll = Math.random();
+                    const tierRoll = getSeededRandom();
                     if (tierRoll < 0.35) {
-                        currentY = 35 + Math.random() * 20;
+                        currentY = 35 + getSeededRandom() * 20;
                         const cloudSize = sampleEntityScale('cloud_tier1');
                         obj = create('cloud', { size: cloudSize });
                         exportType = 'cloud';
@@ -206,7 +207,7 @@ export async function populateProceduralExtras(
                             obj.userData.tier = 1;
                             obj.userData.isWalkable = true;
                         }
-                        if (Math.random() < 0.3) {
+                        if (getSeededRandom() < 0.3) {
                             const ladderLength = currentY - groundY;
                             if (ladderLength > 5) {
                                 const ladder = create('vine_ladder', { length: ladderLength });
@@ -233,7 +234,7 @@ export async function populateProceduralExtras(
                             }
                         }
                     } else {
-                        currentY = 12 + Math.random() * 16;
+                        currentY = 12 + getSeededRandom() * 16;
                         const cloudSize = sampleEntityScale('cloud_tier2');
                         obj = create('cloud', { size: cloudSize });
                         exportType = 'cloud';
@@ -256,9 +257,9 @@ export async function populateProceduralExtras(
                 } else if (rand < 0.97) {
                     obj = create('melody_mirror', { scale: 2.0 });
                     exportType = 'melody_mirror';
-                    if (obj) obj.position.set(x, groundY + 15 + Math.random() * 10, z);
+                    if (obj) obj.position.set(x, groundY + 15 + getSeededRandom() * 10, z);
                 } else {
-                    const id = Math.floor(Math.random() * 16);
+                    const id = Math.floor(getSeededRandom() * 16);
                     obj = create('instrument_shrine', { instrumentID: id });
                     exportType = 'instrument_shrine';
                     exportVariant = String(id);
@@ -269,7 +270,7 @@ export async function populateProceduralExtras(
                 }
 
                 if (obj) {
-                    obj.rotation.y = Math.random() * Math.PI * 2;
+                    obj.rotation.y = getSeededRandom() * Math.PI * 2;
                     const normalizedExportType = normalizeMapEntityType(
                         exportType ?? obj.userData?.type ?? ''
                     );

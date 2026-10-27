@@ -25,6 +25,7 @@ import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { bootProgress } from '../utils/boot-progress.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
 import { initCollisionSystem } from '../utils/wasm-loader.ts';
 import { ChunkStreamer, setActiveChunkStreamer } from './chunk-streamer.ts';
@@ -319,8 +320,8 @@ async function buildOutdoorSetpieces(
     if (FEATURE_FLAGS.luminousPlants) {
         await yieldControl();
         for (let i = 0; i < luminousCount; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const randDist = Math.pow(Math.random(), 2.0);
+            const angle = getSeededRandom() * Math.PI * 2;
+            const randDist = Math.pow(getSeededRandom(), 2.0);
             const dist = 10 + randDist * 25;
 
             const lx = -40 + Math.cos(angle) * dist;
@@ -334,7 +335,7 @@ async function buildOutdoorSetpieces(
                 });
                 if (!plant) continue;
                 plantOnSurface(plant, lx, lz, { groundY: ly });
-                plant.rotation.y = Math.random() * Math.PI * 2;
+                plant.rotation.y = getSeededRandom() * Math.PI * 2;
                 safeAddFoliage(plant, false, 0, weatherSystem);
             }
 
@@ -654,8 +655,8 @@ export async function generateCoreWorld(
     const maxAttempts = 20;
     const getRandomGroundPosition = (radius: number) => {
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            const x = (Math.random() - 0.5) * areaSize;
-            const z = (Math.random() - 0.5) * areaSize;
+            const x = (getSeededRandom() - 0.5) * areaSize;
+            const z = (getSeededRandom() - 0.5) * areaSize;
             if (!isPositionValid(x, z, radius)) continue;
             return { x, z, y: sampleGroundY(x, z) };
         }
@@ -695,7 +696,7 @@ export async function generateCoreWorld(
         const seedObj = seedFactories[i % seedFactories.length]();
         if (!seedObj) continue;
         plantOnSurface(seedObj, sx, sz, { groundY: sy });
-        seedObj.rotation.y = Math.random() * Math.PI * 2;
+        seedObj.rotation.y = getSeededRandom() * Math.PI * 2;
         safeAddFoliage(seedObj, false, 0.3, weatherSystem);
     }
     await yieldControl();
@@ -717,7 +718,7 @@ export async function generateCoreWorld(
             const obj = factory();
             if (!obj) continue;
             plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
-            obj.rotation.y = Math.random() * Math.PI * 2;
+            obj.rotation.y = getSeededRandom() * Math.PI * 2;
             safeAddFoliage(obj, true, 1.5, weatherSystem);
         }
         if (performance.now() - chunkStart >= getEntityBudgetMs()) {
@@ -740,7 +741,7 @@ export async function generateCoreWorld(
             });
             if (!obj) continue;
             plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
-            obj.rotation.y = Math.random() * Math.PI * 2;
+            obj.rotation.y = getSeededRandom() * Math.PI * 2;
             safeAddFoliage(obj, true, 0.5, weatherSystem);
         }
         if (performance.now() - chunkStart >= getEntityBudgetMs()) {
@@ -755,7 +756,7 @@ export async function generateCoreWorld(
     for (let i = 0; i < 12; i++) {
         const pos = getRandomGroundPosition(0.8);
         if (!pos) continue;
-        const height = 10 + Math.random() * 18;
+        const height = 10 + getSeededRandom() * 18;
         const cloud = create('cloud', { size: sampleEntityScale('cloud') });
         if (!cloud) continue;
         cloud.position.set(pos.x, height, pos.z);
@@ -772,7 +773,7 @@ export async function generateCoreWorld(
     // Low flowers and luminous accents (lightweight — single yield at end is sufficient).
     for (let i = 0; i < 16; i++) {
         const factory =
-            Math.random() < 0.5
+            getSeededRandom() < 0.5
                 ? () => create('flower')
                 : () => create('flower', { variant: 'glowing' });
         const pos = getRandomGroundPosition(0.4);
@@ -780,7 +781,7 @@ export async function generateCoreWorld(
             const obj = factory();
             if (!obj) continue;
             plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
-            obj.rotation.y = Math.random() * Math.PI * 2;
+            obj.rotation.y = getSeededRandom() * Math.PI * 2;
             safeAddFoliage(obj, false, 0.4, weatherSystem);
         }
     }
@@ -798,7 +799,7 @@ export async function generateCoreWorld(
         const obj = factory();
         if (!obj) continue;
         plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
-        obj.rotation.y = Math.random() * Math.PI * 2;
+        obj.rotation.y = getSeededRandom() * Math.PI * 2;
         safeAddFoliage(obj, false, 0.4, weatherSystem);
     }
 
@@ -1011,7 +1012,7 @@ export async function generateLobbyWorld(
         const obj = create(item.type, item.params);
         if (!obj) continue;
         plantOnSurface(obj, item.x, item.z, { groundY: LOBBY_FLOOR_TOP_Y });
-        obj.rotation.y = Math.random() * Math.PI * 2;
+        obj.rotation.y = getSeededRandom() * Math.PI * 2;
         safeAddFoliage(
             obj,
             item.type === 'mushroom' || item.type === 'instrument_shrine',
