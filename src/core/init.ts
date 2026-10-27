@@ -3,12 +3,7 @@
 import * as THREE from 'three';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import { color, uniform, uv, float, smoothstep } from 'three/tsl';
-import {
-    WebGPURenderer,
-    MeshBasicNodeMaterial,
-    StorageInstancedBufferAttribute,
-    StorageBufferAttribute,
-} from 'three/webgpu';
+import { WebGPURenderer, MeshBasicNodeMaterial } from 'three/webgpu';
 import { createCrescendoFogNode, uFogNear, uFogFar } from '../foliage/sky.ts';
 import { ensureOutputColorSpace } from '../rendering/color-spaces.ts';
 import {
@@ -17,6 +12,7 @@ import {
     probeWebGPU,
     settleWebGLContext,
     timestampQueryGranted,
+    watchWebGLContextLoss,
     WebGPUUnavailableError,
     GPU_ALPHA,
     GPU_ANTIALIAS,
@@ -27,6 +23,7 @@ import { attachProbeDebug, initIrradianceProbes } from '../rendering/irradiance-
 import { initLocalLights } from '../rendering/lights.ts';
 import { resolveRendererBackend, type RendererBackend } from '../rendering/renderer-mode.ts';
 import { applyShadowSoftness } from '../rendering/shadow-softness.ts';
+import { installViewport } from '../rendering/viewport.ts';
 import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
 import { getGroundHeight } from '../systems/ground-system.ts';
 import {
@@ -253,6 +250,8 @@ async function createWebGLRenderer(
     // No GPUDevice on this path: compute consumers fail closed to their
     // CPU/WASM tier, and per-frame TSL compute dispatch stays off.
     settleWebGLContext(reason);
+    // A lost GL context used to leave a silent black canvas; show the reload banner.
+    watchWebGLContextLoss(renderer, canvas);
     (window as Window & { __computeDisabled?: boolean }).__computeDisabled = true;
     // Three runs TSL compute on WebGL2 through transform feedback, which cannot
     // express most of our kernels (too many varyings, storage textures) and
@@ -338,7 +337,7 @@ export async function createRenderer(
  * - Perspective camera positioned at (0, 5, 0)
  * - Hemisphere ambient light + directional sunlight with shadows
  * - Sun glow, corona, and volumetric light shafts
- * - Resize event handler
+ * - Viewport tracking (size, pixel ratio, camera aspect)
  *
  * @returns Promise<SceneInitResult> containing all scene objects, lights, materials, uniforms, and mode
  */
@@ -453,8 +452,9 @@ export async function initScene(): Promise<SceneInitResult> {
         }
     }
 
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, platformCaps.maxPixelRatio)); // Cap pixel ratio for better performance
+    // Size, tier-scaled pixel ratio and camera aspect; re-applied on window
+    // resize and on a devicePixelRatio change (see rendering/viewport.ts).
+    installViewport(renderer, camera, platformCaps.maxPixelRatio);
     renderer.toneMappingExposure = 1.0;
 
     // --- Lighting ---
@@ -584,25 +584,6 @@ export async function initScene(): Promise<SceneInitResult> {
     lightShaftGroup.visible = false; // Only visible during sunrise/sunset
     scene.add(lightShaftGroup);
 
-    const resizeObserver = new ResizeObserver(() => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, platformCaps.maxPixelRatio));
-    });
-
-    // Only observe if document.body is available, fallback to window resize if not
-    if (document.body) {
-        resizeObserver.observe(document.body);
-    } else {
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, platformCaps.maxPixelRatio));
-        });
-    }
-
     return {
         scene,
         camera,
@@ -619,102 +600,4 @@ export async function initScene(): Promise<SceneInitResult> {
         coronaMat,
         uShaftOpacity,
     };
-}
-
-/**
- * Force a full scene warmup render to prevent shader compilation stutter.
- *
- * Runs on both backends (`WebGPURenderer` compiles TSL to WGSL or GLSL); the
- * `isWebGPUMode` guard below only protects non-`WebGPURenderer` callers.
- *
- * Temporarily disables frustum culling, moves camera to capture all objects,
- * renders a 1x1 pixel frame to trigger shader compilation, then restores
- * all original states.
- *
- * @param renderer - The WebGPU renderer instance
- * @param scene - The Three.js scene to warm up
- * @param camera - The camera to use for warmup rendering
- * @returns Promise that resolves when warmup is complete
- */
-export async function forceFullSceneWarmup(
-    renderer: CandyRenderer,
-    scene: THREE.Scene,
-    camera: THREE.PerspectiveCamera
-): Promise<void> {
-    // Only warmup WebGPU renderer; WebGL is more forgiving
-    if (!isWebGPUMode(renderer)) {
-        console.log('[Init] Skipping scene warmup for WebGL renderer');
-        return;
-    }
-    // 1. Save state
-    const originalMask = camera.layers.mask;
-    const originalPos = camera.position.clone();
-    const originalRot = camera.rotation.clone();
-    const originalAutoClear = renderer.autoClear;
-
-    // 2. Force visibility and hide sensitive meshes
-    const restoreList: (THREE.Mesh | THREE.Points)[] = [];
-    const visibleRestoreList: (THREE.Mesh | THREE.Points)[] = [];
-    scene.traverse((obj: THREE.Object3D) => {
-        const isRenderable = obj instanceof THREE.Mesh || obj instanceof THREE.Points;
-        if (isRenderable && obj.frustumCulled) {
-            obj.frustumCulled = false;
-            restoreList.push(obj);
-        }
-        // Hide meshes/points with storage/compute attributes during warmup
-        // Their TSL materials can crash the renderer if compiled in a generic context.
-        if (isRenderable && obj.visible) {
-            const geo = obj.geometry;
-            const hasStorageAttr =
-                geo &&
-                Object.values(geo.attributes).some(
-                    (attr: any) =>
-                        attr instanceof StorageInstancedBufferAttribute ||
-                        attr instanceof StorageBufferAttribute
-                );
-            if (hasStorageAttr) {
-                obj.visible = false;
-                visibleRestoreList.push(obj);
-            }
-        }
-    });
-
-    // 3. Render 1x1 pixel frame
-    const scissor = new THREE.Vector4();
-    renderer.getViewport(scissor);
-    renderer.setViewport(0, 0, 1, 1);
-
-    camera.layers.enableAll();
-    camera.position.set(0, 50, 0);
-    camera.lookAt(0, 0, 0);
-
-    try {
-        renderer.render(scene, camera);
-    } catch (e) {
-        console.warn('Warmup error', e);
-    }
-
-    // 4. Restore
-    renderer.setViewport(scissor.x, scissor.y, scissor.z, scissor.w);
-    restoreList.forEach((o) => (o.frustumCulled = true));
-    visibleRestoreList.forEach((o) => {
-        if (o && typeof o.visible !== 'undefined') {
-            o.visible = true;
-        }
-    });
-    visibleRestoreList.length = 0; // prevent stale references
-    camera.layers.mask = originalMask;
-    camera.position.copy(originalPos);
-    camera.rotation.copy(originalRot);
-    renderer.autoClear = originalAutoClear;
-    renderer.clear();
-}
-
-/**
- * Re-sync the WebGPU drawing buffer and MSAA resolve target to the current window
- * size. Shader warmup renders into 1×1 offscreen targets; calling this after warmup
- * prevents CopyTextureToTexture validation errors when resolving to the canvas.
- */
-export function syncDrawingBufferFromWindow(renderer: CandyRenderer): void {
-    renderer.setSize(window.innerWidth, window.innerHeight);
 }

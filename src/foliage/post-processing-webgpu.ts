@@ -149,18 +149,46 @@ export function initWebGPUPostProcessing(
 
     postProcessing.outputNode = colorCorrection();
 
+    // Renderer size and pixel ratio belong to rendering/viewport.ts, which
+    // calls this after every resize (scene-pipeline subscribes it).
     const syncSize = () => {
-        renderer.setSize(window.innerWidth, window.innerHeight);
         postProcessing.needsUpdate = true;
     };
 
-    window.addEventListener('resize', syncSize);
+    /**
+     * The target (and MRT) the scene pass draws the world into, for
+     * `compileSceneProgressively`. Samples mirror `PassNode.setup()`, which
+     * only runs on the first post-FX render: compiling before it with the
+     * default 0 samples would build pipelines the frame cannot use.
+     */
+    const compileTarget = () => {
+        const passNode = scenePass as unknown as {
+            renderTarget: THREE.RenderTarget;
+            options: { samples?: number };
+            getMRT(): unknown;
+        };
+        const target = passNode.renderTarget;
+        const isWebGL = (renderer as { backend?: { isWebGLBackend?: boolean } }).backend
+            ?.isWebGLBackend;
+        target.samples = isWebGL
+            ? 0
+            : (passNode.options.samples ?? (renderer as { samples?: number }).samples ?? 0);
+        if (target.depthTexture) {
+            (
+                target.depthTexture as THREE.DepthTexture & {
+                    isMultisampleRenderTargetTexture?: boolean;
+                }
+            ).isMultisampleRenderTargetTexture = target.samples > 1;
+        }
+        return { renderTarget: target, mrt: passNode.getMRT() };
+    };
 
     return {
         render: () => {
             postProcessing.render();
         },
         syncSize,
+        compileTarget,
         uniforms: {
             bloomStrength: uBloomStrength,
             bloomThreshold: uBloomThreshold,

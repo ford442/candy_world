@@ -9,6 +9,7 @@ import { ensureHeroAnimationDemo, isHeroAnimationDemoEnabled } from '../debug/to
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { setFireflyMeshesVisible } from '../foliage/firefly-registry.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
+import { createGpuFrameTimer, type GpuFrameTimer } from '../rendering/gpu-frame-timer.ts';
 import { updateHeroAnimations } from '../systems/animation/clip-player.ts';
 import { updateBehaviorSystem } from '../systems/ecs/behaviors/index.ts';
 import { updateFaunaSystem } from '../systems/fauna/index.ts';
@@ -72,6 +73,8 @@ let _firstFrameLogged = false;
 // initLivingScore() is async, so calling it every frame allocates a Promise
 // per frame even after its own once-guard returns. Call it once.
 let _livingScoreBooted = false;
+/** Created on the first rendered frame; a no-op unless timestamp-query was granted. */
+let gpuFrameTimer: GpuFrameTimer | null = null;
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -332,18 +335,11 @@ export function animate() {
     profiler.endFrame();
     performanceBudget.endFrame();
 
-    if (rendererRef && rendererRef.info) {
-        // GPU frame times are typically read async after the frame completes.
-        // WebGPURenderer resolves timestamps internally during render().
-        // We pull the computed values here at the end of the frame loop.
-        const computeTime = (rendererRef.info.compute && rendererRef.info.compute.timestamp) || 0;
-        const renderTime = (rendererRef.info.render && rendererRef.info.render.timestamp) || 0;
-        const totalGpuTime = computeTime + renderTime;
-
-        if (totalGpuTime > 0) {
-            performanceBudget.setGpuFrameTime(totalGpuTime);
-        } else {
-            performanceBudget.setGpuFrameTime(null);
-        }
+    // GPU time from timestamp-query (when granted), sampled every few frames.
+    if (rendererRef) {
+        gpuFrameTimer ??= createGpuFrameTimer(rendererRef, (ms) =>
+            performanceBudget.setGpuFrameTime(ms)
+        );
+        gpuFrameTimer.endFrame();
     }
 }
