@@ -584,11 +584,24 @@ export async function initScene(): Promise<SceneInitResult> {
     lightShaftGroup.visible = false; // Only visible during sunrise/sunset
     scene.add(lightShaftGroup);
 
-    window.addEventListener('resize', () => {
+    const resizeObserver = new ResizeObserver(() => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, platformCaps.maxPixelRatio));
     });
+
+    // Only observe if document.body is available, fallback to window resize if not
+    if (document.body) {
+        resizeObserver.observe(document.body);
+    } else {
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, platformCaps.maxPixelRatio));
+        });
+    }
 
     return {
         scene,
