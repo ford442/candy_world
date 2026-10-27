@@ -259,6 +259,7 @@ declare -A ANIMATION_FUNCTIONS=(
     
     # Agent 3: LOD batch update functions (lod_batch.cpp)
     ["batchUpdateLODMatrices_c"]="lod_batch"
+    ["batchUpdateLodFactors_c"]="lod_batch"
     ["batchScaleMatrices_c"]="lod_batch"
     ["batchTranslateMatrices_c"]="lod_batch"
     ["batchFadeColors_c"]="lod_batch"

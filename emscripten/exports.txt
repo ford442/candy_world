@@ -34,6 +34,7 @@ _batchTranslateMatrices_c
 _batchTremoloPulse_c
 _batchUnifiedGroundHeight
 _batchUpdateLODMatrices_c
+_batchUpdateLodFactors_c
 _batchValueNoise_omp
 _batchVibratoShake_c
 _batchVineInteraction_c
