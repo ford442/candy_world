@@ -11,6 +11,7 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../../core/config.ts';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import type { CandyMapEntity } from '../../world/map-loader.ts';
 import {
     SLOPE_ALIGN_TYPES,
@@ -295,8 +296,9 @@ export function createPlacementGhost(scene: THREE.Scene): PlacementGhost {
             }
         },
         dispose() {
-            scene.remove(group);
-            scene.remove(hoverMarker);
+            // ⚡ OPTIMIZATION: Replaced scene.remove with safeRemoveAndDispose to prevent VRAM leaks
+            safeRemoveAndDispose(scene, group);
+            safeRemoveAndDispose(scene, hoverMarker);
             bodyGeo.dispose();
             ringGeo.dispose();
             hoverGeo.dispose();
