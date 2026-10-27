@@ -92,6 +92,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         closeBtn.type = 'button';
         closeBtn.className = 'a11y-close-btn a11y-button';
         closeBtn.innerHTML = '<span aria-hidden="true">✕</span>';
+        closeBtn.setAttribute('aria-label', 'Close accessibility menu');
+        closeBtn.title = 'Close (Esc)';
         closeBtn.style.cssText = `
       ${this.getButtonStyle()}
       width: 40px;
@@ -386,6 +388,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             btn.type = 'button';
             btn.className = 'a11y-button';
             btn.textContent = binding.key || 'Unbound';
+            btn.setAttribute('aria-label', `Rebind ${this.formatActionName(action)}`);
             btn.style.cssText = `${this.getButtonStyle()} width: 120px;`;
             btn.onclick = () => {
                 this.startKeyRebind(action, btn);
