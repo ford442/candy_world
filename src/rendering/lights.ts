@@ -20,6 +20,7 @@ import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { isAutomation } from '../core/platform/run-mode.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import { recordCapRejection } from '../systems/performance-budget/systems-budget.ts';
+import { isWebGLBackendRenderer } from './renderer-mode.ts';
 import { applyLocalShadowSoftness } from './shadow-softness.ts';
 
 export type LocalLightKind = 'point' | 'spot';
@@ -373,8 +374,9 @@ export function initLocalLights(
 ): void {
     ensurePools();
     _scene = scene;
-    const r = renderer as { isWebGPURenderer?: boolean; isWebGLRenderer?: boolean } | null;
-    _webglBackend = !r || r.isWebGPURenderer !== true;
+    // `isWebGPURenderer` is also true under `forceWebGL`; ask the backend.
+    const r = renderer as { isWebGPURenderer?: boolean } | null;
+    _webglBackend = !r || r.isWebGPURenderer !== true || isWebGLBackendRenderer(r);
     _helpersVisible = hasUrlFlag('debug') || getUrlFlag('lights') === '1';
     _testAllowShadows = undefined;
     mountAuthoredSpawnLights(scene);

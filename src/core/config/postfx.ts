@@ -19,6 +19,18 @@ export function resolvePostfxQuality(): 'off' | 'low' | 'high' {
     }
 }
 
+/**
+ * `?postfx=off`: draw the world straight to the canvas with `renderer.render()`
+ * and build no post graph at all (no scene pass, bloom or composite).
+ *
+ * Only the URL flag does this. The `low` graphics tier, WebGL2 and automation
+ * also resolve the post-FX *quality* to `'off'`, but that means "no optional
+ * effects" (DoF, GTAO, god rays): they keep bloom and the colour grade.
+ */
+export function isPostStackBypassed(): boolean {
+    return _getFlag('postfx') === 'off';
+}
+
 /** Whether sunrise/sunset/moon god-ray shafts should render this session. */
 export function areGodRaysEnabled(): boolean {
     if (resolvePostfxQuality() === 'off') return false;
@@ -47,7 +59,7 @@ export function isDofManual(): boolean {
 
 /**
  * WebGPU GTAO. Off on `low` / `off` / CI unless `?ao`. `?no_ao` always wins.
- * WebGL never builds this pass (EffectComposer keeps bloom-only).
+ * The WebGL2 fallback never builds this pass (`initPostProcessing` gates it on the backend).
  */
 export function isAoEnabled(): boolean {
     if (_hasFlag('no_ao')) return false;

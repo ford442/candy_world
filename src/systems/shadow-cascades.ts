@@ -18,6 +18,7 @@ import { CSMShadowNode } from 'three/examples/jsm/csm/CSMShadowNode.js';
 import { clampCascadeCount, type ShadowSettings } from '../core/config/postfx.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { CONFIG } from '../core/config.ts';
+import { isWebGLBackendRenderer } from '../rendering/renderer-mode.ts';
 import { profiler } from '../utils/profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 
@@ -52,14 +53,15 @@ export function getSunCascades(): SunCascades | null {
 }
 
 /**
- * CSM rides the TSL node graph, so it needs the WebGPU backend. We read the
- * renderer rather than the URL preference: the app silently falls back to
- * WebGL when WebGPU is unavailable, and only the actual backend is truthful.
+ * CSM runs on the WebGPU backend only; the WebGL2 fallback keeps the single
+ * follow map. We read the renderer's backend rather than the URL preference or
+ * `isWebGPURenderer`: the app falls back to WebGL2 when WebGPU is unavailable,
+ * `isWebGPURenderer` is true on that path too, and only the backend is truthful.
  */
 export function isCascadeSupported(renderer: THREE.Renderer | null | undefined): boolean {
     if (!renderer) return false;
     const r = renderer as THREE.Renderer & { isWebGPURenderer?: boolean; backend?: unknown };
-    return r.isWebGPURenderer === true && r.backend !== undefined;
+    return r.isWebGPURenderer === true && r.backend != null && !isWebGLBackendRenderer(r);
 }
 
 /**

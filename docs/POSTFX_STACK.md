@@ -6,15 +6,38 @@ Owner: [`src/foliage/post-processing.ts`](../src/foliage/post-processing.ts)
 
 ## What ships
 
-| Pass   | WebGPU (TSL)                                                 | WebGL (`forceWebGL` / EffectComposer)    | Gate                                               |
-| ------ | ------------------------------------------------------------ | ---------------------------------------- | -------------------------------------------------- |
-| Scene  | `pass(scene, camera)`                                        | `RenderPass`                             | always                                             |
-| Bloom  | `BloomNode`                                                  | `UnrealBloomPass`                        | always (cheap)                                     |
-| DoF    | `dof()`                                                      | `BokehPass`                              | `high` / `?dof`                                    |
-| GTAO   | half-res `ao()`                                              | **skipped**                              | `high` / `?ao`; never `low` / CI                   |
-| Pulse  | Candy glow + strobe in TSL graph (no viewport copy)          | Camera overlay (`viewportSharedTexture`) | WebGPU: always in graph; overlay skipped           |
-| Shafts | additive planes + radial UV scatter via `uShaftScatterBoost` | same planes, bloom swell                 | sunrise/sunset/moon + frustum; `?postfx=off` hides |
-| SSR    | **not in this PR**                                           | —                                        | env-map mirrors (`getDreamEnvTexture`)             |
+One TSL graph (`src/foliage/post-processing-webgpu.ts`) runs on both backends. The renderer is
+always `WebGPURenderer`: on WGSL, or on Three's GLSL node backend under `forceWebGL` (the WebGL2
+fallback). There is no separate EffectComposer path any more.
+
+| Pass   | WebGPU (WGSL)                                                 | WebGL2 (GLSL node backend)               | Gate                                               |
+| ------ | ------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------- |
+| Scene  | `pass(scene, camera, { samples: 4 })`, `rgba16float`, 4× MSAA | same pass; Three forces 0 samples        | always (except `?postfx=off`)                      |
+| Bloom  | `BloomNode`                                                   | same                                     | always (cheap)                                     |
+| DoF    | `dof()`                                                       | same                                     | `high` / `?dof`                                    |
+| GTAO   | half-res `ao()`                                               | **skipped**                              | `high` / `?ao`; never `low` / CI                   |
+| Pulse  | Candy glow + strobe in TSL graph (no viewport copy)           | Camera overlay (`viewportSharedTexture`) | WebGPU: always in graph; overlay skipped           |
+| Shafts | additive planes + radial UV scatter via `uShaftScatterBoost`  | same planes, bloom swell                 | sunrise/sunset/moon + frustum; `?postfx=off` hides |
+| SSR    | **not in this PR**                                            | —                                        | env-map mirrors (`getDreamEnvTexture`)             |
+
+### Antialiasing
+
+MSAA is paid once, on the scene pass. The canvas is created with `antialias: false`
+(`resolveCanvasAntialias()` in `gpu-context.ts`): the only draw into it is the fullscreen post quad,
+which MSAA cannot improve, and in Three 0.171 `antialias: true` also made `PassNode` inherit
+`renderer.samples`, so the scene pass and the canvas each carried a 4× buffer. The scene pass now
+asks for `SCENE_PASS_SAMPLES` (4) itself.
+
+The WebGL2 fallback has no geometric AA: Three forces the scene pass to 0 samples on the GLSL
+backend, and the canvas MSAA would only touch the post quad.
+
+### `?postfx=off`
+
+The URL flag is a real bypass: `initPostProcessing()` builds no graph and the frame is
+`renderer.render(scene, camera)` straight to the canvas, with canvas MSAA on. Shadows, GI and god
+rays are off as well. The `low` graphics tier, WebGL2 and automation also resolve the post-FX
+_quality_ to `'off'`, but that only drops the optional passes (DoF, GTAO, god rays); they keep
+the scene pass, bloom and the grade (`isPostStackBypassed()` is the one predicate).
 
 GI is **irradiance probes**, not screen-space, so GTAO is the only extra depth fetch. Do not add SSR on top without a budget pass.
 

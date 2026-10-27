@@ -73,13 +73,13 @@ and leave the device to the renderer.
 
 Set explicitly in `src/core/init.ts`, with the values defined in `gpu-context.ts`:
 
-| Option             | Value                                     | Rationale                                                                                                                                                                                                                 |
-| ------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `powerPreference`  | `'high-performance'`                      | The compute devices already asked for it; the main renderer did not. On a hybrid laptop that could put the renderer on the iGPU and compute on the dGPU — two heaps and cross-adapter copies. One device, one preference. |
-| `antialias`        | `true`                                    | Unchanged from before. The post chain has no full-screen AA resolve of its own, so swap-chain MSAA is still the only geometric AA. Swapping to post-AA is a visual change and out of scope.                               |
-| `alpha`            | `true` → `alphaMode: 'premultiplied'`     | Three's default, pinned explicitly. HUD, loading screen, badges, and the accessibility menu are DOM layers composited over the canvas and depend on premultiplied blending.                                               |
-| `requiredLimits`   | adapter-clamped, see below                | Aligns the renderer's device with the compute tier's ceilings. Informational on the renderer: the device is already created by the probe.                                                                                 |
-| `outputColorSpace` | `'display-p3'` / `'srgb'` string literals | Chosen by the probe and mirrored onto the canvas `colorSpace` — see [Color space](#color-space). String literals stay: the Three enum regression is tracked separately.                                                   |
+| Option             | Value                                     | Rationale                                                                                                                                                                                                                                                                                                                              |
+| ------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `powerPreference`  | `'high-performance'`                      | The compute devices already asked for it; the main renderer did not. On a hybrid laptop that could put the renderer on the iGPU and compute on the dGPU — two heaps and cross-adapter copies. One device, one preference.                                                                                                              |
+| `antialias`        | `false` (`true` only with `?postfx=off`)  | The world is drawn into the post-FX scene pass, which asks for its own 4× MSAA (`SCENE_PASS_SAMPLES`); the canvas only receives the fullscreen post quad, so canvas MSAA was a second 4× buffer for nothing. `?postfx=off` draws the world to the canvas directly and keeps it. See [POSTFX_STACK.md](./POSTFX_STACK.md#antialiasing). |
+| `alpha`            | `true` → `alphaMode: 'premultiplied'`     | Three's default, pinned explicitly. HUD, loading screen, badges, and the accessibility menu are DOM layers composited over the canvas and depend on premultiplied blending.                                                                                                                                                            |
+| `requiredLimits`   | adapter-clamped, see below                | Aligns the renderer's device with the compute tier's ceilings. Informational on the renderer: the device is already created by the probe.                                                                                                                                                                                              |
+| `outputColorSpace` | `'display-p3'` / `'srgb'` string literals | Chosen by the probe and mirrored onto the canvas `colorSpace` — see [Color space](#color-space). String literals stay: the Three enum regression is tracked separately.                                                                                                                                                                |
 
 ### Limits matrix
 
@@ -187,8 +187,8 @@ questions (#1972):
 - `tier` comes from `?graphics=`, backend / fallback adapter, `navigator.deviceMemory` and the
   adapter's light-load hint. It is published for diagnostics; graphics decisions still go through
   `StartupCapabilities` (`src/core/startup/capabilities.ts`). No GPU-time probe yet.
-- `maxPixelRatio` is tier-scaled: `low` and every WebGL2 boot render at 1, `medium`/`high` keep
-  the historical 1.5 (Chrome reports at most 8 GB of `deviceMemory`, so most Chrome players are
+- `maxPixelRatio` is tier-scaled: `low` and every WebGL2 boot render at 1, `medium` at 1.25,
+  `high` at 1.5 (Chrome reports at most 8 GB of `deviceMemory`, so most Chrome players are
   `medium`). See [Viewport](#viewport-pixel-ratio-and-resize).
 - The animation loop always starts. `?freezeLoop=1` is the only way to boot to `__sceneReady`
   without it; the smoke, boot-timing, population and visual-regression harnesses pass it.
@@ -206,7 +206,7 @@ questions (#1972):
 - watches `matchMedia('(resolution: <dpr>dppx)')` and re-applies when it stops matching (window
   dragged to a monitor with a different DPR, browser zoom), re-arming for the new DPR;
 - then calls each `onViewportResize()` subscriber. `scene-pipeline.ts` subscribes the post-FX
-  `syncSize` (WebGPU: `postProcessing.needsUpdate`; the composer path: `composer.setSize`).
+  `syncSize` (`postProcessing.needsUpdate`; a no-op for `?postfx=off`).
 
 The canvas sits directly in `<body>`, whose height is its content, so there is no viewport-sized
 container a `ResizeObserver` could watch without missing height-only resizes; the window stays the
@@ -229,7 +229,7 @@ also skips `safeMode`, the deferred pass `?boot=instant`.
   layer 31 (`WARMUP_LAYER`). Layers, `frustumCulled`, the render target and MRT are swapped and
   restored synchronously around the call: Three projects and builds before its first `await`.
 - **Target:** Three keys render objects and pipelines on the render target. The post-FX scene pass
-  draws into its own `rgba16float` target with the renderer's MSAA, so `initWebGPUPostProcessing()`
+  draws into its own `rgba16float` target with its own 4× MSAA, so `initWebGPUPostProcessing()`
   exposes `compileTarget()` (the pass target, with samples mirrored from `PassNode.setup()`, and its
   MRT). Without post-FX the default is the target `render()` itself uses
   (`renderer._getFrameBufferTarget()`), or the canvas.
@@ -301,7 +301,7 @@ maxStorageBufferBindingSize=134217728/134217728 maxComputeWorkgroupSizeX=256/256
 Each limit is logged as `granted/requested`.
 
 `window.__gpuContext` carries `backend`, `available`, `lost`, `lostReason`, `reason`,
-`powerPreference`, `requiredLimits`, `adapter`, `adapterName`, `limits`, `alpha`, `antialias`,
+`powerPreference`, `requiredLimits`, `adapter`, `adapterName`, `limits`, `alpha`, `antialias` (canvas MSAA),
 `contextRestored` (WebGL2) and `errors` (`{ count, recent }`, see above).
 It is published from module load, so it is always readable — before arming it reports
 `available: false`. The smoke test asserts its shape on the WebGPU path.

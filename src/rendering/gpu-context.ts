@@ -204,14 +204,34 @@ export function resolveCanvasColorSpace(): PredefinedColorSpace {
 export const GPU_ALPHA = true;
 
 /**
- * Hardware MSAA on the swap chain.
- *
- * Kept `true`, matching the pre-existing renderer. The post chain
- * (`initPostProcessing`) does not run a full-screen AA resolve of its own, so
- * MSAA is still the only geometric antialiasing in the pipeline; dropping it
- * in favour of post-AA would be a visual change and is out of scope here.
+ * MSAA samples for the post-FX scene pass, the `rgba16float` target the world
+ * is drawn into. Passed to `pass()` explicitly; Three forces 0 on WebGL2.
  */
-export const GPU_ANTIALIAS = true;
+export const SCENE_PASS_SAMPLES = 4;
+
+/**
+ * Hardware MSAA on the canvas (swap chain).
+ *
+ * Three 0.171 sizes the canvas buffer from `renderer.samples` (4 whenever
+ * `antialias` is set), and `PassNode` copied the same value into the scene
+ * pass, so MSAA was paid twice: once on the scene pass, where it antialiases
+ * the world, and again on the canvas, where the only draw is the fullscreen
+ * post quad, which MSAA cannot improve. With the post graph running the canvas
+ * is created without it and the scene pass asks for {@link SCENE_PASS_SAMPLES}
+ * itself. `?postfx=off` draws the world straight to the canvas, so it keeps
+ * the renderer's MSAA.
+ */
+export function resolveCanvasAntialias(postStackBypassed: boolean): boolean {
+    return postStackBypassed;
+}
+
+let canvasAntialias = false;
+
+/** Record what the renderer was created with, for `window.__gpuContext`. */
+export function recordCanvasAntialias(antialias: boolean): void {
+    canvasAntialias = antialias;
+    publishGpuContext();
+}
 
 // =============================================================================
 // TYPES
@@ -1288,7 +1308,7 @@ export function publishGpuContext(): void {
         adapterName: describeAdapter(context.adapterInfo),
         limits: context.limits,
         alpha: GPU_ALPHA,
-        antialias: GPU_ANTIALIAS,
+        antialias: canvasAntialias,
         contextRestored,
         errors: { count: gpuErrorCount, recent: gpuErrors.slice() },
     };
@@ -1328,6 +1348,7 @@ export function __resetGpuContextForTests(): void {
     gpuErrorCount = 0;
     gpuErrors = [];
     contextRestored = false;
+    canvasAntialias = false;
 }
 
 // Make the (unavailable) context visible even before boot completes, so the

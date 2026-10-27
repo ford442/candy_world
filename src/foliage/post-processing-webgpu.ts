@@ -1,5 +1,6 @@
 /**
- * WebGPU TSL post graph (bloom, optional DoF, optional GTAO).
+ * TSL post graph (bloom, optional DoF, optional GTAO), on the WGSL backend and
+ * on the GLSL node backend (`forceWebGL`) alike.
  * No imports from the app chunk — bootstrap TLA would deadlock.
  * SSR is not in this graph (env-map mirrors; see docs/POSTFX_STACK.md).
  */
@@ -29,6 +30,8 @@ export function initWebGPUPostProcessing(
         dofAperture: number;
         dofMaxBlur: number;
         aoStrength: number;
+        /** MSAA on the scene pass. Three forces 0 on the GLSL backend. */
+        sceneSamples: number;
         u: U;
     }
 ) {
@@ -47,7 +50,9 @@ export function initWebGPUPostProcessing(
     } = opts.u;
 
     const postProcessing = new PostProcessing(renderer);
-    const scenePass = pass(scene, camera);
+    // Samples are set here, not inherited from `renderer.samples`: the canvas
+    // is created without MSAA because only the post quad is drawn into it.
+    const scenePass = pass(scene, camera, { samples: opts.sceneSamples });
 
     const bloomPass = bloom(
         scenePass,
@@ -159,7 +164,7 @@ export function initWebGPUPostProcessing(
      * The target (and MRT) the scene pass draws the world into, for
      * `compileSceneProgressively`. Samples mirror `PassNode.setup()`, which
      * only runs on the first post-FX render: compiling before it with the
-     * default 0 samples would build pipelines the frame cannot use.
+     * target's default 0 samples would build pipelines the frame cannot use.
      */
     const compileTarget = () => {
         const passNode = scenePass as unknown as {
@@ -170,9 +175,7 @@ export function initWebGPUPostProcessing(
         const target = passNode.renderTarget;
         const isWebGL = (renderer as { backend?: { isWebGLBackend?: boolean } }).backend
             ?.isWebGLBackend;
-        target.samples = isWebGL
-            ? 0
-            : (passNode.options.samples ?? (renderer as { samples?: number }).samples ?? 0);
+        target.samples = isWebGL ? 0 : (passNode.options.samples ?? 0);
         if (target.depthTexture) {
             (
                 target.depthTexture as THREE.DepthTexture & {

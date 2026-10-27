@@ -51,6 +51,7 @@ export { CONFIG } from './defaults.ts';
 
 export {
     resolvePostfxQuality,
+    isPostStackBypassed,
     areGodRaysEnabled,
     isDofEnabled,
     isDofManual,

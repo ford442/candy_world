@@ -229,10 +229,7 @@ export default defineConfig({
                     }
                     // Graphs only. The stub stays in `app` and must not live in this
                     // chunk: postfx → app TLA + app awaiting postfx deadlocks boot.
-                    if (
-                        id.includes('/src/foliage/post-processing-webgpu.ts') ||
-                        id.includes('/src/foliage/post-processing-webgl.ts')
-                    ) {
+                    if (id.includes('/src/foliage/post-processing-webgpu.ts')) {
                         return 'postfx-webgpu';
                     }
                     // Shader warmup (loading-screen phase — not first-paint brain)

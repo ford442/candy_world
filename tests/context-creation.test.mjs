@@ -138,7 +138,7 @@ await quiet(async () => {
 // --- Pixel ratio: tier-scaled cap, re-applied on DPR change ----------------
 {
     assert.equal(resolveMaxPixelRatio('low', 'webgpu'), 1);
-    assert.equal(resolveMaxPixelRatio('medium', 'webgpu'), 1.5);
+    assert.equal(resolveMaxPixelRatio('medium', 'webgpu'), 1.25);
     assert.equal(resolveMaxPixelRatio('high', 'webgpu'), 1.5);
     assert.equal(resolveMaxPixelRatio('high', 'webgl2'), 1, 'WebGL2 is always 1');
 
@@ -156,6 +156,7 @@ await quiet(async () => {
             ...o,
         });
     assert.equal(caps({}).maxPixelRatio, 1.5);
+    assert.equal(caps({ deviceMemoryGB: 8 }).maxPixelRatio, 1.25, 'Chrome caps deviceMemory at 8');
     assert.equal(caps({ deviceMemoryGB: 4 }).maxPixelRatio, 1);
     assert.equal(caps({ backend: 'webgl2', graphicsOverride: 'high' }).maxPixelRatio, 1);
 
