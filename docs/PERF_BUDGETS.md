@@ -14,7 +14,7 @@ Table of record: [`src/systems/performance-budget/systems-budget.ts`](../src/sys
 | Shadows (CSM)    | 3.0      | 48      | `cascades` 4, `localShadowLights` 2   | `shadows.csmUpdate`   | Yes — WebGL / `low` / CI use the plain sun map |
 | Clustered lights | 1.5      | 8       | `lights` 128, `lightsPerCluster` 32   | `clusteredLights.bin` | Yes — `?no_clustered`, WebGL, `low`            |
 | Irradiance GI    | 1.0      | 12      | `probes` 4096, `probesPerFrame` 32    | `gi.probeBake`        | Yes — probes off on `low` / CI                 |
-| Post-FX stack    | 2.5      | 64      | `passes` 6                            | `postfx.render`       | Yes — DoF + GTAO are `high`-only               |
+| Post-FX stack    | 2.5      | 64      | `passes` 10                           | `postfx.render`       | Yes — DoF + GTAO are `high`-only               |
 | Particles        | 2.0      | 32      | `totalParticles` 65536, `emitters` 32 | `particles.update`    | No — density scales instead                    |
 | Rigid bodies     | 1.0      | 0       | `bodies` 64 (`MAX_DYNAMIC_BODIES`)    | `rigidBodies.step`    | No — costs nothing while the pool is empty     |
 | Fauna            | 1.5      | 6       | `instances` 96, `perSpecies` 40       | `fauna.update`        | No — instance count scales instead             |

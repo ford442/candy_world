@@ -414,13 +414,18 @@ export interface GpuFeatureReport {
     timestampQuery: boolean;
 }
 
-/** `?debug=1` or `?graphics=high`. Never throws; a bad location means "do not request". */
+/**
+ * `?debug=1`, `?graphics=high` or `?dynres=1` (dynamic resolution needs GPU
+ * frame times). Never throws; a bad location means "do not request".
+ */
 export function wantsTimestampQuery(): boolean {
     if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;
     const location = window.location;
     try {
         const q = new URLSearchParams(location.search);
         if (q.get('debug') === '1' || q.has('debug')) return true;
+        const dynres = q.get('dynres');
+        if (dynres === '1' || dynres === 'on') return true;
         return (q.get('graphics') || q.get('quality') || '').toLowerCase() === 'high';
     } catch {
         return false;

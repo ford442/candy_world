@@ -220,9 +220,14 @@ export default defineConfig({
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
                     }
-                    // Import-free per-frame rendering leaves (hitch counter, dynamic
-                    // resolution): own chunk, so `app` does not grow.
-                    if (id.includes('/src/rendering/frame-hitches.ts')) {
+                    // Import-free rendering leaves (hitch counter, dynamic resolution,
+                    // backend checks, viewport sizing): own chunk, so `app` does not grow.
+                    if (
+                        id.includes('/src/rendering/frame-hitches.ts') ||
+                        id.includes('/src/rendering/dynamic-resolution.ts') ||
+                        id.includes('/src/rendering/renderer-mode.ts') ||
+                        id.includes('/src/rendering/viewport.ts')
+                    ) {
                         return 'render-runtime';
                     }
                     // Pure TSL nodes shared between app and postfx chunks

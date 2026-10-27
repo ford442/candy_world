@@ -13,6 +13,12 @@ import {
     isPostStackBypassed,
     resolvePostfxQuality,
 } from '../src/core/config/postfx.ts';
+import { isDynamicResolutionAllowed, resolveAntialiasMode } from '../src/core/config/postfx.ts';
+import {
+    createDynamicResolution,
+    defaultDynamicResolutionConfig,
+    stepDynamicResolution,
+} from '../src/rendering/dynamic-resolution.ts';
 import { resolveCanvasAntialias, SCENE_PASS_SAMPLES } from '../src/rendering/gpu-context.ts';
 import { isWebGLBackendRenderer } from '../src/rendering/renderer-mode.ts';
 import { isCascadeSupported } from '../src/systems/shadow-cascades.ts';
@@ -87,6 +93,65 @@ function withGraphics(graphics) {
     assert.equal(resolveCanvasAntialias(true), true, '?postfx=off keeps canvas MSAA');
 }
 
+// AA mode: post-AA where the scene pass has no MSAA, MSAA elsewhere, TRAA opt-in.
+{
+    const prevWindow = globalThis.window;
+    globalThis.window = { location: { search: '' } };
+    withGraphics('low');
+    assert.equal(resolveAntialiasMode('webgpu'), 'fxaa', 'low tier: FXAA, no MSAA buffer');
+    __resetStartupCapabilitiesForTests();
+    withGraphics('medium');
+    assert.equal(resolveAntialiasMode('webgpu'), 'msaa');
+    assert.equal(resolveAntialiasMode('webgl'), 'fxaa', 'WebGL2 finally gets AA');
+    globalThis.window.location.search = '?aa=traa';
+    assert.equal(resolveAntialiasMode('webgpu'), 'traa');
+    globalThis.window.location.search = '?aa=bogus';
+    assert.equal(resolveAntialiasMode('webgpu'), 'msaa', 'unknown ?aa= falls back to the tier');
+    // GTAO gathers the scene depth; a 4× pass's depth has no textureGather.
+    globalThis.window.location.search = '';
+    assert.equal(resolveAntialiasMode('webgpu', true), 'smaa', 'GTAO on: SMAA, not MSAA');
+    globalThis.window.location.search = '?aa=msaa';
+    assert.equal(resolveAntialiasMode('webgpu', true), 'smaa', '?aa=msaa cannot break GTAO');
+    globalThis.window.location.search = '?aa=traa';
+    assert.equal(resolveAntialiasMode('webgpu', true), 'traa', 'single-sampled modes are kept');
+    globalThis.window.location.search = '?dynres=off';
+    assert.equal(isDynamicResolutionAllowed(), false);
+    __resetStartupCapabilitiesForTests();
+    globalThis.window = prevWindow;
+}
+
+// Dynamic resolution: hysteresis, pixel-proportional drops, bounded band.
+{
+    const cfg = defaultDynamicResolutionConfig({ budgetMs: 10 });
+    let s = { scale: 1, overCount: 0, underCount: 0 };
+    s = stepDynamicResolution(s, 20, cfg);
+    assert.equal(s.scale, 1, 'one spike does not drop the scale');
+    s = stepDynamicResolution(s, 20, cfg);
+    assert.equal(s.scale, 0.85, 'two over-budget samples drop it, by at most maxDrop');
+    s = stepDynamicResolution(s, 9, cfg);
+    assert.equal(s.overCount, 0, 'inside the band the streak resets');
+    s = stepDynamicResolution(s, 11, cfg);
+    s = stepDynamicResolution(s, 11, cfg);
+    // 0.85 × sqrt(10 / 11) = 0.81 → one step (0.05) is the minimum drop.
+    assert.equal(s.scale, 0.8);
+    for (let i = 0; i < 40; i++) s = stepDynamicResolution(s, 50, cfg);
+    assert.equal(s.scale, cfg.minScale, 'never below the floor');
+    for (let i = 0; i < cfg.raiseAfter - 1; i++) s = stepDynamicResolution(s, 3, cfg);
+    assert.equal(s.scale, cfg.minScale, 'raising waits for a calm streak');
+    s = stepDynamicResolution(s, 3, cfg);
+    assert.equal(s.scale, 0.65, 'then rises one step');
+    for (let i = 0; i < 200; i++) s = stepDynamicResolution(s, 1, cfg);
+    assert.equal(s.scale, 1, 'never above the drawing buffer');
+    assert.deepEqual(stepDynamicResolution(s, NaN, cfg), s, 'a bad sample is ignored');
+
+    const applied = [];
+    const dr = createDynamicResolution((scale) => applied.push(scale), cfg);
+    dr.sample(30);
+    dr.sample(30);
+    assert.deepEqual(applied, [0.85], 'apply only on change');
+    assert.equal(dr.lastGpuMs, 30);
+}
+
 // `isWebGPURenderer` is true under forceWebGL too; only the backend is truthful.
 {
     const webgpu = { isWebGPURenderer: true, backend: { isWebGPUBackend: true } };
@@ -118,8 +183,15 @@ function withGraphics(graphics) {
     assert.match(warmup, /compileAsync\(scene, camera\)/);
     assert.doesNotMatch(warmup, /new THREE\.RenderTarget\(/);
     assert.match(webgpuPost, /compileTarget/);
-    // The scene pass asks for its own MSAA rather than inheriting renderer.samples.
-    assert.match(webgpuPost, /pass\(scene, camera, \{ samples: opts\.sceneSamples \}\)/);
+    // The scene pass asks for its own MSAA rather than inheriting renderer.samples,
+    // and only in msaa mode.
+    assert.match(
+        webgpuPost,
+        /pass\(scene, camera, \{ samples: aa === 'msaa' \? opts\.sceneSamples : 0 \}\)/
+    );
+    // Post-AA runs on the tone-mapped image, without a second colour transform.
+    assert.match(webgpuPost, /outputColorTransform = false/);
+    assert.match(webgpuPost, /fxaa\(display\)/);
 }
 
 console.log('postfx tests passed');

@@ -24,8 +24,12 @@
  * environment and the full light list match a real frame and the compiled
  * programs are the ones the frame will use. Layers, culling flags and the
  * render target are swapped and restored synchronously around each call:
- * Three projects and builds before its first `await`, and no frame can run in
- * between, so a running game loop never sees the swapped state.
+ * Three projects the chunk and fixes its render context before its first
+ * `await`, and no frame can run in between, so a running game loop never sees
+ * the swapped state. The node builds themselves run on after that (r186
+ * yields between shader stages) and read `renderer.getMRT()` when they get to
+ * the material's setup, so an MRT target cannot be warmed this way: the post
+ * graph offers no target under TRAA.
  */
 
 import type * as THREE from 'three';
@@ -87,10 +91,20 @@ function isRendererLost(renderer: CompilingRenderer): boolean {
 
 type Renderable = THREE.Object3D & { frustumCulled: boolean; material?: unknown };
 
-/** Per renderer: each compiled object and the material it was compiled with. */
-const compiledByRenderer = new WeakMap<object, WeakMap<THREE.Object3D, unknown>>();
+/** Per renderer: each compiled object and the {@link compileKey} it was compiled with. */
+const compiledByRenderer = new WeakMap<object, WeakMap<THREE.Object3D, string>>();
 
-function compiledFor(renderer: CompilingRenderer): WeakMap<THREE.Object3D, unknown> {
+/**
+ * What an object was compiled with: its material(s) and their versions, so a
+ * swapped material, or one changed and flagged `needsUpdate`, compiles again.
+ */
+function compileKey(o: Renderable): string {
+    const material = o.material as THREE.Material | THREE.Material[] | undefined;
+    const materials = Array.isArray(material) ? material : [material];
+    return materials.map((m) => (m ? `${m.uuid}:${m.version}` : '-')).join('|');
+}
+
+function compiledFor(renderer: CompilingRenderer): WeakMap<THREE.Object3D, string> {
     let compiled = compiledByRenderer.get(renderer);
     if (!compiled) {
         compiled = new WeakMap();
@@ -196,7 +210,7 @@ export async function compileSceneProgressively(
     const start = performance.now();
     const visible = collectCompileSet(scene, camera);
     const compiled = compiledFor(renderer);
-    const objects = visible.objects.filter((o) => compiled.get(o) !== o.material);
+    const objects = visible.objects.filter((o) => compiled.get(o) !== compileKey(o));
     const { lights } = visible;
     const stats: ProgressiveCompileStats = {
         objects: objects.length,
@@ -219,7 +233,7 @@ export async function compileSceneProgressively(
         const chunk = objects.slice(i, i + chunkSize);
         try {
             await compileChunk(renderer, scene, camera, chunk, lights, target);
-            for (const o of chunk) compiled.set(o, o.material);
+            for (const o of chunk) compiled.set(o, compileKey(o));
         } catch (err) {
             stats.failedChunks++;
             console.warn('[ShaderWarmup] compileAsync failed for a chunk (non-fatal):', err);

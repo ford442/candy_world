@@ -245,22 +245,24 @@ also skips `safeMode`, the deferred pass `?boot=instant`.
 
 ## GPU frame time (timestamp-query)
 
-`timestamp-query` is requested only for `?debug` and `?graphics=high`, and the renderer is then
-built with `trackTimestamp`. Three writes every render and compute pass's timestamps into a query
-pool per type; nothing reads it back unless the app asks, because the game loop renders
-synchronously. `createGpuFrameTimer()` (`src/rendering/gpu-frame-timer.ts`) calls the public
-`renderer.resolveTimestampsAsync('render' | 'compute')` every 30 frames and reports the sum (the GPU
-time of the last frame in the pool) to `performanceBudget.setGpuFrameTime()`. One resolve is in
-flight at a time; Three skips the copy into a still-mapped result buffer, so nothing stalls. On
-r171 this had to wrap the private `prepareTimestampBuffer()` and map Three's per-pass buffers
-itself. Without the feature the timer is a no-op and `gpuFrameTime` stays `null`.
+`timestamp-query` is requested only for `?debug`, `?graphics=high` and `?dynres=1`, and the
+renderer is then built with `trackTimestamp`. Three writes every render and compute pass's
+timestamps into a query pool per type; nothing reads it back unless the app asks, because the game
+loop renders synchronously. `createGpuFrameTimer()` (`src/rendering/gpu-frame-timer.ts`) calls the
+public `renderer.resolveTimestampsAsync('render' | 'compute')` every 30 frames and reports the sum
+(the GPU time of the last frame in the pool) to `performanceBudget.setGpuFrameTime()` and to the
+post graph, whose dynamic resolution runs on it
+([`POSTFX_STACK.md`](./POSTFX_STACK.md#dynamic-resolution)). One resolve is in flight at a time;
+Three skips the copy into a still-mapped result buffer, so nothing stalls. On r171 this had to wrap
+the private `prepareTimestampBuffer()` and map Three's per-pass buffers itself. Without the feature
+the timer is a no-op and `gpuFrameTime` stays `null`.
 
 ## Device-lost policy
 
 1. `gpu-context.ts` registers **both** `device.lost` and `renderer.onDeviceLost`. Three's default
    handler logged and set `renderer._isDeviceLost`; ours sets that flag too, so `render()`,
    `compute()` and `compileAsync()` stop submitting work (r171's `compute()` ignored the flag and had
-   to be stubbed). Both route into one handler that runs at most once. Three r186 forwards
+   to be stubbed). Both route into one handler that runs at most once per loss. Three r186 forwards
    `uncapturederror` to `renderer.onError`, whose default is a `console.error` per event;
    `gpu-context.ts` routes it into `recordGpuError()` (counted, console-capped) instead. On
    the WebGL2 fallback, `watchWebGLContextLoss()` routes `webglcontextlost` into the same handler

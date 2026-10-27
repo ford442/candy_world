@@ -1,25 +1,83 @@
 /**
- * TSL post graph (bloom, optional DoF, optional GTAO), on the WGSL backend and
- * on the GLSL node backend (`forceWebGL`) alike.
- * No imports from the app chunk — bootstrap TLA would deadlock.
+ * TSL post graph (bloom, optional DoF, optional GTAO, antialiasing, dynamic
+ * resolution), on the WGSL backend and on the GLSL node backend (`forceWebGL`)
+ * alike. No imports from the app chunk — bootstrap TLA would deadlock.
  * SSR is not in this graph (env-map mirrors; see docs/POSTFX_STACK.md).
  */
 import * as THREE from 'three';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
+import { fsr1 } from 'three/addons/tsl/display/FSR1Node.js';
+import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
-import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
+import { smaa } from 'three/addons/tsl/display/SMAANode.js';
+import { taau } from 'three/addons/tsl/display/TAAUNode.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import {
+    pass,
+    mix,
+    vec3,
+    uniform,
+    Fn,
+    float,
+    uv,
+    vec2,
+    distance,
+    smoothstep,
+    mrt,
+    output,
+    velocity,
+    normalView,
+    renderOutput,
+} from 'three/tsl';
 import { RenderPipeline, WebGPURenderer } from 'three/webgpu';
+import type { Node } from 'three/webgpu';
+import type { AntialiasMode } from '../core/config/postfx.ts';
+import {
+    createDynamicResolution,
+    defaultDynamicResolutionConfig,
+    type DynamicResolution,
+} from '../rendering/dynamic-resolution.ts';
 import { candyPulseWarpUv, gradeCandyGlowPulse } from './chromatic-nodes.ts';
 import type * as postFxUniforms from './post-processing-uniforms.ts';
 import { mixStrobeFlash } from './strobe-nodes.ts';
-import type { Node } from 'three/webgpu';
 
 type U = typeof postFxUniforms;
 
-function publishPostFxPasses(count: number): void {
-    (globalThis as { __candyPostFxPasses?: number }).__candyPostFxPasses = count;
+/** What the ?debug=1 systems-budget row and the walk-around harness read. */
+export interface PostFxState {
+    passes: number;
+    aa: AntialiasMode;
+    /** Scene-pass resolution scale (1 unless dynamic resolution dropped it). */
+    renderScale: number;
+    dynamicResolution: boolean;
+    /** Last GPU frame time fed to dynamic resolution, ms. */
+    gpuMs: number | null;
 }
+
+function publishPostFx(state: PostFxState): void {
+    const g = globalThis as { __candyPostFxPasses?: number; __candyPostFx?: PostFxState };
+    g.__candyPostFxPasses = state.passes;
+    g.__candyPostFx = state;
+}
+
+/**
+ * The texture an effect node renders into, to sample at arbitrary UVs (the
+ * composite's chromatic offsets). TRAA / TAA-U / FSR 1 have `getTextureNode()`;
+ * three's types omit it.
+ */
+function textureOf(effect: unknown): Node {
+    return (effect as { getTextureNode(): Node }).getTextureNode();
+}
+
+/** Extra fullscreen passes each AA mode adds (for the pass-count readout). */
+const AA_PASSES: Readonly<Record<AntialiasMode, number>> = {
+    off: 0,
+    msaa: 0,
+    fxaa: 2, // the tone-mapped composite to a texture, then FXAA
+    smaa: 4, // the composite, then edges, weights, blend
+    traa: 1,
+};
 
 export function initWebGPUPostProcessing(
     renderer: WebGPURenderer,
@@ -31,8 +89,11 @@ export function initWebGPUPostProcessing(
         dofFocalLength: number;
         dofBokehScale: number;
         aoStrength: number;
-        /** MSAA on the scene pass (the caller passes 0 on the GLSL backend). */
+        /** MSAA samples for `msaa` mode (the scene pass gets 0 in every other mode). */
         sceneSamples: number;
+        aa: AntialiasMode;
+        /** Scale the scene pass from GPU frame times (needs timestamp-query). */
+        dynamicResolution: boolean;
         u: U;
     }
 ) {
@@ -51,9 +112,37 @@ export function initWebGPUPostProcessing(
     } = opts.u;
 
     const postProcessing = new RenderPipeline(renderer);
+    const { aa } = opts;
     // Samples are set here, not inherited from `renderer.samples`: the canvas
     // is created without MSAA because only the post quad is drawn into it.
-    const scenePass = pass(scene, camera, { samples: opts.sceneSamples });
+    // TRAA reprojects a jittered, single-sample image; MSAA under it is waste.
+    const scenePass = pass(scene, camera, { samples: aa === 'msaa' ? opts.sceneSamples : 0 });
+
+    // TRAA (and TAA-U) reproject with per-pixel motion. The same MRT carries
+    // view normals, so GTAO samples them instead of rebuilding them from depth.
+    const temporal = aa === 'traa';
+    if (temporal) {
+        scenePass.setMRT(mrt({ output, velocity, normal: normalView }));
+    }
+
+    // The colour the composite samples: the scene pass, its temporal resolve,
+    // or (dynamic resolution) its FSR 1 upscale to the drawing buffer.
+    let sceneColor: Node = scenePass.getTextureNode();
+    let extraPasses = AA_PASSES[aa];
+    if (temporal) {
+        const resolve = opts.dynamicResolution ? taau : traa;
+        sceneColor = textureOf(
+            resolve(
+                scenePass.getTextureNode(),
+                scenePass.getTextureNode('depth'),
+                scenePass.getTextureNode('velocity'),
+                camera
+            )
+        );
+    } else if (opts.dynamicResolution) {
+        sceneColor = textureOf(fsr1(scenePass));
+        extraPasses += 2; // EASU + RCAS
+    }
 
     const bloomPass = bloom(
         scenePass,
@@ -76,12 +165,22 @@ export function initWebGPUPostProcessing(
     }
 
     // Pass count for the ?debug=1 systems-budget readout (scene + bloom are
-    // always present; DoF / GTAO are tier-gated).
-    publishPostFxPasses(2 + (opts.dofEnabled ? 1 : 0) + (opts.aoEnabled ? 1 : 0));
+    // always present; DoF / GTAO are tier-gated, AA / upscaling by mode).
+    const state: PostFxState = {
+        passes: 2 + (opts.dofEnabled ? 1 : 0) + (opts.aoEnabled ? 1 : 0) + extraPasses,
+        aa,
+        renderScale: 1,
+        dynamicResolution: opts.dynamicResolution,
+        gpuMs: null,
+    };
+    publishPostFx(state);
 
     let aoPass: ReturnType<typeof ao> | null = null;
     if (opts.aoEnabled && camera instanceof THREE.PerspectiveCamera) {
-        aoPass = ao(scenePass.getTextureNode('depth'), null as never, camera);
+        // With the temporal MRT, view normals come from the scene pass; without
+        // it GTAO reconstructs them from depth (normalNode null).
+        const normals = temporal ? scenePass.getTextureNode('normal') : null;
+        aoPass = ao(scenePass.getTextureNode('depth'), normals as never, camera);
         aoPass.resolutionScale = 0.5;
         aoPass.samples.value = 8;
         aoPass.radius.value = 0.4;
@@ -98,7 +197,7 @@ export function initWebGPUPostProcessing(
         const warpedUV = candyPulseWarpUv(uvNode as Node<'vec2'>);
         const scatterAmt = uShaftScatterBoost.mul(0.018);
 
-        const sceneTex = scenePass.getTextureNode();
+        const sceneTex = sceneColor as Node<'vec4'> & { sample(uv: Node<'vec2'>): Node<'vec4'> };
         const sampleScene = (coords: Node<'vec2'>) => {
             const uvScatter = mix(coords, vec2(0.5, 0.5), scatterAmt);
             const sampledR = sceneTex.sample(uvScatter.add(vec2(caOffset, 0.0)) as Node<'vec2'>).r;
@@ -148,7 +247,31 @@ export function initWebGPUPostProcessing(
         return mixStrobeFlash(satColor as Node<'vec3'>);
     });
 
-    postProcessing.outputNode = colorCorrection();
+    const composite = colorCorrection();
+    if (aa === 'fxaa' || aa === 'smaa') {
+        // Post-AA works on the display image: tone map and convert first, then
+        // antialias, and do not let the pipeline convert a second time.
+        postProcessing.outputColorTransform = false;
+        const display = renderOutput(composite);
+        postProcessing.outputNode = aa === 'fxaa' ? fxaa(display) : smaa(display);
+    } else {
+        postProcessing.outputNode = composite;
+    }
+
+    // Dynamic resolution: GPU frame times in, scene-pass resolution scale out.
+    let dynamicResolution: DynamicResolution | null = null;
+    if (opts.dynamicResolution) {
+        dynamicResolution = createDynamicResolution((scale) => {
+            scenePass.setResolutionScale(scale);
+            state.renderScale = scale;
+            publishPostFx(state);
+        }, defaultDynamicResolutionConfig());
+        console.log(
+            `[PostFX] Dynamic resolution on: scene pass ${dynamicResolution.config.minScale}–1×, ` +
+                `GPU budget ${dynamicResolution.config.budgetMs} ms, upscale ${temporal ? 'TAA-U' : 'FSR 1'}`
+        );
+    }
+    console.log(`[PostFX] Antialiasing: ${aa}`);
 
     // Renderer size and pixel ratio belong to rendering/viewport.ts, which
     // calls this after every resize (scene-pipeline subscribes it).
@@ -161,8 +284,17 @@ export function initWebGPUPostProcessing(
      * `compileSceneProgressively`. Samples mirror `PassNode.setup()`, which
      * only runs on the first post-FX render: compiling before it with the
      * target's default 0 samples would build pipelines the frame cannot use.
+     *
+     * None under TRAA. r186 builds node materials asynchronously, and each
+     * build reads `renderer.getMRT()` when it gets to `NodeMaterial.setup()`;
+     * the warmup hands the frame its own target back before those builds
+     * finish (holding it would send the frames in between to the wrong
+     * target), so the later ones came out single-output and were cached for
+     * the MRT context: their pipelines failed for the whole session. The MRT
+     * variants compile on first draw instead.
      */
     const compileTarget = () => {
+        if (temporal) return null;
         const passNode = scenePass as unknown as {
             renderTarget: THREE.RenderTarget;
             options: { samples?: number };
@@ -173,12 +305,19 @@ export function initWebGPUPostProcessing(
         return { renderTarget: target, mrt: passNode.getMRT() };
     };
 
+    /** GPU frame time from the frame timer; drives dynamic resolution. */
+    const onGpuFrameTime = (ms: number) => {
+        state.gpuMs = ms;
+        dynamicResolution?.sample(ms);
+    };
+
     return {
         render: () => {
             postProcessing.render();
         },
         syncSize,
         compileTarget,
+        onGpuFrameTime,
         uniforms: {
             bloomStrength: uBloomStrength,
             bloomThreshold: uBloomThreshold,

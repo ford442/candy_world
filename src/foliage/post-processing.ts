@@ -6,7 +6,14 @@
  * on WGSL or (under `forceWebGL`) on Three's GLSL node backend.
  */
 import type * as THREE from 'three';
-import { CONFIG, isAoEnabled, isDofEnabled, isPostStackBypassed } from '../core/config.ts';
+import {
+    CONFIG,
+    isAoEnabled,
+    isDofEnabled,
+    isDynamicResolutionAllowed,
+    isPostStackBypassed,
+    resolveAntialiasMode,
+} from '../core/config.ts';
 import type { CandyRenderer } from '../core/init.ts';
 import { SCENE_PASS_SAMPLES } from '../rendering/gpu-context.ts';
 import type { CompileTarget } from '../rendering/shader-warmup.ts';
@@ -19,6 +26,15 @@ export interface PostFxPipeline {
     syncSize(): void;
     /** The target the world is drawn into; absent when it is the renderer's own. */
     compileTarget?: () => CompileTarget | null;
+    /** GPU frame time (ms) from the timestamp timer; drives dynamic resolution. */
+    onGpuFrameTime?: (ms: number) => void;
+}
+
+/** The backend records timestamps (timestamp-query requested and granted). */
+function tracksGpuTimestamps(renderer: CandyRenderer): boolean {
+    return (
+        (renderer as { backend?: { trackTimestamp?: boolean } }).backend?.trackTimestamp === true
+    );
 }
 
 function publishPostFxPasses(count: number): void {
@@ -26,16 +42,31 @@ function publishPostFxPasses(count: number): void {
 }
 
 /**
- * `?postfx=off`: no post graph. The world is drawn with `renderer.render()`,
- * antialiased by the canvas MSAA `init.ts` enables for this case.
+ * WebGL2 draws the scene pass into `rgba16float`, which needs a float colour
+ * attachment (`EXT_color_buffer_float`, or `EXT_color_buffer_half_float`).
+ * Without one the framebuffer is incomplete and every frame is lost.
+ */
+function hasFloatColorTargets(renderer: CandyRenderer): boolean {
+    const gl = (renderer as { backend?: { gl?: WebGL2RenderingContext } }).backend?.gl;
+    if (!gl) return true;
+    return (
+        gl.getExtension('EXT_color_buffer_float') !== null ||
+        gl.getExtension('EXT_color_buffer_half_float') !== null
+    );
+}
+
+/**
+ * No post graph: the world is drawn with `renderer.render()`. Under
+ * `?postfx=off` the canvas MSAA `init.ts` enables antialiases it.
  */
 function initDirectRender(
     renderer: CandyRenderer,
     scene: THREE.Scene,
-    camera: THREE.Camera
+    camera: THREE.Camera,
+    why: string
 ): PostFxPipeline {
     publishPostFxPasses(0);
-    console.log('[PostFX] ?postfx=off — rendering direct, no post graph');
+    console.log(`[PostFX] ${why} — rendering direct, no post graph`);
     return {
         render: () => renderer.render(scene, camera),
         syncSize: () => {},
@@ -48,18 +79,25 @@ export async function initPostProcessing(
     camera: THREE.Camera,
     mode: 'webgpu' | 'webgl'
 ): Promise<PostFxPipeline> {
-    if (isPostStackBypassed()) return initDirectRender(renderer, scene, camera);
+    if (isPostStackBypassed()) return initDirectRender(renderer, scene, camera, '?postfx=off');
+    if (mode === 'webgl' && !hasFloatColorTargets(renderer)) {
+        return initDirectRender(renderer, scene, camera, 'WebGL2 without float colour targets');
+    }
 
     const { initWebGPUPostProcessing } = await import('./post-processing-webgpu.ts');
+    const aoEnabled = isAoEnabled() && mode === 'webgpu';
+    const aa = resolveAntialiasMode(mode, aoEnabled);
     return initWebGPUPostProcessing(renderer, scene, camera, {
-        aoEnabled: isAoEnabled() && mode === 'webgpu',
+        aoEnabled,
         dofEnabled: isDofEnabled(),
         dofFocalLength: CONFIG.postfx.dofFocalLength,
         dofBokehScale: CONFIG.postfx.dofBokehScale,
         aoStrength: CONFIG.postfx.aoStrength,
-        // r171's PassNode forced 0 on the GLSL backend; r186 inherits whatever
-        // it is given, so WebGL2 keeps 0 explicitly.
-        sceneSamples: mode === 'webgpu' ? SCENE_PASS_SAMPLES : 0,
+        // Used in `msaa` mode only; WebGL2 defaults to FXAA (see resolveAntialiasMode).
+        sceneSamples: SCENE_PASS_SAMPLES,
+        aa,
+        dynamicResolution:
+            mode === 'webgpu' && isDynamicResolutionAllowed() && tracksGpuTimestamps(renderer),
         u: postFxUniforms,
     });
 }

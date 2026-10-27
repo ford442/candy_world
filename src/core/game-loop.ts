@@ -114,9 +114,10 @@ export function animate() {
 
     // GPU time from timestamp-query (when granted), sampled every few frames.
     if (rendererRef) {
-        gpuFrameTimer ??= createGpuFrameTimer(rendererRef, (ms) =>
-            performanceBudget.setGpuFrameTime(ms)
-        );
+        gpuFrameTimer ??= createGpuFrameTimer(rendererRef, (ms) => {
+            performanceBudget.setGpuFrameTime(ms);
+            postProcessingRef?.onGpuFrameTime?.(ms);
+        });
         gpuFrameTimer.endFrame();
     }
     frameHitches.endFrame(performance.now());

@@ -321,6 +321,15 @@ await quiet(async () => {
     assert.equal(swapped.objects, 1);
     assert.deepEqual(seen.at(-1).projected, [meshes[3]]);
     meshes[3].material = mat;
+    // So does a material changed in place and flagged for a rebuild.
+    await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    mat.needsUpdate = true;
+    const changed = await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    assert.equal(changed.objects, 5, 'needsUpdate on a shared material recompiles its users');
 
     // A throwing chunk is restored and skipped; abort stops between chunks.
     // A fresh renderer has compiled nothing yet.
