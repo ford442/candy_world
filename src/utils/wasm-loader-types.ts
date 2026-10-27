@@ -251,6 +251,15 @@ export interface WasmExports {
     boidsBufferBytes?: (count: number) => number;
     [key: string]: WasmExportValue | undefined;
     memory: WebAssembly.Memory;
+    smoothWobble?: (
+        noteBufferPtr: number,
+        bufferSize: number,
+        currentWobble: number,
+        scale: number,
+        maxAmplitude: number,
+        minThreshold: number,
+        smoothingRate: number
+    ) => number;
     getGroundHeight: (x: number, z: number) => number;
     freqToHue: (freq: number) => number;
     lerp: (a: number, b: number, t: number) => number;
