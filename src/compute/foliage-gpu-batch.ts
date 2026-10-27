@@ -225,13 +225,16 @@ export async function runFoliageGpuScalarBatch(
     if (count === 0) return new Float32Array(0);
     const ready = await ensureBatchGpu(count);
     if (!ready || !_batch) return null;
+    // The state can be rebuilt (a larger batch) or disposed (device loss) while
+    // this call awaits the previous readback; hold on to the one we started with.
+    const state = _batch;
 
     const gpu = getSharedGPUCompute();
     const device = gpu.getDevice()!;
 
-    gpu.writeStorageBuffer(_batch.offsetBuffer!, offsets.subarray(0, count));
-    gpu.writeStorageBuffer(_batch.intensityBuffer!, intensities.subarray(0, count));
-    gpu.writeStorageBuffer(_batch.yBuffer!, originalYs.subarray(0, count));
+    gpu.writeStorageBuffer(state.offsetBuffer!, offsets.subarray(0, count));
+    gpu.writeStorageBuffer(state.intensityBuffer!, intensities.subarray(0, count));
+    gpu.writeStorageBuffer(state.yBuffer!, originalYs.subarray(0, count));
 
     const f32 = _scalarF32;
     const u32 = _scalarU32;
@@ -239,12 +242,12 @@ export async function runFoliageGpuScalarBatch(
     f32[1] = kick;
     u32[2] = count;
     u32[3] = MODE_ID[mode];
-    gpu.writeUniformBuffer(_batch.uniformBuffer!, f32);
+    gpu.writeUniformBuffer(state.uniformBuffer!, f32);
 
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginComputePass();
-    pass.setPipeline(_batch.pipeline!);
-    pass.setBindGroup(0, _batch.bindGroup!);
+    pass.setPipeline(state.pipeline!);
+    pass.setBindGroup(0, state.bindGroup!);
     pass.dispatchWorkgroups(Math.ceil(count / 64));
     pass.end();
 
@@ -252,20 +255,23 @@ export async function runFoliageGpuScalarBatch(
     const readBytes = count * 4;
 
     // Await the mapping from the *previous* frame
-    if (_batch.mapPromise) {
+    if (state.mapPromise) {
         try {
-            await _batch.mapPromise;
-            const prevBuffer = _batch.currentReadBufferIndex === 0 ? _batch.readBufferA! : _batch.readBufferB!;
+            await state.mapPromise;
+            // Replaced or disposed meanwhile: its buffers are destroyed, so do not
+            // read them or submit work against them. The next call starts fresh.
+            if (_batch !== state) return null;
+            const prevBuffer = state.currentReadBufferIndex === 0 ? state.readBufferA! : state.readBufferB!;
             const mapped = new Float32Array(prevBuffer.getMappedRange());
 
             // Copy into our persistent CPU staging buffer
-            const safeCount = Math.min(_batch.prevCount, _batch.maxCount);
+            const safeCount = Math.min(state.prevCount, state.maxCount);
             for (let i = 0; i < safeCount; i++) {
-                _batch.scalarStaging![i] = mapped[i];
+                state.scalarStaging![i] = mapped[i];
             }
             prevBuffer.unmap();
         } catch {
-            const prevBuffer = _batch.currentReadBufferIndex === 0 ? _batch.readBufferA! : _batch.readBufferB!;
+            const prevBuffer = state.currentReadBufferIndex === 0 ? state.readBufferA! : state.readBufferB!;
             if (prevBuffer.mapState === 'mapped') {
                 prevBuffer.unmap();
             }
@@ -273,21 +279,21 @@ export async function runFoliageGpuScalarBatch(
     }
 
     // Swap buffers for current frame dispatch
-    _batch.currentReadBufferIndex = 1 - _batch.currentReadBufferIndex;
-    const currBuffer = _batch.currentReadBufferIndex === 0 ? _batch.readBufferA! : _batch.readBufferB!;
+    state.currentReadBufferIndex = 1 - state.currentReadBufferIndex;
+    const currBuffer = state.currentReadBufferIndex === 0 ? state.readBufferA! : state.readBufferB!;
     if (currBuffer.mapState !== 'unmapped') {
         currBuffer.unmap();
     }
 
-    encoder.copyBufferToBuffer(_batch.outBuffer!, 0, currBuffer, 0, readBytes);
+    encoder.copyBufferToBuffer(state.outBuffer!, 0, currBuffer, 0, readBytes);
     device.queue.submit([encoder.finish()]);
 
     // Start mapAsync for NEXT frame, do not await it here
-    _batch.mapPromise = currBuffer.mapAsync(GPUMapMode.READ, 0, readBytes).catch(() => {});
-    _batch.prevCount = count;
+    state.mapPromise = currBuffer.mapAsync(GPUMapMode.READ, 0, readBytes).catch(() => {});
+    state.prevCount = count;
 
     setLastFrameGpuFoliage(true);
-    return _batch.scalarStaging!.subarray(0, count);
+    return state.scalarStaging!.subarray(0, count);
 }
 
 const _pendingBatches = new Map<string, Promise<Float32Array | null>>();

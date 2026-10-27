@@ -299,6 +299,9 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
 
     const ready = await ensurePoseGpu(count);
     if (!ready || !_poseGpu) return null;
+    // The state can be rebuilt (a larger batch) or disposed (device loss) while
+    // this call awaits the previous readback; hold on to the one we started with.
+    const state = _poseGpu;
 
     const gpu = getSharedGPUCompute();
     const device = gpu.getDevice();
@@ -323,12 +326,12 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
     f32[13] = wave?.radiusSq ?? 0;
     u32[14] = count;
 
-    gpu.writeUniformBuffer(_poseGpu.uniformBuffer!, f32);
+    gpu.writeUniformBuffer(state.uniformBuffer!, f32);
 
     const encoder = device.createCommandEncoder({ label: 'gpu-plant-pose' });
     const pass = encoder.beginComputePass();
-    pass.setPipeline(_poseGpu.pipeline!);
-    pass.setBindGroup(0, _poseGpu.bindGroup!);
+    pass.setPipeline(state.pipeline!);
+    pass.setBindGroup(0, state.bindGroup!);
     pass.dispatchWorkgroups(Math.ceil(count / 64));
     pass.end();
 
@@ -336,23 +339,26 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
     const readBytes = count * STATE_FLOATS_PER_INSTANCE * 4;
 
     // Await the mapping from the *previous* frame
-    if (_poseGpu.mapPromise) {
+    if (state.mapPromise) {
         try {
-            await _poseGpu.mapPromise;
+            await state.mapPromise;
+            // Replaced or disposed meanwhile: its buffers are destroyed, so do not
+            // read them or submit work against them. The next call starts fresh.
+            if (_poseGpu !== state) return null;
             const prevBuffer =
-                _poseGpu.currentReadBufferIndex === 0 ? _poseGpu.readBufferA! : _poseGpu.readBufferB!;
+                state.currentReadBufferIndex === 0 ? state.readBufferA! : state.readBufferB!;
             const mapped = new Float32Array(prevBuffer.getMappedRange());
 
             // Copy into our persistent CPU staging buffer
-            const safeCount = Math.min(_poseGpu.prevCount, _poseGpu.maxCount);
+            const safeCount = Math.min(state.prevCount, state.maxCount);
             for (let i = 0; i < safeCount; i++) {
-                _poseGpu.poseStaging![i] = mapped[i * 2 + 1];
+                state.poseStaging![i] = mapped[i * 2 + 1];
             }
             prevBuffer.unmap();
         } catch {
             // Ignore interrupted map operations and continue with best-effort stale staging data.
             const prevBuffer =
-                _poseGpu.currentReadBufferIndex === 0 ? _poseGpu.readBufferA! : _poseGpu.readBufferB!;
+                state.currentReadBufferIndex === 0 ? state.readBufferA! : state.readBufferB!;
             if (prevBuffer.mapState === 'mapped') {
                 prevBuffer.unmap();
             }
@@ -360,22 +366,22 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
     }
 
     // Swap buffers for current frame dispatch
-    _poseGpu.currentReadBufferIndex = 1 - _poseGpu.currentReadBufferIndex;
-    const currBuffer = _poseGpu.currentReadBufferIndex === 0 ? _poseGpu.readBufferA! : _poseGpu.readBufferB!;
+    state.currentReadBufferIndex = 1 - state.currentReadBufferIndex;
+    const currBuffer = state.currentReadBufferIndex === 0 ? state.readBufferA! : state.readBufferB!;
     if (currBuffer.mapState !== 'unmapped') {
         currBuffer.unmap();
     }
 
-    encoder.copyBufferToBuffer(_poseGpu.stateBuffer!, 0, currBuffer, 0, readBytes);
+    encoder.copyBufferToBuffer(state.stateBuffer!, 0, currBuffer, 0, readBytes);
     device.queue.submit([encoder.finish()]);
 
     // Start mapAsync for NEXT frame, do not await it here
-    _poseGpu.mapPromise = currBuffer.mapAsync(GPUMapMode.READ, 0, readBytes).catch(() => {});
-    _poseGpu.prevCount = count;
+    state.mapPromise = currBuffer.mapAsync(GPUMapMode.READ, 0, readBytes).catch(() => {});
+    state.prevCount = count;
 
     setLastFrameGpuFoliage(true);
     // Return a stable current-frame-sized view for downstream batchers.
-    return _poseGpu.poseStaging!.subarray(0, count);
+    return state.poseStaging!.subarray(0, count);
 }
 
 /** Synchronous gate for batchers — async work must be awaited by caller. */
