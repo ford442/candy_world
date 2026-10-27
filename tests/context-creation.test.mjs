@@ -335,6 +335,14 @@ await quiet(async () => {
         target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
     });
     assert.equal(changed.objects, 5, 'needsUpdate on a shared material recompiles its users');
+    // Device-loss recovery rebuilds the renderer in place on a new backend,
+    // which has compiled nothing: the cache is per backend, not per renderer.
+    renderer.backend = { rebuilt: true };
+    const rebuilt = await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    assert.equal(rebuilt.objects, 5, 'a rebuilt backend compiles everything again');
+    delete renderer.backend;
 
     // A throwing chunk is restored and skipped; abort stops between chunks.
     // A fresh renderer has compiled nothing yet.

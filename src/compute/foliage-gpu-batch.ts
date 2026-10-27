@@ -93,10 +93,19 @@ async function ensureBatchGpu(maxCount: number): Promise<boolean> {
     if (_batchDisabled || !preferGpuCompute() || !isGpuComputeReady()) return false;
     if (_initPromise && _batch && _batch.maxCount >= maxCount) return _initPromise;
 
+    // What this attempt allocates, so a failure part-way through can release it.
+    const created: GPUBuffer[] = [];
+    let trackedBytes = 0;
     _initPromise = (async () => {
         const gpu = getSharedGPUCompute();
         const device = gpu.getDevice();
         if (!device) return false;
+
+        const makeBuffer = (descriptor: GPUBufferDescriptor): GPUBuffer => {
+            const buffer = device.createBuffer(descriptor);
+            created.push(buffer);
+            return buffer;
+        };
 
         const cap = Math.max(maxCount, 512);
         const fBytes = cap * 4;
@@ -111,38 +120,39 @@ async function ensureBatchGpu(maxCount: number): Promise<boolean> {
         _batch?.readBufferA?.destroy();
         _batch?.readBufferB?.destroy();
 
-        const offsetBuffer = device.createBuffer({
+        const offsetBuffer = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        const intensityBuffer = device.createBuffer({
+        const intensityBuffer = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        const yBuffer = device.createBuffer({
+        const yBuffer = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        const outBuffer = device.createBuffer({
+        const outBuffer = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
         });
-        const uniformBuffer = device.createBuffer({
+        const uniformBuffer = makeBuffer({
             size: 16,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
 
-        const readBufferA = device.createBuffer({
+        const readBufferA = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
         });
-        const readBufferB = device.createBuffer({
+        const readBufferB = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
         });
 
-        trackGpuBufferBytes(fBytes * 4 + 16 + fBytes * 2);
+        trackedBytes = fBytes * 4 + 16 + fBytes * 2;
+        trackGpuBufferBytes(trackedBytes);
 
         const layout = device.createBindGroupLayout({
             entries: [
@@ -203,7 +213,10 @@ async function ensureBatchGpu(maxCount: number): Promise<boolean> {
         };
         return true;
     })().catch((err: unknown) => {
-        // An optional accelerator: a pipeline error must not fail startup.
+        // An optional accelerator: a pipeline error must not fail startup, and
+        // must not keep what this attempt allocated either.
+        for (const buffer of created) buffer.destroy();
+        if (trackedBytes > 0) trackGpuBufferBytes(-trackedBytes);
         _batchDisabled = true;
         _batch = null;
         console.warn('[FoliageGpuBatch] GPU batch disabled, using WASM:', err);

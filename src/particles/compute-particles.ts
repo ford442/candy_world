@@ -644,7 +644,16 @@ export class ComputeParticleSystem {
                 this.mesh.visible = true;
             })
             .catch(() => {
-                console.warn(`[ComputeParticles] ${this.type} stays hidden after device loss`);
+                // As when the first init fails: the CPU tier takes over. The mesh
+                // is already in the scene by now, so the new one takes its place.
+                const hidden = this.mesh;
+                const parent = hidden.parent;
+                this.initCPUFallback();
+                if (parent) {
+                    parent.remove(hidden);
+                    parent.add(this.mesh);
+                }
+                console.warn(`[ComputeParticles] ${this.type} fell back to CPU after device loss`);
             });
     }
 

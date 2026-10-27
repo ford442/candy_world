@@ -91,8 +91,12 @@ function isRendererLost(renderer: CompilingRenderer): boolean {
 
 type Renderable = THREE.Object3D & { frustumCulled: boolean; material?: unknown };
 
-/** Per renderer: each compiled object and the {@link compileKey} it was compiled with. */
-const compiledByRenderer = new WeakMap<object, WeakMap<THREE.Object3D, string>>();
+/**
+ * Per backend: each compiled object and the {@link compileKey} it was compiled
+ * with. Not per renderer: device-loss recovery rebuilds the renderer in place
+ * on a new backend (`device-recovery.ts`), which has compiled nothing.
+ */
+const compiledByBackend = new WeakMap<object, WeakMap<THREE.Object3D, string>>();
 
 /**
  * What an object was compiled with: its material(s) and their versions, so a
@@ -105,10 +109,11 @@ function compileKey(o: Renderable): string {
 }
 
 function compiledFor(renderer: CompilingRenderer): WeakMap<THREE.Object3D, string> {
-    let compiled = compiledByRenderer.get(renderer);
+    const backend = (renderer as { backend?: object }).backend ?? renderer;
+    let compiled = compiledByBackend.get(backend);
     if (!compiled) {
         compiled = new WeakMap();
-        compiledByRenderer.set(renderer, compiled);
+        compiledByBackend.set(backend, compiled);
     }
     return compiled;
 }
