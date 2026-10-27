@@ -47,6 +47,11 @@ A WebGL2 context without float colour targets (`EXT_color_buffer_float` /
 `EXT_color_buffer_half_float`) cannot draw the `rgba16float` scene pass at all, so it renders
 direct, as under `?postfx=off`.
 
+![WebGL2 on SwiftShader, `?aa=off` beside the default FXAA, same camera pose, with 3× crops of the hill silhouette](./webgl-aa-before-after.png)
+
+(Headless WebGL2 on SwiftShader with the camera pinned; the streamed props and the time of day
+differ between the two boots, so compare the hill edge and the stem, not the background.)
+
 FXAA and SMAA work on display-referred colour, so in those modes the pipeline's own output
 transform is off (`outputColorTransform = false`) and the graph is
 `fxaa(renderOutput(composite))`: tone mapping and sRGB happen first, then the edge filter. Before
