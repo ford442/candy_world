@@ -27,7 +27,7 @@ struct Uniforms {
 @group(0) @binding(1) var<storage, read> offsets: array<f32>;
 @group(0) @binding(2) var<storage, read> intensities: array<f32>;
 @group(0) @binding(3) var<storage, read> originalYs: array<f32>;
-@group(0) @binding(4) var<storage, write> outScalars: array<f32>;
+@group(0) @binding(4) var<storage, read_write> outScalars: array<f32>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -86,9 +86,11 @@ interface BatchGpuState {
 
 let _batch: BatchGpuState | null = null;
 let _initPromise: Promise<boolean> | null = null;
+/** Set when the pipeline cannot be built; the WASM path then serves every batch. */
+let _batchDisabled = false;
 
 async function ensureBatchGpu(maxCount: number): Promise<boolean> {
-    if (!preferGpuCompute() || !isGpuComputeReady()) return false;
+    if (_batchDisabled || !preferGpuCompute() || !isGpuComputeReady()) return false;
     if (_initPromise && _batch && _batch.maxCount >= maxCount) return _initPromise;
 
     _initPromise = (async () => {
@@ -200,7 +202,13 @@ async function ensureBatchGpu(maxCount: number): Promise<boolean> {
             scalarStaging: new Float32Array(cap),
         };
         return true;
-    })();
+    })().catch((err: unknown) => {
+        // An optional accelerator: a pipeline error must not fail startup.
+        _batchDisabled = true;
+        _batch = null;
+        console.warn('[FoliageGpuBatch] GPU batch disabled, using WASM:', err);
+        return false;
+    });
 
     return _initPromise;
 }
@@ -224,7 +232,9 @@ export async function runFoliageGpuScalarBatch(
 ): Promise<Float32Array | null> {
     if (count === 0) return new Float32Array(0);
     const ready = await ensureBatchGpu(count);
-    if (!ready || !_batch) return null;
+    // Two overlapping inits can settle out of order and leave the smaller one
+    // installed; never dispatch past its buffers. The next call rebuilds it.
+    if (!ready || !_batch || _batch.maxCount < count) return null;
     // The state can be rebuilt (a larger batch) or disposed (device loss) while
     // this call awaits the previous readback; hold on to the one we started with.
     const state = _batch;

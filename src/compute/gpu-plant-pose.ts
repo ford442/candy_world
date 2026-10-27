@@ -297,7 +297,9 @@ export async function runGpuPlantPose(params: GpuPlantPoseParams): Promise<Float
     if (!shouldRunGpuPlantPose(count)) return null;
 
     const ready = await ensurePoseGpu(count);
-    if (!ready || !_poseGpu) return null;
+    // Two overlapping inits can settle out of order and leave the smaller one
+    // installed; never dispatch past its buffers. The next call rebuilds it.
+    if (!ready || !_poseGpu || _poseGpu.maxCount < count) return null;
     // The state can be rebuilt (a larger batch) or disposed (device loss) while
     // this call awaits the previous readback; hold on to the one we started with.
     const state = _poseGpu;
