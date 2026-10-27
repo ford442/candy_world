@@ -234,7 +234,7 @@ for (let i = 0; i < count; i++) {
 
 | Function | Location | Effort | Impact | Target | Status |
 |----------|----------|--------|--------|--------|--------|
-| `smoothWobble` | animation.ts:326-336 | Low | High | AS | 🟡 Not Started |
+| `smoothWobble` | animation.ts:326-336 | Low | High | AS | ✅ Complete |
 | `batchGroundHeight` | Multiple call sites | Low | High | AS | 🟡 Partial |
 | `vineSwings.update` | physics.ts:196-201 | Low | High | C++ | 🔴 In-loop import |
 | `triggerGrowth` | animation.ts:18-58 | Low | Med | AS | 🟢 Not Started |
@@ -442,7 +442,7 @@ The codebase already contains timing markers:
 
 #### 🔴 P0 - Immediate (This Sprint)
 
-- [ ] **Expand `assembly/math.ts`** with color/noise functions
+- [x] **Expand `assembly/math.ts`** with color/noise functions
   - Add `smoothWobble` function for mushroom wobble smoothing
   - Add `median` calculation for velocity buffers
   - Add `lerpColor` variants for material updates

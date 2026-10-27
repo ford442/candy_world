@@ -105,7 +105,7 @@ export let cppUpdateBoids:
     | null = null;
 
 /** Hot-path Foliage Animation exports (Migrated from TS) */
-export const wasmSmoothWobble:
+export let wasmSmoothWobble:
     | ((
           noteBufferPtr: number,
           bufferSize: number,
@@ -119,6 +119,7 @@ export const wasmSmoothWobble:
 export const wasmBatchGrowth: ((dataPtr: number, count: number) => void) | null = null;
 export const wasmBatchBloom: ((dataPtr: number, count: number) => void) | null = null;
 export const wasmBatchScaleAnimation: ((dataPtr: number, count: number) => void) | null = null;
+
 
 /** Hot-path Physics exports (Migrated from TS) */
 export let wasmBatchGroundHeight:
@@ -365,6 +366,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmBatchLODSelect = exports.batchLODSelect || null;
 
     wasmHslToRgb = exports.hslToRgb || null;
+    wasmSmoothWobble = exports.smoothWobble || null;
     wasmHash2D = exports.hash2D || null;
     wasmValueNoise2D = exports.valueNoise2D || null;
     wasmFbm2D = exports.fbm2D || null;
