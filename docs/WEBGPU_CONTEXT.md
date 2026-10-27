@@ -157,9 +157,10 @@ How the two surfaces are kept in agreement:
 2. `init.ts` sets `renderer.outputColorSpace` from `probe.canvas.colorSpace` and
    `platformCaps.hdr`, going through `ensureOutputColorSpace()`.
 3. `WebGPUBackend` (three 0.186) calls `configure()` again **without** `colorSpace`, which
-   resets it to `srgb`. `init.ts` therefore calls `applyCanvasColorSpace(probe, outputColorSpace)`
-   after arming, re-tagging the same device/format/alphaMode with the color space the renderer
-   actually uses.
+   resets it to `srgb`: lazily on the first frame, and after every resize (`updateSize()` drops
+   its cached context). `init.ts` calls `applyCanvasColorSpace(probe, outputColorSpace)` after
+   arming, which re-tags the swap chain with the color space the renderer actually uses and pins
+   it on the context instance, so each of Three's later configures carries it too.
 
 `window.webgpuProbe.canvas` reports `{ format, alphaMode, colorSpace }` as finally applied.
 

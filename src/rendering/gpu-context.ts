@@ -799,24 +799,44 @@ function publicCanvasConfig(config: GpuCanvasConfig): Omit<GpuCanvasConfig, 'usa
     return { format: config.format, alphaMode: config.alphaMode, colorSpace: config.colorSpace };
 }
 
+const pinnedColorSpace = new WeakMap<GPUCanvasContext, PredefinedColorSpace>();
+
 /**
- * Re-apply the swap-chain configuration with `colorSpace`.
+ * Three r186 configures the canvas lazily on the first frame, and again after
+ * every resize (`updateSize()` drops its cached context), each time with only
+ * device/format/usage/alphaMode/toneMapping, which resets `colorSpace` to
+ * `srgb`. Keep the tag on the context instance so every later configure,
+ * Three's included, carries it.
+ */
+function pinCanvasColorSpace(context: GPUCanvasContext, colorSpace: PredefinedColorSpace): void {
+    const wrapped = pinnedColorSpace.has(context);
+    pinnedColorSpace.set(context, colorSpace);
+    if (wrapped) return;
+    const configure = context.configure.bind(context);
+    context.configure = (config: GPUCanvasConfiguration) =>
+        configure({ ...config, colorSpace: pinnedColorSpace.get(context) ?? config.colorSpace });
+}
+
+/**
+ * Re-apply the swap-chain configuration with `colorSpace`, and keep it there.
  *
- * `WebGPUBackend.init()` (three 0.171) calls `context.configure()` again with
- * only device/format/usage/alphaMode, which resets `colorSpace` to `srgb`.
  * Call this after {@link armGpuContext}, with the `outputColorSpace` the
  * renderer actually ended up on, so the canvas tag matches Three's output
- * transform. Best-effort: a rejected configure keeps the previous swap chain.
+ * transform through its own later configures ({@link pinCanvasColorSpace}).
+ * Best-effort: a rejected configure keeps the previous swap chain.
  */
 export function applyCanvasColorSpace(
     probe: GpuProbeResult,
     colorSpace: PredefinedColorSpace
 ): void {
     const next: GpuCanvasConfig = { ...probe.canvas, colorSpace };
+    const previous = probe.canvas.colorSpace;
     try {
+        pinCanvasColorSpace(probe.context, colorSpace);
         probe.context.configure({ device: probe.device, ...next });
         probe.canvas = next;
     } catch (err) {
+        pinnedColorSpace.set(probe.context, previous);
         console.warn(
             `[GPUContext] Canvas configure with colorSpace=${colorSpace} failed: ${describeError(err)}`
         );
