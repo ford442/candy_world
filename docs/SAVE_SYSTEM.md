@@ -6,6 +6,67 @@ The Candy World Save System provides comprehensive save/load functionality with 
 - **localStorage** (sync) - For settings and small data
 - **IndexedDB** (async) - For world state and large save files
 
+## The WorldDocument (#1974)
+
+A player's world is one versioned record, `WorldDocumentV1`
+(`src/world/document/schema.ts`). It replaces the six stores progress used to
+be spread over (save slots, discoveries, unlocks + inventory, the Part II
+door, awakened flora, and the dev entity-snapshot sidecar):
+
+```ts
+interface WorldDocumentV1 {
+    schema: 1;
+    id: string; // uuid
+    seed: number; mapVersion: string; // regenerate the base world
+    commands: DocumentCommand[]; // authored edits, replayed in order on top of it
+    progress: {
+        discoveries: string[]; unlocks: string[]; inventory: Record<string, number>;
+        awakened: AwakenedRecord[]; stamps: string[]; partII: { sugarCavesUnlocked: boolean };
+    };
+    player: { position: [x, y, z]; yaw: number; season?: SeasonOverride };
+    meta: { title?: string; createdAt: number; updatedAt: number; author?: string };
+}
+```
+
+- **Validation.** The schema is [valibot](https://valibot.dev); the TS types
+  are inferred from it (commands are typed by hand, because `batch` nests).
+  `parseWorldDocument()` (`migrations.ts`) is the one entry point for
+  untrusted input (IndexedDB, imported files, a future remote store): it
+  migrates, validates, and returns a `WorldDocumentError` whose `userMessage`
+  is shown to the player, e.g. *"This world file is damaged or from an
+  unsupported build at "commands.3.snapshot.entity.position"."*
+- **Migrations.** An ordered `registerDocumentMigration(fromSchema, fn)`
+  table, one hop at a time, a unit test per hop. Schema 0 is the pre-document
+  save-slot export (`SaveData` 1.0.0), so an old exported save still opens.
+- **Storage.** `DocumentStore` (`load` / `save` / `list` / `delete`,
+  `store.ts`). `IndexedDbDocumentStore` uses this save database
+  (`CandyWorldSaveDB` v2 adds a `documents` object store);
+  `MemoryDocumentStore` backs tests and browsers without IndexedDB. The
+  shared-worlds store (#1975) implements the same interface.
+- **The open world.** `src/world/document/active.ts` opens one document per
+  world seed after world generation: the stored one, else the legacy import
+  below, else an empty one. Its progress is merged into the live systems
+  (union: progress only grows) and its commands are replayed. It autosaves a
+  moment after each edit, every 30 s, and on `pagehide`.
+- **Legacy import.** `legacy-import.ts` reads the six old stores once
+  (`candy_world_document_imported` marks it done) and writes a v1 document.
+  The old keys are left alone: for this release `FEATURE_FLAGS.legacyRead`
+  (on; `?legacyRead=0` turns it off) keeps the old systems reading and writing
+  them, so a rollback loses nothing. The next release drops the flag and the
+  keys.
+- **Export / import.** Save menu → Import/Export → *World File*: **Export
+  World** downloads `<title>.candyworld` (gzipped JSON via
+  `CompressionStream`); **Open World File** opens one (or a legacy save JSON)
+  as the active world, after saving the current one, which stays under
+  *Recent Worlds*. A file from another seed reloads the page on that seed.
+- **Save slots.** `SaveData` 1.1.0 carries `document`, and loading a slot
+  applies it (edits, progress, player pose). The 1.1.0 migration builds a
+  document for every 1.0.0 save from its own fields. `world.entitySnapshots`
+  and `progress` are still written while `legacyRead` is on.
+
+Build mode, the commands and the command log are in
+[`AUTHORING.md`](./AUTHORING.md).
+
 ## Features
 
 - ✅ Auto-save every 30 seconds
@@ -173,6 +234,8 @@ interface SaveData {
     world: WorldSaveData;
     progress: ProgressSaveData;
     settings: SettingsSaveData;
+    /** 1.1.0+: what a load applies. See "The WorldDocument" above. */
+    document?: WorldDocumentV1;
 }
 ```
 
@@ -390,27 +453,22 @@ window.openSaveGameMenu();
 
 ## Migration System
 
-The save system includes a migration system for handling version upgrades:
+Save slots migrate by semver (`MigrationSystem.registerMigration` in
+`save-database.ts`); the registered steps live in `SaveSystem.initMigrations`.
+The first real one is 1.0.0 → 1.1.0, which adds `document`:
 
 ```typescript
-// Register a migration from version 1.0.0 to 1.1.0
-migrationSystem.registerMigration('1.1.0', (data, fromVersion) => {
-    // Transform data from old format
-    return {
-        ...data,
-        player: {
-            ...data.player,
-            newField: defaultValue
-        },
-        metadata: {
-            ...data.metadata,
-            version: '1.1.0'
-        }
-    };
+this.migrations.registerMigration('1.1.0', (data) => {
+    const doc = migrateLegacySave(data, { seed: getWorldSeed(), mapVersion: getMapVersion(), now: Date.now() });
+    doc.schema = WORLD_DOCUMENT_SCHEMA;
+    const checked = validateWorldDocument(doc);
+    return checked.ok ? { ...data, document: checked.doc } : data;
 });
 ```
 
-Migrations are automatically applied when loading saves with older versions.
+Migrations are applied automatically when a slot from an older version loads.
+The document itself has its own integer schema and hop table
+(`src/world/document/migrations.ts`), described above.
 
 ## Error Handling
 
@@ -472,11 +530,12 @@ localStorage.setItem('candy_world_debug_saves', 'true');
 ```
 src/
 ├── systems/
-│   └── save-system.ts      # Core save/load logic
-├── ui/
-│   └── save-menu.ts        # UI components
-└── docs/
-    └── SAVE_SYSTEM.md      # This documentation
+│   ├── save-system/        # Slots, IndexedDB database, slot migrations
+│   └── save-integration.ts # Gather/apply hooks into live game state
+├── world/document/         # WorldDocument: schema, migrations, store, codec,
+│                           # legacy import, session (command log), active world
+└── ui/
+    └── save-menu/          # Save/load/settings/import-export UI
 ```
 
 ## Dependencies

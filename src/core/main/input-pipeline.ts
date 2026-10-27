@@ -10,6 +10,7 @@ import {
     uShaftScatterBoost,
 } from '../../foliage/post-processing-uniforms.ts';
 import { ensureGameplay } from '../../gameplay/lazy.ts';
+import { isBuildGizmoOpen } from '../../systems/build-mode-state.ts';
 import { InteractionSystem } from '../../systems/interaction.ts';
 import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
 import { player } from '../../systems/physics/index.ts';
@@ -43,7 +44,8 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
             camera,
             ctx.audioSystem!,
             () => toggleDayNight(ctx.timeOffset),
-            () => (player as any).isDancing
+            // Dancing, or the build gizmo holding the cursor for a drag.
+            () => (player as any).isDancing || isBuildGizmoOpen()
         );
         setInputSystem(ctx.inputSystem);
         ctx.controls = ctx.inputSystem.controls;

@@ -87,6 +87,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - **`accessibility.ts`**: Keyboard navigation, text alternatives
 - **`material-batcher.ts`**: Material optimization and batching
 - **`performance-budget/`**: Performance monitoring and alerts
+- **`authoring/`**: In-world build mode (lazy `authoring` chunk; `B` toggles via `build-mode-lazy.ts`). Edits are `world-commands.ts` commands through `edit-history.ts`. See `docs/AUTHORING.md`
 
 #### `/src/rendering` — Graphics & Post-Processing
 
@@ -112,6 +113,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 
 - **`generation.ts`**: Terrain, chunk generation, heightmap
 - **`state.ts`**: World state, foliage tracking, animation state
+- **`document/`**: The versioned `WorldDocument` (valibot schema, migrations, IndexedDB store, `.candyworld` codec, legacy importer, command-log session). See `docs/SAVE_SYSTEM.md`
 
 #### `/src/gameplay` — Gameplay Mechanics
 
@@ -418,6 +420,7 @@ npm run optimize        # Apply all optimizations (experimental)
 ## Further Reading
 
 - **Architecture**: `docs/ARCHITECTURE.md` — Frame phases, system registration, the fixed step, entity ownership
+- **Authoring**: `docs/AUTHORING.md` — Build mode, world commands, the WorldDocument command log
 - **Tests**: `tests/README.md` — Detailed test documentation
 - **Copilot Instructions**: `.github/copilot-instructions.md` — Visual style, materials, TSL usage
 - **Map Generation**: `tools/map-generator/` — Custom terrain generation tool

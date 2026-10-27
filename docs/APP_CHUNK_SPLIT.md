@@ -60,7 +60,7 @@ Confirm flags-off: `pnpm run analyze:bundle` or grep `dist/chunks/app-*.js` for
 | `app`              | **~617 KB**   | ~195 KB | Always (foliage + physics + music-reactivity + audio) |
 | `vendor`           | ~955 KB       | ~260 KB | Always                                                |
 | `weather`          | ~111 KB       | ~31 KB  | Boot (orchestrator + particles + compute + berries)   |
-| `save-ui`          | ~64 KB        | ~16 KB  | `openSaveMenu`                                        |
+| `save-ui`          | ~64 KB        | ~16 KB  | After world load (WorldDocument + `valibot`), `openSaveMenu` |
 | `accessibility-ui` | ~37 KB        | ~10 KB  | Accessibility menu                                    |
 | `analytics-debug`  | ~36 KB        | ~9 KB   | `?debug=1` / `/stats`                                 |
 | `debug`            | ~30 KB        | ~10 KB  | `?debug=*`                                            |
@@ -72,7 +72,8 @@ Confirm flags-off: `pnpm run analyze:bundle` or grep `dist/chunks/app-*.js` for
 | `photo-mode`       | ~13 KB        | ~4 KB   | `FEATURE_FLAGS.photoMode` or **P**                    |
 | `generative-music` | ~11 KB        | ~4 KB   | `?generative=1` / `enableGenerativeMode()`            |
 | `playlist-ui`      | ~10 KB        | ~3 KB   | Boot (circular with `app`)                            |
-| `awakened`         | ~9 KB         | ~3 KB   | `?awakened`                                           |
+| `awakened`         | ~9 KB         | ~3 KB   | After world load (on by default; `?no_awakened` off)  |
+| `authoring`        | see build     | —       | First **B** (build mode + `TransformControls`)        |
 
 **Accepted Rollup circular-chunk warnings:** `weather ↔ app` only (since #1827;
 `playlist-ui` and `profiler` were fixed). Do **not** reintroduce `Circular chunk: compute ↔ app`,

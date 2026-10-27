@@ -194,6 +194,26 @@ class UnlockSystem {
         // For now, we just track the state.
     }
 
+    public getUnlockedIds(): string[] {
+        return Array.from(this.unlocks);
+    }
+
+    public getInventory(): Record<string, number> {
+        return { ...this.inventory };
+    }
+
+    /**
+     * Merge progress from a saved world without toasts: unlocks are a union,
+     * item counts keep the larger value.
+     */
+    public restore(unlocks: readonly string[], inventory: Readonly<Record<string, number>>): void {
+        for (const id of unlocks) this.unlocks.add(id);
+        for (const key in inventory) {
+            this.inventory[key] = Math.max(this.inventory[key] ?? 0, inventory[key]);
+        }
+        this.save();
+    }
+
     public isUnlocked(unlockId: string): boolean {
         return this.unlocks.has(unlockId);
     }

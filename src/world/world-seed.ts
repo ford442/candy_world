@@ -13,7 +13,11 @@ export const DEFAULT_WORLD_SEED = CONFIG.world.seed;
 
 const SEED_STORAGE_KEY = 'candy_world_seed';
 
+/** `metadata.version` of `assets/map.json`; a WorldDocument records it next to the seed. */
+export const DEFAULT_MAP_VERSION = '1.0';
+
 let _mapSeed: number | null = null;
+let _mapVersion: string | null = null;
 let _seedVersion = 0;
 
 function hashString(s: string): number {
@@ -37,11 +41,17 @@ export function readSeedFromURL(): number | null {
 }
 
 /** Called once map metadata is available (optional refinement of default). */
-export function setMapMetadataSeed(seed: number | undefined): void {
+export function setMapMetadataSeed(seed: number | undefined, version?: string): void {
+    if (typeof version === 'string' && version.length > 0) _mapVersion = version;
     if (typeof seed === 'number' && Number.isFinite(seed)) {
         _mapSeed = Math.floor(seed);
         _seedVersion++;
     }
+}
+
+/** Map data version the base world was generated from. */
+export function getMapVersion(): string {
+    return _mapVersion ?? DEFAULT_MAP_VERSION;
 }
 
 /**

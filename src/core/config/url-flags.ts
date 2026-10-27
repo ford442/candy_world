@@ -12,7 +12,9 @@ import { isAutomation } from '../platform/run-mode.ts';
 //   ?no_fireflies         — skip firefly particle system
 //   ?no_grass             — skip GPU grass instancing
 //   ?no_fauna             — skip ambient fauna boids + batchers
-//   ?awakened             — enable durable glow for music-awakened flora (default off)
+//   ?no_awakened          — skip durable glow for music-awakened flora (on by default;
+//                           the Sugar Caves door counts awakened flora)
+//   ?legacyRead=0         — stop reading the pre-WorldDocument stores (on this release)
 //   ?presence=1           — show shared-presence opt-in UI (still requires explicit join)
 //   ?generative=1         — in-browser generative soundtrack (or ?music=generative)
 //   ?photo=1              — cinematic photo mode (or ?mode=photo)
@@ -118,11 +120,16 @@ export const FEATURE_FLAGS = {
     grass: !hasUrlFlag('no_grass'),
     fauna: !hasUrlFlag('no_fauna'),
     /**
-     * Persist soft glow for music-awakened flora across reloads.
-     * Runtime URL flag (?awakened) — default off for safe rollout.
-     * Rollup cannot prune this branch; use import.meta.env for zero bundle cost later.
+     * Persist soft glow for music-awakened flora across reloads. On by default
+     * (#1974): the Sugar Caves door is gated on the awakened count. `?no_awakened`
+     * turns it off.
      */
-    awakenedPersistence: hasUrlFlag('awakened'),
+    awakenedPersistence: !hasUrlFlag('no_awakened'),
+    /**
+     * Keep reading (and importing from) the six pre-WorldDocument stores. On for
+     * one release so a rollback loses nothing; `?legacyRead=0` turns it off.
+     */
+    legacyRead: getUrlFlag('legacyRead') !== '0',
     /** Shared multiplayer presence UI + networking (opt-in join; no traffic until joined). */
     get presence(): boolean {
         return isPresenceFeatureEnabled();
