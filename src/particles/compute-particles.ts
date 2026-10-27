@@ -61,7 +61,12 @@ import {
     cross,
     cameraPosition,
 } from 'three/tsl';
-import { MeshStandardNodeMaterial, PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import {
+    MeshStandardNodeMaterial,
+    PointsNodeMaterial,
+    StorageBufferAttribute,
+    type Renderer,
+} from 'three/webgpu';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { isAutomation } from '../core/platform/run-mode.ts';
 import {
@@ -895,7 +900,7 @@ export class ComputeParticleSystem {
     }
 
     update(
-        renderer: THREE.Renderer,
+        renderer: Renderer,
         deltaTime: number,
         playerPosition: THREE.Vector3,
         audioData: ParticleAudioData
@@ -942,20 +947,6 @@ export class ComputeParticleSystem {
             passEncoder.dispatchWorkgroups(Math.ceil(this.count / 64));
             passEncoder.end();
             this.device.queue.submit([commandEncoder.finish()]);
-
-            // To properly share the WebGPU buffer with Three.js TSL natively,
-            // we override the internal GPUBuffer reference of the StorageBufferAttribute.
-            // This is a hack for the review environment, as a proper implementation requires TSL compute nodes.
-            const rendererBackend = renderer as any;
-            if (rendererBackend.backend && rendererBackend.backend.attributeUtils) {
-                const bufferData = rendererBackend.backend.attributeUtils.get(
-                    this.buffers.position
-                );
-                if (bufferData && bufferData.buffer !== this.particleBuffer) {
-                    // Force Three.js to use our SoA buffer
-                    bufferData.buffer = this.particleBuffer;
-                }
-            }
 
             // Sync GPU storage buffer back to CPU buffers to bridge with TSL rendering.
             // This is required because TSL uses StorageBufferAttributes which map to separate buffers
@@ -1188,7 +1179,7 @@ export function removeComputeSystem(type: ComputeParticleType): void {
 }
 
 export function updateAllComputeSystems(
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     deltaTime: number,
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData

@@ -75,37 +75,14 @@ export interface CompilingRenderer {
     setMRT?(mrt: unknown): unknown;
 }
 
-/** Internals read off the renderer (Three 0.171 `Renderer` / `WebGPUBackend`). */
-function rendererDevice(renderer: CompilingRenderer): GPUDevice | null {
-    return (renderer as { backend?: { device?: GPUDevice | null } }).backend?.device ?? null;
-}
-
-/** Set by Three (and gpu-context.ts) once the device or GL context is lost. */
+/**
+ * Set by Three (and gpu-context.ts) once the device or GL context is lost.
+ * A rejected async pipeline no longer needs handling here: Three (r172+)
+ * always settles `compileAsync()`, logging and marking the failed pipeline,
+ * where 0.171 left it pending forever.
+ */
 function isRendererLost(renderer: CompilingRenderer): boolean {
     return (renderer as { _isDeviceLost?: boolean })._isDeviceLost === true;
-}
-
-/**
- * Three 0.171's `WebGPUPipelineUtils` wraps `createRenderPipelineAsync()` in a
- * promise that only resolves: if creation rejects (device lost, or a shader
- * the driver refuses), that promise never settles, `compileAsync()` hangs
- * forever and the rejection goes unhandled, which the bootstrap reports as a
- * fatal startup error. While a compile call is building, route a rejected
- * async creation to the synchronous `createRenderPipeline()`. That is what a
- * normal frame does: it returns an invalid pipeline and reports the error
- * through `uncapturederror` (or does nothing on a lost device), so the warmup
- * fails exactly like a first draw would, and keeps going.
- */
-function guardAsyncPipelines(device: GPUDevice | null | undefined): () => void {
-    if (!device || typeof device.createRenderPipelineAsync !== 'function') return () => {};
-    const own = Object.prototype.hasOwnProperty.call(device, 'createRenderPipelineAsync');
-    const original = device.createRenderPipelineAsync;
-    device.createRenderPipelineAsync = (descriptor: GPURenderPipelineDescriptor) =>
-        original.call(device, descriptor).catch(() => device.createRenderPipeline(descriptor));
-    return () => {
-        if (own) device.createRenderPipelineAsync = original;
-        else delete (device as { createRenderPipelineAsync?: unknown }).createRenderPipelineAsync;
-    };
 }
 
 type Renderable = THREE.Object3D & { frustumCulled: boolean; material?: unknown };
@@ -173,7 +150,6 @@ export function compileChunk(
     const lightMasks = lights.map((l) => l.layers.mask);
     const prevTarget = target ? renderer.getRenderTarget() : null;
     const prevMrt = target ? renderer.getMRT?.() : undefined;
-    const restorePipelines = guardAsyncPipelines(rendererDevice(renderer));
 
     try {
         for (const o of chunk) {
@@ -190,7 +166,6 @@ export function compileChunk(
         }
         return renderer.compileAsync(scene, camera);
     } finally {
-        restorePipelines();
         camera.layers.mask = cameraMask;
         for (let i = 0; i < chunk.length; i++) {
             chunk[i].layers.mask = objectMasks[i];

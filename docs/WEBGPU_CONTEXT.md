@@ -32,10 +32,9 @@ src/core/init.ts
   await probeWebGPU(canvas)         // THE adapter + device request (see below)
         └─ throws → WebGPURenderer({ forceWebGL: true }) + settleWebGLContext()  // fallback
   new WebGPURenderer({ canvas, device, context, antialias, alpha, ... })
-        └─ renderer._getFallback = null   // no silent WebGL swap-in
   await armGpuContext(renderer, probe)
         └─ await renderer.init()          // adopts the probed device, requests nothing
-        └─ throw unless backend.isWebGPUBackend
+        └─ throw unless backend.isWebGPUBackend   // Three's own WebGL swap-in is refused here
         └─ register device.lost + renderer.onDeviceLost
         └─ resolve getGpuContext(), publish window.__gpuContext, log once
 ```
@@ -137,9 +136,10 @@ Display P3 is gated on real extended range, not on `(dynamic-range: high)`:
 
 - `resolveHdrSupport(display, extendedRange)` (`src/core/platform/capabilities.ts`) returns
   `canvas: 'display-p3'` only when both are true. `extendedRange` is the constant
-  `EXTENDED_RANGE_CONFIGURED`, `false` today, because Three 0.171's `WebGPUBackend` configures
-  `getPreferredCanvasFormat()` without `toneMapping`.
-- Three 0.171 registers only `srgb` / `srgb-linear`. An unregistered `outputColorSpace` makes the
+  `EXTENDED_RANGE_CONFIGURED`, `false` today: Three's `WebGPUBackend` configures
+  `getPreferredCanvasFormat()` with `toneMapping: { mode: 'standard' }` unless the renderer is built
+  with `outputType: HalfFloatType` (r186), which the app does not do yet.
+- Three (0.186 as in 0.171) registers only `srgb` / `srgb-linear`. An unregistered `outputColorSpace` makes the
   output transform's `ColorManagement.getPrimaries()` throw a TypeError on first render, and the
   `try` around the assignment never sees it. `ensureOutputColorSpace()`
   (`src/rendering/color-spaces.ts`) registers Display P3 from `three/addons/math/ColorSpaces.js`
@@ -156,7 +156,7 @@ How the two surfaces are kept in agreement:
    and passes it as `colorSpace` on `configure`.
 2. `init.ts` sets `renderer.outputColorSpace` from `probe.canvas.colorSpace` and
    `platformCaps.hdr`, going through `ensureOutputColorSpace()`.
-3. `WebGPUBackend.init()` (three 0.171) calls `configure()` again **without** `colorSpace`, which
+3. `WebGPUBackend` (three 0.186) calls `configure()` again **without** `colorSpace`, which
    resets it to `srgb`. `init.ts` therefore calls `applyCanvasColorSpace(probe, outputColorSpace)`
    after arming, re-tagging the same device/format/alphaMode with the color space the renderer
    actually uses.
@@ -233,33 +233,35 @@ also skips `safeMode`, the deferred pass `?boot=instant`.
   exposes `compileTarget()` (the pass target, with samples mirrored from `PassNode.setup()`, and its
   MRT). Without post-FX the default is the target `render()` itself uses
   (`renderer._getFrameBufferTarget()`), or the canvas.
-- **A failed pipeline cannot hang boot:** Three 0.171 wraps `createRenderPipelineAsync()` in a
-  promise that only resolves, so a rejection (device lost, a shader the driver refuses) left
-  `compileAsync()` pending forever and surfaced as an unhandled rejection, which the bootstrap shows
-  as a fatal startup error. During each call a rejected async creation falls back to the sync
-  `createRenderPipeline()`, which is what a normal frame does. Warmup also stops once the renderer
-  reports `_isDeviceLost`.
+- **A failed pipeline cannot hang boot:** Three 0.171 wrapped `createRenderPipelineAsync()` in a
+  promise that only resolved, so a rejection left `compileAsync()` pending forever; the warmup used
+  to route rejections to the sync `createRenderPipeline()` around each call. Three r172+ always
+  settles it (it logs, marks the pipeline failed and resolves), so that guard is gone. Warmup stops
+  once the renderer reports `_isDeviceLost`.
+- **Once per object:** each renderer remembers which objects it compiled with which material, so the
+  deferred pass skips what the boot pass already built (`alreadyCompiled` in its stats).
 - `forceFullSceneWarmup()` (never called) and the per-material `ShaderWarmup` class are gone.
 
 ## GPU frame time (timestamp-query)
 
 `timestamp-query` is requested only for `?debug` and `?graphics=high`, and the renderer is then
-built with `trackTimestamp`. Three 0.171 writes per-pass timestamps but reads them back only from
-`renderAsync()` / `computeAsync()`; the game loop renders synchronously, so
-`renderer.info.render.timestamp` was always 0 and the budget never got a GPU time.
-`createGpuFrameTimer()` (`src/rendering/gpu-frame-timer.ts`) wraps the backend's
-`prepareTimestampBuffer()` to note each frame's passes and, every 30 frames, maps their result
-buffers and calls `performanceBudget.setGpuFrameTime(sum of pass durations)`. One readback is in
-flight at a time; Three skips its copy into a mapped buffer, so nothing stalls. Without the feature
-the timer is a no-op and `gpuFrameTime` stays `null`.
+built with `trackTimestamp`. Three writes every render and compute pass's timestamps into a query
+pool per type; nothing reads it back unless the app asks, because the game loop renders
+synchronously. `createGpuFrameTimer()` (`src/rendering/gpu-frame-timer.ts`) calls the public
+`renderer.resolveTimestampsAsync('render' | 'compute')` every 30 frames and reports the sum (the GPU
+time of the last frame in the pool) to `performanceBudget.setGpuFrameTime()`. One resolve is in
+flight at a time; Three skips the copy into a still-mapped result buffer, so nothing stalls. On
+r171 this had to wrap the private `prepareTimestampBuffer()` and map Three's per-pass buffers
+itself. Without the feature the timer is a no-op and `gpuFrameTime` stays `null`.
 
 ## Device-lost policy
 
 1. `gpu-context.ts` registers **both** `device.lost` and `renderer.onDeviceLost`. Three's default
-   handler logged and set `renderer._isDeviceLost`; ours sets that flag too, so `render()` and
-   `compileAsync()` stop submitting work, and stubs `compute()` / `computeAsync()`, which ignore the
-   flag in Three 0.171 (per-frame dispatches otherwise threw a `createBuffer` page error every frame
-   on the dead device). Both route into one handler that runs at most once. On
+   handler logged and set `renderer._isDeviceLost`; ours sets that flag too, so `render()`,
+   `compute()` and `compileAsync()` stop submitting work (r171's `compute()` ignored the flag and had
+   to be stubbed). Both route into one handler that runs at most once. Three r186 forwards
+   `uncapturederror` to `renderer.onError`, whose default is a `console.error` per event;
+   `gpu-context.ts` routes it into `recordGpuError()` (counted, console-capped) instead. On
    the WebGL2 fallback, `watchWebGLContextLoss()` routes `webglcontextlost` into the same handler
    (see [`webgl-fallback.md`](./webgl-fallback.md#context-loss)).
 2. The shared context flips to `available: false`, `device: null`, `lost: true`. Any later

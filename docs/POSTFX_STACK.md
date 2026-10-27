@@ -45,6 +45,20 @@ GI is **irradiance probes**, not screen-space, so GTAO is the only extra depth f
 
 Do **not** attach `viewportSharedTexture()` overlays to the camera on the WGSL backend. Three's shared `FramebufferTexture` is `rgba8unorm` and often 1×1 until resize; the scene pass is `rgba16float`. `copyFramebufferToTexture` then fails (`Source and destination formats do not match. rgba16float rgba8unorm`) and can copy a 1572×1070 rectangle out of a 1×1 source. Candy glow / strobe uniforms still drive gameplay; the TSL post graph samples `scenePass.getTextureNode()`.
 
+## Pipeline
+
+`RenderPipeline` (three r183+; `PostProcessing` before that) owns the fullscreen output quad. Its
+`outputNode` is the composite `Fn`: chromatic aberration and pulse warp over the scene pass, then
+DoF mix, AO tint, bloom add, grade, vignette and strobe.
+
+## DoF knobs
+
+r186's `DepthOfFieldNode` takes `(focusDistance, focalLength, bokehScale)` in world units, not
+r171's Bokeh-shader `(focus, aperture, maxblur)`. `CONFIG.postfx.dofFocalLength` (33) is how far a
+surface can sit from the focal plane before it is fully blurred, which keeps where the old
+aperture 0.015 / max blur 0.5 saturated; `CONFIG.postfx.dofBokehScale` (6) is the bokeh radius in
+pixels at full blur. Focus still follows `uDofFocus` and the mix `uDofMix`.
+
 ## Bloom knobs
 
 `CONFIG.postfx.bloomThreshold` (default 0.85) and `bloomRadius` (0.5). Strength stays audio-driven (`uBloomStrength`). Live uniforms `uBloomThreshold` / `uBloomRadius` (`?debug=1` sliders).

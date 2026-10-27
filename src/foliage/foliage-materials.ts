@@ -17,6 +17,7 @@ import {
     uWindSpeed,
     uWindDirection
 } from './material-core.ts';
+import { $sn, type Vec3Node } from './material-core/tsl-types.ts';
 
 // --- MATERIAL DEFINITIONS ---
 
@@ -31,7 +32,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         // 🎨 PALETTE: Add Juicy Rim Light to stem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
-        mat.emissiveNode = add(mat.emissiveNode ?? color(0x000000), rimLight);
+        mat.emissiveNode = add($sn(mat.emissiveNode ?? color(0x000000)), rimLight);
 
         return mat;
     })(),
@@ -51,7 +52,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         // 🎨 PALETTE: Add Juicy Rim Light to flowerStem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
-        mat.emissiveNode = add(mat.emissiveNode ?? color(0x000000), rimLight);
+        mat.emissiveNode = add($sn(mat.emissiveNode ?? color(0x000000)), rimLight);
 
         return mat;
     })(),
@@ -124,8 +125,8 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
 
         // 🎨 PALETTE: Add Juicy Rim Light to mushroomStem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        const rimLight = createJuicyRimLight(color(0xF5F5DC), audioRimIntensity, float(3.0), mat.normalNode);
-        mat.emissiveNode = add(mat.emissiveNode ?? color(0x000000), rimLight);
+        const rimLight = createJuicyRimLight(color(0xF5F5DC), audioRimIntensity, float(3.0), mat.normalNode as Vec3Node | null);
+        mat.emissiveNode = add($sn(mat.emissiveNode ?? color(0x000000)), rimLight);
 
         return mat;
     })(),

@@ -54,10 +54,12 @@ export async function initPostProcessing(
     return initWebGPUPostProcessing(renderer, scene, camera, {
         aoEnabled: isAoEnabled() && mode === 'webgpu',
         dofEnabled: isDofEnabled(),
-        dofAperture: CONFIG.postfx.dofAperture,
-        dofMaxBlur: CONFIG.postfx.dofMaxBlur,
+        dofFocalLength: CONFIG.postfx.dofFocalLength,
+        dofBokehScale: CONFIG.postfx.dofBokehScale,
         aoStrength: CONFIG.postfx.aoStrength,
-        sceneSamples: SCENE_PASS_SAMPLES,
+        // r171's PassNode forced 0 on the GLSL backend; r186 inherits whatever
+        // it is given, so WebGL2 keeps 0 explicitly.
+        sceneSamples: mode === 'webgpu' ? SCENE_PASS_SAMPLES : 0,
         u: postFxUniforms,
     });
 }

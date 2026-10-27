@@ -968,7 +968,7 @@ export async function armGpuContext(renderer: unknown, probe: GpuProbeResult): P
     };
 
     registerDeviceLost(device, r);
-    registerUncapturedErrors(device);
+    registerUncapturedErrors(r);
     logGpuContext(next);
     return settle(next);
 }
@@ -980,23 +980,15 @@ export async function armGpuContext(renderer: unknown, probe: GpuProbeResult): P
 type LossAwareRenderer = {
     onDeviceLost?: (info: { message?: string; reason?: string | null }) => void;
     _isDeviceLost?: boolean;
-    compute?: (...args: unknown[]) => unknown;
-    computeAsync?: (...args: unknown[]) => Promise<unknown>;
 };
 
 /**
  * Stop the renderer submitting work. `_isDeviceLost` is the flag Three's own
- * handler sets; `render()` and `compileAsync()` honour it. Three 0.171's
- * `compute()` does not, and per-frame systems would keep building storage
- * buffers on the dead device (a `createBuffer` page error every frame), so
- * compute becomes a no-op, as on the WebGL2 path.
+ * handler sets; `render()`, `compute()` and `compileAsync()` all honour it.
  */
 function stopRenderer(renderer: unknown): void {
     if (!renderer || typeof renderer !== 'object') return;
-    const r = renderer as LossAwareRenderer;
-    r._isDeviceLost = true;
-    r.compute = () => undefined;
-    r.computeAsync = async () => undefined;
+    (renderer as LossAwareRenderer)._isDeviceLost = true;
 }
 
 /**
@@ -1065,11 +1057,21 @@ export function recordGpuError(error: unknown, at: number = performance.now()): 
     return record;
 }
 
-function registerUncapturedErrors(device: GPUDevice): void {
-    if (typeof device.addEventListener !== 'function') return;
-    device.addEventListener('uncapturederror', (event: Event) => {
-        recordGpuError((event as GPUUncapturedErrorEvent).error);
-    });
+/**
+ * Three (r186) forwards `uncapturederror` to `renderer.onError`, whose default
+ * is a `console.error` per event: a broken bind group would print one every
+ * frame. Route it into `recordGpuError` (counted, console-capped) instead.
+ */
+function registerUncapturedErrors(renderer: unknown): void {
+    if (!renderer || typeof renderer !== 'object') return;
+    (renderer as { onError?: (info: ThreeErrorInfo) => void }).onError = (info) => {
+        recordGpuError(info?.originalEvent?.error ?? info);
+    };
+}
+
+interface ThreeErrorInfo {
+    message?: string;
+    originalEvent?: { error?: unknown };
 }
 
 /**

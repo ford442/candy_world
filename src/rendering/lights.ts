@@ -14,6 +14,7 @@
  * @see docs/LOCAL_LIGHTS.md
  */
 import * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 import { CONFIG } from '../core/config/defaults.ts';
 import { resolveShadowSettings } from '../core/config/postfx.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
@@ -370,7 +371,7 @@ function publishBreadcrumb(): void {
  */
 export function initLocalLights(
     scene: THREE.Scene,
-    renderer: THREE.Renderer | { isWebGPURenderer?: boolean } | null
+    renderer: Renderer | { isWebGPURenderer?: boolean } | null
 ): void {
     ensurePools();
     _scene = scene;

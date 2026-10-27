@@ -87,14 +87,12 @@ await quiet(async () => {
 
     // Three's backend reports loss through renderer.onDeviceLost …
     renderer.onDeviceLost({ message: 'GPU reset' });
-    assert.equal(renderer._isDeviceLost, true, 'render() must stop, as Three’s own handler does');
-    assert.equal(heard, 'GPU reset');
-    assert.equal(typeof renderer.compute, 'function');
     assert.equal(
-        renderer.compute(),
-        undefined,
-        'compute dispatch stops too (Three 0.171 ignores the flag)'
+        renderer._isDeviceLost,
+        true,
+        'render(), compute() and compileAsync() stop, as with Three’s own handler'
     );
+    assert.equal(heard, 'GPU reset');
     assert.equal(window.__gpuContext.lost, true);
     assert.equal(window.__gpuContext.backend, 'webgl');
 
@@ -345,107 +343,53 @@ await quiet(async () => {
     assert.ok(meshes.every((m) => m.frustumCulled && m.layers.mask === 1));
 }
 
-// --- A rejected async pipeline cannot hang the warmup ---------------------
+// --- A lost renderer stops the warmup before compiling anything -----------
 {
     const scene = new THREE.Scene();
     scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
     const camera = new THREE.PerspectiveCamera();
-    let syncFallbacks = 0;
-    const device = {
-        createRenderPipelineAsync: () => Promise.reject(new Error('GPUPipelineError')),
-        createRenderPipeline: () => {
-            syncFallbacks++;
-            return { invalid: true };
-        },
-    };
-    const originalAsync = device.createRenderPipelineAsync;
-    const pipelineData = {};
+    let called = 0;
     const renderer = {
-        backend: { device },
+        _isDeviceLost: true,
         getRenderTarget: () => null,
         setRenderTarget() {},
-        // Three 0.171 WebGPUPipelineUtils: resolves on success only.
-        compileAsync() {
-            const p = new Promise((resolve) => {
-                device.createRenderPipelineAsync({}).then((pipeline) => {
-                    pipelineData.pipeline = pipeline;
-                    resolve();
-                });
-            });
-            return Promise.all([p]);
-        },
+        compileAsync: async () => void called++,
     };
-    const settled = await Promise.race([
-        warmup.compileSceneProgressively(renderer, scene, camera).then(() => 'settled'),
-        new Promise((r) => setTimeout(() => r('hung'), 500)),
-    ]);
-    assert.equal(settled, 'settled', 'compileAsync settles when async creation rejects');
-    assert.equal(syncFallbacks, 1, 'falls back to sync createRenderPipeline, like a frame');
-    assert.deepEqual(pipelineData.pipeline, { invalid: true });
-    assert.equal(device.createRenderPipelineAsync, originalAsync, 'device method restored');
-
-    // A lost renderer stops before compiling anything.
-    renderer._isDeviceLost = true;
-    let called = 0;
-    renderer.compileAsync = async () => void called++;
     const lost = await warmup.compileSceneProgressively(renderer, scene, camera);
     assert.equal(called, 0);
     assert.equal(lost.aborted, true);
 }
 
-// --- GPU frame timer reads Three's timestamp result buffers ----------------
+// --- GPU frame timer resolves Three's timestamp pools -------------------------
 {
-    globalThis.GPUMapMode = { READ: 1 };
-    assert.equal(timer.passDurationMs(1_000_000n, 3_500_000n), 2.5);
-    assert.equal(timer.passDurationMs(5n, 1n), 0);
-
     const noop = timer.createGpuFrameTimer({ backend: { trackTimestamp: false } }, () => {
         throw new Error('must not report');
     });
     for (let i = 0; i < 60; i++) noop.endFrame();
 
-    const makeBuffer = (begin, end) => ({
-        mapState: 'unmapped',
-        async mapAsync() {
-            this.mapState = 'mapped';
+    const resolved = [];
+    let release;
+    const renderer = {
+        backend: { trackTimestamp: true },
+        resolveTimestampsAsync(type) {
+            resolved.push(type);
+            return type === 'render'
+                ? new Promise((r) => (release = () => r(2.5)))
+                : Promise.resolve(1);
         },
-        getMappedRange() {
-            return new BigUint64Array([begin, end]).buffer;
-        },
-        unmap() {
-            this.mapState = 'unmapped';
-        },
-    });
-    const data = new Map();
-    const passes = [{}, {}];
-    data.set(passes[0], {
-        currentTimestampQueryBuffers: { resultBuffer: makeBuffer(0n, 2_000_000n) },
-    });
-    data.set(passes[1], {
-        currentTimestampQueryBuffers: { resultBuffer: makeBuffer(0n, 1_500_000n) },
-    });
-    let prepared = 0;
-    const backend = {
-        trackTimestamp: true,
-        prepareTimestampBuffer() {
-            prepared++;
-        },
-        get: (ctx) => data.get(ctx) ?? {},
     };
     const reports = [];
-    const t = timer.createGpuFrameTimer({ backend }, (ms) => reports.push(ms));
-    for (let f = 1; f <= timer.SAMPLE_INTERVAL_FRAMES; f++) {
-        for (const p of passes) backend.prepareTimestampBuffer(p, null);
-        t.endFrame();
-    }
-    assert.equal(prepared, passes.length * timer.SAMPLE_INTERVAL_FRAMES, 'Three’s copy still runs');
+    const t = timer.createGpuFrameTimer(renderer, (ms) => reports.push(ms));
+    for (let f = 1; f < timer.SAMPLE_INTERVAL_FRAMES; f++) t.endFrame();
+    assert.deepEqual(resolved, [], 'nothing resolved before the interval');
+    t.endFrame();
+    assert.deepEqual(resolved, ['render', 'compute']);
+    // One resolve in flight at a time: the next interval is skipped.
+    for (let f = 0; f < timer.SAMPLE_INTERVAL_FRAMES; f++) t.endFrame();
+    assert.equal(resolved.length, 2);
+    release();
     await new Promise((r) => setTimeout(r, 0));
-    assert.deepEqual(reports, [3.5], 'sum of the frame’s pass durations');
-    assert.ok(
-        [...data.values()].every(
-            (d) => d.currentTimestampQueryBuffers.resultBuffer.mapState === 'unmapped'
-        )
-    );
+    assert.deepEqual(reports, [3.5], 'render + compute GPU ms of the last frame');
 }
 
 // --- First-30 s frame hitch counter ----------------------------------------

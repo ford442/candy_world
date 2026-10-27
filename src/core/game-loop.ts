@@ -36,7 +36,9 @@ export { addCameraShake } from './camera-shake.ts';
 export { frameScheduler };
 
 // --- Animation Loop State ---
-const clock = new THREE.Clock();
+// `Timer` replaces the deprecated `Clock`; not connected to the Page Visibility
+// API, so a hidden tab still yields one long delta (clamped below), as before.
+const clock = new THREE.Timer();
 
 registerFrameSystems(frameScheduler);
 if (typeof window !== 'undefined') window.__frameScheduler = frameScheduler;
@@ -86,6 +88,7 @@ export function animate() {
         simRng.setSeed(getWorldSeed());
     }
 
+    clock.update();
     const rawDelta = clock.getDelta();
     const photoMode = getPhotoMode();
     photoMode?.update(rawDelta);

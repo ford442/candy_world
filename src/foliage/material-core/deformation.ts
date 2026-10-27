@@ -20,9 +20,9 @@ import {
     uAudioLow,
     uPlayerPosition,
 } from './shared-resources.ts';
-import type { TSLArg } from './tsl-types.ts';
+import type { FloatNode, Vec3Node } from './tsl-types.ts';
 
-export const calculatePlayerPush = Fn<[TSLArg]>(([currentPos]) => {
+export const calculatePlayerPush = Fn(([_currentPos]: [Vec3Node]) => {
     const playerDistVector = positionWorld.sub(uPlayerPosition);
     const playerDistH = vec3(playerDistVector.x, float(0.0), playerDistVector.z);
     const distSq = dot(playerDistH, playerDistH);
@@ -57,18 +57,18 @@ const applyPlayerInteraction = (basePosNode: any) => {
  */
 export interface WindDeformationOptions {
     /** Divides sway. >1 = stiffer (woody stems), <1 = floppier. Default: none. */
-    stiffness?: TSLArg;
+    stiffness?: FloatNode;
     /** Multiplies sway. Default: none. */
-    amplitude?: TSLArg;
+    amplitude?: FloatNode;
     /** Multiplies the sway phase rate — higher = faster, tighter waves. Default: none. */
-    frequency?: TSLArg;
+    frequency?: FloatNode;
     /** Added to the sway phase. De-syncs species (or instances) that would
      *  otherwise march in step. Default: none — see note on positionWorld below. */
-    phaseOffset?: TSLArg;
+    phaseOffset?: FloatNode;
     /** Sway gains `uAudioLow * audioReactivity` on top of 1.0. Default: none. */
-    audioReactivity?: TSLArg;
+    audioReactivity?: FloatNode;
     /** Multiplies sway, for day/night dampening. Default: none. */
-    circadianBlend?: TSLArg;
+    circadianBlend?: FloatNode;
 }
 
 /**
@@ -85,12 +85,12 @@ export interface WindDeformationOptions {
  * 🎨 PALETTE / Visual Impact: amplitude is `speed × gust`, so lulls and swells
  * travel across the whole world at once rather than per-batcher.
  */
-export const calculateWindSway = (posNode: TSLArg, options: WindDeformationOptions = {}) => {
+export const calculateWindSway = (posNode: Vec3Node, options: WindDeformationOptions = {}) => {
     const { stiffness, amplitude, frequency, phaseOffset, audioReactivity, circadianBlend } =
         options;
 
     const windTime = uTime.mul(uWindSpeed.add(0.5));
-    let phase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
+    let phase: FloatNode = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
     if (frequency) phase = phase.mul(frequency);
     if (phaseOffset) phase = phase.add(phaseOffset);
     // Consumed by both the chop and the base sine below.
@@ -98,7 +98,7 @@ export const calculateWindSway = (posNode: TSLArg, options: WindDeformationOptio
 
     // Turbulence adds a faster, smaller ripple on top of the shared swell.
     const chop = sin(swayPhase.mul(2.7).add(uTime)).mul(uWindTurbulence).mul(0.35);
-    let sway = sin(swayPhase).add(chop).mul(0.1).mul(uWindStrength.add(0.2));
+    let sway: FloatNode = sin(swayPhase).add(chop).mul(0.1).mul(uWindStrength.add(0.2));
     if (amplitude) sway = sway.mul(amplitude);
     if (stiffness) sway = sway.div(stiffness);
     if (audioReactivity) sway = sway.mul(float(1.0).add(uAudioLow.mul(audioReactivity)));

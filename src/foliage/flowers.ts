@@ -15,7 +15,6 @@ import {
     sin,
     length,
     atan,
-    atan2,
     smoothstep,
     vec3,
 } from 'three/tsl';
@@ -46,6 +45,7 @@ import {
     uTime,
     uAudioHigh,
     uAudioLow,
+    colorOf,
 } from './material-core.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { uTwilight } from './sky.ts';
@@ -175,7 +175,7 @@ export function createStarflower(
             metalness: 0.2,
         });
 
-        const baseColorNode = tslColor(hexColor);
+        const baseColorNode = colorOf(hexColor);
         const rimLight = createJuicyRimLight(baseColorNode, float(1.5), float(3.0), null);
 
         // 🎨 PALETTE: Add audio-reactive emissive pulse
@@ -201,7 +201,7 @@ export function createStarflower(
     const beamMat = getCachedProceduralMaterial('starflower_beam', hexColor, () => {
         // @ts-expect-error foliageMaterials.lightBeam clone accepts colorNode override
         const mat = foliageMaterials.lightBeam.clone();
-        mat.colorNode = tslColor(hexColor);
+        mat.colorNode = colorOf(hexColor);
         return mat;
     });
 
@@ -242,7 +242,7 @@ export function createBellBloom(
             metalness: 0.1,
         });
 
-        const baseColorNode = tslColor(color);
+        const baseColorNode = colorOf(color);
         const rimLight = createJuicyRimLight(baseColorNode, float(1.3), float(2.8), null);
 
         // 🎨 PALETTE: Add audio-reactive emissive pulse
@@ -296,7 +296,7 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
             metalness: 0.1,
         });
 
-        const baseColorNode = tslColor(color);
+        const baseColorNode = colorOf(color);
         const rimLight = createJuicyRimLight(baseColorNode, float(1.2), float(2.5), null);
 
         // 🎨 PALETTE: Add bass pulse to the puffball head
@@ -404,7 +404,7 @@ export function createPrismRoseBush(options = {}): THREE.Group {
 
             // 3. Audio-reactive Emissive Pulse
             const audioGlow = uAudioHigh.mul(1.5).add(uAudioLow.mul(0.5));
-            const colorUniform = tslColor(hexColor);
+            const colorUniform = colorOf(hexColor);
             const totalEmissive = colorUniform.mul(audioGlow).mul(float(1.0).add(uTwilight));
             mat.emissiveNode = totalEmissive;
 
@@ -425,7 +425,7 @@ export function createPrismRoseBush(options = {}): THREE.Group {
 
         // Ensure no hidden material errors related to standard materials mixed with instances
         const washMat = (foliageMaterials as any).lightBeam.clone();
-        washMat.colorNode = tslColor(hexColor);
+        washMat.colorNode = colorOf(hexColor);
         const wash = new THREE.Mesh(sharedGeometries.unitSphere, washMat);
         wash.scale.setScalar(1.2);
         wash.userData.isWash = true;
@@ -600,7 +600,7 @@ export function createTremoloTulip(options: { color?: number; size?: number } = 
         // --- PALETTE: Juicy Rim Light for Tremolo Tulip ---
         // By passing a standard tslColor instead of an instance attribute,
         // we can safely use the juicy rim light on this non-instanced mesh!
-        const baseColorNode = tslColor(color);
+        const baseColorNode = colorOf(color);
         const rimLight = createJuicyRimLight(baseColorNode, float(1.5), float(3.0), null);
 
         // Combine base emissive (0.3 intensity) with the audio-reactive rim light
@@ -627,7 +627,7 @@ export function createTremoloTulip(options: { color?: number; size?: number } = 
         // Vortex Shader Logic
         const uvCentered = uv().sub(vec2(0.5));
         const dist = length(uvCentered);
-        const angle = atan2(uvCentered.y, uvCentered.x);
+        const angle = atan(uvCentered.y, uvCentered.x);
 
         // Swirling motion: Rotates faster in center and with audio
         const spinSpeed = uTime.mul(2.0).add(uAudioHigh.mul(10.0));

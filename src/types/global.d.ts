@@ -1,3 +1,6 @@
+/// <reference types="@webgpu/types" />
+// WebGPU globals (GPUDevice, GPUBufferUsage, ...). @types/three pulled these in
+// until 0.186; the app uses the raw API directly, so it references them itself.
 export {};
 
 // Loading Screen types

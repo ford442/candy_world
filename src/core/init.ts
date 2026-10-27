@@ -1,7 +1,7 @@
 // src/core/init.ts
 
 import * as THREE from 'three';
-import type UniformNode from 'three/src/nodes/core/UniformNode.js';
+import type { UniformNode } from 'three/webgpu';
 import { color, uniform, uv, float, smoothstep } from 'three/tsl';
 import { WebGPURenderer, MeshBasicNodeMaterial } from 'three/webgpu';
 import { createCrescendoFogNode, uFogNear, uFogFar } from '../foliage/sky.ts';
@@ -52,8 +52,9 @@ import { initPlatformCapabilities } from './platform/capabilities.ts';
  * Candy World always uses `WebGPURenderer`: on a real WebGPU backend when the
  * boot probe passes, or on Three's GLSL node backend (`forceWebGL: true`, i.e.
  * WebGL2) when it does not. TSL materials and fog work on both; compute does
- * not run on the WebGL2 path. Three's own silent `getFallback` stays disabled —
- * the fallback is chosen explicitly by `createRenderer()` and shown in the UI.
+ * not run on the WebGL2 path. The fallback is chosen explicitly by
+ * `createRenderer()` and shown in the UI; Three's own silent swap to WebGL
+ * after a failed WebGPU init is refused by `armGpuContext()`.
  * See docs/WEBGPU_CONTEXT.md.
  */
 export type CandyRenderer = WebGPURenderer;
@@ -122,7 +123,7 @@ export interface SceneInitResult {
     lightShaftGroup: THREE.Group;
     sunGlowMat: THREE.MeshBasicMaterial;
     coronaMat: THREE.MeshBasicMaterial;
-    uShaftOpacity: ReturnType<typeof uniform<number>>;
+    uShaftOpacity: UniformNode<'float', number>;
 }
 
 /**
@@ -131,7 +132,7 @@ export interface SceneInitResult {
  */
 declare global {
     interface Window {
-        uShaftOpacity?: ReturnType<typeof uniform<number>>;
+        uShaftOpacity?: UniformNode<'float', number>;
     }
 }
 
@@ -153,19 +154,19 @@ function canvasAntialias(): boolean {
 /**
  * Build the renderer on the device the probe already brought up.
  *
- * Two things matter here beyond the usual parameters:
+ * `device` / `context` are passed in, so `WebGPUBackend.init()` takes its
+ * "already provided" branch and never issues a second `requestAdapter` /
+ * `requestDevice`. That keeps `gpu-context.ts` the single owner.
  *
- * 1. `device` / `context` are passed in, so `WebGPUBackend.init()` takes its
- *    "already provided" branch and never issues a second `requestAdapter` /
- *    `requestDevice`. That keeps `gpu-context.ts` the single owner.
- * 2. `_getFallback` is cleared. `WebGPURenderer`'s constructor unconditionally
- *    installs a fallback that swaps in `WebGLBackend` on any init failure, and
- *    `Renderer.init()` takes it silently — the world would then render on
- *    WebGL with nothing but a console warning. Nulling it makes an init failure
- *    surface as a rejection we can hard-fail on.
+ * `WebGPURenderer` still installs a fallback that swaps in `WebGLBackend` when
+ * `init()` fails, with only a console warning. Three has no public switch for
+ * it, so instead of clearing the private `_getFallback` (as on r171),
+ * `armGpuContext()` checks the backend after `init()` and hard-fails if Three
+ * landed on WebGL behind the passing probe. The deliberate WebGL2 path is
+ * `forceWebGL: true` (`createWebGLRenderer`), which installs no fallback.
  */
 function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): WebGPURenderer {
-    const renderer = new WebGPURenderer({
+    return new WebGPURenderer({
         canvas,
         antialias: canvasAntialias(),
         alpha: GPU_ALPHA,
@@ -176,10 +177,6 @@ function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): W
         context: probe.context,
         trackTimestamp: timestampQueryGranted(probe),
     } as ConstructorParameters<typeof WebGPURenderer>[0]);
-
-    (renderer as WebGPURenderer & { _getFallback: unknown })._getFallback = null;
-
-    return renderer;
 }
 
 export interface CreateRendererResult {
@@ -241,7 +238,6 @@ async function createWebGLRenderer(
         powerPreference: GPU_POWER_PREFERENCE,
         forceWebGL: true,
     } as ConstructorParameters<typeof WebGPURenderer>[0]);
-    (renderer as WebGPURenderer & { _getFallback: unknown })._getFallback = null;
 
     try {
         await renderer.init();
@@ -400,19 +396,6 @@ export async function initScene(): Promise<SceneInitResult> {
         2000
     );
     camera.position.set(CONFIG.player.spawnX, CONFIG.player.spawnEyeHeightY, CONFIG.player.spawnZ);
-
-    // Renderer configuration (WGSL or GLSL node backend).
-    // Fix: WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if this is undefined
-    renderer.clippingPlanes = [];
-    renderer.localClippingEnabled = false;
-    console.log('[Init] WebGPURenderer clipping fix applied.');
-
-    // Polyfill: attributeUtils.get is missing in three@0.171.0 but referenced by compute-particles.ts
-    const backend = (renderer as any).backend;
-    if (backend && backend.attributeUtils && typeof backend.attributeUtils.get !== 'function') {
-        backend.attributeUtils.get = () => null;
-        console.log('[Init] WebGPU attributeUtils.get polyfill applied.');
-    }
 
     // Output color space comes from the probe, which already tagged the
     // swap chain with it — the two must agree or P3 content is shown as

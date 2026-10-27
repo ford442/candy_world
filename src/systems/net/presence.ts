@@ -12,6 +12,7 @@
 
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
 import type { ImpactType } from '../../foliage/impacts.ts';
 import { announce } from '../../ui/announcer.ts';
@@ -207,7 +208,7 @@ export class PresenceSystem {
     bindScene(
         scene: THREE.Scene,
         camera: THREE.PerspectiveCamera,
-        renderer: THREE.Renderer,
+        renderer: Renderer,
         hooks?: PresenceInitHooks
     ): void {
         if (hooks?.spawnImpact) this._spawnImpact = hooks.spawnImpact;
@@ -463,7 +464,7 @@ if (typeof window !== 'undefined') {
 export function initPresenceFromOptIn(
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     hooks?: PresenceInitHooks
 ): void {
     if (!FEATURE_FLAGS.presence) return;

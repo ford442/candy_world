@@ -14,7 +14,8 @@
  * follow map. See `docs/webgl-fallback.md`.
  */
 import * as THREE from 'three';
-import { CSMShadowNode } from 'three/examples/jsm/csm/CSMShadowNode.js';
+import type { Renderer } from 'three/webgpu';
+import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
 import { clampCascadeCount, type ShadowSettings } from '../core/config/postfx.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { CONFIG } from '../core/config.ts';
@@ -28,7 +29,7 @@ import { startPhase, endPhase } from '../utils/startup-profiler.ts';
  * Declare the missing surface structurally rather than casting through `any`.
  */
 type CSMShadowNodeLifecycle = CSMShadowNode & {
-    init(context: { camera: THREE.Camera; renderer: THREE.Renderer }): void;
+    init(context: { camera: THREE.Camera; renderer: Renderer }): void;
     dispose(): void;
 };
 
@@ -58,9 +59,9 @@ export function getSunCascades(): SunCascades | null {
  * `isWebGPURenderer`: the app falls back to WebGL2 when WebGPU is unavailable,
  * `isWebGPURenderer` is true on that path too, and only the backend is truthful.
  */
-export function isCascadeSupported(renderer: THREE.Renderer | null | undefined): boolean {
+export function isCascadeSupported(renderer: Renderer | null | undefined): boolean {
     if (!renderer) return false;
-    const r = renderer as THREE.Renderer & { isWebGPURenderer?: boolean; backend?: unknown };
+    const r = renderer as Renderer & { isWebGPURenderer?: boolean; backend?: unknown };
     return r.isWebGPURenderer === true && r.backend != null && !isWebGLBackendRenderer(r);
 }
 
@@ -75,7 +76,7 @@ export function isCascadeSupported(renderer: THREE.Renderer | null | undefined):
  */
 export function initSunCascades(
     sunLight: THREE.DirectionalLight,
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     camera: THREE.PerspectiveCamera,
     settings: ShadowSettings
 ): SunCascades | null {
@@ -218,7 +219,7 @@ function cascadeDebugRequested(): boolean {
 export function attachCascadeDebug(scene: THREE.Scene): void {
     if (!_active || _helper || !cascadeDebugRequested()) return;
 
-    void import('three/examples/jsm/csm/CSMHelper.js')
+    void import('three/addons/csm/CSMHelper.js')
         .then(({ CSMHelper }) => {
             if (!_active) return;
             const helper = new CSMHelper(_active.node) as unknown as CascadeHelper;

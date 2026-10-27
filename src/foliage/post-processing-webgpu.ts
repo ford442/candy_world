@@ -5,14 +5,15 @@
  * SSR is not in this graph (env-map mirrors; see docs/POSTFX_STACK.md).
  */
 import * as THREE from 'three';
-import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
-import { dof } from 'three/examples/jsm/tsl/display/DepthOfFieldNode.js';
-import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
-import { PostProcessing, WebGPURenderer } from 'three/webgpu';
+import { RenderPipeline, WebGPURenderer } from 'three/webgpu';
 import { candyPulseWarpUv, gradeCandyGlowPulse } from './chromatic-nodes.ts';
 import type * as postFxUniforms from './post-processing-uniforms.ts';
 import { mixStrobeFlash } from './strobe-nodes.ts';
+import type { Node } from 'three/webgpu';
 
 type U = typeof postFxUniforms;
 
@@ -27,10 +28,10 @@ export function initWebGPUPostProcessing(
     opts: {
         aoEnabled: boolean;
         dofEnabled: boolean;
-        dofAperture: number;
-        dofMaxBlur: number;
+        dofFocalLength: number;
+        dofBokehScale: number;
         aoStrength: number;
-        /** MSAA on the scene pass. Three forces 0 on the GLSL backend. */
+        /** MSAA on the scene pass (the caller passes 0 on the GLSL backend). */
         sceneSamples: number;
         u: U;
     }
@@ -49,7 +50,7 @@ export function initWebGPUPostProcessing(
         uVignetteStrength,
     } = opts.u;
 
-    const postProcessing = new PostProcessing(renderer);
+    const postProcessing = new RenderPipeline(renderer);
     // Samples are set here, not inherited from `renderer.samples`: the canvas
     // is created without MSAA because only the post quad is drawn into it.
     const scenePass = pass(scene, camera, { samples: opts.sceneSamples });
@@ -68,8 +69,8 @@ export function initWebGPUPostProcessing(
             scenePass,
             viewZ,
             uDofFocus,
-            uniform(opts.dofAperture),
-            uniform(opts.dofMaxBlur)
+            uniform(opts.dofFocalLength),
+            uniform(opts.dofBokehScale)
         );
         console.log('[PostFX] Depth of Field enabled (WebGPU TSL bokeh)');
     }
@@ -94,21 +95,15 @@ export function initWebGPUPostProcessing(
     const colorCorrection = Fn(() => {
         const caOffset = uAberrationStrength.mul(0.3);
         const uvNode = uv();
-        const warpedUV = candyPulseWarpUv(uvNode as ReturnType<typeof vec2>);
+        const warpedUV = candyPulseWarpUv(uvNode as Node<'vec2'>);
         const scatterAmt = uShaftScatterBoost.mul(0.018);
 
-        const sceneTex = scenePass.getTextureNode() as unknown as {
-            uv: (coords: ReturnType<typeof vec2>) => ReturnType<typeof vec3>;
-        };
-        const sampleScene = (coords: ReturnType<typeof vec2>) => {
+        const sceneTex = scenePass.getTextureNode();
+        const sampleScene = (coords: Node<'vec2'>) => {
             const uvScatter = mix(coords, vec2(0.5, 0.5), scatterAmt);
-            const sampledR = sceneTex.uv(
-                uvScatter.add(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>
-            ).r;
-            const sampledG = sceneTex.uv(uvScatter as ReturnType<typeof vec2>).g;
-            const sampledB = sceneTex.uv(
-                uvScatter.sub(vec2(caOffset, 0.0)) as ReturnType<typeof vec2>
-            ).b;
+            const sampledR = sceneTex.sample(uvScatter.add(vec2(caOffset, 0.0)) as Node<'vec2'>).r;
+            const sampledG = sceneTex.sample(uvScatter as Node<'vec2'>).g;
+            const sampledB = sceneTex.sample(uvScatter.sub(vec2(caOffset, 0.0)) as Node<'vec2'>).b;
             return vec3(sampledR, sampledG, sampledB);
         };
 
@@ -116,13 +111,14 @@ export function initWebGPUPostProcessing(
         let caColor = gradeCandyGlowPulse(
             sampleScene,
             warpedUV,
-            pulseDist as ReturnType<typeof float>,
+            pulseDist as Node<'float'>,
             opts.u.uPulseNoteColor as any,
             opts.u.uPulseShimmer as any
         );
 
         if (dofColorNode) {
-            caColor = mix(caColor, dofColorNode.rgb, uDofMix);
+            // dof() returns the effect node; it outputs the blurred colour (vec4).
+            caColor = mix(caColor, (dofColorNode as unknown as Node<'vec4'>).rgb, uDofMix);
         }
 
         if (aoPass) {
@@ -142,14 +138,14 @@ export function initWebGPUPostProcessing(
         satColor = satColor
             .sub(midPoint)
             .mul(uColorContrast)
-            .add(midPoint) as unknown as ReturnType<typeof mix>;
+            .add(midPoint) as unknown as Node<'vec3'>;
 
         const dist = distance(uvNode, vec2(0.5, 0.5));
         const vig = float(1.0).sub(smoothstep(0.2, 1.0, dist));
         const vignetteMultiplier = mix(float(1.0), vig, uVignetteStrength);
-        satColor = satColor.mul(vignetteMultiplier) as unknown as ReturnType<typeof mix>;
+        satColor = satColor.mul(vignetteMultiplier) as unknown as Node<'vec3'>;
 
-        return mixStrobeFlash(satColor as ReturnType<typeof vec3>);
+        return mixStrobeFlash(satColor as Node<'vec3'>);
     });
 
     postProcessing.outputNode = colorCorrection();
@@ -173,16 +169,7 @@ export function initWebGPUPostProcessing(
             getMRT(): unknown;
         };
         const target = passNode.renderTarget;
-        const isWebGL = (renderer as { backend?: { isWebGLBackend?: boolean } }).backend
-            ?.isWebGLBackend;
-        target.samples = isWebGL ? 0 : (passNode.options.samples ?? 0);
-        if (target.depthTexture) {
-            (
-                target.depthTexture as THREE.DepthTexture & {
-                    isMultisampleRenderTargetTexture?: boolean;
-                }
-            ).isMultisampleRenderTargetTexture = target.samples > 1;
-        }
+        target.samples = passNode.options.samples ?? 0;
         return { renderTarget: target, mrt: passNode.getMRT() };
     };
 

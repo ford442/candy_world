@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import type { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { getSharedWorldThumbnailAction } from '../net/shared-worlds-lazy.ts';
 import { capturePhotoPng, capturePhotoThumbnail } from './photo-capture.ts';
 import { PhotoControlsOverlay, type PhotoControlValues } from './photo-controls.ts';

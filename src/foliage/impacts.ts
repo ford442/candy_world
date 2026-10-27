@@ -15,11 +15,18 @@ const modFloat = (x: any, y: any) => {
 };
 
 
-const hash = Fn(([n]: [ReturnType<typeof float>]) => {
+const hash = Fn(([n]: [Node<'float'>]) => {
     return modFloat(sin(n).mul(43758.5453), 1.0);
 });
 
-import { uTime, uAudioHigh, uAudioLow } from './material-core.ts';
+import {
+    uTime,
+    uAudioHigh,
+    uAudioLow,
+    asNode,
+    type FloatNode,
+} from './material-core.ts';
+import type { Node } from 'three/webgpu';
 
 const MAX_PARTICLES = 1000; // Reduced from 4000 for WebGPU uniform buffer limits
 let _impactMesh: THREE.InstancedMesh | null = null;
@@ -165,7 +172,8 @@ export function createImpactSystem(): THREE.InstancedMesh {
     // 2. Rotation (Spin)
     const spinSpeed = float(10.0);
     const rotationAngle = age.mul(spinSpeed);
-    const rotatedLocal = rotate(positionLocal, rotationAngle);
+    // One angle on all three axes (three's rotate() swizzled a float rotation).
+    const rotatedLocal = rotate(positionLocal, vec3(rotationAngle));
 
     // 3. Scaling (Pop in with Elastic Overshoot, Shrink out)
     // 🎨 PALETTE: Make particles pop in fast, overshoot, and slowly shrink
@@ -203,7 +211,7 @@ export function createImpactSystem(): THREE.InstancedMesh {
     const opacity = float(1.0).sub(smoothstep(0.7, 1.0, lifeProgress));
 
     mat.colorNode = colorAttr.mul(totalGlow);
-    mat.opacityNode = opacity.mul(isAlive);
+    mat.opacityNode = opacity.mul(asNode<FloatNode>(isAlive));
 
     // 5. Mesh Creation
     _impactMesh = new THREE.InstancedMesh(geometry, mat, MAX_PARTICLES);
@@ -236,7 +244,8 @@ export function createImpactSystem(): THREE.InstancedMesh {
 
     const updateCompute = (Fn as any)((): void => {
         // Run ONLY for the number of particles spawned this frame
-        const stageIndex = instanceIndex;
+        // uint index against float uniforms: TSL converts, three's types do not.
+        const stageIndex = asNode<FloatNode>(instanceIndex);
 
         const sSpawnNode = storage(spawnBuffer, 'vec4', spawnBuffer.count);
         const sVelNode = storage(velBuffer, 'vec4', velBuffer.count);

@@ -238,14 +238,6 @@ export function runDeferredWarmup(
             return;
         }
 
-        // FIX: Ensure clipping planes are defined before compilation.
-        // WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if undefined.
-        if (renderer.clippingPlanes === undefined || renderer.clippingPlanes === null) {
-            renderer.clippingPlanes = [];
-            renderer.localClippingEnabled = false;
-            log.info('Deferred', 'Re-applied clipping planes fix (Safety Force).');
-        }
-
         // Put the rainbow blaster's particle material in the scene so it compiles too.
         const dummyOrigin = new THREE.Vector3(0, -9999, 0);
         const dummyDir = new THREE.Vector3(0, 1, 0);
