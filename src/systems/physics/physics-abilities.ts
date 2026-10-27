@@ -7,6 +7,7 @@ import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
 import { dandelionBatcher } from '../../foliage/dandelion-batcher.ts';
 import { spawnDandelionExplosion } from '../../foliage/dandelion-seeds.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
+import { simRng } from '../../utils/sim-rng.ts';
 import { showToast } from '../../utils/toast.ts';
 import { animatedFoliage } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
@@ -52,7 +53,7 @@ export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: 
         // 🎨 Palette: "Juice" Factor - Add screen shake and audio for Double Jump
         addCameraShake(0.15);
         if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-            (window as any).AudioSystem.playSound('jump', { pitch: Math.random() * 0.2 + 1.2, volume: 0.5 });
+            (window as any).AudioSystem.playSound('jump', { pitch: simRng.next() * 0.2 + 1.2, volume: 0.5 });
         }
 
         discoverySystem.discover('ability_double_jump', 'Double Jump', '🦘');
@@ -88,7 +89,7 @@ export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: 
 
         // 🎨 Palette: Audio feedback for dash
         if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-            (window as any).AudioSystem.playSound('dash', { pitch: Math.random() * 0.2 + 0.9, volume: 0.6 });
+            (window as any).AudioSystem.playSound('dash', { pitch: simRng.next() * 0.2 + 0.9, volume: 0.6 });
         }
 
         if (uChromaticIntensity) {
@@ -188,7 +189,7 @@ function handleSonicClap() {
                     // 🎨 Palette: "Juice" Factor - Add screen shake and audio for Sonic Clap
                     addCameraShake(0.4);
                     if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                        (window as any).AudioSystem.playSound('impact', { pitch: Math.random() * 0.2 + 0.8, volume: 0.8 });
+                        (window as any).AudioSystem.playSound('impact', { pitch: simRng.next() * 0.2 + 0.8, volume: 0.8 });
                     }
 
                     obj.userData.harvested = true;

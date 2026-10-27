@@ -4,6 +4,7 @@ import {
     createIntegratedSpores,
     registerIntegratedSystem,
 } from '../particles/compute-integration.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { sampleEntityScale, biomeNormalizedDistance } from './entity-scale.ts';
 import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
@@ -33,8 +34,8 @@ export async function populateMyceliumGrove(weatherSystem: WeatherSystem): Promi
     let placed = 0;
     for (let i = 0; i < mushroomCount; i++) {
         // Bias toward the centre (sqrt for area-uniform, squared to cluster inward).
-        const angle = Math.random() * Math.PI * 2;
-        const dist = Math.pow(Math.random(), 1.6) * radius;
+        const angle = getSeededRandom() * Math.PI * 2;
+        const dist = Math.pow(getSeededRandom(), 1.6) * radius;
         const x = centerX + Math.cos(angle) * dist;
         const z = centerZ + Math.sin(angle) * dist;
 
@@ -55,7 +56,7 @@ export async function populateMyceliumGrove(weatherSystem: WeatherSystem): Promi
             continue;
         }
         plantOnSurface(mushroom, x, z, { groundY: y, entityType: 'glass_mushroom' });
-        mushroom.rotation.y = Math.random() * Math.PI * 2;
+        mushroom.rotation.y = getSeededRandom() * Math.PI * 2;
         const ok = safeAddFoliage(mushroom, true, 0.6, weatherSystem);
         recordSpawnAttempt('glass_mushroom', ok, ok ? undefined : new Error('placement failed'));
         if (ok) placed++;

@@ -2,6 +2,7 @@
 // Debug UI panel for toggling initialization stages
 
 import { CONFIG } from '../core/config.ts';
+import { frameScheduler } from '../core/scheduler/frame-scheduler.ts';
 import { uAoStrength, uBloomRadius, uBloomThreshold } from '../foliage/post-processing-uniforms.ts';
 import { setIrradianceEnabled } from '../rendering/irradiance-probes.ts';
 import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
@@ -12,6 +13,7 @@ import {
 } from '../rendering/shadow-softness.ts';
 import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
+import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import {
     collectSystemsBudget,
     getBudgetCapViolations,
@@ -37,6 +39,10 @@ export class DebugPanel {
     private batcherStatsEl: HTMLElement | null = null;
     private fogStatsEl: HTMLElement | null = null;
     private systemsBudgetEl: HTMLElement | null = null;
+    private frameSystemsSummaryEl: HTMLElement | null = null;
+    private frameSystemsListEl: HTMLElement | null = null;
+    private frameSystemRows = new Map<string, { box: HTMLInputElement; text: HTMLElement }>();
+    private frameSystemsKey = '';
     private lodStatsEl: HTMLElement | null = null;
     private lodHighlightEnabled = false;
 
@@ -197,6 +203,8 @@ export class DebugPanel {
         this.systemsBudgetEl = systemsBudget;
         panel.appendChild(systemsBudget);
 
+        this.mountFrameSystems(panel);
+
         const fogStats = document.createElement('div');
         fogStats.style.cssText = `
       margin-top: 8px;
@@ -287,6 +295,104 @@ export class DebugPanel {
         this.startStatusUpdates();
 
         console.log('[DebugPanel] Panel created');
+    }
+
+    /**
+     * Every scheduler system (#1973): phase, average cost against its budget,
+     * and a checkbox that pauses it live. Re-checking a system the circuit
+     * breaker tripped re-arms it.
+     */
+    private mountFrameSystems(panel: HTMLElement): void {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = `
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(0, 30, 50, 0.35);
+      border: 1px solid rgba(125, 211, 252, 0.35);
+      border-radius: 4px;
+      font-size: 10px;
+      line-height: 1.35;
+      color: #b8e4ff;
+    `;
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:bold;font-size:11px;';
+        title.textContent = 'Frame Systems (avg ms / budget)';
+        wrap.appendChild(title);
+
+        const summary = document.createElement('div');
+        summary.style.cssText = 'white-space:pre-wrap;margin:2px 0 4px;color:#ddd;';
+        wrap.appendChild(summary);
+        this.frameSystemsSummaryEl = summary;
+
+        const list = document.createElement('div');
+        list.id = 'debug-frame-systems';
+        wrap.appendChild(list);
+        this.frameSystemsListEl = list;
+
+        panel.appendChild(wrap);
+        this.updateFrameSystems();
+    }
+
+    private updateFrameSystems(): void {
+        const list = this.frameSystemsListEl;
+        if (!list) return;
+        const stats = frameScheduler.getStats();
+
+        const key = stats.map((s) => `${s.phase}:${s.id}`).join('|');
+        if (key !== this.frameSystemsKey) {
+            this.frameSystemsKey = key;
+            this.frameSystemRows.clear();
+            list.replaceChildren();
+            for (const s of stats) {
+                const row = document.createElement('label');
+                row.style.cssText =
+                    'display:flex;align-items:center;gap:4px;cursor:pointer;white-space:pre;';
+                const box = document.createElement('input');
+                box.type = 'checkbox';
+                box.style.cssText = 'margin:0;width:11px;height:11px;cursor:pointer;';
+                box.addEventListener('change', () => frameScheduler.setEnabled(s.id, box.checked));
+                const text = document.createElement('span');
+                row.appendChild(box);
+                row.appendChild(text);
+                list.appendChild(row);
+                this.frameSystemRows.set(s.id, { box, text });
+            }
+        }
+
+        for (const s of stats) {
+            const row = this.frameSystemRows.get(s.id);
+            if (!row) continue;
+            row.box.checked = !s.paused && !s.tripped;
+            const cost =
+                s.budgetMs === undefined
+                    ? s.avgMs.toFixed(2)
+                    : `${s.avgMs.toFixed(2)}/${s.budgetMs}${s.overBudget ? '!' : ''}`;
+            const flag = s.tripped
+                ? ` tripped ×${s.errors}`
+                : s.paused
+                  ? ' paused'
+                  : s.gated
+                    ? ' gated'
+                    : s.errors > 0
+                      ? ` ×${s.errors}`
+                      : '';
+            row.text.textContent = `${s.phase.padEnd(11)} ${s.id.padEnd(22)} ${cost}${flag}`;
+            row.text.style.color = s.tripped
+                ? '#ff8888'
+                : s.overBudget
+                  ? '#ffc454'
+                  : s.paused || s.gated
+                    ? '#888'
+                    : '#b8e4ff';
+        }
+
+        if (this.frameSystemsSummaryEl) {
+            const gpu = performanceBudget.getAverageGpuFrameTime();
+            const cpu = stats.reduce((sum, s) => sum + s.avgMs, 0);
+            this.frameSystemsSummaryEl.textContent =
+                `CPU ${cpu.toFixed(2)} ms  GPU ${gpu === null ? 'n/a' : `${gpu.toFixed(2)} ms`}\n` +
+                `fixed tick ${frameScheduler.fixedTick}  dropped ${frameScheduler.droppedSeconds.toFixed(2)} s`;
+        }
     }
 
     private mountShadowSoftnessControls(panel: HTMLElement): void {
@@ -640,6 +746,7 @@ export class DebugPanel {
 
         this.updateBatcherStats();
         this.updateSystemsBudget();
+        this.updateFrameSystems();
         this.updateFogStats();
         this.updateLodStats();
         this.paintShadowSoftness();

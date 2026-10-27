@@ -4,6 +4,7 @@ import { createIntegratedPollen, createIntegratedSparks, registerIntegratedSyste
 import { getParticles } from '../particles/lazy.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { sampleEntityScale, sampleEntityHeight, biomeNormalizedDistance } from './entity-scale.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
@@ -77,7 +78,7 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
             const violet = create('vibrato_violet', { intensity: 1.5 });
             if (!violet) continue;
             plantOnSurface(violet, ox, oz, { groundY: oy });
-            violet.rotation.y = Math.random() * Math.PI * 2;
+            violet.rotation.y = getSeededRandom() * Math.PI * 2;
             safeAddFoliage(violet, false, 0, weatherSystem);
         }
         if (i % 4 === 3) await yieldControl();
@@ -86,8 +87,8 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
     // Glowing flower accents (yield every 5 flowers)
     const flowerCount = 15;
     for (let i = 0; i < flowerCount; i++) {
-        const randAngle = Math.random() * Math.PI * 2;
-        const randRadius = Math.random() * radius;
+        const randAngle = getSeededRandom() * Math.PI * 2;
+        const randRadius = getSeededRandom() * radius;
         const fx = centerX + Math.cos(randAngle) * randRadius;
         const fz = centerZ + Math.sin(randAngle) * randRadius;
         const fy = sampleGroundY(fx, fz);
@@ -95,7 +96,7 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         const flower = create('flower', { variant: 'glowing' });
         if (!flower) continue;
         plantOnSurface(flower, fx, fz, { groundY: fy });
-        flower.rotation.y = Math.random() * Math.PI * 2;
+        flower.rotation.y = getSeededRandom() * Math.PI * 2;
         safeAddFoliage(flower, false, 0, weatherSystem);
         if (i % 5 === 4) await yieldControl();
     }
@@ -162,7 +163,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
             : create('tremolo_tulip', { size: 1.2 });
         if (!flower) continue;
         plantOnSurface(flower, fx, fz, { groundY: fy });
-        flower.rotation.y = Math.random() * Math.PI * 2;
+        flower.rotation.y = getSeededRandom() * Math.PI * 2;
         safeAddFoliage(flower, false, 0, weatherSystem);
     }
 
@@ -170,8 +171,8 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     const fernCount = getLakeArpeggioFernCount();
     for (let i = 0; i < fernCount; i++) {
         // Random position within island
-        const randAngle = Math.random() * Math.PI * 2;
-        const randRadius = Math.random() * (radius * 0.6);
+        const randAngle = getSeededRandom() * Math.PI * 2;
+        const randRadius = getSeededRandom() * (radius * 0.6);
         const fx = centerX + Math.cos(randAngle) * randRadius;
         const fz = centerZ + Math.sin(randAngle) * randRadius;
         const fy = sampleGroundY(fx, fz);
@@ -184,15 +185,15 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         });
         if (!fern) continue;
         plantOnSurface(fern, fx, fz, { groundY: fy });
-        fern.rotation.y = Math.random() * Math.PI * 2;
+        fern.rotation.y = getSeededRandom() * Math.PI * 2;
         safeAddFoliage(fern, false, 0, weatherSystem);
     }
 
     // Edge decorations: Cymbal Dandelions
     const dandelionCount = getLakeDandelionCount();
     for (let i = 0; i < dandelionCount; i++) {
-        const angle = (i / dandelionCount) * Math.PI * 2 + Math.random() * 0.2;
-        const edgeOffset = radius * 0.85 + Math.random() * (radius * 0.1);
+        const angle = (i / dandelionCount) * Math.PI * 2 + getSeededRandom() * 0.2;
+        const edgeOffset = radius * 0.85 + getSeededRandom() * (radius * 0.1);
         const dx = centerX + Math.cos(angle) * edgeOffset;
         const dz = centerZ + Math.sin(angle) * edgeOffset;
         const dy = sampleGroundY(dx, dz);
@@ -207,7 +208,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
             });
             if (!dandelion) continue;
             plantOnSurface(dandelion, dx, dz, { groundY: dy });
-            dandelion.rotation.y = Math.random() * Math.PI * 2;
+            dandelion.rotation.y = getSeededRandom() * Math.PI * 2;
             safeAddFoliage(dandelion, false, 0, weatherSystem);
         }
     }

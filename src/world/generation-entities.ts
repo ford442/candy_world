@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
 import { VineSwing, addGrassInstance } from '../foliage/index.ts';
 import { registerPhysicsCave } from '../systems/physics/index.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
 import { WeatherSystem, normalizeMapEntityType, MapEntity, obstaclesData } from './generation-utils.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
@@ -242,7 +243,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
         switch (entityType) {
             case 'mushroom': {
                 const isGiant = item.variant === 'giant';
-                const hasFace = item.hasFace !== undefined ? item.hasFace : (isGiant || Math.random() < 0.1);
+                const hasFace = item.hasFace !== undefined ? item.hasFace : (isGiant || getSeededRandom() < 0.1);
                 createParams.size = isGiant ? 'giant' : 'regular';
                 createParams.scale = uniformScale ?? 1.0;
                 createParams.hasFace = hasFace;
@@ -364,7 +365,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
             } else if (typeof itemRotation === 'number') {
                 obj.rotation.y = itemRotation;
             } else {
-                obj.rotation.y = Math.random() * Math.PI * 2;
+                obj.rotation.y = getSeededRandom() * Math.PI * 2;
             }
             if (entityType === 'cave' && caveLookAtOrigin) {
                 obj.lookAt(0, y, 0);

@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
+import { simRng } from '../../utils/sim-rng.ts';
 import { 
     activeVineSwing, 
     setActiveVineSwing, 
@@ -32,7 +33,8 @@ import {
     grooveGravity,
     AudioState,
     KeyStates,
-    foliageCaves
+    foliageCaves,
+    physicsClock
 } from './physics-types.ts';
 
 // Helper: Unified Ground Height (authoritative terrain + lake + island + platforms)
@@ -182,7 +184,7 @@ export function updateSwimmingState(
         // Surfing feedback if moving forward
         if (surfBoost > 0 && keyStates.forward) {
             // Only trigger occasionally so we don't spam impacts/toasts
-            if (Math.random() < 0.05) {
+            if (simRng.next() < 0.05) {
                 spawnImpact(player.position, 'dash');
                 if (uChromaticIntensity) {
                     uChromaticIntensity.value = 0.3;
@@ -218,7 +220,7 @@ export function updateSwimmingState(
             player.velocity.y += (dy * invDist) * pullSpeed * delta;
             player.velocity.z += (dz * invDist) * pullSpeed * delta;
 
-            if (Math.random() < 0.1) {
+            if (simRng.next() < 0.1) {
                 spawnImpact(player.position, 'dash');
             }
         }
@@ -246,7 +248,10 @@ export function updateVineState(delta: number, camera: THREE.Camera, keyStates: 
 
         if (keyStates.jump) {
             // detach modifies velocity, pass player (has velocity)
-            setLastVineDetachTime(activeVineSwing.detach(player as any));
+            // Stamp with the physics clock the re-attach check reads. detach()'s
+            // own Date.now() return is on a different clock.
+            activeVineSwing.detach(player as any);
+            setLastVineDetachTime(physicsClock.ms);
             setActiveVineSwing(null);
             keyStates.jump = false;
             player.currentState = PlayerState.DEFAULT;

@@ -26,6 +26,7 @@ import {
     uGlitchExplosionCenter,
     uGlitchExplosionRadius,
 } from '../../foliage/material-core/shared-resources.ts';
+import { simRng } from '../../utils/sim-rng.ts';
 import { showToast } from '../../utils/toast.ts';
 import {
     initPhysics,
@@ -83,6 +84,7 @@ import {
     foliageCaves,
     setCppPhysicsInitialized,
     cppPhysicsInitialized,
+    physicsClock,
     AudioState,
     KeyStates,
     _scratchPlayerState,
@@ -181,6 +183,8 @@ export function updatePhysics(
     keyStates: KeyStates,
     audioState: AudioState
 ) {
+    physicsClock.ms += delta * 1000;
+
     // 1. Update Global Environmental Modifiers (Wind, Groove)
     updateEnvironmentalModifiers(delta, audioState);
 
@@ -304,8 +308,8 @@ function updateDefaultState(
         console.log('[PhysicsDiag] updateDefaultState: initCppPhysics returned');
     }
 
-    // ⚡ OPTIMIZATION: Caching time to avoid multiple Date.now() calls
-    const now = performance.now(); // More precise than Date.now()
+    // Simulation time, not wall time: the vine cooldown below must replay identically.
+    const now = physicsClock.ms;
 
     // 5. Check Flora Discovery (Throttled)
     const frameCount = Math.floor(now / 16);
@@ -395,14 +399,14 @@ function updateDefaultState(
         moveSpeed *= grooveBoost;
 
         // Visual/Audio Feedback could be added here periodically or when moving fast
-        if (player.isGrounded && moveInput.lengthSq() > 0 && Math.random() < 0.05) {
+        if (player.isGrounded && moveInput.lengthSq() > 0 && simRng.next() < 0.05) {
             spawnImpact(player.position, 'dash'); // Sparkles at feet
         }
         discoverySystem.discover('groove_boots', 'Groove Boots', '🥾');
     }
 
     // 🎨 Palette: Sparkle trail when moving fast (Dash / Sprint / Fall)
-    if (player.velocity.lengthSq() > 400 && Math.random() < 0.3) {
+    if (player.velocity.lengthSq() > 400 && simRng.next() < 0.3) {
         spawnImpact(player.position, 'trail');
     }
 
@@ -541,7 +545,7 @@ function updateDefaultState(
         // 🎨 Palette: Audio feedback for jump
         if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
             (window as any).AudioSystem.playSound('jump', {
-                pitch: Math.random() * 0.2 + 0.9,
+                pitch: simRng.next() * 0.2 + 0.9,
                 volume: 0.5,
             });
         }

@@ -42,7 +42,7 @@ GPU foliage scalar shaders mirror `assembly/foliage.ts` `computeSway` / `compute
 
 - `src/compute/compute-orchestrator.ts` — policy + VRAM tracking
 - `src/compute/foliage-gpu-batch.ts` — pipelined WASM replacement for simple batches
-- `src/core/game-loop.ts` — `tickComputeOrchestrator()` each frame
+- `src/core/game-loop-systems.ts` — `tickComputeOrchestrator()` each frame (`gpu-compute` system)
 - `src/core/deferred-init.ts` — `ensureGpuComputeReady()` at boot
 - `src/compute/chores/gpu-chores.ts` — shared Tier 4a job API (prefix sum / compact / reduce_f32)
 - `src/compute/chores/gpu-chores-wgsl.ts` — the chore kernels

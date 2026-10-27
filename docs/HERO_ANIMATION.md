@@ -92,8 +92,9 @@ playHeroClip('chest.oak', 'open', { loop: false, fade: 0.15 });
 stopHeroClip('chest.oak');
 ```
 
-`updateHeroAnimations(delta)` is called **once** per frame from
-`src/core/game-loop.ts`, right after `updateFaunaSystem`. Systems never touch it.
+`updateHeroAnimations(delta)` is called **once** per frame by the
+`hero-animation` scheduler system (`src/core/game-loop-systems.ts`, `animate`
+phase), after fauna and behaviors in `simulate`. Systems never touch it.
 
 `playHeroClip` returns `false` — rather than throwing — for a rig that is not
 registered yet or a clip that does not exist. This is deliberate: a system

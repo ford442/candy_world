@@ -69,7 +69,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 #### `/src/core` — Core Systems
 
 - **`main.ts`**: Entry point, initialization pipeline, loading screen
-- **`game-loop.ts`**: Animation loop, frame timing, delta calculations
+- **`game-loop.ts`**: Animation loop, frame timing, delta calculations; runs the frame through the `SystemScheduler` (`scheduler/`), with systems declared in `game-loop-systems.ts`. Phases, the fixed step and how to register a system: `docs/ARCHITECTURE.md`
 - **`hud.ts`**: Heads-up display, day/night toggle, theme updates
 - **`config.ts`**: Global configuration (colors, physics bounds, grid settings)
 - **`init.js`**: Scene creation (camera, renderer, lights, fog)
@@ -405,7 +405,7 @@ npm run optimize        # Apply all optimizations (experimental)
 
 1. Create file in `src/systems/` (e.g., `my-system.ts`)
 2. Export initialization function
-3. Hook into game loop in `src/core/game-loop.ts` or deferred init
+3. Register it as a scheduler `System` (add it to `FRAME_SYSTEMS` in `src/core/game-loop-systems.ts`, or call `registerSystem()` at runtime), or hook it into deferred init. See `docs/ARCHITECTURE.md`
 4. Add to code-split chunk if heavy (edit `vite.config.js` manual chunks)
 
 ### New Audio Track
@@ -417,6 +417,7 @@ npm run optimize        # Apply all optimizations (experimental)
 
 ## Further Reading
 
+- **Architecture**: `docs/ARCHITECTURE.md` — Frame phases, system registration, the fixed step, entity ownership
 - **Tests**: `tests/README.md` — Detailed test documentation
 - **Copilot Instructions**: `.github/copilot-instructions.md` — Visual style, materials, TSL usage
 - **Map Generation**: `tools/map-generator/` — Custom terrain generation tool

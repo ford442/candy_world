@@ -10,7 +10,7 @@
         - _Emscripten (C++):_ Stateless, heavy compute (noise generation, batch processing).
     - **Tooling:** Vite (Build/Dev), Playwright (Verification).
 - **Design Patterns:**
-    - **Orchestrator Pattern:** `src/core/main.ts` initializes; `src/core/game-loop.ts` runs a thin `animate()` that delegates each tick phase to sibling modules (`game-loop-audio.ts`, `game-loop-input.ts`, `game-loop-visuals.ts`, `game-loop-foliage.ts`, `game-loop-particles.ts`, `game-loop-postfx.ts`, `game-loop-compute.ts`, `game-loop-physics.ts`, `game-loop-gameplay.ts`, plus shared state in `game-loop-core.ts`).
+    - **Orchestrator Pattern:** `src/core/main.ts` initializes; `src/core/game-loop.ts` runs a thin `animate()` that hands the frame to the `SystemScheduler` (`src/core/scheduler/`, systems declared in `game-loop-systems.ts`, see `docs/ARCHITECTURE.md`), whose systems call into sibling modules (`game-loop-audio.ts`, `game-loop-input.ts`, `game-loop-visuals.ts`, `game-loop-foliage.ts`, `game-loop-particles.ts`, `game-loop-postfx.ts`, `game-loop-compute.ts`, `game-loop-physics.ts`, `game-loop-gameplay.ts`, plus shared state in `game-loop-core.ts`).
     - **Factory Pattern:** Foliage creation (flowers, mushrooms) uses factory functions in `src/foliage/*` to generate complex instanced meshes with shared geometries.
     - **Data-Driven Design:** World layout is defined in `assets/map.json`.
     - **Shared Mutable State:** To avoid Garbage Collection (GC) in the render loop, systems share mutable global objects (e.g., `_weatherBiasOutput`, `keyStates`) rather than passing new objects.

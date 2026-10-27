@@ -19,6 +19,7 @@ import { createCloud } from '../foliage/clouds.ts';
 import { getGroundHeight, registerWalkableCloudPlatform } from '../systems/ground-system.ts';
 import type { WeatherSystem } from '../systems/weather/weather.ts';
 import { debugHooks } from '../utils/debug-hooks.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 
@@ -171,7 +172,7 @@ export function placeCloudBlock(
 
     const size = resolveSize(options.size);
     const id = options.id ?? nextPlacementId();
-    const rotation = options.rotation ?? Math.random() * Math.PI * 2;
+    const rotation = options.rotation ?? getSeededRandom() * Math.PI * 2;
 
     const cloud = createCloud({ scale: size, tier: CONFIG.cloud.walkableTier });
     cloud.userData.tier = CONFIG.cloud.walkableTier;
