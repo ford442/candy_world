@@ -82,6 +82,7 @@ export interface ExtendedEmscriptenModule extends EmscriptenModule {
     _deformJiggle_c?: (...args: number[]) => void;
     _deformWobble_c?: (...args: number[]) => void;
     _batchUpdateLODMatrices_c?: (...args: number[]) => void;
+    _batchUpdateLodFactors_c?: (...args: number[]) => void;
     _batchScaleMatrices_c?: (...args: number[]) => void;
     _batchFadeColors_c?: (...args: number[]) => void;
     _batchFrustumCull_c?: (...args: number[]) => void;

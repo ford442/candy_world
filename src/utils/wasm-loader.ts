@@ -289,6 +289,7 @@ export {
 
     // Agent 3: LOD batch
     batchUpdateLODMatrices_c,
+    batchUpdateLodFactors_c,
     batchScaleMatrices_c,
     batchFadeColors_c,
 
