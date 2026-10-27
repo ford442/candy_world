@@ -211,7 +211,7 @@ export class LoadingScreen {
 
         yieldToPaint(50).then(() => {
             if (this.container && this.isVisible) {
-                this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true });
+                this.releaseFocusTrap = trapFocusInside(this.container, { skipAutoFocus: true, onEscape: () => this.hide() });
                 // 🎨 PALETTE: Focus specific inner element, not the wrapper, to prevent screen reader double-speak
                 let focusTarget: HTMLElement | null = null;
                 if (this.skipButton && this.skipButton.style.display !== 'none') {

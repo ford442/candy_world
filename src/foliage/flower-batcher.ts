@@ -105,8 +105,11 @@ export class FlowerBatcher {
         const posFinal = applyStandardDeformation(foliageMotionPosition(calculateFlowerBloom(positionLocal)));
 
         // --- 1. Stems (Cylinder) ---
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const stemMat = getCachedProceduralMaterial('flower_batch_stem', 0xFFFFFF, () => {
-            return (foliageMaterials.flowerStem as THREE.Material).clone();
+            const mat = (foliageMaterials.flowerStem as THREE.Material).clone();
+            applyFoliageLodMaterialFade(mat as import('three/webgpu').MeshStandardNodeMaterial);
+            return mat;
         });
 
         const stemGeo = sharedGeometries.unitCylinder.clone();
@@ -122,6 +125,7 @@ export class FlowerBatcher {
         foliageGroup.add(this.stems);
 
         // --- 2. Centers (Sphere) ---
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const centerMat = getCachedProceduralMaterial('flower_batch_center', 0xFFFFFF, () => {
             const mat = (foliageMaterials.flowerCenter as THREE.Material).clone();
             (mat as any).positionNode = posFinal; // Apply full deformation chain
@@ -140,6 +144,7 @@ export class FlowerBatcher {
         foliageGroup.add(this.centers);
 
         // --- 3. Stamens (Cylinder) ---
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const stamenMat = getCachedProceduralMaterial('flower_batch_stamen', 0xFFFF00, () => {
             const mat = CandyPresets.Clay(0xFFFF00, { deformationNode: posFinal });
             applyFoliageLodMaterialFade(mat);
@@ -160,6 +165,7 @@ export class FlowerBatcher {
         // Use Velvet preset for petals, supporting instanceColor
         const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
+        // clone once in cache factory so mutations don't affect shared materials/geometries
         const petalMat = getCachedProceduralMaterial('flower_batch_petal', 0xFFFFFF, () => {
             // --- PALETTE: Petal Breathing Animation ---
             // Add subtle procedural life to petals, slightly offsetting based on local coordinates
