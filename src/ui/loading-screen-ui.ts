@@ -7,6 +7,7 @@ import { trapFocusInside } from '../utils/focus-trap.ts';
 import { log } from '../utils/log.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import { announce } from './announcer.ts';
+import { hideBootLoadingUI } from './boot-fatal.ts';
 import {
     createDeferredIndicator,
     createLoadingScreenDOM,
@@ -15,7 +16,6 @@ import {
 } from './loading-screen-dom.ts';
 import { LoadingScreenProgress, setLoadingScreenClass } from './loading-screen-progress.ts';
 import { updateSpawnFailureBadge } from './loading-screen-reporting.ts';
-import { hideBootLoadingUI } from './boot-fatal.ts';
 import { LoadingPhase, LoadingScreenOptions } from './loading-screen-types.ts';
 import './loading-screen.css';
 
@@ -131,16 +131,16 @@ export class LoadingScreen {
         } else {
             this.isFCP = true;
             // FCP Element wiring: Grab references to existing HTML components
-            this.spinner = this.container.querySelector('.loading-spinner') as HTMLElement;
-            this.progressBar = this.container.querySelector('.progress-bar') as HTMLElement;
-            this.progressFill = this.container.querySelector('.progress-fill') as HTMLElement;
+            this.spinner = this.container.querySelector('.loading-spinner');
+            this.progressBar = this.container.querySelector('.progress-bar');
+            this.progressFill = this.container.querySelector('.progress-fill');
             this.percentageText = this.container.querySelector(
                 '.progress-percentage'
-            ) as HTMLElement;
-            this.taskText = this.container.querySelector('.progress-task') as HTMLElement;
-            this.flavorText = this.container.querySelector('.progress-flavor-text') as HTMLElement;
-            this.timeText = this.container.querySelector('.time-remaining') as HTMLElement;
-            this.skipButton = this.container.querySelector('.skip-button') as HTMLButtonElement;
+            );
+            this.taskText = this.container.querySelector('.progress-task');
+            this.flavorText = this.container.querySelector('.progress-flavor-text');
+            this.timeText = this.container.querySelector('.time-remaining');
+            this.skipButton = this.container.querySelector('.skip-button');
 
             if (this.skipButton) {
                 wireSkipButton(this.skipButton, () => this.skipCurrentPhase());
@@ -217,7 +217,7 @@ export class LoadingScreen {
                 if (this.skipButton && this.skipButton.style.display !== 'none') {
                     focusTarget = this.skipButton;
                 } else {
-                    focusTarget = this.container.querySelector('.loading-title') as HTMLElement;
+                    focusTarget = this.container.querySelector('.loading-title');
                     if (focusTarget) {
                         focusTarget.tabIndex = -1; // Ensure it's focusable if it was FCP rendered
                     }
@@ -278,19 +278,27 @@ export class LoadingScreen {
             fill.style.transform = `scaleX(${pct / 100})`;
             fill.style.transformOrigin = 'left';
         }
-        const count = this.deferredIndicator.querySelector('.deferred-count') as HTMLElement | null;
+        const count = this.deferredIndicator.querySelector('.deferred-count');
         if (count) count.textContent = `${completed} / ${total}`;
         this.deferredIndicator.setAttribute('aria-valuenow', String(Math.round(pct)));
 
         // ETA display
-        const etaEl = this.deferredIndicator.querySelector('.deferred-eta') as HTMLElement | null;
+        let etaText = '';
+        const etaEl = this.deferredIndicator.querySelector('.deferred-eta');
         if (etaEl) {
             if (etaMs > 0) {
                 const secs = Math.ceil(etaMs / 1000);
-                etaEl.textContent = secs < 60 ? `~${secs}s` : `~${Math.ceil(secs / 60)}m`;
+                etaText = secs < 60 ? `~${secs}s` : `~${Math.ceil(secs / 60)}m`;
+                etaEl.textContent = etaText;
             } else {
                 etaEl.textContent = '';
             }
+        }
+
+        // Accessible status update
+        const statusEl = this.deferredIndicator.querySelector('#deferred-status');
+        if (statusEl) {
+            statusEl.textContent = `Populating ${completed} of ${total}${etaText ? `, ETA ${etaText}` : ''}`;
         }
 
         // Spawn failure badge — use hint from manager when available, else query tracker.
