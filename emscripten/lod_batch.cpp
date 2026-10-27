@@ -23,6 +23,7 @@ static float smoothstep_local(float t) {
     return x * x * (3.0f - 2.0f * x);
 }
 
+// Note: This function uses OpenMP for parallelization but is scalar, not SIMD vectorized.
 EMSCRIPTEN_KEEPALIVE
 void batchUpdateLodFactors_c(
     float* matrices,
