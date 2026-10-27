@@ -20,6 +20,14 @@ import {
 import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
+import {
+    downloadActiveWorld,
+    getActiveSession,
+    getDocumentStore,
+    importWorldFile,
+    openWorldDocument,
+} from '../../world/document/active.ts';
+import { CANDYWORLD_EXTENSION } from '../../world/document/codec.ts';
 import { announce } from '../announcer.ts';
 import { MENU_STYLES } from './save-menu-styles.ts';
 import {
@@ -359,6 +367,26 @@ export class SaveMenu {
     private renderImportExportTab(): string {
         return `
             <div class="candy-io-area">
+                <div class="candy-io-area__label" id="world-file-label">World File (${CANDYWORLD_EXTENSION})</div>
+                <p class="candy-danger-zone__text" id="world-file-hint">
+                    Your builds, discoveries and progress in one file. Opening a world file replaces
+                    this world's builds; this world stays under Recent Worlds.
+                </p>
+                <div class="candy-save-menu__actions" role="group" aria-labelledby="world-file-label" aria-describedby="world-file-hint">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="export-world">
+                        <span aria-hidden="true">💾</span> Export World
+                    </button>
+                    <input type="file" class="candy-file-input" id="world-file-input" accept="${CANDYWORLD_EXTENSION},.json,application/gzip,application/json" tabindex="-1">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--secondary" id="world-file-btn">
+                        <span aria-hidden="true">📂</span> Open World File
+                    </button>
+                </div>
+                <div id="world-file-status" role="status" aria-live="polite" style="margin-top: 8px;"></div>
+                <div class="candy-io-area__label" id="recent-worlds-label" style="margin-top: 12px;">Recent Worlds</div>
+                <ul id="recent-worlds" aria-labelledby="recent-worlds-label" style="list-style: none; padding: 0; margin: 0;"></ul>
+            </div>
+
+            <div class="candy-io-area">
                 <div class="candy-io-area__label" id="export-label">Export Save Data</div>
                 <textarea class="candy-textarea" id="export-area" placeholder="Exported save data will appear here..." aria-labelledby="export-label" readonly spellcheck="false"></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
@@ -469,6 +497,108 @@ export class SaveMenu {
         if (fileBtn && fileInput) {
             fileBtn.addEventListener('click', () => fileInput.click());
         }
+
+        const worldInput = this.container.querySelector<HTMLInputElement>('#world-file-input');
+        const worldBtn = this.container.querySelector<HTMLButtonElement>('#world-file-btn');
+        if (worldInput && worldBtn) {
+            worldBtn.addEventListener('click', () => worldInput.click());
+            worldInput.addEventListener('change', () => {
+                const file = worldInput.files?.[0];
+                worldInput.value = '';
+                if (file) void this.openWorldFile(file);
+            });
+        }
+        if (this.container.querySelector('#recent-worlds')) void this.renderRecentWorlds();
+    }
+
+    // -------------------------------------------------------------------------
+    // WORLD FILES (.candyworld)
+    // -------------------------------------------------------------------------
+
+    private setWorldStatus(message: string, isError = false): void {
+        const status = this.container?.querySelector<HTMLElement>('#world-file-status');
+        if (status) {
+            status.textContent = message;
+            status.style.color = isError ? '#c0264b' : '';
+        }
+        announce(message, isError ? 'assertive' : 'polite');
+    }
+
+    private async exportWorld(): Promise<void> {
+        try {
+            const fileName = await downloadActiveWorld();
+            showToast('World exported', '💾', 3000);
+            this.setWorldStatus(`Exported ${fileName}`);
+        } catch (err) {
+            console.warn('[SaveMenu] World export failed:', err);
+            this.setWorldStatus("Couldn't export this world.", true);
+        }
+    }
+
+    private async openWorldFile(file: File): Promise<void> {
+        this.setWorldStatus(`Opening ${file.name}…`);
+        const result = await importWorldFile(file);
+        if (!result.ok) {
+            showToast(result.error.userMessage, '❌', 5000);
+            this.setWorldStatus(result.error.userMessage, true);
+            return;
+        }
+        const title = result.doc.meta.title ?? 'world';
+        showToast(`Opened ${title}`, '🌈', 3000);
+        this.setWorldStatus(`Opened ${title}: ${result.doc.commands.length} builds.`);
+        await this.renderRecentWorlds();
+    }
+
+    private async renderRecentWorlds(): Promise<void> {
+        const list = this.container?.querySelector<HTMLElement>('#recent-worlds');
+        if (!list) return;
+        let worlds: Awaited<ReturnType<ReturnType<typeof getDocumentStore>['list']>> = [];
+        try {
+            worlds = await getDocumentStore().list();
+        } catch (err) {
+            console.warn('[SaveMenu] Could not list worlds:', err);
+        }
+        const activeId = getActiveSession()?.id;
+        list.replaceChildren();
+        if (worlds.length === 0) {
+            const empty = document.createElement('li');
+            empty.textContent = 'No saved worlds yet.';
+            list.appendChild(empty);
+            return;
+        }
+        for (const w of worlds.slice(0, 8)) {
+            const item = document.createElement('li');
+            item.style.cssText = 'display:flex;gap:8px;align-items:center;margin:4px 0;';
+            const label = document.createElement('span');
+            const when = new Date(w.updatedAt).toLocaleString();
+            label.textContent = `${w.title ?? 'Untitled world'} · ${w.commandCount} builds · ${when}`;
+            item.appendChild(label);
+            if (w.id === activeId) {
+                const open = document.createElement('span');
+                open.textContent = '(open)';
+                item.appendChild(open);
+            } else {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'candy-save-menu__btn candy-save-menu__btn--secondary';
+                btn.textContent = 'Open';
+                btn.setAttribute('aria-label', `Open ${w.title ?? 'Untitled world'}`);
+                btn.addEventListener('click', () => void this.openStoredWorld(w.id));
+                item.appendChild(btn);
+            }
+            list.appendChild(item);
+        }
+    }
+
+    private async openStoredWorld(id: string): Promise<void> {
+        const doc = await getDocumentStore().load(id);
+        if (!doc) {
+            this.setWorldStatus("That world couldn't be read.", true);
+            return;
+        }
+        await openWorldDocument(doc, { restorePlayer: true });
+        this.setWorldStatus(`Opened ${doc.meta.title ?? 'world'}.`);
+        await this.renderRecentWorlds();
     }
 
     private handleKeydown(e: KeyboardEvent): void {
@@ -664,6 +794,11 @@ export class SaveMenu {
                     showToast('Settings reset', '🔄', 3000);
                     announce('Settings reset', 'polite');
                 }
+                break;
+            case 'export-world':
+                setWorkingState();
+                await this.exportWorld();
+                setTimeout(restoreState, 300);
                 break;
             case 'export-current':
                 setWorkingState();

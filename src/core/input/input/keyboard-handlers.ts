@@ -1,4 +1,4 @@
-import { toggleBuildMode } from '../../../systems/build-mode.ts';
+import { toggleBuildMode } from '../../../systems/build-mode-lazy.ts';
 import { sceneRef } from '../../game-loop-core.ts';
 import { discoverySystem } from '../../../systems/discovery.ts';
 import {

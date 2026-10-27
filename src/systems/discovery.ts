@@ -74,6 +74,21 @@ class DiscoverySystem {
     }
 
     /**
+     * Add discoveries restored from a saved world, without toasts.
+     * @returns the number that were new.
+     */
+    public restore(ids: readonly string[]): number {
+        let added = 0;
+        for (const id of ids) {
+            if (!id || this.discoveredItems.has(id)) continue;
+            this.discoveredItems.add(id);
+            discoveryPersistence.addDiscovery(id);
+            added++;
+        }
+        return added;
+    }
+
+    /**
      * Check if an item has been discovered.
      * @param {string} id
      * @returns {boolean}

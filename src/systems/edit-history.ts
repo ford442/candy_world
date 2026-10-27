@@ -1,5 +1,3 @@
-import { type EntitySnapshot } from './entity-snapshot-core.ts';
-
 /**
  * @file src/systems/edit-history.ts
  * @brief Undo/redo stack of world edits.
@@ -23,13 +21,41 @@ export interface WorldCommand {
     serialize(): SerializedWorldCommand | null;
 }
 
+/**
+ * `execute`: a new command is live (execute() or push()). `undo`: it was
+ * reverted. `redo`: it was re-applied. A command whose revert throws is
+ * dropped from the stacks with no event: its effect is still live.
+ */
+export type EditHistoryEvent = 'execute' | 'undo' | 'redo';
+export type EditHistoryListener = (event: EditHistoryEvent, command: WorldCommand) => void;
+
 export class EditHistory {
     private undoStack: WorldCommand[] = [];
     private redoStack: WorldCommand[] = [];
     private readonly maxDepth: number;
+    private readonly listeners: EditHistoryListener[] = [];
 
     constructor(maxDepth: number = 100) {
         this.maxDepth = maxDepth;
+    }
+
+    /** Observe history changes (the WorldDocument command log). Returns an unsubscribe. */
+    subscribe(listener: EditHistoryListener): () => void {
+        this.listeners.push(listener);
+        return () => {
+            const i = this.listeners.indexOf(listener);
+            if (i >= 0) this.listeners.splice(i, 1);
+        };
+    }
+
+    private emit(event: EditHistoryEvent, command: WorldCommand): void {
+        for (const listener of this.listeners.slice()) {
+            try {
+                listener(event, command);
+            } catch (err) {
+                console.warn('[EditHistory] Listener failed:', err);
+            }
+        }
     }
 
     /**
@@ -54,6 +80,7 @@ export class EditHistory {
             this.undoStack.shift();
         }
         this.redoStack.length = 0; // Clear redo on new push
+        this.emit('execute', command);
     }
 
     /**
@@ -71,6 +98,7 @@ export class EditHistory {
             return false;
         }
         this.redoStack.push(cmd);
+        this.emit('undo', cmd);
         return true;
     }
 
@@ -85,7 +113,13 @@ export class EditHistory {
             return false;
         }
         this.undoStack.push(cmd);
+        this.emit('redo', cmd);
         return true;
+    }
+
+    /** True while `command` can still be undone (it is on the undo stack). */
+    isUndoable(command: WorldCommand): boolean {
+        return this.undoStack.includes(command);
     }
 
     clear(): void {

@@ -2,7 +2,7 @@
  * Awakened flora persistence — durable soft glow for music-reacted plants.
  *
  * Separate from discovery-persistence (spatial "seen" vs music "awakened").
- * Feature-flagged via FEATURE_FLAGS.awakenedPersistence (?awakened, default off).
+ * Feature-flagged via FEATURE_FLAGS.awakenedPersistence (on by default; ?no_awakened turns it off).
  */
 
 import * as THREE from 'three';
@@ -413,7 +413,7 @@ export class AwakenedStore {
 
     debugAwaken(persistentId: number, emissiveScale = DEFAULT_AWAKENED_EMISSIVE_SCALE): void {
         if (!this.isEnabled()) {
-            console.warn('[AwakenedStore] debugAwaken: flag off (?awakened)');
+            console.warn('[AwakenedStore] debugAwaken: flag off (?no_awakened)');
             return;
         }
         this.set(persistentId, { type: 'luminous_plant', biome: 'luminous_plants', emissiveScale });

@@ -196,7 +196,7 @@ async function getLoadedMap(): Promise<LoadedCandyMap> {
                 return loadMap(defaultSource);
             })
             .then((loaded) => {
-                setMapMetadataSeed(loaded.data.metadata?.seed);
+                setMapMetadataSeed(loaded.data.metadata?.seed, loaded.data.metadata?.version);
                 setMapMusicContext(deriveMapMusicContext(loaded.data));
                 return loaded;
             });

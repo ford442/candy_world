@@ -26,7 +26,7 @@ co-presence.
 | Presence core         | `PresenceSystem` — ~10 Hz pose, ephemeral session ids, no accounts, room = world seed                 |
 | Avatars + UI          | `remote-avatars.ts`, `src/ui/presence-panel.ts`, start-screen opt-in, recent ARIA                     |
 | Fauna                 | C++ boids (#1478), `src/systems/fauna/*`, sky-island roosts                                           |
-| Awakened flora        | `awakened-persistence` (flagged `?awakened`)                                                          |
+| Awakened flora        | `awakened-persistence` (on by default since #1974; `?no_awakened` off)                                |
 | Vertical exploration  | Sky Islands — `docs/SKY_ISLANDS.md`, `sky-island-graph.ts`                                            |
 | Lazy net (foundation) | `src/systems/net/lazy.ts` (`import()` when flag on) → `presence` chunk; see `docs/APP_CHUNK_SPLIT.md` |
 | Content layer         | Sugar Caves — `docs/SUGAR_CAVES_SHIP.md`, `part-ii-unlock.ts`                                         |

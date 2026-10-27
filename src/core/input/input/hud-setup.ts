@@ -141,6 +141,7 @@ export function setupHudControls(
     setupAbilityKeyboardInteractions(handlers, session.hudDash, 'KeyE');
     setupAbilityKeyboardInteractions(handlers, session.hudMine, 'KeyF');
     setupAbilityKeyboardInteractions(handlers, session.hudPhase, 'KeyZ');
+    setupAbilityKeyboardInteractions(handlers, document.getElementById('ability-build'), 'KeyB');
 
     const openA11yBtn = document.getElementById('openA11yBtn');
     if (openA11yBtn) {

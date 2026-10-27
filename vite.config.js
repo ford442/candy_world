@@ -38,6 +38,19 @@ export default defineConfig({
                     if (id.includes('three/examples/jsm/loaders/GLTFLoader')) {
                         return 'gltf-loader';
                     }
+                    // Player authoring (#1974): build mode + its gizmo load on the
+                    // first `B` press. The thin build-mode-lazy.ts stub stays in `app`.
+                    if (
+                        id.includes('three/examples/jsm/controls/TransformControls') ||
+                        id.includes('/src/systems/authoring/')
+                    ) {
+                        return 'authoring';
+                    }
+                    // WorldDocument validation is only reached from the document
+                    // code below, so it rides that chunk instead of `vendor`.
+                    if (id.includes('/node_modules/valibot/')) {
+                        return 'save-ui';
+                    }
                     // Vendor chunk - all third-party dependencies
                     if (id.includes('node_modules')) {
                         return 'vendor';
@@ -68,10 +81,17 @@ export default defineConfig({
                     ) {
                         return 'gameplay';
                     }
-                    // Save menu UI + save-system core (exclude thin lazy stubs)
+                    // Save menu UI + save-system core (exclude thin lazy stubs), and the
+                    // WorldDocument it saves: schema, store, session and the edit
+                    // command log. One chunk, because save slots embed documents and
+                    // the document store sits on the save database.
                     if (
                         (id.includes('/src/ui/save-menu/') && !id.endsWith('/save-menu/lazy.ts')) ||
-                        id.includes('/src/systems/save-system/')
+                        id.includes('/src/systems/save-system/') ||
+                        (id.includes('/src/world/document/') &&
+                            !id.endsWith('/document/lazy.ts')) ||
+                        id.endsWith('/src/systems/edit-history.ts') ||
+                        id.endsWith('/src/systems/world-commands.ts')
                     ) {
                         return 'save-ui';
                     }

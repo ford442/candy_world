@@ -18,11 +18,12 @@ Table of record: [`src/systems/performance-budget/systems-budget.ts`](../src/sys
 | Particles        | 2.0      | 32      | `totalParticles` 65536, `emitters` 32 | `particles.update`    | No — density scales instead                    |
 | Rigid bodies     | 1.0      | 0       | `bodies` 64 (`MAX_DYNAMIC_BODIES`)    | `rigidBodies.step`    | No — costs nothing while the pool is empty     |
 | Fauna            | 1.5      | 6       | `instances` 96, `perSpecies` 40       | `fauna.update`        | No — instance count scales instead             |
+| Authoring        | 1.0      | 1       | `perChunk` 48, `total` 600            | `system.authoring.buildMode` | No — off until build mode opens         |
 
 These are **starter ceilings to design against, not measurements.** A feature PR
 that profiles its system replaces its row here and in `SYSTEM_BUDGETS` in the
-same change. The seven frame budgets sum to 12.5 ms, leaving ~4 ms of a 16.67 ms
-frame for scene draw and the game loop.
+same change. The eight frame budgets sum to 13.5 ms, leaving ~3 ms of a
+16.67 ms frame for scene draw and the game loop.
 
 ## Enforcement, not logging
 
@@ -35,6 +36,9 @@ keeps the budget:
   returns `null` when there is no headroom left; `burstAt()` drops the burst.
 - Fauna spawning clamps to `maxInstances` and now honours `maxPerSpecies`, so
   one species cannot eat the whole population.
+- Build mode refuses a placement past `perChunk` authored entities in its 32 m
+  chunk, or past `total` in the world, with a "this grove is full" toast
+  (`systems/authoring/chunk-budget.ts`, [`AUTHORING.md`](./AUTHORING.md)).
 - Clustered lighting drops lights past `maxLights`; the local shadow-slot pool
   denies extra shadow maps. Both report the rejection through
   `recordCapRejection()` so a silent drop still shows up in the overlay.

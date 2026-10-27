@@ -6,6 +6,7 @@ import {
     SAVE_VERSION,
     DB_NAME,
     DB_VERSION,
+    DOCUMENT_STORE_NAME,
     STORE_NAME,
     SaveData,
     SaveSlotInfo,
@@ -134,6 +135,12 @@ export class SaveDatabase {
             request.onsuccess = () => {
                 cleanup();
                 this.db = request.result;
+                // Another tab upgrading the schema must not be blocked by this one.
+                this.db.onversionchange = () => {
+                    this.db?.close();
+                    this.db = null;
+                    this.initPromise = null;
+                };
                 resolve();
             };
 
@@ -143,6 +150,9 @@ export class SaveDatabase {
                     const store = db.createObjectStore(STORE_NAME, { keyPath: 'slotId' });
                     store.createIndex('timestamp', 'timestamp', { unique: false });
                     store.createIndex('isAutoSave', 'isAutoSave', { unique: false });
+                }
+                if (!db.objectStoreNames.contains(DOCUMENT_STORE_NAME)) {
+                    db.createObjectStore(DOCUMENT_STORE_NAME, { keyPath: 'id' });
                 }
             };
         });
@@ -248,6 +258,40 @@ export class SaveDatabase {
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
+    }
+
+    // -------------------------------------------------------------------------
+    // Keyed records in another object store (WorldDocuments)
+    // -------------------------------------------------------------------------
+
+    private async request<T>(
+        storeName: string,
+        mode: IDBTransactionMode,
+        op: (store: IDBObjectStore) => IDBRequest<T>
+    ): Promise<T> {
+        await this.init();
+        if (!this.db) throw new Error('Database not initialized');
+        return new Promise((resolve, reject) => {
+            const request = op(this.db!.transaction([storeName], mode).objectStore(storeName));
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async putRecord(storeName: string, record: unknown): Promise<void> {
+        await this.request(storeName, 'readwrite', (store) => store.put(record));
+    }
+
+    async getRecord(storeName: string, key: string): Promise<unknown> {
+        return this.request(storeName, 'readonly', (store) => store.get(key));
+    }
+
+    async getAllRecords(storeName: string): Promise<unknown[]> {
+        return this.request(storeName, 'readonly', (store) => store.getAll());
+    }
+
+    async deleteRecord(storeName: string, key: string): Promise<void> {
+        await this.request(storeName, 'readwrite', (store) => store.delete(key));
     }
 
     /**

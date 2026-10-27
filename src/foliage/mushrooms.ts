@@ -46,6 +46,8 @@ export interface MushroomOptions {
     noteIndex?: number;
     spawnTime?: number;
     isBioluminescent?: boolean;
+    /** Cap colour override (build-mode paint); the note colour otherwise. */
+    color?: number;
 }
 
 export function createMushroom(options: MushroomOptions = {}): THREE.Group {
@@ -59,6 +61,7 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
         noteIndex = -1,
         spawnTime = -100.0, // Allow overriding spawn time (for pop-in)
         isBioluminescent = false,
+        color,
     } = options;
 
     const group = new THREE.Group();
@@ -120,7 +123,7 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
             hasFace: isGiant || hasFace, // Giants always have faces
             noteIndex: actualNoteIndex,
             size: size,
-            noteColor: noteColor,
+            noteColor: color ?? noteColor,
             spawnTime: spawnTime,
         };
 
