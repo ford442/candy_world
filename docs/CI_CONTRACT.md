@@ -267,3 +267,12 @@ prints the skip block. The C++ tier covers only exports that `src/` calls:
 matrix compose, instance-pose write, and the `getGroundHeight` NaN guard. The
 never-called C++ twins of the colour write and the arpeggio accumulate were
 removed from `exports.txt`.
+
+## PR description guard
+
+`scripts/check-pr-description.mjs` (PR job step, `test:pr-description`) fails a
+PR whose body names file paths or backticked identifiers that overlap nothing in
+the diff. It catches stale-base PRs (#1946, #1960) that merged on their
+description while the diff was unrelated. A body naming nothing checkable passes.
+To make it and the `protocol` job block merges, mark `protocol` as a required
+status check in branch protection (a repo setting, not code).
