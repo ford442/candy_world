@@ -77,7 +77,12 @@ import {
     uWindSpeed,
     uWindDirection,
 } from '../foliage/material-core.ts';
-import { awaitGpuDevice, getGpuContextSync, onGpuDeviceLost } from '../rendering/gpu-context.ts';
+import {
+    awaitGpuDevice,
+    getGpuContextSync,
+    onGpuDeviceLost,
+    onGpuDeviceRestored,
+} from '../rendering/gpu-context.ts';
 import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
 import {
     UPDATE_PARTICLES_WGSL,
@@ -168,6 +173,7 @@ export class ComputeParticleSystem {
     private particleBuffer: GPUBuffer | null = null;
     private nextSpawnIndex: number = 0;
     private unsubscribeDeviceLost: (() => void) | null = null;
+    private unsubscribeDeviceRestored: (() => void) | null = null;
     private deviceLost: boolean = false;
     private static scratchFloat32Array = new Float32Array(4);
 
@@ -607,10 +613,11 @@ export class ComputeParticleSystem {
             this.particleBuffer = null;
             this.uniformBuffer = null;
             // Compute is paused and the storage buffers are gone, so the points would
-            // freeze mid-air. Hide rather than show a stale field; the emitter registry
-            // can rebuild the system if the renderer recovers.
+            // freeze mid-air. Hide rather than show a stale field until the renderer
+            // recovers and the GPU path is rebuilt on the new device.
             this.mesh.visible = false;
         });
+        this.unsubscribeDeviceRestored ??= onGpuDeviceRestored(() => this.restoreGpu());
 
         // Ensure WebGPU resources are created sequentially with rAF yields
         // rather than Promise.all parallel execution, to prevent VRAM allocation spikes.
@@ -624,6 +631,21 @@ export class ComputeParticleSystem {
         console.log(
             `[ComputeParticles] GPU initialized for ${this.type} with ${this.count} particles`
         );
+    }
+
+    /** After a recovered device loss: the same init, from the CPU-side buffers. */
+    private restoreGpu(): void {
+        if (!this.deviceLost) return;
+        this.deviceLost = false;
+        this.unsubscribeDeviceLost?.();
+        this.unsubscribeDeviceLost = null;
+        this.initPromise = this.initWebGPU()
+            .then(() => {
+                this.mesh.visible = true;
+            })
+            .catch(() => {
+                console.warn(`[ComputeParticles] ${this.type} stays hidden after device loss`);
+            });
     }
 
     private initCPUFallback(): void {
@@ -967,6 +989,8 @@ export class ComputeParticleSystem {
 
         this.unsubscribeDeviceLost?.();
         this.unsubscribeDeviceLost = null;
+        this.unsubscribeDeviceRestored?.();
+        this.unsubscribeDeviceRestored = null;
 
         // Release this system's GPU buffers, but never destroy the device —
         // it is the renderer's, shared by every GPU consumer.

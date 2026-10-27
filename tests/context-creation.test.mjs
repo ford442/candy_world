@@ -74,9 +74,12 @@ const quiet = async (fn) => {
     }
 };
 
-// --- WebGL2 context loss shows the reload banner ---------------------------
+// --- WebGL2 context loss ends at the reload banner when it cannot recover --
+// (Recovery itself is covered by tests/device-recovery.test.mjs; this renderer
+// has no backend to rebuild, and the context is never restored.)
 await quiet(async () => {
     gpu.__resetGpuContextForTests();
+    gpu.__setRecoveryTimingForTests({ retryMs: 0, restoreTimeoutMs: 20 });
     gpu.settleWebGLContext('explicit-webgl');
     const canvas = new EventTarget();
     const renderer = {};
@@ -95,6 +98,8 @@ await quiet(async () => {
     assert.equal(heard, 'GPU reset');
     assert.equal(window.__gpuContext.lost, true);
     assert.equal(window.__gpuContext.backend, 'webgl');
+    assert.equal(document.getElementById('gpu-device-lost-banner'), null, 'recovery first');
+    assert.equal(await gpu.whenGraphicsRecovered(), false);
 
     const banner = document.getElementById('gpu-device-lost-banner');
     assert.ok(banner, 'banner shown');
@@ -110,7 +115,7 @@ await quiet(async () => {
 
     canvas.dispatchEvent(new Event('webglcontextrestored'));
     assert.equal(window.__gpuContext.contextRestored, true);
-    assert.equal(window.__gpuContext.lost, true, 'restore does not rebuild Three resources');
+    assert.equal(window.__gpuContext.lost, true, 'a late restore after giving up changes nothing');
 });
 
 // --- Uncaptured WebGPU errors are recorded on window.__gpuContext ----------

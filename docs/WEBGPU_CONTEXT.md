@@ -271,17 +271,35 @@ the timer is a no-op and `gpuFrameTime` stays `null`.
    `awaitGpuDevice()` returns `null`, so newly created systems start on their CPU tier.
 3. Registered `onGpuDeviceLost` listeners fire. `GPUComputeLibrary` soft-disables itself and drops
    its pipeline and layout caches (they belonged to the dead device); each `ComputeParticleSystem`
-   clears its GPU state so `update()` stops dispatching. A listener that throws is caught and
-   logged — it cannot break the others.
-4. A banner appears, styled after the existing renderer badge in `src/ui/mode-badge.ts`: a fixed
-   `role="alert"` pill reading **Graphics stopped —** with a **Reload** button. Rendering really has
-   stopped (Three has no device to draw with), so it no longer says "effects reduced". No modal, no
-   input capture, no new UI system. Re-probing and re-initialising the renderer in place is not
-   attempted: every pipeline, buffer and texture belonged to the dead device.
-5. Everything is logged at `warn` level and nothing throws.
+   clears its GPU state and hides its points. A listener that throws is caught and logged — it
+   cannot break the others.
+4. **Recovery**, unless the device was `destroyed` (nothing in the app destroys the shared device,
+   so that is a deliberate teardown, not a fault). The frame loop is paused (the scheduler runs
+   inside it), and `device-recovery.ts`, a lazy chunk, rebuilds the renderer **in place**: a new
+   device from the same probe as boot (adapter → device → canvas configure → compute pipeline), a
+   new backend on it, and `Renderer.init()` again on the same renderer object. Three's `init()`
+   builds every manager (nodes, textures, geometries, pipelines, bindings, render contexts) from
+   scratch, so every GPU object of the dead device is dropped and re-created from its CPU-side
+   source on first use: textures from their images and data, buffers from their arrays, materials,
+   TSL compute and the post graph from their nodes. Every module holding the renderer keeps a valid
+   reference. Then the loop resumes and `onGpuDeviceRestored` listeners fire: `GPUComputeLibrary`
+   adopts the new device (plant pose, foliage batches and chores come back lazily) and compute
+   particles rebuild their GPU path. What only ever lived on the GPU — render-target contents,
+   compute results, TRAA history — starts over. The GPU foliage animator stays on its CPU tier
+   for the session.
+5. Two attempts, a second apart. Only when both fail (no adapter, a rejected device, a failed
+   `init()`, or on WebGL2 no `webglcontextrestored` within 10 s) does a banner appear, styled after
+   the renderer badge in `src/ui/mode-badge.ts`: a fixed `role="alert"` pill reading **Graphics
+   stopped —** with a **Reload** button. A fourth loss inside a minute of three recoveries goes
+   straight to the banner rather than chasing a GPU that keeps resetting.
+6. Everything is logged at `warn` level and nothing throws. `window.__gpuContext` reports
+   `recovering` and `recoveries`.
 
-To check by hand, run `game.renderer.backend.device.destroy()` in devtools: the banner appears and
-`window.__gpuContext.lost` is `true`.
+To check by hand, add `?debug_lose_device` (optionally `=<seconds>`, default 5): that long after
+the scene is up it calls `device.destroy()`, marked as simulated so recovery runs despite the
+`destroyed` reason. The world pauses for a moment and carries on; `window.__gpuContext.recoveries`
+becomes 1. A plain `game.renderer.backend.device.destroy()` in devtools is a real destroy: the
+banner appears and `window.__gpuContext.lost` stays `true`.
 
 ### Uncaptured errors
 
@@ -289,9 +307,6 @@ To check by hand, run `game.renderer.backend.device.destroy()` in devtools: the 
 `{ type: 'validation' | 'out-of-memory' | 'internal' | 'unknown', message, at }` on
 `window.__gpuContext.errors` (`count`, plus the last 20 in `recent`); the first three are echoed with
 `console.warn`. The event is not cancelled, so the browser still logs it as well.
-
-All losses are treated as faults, including `reason: 'destroyed'` — nothing in the app destroys the
-shared device any more, so a destroy means something external tore it down.
 
 ## Boot log
 
