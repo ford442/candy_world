@@ -20,6 +20,8 @@ export function chunkKeyOf(x: number, z: number): string {
 export interface AuthoredCounts {
     total: number;
     perChunk: Map<string, number>;
+    /** Entity ids counted (authored entities with an id). */
+    ids: Set<string>;
 }
 
 /**
@@ -29,8 +31,8 @@ export interface AuthoredCounts {
 export function countAuthored(
     objects: ArrayLike<THREE.Object3D | null | undefined>
 ): AuthoredCounts {
-    const counts: AuthoredCounts = { total: 0, perChunk: new Map() };
-    const seen = new Set<string>();
+    const counts: AuthoredCounts = { total: 0, perChunk: new Map(), ids: new Set() };
+    const seen = counts.ids;
     for (let i = 0; i < objects.length; i++) {
         const obj = objects[i];
         if (!obj || !getAuthoredTransform(obj)) continue;
@@ -66,6 +68,50 @@ export function checkPlacementBudget(
         return {
             ok: false,
             message: `Your world is full (${getCap('authoring', 'total')} pieces). Remove some to build more.`,
+        };
+    }
+    return { ok: true };
+}
+
+export interface BudgetMove {
+    id: string;
+    from: readonly [x: number, z: number];
+    to: readonly [x: number, z: number];
+}
+
+/**
+ * May these pieces move? Each authored piece leaves its chunk for another; a
+ * map piece becomes authored (it counts from now on). Only a chunk that
+ * grows, or a total that grows, can be over its cap.
+ */
+export function checkMoveBudget(counts: AuthoredCounts, moves: readonly BudgetMove[]): BudgetCheck {
+    const perChunk = new Map(counts.perChunk);
+    let total = counts.total;
+    const landed = new Set<string>();
+    for (const move of moves) {
+        if (counts.ids.has(move.id)) {
+            const from = chunkKeyOf(move.from[0], move.from[1]);
+            perChunk.set(from, (perChunk.get(from) ?? 0) - 1);
+        } else {
+            total++;
+        }
+        const to = chunkKeyOf(move.to[0], move.to[1]);
+        perChunk.set(to, (perChunk.get(to) ?? 0) + 1);
+        landed.add(to);
+    }
+    for (const key of landed) {
+        const after = perChunk.get(key) ?? 0;
+        if (after > (counts.perChunk.get(key) ?? 0) && !withinCap('authoring', 'perChunk', after)) {
+            return {
+                ok: false,
+                message: `That grove is full (${getCap('authoring', 'perChunk')} pieces). Move it somewhere else!`,
+            };
+        }
+    }
+    if (total > counts.total && !withinCap('authoring', 'total', total)) {
+        return {
+            ok: false,
+            message: `Your world is full (${getCap('authoring', 'total')} pieces). Remove some to move map pieces.`,
         };
     }
     return { ok: true };

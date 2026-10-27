@@ -33,7 +33,7 @@ import type {
     WorldVisibility,
 } from './remote-store.ts';
 import type { DocumentCommand, WorldDocumentV1 } from './schema.ts';
-import type { EntityClock } from './shared-validation.ts';
+import type { ClockStamp, EntityClock } from './shared-validation.ts';
 import type { DocumentStore } from './store.ts';
 
 /** What this copy last agreed with the server on. */
@@ -42,6 +42,8 @@ export interface SyncMeta {
     rev: number;
     /** Per authored entity, a hash of its state at the last sync. */
     entityHashes: Record<string, string>;
+    /** The row's co-editing clock at the last sync (absent in metas from older builds). */
+    clock?: EntityClock;
 }
 
 export interface SyncMetaStore {
@@ -131,19 +133,36 @@ function commandFor(before: EntityState, after: EntityState): DocumentCommand | 
     return { type: 'move', from: before!, to: after! };
 }
 
+function sameStamp(a: ClockStamp | undefined, b: ClockStamp | undefined): boolean {
+    return a === b || (!!a && !!b && a[0] === b[0] && a[1] === b[1]);
+}
+
 /**
  * Three-way merge: `remote` plus the entities `local` changed since `base`
- * (`SyncMeta.entityHashes`; null: everything local counts as changed).
+ * (`SyncMeta.entityHashes`; null: everything local counts as changed). With
+ * the clocks of the base and the remote, an entity the remote changed since
+ * the base keeps the remote version even if this copy changed it too: the
+ * remote change is one other people have already seen. With no base at all,
+ * the base clock is the first publish's (empty).
  */
 export function mergeSharedDocuments(
     local: WorldDocumentV1,
     remote: WorldDocumentV1,
     base: Record<string, string> | null,
-    now = Date.now()
+    now = Date.now(),
+    clocks: { base?: EntityClock; remote?: EntityClock } = {}
 ): { doc: WorldDocumentV1; localWins: Set<string> } {
     const remoteNet = netEntityChanges(remote.commands);
     const localNet = netEntityChanges(local.commands);
     const localWins = changedSince(local.commands, base);
+    // A copy that never synced has, at best, the world as first published,
+    // which carries no stamps: anything stamped since is news to it.
+    const baseClock = clocks.base ?? (base === null ? {} : undefined);
+    if (baseClock && clocks.remote) {
+        for (const id of [...localWins]) {
+            if (!sameStamp(baseClock[id], clocks.remote[id])) localWins.delete(id);
+        }
+    }
     const merged = new Map<string, NetEntityChange>(remoteNet);
     for (const id of localWins) {
         const mine = localNet.get(id);
@@ -243,6 +262,7 @@ export class SharedWorldSync {
             updatedAt: record.summary.updatedAt,
             rev: record.summary.rev,
             entityHashes: entityHashes(record.doc.commands),
+            clock: record.entityClock,
         });
     }
 
@@ -251,17 +271,37 @@ export class SharedWorldSync {
         this.remember({ summary, doc, entityClock });
     }
 
-    /** The co-editing clock last read for `id` (for the live room). */
-    knownClock(id: string): EntityClock {
-        return this.known.get(id)?.clock ?? {};
+    /**
+     * A live room confirmed (by the host's `sync` hash) that the row holds
+     * what this copy holds: everything touched in the room is synced, not a
+     * local change waiting to win the next merge.
+     */
+    noteRoomState(
+        id: string,
+        state: {
+            updatedAt: string;
+            rev: number;
+            commands: readonly DocumentCommand[];
+            clock: EntityClock;
+        }
+    ): void {
+        this.known.set(id, { clock: state.clock, rev: state.rev, updatedAt: state.updatedAt });
+        this.deps.meta.set(id, {
+            updatedAt: state.updatedAt,
+            rev: state.rev,
+            entityHashes: entityHashes(state.commands),
+            clock: state.clock,
+        });
     }
 
-    private async exists(id: string): Promise<boolean> {
-        try {
-            return (await this.deps.remote.fetch(id)) !== null;
-        } catch {
-            return false;
-        }
+    /**
+     * The row state the copy last opened or pushed for `id` matches: its
+     * clock, rev and `updated_at` describe the same write as that document,
+     * which is what a live room's replica has to start from.
+     */
+    syncedState(id: string): { clock: EntityClock; rev: number; updatedAt: string } | undefined {
+        const known = this.known.get(id);
+        return known ? { ...known, clock: { ...known.clock } } : undefined;
     }
 
     /**
@@ -289,41 +329,41 @@ export class SharedWorldSync {
                     : "That world doesn't exist or isn't shared with you."
             );
         }
-        if (!local) {
-            await this.deps.local.save(record.doc);
-            this.remember(record);
-            return { doc: record.doc, record, source: 'remote' };
-        }
-        this.known.set(id, {
-            clock: record.entityClock,
-            rev: record.summary.rev,
-            updatedAt: record.summary.updatedAt,
-        });
-        if (meta && meta.updatedAt === record.summary.updatedAt) {
-            // Nothing new on the server: this copy (and any unsynced edits) holds.
-            return { doc: local, record, source: 'local' };
-        }
-        const unsynced = changedSince(
-            local.commands,
-            meta?.entityHashes ?? entityHashes(record.doc.commands)
-        );
-        if (unsynced.size === 0) {
+        const takeRemote = async (): Promise<OpenResult> => {
             const doc = {
                 ...record.doc,
-                progress: unionProgress(record.doc.progress, local.progress),
-                player: local.player,
+                progress: unionProgress(
+                    record.doc.progress,
+                    local?.progress ?? record.doc.progress
+                ),
+                player: local?.player ?? record.doc.player,
             };
             await this.deps.local.save(doc);
-            this.remember(record);
+            this.remember({ ...record, doc });
             return { doc, record, source: 'remote' };
+        };
+        // Only a builder's copy can hold edits of its own; anyone else takes the world as stored.
+        if (!local || (record.role !== 'owner' && record.role !== 'editor')) return takeRemote();
+        if (meta && meta.updatedAt === record.summary.updatedAt) {
+            // Nothing new on the server: this copy (and any unsynced edits) holds.
+            this.known.set(id, {
+                clock: record.entityClock,
+                rev: record.summary.rev,
+                updatedAt: record.summary.updatedAt,
+            });
+            return { doc: local, record, source: 'local' };
         }
-        const { doc } = mergeSharedDocuments(
+        const { doc, localWins } = mergeSharedDocuments(
             local,
             record.doc,
             meta?.entityHashes ?? null,
-            this.now()
+            this.now(),
+            { base: meta?.clock, remote: record.entityClock }
         );
+        if (localWins.size === 0) return takeRemote();
+        // From here the row is the base: a push stamps only what this copy won.
         await this.deps.local.save(doc);
+        this.remember(record);
         return { doc, record, source: 'merged' };
     }
 
@@ -336,46 +376,85 @@ export class SharedWorldSync {
         options: { title?: string; visibility?: WorldVisibility; force?: boolean } = {}
     ): Promise<PushResult> {
         const meta = this.deps.meta.get(doc.id);
-        const known = this.known.get(doc.id);
         const changed = changedSince(doc.commands, meta?.entityHashes ?? null);
         if (meta && changed.size === 0 && !options.force && !options.title && !options.visibility) {
             return { status: 'unchanged', doc };
         }
-
+        let known =
+            this.known.get(doc.id) ??
+            (meta?.clock
+                ? { clock: meta.clock, rev: meta.rev, updatedAt: meta.updatedAt }
+                : undefined);
         const author = await this.author();
-        const expectedUpdatedAt = meta?.updatedAt ?? known?.updatedAt;
-        const baseRev = Math.max(meta?.rev ?? 0, known?.rev ?? 0);
-        // A first publish is the world's base: no stamps until something changes after it.
-        const firstPublish = !meta && !known;
-        const rev = changed.size > 0 && !firstPublish ? baseRev + 1 : baseRev;
-        const clock = firstPublish ? {} : stampChanges(known?.clock ?? {}, changed, rev, author);
-        // Never written from here before: an existing row must be merged, not overwritten.
-        let result: PublishResult =
-            expectedUpdatedAt === undefined && (await this.exists(doc.id))
-                ? { ok: false, code: 'conflict', message: 'The world already exists.' }
-                : await this.deps.remote.publish(doc, {
-                      title: options.title,
-                      visibility: options.visibility,
-                      rev,
-                      entityClock: clock,
-                      expectedUpdatedAt,
-                  });
-        if (result.ok) {
-            this.remember({ summary: result.world, doc, entityClock: clock });
-            await this.deps.local.save(doc);
-            return { status: 'synced', doc, world: result.world };
-        }
-        if (result.code === 'offline') return { status: 'offline', doc, message: result.message };
-        if (result.code !== 'conflict') return { status: 'failed', doc, message: result.message };
 
-        // The row moved on: merge onto it and try once more.
-        const record = await this.deps.remote.fetch(doc.id);
-        if (!record) return { status: 'failed', doc, message: 'The shared world is gone.' };
+        let record: SharedWorldRecord | null = null;
+        if (!known) {
+            // Never pushed from here (or a meta from an older build, without the
+            // row's clock): read the row, so nothing is overwritten blind.
+            try {
+                record = await this.deps.remote.fetch(doc.id);
+            } catch {
+                return {
+                    status: 'offline',
+                    doc,
+                    message: 'Could not reach the shared-worlds server.',
+                };
+            }
+            if (record && meta && record.summary.updatedAt === meta.updatedAt) {
+                known = {
+                    clock: record.entityClock,
+                    rev: record.summary.rev,
+                    updatedAt: record.summary.updatedAt,
+                };
+                record = null;
+            }
+        }
+
+        let result: PublishResult | null = null;
+        let rev = 0;
+        if (!record) {
+            // A first publish is the world's base: no stamps until something changes after it.
+            rev = known ? known.rev + (changed.size > 0 ? 1 : 0) : 0;
+            const clock = known ? stampChanges(known.clock, changed, rev, author) : {};
+            result = await this.deps.remote.publish(doc, {
+                title: options.title,
+                visibility: options.visibility,
+                rev,
+                entityClock: clock,
+                expectedUpdatedAt: known?.updatedAt,
+            });
+            if (result.ok) {
+                this.remember({ summary: result.world, doc, entityClock: clock });
+                await this.deps.local.save(doc);
+                return { status: 'synced', doc, world: result.world };
+            }
+            if (result.code === 'offline')
+                return { status: 'offline', doc, message: result.message };
+            if (result.code !== 'conflict' && result.code !== 'exists') {
+                return { status: 'failed', doc, message: result.message };
+            }
+            try {
+                record = await this.deps.remote.fetch(doc.id);
+            } catch {
+                return {
+                    status: 'offline',
+                    doc,
+                    message: 'Could not reach the shared-worlds server.',
+                };
+            }
+            if (!record) return { status: 'failed', doc, message: 'The shared world is gone.' };
+        }
+
+        // The row moved on (or was never seen from here): merge onto it, once.
         const merged = mergeSharedDocuments(
             doc,
             record.doc,
             meta?.entityHashes ?? null,
-            this.now()
+            this.now(),
+            {
+                base: meta?.clock,
+                remote: record.entityClock,
+            }
         );
         const mergedRev = Math.max(record.summary.rev, rev) + 1;
         const mergedClock = stampChanges(record.entityClock, merged.localWins, mergedRev, author);

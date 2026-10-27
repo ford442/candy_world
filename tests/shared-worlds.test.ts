@@ -140,6 +140,26 @@ await test('validateSharedWorld: schema, identity, caps, palette, size', () => {
         }))
     );
     assert.ok(validateSharedWorld(doc(churn)).ok, '600 live after churn');
+
+    // A no-op move is still a piece replay places: it counts.
+    const noop = (i: number): DocumentCommand => {
+        const at = snap(`m${i}`, i * 0.5, 1);
+        return { type: 'move', from: at, to: clone(at) };
+    };
+    expect(doc(Array.from({ length: 49 }, (_, i) => noop(i))), 'over_cap', '49 no-op moves');
+    expect(
+        doc([
+            { type: 'place', snapshot: snap('c', 0, 0) },
+            { type: 'move', from: snap('c', 0, 0), to: snap('c', 0, 0, { color: 0x123456 }) },
+        ]),
+        'palette',
+        'a recolouring move is a paint'
+    );
+    expect(
+        doc([{ type: 'place', snapshot: snap('c', 0, 0, { color: 0x123456 }) }]),
+        'palette',
+        'an off-palette placement'
+    );
 });
 
 // ---------------------------------------------------------------------------
@@ -147,16 +167,24 @@ await test('validateSharedWorld: schema, identity, caps, palette, size', () => {
 // ---------------------------------------------------------------------------
 
 function fakeStore(
-    rows = new Map<string, WorldRow>()
+    rows = new Map<string, WorldRow>(),
+    caller: { id: string; anonymous: boolean } | null = { id: 'u1', anonymous: false },
+    members = new Map<string, 'editor' | 'viewer'>()
 ): WorldWriteStore & { rows: Map<string, WorldRow> } {
     let t = 0;
     return {
         rows,
+        async caller() {
+            return caller;
+        },
         async get(id) {
             return rows.get(id) ? clone(rows.get(id)!) : null;
         },
+        async memberRole(_world, user) {
+            return members.get(user) ?? null;
+        },
         async insert(row) {
-            const r: WorldRow = { ...row, owner: 'u1', created_at: `t${++t}`, updated_at: `t${t}` };
+            const r: WorldRow = { ...row, created_at: `t${++t}`, updated_at: `t${t}` };
             rows.set(row.id, r);
             return clone(r);
         },
@@ -175,6 +203,8 @@ const post = (body: unknown) =>
         body: typeof body === 'string' ? body : JSON.stringify(body),
     });
 
+const codeOf = async (res: Response) => ((await res.json()) as { code: string }).code;
+
 await test('validate-world: methods, bad bodies and invalid documents', async () => {
     const store = fakeStore();
     assert.equal(
@@ -189,7 +219,7 @@ await test('validate-world: methods, bad bodies and invalid documents', async ()
     assert.equal((await handleValidateWorld(post('{nope'), store)).status, 400);
     const res = await handleValidateWorld(post({ doc: { ...doc(), schema: 7 } }), store);
     assert.equal(res.status, 422);
-    assert.equal(((await res.json()) as { code: string }).code, 'schema');
+    assert.equal(await codeOf(res), 'schema');
     const over = await handleValidateWorld(post({ doc: doc(places(601, spread)) }), store);
     assert.equal(over.status, 422, 'over-cap world refused server-side');
     assert.equal(
@@ -211,14 +241,19 @@ await test('validate-world: methods, bad bodies and invalid documents', async ()
     assert.equal(((await dry.json()) as { stats: { entities: number } }).stats.entities, 3);
     assert.equal(store.rows.size, 0, 'a dry run writes nothing');
     assert.equal(dry.headers.get('Access-Control-Allow-Origin'), '*', 'CORS for the browser');
+    const nobody = fakeStore(new Map(), null);
+    const anon = await handleValidateWorld(post({ doc: doc() }), nobody);
+    assert.equal(anon.status, 401, 'no signed-in caller, no write');
+    assert.equal(nobody.rows.size, 0);
 });
 
-await test('validate-world: insert, update, conflict, terrain, forbidden, database errors', async () => {
+await test('validate-world: insert, update, conflict, terrain, database errors', async () => {
     const store = fakeStore();
     const d = doc(places(2, spread), uuid(), '  A   grove  ');
     const created = await handleValidateWorld(post({ doc: d, visibility: 'private' }), store);
     assert.equal(created.status, 201);
     const row = store.rows.get(d.id)!;
+    assert.equal(row.owner, 'u1', 'the caller owns what they publish');
     assert.equal(row.title, 'A grove', 'title tidied');
     assert.equal(row.visibility, 'private');
     const body = (await created.json()) as { world: Record<string, unknown> };
@@ -238,33 +273,152 @@ await test('validate-world: insert, update, conflict, terrain, forbidden, databa
 
     const stale = await handleValidateWorld(post({ doc: d, expectedUpdatedAt: 'long ago' }), store);
     assert.equal(stale.status, 409);
-    assert.equal(((await stale.json()) as { code: string }).code, 'conflict');
+    assert.equal(await codeOf(stale), 'conflict');
 
+    const blind = await handleValidateWorld(post({ doc: d }), store);
+    assert.equal(blind.status, 409, 'an existing world is never overwritten blind');
+    assert.equal(await codeOf(blind), 'exists');
+
+    const current = store.rows.get(d.id)!.updated_at;
     const elsewhere = { ...d, seed: 999 };
     assert.equal(
-        (await handleValidateWorld(post({ doc: elsewhere }), store)).status,
+        (await handleValidateWorld(post({ doc: elsewhere, expectedUpdatedAt: current }), store))
+            .status,
         409,
         'terrain mismatch'
     );
 
-    const readonly: WorldWriteStore = { ...store, update: async () => null };
+    let deleted = false;
+    const vanishing: WorldWriteStore = {
+        ...store,
+        get: async (id) => (deleted ? null : store.get(id)),
+        update: async () => {
+            deleted = true;
+            return null;
+        },
+    };
     assert.equal(
-        (await handleValidateWorld(post({ doc: d }), readonly)).status,
-        403,
-        'RLS hid the row'
+        (await handleValidateWorld(post({ doc: d, expectedUpdatedAt: current }), vanishing)).status,
+        404,
+        'deleted while saving'
     );
 
     const failing = (sqlstate: string): WorldWriteStore => ({
-        get: async () => null,
+        ...fakeStore(),
         insert: async () => {
             throw new WorldStoreError('refused', sqlstate);
         },
-        update: async () => null,
     });
     assert.equal((await handleValidateWorld(post({ doc: doc() }), failing('42501'))).status, 403);
     assert.equal((await handleValidateWorld(post({ doc: doc() }), failing('23505'))).status, 409);
     assert.equal((await handleValidateWorld(post({ doc: doc() }), failing('22023'))).status, 422);
     assert.equal((await handleValidateWorld(post({ doc: doc() }), failing('08006'))).status, 502);
+});
+
+await test('validate-world: who may write what', async () => {
+    const rows = new Map<string, WorldRow>();
+    const members = new Map<string, 'editor' | 'viewer'>([
+        ['ed', 'editor'],
+        ['view', 'viewer'],
+    ]);
+    const as = (id: string, anonymous = false) => fakeStore(rows, { id, anonymous }, members);
+    const d = doc(places(2, spread), uuid(), 'Grove');
+    assert.equal((await handleValidateWorld(post({ doc: d }), as('owner'))).status, 201);
+    const at = () => rows.get(d.id)!.updated_at;
+    const edit = (extra: Record<string, unknown> = {}) =>
+        post({ doc: { ...d, commands: places(3, spread) }, expectedUpdatedAt: at(), ...extra });
+
+    for (const user of ['view', 'stranger']) {
+        const res = await handleValidateWorld(edit(), as(user));
+        assert.equal(res.status, 403, `${user} cannot write the document`);
+        assert.equal(await codeOf(res), 'forbidden');
+    }
+    assert.equal(
+        (await handleValidateWorld(edit(), as('ed', true))).status,
+        200,
+        'an editor saves, anonymous or not'
+    );
+    assert.equal(
+        (await handleValidateWorld(edit({ title: 'Grove' }), as('ed'))).status,
+        200,
+        'naming the current title is no rename'
+    );
+    assert.equal((await handleValidateWorld(edit({ title: 'Mine now' }), as('ed'))).status, 403);
+    assert.equal(
+        (await handleValidateWorld(edit({ visibility: 'public' }), as('ed'))).status,
+        403,
+        'an editor cannot change who sees it'
+    );
+    assert.equal(rows.get(d.id)!.title, 'Grove');
+
+    const anonPublic = await handleValidateWorld(edit({ visibility: 'public' }), as('owner', true));
+    assert.equal(anonPublic.status, 403);
+    assert.equal(await codeOf(anonPublic), 'account_needed', 'public needs a permanent account');
+    const fresh = doc([], uuid());
+    assert.equal(
+        await codeOf(
+            await handleValidateWorld(post({ doc: fresh, visibility: 'public' }), as('a', true))
+        ),
+        'account_needed'
+    );
+    assert.equal(
+        (await handleValidateWorld(edit({ visibility: 'public', title: 'Big grove' }), as('owner')))
+            .status,
+        200
+    );
+    assert.equal(rows.get(d.id)!.visibility, 'public');
+    assert.equal(rows.get(d.id)!.title, 'Big grove');
+});
+
+await test('validate-world: the co-editing clock is bounded', async () => {
+    const store = fakeStore();
+    const d = doc(places(1, spread));
+    assert.equal((await handleValidateWorld(post({ doc: d, rev: 0 }), store)).status, 201);
+    const at = () => store.rows.get(d.id)!.updated_at;
+    const jump = await handleValidateWorld(
+        post({ doc: d, rev: SHARED_WORLD_LIMITS.maxRevJump + 1, expectedUpdatedAt: at() }),
+        store
+    );
+    assert.equal(jump.status, 422, 'rev cannot leap');
+    assert.equal(await codeOf(jump), 'clock');
+    const ahead = await handleValidateWorld(
+        post({ doc: d, rev: 5, entityClock: { p0: [6, 'peer'] }, expectedUpdatedAt: at() }),
+        store
+    );
+    assert.equal(ahead.status, 422, 'no stamp past the rev it is written with');
+    assert.equal(
+        (
+            await handleValidateWorld(
+                post({ doc: d, rev: 6, entityClock: { p0: [6, 'peer'] }, expectedUpdatedAt: at() }),
+                store
+            )
+        ).status,
+        200
+    );
+    assert.equal(
+        (await handleValidateWorld(post({ doc: d, rev: 2, expectedUpdatedAt: at() }), store))
+            .status,
+        200
+    );
+    assert.equal(store.rows.get(d.id)!.rev, 6, 'rev never goes back');
+    assert.equal(store.rows.size, 1);
+});
+
+await test('validate-world: remix_of only points at a public world', async () => {
+    const store = fakeStore();
+    const open = doc([], uuid());
+    const hidden = doc([], uuid());
+    await handleValidateWorld(post({ doc: open, visibility: 'public' }), store);
+    await handleValidateWorld(post({ doc: hidden, visibility: 'unlisted' }), store);
+    const a = doc([], uuid());
+    const b = doc([], uuid());
+    const c = doc([], uuid());
+    await handleValidateWorld(post({ doc: a, remixOf: open.id }), store);
+    await handleValidateWorld(post({ doc: b, remixOf: hidden.id }), store);
+    await handleValidateWorld(post({ doc: c, remixOf: uuid() }), store);
+    assert.equal(store.rows.get(a.id)!.remix_of, open.id);
+    assert.equal(store.rows.get(b.id)!.remix_of, null, 'an unlisted source stays unnamed');
+    assert.equal(store.rows.get(c.id)!.remix_of, null, 'an unknown source is dropped');
 });
 
 // ---------------------------------------------------------------------------
@@ -320,8 +474,11 @@ await test('RemoteDocumentStore: publish, open by id, lists, remix, delete', asy
     const remix = await stranger.remix(grove.id, { now: 5 });
     assert.ok(remix.ok, 'remix');
     assert.notEqual(remix.world.id, grove.id);
-    assert.equal(remix.world.remixOf, grove.id);
+    assert.equal(remix.world.remixOf, null, "a remix doesn't name an unlisted source");
     assert.equal(remix.world.owner, 'carol');
+    const credited = await stranger.remix(page1.worlds[0].id, { now: 6 });
+    assert.ok(credited.ok);
+    assert.equal(credited.world.remixOf, page1.worlds[0].id, 'a public source is credited');
     const remixed = await stranger.fetch(remix.world.id);
     assert.equal(
         documentStateHash(remixed!.doc.commands),
@@ -361,11 +518,15 @@ await test('editors update the document; only the owner renames', async () => {
     db.addEditor(d.id, 'bob');
     const rec = await bob.fetch(d.id);
     assert.equal(rec?.role, 'editor');
-    assert.ok(
-        (await bob.publish({ ...d, commands: places(2, spread) })).ok,
-        'an editor saves edits'
+    const saved = await bob.publish(
+        { ...d, commands: places(2, spread) },
+        { expectedUpdatedAt: rec!.summary.updatedAt }
     );
-    const rename = await bob.publish(d, { title: 'Bob world' });
+    assert.ok(saved.ok, 'an editor saves edits');
+    const rename = await bob.publish(d, {
+        title: 'Bob world',
+        expectedUpdatedAt: saved.world.updatedAt,
+    });
     assert.ok(!rename.ok && rename.code === 'forbidden', 'an editor cannot rename');
     assert.deepEqual(
         (await bob.listShared()).map((w) => w.id),
@@ -442,7 +603,9 @@ await test('two devices edit offline: the second push merges per entity', async 
     const phone = device(db, 'alice');
     await phone.sync.open(base.id);
 
-    // Laptop moves p0 and p1; the phone moves p1 elsewhere and removes p2.
+    // Laptop moves p0 and p1; the phone moves p1 elsewhere and removes p2. The
+    // laptop pushes first, so p1 (changed on both since the phone's base) keeps
+    // the laptop's move: a stale copy never reverts what others already have.
     const onLaptop = clone(base);
     onLaptop.commands.push({ type: 'move', from: snap('p0', ...spread(0)), to: snap('p0', 1, 1) });
     onLaptop.commands.push({ type: 'move', from: snap('p1', ...spread(1)), to: snap('p1', 2, 2) });
@@ -458,8 +621,8 @@ await test('two devices edit offline: the second push merges per entity', async 
     assert.deepEqual(states.get('p0')?.entity.position, [1, 0.5, 1], "the laptop's edit is kept");
     assert.deepEqual(
         states.get('p1')?.entity.position,
-        [9, 0.5, 9],
-        "the phone's own edit wins on p1"
+        [2, 0.5, 2],
+        'an entity both changed keeps the version already shared'
     );
     assert.equal(states.get('p2') ?? null, null, "the phone's remove is kept");
     assert.ok(merged.doc.progress.discoveries.includes('tremolo_tulip'), 'progress unions');
@@ -474,6 +637,136 @@ await test('two devices edit offline: the second push merges per entity', async 
     const reopened = await laptop.sync.open(base.id);
     assert.equal(reopened.source, 'remote');
     assert.equal(documentStateHash(reopened.doc.commands), documentStateHash(merged.doc.commands));
+});
+
+await test("a co-editor's stale copy never reverts later edits when they reopen", async () => {
+    const db = new MemoryWorldsDb();
+    const alice = device(db, 'alice');
+    const base = doc([
+        { type: 'place', snapshot: snap('x', 0, 0) },
+        { type: 'place', snapshot: snap('y', 40, 0) },
+    ]);
+    await alice.sync.push(clone(base));
+    db.addEditor(base.id, 'bob');
+    const bob = device(db, 'bob');
+    assert.equal((await bob.sync.open(base.id)).source, 'remote');
+    const at = () => db.rows.get(base.id)!.updated_at;
+    const withX = (x: number, z: number): WorldDocumentV1 => ({
+        ...clone(base),
+        commands: [
+            { type: 'place', snapshot: snap('x', x, z) },
+            { type: 'place', snapshot: snap('y', 40, 0) },
+        ],
+    });
+
+    // A live room: alice (host) moves x and writes back; bob's autosave keeps
+    // the room's log locally without touching his sync meta.
+    assert.ok(
+        (
+            await alice.remote.publish(withX(5, 5), {
+                rev: 3,
+                entityClock: { x: [3, 'peer-alice'] },
+                expectedUpdatedAt: at(),
+            })
+        ).ok
+    );
+    await bob.local.save(withX(5, 5));
+    // Bob leaves; alice keeps going.
+    assert.ok(
+        (
+            await alice.remote.publish(withX(20, 20), {
+                rev: 7,
+                entityClock: { x: [7, 'peer-alice'] },
+                expectedUpdatedAt: at(),
+            })
+        ).ok
+    );
+
+    const again = await bob.sync.open(base.id);
+    assert.deepEqual(
+        authoredEntityStates(again.doc.commands).get('x')?.entity.position,
+        [20, 0.5, 20],
+        'reopening takes the newer shared move'
+    );
+    await bob.sync.push(again.doc);
+    const row = db.rows.get(base.id)!;
+    assert.deepEqual(
+        authoredEntityStates((row.doc as WorldDocumentV1).commands).get('x')?.entity.position,
+        [20, 0.5, 20],
+        "alice's later move survives bob's reopen"
+    );
+    assert.deepEqual(row.entity_clock.x, [7, 'peer-alice'], 'and keeps its stamp');
+});
+
+await test('a push after a reload keeps the stored clock (no blind overwrite)', async () => {
+    const db = new MemoryWorldsDb();
+    const owner = device(db, 'alice');
+    const d = doc(places(3, spread));
+    await owner.sync.push(d);
+    const moved = clone(d);
+    moved.commands.push({ type: 'move', from: snap('p0', ...spread(0)), to: snap('p0', 7, 7) });
+    await owner.sync.push(moved);
+    const clockBefore = clone(db.rows.get(d.id)!.entity_clock);
+
+    // A reload: a new SharedWorldSync over the same stores (meta survives).
+    const reloaded = new SharedWorldSync({
+        local: owner.local,
+        remote: owner.remote,
+        meta: owner.meta,
+        now: () => 43,
+    });
+    const later = clone(moved);
+    later.commands.push({ type: 'move', from: snap('p1', ...spread(1)), to: snap('p1', 8, 8) });
+    assert.equal((await reloaded.push(later)).status, 'synced');
+    const clock = db.rows.get(d.id)!.entity_clock;
+    assert.deepEqual(clock.p0, clockBefore.p0, "p0's stamp is kept");
+    assert.deepEqual(clock.p1, [2, 'sync-alice'], 'only the new edit is stamped');
+
+    // A copy that never synced from here (no meta) reads the row first.
+    const other = device(db, 'alice');
+    await other.local.save(clone(d));
+    const first = await other.sync.push(clone(d));
+    assert.notEqual(first.status, 'failed');
+    assert.deepEqual(db.rows.get(d.id)!.entity_clock.p1, [2, 'sync-alice'], 'nothing lost');
+    assert.deepEqual(
+        authoredEntityStates((db.rows.get(d.id)!.doc as WorldDocumentV1).commands).get('p1')?.entity
+            .position,
+        [8, 0.5, 8]
+    );
+});
+
+await test('a room-confirmed state is the base of the next offline merge', async () => {
+    const db = new MemoryWorldsDb();
+    const alice = device(db, 'alice');
+    const d = doc(places(2, spread));
+    await alice.sync.push(d);
+    db.addEditor(d.id, 'bob');
+    const bob = device(db, 'bob');
+    await bob.sync.open(d.id);
+
+    // In the room, alice's host wrote p0's move; bob's replica holds the same.
+    const roomDoc = clone(d);
+    roomDoc.commands.push({ type: 'move', from: snap('p0', ...spread(0)), to: snap('p0', 3, 3) });
+    const written = await alice.remote.publish(roomDoc, {
+        rev: 2,
+        entityClock: { p0: [2, 'peer-a'] },
+        expectedUpdatedAt: db.rows.get(d.id)!.updated_at,
+    });
+    assert.ok(written.ok);
+    await bob.local.save(roomDoc);
+    bob.sync.noteRoomState(d.id, {
+        updatedAt: written.world.updatedAt,
+        rev: 2,
+        commands: roomDoc.commands,
+        clock: { p0: [2, 'peer-a'] },
+    });
+    assert.equal(
+        (await bob.sync.push(roomDoc)).status,
+        'unchanged',
+        'what the room confirmed is not a local edit'
+    );
+    const reopened = await bob.sync.open(d.id);
+    assert.equal(reopened.source, 'local', 'nothing new on the server');
 });
 
 await test('three-way merge helpers', () => {

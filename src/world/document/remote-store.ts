@@ -202,7 +202,9 @@ export class RemoteDocumentStore implements DocumentStore {
 
     /**
      * Fork a world into a new one the caller owns: same seed and edits, a new
-     * id, `remix_of` pointing back. Progress and pose start fresh.
+     * id, `remix_of` pointing back when the source is public (an unlisted
+     * world's id is its access key, and readers of the remix see `remix_of`).
+     * Progress and pose start fresh.
      */
     async remix(
         id: string,
@@ -230,6 +232,7 @@ export class RemoteDocumentStore implements DocumentStore {
             },
             meta: { title, createdAt: now, updatedAt: now },
         };
-        return this.publish(doc, { title, visibility: 'unlisted', remixOf: id });
+        const remixOf = source.summary.visibility === 'public' ? id : null;
+        return this.publish(doc, { title, visibility: 'unlisted', remixOf });
     }
 }

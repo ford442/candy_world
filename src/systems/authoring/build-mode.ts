@@ -40,7 +40,7 @@ import {
     RemoveCommand,
 } from '../world-commands.ts';
 import { BuildModeUi, TOOLS, type BuildTool } from './build-mode-ui.ts';
-import { checkPlacementBudget, countAuthored } from './chunk-budget.ts';
+import { checkMoveBudget, checkPlacementBudget, countAuthored } from './chunk-budget.ts';
 import { BuildGizmo, type GizmoMode } from './gizmo.ts';
 import {
     CANDY_PAINT_PALETTE,
@@ -545,6 +545,8 @@ function dropHeld(): void {
         commands.push(new MoveCommand(from, to));
         moved.push(to);
     }
+    const budget = moveBudget(held.snapshots, moved);
+    if (!budget.ok) return refuse(budget.message);
     const ok = execute(
         asOne(commands, 'move'),
         moved.length === 1 ? `Moved ${moved[0].entity.type}` : `Moved ${moved.length} pieces`,
@@ -554,6 +556,18 @@ function dropHeld(): void {
         _held = null;
         for (const to of moved) if (_selection.has(to.id)) _selection.set(to.id, to);
     }
+}
+
+/** The caps, for pieces moving from `from[i]` to `to[i]` (a drop or a gizmo drag). */
+function moveBudget(from: readonly EntitySnapshot[], to: readonly EntitySnapshot[]) {
+    return checkMoveBudget(
+        countAuthored(animatedFoliage),
+        from.map((f, i) => ({
+            id: f.id,
+            from: [f.entity.position[0], f.entity.position[2]] as const,
+            to: [to[i].entity.position[0], to[i].entity.position[2]] as const,
+        }))
+    );
 }
 
 function actAtCursor(button: 0 | 2, shift: boolean): void {
@@ -596,6 +610,11 @@ function openGizmo(): void {
     if (!_gizmo) {
         _gizmo = new BuildGizmo(_scene, camera, dom, {
             onCommit: (from, to) => {
+                const budget = moveBudget([from], [to]);
+                if (!budget.ok) {
+                    refuse(budget.message);
+                    return null;
+                }
                 const ok = execute(
                     new MoveCommand(from, to),
                     `Adjusted ${to.entity.type}`,

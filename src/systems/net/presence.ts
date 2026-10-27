@@ -66,8 +66,6 @@ export interface PresenceJoinOptions {
     sessionId?: string;
     /** Merged into the tracked presence meta (role, join time). */
     meta?: Record<string, unknown>;
-    /** Extra broadcast events on the room, registered before subscribing. */
-    broadcast?: Record<string, (payload: unknown) => void>;
 }
 
 export function isPresenceOptedIn(): boolean {
@@ -150,12 +148,6 @@ export class PresenceSystem {
 
     get room(): string {
         return this._room;
-    }
-
-    /** Send a broadcast on the joined room (shared-world progress events). */
-    broadcast(event: string, payload: unknown): void {
-        if (!this._joined || !this._channel) return;
-        void this._channel.send({ type: 'broadcast', event, payload });
     }
 
     /** The world owner can remove peers: the peer list shows a Remove button while set. */
@@ -262,13 +254,6 @@ export class PresenceSystem {
             },
         });
 
-        for (const [event, handler] of Object.entries(opts.broadcast ?? {})) {
-            this._channel.on('broadcast', { event }, ({ payload }) => {
-                const sender = (payload as { author?: unknown } | null)?.author;
-                if (typeof sender === 'string' && this._mutedPeerIds.has(sender)) return;
-                handler(payload);
-            });
-        }
         this._channel.on('presence', { event: 'sync' }, () => {
             this._mergePresenceState();
         });

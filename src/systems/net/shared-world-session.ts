@@ -5,17 +5,22 @@
  * Binds a `SharedWorldReplica` (world-sync-protocol.ts) to Supabase Realtime,
  * the edit history and the live world:
  *
- *   world:<id>        presence, poses (PresenceSystem) and shared `progress`;
- *                     anyone who can read the world joins.
- *   world:<id>:edit   `cmd`, `cursor`, `sync`, `kick`; readers listen, only
- *                     editors may send (Realtime Authorization, see the
- *                     migration's realtime.messages policies).
+ *   world:<id>        presence and poses (PresenceSystem); anyone who can
+ *                     read the world joins.
+ *   world:<id>:edit   `cmd`, `cursor`, `sync`, shared `progress`; readers
+ *                     listen, only editors may send.
+ *   world:<id>:owner  `kick`; readers listen, only the owner may send.
+ *
+ * Realtime Authorization enforces who sends where (the migration's
+ * realtime.messages policies), so a `progress` or `kick` is never taken from
+ * someone the database wouldn't let send it. Payloads are still the sender's
+ * word: every one is validated, rate limited and checked against the room.
  *
  * Local edits (EditHistory events) are stamped and broadcast; inbound ones
- * are validated, rate limited and applied through the same WorldCommands the
- * editor uses, outside the undo history. The editor who joined first is host:
- * it writes the merged document back every few seconds and on leave, and
- * announces the hash, which is how drifted replicas notice and reconcile.
+ * are applied through the same WorldCommands the editor uses, outside the
+ * undo history. The editor who joined first is host: it writes the merged
+ * document back every few seconds and on leave, and announces the hash, which
+ * is how drifted replicas notice and reconcile.
  */
 
 import {
@@ -32,9 +37,12 @@ import type { RemoteDocumentStore, SharedWorldRecord } from '../../world/documen
 import type { DocumentCommand, WorldDocumentV1 } from '../../world/document/schema.ts';
 import type { WorldDocumentSession } from '../../world/document/session.ts';
 import type { SharedWorldSync } from '../../world/document/shared-sync.ts';
+import type { EntityClock } from '../../world/document/shared-validation.ts';
 import { animatedFoliage } from '../../world/state.ts';
 import { awakenedPersistence } from '../awakened-persistence-api.ts';
+import { AWAKENABLE_TYPES } from '../awakened-types.ts';
 import { getBuildCursor, getBuildSelection } from '../build-mode-state.ts';
+import { DISCOVERY_MAP } from '../discovery-map.ts';
 import { discoverySystem } from '../discovery.ts';
 import type { EditHistory, EditHistoryEvent, WorldCommand } from '../edit-history.ts';
 import { applyRemoteProgress, onProgress, type ProgressEvent } from '../progress-events.ts';
@@ -45,6 +53,7 @@ import type { SupabaseWorldsBackend } from './supabase-worlds-backend.ts';
 import {
     PeerRateLimiter,
     SharedWorldReplica,
+    TokenBucket,
     WORLD_SYNC_EVENTS,
     WORLD_SYNC_LIMITS,
     electHost,
@@ -53,20 +62,29 @@ import {
     parseKickMessage,
     parseProgressMessage,
     parseSyncMessage,
+    progressRefusal,
     type CmdMessage,
     type HostCandidate,
+    type ProgressCatalog,
     type WorldEffect,
 } from './world-sync-protocol.ts';
 
 /** How often the host writes the merged world back while it changes. */
 const WRITE_BACK_MS = 15_000;
+/** After a write-back the server refused (not a conflict), wait this long. */
+const WRITE_BACK_RETRY_MS = 60_000;
 /** At most one reconcile fetch this often (a hash can differ only transiently). */
 const RECONCILE_MIN_MS = 10_000;
 
 interface EditPresence extends HostCandidate {
     userId?: string;
-    owner?: boolean;
 }
+
+const PROGRESS_CATALOG: ProgressCatalog = {
+    discoveries: new Set(Object.keys(DISCOVERY_MAP)),
+    awakenable: AWAKENABLE_TYPES,
+    placedType: (id) => awakenedPersistence.placedType(id),
+};
 
 export interface SharedWorldSessionDeps {
     client: SupabaseClient;
@@ -74,8 +92,17 @@ export interface SharedWorldSessionDeps {
     remote: RemoteDocumentStore;
     sync: SharedWorldSync;
     record: SharedWorldRecord;
-    /** The document as opened (the record's, or merged with local edits). */
-    doc: WorldDocumentV1;
+    /**
+     * The world as opened, and the row state it is the document of: the
+     * replica starts from one write, never a document from one read and a
+     * clock from another.
+     */
+    base: {
+        doc: WorldDocumentV1;
+        clock: EntityClock;
+        rev: number;
+        updatedAt: string;
+    };
     session: WorldDocumentSession;
     history: EditHistory;
     userId: string;
@@ -120,27 +147,37 @@ export class SharedWorldSession {
         progress: new PeerRateLimiter(WORLD_SYNC_LIMITS.progressRate),
         cursor: new PeerRateLimiter(WORLD_SYNC_LIMITS.cursorRate),
     };
+    private readonly progressRoom = new TokenBucket(
+        WORLD_SYNC_LIMITS.progressRoomRate.perSecond,
+        WORLD_SYNC_LIMITS.progressRoomRate.burst
+    );
     private readonly kicked = new Set<string>();
+    /** Local edits taken back for breaking a cap: their undo / redo is not news. */
+    private readonly takenBack = new WeakSet<WorldCommand>();
     private editChannel: RealtimeChannel | null = null;
+    private ownerChannel: RealtimeChannel | null = null;
     private cursors: RemoteCursors | null = null;
     private hostId: string | null = null;
     private dirty = false;
     private writing = false;
+    private retryWriteAt = 0;
     private updatedAt: string;
     private lastReconcile = 0;
+    private reconcileTimer: number | null = null;
     private subscribedOnce = false;
     private cursorWasHit = false;
+    private stopped = false;
     private readonly cleanups: Array<() => void> = [];
 
     constructor(private readonly deps: SharedWorldSessionDeps) {
         this.worldId = deps.record.summary.id;
         this.role = deps.record.role;
         this.canEdit = this.role === 'owner' || this.role === 'editor';
-        this.updatedAt = deps.record.summary.updatedAt;
+        this.updatedAt = deps.base.updatedAt;
         this.replica = new SharedWorldReplica(this.peerId, {
-            commands: deps.doc.commands,
-            rev: deps.record.summary.rev,
-            entityClock: { ...deps.record.entityClock, ...deps.sync.knownClock(this.worldId) },
+            commands: deps.base.doc.commands,
+            rev: deps.base.rev,
+            entityClock: deps.base.clock,
         });
     }
 
@@ -150,6 +187,11 @@ export class SharedWorldSession {
 
     get editable(): boolean {
         return this.canEdit;
+    }
+
+    /** False once the session left (stopped, or the owner removed it). */
+    get active(): boolean {
+        return !this.stopped;
     }
 
     /** Snapshot hash of the shared world as this peer holds it. */
@@ -172,12 +214,21 @@ export class SharedWorldSession {
             privateChannel: true,
             sessionId: this.peerId,
             meta: { joinedAt: this.joinedAt, canEdit: this.canEdit },
-            broadcast: { [WORLD_SYNC_EVENTS.progress]: (p) => this.onProgressMessage(p) },
         });
-        if (!joined)
-            console.warn(
-                '[SharedWorlds] Could not join the world room (presence and progress are off)'
-            );
+        if (!joined) console.warn('[SharedWorlds] Could not join the world room (no presence)');
+
+        // Kicks: only the owner can send here, so peers can act on one.
+        const ownerChannel = client.channel(`world:${this.worldId}:owner`, {
+            config: { private: true, broadcast: { self: false } },
+        });
+        ownerChannel.on('broadcast', { event: WORLD_SYNC_EVENTS.kick }, ({ payload }) =>
+            this.onKick(payload)
+        );
+        ownerChannel.subscribe((status) => {
+            if (status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR)
+                console.warn('[SharedWorlds] The owner channel refused this session (no kicks)');
+        });
+        this.ownerChannel = ownerChannel;
 
         const channel = client.channel(`world:${this.worldId}:edit`, {
             config: { private: true, presence: { key: this.peerId }, broadcast: { self: false } },
@@ -192,8 +243,8 @@ export class SharedWorldSession {
                 { event: WORLD_SYNC_EVENTS.sync },
                 ({ payload }) => void this.onSync(payload)
             )
-            .on('broadcast', { event: WORLD_SYNC_EVENTS.kick }, ({ payload }) =>
-                this.onKick(payload)
+            .on('broadcast', { event: WORLD_SYNC_EVENTS.progress }, ({ payload }) =>
+                this.onProgressMessage(payload)
             )
             .on('presence', { event: 'sync' }, () => this.electHost())
             .on('presence', { event: 'leave' }, ({ key }) => {
@@ -248,13 +299,22 @@ export class SharedWorldSession {
     }
 
     async stop(): Promise<void> {
-        await this.writeBack();
+        if (this.stopped) return;
+        this.stopped = true;
+        await this.writeBack(true);
         for (const fn of this.cleanups.splice(0)) fn();
+        if (this.reconcileTimer !== null) window.clearTimeout(this.reconcileTimer);
+        this.reconcileTimer = null;
         this.cursors?.dispose();
         this.cursors = null;
-        if (this.editChannel) await this.deps.client.removeChannel(this.editChannel);
+        for (const channel of [this.editChannel, this.ownerChannel]) {
+            if (channel) await this.deps.client.removeChannel(channel);
+        }
         this.editChannel = null;
+        this.ownerChannel = null;
         await presenceSystem.leave();
+        const w = window as Window & { __sharedWorld?: unknown };
+        if (w.__sharedWorld === this) delete w.__sharedWorld;
     }
 
     // -- Joining and hosting ------------------------------------------------
@@ -266,12 +326,13 @@ export class SharedWorldSession {
                 joinedAt: this.joinedAt,
                 canEdit: true,
                 userId: this.deps.userId,
-                owner: this.role === 'owner',
             };
             await this.editChannel.track(meta);
         }
-        // A reconnect may have missed messages: catch up from the stored world.
-        if (this.subscribedOnce) void this.reconcile(true);
+        // Catch up from the stored world: on the first join, with what was
+        // written since this copy was read; on a reconnect, with what the
+        // room said while this session was away.
+        void this.reconcile(true);
         this.subscribedOnce = true;
         this.electHost();
     }
@@ -288,7 +349,6 @@ export class SharedWorldSession {
                     typeof meta.joinedAt === 'number' ? meta.joinedAt : Number.MAX_SAFE_INTEGER,
                 canEdit: meta.canEdit === true,
                 userId: typeof meta.userId === 'string' ? meta.userId : undefined,
-                owner: meta.owner === true,
             });
         }
         return out;
@@ -304,23 +364,31 @@ export class SharedWorldSession {
         }
     }
 
-    /** Host: write the merged world back, then tell the room what it wrote. */
-    private async writeBack(): Promise<void> {
+    /**
+     * Host: write the merged world back, then tell the room what it wrote.
+     * The document, clock, rev and hash are taken in one tick, so they always
+     * describe the same replica state; edits that land while the write is in
+     * flight mark the world dirty again for the next one.
+     */
+    private async writeBack(leaving = false): Promise<void> {
         if (!this.isHost || !this.dirty || this.writing) return;
+        if (!leaving && Date.now() < this.retryWriteAt) return;
         this.writing = true;
+        const doc = this.deps.session.capture();
+        const clock = this.replica.exportClock();
+        const rev = this.replica.rev;
+        const hash = this.replica.hash();
+        this.dirty = false;
+        this.deps.session.scheduleSave();
         try {
-            const doc = await this.deps.session.save(true);
-            const clock = this.replica.exportClock();
-            const rev = this.replica.rev;
-            const hash = this.replica.hash();
             const result = await this.deps.remote.publish(doc, {
                 rev,
                 entityClock: clock,
                 expectedUpdatedAt: this.updatedAt,
             });
             if (result.ok) {
-                this.dirty = false;
                 this.updatedAt = result.world.updatedAt;
+                this.retryWriteAt = 0;
                 this.stats.writes++;
                 this.deps.sync.noteSynced(result.world, doc, clock);
                 this.send(WORLD_SYNC_EVENTS.sync, {
@@ -329,28 +397,48 @@ export class SharedWorldSession {
                     hash,
                     updatedAt: this.updatedAt,
                 });
-            } else if (result.code === 'conflict') {
+                return;
+            }
+            this.dirty = true;
+            if (result.code === 'conflict') {
                 // Written elsewhere (an offline push, an earlier host): fold it in, retry next tick.
                 await this.reconcile(true);
-            } else {
+            } else if (result.code !== 'offline') {
+                this.retryWriteAt = Date.now() + WRITE_BACK_RETRY_MS;
                 console.warn(
                     `[SharedWorlds] Saving the shared world failed: ${result.code}: ${result.message}`
                 );
             }
         } catch (err) {
+            this.dirty = true;
             console.warn('[SharedWorlds] Saving the shared world failed:', err);
         } finally {
             this.writing = false;
         }
     }
 
-    /** Fetch the stored world and adopt what it holds that is newer; re-send what it lacks. */
+    /**
+     * Fetch the stored world and adopt what it holds that is newer; re-send
+     * what it lacks. A call inside the throttle window is deferred to its end,
+     * not dropped: the hash that asked for it may be the last one for a while.
+     */
     private async reconcile(force = false): Promise<void> {
         const now = Date.now();
-        if (!force && now - this.lastReconcile < RECONCILE_MIN_MS) return;
+        if (!force && now - this.lastReconcile < RECONCILE_MIN_MS) {
+            if (this.reconcileTimer === null && !this.stopped) {
+                this.reconcileTimer = window.setTimeout(
+                    () => {
+                        this.reconcileTimer = null;
+                        void this.reconcile();
+                    },
+                    this.lastReconcile + RECONCILE_MIN_MS - now
+                );
+            }
+            return;
+        }
         this.lastReconcile = now;
         const record = await this.deps.remote.fetch(this.worldId).catch(() => null);
-        if (!record) return;
+        if (!record || this.stopped) return;
         const { effects, resend } = this.replica.reconcile({
             commands: record.doc.commands,
             rev: record.summary.rev,
@@ -370,13 +458,35 @@ export class SharedWorldSession {
 
     private onLocalEdit(event: EditHistoryEvent, cmd: WorldCommand): void {
         if (!this.canEdit) return;
+        if (this.takenBack.has(cmd)) {
+            this.takenBack.delete(cmd);
+            return;
+        }
         const data = cmd.serialize() as DocumentCommand | null;
         if (!data) return;
         const command = event === 'undo' ? invertCommand(data) : data;
+        const refusal = this.replica.capRefusal(command);
+        if (refusal) return this.takeBack(event, cmd, refusal);
         const { message, effects } = this.replica.local(command);
         for (const effect of effects) applyWorldEffect(effect);
         this.dirty = true;
         this.send(WORLD_SYNC_EVENTS.cmd, message);
+    }
+
+    /**
+     * A local edit no peer would accept (the room is fuller than build mode
+     * could see, or an undo / redo re-adds a piece): step it back out.
+     */
+    private takeBack(event: EditHistoryEvent, cmd: WorldCommand, refusal: string): void {
+        log.info('SharedWorlds', `Took back a local edit: ${refusal}`);
+        this.takenBack.add(cmd);
+        showToast('This grove is full — that change was taken back', '⛔', 3000);
+        queueMicrotask(() => {
+            const { history } = this.deps;
+            if (event === 'undo') history.redo();
+            else if (history.isUndoable(cmd)) history.undo();
+            else this.takenBack.delete(cmd);
+        });
     }
 
     private onCmd(payload: unknown): void {
@@ -414,9 +524,18 @@ export class SharedWorldSession {
     private async onSync(payload: unknown): Promise<void> {
         const parsed = parseSyncMessage(payload);
         if (!parsed.ok) return this.drop(parsed.reason, parsed.detail, payload);
-        if (parsed.message.author !== this.hostId) return;
-        if (parsed.message.hash === this.replica.hash()) {
-            this.updatedAt = parsed.message.updatedAt;
+        const { author, hash, rev, updatedAt } = parsed.message;
+        if (author !== this.hostId) return;
+        if (hash === this.replica.hash()) {
+            this.updatedAt = updatedAt;
+            // The row holds what this copy holds: none of it is an unsynced
+            // local edit any more (the next offline merge starts from here).
+            this.deps.sync.noteRoomState(this.worldId, {
+                updatedAt,
+                rev,
+                commands: this.replica.documentCommands(),
+                clock: this.replica.exportClock(),
+            });
             return;
         }
         await this.reconcile();
@@ -448,29 +567,39 @@ export class SharedWorldSession {
         this.cursors?.update(parsed.message, performance.now());
     }
 
+    /** Builders share progress (the edit topic); visitors keep theirs to themselves. */
     private sendProgress(event: ProgressEvent): void {
+        if (!this.canEdit) return;
         const payload: Record<string, unknown> = {
             author: this.peerId,
             kind: event.kind,
             id: event.id,
         };
         if (event.type) payload.type = event.type.slice(0, 64);
-        presenceSystem.broadcast(WORLD_SYNC_EVENTS.progress, payload);
+        this.send(WORLD_SYNC_EVENTS.progress, payload);
     }
 
     private onProgressMessage(payload: unknown): void {
         const parsed = parseProgressMessage(payload);
         if (!parsed.ok) return this.drop(parsed.reason, parsed.detail, payload);
         const { author, kind, id, type } = parsed.message;
-        if (this.kicked.has(author)) return;
-        if (!this.limiters.progress.allow(author, performance.now())) {
+        if (this.kicked.has(author) || presenceSystem.isPeerMuted(author)) return;
+        // From an editor in the room (its presence), not an id made up for the message.
+        if (!this.editPresence().has(author)) {
+            return this.drop('blocked', `progress from ${author}, who is not in the room`, payload);
+        }
+        const now = performance.now();
+        if (!this.limiters.progress.allow(author, now) || !this.progressRoom.take(now)) {
             return this.drop('rate_limited', `progress from ${author}`, payload);
         }
+        const refusal = progressRefusal(parsed.message, PROGRESS_CATALOG);
+        if (refusal) return this.drop('malformed', refusal, payload);
         applyRemoteProgress(() => {
             if (kind === 'awakened') {
                 const persistentId = Number(id);
-                if (!Number.isSafeInteger(persistentId) || persistentId <= 0) return;
-                awakenedPersistence.markAwakened(persistentId, { type: type ?? 'unknown' });
+                awakenedPersistence.markAwakened(persistentId, {
+                    type: awakenedPersistence.placedType(persistentId) ?? type ?? 'unknown',
+                });
             } else if (discoverySystem.restore([id]) > 0) {
                 announce(
                     kind === 'stamp'
@@ -483,19 +612,26 @@ export class SharedWorldSession {
         this.deps.session.scheduleSave();
     }
 
-    /** Owner: remove a peer from the room and from the world's members. */
+    /**
+     * Owner: remove a peer's membership first, then tell the room (on the
+     * owner topic, which only the owner can send on).
+     */
     private async kick(peerId: string): Promise<void> {
         if (this.role !== 'owner' || peerId === this.peerId) return;
         const target = this.editPresence().get(peerId);
         this.kicked.add(peerId);
         presenceSystem.blockPeer(peerId);
         this.cursors?.remove(peerId);
-        this.send(WORLD_SYNC_EVENTS.kick, { author: this.peerId, target: peerId });
-        if (target?.userId) {
+        if (target?.userId && target.userId !== this.deps.userId) {
             await this.deps.backend
                 .removeMember(this.worldId, target.userId)
                 .catch((err) => console.warn('[SharedWorlds] Could not revoke access:', err));
         }
+        void this.ownerChannel?.send({
+            type: 'broadcast',
+            event: WORLD_SYNC_EVENTS.kick,
+            payload: { author: this.peerId, target: peerId },
+        });
         showToast('Removed from this world', '🚪', 2500);
         this.electHost();
     }
@@ -503,18 +639,27 @@ export class SharedWorldSession {
     private onKick(payload: unknown): void {
         const parsed = parseKickMessage(payload);
         if (!parsed.ok) return this.drop(parsed.reason, parsed.detail, payload);
-        const { author, target } = parsed.message;
-        if (this.editPresence().get(author)?.owner !== true)
-            return this.drop('blocked', 'kick from a non-owner', payload);
+        const { target } = parsed.message;
         if (target === this.peerId) {
-            showToast('The owner removed you from this world', '🚪', 5000);
-            void this.stop();
+            void this.onKickedSelf();
             return;
         }
         this.kicked.add(target);
         presenceSystem.blockPeer(target);
         this.cursors?.remove(target);
         this.electHost();
+    }
+
+    /** The owner removed this session: confirm with the database, then leave. */
+    private async onKickedSelf(): Promise<void> {
+        const record = await this.deps.remote.fetch(this.worldId).catch(() => null);
+        const role = record?.role ?? null;
+        if (this.canEdit && (role === 'owner' || role === 'editor')) {
+            console.warn('[SharedWorlds] Ignored a kick: this account can still edit the world');
+            return;
+        }
+        showToast('The owner removed you from this world', '🚪', 5000);
+        await this.stop();
     }
 
     // -- Plumbing -------------------------------------------------------------
