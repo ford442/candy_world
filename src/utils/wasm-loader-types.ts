@@ -82,6 +82,7 @@ export interface ExtendedEmscriptenModule extends EmscriptenModule {
     _deformJiggle_c?: (...args: number[]) => void;
     _deformWobble_c?: (...args: number[]) => void;
     _batchUpdateLODMatrices_c?: (...args: number[]) => void;
+    _batchUpdateLodFactors_c?: (...args: number[]) => void;
     _batchScaleMatrices_c?: (...args: number[]) => void;
     _batchFadeColors_c?: (...args: number[]) => void;
     _batchFrustumCull_c?: (...args: number[]) => void;
@@ -250,6 +251,15 @@ export interface WasmExports {
     boidsBufferBytes?: (count: number) => number;
     [key: string]: WasmExportValue | undefined;
     memory: WebAssembly.Memory;
+    smoothWobble?: (
+        noteBufferPtr: number,
+        bufferSize: number,
+        currentWobble: number,
+        scale: number,
+        maxAmplitude: number,
+        minThreshold: number,
+        smoothingRate: number
+    ) => number;
     getGroundHeight: (x: number, z: number) => number;
     freqToHue: (freq: number) => number;
     lerp: (a: number, b: number, t: number) => number;

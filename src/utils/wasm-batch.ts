@@ -60,6 +60,7 @@ export {
     deformJiggle_c,
     deformWobble_c,
     batchUpdateLODMatrices_c,
+    batchUpdateLodFactors_c,
     batchComposeMatrices_c,
     batchScaleMatrices_c,
     batchFadeColors_c,

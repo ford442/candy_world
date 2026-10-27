@@ -19,6 +19,7 @@ import {
     uTime,
     uAudioLow,
     applyStandardDeformation,
+    calculateWindSway,
     createJuicyRimLight,
 } from './material-core.ts';
 
@@ -89,7 +90,13 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
     // in [0, 2π) and moves with its instance on swap-with-last removal, so it is a
     // stable per-gem key.
     const seasonKeep = seasonDensityKeep(fract(aPhase.mul(1 / (Math.PI * 2))), uSeasonSpawn.gemFruit);
-    mat.positionNode = applyStandardDeformation(twisted.mul(seasonKeep));
+    const baseDeformed = twisted.mul(seasonKeep);
+    // 🎨 PALETTE: Apply Standard Deformation (which already includes player interaction)
+    // AND explicitly add Wind Sway on top to make the gem fruits more dynamic
+    // and visually cohesive with the twilight candy theme.
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    mat.positionNode = applyStandardDeformation(baseDeformed).add(calculateWindSway(baseDeformed, { amplitude: float(1.5) }));
 
     // Visual Impact: emissive pulse on shimmer — visible bloom response on crescendo.
     // shimmerGlow is the sustained melody glow; beatPulse is the kick-hit flash.
@@ -210,12 +217,7 @@ export class GemFruitBatcher {
                     updatedMeshes.add(this.meshes[gemType]);
                 }
 
-                const instanceIndex = this._registerInstanceForTree(gemType, this._scratchMatrix, drop + 0.2, treeGroup);
-                if (instanceIndex >= 0) {
-                    placed++;
-                    refs.push({ batcher: 'gem_fruit', instanceIndex, gemType });
-                    updatedMeshes.add(this.meshes[gemType]);
-                }
+
             }
         }
         // ⚡ OPTIMIZATION: Hoisted buffer needsUpdate flags outside the registration loop to eliminate redundant WebGPU uploads

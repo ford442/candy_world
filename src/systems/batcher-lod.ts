@@ -11,6 +11,8 @@ import { INSTANCE_LOD_ATTR, ensureInstanceLodAttribute } from '../foliage/batche
 import { syncFoliageLodUniforms, uLodDebugHighlight } from '../foliage/lod-nodes.ts';
 import { seasonFrostCpu, seasonRoleCpu } from '../foliage/material-core/season-nodes.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { batchUpdateLodFactors_c } from '../utils/wasm-batch.ts';
+import { isEmscriptenReady } from '../utils/wasm-loader.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     SEASON_ROLE_INDEX,
@@ -342,6 +344,41 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
         const seasonRoleOff = seasonRole ? SEASON_ROLE_INDEX[seasonRole] * SEASON_ROLE_STRIDE : -1;
 
         let needsUpdate = false;
+
+        // ⚡ OPTIMIZATION: Bypassed pure JS O(N) distance checks and smoothstep math with a single WASM batch call
+        let useWasm = isEmscriptenReady();
+        if (useWasm) {
+            const statsArray = new Int32Array(6);
+            batchUpdateLodFactors_c(
+                matrixArray,
+                smoothed,
+                count,
+                _cameraPos.x,
+                _cameraPos.y,
+                _cameraPos.z,
+                cfg.heroMax,
+                cfg.midMax,
+                cfg.blendWidth,
+                farCullSq,
+                blendT,
+                statsArray
+            );
+
+            _stats.hero += statsArray[0];
+            _stats.mid += statsArray[1];
+            _stats.far += statsArray[2];
+            _stats.culled += statsArray[3];
+            _stats.blendBand += statsArray[4];
+            _stats.total += statsArray[5];
+
+            for (let i = 0; i < count; i++) {
+                if (attrArray[i] !== smoothed[i]) {
+                    attrArray[i] = smoothed[i];
+                    needsUpdate = true;
+                }
+            }
+        }
+
         for (let i = 0; i < count; i++) {
             const offset = i * 16;
             const px = matrixArray[offset + 12];
@@ -353,24 +390,26 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
             const dz = pz - _cameraPos.z;
             const distSq = dx * dx + dy * dy + dz * dz;
 
-            // ⚡ OPTIMIZATION: Bypassed redundant second loop and double distance calculations by updating impostors inline.
-            const target = computeTargetLodFactorSq(distSq, cfg);
-            const current = smoothed[i];
-            const diff = Math.abs(target - current);
+            if (!useWasm) {
+                // ⚡ OPTIMIZATION: Bypassed redundant second loop and double distance calculations by updating impostors inline.
+                const target = computeTargetLodFactorSq(distSq, cfg);
+                const current = smoothed[i];
+                const diff = Math.abs(target - current);
 
-            if (diff > 1e-3) {
-                const next = current + (target - current) * blendT;
-                smoothed[i] = next;
-                attrArray[i] = next;
-                accumulateStats(next, cfg);
-                needsUpdate = true;
-            } else if (current !== target) {
-                smoothed[i] = target;
-                attrArray[i] = target;
-                accumulateStats(target, cfg);
-                needsUpdate = true;
-            } else {
-                accumulateStats(target, cfg);
+                if (diff > 1e-3) {
+                    const next = current + (target - current) * blendT;
+                    smoothed[i] = next;
+                    attrArray[i] = next;
+                    accumulateStats(next, cfg);
+                    needsUpdate = true;
+                } else if (current !== target) {
+                    smoothed[i] = target;
+                    attrArray[i] = target;
+                    accumulateStats(target, cfg);
+                    needsUpdate = true;
+                } else {
+                    accumulateStats(target, cfg);
+                }
             }
 
             // Instances collapsed to zero scale (parked fauna, removed slots) get no billboard.
