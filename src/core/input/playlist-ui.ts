@@ -45,6 +45,10 @@ export function renderPlaylist(): void {
             state.audioSystemRef!.playAtIndex(index);
             renderPlaylist(); // Re-render to update active state
 
+            // ♿ Aria: Announce the new song playing for screen reader and visual users
+            showToast(`Now playing: ${displayName}`, '🎵', 3000);
+            announce(`Now playing: ${displayName}`, 'polite');
+
             // Keep focus on the clicked item (re-rendered)
             // We need to find the new button after render
             requestAnimationFrame(() => {

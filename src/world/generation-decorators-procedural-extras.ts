@@ -345,7 +345,6 @@ export async function populateProceduralExtras(
     // Sort deferred extras nearest-first so the background processor populates the
     // area around the player before filling in the far horizon.
     deferredItems.sort((a, b) => a.distSq - b.distSq);
-    const proceduralTaskToken = getWorldGenerationToken();
     for (const item of deferredItems) {
         // Linear distance falloff (#1376): distSq/16 collapsed every extra beyond ~31u
         // to priority 1. One sqrt per enqueue is negligible.
@@ -365,6 +364,7 @@ export async function populateProceduralExtras(
                     );
                     return;
                 }
+
                 item.execute();
             },
             priority,
