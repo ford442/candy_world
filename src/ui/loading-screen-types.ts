@@ -37,7 +37,7 @@ export interface LoadingScreenOptions {
 // - WASM runs in the background (not on the critical path) — small weight.
 // - Audio worklet is deferred to after first frame — not on critical path.
 // - Heightmap deform uses batchGroundHeight() — world-generation is cheap.
-// - Shader compileAsync() + forceFullSceneWarmup() dominates the critical path on first
+// - Shader compileAsync() + forceFullSceneWarmup() (now renderer.compileAsync()) dominates the critical path on first
 //   run (20–60 s on slow/mobile GPUs). It must hold the majority of the weight budget so
 //   the bar visibly advances during warmup instead of sitting at ~56 % while worklet
 //   polyfills and WASM modules resolve in parallel.

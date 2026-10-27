@@ -610,21 +610,25 @@ export async function warmupShader(
     const warmup = new ShaderWarmup();
 
     if (scene && camera) {
-        // Use provided scene/camera
-        const renderTarget = new THREE.RenderTarget(1, 1, {
-            type: THREE.HalfFloatType,
-            depthBuffer: false,
-        });
-        const gpuRenderer = renderer as THREE.Renderer & {
-            setRenderTarget?: (target: THREE.RenderTarget | null) => void;
-        };
+        if ('compileAsync' in renderer && typeof renderer.compileAsync === 'function') {
+            await (renderer as { compileAsync?: (s: THREE.Scene, c: THREE.Camera) => Promise<void> }).compileAsync!(scene, camera);
+        } else {
+            // Use provided scene/camera fallback
+            const renderTarget = new THREE.RenderTarget(1, 1, {
+                type: THREE.HalfFloatType,
+                depthBuffer: false,
+            });
+            const gpuRenderer = renderer as THREE.Renderer & {
+                setRenderTarget?: (target: THREE.RenderTarget | null) => void;
+            };
 
-        try {
-            gpuRenderer.setRenderTarget?.(renderTarget);
-            renderer.render(scene, camera);
-        } finally {
-            gpuRenderer.setRenderTarget?.(null);
-            renderTarget.dispose();
+            try {
+                gpuRenderer.setRenderTarget?.(renderTarget);
+                renderer.render(scene, camera);
+            } finally {
+                gpuRenderer.setRenderTarget?.(null);
+                renderTarget.dispose();
+            }
         }
         warmup.dispose();
         return true;
