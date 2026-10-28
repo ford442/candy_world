@@ -9,6 +9,11 @@
  *   4. Assert the toolchain contract: one optimizer level across the MT/ST
  *      compile + link flags, matching AGENTS.md, and no internal Emscripten
  *      minify settings passed with -s (emcc rejects them)
+ *   5. Assert the flag set (#2026 slice 0): no -mrelaxed-simd, no
+ *      WASM_BIGINT=0, one STACK_SIZE for MT and ST matching AGENTS.md, every
+ *      env knob build.sh reads under `set -u` has a default, and the prod
+ *      AssemblyScript build (package.json build:wasm) writes no .wat, no source
+ *      map, and enables SIMD only if assembly/ uses it
  *
  * Exit codes:
  *   0 — manifest matches
@@ -30,12 +35,29 @@ const BUILD_SH = path.join(REPO_ROOT, 'emscripten', 'build.sh');
 const EXPORTS_TXT = path.join(REPO_ROOT, 'emscripten', 'exports.txt');
 const EMSCRIPTEN_DIR = path.join(REPO_ROOT, 'emscripten');
 const AGENTS_MD = path.join(REPO_ROOT, 'AGENTS.md');
+const PACKAGE_JSON = path.join(REPO_ROOT, 'package.json');
+const ASSEMBLY_DIR = path.join(REPO_ROOT, 'assembly');
 
 const FLAG_VARS = ['COMPILE_FLAGS', 'LINK_FLAGS', 'COMPILE_FLAGS_ST', 'LINK_FLAGS_ST'];
 
 // Internal settings (src/settings_internal.js): `-s NAME=...` makes emcc exit
 // with "is an internal setting and cannot be set from command line".
 const INTERNAL_MINIFY_SETTINGS = ['MINIFY_WASM_IMPORTS_AND_EXPORTS', 'MINIFY_WASM_EXPORT_NAMES'];
+
+// Flags that must not come back. -mrelaxed-simd: no source uses a relaxed
+// intrinsic, and the ST build is the no-isolation (Safari) fallback.
+// WASM_BIGINT=0: legacy i64 legalization; no export passes i64.
+const FORBIDDEN_FLAGS = [
+  { re: /-mrelaxed-simd\b/, why: 'no source uses a relaxed-SIMD intrinsic' },
+  { re: /-s\s*WASM_BIGINT=0\b/, why: 'legacy i64 legalization; no export passes i64' },
+];
+
+// Environment knobs build.sh reads. It runs under `set -u`, so each needs a
+// `NAME="${NAME:-default}"` line or reading it aborts with "unbound variable".
+const ENV_KNOBS = ['CANDY_DEBUG', 'SKIP_VERIFY', 'CANDY_STRICT_EMSDK'];
+
+// AssemblyScript SIMD surface: --enable simd is dead weight without these.
+const AS_SIMD_RE = /\b(?:v128|f32x4|f64x2|i8x16|i16x8|i32x4|i64x2)\b/;
 
 const RETURN_TYPES =
   '(?:void|float|int|double|char|long|unsigned|bool|uint32_t|int32_t|size_t|uintptr_t)';
@@ -177,7 +199,68 @@ function checkToolchainContract(buildSh) {
     }
   }
 
+  for (const { re, why } of FORBIDDEN_FLAGS) {
+    const hit = code.match(re);
+    if (hit) problems.push(`build.sh passes ${hit[0]} (${why})`);
+  }
+
+  const stacks = new Map();
+  for (const name of ['LINK_FLAGS', 'LINK_FLAGS_ST']) {
+    const m = code.match(new RegExp(`^${name}="([^"]*)"`, 'm'));
+    const stack = m?.[1].match(/-s\s*STACK_SIZE=(\S+)/);
+    if (!stack) problems.push(`${name} must set -s STACK_SIZE`);
+    else stacks.set(name, stack[1]);
+  }
+  const stackSizes = new Set(stacks.values());
+  if (stackSizes.size > 1) {
+    problems.push(`STACK_SIZE differs between MT and ST: ${[...stacks].map(([k, v]) => `${k}=${v}`).join(', ')}`);
+  }
+  const documentedStack = agents.match(/STACK_SIZE=(\d+[KM]B)\b/);
+  if (!documentedStack) {
+    problems.push('AGENTS.md must state the emscripten STACK_SIZE=<n>');
+  } else if (stackSizes.size === 1 && !stackSizes.has(documentedStack[1])) {
+    problems.push(
+      `AGENTS.md documents STACK_SIZE=${documentedStack[1]} but build.sh uses ${[...stackSizes][0]} — update both together`
+    );
+  }
+
+  for (const knob of ENV_KNOBS) {
+    if (!new RegExp(`^${knob}="\\$\\{${knob}:-[^}]*\\}"`, 'm').test(code)) {
+      problems.push(`build.sh runs under set -u but ${knob} has no default: add ${knob}="\${${knob}:-0}"`);
+    }
+  }
+
+  problems.push(...checkAssemblyScriptFlags());
+
   return { problems, level: distinct.size === 1 ? [...distinct][0] : null };
+}
+
+/**
+ * Prod AssemblyScript flags (package.json build:wasm). Debug output lives in
+ * build:wasm:debug, which must reuse build:wasm so the two cannot drift.
+ */
+function checkAssemblyScriptFlags() {
+  const problems = [];
+  const scripts = JSON.parse(readFile(PACKAGE_JSON)).scripts ?? {};
+  const prod = scripts['build:wasm'] ?? '';
+  if (!prod) return ['package.json has no build:wasm script'];
+  for (const flag of ['--textFile', '--sourceMap']) {
+    if (prod.includes(flag)) {
+      problems.push(`build:wasm passes ${flag}: prod ships no .wat/map (move it to build:wasm:debug)`);
+    }
+  }
+  const debug = scripts['build:wasm:debug'] ?? '';
+  if (!/^npm run build:wasm -- /.test(debug)) {
+    problems.push('build:wasm:debug must be `npm run build:wasm -- <debug flags>` so it keeps the prod flags');
+  }
+  const usesSimd = fs
+    .readdirSync(ASSEMBLY_DIR)
+    .filter((f) => f.endsWith('.ts'))
+    .some((f) => AS_SIMD_RE.test(fs.readFileSync(path.join(ASSEMBLY_DIR, f), 'utf8')));
+  if (/--enable\s+simd\b/.test(prod) && !usesSimd) {
+    problems.push('build:wasm passes --enable simd but assembly/ has no v128 code: drop the flag');
+  }
+  return problems;
 }
 
 function main() {
@@ -197,7 +280,7 @@ function main() {
     console.error('');
     process.exit(1);
   }
-  console.log(`toolchain contract:         -O${contract.level} (MT+ST compile/link, AGENTS.md)`);
+  console.log(`toolchain contract:         -O${contract.level} (MT+ST compile/link, AGENTS.md), flag set + AS prod flags`);
 
   const committedText = fs.existsSync(EXPORTS_TXT)
     ? fs.readFileSync(EXPORTS_TXT, 'utf8')

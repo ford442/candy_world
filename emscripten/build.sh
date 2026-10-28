@@ -24,8 +24,9 @@
 #    script to verify which functions were actually exported.
 #
 # Environment Variables:
-#   CANDY_DEBUG=1  - Enable assertions for debugging (default: 0)
-#   SKIP_VERIFY=1  - Skip post-build verification step (default: 0)
+#   CANDY_DEBUG=1        - Enable assertions for debugging (default: 0)
+#   SKIP_VERIFY=1        - Skip post-build verification step (default: 0)
+#   CANDY_STRICT_EMSDK=1 - Fail if em++ differs from .emsdk-version (default: 0, warn)
 #
 # =============================================================================
 
@@ -42,6 +43,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Debug mode (enables assertions)
 CANDY_DEBUG="${CANDY_DEBUG:-0}"
 SKIP_VERIFY="${SKIP_VERIFY:-0}"
+# set -u: every env knob needs a default, or reading it aborts the script.
+CANDY_STRICT_EMSDK="${CANDY_STRICT_EMSDK:-0}"
 
 # Build summary variables
 BUILD_START_TIME=$(date +%s)
@@ -115,6 +118,7 @@ if [ -n "$PINNED_EMSDK" ] && [ "$PINNED_EMSDK" != "$ACTUAL_EMSDK" ]; then
     echo "[WARN] em++ is $ACTUAL_EMSDK but .emsdk-version pins $PINNED_EMSDK"
     echo "       Install the pinned SDK: ./emsdk install $PINNED_EMSDK && ./emsdk activate $PINNED_EMSDK"
     if [ "$CANDY_STRICT_EMSDK" = "1" ]; then
+        echo "[ERROR] CANDY_STRICT_EMSDK=1: refusing to build with an unpinned emsdk"
         exit 1
     fi
 fi
@@ -431,8 +435,9 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 #   link steps of the MT and ST artifacts. AGENTS.md documents the same level;
 #   change them together, and only after a measured -O3 pass keeps
 #   exports.txt + `npm run verify:emcc:manifest` green.
-# - msimd128: Enable SIMD for vectorized math operations
-# - mrelaxed-simd: Allow relaxed SIMD operations for better performance
+# - msimd128: Enable SIMD for vectorized math operations. No -mrelaxed-simd:
+#   no source uses a relaxed intrinsic, and the ST build is the fallback for
+#   browsers without cross-origin isolation (Safari), where it only adds risk
 # - fno-rtti: Disable RTTI to reduce code size
 # - pthread: Enable threading support for parallel operations
 # - fopenmp: Enable OpenMP for parallel batch operations
@@ -448,7 +453,7 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 # numeric agreement to |Δ| <= 1e-5, which -ffast-math's reassociation can
 # violate in a compiler-version-dependent way.
 PTHREAD_POOL_SIZE=4
-COMPILE_FLAGS="-O2 -flto -fno-exceptions -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops -fopenmp -pthread -matomics -DCANDY_PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -I."
+COMPILE_FLAGS="-O2 -flto -fno-exceptions -msimd128 -fno-rtti -funroll-loops -fopenmp -pthread -matomics -DCANDY_PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -I."
 
 # Runtime methods JS needs on Module. HEAP8/HEAPU8/HEAP32/HEAPF32 must be listed
 # or Module.HEAPF32 is undefined (and every `em.HEAPF32.set(...)` throws);
@@ -459,7 +464,11 @@ RUNTIME_METHODS='["ccall","cwrap","wasmMemory","HEAP8","HEAPU8","HEAP32","HEAPF3
 # - pthread: Enable pthread support (requires SharedArrayBuffer); replaces the
 #   deprecated -s USE_PTHREADS=1. emsdk >= 3.1.58 emits no .worker.js file.
 # - PTHREAD_POOL_SIZE: Pre-spawn worker threads (also the OpenMP team size)
-# - STACK_SIZE: replaces the deprecated TOTAL_STACK
+# - STACK_SIZE: replaces the deprecated TOTAL_STACK. 1MB: every large buffer in
+#   emscripten/*.cpp is static data or heap (std::vector) and nothing recurses.
+#   16MB took a quarter of the 64MB initial heap, and pthreads created with
+#   default attributes inherit it (DEFAULT_PTHREAD_STACK_SIZE follows STACK_SIZE).
+# - no WASM_BIGINT=0: no export takes or returns i64, and BigInt is the default
 # - no -lembind: nothing uses EMSCRIPTEN_BINDINGS
 # - ALLOW_MEMORY_GROWTH=1: Allow dynamic memory allocation
 # - MODULARIZE=1: Generate ES6 module for clean importing
@@ -489,11 +498,11 @@ else
     echo "[INFO] Assertions DISABLED for production"
 fi
 
-LINK_FLAGS="-O2 -flto -std=c++17 -s PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+LINK_FLAGS="-O2 -flto -std=c++17 -s PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -s WASM=1 \
+-s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=1MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=$RUNTIME_METHODS -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web,worker -s SHARED_MEMORY=1 \
--matomics -fopenmp -msimd128 -mrelaxed-simd -pthread -L$SCRIPT_DIR/vendor -lomp"
+-matomics -fopenmp -msimd128 -pthread -L$SCRIPT_DIR/vendor -lomp"
 
 # ---------------------------------------------------------
 # STEP 5: Compile and Link
@@ -588,14 +597,14 @@ OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
 
 # Compiler flags for ST (remove pthread, atomics, etc)
 # NOTE: -ffast-math intentionally omitted; see COMPILE_FLAGS comment above.
-COMPILE_FLAGS_ST="-O2 -flto -fno-exceptions -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops"
+COMPILE_FLAGS_ST="-O2 -flto -fno-exceptions -msimd128 -fno-rtti -funroll-loops"
 
 # Linker flags for ST (remove pthread, shared memory)
-LINK_FLAGS_ST="-O2 -flto -std=c++17 -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+LINK_FLAGS_ST="-O2 -flto -std=c++17 -s WASM=1 \
+-s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=1MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=$RUNTIME_METHODS -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web \
--msimd128 -mrelaxed-simd"
+-msimd128"
 
 # noglob: EXPORTED_RUNTIME_METHODS=[...] above looks like a glob character
 # class to bash when expanded unquoted below; disable pathname expansion for

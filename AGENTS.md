@@ -140,22 +140,26 @@ npm run dev:fast
 # Full production build (AssemblyScript WASM + Emscripten C++ WASM + Vite)
 npm run build
 
-# Full production build with post-WASM optimization (requires wasm-opt)
+# Full production build plus the tools/build-optimizer analysis pass
+# (no extra wasm-opt pass: asc --optimize and emcc -O2 already run Binaryen)
 npm run build:optimized
 ```
 
 ### Specific Build Steps
 
 ```bash
-# Build AssemblyScript physics module only
-# Output: src/wasm/candy_physics.wasm + .wat + source map
+# Build AssemblyScript physics module only (prod: .wasm, no .wat, no map, no sourceMappingURL)
+# Output: src/wasm/candy_physics.wasm
 npm run build:wasm
+
+# Same flags plus src/wasm/candy_physics.wat and a source map (npm run dev uses this)
+npm run build:wasm:debug
 
 # Build C++ native module only (requires Emscripten in PATH)
 # Outputs both multi-threaded (public/candy_native.*) and single-threaded (public/candy_native_st.*)
 npm run build:emcc
 
-# Optimize WASM binaries (requires wasm-opt / wasmedge; runs tools/build-optimizer)
+# Bundle/asset analysis and optimization tools (tools/build-optimizer)
 npm run optimize
 npm run optimize:assets
 npm run optimize:split
@@ -244,7 +248,7 @@ Key capabilities:
 ### Module 2: Emscripten/C++ (`candy_native.wasm`)
 
 - **Purpose**: Stateless compute functions, SIMD-optimized math
-- **Language**: C++17 with OpenMP pragmas and SIMD (`-msimd128`, `-mrelaxed-simd`)
+- **Language**: C++17 with OpenMP pragmas and SIMD (`-msimd128`; no `-mrelaxed-simd`)
 - **Location**: `emscripten/*.cpp`
 - **Output**:
     - `public/candy_native.js` + `public/candy_native.wasm` (multi-threaded, with pthread)
@@ -283,12 +287,17 @@ The build system gracefully handles missing Emscripten:
 
 # Artifacts: candy_native.{js,wasm} (MT: -pthread, SHARED_MEMORY, INITIAL_MEMORY=64MB,
 # MAXIMUM_MEMORY=512MB) and candy_native_st.{js,wasm} (ST: 64MB -> 256MB).
-# Both: -flto -fno-exceptions, STACK_SIZE=16MB, no -lembind, and
+# Both: -flto -fno-exceptions -msimd128, STACK_SIZE=1MB, no -lembind, and
 # EXPORTED_RUNTIME_METHODS includes HEAP8/HEAPU8/HEAP32/HEAPF32 (the JS bridges
 # read Module.HEAPF32; without it they fall back to views over wasmMemory).
+# No -mrelaxed-simd (no source uses a relaxed intrinsic; ST is the Safari
+# fallback) and no WASM_BIGINT=0 (no export passes i64). STACK_SIZE is also the
+# default pthread stack, and every big C++ buffer is static or heap.
 # MT: PTHREAD_POOL_SIZE=4, and math.cpp caps the OpenMP team at the same size.
 # emsdk is pinned in .emsdk-version (4.0.10); build.sh warns on any other
-# version and CI/release builds set CANDY_STRICT_EMSDK=1 to make it fatal.
+# version and continues. CANDY_STRICT_EMSDK=1 (CI/release) makes it fatal.
+# `verify:emcc:manifest` fails if -mrelaxed-simd or WASM_BIGINT=0 come back, if
+# MT/ST STACK_SIZE disagree with this file, or if an env knob has no default.
 
 # Do NOT pass -s MINIFY_WASM_IMPORTS_AND_EXPORTS=0 (or MINIFY_WASM_EXPORT_NAMES).
 # Both are *internal* Emscripten settings; emcc 4.0.10 rejects them on the
@@ -303,10 +312,16 @@ The build system gracefully handles missing Emscripten:
 
 ### AssemblyScript Build (`build:wasm`)
 
-- Physics WASM (`src/wasm/candy_physics.wasm`) is **linear-memory MVP** + SIMD + bulk-memory:
-  `--enable simd --enable bulk-memory --memoryBase 589824 --initialMemory 16 --maximumMemory 256`
-  is the contract (`.wat` shows `(memory $0 16 256)`). No `--exportRuntime` and no
-  `--enable reference-types`.
+- Physics WASM (`src/wasm/candy_physics.wasm`) is **linear-memory MVP** + bulk-memory:
+  `--enable bulk-memory --memoryBase 589824 --initialMemory 16 --maximumMemory 256`
+  is the contract (the `build:wasm:debug` `.wat` shows `(memory $0 16 256)`). No `--exportRuntime`
+  and no `--enable reference-types`. No `--enable simd`: `assembly/` has no `v128` code, so the
+  flag changed nothing (the binary is byte-identical without it). Add it back with the first
+  `v128` loop; `verify:emcc:manifest` fails on the flag without SIMD code.
+- Prod `build:wasm` passes no `--textFile` and no `--sourceMap`, so the shipped module has no
+  `sourceMappingURL` (it pointed at a map that was never deployed). `build:wasm:debug` is
+  `npm run build:wasm -- --textFile … --sourceMap`; `npm run check:dist-wasm` (Bundle Budget CI)
+  fails if `dist/` has a `.wat`, a `.wasm.map` or a module with a `sourceMappingURL`.
 - Fixed linear-memory regions live in **one table**, `scripts/memory-layout.mjs`, which generates
   `assembly/memory_layout.ts` and `src/utils/native-memory-layout.ts`. `--memoryBase` must equal
   its `HEAP_BASE_FLOOR` so the AS runtime heap (StaticArrays, `malloc`) starts above every
@@ -392,7 +407,7 @@ Cross-Origin-Embedder-Policy: require-corp
 
 - C++17 standard
 - Use `EMSCRIPTEN_KEEPALIVE` for exported functions
-- SIMD enabled with `-msimd128 -mrelaxed-simd`
+- SIMD enabled with `-msimd128` (no relaxed SIMD)
 - OpenMP pragmas for parallelization (`#pragma omp parallel for`)
 
 ### Visual / Aesthetic Conventions
@@ -595,7 +610,7 @@ Clean and rebuild:
 
 ```bash
 rm -rf public/*.wasm public/candy_native*.js
-cd src/wasm && rm -f candy_physics.wasm candy_physics.wat
+cd src/wasm && rm -f candy_physics.wasm candy_physics.wat candy_physics.wasm.map
 cd ../..
 npm run build
 ```

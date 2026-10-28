@@ -109,17 +109,30 @@ JS (`firstNativeModule`).
 
 - **emsdk** is pinned in `.emsdk-version` (4.0.10), which CI, the release
   workflow, `.jules/setup.sh` and `SETUP_GUIDE.md` all read. `build.sh` warns
-  on any other version, and `CANDY_STRICT_EMSDK=1` makes the mismatch fatal.
-- **Emscripten**: `-O2 -flto -fno-exceptions` (MT and ST), `-pthread` (not
-  `USE_PTHREADS`), `STACK_SIZE` (not `TOTAL_STACK`), no `-lembind` (there are no
-  `EMSCRIPTEN_BINDINGS`), and `EXPORTED_RUNTIME_METHODS` includes
-  `HEAP8,HEAPU8,HEAP32,HEAPF32`. `PTHREAD_POOL_SIZE=4`; `math.cpp` caps the
+  on any other version and keeps going; `CANDY_STRICT_EMSDK=1` makes the
+  mismatch fatal. Every env knob `build.sh` reads has a default, because it runs
+  under `set -u`.
+- **Emscripten**: `-O2 -flto -fno-exceptions -msimd128` (MT and ST), `-pthread`
+  (not `USE_PTHREADS`), `STACK_SIZE=1MB` (not `TOTAL_STACK`; it is also the
+  default pthread stack, and every large C++ buffer is static or heap), no
+  `-lembind` (there are no `EMSCRIPTEN_BINDINGS`), and `EXPORTED_RUNTIME_METHODS`
+  includes `HEAP8,HEAPU8,HEAP32,HEAPF32`. No `-mrelaxed-simd` (no source uses a
+  relaxed intrinsic, and the ST build is the Safari fallback) and no
+  `WASM_BIGINT=0` (no export passes i64). There is no separate `wasm-opt` pass:
+  `emcc -O2` and `asc --optimize` already run Binaryen. `PTHREAD_POOL_SIZE=4`; `math.cpp` caps the
   OpenMP team at the same size, so `#pragma omp parallel` never waits on
   workers the pool never spawned. emsdk ≥ 3.1.58 emits no `.worker.js`, and the
   loader no longer looks for one.
-- **AssemblyScript**: `--enable simd --enable bulk-memory --memoryBase 589824
---initialMemory 16 --maximumMemory 256`. `env.abort` throws a decoded message
-  instead of logging and continuing.
+- **AssemblyScript**: `--enable bulk-memory --memoryBase 589824
+--initialMemory 16 --maximumMemory 256`. No `--enable simd`: `assembly/` has no
+  `v128` code and the binary is byte-identical without the flag. Prod
+  `build:wasm` writes no `.wat` and no source map, so the module carries no
+  `sourceMappingURL`; `build:wasm:debug` adds both for local debugging, and
+  `npm run check:dist-wasm` fails a `dist/` that ships either. `env.abort`
+  throws a decoded message instead of logging and continuing.
+- `npm run verify:emcc:manifest` holds the flag set: one `-O` level and one
+  `STACK_SIZE` matching `AGENTS.md`, no forbidden flag, a default for every env
+  knob, and the prod AS flags above.
 - **Housekeeping**: source maps are emitted `hidden` and `deploy.py` skips
   `*.map`. `madge` is a devDependency. Stale `public/candy_physics.*` are
   removed before every Vite build (`scripts/clean-public-artifacts.mjs`).
