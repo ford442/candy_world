@@ -16,7 +16,12 @@ the world up.
 - **Effects** are code that asks `unlockSystem.isUnlocked(id)`.
 
 Both are stored in the `candy_world_unlocks` localStorage key and merged into
-saved worlds by `restore()`.
+saved worlds by `restore()`. The same key holds `sites`: one-shot sources that
+were already harvested (`unlockSystem.markSiteHarvested(id)`), so a lifted
+stone or a picked mushroom stays spent across reloads. `reset()` clears them.
+
+Every unlock is announced to screen readers (`announceQuest('unlocked', name)`)
+as well as toasted.
 
 ## Unlocks, sources and effects
 
@@ -30,21 +35,25 @@ saved worlds by `restore()`.
 | `snap_core` | `snap_shard` ×3 | Snare traps (`foliage/musical-flora.ts`) | Reflects projectiles (`gameplay/rainbow-blaster.ts`) |
 | `island_scholar` | `lake_core` ×1 | The Lake Island core (`world/generation-setpieces.ts`) | Unlocks the island Living Score cues (`assets/score-cues.json`) |
 | `groove_boots` | `bounce_shroom` ×5 | Trampoline mushrooms you have bounced on 3 times (`systems/bounce-shrooms.ts`) | Faster when the groove gravity is strong (`physics-core.ts`) |
-| `wind_anchor` | `heavy_stone` ×3 | Heavy stones on the Sugar Caves floor (`foliage/heavy-stone.ts`) | Immunity to the BPM wind (`physics-core.ts`) |
+| `wind_anchor` | `heavy_stone` ×3 | Heavy stones around the Sugar Caves door on the lake island, and one on the cave floor (`foliage/heavy-stone.ts`) | Immunity to the BPM wind (`physics-core.ts`) |
 
 ### Bounce shrooms
 
 Land on a trampoline mushroom (giant or `isBouncy`) three times (bounces less
 than 400 ms apart count once). It ripens: its prompt becomes _Harvest Bounce
 Shroom_, and interacting with it gives one `bounce_shroom`, once. Five ripe
-mushrooms make Groove Boots. Progress lives on the mushroom's `userData`, so it
-resets on reload; the items you already harvested do not.
+mushrooms make Groove Boots. Bounce counts live on the mushroom's `userData` and
+reset on reload; a harvested mushroom is remembered by its rounded position
+(`bounce_shroom:<x>,<z>`, world generation is seeded) and does not ripen again.
 
 ### Heavy stones
 
-Four stones rest beside the path on the Sugar Caves floor
-(`populateSugarCaves`). The floor is only walkable once the lake door has
-opened (see below), so Wind Anchor sits behind the Part II gate.
+Three stones ring the Sugar Caves door on the lake island, between the geyser
+ring and the flower ring (`heavyStoneIslandSites()`), and a fourth rests on the
+cave floor (`populateSugarCaves`). The island is reachable before the door
+opens, so Wind Anchor does not wait on the Part II gate. Each stone has a site
+id (`heavy_stone:island:<i>`, `heavy_stone:caves:0`); lifted stones are not
+placed again.
 
 ### Shrine Master
 
@@ -68,7 +77,9 @@ silent until that unlock is earned. The `lake_island` cues use
 
 - **Sugar Caves (Part II door).** Opens when `AWAKENED_THRESHOLD` flora are
   awake. Awakened persistence is on by default (`?no_awakened` opts out); only
-  standing at the lake checks the gate. See `world/sugar-caves-traversal.ts`.
+  standing at the lake checks the gate. Below the threshold the door announces
+  itself as locked (`announceQuest('locked', …)`) once per visit. See
+  `world/sugar-caves-traversal.ts`.
 
 ## Defaults that used to be flags
 
@@ -76,7 +87,7 @@ silent until that unlock is earned. The `lake_island` cues use
 | --- | --- | --- |
 | Awakened persistence | on | `?no_awakened` |
 | Generative music | on until you load a tracker file; starts on the first click or key press (`audio/generative/autostart.ts`) | `?no_generative`, `?music=tracker`, or `localStorage['candy.musicMode'] = 'tracker'`. `?generative=1` forces it |
-| Photo mode | **Photo Mode** HUD button (and **P**) | — |
+| Photo mode | **Photo Mode** HUD button (and **P**); the button carries `aria-pressed` while active | `?photo` / `?mode=photo` preload it |
 
 Loading a tracker file always takes over from the generative engine
 (`AudioSystem.loadModule`).
@@ -93,5 +104,6 @@ Loading a tracker file always takes over from the generative engine
 
 `tests/progression-reachability.test.ts` scans `src/` and `assets/` and fails
 for any unlock whose required item has no `harvest(...)` call, or that nothing
-checks. It runs in `test:fast`. `tests/progression-effects.test.ts` covers the
+checks, and when `announceQuest` loses its last caller. It also runs the check
+on a synthetic unlock and fails if that is not flagged. It runs in `test:fast`. `tests/progression-effects.test.ts` covers the
 mechanics above.

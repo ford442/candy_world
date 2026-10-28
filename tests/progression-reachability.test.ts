@@ -7,6 +7,10 @@
  * - A *consumer* of an unlock is an `isUnlocked('<id>')` check in src/ outside
  *   unlocks.ts, or a data file in assets/ that gates content on it with
  *   `"unlock": "<id>"` (score cues: living-score.ts).
+ * - `announceQuest` has a caller outside the announcer and its re-export.
+ *
+ * The check also runs on a synthetic unlock with an unsourced item and no
+ * consumer, and must name both, so a broken scan cannot pass silently.
  *
  * Run with: npx tsx tests/progression-reachability.test.ts
  */
@@ -53,18 +57,47 @@ for (const file of walk(ASSETS, [], /\.json$/)) {
     }
 }
 
-const problems: string[] = [];
-for (const def of Object.values(UNLOCK_DEFINITIONS)) {
-    for (const req of def.requirements) {
-        if (!sources.has(req.itemId)) {
-            problems.push(
-                `unlock "${def.id}" needs ${req.count}x "${req.itemId}", but nothing in src/ harvests it`
-            );
+type UnlockDefs = Record<string, { id: string; requirements: { itemId: string; count: number }[] }>;
+
+function findProblems(
+    defs: UnlockDefs,
+    sourcesById: ReadonlyMap<string, string[]>,
+    consumersById: ReadonlyMap<string, string[]>
+): string[] {
+    const out: string[] = [];
+    for (const def of Object.values(defs)) {
+        for (const req of def.requirements) {
+            if (!sourcesById.has(req.itemId)) {
+                out.push(
+                    `unlock "${def.id}" needs ${req.count}x "${req.itemId}", but nothing in src/ harvests it`
+                );
+            }
+        }
+        if (!consumersById.has(def.id)) {
+            out.push(`unlock "${def.id}" is earnable but nothing in src/ checks isUnlocked('${def.id}')`);
         }
     }
-    if (!consumers.has(def.id)) {
-        problems.push(`unlock "${def.id}" is earnable but nothing in src/ checks isUnlocked('${def.id}')`);
-    }
+    return out;
+}
+
+const problems = findProblems(UNLOCK_DEFINITIONS, sources, consumers);
+
+const QUEST_EXEMPT = new Set([join('ui', 'announcer.ts'), 'accessibility-index.ts']);
+const questCallers = walk(SRC)
+    .filter((f) => !QUEST_EXEMPT.has(relative(SRC, f)))
+    .filter((f) => /\bannounceQuest\(/.test(readFileSync(f, 'utf8')));
+if (questCallers.length === 0) {
+    problems.push('announceQuest() has no caller outside ui/announcer.ts');
+}
+
+// Mutation proof: the same check must reject an unlock nobody can earn or use.
+const mutant = findProblems(
+    { ...UNLOCK_DEFINITIONS, ghost: { id: 'ghost', requirements: [{ itemId: 'ghost_item', count: 1 }] } },
+    sources,
+    consumers
+);
+if (!mutant.some((p) => p.includes('"ghost_item"')) || !mutant.some((p) => p.includes("isUnlocked('ghost')"))) {
+    problems.push(`the check did not flag a synthetic unsourced, unconsumed unlock: ${JSON.stringify(mutant)}`);
 }
 
 if (problems.length > 0) {

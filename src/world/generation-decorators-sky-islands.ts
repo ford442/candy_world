@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { sugarCaveBatcher } from '../foliage/index.ts';
-import { createHeavyStone } from '../foliage/heavy-stone.ts';
+import { createHeavyStone, heavyStoneIslandSites } from '../foliage/heavy-stone.ts';
 import { createSkyIsland, skyIslandBatcher } from '../foliage/sky-islands.ts';
 import {
     registerWalkableIslandPlatform,
     registerWalkableCloudPlatform,
     getGroundHeight,
 } from '../systems/ground-system.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
 import { debugHooks } from '../utils/debug-hooks.ts';
 import { getSeededRandom } from '../utils/seeded-random.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
@@ -78,26 +79,23 @@ export async function populateSugarCaves(weatherSystem: WeatherSystem): Promise<
     placeHeavyStones(weatherSystem);
 }
 
-/** Heavy stones on the cave floor, beside the path (needs 3 for Wind Anchor). */
-const HEAVY_STONE_COUNT = 4;
-
+/**
+ * Heavy stones for Wind Anchor (needs 3): three on the lake island around the
+ * Part II door, reachable before it opens, and one on the cave floor.
+ */
 function placeHeavyStones(weatherSystem: WeatherSystem): void {
     const { startX, startZ, endX, endZ } = SUGAR_CAVES;
-    const dx = endX - startX;
-    const dz = endZ - startZ;
-    const length = Math.hypot(dx, dz) || 1;
-    // Unit normal to the cave path, so stones alternate sides of it.
-    const nx = -dz / length;
-    const nz = dx / length;
-    for (let i = 0; i < HEAVY_STONE_COUNT; i++) {
-        const t = (i + 1) / (HEAVY_STONE_COUNT + 1);
-        const side = i % 2 === 0 ? 1 : -1;
-        const stone = createHeavyStone();
-        stone.position.set(
-            startX + dx * t + nx * 2.5 * side,
-            SUGAR_CAVES_TRAVERSAL.caveFloorY,
-            startZ + dz * t + nz * 2.5 * side
-        );
+    const sites = heavyStoneIslandSites().map((s) => ({ ...s, y: sampleGroundY(s.x, s.z) }));
+    sites.push({
+        id: 'heavy_stone:caves:0',
+        x: (startX + endX) * 0.5 + 2.5,
+        y: SUGAR_CAVES_TRAVERSAL.caveFloorY,
+        z: (startZ + endZ) * 0.5 + 2.5,
+    });
+    for (const site of sites) {
+        if (unlockSystem.isSiteHarvested(site.id)) continue;
+        const stone = createHeavyStone(site.id);
+        stone.position.set(site.x, site.y, site.z);
         safeAddFoliage(stone, false, 1.0, weatherSystem);
     }
 }

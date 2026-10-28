@@ -1,5 +1,6 @@
 // src/systems/unlocks.ts
 
+import { announceQuest } from '../ui/announcer.ts';
 import { showToast } from '../utils/toast.ts';
 
 export interface UnlockRequirement {
@@ -84,11 +85,14 @@ export const UNLOCK_DEFINITIONS: Record<string, UnlockDefinition> = {
 class UnlockSystem {
     private inventory: Record<string, number>;
     private unlocks: Set<string>;
+    /** One-shot sources already harvested (`heavy_stone:island:0`, `bounce_shroom:12,-40`). */
+    private harvestedSites: Set<string>;
     private storageKey: string;
 
     constructor() {
         this.inventory = {};
         this.unlocks = new Set();
+        this.harvestedSites = new Set();
         this.storageKey = 'candy_world_unlocks';
         this.load();
     }
@@ -98,10 +102,17 @@ class UnlockSystem {
             if (typeof localStorage === 'undefined') return;
             const data = localStorage.getItem(this.storageKey);
             if (data) {
-                const parsed = JSON.parse(data);
+                const parsed = JSON.parse(data) as {
+                    inventory?: Record<string, number>;
+                    unlocks?: unknown;
+                    sites?: unknown;
+                };
                 this.inventory = parsed.inventory || {};
                 if (Array.isArray(parsed.unlocks)) {
                     parsed.unlocks.forEach((u: string) => this.unlocks.add(u));
+                }
+                if (Array.isArray(parsed.sites)) {
+                    parsed.sites.forEach((s: string) => this.harvestedSites.add(s));
                 }
             }
         } catch (e) {
@@ -115,6 +126,7 @@ class UnlockSystem {
             const data = {
                 inventory: this.inventory,
                 unlocks: Array.from(this.unlocks),
+                sites: Array.from(this.harvestedSites),
             };
             localStorage.setItem(this.storageKey, JSON.stringify(data));
         } catch (e) {
@@ -188,6 +200,7 @@ class UnlockSystem {
     private unlock(def: UnlockDefinition): void {
         this.unlocks.add(def.id);
         showToast(`UNLOCKED: ${def.name}!`, def.icon, 8000);
+        announceQuest('unlocked', def.name);
         console.log(`[UnlockSystem] Unlocked ${def.name} (${def.id})`);
 
         // Trigger specific game logic if needed (e.g. enable shield)
@@ -218,6 +231,18 @@ class UnlockSystem {
         return this.unlocks.has(unlockId);
     }
 
+    /** True once a one-shot world source (a stone, a ripe mushroom) has been harvested. */
+    public isSiteHarvested(siteId: string): boolean {
+        return this.harvestedSites.has(siteId);
+    }
+
+    /** Remember that a one-shot source was harvested, so it stays spent across reloads. */
+    public markSiteHarvested(siteId: string): void {
+        if (this.harvestedSites.has(siteId)) return;
+        this.harvestedSites.add(siteId);
+        this.save();
+    }
+
     public getItemCount(itemId: string): number {
         return this.inventory[itemId] || 0;
     }
@@ -225,6 +250,7 @@ class UnlockSystem {
     public reset(): void {
         this.inventory = {};
         this.unlocks.clear();
+        this.harvestedSites.clear();
         this.save();
         console.log('[UnlockSystem] Reset complete.');
     }

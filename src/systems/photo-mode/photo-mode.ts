@@ -169,6 +169,7 @@ export class PhotoModeManager {
         }
 
         document.body.classList.add('photo-mode-active');
+        document.getElementById('openPhotoBtn')?.setAttribute('aria-pressed', 'true');
         this.setHudVisible(!this.values.hideHud);
 
         const thumbnail = getSharedWorldThumbnailAction();
@@ -213,6 +214,7 @@ export class PhotoModeManager {
         this.opts.explore.setExploreOrbitFlag(false);
 
         document.body.classList.remove('photo-mode-active');
+        document.getElementById('openPhotoBtn')?.setAttribute('aria-pressed', 'false');
         this.setHudVisible(true);
 
         this.opts.timeOffset.value = this.savedTimeOffset;
