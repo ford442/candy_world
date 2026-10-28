@@ -265,6 +265,7 @@ npm run budget:check  # Verify chunk size constraints
 - `npm run check:memory-layout`: static layout check (overlaps, `--memoryBase`, raw offsets, built binary)
 - `npm run test:native-memory`: heap/boids/growth/instantiate-fallback tests against the real AS build
 - `npm run test:native-batch-parity`: C++ ↔ AS ↔ JS batch ground heights through the production bridges (C++ tier needs `build:emcc`; `CANDY_PARITY_REQUIRE_CPP=1` makes it mandatory)
+- `npm run check:native-exports`: every AS export (`assembly/index.ts`, listed by name) and C++ export (exports.txt + `EMSCRIPTEN_KEEPALIVE`) has a caller in `src/`/`tests/`, and no lookup names a missing export (0/0 ratchet, `scripts/native-exports-baseline.json`)
 
 ### Shared worlds tests
 

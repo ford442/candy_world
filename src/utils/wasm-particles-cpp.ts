@@ -126,4 +126,3 @@ export function updateCpuParticlesNative(
         emModule._free(ptrSeed);
     }
 }
-

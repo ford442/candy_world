@@ -9,7 +9,10 @@
  *   4. Assert the toolchain contract: one optimizer level across the MT/ST
  *      compile + link flags, matching AGENTS.md, and no internal Emscripten
  *      minify settings passed with -s (emcc rejects them)
- *   5. Assert the flag set (#2026 slice 0): no -mrelaxed-simd, no
+ *   5. Assert the declared list is the whole ABI: every EMSCRIPTEN_KEEPALIVE
+ *      function is declared (EXPORT_KEEPALIVE=1 exports it even when it is not
+ *      in exports.txt), and every declared name has a .cpp definition
+ *   6. Assert the flag set (#2026 slice 0): no -mrelaxed-simd, no
  *      WASM_BIGINT=0, one STACK_SIZE for MT and ST matching AGENTS.md, every
  *      env knob build.sh reads under `set -u` has a default, and the prod
  *      AssemblyScript build (package.json build:wasm) writes no .wat, no source
@@ -28,6 +31,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { keepaliveNames } from './check-native-exports.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -298,14 +302,32 @@ function main() {
 
   const declared = parseAnimationFunctions(buildSh);
   let found = 0;
-  let missingImpl = 0;
+  const missingImpl = [];
   for (const func of declared) {
     if (functionExists(func, cppSources)) {
       expected.add(`_${func}`);
       found++;
     } else {
-      missingImpl++;
+      missingImpl.push(func);
     }
+  }
+
+  // The declared list must be the whole ABI. A KEEPALIVE function outside it
+  // still exports (EXPORT_KEEPALIVE=1), so exports.txt would understate the
+  // module; a declared name with no definition is a lookup that always misses.
+  const undeclared = sortedList(
+    new Set(cppSources.flatMap(keepaliveNames).filter((n) => !declared.has(n)))
+  );
+  if (undeclared.length > 0 || missingImpl.length > 0) {
+    console.error('❌ build.sh ANIMATION_FUNCTIONS is not the C++ ABI:');
+    for (const n of undeclared) {
+      console.error(`  - ${n} is EMSCRIPTEN_KEEPALIVE but not declared (declare it, or drop KEEPALIVE)`);
+    }
+    for (const n of missingImpl) {
+      console.error(`  - ${n} is declared but has no definition in emscripten/*.cpp`);
+    }
+    console.error('');
+    process.exit(1);
   }
 
   if (writeMode) {
@@ -328,7 +350,7 @@ function main() {
 
   console.log(`build.sh declared symbols: ${declared.size}`);
   console.log(`implemented (would export): ${found}`);
-  console.log(`declared but no .cpp impl:  ${missingImpl} (JS fallback)`);
+  console.log(`EMSCRIPTEN_KEEPALIVE:       all declared`);
   console.log(`core exports:               ${parseCoreExports(buildSh).join(', ')}`);
   console.log(`expected exports.txt size:  ${expected.size}`);
   console.log(`committed exports.txt size: ${committed.size}`);

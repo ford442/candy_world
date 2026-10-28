@@ -149,4 +149,3 @@ export function fillUnifiedGroundHeights(
     // 3. JS fallback
     fillUnifiedGroundHeightsJS(positions, out, count, now, getTerrainHeight, platforms);
 }
-

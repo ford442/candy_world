@@ -139,26 +139,8 @@ echo "[INFO] Scanning source files for implemented functions..."
 # All C++ source files (used for function scanning)
 CPP_FILES="$SCRIPT_DIR"/*.cpp
 
-# Compilation units: exclude sub-files that are #included by animation_batch.cpp.
-# Compiling them both as part of the wrapper AND as standalone files causes
-# duplicate symbol errors from the linker.
-ANIM_BATCH_SUBFILES=(
-    "animation_batch_effects.cpp"
-    "animation_batch_foliage.cpp"
-    "animation_batch_melodic.cpp"
-    "animation_batch_percussion.cpp"
-    "animation_batch_simd.cpp"
-)
-COMPILE_UNITS=()
-for _f in "$SCRIPT_DIR"/*.cpp; do
-    _base="$(basename "$_f")"
-    _skip=0
-    for _sub in "${ANIM_BATCH_SUBFILES[@]}"; do
-        if [ "$_base" = "$_sub" ]; then _skip=1; break; fi
-    done
-    [ $_skip -eq 0 ] && COMPILE_UNITS+=("$_f")
-done
-unset _f _base _skip _sub
+# Compilation units: every emscripten/*.cpp (none #includes another).
+COMPILE_UNITS=("$SCRIPT_DIR"/*.cpp)
 
 # Function to check if a function is implemented in source
 # This verifies the function has EMSCRIPTEN_KEEPALIVE and a proper function signature
@@ -189,33 +171,18 @@ done
 
 # Define all animation function exports and check each one
 # Format: "c_function_name" (without underscore prefix)
-# List only functions src/ calls, by name or through getNativeFunc. #1822 removed
-# the *_simd twins, the SIMD/LOD cull kernels, and the unused colour/arpeggio
-# C++ twins. They stay in the source as internal helpers without
-# EMSCRIPTEN_KEEPALIVE, so the linker can drop any that nothing reaches.
+# This is the whole C++ ABI: every name here has a caller in src/ or tests/
+# (scripts/check-native-exports.mjs), and every EMSCRIPTEN_KEEPALIVE function
+# in emscripten/*.cpp must be listed (EXPORT_KEEPALIVE=1 exports it either way;
+# verify:emcc:manifest enforces both). #2026 deleted the 93 exports nothing
+# called: the animation.cpp scalars, mesh_deformation.cpp, the percussion /
+# melodic / effects / *_simd batches, the noise and fast-math twins, and the
+# legacy physics particles.
 declare -A ANIMATION_FUNCTIONS=(
-    # Math functions (math.cpp)
-    ["hash"]="math"
-    ["valueNoise2D"]="math"
-    ["fbm"]="math"
-    ["fastInvSqrt"]="math"
+    # Math (math.cpp): getGroundHeight is the parity reference (tests/parity.mjs)
     ["getGroundHeight"]="math"
-    
-    # SIMD-optimized math functions (math.cpp)
-    ["valueNoise2D_simd4"]="math"
-    ["fbm2D_simd4"]="math"
     ["batchGroundHeight_simd"]="math"
-    
-    # OpenMP-parallelized batch functions (math.cpp)
-    ["batchValueNoise_omp"]="math"
-    ["batchFbm_omp"]="math"
-    ["batchDistSq3D_omp"]="math"
-    
-    # Fast approximation functions (math.cpp)
-    ["fastSin"]="math"
-    ["fastCos"]="math"
-    ["fastPow2"]="math"
-    
+
     # Unified ground height (ground.cpp)
     ["clearGroundPlatforms"]="ground"
     ["addGroundPlatform"]="ground"
@@ -228,16 +195,11 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchGeyserLaunch_c"]="foliage_interact"
     ["batchPadForces_c"]="foliage_interact"
     ["batchVineInteraction_c"]="foliage_interact"
-    
-    # Physics functions (physics.cpp)
-    ["initPhysicsMemory"]="physics"
-    ["fastDistance"]="physics"
-    ["smoothDamp"]="physics"
-    ["updateParticles"]="physics"
-    ["checkCollision"]="physics"
+    ["calcVineDetachImpulse_c"]="foliage_interact"
+
+    # Player physics assist ABI (physics.cpp, tests/character-controller-native)
     ["initPhysics"]="physics"
     ["addCollisionObject"]="physics"
-    ["addCollisionObjectsBatch"]="physics"
     ["setPlayerState"]="physics"
     ["getPlayerX"]="physics"
     ["getPlayerY"]="physics"
@@ -246,134 +208,52 @@ declare -A ANIMATION_FUNCTIONS=(
     ["getPlayerVY"]="physics"
     ["getPlayerVZ"]="physics"
     ["updatePhysicsCPP"]="physics"
-    
-    # Agent 4: Frustum/distance culling functions
-    ["batchFrustumCull_c"]="physics"
-    ["batchDistanceCullIndexed_c"]="physics"
-    
-    # Batch physics functions (physics.cpp)
-    ["batchCollisionCheck_c"]="physics"
-    ["batchRaycast_c"]="physics"
-    
-    # Batch functions (batch.cpp)
-    ["batchDistances"]="batch"
+
+    # Distance culling (batch.cpp)
     ["batchDistanceCull_c"]="batch"
-    ["batchSinWave"]="batch"
-    ["batchCalcFiberWhip"]="batch"
-    ["batchCalcSpiralWave"]="batch"
-    ["batchCalcWobble"]="batch"
-    
-    # Agent 3: LOD batch update functions (lod_batch.cpp)
-    ["batchUpdateLODMatrices_c"]="lod_batch"
+
+    # LOD factors and matrix composition (lod_batch.cpp)
     ["batchUpdateLodFactors_c"]="lod_batch"
-    ["batchScaleMatrices_c"]="lod_batch"
-    ["batchTranslateMatrices_c"]="lod_batch"
-    ["batchFadeColors_c"]="lod_batch"
     ["batchComposeMatrices_c"]="lod_batch"
 
-    # #1358: instanced batcher pose → matrix/color (batcher_instance.cpp)
+    # #1358: instanced batcher pose -> matrix/color (batcher_instance.cpp)
     ["batchWriteInstancePose_c"]="batcher_instance"
-    
-    # New batch animation functions (animation_batch.cpp)
-    ["batchSnareSnap_c"]="animation_batch"
-    ["batchAccordion_c"]="animation_batch"
-    ["batchFiberWhip_c"]="animation_batch"
-    ["batchSpiralWave_c"]="animation_batch"
-    ["batchVibratoShake_c"]="animation_batch"
-    ["batchTremoloPulse_c"]="animation_batch"
-    ["batchCymbalShake_c"]="animation_batch"
-    ["batchPanningBob_c"]="animation_batch"
-    ["batchSpiritFade_c"]="animation_batch"
-    ["processBatchUniversal_c"]="animation_batch"
-    
-    # Agent 1: Simple animation types migrated from TS
+
+    # Foliage batch animations for the ECS bridge (animation_batch.cpp)
     ["batchShiver_c"]="animation_batch"
     ["batchSpring_c"]="animation_batch"
     ["batchFloat_c"]="animation_batch"
     ["batchCloudBob_c"]="animation_batch"
-    
-    # Agent 1: SIMD-optimized animation batch functions
-    ["batchGeyserErupt_c"]="animation_batch"
-    
-    # Mesh deformation functions (mesh_deformation.cpp)
-    ["deformMeshWave"]="mesh_deformation"
-    ["deformMeshJiggle"]="mesh_deformation"
-    ["deformMeshWobble"]="mesh_deformation"
-    ["recomputeNormals"]="mesh_deformation"
-    ["batchDeformMeshes"]="mesh_deformation"
-    ["getDeformBatchSize"]="mesh_deformation"
-    ["hasSIMDSupport"]="mesh_deformation"
-    
-    # Agent 2: SIMD-optimized batch deformation functions
-    ["deformWave_c"]="mesh_deformation"
-    ["deformJiggle_c"]="mesh_deformation"
-    ["deformWobble_c"]="mesh_deformation"
-    
-    # Animation functions (animation.cpp)
+
+    # Arpeggio state machine (animation.cpp)
     ["calcArpeggioStep_c"]="animation"
     ["getArpeggioTargetStep_c"]="animation"
     ["getArpeggioUnfurlStep_c"]="animation"
-    ["calcFiberWhip"]="animation"
-    ["getFiberBaseRotY"]="animation"
-    ["getFiberBranchRotZ"]="animation"
-    ["calcHopY"]="animation"
-    ["calcShiver"]="animation"
-    ["getShiverRotX"]="animation"
-    ["getShiverRotZ"]="animation"
-    ["calcSpiralWave"]="animation"
-    ["getSpiralRotY"]="animation"
-    ["getSpiralYOffset"]="animation"
-    ["getSpiralScale"]="animation"
-    ["calcPrismRose"]="animation"
-    ["getPrismUnfurl"]="animation"
-    ["getPrismSpin"]="animation"
-    ["getPrismPulse"]="animation"
-    ["getPrismHue"]="animation"
-    ["calcFloatingParticle"]="animation"
-    ["getParticleX"]="animation"
-    ["getParticleY"]="animation"
-    ["getParticleZ"]="animation"
-    ["calcSpeakerPulse"]="animation"
-    ["getSpeakerScale"]="animation"
-    ["calcBounceY"]="animation"
-    ["calcSwayRotZ"]="animation"
-    ["calcWobble"]="animation"
-    ["getWobbleX"]="animation"
-    ["getWobbleZ"]="animation"
-    ["calcAccordionStretch"]="animation"
-    ["getAccordionStretchY"]="animation"
-    ["getAccordionWidthXZ"]="animation"
-    ["calcRainDropY"]="animation"
-    ["calcFloatingY"]="animation"
 
-    # Fluid functions (fluid.cpp)
+    # Fluid (fluid.cpp)
     ["fluidInit"]="fluid"
     ["fluidStep"]="fluid"
     ["fluidAddDensity"]="fluid"
     ["fluidAddVelocity"]="fluid"
     ["fluidGetDensityPtr"]="fluid"
-    
-    # Particle physics functions (particle_physics.cpp)
-    ["updateParticlesWASM"]="particle_physics"
-    ["updateCpuParticlesWASM"]="particle_physics"
-    ["getParticlePhysicsVersion"]="particle_physics"
-    ["initParticleRandom"]="particle_physics"
 
-    # Discovery spatial-grid functions (discovery.cpp)
+    # CPU particle fallback (particle_physics.cpp)
+    ["updateCpuParticlesWASM"]="particle_physics"
+
+    # Discovery spatial grid (discovery.cpp)
     ["initDiscoveryGrid"]="discovery"
     ["registerDiscoverable"]="discovery"
     ["queryDiscoveries"]="discovery"
     ["clearDiscoveryGrid"]="discovery"
 
-    # ECS entity-component system (ecs.cpp)
-    ["ecsInit"]="ecs"
-
     # Boids (boids.cpp)
     ["updateBoids_c"]="boids"
+
+    # ECS slabs (ecs.cpp, src/systems/ecs/world.ts)
+    ["ecsInit"]="ecs"
     ["ecsCreateEntity"]="ecs"
     ["ecsDestroyEntity"]="ecs"
     ["ecsIsAlive"]="ecs"
-    ["ecsGetEntityCount"]="ecs"
     ["ecsRegisterComponent"]="ecs"
     ["ecsGetComponent"]="ecs"
     ["ecsSetComponent"]="ecs"
@@ -381,7 +261,8 @@ declare -A ANIMATION_FUNCTIONS=(
     ["ecsRemoveComponent"]="ecs"
     ["ecsHasComponent"]="ecs"
     ["ecsQueryComponents"]="ecs"
-    ["ecsGetComponentMask"]="ecs"
+    ["ecsQueryComponentPointers"]="ecs"
+    ["ecsGetComponentStride"]="ecs"
 )
 
 # Check each function and add to export list if it exists

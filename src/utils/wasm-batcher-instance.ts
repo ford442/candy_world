@@ -190,4 +190,3 @@ export function writeInstancePose(
     );
     return false;
 }
-

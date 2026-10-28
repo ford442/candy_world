@@ -8,10 +8,7 @@
  * - Spawning: batchMushroomSpawnCandidates, readSpawnCandidates
  */
 
-import {
-    SpawnCandidate,
-    DistanceCullResult,
-} from './wasm-batch-types.ts';
+import { SpawnCandidate, DistanceCullResult } from './wasm-batch-types.ts';
 import {
     wasmInstance,
     positionView,

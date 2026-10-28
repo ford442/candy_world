@@ -417,7 +417,7 @@ The codebase already contains timing markers:
 | `physics.cpp` | 12 | ❌ | ❌ | ✅ Complete |
 | `math.cpp` | 4 | ❌ | ❌ | ✅ Complete |
 | `batch.cpp` | 3 | ❌ | ❌ | ✅ Complete |
-| `mesh_deformation.cpp` | 6 | ✅ | ✅ | 🟡 In Progress |
+| `mesh_deformation.cpp` | 6 | ✅ | ✅ | ❌ Deleted (#2026: no caller) |
 | `particle_physics.cpp` | 5 | ❌ | ❌ | 🟡 In Progress |
 | `fluid.cpp` | 4 | ❌ | ❌ | 🟡 Planned |
 | `lod_batch.cpp` | 4 | ✅ | ❌ | 🟡 In Progress |
@@ -482,8 +482,7 @@ The codebase already contains timing markers:
   - Integrate with existing fluid fog system
 
 - [ ] **Mesh deformation optimization**
-  - Complete `mesh_deformation.cpp` for foliage sway
-  - Add vertex shader integration
+  - `mesh_deformation.cpp` was never called and was deleted (#2026); foliage sway runs in TSL vertex nodes
 
 ---
 

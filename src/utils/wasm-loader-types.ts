@@ -210,15 +210,6 @@ export interface WasmExports {
         playerZ: number,
         time: number
     ) => void;
-    updateBoids_c?: (
-        boidsPtr: number,
-        count: number,
-        dt: number,
-        playerX: number,
-        playerZ: number,
-        time: number
-    ) => void;
-    boidsBufferBytes?: (count: number) => number;
     [key: string]: WasmExportValue | undefined;
     memory: WebAssembly.Memory;
     smoothWobble?: (
@@ -232,7 +223,6 @@ export interface WasmExports {
     ) => number;
     getGroundHeight: (x: number, z: number) => number;
     freqToHue: (freq: number) => number;
-    lerp: (a: number, b: number, t: number) => number;
     batchMushroomSpawnCandidates?: (
         time: number,
         windX: number,
@@ -243,7 +233,6 @@ export interface WasmExports {
         minDistance: number,
         maxDistance: number
     ) => number;
-    updateFoliageBatch?: (...args: number[]) => void;
     initDynamicFoliageMemory?: (maxInstances: number) => number;
     initCollisionSystem?: () => void;
     addCollisionObject?: (
@@ -280,8 +269,6 @@ export interface WasmExports {
     ) => number;
     rbDespawn?: (id: number) => void;
     rbClear?: () => void;
-    rbSetPosition?: (id: number, x: number, y: number, z: number) => void;
-    rbSetVelocity?: (id: number, vx: number, vy: number, vz: number) => void;
     rbApplyImpulse?: (id: number, ix: number, iy: number, iz: number) => void;
     rbApplyRadialImpulse?: (
         x: number,
@@ -303,7 +290,6 @@ export interface WasmExports {
     ) => void;
     rbDisablePlayerProxy?: () => void;
     rbIsSleeping?: (id: number) => number;
-    rbIsGrounded?: (id: number) => number;
 
     // Joints (assembly/joints.ts). initJointSystem() is called for you by
     // initRigidBodySystem(); the bridge only needs the pointer back.
@@ -381,79 +367,13 @@ export interface WasmExports {
     ) => void;
     invalidateGroundCache?: () => void;
     setGroundCacheTTL?: (seconds: number) => void;
-    dampVelocity?: (velocityPtr: number, count: number, damping: number) => void;
-    batchDistanceCalc?: (
-        positionsPtr: number,
-        count: number,
-        camX: number,
-        camY: number,
-        camZ: number,
-        outputPtr: number
-    ) => void;
     batchFrustumTest?: (
         positionsPtr: number,
         count: number,
         frustumPlanesPtr: number,
         outputPtr: number
     ) => number;
-    batchLODSelect?: (
-        distancesPtr: number,
-        count: number,
-        lodThresholdsPtr: number,
-        outputPtr: number
-    ) => number;
     analyzeMaterials?: (offset: number, count: number) => number;
-    getUniqueShaderCount?: () => number;
-    batchAnimationCalc?: (
-        time: number,
-        intensity: number,
-        kick: number,
-        objectCount: number
-    ) => void;
-    // Animation functions
-    calcBounceY?: (time: number, offset: number, intensity: number, kick: number) => number;
-    calcSwayRotZ?: (time: number, offset: number, intensity: number) => number;
-    calcWobble?: (time: number, offset: number, intensity: number) => void;
-    getWobbleX?: () => number;
-    getWobbleZ?: () => number;
-    checkCollision?: (
-        playerX: number,
-        playerZ: number,
-        playerRadius: number,
-        objectCount: number
-    ) => number;
-    // Advanced animations
-    calcAccordionStretch?: (animTime: number, offset: number, intensity: number) => void;
-    getAccordionStretchY?: () => number;
-    getAccordionWidthXZ?: () => number;
-    calcFiberWhip?: (
-        time: number,
-        offset: number,
-        leadVol: number,
-        isActive: number,
-        branchIndex: number
-    ) => void;
-    getFiberBaseRotY?: () => number;
-    getFiberBranchRotZ?: () => number;
-    calcHopY?: (time: number, offset: number, intensity: number, kick: number) => number;
-    calcShiver?: (time: number, offset: number, intensity: number) => void;
-    getShiverRotX?: () => number;
-    getShiverRotZ?: () => number;
-    calcSpiralWave?: (time: number, offset: number, intensity: number, groove: number) => void;
-    getSpiralRotY?: () => number;
-    getSpiralYOffset?: () => number;
-    getSpiralScale?: () => number;
-    calcPrismRose?: (
-        time: number,
-        offset: number,
-        kick: number,
-        groove: number,
-        isActive: number
-    ) => void;
-    getPrismUnfurl?: () => number;
-    getPrismSpin?: () => number;
-    getPrismPulse?: () => number;
-    getPrismHue?: () => number;
     calcArpeggioStep?: (
         currentUnfurl: number,
         currentTarget: number,
@@ -464,40 +384,6 @@ export interface WasmExports {
     ) => void;
     getArpeggioTargetStep?: () => number;
     getArpeggioUnfurlStep?: () => number;
-    lerpColor?: (color1: number, color2: number, t: number) => number;
-    calcRainDropY?: (startY: number, time: number, speed: number, cycleHeight: number) => number;
-    calcFloatingParticle?: (
-        baseX: number,
-        baseY: number,
-        baseZ: number,
-        time: number,
-        offset: number,
-        amplitude: number
-    ) => void;
-    getParticleX?: () => number;
-    getParticleY?: () => number;
-    getParticleZ?: () => number;
-    // New math functions from assembly/math.ts
-    hslToRgb?: (h: number, s: number, l: number) => number;
-    hash2D?: (x: number, y: number) => number;
-    valueNoise2D?: (x: number, y: number) => number;
-    fbm2D?: (x: number, y: number, octaves: number) => number;
-    distSq2D?: (ax: number, ay: number, bx: number, by: number) => number;
-    distSq3D?: (ax: number, ay: number, az: number, bx: number, by: number, bz: number) => number;
-    smoothstep?: (t: number) => number;
-    inverseLerp?: (a: number, b: number, value: number) => number;
-    // New batch functions from assembly/batch.ts
-    batchHslToRgb?: (ptr: number, count: number) => void;
-    batchSphereCull?: (
-        positionsPtr: number,
-        count: number,
-        camX: number,
-        camY: number,
-        camZ: number,
-        maxDist: number,
-        outputPtr: number
-    ) => void;
-    batchLerp?: (ptr: number, count: number) => void;
     // New particle functions from assembly/particles.ts
     updateParticles?: (positionsPtr: number, count: number, dt: number, gravity: number) => void;
     accumulateArpeggioChannels?: (

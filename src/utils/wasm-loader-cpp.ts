@@ -108,7 +108,6 @@ export let cppCalcVineDetachImpulse:
       ) => void)
     | null = null;
 
-
 /** Emscripten module (native C functions) */
 export let emscriptenInstance: EmscriptenModule | null = null;
 /** Snapshot taken at load; may be stale after memory growth. Use getEmscriptenMemory(). */

@@ -65,30 +65,27 @@
 │   ├── accessibility-index.ts    # Accessibility system entry point
 │   └── main.ts                   # Application entry point (re-exports from core)
 ├── assembly/                     # AssemblyScript source (physics module)
-│   ├── index.ts                  # Module exports
+│   ├── index.ts                  # The wasm ABI: every export by name (check:native-exports)
 │   ├── physics.ts                # Collision detection, spatial grid
-│   ├── animation.ts              # Animation calculations
+│   ├── animation.ts              # Arpeggio step state machine
 │   ├── animation_batch.ts        # Batch animation operations
 │   ├── batch.ts                  # Batch operations
 │   ├── constants.ts              # Memory layout constants
 │   ├── discovery.ts              # Discovery system logic
 │   ├── foliage.ts                # Foliage-specific helpers
 │   ├── material_batch.ts         # Material batching
-│   ├── math.ts                   # Math utilities
-│   ├── memory.ts                 # Memory management
+│   ├── math.ts                   # Ground height, frequency → hue
 │   └── particles.ts              # Particle physics
 ├── emscripten/                   # C++ source (compute/animations)
-│   ├── animation.cpp             # Animation functions
-│   ├── animation_batch.cpp       # Batch animation functions
+│   ├── animation.cpp             # Arpeggio step state machine
+│   ├── animation_batch.cpp       # Foliage batch animations (shiver/spring/float/cloud bob)
 │   ├── batch.cpp                 # Batch distance culling
-│   ├── bootstrap_loader.cpp      # Bootstrap / shader warmup progress
 │   ├── fluid.cpp                 # Fluid simulation
-│   ├── lod_batch.cpp             # LOD matrix batch updates
-│   ├── math.cpp                  # Math utilities (noise, hash, SIMD, OpenMP)
-│   ├── mesh_deformation.cpp      # Mesh deformation
-│   ├── particle_physics.cpp      # Particle systems
+│   ├── lod_batch.cpp             # LOD factors + matrix composition
+│   ├── math.cpp                  # Ground height (scalar + SIMD batch), OpenMP team cap
+│   ├── particle_physics.cpp      # CPU particle fallback
 │   ├── physics.cpp               # Physics computations
-│   ├── build.sh                  # Build script with conditional exports
+│   ├── build.sh                  # Build script; ANIMATION_FUNCTIONS is the whole C++ ABI
 │   ├── exports.txt               # Committed export manifest (CI is source of truth)
 │   ├── vendor/libomp.a           # Vendored OpenMP static archive (kept tracked)
 │   └── omp.h                     # OpenMP headers
@@ -211,7 +208,8 @@ npm run verify:emcc:manifest
 
 - **Tier 1** (`.github/workflows/emscripten-ci.yml`): path-filtered PRs/pushes run `pnpm run verify:emcc:manifest` — asserts `build.sh` selection ⊆/`==` committed `emscripten/exports.txt`. No emsdk.
 - **Tier 2** (`.github/workflows/emscripten-verify.yml`): release tags, nightly `main`, and `workflow_dispatch` run `CANDY_DEBUG=0 pnpm run build:emcc` + `verify:emcc --strict` + manifest lint. Not a required PR check (emsdk can flake).
-- After changing `emscripten/build.sh` or `*.cpp` exports, refresh with `pnpm run verify:emcc:manifest -- --write` (or a local `build:emcc`) and commit `exports.txt`.
+- After changing `emscripten/build.sh` or `*.cpp` exports, refresh with `pnpm run verify:emcc:manifest -- --write` (or a local `build:emcc`) and commit `exports.txt`. The manifest lint also fails if an `EMSCRIPTEN_KEEPALIVE` function is missing from `ANIMATION_FUNCTIONS` (EXPORT_KEEPALIVE=1 exports it anyway) or a declared name has no definition.
+- **Dead exports / stale lookups** (`pnpm run check:native-exports`, in `test:fast`): every AS export (`assembly/index.ts`, names only, no `export *`) and every C++ export (exports.txt + KEEPALIVE) must have a caller in `src/` or `tests/`, and every `getNativeFunc('x')` / `exports.x` must name a real export. Baseline `scripts/native-exports-baseline.json` is 0/0 and can only shrink. To add an export, call it from TS (or a test) in the same PR; to drop one, remove it from `assembly/index.ts` or from `build.sh` together with its `EMSCRIPTEN_KEEPALIVE`.
 
 ### Preview & Deploy
 
@@ -256,13 +254,15 @@ Key capabilities:
 
 Key capabilities:
 
-- Animation calculations (bounce, sway, wobble, hop, fiber whip, spiral wave, etc.)
-- Math utilities (fast inverse sqrt, noise, hash, SIMD batches)
-- Batch distance and frustum culling
-- Particle physics updates
-- Fluid simulation step
-- Mesh deformation (wave, jiggle, wobble)
-- Bootstrap loader / shader warmup progress tracking
+- Unified ground height (platforms, cache) and the SIMD batch ground height
+- Player physics assist (`updatePhysicsCPP`, tested by `test:character-native`)
+- Foliage batch animations for the ECS bridge, arpeggio step, foliage interaction batches
+- LOD factors, instanced pose → matrix/color, distance culling
+- CPU particle fallback, fluid simulation step, boids, discovery grid, ECS slabs
+
+Every export has a caller (`npm run check:native-exports`). #2026 slice 1 deleted the 93 that
+had none (the scalar animation calculators, mesh deformation, the bootstrap pthread, the
+noise/fast-math twins, the percussion/melodic/effects batches).
 
 ### Build Behavior
 
