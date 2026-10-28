@@ -17,7 +17,7 @@ import { isAutomation } from '../platform/run-mode.ts';
 //   ?legacyRead=0         — stop reading the pre-WorldDocument stores (on this release)
 //   ?presence=1           — show shared-presence opt-in UI (still requires explicit join)
 //   ?world=<uuid>         — open a shared world and join its room (docs/SHARED_WORLDS.md)
-//   ?generative=1         — in-browser generative soundtrack (or ?music=generative)
+//   ?no_generative        — opt out of the default generative soundtrack (or ?music=tracker)
 //   ?photo=1              — cinematic photo mode (or ?mode=photo)
 //   ?lights=1             — show local point/spot helpers (also implied by ?debug=1)
 //   ?no_clustered         — skip Forward+ clustered local lights (tiny Three.js pool only)
@@ -138,10 +138,15 @@ export const FEATURE_FLAGS = {
         return isPresenceFeatureEnabled();
     },
     /**
-     * In-browser generative soundtrack (?generative=1 or ?music=generative).
+     * In-browser generative soundtrack. On by default (#1976): it plays until the
+     * player loads a tracker file, which takes over. `?no_generative` or
+     * `?music=tracker` opt out; `?generative=1` / `?music=generative` still force it.
      * Drives music-reactivity from sequencer events instead of FFT/VU analysis.
      */
-    generativeMusic: hasUrlFlag('generative') || getUrlFlag('music') === 'generative',
+    generativeMusic:
+        hasUrlFlag('generative') ||
+        getUrlFlag('music') === 'generative' ||
+        (!hasUrlFlag('no_generative') && getUrlFlag('music') !== 'tracker'),
     /** Cinematic photo mode (?photo=1 or ?mode=photo). */
     photoMode: hasUrlFlag('photo') || getUrlFlag('mode') === 'photo',
     /** Forward+ clustered local lights. Off via `?no_clustered` or graphics `low`. */

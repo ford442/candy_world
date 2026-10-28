@@ -69,8 +69,8 @@ Confirm flags-off: `pnpm run analyze:bundle` or grep `dist/chunks/app-*.js` for
 | `map-loader`       | ~16 KB        | ~5 KB   | Enter / map fetch                                     |
 | `world-content`    | ~14 KB        | ~5 KB   | Procedural extras                                     |
 | `profiler`         | ~14 KB        | ~5 KB   | Boot (circular with `app`)                            |
-| `photo-mode`       | ~13 KB        | ~4 KB   | `FEATURE_FLAGS.photoMode` or **P**                    |
-| `generative-music` | ~11 KB        | ~4 KB   | `?generative=1` / `enableGenerativeMode()`            |
+| `photo-mode`       | ~13 KB        | ~4 KB   | `FEATURE_FLAGS.photoMode`, **P** or the HUD button   |
+| `generative-music` | ~11 KB        | ~4 KB   | first click/key (default) / `enableGenerativeMode()`  |
 | `playlist-ui`      | ~10 KB        | ~3 KB   | Boot (circular with `app`)                            |
 | `awakened`         | ~9 KB         | ~3 KB   | After world load (on by default; `?no_awakened` off)  |
 | `authoring`        | see build     | —       | First **B** (build mode + `TransformControls`)        |
@@ -151,8 +151,8 @@ post-FX uniforms and explore-camera APIs via `PhotoModeInitOptions`.
 | ------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | `debug`            | `?debugHeights` / `?debugPlace` / `?debugCircadian` / `?debugFauna` / `?debug=1` | `src/debug/tools-stub.ts`, `src/debug/lazy.ts`       |
 | `net`              | `FEATURE_FLAGS.presence`, `?world=`, the Worlds panel (`docs/SHARED_WORLDS.md`)  | `src/systems/net/lazy.ts`, `src/systems/net/shared-worlds-lazy.ts`, `src/ui/presence-lazy.ts`, `src/ui/worlds-panel-lazy.ts` |
-| `photo-mode`       | `FEATURE_FLAGS.photoMode` or **P**                                               | `src/systems/photo-mode/lazy.ts`                     |
-| `generative-music` | `enableGenerativeMode()` / `?generative=1`                                       | `audio-system-playback.ts`                           |
+| `photo-mode`       | `FEATURE_FLAGS.photoMode`, **P** or the HUD button                               | `src/systems/photo-mode/lazy.ts`                     |
+| `generative-music` | first click/key (default) / `enableGenerativeMode()`                             | `audio-system-playback.ts`                           |
 | `awakened`         | `FEATURE_FLAGS.awakenedPersistence`                                              | `src/systems/awakened-persistence-api.ts`            |
 | `gameplay`         | `preloadGameplay()` / abilities                                                  | `src/gameplay/lazy.ts`                               |
 | `save-ui`          | `openSaveMenu`                                                                   | `src/ui/save-menu/lazy.ts`                           |

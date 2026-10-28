@@ -7,7 +7,7 @@ import {
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, uCircadianPhase, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import { discoverySystem } from '../systems/discovery.ts';
+import { discoverySystem } from '../systems/discovery-optimized.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { spawnImpact } from './impacts.ts';

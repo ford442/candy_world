@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { sugarCaveBatcher } from '../foliage/index.ts';
+import { createHeavyStone } from '../foliage/heavy-stone.ts';
 import { createSkyIsland, skyIslandBatcher } from '../foliage/sky-islands.ts';
 import {
     registerWalkableIslandPlatform,
@@ -26,6 +27,7 @@ import {
     validateSkyIslandGraph,
     initSkyIslandDebug,
 } from './sky-island-graph.ts';
+import { SUGAR_CAVES_TRAVERSAL } from './sugar-caves-traversal.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
 
 /**
@@ -71,6 +73,32 @@ export async function populateSugarCaves(weatherSystem: WeatherSystem): Promise<
         sugarCaveBatcher.add(_scratchPos, _scratchQuat, scale);
 
         if (i % 20 === 19) await yieldControl();
+    }
+
+    placeHeavyStones(weatherSystem);
+}
+
+/** Heavy stones on the cave floor, beside the path (needs 3 for Wind Anchor). */
+const HEAVY_STONE_COUNT = 4;
+
+function placeHeavyStones(weatherSystem: WeatherSystem): void {
+    const { startX, startZ, endX, endZ } = SUGAR_CAVES;
+    const dx = endX - startX;
+    const dz = endZ - startZ;
+    const length = Math.hypot(dx, dz) || 1;
+    // Unit normal to the cave path, so stones alternate sides of it.
+    const nx = -dz / length;
+    const nz = dx / length;
+    for (let i = 0; i < HEAVY_STONE_COUNT; i++) {
+        const t = (i + 1) / (HEAVY_STONE_COUNT + 1);
+        const side = i % 2 === 0 ? 1 : -1;
+        const stone = createHeavyStone();
+        stone.position.set(
+            startX + dx * t + nx * 2.5 * side,
+            SUGAR_CAVES_TRAVERSAL.caveFloorY,
+            startZ + dz * t + nz * 2.5 * side
+        );
+        safeAddFoliage(stone, false, 1.0, weatherSystem);
     }
 }
 

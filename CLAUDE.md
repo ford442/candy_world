@@ -83,7 +83,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - **`music-reactivity.ts`**: Audio-driven visual feedback (beat pulses, reactivity)
 - **`weather/`**: Weather effects (rain, wind, snow)
 - **`interaction.ts`**: Clickable objects, inventory, UI responses
-- **`discovery-*.ts`**: Discovery/quest system (persistence, optimization)
+- **`discovery-*.ts`**: Discovery system. `discovery-optimized.ts` holds the one registry (`discoverySystem`); `discovery-log.ts` is the log UI; `unlocks.ts` is the item/ability loop (`docs/PROGRESSION.md`)
 - **`accessibility.ts`**: Keyboard navigation, text alternatives
 - **`material-batcher.ts`**: Material optimization and batching
 - **`performance-budget/`**: Performance monitoring and alerts
@@ -428,6 +428,7 @@ npm run optimize        # Apply all optimizations (experimental)
 ## Further Reading
 
 - **Architecture**: `docs/ARCHITECTURE.md` — Frame phases, system registration, the fixed step, entity ownership
+- **Progression**: `docs/PROGRESSION.md` — Unlocks, their item sources and effects, adding one
 - **Input**: `docs/INPUT.md` — Actions, contexts, adding a binding, rebinding
 - **Authoring**: `docs/AUTHORING.md` — Build mode, world commands, the WorldDocument command log
 - **Shared worlds**: `docs/SHARED_WORLDS.md` — Publishing, share links, the co-editing protocol and conflict model, RLS

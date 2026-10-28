@@ -8,7 +8,7 @@ import {
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import { discoverySystem } from '../systems/discovery.ts';
+import { discoverySystem } from '../systems/discovery-optimized.ts';
 import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { showToast } from '../utils/toast.ts';

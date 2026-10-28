@@ -43,7 +43,7 @@ import { awakenedPersistence } from '../awakened-persistence-api.ts';
 import { AWAKENABLE_TYPES } from '../awakened-types.ts';
 import { getBuildCursor, getBuildSelection } from '../build-mode-state.ts';
 import { DISCOVERY_MAP } from '../discovery-map.ts';
-import { discoverySystem } from '../discovery.ts';
+import { discoverySystem } from '../discovery-optimized.ts';
 import type { EditHistory, EditHistoryEvent, WorldCommand } from '../edit-history.ts';
 import { applyRemoteProgress, onProgress, type ProgressEvent } from '../progress-events.ts';
 import { MoveCommand, RemoveCommand } from '../world-commands.ts';

@@ -279,7 +279,7 @@ try {
     // 4. Shared progress within 1 s.
     const t0 = Date.now();
     await A.page.evaluate(async () =>
-        (await import('/src/systems/discovery.ts')).discoverySystem.discover(
+        (await import('/src/systems/discovery-optimized.ts')).discoverySystem.discover(
             'harmony_orb',
             'Harmony Orb',
             '🔮'
@@ -287,7 +287,7 @@ try {
     );
     await B.page.waitForFunction(
         async () =>
-            (await import('/src/systems/discovery.ts')).discoverySystem.isDiscovered('harmony_orb'),
+            (await import('/src/systems/discovery-optimized.ts')).discoverySystem.isDiscovered('harmony_orb'),
         null,
         { timeout: 5000, polling: 20 }
     );
@@ -332,7 +332,7 @@ try {
     await sleep(800);
     const progressAfter = (await roomInfo(A)).stats.dropped;
     const forged = await A.page.evaluate(async () => {
-        const { discoverySystem } = await import('/src/systems/discovery.ts');
+        const { discoverySystem } = await import('/src/systems/discovery-optimized.ts');
         return (
             discoverySystem.isDiscovered('made_up_find') ||
             discoverySystem.isDiscovered('silence_spirit')
