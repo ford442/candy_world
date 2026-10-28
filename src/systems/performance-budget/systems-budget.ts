@@ -86,7 +86,8 @@ export const SYSTEM_BUDGETS: Readonly<Record<SystemBudgetId, SystemBudget>> = {
         label: 'Post-FX stack',
         frameMs: 2.5,
         vramMb: 64,
-        caps: { passes: 6 },
+        // scene + bloom + DoF + GTAO + SMAA (4) + FSR 1 (2) on `high` with dynres.
+        caps: { passes: 10 },
         skipOnLow: true,
     },
     particles: {
@@ -254,6 +255,8 @@ export interface SystemTelemetry {
     frameMs?: number;
     /** Estimated GPU memory in MB. */
     vramMb?: number;
+    /** Short free-text state shown after the counts (e.g. the post-FX AA mode). */
+    detail?: string;
 }
 
 export type SystemTelemetryProvider = () => SystemTelemetry;

@@ -27,7 +27,7 @@ struct Uniforms {
 @group(0) @binding(1) var<storage, read> offsets: array<f32>;
 @group(0) @binding(2) var<storage, read> intensities: array<f32>;
 @group(0) @binding(3) var<storage, read> originalYs: array<f32>;
-@group(0) @binding(4) var<storage, write> outScalars: array<f32>;
+@group(0) @binding(4) var<storage, read_write> outScalars: array<f32>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -86,15 +86,26 @@ interface BatchGpuState {
 
 let _batch: BatchGpuState | null = null;
 let _initPromise: Promise<boolean> | null = null;
+/** Set when the pipeline cannot be built; the WASM path then serves every batch. */
+let _batchDisabled = false;
 
 async function ensureBatchGpu(maxCount: number): Promise<boolean> {
-    if (!preferGpuCompute() || !isGpuComputeReady()) return false;
+    if (_batchDisabled || !preferGpuCompute() || !isGpuComputeReady()) return false;
     if (_initPromise && _batch && _batch.maxCount >= maxCount) return _initPromise;
 
+    // What this attempt allocates, so a failure part-way through can release it.
+    const created: GPUBuffer[] = [];
+    let trackedBytes = 0;
     _initPromise = (async () => {
         const gpu = getSharedGPUCompute();
         const device = gpu.getDevice();
         if (!device) return false;
+
+        const makeBuffer = (descriptor: GPUBufferDescriptor): GPUBuffer => {
+            const buffer = device.createBuffer(descriptor);
+            created.push(buffer);
+            return buffer;
+        };
 
         const cap = Math.max(maxCount, 512);
         const fBytes = cap * 4;
@@ -109,38 +120,39 @@ async function ensureBatchGpu(maxCount: number): Promise<boolean> {
         _batch?.readBufferA?.destroy();
         _batch?.readBufferB?.destroy();
 
-        const offsetBuffer = device.createBuffer({
+        const offsetBuffer = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        const intensityBuffer = device.createBuffer({
+        const intensityBuffer = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        const yBuffer = device.createBuffer({
+        const yBuffer = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        const outBuffer = device.createBuffer({
+        const outBuffer = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
         });
-        const uniformBuffer = device.createBuffer({
+        const uniformBuffer = makeBuffer({
             size: 16,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
 
-        const readBufferA = device.createBuffer({
+        const readBufferA = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
         });
-        const readBufferB = device.createBuffer({
+        const readBufferB = makeBuffer({
             size: fBytes,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
         });
 
-        trackGpuBufferBytes(fBytes * 4 + 16 + fBytes * 2);
+        trackedBytes = fBytes * 4 + 16 + fBytes * 2;
+        trackGpuBufferBytes(trackedBytes);
 
         const layout = device.createBindGroupLayout({
             entries: [
@@ -200,7 +212,16 @@ async function ensureBatchGpu(maxCount: number): Promise<boolean> {
             scalarStaging: new Float32Array(cap),
         };
         return true;
-    })();
+    })().catch((err: unknown) => {
+        // An optional accelerator: a pipeline error must not fail startup, and
+        // must not keep what this attempt allocated either.
+        for (const buffer of created) buffer.destroy();
+        if (trackedBytes > 0) trackGpuBufferBytes(-trackedBytes);
+        _batchDisabled = true;
+        _batch = null;
+        console.warn('[FoliageGpuBatch] GPU batch disabled, using WASM:', err);
+        return false;
+    });
 
     return _initPromise;
 }
@@ -224,14 +245,19 @@ export async function runFoliageGpuScalarBatch(
 ): Promise<Float32Array | null> {
     if (count === 0) return new Float32Array(0);
     const ready = await ensureBatchGpu(count);
-    if (!ready || !_batch) return null;
+    // Two overlapping inits can settle out of order and leave the smaller one
+    // installed; never dispatch past its buffers. The next call rebuilds it.
+    if (!ready || !_batch || _batch.maxCount < count) return null;
+    // The state can be rebuilt (a larger batch) or disposed (device loss) while
+    // this call awaits the previous readback; hold on to the one we started with.
+    const state = _batch;
 
     const gpu = getSharedGPUCompute();
     const device = gpu.getDevice()!;
 
-    gpu.writeStorageBuffer(_batch.offsetBuffer!, offsets.subarray(0, count));
-    gpu.writeStorageBuffer(_batch.intensityBuffer!, intensities.subarray(0, count));
-    gpu.writeStorageBuffer(_batch.yBuffer!, originalYs.subarray(0, count));
+    gpu.writeStorageBuffer(state.offsetBuffer!, offsets.subarray(0, count));
+    gpu.writeStorageBuffer(state.intensityBuffer!, intensities.subarray(0, count));
+    gpu.writeStorageBuffer(state.yBuffer!, originalYs.subarray(0, count));
 
     const f32 = _scalarF32;
     const u32 = _scalarU32;
@@ -239,12 +265,12 @@ export async function runFoliageGpuScalarBatch(
     f32[1] = kick;
     u32[2] = count;
     u32[3] = MODE_ID[mode];
-    gpu.writeUniformBuffer(_batch.uniformBuffer!, f32);
+    gpu.writeUniformBuffer(state.uniformBuffer!, f32);
 
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginComputePass();
-    pass.setPipeline(_batch.pipeline!);
-    pass.setBindGroup(0, _batch.bindGroup!);
+    pass.setPipeline(state.pipeline!);
+    pass.setBindGroup(0, state.bindGroup!);
     pass.dispatchWorkgroups(Math.ceil(count / 64));
     pass.end();
 
@@ -252,20 +278,23 @@ export async function runFoliageGpuScalarBatch(
     const readBytes = count * 4;
 
     // Await the mapping from the *previous* frame
-    if (_batch.mapPromise) {
+    if (state.mapPromise) {
         try {
-            await _batch.mapPromise;
-            const prevBuffer = _batch.currentReadBufferIndex === 0 ? _batch.readBufferA! : _batch.readBufferB!;
+            await state.mapPromise;
+            // Replaced or disposed meanwhile: its buffers are destroyed, so do not
+            // read them or submit work against them. The next call starts fresh.
+            if (_batch !== state) return null;
+            const prevBuffer = state.currentReadBufferIndex === 0 ? state.readBufferA! : state.readBufferB!;
             const mapped = new Float32Array(prevBuffer.getMappedRange());
 
             // Copy into our persistent CPU staging buffer
-            const safeCount = Math.min(_batch.prevCount, _batch.maxCount);
+            const safeCount = Math.min(state.prevCount, state.maxCount);
             for (let i = 0; i < safeCount; i++) {
-                _batch.scalarStaging![i] = mapped[i];
+                state.scalarStaging![i] = mapped[i];
             }
             prevBuffer.unmap();
         } catch {
-            const prevBuffer = _batch.currentReadBufferIndex === 0 ? _batch.readBufferA! : _batch.readBufferB!;
+            const prevBuffer = state.currentReadBufferIndex === 0 ? state.readBufferA! : state.readBufferB!;
             if (prevBuffer.mapState === 'mapped') {
                 prevBuffer.unmap();
             }
@@ -273,21 +302,21 @@ export async function runFoliageGpuScalarBatch(
     }
 
     // Swap buffers for current frame dispatch
-    _batch.currentReadBufferIndex = 1 - _batch.currentReadBufferIndex;
-    const currBuffer = _batch.currentReadBufferIndex === 0 ? _batch.readBufferA! : _batch.readBufferB!;
+    state.currentReadBufferIndex = 1 - state.currentReadBufferIndex;
+    const currBuffer = state.currentReadBufferIndex === 0 ? state.readBufferA! : state.readBufferB!;
     if (currBuffer.mapState !== 'unmapped') {
         currBuffer.unmap();
     }
 
-    encoder.copyBufferToBuffer(_batch.outBuffer!, 0, currBuffer, 0, readBytes);
+    encoder.copyBufferToBuffer(state.outBuffer!, 0, currBuffer, 0, readBytes);
     device.queue.submit([encoder.finish()]);
 
     // Start mapAsync for NEXT frame, do not await it here
-    _batch.mapPromise = currBuffer.mapAsync(GPUMapMode.READ, 0, readBytes).catch(() => {});
-    _batch.prevCount = count;
+    state.mapPromise = currBuffer.mapAsync(GPUMapMode.READ, 0, readBytes).catch(() => {});
+    state.prevCount = count;
 
     setLastFrameGpuFoliage(true);
-    return _batch.scalarStaging!.subarray(0, count);
+    return state.scalarStaging!.subarray(0, count);
 }
 
 const _pendingBatches = new Map<string, Promise<Float32Array | null>>();

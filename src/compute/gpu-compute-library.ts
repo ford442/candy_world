@@ -2,6 +2,7 @@ import {
     awaitGpuDevice,
     getGpuContextSync,
     onGpuDeviceLost,
+    onGpuDeviceRestored,
 } from '../rendering/gpu-context.ts';
 import { log } from "../utils/log.ts";
 /**
@@ -66,6 +67,7 @@ export class GPUComputeLibrary {
     private metrics: ComputeMetrics = {};
     private _ready = false;
     private unsubscribeDeviceLost: (() => void) | null = null;
+    private unsubscribeDeviceRestored: (() => void) | null = null;
 
     // =========================================================================
     // Device Management
@@ -111,7 +113,15 @@ export class GPUComputeLibrary {
 
         // Loss is owned by gpu-context; react by soft-disabling compute so the
         // GPU wrappers drop back to CPU instead of dispatching onto a dead
-        // device. Caches are dropped with the device that created them.
+        // device. Caches are dropped with the device that created them. When
+        // the renderer recovers, adopt the new device: the lazily initialised
+        // GPU paths (plant pose, foliage batches, chores) then come back too.
+        this.unsubscribeDeviceLost?.();
+        this.unsubscribeDeviceRestored ??= onGpuDeviceRestored(() => {
+            this.initDevice().catch((err: unknown) => {
+                console.warn('[GPU] Could not adopt the recovered device:', err);
+            });
+        });
         this.unsubscribeDeviceLost = onGpuDeviceLost(() => {
             this._ready = false;
             this.device = null;
@@ -450,6 +460,8 @@ export class GPUComputeLibrary {
         this.metrics = {};
         this.unsubscribeDeviceLost?.();
         this.unsubscribeDeviceLost = null;
+        this.unsubscribeDeviceRestored?.();
+        this.unsubscribeDeviceRestored = null;
         this.device = null;
         this.adapter = null;
         this._ready = false;

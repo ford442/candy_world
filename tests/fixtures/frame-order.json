@@ -1,5 +1,6 @@
 [
     "source:audio-clock",
+    "input:input-actions",
     "input:interaction",
     "input:chunk-streaming",
     "fixed:player-physics",

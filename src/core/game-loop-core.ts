@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 import type { AudioSystem } from '../audio/audio-system.ts';
 import type { BeatSync } from '../audio/beat-sync.ts';
 import { initGroundDebug } from '../debug/tools-stub.ts';
@@ -197,7 +198,7 @@ export function setLoggedWebGPULimits(v: boolean) {
     _loggedWebGPULimits = v;
 }
 
-export type WebGPURendererWithDeviceLimits = THREE.Renderer & {
+export type WebGPURendererWithDeviceLimits = Renderer & {
     backend?: {
         device?: {
             limits?: GPUSupportedLimits;

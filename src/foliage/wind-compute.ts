@@ -32,7 +32,7 @@ const modFloat = (x: any, y: any) => {
     const yf = float(y);
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
-import { StorageTexture } from 'three/webgpu';
+import { StorageTexture, type Node } from 'three/webgpu';
 import { getWindState } from '../systems/wind-uniforms.ts';
 
 // Wind texture configuration
@@ -199,7 +199,8 @@ export class WindComputeSystem {
             const outColor = vec4(windX, windZ, gustSharp, 0.0);
 
             // Convert x, y back to int coordinates for textureStore
-            const ivec2_coords = ivec2(x, y);
+            // Float coords: TSL converts into ivec2, three's types do not.
+            const ivec2_coords = ivec2(x as unknown as Node<'int'>, y as unknown as Node<'int'>);
             textureStore(this.windTexture as StorageTexture, ivec2_coords, outColor);
         });
 

@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import type { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import type { AudioSystem } from '../../../audio/audio-system';
 import type { ExploreCameraController, ExploreVariant } from '../../camera-modes.ts';
 

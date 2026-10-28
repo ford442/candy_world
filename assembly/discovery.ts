@@ -154,33 +154,6 @@ export function registerDiscoveryObject(x: f32, y: f32, z: f32, typeId: i32): i3
 }
 
 /**
- * Update object position (if it moves)
- * Note: This is expensive as it requires grid reinsertion
- * Only call for mobile objects
- */
-export function updateDiscoveryPosition(id: i32, x: f32, y: f32, z: f32): void {
-    if (id < 0 || id >= discoveryObjectCount) return;
-
-    const base = DISCOVERY_BUFFER_OFFSET + (id * DISCOVERY_STRIDE * 4);
-
-    // Get old position to remove from old grid cell
-    const oldX = load<f32>(base + OFF_POS_X * 4);
-    const oldZ = load<f32>(base + OFF_POS_Z * 4);
-
-    const oldGridIdx = getDiscoveryGridIndex(oldX, oldZ);
-    const newGridIdx = getDiscoveryGridIndex(x, z);
-
-    // If grid cell changed, we need to reinsert
-    // For simplicity, we just update position - grid reinsertion is complex
-    // Discovery objects are typically static, so this is rare
-
-    // Update position
-    store<f32>(base + OFF_POS_X * 4, x);
-    store<f32>(base + OFF_POS_Y * 4, y);
-    store<f32>(base + OFF_POS_Z * 4, z);
-}
-
-/**
  * Check discovery for a player position
  * Uses spatial grid for O(1) lookup instead of O(N)
  * 
@@ -248,38 +221,6 @@ export function checkDiscoverySpatial(
 }
 
 /**
- * Batch discovery check for multiple players/probes
- * Efficiently processes multiple positions in one call
- * 
- * @param positions - Flat array of positions [x1, y1, z1, x2, y2, z2, ...]
- * @param count - Number of positions
- * @param results - Output array of discovered type IDs (0 if no discovery)
- */
-export function batchDiscoveryCheck(
-    positionsPtr: i32,
-    count: i32,
-    resultsPtr: i32
-): void {
-    for (let i = 0; i < count; i++) {
-        const offset = i * 3 * 4; // 3 floats per position
-
-        const x = load<f32>(positionsPtr + offset);
-        const y = load<f32>(positionsPtr + offset + 4);
-        const z = load<f32>(positionsPtr + offset + 8);
-
-        const discoveredId = checkDiscoverySpatial(x, y, z, 0);
-
-        if (discoveredId >= 0) {
-            const base = DISCOVERY_BUFFER_OFFSET + (discoveredId * DISCOVERY_STRIDE * 4);
-            const typeId = i32(load<f32>(base + OFF_TYPE_ID * 4));
-            store<i32>(resultsPtr + (i * 4), typeId);
-        } else {
-            store<i32>(resultsPtr + (i * 4), 0);
-        }
-    }
-}
-
-/**
  * Mark an object as discovered
  * @param id - Object index
  */
@@ -328,13 +269,6 @@ export function resetAllDiscoveries(): void {
 }
 
 /**
- * Get the total number of registered discovery objects
- */
-export function getDiscoveryObjectCount(): i32 {
-    return discoveryObjectCount;
-}
-
-/**
  * Get the number of undiscovered objects
  */
 export function getUndiscoveredCount(): i32 {
@@ -349,9 +283,3 @@ export function getUndiscoveredCount(): i32 {
     return count;
 }
 
-/**
- * Increment frame counter (call once per frame)
- */
-export function incrementDiscoveryFrame(): void {
-    frameCounter++;
-}

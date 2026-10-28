@@ -13,6 +13,7 @@
 import * as THREE from 'three';
 import { FEATURE_FLAGS } from '../../core/config.ts';
 import { cameraRef, rendererRef } from '../../core/game-loop-core.ts';
+import { input } from '../../core/input/actions/index.ts';
 import { registerSystem } from '../../core/scheduler/index.ts';
 import { announce } from '../../ui/announcer.ts';
 import { showToast } from '../../utils/toast.ts';
@@ -61,7 +62,6 @@ import {
     type PlacementGhost,
 } from './placement-core.ts';
 
-const ROTATE_STEP = Math.PI / 12; // 15°
 const KEY_ROTATE_STEP = Math.PI / 4;
 const SCALE_STEP = 0.1;
 const MIN_SCALE = 0.2;
@@ -112,6 +112,9 @@ const _selectionRings: THREE.Mesh[] = [];
 let _ringGeo: THREE.RingGeometry | null = null;
 let _ringMat: THREE.MeshBasicMaterial | null = null;
 let _unregisterSystem: (() => void) | null = null;
+/** The `build` context and action handlers, released on disable. */
+let _unbindInput: (() => void)[] = [];
+let _popGizmoContext: (() => void) | null = null;
 
 export function isBuildModeActive(): boolean {
     return _active;
@@ -174,9 +177,7 @@ function enableBuildMode(scene: THREE.Scene): void {
         });
     }
 
-    window.addEventListener('keydown', onKeyDown, { capture: true });
-    window.addEventListener('wheel', onWheel, { passive: false, capture: true });
-    window.addEventListener('mousedown', onMouseDown, { capture: true });
+    _unbindInput = bindBuildActions();
     window.addEventListener('contextmenu', onContextMenu, { capture: true });
 
     // Edits must land in the open document: hold them until it is ready.
@@ -210,9 +211,8 @@ function disableBuildMode(): void {
     syncSelectionRings();
     reportBuildCursor(false, 0, 0, 0, _tool);
 
-    window.removeEventListener('keydown', onKeyDown, { capture: true });
-    window.removeEventListener('wheel', onWheel, { capture: true });
-    window.removeEventListener('mousedown', onMouseDown, { capture: true });
+    for (const off of _unbindInput) off();
+    _unbindInput = [];
     window.removeEventListener('contextmenu', onContextMenu, { capture: true });
 
     report();
@@ -626,6 +626,7 @@ function openGizmo(): void {
     }
     _held = null;
     _gizmo.open(subjects[0]);
+    _popGizmoContext ??= input.pushContext('gizmo');
     _ui?.setGizmo(true, _gizmo.mode);
     report();
     if (document.pointerLockElement) document.exitPointerLock();
@@ -641,6 +642,8 @@ function setGizmoMode(mode: GizmoMode): void {
 function closeGizmo(): void {
     if (!_gizmo?.isOpen) return;
     _gizmo.close();
+    _popGizmoContext?.();
+    _popGizmoContext = null;
     _ui?.setGizmo(false, _gizmo.mode);
     report();
     // Closing is a key press or a click: a user gesture, so re-locking is allowed.
@@ -687,12 +690,6 @@ function syncSelectionRings(): void {
 // Input
 // ---------------------------------------------------------------------------
 
-function isTextEntry(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false;
-    const tag = target.tagName;
-    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
-}
-
 function nudge(dx: number, dz: number): void {
     _offset.x = round(_offset.x + dx);
     _offset.z = round(_offset.z + dz);
@@ -702,91 +699,67 @@ function setScale(next: number): void {
     _scale = round(THREE.MathUtils.clamp(next, MIN_SCALE, MAX_SCALE), 2);
 }
 
-function onKeyDown(e: KeyboardEvent): void {
-    if (!_active || isTextEntry(e.target)) return;
-    const ctrl = e.ctrlKey || e.metaKey;
-    let handled = true;
-
-    if (_gizmo?.isOpen) {
-        if (e.code === 'KeyT') setGizmoMode('translate');
-        else if (e.code === 'KeyY') setGizmoMode('rotate');
-        else if (e.code === 'KeyU') setGizmoMode('scale');
-        else if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Escape')
-            closeGizmo();
-        else if (ctrl && e.code === 'KeyZ') undoRedo(!e.shiftKey);
-        else handled = false;
-        if (handled) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        return;
-    }
-
-    if (ctrl && e.code === 'KeyZ') undoRedo(!e.shiftKey);
-    else if (ctrl && e.code === 'KeyY') undoRedo(false);
-    else if (ctrl) handled = false;
-    else if (e.code === 'Digit1') setTool('place');
-    else if (e.code === 'Digit2') setTool('select');
-    else if (e.code === 'Digit3') setTool('paint');
-    else if (e.code === 'Digit4') setTool('remove');
-    else if (e.code === 'BracketLeft') (e.shiftKey ? stepCategory : stepEntry)(-1);
-    else if (e.code === 'BracketRight') (e.shiftKey ? stepCategory : stepEntry)(1);
-    else if (e.code === 'KeyR') _yaw += e.shiftKey ? -KEY_ROTATE_STEP : KEY_ROTATE_STEP;
-    else if (e.code === 'Equal' || e.code === 'NumpadAdd') setScale(_scale + SCALE_STEP);
-    else if (e.code === 'Minus' || e.code === 'NumpadSubtract') setScale(_scale - SCALE_STEP);
-    else if (e.code === 'KeyG') {
-        _snap = !_snap;
-        announce(_snap ? 'Grid snap on' : 'Grid snap off', 'polite');
-    } else if (e.code === 'KeyC') setPaint(_paintIndex + (e.shiftKey ? -1 : 1));
-    else if (e.code === 'ArrowLeft') nudge(-NUDGE_STEP, 0);
-    else if (e.code === 'ArrowRight') nudge(NUDGE_STEP, 0);
-    else if (e.code === 'ArrowUp') nudge(0, NUDGE_STEP);
-    else if (e.code === 'ArrowDown') nudge(0, -NUDGE_STEP);
-    else if (e.code === 'Home') {
-        _offset.x = 0;
-        _offset.z = 0;
-        announce('Cursor back at the reticle', 'polite');
-    } else if (e.code === 'Enter' || e.code === 'NumpadEnter') {
-        if (!e.repeat) actAtCursor(0, e.shiftKey);
-    } else if (e.code === 'Delete' || e.code === 'Backspace') {
-        if (!e.repeat && _ready) removeSubjects();
-    } else if (e.code === 'KeyM') {
-        if (!e.repeat && _ready) grabSubjects();
-    } else if (e.code === 'KeyF') {
-        if (!e.repeat && _ready) openGizmo();
-    } else if (e.code === 'Escape') {
-        // Esc also releases pointer lock (the browser's, not ours): let the
-        // pause menu open as usual, but drop the move in progress.
-        cancelHeld();
-        handled = false;
-    } else handled = false;
-
-    if (handled) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-}
-
-function onWheel(e: WheelEvent): void {
-    if (!_active || _gizmo?.isOpen || _ui?.contains(e.target)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const dir = e.deltaY < 0 ? 1 : -1;
-    if (e.shiftKey) setScale(_scale + dir * SCALE_STEP);
-    else _yaw += dir * ROTATE_STEP;
+/**
+ * Build-mode input is the `build` context (#2027): it claims mouse 0/2, the
+ * wheel and its keys, so `fire`, `dance` and the rest don't reach gameplay,
+ * while WASD and look still do. The open gizmo pushes `gizmo` on top.
+ */
+function bindBuildActions(): (() => void)[] {
+    const repeat = { repeat: true };
+    const ready = (fn: () => void) => () => {
+        if (_ready) fn();
+    };
+    return [
+        input.pushContext('build'),
+        input.onPress('build.place', () => actAtCursor(0, false)),
+        input.onPress('build.select.add', () => actAtCursor(0, true)),
+        input.onPress('build.remove', () => {
+            if (!_ready) return refuse('Still opening your world…');
+            removeSubjects();
+        }),
+        input.onPress('build.tool.1', () => setTool('place')),
+        input.onPress('build.tool.2', () => setTool('select')),
+        input.onPress('build.tool.3', () => setTool('paint')),
+        input.onPress('build.tool.4', () => setTool('remove')),
+        input.onPress('build.piece', (s) => stepEntry(Math.sign(s.value)), repeat),
+        input.onPress('build.category', (s) => stepCategory(Math.sign(s.value)), repeat),
+        // A key press is ±1 (45°), a wheel notch ±1/3 (15°): see bindings.ts.
+        input.onPress('build.rotate', (s) => (_yaw += s.value * KEY_ROTATE_STEP), repeat),
+        input.onPress(
+            'build.scale',
+            (s) => setScale(_scale + Math.sign(s.value) * SCALE_STEP),
+            repeat
+        ),
+        input.onPress('build.snap', () => {
+            _snap = !_snap;
+            announce(_snap ? 'Grid snap on' : 'Grid snap off', 'polite');
+        }),
+        input.onPress('build.paint', (s) => setPaint(_paintIndex + Math.sign(s.value)), repeat),
+        input.onPress(
+            'build.nudge',
+            ({ axis }) => nudge(Math.sign(axis.x) * NUDGE_STEP, Math.sign(axis.y) * NUDGE_STEP),
+            repeat
+        ),
+        input.onPress('build.recenter', () => {
+            _offset.x = 0;
+            _offset.z = 0;
+            announce('Cursor back at the reticle', 'polite');
+        }),
+        input.onPress('build.grab', ready(grabSubjects)),
+        input.onPress('build.gizmo', ready(openGizmo)),
+        // Esc also releases pointer lock (the browser's): the pause menu opens
+        // as usual, and the move in progress is dropped.
+        input.onPress('build.cancel', cancelHeld),
+        input.onPress('undo', () => undoRedo(true), repeat),
+        input.onPress('redo', () => undoRedo(false), repeat),
+        input.onPress('gizmo.translate', () => setGizmoMode('translate')),
+        input.onPress('gizmo.rotate', () => setGizmoMode('rotate')),
+        input.onPress('gizmo.scale', () => setGizmoMode('scale')),
+        input.onPress('gizmo.done', closeGizmo),
+    ];
 }
 
 function onContextMenu(e: MouseEvent): void {
     if (!_active || _ui?.contains(e.target)) return;
     e.preventDefault();
-}
-
-function onMouseDown(e: MouseEvent): void {
-    if (!_active || _ui?.contains(e.target) || _gizmo?.isOpen) return;
-    // Without pointer lock a canvas click is the "resume" click, not an edit.
-    if (!document.pointerLockElement) return;
-    if (e.button !== 0 && e.button !== 2) return;
-    e.preventDefault();
-    e.stopPropagation();
-    actAtCursor(e.button, e.shiftKey);
 }

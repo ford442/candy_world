@@ -45,6 +45,10 @@ jobs:
       - name: Single-player boot loads no networking code
         run: pnpm run check:net-chunk
 
+      # Prod native modules carry no .wat, no map and no sourceMappingURL.
+      - name: dist ships no native debug output
+        run: pnpm run check:dist-wasm
+
       - name: Upload budget report
         if: always()
         uses: actions/upload-artifact@v7

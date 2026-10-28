@@ -26,7 +26,6 @@ import {
     wasmGetGroundHeight,
     wasmBatchGroundHeight,
     wasmFreqToHue,
-    wasmLerp,
     updatePhysicsCPP as cachedUpdatePhysicsCPP,
     initPhysics as cachedInitPhysics,
     setPlayerState as cachedSetPlayerState,
@@ -36,11 +35,6 @@ import {
     getPlayerVX as cachedGetPlayerVX,
     getPlayerVY as cachedGetPlayerVY,
     getPlayerVZ as cachedGetPlayerVZ,
-    valueNoise2D as cachedValueNoise2D,
-    fbm as cachedFbm,
-    fastInvSqrt as cachedFastInvSqrt,
-    fastDistance as cachedFastDistance,
-    hash as cachedHash,
     getNativeFunc,
     POSITION_OFFSET,
     BATCH_UPLOAD_OFFSET,
@@ -495,25 +489,6 @@ export function checkPositionValidity(x: number, z: number, radius: number): num
     return 0; // Default to valid if WASM not ready
 }
 
-/**
- * Check collision
- * @param playerX - Player X position
- * @param playerZ - Player Z position
- * @param playerRadius - Player radius
- * @param objectCount - Number of objects
- * @returns True if collision detected
- */
-export function checkCollision(
-    playerX: number,
-    playerZ: number,
-    playerRadius: number,
-    objectCount: number
-): boolean {
-    if (!wasmInstance) return false;
-    const exports = wasmInstance.exports as WasmExports;
-    return exports.checkCollision!(playerX, playerZ, playerRadius, objectCount) === 1;
-}
-
 // =============================================================================
 // NATIVE C++ PHYSICS WRAPPERS
 // =============================================================================
@@ -624,90 +599,6 @@ export function getPlayerState(out: Partial<PlayerStateResult> = {}): PlayerStat
 // =============================================================================
 // MATH FALLBACKS
 // =============================================================================
-
-/**
- * Value noise 2D
- * @param x - X coordinate
- * @param y - Y coordinate
- * @returns Noise value
- */
-export function valueNoise2D(x: number, y: number): number {
-    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
-    if (cachedValueNoise2D) return cachedValueNoise2D(x, y);
-    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-    return n - Math.floor(n);
-}
-
-/**
- * Fractal Brownian Motion
- * @param x - X coordinate
- * @param y - Y coordinate
- * @param octaves - Number of octaves
- * @returns FBM value
- */
-export function fbm(x: number, y: number, octaves = 4): number {
-    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
-    if (cachedFbm) return cachedFbm(x, y, octaves);
-    let value = 0,
-        amp = 0.5,
-        freq = 1;
-    for (let i = 0; i < octaves; i++) {
-        value += amp * valueNoise2D(x * freq, y * freq);
-        amp *= 0.5;
-        freq *= 2;
-    }
-    return value;
-}
-
-/**
- * Fast inverse square root
- * @param x - Input value
- * @returns 1/sqrt(x)
- */
-export function fastInvSqrt(x: number): number {
-    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
-    if (cachedFastInvSqrt) return cachedFastInvSqrt(x);
-    return 1 / Math.sqrt(x);
-}
-
-/**
- * Fast distance calculation
- * @param x1 - Point 1 X
- * @param y1 - Point 1 Y
- * @param z1 - Point 1 Z
- * @param x2 - Point 2 X
- * @param y2 - Point 2 Y
- * @param z2 - Point 2 Z
- * @returns Distance
- */
-export function fastDistance(
-    x1: number,
-    y1: number,
-    z1: number,
-    x2: number,
-    y2: number,
-    z2: number
-): number {
-    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
-    if (cachedFastDistance) return cachedFastDistance(x1, y1, z1, x2, y2, z2);
-    const dx = x2 - x1,
-        dy = y2 - y1,
-        dz = z2 - z1;
-    return Math.sqrt(dx * dx + dy * dy + dz * dz);
-}
-
-/**
- * Hash function
- * @param x - X coordinate
- * @param y - Y coordinate
- * @returns Hash value
- */
-export function hash(x: number, y: number): number {
-    // ⚡ OPTIMIZATION: Bypassed per-frame getNativeFunc dictionary lookup overhead by using cached C++ pointers.
-    if (cachedHash) return cachedHash(x, y);
-    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-    return (n - Math.floor(n)) * 2 - 1;
-}
 
 // =============================================================================
 // SIMPLE MATH FUNCTIONS (WASM-based with JS fallbacks)
@@ -821,192 +712,6 @@ export function freqToHue(freq: number): number {
     return (logF * 0.1) % 1.0;
 }
 
-/**
- * Linear interpolation
- * @param a - Start value
- * @param b - End value
- * @param t - Interpolation factor (0-1)
- * @returns Interpolated value
- */
-export function lerp(a: number, b: number, t: number): number {
-    if (wasmLerp) return wasmLerp(a, b, t);
-    return a + (b - a) * t;
-}
-
 // =============================================================================
 // NEW MATH FUNCTIONS FROM ASSEMBLY/MATH.TS
 // =============================================================================
-
-import {
-    wasmHslToRgb,
-    wasmHash2D,
-    wasmValueNoise2D,
-    wasmFbm2D,
-    wasmDistSq2D,
-    wasmDistSq3D,
-    wasmSmoothstep,
-    wasmInverseLerp,
-} from './wasm-loader-core.ts';
-
-/**
- * Convert HSL color to RGB integer
- * @param h - Hue (0-1)
- * @param s - Saturation (0-1)
- * @param l - Lightness (0-1)
- * @returns RGB integer (0xRRGGBB)
- */
-export function hslToRgb(h: number, s: number, l: number): number {
-    if (wasmHslToRgb) return wasmHslToRgb(h, s, l);
-
-    // JS fallback: Standard HSL to RGB conversion
-    const hue2rgb = (p: number, q: number, t: number): number => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1 / 6) return p + (q - p) * 6 * t;
-        if (t < 1 / 2) return q;
-        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-        return p;
-    };
-
-    let r: number, g: number, b: number;
-
-    if (s === 0) {
-        r = g = b = l;
-    } else {
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
-    }
-
-    return (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
-}
-
-/**
- * Simple hash function for 2D coordinates
- * @param x - X coordinate
- * @param y - Y coordinate
- * @returns Hash value (0-1)
- */
-export function hash2D(x: number, y: number): number {
-    if (wasmHash2D) return wasmHash2D(x, y);
-    // JS fallback: Simple sin/fract based hash
-    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-    return n - Math.floor(n);
-}
-
-/**
- * Value noise 2D (AssemblyScript version)
- * @param x - X coordinate
- * @param y - Y coordinate
- * @returns Noise value (0-1)
- */
-export function ascValueNoise2D(x: number, y: number): number {
-    if (wasmValueNoise2D) return wasmValueNoise2D(x, y);
-    // JS fallback: Smooth noise
-    const i = Math.floor(x);
-    const j = Math.floor(y);
-    const u = x - i;
-    const v = y - j;
-
-    const a = hash2D(i, j);
-    const b = hash2D(i + 1, j);
-    const c = hash2D(i, j + 1);
-    const d = hash2D(i + 1, j + 1);
-
-    const su = u * u * (3 - 2 * u);
-    const sv = v * v * (3 - 2 * v);
-
-    return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
-}
-
-/**
- * Fractal Brownian Motion 2D (AssemblyScript version)
- * @param x - X coordinate
- * @param y - Y coordinate
- * @param octaves - Number of octaves
- * @returns FBM value
- */
-export function fbm2D(x: number, y: number, octaves: number): number {
-    if (wasmFbm2D) return wasmFbm2D(x, y, octaves);
-    // JS fallback: Fractal Brownian Motion
-    let value = 0;
-    let amplitude = 0.5;
-    let frequency = 1;
-    let maxValue = 0;
-
-    for (let i = 0; i < octaves; i++) {
-        value += amplitude * ascValueNoise2D(x * frequency, y * frequency);
-        maxValue += amplitude;
-        amplitude *= 0.5;
-        frequency *= 2;
-    }
-
-    return value / maxValue;
-}
-
-/**
- * Squared distance between two 2D points
- * @param ax - Point A X
- * @param ay - Point A Y
- * @param bx - Point B X
- * @param by - Point B Y
- * @returns Squared distance
- */
-export function distSq2D(ax: number, ay: number, bx: number, by: number): number {
-    if (wasmDistSq2D) return wasmDistSq2D(ax, ay, bx, by);
-    const dx = bx - ax;
-    const dy = by - ay;
-    return dx * dx + dy * dy;
-}
-
-/**
- * Squared distance between two 3D points
- * @param ax - Point A X
- * @param ay - Point A Y
- * @param az - Point A Z
- * @param bx - Point B X
- * @param by - Point B Y
- * @param bz - Point B Z
- * @returns Squared distance
- */
-export function distSq3D(
-    ax: number,
-    ay: number,
-    az: number,
-    bx: number,
-    by: number,
-    bz: number
-): number {
-    if (wasmDistSq3D) return wasmDistSq3D(ax, ay, az, bx, by, bz);
-    const dx = bx - ax;
-    const dy = by - ay;
-    const dz = bz - az;
-    return dx * dx + dy * dy + dz * dz;
-}
-
-/**
- * Smoothstep interpolation
- * @param t - Input value (0-1)
- * @returns Smoothed value (0-1)
- */
-export function smoothstep(t: number): number {
-    if (wasmSmoothstep) return wasmSmoothstep(t);
-    // JS fallback: t*t*(3-2*t)
-    return t * t * (3 - 2 * t);
-}
-
-/**
- * Inverse linear interpolation
- * @param a - Start value
- * @param b - End value
- * @param value - Current value
- * @returns Interpolation factor (0-1)
- */
-export function inverseLerp(a: number, b: number, value: number): number {
-    if (wasmInverseLerp) return wasmInverseLerp(a, b, value);
-    // JS fallback: (value-a)/(b-a)
-    if (Math.abs(b - a) < 1e-10) return 0;
-    return (value - a) / (b - a);
-}

@@ -21,6 +21,8 @@ import {
     applyStandardDeformation,
     calculateWindSway,
     createJuicyRimLight,
+    asNode,
+    type FloatNode,
 } from './material-core.ts';
 
 const GEM_BIOME: BiomeId = 'gem_canopy';
@@ -76,7 +78,7 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
     const swayX = sin(swayPhase).mul(0.09).mul(normH).mul(audioBoost);
     const swayZ = cos(swayPhase.mul(0.85)).mul(0.07).mul(normH).mul(audioBoost);
     // Visual Impact: note-hit twist driven by hueShift uniform (beat shimmer proxy)
-    const twist = sin(uTime.mul(4.0).add(aPhase.mul(2.0))).mul(gemUniforms.hueShift).mul(0.12).mul(normH);
+    const twist = asNode<FloatNode>(sin(uTime.mul(4.0).add(aPhase.mul(2.0))).mul(gemUniforms.hueShift).mul(0.12).mul(normH));
 
     const swayed = positionLocal.add(vec3(swayX, float(0.0), swayZ));
     const circadianDroop = float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y);

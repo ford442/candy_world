@@ -223,7 +223,7 @@ class PerformanceBudgetChecker {
           );
         } else if (result.name === 'wasm') {
           this.report.recommendations.push(
-            `WASM BUDGET EXCEEDED: Run wasm-opt with -O3 to strip debug symbols and optimize.`
+            `WASM BUDGET EXCEEDED: Both native builds already run wasm-opt; drop unused exports (npm run check:native-exports) or move code out of the module.`
           );
         } else if (result.name === 'total') {
           this.report.recommendations.push(

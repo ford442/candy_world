@@ -2,7 +2,8 @@
 /**
  * Enhanced Vite Plugin for candy_world
  * 
- * WASM optimization (strip debug symbols)
+ * WASM prefetch hints (the modules are already Binaryen-optimized: asc
+ *   --optimize and emcc -O2 both run wasm-opt, so there is no second pass here)
  * TSL shader precompilation cache
  * Dead code elimination for unused CandyPresets
  * Build-time constant folding
@@ -13,11 +14,10 @@
 import type { Plugin, ResolvedConfig } from 'vite';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
 
 interface CandyOptimizerOptions {
-  /** Strip debug symbols from WASM */
-  wasmOpt?: boolean;
+  /** Add <link rel="prefetch"> hints for built WASM files */
+  wasmPrefetch?: boolean;
   /** Enable TSL shader caching */
   tslCache?: boolean;
   /** Remove unused presets */
@@ -51,7 +51,7 @@ interface PresetUsage {
  */
 export function candyWorldOptimizer(options: CandyOptimizerOptions = {}): Plugin {
   const opts = {
-    wasmOpt: true,
+    wasmPrefetch: true,
     tslCache: true,
     deadCodeElimination: true,
     constantFolding: true,
@@ -121,7 +121,7 @@ export function candyWorldOptimizer(options: CandyOptimizerOptions = {}): Plugin
 
     // Handle WASM files
     async transformIndexHtml(html: string) {
-      if (!opts.wasmOpt) return html;
+      if (!opts.wasmPrefetch) return html;
 
       // Add WASM preloading hints
       return optimizeWasmLoading(html, config);
@@ -131,8 +131,8 @@ export function candyWorldOptimizer(options: CandyOptimizerOptions = {}): Plugin
     buildStart() {
       console.log('🍭 candy_world optimizer starting...');
       
-      if (opts.wasmOpt) {
-        console.log('  ✓ WASM optimization enabled');
+      if (opts.wasmPrefetch) {
+        console.log('  ✓ WASM prefetch hints enabled');
       }
       if (opts.tslCache) {
         console.log('  ✓ TSL shader caching enabled');
@@ -150,11 +150,6 @@ export function candyWorldOptimizer(options: CandyOptimizerOptions = {}): Plugin
       // Save shader cache
       if (opts.tslCache) {
         saveShaderCache(opts.cacheDir, shaderCache);
-      }
-
-      // Optimize WASM files
-      if (opts.wasmOpt && isProduction(config)) {
-        await optimizeWasmFiles(config);
       }
 
       // Print dead code elimination report
@@ -175,42 +170,7 @@ export function candyWorldOptimizer(options: CandyOptimizerOptions = {}): Plugin
   };
 }
 
-// ==================== WASM Optimization ====================
-
-async function optimizeWasmFiles(config: ResolvedConfig): Promise<void> {
-  const outDir = config.build.outDir || 'dist';
-  const wasmFiles = findWasmFiles(outDir);
-
-  if (wasmFiles.length === 0) {
-    console.log('  ⚠️ No WASM files found to optimize');
-    return;
-  }
-
-  console.log(`  🔧 Optimizing ${wasmFiles.length} WASM file(s)...`);
-
-  for (const wasmFile of wasmFiles) {
-    try {
-      const originalSize = fs.statSync(wasmFile).size;
-      
-      // Try wasm-opt (Binaryen)
-      if (hasCommand('wasm-opt')) {
-        const tempFile = `${wasmFile}.tmp`;
-        execSync(`wasm-opt -O3 -s ${wasmFile} -o ${tempFile}`, { stdio: 'ignore' });
-        fs.renameSync(tempFile, wasmFile);
-        
-        const optimizedSize = fs.statSync(wasmFile).size;
-        const savings = originalSize - optimizedSize;
-        const percentage = ((savings / originalSize) * 100).toFixed(1);
-        
-        console.log(`    ✓ ${path.basename(wasmFile)}: ${formatBytes(originalSize)} → ${formatBytes(optimizedSize)} (-${percentage}%)`);
-      } else {
-        console.log(`    ⚠️ wasm-opt not available, skipping ${path.basename(wasmFile)}`);
-      }
-    } catch (error) {
-      console.error(`    ❌ Failed to optimize ${wasmFile}:`, error);
-    }
-  }
-}
+// ==================== WASM Prefetch ====================
 
 function findWasmFiles(dir: string): string[] {
   const files: string[] = [];
@@ -494,15 +454,6 @@ function isProductionEnv(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-function hasCommand(cmd: string): boolean {
-  try {
-    execSync(`which ${cmd}`, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -511,14 +462,6 @@ function simpleHash(str: string): string {
     hash = hash & hash;
   }
   return hash.toString(36);
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 // ==================== Plugin Generator ====================
@@ -530,13 +473,9 @@ export function generatePluginFile(): string {
   return `// vite-plugin-enhanced.ts
 // Auto-generated enhanced Vite plugin for candy_world
 
-import type { Plugin, ResolvedConfig } from 'vite';
-import * as fs from 'fs';
-import * as path from 'path';
-import { execSync } from 'child_process';
+import type { Plugin } from 'vite';
 
 export interface CandyOptimizerOptions {
-  wasmOpt?: boolean;
   tslCache?: boolean;
   deadCodeElimination?: boolean;
   constantFolding?: boolean;
@@ -545,7 +484,6 @@ export interface CandyOptimizerOptions {
 
 export function candyWorldOptimizer(options: CandyOptimizerOptions = {}): Plugin {
   const opts = {
-    wasmOpt: true,
     tslCache: true,
     deadCodeElimination: true,
     constantFolding: true,
@@ -553,15 +491,9 @@ export function candyWorldOptimizer(options: CandyOptimizerOptions = {}): Plugin
     ...options
   };
 
-  let config: ResolvedConfig;
-
   return {
     name: 'candy-world-optimizer',
     enforce: 'pre',
-
-    configResolved(resolvedConfig) {
-      config = resolvedConfig;
-    },
 
     transform(code: string, id: string) {
       if (id.includes('node_modules')) return null;
@@ -579,44 +511,8 @@ export function candyWorldOptimizer(options: CandyOptimizerOptions = {}): Plugin
       }
 
       return hasChanges ? { code: transformed, map: null } : null;
-    },
-
-    async buildEnd() {
-      if (opts.wasmOpt && config.mode === 'production') {
-        await optimizeWasmFiles(config);
-      }
     }
   };
-}
-
-async function optimizeWasmFiles(config: ResolvedConfig): Promise<void> {
-  const outDir = config.build.outDir || 'dist';
-  
-  function findWasm(dir: string): string[] {
-    const files: string[] = [];
-    if (!fs.existsSync(dir)) return files;
-    
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        files.push(...findWasm(fullPath));
-      } else if (entry.name.endsWith('.wasm')) {
-        files.push(fullPath);
-      }
-    }
-    return files;
-  }
-
-  const wasmFiles = findWasm(outDir);
-  
-  for (const wasmFile of wasmFiles) {
-    try {
-      execSync(\`wasm-opt -O3 \${wasmFile} -o \${wasmFile}\`, { stdio: 'ignore' });
-      console.log(\`Optimized: \${path.basename(wasmFile)}\`);
-    } catch {
-      // wasm-opt not available
-    }
-  }
 }
 
 export default candyWorldOptimizer;
@@ -633,7 +529,7 @@ if (import.meta.url === new URL(process.argv[1], 'file://').href) {
   console.log('  // In vite.config.ts:');
   console.log('  plugins: [');
   console.log('    candyWorldOptimizer({');
-  console.log('      wasmOpt: true,');
+  console.log('      wasmPrefetch: true,');
   console.log('      tslCache: true,');
   console.log('      deadCodeElimination: true,');
   console.log('      constantFolding: true');

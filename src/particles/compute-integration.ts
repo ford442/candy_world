@@ -7,6 +7,7 @@
  */
 
 import * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { isAutomation } from '../core/platform/run-mode.ts';
 import { createFireflies as createLegacyFireflies } from '../foliage/fireflies.ts';
@@ -513,7 +514,7 @@ export function createIntegratedRain(options: IntegratedRainOptions = {}): THREE
 interface IntegratedSystem {
     mesh: THREE.Object3D;
     system?: ComputeParticleSystem;
-    update: (renderer: THREE.Renderer, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData) => void;
+    update: (renderer: Renderer, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData) => void;
 }
 
 const activeSystems: Map<string, IntegratedSystem> = new Map();
@@ -545,7 +546,7 @@ export function registerIntegratedSystem(
 }
 
 export function updateAllIntegratedSystems(
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     deltaTime: number,
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData
@@ -677,7 +678,7 @@ export interface BenchmarkResult {
 }
 
 export async function benchmarkParticleSystem(
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     type: 'fireflies' | 'pollen' | 'rain' | 'sparks' | 'berries',
     testCounts: number[] = [1000, 5000, 10000, 50000, 100000]
 ): Promise<BenchmarkResult[]> {

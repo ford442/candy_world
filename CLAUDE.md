@@ -74,7 +74,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - **`config.ts`**: Global configuration (colors, physics bounds, grid settings)
 - **`init.js`**: Scene creation (camera, renderer, lights, fog)
 - **`deferred-init.ts`**: Post-startup warmup and visual initialization
-- **`input/`**: Keyboard/mouse input handling
+- **`input/`**: Input. Game code reads actions (`input.get()` / `input.onPress()` from `input/actions/`), never DOM key events; contexts (gameplay, build, gizmo, photo, menu) decide who gets a press. See `docs/INPUT.md`
 
 #### `/src/systems` — Game Systems (Modular)
 
@@ -83,7 +83,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - **`music-reactivity.ts`**: Audio-driven visual feedback (beat pulses, reactivity)
 - **`weather/`**: Weather effects (rain, wind, snow)
 - **`interaction.ts`**: Clickable objects, inventory, UI responses
-- **`discovery-*.ts`**: Discovery/quest system (persistence, optimization)
+- **`discovery-*.ts`**: Discovery system. `discovery-optimized.ts` holds the one registry (`discoverySystem`); `discovery-log.ts` is the log UI; `unlocks.ts` is the item/ability loop (`docs/PROGRESSION.md`)
 - **`accessibility.ts`**: Keyboard navigation, text alternatives
 - **`material-batcher.ts`**: Material optimization and batching
 - **`performance-budget/`**: Performance monitoring and alerts
@@ -161,7 +161,6 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - `ui` — UI components
 - `utils` — Utilities and loaders
 - `foliage` — Large foliage module set
-- `workers` — Web Workers
 - `world` — World generation
 - `main` — Core app code
 
@@ -266,6 +265,7 @@ npm run budget:check  # Verify chunk size constraints
 - `npm run check:memory-layout`: static layout check (overlaps, `--memoryBase`, raw offsets, built binary)
 - `npm run test:native-memory`: heap/boids/growth/instantiate-fallback tests against the real AS build
 - `npm run test:native-batch-parity`: C++ ↔ AS ↔ JS batch ground heights through the production bridges (C++ tier needs `build:emcc`; `CANDY_PARITY_REQUIRE_CPP=1` makes it mandatory)
+- `npm run check:native-exports`: every AS export (`assembly/index.ts`, listed by name) and C++ export (exports.txt + `EMSCRIPTEN_KEEPALIVE`) has a caller in `src/`/`tests/`, and no lookup names a missing export (0/0 ratchet, `scripts/native-exports-baseline.json`)
 
 ### Shared worlds tests
 
@@ -316,8 +316,8 @@ npm run budget:check  # Verify chunk size constraints
 
 ### Compile Flags (toolchain contract)
 
-- **AssemblyScript** (`build:wasm`): linear-memory MVP + `--enable simd --enable bulk-memory`, `--memoryBase 589824 --initialMemory 16 --maximumMemory 256`. No `--exportRuntime`, no `--enable reference-types`. No `asconfig.json`, so no `--target`; `--enable gc` (Wasm GC) is not used. `--memoryBase` must equal `HEAP_BASE_FLOOR` from the memory layout table (`scripts/memory-layout.mjs`); `npm run check:memory-layout` enforces it.
-- **Emscripten** (`emscripten/build.sh`): `-O2 -flto -fno-exceptions` for compile and link, MT and ST; `-pthread`, `PTHREAD_POOL_SIZE=4` (MT); `STACK_SIZE=16MB`; no `-lembind`; `EXPORTED_RUNTIME_METHODS` includes `HEAP8,HEAPU8,HEAP32,HEAPF32`. Do not pass `-s MINIFY_WASM_IMPORTS_AND_EXPORTS` (internal setting; emcc rejects it). `npm run verify:emcc:manifest` enforces the `-O` level against `AGENTS.md`. emsdk is pinned in `.emsdk-version`.
+- **AssemblyScript** (`build:wasm`): linear-memory MVP + `--enable bulk-memory`, `--memoryBase 589824 --initialMemory 16 --maximumMemory 256`. No `--enable simd` (`assembly/` has no `v128` code), no `--textFile`/`--sourceMap` in prod (`build:wasm:debug` adds them; `npm run check:dist-wasm` guards `dist/`). No `--exportRuntime`, no `--enable reference-types`. No `asconfig.json`, so no `--target`; `--enable gc` (Wasm GC) is not used. `--memoryBase` must equal `HEAP_BASE_FLOOR` from the memory layout table (`scripts/memory-layout.mjs`); `npm run check:memory-layout` enforces it.
+- **Emscripten** (`emscripten/build.sh`): `-O2 -flto -fno-exceptions` for compile and link, MT and ST; `-msimd128` (no `-mrelaxed-simd`); `-pthread`, `PTHREAD_POOL_SIZE=4` (MT); `STACK_SIZE=1MB`; no `WASM_BIGINT=0`; no `-lembind`; `EXPORTED_RUNTIME_METHODS` includes `HEAP8,HEAPU8,HEAP32,HEAPF32`. Do not pass `-s MINIFY_WASM_IMPORTS_AND_EXPORTS` (internal setting; emcc rejects it). `npm run verify:emcc:manifest` enforces the `-O` level and `STACK_SIZE` against `AGENTS.md`, the forbidden flags, and the prod AS flags. emsdk is pinned in `.emsdk-version`; a mismatch warns, `CANDY_STRICT_EMSDK=1` makes it fatal.
 - **Native memory**: fixed AS regions come only from the generated layout; JS buffers in native memory use `malloc`/`free` through `src/utils/native-memory.ts`, whose views re-derive after `memory.grow`. See `docs/NATIVE_LAYER.md`.
 - **WebGPU** is preferred; a failed boot probe falls back to WebGL2 (badge shows `WEBGL2 FALLBACK`, no GPU compute). Device limits are adapter-clamped, and the canvas `colorSpace` matches `outputColorSpace` — see `docs/WEBGPU_CONTEXT.md` and `docs/webgl-fallback.md`.
 
@@ -428,6 +428,8 @@ npm run optimize        # Apply all optimizations (experimental)
 ## Further Reading
 
 - **Architecture**: `docs/ARCHITECTURE.md` — Frame phases, system registration, the fixed step, entity ownership
+- **Progression**: `docs/PROGRESSION.md` — Unlocks, their item sources and effects, adding one
+- **Input**: `docs/INPUT.md` — Actions, contexts, adding a binding, rebinding
 - **Authoring**: `docs/AUTHORING.md` — Build mode, world commands, the WorldDocument command log
 - **Shared worlds**: `docs/SHARED_WORLDS.md` — Publishing, share links, the co-editing protocol and conflict model, RLS
 - **Tests**: `tests/README.md` — Detailed test documentation
