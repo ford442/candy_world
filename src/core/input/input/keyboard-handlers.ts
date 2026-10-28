@@ -26,34 +26,6 @@ import {
 } from './menu-helpers.ts';
 import type { InputSession } from './session.ts';
 
-// Cache D-Pad elements
-let dpadForward: HTMLElement | null = null;
-let dpadLeft: HTMLElement | null = null;
-let dpadBackward: HTMLElement | null = null;
-let dpadRight: HTMLElement | null = null;
-let dpadElementsCached = false;
-
-function cacheDpadElements() {
-    if (dpadElementsCached || typeof document === 'undefined') return;
-    dpadForward = document.getElementById('dpad-forward');
-    dpadLeft = document.getElementById('dpad-left');
-    dpadBackward = document.getElementById('dpad-backward');
-    dpadRight = document.getElementById('dpad-right');
-    dpadElementsCached = true;
-
-    // Clear stuck states
-    const clearDpadStates = () => {
-        dpadForward?.classList.remove('keyboard-active');
-        dpadLeft?.classList.remove('keyboard-active');
-        dpadBackward?.classList.remove('keyboard-active');
-        dpadRight?.classList.remove('keyboard-active');
-    };
-
-    window.addEventListener('blur', clearDpadStates);
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) clearDpadStates();
-    });
-}
 
 export interface InputKeyboardHandlers {
     onKeyDown: (event: KeyboardEvent) => void;
@@ -73,8 +45,6 @@ export function createKeyboardHandlers(
     buttons: ButtonPressHandlers
 ): InputKeyboardHandlers {
     const { triggerButtonPressDown, triggerButtonPressUp } = buttons;
-
-    cacheDpadElements();
 
     const onKeyDown = function (event: KeyboardEvent) {
         if (getPhotoMode()?.handleKeyDown(event)) {
@@ -273,22 +243,22 @@ export function createKeyboardHandlers(
             case 'KeyW':
                 if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
                 keyStates.forward = true;
-                if (!event.repeat) dpadForward?.classList.add('keyboard-active');
+                if (!event.repeat) triggerButtonPressDown('dpad-forward');
                 break;
             case 'KeyA':
                 if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
                 keyStates.left = true;
-                if (!event.repeat) dpadLeft?.classList.add('keyboard-active');
+                if (!event.repeat) triggerButtonPressDown('dpad-left');
                 break;
             case 'KeyS':
                 if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
                 keyStates.backward = true;
-                if (!event.repeat) dpadBackward?.classList.add('keyboard-active');
+                if (!event.repeat) triggerButtonPressDown('dpad-backward');
                 break;
             case 'KeyD':
                 if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
                 keyStates.right = true;
-                if (!event.repeat) dpadRight?.classList.add('keyboard-active');
+                if (!event.repeat) triggerButtonPressDown('dpad-right');
                 break;
             case 'KeyF':
                 if (isExploreActive()) break;
@@ -413,19 +383,19 @@ export function createKeyboardHandlers(
         switch (event.code) {
             case 'KeyW':
                 keyStates.forward = false;
-                dpadForward?.classList.remove('keyboard-active');
+                triggerButtonPressUp('dpad-forward');
                 break;
             case 'KeyA':
                 keyStates.left = false;
-                dpadLeft?.classList.remove('keyboard-active');
+                triggerButtonPressUp('dpad-left');
                 break;
             case 'KeyS':
                 keyStates.backward = false;
-                dpadBackward?.classList.remove('keyboard-active');
+                triggerButtonPressUp('dpad-backward');
                 break;
             case 'KeyD':
                 keyStates.right = false;
-                dpadRight?.classList.remove('keyboard-active');
+                triggerButtonPressUp('dpad-right');
                 break;
             case 'KeyF':
                 keyStates.action = false;
