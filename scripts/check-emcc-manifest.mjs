@@ -145,8 +145,11 @@ function parseCommittedExports(text) {
   );
 }
 
+// Byte order, like build.sh's `LC_ALL=C sort -u`: localeCompare puts
+// `_batchDistSq3D_omp` after `_batchDistances`, so --write and build:emcc
+// produced different files and the Tier 2 drift check failed on order alone.
 function sortedList(set) {
-  return [...set].sort((a, b) => a.localeCompare(b));
+  return [...set].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /**
