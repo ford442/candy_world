@@ -272,6 +272,8 @@ The build system gracefully handles missing Emscripten:
 - If `em++` is not found, the build skips C++ compilation and removes stale artifacts
 - JavaScript fallbacks are used for all native functions
 - The application runs in "JavaScript fallback mode"
+- If `em++` is found but the MT or ST compile fails, `build:emcc` removes both tiers' artifacts and
+  exits 1 (it used to exit 0, so `npm run build` could ship a missing or stale `candy_native*`)
 
 ---
 

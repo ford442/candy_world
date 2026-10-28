@@ -19,6 +19,8 @@
 # 3. EMSCRIPTEN FALLBACK: If Emscripten is not installed, the script exits
 #    gracefully and removes stale WASM artifacts. The application will use
 #    pure JavaScript fallbacks defined in src/utils/wasm-loader.js.
+#    With em++ present, a failed MT or ST compile removes both artifacts and
+#    exits 1, so `npm run build` cannot ship a missing or stale module green.
 #
 # 4. POST-BUILD VERIFICATION: After successful compilation, runs a Node.js
 #    script to verify which functions were actually exported.
@@ -512,8 +514,11 @@ echo ""
 echo "[INFO] Compiling C++ to WebAssembly..."
 echo "[INFO] Output: $OUTPUT_JS"
 
-# Clean old files
-rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "penmp" "penmp.wasm" 2>/dev/null || true
+OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
+OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
+
+# Clean old files (both tiers: a stale ST must not outlive a failed build)
+rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "$OUTPUT_JS_ST" "$OUTPUT_WASM_ST" "penmp" "penmp.wasm" 2>/dev/null || true
 
 # Compile with error handling
 BUILD_SUCCESS=0
@@ -574,16 +579,13 @@ else
     echo "=========================================="
     echo "[ERROR] Build failed!"
     echo "=========================================="
-    echo "The WASM module could not be compiled."
-    echo "The application will use JavaScript fallbacks."
+    echo "The WASM module could not be compiled (see the em++ output above)."
     echo ""
-    
-    # Clean up partial artifacts
+
+    # Clean up partial artifacts. em++ is installed, so this is a real
+    # compile/link error: fail, rather than let a release ship JS-only.
     rm -f "$OUTPUT_JS" "$OUTPUT_WASM" 2>/dev/null || true
-    
-    # Don't fail the overall build - JS fallbacks will work
-    # But we won't try to build the ST version if the compiler failed completely
-    exit 0
+    exit 1
 fi
 
 # ---------------------------------------------------------
@@ -591,9 +593,6 @@ fi
 # ---------------------------------------------------------
 echo ""
 echo "[INFO] Compiling C++ to Single-Threaded WebAssembly (Fallback)..."
-
-OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
-OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
 
 # Compiler flags for ST (remove pthread, atomics, etc)
 # NOTE: -ffast-math intentionally omitted; see COMPILE_FLAGS comment above.
@@ -609,19 +608,28 @@ LINK_FLAGS_ST="-O2 -flto -std=c++17 -s WASM=1 \
 # noglob: EXPORTED_RUNTIME_METHODS=[...] above looks like a glob character
 # class to bash when expanded unquoted below; disable pathname expansion for
 # this invocation so a coincidentally-matching filename can't rewrite it.
+ST_SUCCESS=0
 set -f
 if em++ "${COMPILE_UNITS[@]}" \
   $COMPILE_FLAGS_ST \
   $LINK_FLAGS_ST \
   -s EXPORTED_FUNCTIONS=@"$EXPORTS_FILE" -s EXPORT_KEEPALIVE=1 --closure 0  \
   -o "$OUTPUT_JS_ST" 2>&1; then
+    ST_SUCCESS=1
+fi
+set +f
+
+if [ $ST_SUCCESS -eq 1 ] && [ -f "$OUTPUT_WASM_ST" ]; then
     echo "[OK] Single-threaded build successful!"
     echo "  - public/candy_native_st.js"
     echo "  - public/candy_native_st.wasm"
 else
-    echo "[WARN] Single-threaded build failed!"
+    # Without cross-origin isolation (production today) the ST build is the
+    # only native tier that can load, so a missing one is a release blocker.
+    echo "[ERROR] Single-threaded build failed!"
+    rm -f "$OUTPUT_JS_ST" "$OUTPUT_WASM_ST" 2>/dev/null || true
+    exit 1
 fi
-set +f
 
 # ---------------------------------------------------------
 # Build Summary
