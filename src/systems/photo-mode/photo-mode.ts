@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { input } from '../../core/input/actions/index.ts';
 import { getSharedWorldThumbnailAction } from '../net/shared-worlds-lazy.ts';
 import { capturePhotoPng, capturePhotoThumbnail } from './photo-capture.ts';
 import { PhotoControlsOverlay, type PhotoControlValues } from './photo-controls.ts';
@@ -83,6 +84,8 @@ export class PhotoModeManager {
     private readonly opts: PhotoModeInitOptions;
     private reducedMotion = false;
     private previousFocusElement: HTMLElement | null = null;
+    /** Pops the `photo` input context: the panel owns the keys, the game gets none. */
+    private popInputContext: (() => void) | null = null;
 
     constructor(opts: PhotoModeInitOptions) {
         this.opts = opts;
@@ -139,6 +142,7 @@ export class PhotoModeManager {
         }
 
         this.active = true;
+        this.popInputContext = input.pushContext('photo');
         this.reducedMotion = prefersReducedMotion();
         (window as Window & { __photoModeActive?: boolean }).__photoModeActive = true;
 
@@ -198,6 +202,8 @@ export class PhotoModeManager {
     async exit(): Promise<void> {
         if (!this.active) return;
         this.active = false;
+        this.popInputContext?.();
+        this.popInputContext = null;
         (window as Window & { __photoModeActive?: boolean }).__photoModeActive = false;
 
         this.overlay?.dispose();
@@ -281,7 +287,7 @@ export class PhotoModeManager {
 
     private setHudVisible(visible: boolean): void {
         for (const sel of HUD_SELECTORS) {
-            const el = document.querySelector(sel) as HTMLElement | null;
+            const el = document.querySelector<HTMLElement>(sel);
             if (el) el.style.visibility = visible ? '' : 'hidden';
         }
     }
