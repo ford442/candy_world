@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { discoverySystem } from '../systems/discovery.ts';
+import { discoverySystem } from '../systems/discovery-optimized.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { glassMushroomBatcher } from './glass-mushroom-batcher.ts';
 import { spawnImpact } from './impacts.ts';

@@ -37,8 +37,14 @@ import {
     getPlayerState,
     setPlayerState,
 } from '../../utils/wasm-loader.ts';
-import { vineSwings, activeVineSwing, lastVineDetachTime } from '../../world/state.ts';
-import { discoverySystem } from '../discovery.ts';
+import {
+    vineSwings,
+    activeVineSwing,
+    lastVineDetachTime,
+    foliageTrampolines,
+} from '../../world/state.ts';
+import { recordMushroomBounce } from '../bounce-shrooms.ts';
+import { discoverySystem } from '../discovery-optimized.ts';
 import {
     reconcileGroundedEyeY,
     isInLakeBasin,
@@ -598,6 +604,12 @@ function updateDefaultState(
     if (wasmResolved) {
         if (player.velocity.y > 12.0) {
             discoverySystem.discover('trampoline_shroom', 'Trampoline Mushroom', '🍄');
+            recordMushroomBounce(
+                player.position.x,
+                player.position.z,
+                foliageTrampolines,
+                physicsClock.ms
+            );
             keyStates.jump = false;
 
             // --- VERTICAL ECOSYSTEM: Audio-Reactive Mushroom Bounce ---

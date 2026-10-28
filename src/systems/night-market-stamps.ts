@@ -14,7 +14,7 @@ import type * as THREE from 'three';
 import { nightMarketBatcher } from '../foliage/night-market-batcher.ts';
 import { awakenedPersistence } from './awakened-persistence-api.ts';
 import { BiomeUniforms } from './biome-uniforms.ts';
-import { discoverySystem } from './discovery.ts';
+import { discoverySystem } from './discovery-optimized.ts';
 
 export const NIGHT_MARKET_STAMP_PREFIX = 'night_market_stamp:';
 /** First-visit discovery for the market as a whole. */

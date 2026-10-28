@@ -3,6 +3,11 @@ import {
     color, float, mix, uv, sin, cos,
     vec3, vec2, floor, smoothstep, abs, mx_noise_float, uniform
 } from 'three/tsl';
+import {
+    isShrineVisited,
+    recordShrineVisit,
+    travelToNextShrine,
+} from '../systems/shrine-travel.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
@@ -133,7 +138,18 @@ export function createInstrumentShrine(options: InstrumentShrineOptions = {}): T
 
     // Override interaction
     const originalInteract = group.userData.onInteract;
+    const travelLabel = () => (unlockSystem.isUnlocked('shrine_master') ? '⛩️ Travel to next shrine' : 'Shrine Activated');
+    group.userData.onProximityEnter = () => {
+        if (group.userData.isSolved || isShrineVisited(group.position)) {
+            group.userData.interactionText = travelLabel();
+        }
+    };
     group.userData.onInteract = () => {
+        // Shrine Master: an activated shrine (this session or a past one) is a waypoint.
+        if (unlockSystem.isUnlocked('shrine_master') && isShrineVisited(group.position)) {
+            travelToNextShrine(group.position);
+            return;
+        }
         if (group.userData.isSolved) {
             // Already solved feedback
             // Maybe toggle something else or just show sparkle
@@ -146,7 +162,8 @@ export function createInstrumentShrine(options: InstrumentShrineOptions = {}): T
         if (group.userData.isActive) {
             // Solve!
             group.userData.isSolved = true;
-            group.userData.interactionText = "Shrine Activated";
+            group.userData.interactionText = travelLabel();
+            recordShrineVisit(group.position);
 
             // Visual feedback
             _scratchPos.copy(group.position).y += 3.0;

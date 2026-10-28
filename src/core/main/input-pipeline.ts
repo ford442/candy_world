@@ -12,6 +12,7 @@ import {
 import { ensureGameplay } from '../../gameplay/lazy.ts';
 import { isBuildGizmoOpen } from '../../systems/build-mode-state.ts';
 import { InteractionSystem } from '../../systems/interaction.ts';
+import { setShrineTravelCamera } from '../../systems/shrine-travel.ts';
 import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
 import { player } from '../../systems/physics/index.ts';
 import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
@@ -22,6 +23,7 @@ import { toggleOverlay } from '../../utils/startup-profiler.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
 import { initExploreCamera, getExploreCamera, setExploreOrbitFlag } from '../camera-modes.ts';
 import { CONFIG, CYCLE_DURATION } from '../config.ts';
+import { armGenerativeAutostart } from '../../audio/generative/autostart.ts';
 import { initDeferredVisualsDependencies } from '../deferred-init.ts';
 import { initGameLoopDependencies, getGameTime } from '../game-loop.ts';
 import { toggleDayNight, setInputSystem } from '../hud.ts';
@@ -51,6 +53,9 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
         setInputSystem(ctx.inputSystem);
         ctx.controls = ctx.inputSystem.controls;
     });
+
+    armGenerativeAutostart(ctx.audioSystem!);
+    setShrineTravelCamera(camera);
 
     if (!ctx.inputSystem) {
         ctx.inputSystem = {

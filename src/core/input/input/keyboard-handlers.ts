@@ -1,5 +1,5 @@
 import { toggleBuildMode } from '../../../systems/build-mode-lazy.ts';
-import { discoverySystem } from '../../../systems/discovery.ts';
+import { discoverySystem } from '../../../systems/discovery-optimized.ts';
 import {
     getPhotoMode,
     isPhotoModeActive,
@@ -287,13 +287,19 @@ export function bindGameActions(session: InputSession, buttons: ButtonPressHandl
     });
     hudButton('volume.up', 'volUpBtn', () => handleVolumeKey(0.1));
     hudButton('volume.down', 'volDownBtn', () => handleVolumeKey(-0.1));
+    hudButton('photo.toggle', 'openPhotoBtn', togglePhotoMode);
+
+    const photoBtn = document.getElementById('openPhotoBtn');
+    const onPhotoClick = (e: Event) => {
+        e.stopPropagation();
+        if (!paused()) togglePhotoMode();
+    };
+    photoBtn?.addEventListener('click', onPhotoClick);
+    offs.push(() => photoBtn?.removeEventListener('click', onPhotoClick));
 
     offs.push(
         input.onPress('build.toggle', () => {
             if (!paused() && sceneRef) toggleBuildMode(sceneRef);
-        }),
-        input.onPress('photo.toggle', () => {
-            if (!paused()) togglePhotoMode();
         }),
         input.onPress('log', () => {
             if (paused()) return;

@@ -7,7 +7,7 @@ import { CYCLE_DURATION, FEATURE_FLAGS } from '../core/config.ts';
 import { getActiveSession, openWorldDocument } from '../world/document/active.ts';
 import { parseWorldDocument } from '../world/document/migrations.ts';
 import { awakenedPersistence } from './awakened-persistence-api.ts';
-import { discoverySystem } from './discovery.ts';
+import { discoverySystem } from './discovery-optimized.ts';
 import { player } from './physics/index.ts';
 import {
     serializeEntitySnapshots,
