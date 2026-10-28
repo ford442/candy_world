@@ -22,10 +22,14 @@ export function createButtonPressHandlers(session: InputSession): ButtonPressHan
         session.activeKeyboardButtons.delete(buttonId);
     }
 
-    window.addEventListener('blur', () => {
+    const clearAll = () => {
         for (const buttonId of session.activeKeyboardButtons) {
             triggerButtonPressUp(buttonId);
         }
+    };
+    window.addEventListener('blur', clearAll);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) clearAll();
     });
 
     return { triggerButtonPressDown, triggerButtonPressUp };

@@ -27,6 +27,7 @@ import {
 } from './menu-helpers.ts';
 import type { InputSession } from './session.ts';
 
+
 export interface InputKeyboardHandlers {
     onKeyDown: (event: KeyboardEvent) => void;
     onKeyUp: (event: KeyboardEvent) => void;
@@ -40,7 +41,12 @@ function isGameFocused(session: InputSession): boolean {
     return activeEl === document.body || activeEl === canvas;
 }
 
-export function createKeyboardHandlers(session: InputSession): InputKeyboardHandlers {
+export function createKeyboardHandlers(
+    session: InputSession,
+    buttons: ButtonPressHandlers
+): InputKeyboardHandlers {
+    const { triggerButtonPressDown, triggerButtonPressUp } = buttons;
+
     const onKeyDown = function (event: KeyboardEvent) {
         if (getPhotoMode()?.handleKeyDown(event)) {
             return;
@@ -201,6 +207,129 @@ export function createKeyboardHandlers(session: InputSession): InputKeyboardHand
             });
         }
 
+        if (handlePlaylistKeyDown(event)) {
+            return;
+        }
+
+        switch (event.code) {
+            case 'KeyL':
+                if (document.pointerLockElement) {
+                    session.controls.unlock();
+                }
+                discoverySystem.showLog();
+                break;
+            case 'KeyQ':
+                if (getIsPlaylistOpen()) return;
+                if (event.repeat) return;
+                triggerButtonPressDown('openJukeboxBtn');
+                togglePlaylist();
+                break;
+            case 'KeyW':
+                if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
+                keyStates.forward = true;
+                if (!event.repeat) triggerButtonPressDown('dpad-forward');
+                break;
+            case 'KeyA':
+                if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
+                keyStates.left = true;
+                if (!event.repeat) triggerButtonPressDown('dpad-left');
+                break;
+            case 'KeyS':
+                if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
+                keyStates.backward = true;
+                if (!event.repeat) triggerButtonPressDown('dpad-backward');
+                break;
+            case 'KeyD':
+                if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
+                keyStates.right = true;
+                if (!event.repeat) triggerButtonPressDown('dpad-right');
+                break;
+            case 'KeyF':
+                if (isExploreActive()) break;
+                keyStates.action = true;
+                if (session.hudMine) session.hudMine.classList.add('keyboard-active');
+                break;
+            case 'KeyE':
+            case 'e':
+                if (isExploreActive()) break;
+                keyStates.dash = true;
+                if (session.hudDash) session.hudDash.classList.add('keyboard-active');
+                break;
+            case 'KeyX':
+            case 'x':
+                if (isExploreActive()) break;
+                keyStates.dodgeRoll = true;
+                break;
+            case 'KeyZ':
+            case 'z':
+                if (isExploreActive()) break;
+                keyStates.phase = true;
+                if (session.hudPhase) session.hudPhase.classList.add('keyboard-active');
+                break;
+            case 'KeyC':
+            case 'c':
+                if (isExploreActive()) break;
+                keyStates.clap = true;
+                break;
+            case 'KeyV':
+            case 'v':
+                if (isExploreActive()) break;
+                keyStates.strike = true;
+                break;
+            case 'KeyR':
+            case 'r':
+                if (isExploreActive()) break;
+                keyStates.dance = true;
+                break;
+            case 'Space':
+                if (isExploreActive()) break;
+                keyStates.jump = true;
+                break;
+            case 'KeyB':
+                if (event.repeat) return;
+                if (sceneRef) toggleBuildMode(sceneRef);
+                break;
+            case 'KeyN':
+                if (event.repeat) return;
+                triggerButtonPressDown('toggleDayNight');
+                if (session.toggleDayNightCallback) session.toggleDayNightCallback();
+                break;
+            case 'KeyM':
+                if (event.repeat) return;
+                triggerButtonPressDown('toggleMuteBtn');
+                handleMuteKey();
+                break;
+            case 'KeyU': {
+                if (event.repeat) return;
+                triggerButtonPressDown('musicUploadBtn');
+                const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
+                if (uploadInput) uploadInput.click();
+                break;
+            }
+            case 'Equal':
+            case 'NumpadAdd':
+                if (event.repeat) return;
+                triggerButtonPressDown('volUpBtn');
+                handleVolumeKey(0.1);
+                break;
+            case 'Minus':
+            case 'NumpadSubtract':
+                if (event.repeat) return;
+                triggerButtonPressDown('volDownBtn');
+                handleVolumeKey(-0.1);
+                break;
+            case 'ControlLeft':
+            case 'ControlRight':
+                if (isExploreActive()) break;
+                keyStates.sneak = true;
+                event.preventDefault();
+                break;
+            case 'ShiftLeft':
+            case 'ShiftRight':
+                if (isExploreActive()) break;
+                keyStates.sprint = true;
+                break;
+        }
         handlePlaylistKeyDown(event);
     };
 
@@ -234,6 +363,86 @@ export function createKeyboardHandlers(session: InputSession): InputKeyboardHand
                     k.classList.remove('key-highlight');
                 }
             });
+        }
+
+        switch (event.code) {
+            case 'KeyW':
+                keyStates.forward = false;
+                triggerButtonPressUp('dpad-forward');
+                break;
+            case 'KeyA':
+                keyStates.left = false;
+                triggerButtonPressUp('dpad-left');
+                break;
+            case 'KeyS':
+                keyStates.backward = false;
+                triggerButtonPressUp('dpad-backward');
+                break;
+            case 'KeyD':
+                keyStates.right = false;
+                triggerButtonPressUp('dpad-right');
+                break;
+            case 'KeyF':
+                keyStates.action = false;
+                if (session.hudMine) session.hudMine.classList.remove('keyboard-active');
+                break;
+            case 'KeyE':
+            case 'e':
+                keyStates.dash = false;
+                if (session.hudDash) session.hudDash.classList.remove('keyboard-active');
+                break;
+            case 'KeyX':
+            case 'x':
+                keyStates.dodgeRoll = false;
+                break;
+            case 'KeyZ':
+            case 'z':
+                keyStates.phase = false;
+                if (session.hudPhase) session.hudPhase.classList.remove('keyboard-active');
+                break;
+            case 'KeyR':
+            case 'r':
+                keyStates.dance = false;
+                break;
+            case 'Space':
+                keyStates.jump = false;
+                break;
+            case 'KeyC':
+            case 'c':
+                keyStates.clap = false;
+                break;
+            case 'KeyV':
+            case 'v':
+                keyStates.strike = false;
+                break;
+            case 'ControlLeft':
+            case 'ControlRight':
+                keyStates.sneak = false;
+                break;
+            case 'ShiftLeft':
+            case 'ShiftRight':
+                keyStates.sprint = false;
+                break;
+            case 'KeyQ':
+                triggerButtonPressUp('openJukeboxBtn');
+                break;
+            case 'KeyN':
+                triggerButtonPressUp('toggleDayNight');
+                break;
+            case 'KeyM':
+                triggerButtonPressUp('toggleMuteBtn');
+                break;
+            case 'KeyU':
+                triggerButtonPressUp('musicUploadBtn');
+                break;
+            case 'Equal':
+            case 'NumpadAdd':
+                triggerButtonPressUp('volUpBtn');
+                break;
+            case 'Minus':
+            case 'NumpadSubtract':
+                triggerButtonPressUp('volDownBtn');
+                break;
         }
     };
 
