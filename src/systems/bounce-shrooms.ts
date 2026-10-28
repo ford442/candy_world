@@ -73,7 +73,10 @@ export function recordMushroomBounce(
     ud.bounceRipe = true;
     ud.interactionText = BOUNCE_HARVEST_TEXT;
     ud.onInteract = () => harvestBounceShroom(shroom);
-    announce('This mushroom is ripe. Look at it and interact to harvest a bounce shroom.', 'polite');
+    announce(
+        'This mushroom is ripe. Look at it and interact to harvest a bounce shroom.',
+        'polite'
+    );
     return true;
 }
 

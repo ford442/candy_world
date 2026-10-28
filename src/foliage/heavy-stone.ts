@@ -17,7 +17,10 @@ const STONE_COLOR = 0xb39ddb;
 let _geometry: THREE.DodecahedronGeometry | null = null;
 let _material: THREE.MeshPhysicalMaterial | null = null;
 
-function sharedStone(): { geometry: THREE.DodecahedronGeometry; material: THREE.MeshPhysicalMaterial } {
+function sharedStone(): {
+    geometry: THREE.DodecahedronGeometry;
+    material: THREE.MeshPhysicalMaterial;
+} {
     _geometry ??= new THREE.DodecahedronGeometry(STONE_RADIUS, 1);
     _material ??= new THREE.MeshPhysicalMaterial({
         color: STONE_COLOR,

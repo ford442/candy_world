@@ -74,7 +74,9 @@ function findProblems(
             }
         }
         if (!consumersById.has(def.id)) {
-            out.push(`unlock "${def.id}" is earnable but nothing in src/ checks isUnlocked('${def.id}')`);
+            out.push(
+                `unlock "${def.id}" is earnable but nothing in src/ checks isUnlocked('${def.id}')`
+            );
         }
     }
     return out;
@@ -92,12 +94,20 @@ if (questCallers.length === 0) {
 
 // Mutation proof: the same check must reject an unlock nobody can earn or use.
 const mutant = findProblems(
-    { ...UNLOCK_DEFINITIONS, ghost: { id: 'ghost', requirements: [{ itemId: 'ghost_item', count: 1 }] } },
+    {
+        ...UNLOCK_DEFINITIONS,
+        ghost: { id: 'ghost', requirements: [{ itemId: 'ghost_item', count: 1 }] },
+    },
     sources,
     consumers
 );
-if (!mutant.some((p) => p.includes('"ghost_item"')) || !mutant.some((p) => p.includes("isUnlocked('ghost')"))) {
-    problems.push(`the check did not flag a synthetic unsourced, unconsumed unlock: ${JSON.stringify(mutant)}`);
+if (
+    !mutant.some((p) => p.includes('"ghost_item"')) ||
+    !mutant.some((p) => p.includes("isUnlocked('ghost')"))
+) {
+    problems.push(
+        `the check did not flag a synthetic unsourced, unconsumed unlock: ${JSON.stringify(mutant)}`
+    );
 }
 
 if (problems.length > 0) {

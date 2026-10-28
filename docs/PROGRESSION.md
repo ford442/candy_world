@@ -25,17 +25,17 @@ as well as toasted.
 
 ## Unlocks, sources and effects
 
-| Unlock | Needs | Where the items come from | What it does |
-| --- | --- | --- | --- |
-| `arpeggio_shield` | `fern_core` ×3 | Arpeggio Ferns, once unfurled (`foliage/musical-flora.ts`) | Shield ability (`core/game-loop-physics.ts`) |
-| `jitter_mines` | `vibrato_nectar` ×5 | Vibrato Violets (`foliage/flowers.ts`) | Places mines (`gameplay/jitter-mines.ts`) |
-| `shrine_master` | `shrine_token` ×3 | Activating Instrument Shrines (`foliage/instrument.ts`) | An activated shrine carries you to the next activated one (`systems/shrine-travel.ts`) |
-| `chord_strike` | `harmony_orb` ×3 | Harmony Orbs (`systems/physics/physics-updates.ts`) | **V** fires Chord Strike, which spends 3 more orbs (`gameplay/chord-strike.ts`) |
-| `resonance_tuner` | `chime_shard` ×10 | Chime flora, Sonic Clap (`foliage/musical-flora.ts`, `physics-abilities.ts`) | The Discovery Log shows hidden harmonics (`systems/discovery-log.ts`) |
-| `snap_core` | `snap_shard` ×3 | Snare traps (`foliage/musical-flora.ts`) | Reflects projectiles (`gameplay/rainbow-blaster.ts`) |
-| `island_scholar` | `lake_core` ×1 | The Lake Island core (`world/generation-setpieces.ts`) | Unlocks the island Living Score cues (`assets/score-cues.json`) |
-| `groove_boots` | `bounce_shroom` ×5 | Trampoline mushrooms you have bounced on 3 times (`systems/bounce-shrooms.ts`) | Faster when the groove gravity is strong (`physics-core.ts`) |
-| `wind_anchor` | `heavy_stone` ×3 | Heavy stones around the Sugar Caves door on the lake island, and one on the cave floor (`foliage/heavy-stone.ts`) | Immunity to the BPM wind (`physics-core.ts`) |
+| Unlock            | Needs               | Where the items come from                                                                                         | What it does                                                                           |
+| ----------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `arpeggio_shield` | `fern_core` ×3      | Arpeggio Ferns, once unfurled (`foliage/musical-flora.ts`)                                                        | Shield ability (`core/game-loop-physics.ts`)                                           |
+| `jitter_mines`    | `vibrato_nectar` ×5 | Vibrato Violets (`foliage/flowers.ts`)                                                                            | Places mines (`gameplay/jitter-mines.ts`)                                              |
+| `shrine_master`   | `shrine_token` ×3   | Activating Instrument Shrines (`foliage/instrument.ts`)                                                           | An activated shrine carries you to the next activated one (`systems/shrine-travel.ts`) |
+| `chord_strike`    | `harmony_orb` ×3    | Harmony Orbs (`systems/physics/physics-updates.ts`)                                                               | **V** fires Chord Strike, which spends 3 more orbs (`gameplay/chord-strike.ts`)        |
+| `resonance_tuner` | `chime_shard` ×10   | Chime flora, Sonic Clap (`foliage/musical-flora.ts`, `physics-abilities.ts`)                                      | The Discovery Log shows hidden harmonics (`systems/discovery-log.ts`)                  |
+| `snap_core`       | `snap_shard` ×3     | Snare traps (`foliage/musical-flora.ts`)                                                                          | Reflects projectiles (`gameplay/rainbow-blaster.ts`)                                   |
+| `island_scholar`  | `lake_core` ×1      | The Lake Island core (`world/generation-setpieces.ts`)                                                            | Unlocks the island Living Score cues (`assets/score-cues.json`)                        |
+| `groove_boots`    | `bounce_shroom` ×5  | Trampoline mushrooms you have bounced on 3 times (`systems/bounce-shrooms.ts`)                                    | Faster when the groove gravity is strong (`physics-core.ts`)                           |
+| `wind_anchor`     | `heavy_stone` ×3    | Heavy stones around the Sugar Caves door on the lake island, and one on the cave floor (`foliage/heavy-stone.ts`) | Immunity to the BPM wind (`physics-core.ts`)                                           |
 
 ### Bounce shrooms
 
@@ -83,11 +83,11 @@ silent until that unlock is earned. The `lake_island` cues use
 
 ## Defaults that used to be flags
 
-| Feature | Now | Opt out / force |
-| --- | --- | --- |
-| Awakened persistence | on | `?no_awakened` |
-| Generative music | on until you load a tracker file; starts on the first click or key press (`audio/generative/autostart.ts`) | `?no_generative`, `?music=tracker`, or `localStorage['candy.musicMode'] = 'tracker'`. `?generative=1` forces it |
-| Photo mode | **Photo Mode** HUD button (and **P**); the button carries `aria-pressed` while active | `?photo` / `?mode=photo` preload it |
+| Feature              | Now                                                                                                        | Opt out / force                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Awakened persistence | on                                                                                                         | `?no_awakened`                                                                                                  |
+| Generative music     | on until you load a tracker file; starts on the first click or key press (`audio/generative/autostart.ts`) | `?no_generative`, `?music=tracker`, or `localStorage['candy.musicMode'] = 'tracker'`. `?generative=1` forces it |
+| Photo mode           | **Photo Mode** HUD button (and **P**); the button carries `aria-pressed` while active                      | `?photo` / `?mode=photo` preload it                                                                             |
 
 Loading a tracker file always takes over from the generative engine
 (`AudioSystem.loadModule`).
