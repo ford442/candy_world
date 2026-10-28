@@ -1,5 +1,6 @@
 // src/systems/discovery.ts
 
+import { input } from '../core/input/actions/index.ts';
 import { trapFocusInside } from '../utils/focus-trap.ts';
 import { showToast } from '../utils/toast.ts';
 import { yieldToPaint } from '../utils/yield-to-paint.ts';
@@ -111,6 +112,9 @@ class DiscoverySystem {
     /**
      * Show a visual Discovery Log UI.
      */
+    /** Pops the `menu` input context the open log holds. */
+    private popMenuContext: (() => void) | null = null;
+
     public showLog(): void {
         // Remove existing if any
         const existingLog = document.getElementById('discovery-log-overlay');
@@ -123,6 +127,8 @@ class DiscoverySystem {
             setTimeout(() => {
                 existingLog.remove();
             }, 300);
+            this.popMenuContext?.();
+            this.popMenuContext = null;
             if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
                 this.lastFocusedElement.focus({ preventScroll: true });
                 this.lastFocusedElement = null;
@@ -134,6 +140,8 @@ class DiscoverySystem {
 
         const overlay = document.createElement('div');
         overlay.id = 'discovery-log-overlay';
+        this.popMenuContext?.();
+        this.popMenuContext = input.pushContext('menu');
 
         // ♿ Aria: Apply modal semantics to the container element
         overlay.setAttribute('role', 'dialog');
@@ -198,6 +206,8 @@ class DiscoverySystem {
             setTimeout(() => {
                 overlay.remove();
             }, 300);
+            this.popMenuContext?.();
+            this.popMenuContext = null;
 
             if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
                 this.lastFocusedElement.focus({ preventScroll: true });

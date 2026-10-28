@@ -74,7 +74,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - **`config.ts`**: Global configuration (colors, physics bounds, grid settings)
 - **`init.js`**: Scene creation (camera, renderer, lights, fog)
 - **`deferred-init.ts`**: Post-startup warmup and visual initialization
-- **`input/`**: Keyboard/mouse input handling
+- **`input/`**: Input. Game code reads actions (`input.get()` / `input.onPress()` from `input/actions/`), never DOM key events; contexts (gameplay, build, gizmo, photo, menu) decide who gets a press. See `docs/INPUT.md`
 
 #### `/src/systems` — Game Systems (Modular)
 
@@ -428,6 +428,7 @@ npm run optimize        # Apply all optimizations (experimental)
 ## Further Reading
 
 - **Architecture**: `docs/ARCHITECTURE.md` — Frame phases, system registration, the fixed step, entity ownership
+- **Input**: `docs/INPUT.md` — Actions, contexts, adding a binding, rebinding
 - **Authoring**: `docs/AUTHORING.md` — Build mode, world commands, the WorldDocument command log
 - **Shared worlds**: `docs/SHARED_WORLDS.md` — Publishing, share links, the co-editing protocol and conflict model, RLS
 - **Tests**: `tests/README.md` — Detailed test documentation

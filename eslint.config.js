@@ -29,6 +29,30 @@ const barrelBoundary = (regex) => ({
         'Foliage modules import the defining module, not the foliage barrel (src/foliage/index.ts). See scripts/check-foliage-barrel.mjs.',
 });
 
+// #1972: a UA regex ("ci" in "Macintosh") put every Mac in CI mode. Ask
+// core/platform (getRunMode, getPlatformCapabilities) instead; reporting code
+// reads the raw string through readUserAgent().
+const USER_AGENT_ALLOWED = ['src/core/platform/**'];
+const NO_USER_AGENT = {
+    object: 'navigator',
+    property: 'userAgent',
+    message:
+        'Read navigator.userAgent only in src/core/platform/. Use getRunMode() / getPlatformCapabilities(), or readUserAgent() for reporting.',
+};
+
+// #2027: game input goes through the action layer (core/input/actions), whose
+// context stack decides who gets a key. A global key listener bypasses it.
+// Element-scoped listeners (a widget's own Enter/Space) are DOM focus
+// handling and stay. Remaining sites are warnings, ratcheted by `npm run lint`
+// (one block, so this rule's selectors can't replace another block's).
+const GLOBAL_KEYS_ALLOWED = ['src/core/input/**', 'src/utils/focus-trap.ts'];
+const NO_GLOBAL_KEYS = {
+    selector:
+        "CallExpression[callee.property.name='addEventListener'][arguments.0.value=/^key(down|up|press)$/]:matches([callee.object.name=/^(window|document)$/], [callee.object.object.name='document'])",
+    message:
+        'Global key listeners belong in src/core/input/. Bind an action (core/input/actions/bindings.ts) and use input.onPress() / input.get(); see docs/INPUT.md.',
+};
+
 export default tseslint.config(
     {
         ignores: [
@@ -117,30 +141,24 @@ export default tseslint.config(
         },
     },
     {
-        // #1972: a UA regex ("ci" in "Macintosh") put every Mac in CI mode. Ask
-        // core/platform (getRunMode, getPlatformCapabilities) instead; reporting
-        // code reads the raw string through readUserAgent().
         files: ['src/**/*.ts', 'src/**/*.js'],
-        ignores: ['src/core/platform/**'],
-        rules: {
-            'no-restricted-syntax': [
-                'error',
-                {
-                    selector:
-                        "MemberExpression[property.name='userAgent'][object.name='navigator']",
-                    message:
-                        'Read navigator.userAgent only in src/core/platform/. Use getRunMode() / getPlatformCapabilities(), or readUserAgent() for reporting.',
-                },
-            ],
-        },
+        ignores: USER_AGENT_ALLOWED,
+        rules: { 'no-restricted-properties': ['error', NO_USER_AGENT] },
+    },
+    {
+        files: ['src/**/*.ts', 'src/**/*.js'],
+        ignores: GLOBAL_KEYS_ALLOWED,
+        rules: { 'no-restricted-syntax': ['warn', NO_GLOBAL_KEYS] },
     },
     {
         // #1973: simulation and world generation draw from seeded streams, so a
         // seed plus an input log replays the same world and the same run.
+        // (Repeats NO_USER_AGENT: this block's options replace the one above.)
         files: ['src/systems/physics/**/*.ts', 'src/systems/fauna/**/*.ts', 'src/world/**/*.ts'],
         rules: {
             'no-restricted-properties': [
                 'error',
+                NO_USER_AGENT,
                 {
                     object: 'Math',
                     property: 'random',
