@@ -2,7 +2,8 @@
 //
 // Source of the `bounce_shroom` item (Groove Boots, #1976 slice A): a trampoline
 // mushroom the player has bounced on BOUNCES_TO_RIPEN times ripens, and can be
-// harvested once.
+// harvested once. Harvested mushrooms are remembered by site (unlockSystem), so
+// they stay spent across reloads; bounce counts in between do not persist.
 
 import type * as THREE from 'three';
 import { announce } from '../ui/announcer.ts';
@@ -17,6 +18,11 @@ const BOUNCE_HARVEST_TEXT = '🥾 Harvest Bounce Shroom';
 
 /** A trampoline foliage object (`FoliageObject`, or a stand-in in tests). */
 type BounceTarget = Pick<THREE.Object3D, 'position' | 'userData'>;
+
+/** Persisted id of a mushroom: its rounded position (world generation is seeded). */
+export function bounceShroomSiteId(shroom: BounceTarget): string {
+    return `bounce_shroom:${Math.round(shroom.position.x)},${Math.round(shroom.position.z)}`;
+}
 
 /** Nearest trampoline mushroom whose footprint contains (x, z). */
 export function findBouncedMushroom(
@@ -55,6 +61,10 @@ export function recordMushroomBounce(
     if (!shroom) return false;
     const ud = shroom.userData;
     if (ud.bounceHarvested || ud.bounceRipe) return false;
+    if (unlockSystem.isSiteHarvested(bounceShroomSiteId(shroom))) {
+        ud.bounceHarvested = true;
+        return false;
+    }
     if (nowMs - (ud.lastBounceMs ?? -Infinity) < BOUNCE_COOLDOWN_MS) return false;
     ud.lastBounceMs = nowMs;
     ud.bounceCount = (ud.bounceCount ?? 0) + 1;
@@ -63,7 +73,10 @@ export function recordMushroomBounce(
     ud.bounceRipe = true;
     ud.interactionText = BOUNCE_HARVEST_TEXT;
     ud.onInteract = () => harvestBounceShroom(shroom);
-    announce('This mushroom is ripe. Look at it and interact to harvest a bounce shroom.', 'polite');
+    announce(
+        'This mushroom is ripe. Look at it and interact to harvest a bounce shroom.',
+        'polite'
+    );
     return true;
 }
 
@@ -74,6 +87,7 @@ export function harvestBounceShroom(shroom: BounceTarget): boolean {
     ud.bounceRipe = false;
     ud.interactionText = BOUNCE_JUMP_TEXT;
     ud.onInteract = undefined;
+    unlockSystem.markSiteHarvested(bounceShroomSiteId(shroom));
     unlockSystem.harvest('bounce_shroom', 1, 'Bounce Shroom');
     return true;
 }

@@ -122,10 +122,12 @@ export default defineConfig({
                     // World content decorators: generation-decorators.ts and every
                     // generation-decorators-*.ts populator it re-exports. The populators
                     // are only reachable through it, so they load with this chunk; the
-                    // catch-all below used to pin them in `app` (#1827).
+                    // catch-all below used to pin them in `app` (#1827). Heavy stones
+                    // are only placed by the Sugar Caves populator, so they ride along.
                     if (
                         id.includes('/src/world/generation-decorators') ||
-                        id.includes('/src/world/decorator-streamer.ts')
+                        id.includes('/src/world/decorator-streamer.ts') ||
+                        id.endsWith('/src/foliage/heavy-stone.ts')
                     ) {
                         return 'world-content';
                     }
