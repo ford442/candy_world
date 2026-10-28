@@ -161,7 +161,6 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - `ui` — UI components
 - `utils` — Utilities and loaders
 - `foliage` — Large foliage module set
-- `workers` — Web Workers
 - `world` — World generation
 - `main` — Core app code
 

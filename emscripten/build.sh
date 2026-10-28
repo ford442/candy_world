@@ -309,15 +309,6 @@ declare -A ANIMATION_FUNCTIONS=(
     ["deformJiggle_c"]="mesh_deformation"
     ["deformWobble_c"]="mesh_deformation"
     
-    # Bootstrap functions (bootstrap_loader.cpp)
-    ["startBootstrapInit"]="bootstrap"
-    ["getBootstrapProgress"]="bootstrap"
-    ["isBootstrapComplete"]="bootstrap"
-    ["getBootstrapHeight"]="bootstrap"
-    ["resetBootstrap"]="bootstrap"
-    ["startShaderWarmup"]="bootstrap"
-    ["getShaderWarmupProgress"]="bootstrap"
-    
     # Animation functions (animation.cpp)
     ["calcArpeggioStep_c"]="animation"
     ["getArpeggioTargetStep_c"]="animation"

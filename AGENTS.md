@@ -61,7 +61,6 @@
 │   │   └── save-menu/            # Save menu styles, slots, settings
 │   ├── utils/                    # WASM loader barrel, profiler, geometry dedup, startup profiler
 │   ├── wasm/                     # WASM bindings, type definitions, compiled candy_physics.wasm
-│   ├── workers/                  # Web Workers for physics and world generation
 │   ├── world/                    # World generation, state management
 │   ├── accessibility-index.ts    # Accessibility system entry point
 │   └── main.ts                   # Application entry point (re-exports from core)

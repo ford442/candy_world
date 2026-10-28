@@ -39,10 +39,6 @@ let _cppBatchInPtr: number | null = null;
 let _cppBatchOutPtr: number | null = null;
 let _cppBatchCapacity = 0;
 
-export function isNativeUnifiedGroundReady(): boolean {
-    return wasmGetUnifiedGroundHeight !== null;
-}
-
 export function syncGroundCacheTTLToNative(seconds: number): void {
     wasmSetGroundCacheTTL?.(seconds);
     cppSetGroundCacheTTL?.(seconds);
@@ -154,24 +150,3 @@ export function fillUnifiedGroundHeights(
     fillUnifiedGroundHeightsJS(positions, out, count, now, getTerrainHeight, platforms);
 }
 
-/** Microbench helper: which backend served the last conceptual path. */
-export function getUnifiedGroundBackend(): 'cpp' | 'as' | 'js' {
-    if (cppGetUnifiedGroundHeight && isEmscriptenReady()) return 'cpp';
-    if (wasmGetUnifiedGroundHeight && isWasmReady()) return 'as';
-    return 'js';
-}
-
-/**
- * Batch unified ground heights into a new Float32Array.
- * Alias for tooling that previously called batchGroundHeightWithPlatforms.
- */
-export function batchGroundHeightWithPlatforms(
-    positions: Float32Array,
-    getTerrainHeight: (x: number, z: number) => number,
-    platforms: readonly GroundPlatform[]
-): Float32Array {
-    const count = positions.length / 2;
-    const out = new Float32Array(count);
-    fillUnifiedGroundHeights(positions, out, count, performance.now(), getTerrainHeight, platforms);
-    return out;
-}

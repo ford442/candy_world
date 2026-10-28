@@ -127,6 +127,3 @@ export function updateCpuParticlesNative(
     }
 }
 
-export function isCpuParticlesNativeAvailable(): boolean {
-    return isEmscriptenReady() && getUpdateCpuParticlesFn() !== null;
-}

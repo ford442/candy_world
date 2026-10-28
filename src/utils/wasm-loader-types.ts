@@ -176,36 +176,6 @@ export interface Trampoline extends Positionable {
 }
 
 /**
- * Material with shader info
- */
-export interface MaterialInfo {
-    vertexShaderId?: number;
-    fragmentShaderId?: number;
-    blendingMode?: number;
-    flags?: number;
-}
-
-/**
- * Animation data entry
- */
-export interface AnimationData {
-    offset?: number;
-    type?: number;
-    originalY?: number;
-    colorIndex?: number;
-}
-
-/**
- * Position data entry
- */
-export interface PositionData {
-    x?: number;
-    y?: number;
-    z?: number;
-    radius?: number;
-}
-
-/**
  * Player state interface
  */
 export interface PlayerState {

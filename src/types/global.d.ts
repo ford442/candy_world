@@ -206,10 +206,8 @@ declare global {
 // Declare modules for JS files without types
 declare module '*/src/utils/wasm-loader.ts' {
     export function initWasm(): Promise<boolean>;
-    export function initWasmParallel(): Promise<boolean>;
     export function isWasmReady(): boolean;
     export function getGroundHeight(x: number, z: number): number;
-    export const LOADING_PHASES: any;
 }
 
 // Declare WASM module imports (Vite's built-in `?init` suffix)

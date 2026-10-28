@@ -1,23 +1,19 @@
 /**
  * @file wasm-batch-core.ts
- * @brief Core batch operations: uploads, culling, spawning, and material analysis
+ * @brief Core batch operations: uploads, culling and spawning
  *
  * Handles:
- * - Batch uploads: uploadPositions, uploadMushroomSpecs, copySharedPositions, uploadAnimationData
+ * - Batch uploads: uploadPositionsFlat, uploadMushroomSpecs
  * - Culling: batchDistanceCull
  * - Spawning: batchMushroomSpawnCandidates, readSpawnCandidates
- * - Materials: analyzeMaterials, getUniqueShaderCount
  */
 
 import {
     SpawnCandidate,
-    MaterialAnalysisResult,
     DistanceCullResult,
-    MaterialInfo,
 } from './wasm-batch-types.ts';
 import {
     wasmInstance,
-    wasmMemory,
     positionView,
     animationView,
     outputView,
@@ -26,10 +22,8 @@ import {
     OUTPUT_OFFSET,
     type WasmExports,
     type Mushroom,
-    type AnimationData,
-    type PositionData,
 } from './wasm-loader-core.ts';
-import { MATERIAL_DATA_OFFSET, MAX_POSITION_OBJECTS } from './native-memory-layout.ts';
+import { MAX_POSITION_OBJECTS } from './native-memory-layout.ts';
 
 // =============================================================================
 // BATCH UPLOAD FUNCTIONS
@@ -37,24 +31,6 @@ import { MATERIAL_DATA_OFFSET, MAX_POSITION_OBJECTS } from './native-memory-layo
 
 /** Max objects the AssemblyScript position buffer can hold (4096 bytes / 16). */
 export const WASM_POSITION_OBJECT_CAPACITY = MAX_POSITION_OBJECTS;
-
-/**
- * Upload positions to WASM
- * @param objects - Array of position data
- */
-export function uploadPositions(objects: PositionData[]): void {
-    refreshWasmViews();
-    if (!positionView) return;
-    const count = Math.min(objects.length, 256);
-    for (let i = 0; i < count; i++) {
-        const obj = objects[i];
-        const idx = i * 4;
-        positionView[idx] = obj.x || 0;
-        positionView[idx + 1] = obj.y || 0;
-        positionView[idx + 2] = obj.z || 0;
-        positionView[idx + 3] = obj.radius || 1.0;
-    }
-}
 
 /**
  * Upload packed Float32Array positions to WASM
@@ -89,38 +65,6 @@ export function uploadMushroomSpecs(mushrooms: Mushroom[]): void {
         animationView[idx + 1] = 0;
         animationView[idx + 2] = m.position.y;
         animationView[idx + 3] = m.userData?.colorIndex || 0;
-    }
-}
-
-/**
- * Copy shared positions to WASM
- * @param sharedView - Shared Float32Array
- * @param objectCount - Number of objects
- */
-export function copySharedPositions(sharedView: Float32Array, objectCount: number): void {
-    refreshWasmViews();
-    if (!positionView) return;
-    const maxCount = Math.min(objectCount, Math.floor(positionView.length / 4));
-    for (let i = 0; i < maxCount * 4; i++) {
-        positionView[i] = sharedView[i];
-    }
-}
-
-/**
- * Upload animation data to WASM
- * @param animData - Array of animation data
- */
-export function uploadAnimationData(animData: AnimationData[]): void {
-    refreshWasmViews();
-    if (!animationView) return;
-    const count = Math.min(animData.length, 256);
-    for (let i = 0; i < count; i++) {
-        const data = animData[i];
-        const idx = i * 4;
-        animationView[idx] = data.offset || 0;
-        animationView[idx + 1] = data.type || 0;
-        animationView[idx + 2] = data.originalY || 0;
-        animationView[idx + 3] = typeof data.colorIndex === 'number' ? data.colorIndex : 0;
     }
 }
 
@@ -228,88 +172,4 @@ export function readSpawnCandidates(candidateCount: number): SpawnCandidate[] {
         arr.push({ x, y, z, colorIndex: Math.round(colorIndex) });
     }
     return arr;
-}
-
-// =============================================================================
-// MATERIALS
-// =============================================================================
-
-/**
- * Analyze materials
- * @param materials - Array of material info
- * @returns Material analysis result
- */
-export function analyzeMaterials(materials: MaterialInfo[]): MaterialAnalysisResult {
-    const exports = wasmInstance?.exports as WasmExports | undefined;
-    if (!exports?.analyzeMaterials) {
-        const seen = new Map<string, boolean>();
-        const shaders: Array<{
-            vertexId: number;
-            fragmentId: number;
-            blendMode: number;
-            flags: number;
-        }> = [];
-        for (const mat of materials) {
-            const key = `${mat.vertexShaderId}-${mat.fragmentShaderId}-${mat.blendingMode}-${mat.flags || 0}`;
-            if (!seen.has(key)) {
-                seen.set(key, true);
-                shaders.push({
-                    vertexId: mat.vertexShaderId || 0,
-                    fragmentId: mat.fragmentShaderId || 0,
-                    blendMode: mat.blendingMode || 0,
-                    flags: mat.flags || 0,
-                });
-            }
-        }
-        return { uniqueCount: shaders.length, shaders };
-    }
-
-    const count = Math.min(materials.length, 256);
-    const MATERIAL_OFFSET = MATERIAL_DATA_OFFSET;
-    if (!wasmMemory) return { uniqueCount: 0, shaders: [] };
-
-    const materialView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, count * 4);
-    for (let i = 0; i < count; i++) {
-        const mat = materials[i];
-        const idx = i * 4;
-        materialView[idx] = mat.vertexShaderId || 0;
-        materialView[idx + 1] = mat.fragmentShaderId || 0;
-        materialView[idx + 2] = mat.blendingMode || 0;
-        materialView[idx + 3] = mat.flags || 0;
-    }
-
-    const uniqueCount = exports.analyzeMaterials(MATERIAL_OFFSET, count);
-    const outputView = new Int32Array(
-        wasmMemory.buffer,
-        MATERIAL_OFFSET,
-        Math.min(uniqueCount, 64) * 4
-    );
-    const shaders: Array<{
-        vertexId: number;
-        fragmentId: number;
-        blendMode: number;
-        flags: number;
-    }> = [];
-    for (let i = 0; i < Math.min(uniqueCount, 64); i++) {
-        const idx = i * 4;
-        shaders.push({
-            vertexId: outputView[idx],
-            fragmentId: outputView[idx + 1],
-            blendMode: outputView[idx + 2],
-            flags: outputView[idx + 3],
-        });
-    }
-    return { uniqueCount, shaders };
-}
-
-/**
- * Get unique shader count
- * @returns Number of unique shaders
- */
-export function getUniqueShaderCount(): number {
-    const exports = wasmInstance?.exports as WasmExports | undefined;
-    if (exports?.getUniqueShaderCount) {
-        return exports.getUniqueShaderCount();
-    }
-    return 0;
 }
