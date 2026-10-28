@@ -6,7 +6,6 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { makeInteractive as makeInteractiveUtils } from '../utils/interaction-utils.ts';
-import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.ts';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
 import { spawnDandelionExplosion } from './dandelion-seeds.ts';

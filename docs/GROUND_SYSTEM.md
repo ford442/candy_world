@@ -51,10 +51,8 @@ lake/island math or calling the raw WASM terrain function directly:
 - `src/world/ground-heightmap.ts` and `src/core/main.ts` — use authoritative
   height.
 
-Workers (`src/workers/physics-worker.ts`, `src/workers/worldgen-worker.ts`)
-still contain duplicate lake constants. They run in threads that cannot easily
-import `GroundSystem` (it depends on DOM/window via `wasm-loader` and
-`CONFIG`), so they are left as a known follow-up.
+The Web Workers that kept their own height approximations and duplicate lake
+constants (`src/workers/`) were never imported and were deleted (#2026).
 
 ### 3. Data-driven eye height and ground-follow tuning
 

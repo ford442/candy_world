@@ -68,7 +68,7 @@ Shipped **Option 1 — Subterranean Sugar Caves**. Festival Night Market and Wea
 ### C. Libraries (only if justified)
 
 - **Keep Supabase** — do not add a second realtime stack
-- **bitecs** — only if AS ECS insufficient for fauna + peers; prefer extend `assembly/ecs.ts`
+- **bitecs** — only if the C++ slab ECS (`emscripten/ecs.cpp`) is insufficient for fauna + peers; prefer extending it (`assembly/ecs.ts` had no caller and was deleted, #2026)
 - **Map authoring** — expand `?debugPlace` + `tools/map-generator/` rather than external editor deps
 
 ## Part II door (explicit sequence)

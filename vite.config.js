@@ -72,11 +72,6 @@ export default defineConfig({
                     if (id.includes('/src/core/platform/')) {
                         return 'platform';
                     }
-                    // Workers
-                    if (id.includes('/src/workers/')) {
-                        return 'workers';
-                    }
-
                     // --- Lazy chunks (#1361): only reached via dynamic import() ---
                     // Thin *lazy.ts stubs stay in `app` (statically imported); the heavy
                     // modules below are loaded via import() from those stubs.
