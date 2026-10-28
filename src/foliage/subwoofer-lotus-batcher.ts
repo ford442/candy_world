@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
     color, float, vec3, positionLocal, normalLocal,
     mix, sin, abs, smoothstep,
-    mx_noise_float, uv, length, atan2, max
+    mx_noise_float, uv, length, atan, max
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import { discoverySystem } from '../systems/discovery.ts';
+import { discoverySystem } from '../systems/discovery-optimized.ts';
 import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { showToast } from '../utils/toast.ts';
@@ -135,7 +135,7 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         const vUv = uv().sub(0.5).mul(2.0);
         const len = length(vUv);
         const spinSpeed = uTime.mul(5.0).add(uGlitchIntensity.mul(20.0));
-        const angle = float(atan2(vUv.y, vUv.x)).add(spinSpeed.mul(float(1.0).sub(len)));
+        const angle = float(atan(vUv.y, vUv.x)).add(spinSpeed.mul(float(1.0).sub(len)));
         const spiral = sin(angle.mul(5.0).sub(len.mul(10.0)));
         const active = max(smoothstep(0.1, 0.5, uGlitchIntensity), smoothstep(0.7, 1.0, uAudioLow));
 

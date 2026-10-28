@@ -81,8 +81,9 @@
 ### Startup Sequence
 
 1.  **Entry:** `index.html` loads the bundled entry (`src/core/main.ts`).
-2.  **WASM Init:** `main.ts` triggers `initWasmParallel` (in `src/utils/wasm-loader.ts`).
-    - Loads `candy_physics.wasm` and `candy_native.js` simultaneously.
+2.  **WASM Init:** `candy_physics.wasm` (AssemblyScript) loads by top-level await in
+    `src/utils/wasm-loader-core.ts`; `core/main/wasm-pipeline.ts` then calls `initWasm()`,
+    which loads the optional `candy_native*.js` (C++) build.
 3.  **World Gen:** Once WASM is ready, `initWorld` (in `src/world/generation-core.ts`) is called.
     - Parses `assets/map.json`.
     - Spawns specific foliage types using factories.

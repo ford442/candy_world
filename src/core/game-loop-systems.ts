@@ -41,6 +41,7 @@ import {
 import { renderPostProcessing, updatePostFX } from './game-loop-postfx.ts';
 import { updateStreamingPhase } from './game-loop-streaming.ts';
 import { updateVisualsPhase } from './game-loop-visuals.ts';
+import { updateInputActions } from './input/actions/frame.ts';
 import type { FrameContext, FrameSource, System, SystemScheduler } from './scheduler/index.ts';
 
 type VisualsState = ReturnType<typeof updateVisualsPhase>;
@@ -61,6 +62,14 @@ export const FRAME_SOURCE: FrameSource = audioClockSource;
 
 export const FRAME_SYSTEMS: readonly System[] = [
     // --- input -------------------------------------------------------------
+    {
+        // Devices → actions → keyStates and mouse look (#2027, docs/INPUT.md).
+        // First: everything after it reads this frame's input.
+        id: 'input-actions',
+        phase: 'input',
+        maxConsecutiveErrors: Infinity,
+        update: (ctx) => updateInputActions(ctx.exploreActive),
+    },
     {
         id: 'interaction',
         phase: 'input',

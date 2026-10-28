@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import type { ShaderNodeObject } from 'three/src/nodes/tsl/TSLCore.js';
 import {
     color,
     float,
@@ -41,7 +40,7 @@ import {
     uGlitchExplosionRadius,
 } from './shared-resources.ts';
 import { triplanarNoise, perturbNormal, createRimLight } from './tsl-nodes.ts';
-import { $sn } from './tsl-types.ts';
+import { $sn, asVec3, colorOf, type MaterialColorNode, type Vec3Node } from './tsl-types.ts';
 
 export interface UnifiedMaterialOptions {
     colorNode?: Node;
@@ -162,12 +161,12 @@ export function createUnifiedMaterial(
     const material = new MeshPhysicalNodeMaterial();
 
     if (colorNode) {
-        material.colorNode = colorNode;
+        material.colorNode = colorNode as MaterialColorNode;
     } else {
-        material.colorNode = color(hexColor);
+        material.colorNode = colorOf(hexColor);
     }
     if (seasonRole) {
-        material.colorNode = applySeasonTint(material.colorNode, seasonRole);
+        material.colorNode = applySeasonTint($sn(material.colorNode), seasonRole);
     }
 
     if (contactDarkening > 0.0) {
@@ -182,13 +181,13 @@ export function createUnifiedMaterial(
     material.side = side;
 
     if (emissive !== null) {
-        material.emissiveNode = color(emissive).mul(float(emissiveIntensity));
+        material.emissiveNode = colorOf(emissive).mul(float(emissiveIntensity));
     }
 
     let surfaceNoise: any = float(0.0);
 
     if (bumpStrength > 0.0 || thicknessDistortion > 0.0 || animateMoisture) {
-        let pos = positionLocal;
+        let pos: Vec3Node = positionLocal;
         if (animateMoisture) {
             const timeOffset = vec3(0.0, uTime.mul(0.2), 0.0);
             pos = pos.add(timeOffset);
@@ -287,8 +286,8 @@ export function createUnifiedMaterial(
         // 4. Pastel guard: pulling the scatter colour toward albedo keeps a
         //    saturated preset from pushing this term to white.
         const sssTint = mix(
-            color(subsurfaceColor),
-            color(subsurfaceColor).mul(color(hexColor)),
+            colorOf(subsurfaceColor),
+            asVec3(colorOf(subsurfaceColor)).mul(colorOf(hexColor)),
             float(subsurfaceAlbedoTint)
         );
 
@@ -329,7 +328,7 @@ export function createUnifiedMaterial(
                     )
                 )
                 .pow(4.0);
-            const coatGlow = color(clearcoatTint)
+            const coatGlow = colorOf(clearcoatTint)
                 .mul(coatFresnel)
                 .mul(float(clearcoatTintStrength * clearcoat));
             material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(coatGlow);
@@ -373,13 +372,11 @@ export function createUnifiedMaterial(
 
     if (sheen > 0.0) {
         material.sheen = sheen;
-        material.sheenNode = color(sheenColor);
+        material.sheenNode = colorOf(sheenColor);
         material.sheenRoughnessNode = float(sheenRoughness);
     }
 
-    const basePos: ShaderNodeObject<Node> = $sn(
-        deformationNode ?? material.positionNode ?? positionLocal
-    );
+    const basePos = $sn(deformationNode ?? material.positionNode ?? positionLocal);
 
     const distToGlitch = positionWorld.distance(uGlitchExplosionCenter);
     const localGlitchFactor = float(1.0).sub(
@@ -399,7 +396,7 @@ export function createUnifiedMaterial(
         const singGlow = $sn(material.colorNode).mul(singPulse).mul(0.5);
         material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(singGlow);
 
-        const currentPos: ShaderNodeObject<Node> = $sn(material.positionNode ?? positionLocal);
+        const currentPos = $sn(material.positionNode ?? positionLocal);
 
         const vibrationScale = float(20.0);
         const vibrationSpeed = float(10.0);
@@ -415,12 +412,12 @@ export function createUnifiedMaterial(
     }
 
     if (rimStrength > 0.0) {
-        const rimColorNode = color(rimColor);
+        const rimColorNode = colorOf(rimColor);
         const rimEffect = createRimLight(
             rimColorNode,
             float(rimStrength),
             float(rimPower),
-            material.normalNode
+            material.normalNode as Vec3Node | null
         );
 
         material.emissiveNode = $sn(material.emissiveNode ?? color(0x000000)).add(rimEffect);

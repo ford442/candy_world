@@ -531,6 +531,19 @@ async function expectFailure(canvas, stage) {
     assert.equal(lastConfigure.format, 'bgra8unorm');
     assert.equal(probe.canvas.colorSpace, 'srgb');
     assert.equal(getWebGPUProbeReport().canvas.colorSpace, 'srgb', 'report follows the re-tag');
+
+    // Three r186 re-configures on the first frame and after every resize,
+    // without colorSpace; the tag must survive those.
+    applyCanvasColorSpace(probe, 'display-p3');
+    probe.context.configure({
+        device: probe.device,
+        format: 'bgra8unorm',
+        alphaMode: 'premultiplied',
+    });
+    assert.equal(lastConfigure.colorSpace, 'display-p3', "Three's own configure keeps the tag");
+    applyCanvasColorSpace(probe, 'srgb');
+    probe.context.configure({ device: probe.device, format: 'bgra8unorm' });
+    assert.equal(lastConfigure.colorSpace, 'srgb', 'the pin follows the latest re-tag');
 }
 
 // --- WebGL2 fallback contract -----------------------------------------------

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { color, float, vec3, mix, uv, sin, positionLocal, positionWorld } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { calculatePlayerPush } from './deformation.ts';
+import { colorOf } from './tsl-types.ts';
 import { CandyPresets } from './presets.ts';
 import { uTime, uWindSpeed, uWindDirection, uWindStrength } from './shared-resources.ts';
 import { createUnifiedMaterial, type UnifiedMaterialOptions } from './unified-material.ts';
@@ -61,7 +62,7 @@ export function createGradientMaterial(
 
     const totalDeformation = positionLocal.add(windBend).add(pushOffset);
 
-    const gradientNode = mix(color(colorBottom), color(colorTop), uv().y);
+    const gradientNode = mix(colorOf(colorBottom), colorOf(colorTop), uv().y);
 
     return createUnifiedMaterial(colorBottom, {
         colorNode: gradientNode,

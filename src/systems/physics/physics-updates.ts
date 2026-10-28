@@ -49,8 +49,7 @@ import {
     vineSwings,
     setActiveVineSwing,
 } from '../../world/state.ts';
-import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
-import { discoverySystem } from '../discovery.ts';
+import { optimizedDiscovery, discoverySystem, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import { DISCOVERY_MAP } from '../discovery-map.ts';
 import {
     getGroundHeight,

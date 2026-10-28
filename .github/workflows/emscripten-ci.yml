@@ -8,18 +8,22 @@ on:
     branches: [main]
     paths:
       - 'emscripten/**'
+      - 'assembly/**'
       - 'src/utils/wasm-*.ts'
       - 'verification/verify_emcc_exports.js'
       - 'scripts/check-emcc-manifest.mjs'
+      - 'scripts/check-native-exports.mjs'
       - '.github/workflows/emscripten-ci.yml'
       - 'package.json'
   push:
     branches: [main]
     paths:
       - 'emscripten/**'
+      - 'assembly/**'
       - 'src/utils/wasm-*.ts'
       - 'verification/verify_emcc_exports.js'
       - 'scripts/check-emcc-manifest.mjs'
+      - 'scripts/check-native-exports.mjs'
       - '.github/workflows/emscripten-ci.yml'
       - 'package.json'
 

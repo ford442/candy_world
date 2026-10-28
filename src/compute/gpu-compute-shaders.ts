@@ -817,7 +817,7 @@ struct Uniforms {
 };
 
 @group(0) @binding(0) var<storage, read> positions: array<vec3<f32>>;
-@group(0) @binding(1) var<storage, write> lodLevels: array<u32>;
+@group(0) @binding(1) var<storage, read_write> lodLevels: array<u32>;
 @group(0) @binding(2) var<uniform> u: Uniforms;
 
 @compute @workgroup_size(256)
@@ -889,7 +889,7 @@ struct Uniforms {
 
 @group(0) @binding(0) var<storage, read> frequencies: array<f32>;
 @group(0) @binding(1) var<storage, read> baseColors: array<vec4<f32>>;
-@group(0) @binding(2) var<storage, write> outputColors: array<vec4<f32>>;
+@group(0) @binding(2) var<storage, read_write> outputColors: array<vec4<f32>>;
 @group(0) @binding(3) var<uniform> u: Uniforms;
 
 @compute @workgroup_size(256)

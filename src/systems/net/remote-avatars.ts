@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { color } from 'three/tsl';
-import { MeshPhysicalNodeMaterial } from 'three/webgpu';
+import { MeshPhysicalNodeMaterial, type Renderer } from 'three/webgpu';
 import { CONFIG } from '../../core/config.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import type { RemotePeer } from './presence-types.ts';
@@ -44,7 +44,7 @@ export class RemoteAvatars {
     private _tags: TagSlot[] = [];
     private _tagRoot: HTMLDivElement | null = null;
     private _camera: THREE.PerspectiveCamera | null = null;
-    private _renderer: THREE.Renderer | null = null;
+    private _renderer: Renderer | null = null;
     private _parent: THREE.Object3D | null = null;
     private _initialized = false;
     private _interpDelayMs = 100;
@@ -57,7 +57,7 @@ export class RemoteAvatars {
         return RemoteAvatars._instance;
     }
 
-    init(_scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.Renderer): void {
+    init(_scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: Renderer): void {
         if (this._initialized) return;
 
         const maxPeers = CONFIG.presence?.maxPeers ?? 16;

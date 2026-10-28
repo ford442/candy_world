@@ -797,10 +797,10 @@ export class FoliageBatcher {
             F32.set(batch.input.subarray(0, countToCopy), inPtr);
         }
 
-        // Call the universal batch processor (C++ or AssemblyScript)
-        const func =
-            (instance.exports as any)['processBatchUniversal_c'] ||
-            (instance.exports as any)['processBatchUniversal'];
+        // Universal batch processor (AssemblyScript). The pointers are in AS
+        // memory, so only the AS export can take them; the old lookup of
+        // processBatchUniversal_c on the AS instance always missed (#2026).
+        const func = (instance.exports as any)['processBatchUniversal'];
 
         if (func) {
             func(
@@ -964,9 +964,7 @@ export class FoliageBatcher {
         const instance = getWasmInstance();
         if (!instance) return;
 
-        const func =
-            (instance.exports as any)['processBatchUniversal_c'] ||
-            (instance.exports as any)['processBatchUniversal'];
+        const func = (instance.exports as any)['processBatchUniversal'];
         if (!func) return;
 
         // Animation type codes for simple batches (22-25)
@@ -1026,16 +1024,7 @@ export class FoliageBatcher {
                 F32.set(batch.input.subarray(0, countToCopy), inPtr);
             }
 
-            // Call native function
-            const nativeFunc = (instance.exports as any)[
-                `batch${config.type.charAt(0).toUpperCase() + config.type.slice(1)}_c`
-            ];
-            if (nativeFunc) {
-                nativeFunc(batch.ptrInput, batch.count, time, intensity, batch.ptrOutput);
-            } else {
-                // Fallback to universal processor
-                func(config.code, batch.ptrInput, batch.count, time, 0, 0, 0, 0, batch.ptrOutput);
-            }
+            func(config.code, batch.ptrInput, batch.count, time, 0, 0, 0, 0, batch.ptrOutput);
 
             // Read results
             const outPtr = batch.ptrOutput >>> 2;

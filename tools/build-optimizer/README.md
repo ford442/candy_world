@@ -104,7 +104,7 @@ npm run optimize:assets
 ### 6. Enhanced Vite Plugin (`vite-plugin-enhanced.ts`)
 
 Custom Vite plugin with:
-- WASM optimization (strip debug symbols with wasm-opt)
+- WASM prefetch hints (no wasm-opt pass: `asc --optimize` and `emcc -O2` already run Binaryen)
 - TSL shader precompilation cache
 - Dead code elimination for unused CandyPresets
 - Build-time constant folding (process.env checks)
@@ -117,7 +117,7 @@ import { candyWorldOptimizer } from './tools/build-optimizer/src/vite-plugin-enh
 export default {
   plugins: [
     candyWorldOptimizer({
-      wasmOpt: true,
+      wasmPrefetch: true,
       tslCache: true,
       deadCodeElimination: true,
       constantFolding: true
@@ -183,7 +183,7 @@ export default defineConfig({
     wasm(),
     topLevelAwait(),
     candyWorldOptimizer({
-      wasmOpt: true,
+      wasmPrefetch: true,
       tslCache: true,
       deadCodeElimination: true,
       constantFolding: true
@@ -272,9 +272,10 @@ All reports are generated in `tools/build-optimizer/stats/`:
    - Impact: 40% reduction possible
 
 2. **WASM Optimization**
-   - Install wasm-opt (Binaryen): `apt install binaryen`
-   - Enable in build: `wasm-opt -O3 -s`
-   - Impact: 30-50% size reduction
+   - Already in the native builds: `asc --optimize --optimizeLevel 3` and
+     `emcc -O2` both run Binaryen's wasm-opt, so a second pass gains nothing
+   - Prod `build:wasm` emits no `.wat`, source map or `sourceMappingURL`
+     (`build:wasm:debug` adds them); `npm run check:dist-wasm` guards `dist/`
 
 3. **Foliage Code Splitting**
    - Move foliage to lazy-loaded chunk
@@ -345,19 +346,7 @@ tools/build-optimizer/
 
 ### Common Issues
 
-**1. wasm-opt not found**
-```bash
-# Ubuntu/Debian
-sudo apt install binaryen
-
-# macOS
-brew install binaryen
-
-# Or skip WASM optimization
-candyWorldOptimizer({ wasmOpt: false })
-```
-
-**2. cwebp/avifenc not found**
+**1. cwebp/avifenc not found**
 ```bash
 # Ubuntu/Debian
 sudo apt install webp libavif-bin
@@ -368,7 +357,7 @@ brew install webp libavif
 # Or use Node.js fallbacks
 ```
 
-**3. Budget check fails CI**
+**2. Budget check fails CI**
 ```bash
 # Adjust budgets in performance-budget.ts
 const DEFAULT_CONFIG: BudgetConfig = {

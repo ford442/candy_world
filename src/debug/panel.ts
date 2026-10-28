@@ -805,6 +805,7 @@ export class DebugPanel {
             if (typeof t.vramMb === 'number' && row.budget.vramMb > 0) {
                 cost.push(`${t.vramMb.toFixed(1)}/${row.budget.vramMb}MB`);
             }
+            if (t.detail) cost.push(t.detail);
             lines.push(
                 `${row.budget.label}: ${counts}${cost.length ? `  ${cost.join('  ')}` : ''}`
             );

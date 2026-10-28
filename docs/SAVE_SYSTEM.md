@@ -367,7 +367,7 @@ needed: `WorldSaveData` already had the fields; they used to be written as const
 
 ```typescript
 import { createProgressSaveData } from './systems/save-system.ts';
-import { discoverySystem } from './systems/discovery.ts';
+import { discoverySystem } from './systems/discovery-optimized.ts';
 import { unlockSystem } from './systems/unlocks.ts';
 
 (saveSystem as any).gatherProgressData = (playtime: number) => {

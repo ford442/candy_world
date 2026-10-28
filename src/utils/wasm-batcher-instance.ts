@@ -190,8 +190,3 @@ export function writeInstancePose(
     );
     return false;
 }
-
-/** True when the dedicated batcher-instance native export is callable. */
-export function isBatcherInstanceNativeReady(): boolean {
-    return isEmscriptenReady() && !!getNativeFunc('batchWriteInstancePose_c');
-}

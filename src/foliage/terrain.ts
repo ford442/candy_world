@@ -4,7 +4,7 @@ import {
     smoothstep, mix, positionWorld, mx_noise_float, normalLocal,
     distance, max, uv, texture
 } from 'three/tsl';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial, type Node } from 'three/webgpu';
 import { $sn } from './material-core/tsl-types.ts';
 import {
     CandyPresets,
@@ -41,7 +41,7 @@ export function createTerrainMaterial(
 
     // 2. Vertex Displacement (Audio Reactive Breathing)
     // We want the ground to heave slowly with the bass to feel alive.
-    const displacementLogic = Fn(([pos]: any) => {
+    const displacementLogic = Fn(([pos]: [Node<'vec3'>]) => {
         // Large, slow noise for "breathing" terrain
         // Scale down position for large features (world scale is 400x400)
         const noisePos = pos.mul(0.02).add(time.mul(0.2));

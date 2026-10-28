@@ -16,19 +16,6 @@ export interface SpawnCandidate {
 }
 
 /**
- * Material analysis result
- */
-export interface MaterialAnalysisResult {
-    uniqueCount: number;
-    shaders: Array<{
-        vertexId: number;
-        fragmentId: number;
-        blendMode: number;
-        flags: number;
-    }>;
-}
-
-/**
  * Distance cull result
  */
 export interface DistanceCullResult {
@@ -36,12 +23,3 @@ export interface DistanceCullResult {
     flags: Float32Array | null;
 }
 
-/**
- * Material with shader info
- */
-export interface MaterialInfo {
-    vertexShaderId?: number;
-    fragmentShaderId?: number;
-    blendingMode?: number;
-    flags?: number;
-}

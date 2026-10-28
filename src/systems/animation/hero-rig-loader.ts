@@ -13,13 +13,13 @@ import { registerHeroRig, type HeroRig } from './clip-player.ts';
 /** The tiny hand-authored test asset (scripts/gen-hero-clip-asset.mjs). */
 export const HERO_TEST_ASSET = 'models/hero-clip-test.gltf';
 
-type GLTFLoaderCtor = typeof import('three/examples/jsm/loaders/GLTFLoader.js').GLTFLoader;
+type GLTFLoaderCtor = typeof import('three/addons/loaders/GLTFLoader.js').GLTFLoader;
 
 let _loaderCtor: Promise<GLTFLoaderCtor> | null = null;
 
 function loaderCtor(): Promise<GLTFLoaderCtor> {
     if (!_loaderCtor) {
-        _loaderCtor = import('three/examples/jsm/loaders/GLTFLoader.js').then((m) => m.GLTFLoader);
+        _loaderCtor = import('three/addons/loaders/GLTFLoader.js').then((m) => m.GLTFLoader);
     }
     return _loaderCtor;
 }

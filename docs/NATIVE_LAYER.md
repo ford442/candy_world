@@ -21,17 +21,17 @@ TypedArrays went stale after `memory.grow`.
 
 ## Decision 1: one owner per subsystem
 
-| Subsystem                                                             | Owner   | Why                                                               | Losing twin                                                                                                                                                                        |
-| --------------------------------------------------------------------- | ------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| animation_batch, lod_batch, mesh_deformation, fluid, batcher_instance | **C++** | SIMD + OpenMP batch work                                          | `assembly/animation_batch.ts`: delete once its parity test is green against C++                                                                                                    |
-| particles (batch)                                                     | **C++** | SIMD/threaded                                                     | AS `particles.ts` stays only as the bounds-tested single-thread path until C++ parity lands                                                                                        |
-| boids                                                                 | **C++** | threaded batch                                                    | `assembly/boids.ts`. Today `cppUpdateBoids` is bound before Emscripten loads, so it is always null and AS serves; bind it after load behind a parity test, then delete the AS twin |
-| ecs                                                                   | **C++** | `src/systems/ecs/world.ts` already targets the C++ slab API       | `assembly/ecs.ts`                                                                                                                                                                  |
-| batch (`batch.cpp`)                                                   | **C++** | OpenMP                                                            | `assembly/batch.ts` batch helpers                                                                                                                                                  |
-| ground (unified + platforms)                                          | **AS**  | zero-dependency, single-threaded, always loaded (top-level await) | `emscripten/ground.cpp`                                                                                                                                                            |
-| physics (player, collision grid, rigid bodies, joints)                | **AS**  | same; character-controller ABI                                    | `emscripten/physics.cpp` (keep only the assist-only ABI covered by `test:character-native`)                                                                                        |
-| math (ground formula, noise)                                          | **AS**  | parity reference; C++ noise already uses a different hash         | `math.cpp` scalar duplicates; keep `batchGroundHeight_simd` as the C++ batch fast path                                                                                             |
-| discovery                                                             | **AS**  | fixed-region spatial grid, single-threaded                        | `emscripten/discovery.cpp`                                                                                                                                                         |
+| Subsystem                                              | Owner   | Why                                                               | Losing twin                                                                                                                                                                        |
+| ------------------------------------------------------ | ------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| animation_batch, lod_batch, fluid, batcher_instance    | **C++** | SIMD + OpenMP batch work                                          | `assembly/animation_batch.ts`: delete once its parity test is green against C++                                                                                                    |
+| particles (batch)                                      | **C++** | SIMD/threaded                                                     | AS `particles.ts` stays only as the bounds-tested single-thread path until C++ parity lands                                                                                        |
+| boids                                                  | **C++** | threaded batch                                                    | `assembly/boids.ts`. Today `cppUpdateBoids` is bound before Emscripten loads, so it is always null and AS serves; bind it after load behind a parity test, then delete the AS twin |
+| ecs                                                    | **C++** | `src/systems/ecs/world.ts` already targets the C++ slab API       | `assembly/ecs.ts`: deleted (#2026 slice 1; nothing called it)                                                                                                                      |
+| batch (`batch.cpp`)                                    | **C++** | OpenMP                                                            | `assembly/batch.ts` batch helpers                                                                                                                                                  |
+| ground (unified + platforms)                           | **AS**  | zero-dependency, single-threaded, always loaded (top-level await) | `emscripten/ground.cpp`                                                                                                                                                            |
+| physics (player, collision grid, rigid bodies, joints) | **AS**  | same; character-controller ABI                                    | `emscripten/physics.cpp` (keep only the assist-only ABI covered by `test:character-native`)                                                                                        |
+| math (ground formula, noise)                           | **AS**  | parity reference; C++ noise already uses a different hash         | `math.cpp` noise / fast-math twins: deleted (#2026 slice 1); it keeps `getGroundHeight` (parity reference) and `batchGroundHeight_simd` (C++ batch fast path)                      |
+| discovery                                              | **AS**  | fixed-region spatial grid, single-threaded                        | `emscripten/discovery.cpp`                                                                                                                                                         |
 
 The JS fallback remains for every subsystem: it is what runs when neither
 native module loads.
@@ -39,6 +39,48 @@ native module loads.
 Twins are **deleted**, not kept as mirrors. Each deletion is its own PR:
 first a parity test through the production bridge (as `tests/native-batch-parity.test.mjs`
 does for ground), then the deletion. This ADR does not delete anything by itself.
+
+## Decision 1b: every export has a caller (#2026 slice 1)
+
+An export with no caller is code we build, ship and keep in sync for nothing,
+and a lookup of a name the module does not export is a fallback that always
+runs. Both are now checked:
+
+- **The AS ABI is `assembly/index.ts`, listed by name.** `export *` exported
+  every helper a module shared with its siblings (`clamp`, `lerp`,
+  `jointsOnBodyRemoved`); asc compiles only what the list reaches.
+- **The C++ ABI is `ANIMATION_FUNCTIONS` in `emscripten/build.sh`.**
+  `EXPORT_KEEPALIVE=1` exports every `EMSCRIPTEN_KEEPALIVE` function whether or
+  not it is in `exports.txt`, so `verify:emcc:manifest` fails on a KEEPALIVE
+  function that is not declared, and on a declared name with no definition.
+- **`npm run check:native-exports`** (in `test:fast`) fails on an export with no
+  caller in `src/` or `tests/`, and on a `getNativeFunc('x')`, `ccall('x')` or
+  `exports.x` that names nothing. The baseline
+  (`scripts/native-exports-baseline.json`) is 0 dead / 0 stale and, like the
+  other ratchets, can only go down (`test:baselines`). Tests keep what they
+  need: an export only a test calls is allowed and listed with `--list`.
+
+What slice 1 removed, all with zero call sites:
+
+|                                              | before            | after           |
+| -------------------------------------------- | ----------------- | --------------- |
+| AS function exports                          | 171 (+84 globals) | 80 (+5 globals) |
+| `candy_physics.wasm`                         | 69.5 KB           | 45.5 KB         |
+| C++ exports (exports.txt + KEEPALIVE)        | 157               | 57              |
+| `candy_native_st.wasm` / `candy_native.wasm` | 90 / 398 KB       | 47 / 339 KB     |
+| `#pragma omp` sites                          | 32                | 10              |
+
+Deleted: `src/workers/` and its chunk rule, `parallelWasmLoad`, the bootstrap
+pthread (`bootstrap_loader.cpp`, which filled a heightmap nothing read),
+`mesh_deformation.cpp`, the scalar animation calculators (`animation.cpp`
+keeps only the arpeggio step), the percussion / melodic / effects / `*_simd`
+batches and `processBatchUniversal_c`, the noise / fast-math twins, the legacy
+`physics.cpp` particles, `assembly/ecs.ts` and `assembly/memory.ts`, and the
+TS wrappers and bindings that only reached them. The 20 lookups of names the
+C++ module never exported (`setGravity`, `createEntity`, `initFluidSolver`, …)
+and the `processBatchUniversal_c` / `batch*_c` lookups on the **AS** instance
+in `foliage-batcher-core.ts` (AS pointers, so the C++ path could never have
+worked) are gone.
 
 ## Decision 2: one memory layout, real allocations for everything else
 
@@ -109,17 +151,30 @@ JS (`firstNativeModule`).
 
 - **emsdk** is pinned in `.emsdk-version` (4.0.10), which CI, the release
   workflow, `.jules/setup.sh` and `SETUP_GUIDE.md` all read. `build.sh` warns
-  on any other version, and `CANDY_STRICT_EMSDK=1` makes the mismatch fatal.
-- **Emscripten**: `-O2 -flto -fno-exceptions` (MT and ST), `-pthread` (not
-  `USE_PTHREADS`), `STACK_SIZE` (not `TOTAL_STACK`), no `-lembind` (there are no
-  `EMSCRIPTEN_BINDINGS`), and `EXPORTED_RUNTIME_METHODS` includes
-  `HEAP8,HEAPU8,HEAP32,HEAPF32`. `PTHREAD_POOL_SIZE=4`; `math.cpp` caps the
+  on any other version and keeps going; `CANDY_STRICT_EMSDK=1` makes the
+  mismatch fatal. Every env knob `build.sh` reads has a default, because it runs
+  under `set -u`.
+- **Emscripten**: `-O2 -flto -fno-exceptions -msimd128` (MT and ST), `-pthread`
+  (not `USE_PTHREADS`), `STACK_SIZE=1MB` (not `TOTAL_STACK`; it is also the
+  default pthread stack, and every large C++ buffer is static or heap), no
+  `-lembind` (there are no `EMSCRIPTEN_BINDINGS`), and `EXPORTED_RUNTIME_METHODS`
+  includes `HEAP8,HEAPU8,HEAP32,HEAPF32`. No `-mrelaxed-simd` (no source uses a
+  relaxed intrinsic, and the ST build is the Safari fallback) and no
+  `WASM_BIGINT=0` (no export passes i64). There is no separate `wasm-opt` pass:
+  `emcc -O2` and `asc --optimize` already run Binaryen. `PTHREAD_POOL_SIZE=4`; `math.cpp` caps the
   OpenMP team at the same size, so `#pragma omp parallel` never waits on
   workers the pool never spawned. emsdk ≥ 3.1.58 emits no `.worker.js`, and the
   loader no longer looks for one.
-- **AssemblyScript**: `--enable simd --enable bulk-memory --memoryBase 589824
---initialMemory 16 --maximumMemory 256`. `env.abort` throws a decoded message
-  instead of logging and continuing.
+- **AssemblyScript**: `--enable bulk-memory --memoryBase 589824
+--initialMemory 16 --maximumMemory 256`. No `--enable simd`: `assembly/` has no
+  `v128` code and the binary is byte-identical without the flag. Prod
+  `build:wasm` writes no `.wat` and no source map, so the module carries no
+  `sourceMappingURL`; `build:wasm:debug` adds both for local debugging, and
+  `npm run check:dist-wasm` fails a `dist/` that ships either. `env.abort`
+  throws a decoded message instead of logging and continuing.
+- `npm run verify:emcc:manifest` holds the flag set: one `-O` level and one
+  `STACK_SIZE` matching `AGENTS.md`, no forbidden flag, a default for every env
+  knob, and the prod AS flags above.
 - **Housekeeping**: source maps are emitted `hidden` and `deploy.py` skips
   `*.map`. `madge` is a devDependency. Stale `public/candy_physics.*` are
   removed before every Vite build (`scripts/clean-public-artifacts.mjs`).
@@ -133,4 +188,9 @@ JS (`firstNativeModule`).
 - **`emscripten/vendor/libomp.a`** is still a tracked prebuilt archive.
   Rebuild it from LLVM `openmp/` in `emscripten-verify.yml`, or switch to
   emsdk's own OpenMP port once one ships, then untrack it.
-- **Twin deletions** per Decision 1, each behind a bridge-level parity test.
+- **Twin deletions** per Decision 1, each behind a bridge-level parity test
+  (#2026 slice 2: one owner per subsystem, a parity test per row).
+- **Incremental C++ builds.** `build.sh` still compiles every unit in one
+  `em++` call per variant (MT and ST). Slice 1 cut a full `build:emcc` from
+  about 55 s to 24 s; per-TU objects (Makefile/Ninja) would make a one-file edit
+  cheaper still.

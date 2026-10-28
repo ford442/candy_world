@@ -285,26 +285,6 @@ export function rbClear(): void {
 // Mutators
 // -----------------------------------------------------------------------------
 
-export function rbSetPosition(id: i32, x: f32, y: f32, z: f32): void {
-  if (!isUsable(id)) return;
-  const p = pool();
-  const b = base(id);
-  unchecked(p[b + F_PX] = clampf(x, RB_MIN_X, RB_MAX_X));
-  unchecked(p[b + F_PY] = clampf(y, RB_MIN_Y, RB_MAX_Y));
-  unchecked(p[b + F_PZ] = clampf(z, RB_MIN_Z, RB_MAX_Z));
-  wake(p, b);
-}
-
-export function rbSetVelocity(id: i32, vx: f32, vy: f32, vz: f32): void {
-  if (!isUsable(id)) return;
-  const p = pool();
-  const b = base(id);
-  unchecked(p[b + F_VX] = vx);
-  unchecked(p[b + F_VY] = vy);
-  unchecked(p[b + F_VZ] = vz);
-  wake(p, b);
-}
-
 /** Apply an instantaneous impulse (mass-scaled). No-op on kinematic bodies. */
 export function rbApplyImpulse(id: i32, ix: f32, iy: f32, iz: f32): void {
   if (!isUsable(id)) return;
@@ -416,22 +396,9 @@ export function rbDisablePlayerProxy(): void {
 // Accessors (single-body reads; bulk reads go through the shared view)
 // -----------------------------------------------------------------------------
 
-export function rbGetPositionX(id: i32): f32 {
-  return isUsable(id) ? unchecked(pool()[base(id) + F_PX]) : 0.0;
-}
-export function rbGetPositionY(id: i32): f32 {
-  return isUsable(id) ? unchecked(pool()[base(id) + F_PY]) : 0.0;
-}
-export function rbGetPositionZ(id: i32): f32 {
-  return isUsable(id) ? unchecked(pool()[base(id) + F_PZ]) : 0.0;
-}
 export function rbIsSleeping(id: i32): i32 {
   if (!isUsable(id)) return 0;
   return (i32(unchecked(pool()[base(id) + F_FLAGS])) & FLAG_SLEEPING) != 0 ? 1 : 0;
-}
-export function rbIsGrounded(id: i32): i32 {
-  if (!isUsable(id)) return 0;
-  return (i32(unchecked(pool()[base(id) + F_FLAGS])) & FLAG_GROUNDED) != 0 ? 1 : 0;
 }
 
 // -----------------------------------------------------------------------------

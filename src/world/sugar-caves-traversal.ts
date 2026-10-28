@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
 import { LAKE_DESCENT } from '../systems/ground-height-core.ts';
 import { registerPlatform } from '../systems/ground-system.ts';
-import { announce } from '../ui/announcer.ts';
+import { announce, announceQuest } from '../ui/announcer.ts';
 import { SUGAR_CAVES } from './generation-utils.ts';
 import { isSugarCavesUnlocked, tryUnlockSugarCavesFromProgress } from './part-ii-unlock.ts';
 
@@ -97,7 +97,7 @@ export function updateSugarCavesTraversal(playerX: number, playerY: number, play
         announce('The Sugar Caves door opens beneath the lake.', 'polite');
     } else if (door === 'sealed' && !_lockedAnnounced) {
         _lockedAnnounced = true;
-        announce('The Sugar Caves door is sealed. Awaken more flora to open it.', 'polite');
+        announceQuest('locked', 'Sugar Caves. Awaken more flora to open the door');
     }
 }
 

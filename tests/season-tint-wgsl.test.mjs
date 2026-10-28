@@ -52,7 +52,8 @@ const QUIET =
 for (const level of ['warn', 'log']) {
     const original = console[level].bind(console);
     console[level] = (...args) => {
-        if (typeof args[0] === 'string' && QUIET.test(args[0])) return;
+        // Never swallow a result line: a FAIL whose error text matched QUIET was hidden.
+        if (typeof args[0] === 'string' && !args[0].startsWith('❌') && QUIET.test(args[0])) return;
         original(...args);
     };
 }
@@ -68,6 +69,13 @@ renderer.init = async () => renderer;
 renderer.render = () => {};
 renderer.renderAsync = async () => {};
 renderer.compileAsync = async () => {};
+// Three r186 sizes instance UBOs against the device's uniform-buffer limit
+// while building; a stub with the spec default stands in for the GPU.
+renderer.backend.device = { limits: { maxUniformBufferBindingSize: 65536 }, features: new Set() };
+// r186 throws (0.171 warned) when PMREM or hasFeature() run before init(); the
+// app always initialises first. Rendering is stubbed, so PMREM builds nothing.
+renderer._initialized = true;
+renderer.hasFeature = () => false;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera();

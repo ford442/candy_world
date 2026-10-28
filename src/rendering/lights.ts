@@ -14,12 +14,14 @@
  * @see docs/LOCAL_LIGHTS.md
  */
 import * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 import { CONFIG } from '../core/config/defaults.ts';
 import { resolveShadowSettings } from '../core/config/postfx.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { isAutomation } from '../core/platform/run-mode.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import { recordCapRejection } from '../systems/performance-budget/systems-budget.ts';
+import { isWebGLBackendRenderer } from './renderer-mode.ts';
 import { applyLocalShadowSoftness } from './shadow-softness.ts';
 
 export type LocalLightKind = 'point' | 'spot';
@@ -369,12 +371,13 @@ function publishBreadcrumb(): void {
  */
 export function initLocalLights(
     scene: THREE.Scene,
-    renderer: THREE.Renderer | { isWebGPURenderer?: boolean } | null
+    renderer: Renderer | { isWebGPURenderer?: boolean } | null
 ): void {
     ensurePools();
     _scene = scene;
-    const r = renderer as { isWebGPURenderer?: boolean; isWebGLRenderer?: boolean } | null;
-    _webglBackend = !r || r.isWebGPURenderer !== true;
+    // `isWebGPURenderer` is also true under `forceWebGL`; ask the backend.
+    const r = renderer as { isWebGPURenderer?: boolean } | null;
+    _webglBackend = !r || r.isWebGPURenderer !== true || isWebGLBackendRenderer(r);
     _helpersVisible = hasUrlFlag('debug') || getUrlFlag('lights') === '1';
     _testAllowShadows = undefined;
     mountAuthoredSpawnLights(scene);
