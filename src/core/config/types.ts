@@ -478,8 +478,8 @@ export interface ConfigType {
         dofEnabled: boolean;
         dofFocusFollow: boolean;
         dofFocusDistance: number;
-        dofAperture: number;
-        dofMaxBlur: number;
+        dofFocalLength: number;
+        dofBokehScale: number;
         dofProximity: number;
     };
 

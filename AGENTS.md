@@ -19,7 +19,7 @@
 
 | Component          | Technology                                        | Purpose                                                             |
 | ------------------ | ------------------------------------------------- | ------------------------------------------------------------------- |
-| Rendering          | Three.js ^0.171.0 + WebGPU                        | 3D graphics with `MeshPhysicalMaterial` for candy gloss             |
+| Rendering          | Three.js ^0.186.1 + WebGPU                        | 3D graphics with `MeshPhysicalMaterial` for candy gloss             |
 | Build System       | Vite ^5.0.0                                       | Module bundling, dev server, and production builds                  |
 | Language           | TypeScript ^5.9.3 (ES2020 target, ES2022 modules) | Application source code                                             |
 | Physics (Required) | AssemblyScript ^0.27.37 → WASM                    | Stateful physics, collision detection, spatial grid                 |
@@ -525,7 +525,7 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ### Runtime
 
-- `three` (^0.171.0) — 3D rendering engine (WebGPU + TSL)
+- `three` (^0.186.1) — 3D rendering engine (WebGPU + TSL)
 - `libopenmpt.js` — Module music player (loaded via script tag in `index.html`)
 
 ### Build

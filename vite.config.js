@@ -220,6 +220,20 @@ export default defineConfig({
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
                     }
+                    // Import-free rendering leaves (hitch counter, dynamic resolution,
+                    // backend checks, viewport sizing): own chunk, so `app` does not grow.
+                    if (
+                        id.includes('/src/rendering/frame-hitches.ts') ||
+                        id.includes('/src/rendering/dynamic-resolution.ts') ||
+                        id.includes('/src/rendering/renderer-mode.ts') ||
+                        id.includes('/src/rendering/viewport.ts')
+                    ) {
+                        return 'render-runtime';
+                    }
+                    // Device-loss recovery: gpu-context imports it on the first loss only.
+                    if (id.includes('/src/rendering/device-recovery.ts')) {
+                        return 'device-recovery';
+                    }
                     // Pure TSL nodes shared between app and postfx chunks
                     if (
                         id.includes('/src/foliage/chromatic-nodes.ts') ||
@@ -229,10 +243,7 @@ export default defineConfig({
                     }
                     // Graphs only. The stub stays in `app` and must not live in this
                     // chunk: postfx → app TLA + app awaiting postfx deadlocks boot.
-                    if (
-                        id.includes('/src/foliage/post-processing-webgpu.ts') ||
-                        id.includes('/src/foliage/post-processing-webgl.ts')
-                    ) {
+                    if (id.includes('/src/foliage/post-processing-webgpu.ts')) {
                         return 'postfx-webgpu';
                     }
                     // Shader warmup (loading-screen phase — not first-paint brain)

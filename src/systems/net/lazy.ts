@@ -5,6 +5,7 @@
  * Heavy modules live in the `presence` Rollup chunk (see vite.config.js).
  */
 import type * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 import { FEATURE_FLAGS } from '../../core/config.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import type { PresenceInitHooks } from './presence.ts';
@@ -16,7 +17,7 @@ let _load: Promise<NetModule | null> | null = null;
 let _pendingInit: {
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
-    renderer: THREE.Renderer;
+    renderer: Renderer;
 } | null = null;
 let _tornDown = false;
 
@@ -46,7 +47,7 @@ function ensureNet(): Promise<NetModule | null> {
 export function initPresenceFromOptIn(
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
-    renderer: THREE.Renderer
+    renderer: Renderer
 ): void {
     if (!FEATURE_FLAGS.presence) return;
     _tornDown = false;

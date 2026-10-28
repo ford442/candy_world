@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type UniformNode from 'three/src/nodes/core/UniformNode.js';
+import type { UniformNode } from 'three/webgpu';
 import { color, vec3, sin, cos, uniform, mix, positionLocal, smoothstep, float } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { VisualState } from '../audio/audio-system.ts';

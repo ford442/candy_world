@@ -22,7 +22,7 @@
  */
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial, type Renderer } from 'three/webgpu';
 import { getGpuContextSync, GPU_REQUIRED_LIMITS } from './gpu-context.ts';
 
 /**
@@ -84,7 +84,7 @@ function readLimits(limits: Record<string, number> | GPUSupportedLimits): WebGPU
  * @param renderer Optional renderer; only consulted when the shared context
  *                 has not been armed yet.
  */
-export function getWebGPULimits(renderer?: THREE.Renderer): WebGPULimits {
+export function getWebGPULimits(renderer?: Renderer): WebGPULimits {
     if (cachedLimits) return cachedLimits;
 
     try {
@@ -150,7 +150,7 @@ export function clearWebGPULimitsCache(): void {
  * 
  * Total: 8+ buffers for complex materials
  */
-export function supportsComplexInstancing(renderer?: THREE.Renderer): boolean {
+export function supportsComplexInstancing(renderer?: Renderer): boolean {
     const limits = getWebGPULimits(renderer);
     return limits.maxVertexBuffers >= 16; // Need 16 for complex TSL + instancing
 }
@@ -162,7 +162,7 @@ export function supportsComplexInstancing(renderer?: THREE.Renderer): boolean {
  * - instanceMatrix (4 buffers)
  * Total: 7 buffers
  */
-export function supportsBasicInstancing(renderer?: THREE.Renderer): boolean {
+export function supportsBasicInstancing(renderer?: Renderer): boolean {
     const limits = getWebGPULimits(renderer);
     return limits.maxVertexBuffers >= 8;
 }
@@ -176,7 +176,7 @@ export interface MaterialFallbackOptions<T> {
     // Function to create the simple (fallback) material
     createSimple: () => T;
     // Renderer instance for limit detection
-    renderer?: THREE.Renderer;
+    renderer?: Renderer;
     // Force simple material (for testing)
     forceSimple?: boolean;
 }

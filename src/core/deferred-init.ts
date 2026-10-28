@@ -202,6 +202,7 @@ export function applyAwakenedPersistenceAfterWorldLoad(): void {
 // Runs 2 seconds after world generation and compiles the generated world with
 // `renderer.compileAsync()` in chunks (rendering/shader-warmup.ts), so the
 // pipelines the next frames need already exist and no task blocks for long.
+// Objects the boot pass already compiled are skipped, so nothing compiles twice.
 
 /** Set to true to cancel an in-progress deferred warmup (e.g. on scene transition). */
 let _warmupAborted = false;
@@ -237,14 +238,6 @@ export function runDeferredWarmup(
             return;
         }
 
-        // FIX: Ensure clipping planes are defined before compilation.
-        // WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if undefined.
-        if (renderer.clippingPlanes === undefined || renderer.clippingPlanes === null) {
-            renderer.clippingPlanes = [];
-            renderer.localClippingEnabled = false;
-            log.info('Deferred', 'Re-applied clipping planes fix (Safety Force).');
-        }
-
         // Put the rainbow blaster's particle material in the scene so it compiles too.
         const dummyOrigin = new THREE.Vector3(0, -9999, 0);
         const dummyDir = new THREE.Vector3(0, 1, 0);
@@ -265,7 +258,7 @@ export function runDeferredWarmup(
 
             log.info(
                 'Deferred',
-                `✅ Scene shaders pre-compiled (${stats.objects} objects, ${warmupBatches} chunk${warmupBatches !== 1 ? 's' : ''}, ` +
+                `✅ Scene shaders pre-compiled (${stats.objects} objects, ${stats.alreadyCompiled} from boot, ${warmupBatches} chunk${warmupBatches !== 1 ? 's' : ''}, ` +
                     `max ${warmupBatchMaxMs.toFixed(0)} ms/chunk${stats.aborted ? ', aborted' : ''}).`
             );
         } catch (e) {

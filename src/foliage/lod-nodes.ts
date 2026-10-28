@@ -17,7 +17,8 @@ import type { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
 import { $sn } from './material-core/tsl-types.ts';
 import { calculatePlayerPush, calculateWindSway } from './material-core.ts';
-import type { TSLArg, WindDeformationOptions } from './material-core.ts';
+import type { WindDeformationOptions } from './material-core.ts';
+import type { Node } from 'three/webgpu';
 
 /** Continuous LOD factor: 0 = hero, 1 = mid, 2 = far, 3+ = culled */
 export const aInstanceLodFactor = attribute('instanceLodFactor', 'float');
@@ -56,7 +57,7 @@ export const lodBlendBandGate = () => {
 };
 
 /** Bayer-style screen dither for opacity (reduces hard alpha pops). */
-export const lodDitheredOpacity = (baseOpacity: ReturnType<typeof float> = lodMeshOpacity()) => {
+export const lodDitheredOpacity = (baseOpacity: Node<'float'> = lodMeshOpacity()) => {
     const cell = floor(positionLocal.x.mul(40.0)).add(floor(positionLocal.y.mul(40.0)).mul(3.0));
     const threshold = mod(cell, float(4.0)).div(4.0);
     return baseOpacity.sub(threshold).mul(4.0).clamp(0.0, 1.0);
@@ -94,13 +95,13 @@ export function syncFoliageLodUniforms(): void {
 }
 
 /** Player push only within hero band */
-const applyPlayerInteractionWithLod = (basePosNode: TSLArg) => {
+const applyPlayerInteractionWithLod = (basePosNode: Node<'vec3'>) => {
     const push = calculatePlayerPush(basePosNode).mul(lodHeroGate());
     return basePosNode.add(push);
 };
 
 /** Wind sway attenuated in mid/far tiers */
-const calculateWindSwayWithLod = (posNode: TSLArg, options?: WindDeformationOptions) => {
+const calculateWindSwayWithLod = (posNode: Node<'vec3'>, options?: WindDeformationOptions) => {
     const wind = calculateWindSway(posNode, options);
     const weight = lodHeroGate().add(lodMidOnlyGate().mul(0.5));
     return wind.mul(weight);
@@ -113,9 +114,9 @@ const calculateWindSwayWithLod = (posNode: TSLArg, options?: WindDeformationOpti
  * Internally composes wind sway and player push. DO NOT wrap with applyPlayerInteraction.
  */
 export const foliageDeformationOffset = (
-    baseWithAnimPos: TSLArg,
-    extraOffset?: ReturnType<typeof float>,
-    subtractNode: typeof positionLocal = positionLocal,
+    baseWithAnimPos: Node<'vec3'>,
+    extraOffset?: Node<'float'>,
+    subtractNode: Node<'vec3'> = positionLocal,
     options?: WindDeformationOptions
 ) => {
     // One sway evaluation for both tiers. Calling calculateWindSway twice with
@@ -127,25 +128,25 @@ export const foliageDeformationOffset = (
     const farPos = baseWithAnimPos;
 
     const heroMid = mix(midPos, heroPos, lodHeroGate());
-    let blended: ReturnType<typeof mix> = mix(farPos, heroMid, float(1).sub(lodFarGate()));
+    let blended: Node<'vec3'> = mix(farPos, heroMid, float(1).sub(lodFarGate()));
 
     if (extraOffset) {
         const extraWeight = lodHeroGate().add(lodMidOnlyGate().mul(0.5));
-        blended = blended.add(extraOffset.mul(extraWeight)) as unknown as ReturnType<typeof mix>;
+        blended = blended.add(extraOffset.mul(extraWeight)) as unknown as Node<'vec3'>;
     }
 
     // Far tier: collapse in sync with impostor cross-fade (not a hard pop)
     const impostorBlend = lodImpostorBlend();
     const collapse = float(1.0).sub(impostorBlend.mul(0.85));
-    blended = blended.mul(collapse) as unknown as ReturnType<typeof mix>;
+    blended = blended.mul(collapse) as unknown as Node<'vec3'>;
 
     return blended.sub(subtractNode);
 };
 
 /** Absolute displaced position (for materials using positionNode directly) */
 export const foliageMotionPosition = (
-    baseWithAnimPos: TSLArg,
-    extraOffset?: ReturnType<typeof float>,
+    baseWithAnimPos: Node<'vec3'>,
+    extraOffset?: Node<'float'>,
     options?: WindDeformationOptions
 ) =>
     foliageDeformationOffset(baseWithAnimPos, extraOffset, positionLocal, options).add(
@@ -153,16 +154,14 @@ export const foliageMotionPosition = (
     );
 
 /** Scale emissive / sparkle intensity by LOD tier */
-export const scaleEmissiveByLod = (emissiveNode: ReturnType<typeof float>) => {
+export const scaleEmissiveByLod = (emissiveNode: Node<'vec3'>) => {
     const weight = lodHeroGate().add(lodMidOnlyGate().mul(0.42)).add(lodFarGate().mul(0.12));
     return emissiveNode.mul(weight);
 };
 
 /** Mix a hero-only multiplier toward 1.0 in mid/far (e.g. audio squash) */
-export const lodHeroOnlyMultiplier = (
-    heroValue: ReturnType<typeof vec3>,
-    identity = vec3(1, 1, 1)
-) => mix(identity, heroValue, lodHeroGate());
+export const lodHeroOnlyMultiplier = (heroValue: Node<'vec3'>, identity = vec3(1, 1, 1)) =>
+    mix(identity, heroValue, lodHeroGate());
 
 /**
  * 🏗️ ARCHITECT: Standardized TSL deformation chain for LOD-enabled objects

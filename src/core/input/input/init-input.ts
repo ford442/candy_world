@@ -3,7 +3,7 @@
  */
 
 import type * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import type { AudioSystem } from '../../../audio/audio-system';
 import { announce } from '../../../ui/announcer.ts';
 import { showToast } from '../../../utils/toast.ts';
