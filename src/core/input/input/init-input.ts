@@ -75,7 +75,7 @@ export function initInput(
     const onBodyClick = setupPointerLock(session);
 
     const buttonHandlers = createButtonPressHandlers(session);
-    const keyboardHandlers = createKeyboardHandlers(session);
+    const keyboardHandlers = createKeyboardHandlers(session, buttonHandlers);
     const unbindGameActions = bindGameActions(session, buttonHandlers);
     const detachKeyboardMouse = attachKeyboardMouse(input);
     const unbindFrame = bindInputFrame({

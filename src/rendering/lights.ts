@@ -1,3 +1,4 @@
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 /**
  * Local point / spot light registry.
  *
@@ -338,7 +339,8 @@ function attachHelper(slot: GpuSlot): void {
 
 function detachHelper(slot: GpuSlot): void {
     if (!slot.helper) return;
-    slot.helper.parent?.remove(slot.helper);
+    if (slot.helper.parent) safeRemoveAndDispose(slot.helper.parent, slot.helper);
+    else safeRemoveAndDispose(_scene, slot.helper);
     slot.helper = null;
 }
 

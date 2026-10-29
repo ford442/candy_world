@@ -10,6 +10,7 @@ import { LAKE_ISLAND } from '../systems/ground-height-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { spawnImpact } from './impacts.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 const STONE_RADIUS = 0.9;
 const STONE_COLOR = 0xb39ddb;
@@ -74,7 +75,7 @@ export function createHeavyStone(siteId?: string): THREE.Group {
         if (siteId) unlockSystem.markSiteHarvested(siteId);
         unlockSystem.harvest('heavy_stone', 1, 'Heavy Stone');
         spawnImpact(group.position, 'spore', STONE_COLOR);
-        group.visible = false;
+        safeRemoveAndDispose(group.parent as THREE.Scene || group, group);
         group.userData.onInteract = undefined;
         group.userData.interactionText = undefined;
     };

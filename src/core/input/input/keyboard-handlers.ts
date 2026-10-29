@@ -26,6 +26,7 @@ import {
     setStartButtonResumeLabel,
 } from './menu-helpers.ts';
 import type { InputSession } from './session.ts';
+import { keyStates } from '../input-types.ts';
 
 
 export interface InputKeyboardHandlers {
