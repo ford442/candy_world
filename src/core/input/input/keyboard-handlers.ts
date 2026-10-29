@@ -12,6 +12,7 @@ import { sceneRef } from '../../game-loop-core.ts';
 import { input } from '../actions/index.ts';
 import type { ActionId } from '../actions/index.ts';
 import { handleMuteKey, handleVolumeKey } from '../audio-controls.ts';
+import { keyStates } from '../input-types.ts';
 import {
     getIsPlaylistOpen,
     togglePlaylist,

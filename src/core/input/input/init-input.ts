@@ -75,7 +75,7 @@ export function initInput(
     const onBodyClick = setupPointerLock(session);
 
     const buttonHandlers = createButtonPressHandlers(session);
-    const keyboardHandlers = createKeyboardHandlers(session);
+    const keyboardHandlers = createKeyboardHandlers(session, buttonHandlers);
     const unbindGameActions = bindGameActions(session, buttonHandlers);
     const detachKeyboardMouse = attachKeyboardMouse(input);
     const unbindFrame = bindInputFrame({
@@ -156,5 +156,5 @@ function takeOverMouseLook(controls: PointerLockControls): LookTarget | null {
         return null;
     }
     controls.domElement?.ownerDocument.removeEventListener('mousemove', own);
-    return controls as unknown as LookTarget;
+    return controls;
 }
