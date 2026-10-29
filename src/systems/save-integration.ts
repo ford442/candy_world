@@ -4,8 +4,10 @@
  */
 
 import { CYCLE_DURATION, FEATURE_FLAGS } from '../core/config.ts';
+import { getActiveSession, openWorldDocument } from '../world/document/active.ts';
+import { parseWorldDocument } from '../world/document/migrations.ts';
 import { awakenedPersistence } from './awakened-persistence-api.ts';
-import { discoverySystem } from './discovery.ts';
+import { discoverySystem } from './discovery-optimized.ts';
 import { player } from './physics/index.ts';
 import {
     serializeEntitySnapshots,
@@ -29,6 +31,7 @@ type SaveSystemInternals = {
     gatherPlayerData: () => SaveData['player'];
     gatherWorldData: () => SaveData['world'];
     gatherProgressData: (playtime: number) => SaveData['progress'];
+    gatherDocument: () => SaveData['document'];
 };
 
 type UnlockSystemSnapshot = {
@@ -45,6 +48,7 @@ export function initializeSaveSystemIntegration(): void {
     internal.gatherPlayerData = gatherPlayerData;
     internal.gatherWorldData = gatherWorldData;
     internal.gatherProgressData = gatherProgressData;
+    internal.gatherDocument = () => getActiveSession()?.capture();
 
     saveSystem.onSaveComplete = () => {
         console.log('[Save] Game saved successfully');
@@ -122,7 +126,24 @@ function gatherProgressData(playtime: number): SaveData['progress'] {
     };
 }
 
-export function applyLoadedData(data: SaveData): { restored: number; alreadyLive: number; skipped: number } | void {
+export function applyLoadedData(
+    data: SaveData
+): { restored: number; alreadyLive: number; skipped: number } | void {
+    // A save with a WorldDocument is applied through it: its edits replace the
+    // open world's, its progress is merged, and the player returns to its pose.
+    const parsed = data.document ? parseWorldDocument(data.document) : null;
+    if (parsed && !parsed.ok) {
+        console.warn("[Save] Ignoring the save's world document:", parsed.error.message);
+    }
+    if (parsed?.ok) {
+        void openWorldDocument(parsed.doc, { restorePlayer: true }).catch((err) =>
+            console.warn('[Save] Could not open the saved world:', err)
+        );
+        applyPlayerStats(data);
+        saveSystem.updateSettings(data.settings);
+        return;
+    }
+
     let applyResult;
     // world.timeOfDay / weather* / season* are not applied: see gatherWorldData.
     if (data.world && data.world.entitySnapshots) {
@@ -135,13 +156,7 @@ export function applyLoadedData(data: SaveData): { restored: number; alreadyLive
         player.velocity.set(data.player.velocity.x, data.player.velocity.y, data.player.velocity.z);
     }
 
-    player.energy = data.player.energy;
-    player.maxEnergy = data.player.maxEnergy;
-    player.currentState = data.player.currentState;
-    player.airJumpsLeft = data.player.airJumpsLeft;
-    player.hasShield = data.player.hasShield;
-    player.isPhasing = data.player.isPhasing;
-    player.isInvisible = data.player.isInvisible;
+    applyPlayerStats(data);
 
     const unlocksInternal = unlockSystem as unknown as UnlockSystemSnapshot;
     unlocksInternal.unlocks.clear();
@@ -162,6 +177,17 @@ export function applyLoadedData(data: SaveData): { restored: number; alreadyLive
 
     saveSystem.updateSettings(data.settings);
     return applyResult;
+}
+
+/** Energy and ability state (not pose: the document or the legacy path owns that). */
+function applyPlayerStats(data: SaveData): void {
+    player.energy = data.player.energy;
+    player.maxEnergy = data.player.maxEnergy;
+    player.currentState = data.player.currentState;
+    player.airJumpsLeft = data.player.airJumpsLeft;
+    player.hasShield = data.player.hasShield;
+    player.isPhasing = data.player.isPhasing;
+    player.isInvisible = data.player.isInvisible;
 }
 
 function setupEventSaves(): void {

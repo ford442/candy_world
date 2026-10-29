@@ -13,6 +13,9 @@
 
 import { FEATURE_FLAGS } from '../../core/config.ts';
 import { showToast } from '../../utils/toast.ts';
+import { migrateLegacySave } from '../../world/document/migrations.ts';
+import { WORLD_DOCUMENT_SCHEMA, validateWorldDocument } from '../../world/document/schema.ts';
+import { getMapVersion, getWorldSeed } from '../../world/world-seed.ts';
 import { awakenedPersistence } from '../awakened-persistence-api.ts';
 import { SaveDatabase, MigrationSystem, LZString } from './save-database.ts';
 import {
@@ -70,9 +73,23 @@ export class SaveSystem {
     // -------------------------------------------------------------------------
 
     private initMigrations(): void {
-        // Register future migrations here
-        // Example:
-        // this.migrations.registerMigration('1.1.0', (data, fromVersion) => { ... });
+        // 1.1.0: every save carries a WorldDocument, built from its own legacy
+        // fields by the document's 0 → 1 hop (src/world/document/migrations.ts).
+        this.migrations.registerMigration('1.1.0', (data) => {
+            const doc = migrateLegacySave(data, {
+                seed: getWorldSeed(),
+                mapVersion: getMapVersion(),
+                now: Date.now(),
+            });
+            doc.schema = WORLD_DOCUMENT_SCHEMA;
+            const checked = validateWorldDocument(doc);
+            if (checked.ok) return { ...data, document: checked.doc };
+            console.warn(
+                '[SaveSystem] 1.0.0 save has no usable world document:',
+                checked.error.message
+            );
+            return data;
+        });
     }
 
     private createSaveIndicator(): void {
@@ -583,13 +600,21 @@ export class SaveSystem {
         // Settings
         const settings = this.settings;
 
-        return {
+        const saveData: SaveData = {
             metadata,
             player,
             world,
             progress,
             settings
         };
+        const document = this.gatherDocument();
+        if (document) saveData.document = document;
+        return saveData;
+    }
+
+    /** The open WorldDocument; save-integration.ts wires the active session in. */
+    private gatherDocument(): SaveData['document'] {
+        return undefined;
     }
 
     /**

@@ -62,8 +62,9 @@ removeAllBehaviors(entity);
 world.destroyEntity(entity);
 ```
 
-The game loop ticks the whole list once per frame from `src/core/game-loop.ts`
-(`updateBehaviorSystem`), right after fauna and before the hero mixer.
+The game loop ticks the whole list once per frame through the
+`entity-behaviors` scheduler system (`src/core/game-loop-systems.ts`,
+`updateBehaviorSystem`), right after fauna and before the hero mixer.
 
 ### Writing a behavior
 

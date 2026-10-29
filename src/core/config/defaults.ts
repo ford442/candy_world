@@ -542,10 +542,14 @@ export const CONFIG: ConfigType = {
         dofFocusFollow: true,
         /** Resting focus distance (units) used when focus-follow is disabled. */
         dofFocusDistance: 9.0,
-        /** Aperture — candy bokeh: subtle, not clinical. Higher = stronger blur falloff. */
-        dofAperture: 0.015,
-        /** Max blur clamp (0–1) — keeps the look soft, never smeared. */
-        dofMaxBlur: 0.5,
+        /**
+         * World units from the focal plane before a surface is fully out of
+         * focus. 33 keeps where r171's Bokeh pass (aperture 0.015, max blur
+         * 0.5) saturated: |distance − focus| × 0.015 hit 0.5 at 33 units.
+         */
+        dofFocalLength: 33,
+        /** Bokeh radius in pixels at full blur — candy bokeh: soft, never smeared. */
+        dofBokehScale: 6,
         /** Distance (units) from luminous / mycelium flora that auto-engages DoF. */
         dofProximity: 14.0,
     },

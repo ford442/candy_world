@@ -108,3 +108,10 @@ patch_*.diff
 # Shell accidents: `npm … > candy_world@1.0.0`, `… > vite`
 /*@*
 /vite
+
+# Supabase CLI state (`supabase start` / `link`) and local env with keys
+supabase/.temp/
+supabase/.branches/
+.env.local
+.env.*.local
+supabase/functions/**/deno.lock

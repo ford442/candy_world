@@ -60,19 +60,20 @@ Confirm flags-off: `pnpm run analyze:bundle` or grep `dist/chunks/app-*.js` for
 | `app`              | **~617 KB**   | ~195 KB | Always (foliage + physics + music-reactivity + audio) |
 | `vendor`           | ~955 KB       | ~260 KB | Always                                                |
 | `weather`          | ~111 KB       | ~31 KB  | Boot (orchestrator + particles + compute + berries)   |
-| `save-ui`          | ~64 KB        | ~16 KB  | `openSaveMenu`                                        |
+| `save-ui`          | ~64 KB        | ~16 KB  | After world load (WorldDocument + `valibot`), `openSaveMenu` |
 | `accessibility-ui` | ~37 KB        | ~10 KB  | Accessibility menu                                    |
 | `analytics-debug`  | ~36 KB        | ~9 KB   | `?debug=1` / `/stats`                                 |
 | `debug`            | ~30 KB        | ~10 KB  | `?debug=*`                                            |
-| `presence`         | ~20 KB        | ~7 KB   | `FEATURE_FLAGS.presence`                              |
+| `net`              | ~273 KB       | ~77 KB  | `FEATURE_FLAGS.presence`, a `?world=` link, the Worlds panel (supabase-js lives here, not in `vendor`; #1975) |
 | `gameplay`         | ~16 KB        | ~5 KB   | After `__sceneReady` / first ability                  |
 | `map-loader`       | ~16 KB        | ~5 KB   | Enter / map fetch                                     |
 | `world-content`    | ~14 KB        | ~5 KB   | Procedural extras                                     |
 | `profiler`         | ~14 KB        | ~5 KB   | Boot (circular with `app`)                            |
-| `photo-mode`       | ~13 KB        | ~4 KB   | `FEATURE_FLAGS.photoMode` or **P**                    |
-| `generative-music` | ~11 KB        | ~4 KB   | `?generative=1` / `enableGenerativeMode()`            |
+| `photo-mode`       | ~13 KB        | ~4 KB   | `FEATURE_FLAGS.photoMode`, **P** or the HUD button   |
+| `generative-music` | ~11 KB        | ~4 KB   | first click/key (default) / `enableGenerativeMode()`  |
 | `playlist-ui`      | ~10 KB        | ~3 KB   | Boot (circular with `app`)                            |
-| `awakened`         | ~9 KB         | ~3 KB   | `?awakened`                                           |
+| `awakened`         | ~9 KB         | ~3 KB   | After world load (on by default; `?no_awakened` off)  |
+| `authoring`        | see build     | —       | First **B** (build mode + `TransformControls`)        |
 
 **Accepted Rollup circular-chunk warnings:** `weather ↔ app` only (since #1827;
 `playlist-ui` and `profiler` were fixed). Do **not** reintroduce `Circular chunk: compute ↔ app`,
@@ -96,7 +97,7 @@ flowchart LR
     utils["wasm-loader"]
   end
   subgraph async_chunks["Flag / stage dynamic import"]
-    presence["presence"]
+    net["net"]
     photo["photo-mode"]
     gen["generative-music"]
     mapLoader["map-loader"]
@@ -136,7 +137,7 @@ foliage/index → animation → batcher → ecs/world → wasm-loader → loadin
 | Area                                                       | Separate chunk                     |
 | ---------------------------------------------------------- | ---------------------------------- |
 | weather / particles / compute                              | `weather` (do not fold into `app`) |
-| `src/systems/net/*` except `lazy.ts` + `biome-at-position` | `presence`                         |
+| `src/systems/net/*` except the stubs (`lazy.ts`, `shared-worlds-lazy.ts`, `supabase-config.ts`, `biome-at-position`), `@supabase/*` | `net` |
 | `src/systems/photo-mode/*` except `lazy.ts`                | `photo-mode`                       |
 | `src/world/map-loader.ts`                                  | `map-loader`                       |
 
@@ -149,9 +150,9 @@ post-FX uniforms and explore-camera APIs via `PhotoModeInitOptions`.
 | Chunk              | Trigger                                                                          | Entry stub                                           |
 | ------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | `debug`            | `?debugHeights` / `?debugPlace` / `?debugCircadian` / `?debugFauna` / `?debug=1` | `src/debug/tools-stub.ts`, `src/debug/lazy.ts`       |
-| `presence`         | `FEATURE_FLAGS.presence`                                                         | `src/systems/net/lazy.ts`, `src/ui/presence-lazy.ts` |
-| `photo-mode`       | `FEATURE_FLAGS.photoMode` or **P**                                               | `src/systems/photo-mode/lazy.ts`                     |
-| `generative-music` | `enableGenerativeMode()` / `?generative=1`                                       | `audio-system-playback.ts`                           |
+| `net`              | `FEATURE_FLAGS.presence`, `?world=`, the Worlds panel (`docs/SHARED_WORLDS.md`)  | `src/systems/net/lazy.ts`, `src/systems/net/shared-worlds-lazy.ts`, `src/ui/presence-lazy.ts`, `src/ui/worlds-panel-lazy.ts` |
+| `photo-mode`       | `FEATURE_FLAGS.photoMode`, **P** or the HUD button                               | `src/systems/photo-mode/lazy.ts`                     |
+| `generative-music` | first click/key (default) / `enableGenerativeMode()`                             | `audio-system-playback.ts`                           |
 | `awakened`         | `FEATURE_FLAGS.awakenedPersistence`                                              | `src/systems/awakened-persistence-api.ts`            |
 | `gameplay`         | `preloadGameplay()` / abilities                                                  | `src/gameplay/lazy.ts`                               |
 | `save-ui`          | `openSaveMenu`                                                                   | `src/ui/save-menu/lazy.ts`                           |

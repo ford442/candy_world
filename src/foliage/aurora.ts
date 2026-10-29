@@ -2,7 +2,12 @@
 
 import * as THREE from 'three';
 import { color, float, vec3, vec4, uv, mix, smoothstep, uniform, Fn, time, mx_noise_float, positionWorld, positionLocal, dot, sin, cos, storage, instanceIndex, vec2, If } from 'three/tsl';
-import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
+import {
+    MeshBasicNodeMaterial,
+    MeshStandardNodeMaterial,
+    StorageInstancedBufferAttribute,
+    type Node,
+} from 'three/webgpu';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { getSphereGeometry } from '../utils/geometry-dedup.ts';
@@ -12,6 +17,7 @@ import {
     CandyPresets,
     uTime,
     createJuicyRimLight,
+    asNode,
 } from './material-core.ts';
 
 // Global uniforms for Aurora control
@@ -221,7 +227,7 @@ class HarmonyOrbSystem {
             const vel = velocity.toVar();
 
             // Handle Spawning
-            If(index.equal(this.uSpawnIndex), () => {
+            If(index.equal(asNode<Node<'uint'>>(this.uSpawnIndex)), () => {
                 state.x = float(20.0); // 20s life
                 state.y = float(0.1);  // Initial scale
                 position.assign(this.uSpawnPos);

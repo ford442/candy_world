@@ -12,7 +12,6 @@
 
 - **Emscripten SDK** (for C++ WASM compilation)
 - **AssemblyScript** (automatically installed via npm)
-- **wasm-opt** (for WASM optimization, part of Binaryen)
 
 ## Quick Start
 
@@ -69,8 +68,10 @@ This will:
 
 1. Build AssemblyScript physics WASM (`candy_physics.wasm`)
 2. Build C++ native WASM (`candy_native.wasm` and `candy_native.js`)
-3. Optimize WASM files (if wasm-opt is available)
-4. Build the Vite production bundle
+3. Build the Vite production bundle
+
+Both native builds already run Binaryen's `wasm-opt` (`asc --optimize`, `emcc -O2`),
+so there is no separate optimization step.
 
 ## Development Workflow
 
@@ -103,9 +104,10 @@ bash dev.sh
 ## Build Scripts
 
 - `npm run dev` - Start development server (builds AssemblyScript only)
-- `npm run build:wasm` - Build AssemblyScript physics module
+- `npm run build:wasm` - Build AssemblyScript physics module (prod: no `.wat`, no source map)
+- `npm run build:wasm:debug` - Same, plus `.wat` and a source map for local debugging
 - `npm run build:emcc` - Build C++ native module (requires emscripten)
-- `npm run optimize` - Optimize WASM files (requires wasm-opt)
+- `npm run optimize` - Bundle/asset analysis and optimization tools
 - `npm run build` - Full production build
 - `npm run preview` - Preview production build
 

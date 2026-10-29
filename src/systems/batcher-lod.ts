@@ -24,6 +24,7 @@ import {
 // Impostors are flat billboards, so frost uses one representative up-facing
 // value: roughly how much of a canopy's visible surface faces the sky.
 const IMPOSTOR_NORMAL_Y = 0.5;
+const _scratchStatsArray = new Int32Array(6);
 const _impostorTint = new Float32Array(3);
 
 export interface FoliageLodConfig {
@@ -346,9 +347,9 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
         let needsUpdate = false;
 
         // ⚡ OPTIMIZATION: Bypassed pure JS O(N) distance checks and smoothstep math with a single WASM batch call
-        let useWasm = isEmscriptenReady();
+        const useWasm = isEmscriptenReady();
         if (useWasm) {
-            const statsArray = new Int32Array(6);
+            const statsArray = _scratchStatsArray;
             batchUpdateLodFactors_c(
                 matrixArray,
                 smoothed,

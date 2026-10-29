@@ -12,6 +12,7 @@
  * hud-setup stops propagation on pointerdown. See docs/UI_KIT.md.
  */
 
+import { onBuildModeStateChange } from '../systems/build-mode-state.ts';
 import {
     attachTooltip,
     createMeter,
@@ -142,6 +143,8 @@ export interface AbilityHud {
     readonly dash: AbilitySlot;
     readonly mine: AbilitySlot;
     readonly phase: AbilitySlot;
+    /** Build mode toggle (#1974). */
+    readonly build: AbilitySlot;
 }
 
 let _hud: AbilityHud | null = null;
@@ -181,6 +184,17 @@ export function mountAbilityHud(): AbilityHud {
         toggle: true,
     });
 
+    const build = createAbilitySlot({
+        id: 'ability-build',
+        name: 'Build Mode',
+        key: 'B',
+        icon: '🏗️',
+        toggle: true,
+    });
+    build.setReady(true);
+    build.describe('Build mode (B)', 'Build mode: place, move and paint (B)');
+    onBuildModeStateChange((active) => build.setActive(active));
+
     const panel = createPanel({
         id: 'ability-hud',
         label: 'Abilities',
@@ -189,13 +203,13 @@ export function mountAbilityHud(): AbilityHud {
         bare: true,
         // The slots are buttons — this panel must receive pointer events.
         inert: false,
-        children: [energy.root, dash.root, mine.root, phase.root],
+        children: [energy.root, dash.root, mine.root, phase.root, build.root],
     });
 
     const mount = document.getElementById('ability-hud-mount') ?? document.body;
     mount.appendChild(panel.root);
 
-    _hud = { panel, energy, dash, mine, phase };
+    _hud = { panel, energy, dash, mine, phase, build };
     return _hud;
 }
 

@@ -136,6 +136,13 @@ function resolveEvictionClass(obj: THREE.Object3D): EvictionClass {
     return cached ?? classifyForEviction(obj);
 }
 
+const DESPAWNED_KEY = '__despawned';
+
+/** True once despawnEntity has torn this object down (a second teardown would corrupt its batcher). */
+export function isDespawned(obj: THREE.Object3D): boolean {
+    return (obj?.userData as Record<string, unknown> | undefined)?.[DESPAWNED_KEY] === true;
+}
+
 /** True when despawnEntity can remove this object without corrupting a batcher. */
 export function canDespawn(obj: THREE.Object3D): boolean {
     return resolveEvictionClass(obj) !== 'never';
@@ -157,6 +164,7 @@ function removeFromArray(
  * safe removal path. Does NOT rebuild the physics grid; callers batch that.
  */
 export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem | null): boolean {
+    if (isDespawned(obj)) return true;
     const evictionClass = resolveEvictionClass(obj);
     if (evictionClass === 'never') return false;
 
@@ -245,5 +253,6 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
         if (vineSwings[i].vine === obj) vineSwings.splice(i, 1);
     }
     safeRemoveAndDispose(foliageGroup, obj);
+    (obj.userData as Record<string, unknown>)[DESPAWNED_KEY] = true;
     return true;
 }

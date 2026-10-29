@@ -33,8 +33,10 @@ import * as THREE from 'three';
 import { isEmscriptenReady, getEmscriptenInstance, getNativeFunc } from '../utils/wasm-loader-core.ts';
 import { getWasmInstance } from '../utils/wasm-loader.ts';
 import { discoveryPersistence, type PersistedDiscovery } from './discovery-persistence.ts';
-import { discoverySystem } from './discovery.ts';
+import { showDiscoveryLog } from './discovery-log.ts';
 import { DISCOVERY_MAP } from './discovery-map.ts';
+import { emitProgress, progressKindOfDiscovery } from './progress-events.ts';
+import { showToast } from '../utils/toast.ts';
 
 // Type definition for discovery info
 interface DiscoveryInfo {
@@ -103,6 +105,63 @@ export class OptimizedDiscoverySystem {
     private cppOutPtr = 0; // pre-allocated output buffer in Emscripten heap
 
     private _initialized = false;
+
+    /** Ids found so far — the registry every `discover` / `isDiscovered` caller reads. */
+    private discoveredItems = new Set<string>();
+
+    constructor() {
+        try {
+            for (const d of discoveryPersistence.getAllDiscoveries()) this.discoveredItems.add(d.id);
+        } catch (e) {
+            console.warn('DiscoverySystem: Failed to load from persistence', e);
+        }
+    }
+
+    /**
+     * Register a discovery: persist it, toast it, report it as progress.
+     * @returns true if this is a new discovery.
+     */
+    discover(id: string, displayName: string, icon: string = '🌿'): boolean {
+        if (!id || this.discoveredItems.has(id)) return false;
+        this.discoveredItems.add(id);
+        try {
+            discoveryPersistence.addDiscovery(id, displayName, icon);
+        } catch (e) {
+            console.warn('DiscoverySystem: Failed to save to persistence', e);
+        }
+        showToast(`New Discovery: ${displayName}!`, icon, 5000);
+        console.log(`[Discovery] Discovered: ${displayName} (${id})`);
+        emitProgress({ kind: progressKindOfDiscovery(id), id });
+        return true;
+    }
+
+    /**
+     * Add discoveries restored from a saved world, without toasts.
+     * @returns the number that were new.
+     */
+    restore(ids: readonly string[]): number {
+        let added = 0;
+        for (const id of ids) {
+            if (!id || this.discoveredItems.has(id)) continue;
+            this.discoveredItems.add(id);
+            discoveryPersistence.addDiscovery(id);
+            added++;
+        }
+        return added;
+    }
+
+    /** Toggle the Discovery Log overlay. */
+    showLog(): void {
+        showDiscoveryLog((id) => this.discoveredItems.has(id));
+    }
+
+    getDiscoveredIds(): string[] {
+        return Array.from(this.discoveredItems);
+    }
+
+    getDiscoveredCount(): number {
+        return this.discoveredItems.size;
+    }
 
     private ensureInitialized(): void {
         if (this._initialized) return;
@@ -194,17 +253,7 @@ export class OptimizedDiscoverySystem {
      */
     private loadPersistedDiscoveries(): void {
         const persisted = discoveryPersistence.getAllDiscoveries();
-        
-        for (const discovery of persisted) {
-            // Sync with legacy discoverySystem for backward compatibility
-            if (!discoverySystem.isDiscovered(discovery.id)) {
-                const info = DISCOVERY_MAP[discovery.id];
-                if (info) {
-                    // Add to legacy system without triggering save
-                    (discoverySystem as any).discoveredItems?.add(discovery.id);
-                }
-            }
-        }
+        for (const discovery of persisted) this.discoveredItems.add(discovery.id);
 
         if (persisted.length > 0) {
             console.log(`[OptimizedDiscovery] Loaded ${persisted.length} persisted discoveries`);
@@ -237,7 +286,7 @@ export class OptimizedDiscoverySystem {
         }
 
         // Skip types already discovered (from persistence)
-        if (discoveryPersistence.hasDiscovery(type) || discoverySystem.isDiscovered(type)) {
+        if (this.isDiscovered(type)) {
             return -1;
         }
 
@@ -302,13 +351,7 @@ export class OptimizedDiscoverySystem {
      * Persist a discovery through the persistence layer
      */
     private persistDiscovery(id: string, name: string, icon: string): void {
-        // Add to persistence layer (handles timestamps)
-        const isNew = discoveryPersistence.addDiscovery(id, name, icon);
-        
-        if (isNew) {
-            // Also notify legacy system for toast display
-            discoverySystem.discover(id, name, icon);
-            
+        if (this.discover(id, name, icon)) {
             console.log(`[OptimizedDiscovery] Persisted discovery: ${name} (${id})`);
         }
     }
@@ -346,7 +389,7 @@ export class OptimizedDiscoverySystem {
             const id = this.cppHeap32[base + i];
             const obj = this.objectRegistry.get(id);
             if (!obj) continue;
-            if (discoveryPersistence.hasDiscovery(obj.type) || discoverySystem.isDiscovered(obj.type)) continue;
+            if (this.isDiscovered(obj.type)) continue;
 
             this.persistDiscovery(obj.type, obj.discoveryInfo.name, obj.discoveryInfo.icon);
             return obj.discoveryInfo;
@@ -361,7 +404,7 @@ export class OptimizedDiscoverySystem {
     private checkDiscoveryJS(_playerPos: THREE.Vector3): DiscoveryInfo | null {
         for (const [, obj] of this.objectRegistry) {
             // Skip already discovered
-            if (discoveryPersistence.hasDiscovery(obj.type) || discoverySystem.isDiscovered(obj.type)) {
+            if (this.isDiscovered(obj.type)) {
                 continue;
             }
 
@@ -401,7 +444,7 @@ export class OptimizedDiscoverySystem {
      * Check if a type is discovered
      */
     isDiscovered(type: string): boolean {
-        return discoveryPersistence.hasDiscovery(type) || discoverySystem.isDiscovered(type);
+        return discoveryPersistence.hasDiscovery(type) || this.discoveredItems.has(type);
     }
 
     /**
@@ -429,7 +472,7 @@ export class OptimizedDiscoverySystem {
     reset(): void {
         this.ensureInitialized();
         discoveryPersistence.clear();
-        discoverySystem.reset();
+        this.discoveredItems.clear();
 
         if (this.cppInitialized && this.cppClear) {
             this.cppClear();
@@ -458,14 +501,8 @@ export class OptimizedDiscoverySystem {
 
         discoveryPersistence.mergeWithServer(formatted);
         
-        // Update legacy system
         for (const d of serverDiscoveries) {
-            if (!discoverySystem.isDiscovered(d.id)) {
-                const info = DISCOVERY_MAP[d.id];
-                if (info) {
-                    (discoverySystem as any).discoveredItems?.add(d.id);
-                }
-            }
+            if (DISCOVERY_MAP[d.id]) this.discoveredItems.add(d.id);
         }
 
         console.log(`[OptimizedDiscovery] Synced ${serverDiscoveries.length} discoveries with server`);
@@ -549,6 +586,9 @@ export class OptimizedDiscoverySystem {
 
 // Global instance
 export const optimizedDiscovery = new OptimizedDiscoverySystem();
+
+/** The one discovery registry: `discover`, `isDiscovered`, `showLog`, `restore`. */
+export const discoverySystem = optimizedDiscovery;
 
 /**
  * Integration helper: Initialize discovery for all animated foliage

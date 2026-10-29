@@ -50,6 +50,7 @@ import {
     resolveHdrSupport,
 } from '../core/platform/capabilities.ts';
 import { readUserAgent } from '../core/platform/user-agent.ts';
+import type { BackendRecipe, RecoverableRenderer, RecoveryHost } from './device-recovery.ts';
 import type { RendererBackend } from './renderer-mode.ts';
 
 // =============================================================================
@@ -204,14 +205,34 @@ export function resolveCanvasColorSpace(): PredefinedColorSpace {
 export const GPU_ALPHA = true;
 
 /**
- * Hardware MSAA on the swap chain.
- *
- * Kept `true`, matching the pre-existing renderer. The post chain
- * (`initPostProcessing`) does not run a full-screen AA resolve of its own, so
- * MSAA is still the only geometric antialiasing in the pipeline; dropping it
- * in favour of post-AA would be a visual change and is out of scope here.
+ * MSAA samples for the post-FX scene pass, the `rgba16float` target the world
+ * is drawn into. Passed to `pass()` explicitly; Three forces 0 on WebGL2.
  */
-export const GPU_ANTIALIAS = true;
+export const SCENE_PASS_SAMPLES = 4;
+
+/**
+ * Hardware MSAA on the canvas (swap chain).
+ *
+ * Three 0.171 sizes the canvas buffer from `renderer.samples` (4 whenever
+ * `antialias` is set), and `PassNode` copied the same value into the scene
+ * pass, so MSAA was paid twice: once on the scene pass, where it antialiases
+ * the world, and again on the canvas, where the only draw is the fullscreen
+ * post quad, which MSAA cannot improve. With the post graph running the canvas
+ * is created without it and the scene pass asks for {@link SCENE_PASS_SAMPLES}
+ * itself. `?postfx=off` draws the world straight to the canvas, so it keeps
+ * the renderer's MSAA.
+ */
+export function resolveCanvasAntialias(postStackBypassed: boolean): boolean {
+    return postStackBypassed;
+}
+
+let canvasAntialias = false;
+
+/** Record what the renderer was created with, for `window.__gpuContext`. */
+export function recordCanvasAntialias(antialias: boolean): void {
+    canvasAntialias = antialias;
+    publishGpuContext();
+}
 
 // =============================================================================
 // TYPES
@@ -239,7 +260,7 @@ export interface GpuContext {
     powerPreference: GPUPowerPreference;
     /** Limits the device was requested with (adapter-clamped; floor before the probe). */
     requiredLimits: Record<string, number>;
-    /** True once the device has been lost. */
+    /** True once the device (WebGPU) or context (WebGL2) has been lost. Rendering has stopped. */
     lost: boolean;
     lostReason: string | null;
     /** Why WebGPU is unavailable, when it is. */
@@ -247,6 +268,14 @@ export interface GpuContext {
 }
 
 type DeviceLostListener = (reason: string) => void;
+
+/** One `uncapturederror` the device raised (validation, out-of-memory, internal). */
+export interface GpuErrorRecord {
+    type: 'validation' | 'out-of-memory' | 'internal' | 'unknown';
+    message: string;
+    /** `performance.now()` when it fired. */
+    at: number;
+}
 
 // =============================================================================
 // STATE
@@ -274,6 +303,29 @@ let resolveContext: ((ctx: GpuContext) => void) | null = null;
 let armed = false;
 
 const deviceLostListeners = new Set<DeviceLostListener>();
+
+/** How many uncaptured errors to keep, and how many to echo to the console. */
+const GPU_ERROR_HISTORY = 20;
+const GPU_ERROR_CONSOLE_LIMIT = 3;
+let gpuErrorCount = 0;
+let gpuErrors: GpuErrorRecord[] = [];
+/** WebGL2 only: the browser handed the context back after a loss. */
+let contextRestored = false;
+
+// --- Recovery (the loop itself is `device-recovery.ts`, a lazy chunk) -------
+let recoveryTiming = { retryMs: 1000, restoreTimeoutMs: 10_000 };
+/** The renderer whose loss is being watched; recovery rebuilds it in place. */
+let lossRenderer: RecoverableRenderer | null = null;
+let backendRecipe: BackendRecipe | null = null;
+/** The loss being settled: recovery, or the banner. */
+let recovery: Promise<boolean> | null = null;
+let recoveredAt: number[] = [];
+/** Set by `?debug_lose_device` just before it destroys the device on purpose. */
+let simulatedLoss = false;
+/** WebGL2: settles when the browser hands the context back. */
+let contextRestoredSignal: Promise<void> | null = null;
+let resolveContextRestored: (() => void) | null = null;
+const deviceRestoredListeners = new Set<() => void>();
 
 /** Result of the one boot probe, reused by `armGpuContext`. */
 let probePromise: Promise<GpuProbeResult> | null = null;
@@ -378,13 +430,18 @@ export interface GpuFeatureReport {
     timestampQuery: boolean;
 }
 
-/** `?debug=1` or `?graphics=high`. Never throws; a bad location means "do not request". */
+/**
+ * `?debug=1`, `?graphics=high` or `?dynres=1` (dynamic resolution needs GPU
+ * frame times). Never throws; a bad location means "do not request".
+ */
 export function wantsTimestampQuery(): boolean {
     if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;
     const location = window.location;
     try {
         const q = new URLSearchParams(location.search);
         if (q.get('debug') === '1' || q.has('debug')) return true;
+        const dynres = q.get('dynres');
+        if (dynres === '1' || dynres === 'on') return true;
         return (q.get('graphics') || q.get('quality') || '').toLowerCase() === 'high';
     } catch {
         return false;
@@ -763,24 +820,44 @@ function publicCanvasConfig(config: GpuCanvasConfig): Omit<GpuCanvasConfig, 'usa
     return { format: config.format, alphaMode: config.alphaMode, colorSpace: config.colorSpace };
 }
 
+const pinnedColorSpace = new WeakMap<GPUCanvasContext, PredefinedColorSpace>();
+
 /**
- * Re-apply the swap-chain configuration with `colorSpace`.
+ * Three r186 configures the canvas lazily on the first frame, and again after
+ * every resize (`updateSize()` drops its cached context), each time with only
+ * device/format/usage/alphaMode/toneMapping, which resets `colorSpace` to
+ * `srgb`. Keep the tag on the context instance so every later configure,
+ * Three's included, carries it.
+ */
+function pinCanvasColorSpace(context: GPUCanvasContext, colorSpace: PredefinedColorSpace): void {
+    const wrapped = pinnedColorSpace.has(context);
+    pinnedColorSpace.set(context, colorSpace);
+    if (wrapped) return;
+    const configure = context.configure.bind(context);
+    context.configure = (config: GPUCanvasConfiguration) =>
+        configure({ ...config, colorSpace: pinnedColorSpace.get(context) ?? config.colorSpace });
+}
+
+/**
+ * Re-apply the swap-chain configuration with `colorSpace`, and keep it there.
  *
- * `WebGPUBackend.init()` (three 0.171) calls `context.configure()` again with
- * only device/format/usage/alphaMode, which resets `colorSpace` to `srgb`.
  * Call this after {@link armGpuContext}, with the `outputColorSpace` the
  * renderer actually ended up on, so the canvas tag matches Three's output
- * transform. Best-effort: a rejected configure keeps the previous swap chain.
+ * transform through its own later configures ({@link pinCanvasColorSpace}).
+ * Best-effort: a rejected configure keeps the previous swap chain.
  */
 export function applyCanvasColorSpace(
     probe: GpuProbeResult,
     colorSpace: PredefinedColorSpace
 ): void {
     const next: GpuCanvasConfig = { ...probe.canvas, colorSpace };
+    const previous = probe.canvas.colorSpace;
     try {
+        pinCanvasColorSpace(probe.context, colorSpace);
         probe.context.configure({ device: probe.device, ...next });
         probe.canvas = next;
     } catch (err) {
+        pinnedColorSpace.set(probe.context, previous);
         console.warn(
             `[GPUContext] Canvas configure with colorSpace=${colorSpace} failed: ${describeError(err)}`
         );
@@ -917,7 +994,18 @@ export async function armGpuContext(renderer: unknown, probe: GpuProbeResult): P
         );
     }
 
-    const next: GpuContext = {
+    const next = contextFromProbe(probe, device);
+    lossRenderer = r as unknown as RecoverableRenderer;
+    registerDeviceLost(device, r);
+    registerUncapturedErrors(r);
+    logGpuContext(next);
+    scheduleDebugDeviceLoss();
+    prefetchRecovery();
+    return settle(next);
+}
+
+function contextFromProbe(probe: GpuProbeResult, device: GPUDevice): GpuContext {
+    return {
         backend: 'webgpu',
         available: true,
         device,
@@ -930,46 +1018,152 @@ export async function armGpuContext(renderer: unknown, probe: GpuProbeResult): P
         lostReason: null,
         reason: null,
     };
-
-    registerDeviceLost(device, r);
-    logGpuContext(next);
-    return settle(next);
 }
 
 // =============================================================================
 // DEVICE LOSS
 // =============================================================================
 
-function registerDeviceLost(device: GPUDevice, renderer: any): void {
-    // Every loss is treated as a fault, including `reason: 'destroyed'`:
-    // nothing in the app destroys the shared device anymore (compute and
-    // particles release their own buffers and leave the device alone), so a
-    // destroy here means something external tore it down and the render path
-    // is dead either way.
+type LossAwareRenderer = {
+    onDeviceLost?: (info: { message?: string; reason?: string | null }) => void;
+    _isDeviceLost?: boolean;
+};
+
+/**
+ * Stop the renderer submitting work. `_isDeviceLost` is the flag Three's own
+ * handler sets; `render()`, `compute()` and `compileAsync()` all honour it.
+ */
+function stopRenderer(renderer: unknown): void {
+    if (!renderer || typeof renderer !== 'object') return;
+    (renderer as LossAwareRenderer)._isDeviceLost = true;
+}
+
+/**
+ * Replace Three's `onDeviceLost` (which logs a console error and sets
+ * `_isDeviceLost`) with ours, which also stops the renderer (`stopRenderer`).
+ */
+function routeRendererLoss(renderer: unknown): void {
+    if (!renderer || typeof renderer !== 'object') return;
+    const r = renderer as LossAwareRenderer;
+    r.onDeviceLost = (info) => {
+        stopRenderer(r);
+        // Three never forwards `reason: 'destroyed'`, so this is always a fault.
+        handleGraphicsLost(info?.message || info?.reason || 'unknown reason', true);
+    };
+}
+
+function registerDeviceLost(device: GPUDevice, renderer: unknown): void {
+    // Every loss stops rendering. A fault (driver reset, GPU process crash,
+    // `reason: 'unknown'`) is worth a new device; `reason: 'destroyed'` is
+    // not: nothing in the app destroys the shared device (compute and
+    // particles release their own buffers and leave it alone), so a destroy
+    // means something tore it down on purpose. `?debug_lose_device` marks the
+    // destroy it does so that it exercises recovery all the same.
     device.lost
         .then((info: GPUDeviceLostInfo) => {
-            handleDeviceLost(info?.message || info?.reason || 'unknown reason');
+            const recoverable = info?.reason !== 'destroyed' || simulatedLoss;
+            simulatedLoss = false;
+            stopRenderer(renderer);
+            handleGraphicsLost(info?.message || info?.reason || 'unknown reason', recoverable);
         })
         .catch(() => {
             /* `device.lost` never rejects; guard defensively anyway. */
         });
 
-    // Three's default `onDeviceLost` only logs. Route it through the same
-    // handler so the render path degrades exactly once, however loss surfaces.
-    if (renderer && typeof renderer === 'object') {
-        renderer.onDeviceLost = (info: { message?: string; reason?: string | null }) => {
-            handleDeviceLost(info?.message || info?.reason || 'unknown reason');
-        };
-    }
+    // Route Three's own loss callback through the same handler so the render
+    // path stops exactly once, however loss surfaces.
+    routeRendererLoss(renderer);
 }
 
-function handleDeviceLost(message: string): void {
+function classifyGpuError(error: unknown): GpuErrorRecord['type'] {
+    const name = (error as { constructor?: { name?: string } })?.constructor?.name ?? '';
+    if (name === 'GPUValidationError') return 'validation';
+    if (name === 'GPUOutOfMemoryError') return 'out-of-memory';
+    if (name === 'GPUInternalError') return 'internal';
+    return 'unknown';
+}
+
+/**
+ * Record an uncaptured device error. Kept on `window.__gpuContext.errors` so a
+ * bug report or the smoke test can see validation errors that would otherwise
+ * live only in the browser console. Not cancelled: the browser still logs it.
+ */
+export function recordGpuError(error: unknown, at: number = performance.now()): GpuErrorRecord {
+    const record: GpuErrorRecord = {
+        type: classifyGpuError(error),
+        message: String((error as { message?: unknown })?.message ?? error ?? 'unknown error'),
+        at,
+    };
+    gpuErrorCount++;
+    gpuErrors.push(record);
+    if (gpuErrors.length > GPU_ERROR_HISTORY) gpuErrors = gpuErrors.slice(-GPU_ERROR_HISTORY);
+    if (gpuErrorCount <= GPU_ERROR_CONSOLE_LIMIT) {
+        console.warn(`[GPUContext] Uncaptured ${record.type} error: ${record.message}`);
+    } else if (gpuErrorCount === GPU_ERROR_CONSOLE_LIMIT + 1) {
+        console.warn(
+            '[GPUContext] Further uncaptured errors are counted on window.__gpuContext.errors'
+        );
+    }
+    publishGpuContext();
+    return record;
+}
+
+/**
+ * Three (r186) forwards `uncapturederror` to `renderer.onError`, whose default
+ * is a `console.error` per event: a broken bind group would print one every
+ * frame. Route it into `recordGpuError` (counted, console-capped) instead.
+ */
+function registerUncapturedErrors(renderer: unknown): void {
+    if (!renderer || typeof renderer !== 'object') return;
+    (renderer as { onError?: (info: ThreeErrorInfo) => void }).onError = (info) => {
+        recordGpuError(info?.originalEvent?.error ?? info);
+    };
+}
+
+interface ThreeErrorInfo {
+    message?: string;
+    originalEvent?: { error?: unknown };
+}
+
+/**
+ * Watch the WebGL2 fallback canvas. Three's GLSL backend already cancels
+ * `webglcontextlost` and calls `renderer.onDeviceLost`; this listener keeps
+ * loss handled if a Three upgrade stops doing that (both are idempotent).
+ * Cancelling the event lets the browser hand the context back
+ * (`webglcontextrestored`), and recovery then rebuilds the renderer on it.
+ */
+export function watchWebGLContextLoss(renderer: unknown, canvas: HTMLCanvasElement): void {
+    lossRenderer = renderer as RecoverableRenderer;
+    routeRendererLoss(renderer);
+    canvas.addEventListener('webglcontextlost', (event) => {
+        event.preventDefault();
+        stopRenderer(renderer);
+        handleGraphicsLost((event as WebGLContextEvent).statusMessage || 'context lost', true);
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+        contextRestored = true;
+        resolveContextRestored?.();
+        publishGpuContext();
+        console.warn('[GPUContext] WebGL2 context restored');
+    });
+    scheduleDebugDeviceLoss();
+    prefetchRecovery();
+}
+
+function handleGraphicsLost(message: string, recoverable: boolean): void {
     if (context.lost) return;
 
+    const what = context.backend === 'webgl' ? 'WebGL2 context' : 'WebGPU device';
     context = { ...context, available: false, device: null, lost: true, lostReason: message };
+    if (context.backend === 'webgl') {
+        // Armed before anything can await, so a quick restore is not missed.
+        contextRestored = false;
+        contextRestoredSignal = new Promise<void>((resolve) => (resolveContextRestored = resolve));
+    }
+    recovery = settleLoss(what, message, recoverable && lossRenderer !== null);
     publishGpuContext();
 
-    console.warn(`[GPUContext] WebGPU device lost: ${message} — GPU compute disabled`);
+    console.warn(`[GPUContext] ${what} lost: ${message} — rendering stopped`);
 
     for (const listener of deviceLostListeners) {
         try {
@@ -978,8 +1172,140 @@ function handleDeviceLost(message: string): void {
             console.warn('[GPUContext] Device-lost listener threw:', err);
         }
     }
+}
 
-    showDeviceLostBanner(message);
+/**
+ * After a loss: rebuild the renderer in place (`device-recovery.ts`, a lazy
+ * chunk; two attempts), or show the reload banner when the loss is not
+ * recoverable or both attempts fail.
+ */
+async function settleLoss(what: string, message: string, recoverable: boolean): Promise<boolean> {
+    // The lost listeners (CPU tiers) run first.
+    await Promise.resolve();
+    let ok = false;
+    let rec: typeof import('./device-recovery.ts') | null = null;
+    try {
+        rec = await import('./device-recovery.ts');
+        if (recoverable) ok = await rec.recoverGraphics(recoveryHost(lossRenderer!), what);
+    } catch (err) {
+        console.warn(`[GPUContext] Recovery could not run: ${describeError(err)}`);
+    }
+    if (!ok) rec?.showGraphicsStoppedBanner(`${what} lost: ${message}`);
+    recovery = null;
+    publishGpuContext();
+    if (ok) {
+        console.warn(`[GPUContext] ${what} recovered; rendering resumed`);
+        for (const listener of deviceRestoredListeners) {
+            try {
+                listener();
+            } catch (err) {
+                console.warn('[GPUContext] Device-restored listener threw:', err);
+            }
+        }
+    }
+    return ok;
+}
+
+/** What the recovery loop needs from this module: the probe, and adopting its result. */
+function recoveryHost(renderer: RecoverableRenderer): RecoveryHost<GpuProbeResult> {
+    return {
+        backend: context.backend === 'webgl' ? 'webgl' : 'webgpu',
+        renderer,
+        get recipe() {
+            return backendRecipe;
+        },
+        set recipe(recipe) {
+            backendRecipe = recipe;
+        },
+        recoveredAt,
+        retryMs: recoveryTiming.retryMs,
+        restoreTimeoutMs: recoveryTiming.restoreTimeoutMs,
+        probe: async (canvas) => {
+            probePromise = null;
+            const lostContext = context;
+            try {
+                return await probeWebGPU(canvas);
+            } catch (err) {
+                // A failed probe settles the context as "unavailable"; it is still lost.
+                context = lostContext;
+                throw err;
+            }
+        },
+        adopt: (probe) => {
+            recoveredAt.push(performance.now());
+            if (!probe) {
+                context = { ...context, lost: false, lostReason: null };
+                return;
+            }
+            context = contextFromProbe(probe, probe.device);
+            registerDeviceLost(probe.device, renderer);
+            const outputColorSpace = (renderer as { outputColorSpace?: string }).outputColorSpace;
+            applyCanvasColorSpace(probe, outputColorSpace === 'display-p3' ? 'display-p3' : 'srgb');
+        },
+        contextRestored: () =>
+            contextRestored
+                ? Promise.resolve()
+                : (contextRestoredSignal ??
+                  Promise.reject(new Error('no context loss to wait for'))),
+    };
+}
+
+/**
+ * Subscribe to a successful recovery. The renderer itself needs nothing (it
+ * was rebuilt in place); this is for systems that hold raw `GPUDevice` state
+ * and can come back on the new device. Returns an unsubscribe function.
+ */
+export function onGpuDeviceRestored(listener: () => void): () => void {
+    deviceRestoredListeners.add(listener);
+    return () => deviceRestoredListeners.delete(listener);
+}
+
+/** Settles with the outcome of the loss in flight (true when there is none). */
+export function whenGraphicsRecovered(): Promise<boolean> {
+    return recovery ?? Promise.resolve(!context.lost);
+}
+
+/** Fetch the recovery chunk once boot has settled, so a loss never waits on the network. */
+function prefetchRecovery(): void {
+    const timer = setTimeout(() => void import('./device-recovery.ts').catch(() => {}), 10_000);
+    (timer as { unref?: () => void }).unref?.();
+}
+
+/**
+ * `?debug_lose_device[=seconds]`: once the scene is up, and `seconds` (5 by
+ * default) later, lose the device on purpose so recovery can be watched.
+ */
+function scheduleDebugDeviceLoss(): void {
+    if (typeof window === 'undefined' || typeof window.location === 'undefined') return;
+    let flag: string | null = null;
+    try {
+        flag = new URLSearchParams(window.location.search).get('debug_lose_device');
+    } catch {
+        return;
+    }
+    if (flag === null) return;
+    const delayMs = (Number(flag) > 0 ? Number(flag) : 5) * 1000;
+    const waitForScene = () => {
+        if ((window as { __sceneReady?: boolean }).__sceneReady === true) {
+            setTimeout(() => void loseGpuDeviceForDebug(), delayMs);
+        } else {
+            setTimeout(waitForScene, 500);
+        }
+    };
+    waitForScene();
+}
+
+/**
+ * Lose the device on purpose (`?debug_lose_device`). The WebGPU destroy is
+ * marked, so its `destroyed` reason still counts as recoverable.
+ */
+export async function loseGpuDeviceForDebug(): Promise<void> {
+    if (context.lost) return;
+    const { loseDeviceForDebug } = await import('./device-recovery.ts');
+    const device = context.backend === 'webgpu' ? context.device : null;
+    if (device) simulatedLoss = true;
+    const gl = (lossRenderer as { backend?: { gl?: WebGL2RenderingContext } } | null)?.backend?.gl;
+    loseDeviceForDebug(device, gl ?? null);
 }
 
 /**
@@ -998,64 +1324,6 @@ export function onGpuDeviceLost(listener: DeviceLostListener): () => void {
     }
     deviceLostListeners.add(listener);
     return () => deviceLostListeners.delete(listener);
-}
-
-/**
- * Soft-fallback notice, styled after the existing renderer badge
- * (`src/ui/mode-badge.ts`) — a fixed pill, no modal, no input capture.
- */
-function showDeviceLostBanner(message: string): void {
-    if (typeof document === 'undefined' || !document.body) return;
-    if (document.getElementById('gpu-device-lost-banner')) return;
-
-    const banner = document.createElement('div');
-    banner.id = 'gpu-device-lost-banner';
-    banner.setAttribute('role', 'status');
-    banner.setAttribute('aria-live', 'polite');
-    banner.title = `WebGPU device lost: ${message}`;
-
-    Object.assign(banner.style, {
-        position: 'fixed',
-        top: '52px',
-        left: '12px',
-        padding: '8px 12px',
-        borderRadius: '14px',
-        fontSize: '12px',
-        fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
-        fontWeight: '700',
-        letterSpacing: '0.3px',
-        zIndex: '10000',
-        maxWidth: 'min(360px, calc(100vw - 24px))',
-        background: 'rgba(255, 209, 220, 0.94)',
-        color: '#3b1020',
-        border: '1px solid rgba(255, 255, 255, 0.45)',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
-        backdropFilter: 'blur(10px)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-    });
-
-    const label = document.createElement('span');
-    label.textContent = 'GPU CONNECTION LOST — effects reduced';
-    banner.appendChild(label);
-
-    const reload = document.createElement('button');
-    reload.type = 'button';
-    reload.textContent = 'Reload';
-    Object.assign(reload.style, {
-        font: 'inherit',
-        cursor: 'pointer',
-        padding: '4px 10px',
-        borderRadius: '999px',
-        border: '1px solid rgba(59, 16, 32, 0.35)',
-        background: 'rgba(255, 255, 255, 0.7)',
-        color: '#3b1020',
-    });
-    reload.addEventListener('click', () => window.location.reload());
-    banner.appendChild(reload);
-
-    document.body.appendChild(banner);
 }
 
 // =============================================================================
@@ -1171,7 +1439,11 @@ export function publishGpuContext(): void {
         adapterName: describeAdapter(context.adapterInfo),
         limits: context.limits,
         alpha: GPU_ALPHA,
-        antialias: GPU_ANTIALIAS,
+        antialias: canvasAntialias,
+        contextRestored,
+        recovering: recovery !== null,
+        recoveries: recoveredAt.length,
+        errors: { count: gpuErrorCount, recent: gpuErrors.slice() },
     };
 }
 
@@ -1206,6 +1478,26 @@ export function __resetGpuContextForTests(): void {
     probePromise = null;
     probeReport = null;
     deviceLostListeners.clear();
+    gpuErrorCount = 0;
+    gpuErrors = [];
+    contextRestored = false;
+    canvasAntialias = false;
+    lossRenderer = null;
+    backendRecipe = null;
+    recovery = null;
+    recoveredAt = [];
+    simulatedLoss = false;
+    contextRestoredSignal = null;
+    resolveContextRestored = null;
+    deviceRestoredListeners.clear();
+}
+
+/** Test hook: shorten the recovery retry delay and the WebGL restore wait. */
+export function __setRecoveryTimingForTests(timing: {
+    retryMs: number;
+    restoreTimeoutMs: number;
+}): void {
+    recoveryTiming = { ...timing };
 }
 
 // Make the (unavailable) context visible even before boot completes, so the

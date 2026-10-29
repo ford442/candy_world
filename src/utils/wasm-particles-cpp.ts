@@ -126,7 +126,3 @@ export function updateCpuParticlesNative(
         emModule._free(ptrSeed);
     }
 }
-
-export function isCpuParticlesNativeAvailable(): boolean {
-    return isEmscriptenReady() && getUpdateCpuParticlesFn() !== null;
-}

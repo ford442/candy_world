@@ -47,6 +47,27 @@ A quiet GL render once hid the Chrome-vs-Edge adapter bug, so the fallback is al
 - `window.rendererType`, `usingWebGL`, `#glCanvas[data-renderer="webgl"]`.
 - Console: `[Init] WebGPU unavailable (<stage>) — falling back to WebGL2`.
 
+## Context loss
+
+A lost GL context used to leave a silent black canvas, and then a banner that only a reload
+cleared. `createWebGLRenderer()` calls `watchWebGLContextLoss(renderer, canvas)`
+(`src/rendering/gpu-context.ts`):
+
+- `webglcontextlost` (cancelled, so the browser may restore it) and Three's `renderer.onDeviceLost`
+  both route into the same handler as a WebGPU device loss: `window.__gpuContext.lost` becomes
+  `true`, `onGpuDeviceLost` listeners fire, `renderer._isDeviceLost` stops `render()`, and the frame
+  loop pauses.
+- `webglcontextrestored` hands the context back, and recovery rebuilds the renderer on it in place
+  (a new `WebGLBackend`, `init()` again; see
+  [`WEBGPU_CONTEXT.md`](./WEBGPU_CONTEXT.md#device-lost-policy)). Every GL program, buffer and
+  texture is re-created from its CPU-side source on first use; the loop resumes and
+  `window.__gpuContext.recoveries` counts it.
+- The **Graphics stopped — Reload** banner appears only when that fails: no restore within 10 s, or
+  two failed rebuilds.
+
+To check by hand: `?renderer=webgl&debug_lose_device` loses the context with `WEBGL_lose_context`
+5 s after the scene is up (`=<seconds>` to change the delay) and restores it a second later.
+
 ## What is reduced on WebGL2
 
 | Area              | WebGL2 behaviour                                                                                                                                                                                                                   |
@@ -55,6 +76,7 @@ A quiet GL render once hid the Chrome-vs-Edge adapter bug, so the fallback is al
 | Shadows / post-FX | Off (low tier)                                                                                                                                                                                                                     |
 | GPU compute       | Off: `getPlatformCapabilities().computeAvailable` is false, `__computeDisabled` is set and `renderer.compute()` / `computeAsync()` are no-ops. Three runs TSL compute through transform feedback, which cannot express our kernels |
 | Compute consumers | `awaitGpuDevice()` resolves `null` immediately → CPU/WASM tiers (particles, culling, chores)                                                                                                                                       |
+| Pixel ratio       | 1, whatever `?graphics=` says (`resolveMaxPixelRatio`)                                                                                                                                                                             |
 | Fog               | TSL `scene.fogNode` still compiles to GLSL                                                                                                                                                                                         |
 | Physics / spawn   | Unchanged — ground height is WASM/JS, independent of the renderer                                                                                                                                                                  |
 

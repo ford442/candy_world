@@ -121,7 +121,7 @@ Map-level overrides: add `"atmosphere": { ... }` under `music` in map JSON (same
 
 **Ownership:** `atmosphere-reactivity.ts` is the sole writer of `uBloomStrength` and `uCrescendoFogDensity`. `weather-atmosphere.ts` reads fog density for visibility; `game-loop.ts` must not overwrite bloom before render.
 
-WebGL parity: `post-processing.ts` syncs `uBloomStrength.value` to `UnrealBloomPass.strength` each frame; `game-loop.ts` mirrors `uShaftOpacity` to the shared WebGL shaft material.
+WebGL parity: the WebGL2 fallback runs the same TSL post graph on Three's GLSL node backend, so `uBloomStrength` and `uShaftOpacity` drive it directly; there is no separate WebGL bloom to sync.
 
 ## Gem Canopy Binding (`gem_canopy`)
 

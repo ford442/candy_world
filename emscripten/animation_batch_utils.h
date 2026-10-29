@@ -62,36 +62,3 @@ inline v128_t fast_sin_simd(v128_t x) {
     return res;
 }
 
-/**
- * Fast approximate square root for SIMD
- * @param x SIMD vector of 4 float values
- * @return v128_t SIMD vector of approximate square root values
- */
-inline v128_t fast_sqrt_simd(v128_t x) {
-    return wasm_f32x4_sqrt(x);
-}
-
-/**
- * Extract sine value from a single float angle
- * @param angle Angle in radians
- * @return float Approximate sine value
- */
-inline float scalar_sin_approx(float angle) {
-    // Reduce to [-2π, 2π]
-    while (angle > TWO_PI) angle -= TWO_PI;
-    while (angle < -TWO_PI) angle += TWO_PI;
-    
-    // Reduce to [-π, π]
-    if (angle > PI) angle -= TWO_PI;
-    if (angle < -PI) angle += TWO_PI;
-    
-    // Taylor series approximation
-    float x2 = angle * angle;
-    float x3 = x2 * angle;
-    float x5 = x3 * x2;
-    float x7 = x5 * x2;
-    
-    return angle - (x3 * 0.16666666666666666667f) + 
-           (x5 * 0.00833333333333333333f) - 
-           (x7 * 0.00019841269841269841f);
-}

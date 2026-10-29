@@ -72,8 +72,8 @@ export class ChordStrikeSystem {
     fire(playerPos: THREE.Vector3) {
         if (this.active) return; // Already firing
 
-        // Require 3 Harmony Orbs
-        if (!unlockSystem.consume('harmony_orb', 3)) {
+        // Earned at 3 Harmony Orbs, and each strike spends 3 more.
+        if (!unlockSystem.isUnlocked('chord_strike') || !unlockSystem.consume('harmony_orb', 3)) {
             showToast("Need 3 Harmony Orbs! 🔮", "❌");
             return;
         }

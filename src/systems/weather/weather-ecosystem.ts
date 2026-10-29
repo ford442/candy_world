@@ -20,7 +20,6 @@ import { musicReactivitySystem } from '../music-reactivity.ts';
 import type { WeatherSystem } from './weather.ts';
 
 // Scratch objects for optimization
-const _scratchSunDir = new THREE.Vector3();
 const _scratchWaterfallPos = new THREE.Vector3();
 const _scratchMPos = new THREE.Vector3();
 const _scratchFPos = new THREE.Vector3();
@@ -225,10 +224,10 @@ export class EcosystemManager {
                         const height = mushroom.userData.capHeight || 8.0;
                         
                         // Use scratch vectors
-                        _scratchSunDir.set(mushroom.position.x + radius * 0.8, height * 0.8, mushroom.position.z);
                         _scratchWaterfallPos.set(mushroom.position.x + radius * 0.8, height * 0.8, mushroom.position.z);
 
                         // Add to batcher
+                        waterfallBatcher.add(uuid, _scratchWaterfallPos, height * 0.8, 2.0);
                         waterfallBatcher.add(uuid, _scratchSunDir, height * 0.8, 2.0);
 
                         mushroomWaterfalls.add(uuid);

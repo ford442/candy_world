@@ -1,6 +1,8 @@
 import * as THREE from 'three';
-import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import { capturePhotoPng } from './photo-capture.ts';
+import type { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { input } from '../../core/input/actions/index.ts';
+import { getSharedWorldThumbnailAction } from '../net/shared-worlds-lazy.ts';
+import { capturePhotoPng, capturePhotoThumbnail } from './photo-capture.ts';
 import { PhotoControlsOverlay, type PhotoControlValues } from './photo-controls.ts';
 import { defaultPhotoSettings } from './photo-presets.ts';
 
@@ -82,6 +84,8 @@ export class PhotoModeManager {
     private readonly opts: PhotoModeInitOptions;
     private reducedMotion = false;
     private previousFocusElement: HTMLElement | null = null;
+    /** Pops the `photo` input context: the panel owns the keys, the game gets none. */
+    private popInputContext: (() => void) | null = null;
 
     constructor(opts: PhotoModeInitOptions) {
         this.opts = opts;
@@ -138,6 +142,7 @@ export class PhotoModeManager {
         }
 
         this.active = true;
+        this.popInputContext = input.pushContext('photo');
         this.reducedMotion = prefersReducedMotion();
         (window as Window & { __photoModeActive?: boolean }).__photoModeActive = true;
 
@@ -164,11 +169,21 @@ export class PhotoModeManager {
         }
 
         document.body.classList.add('photo-mode-active');
+        document.getElementById('openPhotoBtn')?.setAttribute('aria-pressed', 'true');
         this.setHudVisible(!this.values.hideHud);
 
+        const thumbnail = getSharedWorldThumbnailAction();
         this.overlay = new PhotoControlsOverlay({
             initial: this.values,
             reducedMotion: this.reducedMotion,
+            extraActions: thumbnail
+                ? [
+                      {
+                          label: thumbnail.label,
+                          onClick: () => void this.setWorldThumbnail(thumbnail),
+                      },
+                  ]
+                : [],
             onChange: (v, field) => {
                 this.values = v;
                 if (field === 'hideHud') this.setHudVisible(!v.hideHud);
@@ -188,6 +203,8 @@ export class PhotoModeManager {
     async exit(): Promise<void> {
         if (!this.active) return;
         this.active = false;
+        this.popInputContext?.();
+        this.popInputContext = null;
         (window as Window & { __photoModeActive?: boolean }).__photoModeActive = false;
 
         this.overlay?.dispose();
@@ -197,6 +214,7 @@ export class PhotoModeManager {
         this.opts.explore.setExploreOrbitFlag(false);
 
         document.body.classList.remove('photo-mode-active');
+        document.getElementById('openPhotoBtn')?.setAttribute('aria-pressed', 'false');
         this.setHudVisible(true);
 
         this.opts.timeOffset.value = this.savedTimeOffset;
@@ -253,9 +271,25 @@ export class PhotoModeManager {
         }
     }
 
+    /** Shared worlds (#1975): this frame becomes the world's gallery thumbnail. */
+    private async setWorldThumbnail(action: { run(image: Blob): Promise<string> }): Promise<void> {
+        if (!this.active) return;
+        try {
+            const image = await capturePhotoThumbnail({
+                renderer: this.opts.renderer,
+                renderFrame: this.opts.renderFrame,
+            });
+            await action.run(image);
+            this.opts.announcePolite('World thumbnail set');
+        } catch (err) {
+            console.error('[PhotoMode] Thumbnail upload failed', err);
+            this.opts.announcePolite('Could not set the world thumbnail');
+        }
+    }
+
     private setHudVisible(visible: boolean): void {
         for (const sel of HUD_SELECTORS) {
-            const el = document.querySelector(sel) as HTMLElement | null;
+            const el = document.querySelector<HTMLElement>(sel);
             if (el) el.style.visibility = visible ? '' : 'hidden';
         }
     }

@@ -48,7 +48,7 @@ console.log('\nBudget table');
 // ---------------------------------------------------------------------------
 
 const ids = Object.keys(SYSTEM_BUDGETS) as SystemBudgetId[];
-check('every Feature Completeness system has a budget', ids.length === 7, ids.join(','));
+check('every Feature Completeness system has a budget', ids.length === 8, ids.join(','));
 
 for (const id of ids) {
     const b = SYSTEM_BUDGETS[id];

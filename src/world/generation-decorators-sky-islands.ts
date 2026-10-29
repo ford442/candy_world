@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 import { sugarCaveBatcher } from '../foliage/index.ts';
+import { createHeavyStone, heavyStoneIslandSites } from '../foliage/heavy-stone.ts';
 import { createSkyIsland, skyIslandBatcher } from '../foliage/sky-islands.ts';
 import {
     registerWalkableIslandPlatform,
     registerWalkableCloudPlatform,
     getGroundHeight,
 } from '../systems/ground-system.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
 import { debugHooks } from '../utils/debug-hooks.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
 import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
@@ -25,6 +28,7 @@ import {
     validateSkyIslandGraph,
     initSkyIslandDebug,
 } from './sky-island-graph.ts';
+import { SUGAR_CAVES_TRAVERSAL } from './sugar-caves-traversal.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
 
 /**
@@ -48,28 +52,51 @@ export async function populateSugarCaves(weatherSystem: WeatherSystem): Promise<
 
     for (let i = 0; i < count; i++) {
         const t = i / Math.max(1, count - 1);
-        const x = startX + dx * t + (Math.random() - 0.5) * 6.0;
-        const z = startZ + dz * t + (Math.random() - 0.5) * 6.0;
+        const x = startX + dx * t + (getSeededRandom() - 0.5) * 6.0;
+        const z = startZ + dz * t + (getSeededRandom() - 0.5) * 6.0;
 
         // Ensure caves are placed underground relative to unified ground height
         const terrainY = sampleGroundY(x, z);
-        const caveY = terrainY - 5.0 - Math.random() * 4.0;
+        const caveY = terrainY - 5.0 - getSeededRandom() * 4.0;
 
         _scratchPos.set(x, caveY, z);
 
         // Random orientation
         _scratchQuat.setFromEuler(
             new THREE.Euler(
-                (Math.random() - 0.5) * Math.PI,
-                Math.random() * Math.PI * 2,
-                (Math.random() - 0.5) * Math.PI
+                (getSeededRandom() - 0.5) * Math.PI,
+                getSeededRandom() * Math.PI * 2,
+                (getSeededRandom() - 0.5) * Math.PI
             )
         );
 
-        const scale = 0.8 + Math.random() * 0.8;
+        const scale = 0.8 + getSeededRandom() * 0.8;
         sugarCaveBatcher.add(_scratchPos, _scratchQuat, scale);
 
         if (i % 20 === 19) await yieldControl();
+    }
+
+    placeHeavyStones(weatherSystem);
+}
+
+/**
+ * Heavy stones for Wind Anchor (needs 3): three on the lake island around the
+ * Part II door, reachable before it opens, and one on the cave floor.
+ */
+function placeHeavyStones(weatherSystem: WeatherSystem): void {
+    const { startX, startZ, endX, endZ } = SUGAR_CAVES;
+    const sites = heavyStoneIslandSites().map((s) => ({ ...s, y: sampleGroundY(s.x, s.z) }));
+    sites.push({
+        id: 'heavy_stone:caves:0',
+        x: (startX + endX) * 0.5 + 2.5,
+        y: SUGAR_CAVES_TRAVERSAL.caveFloorY,
+        z: (startZ + endZ) * 0.5 + 2.5,
+    });
+    for (const site of sites) {
+        if (unlockSystem.isSiteHarvested(site.id)) continue;
+        const stone = createHeavyStone(site.id);
+        stone.position.set(site.x, site.y, site.z);
+        safeAddFoliage(stone, false, 1.0, weatherSystem);
     }
 }
 
@@ -244,7 +271,7 @@ export async function populateSkyIslands(weatherSystem: WeatherSystem): Promise<
                 const a = (m / 5) * Math.PI * 2;
                 const mx = x + Math.cos(a) * (layer.radius * 0.45);
                 const mz = z + Math.sin(a) * (layer.radius * 0.45);
-                const mush = create('glass_mushroom', { scale: 0.7 + Math.random() * 0.4 });
+                const mush = create('glass_mushroom', { scale: 0.7 + getSeededRandom() * 0.4 });
                 if (!mush) continue;
                 mush.position.set(mx, y, mz);
                 mush.userData.biome = 'sky_islands';

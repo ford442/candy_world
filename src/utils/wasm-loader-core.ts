@@ -42,13 +42,9 @@ export let animationView: Float32Array | null = null; // Float32Array for animat
 export let outputView: Float32Array | null = null; // Float32Array for reading results
 export let playerStateView: Float32Array | null = null; // Float32Array for player physics state
 
-/** Shared Float32Array for batch operations */
-export const sharedF32: Float32Array | null = null;
-
 /** Cached WASM function references */
 export let wasmGetGroundHeight: ((x: number, z: number) => number) | null = null;
 export let wasmFreqToHue: ((freq: number) => number) | null = null;
-export let wasmLerp: ((a: number, b: number, t: number) => number) | null = null;
 export let wasmBatchMushroomSpawnCandidates:
     | ((
           time: number,
@@ -61,7 +57,6 @@ export let wasmBatchMushroomSpawnCandidates:
           maxDistance: number
       ) => number)
     | null = null;
-export let wasmUpdateFoliageBatch: ((...args: number[]) => void) | null = null;
 
 /** New Physics exports */
 export let wasmInitDynamicFoliageMemory: ((maxInstances: number) => number) | null = null;
@@ -105,7 +100,7 @@ export let cppUpdateBoids:
     | null = null;
 
 /** Hot-path Foliage Animation exports (Migrated from TS) */
-export const wasmSmoothWobble:
+export let wasmSmoothWobble:
     | ((
           noteBufferPtr: number,
           bufferSize: number,
@@ -120,6 +115,7 @@ export const wasmBatchGrowth: ((dataPtr: number, count: number) => void) | null 
 export const wasmBatchBloom: ((dataPtr: number, count: number) => void) | null = null;
 export const wasmBatchScaleAnimation: ((dataPtr: number, count: number) => void) | null = null;
 
+
 /** Hot-path Physics exports (Migrated from TS) */
 export let wasmBatchGroundHeight:
     ((positionsPtr: number, count: number, outputPtr: number) => void) | null = null;
@@ -133,66 +129,9 @@ export let wasmAddGroundPlatform:
     ((minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void) | null = null;
 export let wasmInvalidateGroundCache: (() => void) | null = null;
 export let wasmSetGroundCacheTTL: ((seconds: number) => void) | null = null;
-export let wasmDampVelocity:
-    ((velocityPtr: number, count: number, damping: number) => void) | null = null;
-export let wasmBatchDistanceCalc:
-    | ((
-          positionsPtr: number,
-          count: number,
-          camX: number,
-          camY: number,
-          camZ: number,
-          outputPtr: number
-      ) => void)
-    | null = null;
-export let wasmBatchFrustumTest:
-    | ((positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number) => number)
-    | null = null;
-export let wasmBatchLODSelect:
-    | ((distancesPtr: number, count: number, lodThresholdsPtr: number, outputPtr: number) => number)
-    | null = null;
 
-/** Math functions from assembly/math.ts */
-export let wasmHslToRgb: ((h: number, s: number, l: number) => number) | null = null;
-export let wasmHash2D: ((x: number, y: number) => number) | null = null;
-export let wasmValueNoise2D: ((x: number, y: number) => number) | null = null;
-export let wasmFbm2D: ((x: number, y: number, octaves: number) => number) | null = null;
-export let wasmDistSq2D: ((ax: number, ay: number, bx: number, by: number) => number) | null = null;
-export let wasmDistSq3D:
-    ((ax: number, ay: number, az: number, bx: number, by: number, bz: number) => number) | null =
-    null;
-export let wasmSmoothstep: ((t: number) => number) | null = null;
-export let wasmInverseLerp: ((a: number, b: number, value: number) => number) | null = null;
 
-/** Batch functions from assembly/batch.ts */
-export let wasmBatchHslToRgb: ((ptr: number, count: number) => void) | null = null;
-export let wasmBatchSphereCull:
-    | ((
-          positionsPtr: number,
-          count: number,
-          camX: number,
-          camY: number,
-          camZ: number,
-          maxDist: number,
-          outputPtr: number
-      ) => void)
-    | null = null;
-export let wasmBatchLerp: ((ptr: number, count: number) => void) | null = null;
 
-/** Particle functions from assembly/particles.ts */
-export let wasmUpdateParticles:
-    ((positionsPtr: number, count: number, dt: number, gravity: number) => void) | null = null;
-export let wasmSpawnBurst:
-    | ((
-          outputPtr: number,
-          count: number,
-          centerX: number,
-          centerY: number,
-          centerZ: number,
-          speed: number,
-          time: number
-      ) => void)
-    | null = null;
 
 export * from './wasm-loader-cpp.ts';
 import {
@@ -215,17 +154,6 @@ export {
     PLAYER_STATE_OFFSET,
     BATCH_UPLOAD_OFFSET,
 } from './native-memory-layout.ts';
-
-/** Animation type constants */
-export const AnimationType = {
-    BOUNCE: 1,
-    SWAY: 2,
-    WOBBLE: 3,
-    HOP: 4,
-} as const;
-
-/** Animation type values */
-export type AnimationTypeValue = (typeof AnimationType)[keyof typeof AnimationType];
 
 export * from './wasm-loader-types.ts';
 import type {
@@ -339,9 +267,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
 
     wasmGetGroundHeight = exports.getGroundHeight;
     wasmFreqToHue = exports.freqToHue;
-    wasmLerp = exports.lerp;
     wasmBatchMushroomSpawnCandidates = exports.batchMushroomSpawnCandidates || null;
-    wasmUpdateFoliageBatch = exports.updateFoliageBatch || null;
 
     wasmInitDynamicFoliageMemory = exports.initDynamicFoliageMemory || null;
     wasmInitCollisionSystem = exports.initCollisionSystem || null;
@@ -359,26 +285,10 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmAddGroundPlatform = exports.addGroundPlatform || null;
     wasmInvalidateGroundCache = exports.invalidateGroundCache || null;
     wasmSetGroundCacheTTL = exports.setGroundCacheTTL || null;
-    wasmDampVelocity = exports.dampVelocity || null;
-    wasmBatchDistanceCalc = exports.batchDistanceCalc || null;
-    wasmBatchFrustumTest = exports.batchFrustumTest || null;
-    wasmBatchLODSelect = exports.batchLODSelect || null;
 
-    wasmHslToRgb = exports.hslToRgb || null;
-    wasmHash2D = exports.hash2D || null;
-    wasmValueNoise2D = exports.valueNoise2D || null;
-    wasmFbm2D = exports.fbm2D || null;
-    wasmDistSq2D = exports.distSq2D || null;
-    wasmDistSq3D = exports.distSq3D || null;
-    wasmSmoothstep = exports.smoothstep || null;
-    wasmInverseLerp = exports.inverseLerp || null;
+    wasmSmoothWobble = exports.smoothWobble || null;
 
-    wasmBatchHslToRgb = exports.batchHslToRgb || null;
-    wasmBatchSphereCull = exports.batchSphereCull || null;
-    wasmBatchLerp = exports.batchLerp || null;
 
-    wasmUpdateParticles = asExportFn(exports.updateParticles);
-    wasmSpawnBurst = asExportFn(exports.spawnBurst);
 }
 
 let viewsBuffer: ArrayBufferLike | null = null;
@@ -447,21 +357,6 @@ export function refreshWasmViews(): void {
 // =============================================================================
 // EMSCRIPTEN MODULE LOADER
 // =============================================================================
-
-let bootstrapStarted = false;
-
-async function startBootstrapIfAvailable(instance: ExtendedEmscriptenModule): Promise<void> {
-    if (!instance || bootstrapStarted) return;
-    try {
-        const { startBootstrap } = await import('./bootstrap-loader.ts');
-        if (startBootstrap && startBootstrap(instance)) {
-            bootstrapStarted = true;
-            log.info('WASM', 'Bootstrap terrain pre-computation started');
-        }
-    } catch (e) {
-        console.warn('[WASM] Bootstrap loader error:', e);
-    }
-}
 
 /**
  * Update progress UI
@@ -669,17 +564,6 @@ export function getWasmMemory(): ArrayBuffer | null {
     return wasmMemory ? (wasmMemory.buffer as ArrayBuffer) : null;
 }
 
-/**
- * Get the Emscripten memory buffer
- * @returns The Emscripten memory ArrayBuffer or null if not initialized
- */
-
-function asExportFn<T extends (...args: never[]) => unknown>(
-    v: WebAssembly.ExportValue | undefined
-): T | null {
-    return typeof v === 'function' ? (v as T) : null;
-}
-
 // =============================================================================
 // STATE CHECKERS
 // =============================================================================
@@ -720,11 +604,6 @@ export function getEmscriptenInstance(): EmscriptenModule | null {
 // INITIALIZATION FUNCTIONS
 // =============================================================================
 
-/** Options for parallel WASM initialization */
-export interface InitWasmParallelOptions {
-    onProgress?: (phase: string, message: string) => void;
-}
-
 /** Retry configuration for Emscripten module initialisation (exported for tests) */
 export const EMCC_MAX_RETRIES = 3;
 export const EMCC_RETRY_DELAYS_MS = [1000, 2000, 4000];
@@ -760,7 +639,6 @@ export async function initWasm(): Promise<boolean> {
             const result = await loadEmscriptenModule();
 
             if (result && emscriptenInstance) {
-                await startBootstrapIfAvailable(emscriptenInstance);
                 bootProgress.setWasmPhase('Physics Engine ready', 100);
                 loaded = true;
                 lastError = null;
@@ -818,22 +696,4 @@ export async function initWasm(): Promise<boolean> {
     return true;
 }
 
-// Deprecated: Parallel loading is no longer needed as AS is bundled synchronously (via TLA)
-export async function initWasmParallel(options: InitWasmParallelOptions = {}): Promise<boolean> {
-    log.info('WASM', 'initWasmParallel routed to standard initWasm');
-    if (options.onProgress) {
-        // Simple shim for progress
-        options.onProgress('start', 'Initializing...');
-    }
-    return initWasm();
-}
-
-// Re-exports from orchestrator
-export {
-    LOADING_PHASES,
-    isSharedMemoryAvailable,
-    initSharedBuffer,
-    getSharedBuffer,
-    createPlaceholderScene,
-    removePlaceholderScene,
-} from './wasm-orchestrator.ts';
+export { isSharedMemoryAvailable } from './wasm-orchestrator.ts';

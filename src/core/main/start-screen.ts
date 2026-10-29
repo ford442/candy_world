@@ -29,6 +29,7 @@ import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { finalizeStartupProfile, startPhase, endPhase } from '../../utils/startup-profiler.ts';
 import { showToast } from '../../utils/toast.ts';
 import { initCloudPlacer } from '../../world/cloud-placer-lazy.ts';
+import { loadWorldDocumentAfterWorldLoad } from '../../world/document/lazy.ts';
 import type { WorldMode } from '../../world/generation-utils.ts';
 import { populateWorld } from '../../world/generation.ts';
 import { initSkyIslandDebug, rebuildSkyIslandDebug } from '../../world/sky-island-graph.ts';
@@ -358,6 +359,7 @@ export function setupStartScreen(ctx: MainContext): void {
             }
 
             applyAwakenedPersistenceAfterWorldLoad();
+            loadWorldDocumentAfterWorldLoad();
 
             initPresenceFromOptIn(scene, camera, renderer);
 
@@ -478,7 +480,7 @@ export function setupStartScreen(ctx: MainContext): void {
                 id: 'shader_warmup',
                 priority: 90,
                 execute: () => {
-                    runDeferredWarmup(scene, camera, renderer);
+                    runDeferredWarmup(scene, camera, renderer, ctx.postProcessing?.compileTarget);
                 },
             });
 

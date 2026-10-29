@@ -38,6 +38,25 @@ export default defineConfig({
                     if (id.includes('three/examples/jsm/loaders/GLTFLoader')) {
                         return 'gltf-loader';
                     }
+                    // Player authoring (#1974): build mode + its gizmo load on the
+                    // first `B` press. The thin build-mode-lazy.ts stub stays in `app`.
+                    if (
+                        id.includes('three/examples/jsm/controls/TransformControls') ||
+                        id.includes('/src/systems/authoring/')
+                    ) {
+                        return 'authoring';
+                    }
+                    // WorldDocument validation is only reached from the document
+                    // code below, so it rides that chunk instead of `vendor`.
+                    if (id.includes('/node_modules/valibot/')) {
+                        return 'save-ui';
+                    }
+                    // Shared worlds + presence (#1975): supabase-js is only reached
+                    // through the lazy `net` chunk, so single-player boot never
+                    // downloads it. Must come before the node_modules → vendor rule.
+                    if (id.includes('/node_modules/@supabase/')) {
+                        return 'net';
+                    }
                     // Vendor chunk - all third-party dependencies
                     if (id.includes('node_modules')) {
                         return 'vendor';
@@ -53,11 +72,6 @@ export default defineConfig({
                     if (id.includes('/src/core/platform/')) {
                         return 'platform';
                     }
-                    // Workers
-                    if (id.includes('/src/workers/')) {
-                        return 'workers';
-                    }
-
                     // --- Lazy chunks (#1361): only reached via dynamic import() ---
                     // Thin *lazy.ts stubs stay in `app` (statically imported); the heavy
                     // modules below are loaded via import() from those stubs.
@@ -68,10 +82,17 @@ export default defineConfig({
                     ) {
                         return 'gameplay';
                     }
-                    // Save menu UI + save-system core (exclude thin lazy stubs)
+                    // Save menu UI + save-system core (exclude thin lazy stubs), and the
+                    // WorldDocument it saves: schema, store, session and the edit
+                    // command log. One chunk, because save slots embed documents and
+                    // the document store sits on the save database.
                     if (
                         (id.includes('/src/ui/save-menu/') && !id.endsWith('/save-menu/lazy.ts')) ||
-                        id.includes('/src/systems/save-system/')
+                        id.includes('/src/systems/save-system/') ||
+                        (id.includes('/src/world/document/') &&
+                            !id.endsWith('/document/lazy.ts')) ||
+                        id.endsWith('/src/systems/edit-history.ts') ||
+                        id.endsWith('/src/systems/world-commands.ts')
                     ) {
                         return 'save-ui';
                     }
@@ -101,10 +122,12 @@ export default defineConfig({
                     // World content decorators: generation-decorators.ts and every
                     // generation-decorators-*.ts populator it re-exports. The populators
                     // are only reachable through it, so they load with this chunk; the
-                    // catch-all below used to pin them in `app` (#1827).
+                    // catch-all below used to pin them in `app` (#1827). Heavy stones
+                    // are only placed by the Sugar Caves populator, so they ride along.
                     if (
                         id.includes('/src/world/generation-decorators') ||
-                        id.includes('/src/world/decorator-streamer.ts')
+                        id.includes('/src/world/decorator-streamer.ts') ||
+                        id.endsWith('/src/foliage/heavy-stone.ts')
                     ) {
                         return 'world-content';
                     }
@@ -133,14 +156,20 @@ export default defineConfig({
                     ) {
                         return 'debug';
                     }
-                    // Presence (Supabase + avatars + start-screen panel). Stubs stay in app.
+                    // Networking (#1975): presence, shared worlds, co-editing, the
+                    // presence and Worlds start-screen panels. The stubs `app` calls
+                    // (lazy.ts, shared-worlds-lazy.ts, the env-only supabase-config.ts,
+                    // biome-at-position.ts) stay in app.
                     if (
                         (id.includes('/src/systems/net/') &&
                             !id.endsWith('/net/lazy.ts') &&
+                            !id.endsWith('/net/shared-worlds-lazy.ts') &&
+                            !id.endsWith('/net/supabase-config.ts') &&
                             !id.endsWith('/net/biome-at-position.ts')) ||
-                        id.includes('/src/ui/presence-panel.ts')
+                        id.includes('/src/ui/presence-panel.ts') ||
+                        id.includes('/src/ui/worlds-panel.ts')
                     ) {
-                        return 'presence';
+                        return 'net';
                     }
                     // Photo mode (except thin lazy stub)
                     if (
@@ -188,6 +217,20 @@ export default defineConfig({
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
                     }
+                    // Import-free rendering leaves (hitch counter, dynamic resolution,
+                    // backend checks, viewport sizing): own chunk, so `app` does not grow.
+                    if (
+                        id.includes('/src/rendering/frame-hitches.ts') ||
+                        id.includes('/src/rendering/dynamic-resolution.ts') ||
+                        id.includes('/src/rendering/renderer-mode.ts') ||
+                        id.includes('/src/rendering/viewport.ts')
+                    ) {
+                        return 'render-runtime';
+                    }
+                    // Device-loss recovery: gpu-context imports it on the first loss only.
+                    if (id.includes('/src/rendering/device-recovery.ts')) {
+                        return 'device-recovery';
+                    }
                     // Pure TSL nodes shared between app and postfx chunks
                     if (
                         id.includes('/src/foliage/chromatic-nodes.ts') ||
@@ -197,10 +240,7 @@ export default defineConfig({
                     }
                     // Graphs only. The stub stays in `app` and must not live in this
                     // chunk: postfx → app TLA + app awaiting postfx deadlocks boot.
-                    if (
-                        id.includes('/src/foliage/post-processing-webgpu.ts') ||
-                        id.includes('/src/foliage/post-processing-webgl.ts')
-                    ) {
+                    if (id.includes('/src/foliage/post-processing-webgpu.ts')) {
                         return 'postfx-webgpu';
                     }
                     // Shader warmup (loading-screen phase — not first-paint brain)

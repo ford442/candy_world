@@ -1,15 +1,18 @@
 import { openAccessibilityMenu } from '../../../ui/accessibility-menu-lazy.ts';
-import { keyStates } from '../input-types.ts';
-import type { InputKeyboardHandlers } from './keyboard-handlers.ts';
+import { input, type Device } from '../actions/index.ts';
 import type { InputSession } from './session.ts';
 
-function setupAbilityKeyboardInteractions(
-    handlers: InputKeyboardHandlers,
-    element: HTMLElement | null,
-    keyCode: string
-): void {
+const deviceOf = (e: PointerEvent): Device => (e.pointerType === 'touch' ? 'touch' : 'kbm');
+
+/**
+ * An ability slot is an on-screen button for its action (#2027): it presses
+ * the `ui:<name>` source, which the gameplay context binds like a key.
+ */
+function setupAbilitySlot(element: HTMLElement | null, name: string): void {
     if (!element) return;
-    const { onKeyDown, onKeyUp } = handlers;
+    const source = `ui:${name}`;
+    const press = (device: Device) => input.press(source, 0, device);
+    const release = () => input.release(source);
 
     element.addEventListener('keydown', (e: KeyboardEvent) => {
         // ♿ Aria: Support native keyboard activation (Enter/Space) for non-semantic role="button" elements
@@ -17,7 +20,7 @@ function setupAbilityKeyboardInteractions(
             e.preventDefault();
             if (e.repeat) return;
             element.classList.add('keyboard-active');
-            onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
+            press('kbm');
         }
     });
 
@@ -25,7 +28,7 @@ function setupAbilityKeyboardInteractions(
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             element.classList.remove('keyboard-active');
-            onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+            release();
         }
     });
 
@@ -35,21 +38,21 @@ function setupAbilityKeyboardInteractions(
         e.stopPropagation();
         element.setPointerCapture(e.pointerId);
         element.classList.add('keyboard-active');
-        onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
+        press(deviceOf(e));
     });
 
     element.addEventListener('pointerup', (e: PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
         element.classList.remove('keyboard-active');
-        onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        release();
     });
 
     element.addEventListener('pointercancel', (e: PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
         element.classList.remove('keyboard-active');
-        onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        release();
     });
 
     element.addEventListener('pointerout', (e: PointerEvent) => {
@@ -58,7 +61,7 @@ function setupAbilityKeyboardInteractions(
         if (element.hasPointerCapture(e.pointerId)) return;
         if (element.classList.contains('keyboard-active')) {
             element.classList.remove('keyboard-active');
-            onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+            release();
         }
     });
 
@@ -68,79 +71,67 @@ function setupAbilityKeyboardInteractions(
 
     element.addEventListener('blur', () => {
         element.classList.remove('keyboard-active');
-        onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        release();
     });
 }
 
-export function setupHudControls(
-    session: InputSession,
-    handlers: InputKeyboardHandlers
-): () => void {
+export function setupHudControls(session: InputSession): () => void {
     session.toggleDayNightBtn = document.getElementById('toggleDayNight');
     if (session.toggleDayNightBtn && session.toggleDayNightCallback) {
         session.toggleDayNightBtn.addEventListener('click', session.toggleDayNightCallback);
     }
 
-    type DpadDirection = 'forward' | 'backward' | 'left' | 'right';
+    const dpadIds = ['dpad-forward', 'dpad-backward', 'dpad-left', 'dpad-right'];
 
-    const dpadMap: Record<string, DpadDirection> = {
-        'dpad-forward': 'forward',
-        'dpad-backward': 'backward',
-        'dpad-left': 'left',
-        'dpad-right': 'right',
-    };
-
-    const dpadHeld = new Set<DpadDirection>();
-
-    const dpadPress = (dir: DpadDirection, btn: HTMLElement) => {
-        dpadHeld.add(dir);
-        keyStates[dir] = true;
+    // Each D-pad button is the `ui:<id>` source the gameplay context binds to `move`.
+    const dpadPress = (id: string, btn: HTMLElement, device: Device) => {
+        input.press(`ui:${id}`, 0, device);
         btn.setAttribute('aria-pressed', 'true');
     };
 
-    const dpadRelease = (dir: DpadDirection, btn: HTMLElement) => {
-        dpadHeld.delete(dir);
-        keyStates[dir] = false;
+    const dpadRelease = (id: string, btn: HTMLElement) => {
+        input.release(`ui:${id}`);
         btn.setAttribute('aria-pressed', 'false');
     };
 
-    for (const [id, dir] of Object.entries(dpadMap)) {
-        const btn = document.getElementById(id) as HTMLElement | null;
+    for (const id of dpadIds) {
+        const btn = document.getElementById(id);
         if (!btn) continue;
 
         btn.addEventListener('pointerdown', (e: PointerEvent) => {
             e.preventDefault();
             e.stopPropagation();
             btn.setPointerCapture(e.pointerId);
-            dpadPress(dir, btn);
+            dpadPress(id, btn, deviceOf(e));
         });
 
         btn.addEventListener('pointerup', (e: PointerEvent) => {
             e.preventDefault();
             e.stopPropagation();
-            dpadRelease(dir, btn);
+            dpadRelease(id, btn);
         });
 
         btn.addEventListener('pointercancel', (e: PointerEvent) => {
             e.preventDefault();
             e.stopPropagation();
-            dpadRelease(dir, btn);
+            dpadRelease(id, btn);
         });
 
         btn.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
     const releaseDpadAll = () => {
-        for (const [id, dir] of Object.entries(dpadMap)) {
-            const btn = document.getElementById(id) as HTMLElement | null;
-            if (btn) dpadRelease(dir, btn);
+        for (const id of dpadIds) {
+            const btn = document.getElementById(id);
+            if (btn) dpadRelease(id, btn);
         }
     };
     window.addEventListener('blur', releaseDpadAll);
 
-    setupAbilityKeyboardInteractions(handlers, session.hudDash, 'KeyE');
-    setupAbilityKeyboardInteractions(handlers, session.hudMine, 'KeyF');
-    setupAbilityKeyboardInteractions(handlers, session.hudPhase, 'KeyZ');
+    setupAbilitySlot(session.hudDash, 'dash');
+    setupAbilitySlot(session.hudMine, 'mine');
+    setupAbilitySlot(session.hudPhase, 'phase');
+    setupAbilitySlot(document.getElementById('ability-build'), 'build');
 
     const openA11yBtn = document.getElementById('openA11yBtn');
     if (openA11yBtn) {

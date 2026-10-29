@@ -18,30 +18,13 @@ import type { WeatherSystem } from '../world/generation-utils.ts';
 import { buildEntityFromObject, round } from '../world/map-entity-record.ts';
 import type { CandyMapEntity } from '../world/map-loader.ts';
 import { computePersistentId } from './awakened-persistent-id.ts';
+import type { EntitySnapshot, EntitySnapshotUserData } from './entity-snapshot-types.ts';
 
 /** Bump when the snapshot envelope changes; add a matching step to MIGRATIONS. */
 export const CURRENT_SNAPSHOT_VERSION = 2;
 
-/** Authored animation metadata that survives the map.json round-trip. */
-export interface EntitySnapshotUserData {
-    animationType?: string;
-    animationOffset?: number;
-    animationSpeed?: number;
-}
-
-export interface EntitySnapshot {
-    /** Integer; stamped to CURRENT only after migration. */
-    schemaVersion: number;
-    /** Stable, generated at snapshot time — never the position hash. */
-    id: string;
-    /** The canonical map.json record. */
-    entity: CandyMapEntity;
-    userData?: EntitySnapshotUserData;
-    /** Biome / music-binding tags, sorted and de-duplicated. */
-    tags?: string[];
-    /** awakened-persistence position hash — legacy lookup of pre-existing flora only. */
-    legacyPositionHash?: string;
-}
+// The snapshot shape itself is an import-free leaf (the edge function reads it).
+export type { EntitySnapshot, EntitySnapshotUserData } from './entity-snapshot-types.ts';
 
 export interface SnapshotOptions {
     /** Stable id to stamp; one is generated when omitted. */

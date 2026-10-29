@@ -67,6 +67,13 @@ export const DANCE_KICK_THRESHOLD = 0.5; // Threshold for kick-triggered camera 
 // Movement constants
 export const MOVE_ACCEL = 15.0;
 
+/**
+ * Physics simulation clock (ms): the sum of every `updatePhysics` delta.
+ * Cooldowns compare against this, never the wall clock, so they replay
+ * identically on the fixed step (#1973) and stop while the sim is paused.
+ */
+export const physicsClock = { ms: 0 };
+
 // --- State Definitions ---
 export const PlayerState = {
     DEFAULT: 'default', // Grounded or Airborne (Standard Physics)
