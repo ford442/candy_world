@@ -88,6 +88,8 @@
         "test:batcher-lod": "node tests/batcher-lod.test.mjs",
         "test:entity-snapshot": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/entity-snapshot.test.mjs",
         "test:stream-evict": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/stream-evict.test.mjs",
+        "test:gem-fruit": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/gem-fruit-batcher.test.mjs",
+        "test:waterfall": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/waterfall-batcher.test.mjs",
         "test:edit-history": "tsx tests/edit-history.test.mjs",
         "test:world-commands": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/world-commands.test.mjs",
         "test:world-document": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/world-document.test.ts && tsx --import ./tests/support/register-wasm-hooks.mjs tests/world-document-legacy.test.ts && tsx --import ./tests/support/register-wasm-hooks.mjs tests/world-document-replay.test.ts",
