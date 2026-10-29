@@ -1,12 +1,16 @@
 /**
  * Sugar Caves traversal — lake descent trigger + walkable underground floor (#1492).
+ *
+ * The descent ramp is the Part II door: it is only walkable once
+ * AWAKENED_THRESHOLD flora are awake (awakened persistence is on by default).
+ * Standing at the lake checks the gate; proximity alone never opens it.
  */
 
 import * as THREE from 'three';
-import { FEATURE_FLAGS } from '../core/config.ts';
 import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
 import { LAKE_DESCENT } from '../systems/ground-height-core.ts';
 import { registerPlatform } from '../systems/ground-system.ts';
+import { announce, announceQuest } from '../ui/announcer.ts';
 import { SUGAR_CAVES } from './generation-utils.ts';
 import { isSugarCavesUnlocked, tryUnlockSugarCavesFromProgress } from './part-ii-unlock.ts';
 
@@ -14,14 +18,39 @@ const LAKE_DESCENT_X = LAKE_DESCENT.ax;
 const LAKE_DESCENT_Z = LAKE_DESCENT.az;
 const LAKE_DESCENT_RADIUS = 6;
 const CAVE_FLOOR_Y = -12;
+const DESCENT_STEPS = 8;
 
 let _installed = false;
+let _rampOpen = false;
+let _lockedAnnounced = false;
 
 export function installSugarCavesTraversal(): void {
     if (_installed) return;
     _installed = true;
 
-    const steps = 8;
+    const minX = Math.min(SUGAR_CAVES.startX, SUGAR_CAVES.endX) - 8;
+    const maxX = Math.max(SUGAR_CAVES.startX, SUGAR_CAVES.endX) + 8;
+    const minZ = Math.min(SUGAR_CAVES.startZ, SUGAR_CAVES.endZ) - 8;
+    const maxZ = Math.max(SUGAR_CAVES.startZ, SUGAR_CAVES.endZ) + 8;
+    registerPlatform({
+        id: 'sugar_caves:floor',
+        minX,
+        maxX,
+        minZ,
+        maxZ,
+        minY: CAVE_FLOOR_Y - 0.5,
+        maxY: CAVE_FLOOR_Y,
+        priority: 5,
+    });
+
+    if (isSugarCavesUnlocked()) openDescentRamp();
+}
+
+/** Register the walkable ramp from the lake down to the cave floor. */
+function openDescentRamp(): void {
+    if (_rampOpen) return;
+    _rampOpen = true;
+    const steps = DESCENT_STEPS;
     for (let i = 0; i <= steps; i++) {
         const t = i / steps;
         const x = THREE.MathUtils.lerp(LAKE_DESCENT_X, SUGAR_CAVES.startX, t);
@@ -38,45 +67,39 @@ export function installSugarCavesTraversal(): void {
             priority: 4,
         });
     }
+}
 
-    const minX = Math.min(SUGAR_CAVES.startX, SUGAR_CAVES.endX) - 8;
-    const maxX = Math.max(SUGAR_CAVES.startX, SUGAR_CAVES.endX) + 8;
-    const minZ = Math.min(SUGAR_CAVES.startZ, SUGAR_CAVES.endZ) - 8;
-    const maxZ = Math.max(SUGAR_CAVES.startZ, SUGAR_CAVES.endZ) + 8;
-    registerPlatform({
-        id: 'sugar_caves:floor',
-        minX,
-        maxX,
-        minZ,
-        maxZ,
-        minY: CAVE_FLOOR_Y - 0.5,
-        maxY: CAVE_FLOOR_Y,
-        priority: 5,
-    });
+/**
+ * Try the door with `awakenedCount` flora awake: 'opened' the first time it
+ * opens (the ramp is registered), 'open' after that, 'sealed' below the
+ * threshold.
+ */
+export function tryOpenSugarCavesDoor(awakenedCount: number): 'opened' | 'open' | 'sealed' {
+    if (_rampOpen) return 'open';
+    if (!tryUnlockSugarCavesFromProgress(awakenedCount)) return 'sealed';
+    openDescentRamp();
+    return 'opened';
 }
 
 export function updateSugarCavesTraversal(playerX: number, playerY: number, playerZ: number): void {
-    if (!_installed) return;
+    if (!_installed || _rampOpen) return;
 
     const dx = playerX - LAKE_DESCENT_X;
     const dz = playerZ - LAKE_DESCENT_Z;
     const nearLake = dx * dx + dz * dz <= LAKE_DESCENT_RADIUS * LAKE_DESCENT_RADIUS;
+    if (!nearLake || playerY >= 2) {
+        _lockedAnnounced = false;
+        return;
+    }
 
-    if (nearLake && playerY < 2) {
-        if (FEATURE_FLAGS.awakenedPersistence) {
-            const count = awakenedPersistence.serialize().length;
-            tryUnlockSugarCavesFromProgress(count);
-        } else if (!isSugarCavesUnlocked()) {
-            unlockSugarCavesFromDiscovery();
-        }
+    const door = tryOpenSugarCavesDoor(awakenedPersistence.count());
+    if (door === 'opened') {
+        announce('The Sugar Caves door opens beneath the lake.', 'polite');
+    } else if (door === 'sealed' && !_lockedAnnounced) {
+        _lockedAnnounced = true;
+        announceQuest('locked', 'Sugar Caves. Awaken more flora to open the door');
     }
 }
-
-function unlockSugarCavesFromDiscovery(): void {
-    tryUnlockSugarCavesFromProgress(AWAKENED_THRESHOLD);
-}
-
-const AWAKENED_THRESHOLD = 3;
 
 export function getSugarCavesViewpoint(): {
     cameraPosition: { x: number; y: number; z: number };

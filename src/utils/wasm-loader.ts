@@ -17,7 +17,6 @@
 export {
     // Initialization
     initWasm,
-    initWasmParallel,
     isWasmReady,
     isEmscriptenReady,
     getWasmInstance,
@@ -47,14 +46,11 @@ export {
     PLAYER_STATE_OFFSET,
 
     // Animation type constants
-    AnimationType,
 
     // Cached WASM function references
     wasmGetGroundHeight,
     wasmFreqToHue,
-    wasmLerp,
     wasmBatchMushroomSpawnCandidates,
-    wasmUpdateFoliageBatch,
     wasmInitCollisionSystem,
     wasmAddCollisionObject,
     wasmResolveGameCollisions,
@@ -76,57 +72,24 @@ export {
     wasmAddGroundPlatform,
     wasmInvalidateGroundCache,
     wasmSetGroundCacheTTL,
-    wasmDampVelocity,
-    wasmBatchDistanceCalc,
-    wasmBatchFrustumTest,
-    wasmBatchLODSelect,
 
     // New math functions
-    wasmHslToRgb,
-    wasmHash2D,
-    wasmValueNoise2D,
-    wasmFbm2D,
-    wasmDistSq2D,
-    wasmDistSq3D,
-    wasmSmoothstep,
-    wasmInverseLerp,
     // New batch functions
-    wasmBatchHslToRgb,
-    wasmBatchSphereCull,
-    wasmBatchLerp,
     // New particle functions
-    wasmUpdateParticles,
-    wasmSpawnBurst,
 
     // C++ Emscripten function references
-    cppValueNoise2DSimd4,
-    cppFbm2DSimd4,
     cppBatchGroundHeightSimd,
-    cppBatchValueNoiseOmp,
-    cppBatchFbmOmp,
-    cppBatchDistSq3DOmp,
-    cppFastSin,
-    cppFastCos,
-    cppFastPow2,
     cppGetUnifiedGroundHeight,
     cppBatchUnifiedGroundHeight,
     cppClearGroundPlatforms,
     cppAddGroundPlatform,
     cppInvalidateGroundCache,
     cppSetGroundCacheTTL,
-    cppBatchShiverSimd,
-    cppBatchSpringSimd,
-    cppBatchFloatSimd,
-    cppBatchCloudBobSimd,
-    cppBatchVineSwaySimd,
-    cppBatchGeyserEruptC,
-    cppBatchRetriggerSimd,
 
     // C++ function initialization
     initCppFunctions,
 
     // Type definitions
-    type AnimationTypeValue,
     type WasiStubs,
     type WasmImportObject,
     type EmscriptenModule,
@@ -138,21 +101,12 @@ export {
     type Cave,
     type Cloud,
     type Trampoline,
-    type MaterialInfo,
-    type AnimationData,
-    type PositionData,
     type PlayerState,
     type WasmExportValue,
     type WasmExports,
-    type InitWasmParallelOptions,
 
     // Re-exports from orchestrator
-    LOADING_PHASES,
     isSharedMemoryAvailable,
-    initSharedBuffer,
-    getSharedBuffer,
-    createPlaceholderScene,
-    removePlaceholderScene,
 } from './wasm-loader-core.ts';
 
 // =============================================================================
@@ -161,38 +115,18 @@ export {
 
 export {
     // Animation type definitions
-    type WobbleResult,
-    type AccordionResult,
-    type FiberResult,
-    type ShiverResult,
-    type SpiralResult,
-    type PrismResult,
     type ArpeggioResult,
-    type ParticleResult,
 
     // Simple animation helpers
-    calcBounceY,
-    calcSwayRotZ,
-    calcWobble,
-    calcHopY,
-    calcShiver,
 
     // Advanced animations
-    calcAccordionStretch,
-    calcFiberWhip,
-    calcSpiralWave,
-    calcPrismRose,
 
     // Musical/audio reactivity
     calcArpeggioStep,
-    calcSpeakerPulse,
 
     // Particle effects
-    calcFloatingParticle,
-    calcRainDropY,
 
     // Color utilities
-    lerpColor,
 } from './wasm-animations.ts';
 
 // =============================================================================
@@ -206,7 +140,6 @@ export {
     // Collision system
     uploadCollisionObjects,
     resolveGameCollisionsWASM,
-    checkCollision,
 
     // Physics helpers
     initDynamicFoliageBridge,
@@ -223,27 +156,13 @@ export {
     getPlayerState,
 
     // Math fallbacks
-    valueNoise2D,
-    fbm,
-    fastInvSqrt,
-    fastDistance,
-    hash,
 
     // Simple math functions
     getGroundHeight,
     getGroundHeightBatch,
     batchGroundHeight,
     freqToHue,
-    lerp,
     // New math functions
-    hslToRgb,
-    hash2D,
-    ascValueNoise2D,
-    fbm2D,
-    distSq2D,
-    distSq3D,
-    smoothstep,
-    inverseLerp,
 } from './wasm-physics.ts';
 
 // =============================================================================
@@ -253,14 +172,10 @@ export {
 export {
     // Type definitions
     type SpawnCandidate,
-    type MaterialAnalysisResult,
     type DistanceCullResult,
 
     // Batch upload functions
-    uploadPositions,
     uploadMushroomSpecs,
-    copySharedPositions,
-    uploadAnimationData,
 
     // Culling
     batchDistanceCull,
@@ -270,31 +185,17 @@ export {
     readSpawnCandidates,
 
     // Materials
-    analyzeMaterials,
-    getUniqueShaderCount,
 
     // Batch animation
-    batchAnimationCalc,
 
     // Agent 1: Simple animation batch
-    batchShiver_c,
-    batchSpring_c,
-    batchFloat_c,
-    batchCloudBob_c,
 
     // Agent 2: Mesh deformation
-    deformWave_c,
-    deformJiggle_c,
-    deformWobble_c,
 
     // Agent 3: LOD batch
-    batchUpdateLODMatrices_c,
-    batchScaleMatrices_c,
-    batchFadeColors_c,
+    batchUpdateLodFactors_c,
 
     // Agent 4: Frustum/distance culling
-    batchFrustumCull_c,
-    batchDistanceCullIndexed_c,
 
     // Fluid simulation
     fluidInit,
@@ -302,41 +203,19 @@ export {
     fluidAddDensity,
     fluidAddVelocity,
     getFluidDensityView,
-    updateParticlesWASM,
     // New batch functions
-    batchHslToRgb,
-    batchSphereCull,
-    batchLerp,
     // New particle functions
-    updateParticles,
-    spawnBurst,
     // C++ Math batch wrappers
-    batchValueNoiseSimd4,
-    batchFbmSimd4,
-    batchGroundHeightSimd,
-    batchValueNoiseOmp,
-    batchFbmOmp,
-    batchDistSq3DOmp,
-    fastSin,
-    fastCos,
-    fastPow2,
     // C++ Animation batch wrappers (high-level)
-    batchShiverHighLevel,
-    batchSpringHighLevel,
-    batchFloatHighLevel,
-    batchCloudBobHighLevel,
 } from './wasm-batch.ts';
 
 // Unified ground-height bridge
 export {
-    isNativeUnifiedGroundReady,
     syncGroundPlatformsToNative,
     syncGroundCacheTTLToNative,
     invalidateNativeGroundCache,
     queryUnifiedGroundHeight,
     fillUnifiedGroundHeights,
-    getUnifiedGroundBackend,
-    batchGroundHeightWithPlatforms,
 } from './wasm-ground.ts';
 
 // Foliage interaction batches
@@ -350,7 +229,6 @@ export {
     packGeysers,
     packPads,
     packVines,
-    isNativeFoliageInteractReady,
     GEYSER_STRIDE,
     PAD_STRIDE,
     VINE_STRIDE,

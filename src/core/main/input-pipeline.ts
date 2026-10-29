@@ -10,7 +10,9 @@ import {
     uShaftScatterBoost,
 } from '../../foliage/post-processing-uniforms.ts';
 import { ensureGameplay } from '../../gameplay/lazy.ts';
+import { isBuildGizmoOpen } from '../../systems/build-mode-state.ts';
 import { InteractionSystem } from '../../systems/interaction.ts';
+import { setShrineTravelCamera } from '../../systems/shrine-travel.ts';
 import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
 import { player } from '../../systems/physics/index.ts';
 import { placePlayerAtConfiguredSpawn } from '../../systems/player-spawn.ts';
@@ -21,9 +23,11 @@ import { toggleOverlay } from '../../utils/startup-profiler.ts';
 import { getWorldSeed } from '../../world/world-seed.ts';
 import { initExploreCamera, getExploreCamera, setExploreOrbitFlag } from '../camera-modes.ts';
 import { CONFIG, CYCLE_DURATION } from '../config.ts';
+import { armGenerativeAutostart } from '../../audio/generative/autostart.ts';
 import { initDeferredVisualsDependencies } from '../deferred-init.ts';
-import { animate, initGameLoopDependencies, getGameTime } from '../game-loop.ts';
+import { initGameLoopDependencies, getGameTime } from '../game-loop.ts';
 import { toggleDayNight, setInputSystem } from '../hud.ts';
+import { input } from '../input/actions/index.ts';
 import { initInput } from '../input/index.ts';
 import type { MainContext } from './context.ts';
 import { camera, renderer, scene } from './exports.ts';
@@ -43,11 +47,15 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
             camera,
             ctx.audioSystem!,
             () => toggleDayNight(ctx.timeOffset),
-            () => (player as any).isDancing
+            // Dancing, or the build gizmo holding the cursor for a drag.
+            () => player.isDancing || isBuildGizmoOpen()
         );
         setInputSystem(ctx.inputSystem);
         ctx.controls = ctx.inputSystem.controls;
     });
+
+    armGenerativeAutostart(ctx.audioSystem!);
+    setShrineTravelCamera(camera);
 
     if (!ctx.inputSystem) {
         ctx.inputSystem = {
@@ -133,49 +141,30 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
         }
     });
 
-    window.addEventListener('keydown', (e) => {
-        try {
-            if (!e.key) return;
-            const key = e.key.toLowerCase();
-            if (key === 'p') {
-                profiler.toggle();
-            } else if (key === 'o' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
-                toggleOverlay();
-            } else if (key === 'f') {
-                // Demo logic...
-            } else if (key === 'g') {
-                if (document.pointerLockElement) {
-                    camera.getWorldDirection(_scratchClickDir);
-                    void ensureGameplay().then((gp) => {
-                        gp.glitchGrenadeSystem.throwGrenade(
-                            scene,
-                            camera.position,
-                            _scratchClickDir
-                        );
-                    });
-                }
-            }
-        } catch (err) {
-            console.warn('Demo trigger error', err);
-        }
+    // Actions (#2027): `fire` is mouse 0 in gameplay (build mode claims it to
+    // place), the rest are keys. All need the game loop running to sample.
+    input.onPress('debug.profiler', () => profiler.toggle());
+    input.onPress('debug.overlay', () => toggleOverlay());
+    input.onPress('grenade', () => {
+        if (!document.pointerLockElement) return;
+        camera.getWorldDirection(_scratchClickDir);
+        void ensureGameplay().then((gp) => {
+            gp.glitchGrenadeSystem.throwGrenade(scene, camera.position, _scratchClickDir);
+        });
     });
-
-    window.addEventListener('mousedown', (e) => {
-        if (document.pointerLockElement) {
-            if (e.button === 0) {
-                const handled = ctx.interactionSystem?.triggerClick?.() ?? false;
-                if (!handled) {
-                    camera.getWorldDirection(_scratchClickDir);
-                    _scratchClickOrigin
-                        .copy(camera.position)
-                        .addScaledVector(_scratchClickDir, 1.0);
-                    _scratchClickOrigin.y -= 0.2;
-                    void ensureGameplay().then((gp) => {
-                        gp.fireRainbow(scene, _scratchClickOrigin, _scratchClickDir);
-                    });
-                }
-            }
-        }
+    input.onPress('interact', () => {
+        if (document.pointerLockElement) ctx.interactionSystem?.triggerClick?.();
+    });
+    input.onPress('fire', () => {
+        if (!document.pointerLockElement) return;
+        // An interactable under the reticle takes the click; otherwise fire.
+        if (ctx.interactionSystem?.triggerClick?.()) return;
+        camera.getWorldDirection(_scratchClickDir);
+        _scratchClickOrigin.copy(camera.position).addScaledVector(_scratchClickDir, 1.0);
+        _scratchClickOrigin.y -= 0.2;
+        void ensureGameplay().then((gp) => {
+            gp.fireRainbow(scene, _scratchClickOrigin, _scratchClickDir);
+        });
     });
 
     const spawnY = placePlayerAtConfiguredSpawn(camera);

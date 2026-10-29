@@ -65,8 +65,24 @@ export interface PlatformCapabilityInputs {
  */
 export const EXTENDED_RANGE_CONFIGURED = false;
 
-/** Current `pixelRatio` cap for every tier (the value init.ts has always used). */
-export const MAX_PIXEL_RATIO = 1.5;
+/**
+ * `pixelRatio` cap per tier: `low` renders one pixel per CSS pixel, `medium`
+ * 1.25, `high` 1.5. Chrome reports at most 8 GB of `deviceMemory`, so most
+ * Chrome players are `medium`; on a 2× display that is 1.56× the pixels of
+ * 1.0 instead of the 2.25× the old flat 1.5 cap drew. The dynamic-resolution
+ * controller (`rendering/dynamic-resolution.ts`) scales the scene pass below
+ * this cap; it never raises it.
+ */
+export const MAX_PIXEL_RATIO: Readonly<Record<PlatformTier, number>> = Object.freeze({
+    low: 1,
+    medium: 1.25,
+    high: 1.5,
+});
+
+/** Pure: the cap for a tier/backend. WebGL2 is always 1, whatever `?graphics=` says. */
+export function resolveMaxPixelRatio(tier: PlatformTier, backend: PlatformBackend): number {
+    return backend === 'webgl2' ? 1 : MAX_PIXEL_RATIO[tier];
+}
 
 /**
  * Approximate device RAM in GB via `navigator.deviceMemory` (Chrome/Edge).
@@ -137,7 +153,7 @@ export function resolvePlatformCapabilities(input: PlatformCapabilityInputs): Pl
         computeAvailable: input.backend === 'webgpu' && !automation,
         timestampQuery: input.backend === 'webgpu' && input.timestampQuery,
         hdr: Object.freeze(hdr),
-        maxPixelRatio: MAX_PIXEL_RATIO,
+        maxPixelRatio: resolveMaxPixelRatio(tier, input.backend),
     });
 }
 

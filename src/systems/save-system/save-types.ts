@@ -2,16 +2,20 @@
  * Save System Types - Type definitions and constants for the save system
  */
 
+import type { WorldDocumentV1 } from '../../world/document/schema.ts';
 import type { EntitySnapshot } from '../entity-snapshot-core.ts';
 
 // =============================================================================
 // CONSTANTS & CONFIG
 // =============================================================================
 
-export const SAVE_VERSION = '1.0.0';
+/** 1.1.0 adds `document` (a WorldDocument); 1.0.0 saves gain one by migration. */
+export const SAVE_VERSION = '1.1.0';
 export const DB_NAME = 'CandyWorldSaveDB';
-export const DB_VERSION = 1;
+/** v2 adds the WorldDocument store (`src/world/document/store.ts`). */
+export const DB_VERSION = 2;
 export const STORE_NAME = 'saves';
+export const DOCUMENT_STORE_NAME = 'documents';
 
 export const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
 export const AUTO_SAVE_SLOTS = 3;
@@ -162,6 +166,12 @@ export interface SaveData {
     world: WorldSaveData;
     progress: ProgressSaveData;
     settings: SettingsSaveData;
+    /**
+     * The world itself (authored edits, progress, player pose). When present
+     * it is what a load applies; `world.entitySnapshots` and `progress` are
+     * still written for one release (`FEATURE_FLAGS.legacyRead`).
+     */
+    document?: WorldDocumentV1;
 }
 
 /**

@@ -16,57 +16,104 @@ import {
 import { uPlayerPosition, uPlayerVelocity } from '../foliage/index.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
-import { updatePhysics, player } from '../systems/physics/index.ts';
+import { updatePhysics, player, type AudioState } from '../systems/physics/index.ts';
+import { PlayerInterpolator } from '../systems/physics/player-interpolation.ts';
 import { setRigidBodyPlayerProxy, updateRigidBodies } from '../systems/physics/rigid-bodies.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { profiler } from '../utils/profiler.ts';
 import { getSparkleTrail, getPlayerShieldMesh, setPlayerShieldMesh } from './deferred-init.ts';
 import { cameraRef, controlsRef, sceneRef, rendererRef, gameTime } from './game-loop-core.ts';
 import { keyStates } from './input/index.ts';
+import type { AudioFrame } from './scheduler/index.ts';
 
 const _scratchDir = new THREE.Vector3();
+const _interp = new PlayerInterpolator();
 
-export function updatePhysicsPhase(delta: number, devOrbitActive: boolean, audioState: any) {
-    const sparkleTrail = getSparkleTrail();
-    let playerShieldMesh = getPlayerShieldMesh();
-
+/**
+ * One fixed step of the character controller (`fixed` phase, #1973). Writes
+ * `player` and the camera; `updatePlayerViewPhase` then blends the camera for
+ * the render.
+ */
+export function stepPlayerPhysics(
+    fixedDt: number,
+    devOrbitActive: boolean,
+    audioState: AudioFrame | null
+): void {
+    if (devOrbitActive || !cameraRef) return;
+    const camera = cameraRef;
     profiler.measure('Physics', () => {
-        if (!devOrbitActive) {
-            updatePhysics(delta, cameraRef!, controlsRef, keyStates, audioState);
-        }
+        _interp.beginStep(camera, player);
+        // Null without an audio system, as before; the physics helpers check for it.
+        updatePhysics(fixedDt, camera, controlsRef, keyStates, audioState as AudioState);
+        _interp.endStep(camera, player);
+    });
+}
 
-        if (player.position && uPlayerPosition.value) {
-            (uPlayerPosition.value as any).copy(
-                devOrbitActive && cameraRef ? cameraRef.position : player.position
-            );
-            if (uPlayerVelocity.value && player.velocity) {
-                (uPlayerVelocity.value as any).copy(player.velocity);
-            }
-        }
+/**
+ * Once per frame, after the fixed steps: the camera and every player-following
+ * visual use the position blended between the last two fixed states.
+ */
+export function updatePlayerViewPhase(fixedAlpha: number, devOrbitActive: boolean): void {
+    if (!cameraRef) return;
+    const renderPos = _interp.present(cameraRef, player, fixedAlpha, !devOrbitActive);
 
-        // Dynamic rigid bodies run *after* the character controller so they see
-        // the player's final position for this frame. The proxy is one-way: the
-        // solver never writes back to `player`, so jump/dash are untouched.
-        if (player.position && player.velocity) {
-            setRigidBodyPlayerProxy(player.position, player.velocity);
+    if (uPlayerPosition.value) {
+        (uPlayerPosition.value as unknown as THREE.Vector3).copy(
+            devOrbitActive ? cameraRef.position : renderPos
+        );
+        if (uPlayerVelocity.value) {
+            (uPlayerVelocity.value as unknown as THREE.Vector3).copy(player.velocity);
         }
+    }
+
+    const sparkleTrail = getSparkleTrail();
+    if (sparkleTrail) {
+        updateSparkleTrail(sparkleTrail, renderPos, player.velocity, gameTime, rendererRef);
+    }
+
+    if (isGroundDebugEnabled()) {
+        updateGroundDebug(player.position, cameraRef.position);
+    }
+
+    if (isPlacementDebugEnabled()) {
+        cameraRef.getWorldDirection(_scratchDir);
+        updatePlacementDebug(cameraRef.position, _scratchDir);
+    }
+
+    if (unlockSystem.isUnlocked('arpeggio_shield')) {
+        let playerShieldMesh = getPlayerShieldMesh();
+        if (!playerShieldMesh && sceneRef) {
+            playerShieldMesh = createShield();
+            sceneRef.add(playerShieldMesh);
+            player.hasShield = true;
+            setPlayerShieldMesh(playerShieldMesh);
+            console.log('[Shield] Activated Arpeggio Shield');
+        }
+        if (playerShieldMesh) {
+            playerShieldMesh.position.copy(renderPos);
+            playerShieldMesh.position.y += 1.0;
+        }
+    }
+}
+
+/**
+ * Dynamic props: rigid bodies, the ?debugPhysics=1 sandbox and the ?softBody=1
+ * cloth. Variable-step for now — the solver syncs meshes inside its step, so
+ * moving it to `fixed` needs per-body interpolation first.
+ */
+export function updateRigidBodyPhase(delta: number): void {
+    profiler.measure('RigidBodies', () => {
+        // After the character controller, so the bodies see the player's final
+        // position. The proxy is one-way: the solver never writes back to
+        // `player`, so jump/dash are untouched.
+        setRigidBodyPlayerProxy(player.position, player.velocity);
         updateRigidBodies(delta);
         // Unconditional: the gizmos must still repaint on the frame the last
         // body falls asleep (awake count is already 0 by then). No-ops unless
         // ?debugPhysics=1 has loaded the sandbox module.
         updatePhysicsSandbox();
 
-        if (sparkleTrail && player.position && player.velocity) {
-            updateSparkleTrail(
-                sparkleTrail,
-                player.position,
-                player.velocity,
-                gameTime,
-                rendererRef
-            );
-        }
-
-        if (isPhysicsSandboxEnabled() && player.position) {
+        if (isPhysicsSandboxEnabled()) {
             if (sceneRef) ensurePhysicsSandbox(sceneRef, player.position);
             setPhysicsSandboxPlayer(player.position);
         }
@@ -74,33 +121,10 @@ export function updatePhysicsPhase(delta: number, devOrbitActive: boolean, audio
         // Experimental cloth prototype (?softBody=1). Steps after the character
         // controller for the same reason the rigid bodies do: it reads the
         // player's final position, and never writes back to it.
-        if (isSoftBodyDemoEnabled() && player.position) {
+        if (isSoftBodyDemoEnabled()) {
             if (sceneRef) ensureSoftBodyDemo(sceneRef, player.position);
             setSoftBodyDemoPlayer(player.position);
             updateSoftBodyDemo(delta);
-        }
-
-        if (isGroundDebugEnabled() && player.position && cameraRef) {
-            updateGroundDebug(player.position, cameraRef.position);
-        }
-
-        if (isPlacementDebugEnabled() && cameraRef) {
-            cameraRef.getWorldDirection(_scratchDir);
-            updatePlacementDebug(cameraRef.position, _scratchDir);
-        }
-
-        if (unlockSystem.isUnlocked('arpeggio_shield')) {
-            if (!playerShieldMesh && sceneRef) {
-                playerShieldMesh = createShield();
-                sceneRef.add(playerShieldMesh);
-                (player as any).hasShield = true;
-                setPlayerShieldMesh(playerShieldMesh);
-                console.log('[Shield] Activated Arpeggio Shield');
-            }
-            if (playerShieldMesh) {
-                playerShieldMesh.position.copy(player.position);
-                playerShieldMesh.position.y += 1.0;
-            }
         }
     });
 }

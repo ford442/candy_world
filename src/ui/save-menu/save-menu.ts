@@ -10,6 +10,7 @@
  * - Integration with save-system.ts
  */
 
+import { input } from '../../core/input/actions/index.ts';
 import {
     saveSystem,
     SaveData,
@@ -20,6 +21,14 @@ import {
 import { trapFocusInside } from '../../utils/focus-trap.ts';
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
+import {
+    downloadActiveWorld,
+    getActiveSession,
+    getDocumentStore,
+    importWorldFile,
+    openWorldDocument,
+} from '../../world/document/active.ts';
+import { CANDYWORLD_EXTENSION } from '../../world/document/codec.ts';
 import { announce } from '../announcer.ts';
 import { MENU_STYLES } from './save-menu-styles.ts';
 import {
@@ -58,6 +67,8 @@ export class SaveMenu {
     private selectedSlot: string | null = null;
     private settings: SettingsSaveData;
     private listeningKeybind: keyof KeyBindings | null = null;
+    /** Pops the `menu` input context: no game actions while the menu is open. */
+    private popMenuContext: (() => void) | null = null;
     private onLoadCallback?: (data: SaveData) => void;
     private onSaveCallback?: (slotId: string) => void;
     private onCloseCallback?: () => void;
@@ -105,6 +116,7 @@ export class SaveMenu {
 
         this.container = document.createElement('div');
         this.container.className = 'candy-save-menu';
+        this.popMenuContext = input.pushContext('menu');
         // 🎨 PALETTE: Trap focus accessibility juice
         this.container.setAttribute('role', 'dialog');
         this.container.setAttribute('aria-modal', 'true');
@@ -158,6 +170,8 @@ export class SaveMenu {
      */
     close(): void {
         if (!this.container) return;
+        this.popMenuContext?.();
+        this.popMenuContext = null;
 
         // Add exit animation
         this.container.style.animation = 'fadeOut 0.3s ease forwards';
@@ -359,6 +373,26 @@ export class SaveMenu {
     private renderImportExportTab(): string {
         return `
             <div class="candy-io-area">
+                <div class="candy-io-area__label" id="world-file-label">World File (${CANDYWORLD_EXTENSION})</div>
+                <p class="candy-danger-zone__text" id="world-file-hint">
+                    Your builds, discoveries and progress in one file. Opening a world file replaces
+                    this world's builds; this world stays under Recent Worlds.
+                </p>
+                <div class="candy-save-menu__actions" role="group" aria-labelledby="world-file-label" aria-describedby="world-file-hint">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="export-world">
+                        <span aria-hidden="true">💾</span> Export World
+                    </button>
+                    <input type="file" class="candy-file-input" id="world-file-input" accept="${CANDYWORLD_EXTENSION},.json,application/gzip,application/json" tabindex="-1">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--secondary" id="world-file-btn">
+                        <span aria-hidden="true">📂</span> Open World File
+                    </button>
+                </div>
+                <div id="world-file-status" role="status" aria-live="polite" style="margin-top: 8px;"></div>
+                <div class="candy-io-area__label" id="recent-worlds-label" style="margin-top: 12px;">Recent Worlds</div>
+                <ul id="recent-worlds" aria-labelledby="recent-worlds-label" style="list-style: none; padding: 0; margin: 0;"></ul>
+            </div>
+
+            <div class="candy-io-area">
                 <div class="candy-io-area__label" id="export-label">Export Save Data</div>
                 <textarea class="candy-textarea" id="export-area" placeholder="Exported save data will appear here..." aria-labelledby="export-label" readonly spellcheck="false"></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
@@ -469,6 +503,108 @@ export class SaveMenu {
         if (fileBtn && fileInput) {
             fileBtn.addEventListener('click', () => fileInput.click());
         }
+
+        const worldInput = this.container.querySelector<HTMLInputElement>('#world-file-input');
+        const worldBtn = this.container.querySelector<HTMLButtonElement>('#world-file-btn');
+        if (worldInput && worldBtn) {
+            worldBtn.addEventListener('click', () => worldInput.click());
+            worldInput.addEventListener('change', () => {
+                const file = worldInput.files?.[0];
+                worldInput.value = '';
+                if (file) void this.openWorldFile(file);
+            });
+        }
+        if (this.container.querySelector('#recent-worlds')) void this.renderRecentWorlds();
+    }
+
+    // -------------------------------------------------------------------------
+    // WORLD FILES (.candyworld)
+    // -------------------------------------------------------------------------
+
+    private setWorldStatus(message: string, isError = false): void {
+        const status = this.container?.querySelector<HTMLElement>('#world-file-status');
+        if (status) {
+            status.textContent = message;
+            status.style.color = isError ? '#c0264b' : '';
+        }
+        announce(message, isError ? 'assertive' : 'polite');
+    }
+
+    private async exportWorld(): Promise<void> {
+        try {
+            const fileName = await downloadActiveWorld();
+            showToast('World exported', '💾', 3000);
+            this.setWorldStatus(`Exported ${fileName}`);
+        } catch (err) {
+            console.warn('[SaveMenu] World export failed:', err);
+            this.setWorldStatus("Couldn't export this world.", true);
+        }
+    }
+
+    private async openWorldFile(file: File): Promise<void> {
+        this.setWorldStatus(`Opening ${file.name}…`);
+        const result = await importWorldFile(file);
+        if (!result.ok) {
+            showToast(result.error.userMessage, '❌', 5000);
+            this.setWorldStatus(result.error.userMessage, true);
+            return;
+        }
+        const title = result.doc.meta.title ?? 'world';
+        showToast(`Opened ${title}`, '🌈', 3000);
+        this.setWorldStatus(`Opened ${title}: ${result.doc.commands.length} builds.`);
+        await this.renderRecentWorlds();
+    }
+
+    private async renderRecentWorlds(): Promise<void> {
+        const list = this.container?.querySelector<HTMLElement>('#recent-worlds');
+        if (!list) return;
+        let worlds: Awaited<ReturnType<ReturnType<typeof getDocumentStore>['list']>> = [];
+        try {
+            worlds = await getDocumentStore().list();
+        } catch (err) {
+            console.warn('[SaveMenu] Could not list worlds:', err);
+        }
+        const activeId = getActiveSession()?.id;
+        list.replaceChildren();
+        if (worlds.length === 0) {
+            const empty = document.createElement('li');
+            empty.textContent = 'No saved worlds yet.';
+            list.appendChild(empty);
+            return;
+        }
+        for (const w of worlds.slice(0, 8)) {
+            const item = document.createElement('li');
+            item.style.cssText = 'display:flex;gap:8px;align-items:center;margin:4px 0;';
+            const label = document.createElement('span');
+            const when = new Date(w.updatedAt).toLocaleString();
+            label.textContent = `${w.title ?? 'Untitled world'} · ${w.commandCount} builds · ${when}`;
+            item.appendChild(label);
+            if (w.id === activeId) {
+                const open = document.createElement('span');
+                open.textContent = '(open)';
+                item.appendChild(open);
+            } else {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'candy-save-menu__btn candy-save-menu__btn--secondary';
+                btn.textContent = 'Open';
+                btn.setAttribute('aria-label', `Open ${w.title ?? 'Untitled world'}`);
+                btn.addEventListener('click', () => void this.openStoredWorld(w.id));
+                item.appendChild(btn);
+            }
+            list.appendChild(item);
+        }
+    }
+
+    private async openStoredWorld(id: string): Promise<void> {
+        const doc = await getDocumentStore().load(id);
+        if (!doc) {
+            this.setWorldStatus("That world couldn't be read.", true);
+            return;
+        }
+        await openWorldDocument(doc, { restorePlayer: true });
+        this.setWorldStatus(`Opened ${doc.meta.title ?? 'world'}.`);
+        await this.renderRecentWorlds();
     }
 
     private handleKeydown(e: KeyboardEvent): void {
@@ -540,6 +676,7 @@ export class SaveMenu {
             const result = await saveSystem.save(id);
             if (result) {
                 showToast('Game saved!', '💾', 3000);
+                announce('Game saved!', 'polite');
                 this.onSaveCallback?.(id);
                 await this.refreshSlots();
                 this.render();
@@ -564,6 +701,7 @@ export class SaveMenu {
             const result = await saveSystem.save(id);
             if (result) {
                 showToast('Game saved!', '💾', 3000);
+                announce('Game saved!', 'polite');
                 this.onSaveCallback?.(id);
                 await this.refreshSlots();
                 this.render();
@@ -620,10 +758,20 @@ export class SaveMenu {
 
             // Rebuild content safely to avoid interpreting textContent as HTML
             btnElement.innerHTML =
-                '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px; margin-right: 8px;"><span class="visually-hidden">Processing...</span></span>';
-            const textSpan = document.createElement('span');
-            textSpan.textContent = textContent;
-            btnElement.appendChild(textSpan);
+                '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px; margin-right: 8px;" aria-hidden="true"></span>';
+
+            const a11ySpan = document.createElement('span');
+            a11ySpan.className = 'visually-hidden';
+            a11ySpan.setAttribute('role', 'status');
+            a11ySpan.setAttribute('aria-live', 'polite');
+            a11ySpan.textContent = textContent + '...';
+            btnElement.appendChild(a11ySpan);
+
+            // Also show text visually but hidden from screen readers to avoid double announcement
+            const visualSpan = document.createElement('span');
+            visualSpan.setAttribute('aria-hidden', 'true');
+            visualSpan.textContent = textContent;
+            btnElement.appendChild(visualSpan);
         };
 
         const restoreState = () => {
@@ -643,13 +791,20 @@ export class SaveMenu {
                 await yieldToPaint();
                 saveSystem.updateSettings(this.settings);
                 showToast('Settings saved!', '⚙️', 3000);
+                announce('Settings saved', 'polite');
                 setTimeout(restoreState, 300); // Brief delay for visual feedback
                 break;
             case 'reset-settings':
                 if (confirm('Reset all settings to defaults?')) {
                     // Would need to import default settings from save-system
                     showToast('Settings reset', '🔄', 3000);
+                    announce('Settings reset', 'polite');
                 }
+                break;
+            case 'export-world':
+                setWorkingState();
+                await this.exportWorld();
+                setTimeout(restoreState, 300);
                 break;
             case 'export-current':
                 setWorkingState();
@@ -698,6 +853,7 @@ export class SaveMenu {
         const currentSlot = saveSystem.getCurrentSlotId();
         if (!currentSlot) {
             showToast('No current save to export', '⚠️', 3000);
+            announce('No current save to export', 'assertive');
             return;
         }
 
@@ -706,6 +862,7 @@ export class SaveMenu {
             const textarea = this.container?.querySelector('#export-area') as HTMLTextAreaElement;
             if (textarea) textarea.value = data;
             showToast('Save exported!', '📤', 3000);
+            announce('Save exported', 'polite');
         }
     }
 
@@ -715,6 +872,7 @@ export class SaveMenu {
             const textarea = this.container?.querySelector('#export-area') as HTMLTextAreaElement;
             if (textarea) textarea.value = data;
             showToast('All saves exported!', '📦', 3000);
+            announce('All saves exported', 'polite');
         }
     }
 
@@ -724,8 +882,10 @@ export class SaveMenu {
             try {
                 await navigator.clipboard.writeText(textarea.value);
                 showToast('Copied to clipboard!', '📋', 3000);
+                announce('Copied to clipboard', 'polite');
             } catch {
                 showToast('Failed to copy', '❌', 3000);
+                announce('Failed to copy', 'assertive');
             }
         }
     }
@@ -734,6 +894,7 @@ export class SaveMenu {
         const textarea = this.container?.querySelector('#export-area') as HTMLTextAreaElement;
         if (!textarea?.value) {
             showToast('Nothing to download', '⚠️', 3000);
+            announce('Nothing to download', 'polite');
             return;
         }
 
@@ -747,12 +908,14 @@ export class SaveMenu {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         showToast('Save downloaded!', '💾', 3000);
+        announce('Save downloaded', 'polite');
     }
 
     private async importData(): Promise<void> {
         const textarea = this.container?.querySelector('#import-area') as HTMLTextAreaElement;
         if (!textarea?.value.trim()) {
             showToast('No data to import', '⚠️', 3000);
+            announce('No data to import', 'assertive');
             return;
         }
 
@@ -777,6 +940,7 @@ export class SaveMenu {
             if (textarea && event.target?.result) {
                 textarea.value = event.target.result as string;
                 showToast('File loaded, ready to import!', '📁', 3000);
+                announce('File loaded, ready to import', 'polite');
             }
             // Reset input value to allow selecting the same file again
             input.value = '';
@@ -796,6 +960,7 @@ export class SaveMenu {
         const result = await saveSystem.deleteAllData();
         if (result) {
             showToast('All data deleted', '🗑️', 5000);
+            announce('All data deleted', 'assertive');
             await this.refreshSlots();
             this.render();
         }

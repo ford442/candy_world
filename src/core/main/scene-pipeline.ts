@@ -10,6 +10,7 @@ import {
     publishRendererBreadcrumbs,
     installRendererHotSwitch,
 } from '../../rendering/renderer-mode.ts';
+import { onViewportResize } from '../../rendering/viewport.ts';
 import { player } from '../../systems/physics/physics-types.ts';
 import { markBootFatal } from '../../ui/boot-fatal.ts';
 import { showRendererBadge } from '../../ui/mode-badge-lazy.ts';
@@ -90,6 +91,8 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
     (window as any).game = {
         camera: sceneInitResult.camera,
         scene: sceneInitResult.scene,
+        // Devtools handle for the loss checks in docs/WEBGPU_CONTEXT.md#device-lost-policy.
+        renderer: sceneInitResult.renderer,
         animatedFoliage,
         interactiveObjects,
     };
@@ -110,6 +113,9 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
             sceneInitResult!.camera,
             mode
         );
+        // One resize path: the viewport resizes the renderer, then post-FX follows.
+        const post = ctx.postProcessing as { syncSize?: () => void } | null;
+        if (post?.syncSize) onViewportResize(() => post.syncSize!());
     });
 
     const _postfxTier = resolvePostfxQuality();

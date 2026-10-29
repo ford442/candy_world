@@ -4,14 +4,19 @@
  *
  * Room key = world seed. Publishes camera pose at ~10 Hz. No accounts — ephemeral session ids.
  * Requires VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY. Networking stays off until join().
+ *
+ * A shared world (#1975) joins the private room `world:<uuid>` instead, on the
+ * signed-in shared client, and carries its `progress` events here too
+ * (`shared-world-session.ts`).
  */
 
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
 import type { ImpactType } from '../../foliage/impacts.ts';
 import { announce } from '../../ui/announcer.ts';
-import { getWorldSeed } from '../../world/world-seed.ts';
+import { getWorldSeed, readSharedWorldIdFromURL } from '../../world/world-seed.ts';
 import { getBiomeAtPosition } from './biome-at-position.ts';
 import {
     BIOME_DISPLAY_NAMES,
@@ -27,6 +32,8 @@ import {
     type RemotePeer,
 } from './presence-types.ts';
 import { remoteAvatars } from './remote-avatars.ts';
+import { getSupabaseClient } from './supabase-client.ts';
+import { getSupabaseConfig, isSupabaseConfigured } from './supabase-config.ts';
 
 export type PresenceSpawnImpact = (
     pos: { x: number; y: number; z: number },
@@ -44,18 +51,22 @@ const MAX_SNAPSHOTS = 8;
 
 const _scratchQuat = new THREE.Quaternion();
 
-type SupabaseClient = import('@supabase/supabase-js').SupabaseClient;
-
-function getSupabaseConfig(): { url: string; anonKey: string } | null {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (typeof url !== 'string' || url.length === 0) return null;
-    if (typeof anonKey !== 'string' || anonKey.length === 0) return null;
-    return { url, anonKey };
+export function isPresenceBackendConfigured(): boolean {
+    return isSupabaseConfigured();
 }
 
-export function isPresenceBackendConfigured(): boolean {
-    return getSupabaseConfig() !== null;
+export interface PresenceJoinOptions {
+    label?: string;
+    emoji?: string;
+    seed?: number;
+    /** Topic to join instead of `candy:<seed>` (a shared world's `world:<uuid>`). */
+    room?: string;
+    /** Realtime Authorization: the room's RLS policies decide who may join. */
+    privateChannel?: boolean;
+    /** Use this session id (a shared world reuses its co-editing peer id). */
+    sessionId?: string;
+    /** Merged into the tracked presence meta (role, join time). */
+    meta?: Record<string, unknown>;
 }
 
 export function isPresenceOptedIn(): boolean {
@@ -95,6 +106,8 @@ export class PresenceSystem {
 
     private _client: SupabaseClient | null = null;
     private _channel: RealtimeChannel | null = null;
+    private _room = '';
+    private _kickHandler: ((peerId: string) => void) | null = null;
     private _sessionId = '';
     private _label = '';
     private _emoji = '';
@@ -105,8 +118,11 @@ export class PresenceSystem {
     private _shareDiscoveryGlow = false;
     private _hideSelf = false;
     private _mutedPeerIds = new Set<string>();
+    /** Kicked from a shared world: never shown again this session. */
+    private _blockedPeerIds = new Set<string>();
     private _peersDirty = false;
     private _spawnImpact: PresenceSpawnImpact | null = null;
+    private _scene: THREE.Scene | null = null;
 
     static getInstance(): PresenceSystem {
         if (!PresenceSystem._instance) {
@@ -125,6 +141,31 @@ export class PresenceSystem {
 
     get peers(): ReadonlyMap<string, RemotePeer> {
         return this._peers;
+    }
+
+    get sessionId(): string {
+        return this._sessionId;
+    }
+
+    get room(): string {
+        return this._room;
+    }
+
+    /** The world owner can remove peers: the peer list shows a Remove button while set. */
+    setKickHandler(handler: ((peerId: string) => void) | null): void {
+        this._kickHandler = handler;
+        this._peersDirty = true;
+    }
+
+    /** Drop a peer from this room for good (a kick): hidden and ignored. */
+    blockPeer(peerId: string): void {
+        this._blockedPeerIds.add(peerId);
+        this.mutePeer(peerId);
+        this._removePeer(peerId);
+    }
+
+    isPeerBlocked(peerId: string): boolean {
+        return this._blockedPeerIds.has(peerId);
     }
 
     setHideSelf(hide: boolean): void {
@@ -159,21 +200,26 @@ export class PresenceSystem {
     bindScene(
         scene: THREE.Scene,
         camera: THREE.PerspectiveCamera,
-        renderer: THREE.Renderer,
+        renderer: Renderer,
         hooks?: PresenceInitHooks
     ): void {
         if (hooks?.spawnImpact) this._spawnImpact = hooks.spawnImpact;
+        this._scene = scene;
         remoteAvatars.init(scene, camera, renderer);
     }
 
-    async join(opts?: { label?: string; emoji?: string; seed?: number }): Promise<boolean> {
+    /** The scene bound at init (shared-world build cursors draw into it). */
+    get scene(): THREE.Scene | null {
+        return this._scene;
+    }
+
+    async join(opts: PresenceJoinOptions = {}): Promise<boolean> {
         if (!FEATURE_FLAGS.presence) {
             console.warn('[Presence] Feature flag disabled (?presence=1 to enable UI)');
             return false;
         }
 
-        const cfg = getSupabaseConfig();
-        if (!cfg) {
+        if (!getSupabaseConfig()) {
             console.warn(
                 '[Presence] Supabase not configured (set VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY)'
             );
@@ -182,19 +228,19 @@ export class PresenceSystem {
 
         if (this._joined) return true;
 
-        const { createClient } = await import('@supabase/supabase-js');
-        this._client = createClient(cfg.url, cfg.anonKey, {
-            realtime: { params: { eventsPerSecond: CONFIG.presence?.tickHz ?? 10 } },
-        });
+        this._client = getSupabaseClient();
+        if (!this._client) return false;
 
-        this._sessionId = crypto.randomUUID();
-        this._label = opts?.label?.trim() || randomLabel();
-        this._emoji = opts?.emoji?.trim() || randomEmoji();
+        this._sessionId = opts.sessionId ?? crypto.randomUUID();
+        this._label = opts.label?.trim() || randomLabel();
+        this._emoji = opts.emoji?.trim() || randomEmoji();
 
-        const seed = opts?.seed ?? getWorldSeed();
-        const room = `candy:${seed}`;
+        const seed = opts.seed ?? getWorldSeed();
+        const room = opts.room ?? `candy:${seed}`;
+        this._room = room;
 
         const meta: PresenceMeta = {
+            ...opts.meta,
             id: this._sessionId,
             label: this._label,
             emoji: this._emoji,
@@ -203,6 +249,7 @@ export class PresenceSystem {
 
         this._channel = this._client.channel(room, {
             config: {
+                private: opts.privateChannel ?? false,
                 presence: { key: this._sessionId },
                 broadcast: { self: false },
             },
@@ -255,6 +302,8 @@ export class PresenceSystem {
         this._channel = null;
         this._client = null;
         this._joined = false;
+        this._room = '';
+        this._kickHandler = null;
         this._peers.clear();
         remoteAvatars.syncPeers(this._peers, this._localPos);
         console.log('[Presence] Left room');
@@ -317,6 +366,7 @@ export class PresenceSystem {
                 label: p.label,
                 emoji: p.emoji,
                 muted: this._mutedPeerIds.has(p.id),
+                kickable: this._kickHandler !== null,
             });
         }
 
@@ -352,18 +402,19 @@ export class PresenceSystem {
     private _mergePresenceState(): void {
         if (!this._channel) return;
         const state = this._channel.presenceState<PresenceMeta>();
-        const changed = mergePresenceMeta(
-            this._peers,
-            state,
-            this._sessionId,
-            CONFIG.presence?.maxPeers ?? 16
-        );
-        // Fallback for simple merge that doesn't return boolean, or if it does
+        mergePresenceMeta(this._peers, state, this._sessionId, CONFIG.presence?.maxPeers ?? 16);
+        for (const id of this._blockedPeerIds) this._peers.delete(id);
         this._peersDirty = true;
         this._emitPeerListUpdate();
     }
 
+    /** Called by the peer list's Remove button. */
+    kickPeer(peerId: string): void {
+        this._kickHandler?.(peerId);
+    }
+
     private _ingestPose(payload: PresencePose | null | undefined): void {
+        if (payload && this._blockedPeerIds.has(payload.id)) return;
         if (!ingestPose(this._peers, this._sessionId, payload)) return;
         const peer = this._peers.get(payload!.id);
         if (!peer) return;
@@ -398,11 +449,13 @@ if (typeof window !== 'undefined') {
 export function initPresenceFromOptIn(
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     hooks?: PresenceInitHooks
 ): void {
-    if (!FEATURE_FLAGS.presence || !isPresenceOptedIn()) return;
+    if (!FEATURE_FLAGS.presence) return;
     presenceSystem.bindScene(scene, camera, renderer, hooks);
+    // A shared world link joins that world's room (shared-worlds.ts), not the seed's.
+    if (!isPresenceOptedIn() || readSharedWorldIdFromURL()) return;
     void presenceSystem.join();
 }
 

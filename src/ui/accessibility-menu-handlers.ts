@@ -1,14 +1,14 @@
 /**
  * Accessibility Menu - Event Handlers Module
- * Handles keyboard navigation and key rebinding for the accessibility settings menu.
+ * Handles keyboard navigation for the accessibility settings menu. Rebinding
+ * lives in input-controls-section.ts, on the action layer.
  */
 
-import { announce } from '../systems/accessibility';
 import { AccessibilityMenuRendering } from './accessibility-menu-rendering';
 
 /**
  * Extension of AccessibilityMenuRendering with event handler methods.
- * These methods handle keyboard navigation and keybinding management.
+ * These methods handle keyboard navigation.
  */
 export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
     // ============================================================================
@@ -27,8 +27,8 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
             if (activeElement && activeElement.getAttribute('role') === 'tab') {
                 event.preventDefault();
                 const tabs = Array.from(
-                    this.container?.querySelectorAll('[role="tab"]') || []
-                ) as HTMLElement[];
+                    this.container?.querySelectorAll<HTMLElement>('[role="tab"]') ?? []
+                );
                 const currentIndex = tabs.indexOf(activeElement);
                 if (currentIndex >= 0) {
                     let nextIndex =
@@ -49,34 +49,5 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
                 }
             }
         }
-    }
-
-    protected startKeyRebind(action: string, button: HTMLButtonElement): void {
-        button.textContent = 'Press key...';
-        button.style.background = 'var(--menu-active, #4a4a4a)';
-
-        const handler = (e: KeyboardEvent) => {
-            e.preventDefault();
-
-            if (e.key === 'Escape') {
-                button.textContent = 'Cancelled';
-                setTimeout(() => this.refreshMainPanel(), 500);
-            } else {
-                // Update keybinding
-                const keybindings = new Map(this.a11y.getSettings().input.keybindings);
-                const existing = keybindings.get(action);
-                if (existing) {
-                    keybindings.set(action, { ...existing, key: e.key });
-                    this.a11y.updateInputSettings({ keybindings });
-                }
-                button.textContent = `Set to ${e.key}`;
-                announce(`${this.formatActionName(action)} bound to ${e.key}`, 'polite');
-                setTimeout(() => this.refreshMainPanel(), 500);
-            }
-
-            document.removeEventListener('keydown', handler);
-        };
-
-        document.addEventListener('keydown', handler);
     }
 }

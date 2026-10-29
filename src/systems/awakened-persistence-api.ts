@@ -1,6 +1,6 @@
 /**
  * Lazy awakened-flora facade — hot path imports this instead of awakened-persistence.ts
- * so default builds (?awakened off) keep ~20 KB of persistence logic out of `app`.
+ * so the ~20 KB of persistence logic loads in its own chunk after boot, not in `app`.
  */
 import * as THREE from 'three';
 import { FEATURE_FLAGS } from '../core/config.ts';
@@ -39,7 +39,9 @@ export function getAwakenedStore(): ReturnType<AwakenedModule['getAwakenedStore'
 
 export const awakenedPersistence = {
     isEnabled(): boolean {
-        return FEATURE_FLAGS.awakenedPersistence && (_mod?.awakenedPersistence.isEnabled() ?? false);
+        return (
+            FEATURE_FLAGS.awakenedPersistence && (_mod?.awakenedPersistence.isEnabled() ?? false)
+        );
     },
 
     resolvePersistentId,
@@ -69,6 +71,11 @@ export const awakenedPersistence = {
 
     isAwakened(persistentId: number): boolean {
         return _mod?.awakenedPersistence.isAwakened(persistentId) ?? false;
+    },
+
+    /** The type of the awakenable flora placed under this id, if one is (and the store is loaded). */
+    placedType(persistentId: number): string | undefined {
+        return _mod?.awakenedPersistence.placedType(persistentId);
     },
 
     getState(persistentId: number): AwakenedMeta | undefined {
@@ -101,6 +108,29 @@ export const awakenedPersistence = {
 
     serialize(): ReturnType<AwakenedModule['awakenedPersistence']['serialize']> {
         return _mod?.awakenedPersistence.serialize() ?? [];
+    },
+
+    /** Awakened flora so far (0 until the module loads). Allocation-free. */
+    count(): number {
+        return _mod?.getAwakenedStore()?.getTotalAwakenedCount() ?? 0;
+    },
+
+    /**
+     * Union `records` into the live store (a loaded WorldDocument), keeping
+     * whatever is already awake. Waits for the module, unlike `deserialize`
+     * on a cold store, which would drop entries loaded after it ran.
+     */
+    merge(
+        records: Parameters<AwakenedModule['awakenedPersistence']['deserialize']>[0]
+    ): Promise<void> {
+        return ensure().then((m) => {
+            if (!m || records.length === 0) return;
+            const live = m.awakenedPersistence.serialize();
+            const known = new Set(live.map((r) => r.persistentId));
+            const merged = live.concat(records.filter((r) => !known.has(r.persistentId)));
+            m.awakenedPersistence.deserialize(merged);
+            m.awakenedPersistence.applyLoadedStatesToBatchers();
+        });
     },
 
     deserialize(data: Parameters<AwakenedModule['awakenedPersistence']['deserialize']>[0]): void {

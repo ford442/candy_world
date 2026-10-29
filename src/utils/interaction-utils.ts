@@ -249,7 +249,8 @@ export function setupGlobalKeyboardTactileFeedback() {
                             '.candy-save-slot__btn, .candy-save-menu__btn, .candy-keybind, ' +
                             '.candy-file-label, .a11y-floating-button, .playlist-btn, .playlist-remove-btn, ' +
                             '.close-icon-btn, .candy-toggle, .discovery-close-btn, ' +
-                            '.action-btn, .icon-btn, .wait-full-toggle, .jukebox-browse-btn'
+                            '.action-btn, .icon-btn, .wait-full-toggle, .jukebox-browse-btn' +
+                            ', .dpad-btn, .webgpu-fatal-btn'
                     )
                 ) {
                     activeElement.classList.add('keyboard-active');
@@ -258,15 +259,19 @@ export function setupGlobalKeyboardTactileFeedback() {
         }
     });
 
+    const clearAllActiveStates = () => {
+        const activeElements = document.querySelectorAll('.keyboard-active');
+        activeElements.forEach((el) => {
+            if (!el.classList.contains('ability-slot')) {
+                el.classList.remove('keyboard-active');
+            }
+        });
+    };
+
     // Remove feedback globally on keyup
     document.addEventListener('keyup', (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
-            const activeElements = document.querySelectorAll('.keyboard-active');
-            activeElements.forEach((el) => {
-                if (!el.classList.contains('ability-slot')) {
-                    el.classList.remove('keyboard-active');
-                }
-            });
+            clearAllActiveStates();
         }
     });
 
@@ -278,5 +283,11 @@ export function setupGlobalKeyboardTactileFeedback() {
                 target.classList.remove('keyboard-active');
             }
         }
+    });
+
+    // ♿ Aria: Prevent stuck active states if user alt-tabs or window loses focus while holding a key
+    window.addEventListener('blur', clearAllActiveStates);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) clearAllActiveStates();
     });
 }

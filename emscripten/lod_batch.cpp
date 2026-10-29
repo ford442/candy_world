@@ -17,253 +17,116 @@
 
 extern "C" {
 
-// =============================================================================
-// BATCH LOD MATRIX UPDATE
-// =============================================================================
-// Input:  flat arrays of matrix data (16 floats per matrix)
-// Output: optimized for InstancedMesh.setMatrixAt() pattern
-// 
-// Memory layout:
-// - matrices: [m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23, m30, m31, m32, m33, ...]
-// - colors:   [r, g, b, r, g, b, ...]
-// =============================================================================
 
+static float smoothstep_local(float t) {
+    float x = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+    return x * x * (3.0f - 2.0f * x);
+}
+
+// Note: This function uses OpenMP for parallelization but is scalar, not SIMD vectorized.
 EMSCRIPTEN_KEEPALIVE
-void batchUpdateLODMatrices_c(
+void batchUpdateLodFactors_c(
     float* matrices,
-    float* colors,
+    float* smoothed,
     int count,
     float cameraX,
     float cameraY,
     float cameraZ,
-    float lod1Dist,
-    float lod2Dist,
-    float cullDist,
-    int* results
+    float heroMax,
+    float midMax,
+    float blendWidth,
+    float farCullSq,
+    float blendT,
+    int* statsOut // Array of 6 ints: [hero, mid, far, culled, blendBand, total]
 ) {
-    const float lod1DistSq = lod1Dist * lod1Dist;
-    const float lod2DistSq = lod2Dist * lod2Dist;
-    const float cullDistSq = cullDist * cullDist;
-    
-    // Position is in matrix[12], matrix[13], matrix[14] (translation component)
-    #pragma omp parallel for schedule(static) if(count > 100)
+    float bw = blendWidth < 1.0f ? 1.0f : blendWidth;
+    float heroMin = heroMax - bw;
+    float heroMaxRange = heroMax + bw;
+    float heroMinSq = heroMin * heroMin;
+    float heroMaxRangeSq = heroMaxRange * heroMaxRange;
+
+    float midMin = midMax - bw;
+    float midMaxRange = midMax + bw;
+    float midMinSq = midMin * midMin;
+    float midMaxRangeSq = midMaxRange * midMaxRange;
+
+    int hero = 0;
+    int mid = 0;
+    int far = 0;
+    int culled = 0;
+    int blendBand = 0;
+    int total = count;
+
+    #pragma omp parallel for schedule(static) if(count > 100) reduction(+:hero, mid, far, culled, blendBand)
     for (int i = 0; i < count; i++) {
         int matOffset = i * 16;
-        
         float posX = matrices[matOffset + 12];
         float posY = matrices[matOffset + 13];
         float posZ = matrices[matOffset + 14];
-        
-        // Calculate distance squared to camera
+
         float dx = posX - cameraX;
         float dy = posY - cameraY;
         float dz = posZ - cameraZ;
         float distSq = dx * dx + dy * dy + dz * dz;
-        
-        // Determine LOD level
-        int lodLevel;
-        if (distSq >= cullDistSq) {
-            lodLevel = 3; // Culled
-        } else if (distSq >= lod2DistSq) {
-            lodLevel = 2; // LOD2
-        } else if (distSq >= lod1DistSq) {
-            lodLevel = 1; // LOD1
+
+        float target = 3.0f; // Default culled
+
+        if (distSq < farCullSq) {
+            if (heroMin >= 0.0f && distSq <= heroMinSq) {
+                target = 0.0f;
+            } else if (distSq <= heroMaxRangeSq) {
+                float dist = std::sqrt(distSq);
+                float t = (dist - heroMin) / (2.0f * bw);
+                target = smoothstep_local(t);
+            } else if (midMin >= 0.0f && distSq <= midMinSq) {
+                target = 1.0f;
+            } else if (distSq <= midMaxRangeSq) {
+                float dist = std::sqrt(distSq);
+                float t = (dist - midMin) / (2.0f * bw);
+                target = 1.0f + smoothstep_local(t);
+            } else {
+                target = 2.0f;
+            }
+        }
+
+        float current = smoothed[i];
+        float diff = std::abs(target - current);
+
+        if (diff > 1e-3f) {
+            smoothed[i] = current + (target - current) * blendT;
+        } else if (current != target) {
+            smoothed[i] = target;
+        }
+
+        float factor = smoothed[i];
+
+        // Accumulate stats
+        if (factor >= 3.0f) {
+            culled++;
+        } else if (factor > 0.75f && factor < 1.15f) {
+             blendBand++;
+             mid++;
+        } else if (factor > 1.45f && factor < 2.15f) {
+             blendBand++;
+             far++;
+        } else if (factor >= 1.55f) {
+            far++;
+        } else if (factor >= 0.85f) {
+            mid++;
         } else {
-            lodLevel = 0; // LOD0
-        }
-        
-        results[i] = lodLevel;
-        
-        // Optional: Scale matrices based on LOD for billboarding effect
-        if (lodLevel == 2) {
-            // LOD2: Reduce scale slightly for billboarding
-            float scale = 0.9f;
-            matrices[matOffset + 0] *= scale;
-            matrices[matOffset + 5] *= scale;
-            matrices[matOffset + 10] *= scale;
+            hero++;
         }
     }
-}
 
-// =============================================================================
-// SIMD-OPTIMIZED DISTANCE CALCULATION
-// =============================================================================
-// Process 4 objects at once for distance calculation
-
-void batchDistanceCullLOD_c(
-    float* positions,  // [x, y, z, radius, x, y, z, radius, ...]
-    int count,
-    float cameraX,
-    float cameraY,
-    float cameraZ,
-    float maxDistSq,
-    int* results       // 0 = culled, 1 = visible
-) {
-    int i = 0;
-    int count4 = count & ~3;
-    
-    v128_t v_camX = wasm_f32x4_splat(cameraX);
-    v128_t v_camY = wasm_f32x4_splat(cameraY);
-    v128_t v_camZ = wasm_f32x4_splat(cameraZ);
-    v128_t v_maxDistSq = wasm_f32x4_splat(maxDistSq);
-    
-    for (; i < count4; i += 4) {
-        // Load 4 positions
-        v128_t v_x = wasm_f32x4_make(
-            positions[i * 4],
-            positions[(i+1) * 4],
-            positions[(i+2) * 4],
-            positions[(i+3) * 4]
-        );
-        v128_t v_y = wasm_f32x4_make(
-            positions[i * 4 + 1],
-            positions[(i+1) * 4 + 1],
-            positions[(i+2) * 4 + 1],
-            positions[(i+3) * 4 + 1]
-        );
-        v128_t v_z = wasm_f32x4_make(
-            positions[i * 4 + 2],
-            positions[(i+1) * 4 + 2],
-            positions[(i+2) * 4 + 2],
-            positions[(i+3) * 4 + 2]
-        );
-        
-        // Calculate distance squared
-        v128_t v_dx = wasm_f32x4_sub(v_x, v_camX);
-        v128_t v_dy = wasm_f32x4_sub(v_y, v_camY);
-        v128_t v_dz = wasm_f32x4_sub(v_z, v_camZ);
-        
-        v128_t v_distSq = wasm_f32x4_add(
-            wasm_f32x4_add(
-                wasm_f32x4_mul(v_dx, v_dx),
-                wasm_f32x4_mul(v_dy, v_dy)
-            ),
-            wasm_f32x4_mul(v_dz, v_dz)
-        );
-        
-        // Compare with max distance
-        v128_t v_visible = wasm_f32x4_lt(v_distSq, v_maxDistSq);
-        
-        // Store results
-        results[i] = wasm_f32x4_extract_lane(v_visible, 0) ? 1 : 0;
-        results[i+1] = wasm_f32x4_extract_lane(v_visible, 1) ? 1 : 0;
-        results[i+2] = wasm_f32x4_extract_lane(v_visible, 2) ? 1 : 0;
-        results[i+3] = wasm_f32x4_extract_lane(v_visible, 3) ? 1 : 0;
-    }
-    
-    // Tail loop
-    for (; i < count; i++) {
-        float dx = positions[i * 4] - cameraX;
-        float dy = positions[i * 4 + 1] - cameraY;
-        float dz = positions[i * 4 + 2] - cameraZ;
-        float distSq = dx * dx + dy * dy + dz * dz;
-        
-        results[i] = distSq < maxDistSq ? 1 : 0;
+    if (statsOut) {
+        statsOut[0] = hero;
+        statsOut[1] = mid;
+        statsOut[2] = far;
+        statsOut[3] = culled;
+        statsOut[4] = blendBand;
+        statsOut[5] = total;
     }
 }
-
-// =============================================================================
-// MATRIX TRANSFORMATION HELPERS
-// =============================================================================
-
-EMSCRIPTEN_KEEPALIVE
-void batchScaleMatrices_c(
-    float* matrices,
-    int count,
-    float scaleX,
-    float scaleY,
-    float scaleZ
-) {
-    #pragma omp parallel for schedule(static) if(count > 100)
-    for (int i = 0; i < count; i++) {
-        int offset = i * 16;
-        matrices[offset + 0] *= scaleX;   // m00
-        matrices[offset + 5] *= scaleY;   // m11
-        matrices[offset + 10] *= scaleZ;  // m22
-    }
-}
-
-EMSCRIPTEN_KEEPALIVE
-void batchTranslateMatrices_c(
-    float* matrices,
-    int count,
-    float tx,
-    float ty,
-    float tz
-) {
-    #pragma omp parallel for schedule(static) if(count > 100)
-    for (int i = 0; i < count; i++) {
-        int offset = i * 16;
-        matrices[offset + 12] += tx;
-        matrices[offset + 13] += ty;
-        matrices[offset + 14] += tz;
-    }
-}
-
-// =============================================================================
-// COLOR PROCESSING
-// =============================================================================
-
-EMSCRIPTEN_KEEPALIVE
-void batchFadeColors_c(
-    float* colors,  // [r, g, b, r, g, b, ...]
-    int count,
-    float fadeAmount  // 0.0 = fully faded, 1.0 = original
-) {
-    int i = 0;
-    int count4 = count & ~3;
-    
-    v128_t v_fade = wasm_f32x4_splat(fadeAmount);
-    
-    // Process 4 colors (12 floats) at a time
-    for (; i < count4; i += 4) {
-        v128_t v_r = wasm_f32x4_make(
-            colors[i * 3],
-            colors[(i+1) * 3],
-            colors[(i+2) * 3],
-            colors[(i+3) * 3]
-        );
-        v128_t v_g = wasm_f32x4_make(
-            colors[i * 3 + 1],
-            colors[(i+1) * 3 + 1],
-            colors[(i+2) * 3 + 1],
-            colors[(i+3) * 3 + 1]
-        );
-        v128_t v_b = wasm_f32x4_make(
-            colors[i * 3 + 2],
-            colors[(i+1) * 3 + 2],
-            colors[(i+2) * 3 + 2],
-            colors[(i+3) * 3 + 2]
-        );
-        
-        v_r = wasm_f32x4_mul(v_r, v_fade);
-        v_g = wasm_f32x4_mul(v_g, v_fade);
-        v_b = wasm_f32x4_mul(v_b, v_fade);
-        
-        colors[i * 3] = wasm_f32x4_extract_lane(v_r, 0);
-        colors[(i+1) * 3] = wasm_f32x4_extract_lane(v_r, 1);
-        colors[(i+2) * 3] = wasm_f32x4_extract_lane(v_r, 2);
-        colors[(i+3) * 3] = wasm_f32x4_extract_lane(v_r, 3);
-        
-        colors[i * 3 + 1] = wasm_f32x4_extract_lane(v_g, 0);
-        colors[(i+1) * 3 + 1] = wasm_f32x4_extract_lane(v_g, 1);
-        colors[(i+2) * 3 + 1] = wasm_f32x4_extract_lane(v_g, 2);
-        colors[(i+3) * 3 + 1] = wasm_f32x4_extract_lane(v_g, 3);
-        
-        colors[i * 3 + 2] = wasm_f32x4_extract_lane(v_b, 0);
-        colors[(i+1) * 3 + 2] = wasm_f32x4_extract_lane(v_b, 1);
-        colors[(i+2) * 3 + 2] = wasm_f32x4_extract_lane(v_b, 2);
-        colors[(i+3) * 3 + 2] = wasm_f32x4_extract_lane(v_b, 3);
-    }
-    
-    // Tail loop
-    for (; i < count; i++) {
-        colors[i * 3] *= fadeAmount;
-        colors[i * 3 + 1] *= fadeAmount;
-        colors[i * 3 + 2] *= fadeAmount;
-    }
-}
-
 
 // =============================================================================
 // MATRIX COMPOSITION
@@ -329,63 +192,6 @@ void batchComposeMatrices_c(
         matrices[m_idx + 14] = pz;
         matrices[m_idx + 15] = 1.0f;
     }
-}
-
-// =============================================================================
-// TEST / PARITY EXPORTS (#1351)
-// =============================================================================
-
-/**
- * Write instance RGB colors with uniform intensity scale.
- * Parity with assembly/batch.ts batchWriteInstanceColors and TS reference.
- */
-void batchWriteInstanceColors_c(
-    float* colorsIn,
-    float* colorsOut,
-    int count,
-    float intensity
-) {
-    for (int i = 0; i < count; i++) {
-        int o = i * 3;
-        colorsOut[o]     = colorsIn[o] * intensity;
-        colorsOut[o + 1] = colorsIn[o + 1] * intensity;
-        colorsOut[o + 2] = colorsIn[o + 2] * intensity;
-    }
-}
-
-/**
- * Accumulate arpeggio_grove shimmer + hueShift volumes.
- * Parity with assembly/music_reactivity.ts accumulateArpeggioChannels.
- * volumes: packed [shimmer..., hueShift...] ; out: [shimmer, hueShift]
- */
-void accumulateArpeggioChannels_c(
-    float* volumes,
-    int shimmerCount,
-    int hueShiftCount,
-    float nightGate,
-    float intensityScale,
-    float* out
-) {
-    float shimmerAccum = 0.0f;
-    for (int i = 0; i < shimmerCount; i++) {
-        shimmerAccum += volumes[i];
-    }
-
-    float hueShiftAccum = 0.0f;
-    int end = shimmerCount + hueShiftCount;
-    for (int i = shimmerCount; i < end; i++) {
-        hueShiftAccum += volumes[i];
-    }
-
-    float shimmerDiv = shimmerCount > 1 ? (float)shimmerCount : 1.0f;
-    float shimmerVal = shimmerAccum / shimmerDiv;
-    if (shimmerVal > 1.0f) shimmerVal = 1.0f;
-    out[0] = shimmerVal * nightGate * intensityScale;
-
-    float hueShiftDiv = hueShiftCount > 1 ? (float)hueShiftCount : 1.0f;
-    float hueShiftVal = hueShiftAccum / hueShiftDiv;
-    if (hueShiftVal > 1.0f) hueShiftVal = 1.0f;
-    out[1] = hueShiftVal * nightGate * intensityScale;
 }
 
 } // extern "C"

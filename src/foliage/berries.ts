@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import {
     color, float, uniform, vec3, positionLocal, positionWorld,
     sin, dot, time, attribute,
-    storage, instanceIndex, Fn, If, vec4, varyingProperty
+    storage, instanceIndex, Fn, If, vec4, varyingProperty, mix
 } from 'three/tsl';
-import { StorageInstancedBufferAttribute } from 'three/webgpu';
+import { StorageInstancedBufferAttribute, type Renderer } from 'three/webgpu';
 import type { ComputeParticleSystem } from '../particles/compute-particles.ts';
 import { createComputeBerries } from '../particles/index.ts';
 import { getParticles } from '../particles/lazy.ts';
@@ -396,7 +396,7 @@ function createHeartbeatMaterial(): THREE.Material {
     const flashColor = color(0xFFFFFF);
 
     // Mix flash based on heartbeat strength
-    const glowColor = baseColor.mix(flashColor, heartbeat.mul(uAudioLow).mul(0.5));
+    const glowColor = mix(baseColor, flashColor, heartbeat.mul(uAudioLow).mul(0.5));
 
     // Final Intensity
     const totalIntensity = aGlow.add(heartbeat.mul(uAudioLow));
@@ -528,7 +528,7 @@ export function spawnFallingBerry(position: THREE.Vector3, colorHex: number = 0x
     // fallingBerryMesh.setColorAt is not valid for THREE.Points.
 }
 
-export function updateFallingBerries(delta: number, renderer?: THREE.Renderer): void {
+export function updateFallingBerries(delta: number, renderer?: Renderer): void {
     if (!fallingBerryMesh) return;
 
     // Sync compute system if available

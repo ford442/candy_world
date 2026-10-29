@@ -12,9 +12,12 @@ import { isAutomation } from '../platform/run-mode.ts';
 //   ?no_fireflies         — skip firefly particle system
 //   ?no_grass             — skip GPU grass instancing
 //   ?no_fauna             — skip ambient fauna boids + batchers
-//   ?awakened             — enable durable glow for music-awakened flora (default off)
+//   ?no_awakened          — skip durable glow for music-awakened flora (on by default;
+//                           the Sugar Caves door counts awakened flora)
+//   ?legacyRead=0         — stop reading the pre-WorldDocument stores (on this release)
 //   ?presence=1           — show shared-presence opt-in UI (still requires explicit join)
-//   ?generative=1         — in-browser generative soundtrack (or ?music=generative)
+//   ?world=<uuid>         — open a shared world and join its room (docs/SHARED_WORLDS.md)
+//   ?no_generative        — opt out of the default generative soundtrack (or ?music=tracker)
 //   ?photo=1              — cinematic photo mode (or ?mode=photo)
 //   ?lights=1             — show local point/spot helpers (also implied by ?debug=1)
 //   ?no_clustered         — skip Forward+ clustered local lights (tiny Three.js pool only)
@@ -92,6 +95,8 @@ export const _getFlag = getUrlFlag;
 
 export function isPresenceFeatureEnabled(): boolean {
     if (hasUrlFlag('presence')) return true;
+    // A shared world link (#1975) joins that world's room.
+    if (hasUrlFlag('world')) return true;
     const flag = getUrlFlag('presence');
     if (flag === '1' || flag === '') return true;
     try {
@@ -118,20 +123,30 @@ export const FEATURE_FLAGS = {
     grass: !hasUrlFlag('no_grass'),
     fauna: !hasUrlFlag('no_fauna'),
     /**
-     * Persist soft glow for music-awakened flora across reloads.
-     * Runtime URL flag (?awakened) — default off for safe rollout.
-     * Rollup cannot prune this branch; use import.meta.env for zero bundle cost later.
+     * Persist soft glow for music-awakened flora across reloads. On by default
+     * (#1974): the Sugar Caves door is gated on the awakened count. `?no_awakened`
+     * turns it off.
      */
-    awakenedPersistence: hasUrlFlag('awakened'),
+    awakenedPersistence: !hasUrlFlag('no_awakened'),
+    /**
+     * Keep reading (and importing from) the six pre-WorldDocument stores. On for
+     * one release so a rollback loses nothing; `?legacyRead=0` turns it off.
+     */
+    legacyRead: getUrlFlag('legacyRead') !== '0',
     /** Shared multiplayer presence UI + networking (opt-in join; no traffic until joined). */
     get presence(): boolean {
         return isPresenceFeatureEnabled();
     },
     /**
-     * In-browser generative soundtrack (?generative=1 or ?music=generative).
+     * In-browser generative soundtrack. On by default (#1976): it plays until the
+     * player loads a tracker file, which takes over. `?no_generative` or
+     * `?music=tracker` opt out; `?generative=1` / `?music=generative` still force it.
      * Drives music-reactivity from sequencer events instead of FFT/VU analysis.
      */
-    generativeMusic: hasUrlFlag('generative') || getUrlFlag('music') === 'generative',
+    generativeMusic:
+        hasUrlFlag('generative') ||
+        getUrlFlag('music') === 'generative' ||
+        (!hasUrlFlag('no_generative') && getUrlFlag('music') !== 'tracker'),
     /** Cinematic photo mode (?photo=1 or ?mode=photo). */
     photoMode: hasUrlFlag('photo') || getUrlFlag('mode') === 'photo',
     /** Forward+ clustered local lights. Off via `?no_clustered` or graphics `low`. */

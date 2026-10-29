@@ -4,8 +4,10 @@
  * This module extends the core AccessibilityMenu class with rendering capabilities.
  */
 
+import type { ColorBlindType } from '../systems/accessibility';
 import { AccessibilityMenuCore, MenuSection } from './accessibility-menu-core';
-import { announce } from './announcer';
+import { announce, announceValueChange } from './announcer';
+import { renderControlsSection } from './input-controls-section.ts';
 
 /**
  * Extension of AccessibilityMenuCore with rendering methods.
@@ -92,6 +94,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         closeBtn.type = 'button';
         closeBtn.className = 'a11y-close-btn a11y-button';
         closeBtn.innerHTML = '<span aria-hidden="true">✕</span>';
+        closeBtn.setAttribute('aria-label', 'Close accessibility menu');
+        closeBtn.title = 'Close (Esc)';
         closeBtn.style.cssText = `
       ${this.getButtonStyle()}
       width: 40px;
@@ -159,8 +163,6 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             auditory: 'Auditory',
             'screen-reader': 'Screen Reader',
         };
-
-        const sectionMenuItems = sections; // all sections are always available
 
         for (const section of sections) {
             const isActive = this.currentSection === section;
@@ -269,8 +271,6 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     }
 
     private renderPresetsSection(container: HTMLElement): void {
-        const settings = this.a11y.getSettings();
-
         this.createSectionTitle(container, 'Quick Presets');
         this.createSectionSubtitle(container, 'Apply predefined accessibility profiles');
 
@@ -342,20 +342,6 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         this.createSectionTitle(container, 'Motor Accessibility');
         this.createSectionSubtitle(container, 'Control & movement settings');
 
-        // Pointer speed — maps to input.sensitivity (0.1–2.0)
-        this.createSlider(
-            container,
-            'Pointer Speed',
-            'input.sensitivity',
-            settings.input.sensitivity,
-            0.1,
-            2,
-            0.1,
-            (val) => {
-                this.a11y.updateInputSettings({ sensitivity: val });
-            }
-        );
-
         // Reduced motion — maps to visual.motionReduction
         this.createToggle(
             container,
@@ -367,65 +353,18 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             }
         );
 
-        // Keybindings
-        this.createSectionTitle(container, 'Keybindings');
-        const keybindingContainer = document.createElement('div');
-        keybindingContainer.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
-
-        const keybindings = settings.input.keybindings;
-        for (const [action, binding] of keybindings.entries()) {
-            const row = document.createElement('div');
-            row.style.cssText =
-                'display: flex; justify-content: space-between; align-items: center;';
-
-            const label = document.createElement('label');
-            label.textContent = this.formatActionName(action);
-            label.style.cssText = 'flex: 1;';
-
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'a11y-button';
-            btn.textContent = binding.key || 'Unbound';
-            btn.style.cssText = `${this.getButtonStyle()} width: 120px;`;
-            btn.onclick = () => {
-                this.startKeyRebind(action, btn);
-            };
-
-
-
-            row.appendChild(label);
-            row.appendChild(btn);
-            keybindingContainer.appendChild(row);
-        }
-
-        container.appendChild(keybindingContainer);
-    }
-
-    /**
-     * Begin listening for the next keypress to rebind an action.
-     * The button label updates to show the new key; the binding is persisted
-     * via updateInputSettings once a key is captured.
-     */
-    protected startKeyRebind(action: string, btn: HTMLButtonElement): void {
-        const originalText = btn.textContent ?? '';
-        btn.textContent = 'Press a key…';
-        btn.setAttribute('aria-label', `Rebinding ${action} — press a key`);
-        const handler = (e: KeyboardEvent): void => {
-            e.preventDefault();
-            document.removeEventListener('keydown', handler, true);
-            const keybindings = new Map(this.a11y.getSettings().input.keybindings);
-            const existing = keybindings.get(action);
-            keybindings.set(action, { ...(existing ?? {}), key: e.key });
-            this.a11y.updateInputSettings({ keybindings });
-            btn.textContent = e.key;
-            btn.setAttribute('aria-label', `${action} bound to ${e.key}`);
-        };
-        document.addEventListener('keydown', handler, true);
-        // Safety timeout: cancel rebind after 10 s of no input
-        setTimeout(() => {
-            document.removeEventListener('keydown', handler, true);
-            if (btn.textContent === 'Press a key…') btn.textContent = originalText;
-        }, 10_000);
+        // Controls: the action layer's bindings and look settings (#2027).
+        this.createSectionTitle(container, 'Controls');
+        renderControlsSection(container, {
+            createToggle: (label, id, checked, onChange) =>
+                this.createToggle(container, label, id, checked, onChange),
+            createSlider: (label, id, value, min, max, step, onChange) =>
+                this.createSlider(container, label, id, value, min, max, step, onChange),
+            createSelect: (label, id, value, options, onChange) =>
+                this.createSelect(container, label, id, value, options, onChange),
+            createSectionTitle: (title) => this.createSectionTitle(container, title),
+            buttonStyle: this.getButtonStyle(),
+        });
     }
 
     private renderVisualSection(container: HTMLElement): void {
@@ -453,7 +392,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             settings.visual.colorBlindMode,
             ['none', 'protanopia', 'deuteranopia', 'tritanopia', 'achromatopsia'],
             (val) => {
-                this.a11y.updateVisualSettings({ colorBlindMode: val as any });
+                this.a11y.updateVisualSettings({ colorBlindMode: val as ColorBlindType });
             }
         );
 
@@ -868,6 +807,16 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             const val = parseFloat(slider.value);
             valueDisplay.textContent = val.toFixed(2);
             onChange(val);
+        };
+
+        slider.onchange = () => {
+            const val = parseFloat(slider.value);
+            announceValueChange(label, val, min, max);
+        };
+
+        slider.onchange = () => {
+            const val = parseFloat(slider.value);
+            announceValueChange(label, val, min, max);
         };
 
         sliderWrapper.appendChild(slider);

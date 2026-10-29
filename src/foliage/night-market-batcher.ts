@@ -40,7 +40,13 @@ import { registerDecorativeFill, releaseLocalLight } from '../rendering/lights.t
 import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
-import { CandyPresets, createJuicyRimLight, uAudioLow, uTime } from './material-core.ts';
+import {
+    CandyPresets,
+    createJuicyRimLight,
+    uAudioLow,
+    uTime,
+    type Vec3Node,
+} from './material-core.ts';
 
 export const MAX_NIGHT_MARKET_STALLS = getCIAdjustedCount(64, 0.25, 16);
 
@@ -159,7 +165,7 @@ export class NightMarketBatcher {
         // Warm lantern spill on the counter after dusk (emissive, not a GPU light).
         const spill = color(LANTERN_WARM).mul(nightOpenNode()).mul(float(0.12));
         // 🎨 PALETTE: Juicy Rim Light for frame (candy edge on the counter/posts)
-        const frameRim = createJuicyRimLight(baseColor, float(1.5), float(3.0), mat.normalNode).mul(nightOpenNode());
+        const frameRim = createJuicyRimLight(baseColor, float(1.5), float(3.0), mat.normalNode as Vec3Node | null).mul(nightOpenNode());
         mat.emissiveNode = mat.emissiveNode ? (mat.emissiveNode as any).add(spill).add(frameRim) : spill.add(frameRim);
 
         const mesh = new THREE.InstancedMesh(geo, mat, MAX_NIGHT_MARKET_STALLS);
@@ -205,7 +211,7 @@ export class NightMarketBatcher {
             side: THREE.DoubleSide,
         });
         // 🎨 PALETTE: Lighter rim on the awning stripeColor path so the canopy reads as candy at dusk.
-        const awningRim = createJuicyRimLight(stripeColor, float(0.8), float(2.0), mat.normalNode).mul(open);
+        const awningRim = createJuicyRimLight(stripeColor, float(0.8), float(2.0), mat.normalNode as Vec3Node | null).mul(open);
         mat.emissiveNode = mat.emissiveNode ? (mat.emissiveNode as any).add(awningRim) : awningRim;
 
         const mesh = new THREE.InstancedMesh(geo, mat, MAX_NIGHT_MARKET_STALLS);

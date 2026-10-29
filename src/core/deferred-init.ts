@@ -18,7 +18,8 @@ import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence
 import { log } from '../utils/log.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { FEATURE_FLAGS } from './config.ts';
-import { isWebGLNodeBackend, syncDrawingBufferFromWindow, type CandyRenderer } from './init.ts';
+import type { CompileTarget } from '../rendering/shader-warmup.ts';
+import { isWebGLNodeBackend, type CandyRenderer } from './init.ts';
 import { isAutomation } from './platform/run-mode.ts';
 import { getStartupCapabilities } from './startup/capabilities.ts';
 
@@ -198,14 +199,10 @@ export function applyAwakenedPersistenceAfterWorldLoad(): void {
 }
 
 // --- DEFERRED INCREMENTAL SHADER WARMUP ---
-// Runs 2 seconds after world generation to pre-compile remaining shaders without
-// blocking the main thread. Uses ShaderWarmup in time-budgeted batches so no
-// single task exceeds WARMUP_BUDGET_MS.
-
-/** Number of materials compiled per batch before yielding to the event loop. */
-const WARMUP_BATCH_SIZE = 10;
-/** Maximum milliseconds allowed per warmup batch before yielding. */
-const WARMUP_BUDGET_MS = 100;
+// Runs 2 seconds after world generation and compiles the generated world with
+// `renderer.compileAsync()` in chunks (rendering/shader-warmup.ts), so the
+// pipelines the next frames need already exist and no task blocks for long.
+// Objects the boot pass already compiled are skipped, so nothing compiles twice.
 
 /** Set to true to cancel an in-progress deferred warmup (e.g. on scene transition). */
 let _warmupAborted = false;
@@ -215,7 +212,12 @@ export function abortWarmup(): void {
     _warmupAborted = true;
 }
 
-export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, renderer: CandyRenderer) {
+export function runDeferredWarmup(
+    scene: THREE.Scene,
+    camera: THREE.Camera,
+    renderer: CandyRenderer,
+    compileTarget?: (() => CompileTarget | null) | null
+) {
     _warmupAborted = false;
 
     setTimeout(async () => {
@@ -236,15 +238,7 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
             return;
         }
 
-        // FIX: Ensure clipping planes are defined before compilation.
-        // WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if undefined.
-        if (renderer.clippingPlanes === undefined || renderer.clippingPlanes === null) {
-            renderer.clippingPlanes = [];
-            renderer.localClippingEnabled = false;
-            log.info('Deferred', 'Re-applied clipping planes fix (Safety Force).');
-        }
-
-        // Keep the rainbow blaster warmup — it uses a distinct particle material.
+        // Put the rainbow blaster's particle material in the scene so it compiles too.
         const dummyOrigin = new THREE.Vector3(0, -9999, 0);
         const dummyDir = new THREE.Vector3(0, 1, 0);
         const gp = await ensureGameplay();
@@ -254,117 +248,22 @@ export function runDeferredWarmup(scene: THREE.Scene, camera: THREE.Camera, rend
         let warmupBatchMaxMs = 0;
 
         try {
-            // --- Phase 1: Compile predefined foliage / preset materials in batches ---
-            // ShaderWarmup renders each material in a 1×1 pixel target and disposes
-            // the temporary mesh+render-target; the original scene materials are unaffected.
-            const { ShaderWarmup } = await import('../rendering/shader-warmup.ts');
-            const warmup = new ShaderWarmup();
-            // Lobby already warmed its minimal subset at startup; the scene pass
-            // below covers the room's own materials, so skip the preset re-run.
-            const targets =
-                getStartupCapabilities().path === 'lobby' ? [] : warmup.getTargets();
-
-            for (let i = 0; i < targets.length; i += WARMUP_BATCH_SIZE) {
-                if (_warmupAborted) break;
-
-                const batchStart = performance.now();
-                const batch = targets.slice(i, i + WARMUP_BATCH_SIZE);
-
-                for (const target of batch) {
-                    if (_warmupAborted) break;
-                    const mat = target.create();
-                    try {
-                        await warmup.warmupSingle(mat, renderer, target.name);
-                    } catch {
-                        // Non-fatal: continue with next material.
-                    }
-                }
-
-                const batchMs = performance.now() - batchStart;
-                warmupBatches++;
-                if (batchMs > warmupBatchMaxMs) warmupBatchMaxMs = batchMs;
-
-                // Always yield between batches to stay within the 100 ms long-task budget.
-                await new Promise<void>((resolve) => setTimeout(resolve, 0));
-            }
-            warmup.dispose();
-
-            // --- Phase 2: Compile materials found on actual scene objects ---
-            // Frustum-visible objects are prioritised so the player's current view
-            // is fully warmed before off-screen geometry.
-            if (!_warmupAborted) {
-                const frustum = new THREE.Frustum();
-                const projMatrix = new THREE.Matrix4().multiplyMatrices(
-                    camera.projectionMatrix,
-                    camera.matrixWorldInverse
-                );
-                frustum.setFromProjectionMatrix(projMatrix);
-
-                // Collect unique materials from scene meshes.
-                const sceneEntries: Array<{ mat: THREE.Material; inFrustum: boolean }> = [];
-                const seenIds = new Set<number>();
-
-                scene.traverse((obj: THREE.Object3D) => {
-                    if (!(obj instanceof THREE.Mesh) || !obj.visible) return;
-                    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-                    const inFrustum = frustum.intersectsObject(obj);
-                    for (const mat of mats) {
-                        if (!mat || seenIds.has(mat.id)) continue;
-                        seenIds.add(mat.id);
-                        sceneEntries.push({ mat, inFrustum });
-                    }
-                });
-
-                // Frustum-visible first.
-                sceneEntries.sort((a, b) => {
-                    if (a.inFrustum === b.inFrustum) return 0;
-                    return a.inFrustum ? -1 : 1;
-                });
-
-                // Compile each material by cloning it so warmupSingle can safely dispose
-                // the clone while the original in the scene remains intact.
-                const { ShaderWarmup } = await import('../rendering/shader-warmup.ts');
-                const sceneWarmup = new ShaderWarmup();
-                for (let i = 0; i < sceneEntries.length; i += WARMUP_BATCH_SIZE) {
-                    if (_warmupAborted) break;
-
-                    const batchStart = performance.now();
-                    const batch = sceneEntries.slice(i, i + WARMUP_BATCH_SIZE);
-
-                    for (const { mat } of batch) {
-                        if (_warmupAborted) break;
-                        try {
-                            // Clone so warmupSingle can dispose the temporary copy.
-                            const clone = mat.clone();
-                            await sceneWarmup.warmupSingle(clone, renderer, `scene_${mat.id}`);
-                        } catch {
-                            /* skip */
-                        }
-                    }
-
-                    const batchMs = performance.now() - batchStart;
-                    warmupBatches++;
-                    if (batchMs > warmupBatchMaxMs) warmupBatchMaxMs = batchMs;
-
-                    // Yield if the batch took too long or more batches remain.
-                    if (batchMs > WARMUP_BUDGET_MS || i + WARMUP_BATCH_SIZE < sceneEntries.length) {
-                        await new Promise<void>((resolve) => setTimeout(resolve, 0));
-                    }
-                }
-                sceneWarmup.dispose();
-            }
+            const { compileSceneProgressively } = await import('../rendering/shader-warmup.ts');
+            const stats = await compileSceneProgressively(renderer, scene, camera, {
+                target: compileTarget ?? null,
+                shouldAbort: () => _warmupAborted,
+            });
+            warmupBatches = stats.chunks;
+            warmupBatchMaxMs = stats.maxChunkMs;
 
             log.info(
                 'Deferred',
-                `✅ Scene shaders pre-compiled (${warmupBatches} batch${warmupBatches !== 1 ? 'es' : ''}, ` +
-                    `max ${warmupBatchMaxMs.toFixed(0)} ms/batch).`
+                `✅ Scene shaders pre-compiled (${stats.objects} objects, ${stats.alreadyCompiled} from boot, ${warmupBatches} chunk${warmupBatches !== 1 ? 's' : ''}, ` +
+                    `max ${warmupBatchMaxMs.toFixed(0)} ms/chunk${stats.aborted ? ', aborted' : ''}).`
             );
         } catch (e) {
             console.warn('[Warmup] Shader compilation error:', e);
         }
-
-        // Refresh canvas MSAA buffer after 1×1 warmup renders (same as startup shader warmup).
-        syncDrawingBufferFromWindow(renderer);
 
         // Record warmup metrics for the startup profiler report.
         recordWarmupMetrics(warmupBatches, warmupBatchMaxMs);

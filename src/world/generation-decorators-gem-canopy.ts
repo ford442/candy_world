@@ -4,6 +4,7 @@ import {
     createIntegratedGemSparks,
     registerIntegratedSystem,
 } from '../particles/compute-integration.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
 import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
@@ -26,9 +27,9 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
     for (let i = 0; i < treeCount; i++) {
         const t = treeCount > 1 ? i / (treeCount - 1) : 0;
         const side = i % 2 === 0 ? 1 : -1;
-        const lateral = (corridorWidth * 0.5 + Math.random() * 2.5) * side;
-        const x = startX + dx * t + perpX * lateral + (Math.random() - 0.5) * 2;
-        const z = startZ + dz * t + perpZ * lateral + (Math.random() - 0.5) * 2;
+        const lateral = (corridorWidth * 0.5 + getSeededRandom() * 2.5) * side;
+        const x = startX + dx * t + perpX * lateral + (getSeededRandom() - 0.5) * 2;
+        const z = startZ + dz * t + perpZ * lateral + (getSeededRandom() - 0.5) * 2;
 
         if (!isPositionValid(x, z, 2.0)) continue;
         const y = sampleGroundY(x, z);
@@ -40,7 +41,7 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         });
         if (!tree) continue;
         plantOnSurface(tree, x, z, { groundY: y, entityType: 'gem_canopy_tree' });
-        tree.rotation.y = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.35;
+        tree.rotation.y = Math.atan2(dx, dz) + (getSeededRandom() - 0.5) * 0.35;
         tree.userData.biome = 'gem_canopy';
         tree.userData.mapEntityType = 'gem_canopy_tree';
         tree.userData.mapExport = {
@@ -66,11 +67,11 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         const x =
             GEM_CANOPY.startX +
             (GEM_CANOPY.endX - GEM_CANOPY.startX) * t +
-            (Math.random() - 0.5) * 8;
+            (getSeededRandom() - 0.5) * 8;
         const z =
             GEM_CANOPY.startZ +
             (GEM_CANOPY.endZ - GEM_CANOPY.startZ) * t +
-            (Math.random() - 0.5) * 8;
+            (getSeededRandom() - 0.5) * 8;
         if (!isPositionValid(x, z, 2.0)) continue;
         const y = sampleGroundY(x, z);
         const usePine = i % 2 === 0;
@@ -97,7 +98,7 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         };
         tree.userData.attachGemFruits = true;
         plantOnSurface(tree, x, z, { groundY: y, entityType: exportType });
-        tree.rotation.y = Math.random() * Math.PI * 2;
+        tree.rotation.y = getSeededRandom() * Math.PI * 2;
         const placed = safeAddFoliage(tree, true, 1.5, weatherSystem);
         recordSpawnAttempt(
             usePine ? 'portamento_pine' : 'bubble_willow',

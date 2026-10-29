@@ -3,6 +3,9 @@
   "cues": [
     { "id": "market.lantern_fill", "biome": "night_market", "channel": 3, "instrument": 12, "rowMod": 16, "event": "lanternPhrase" },
     { "id": "grove.geyser", "biome": "arpeggio_grove", "channel": 1, "note": "C-5", "event": "geyserBurst" },
-    { "id": "cave.shimmer", "biome": "sugar_caves", "channel": 2, "rowMod": 8, "event": "cavePulse" }
+    { "id": "cave.shimmer", "biome": "sugar_caves", "channel": 2, "rowMod": 8, "event": "cavePulse" },
+    { "id": "island.glow", "biome": "lake_island", "channel": 0, "rowMod": 8, "event": "islandGlow", "unlock": "island_scholar" },
+    { "id": "island.geyser", "biome": "lake_island", "channel": 1, "rowMod": 16, "event": "geyserBurst", "unlock": "island_scholar" },
+    { "id": "island.fauna", "biome": "lake_island", "channel": 2, "rowMod": 32, "event": "faunaImpulse", "unlock": "island_scholar" }
   ]
 }

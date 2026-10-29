@@ -27,14 +27,21 @@ import { MAX_DYNAMIC_BODIES } from '../physics/rigid-body-types.ts';
 
 /** Systems that carry an independent budget. */
 export type SystemBudgetId =
-    'shadows' | 'clusteredLights' | 'gi' | 'postfx' | 'particles' | 'rigidBodies' | 'fauna';
+    | 'shadows'
+    | 'clusteredLights'
+    | 'gi'
+    | 'postfx'
+    | 'particles'
+    | 'rigidBodies'
+    | 'fauna'
+    | 'authoring';
 
 export interface SystemBudget {
     /** Human label for the overlay and the docs table. */
     label: string;
     /**
      * Per-frame CPU+GPU cost target in ms on a mid-range discrete GPU at 1080p.
-     * The seven budgets sum to well under 16.67 ms; the rest is scene draw.
+     * The budgets sum to well under 16.67 ms; the rest is scene draw.
      */
     frameMs: number;
     /** Steady-state VRAM allowance in MB. 0 when the system owns no GPU memory. */
@@ -79,7 +86,8 @@ export const SYSTEM_BUDGETS: Readonly<Record<SystemBudgetId, SystemBudget>> = {
         label: 'Post-FX stack',
         frameMs: 2.5,
         vramMb: 64,
-        caps: { passes: 6 },
+        // scene + bloom + DoF + GTAO + SMAA (4) + FSR 1 (2) on `high` with dynres.
+        caps: { passes: 10 },
         skipOnLow: true,
     },
     particles: {
@@ -103,6 +111,17 @@ export const SYSTEM_BUDGETS: Readonly<Record<SystemBudgetId, SystemBudget>> = {
         frameMs: 1.5,
         vramMb: 6,
         caps: { instances: 96, perSpecies: 40 },
+        skipOnLow: false,
+    },
+    authoring: {
+        label: 'Authoring (build mode)',
+        // Ghost raycast + footprint + target scan, every other frame while build
+        // mode is open. Measured ~0.5 ms average on a software-rendered CI VM.
+        frameMs: 1.0,
+        vramMb: 1,
+        // Player-placed entities: per 32 m streaming chunk, and in the whole
+        // world. Batched species share their batcher's fixed capacity.
+        caps: { perChunk: 48, total: 600 },
         skipOnLow: false,
     },
 };
@@ -236,6 +255,8 @@ export interface SystemTelemetry {
     frameMs?: number;
     /** Estimated GPU memory in MB. */
     vramMb?: number;
+    /** Short free-text state shown after the counts (e.g. the post-FX AA mode). */
+    detail?: string;
 }
 
 export type SystemTelemetryProvider = () => SystemTelemetry;

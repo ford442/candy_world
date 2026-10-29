@@ -26,11 +26,31 @@ function shadowMapVramMb(sizes: readonly number[]): number {
     return bytes / BYTES_PER_MB;
 }
 
-/** Read the post-FX pass count published by the WebGPU post graph, if it built one. */
-function postfxPasses(): { passes: number; enabled: boolean } {
-    const w = globalThis as { __candyPostFxPasses?: number };
+/** Shape of `__candyPostFx` (see `PostFxState` in post-processing-webgpu.ts). */
+interface PublishedPostFx {
+    aa?: string;
+    renderScale?: number;
+    dynamicResolution?: boolean;
+    gpuMs?: number | null;
+}
+
+/** Read what the WebGPU post graph published about itself, if it built one. */
+function postfxState(): { passes: number; enabled: boolean; fx: PublishedPostFx } {
+    const w = globalThis as { __candyPostFxPasses?: number; __candyPostFx?: PublishedPostFx };
     const passes = typeof w.__candyPostFxPasses === 'number' ? w.__candyPostFxPasses : 0;
-    return { passes, enabled: passes > 0 };
+    return { passes, enabled: passes > 0, fx: w.__candyPostFx ?? {} };
+}
+
+/** "aa traa  dynres 9.8ms GPU": the AA mode, then the controller's input. */
+function postfxDetail(fx: PublishedPostFx): string | undefined {
+    const parts: string[] = [];
+    if (fx.aa) parts.push(`aa ${fx.aa}`);
+    if (fx.dynamicResolution) {
+        const gpu =
+            typeof fx.gpuMs === 'number' ? `${fx.gpuMs.toFixed(1)}ms GPU` : 'no GPU sample yet';
+        parts.push(`dynres ${gpu}`);
+    }
+    return parts.length ? parts.join('  ') : undefined;
 }
 
 /**
@@ -72,12 +92,13 @@ export function registerAllSystemTelemetry(): void {
     });
 
     registerSystemTelemetry('postfx', () => {
-        const { passes, enabled } = postfxPasses();
+        const { passes, enabled, fx } = postfxState();
         return {
             enabled,
             reason: enabled ? undefined : 'post graph not built (WebGL / postfx=off)',
-            counts: { passes },
+            counts: { passes, renderScalePct: Math.round((fx.renderScale ?? 1) * 100) },
             frameMs: profiler.getMark('postfx.render'),
+            detail: postfxDetail(fx),
         };
     });
 

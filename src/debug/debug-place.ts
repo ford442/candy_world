@@ -5,10 +5,10 @@
  * Enabled via URL flag:
  *   ?debugPlace=1
  *
- * The ghost is planted every other frame through the same `plantOnSurface`
- * call `processMapEntity` makes (base offset, footprint sampling, slope
- * alignment), so it shows where a commit will land, and turns red when that
- * placement would be tilt-clamped or leave the base clipping uneven ground.
+ * A thin dev overlay on the build-mode placement pipeline
+ * (`systems/authoring/placement-core.ts`): same raycast, same grounded ghost,
+ * same snapshot shape, same EditHistory commands. What it adds is the dev
+ * sidecar and the map.json export.
  *
  * Place / move / remove are EditHistory commands and persist to the dev
  * sidecar (IndexedDB). Alt+S merges every sidecar placement into a full
@@ -16,10 +16,22 @@
  */
 
 import * as THREE from 'three';
-import { CONFIG } from '../core/config.ts';
+import {
+    EXCLUDED_TYPES,
+    HOVER_RADIUS,
+    RAY_MAX,
+    STATUS_COLORS,
+    buildPlacementSnapshot,
+    createPlacementGhost,
+    createPlacementState,
+    evaluatePlacement,
+    raycastGround,
+    round,
+    yawOf,
+    type PlacementGhost,
+} from '../systems/authoring/placement-core.ts';
 import { editHistory } from '../systems/edit-history.ts';
 import {
-    CURRENT_SNAPSHOT_VERSION,
     nextSnapshotId,
     snapshotEntity,
     type EntitySnapshot,
@@ -29,13 +41,6 @@ import {
     loadDevSnapshots,
     saveSnapshot,
 } from '../systems/entity-snapshot-store.ts';
-import {
-    getGroundHeight,
-    getRawTerrainHeight,
-    isInLakeBasin,
-    sampleGroundFootprint,
-    sampleGroundNormal,
-} from '../systems/ground-system.ts';
 import { applyEntitySnapshots } from '../systems/save-system/entity-snapshot.ts';
 import {
     MoveCommand,
@@ -47,15 +52,6 @@ import { announce } from '../ui/announcer.ts';
 import { showToast } from '../utils/toast.ts';
 import { getRegisteredTypes, registerBuiltinWorldObjectTypes } from '../world/foliage-registry.ts';
 import { getMapSourceFromUrl, type CandyMapEntity } from '../world/map-loader.ts';
-import {
-    SLOPE_ALIGN_TYPES,
-    getEntityFootprintRadius,
-    getFootprintSamples,
-    getGroundAlignedQuaternion,
-    getMaxSlopeAngle,
-    plantOnSurface,
-    sampleGroundY,
-} from '../world/placement-utils.ts';
 import {
     buildDeltaEntities,
     deltaFingerprint,
@@ -74,53 +70,13 @@ const _hasFlag = (key: string): boolean => {
 
 const DEBUG_PLACE = import.meta.env.DEV && _hasFlag('debugPlace');
 
-// Clouds are forced to absolute placement and sky islands float at authored
-// heights, so a ground-hugging ghost can't represent either.
-const EXCLUDED_TYPES: ReadonlySet<string> = new Set(['cloud', 'sky_island']);
-
-/** processMapEntity lifts these above the sampled ground before planting (default params). */
-const PRE_PLANT_Y: Readonly<Record<string, number>> = {
-    floating_orb: 1.5,
-    swingable_vine: 8,
-    wisteria_cluster: 4,
-};
-
-const RAY_MAX = 120;
-const RAY_STEP = 0.5;
-/** Ground height difference under the base above which part of it floats or sinks. */
-const MAX_FOOTPRINT_SPREAD = 0.25;
-/** Diagnostic footprint for types the pipeline samples at a single point. */
-const DIAGNOSTIC_FOOTPRINT = 0.3;
-/** How close (XZ) the ghost must be to a placement for Alt+G / Alt+Backspace. */
-const HOVER_RADIUS = 2.5;
 const EXPORTED_KEY = 'candy.debugPlace.exportedFingerprint';
 
-const STATUS_COLORS = { ok: 0x4ade80, warn: 0xfbbf24, bad: 0xf87171 } as const;
-type GhostStatus = keyof typeof STATUS_COLORS;
-
-const _up = new THREE.Vector3(0, 1, 0);
 const _hit = new THREE.Vector3();
-const _yawQuat = new THREE.Quaternion();
-const _euler = new THREE.Euler();
-const _proxy = new THREE.Object3D();
-
-const _ghostState = {
-    hit: false,
-    x: 0,
-    y: 0,
-    z: 0,
-    quat: new THREE.Quaternion(),
-    footprint: DIAGNOSTIC_FOOTPRINT,
-    onPlatform: false,
-    status: 'bad' as GhostStatus,
-    reason: 'waiting for first frame',
-};
+const _ghostState = createPlacementState();
 
 let _panel: HTMLElement | null = null;
-let _ghost: THREE.Group | null = null;
-let _ghostBody: THREE.Mesh | null = null;
-let _ghostMat: THREE.MeshBasicMaterial | null = null;
-let _hoverMarker: THREE.Mesh | null = null;
+let _ghost: PlacementGhost | null = null;
 
 let _types: string[] = [];
 let _currentType = 'mushroom';
@@ -215,11 +171,6 @@ function isTextEntryTarget(target: EventTarget | null): boolean {
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 }
 
-function round(v: number, digits = 2): number {
-    const f = 10 ** digits;
-    return Math.round(v * f) / f;
-}
-
 /** Resolves once boot has published `window.__sceneReady` (world generated), or after the timeout. */
 function whenSceneReady(timeoutMs = 180_000): Promise<void> {
     return new Promise((resolve) => {
@@ -253,80 +204,8 @@ async function restoreDevPlacements(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Ghost: raycast + grounded-placement pipeline
+// Ghost: hover target (the raycast + grounded pipeline is placement-core.ts)
 // ---------------------------------------------------------------------------
-
-/** March the view ray against the unified ground (terrain, lake, platforms). */
-function raycastGround(origin: THREE.Vector3, dir: THREE.Vector3, out: THREE.Vector3): boolean {
-    let prevT = 0;
-    if (origin.y - getGroundHeight(origin.x, origin.z) < 0) return false;
-    for (let t = RAY_STEP; t <= RAY_MAX; t += RAY_STEP) {
-        const px = origin.x + dir.x * t;
-        const pz = origin.z + dir.z * t;
-        if (origin.y + dir.y * t - getGroundHeight(px, pz) > 0) {
-            prevT = t;
-            continue;
-        }
-        let lo = prevT;
-        let hi = t;
-        for (let i = 0; i < 8; i++) {
-            const mid = (lo + hi) * 0.5;
-            const mx = origin.x + dir.x * mid;
-            const mz = origin.z + dir.z * mid;
-            if (origin.y + dir.y * mid - getGroundHeight(mx, mz) > 0) lo = mid;
-            else hi = mid;
-        }
-        out.set(origin.x + dir.x * hi, 0, origin.z + dir.z * hi);
-        return true;
-    }
-    return false;
-}
-
-function setGhostStatus(status: GhostStatus, reason: string): void {
-    _ghostState.status = status;
-    _ghostState.reason = reason;
-}
-
-/** Plant the proxy exactly as processMapEntity would, then judge the result. */
-function evaluateGhost(type: string, x: number, z: number): void {
-    const s = _ghostState;
-    const groundY = sampleGroundY(x, z);
-
-    _proxy.userData = {};
-    _proxy.quaternion.setFromAxisAngle(_up, _currentYaw);
-    s.y = plantOnSurface(_proxy, x, z, {
-        groundY: groundY + (PRE_PLANT_Y[type] ?? 0),
-        entityType: type,
-        registerDebugMarker: false,
-    });
-    getGroundAlignedQuaternion(_proxy, s.quat);
-    s.x = x;
-    s.z = z;
-    s.onPlatform = groundY - getRawTerrainHeight(x, z) > CONFIG.ground.platformElevationThreshold;
-
-    const normalY = sampleGroundNormal(x, z).y;
-    const tilt = Math.acos(Math.min(1, Math.max(-1, normalY)));
-    const radius = getEntityFootprintRadius(type) || DIAGNOSTIC_FOOTPRINT;
-    const fp = sampleGroundFootprint(x, z, radius, getFootprintSamples());
-    const spread = fp.maxY - fp.minY;
-    s.footprint = radius;
-
-    const maxTilt = getMaxSlopeAngle();
-    if (tilt > maxTilt) {
-        const deg = Math.round(THREE.MathUtils.radToDeg(tilt));
-        const maxDeg = Math.round(THREE.MathUtils.radToDeg(maxTilt));
-        const effect = SLOPE_ALIGN_TYPES.has(type) ? 'tilt clamped' : 'stands upright';
-        setGhostStatus('bad', `slope ${deg}° > ${maxDeg}°, ${effect}`);
-    } else if (spread > MAX_FOOTPRINT_SPREAD) {
-        setGhostStatus('bad', `uneven base: ${spread.toFixed(2)} m under footprint`);
-    } else if (s.onPlatform) {
-        setGhostStatus('warn', 'on platform: saved at absolute Y, may drift');
-    } else if (isInLakeBasin(x, z)) {
-        setGhostStatus('warn', 'lake basin: underwater');
-    } else {
-        setGhostStatus('ok', 'grounded');
-    }
-}
 
 function updateHover(): void {
     _hovered = null;
@@ -345,22 +224,8 @@ function updateHover(): void {
 }
 
 function applyGhostVisuals(): void {
-    if (!_ghost || !_ghostBody || !_ghostMat || !_hoverMarker) return;
-    const s = _ghostState;
-    _ghost.visible = s.hit;
-    _ghostMat.color.setHex(STATUS_COLORS[s.status]);
-    if (s.hit) {
-        _ghost.position.set(s.x, s.y, s.z);
-        _ghost.quaternion.copy(s.quat);
-        _ghostBody.scale.set(s.footprint, 1.5 * _currentScale, s.footprint);
-    }
-
     const target = _held ?? _hovered;
-    _hoverMarker.visible = !!target;
-    if (target) {
-        const [px, py, pz] = target.entity.position;
-        _hoverMarker.position.set(px, py + 0.05, pz);
-    }
+    _ghost?.update(_ghostState, _currentScale, target ? target.entity.position : null);
 }
 
 // ---------------------------------------------------------------------------
@@ -369,23 +234,12 @@ function applyGhostVisuals(): void {
 
 /** Snapshot of the ghost's current transform; `base` carries a moved entity's other fields. */
 function buildSnapshot(id: string, base?: CandyMapEntity): EntitySnapshot {
-    const s = _ghostState;
-    const q = _yawQuat.setFromAxisAngle(_up, _currentYaw);
-    return {
-        schemaVersion: CURRENT_SNAPSHOT_VERSION,
-        id,
-        entity: {
-            ...(base ?? { params: {} }),
-            id,
-            type: base?.type ?? _currentType,
-            position: [round(s.x), round(s.y), round(s.z)],
-            rotation: { quat: [round(q.x, 6), round(q.y, 6), round(q.z, 6), round(q.w, 6)] },
-            scale: round(_currentScale),
-            // processMapEntity re-grounds 'ground' records at load; a platform
-            // may not be registered yet then, so keep the planted Y instead.
-            placement: s.onPlatform ? 'absolute' : 'ground',
-        },
-    };
+    return buildPlacementSnapshot(id, _ghostState, {
+        type: _currentType,
+        yaw: _currentYaw,
+        scale: _currentScale,
+        base,
+    });
 }
 
 /** Shared gate for place / drop: a surface is under the crosshair and the ghost isn't red. */
@@ -414,20 +268,6 @@ function commitPlacement(force: boolean): void {
     } else {
         showToast(`Could not place ${_currentType}`, '❌', 2000);
     }
-}
-
-function yawOf(rotation: CandyMapEntity['rotation']): number {
-    if (
-        rotation &&
-        typeof rotation === 'object' &&
-        !Array.isArray(rotation) &&
-        'quat' in rotation &&
-        Array.isArray(rotation.quat)
-    ) {
-        const [x, y, z, w] = rotation.quat;
-        return _euler.setFromQuaternion(_yawQuat.set(x, y, z, w), 'YXZ').y;
-    }
-    return typeof rotation === 'number' ? rotation : 0;
 }
 
 function grabHovered(): void {
@@ -840,45 +680,6 @@ function onBeforeUnload(e: BeforeUnloadEvent): void {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-function buildGhost(scene: THREE.Scene): void {
-    _ghostMat = new THREE.MeshBasicMaterial({
-        color: STATUS_COLORS.ok,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.5,
-        depthTest: false,
-    });
-    const bodyGeo = new THREE.CylinderGeometry(1, 1, 1, 16, 1, true);
-    bodyGeo.translate(0, 0.5, 0);
-    _ghostBody = new THREE.Mesh(bodyGeo, _ghostMat);
-    const ringGeo = new THREE.RingGeometry(0.9, 1.0, 32);
-    ringGeo.rotateX(-Math.PI / 2);
-    const ring = new THREE.Mesh(ringGeo, _ghostMat);
-    // The ring shares the body's XZ scale so it traces the sampled footprint.
-    _ghostBody.add(ring);
-    _ghostBody.renderOrder = ring.renderOrder = 9999;
-
-    _ghost = new THREE.Group();
-    _ghost.add(_ghostBody);
-    _ghost.visible = false;
-    scene.add(_ghost);
-
-    const hoverGeo = new THREE.RingGeometry(1.2, 1.4, 32);
-    hoverGeo.rotateX(-Math.PI / 2);
-    _hoverMarker = new THREE.Mesh(
-        hoverGeo,
-        new THREE.MeshBasicMaterial({
-            color: 0xfb923c,
-            transparent: true,
-            opacity: 0.8,
-            depthTest: false,
-        })
-    );
-    _hoverMarker.renderOrder = 9999;
-    _hoverMarker.visible = false;
-    scene.add(_hoverMarker);
-}
-
 export function initPlacementDebug(scene: THREE.Scene, _camera: THREE.PerspectiveCamera): void {
     if (!DEBUG_PLACE || _panel) return;
 
@@ -891,7 +692,7 @@ export function initPlacementDebug(scene: THREE.Scene, _camera: THREE.Perspectiv
     _exportedFingerprint = readExportedFingerprint();
     _panel = buildPanel();
     document.body.appendChild(_panel);
-    buildGhost(scene);
+    _ghost = createPlacementGhost(scene);
     onPlacementsChanged();
 
     window.addEventListener('keydown', onKeyDown, { capture: true });
@@ -909,8 +710,18 @@ export function updatePlacementDebug(cameraPos: THREE.Vector3, cameraDir: THREE.
     if ((_frame++ & 1) === 1) return;
 
     _ghostState.hit = raycastGround(cameraPos, cameraDir, _hit);
-    if (_ghostState.hit) evaluateGhost(_held?.entity.type ?? _currentType, _hit.x, _hit.z);
-    else setGhostStatus('bad', `no surface within ${RAY_MAX} m`);
+    if (_ghostState.hit) {
+        evaluatePlacement(
+            _ghostState,
+            _held?.entity.type ?? _currentType,
+            _hit.x,
+            _hit.z,
+            _currentYaw
+        );
+    } else {
+        _ghostState.status = 'bad';
+        _ghostState.reason = `no surface within ${RAY_MAX} m`;
+    }
 
     updateHover();
     applyGhostVisuals();

@@ -50,7 +50,7 @@ export function triggerAbility(
 }
 
 export interface InitInputResult {
-    controls: import('three/examples/jsm/controls/PointerLockControls.js').PointerLockControls;
+    controls: import('three/addons/controls/PointerLockControls.js').PointerLockControls;
     updateReticleState: (state: 'idle' | 'hover' | 'interact', label?: string) => void;
     updateDayNightButtonState: (isPressed: boolean) => void;
     cleanup: () => void;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 import { create } from './foliage-registry.ts';
 import { safeAddFoliage } from './generation-entities.ts';
 import {
@@ -22,14 +23,14 @@ export function spawnNearbyFoliage(
 
     const maxAttempts = 5;
     for (let i = 0; i < options.maxOffspring; i++) {
-        if (Math.random() > options.spawnChanceBase) continue;
+        if (getSeededRandom() > options.spawnChanceBase) continue;
 
         let valid = false;
         let nx = 0, nz = 0;
 
         for (let a = 0; a < maxAttempts; a++) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = (Math.random() * 0.5 + 0.5) * options.spawnRadius;
+            const angle = getSeededRandom() * Math.PI * 2;
+            const dist = (getSeededRandom() * 0.5 + 0.5) * options.spawnRadius;
             nx = origin.x + Math.cos(angle) * dist;
             nz = origin.z + Math.sin(angle) * dist;
 

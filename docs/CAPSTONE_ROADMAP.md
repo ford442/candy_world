@@ -26,9 +26,10 @@ co-presence.
 | Presence core         | `PresenceSystem` — ~10 Hz pose, ephemeral session ids, no accounts, room = world seed                 |
 | Avatars + UI          | `remote-avatars.ts`, `src/ui/presence-panel.ts`, start-screen opt-in, recent ARIA                     |
 | Fauna                 | C++ boids (#1478), `src/systems/fauna/*`, sky-island roosts                                           |
-| Awakened flora        | `awakened-persistence` (flagged `?awakened`)                                                          |
+| Awakened flora        | `awakened-persistence` (on by default since #1974; `?no_awakened` off)                                |
 | Vertical exploration  | Sky Islands — `docs/SKY_ISLANDS.md`, `sky-island-graph.ts`                                            |
-| Lazy net (foundation) | `src/systems/net/lazy.ts` (`import()` when flag on) → `presence` chunk; see `docs/APP_CHUNK_SPLIT.md` |
+| Lazy net (foundation) | `src/systems/net/lazy.ts` (`import()` when flag on) → `net` chunk; see `docs/APP_CHUNK_SPLIT.md` |
+| Shared worlds         | Publish, share links, live co-editing (#1975) — `docs/SHARED_WORLDS.md`                               |
 | Content layer         | Sugar Caves — `docs/SUGAR_CAVES_SHIP.md`, `part-ii-unlock.ts`                                         |
 
 ## Prerequisites (do not skip)
@@ -67,7 +68,7 @@ Shipped **Option 1 — Subterranean Sugar Caves**. Festival Night Market and Wea
 ### C. Libraries (only if justified)
 
 - **Keep Supabase** — do not add a second realtime stack
-- **bitecs** — only if AS ECS insufficient for fauna + peers; prefer extend `assembly/ecs.ts`
+- **bitecs** — only if the C++ slab ECS (`emscripten/ecs.cpp`) is insufficient for fauna + peers; prefer extending it (`assembly/ecs.ts` had no caller and was deleted, #2026)
 - **Map authoring** — expand `?debugPlace` + `tools/map-generator/` rather than external editor deps
 
 ## Part II door (explicit sequence)

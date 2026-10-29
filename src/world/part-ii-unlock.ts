@@ -6,7 +6,8 @@
  */
 
 const UNLOCK_KEY = 'candy.part2.sugar_caves_unlocked';
-const AWAKENED_THRESHOLD = 3;
+/** Awakened flora needed before the lake door opens. */
+export const AWAKENED_THRESHOLD = 3;
 
 /** Fallback state when localStorage is unavailable (e.g., Node/SSR tests, private browsing mode). */
 let _memoryUnlocked = false;

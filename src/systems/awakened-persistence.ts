@@ -2,7 +2,7 @@
  * Awakened flora persistence — durable soft glow for music-reacted plants.
  *
  * Separate from discovery-persistence (spatial "seen" vs music "awakened").
- * Feature-flagged via FEATURE_FLAGS.awakenedPersistence (?awakened, default off).
+ * Feature-flagged via FEATURE_FLAGS.awakenedPersistence (on by default; ?no_awakened turns it off).
  */
 
 import * as THREE from 'three';
@@ -15,6 +15,7 @@ import {
     persistentIdFromString,
     POSITION_QUANTIZE,
 } from './awakened-persistent-id.ts';
+import { emitProgress } from './progress-events.ts';
 import type { AwakenedFloraState } from './save-system/save-types.ts';
 
 // save-system.ts imports the awakened facade, so importing save-system here
@@ -195,6 +196,8 @@ export class AwakenedStore {
         this.applyVisualState(persistentId, merged);
         this.scheduleDebouncedSave();
 
+        if (isNew) emitProgress({ kind: 'awakened', id: String(persistentId), type: merged.type });
+
         if (isNew && !this.analyticsFired.has(persistentId)) {
             this.analyticsFired.add(persistentId);
             trackEvent('entity_awakened', {
@@ -213,6 +216,11 @@ export class AwakenedStore {
 
     isAwakened(persistentId: number): boolean {
         return this.awakened.has(persistentId);
+    }
+
+    /** The type of the awakenable flora placed under this id, if one is. */
+    placedType(persistentId: number): string | undefined {
+        return this.placed.get(persistentId)?.type;
     }
 
     /** Reused output buffer — no allocation */
@@ -413,7 +421,7 @@ export class AwakenedStore {
 
     debugAwaken(persistentId: number, emissiveScale = DEFAULT_AWAKENED_EMISSIVE_SCALE): void {
         if (!this.isEnabled()) {
-            console.warn('[AwakenedStore] debugAwaken: flag off (?awakened)');
+            console.warn('[AwakenedStore] debugAwaken: flag off (?no_awakened)');
             return;
         }
         this.set(persistentId, { type: 'luminous_plant', biome: 'luminous_plants', emissiveScale });
@@ -570,6 +578,10 @@ export const awakenedPersistence = {
 
     isAwakened(persistentId: number): boolean {
         return store()?.isAwakened(persistentId) ?? false;
+    },
+
+    placedType(persistentId: number): string | undefined {
+        return store()?.placedType(persistentId);
     },
 
     getState(persistentId: number): AwakenedMeta | undefined {

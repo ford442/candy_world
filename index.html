@@ -147,6 +147,10 @@
                 <span aria-hidden="true">🎥</span> Explore Mode <span class="key-badge" aria-hidden="true">Tab</span>
             </button>
 
+            <button type="button" id="openPhotoBtn" class="toggle-button" aria-pressed="false" aria-keyshortcuts="P" aria-label="Photo mode" title="Cinematic photo mode (P)">
+                <span aria-hidden="true">📷</span> Photo Mode <span class="key-badge" aria-hidden="true">P</span>
+            </button>
+
             <button type="button" id="openA11yBtn" class="toggle-button" aria-label="Open Accessibility Settings" aria-haspopup="dialog" aria-expanded="false" title="Accessibility Settings">
                 <span aria-hidden="true">♿</span> Accessibility
             </button>
@@ -289,12 +293,13 @@
 
     <!-- Deferred HUD Indicator -->
     <div id="candy-deferred-indicator" class="deferred-indicator" aria-hidden="true">
-        <span class="deferred-spinner"></span>
-        <span class="deferred-text">Populating...</span>
+        <span id="deferred-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></span>
+        <span class="deferred-spinner" aria-hidden="true"></span>
+        <span class="deferred-text" aria-hidden="true">Populating...</span>
         <span class="deferred-count" aria-hidden="true"></span>
         <span class="deferred-eta" aria-hidden="true"></span>
         <span class="deferred-fail" aria-hidden="true" role="button" tabindex="0" style="display:none;color:#ff6b6b;font-weight:600;margin-left:6px;cursor:pointer;">⚠ <span class="fail-count">0</span></span>
-        <span class="deferred-bar"><span class="deferred-bar-fill"></span></span>
+        <span class="deferred-bar" aria-hidden="true"><span class="deferred-bar-fill"></span></span>
     </div>
 
     <!-- Loading Screen Overlay -->

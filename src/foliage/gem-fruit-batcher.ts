@@ -19,7 +19,10 @@ import {
     uTime,
     uAudioLow,
     applyStandardDeformation,
+    calculateWindSway,
     createJuicyRimLight,
+    asNode,
+    type FloatNode,
 } from './material-core.ts';
 
 const GEM_BIOME: BiomeId = 'gem_canopy';
@@ -75,7 +78,7 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
     const swayX = sin(swayPhase).mul(0.09).mul(normH).mul(audioBoost);
     const swayZ = cos(swayPhase.mul(0.85)).mul(0.07).mul(normH).mul(audioBoost);
     // Visual Impact: note-hit twist driven by hueShift uniform (beat shimmer proxy)
-    const twist = sin(uTime.mul(4.0).add(aPhase.mul(2.0))).mul(gemUniforms.hueShift).mul(0.12).mul(normH);
+    const twist = asNode<FloatNode>(sin(uTime.mul(4.0).add(aPhase.mul(2.0))).mul(gemUniforms.hueShift).mul(0.12).mul(normH));
 
     const swayed = positionLocal.add(vec3(swayX, float(0.0), swayZ));
     const circadianDroop = float(-0.5).mul(uCircadianPoseOffset).mul(positionLocal.y);
@@ -89,7 +92,13 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
     // in [0, 2π) and moves with its instance on swap-with-last removal, so it is a
     // stable per-gem key.
     const seasonKeep = seasonDensityKeep(fract(aPhase.mul(1 / (Math.PI * 2))), uSeasonSpawn.gemFruit);
-    mat.positionNode = applyStandardDeformation(twisted.mul(seasonKeep));
+    const baseDeformed = twisted.mul(seasonKeep);
+    // 🎨 PALETTE: Apply Standard Deformation (which already includes player interaction)
+    // AND explicitly add Wind Sway on top to make the gem fruits more dynamic
+    // and visually cohesive with the twilight candy theme.
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    mat.positionNode = applyStandardDeformation(baseDeformed).add(calculateWindSway(baseDeformed, { amplitude: float(1.5) }));
 
     // Visual Impact: emissive pulse on shimmer — visible bloom response on crescendo.
     // shimmerGlow is the sustained melody glow; beatPulse is the kick-hit flash.
@@ -203,12 +212,7 @@ export class GemFruitBatcher {
 
                 this._scratchMatrix.compose(this._scratchPos, this._scratchQuat, this._scratchScale);
 
-                const instanceIndex = this._registerInstanceForTree(gemType, this._scratchMatrix, drop + 0.2, treeGroup);
-                if (instanceIndex >= 0) {
-                    placed++;
-                    refs.push({ batcher: 'gem_fruit', instanceIndex, gemType });
-                    updatedMeshes.add(this.meshes[gemType]);
-                }
+
             }
         }
         // ⚡ OPTIMIZATION: Hoisted buffer needsUpdate flags outside the registration loop to eliminate redundant WebGPU uploads

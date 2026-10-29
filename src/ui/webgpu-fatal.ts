@@ -160,8 +160,8 @@ export function showWebGPUFatalScreen(error: unknown): void {
           <pre id="webgpu-fatal-json"></pre>
         </details>
         <div class="actions">
-          <button type="button" class="primary" id="webgpu-fatal-reload">Reload</button>
-          <button type="button" class="secondary" id="webgpu-fatal-copy">Copy diagnostics</button>
+          <button type="button" class="primary webgpu-fatal-btn" id="webgpu-fatal-reload">Reload</button>
+          <button type="button" class="secondary webgpu-fatal-btn" id="webgpu-fatal-copy">Copy diagnostics</button>
         </div>
         <p class="alt-modes">
           Lighter modes still need WebGPU, but may help on weak or blocklisted GPUs:
@@ -191,7 +191,12 @@ export function showWebGPUFatalScreen(error: unknown): void {
     });
 
     yieldToPaint(50).then(() => {
-        trapFocusInside(overlay, { skipAutoFocus: true });
+        trapFocusInside(overlay, {
+            skipAutoFocus: true,
+            onEscape: () => {
+                // Fatal screen cannot be dismissed
+            }
+        });
         reload.focus({ preventScroll: true });
     });
 

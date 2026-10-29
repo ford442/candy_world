@@ -229,13 +229,6 @@ function cppCompose(em, positions, quaternions, scales, count) {
     em._free(pPos); em._free(pQuat); em._free(pScale); em._free(pMat);
     return out;
   }
-
-  // Raw export path
-  const fn = em.exports && (em.exports.batchComposeMatrices_c || em.exports._batchComposeMatrices_c);
-  if (fn && em.memory) {
-    // Insufficient without a proper allocator — treat as unavailable
-    return null;
-  }
   return null;
 }
 

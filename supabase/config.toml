@@ -1,0 +1,48 @@
+# Supabase CLI config for shared worlds (#1975): `supabase start` runs the
+# local stack with the settings a hosted project needs (docs/SHARED_WORLDS.md).
+project_id = "candy-world"
+
+[api]
+enabled = true
+port = 54321
+# `private` holds the RLS helpers and must never be listed here. No GraphQL:
+# migrations/*_disable_pg_graphql.sql.
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[storage.buckets.world-thumbnails]
+public = true
+file_size_limit = "2MiB"
+allowed_mime_types = ["image/jpeg", "image/png", "image/webp"]
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:4173"]
+# Players start as anonymous users; linking an email or OAuth identity later
+# keeps their worlds when the browser's storage is cleared.
+enable_anonymous_sign_ins = true
+enable_manual_linking = true
+
+[auth.email]
+enable_signup = true
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+deno_version = 2
+
+[functions.validate-world]
+verify_jwt = true

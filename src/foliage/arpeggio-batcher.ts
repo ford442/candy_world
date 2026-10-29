@@ -31,6 +31,8 @@ import {
     uPlayerPosition,
     applyBaseContactAO,
     getBaseContactHeight,
+    asNode,
+    type FloatNode,
 } from './material-core.ts';
 import { applySeasonTint } from './material-core/season-nodes.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
@@ -269,7 +271,7 @@ export class ArpeggioFernBatcher {
         const curledY = p3.y.mul(cCurl).sub(p3.z.mul(sCurl));
         const curledZ = p3.y.mul(sCurl).add(p3.z.mul(cCurl));
 
-        const pCurled = vec3(p3.x, curledY, curledZ);
+        const pCurled = vec3(p3.x, asNode<FloatNode>(curledY), asNode<FloatNode>(curledZ));
 
         // --- RE-WIND ROTATION ---
         // Inverse of Step 3 (Rotate X)
@@ -315,7 +317,7 @@ export class ArpeggioFernBatcher {
         const bob = instanceUnfurl.mul(0.2);
         const finalPos = withWind.add(vec3(0, bob, 0));
 
-        const glitched = applyGlitch(uv(), finalPos, uGlitchIntensity as unknown as import('three/src/nodes/tsl/TSLCore.js').ShaderNodeObject<import('three/webgpu').Node>);
+        const glitched = applyGlitch(uv(), finalPos, uGlitchIntensity);
         material.positionNode = glitched.position;
 
         // Fragment Shader: Instance Color Tint + Rim Light

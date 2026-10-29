@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type UniformNode from 'three/src/nodes/core/UniformNode.js';
+import type { UniformNode } from 'three/webgpu';
 import { color, uv, mix, Fn, uniform, sin, time, smoothstep, float } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';

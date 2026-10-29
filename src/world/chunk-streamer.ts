@@ -17,7 +17,8 @@ import {
     type GridCell,
 } from '../systems/region-manager-core.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { classifyForEviction, despawnEntity } from './entity-despawn.ts';
+import { isAuthoredEntity } from './authored-entities.ts';
+import { classifyForEviction, despawnEntity, isDespawned } from './entity-despawn.ts';
 import { recordGenerationChunk } from '../utils/startup-profiler.ts';
 import { processMapEntity } from './generation-entities.ts';
 import { yieldControl, type WeatherSystem } from './generation-utils.ts';
@@ -235,6 +236,12 @@ export class ChunkStreamer {
     }
 
     private spawnEntity(entity: LoadedMapEntity, record: ChunkRecord, streamed: boolean): void {
+        // A world command owns this id (placed over, removed or moved it): the
+        // map copy must not come back.
+        if (isAuthoredEntity(entity.id)) {
+            this.spawnedIds.add(entity.id);
+            return;
+        }
         // Mark spawned in `finally` — processMapEntity has its own internal
         // try/catch so it shouldn't normally throw, but if it ever does, the
         // id must still be added (dedup on this id is what stops it being
@@ -437,7 +444,8 @@ export class ChunkStreamer {
 
     private evictObject(obj: THREE.Object3D): void {
         try {
-            despawnEntity(obj, this.weatherSystem);
+            // A world command may already have torn this one down.
+            if (!isDespawned(obj)) despawnEntity(obj, this.weatherSystem);
             // Free the entity id so walking back into range re-spawns it.
             const entityId = (obj.userData as Record<string, unknown>)?.mapEntityId;
             if (typeof entityId === 'string') this.spawnedIds.delete(entityId);

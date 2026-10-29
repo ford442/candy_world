@@ -176,7 +176,7 @@ export class ClothSim {
             const dx = this.bind[b] - this.bind[a];
             const dy = this.bind[b + 1] - this.bind[a + 1];
             const dz = this.bind[b + 2] - this.bind[a + 2];
-            this.rest[k] = Math.hypot(dx, dy, dz);
+            this.rest[k] = Math.sqrt(dx * dx + dy * dy + dz * dz);
         }
     }
 
@@ -250,7 +250,7 @@ export class ClothSim {
         // cloth ripples on the same swell as foliage and pollen instead of on a
         // private sine. Modulated per-row for a travelling wave.
         const gust = getWindState().gust;
-        const wl = Math.hypot(o.windX, o.windY, o.windZ) || 1;
+        const wl = Math.sqrt(o.windX * o.windX + o.windY * o.windY + o.windZ * o.windZ) || 1;
         const wScale = o.windStrength * gust * h * h;
         const wx = (o.windX / wl) * wScale;
         const wy = (o.windY / wl) * wScale;
@@ -266,7 +266,7 @@ export class ClothSim {
             let vy = (pos[p + 1] - prev[p + 1]) * keep;
             let vz = (pos[p + 2] - prev[p + 2]) * keep;
 
-            const speed = Math.hypot(vx, vy, vz);
+            const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
             if (speed > maxStep) {
                 const s = maxStep / speed;
                 vx *= s;
@@ -302,7 +302,7 @@ export class ClothSim {
             const dx = pos[b] - pos[a];
             const dy = pos[b + 1] - pos[a + 1];
             const dz = pos[b + 2] - pos[a + 2];
-            const d = Math.hypot(dx, dy, dz);
+            const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (d < 1e-6) continue;
 
             const rest = this.rest[k];
@@ -353,7 +353,7 @@ export class ClothSim {
                 const dx = pos[p] - player.x;
                 const dz = pos[p + 2] - player.z;
                 const dy = pos[p + 1] - cy;
-                const d = Math.hypot(dx, dy, dz);
+                const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
                 const r = player.radius;
                 if (d < r) {
                     if (d < 1e-5) {
@@ -420,7 +420,7 @@ export class ClothSim {
             }
         }
         for (let i = 0; i < out.length; i += 3) {
-            const l = Math.hypot(out[i], out[i + 1], out[i + 2]);
+            const l = Math.sqrt(out[i] * out[i] + out[i + 1] * out[i + 1] + out[i + 2] * out[i + 2]);
             if (l < 1e-6) {
                 out[i] = 0;
                 out[i + 1] = 0;

@@ -5,6 +5,7 @@
  */
 
 import { CONFIG, type EntityScaleEntry, type EntityScaleRange } from '../core/config.ts';
+import { getSeededRandom } from '../utils/seeded-random.ts';
 
 export interface ScaleSampleOptions {
     biome?: string;
@@ -46,7 +47,7 @@ function applyDistanceBias(value: number, normalizedDistance?: number): number {
 }
 
 function sampleRange(range: EntityScaleRange, normalizedDistance?: number): number {
-    const raw = range.min + Math.random() * (range.max - range.min);
+    const raw = range.min + getSeededRandom() * (range.max - range.min);
     return applyDistanceBias(raw, normalizedDistance);
 }
 

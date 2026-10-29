@@ -1,6 +1,5 @@
-import { toggleBuildMode } from '../../../systems/build-mode.ts';
-import { sceneRef } from '../../game-loop-core.ts';
-import { discoverySystem } from '../../../systems/discovery.ts';
+import { toggleBuildMode } from '../../../systems/build-mode-lazy.ts';
+import { discoverySystem } from '../../../systems/discovery-optimized.ts';
 import {
     getPhotoMode,
     isPhotoModeActive,
@@ -9,6 +8,9 @@ import {
 import { trapFocusInside } from '../../../utils/focus-trap.ts';
 import { yieldToPaint } from '../../../utils/yield-to-paint.ts';
 import { isExploreActive } from '../../camera-modes.ts';
+import { sceneRef } from '../../game-loop-core.ts';
+import { input } from '../actions/index.ts';
+import type { ActionId } from '../actions/index.ts';
 import { handleMuteKey, handleVolumeKey } from '../audio-controls.ts';
 import { keyStates } from '../input-types.ts';
 import {
@@ -26,34 +28,6 @@ import {
 } from './menu-helpers.ts';
 import type { InputSession } from './session.ts';
 
-// Cache D-Pad elements
-let dpadForward: HTMLElement | null = null;
-let dpadLeft: HTMLElement | null = null;
-let dpadBackward: HTMLElement | null = null;
-let dpadRight: HTMLElement | null = null;
-let dpadElementsCached = false;
-
-function cacheDpadElements() {
-    if (dpadElementsCached || typeof document === 'undefined') return;
-    dpadForward = document.getElementById('dpad-forward');
-    dpadLeft = document.getElementById('dpad-left');
-    dpadBackward = document.getElementById('dpad-backward');
-    dpadRight = document.getElementById('dpad-right');
-    dpadElementsCached = true;
-
-    // Clear stuck states
-    const clearDpadStates = () => {
-        dpadForward?.classList.remove('keyboard-active');
-        dpadLeft?.classList.remove('keyboard-active');
-        dpadBackward?.classList.remove('keyboard-active');
-        dpadRight?.classList.remove('keyboard-active');
-    };
-
-    window.addEventListener('blur', clearDpadStates);
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) clearDpadStates();
-    });
-}
 
 export interface InputKeyboardHandlers {
     onKeyDown: (event: KeyboardEvent) => void;
@@ -74,8 +48,6 @@ export function createKeyboardHandlers(
 ): InputKeyboardHandlers {
     const { triggerButtonPressDown, triggerButtonPressUp } = buttons;
 
-    cacheDpadElements();
-
     const onKeyDown = function (event: KeyboardEvent) {
         if (getPhotoMode()?.handleKeyDown(event)) {
             return;
@@ -88,20 +60,6 @@ export function createKeyboardHandlers(
             if (!event.altKey && event.code !== 'Tab') {
                 return;
             }
-        }
-
-        if (
-            event.code === 'KeyP' &&
-            !event.ctrlKey &&
-            !event.shiftKey &&
-            !event.metaKey &&
-            !getIsPlaylistOpen() &&
-            session.instructions &&
-            session.instructions.style.display === 'none'
-        ) {
-            event.preventDefault();
-            togglePhotoMode();
-            return;
         }
 
         if (session.isDevBuild && event.ctrlKey && event.shiftKey && event.code === 'KeyO') {
@@ -140,13 +98,10 @@ export function createKeyboardHandlers(
             }
         }
 
-        if (event.ctrlKey && event.code !== 'ControlLeft' && event.code !== 'ControlRight') {
-            event.preventDefault();
-        }
-
         const isPlaylistOpen = getIsPlaylistOpen();
 
-        if (event.code === 'Escape') {
+        // The open build gizmo takes Escape as "done" (an action), not as "pause".
+        if (event.code === 'Escape' && !input.isContextActive('gizmo')) {
             if (isPlaylistOpen) {
                 event.preventDefault();
                 const closePlaylistBtn = document.getElementById('closePlaylistBtn');
@@ -185,7 +140,7 @@ export function createKeyboardHandlers(
                         }
                     });
 
-                    yieldToPaint(50).then(() => {
+                    void yieldToPaint(50).then(() => {
                         if (session.instructions && session.instructions.style.display !== 'none') {
                             session.focus.releasePauseMenuFocus = trapFocusInside(
                                 session.instructions,
@@ -273,22 +228,22 @@ export function createKeyboardHandlers(
             case 'KeyW':
                 if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
                 keyStates.forward = true;
-                if (!event.repeat) dpadForward?.classList.add('keyboard-active');
+                if (!event.repeat) triggerButtonPressDown('dpad-forward');
                 break;
             case 'KeyA':
                 if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
                 keyStates.left = true;
-                if (!event.repeat) dpadLeft?.classList.add('keyboard-active');
+                if (!event.repeat) triggerButtonPressDown('dpad-left');
                 break;
             case 'KeyS':
                 if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
                 keyStates.backward = true;
-                if (!event.repeat) dpadBackward?.classList.add('keyboard-active');
+                if (!event.repeat) triggerButtonPressDown('dpad-backward');
                 break;
             case 'KeyD':
                 if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
                 keyStates.right = true;
-                if (!event.repeat) dpadRight?.classList.add('keyboard-active');
+                if (!event.repeat) triggerButtonPressDown('dpad-right');
                 break;
             case 'KeyF':
                 if (isExploreActive()) break;
@@ -376,6 +331,7 @@ export function createKeyboardHandlers(
                 keyStates.sprint = true;
                 break;
         }
+        handlePlaylistKeyDown(event);
     };
 
     const onKeyUp = function (event: KeyboardEvent) {
@@ -413,19 +369,19 @@ export function createKeyboardHandlers(
         switch (event.code) {
             case 'KeyW':
                 keyStates.forward = false;
-                dpadForward?.classList.remove('keyboard-active');
+                triggerButtonPressUp('dpad-forward');
                 break;
             case 'KeyA':
                 keyStates.left = false;
-                dpadLeft?.classList.remove('keyboard-active');
+                triggerButtonPressUp('dpad-left');
                 break;
             case 'KeyS':
                 keyStates.backward = false;
-                dpadBackward?.classList.remove('keyboard-active');
+                triggerButtonPressUp('dpad-backward');
                 break;
             case 'KeyD':
                 keyStates.right = false;
-                dpadRight?.classList.remove('keyboard-active');
+                triggerButtonPressUp('dpad-right');
                 break;
             case 'KeyF':
                 keyStates.action = false;
@@ -498,14 +454,69 @@ export function createKeyboardHandlers(
             disableExploreMode(session, true);
             return;
         }
-        if (event.button === 2) keyStates.forward = true;
     };
 
     const onMouseUp = function (event: MouseEvent) {
         if (getIsPlaylistOpen()) return;
         session.exploreCamera.onHybridMouseUp(event.button);
-        if (event.button === 2) keyStates.forward = false;
     };
 
     return { onKeyDown, onKeyUp, onMouseDown, onMouseUp };
+}
+
+/**
+ * World and HUD toggles, as actions (#2027). Each mirrors the old keydown:
+ * the HUD button lights while held, and the toggle runs once per press.
+ * Returns the unsubscribe function.
+ */
+export function bindGameActions(session: InputSession, buttons: ButtonPressHandlers): () => void {
+    const { triggerButtonPressDown, triggerButtonPressUp } = buttons;
+    // Dev explore orbit pauses play (hybrid explore still pans with WASD).
+    const paused = () => isExploreActive() && !session.exploreCamera.isHybrid();
+    const offs: (() => void)[] = [];
+
+    /** Press runs `fn` with `buttonId` lit until release. */
+    const hudButton = (action: ActionId, buttonId: string, fn: () => void) =>
+        offs.push(
+            input.onAction(action, (s) => {
+                if (s.justReleased) triggerButtonPressUp(buttonId);
+                else if (s.justPressed && !paused()) {
+                    triggerButtonPressDown(buttonId);
+                    fn();
+                }
+            })
+        );
+
+    hudButton('jukebox', 'openJukeboxBtn', () => {
+        if (!getIsPlaylistOpen()) togglePlaylist();
+    });
+    hudButton('daynight', 'toggleDayNight', () => session.toggleDayNightCallback?.());
+    hudButton('mute', 'toggleMuteBtn', handleMuteKey);
+    hudButton('music.upload', 'musicUploadBtn', () => {
+        (document.getElementById('musicUpload') as HTMLInputElement | null)?.click();
+    });
+    hudButton('volume.up', 'volUpBtn', () => handleVolumeKey(0.1));
+    hudButton('volume.down', 'volDownBtn', () => handleVolumeKey(-0.1));
+    hudButton('photo.toggle', 'openPhotoBtn', togglePhotoMode);
+
+    const photoBtn = document.getElementById('openPhotoBtn');
+    const onPhotoClick = (e: Event) => {
+        e.stopPropagation();
+        if (!paused()) togglePhotoMode();
+    };
+    photoBtn?.addEventListener('click', onPhotoClick);
+    offs.push(() => photoBtn?.removeEventListener('click', onPhotoClick));
+
+    offs.push(
+        input.onPress('build.toggle', () => {
+            if (!paused() && sceneRef) toggleBuildMode(sceneRef);
+        }),
+        input.onPress('log', () => {
+            if (paused()) return;
+            if (document.pointerLockElement) session.controls.unlock();
+            discoverySystem.showLog();
+        })
+    );
+
+    return () => offs.forEach((off) => off());
 }

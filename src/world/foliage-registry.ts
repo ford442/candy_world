@@ -119,7 +119,9 @@ export function registerBuiltinWorldObjectTypes(): void {
             const noteIndex = Number.isInteger(params?.noteIndex)
                 ? (params?.noteIndex as number)
                 : undefined;
-            return createMushroom({ size, scale, hasFace, isBouncy, note, noteIndex });
+            // Build-mode paint (PaintCommand): a cap colour over the note colour.
+            const color = typeof params?.color === 'number' ? params.color : undefined;
+            return createMushroom({ size, scale, hasFace, isBouncy, note, noteIndex, color });
         },
         {
             defaultIsObstacle: true,
@@ -159,11 +161,18 @@ export function registerBuiltinWorldObjectTypes(): void {
         },
         { supportsMusic: true, batcherHint: 'musical_flora' }
     );
-    registerType('accordion_palm', () => createAccordionPalm({ color: 0xffd700 }), {
-        defaultIsObstacle: true,
-        supportsMusic: true,
-        batcherHint: 'musical_flora',
-    });
+    registerType(
+        'accordion_palm',
+        (params) =>
+            createAccordionPalm({
+                color: typeof params?.color === 'number' ? params.color : 0xffd700,
+            }),
+        {
+            defaultIsObstacle: true,
+            supportsMusic: true,
+            batcherHint: 'musical_flora',
+        }
+    );
     registerType('fiber_optic_willow', () => createFiberOpticWillow(), { defaultIsObstacle: true });
     registerType('floating_orb', (params) =>
         createFloatingOrb({ size: typeof params?.size === 'number' ? params.size : 0.5 })

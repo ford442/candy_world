@@ -285,26 +285,6 @@ export function rbClear(): void {
 // Mutators
 // -----------------------------------------------------------------------------
 
-export function rbSetPosition(id: i32, x: f32, y: f32, z: f32): void {
-  if (!isUsable(id)) return;
-  const p = pool();
-  const b = base(id);
-  unchecked(p[b + F_PX] = clampf(x, RB_MIN_X, RB_MAX_X));
-  unchecked(p[b + F_PY] = clampf(y, RB_MIN_Y, RB_MAX_Y));
-  unchecked(p[b + F_PZ] = clampf(z, RB_MIN_Z, RB_MAX_Z));
-  wake(p, b);
-}
-
-export function rbSetVelocity(id: i32, vx: f32, vy: f32, vz: f32): void {
-  if (!isUsable(id)) return;
-  const p = pool();
-  const b = base(id);
-  unchecked(p[b + F_VX] = vx);
-  unchecked(p[b + F_VY] = vy);
-  unchecked(p[b + F_VZ] = vz);
-  wake(p, b);
-}
-
 /** Apply an instantaneous impulse (mass-scaled). No-op on kinematic bodies. */
 export function rbApplyImpulse(id: i32, ix: f32, iy: f32, iz: f32): void {
   if (!isUsable(id)) return;
@@ -349,19 +329,29 @@ export function rbApplyRadialImpulse(
     const dSq = dx * dx + dy * dy + dz * dz;
     if (dSq > rSq) continue;
 
-    const dist = Mathf.sqrt(dSq);
+    let nx: f32 = 0.0, ny: f32 = 1.0, nz: f32 = 0.0;
+    let dist: f32 = 0.0;
+
+    if (dSq > 1e-8) {
+      // ⚡ OPTIMIZATION: Bypassed repeated divisions and Mathf.sqrt() in hot loop by using inverse distance once
+      const invDist: f32 = 1.0 / Mathf.sqrt(dSq);
+      dist = dSq * invDist;
+      nx = dx * invDist;
+      ny = dy * invDist + upBias;
+      nz = dz * invDist;
+
+      const nlSq = nx * nx + ny * ny + nz * nz;
+      if (nlSq > 1e-8) {
+        const invNl: f32 = 1.0 / Mathf.sqrt(nlSq);
+        nx *= invNl;
+        ny *= invNl;
+        nz *= invNl;
+      }
+    }
+
     // Linear falloff; at the epicentre push straight up rather than dividing
     // by ~0 and producing a NaN direction.
     const falloff: f32 = 1.0 - dist / radius;
-    let nx: f32 = 0.0, ny: f32 = 1.0, nz: f32 = 0.0;
-    if (dist > 1e-4) {
-      nx = dx / dist;
-      ny = dy / dist + upBias;
-      nz = dz / dist;
-      const nl = Mathf.sqrt(nx * nx + ny * ny + nz * nz);
-      if (nl > 1e-4) { nx /= nl; ny /= nl; nz /= nl; }
-    }
-
     const j: f32 = strength * falloff * invMass;
     unchecked(p[b + F_VX] += nx * j);
     unchecked(p[b + F_VY] += ny * j);
@@ -406,22 +396,9 @@ export function rbDisablePlayerProxy(): void {
 // Accessors (single-body reads; bulk reads go through the shared view)
 // -----------------------------------------------------------------------------
 
-export function rbGetPositionX(id: i32): f32 {
-  return isUsable(id) ? unchecked(pool()[base(id) + F_PX]) : 0.0;
-}
-export function rbGetPositionY(id: i32): f32 {
-  return isUsable(id) ? unchecked(pool()[base(id) + F_PY]) : 0.0;
-}
-export function rbGetPositionZ(id: i32): f32 {
-  return isUsable(id) ? unchecked(pool()[base(id) + F_PZ]) : 0.0;
-}
 export function rbIsSleeping(id: i32): i32 {
   if (!isUsable(id)) return 0;
   return (i32(unchecked(pool()[base(id) + F_FLAGS])) & FLAG_SLEEPING) != 0 ? 1 : 0;
-}
-export function rbIsGrounded(id: i32): i32 {
-  if (!isUsable(id)) return 0;
-  return (i32(unchecked(pool()[base(id) + F_FLAGS])) & FLAG_GROUNDED) != 0 ? 1 : 0;
 }
 
 // -----------------------------------------------------------------------------

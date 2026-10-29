@@ -28,6 +28,8 @@ export interface PhotoControlsOptions {
     onChange: PhotoControlsChangeHandler;
     onCapture: () => void;
     onExit: () => void;
+    /** More buttons next to Capture (a shared world's "Set as world thumbnail"). */
+    extraActions?: ReadonlyArray<{ label: string; onClick: () => void }>;
     initial: PhotoControlValues;
     reducedMotion?: boolean;
 }
@@ -120,6 +122,7 @@ export class PhotoControlsOverlay {
     private values: PhotoControlValues;
     private readonly onChange: PhotoControlsChangeHandler;
     private readonly onCapture: () => void;
+    private readonly extraActions: ReadonlyArray<{ label: string; onClick: () => void }>;
     private readonly onExit: () => void;
     private readonly reducedMotion: boolean;
 
@@ -127,6 +130,7 @@ export class PhotoControlsOverlay {
         this.values = { ...options.initial };
         this.onChange = options.onChange;
         this.onCapture = options.onCapture;
+        this.extraActions = options.extraActions ?? [];
         this.onExit = options.onExit;
         this.reducedMotion = options.reducedMotion ?? false;
         this.build();
@@ -184,6 +188,15 @@ export class PhotoControlsOverlay {
         captureBtn.setAttribute('aria-keyshortcuts', 'Enter');
         captureBtn.addEventListener('click', () => this.onCapture());
         actions.appendChild(captureBtn);
+
+        for (const action of this.extraActions) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'photo-mode-panel__capture';
+            btn.textContent = action.label;
+            btn.addEventListener('click', () => action.onClick());
+            actions.appendChild(btn);
+        }
 
         const exitBtn = document.createElement('button');
         exitBtn.type = 'button';
