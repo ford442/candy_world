@@ -1,4 +1,3 @@
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 /**
  * Local point / spot light registry.
  *
@@ -22,6 +21,7 @@ import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { isAutomation } from '../core/platform/run-mode.ts';
 import { getStartupCapabilities } from '../core/startup/capabilities.ts';
 import { recordCapRejection } from '../systems/performance-budget/systems-budget.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { isWebGLBackendRenderer } from './renderer-mode.ts';
 import { applyLocalShadowSoftness } from './shadow-softness.ts';
 
@@ -317,7 +317,7 @@ function applyLocalShadow(
     light.shadow.mapSize.set(local.localShadowMapSize, local.localShadowMapSize);
     light.shadow.bias = local.localShadowBias;
     light.shadow.normalBias = local.localShadowNormalBias;
-    const cam = light.shadow.camera as THREE.PerspectiveCamera;
+    const cam = light.shadow.camera;
     cam.near = local.localShadowNear;
     cam.far = Math.min(local.localShadowFar, light.distance || local.localShadowFar);
     cam.updateProjectionMatrix();
@@ -340,7 +340,7 @@ function attachHelper(slot: GpuSlot): void {
 function detachHelper(slot: GpuSlot): void {
     if (!slot.helper) return;
     if (slot.helper.parent) safeRemoveAndDispose(slot.helper.parent, slot.helper);
-    else safeRemoveAndDispose(_scene, slot.helper);
+    else if (_scene) safeRemoveAndDispose(_scene, slot.helper);
     slot.helper = null;
 }
 

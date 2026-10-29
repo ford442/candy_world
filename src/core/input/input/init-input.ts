@@ -156,5 +156,5 @@ function takeOverMouseLook(controls: PointerLockControls): LookTarget | null {
         return null;
     }
     controls.domElement?.ownerDocument.removeEventListener('mousemove', own);
-    return controls as unknown as LookTarget;
+    return controls;
 }

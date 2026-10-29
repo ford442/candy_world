@@ -8,9 +8,9 @@
 import * as THREE from 'three';
 import { LAKE_ISLAND } from '../systems/ground-height-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { spawnImpact } from './impacts.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 const STONE_RADIUS = 0.9;
 const STONE_COLOR = 0xb39ddb;
