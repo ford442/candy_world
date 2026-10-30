@@ -248,13 +248,13 @@ export function createKeyboardHandlers(
             case 'KeyF':
                 if (isExploreActive()) break;
                 keyStates.action = true;
-                if (session.hudMine) session.hudMine.classList.add('keyboard-active');
+                if (session.hudMine) triggerButtonPressDown(session.hudMine.id);
                 break;
             case 'KeyE':
             case 'e':
                 if (isExploreActive()) break;
                 keyStates.dash = true;
-                if (session.hudDash) session.hudDash.classList.add('keyboard-active');
+                if (session.hudDash) triggerButtonPressDown(session.hudDash.id);
                 break;
             case 'KeyX':
             case 'x':
@@ -265,7 +265,7 @@ export function createKeyboardHandlers(
             case 'z':
                 if (isExploreActive()) break;
                 keyStates.phase = true;
-                if (session.hudPhase) session.hudPhase.classList.add('keyboard-active');
+                if (session.hudPhase) triggerButtonPressDown(session.hudPhase.id);
                 break;
             case 'KeyC':
             case 'c':
@@ -385,12 +385,12 @@ export function createKeyboardHandlers(
                 break;
             case 'KeyF':
                 keyStates.action = false;
-                if (session.hudMine) session.hudMine.classList.remove('keyboard-active');
+                if (session.hudMine) triggerButtonPressUp(session.hudMine.id);
                 break;
             case 'KeyE':
             case 'e':
                 keyStates.dash = false;
-                if (session.hudDash) session.hudDash.classList.remove('keyboard-active');
+                if (session.hudDash) triggerButtonPressUp(session.hudDash.id);
                 break;
             case 'KeyX':
             case 'x':
@@ -399,7 +399,7 @@ export function createKeyboardHandlers(
             case 'KeyZ':
             case 'z':
                 keyStates.phase = false;
-                if (session.hudPhase) session.hudPhase.classList.remove('keyboard-active');
+                if (session.hudPhase) triggerButtonPressUp(session.hudPhase.id);
                 break;
             case 'KeyR':
             case 'r':
