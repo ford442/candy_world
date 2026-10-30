@@ -21,7 +21,6 @@ import type { WeatherSystem } from './weather.ts';
 
 // Scratch objects for optimization
 const _scratchWaterfallPos = new THREE.Vector3();
-const _scratchSunDir = new THREE.Vector3();
 const _scratchMPos = new THREE.Vector3();
 const _scratchFPos = new THREE.Vector3();
 const _lastSpawnTimes = new Map<string, number>();
