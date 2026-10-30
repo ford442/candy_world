@@ -229,6 +229,7 @@ export class EcosystemManager {
                         // Add to batcher
                         waterfallBatcher.add(uuid, _scratchWaterfallPos, height * 0.8, 2.0);
 
+
                         mushroomWaterfalls.add(uuid);
                     }
 
