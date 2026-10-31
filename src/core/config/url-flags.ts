@@ -148,7 +148,7 @@ export const FEATURE_FLAGS = {
         getUrlFlag('music') === 'generative' ||
         (!hasUrlFlag('no_generative') && getUrlFlag('music') !== 'tracker'),
     /** Cinematic photo mode (?photo=1 or ?mode=photo). */
-    photoMode: hasUrlFlag('photo') || getUrlFlag('mode') === 'photo',
+    photoMode: !hasUrlFlag('no_photo') || hasUrlFlag('photo') || getUrlFlag('mode') === 'photo',
     /** Forward+ clustered local lights. Off via `?no_clustered` or graphics `low`. */
     clusteredLights: !hasUrlFlag('no_clustered'),
 } as const;
