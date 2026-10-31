@@ -352,7 +352,8 @@ export class ActionLayer {
         for (const a of ACTION_IDS) {
             const acc = this.acc[a];
             if (AXIS_ACTIONS.has(a)) {
-                const len = Math.hypot(acc.axis.x, acc.axis.y);
+                // ⚡ OPTIMIZATION: Replaced Math.hypot() with native Math.sqrt() to reduce call overhead in hot input loop
+                const len = Math.sqrt(acc.axis.x * acc.axis.x + acc.axis.y * acc.axis.y);
                 if (a !== 'look' && len > 1) {
                     acc.axis.x /= len;
                     acc.axis.y /= len;
