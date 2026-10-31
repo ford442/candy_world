@@ -568,7 +568,12 @@ export class SaveMenu {
         list.replaceChildren();
         if (worlds.length === 0) {
             const empty = document.createElement('li');
-            empty.textContent = 'No saved worlds yet.';
+            empty.className = 'candy-empty-state';
+            empty.setAttribute('role', 'status');
+            empty.innerHTML = `
+                <div class="candy-empty-state__icon" aria-hidden="true">🌍</div>
+                <div class="candy-empty-state__text">No saved worlds yet.</div>
+            `;
             list.appendChild(empty);
             return;
         }
