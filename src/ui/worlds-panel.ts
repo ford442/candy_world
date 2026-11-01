@@ -284,7 +284,24 @@ export function installWorldsStartScreenUI(): void {
             for (const w of page.worlds) grid.appendChild(card(w, tab));
             nextCursor = page.next;
             more.hidden = !page.next;
-            if (grid.childElementCount === 0) say(TABS.find((t) => t.id === tab)!.empty);
+            if (grid.childElementCount === 0) {
+                const emptyMsg = TABS.find((t) => t.id === tab)!.empty;
+                say(emptyMsg);
+                grid.appendChild(
+                    el('li', {
+                        classes: ['candy-empty-state'],
+                        attrs: { role: 'status' },
+                        children: [
+                            el('div', {
+                                classes: ['candy-empty-state__icon'],
+                                attrs: { 'aria-hidden': 'true' },
+                                text: '🌍',
+                            }),
+                            el('div', { classes: ['candy-empty-state__text'], text: emptyMsg }),
+                        ],
+                    })
+                );
+            }
             else say(`${grid.childElementCount} world${grid.childElementCount === 1 ? '' : 's'}`);
         } catch (err) {
             say(`Could not load worlds: ${err instanceof Error ? err.message : String(err)}`);
