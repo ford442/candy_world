@@ -352,7 +352,8 @@ export class LoadingScreen {
             this.percentageText.textContent = '100%';
         }
         if (this.taskText) {
-            this.taskText.textContent = 'Ready!';
+            this.taskText.innerHTML = '<span class="ready-checkmark" aria-hidden="true">✓</span> Ready!';
+            this.taskText.classList.add('ready-pulse');
         }
 
         const currentHideVersion = this.hideVersion;

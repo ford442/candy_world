@@ -955,3 +955,29 @@
 .loading-title:focus:not(:focus-visible) {
   outline: none;
 }
+
+/* =============================================================================
+   READY PULSE ANIMATION
+   ========================================================================== */
+
+.ready-pulse {
+  animation: ready-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  color: #4ade80 !important; /* matches the complete phase dot */
+}
+
+.ready-checkmark {
+  display: inline-block;
+  margin-right: 4px;
+}
+
+@keyframes ready-pop {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ready-pulse {
+    animation: none;
+  }
+}
