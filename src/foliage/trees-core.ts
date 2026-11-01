@@ -5,15 +5,7 @@ import { createBerryCluster } from './berries.ts';
  // Import explicit type for cast
  // ⚡ OPTIMIZATION: Import Batcher
 import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
-import {
-    createClayMaterial,
-    createGradientMaterial,
-    sharedGeometries,
-    uAudioLow,
-    createJuicyRimLight,
-    getCachedProceduralMaterial,
-    calculatePlayerPush,
-} from './material-core.ts';
+import { createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, createJuicyRimLight, getCachedProceduralMaterial, applyStandardDeformation } from './material-core.ts';
 import { treeBatcher } from './tree-batcher.ts';
 const _scratchPhysicsVec1 = new THREE.Vector3();
 const _scratchPhysicsVec2 = new THREE.Vector3();
@@ -34,10 +26,8 @@ export function enhanceWithFloralJuice(material: any) {
             flutterAmp
         );
         let newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
-        // 3. Player Interaction (Push Away)
-        const pushOffset = calculatePlayerPush(newPos);
-        newPos = newPos.add(pushOffset);
-        material.positionNode = newPos;
+        // 3. Player Interaction & Wind Sway (applyStandardDeformation)
+        material.positionNode = applyStandardDeformation(newPos);
         // 4. Juicy Rim Light (Audio-reactive edge glow)
         // Memory explicitly notes: To apply createJuicyRimLight to non-instanced Three.js meshes without crashing WebGPU, construct a standard TSL color node (e.g., tslColor(colorHex)) and pass it as the baseColor argument instead of an instanced attribute.
         const rimLight = createJuicyRimLight(tslColor(0xffffff), float(1.5), float(3.0), null);

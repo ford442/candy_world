@@ -266,8 +266,10 @@ export class ClothSim {
             let vy = (pos[p + 1] - prev[p + 1]) * keep;
             let vz = (pos[p + 2] - prev[p + 2]) * keep;
 
-            const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
-            if (speed > maxStep) {
+            // ⚡ OPTIMIZATION: Check speed squared to bypass Math.sqrt() in soft-body integration loop when under max speed.
+            const speedSq = vx * vx + vy * vy + vz * vz;
+            if (speedSq > maxStep * maxStep) {
+                const speed = Math.sqrt(speedSq);
                 const s = maxStep / speed;
                 vx *= s;
                 vy *= s;
@@ -353,13 +355,15 @@ export class ClothSim {
                 const dx = pos[p] - player.x;
                 const dz = pos[p + 2] - player.z;
                 const dy = pos[p + 1] - cy;
-                const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                // ⚡ OPTIMIZATION: Bypassed repeated Math.sqrt() in soft-body collision loop by checking distance squared first.
+                const distSq = dx * dx + dy * dy + dz * dz;
                 const r = player.radius;
-                if (d < r) {
-                    if (d < 1e-5) {
+                if (distSq < r * r) {
+                    if (distSq < 1e-10) { // (1e-5)^2
                         // Degenerate: nudge along +X so the push has a direction.
                         pos[p] += r;
                     } else {
+                        const d = Math.sqrt(distSq);
                         const s = (r - d) / d;
                         pos[p] += dx * s;
                         pos[p + 1] += dy * s;
