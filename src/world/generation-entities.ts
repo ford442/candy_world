@@ -8,7 +8,7 @@ import { WeatherSystem, normalizeMapEntityType, MapEntity, obstaclesData } from 
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
 import {
-    animatedFoliage, cpuAnimatedFoliage, foliageGroup, foliageMushrooms,
+    entities, animatedFoliage, cpuAnimatedFoliage, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers,
     foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders,
     computeFoliageObjects
@@ -50,20 +50,21 @@ export function safeAddFoliage(
     }
 
     foliageGroup.add(obj);
-    animatedFoliage.push(obj);
+    entities.spawn('animatedFoliage', obj);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (obj.userData.computeNode) computeFoliageObjects.push(obj as any);
-    if (!isBatched) cpuAnimatedFoliage.push(obj);
+    if (obj.userData.computeNode) entities.spawn('computeFoliageObject', obj as any);
+    if (!isBatched) entities.spawn('cpuAnimatedFoliage', obj);
 
     if (isObstacle) {
         obstaclesData.push({ x: obj.position.x, y: obj.position.y, z: obj.position.z, radius });
+        entities.spawn('obstacle', obj);
     }
 
-    if (obj.userData.type === 'mushroom') foliageMushrooms.push(obj);
-    if (obj.userData.type === 'cloud') foliageClouds.push(obj);
+    if (obj.userData.type === 'mushroom') entities.spawn('foliageMushroom', obj);
+    if (obj.userData.type === 'cloud') entities.spawn('foliageCloud', obj);
     if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
     if (obj.userData.type === 'panningPad') foliagePanningPads.push(obj);
-    if (obj.userData.type === 'geyser') foliageGeysers.push(obj);
+    if (obj.userData.type === 'geyser') entities.spawn('foliageGeyser', obj);
     if (obj.userData.type === 'trap') {
         foliageTraps.push(obj);
         console.log('[World] Registered Snare Trap. Total:', foliageTraps.length);
@@ -71,7 +72,7 @@ export function safeAddFoliage(
     if (obj.userData.type === 'tree' && obj.userData.animationType === 'batchedPortamento') {
         foliagePortamentoPines.push(obj);
     }
-    if (obj.userData.type === 'vine_ladder') foliageVineLadders.push(obj);
+    if (obj.userData.type === 'vine_ladder') entities.spawn('foliageVineLadder', obj);
 
     // Batcher registration — must not throw silently.
     if (obj.userData.onPlacement) {
@@ -393,9 +394,9 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                     .add(obj.position);
                 waterfallProxy.userData.type = 'waterfall';
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                animatedFoliage.push(waterfallProxy as any);
+                entities.spawn('animatedFoliage', waterfallProxy as any);
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (waterfallProxy.userData.computeNode) computeFoliageObjects.push(waterfallProxy as any);
+                if (waterfallProxy.userData.computeNode) entities.spawn('computeFoliageObject', waterfallProxy as any);
             }
         }
 
