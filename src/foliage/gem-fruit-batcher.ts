@@ -214,7 +214,7 @@ export class GemFruitBatcher {
 
                 const idx = this._registerInstanceForTree(gemType, this._scratchMatrix, scale, treeGroup);
                 if (idx >= 0) {
-                    refs.push({ gemType: gemType, instanceIndex: idx });
+                    refs.push({ batcher: 'gem_fruit', gemType: gemType, instanceIndex: idx } as BatcherInstanceRef);
                     updatedMeshes.add(this.meshes[gemType]);
                 }
                 placed++;
