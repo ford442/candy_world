@@ -3,13 +3,29 @@ import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
 import { VineSwing, addGrassInstance } from '../foliage/index.ts';
 import { registerPhysicsCave } from '../systems/physics/index.ts';
 import { getSeededRandom } from '../utils/seeded-random.ts';
-import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
-import { WeatherSystem, normalizeMapEntityType, MapEntity, obstaclesData } from './generation-utils.ts';
+import {
+    create,
+    getTypeMeta,
+    registerBuiltinWorldObjectTypes,
+    registerWorldObject,
+} from './foliage-registry.ts';
+import {
+    WeatherSystem,
+    normalizeMapEntityType,
+    MapEntity,
+    obstaclesData,
+} from './generation-utils.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
 import {
-    entities, cpuAnimatedFoliage, foliageGroup, foliageTrampolines, foliagePanningPads,
-    foliageTraps, foliagePortamentoPines, vineSwings
+    entities,
+    cpuAnimatedFoliage,
+    foliageGroup,
+    foliageTrampolines,
+    foliagePanningPads,
+    foliageTraps,
+    foliagePortamentoPines,
+    vineSwings,
 } from './state.ts';
 
 registerBuiltinWorldObjectTypes();
@@ -41,7 +57,9 @@ export function safeAddFoliage(
     const cpuFull = !isBatched && cpuAnimatedFoliage.length >= CPU_ANIMATION_LIMIT;
     if (cpuFull) {
         if (cpuAnimatedFoliage.length > _cpuLimitWarnedAt + 100) {
-            console.warn(`[World] CPU animation limit (${CPU_ANIMATION_LIMIT}) reached; non-batched objects will be skipped.`);
+            console.warn(
+                `[World] CPU animation limit (${CPU_ANIMATION_LIMIT}) reached; non-batched objects will be skipped.`
+            );
             _cpuLimitWarnedAt = cpuAnimatedFoliage.length;
         }
         return false;
@@ -107,7 +125,10 @@ export interface ProcessEntityOptions {
 }
 
 export function applyDreamyPopIn(obj: THREE.Object3D): void {
-    const animatedMaterials: Array<{ mat: THREE.Material & { opacity: number; transparent: boolean }; targetOpacity: number }> = [];
+    const animatedMaterials: Array<{
+        mat: THREE.Material & { opacity: number; transparent: boolean };
+        targetOpacity: number;
+    }> = [];
     obj.traverse((child: THREE.Object3D) => {
         const mesh = child as THREE.Mesh;
         if (!mesh.material) return;
@@ -143,14 +164,31 @@ export /**
  * Process a single map entity (extracted from forEach loop for chunking)
  */
 const MUSICAL_FLORA_TYPES = new Set([
-    'arpeggio_fern', 'vibrato_violet', 'tremolo_tulip', 'cymbal_dandelion',
-    'snare_trap', 'retrigger_mushroom', 'portamento_pine', 'kick_drum_geyser',
-    'panning_pad', 'subwoofer_lotus', 'silence_spirit', 'instrument_shrine',
-    'melody_mirror', 'wisteria_cluster', 'accordion_palm', 'fiber_optic_willow',
-    'prism_rose_bush', 'starflower',
+    'arpeggio_fern',
+    'vibrato_violet',
+    'tremolo_tulip',
+    'cymbal_dandelion',
+    'snare_trap',
+    'retrigger_mushroom',
+    'portamento_pine',
+    'kick_drum_geyser',
+    'panning_pad',
+    'subwoofer_lotus',
+    'silence_spirit',
+    'instrument_shrine',
+    'melody_mirror',
+    'wisteria_cluster',
+    'accordion_palm',
+    'fiber_optic_willow',
+    'prism_rose_bush',
+    'starflower',
 ]);
 
-export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options?: ProcessEntityOptions): void {
+export function processMapEntity(
+    item: MapEntity,
+    weatherSystem: WeatherSystem,
+    options?: ProcessEntityOptions
+): void {
     const [x, yInput, z] = item.position;
     const entityType = normalizeMapEntityType(item.type);
 
@@ -160,9 +198,12 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
 
     const params = item.params ?? {};
     const placement = item.placement ?? (entityType === 'cloud' ? 'absolute' : 'ground');
-    const mapBaseOffset = typeof item.baseOffset === 'number'
-        ? item.baseOffset
-        : (typeof params.baseOffset === 'number' ? params.baseOffset : undefined);
+    const mapBaseOffset =
+        typeof item.baseOffset === 'number'
+            ? item.baseOffset
+            : typeof params.baseOffset === 'number'
+              ? params.baseOffset
+              : undefined;
     // USE UNIFIED HEIGHT for placement
     const groundY = sampleGroundY(x, z);
     let y = groundY;
@@ -180,14 +221,18 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
         const value = params[key];
         return typeof value === 'boolean' ? value : fallback;
     };
-    const mapPersistentId = typeof item.persistentId === 'string'
-        ? item.persistentId
-        : (typeof params.persistentId === 'string'
-            ? params.persistentId
-            : (typeof item.id === 'string' ? item.id : undefined));
+    const mapPersistentId =
+        typeof item.persistentId === 'string'
+            ? item.persistentId
+            : typeof params.persistentId === 'string'
+              ? params.persistentId
+              : typeof item.id === 'string'
+                ? item.id
+                : undefined;
 
     const annotateMapExport = (obj: THREE.Object3D, resolvedType: string) => {
-        const resolvedBiome = item.music?.biomeOverride ?? item.music?.biome ?? item.music?.biomeTag ?? item.biome;
+        const resolvedBiome =
+            item.music?.biomeOverride ?? item.music?.biome ?? item.music?.biomeTag ?? item.biome;
         obj.userData.mapEntityType = resolvedType;
         obj.userData.mapEntityId = item.id;
         obj.userData.biome = resolvedBiome;
@@ -216,7 +261,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
             biome: resolvedBiome,
             music: item.music,
             placement,
-            params
+            params,
         };
     };
 
@@ -241,7 +286,8 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
         switch (entityType) {
             case 'mushroom': {
                 const isGiant = item.variant === 'giant';
-                const hasFace = item.hasFace !== undefined ? item.hasFace : (isGiant || getSeededRandom() < 0.1);
+                const hasFace =
+                    item.hasFace !== undefined ? item.hasFace : isGiant || getSeededRandom() < 0.1;
                 createParams.size = isGiant ? 'giant' : 'regular';
                 createParams.scale = uniformScale ?? 1.0;
                 createParams.hasFace = hasFace;
@@ -257,7 +303,8 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                 break;
             case 'cloud':
                 cloudTier = (item as any).tier || 1;
-                createParams.size = typeof item.size === 'number' ? item.size : getParamNumber('size', 1.5);
+                createParams.size =
+                    typeof item.size === 'number' ? item.size : getParamNumber('size', 1.5);
                 break;
             case 'subwoofer_lotus':
             case 'silence_spirit':
@@ -301,7 +348,9 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                 break;
             case 'instrument_shrine': {
                 const variantId = parseInt(item.variant || '0', 10);
-                createParams.instrumentID = Number.isFinite(variantId) ? variantId : getParamNumber('instrumentID', 0);
+                createParams.instrumentID = Number.isFinite(variantId)
+                    ? variantId
+                    : getParamNumber('instrumentID', 0);
                 createParams.scale = uniformScale ?? 1.0;
                 break;
             }
@@ -320,7 +369,11 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
 
         obj = create(entityType, createParams);
         if (!obj) {
-            recordSpawnAttempt(entityType, false, new Error(`Factory returned null for type "${entityType}"`));
+            recordSpawnAttempt(
+                entityType,
+                false,
+                new Error(`Factory returned null for type "${entityType}"`)
+            );
             return;
         }
 
@@ -345,15 +398,33 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
             } else {
                 obj.position.set(x, y, z);
             }
-            if (itemRotation && typeof itemRotation === 'object' && !Array.isArray(itemRotation) && 'quat' in itemRotation && Array.isArray(itemRotation.quat)) {
+            if (
+                itemRotation &&
+                typeof itemRotation === 'object' &&
+                !Array.isArray(itemRotation) &&
+                'quat' in itemRotation &&
+                Array.isArray(itemRotation.quat)
+            ) {
                 const [qx, qy, qz, qw] = itemRotation.quat;
                 obj.quaternion.set(qx, qy, qz, qw);
-            } else if (itemRotation && typeof itemRotation === 'object' && !Array.isArray(itemRotation) && 'euler' in itemRotation && Array.isArray(itemRotation.euler)) {
+            } else if (
+                itemRotation &&
+                typeof itemRotation === 'object' &&
+                !Array.isArray(itemRotation) &&
+                'euler' in itemRotation &&
+                Array.isArray(itemRotation.euler)
+            ) {
                 const [rx, ry, rz] = itemRotation.euler;
                 const order = itemRotation.order;
-                const safeOrder = order === 'XYZ' || order === 'YZX' || order === 'ZXY' || order === 'XZY' || order === 'YXZ' || order === 'ZYX'
-                    ? order
-                    : 'YXZ';
+                const safeOrder =
+                    order === 'XYZ' ||
+                    order === 'YZX' ||
+                    order === 'ZXY' ||
+                    order === 'XZY' ||
+                    order === 'YXZ' ||
+                    order === 'ZYX'
+                        ? order
+                        : 'YXZ';
                 obj.rotation.set(rx, ry, rz, safeOrder);
             } else if (Array.isArray(itemRotation) && itemRotation.length === 4) {
                 const [qx, qy, qz, qw] = itemRotation;
@@ -370,7 +441,11 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
             }
             if (vectorScale && entityType !== 'mushroom' && entityType !== 'flower') {
                 obj.scale.set(vectorScale[0], vectorScale[1], vectorScale[2]);
-            } else if (uniformScale !== undefined && entityType !== 'mushroom' && entityType !== 'flower') {
+            } else if (
+                uniformScale !== undefined &&
+                entityType !== 'mushroom' &&
+                entityType !== 'flower'
+            ) {
                 obj.scale.setScalar(uniformScale);
             }
             if (options?.streamed && !obj.userData.isBatched) {
@@ -378,20 +453,26 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
             }
             const placed = safeAddFoliage(obj, isObstacle, radius, weatherSystem);
             if (!placed) {
-                recordSpawnAttempt(entityType, false, new Error('CPU animation limit reached; object dropped'));
+                recordSpawnAttempt(
+                    entityType,
+                    false,
+                    new Error('CPU animation limit reached; object dropped')
+                );
                 return;
             }
             if (entityType === 'cave' && caveNeedsWaterfallProxy && obj.userData.gatePosition) {
                 const waterfallProxy = new THREE.Object3D();
                 // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy by doing pure math composition
                 // Write directly using the position/scale properties instead of updateMatrix overhead
-                waterfallProxy.position.copy(obj.userData.gatePosition)
+                waterfallProxy.position
+                    .copy(obj.userData.gatePosition)
                     .multiply(obj.scale)
                     .applyQuaternion(obj.quaternion)
                     .add(obj.position);
                 waterfallProxy.userData.type = 'waterfall';
                 entities.spawn('animatedFoliage', waterfallProxy);
-                if (waterfallProxy.userData.computeNode) entities.spawn('computeFoliageObject', waterfallProxy);
+                if (waterfallProxy.userData.computeNode)
+                    entities.spawn('computeFoliageObject', waterfallProxy);
             }
         }
 

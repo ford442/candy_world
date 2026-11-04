@@ -95,7 +95,9 @@ if (update) {
 
 // Errors fail on their own: a cleanup elsewhere must not buy room for an error.
 if (errors > 0 && !reportOnly) {
-    console.error(`\n❌ ESLint ratchet FAILED: ${errors} error(s); errors are never covered by the baseline.`);
+    console.error(
+        `\n❌ ESLint ratchet FAILED: ${errors} error(s); errors are never covered by the baseline.`
+    );
     process.exit(1);
 }
 
