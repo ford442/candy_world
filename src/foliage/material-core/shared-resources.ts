@@ -74,6 +74,9 @@ export const uAudioLow = uniform(0.0);
 export const uAudioHigh = uniform(0.0);
 export const uPlayerPosition = uniform(vec3(0, 0, 0));
 export const uPlayerVelocity = uniform(vec3(0, 0, 0));
+export const uVineAnchor = uniform(vec3(0, 0, 0));
+export const uVineTip = uniform(vec3(0, 0, 0));
+export const uVineFlare = uniform(0.0);
 
 const materialCache = new Map<string, THREE.Material>();
 

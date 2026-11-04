@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
+import { uVineAnchor, uVineTip, uVineFlare } from '../../foliage/material-core.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { simRng } from '../../utils/sim-rng.ts';
 import { 
@@ -246,6 +247,11 @@ export function updateVineState(delta: number, camera: THREE.Camera, keyStates: 
         // because VineSwing modified camera.position
         player.position.copy(camera.position);
 
+        // Update uniforms for vine swing visual flare
+        uVineAnchor.value.copy(activeVineSwing.anchorPoint);
+        uVineTip.value.copy(player.position);
+        uVineFlare.value = Math.min(1.0, Math.abs(activeVineSwing.swingAngularVel) * 5.0);
+
         if (keyStates.jump) {
             // detach modifies velocity, pass player (has velocity)
             // Stamp with the physics clock the re-attach check reads. detach()'s
@@ -255,6 +261,11 @@ export function updateVineState(delta: number, camera: THREE.Camera, keyStates: 
             setActiveVineSwing(null);
             keyStates.jump = false;
             player.currentState = PlayerState.DEFAULT;
+            uVineFlare.value = 1.0;
+        }
+    } else {
+        if (uVineFlare.value > 0) {
+            uVineFlare.value = Math.max(0.0, uVineFlare.value - delta * 2.0);
         }
     }
 }
