@@ -6,6 +6,9 @@
 // floor. Harvested stones are remembered by site id and are not placed again.
 
 import * as THREE from 'three';
+import { color, float, positionLocal } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { applyStandardDeformation, createJuicyRimLight } from './material-core.ts';
 import { LAKE_ISLAND } from '../systems/ground-height-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
@@ -16,20 +19,24 @@ const STONE_RADIUS = 0.9;
 const STONE_COLOR = 0xb39ddb;
 
 let _geometry: THREE.DodecahedronGeometry | null = null;
-let _material: THREE.MeshPhysicalMaterial | null = null;
+let _material: MeshStandardNodeMaterial | null = null;
 
 function sharedStone(): {
     geometry: THREE.DodecahedronGeometry;
-    material: THREE.MeshPhysicalMaterial;
+    material: MeshStandardNodeMaterial;
 } {
     _geometry ??= new THREE.DodecahedronGeometry(STONE_RADIUS, 1);
-    _material ??= new THREE.MeshPhysicalMaterial({
-        color: STONE_COLOR,
-        roughness: 0.35,
-        metalness: 0.0,
-        clearcoat: 0.8,
-        clearcoatRoughness: 0.2,
-    });
+    if (!_material) {
+        _material = new MeshStandardNodeMaterial({
+            color: STONE_COLOR,
+            roughness: 0.35,
+            metalness: 0.0,
+        });
+
+        // 🎨 PALETTE: Add gentle wind sway and juicy rim light
+        _material.positionNode = applyStandardDeformation(positionLocal, { amplitude: float(0.1) });
+        _material.emissiveNode = createJuicyRimLight(color(STONE_COLOR), float(1.2), float(2.0), null);
+    }
     return { geometry: _geometry, material: _material };
 }
 
