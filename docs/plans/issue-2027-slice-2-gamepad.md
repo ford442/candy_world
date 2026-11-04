@@ -37,29 +37,29 @@ Pure, exported, testable pieces plus one install function:
 
 Add gamepad rows to the existing per-context tables; keyboard rows are untouched.
 
-| Context | Source | Action |
-|---|---|---|
-| gameplay | `pad:ls` | `move` |
-| gameplay | `pad:rs` | `look` |
-| gameplay | `pad:button:0` (A / Cross) | `jump` |
-| gameplay | `pad:button:1` (B / Circle) | `dash` |
-| gameplay | `pad:button:2` (X / Square) | `interact` |
-| gameplay | `pad:rt` | `fire` |
-| gameplay | `pad:lt` | `sprint` |
-| gameplay | `pad:button:10` (L3) | `sneak` |
-| gameplay | d-pad 12 / 15 / 13 / 14 | `dash` / `mine` / `phase` / `strike` (the three HUD slots + strike) |
-| gameplay | `pad:button:3` (Y / Triangle) | `build.toggle` |
-| gameplay | `pad:button:8` (Back / Select) | `photo.toggle` |
-| gameplay | `pad:button:9` (Start) | not an action: the start-overlay dismiss from Finding 3, then the same pause path Escape takes (`menu-helpers.ts`), handled in the device |
-| build | `pad:rt` / `pad:lt` | `build.place` / `build.remove` |
-| build | `pad:button:5` / `pad:button:4` (RB / LB) | `build.rotate` ±1 (repeat) |
-| build | `pad:ls` | `build.nudge` axis; `pad:rs` stays `look` |
-| build | `pad:button:0` / `pad:button:1` | `build.grab` / `build.cancel` |
-| build | `pad:button:2` / `pad:button:3` | `build.gizmo` / `build.snap` |
-| build | d-pad up/down, left/right | `build.category` / `build.piece` (repeat) |
-| build | `pad:button:8` + LB / RB | `undo` / `redo` |
-| photo | `pad:button:0` / `pad:button:1` | `photo.capture` / `photo.exit` (two new `ActionId`s; photo mode today handles Enter/Escape in its own `handleKeyDown`, `photo-mode.ts:239`, and its `photo` context has no bindings). Stick orbit in photo mode is deferred: look there is OrbitControls drag. |
-| menu | nothing routes (existing `menu` context blocks below) |
+| Context  | Source                                                | Action                                                                                                                                                                                                                                                         |
+| -------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| gameplay | `pad:ls`                                              | `move`                                                                                                                                                                                                                                                         |
+| gameplay | `pad:rs`                                              | `look`                                                                                                                                                                                                                                                         |
+| gameplay | `pad:button:0` (A / Cross)                            | `jump`                                                                                                                                                                                                                                                         |
+| gameplay | `pad:button:1` (B / Circle)                           | `dash`                                                                                                                                                                                                                                                         |
+| gameplay | `pad:button:2` (X / Square)                           | `interact`                                                                                                                                                                                                                                                     |
+| gameplay | `pad:rt`                                              | `fire`                                                                                                                                                                                                                                                         |
+| gameplay | `pad:lt`                                              | `sprint`                                                                                                                                                                                                                                                       |
+| gameplay | `pad:button:10` (L3)                                  | `sneak`                                                                                                                                                                                                                                                        |
+| gameplay | d-pad 12 / 15 / 13 / 14                               | `dash` / `mine` / `phase` / `strike` (the three HUD slots + strike)                                                                                                                                                                                            |
+| gameplay | `pad:button:3` (Y / Triangle)                         | `build.toggle`                                                                                                                                                                                                                                                 |
+| gameplay | `pad:button:8` (Back / Select)                        | `photo.toggle`                                                                                                                                                                                                                                                 |
+| gameplay | `pad:button:9` (Start)                                | not an action: the start-overlay dismiss from Finding 3, then the same pause path Escape takes (`menu-helpers.ts`), handled in the device                                                                                                                      |
+| build    | `pad:rt` / `pad:lt`                                   | `build.place` / `build.remove`                                                                                                                                                                                                                                 |
+| build    | `pad:button:5` / `pad:button:4` (RB / LB)             | `build.rotate` ±1 (repeat)                                                                                                                                                                                                                                     |
+| build    | `pad:ls`                                              | `build.nudge` axis; `pad:rs` stays `look`                                                                                                                                                                                                                      |
+| build    | `pad:button:0` / `pad:button:1`                       | `build.grab` / `build.cancel`                                                                                                                                                                                                                                  |
+| build    | `pad:button:2` / `pad:button:3`                       | `build.gizmo` / `build.snap`                                                                                                                                                                                                                                   |
+| build    | d-pad up/down, left/right                             | `build.category` / `build.piece` (repeat)                                                                                                                                                                                                                      |
+| build    | `pad:button:8` + LB / RB                              | `undo` / `redo`                                                                                                                                                                                                                                                |
+| photo    | `pad:button:0` / `pad:button:1`                       | `photo.capture` / `photo.exit` (two new `ActionId`s; photo mode today handles Enter/Escape in its own `handleKeyDown`, `photo-mode.ts:239`, and its `photo` context has no bindings). Stick orbit in photo mode is deferred: look there is OrbitControls drag. |
+| menu     | nothing routes (existing `menu` context blocks below) |
 
 Dodge, clap, dance, grenade, the jukebox/volume toggles, the debug toggles, the four `build.tool.N` and the gizmo actions have no pad default in this slice. There is no `menu` action in `ACTION_IDS`; Start is device-level behaviour, see the row above. `isRebindableSource` accepts `pad:button:*` (not sticks). `formatSource` renders `pad:button:0` as `A` with a Standard-mapping name table; a PlayStation glyph set is deferred (feature-detect from `pad.id` later).
 
@@ -90,13 +90,13 @@ Dodge, clap, dance, grenade, the jukebox/volume toggles, the debug toggles, the 
 - With an Xbox or PlayStation pad in Chrome, after one button press on the start overlay: walk, look, jump, dash, sprint, sneak, the three HUD abilities and strike, build mode (toggle, place, remove, rotate, nudge, grab, cancel, gizmo, undo/redo) and photo mode (toggle, capture, exit; orbit stays mouse) all work with no keyboard and with the pointer unlocked. Stick look works without pointer lock; mouse look still requires it.
 - Unplugging mid-deflection leaves no held action (`pad:*` sources released) and the next key press flips prompts back to keyboard glyphs; re-plugging and pressing a button flips them to pad glyphs.
 - `tests/input-gamepad.test.ts` (tsx, `check(name, cond)` harness as in `tests/input-actions.test.ts`, no WASM hook; a fake `navigator.getGamepads` returning a four-slot array of `{ buttons: {pressed, value}[16], axes: number[4], connected, index, id, vibrationActuator? }`), wired as `test:input-gamepad` and appended at the **end** of `test:fast`. It covers:
-  - radial deadzone: inside the ring publishes 0/0; just outside keeps direction and starts near 0; the look curve is monotonic and above linear at full deflection;
-  - trigger hysteresis: 0.5 after a 0.7 press stays pressed, 0.3 releases, 0.45 from rest does not press;
-  - gameplay routing: A → `jump`, B → `dash`, X → `interact`, RT → `fire` with analog `value`, LT → `sprint`, d-pad → `dash` / `mine` / `phase` / `strike`, left stick → `move` with length ≤ 1, right stick → `look` scaled by `lookSensitivity.gamepad` and `dt`;
-  - contexts: in `build`, RT/LT → `build.place` / `build.remove` and `fire` / `dash` do not fire; RB → `build.rotate` with `repeated`; in `menu` no gameplay action fires; popping restores the previous context;
-  - hot-plug: `gamepaddisconnected` releases every `pad:*` source and a following key press makes `lastDevice()` `'kbm'`; a later pad press makes it `'gamepad'`;
-  - rebind: `captureNext` resolves with `pad:button:4`, `rebind` persists it through `savePersistedInput` under a fake `localStorage`, and a fresh `ActionLayer(loadPersistedInput())` routes LB to the rebound action;
-  - haptics: default off → `playEffect` never called; on → one dual-rumble per `BeatSync` wrap (a second `update()` in the same wrap queues nothing); `kickTrigger` rising through 0.5 queues one medium effect, not one per frame while high; a pad without `vibrationActuator` does not throw; a `playEffect` that rejects is swallowed.
+    - radial deadzone: inside the ring publishes 0/0; just outside keeps direction and starts near 0; the look curve is monotonic and above linear at full deflection;
+    - trigger hysteresis: 0.5 after a 0.7 press stays pressed, 0.3 releases, 0.45 from rest does not press;
+    - gameplay routing: A → `jump`, B → `dash`, X → `interact`, RT → `fire` with analog `value`, LT → `sprint`, d-pad → `dash` / `mine` / `phase` / `strike`, left stick → `move` with length ≤ 1, right stick → `look` scaled by `lookSensitivity.gamepad` and `dt`;
+    - contexts: in `build`, RT/LT → `build.place` / `build.remove` and `fire` / `dash` do not fire; RB → `build.rotate` with `repeated`; in `menu` no gameplay action fires; popping restores the previous context;
+    - hot-plug: `gamepaddisconnected` releases every `pad:*` source and a following key press makes `lastDevice()` `'kbm'`; a later pad press makes it `'gamepad'`;
+    - rebind: `captureNext` resolves with `pad:button:4`, `rebind` persists it through `savePersistedInput` under a fake `localStorage`, and a fresh `ActionLayer(loadPersistedInput())` routes LB to the rebound action;
+    - haptics: default off → `playEffect` never called; on → one dual-rumble per `BeatSync` wrap (a second `update()` in the same wrap queues nothing); `kickTrigger` rising through 0.5 queues one medium effect, not one per frame while high; a pad without `vibrationActuator` does not throw; a `playEffect` that rejects is swallowed.
 - `npm run typecheck` 0; `npm run lint` at or below `scripts/eslint-baseline.json` with 0 errors (type the Gamepad API with narrow local types, no `any`, no `eslint-disable`); `npm run test:cycles` 0/0 (do not import `game-loop.ts` or `game-loop-systems.ts` from the device); `npm run test:scheduler-order` unchanged; `budget:check` green with the `app` number recorded in the PR.
 - Files touched: `src/core/input/actions/{gamepad.ts,bindings.ts,frame.ts,types.ts,action-layer.ts,settings-store.ts,index.ts}`, `src/core/input/input/init-input.ts` (one install call), `src/ui/input-controls-section.ts`, `src/ui/ability-hud.ts` (an exported `setAbilityPrompt(id, text)` only), `src/systems/accessibility.ts` (`@deprecated` comments only), `src/systems/living-score.ts` (one line, optional), `src/systems/photo-mode/photo-mode.ts` (two `input.onPress` lines for `photo.capture` / `photo.exit` beside the existing `pushContext('photo')` at `:145`), `tests/input-gamepad.test.ts`, `package.json`, `docs/INPUT.md`. Nothing under `src/core/entities/**` or `src/world/**` (another session owns those today), nothing in `music-reactivity*.ts`, `game-loop-systems.ts`, `input-pipeline.ts`.
 
