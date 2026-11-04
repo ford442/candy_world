@@ -32,7 +32,7 @@ export function restoreEntity(
         processEntity: (item, weather) =>
             processMapEntity(item as unknown as MapEntity, weather as WeatherSystem),
         weatherSystem,
-        registry: animatedFoliage as THREE.Object3D[],
+        registry: animatedFoliage,
         onCollidersChanged: options.rebuildPhysicsGrid ? () => populatePhysicsGrids() : undefined,
     });
 }

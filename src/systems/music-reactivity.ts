@@ -314,7 +314,7 @@ export class MusicReactivitySystem {
         deltaTime: number,
         audioState: AudioData | null,
         weatherSystem: IWeatherSystem,
-        cpuAnimatedFoliage: FoliageObject[],
+        cpuAnimatedFoliage: readonly FoliageObject[],
         camera: THREE.Camera,
         isDay: boolean,
         isDeepNight: boolean

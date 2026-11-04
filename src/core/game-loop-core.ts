@@ -171,7 +171,7 @@ export const _DOF_FLORA_ZONES: ReadonlyArray<readonly [number, number]> = [
     [100, -80], // Gem Canopy jewel corridor
 ];
 
-export const _interactionLists: (any[] | null)[] = [null, null, null];
+export const _interactionLists: (readonly any[] | null)[] = [null, null, null];
 
 export let sceneRef: THREE.Scene | null = null;
 export let cameraRef: THREE.PerspectiveCamera | null = null;

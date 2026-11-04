@@ -177,26 +177,74 @@ systems of their own.
 
 ## Entities
 
-Entity ownership hasn't moved yet: that is slice 3 of #1973. Today:
+Live map entities are owned by one registry, `entities` (an `EntityRegistry`
+from `src/core/entities/registry.ts`, instantiated in `src/world/state.ts`).
+An entity is a `THREE.Object3D` and its id is `obj.uuid`. Fauna, and the
+foliage bridge, also live in the Emscripten ECS behind
+`src/systems/ecs/world.ts`; the registry is not an ECS and does not replace it.
 
-- Live map entities are tracked in module-level arrays in `src/world/state.ts`:
-  `animatedFoliage`, `obstacles`, the per-kind `foliage*` lists, `vineSwings`,
-  and the pre-filtered `computeFoliageObjects` / `interactiveObjects`. About
-  40 modules import it.
-- `src/world/entity-despawn.ts` is the single teardown path. It frees the
-  batcher slot, splices the tracking arrays and removes the scene node.
-  ChunkStreamer eviction and edit-history undo share it.
-- Fauna, and the foliage bridge, also live in the Emscripten ECS behind
-  `src/systems/ecs/world.ts`.
+```ts
+entities.spawn('foliageMushroom', obj); // join a kind (idempotent)
+entities.despawn(obj.uuid); // leave every kind, running each kind's hook
+entities.query('foliageMushroom'); // ReadonlyArray, same array forever
+entities.byId(id);
+entities.has(id);
+entities.kindsOf(id);
+entities.byKey(mapEntityId); // by userData.mapEntityId (edit history)
+```
 
-The planned registry replaces the arrays with `entities.spawn(kind, record)` /
-`despawn(id)` / `query(kind)`. Each kind owns its spawn and despawn hooks, and
-the arrays stay as read-only views while importers migrate.
+### Entity kinds
+
+A kind is a named membership with optional hooks. One entity can be in many
+kinds at once: a placed mushroom is `animatedFoliage`, `obstacle` and
+`foliageMushroom`, and at teardown also `evict:mushroom`.
+
+- **Registering a kind.** `entities.registerKind(kind, { onSpawn, onDespawn, pinned })`,
+  once, in the module that owns the kind. `onDespawn(id, obj, ctx)` gets the
+  despawn caller's context (`{ weatherSystem }`). A `pinned` kind has no safe
+  teardown: `entities.canDespawn(obj)` is false and `despawnEntity` refuses it.
+- **Where hooks live.** Next to the kind, never in the teardown path:
+    - the view kinds (`animatedFoliage`, `obstacle`, `foliage*`, `vineSwing`,
+      `computeFoliageObject`, `interactiveObject`) are declared by their
+      `entities.view(kind)` in `src/world/state.ts` and have no hooks;
+    - the batcher teardown kinds (`evict:<class>`: `removeInstance`,
+      `unregisterPhysicsCave`, `unregisterWalkableCloudPlatform`,
+      `releaseLocalLight`, …) and the classifier that picks one for an object
+      are in `src/world/generation-entity-kinds.ts`. A new batched species adds
+      its class there; `entity-despawn.ts` does not change.
+- **Spawning.** `safeAddFoliage` (`src/world/generation-entities.ts`) spawns
+  the view kinds. Teardown kinds are joined by `entities.adopt(obj)` when the
+  entity is torn down, from the class ChunkStreamer cached at spawn
+  (`userData.__evictionClass`) or from `userData`, so objects that reach
+  teardown by another path are still freed correctly.
+- **Teardown.** `despawnEntity(obj)` (`src/world/entity-despawn.ts`) is the one
+  path, shared by ChunkStreamer eviction and edit-history undo: `canDespawn`,
+  `adopt`, `entities.despawn(id, undefined, { weatherSystem })`, then scene
+  removal and dispose. It knows no kinds.
+- **Payloads.** `spawn(kind, obj, member)` puts `member` in the kind's view
+  instead of `obj`: `vineSwings` lists `VineSwing` managers, keyed by their
+  vine, so despawning the vine drops its manager.
+
+### The read-only view rule
+
+The old `state.ts` arrays (`animatedFoliage`, `cpuAnimatedFoliage`,
+`obstacles`, `foliageMushrooms`, …, `vineSwings`) are now
+`entities.view<T>(kind)`: typed `ReadonlyArray<T>`, and the same array for the
+registry's lifetime, updated in place (order-preserving) by spawn/despawn.
+Hold them from module load and read them every frame; they never allocate.
+
+- Never mutate a view. Add or remove through `entities.spawn` /
+  `entities.despawn` (a whole entity: `despawnEntity`). `npm run typecheck`
+  enforces it; don't cast a view to a mutable array.
+- A function that only reads a list takes `readonly T[]`, so a view can be
+  passed to it.
+- `state.ts` exports no mutable arrays. A new per-kind list is a new kind plus
+  `entities.view`, not a new array.
 
 ## Still to do (#1973)
 
-- **Slice 3:** the entity registry above, with `entity-despawn.ts` reduced to
-  `entities.despawn(id)`, and one ECS.
+- **Slice 3 (remaining):** one ECS (the registry and kind-agnostic teardown
+  are done; see "Entities").
 - **Slice 4:** the `InstancedBatcher<TRecord>` base for the 25 batchers. Each
   batcher becomes a scheduler system.
 - **Fixed step:** rigid bodies, fauna and particles move into `fixed` once they

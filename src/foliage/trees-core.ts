@@ -25,7 +25,7 @@ export function enhanceWithFloralJuice(material: any) {
         const flutter = sin(time.mul(flutterFreq).add(positionWorld.x).add(positionWorld.z)).mul(
             flutterAmp
         );
-        let newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
+        const newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
         // 3. Player Interaction & Wind Sway (applyStandardDeformation)
         material.positionNode = applyStandardDeformation(newPos);
         // 4. Juicy Rim Light (Audio-reactive edge glow)
