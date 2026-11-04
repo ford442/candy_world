@@ -29,22 +29,7 @@ import { unregisterPhysicsCave } from '../systems/physics/index.ts';
 import { debugHooks } from '../utils/debug-hooks.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import type { WeatherSystem } from './generation-utils.ts';
-import {
-    animatedFoliage,
-    cpuAnimatedFoliage,
-    foliageGroup,
-    foliageMushrooms,
-    foliageClouds,
-    foliageTrampolines,
-    foliagePanningPads,
-    foliageGeysers,
-    foliageTraps,
-    foliagePortamentoPines,
-    foliageVineLadders,
-    interactiveObjects,
-    computeFoliageObjects,
-    vineSwings,
-} from './state.ts';
+import { entities, foliageGroup } from './state.ts';
 
 /**
  * Safety-net fallback for classifyForEviction: any object flagged isBatched
@@ -148,14 +133,6 @@ export function canDespawn(obj: THREE.Object3D): boolean {
     return resolveEvictionClass(obj) !== 'never';
 }
 
-function removeFromArray(
-    arr: readonly unknown[] & { splice(start: number, count: number): unknown },
-    item: unknown
-): void {
-    const idx = arr.indexOf(item);
-    if (idx !== -1) arr.splice(idx, 1);
-}
-
 /**
  * Remove a live entity from its batcher, every state.ts registry and the
  * scene, disposing its resources.
@@ -237,21 +214,7 @@ export function despawnEntity(obj: THREE.Object3D, weatherSystem?: WeatherSystem
     }
     // Discovery registration is intentionally left in place — the discovery
     // grid (WASM/AS) has no unregister API (see .swarm-state.md).
-    removeFromArray(animatedFoliage, obj);
-    removeFromArray(cpuAnimatedFoliage, obj);
-    removeFromArray(foliageMushrooms, obj);
-    removeFromArray(foliageClouds, obj);
-    removeFromArray(foliageTrampolines, obj);
-    removeFromArray(foliagePanningPads, obj);
-    removeFromArray(foliageGeysers, obj);
-    removeFromArray(foliageTraps, obj);
-    removeFromArray(foliagePortamentoPines, obj);
-    removeFromArray(foliageVineLadders, obj);
-    removeFromArray(interactiveObjects, obj);
-    removeFromArray(computeFoliageObjects, obj);
-    for (let i = vineSwings.length - 1; i >= 0; i--) {
-        if (vineSwings[i].vine === obj) vineSwings.splice(i, 1);
-    }
+    entities.despawn(obj.uuid, undefined, { weatherSystem });
     safeRemoveAndDispose(foliageGroup, obj);
     (obj.userData as Record<string, unknown>)[DESPAWNED_KEY] = true;
     return true;

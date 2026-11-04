@@ -117,7 +117,7 @@ export function isCloudOverTarget(cloud: THREE.Object3D, targetPos: THREE.Vector
     return (dx*dx + dz*dz) < (threshold * threshold);
 }
 
-export function updateFallingClouds(dt: number, clouds: THREE.Object3D[], getGroundHeight: (x: number, z: number) => number): void {
+export function updateFallingClouds(dt: number, clouds: readonly THREE.Object3D[], getGroundHeight: (x: number, z: number) => number): void {
     for (let i = clouds.length - 1; i >= 0; i--) {
         const cloud = clouds[i];
         if (cloud.userData.isFalling) {

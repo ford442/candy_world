@@ -288,7 +288,7 @@ export interface RestoreDeps {
      * to find the objects this restore created so their authored transform and
      * animation metadata can be stamped.
      */
-    registry?: THREE.Object3D[];
+    registry?: ReadonlyArray<THREE.Object3D>;
     /** Called once after the restore when collidables were added (`populatePhysicsGrids`). */
     onCollidersChanged?: () => void;
 }

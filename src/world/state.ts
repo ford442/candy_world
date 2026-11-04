@@ -3,28 +3,64 @@ import { EntityRegistry } from '../core/entities/registry.ts';
 import type { FoliageObject } from '../foliage/types.ts';
 import type { VineSwing } from '../foliage/vine-swing.ts';
 
-export const entities = new EntityRegistry();
+/** What a despawn caller hands every kind's onDespawn hook. */
+export interface DespawnContext {
+    weatherSystem?: { unregisterCave?(obj: THREE.Object3D): void } | null;
+}
 
-export const animatedFoliage: FoliageObject[] = [];
-export const cpuAnimatedFoliage: FoliageObject[] = [];
-export const obstacles: THREE.Object3D[] = [];
+/**
+ * The one record of live world entities (#1973). Kinds and their hooks are
+ * registered where the kind is owned; the arrays below are read-only views
+ * over it. Add or remove an entity with `entities.spawn` / `entities.despawn`
+ * (teardown of a whole entity: `despawnEntity` in entity-despawn.ts).
+ */
+export const entities = new EntityRegistry<DespawnContext>({
+    keyOf: (obj) =>
+        typeof obj.userData?.mapEntityId === 'string' ? obj.userData.mapEntityId : undefined,
+});
 
-// Optimization: Categorized arrays for faster collision/logic
-export const foliageMushrooms: FoliageObject[] = [];
-export const foliageTrampolines: FoliageObject[] = [];
-export const foliagePanningPads: FoliageObject[] = [];
-export const foliageClouds: FoliageObject[] = [];
-export const foliageGeysers: FoliageObject[] = []; // Added for physics interaction
-export const foliageTraps: FoliageObject[] = []; // Added for snare trap interaction
-export const foliagePortamentoPines: FoliageObject[] = []; // Added for slingshot interaction
-export const vineSwings: VineSwing[] = []; // Managers for swing physics
-export const foliageVineLadders: FoliageObject[] = []; // Static climbable vines
+for (const kind of [
+    'animatedFoliage',
+    'cpuAnimatedFoliage',
+    'obstacle',
+    'foliageMushroom',
+    'foliageTrampoline',
+    'foliagePanningPad',
+    'foliageCloud',
+    'foliageGeyser',
+    'foliageTrap',
+    'foliagePortamentoPine',
+    'vineSwing',
+    'foliageVineLadder',
+    'computeFoliageObject',
+    'interactiveObject',
+]) {
+    entities.registerKind(kind);
+}
 
-// ⚡ OPTIMIZATION: Pre-filtered arrays to eliminate O(N) scans in hot loops
+// Read-only, referentially stable views: hold them from module load and read
+// them every frame. Only the registry mutates them.
+export const animatedFoliage = entities.view<FoliageObject>('animatedFoliage');
+export const cpuAnimatedFoliage = entities.view<FoliageObject>('cpuAnimatedFoliage');
+export const obstacles = entities.view<THREE.Object3D>('obstacle');
+
+// Optimization: Categorized views for faster collision/logic
+export const foliageMushrooms = entities.view<FoliageObject>('foliageMushroom');
+export const foliageTrampolines = entities.view<FoliageObject>('foliageTrampoline');
+export const foliagePanningPads = entities.view<FoliageObject>('foliagePanningPad');
+export const foliageClouds = entities.view<FoliageObject>('foliageCloud');
+export const foliageGeysers = entities.view<FoliageObject>('foliageGeyser'); // Added for physics interaction
+export const foliageTraps = entities.view<FoliageObject>('foliageTrap'); // Added for snare trap interaction
+export const foliagePortamentoPines = entities.view<FoliageObject>('foliagePortamentoPine'); // Added for slingshot interaction
+/** Swing-physics managers; spawned as `entities.spawn('vineSwing', vine, manager)`. */
+export const vineSwings = entities.view<VineSwing>('vineSwing');
+export const foliageVineLadders = entities.view<FoliageObject>('foliageVineLadder'); // Static climbable vines
+
+// ⚡ OPTIMIZATION: Pre-filtered views to eliminate O(N) scans in hot loops
 // Objects that have WebGPU compute nodes (waterfall, pollen, etc.)
-export const computeFoliageObjects: FoliageObject[] = [];
+export const computeFoliageObjects = entities.view<FoliageObject>('computeFoliageObject');
 // Objects that have interaction callbacks/text (gaze, proximity, interact)
-export const interactiveObjects: FoliageObject[] = [];
+export const interactiveObjects = entities.view<FoliageObject>('interactiveObject');
 
 // Groups
 export const worldGroup = new THREE.Group();
@@ -41,92 +77,3 @@ export function setActiveVineSwing(vine: VineSwing | null) {
 export function setLastVineDetachTime(time: number) {
     lastVineDetachTime = time;
 }
-
-// Registry Hook setup
-
-function arrayPush<T>(arr: T[], obj: T) {
-    arr.push(obj);
-}
-
-function arrayRemove<T>(arr: T[], obj: T) {
-    const idx = arr.indexOf(obj);
-    if (idx !== -1) {
-        // Swap-remove for O(1) removal
-        const last = arr[arr.length - 1];
-        arr[idx] = last;
-        arr.pop();
-    }
-}
-
-entities.registerKind('animatedFoliage', {
-    onSpawn: (_, obj) => arrayPush(animatedFoliage, obj),
-    onDespawn: (_, obj) => arrayRemove(animatedFoliage, obj),
-});
-
-entities.registerKind('cpuAnimatedFoliage', {
-    onSpawn: (_, obj) => arrayPush(cpuAnimatedFoliage, obj),
-    onDespawn: (_, obj) => arrayRemove(cpuAnimatedFoliage, obj),
-});
-
-entities.registerKind('obstacle', {
-    onSpawn: (_, obj) => arrayPush(obstacles, obj),
-    onDespawn: (_, obj) => arrayRemove(obstacles, obj),
-});
-
-entities.registerKind('foliageMushroom', {
-    onSpawn: (_, obj) => arrayPush(foliageMushrooms, obj),
-    onDespawn: (_, obj) => arrayRemove(foliageMushrooms, obj),
-});
-
-entities.registerKind('foliageTrampoline', {
-    onSpawn: (_, obj) => arrayPush(foliageTrampolines, obj),
-    onDespawn: (_, obj) => arrayRemove(foliageTrampolines, obj),
-});
-
-entities.registerKind('foliagePanningPad', {
-    onSpawn: (_, obj) => arrayPush(foliagePanningPads, obj),
-    onDespawn: (_, obj) => arrayRemove(foliagePanningPads, obj),
-});
-
-entities.registerKind('foliageCloud', {
-    onSpawn: (_, obj) => arrayPush(foliageClouds, obj),
-    onDespawn: (_, obj) => arrayRemove(foliageClouds, obj),
-});
-
-entities.registerKind('foliageGeyser', {
-    onSpawn: (_, obj) => arrayPush(foliageGeysers, obj),
-    onDespawn: (_, obj) => arrayRemove(foliageGeysers, obj),
-});
-
-entities.registerKind('foliageTrap', {
-    onSpawn: (_, obj) => arrayPush(foliageTraps, obj),
-    onDespawn: (_, obj) => arrayRemove(foliageTraps, obj),
-});
-
-entities.registerKind('foliagePortamentoPine', {
-    onSpawn: (_, obj) => arrayPush(foliagePortamentoPines, obj),
-    onDespawn: (_, obj) => arrayRemove(foliagePortamentoPines, obj),
-});
-
-// vineSwings holds VineSwing managers, not Object3Ds; nothing spawns this kind
-// yet (generation-entities pushes managers directly), so its hooks are no-ops
-// until the registry can carry a per-kind payload.
-entities.registerKind('vineSwing', {
-    onSpawn: () => {},
-    onDespawn: () => {},
-});
-
-entities.registerKind('foliageVineLadder', {
-    onSpawn: (_, obj) => arrayPush(foliageVineLadders, obj),
-    onDespawn: (_, obj) => arrayRemove(foliageVineLadders, obj),
-});
-
-entities.registerKind('computeFoliageObject', {
-    onSpawn: (_, obj) => arrayPush(computeFoliageObjects, obj),
-    onDespawn: (_, obj) => arrayRemove(computeFoliageObjects, obj),
-});
-
-entities.registerKind('interactiveObject', {
-    onSpawn: (_, obj) => arrayPush(interactiveObjects, obj),
-    onDespawn: (_, obj) => arrayRemove(interactiveObjects, obj),
-});
