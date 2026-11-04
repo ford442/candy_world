@@ -304,10 +304,20 @@ export class ClothSim {
             const dx = pos[b] - pos[a];
             const dy = pos[b + 1] - pos[a + 1];
             const dz = pos[b + 2] - pos[a + 2];
-            const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (d < 1e-6) continue;
+
+            // ⚡ OPTIMIZATION: Bypassed Math.sqrt() in soft-body constraint loop for resting/settled links.
+            const distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq < 1e-12) continue;
 
             const rest = this.rest[k];
+            const restSq = rest * rest;
+            const epsSq = 1e-8; // Allow a tiny bit of squared tolerance to avoid sqrt
+
+            // If the link is exactly at rest, do nothing.
+            if (Math.abs(distSq - restSq) < epsSq) continue;
+
+            const d = Math.sqrt(distSq);
+
             // Hard clamp first: a link may never exceed MAX_STRETCH × rest,
             // whatever the stiffness says. This is what stops candy from
             // pulling into strings.
@@ -424,12 +434,14 @@ export class ClothSim {
             }
         }
         for (let i = 0; i < out.length; i += 3) {
-            const l = Math.sqrt(out[i] * out[i] + out[i + 1] * out[i + 1] + out[i + 2] * out[i + 2]);
-            if (l < 1e-6) {
+            // ⚡ OPTIMIZATION: Check squared magnitude before calculating Math.sqrt() in hot normal computation loop.
+            const lSq = out[i] * out[i] + out[i + 1] * out[i + 1] + out[i + 2] * out[i + 2];
+            if (lSq < 1e-12) {
                 out[i] = 0;
                 out[i + 1] = 0;
                 out[i + 2] = 1;
             } else {
+                const l = Math.sqrt(lSq);
                 out[i] /= l;
                 out[i + 1] /= l;
                 out[i + 2] /= l;
