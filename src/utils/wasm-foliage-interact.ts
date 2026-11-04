@@ -298,7 +298,7 @@ export function packPads(
 }
 
 export function packVines(
-    vines: Array<{ anchorPoint?: { x: number; y: number; z: number }; length?: number; attach?: (player: unknown, velocity: unknown) => void }>,
+    vines: ReadonlyArray<{ anchorPoint?: { x: number; y: number; z: number }; length?: number; attach?: (player: unknown, velocity: unknown) => void }>,
     out: Float32Array = _vineIn,
     managersOut: unknown[] = []
 ): { data: Float32Array; count: number; managers: unknown[] } {

@@ -139,8 +139,13 @@ export function createKeyboardHandlers(session: InputSession): InputKeyboardHand
                                 session.instructions,
                                 { skipAutoFocus: true, onEscape: () => session.controls.lock() }
                             );
-                            if (session.startButton) {
+                            if (session.startButton && session.startButton.style.display !== 'none') {
                                 session.startButton.focus({ preventScroll: true });
+                            } else {
+                                const title = session.instructions.querySelector('#instructions-title') as HTMLElement;
+                                if (title) {
+                                    title.focus({ preventScroll: true });
+                                }
                             }
                         }
                     });

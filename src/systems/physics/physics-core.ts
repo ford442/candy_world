@@ -416,15 +416,11 @@ function updateDefaultState(
         spawnImpact(player.position, 'trail');
     }
 
-    // --- BPM Wind Player Impact ---
+    // --- BPM Wind ---
+    // Strength is tracked here; the drift is added to the walk target below
+    // so it goes through the controller instead of teleporting the player.
     const hasWindAnchor = unlockSystem.isUnlocked('wind_anchor');
-    let windForceX = 0;
-    let windForceZ = 0;
-    if (!hasWindAnchor && bpmWind.strength > 0) {
-        const windPushForce = 25.0;
-        windForceX = bpmWind.direction.x * bpmWind.strength * windPushForce * delta;
-        windForceZ = bpmWind.direction.z * bpmWind.strength * windPushForce * delta;
-    } else if (hasWindAnchor && bpmWind.strength > 0.5) {
+    if (hasWindAnchor && bpmWind.strength > 0.5) {
         discoverySystem.discover('wind_anchor', 'Wind Anchor', '⚓');
     }
 
@@ -449,6 +445,15 @@ function updateDefaultState(
     if (keyStates.right) _targetVelocity.add(camRight);
     if (keyStates.left) _targetVelocity.sub(camRight);
     if (_targetVelocity.lengthSq() > 0) _targetVelocity.normalize().multiplyScalar(moveSpeed);
+
+    // Full strength (180 BPM) is 4 u/s. Walk is 14, sprint is 22.5, so the
+    // gale is a drift you can always beat. The old 25 u/s position offset
+    // outran walking at a normal tracker tempo and skipped collision.
+    if (!hasWindAnchor && bpmWind.strength > 0) {
+        const windSpeed = 4 * bpmWind.strength;
+        _targetVelocity.x += bpmWind.direction.x * windSpeed;
+        _targetVelocity.z += bpmWind.direction.z * windSpeed;
+    }
 
     if (!inLakeBasin) {
         // Seed WASM state synchronously before running C++ update
@@ -512,10 +517,6 @@ function updateDefaultState(
         jumpTriggered,
         _characterGroundQuery
     );
-
-    // Apply wind forces
-    player.position.x += windForceX;
-    player.position.z += windForceZ;
 
     // Handle landing FX (formerly in updateJSFallbackMovement)
     if (outcome.justLanded) {

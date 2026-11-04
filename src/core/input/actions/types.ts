@@ -62,6 +62,12 @@ export const ACTION_IDS = [
     // Dev overlays
     'debug.profiler',
     'debug.overlay',
+    // Pause and menu navigation (gamepad: a pad has no Escape, Tab or Enter)
+    'pause',
+    'menu.confirm',
+    'menu.back',
+    'menu.next',
+    'menu.prev',
 ] as const;
 
 export type ActionId = (typeof ACTION_IDS)[number];
@@ -90,6 +96,11 @@ export interface Modifiers {
  * - `mouse:move`                pointer-locked mouse motion (an analog source)
  * - `wheel:up` / `wheel:down`   one wheel notch
  * - `ui:<name>`                 an on-screen control (D-pad, ability slot)
+ * - `pad:<button>`              a Standard-mapping gamepad button (`pad:a`, `pad:rt`)
+ * - `stick:left` / `stick:right` a gamepad stick after its deadzone (an analog source)
+ *
+ * On a gamepad, holding View (`pad:back`) is the `ctrl` modifier: `View+LB` is
+ * `{ source: 'pad:lb', mods: { ctrl: true } }`.
  */
 export interface Binding {
     readonly action: ActionId;
@@ -128,9 +139,20 @@ export interface InputContext {
 /** Actions that switch between hold and toggle in the settings. */
 export type HoldToggleAction = 'sprint' | 'sneak';
 
+export interface GamepadSettings {
+    /** Radial stick deadzone, 0–0.5 of full deflection. */
+    deadzone: number;
+    /** Look response curve exponent: 1 is linear, higher gives finer aim near center. */
+    lookCurve: number;
+    /** Rumble on kick-drum beats. Off by default. */
+    haptics: boolean;
+}
+
 export interface InputSettings {
     /** Look speed multiplier per device (1 = the old PointerLockControls speed). */
     lookSensitivity: Record<Device, number>;
+    /** Global: one invert-Y for every device. */
     invertY: boolean;
     holdToggle: Record<HoldToggleAction, 'hold' | 'toggle'>;
+    gamepad: GamepadSettings;
 }

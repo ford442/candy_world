@@ -114,6 +114,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 
 - **`generation.ts`**: Terrain, chunk generation, heightmap
 - **`state.ts`**: World state, foliage tracking, animation state
+- **Entities**: live entities are owned by the `entities` registry; `state.ts` lists are read-only views. Kinds, hooks and the view rule: `docs/ARCHITECTURE.md` ("Entity kinds")
 - **`document/`**: The versioned `WorldDocument` (valibot schema, migrations, IndexedDB store, `.candyworld` codec, legacy importer, command-log session; `remote-store.ts` / `shared-sync.ts` for shared worlds). See `docs/SAVE_SYSTEM.md`
 
 #### `/src/gameplay` — Gameplay Mechanics
