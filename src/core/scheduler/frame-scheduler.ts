@@ -10,6 +10,10 @@ import type { System } from './types.ts';
 
 export const frameScheduler = new SystemScheduler({
     rng: simRng,
+    // game-loop.ts clamps a frame to 0.1s. 6 × 1/60s covers that whole clamp.
+    // The default of 5 dropped the last step, so under ~12 fps the player
+    // walked in slow motion on top of the hitch.
+    maxSubsteps: 6,
     // `system.<id>` marks: the perf-budget telemetry and the profiler overlay
     // read the same per-system numbers the scheduler measures.
     mark: (label, ms) => profiler.mark(label, ms),

@@ -49,7 +49,9 @@ export function updateEnvironmentalModifiers(delta: number, audioState: AudioSta
         grooveGravity.multiplier += (grooveGravity.targetMultiplier - grooveGravity.multiplier) * delta * 5.0;
         player.gravity = grooveGravity.baseGravity * grooveGravity.multiplier;
 
-        // BPM Wind (Visuals only for now)
+        // BPM wind strength. physics-core folds a capped drift into the
+        // walk target (Wind Anchor zeroes it). This used to say "visuals only"
+        // while the controller was already shoving the player.
         const currentBPM = audioState.bpm || 120;
         bpmWind.bpm = currentBPM;
         bpmWind.targetStrength = Math.min(1.0, (currentBPM - 60) / 120);
