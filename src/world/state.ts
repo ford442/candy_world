@@ -19,27 +19,9 @@ export const entities = new EntityRegistry<DespawnContext>({
         typeof obj.userData?.mapEntityId === 'string' ? obj.userData.mapEntityId : undefined,
 });
 
-for (const kind of [
-    'animatedFoliage',
-    'cpuAnimatedFoliage',
-    'obstacle',
-    'foliageMushroom',
-    'foliageTrampoline',
-    'foliagePanningPad',
-    'foliageCloud',
-    'foliageGeyser',
-    'foliageTrap',
-    'foliagePortamentoPine',
-    'vineSwing',
-    'foliageVineLadder',
-    'computeFoliageObject',
-    'interactiveObject',
-]) {
-    entities.registerKind(kind);
-}
-
 // Read-only, referentially stable views: hold them from module load and read
-// them every frame. Only the registry mutates them.
+// them every frame. Only the registry mutates them. Taking a view declares the
+// kind; these kinds have no hooks, so they need no registerKind.
 export const animatedFoliage = entities.view<FoliageObject>('animatedFoliage');
 export const cpuAnimatedFoliage = entities.view<FoliageObject>('cpuAnimatedFoliage');
 export const obstacles = entities.view<THREE.Object3D>('obstacle');

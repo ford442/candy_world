@@ -184,11 +184,13 @@ foliage bridge, also live in the Emscripten ECS behind
 `src/systems/ecs/world.ts`; the registry is not an ECS and does not replace it.
 
 ```ts
-entities.spawn('foliageMushroom', obj);    // join a kind (idempotent)
-entities.despawn(obj.uuid);                // leave every kind, running each kind's hook
-entities.query('foliageMushroom');         // ReadonlyArray, same array forever
-entities.byId(id); entities.has(id); entities.kindsOf(id);
-entities.byKey(mapEntityId);               // by userData.mapEntityId (edit history)
+entities.spawn('foliageMushroom', obj); // join a kind (idempotent)
+entities.despawn(obj.uuid); // leave every kind, running each kind's hook
+entities.query('foliageMushroom'); // ReadonlyArray, same array forever
+entities.byId(id);
+entities.has(id);
+entities.kindsOf(id);
+entities.byKey(mapEntityId); // by userData.mapEntityId (edit history)
 ```
 
 ### Entity kinds
@@ -202,14 +204,14 @@ kinds at once: a placed mushroom is `animatedFoliage`, `obstacle` and
   despawn caller's context (`{ weatherSystem }`). A `pinned` kind has no safe
   teardown: `entities.canDespawn(obj)` is false and `despawnEntity` refuses it.
 - **Where hooks live.** Next to the kind, never in the teardown path:
-  - the view kinds (`animatedFoliage`, `obstacle`, `foliage*`, `vineSwing`,
-    `computeFoliageObject`, `interactiveObject`) are registered in
-    `src/world/state.ts` and have no hooks;
-  - the batcher teardown kinds (`evict:<class>`: `removeInstance`,
-    `unregisterPhysicsCave`, `unregisterWalkableCloudPlatform`,
-    `releaseLocalLight`, …) and the classifier that picks one for an object
-    are in `src/world/generation-entity-kinds.ts`. A new batched species adds
-    its class there; `entity-despawn.ts` does not change.
+    - the view kinds (`animatedFoliage`, `obstacle`, `foliage*`, `vineSwing`,
+      `computeFoliageObject`, `interactiveObject`) are declared by their
+      `entities.view(kind)` in `src/world/state.ts` and have no hooks;
+    - the batcher teardown kinds (`evict:<class>`: `removeInstance`,
+      `unregisterPhysicsCave`, `unregisterWalkableCloudPlatform`,
+      `releaseLocalLight`, …) and the classifier that picks one for an object
+      are in `src/world/generation-entity-kinds.ts`. A new batched species adds
+      its class there; `entity-despawn.ts` does not change.
 - **Spawning.** `safeAddFoliage` (`src/world/generation-entities.ts`) spawns
   the view kinds. Teardown kinds are joined by `entities.adopt(obj)` when the
   entity is torn down, from the class ChunkStreamer cached at spawn

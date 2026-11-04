@@ -47,6 +47,16 @@ interface KindState<Ctx> {
 
 const EMPTY: readonly never[] = Object.freeze([]);
 
+/**
+ * Order-preserving removal (some callers diff a view by length, e.g.
+ * restoreEntityWith). Returns the list's new length.
+ */
+function removeItem(list: unknown[], item: unknown): number {
+    const idx = list.indexOf(item);
+    if (idx !== -1) list.splice(idx, 1);
+    return list.length;
+}
+
 export class EntityRegistry<Ctx = unknown> {
     private readonly kinds = new Map<string, KindState<Ctx>>();
     private readonly records = new Map<string, EntityRecord>();
@@ -77,10 +87,6 @@ export class EntityRegistry<Ctx = unknown> {
         state.hooks = hooks;
     }
 
-    isRegistered(kind: string): boolean {
-        return !!this.kinds.get(kind)?.hooks;
-    }
-
     /** Add a rule `adopt` uses to place an object in a kind by its own data. */
     registerClassifier(classifier: EntityClassifier): void {
         this.classifiers.push(classifier);
@@ -96,9 +102,7 @@ export class EntityRegistry<Ctx = unknown> {
         let record = this.records.get(id);
         if (record) {
             if (record.obj !== obj) {
-                throw new Error(
-                    `[EntityRegistry] Collision: Object ID ${id} already exists for a different object.`
-                );
+                throw new Error(`[EntityRegistry] id ${id} belongs to another object`);
             }
             if (record.kinds.has(kind)) return id;
             record.kinds.add(kind);
@@ -127,24 +131,18 @@ export class EntityRegistry<Ctx = unknown> {
     adopt(obj: THREE.Object3D): string {
         for (const classify of this.classifiers) {
             const kind = classify(obj);
-            if (kind && this.isRegistered(kind)) this.spawn(kind, obj);
+            if (kind && this.kinds.get(kind)?.hooks) this.spawn(kind, obj);
         }
         return obj.uuid;
     }
 
     /** False when the entity, or what `adopt` would make it, is in a pinned kind. */
     canDespawn(obj: THREE.Object3D): boolean {
-        const record = this.records.get(obj.uuid);
-        if (record) {
-            for (const kind of record.kinds) {
-                if (this.kinds.get(kind)?.hooks?.pinned) return false;
-            }
-        }
-        for (const classify of this.classifiers) {
-            const kind = classify(obj);
-            if (kind && this.kinds.get(kind)?.hooks?.pinned) return false;
-        }
-        return true;
+        const kinds = [
+            ...(this.records.get(obj.uuid)?.kinds ?? []),
+            ...this.classifiers.map((c) => c(obj)),
+        ];
+        return !kinds.some((kind) => kind && this.kinds.get(kind)?.hooks?.pinned);
     }
 
     /**
@@ -170,24 +168,19 @@ export class EntityRegistry<Ctx = unknown> {
         record.kinds.delete(kind);
         const state = this.kinds.get(kind);
         if (!state) return;
-        if (state.memberOf.has(record.obj)) {
-            const member = state.memberOf.get(record.obj);
+        // spawn's default parameter means a member is never undefined.
+        const member = state.memberOf.get(record.obj);
+        if (member !== undefined) {
             state.memberOf.delete(record.obj);
-            const idx = state.members.indexOf(member);
-            // Order-preserving: some callers diff a view by length (restoreEntityWith).
-            if (idx !== -1) state.members.splice(idx, 1);
+            removeItem(state.members, member);
         }
         state.hooks?.onDespawn?.(id, record.obj, ctx);
     }
 
     private forget(record: EntityRecord, id: string): void {
         this.records.delete(id);
-        if (record.key === undefined) return;
-        const list = this.keyed.get(record.key);
-        if (!list) return;
-        const idx = list.indexOf(record.obj);
-        if (idx !== -1) list.splice(idx, 1);
-        if (list.length === 0) this.keyed.delete(record.key);
+        const list = record.key === undefined ? undefined : this.keyed.get(record.key);
+        if (list && removeItem(list, record.obj) === 0) this.keyed.delete(record.key!);
     }
 
     /**
