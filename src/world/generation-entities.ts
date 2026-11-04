@@ -8,10 +8,8 @@ import { WeatherSystem, normalizeMapEntityType, MapEntity, obstaclesData } from 
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
 import {
-    entities, animatedFoliage, cpuAnimatedFoliage, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers,
-    foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders,
-    computeFoliageObjects
+    entities, cpuAnimatedFoliage, foliageGroup, foliageTrampolines, foliagePanningPads,
+    foliageTraps, foliagePortamentoPines, vineSwings
 } from './state.ts';
 
 registerBuiltinWorldObjectTypes();
@@ -51,8 +49,7 @@ export function safeAddFoliage(
 
     foliageGroup.add(obj);
     entities.spawn('animatedFoliage', obj);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (obj.userData.computeNode) entities.spawn('computeFoliageObject', obj as any);
+    if (obj.userData.computeNode) entities.spawn('computeFoliageObject', obj);
     if (!isBatched) entities.spawn('cpuAnimatedFoliage', obj);
 
     if (isObstacle) {
@@ -393,10 +390,8 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                     .applyQuaternion(obj.quaternion)
                     .add(obj.position);
                 waterfallProxy.userData.type = 'waterfall';
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                entities.spawn('animatedFoliage', waterfallProxy as any);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (waterfallProxy.userData.computeNode) entities.spawn('computeFoliageObject', waterfallProxy as any);
+                entities.spawn('animatedFoliage', waterfallProxy);
+                if (waterfallProxy.userData.computeNode) entities.spawn('computeFoliageObject', waterfallProxy);
             }
         }
 

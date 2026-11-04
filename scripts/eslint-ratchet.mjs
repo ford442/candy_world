@@ -93,6 +93,12 @@ if (update) {
     process.exit(0);
 }
 
+// Errors fail on their own: a cleanup elsewhere must not buy room for an error.
+if (errors > 0 && !reportOnly) {
+    console.error(`\n❌ ESLint ratchet FAILED: ${errors} error(s); errors are never covered by the baseline.`);
+    process.exit(1);
+}
+
 if (count > maxProblems) {
     const msg = `\n❌ ESLint ratchet FAILED: ${count} problems exceeds baseline of ${maxProblems} by ${delta}.`;
     if (reportOnly) {

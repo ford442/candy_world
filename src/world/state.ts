@@ -1,8 +1,7 @@
 import * as THREE from 'three';
+import { EntityRegistry } from '../core/entities/registry.ts';
 import type { FoliageObject } from '../foliage/types.ts';
 import type { VineSwing } from '../foliage/vine-swing.ts';
-
-import { EntityRegistry } from '../core/entities/registry.ts';
 
 export const entities = new EntityRegistry();
 
@@ -46,11 +45,11 @@ export function setLastVineDetachTime(time: number) {
 
 // Registry Hook setup
 
-function arrayPush(arr: any[], obj: any) {
+function arrayPush<T>(arr: T[], obj: T) {
     arr.push(obj);
 }
 
-function arrayRemove(arr: any[], obj: any) {
+function arrayRemove<T>(arr: T[], obj: T) {
     const idx = arr.indexOf(obj);
     if (idx !== -1) {
         // Swap-remove for O(1) removal
@@ -110,9 +109,12 @@ entities.registerKind('foliagePortamentoPine', {
     onDespawn: (_, obj) => arrayRemove(foliagePortamentoPines, obj)
 });
 
+// vineSwings holds VineSwing managers, not Object3Ds; nothing spawns this kind
+// yet (generation-entities pushes managers directly), so its hooks are no-ops
+// until the registry can carry a per-kind payload.
 entities.registerKind('vineSwing', {
-    onSpawn: (_, obj) => arrayPush(vineSwings, obj),
-    onDespawn: (_, obj) => arrayRemove(vineSwings, obj)
+    onSpawn: () => {},
+    onDespawn: () => {}
 });
 
 entities.registerKind('foliageVineLadder', {
