@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { shouldUseFoliageGpuBatch } from '../../compute/foliage-gpu-batch.ts';
 import { getCIAdjustedCount } from '../../core/config.ts';
+import { InstancedBatcher } from '../../core/batcher/instanced-batcher.ts';
+import type { FrameContext } from '../../core/scheduler/types.ts';
 import { registerFoliageBatcherLod } from '../../systems/batcher-lod.ts';
 import { writeInstancePose } from '../../utils/wasm-batcher-instance.ts';
 import { getGroundAlignedQuaternion } from '../../world/placement-utils.ts';
@@ -11,50 +13,77 @@ import { spawnImpact } from '../impacts.ts';
 import { uTime } from '../material-core.ts';
 import {
     MAX_MUSHROOMS,
-    _scratchMatrix,
-    _scratchMatrix2,
     _scratchPos,
-    _scratchScale,
     _scratchQuat,
     _scratchColor,
-    _scratchCapCenter,
-    _scratchSpotScale,
-    _scratchUp,
-    _scratchEye,
-    _scratchDummyObj
 } from './constants.ts';
 import { createMergedGeometry } from './geometry.ts';
 import { createMaterials } from './materials.ts';
 
-export class MushroomBatcher {
+export class MushroomBatcher extends InstancedBatcher<{ proxy: THREE.Object3D, options: any }> {
     private static instance: MushroomBatcher;
-    private initialized = false;
-    private count = 0;
 
-    // Mesh & Attributes
-    public mesh: THREE.InstancedMesh | null = null;
     // OPTIMIZED: Packed into single vec4 to reduce vertex buffers from 11 to 8
     // instanceData: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
     // packedFlags encoding: noteIndex+1 + hasFace*20 + isGiant*40
     private instanceData: THREE.InstancedBufferAttribute | null = null;
 
     // Matrix/color batching state (SoA → native or TS writeInstancePose)
-    private _matricesDirty: boolean = false;
-    private _batchPositions: Float32Array = new Float32Array(0);
-    private _batchQuaternions: Float32Array = new Float32Array(0);
-    private _batchScales: Float32Array = new Float32Array(0);
-    private _batchColors: Float32Array = new Float32Array(0);
+    private _batchPositions: Float32Array;
+    private _batchQuaternions: Float32Array;
+    private _batchScales: Float32Array;
+    private _batchColors: Float32Array;
 
-
-    // Mapping: Note Index (0-11) -> Array of Instance Indices
+    // Mapping: Note Index (0-11) -> Array of Instance Indices (slots)
     private noteToInstances: Map<number, number[]> = new Map();
 
-    // Mapping: Logic ID -> Instance Index (for removal)
-    private logicIdToInstance: Map<number, number> = new Map();
-    // Mapping: Instance Index -> Logic ID
-    private instanceToLogicId: number[] = [];
+    private constructor() {
+        super('mushroom', 'animate', MAX_MUSHROOMS);
+        this._batchPositions = new Float32Array(MAX_MUSHROOMS * 3);
+        this._batchQuaternions = new Float32Array(MAX_MUSHROOMS * 4);
+        this._batchScales = new Float32Array(MAX_MUSHROOMS * 3);
+        this._batchColors = new Float32Array(MAX_MUSHROOMS * 3);
+    }
 
-    private constructor() {}
+    protected createMesh(capacity: number): THREE.InstancedMesh {
+        // 1. Create Merged Geometry
+        const geometry = createMergedGeometry();
+
+        // 2. Attributes - SINGLE packed attribute to stay within WebGPU 8 buffer limit
+        this.instanceData = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
+
+        geometry.setAttribute('instanceData', this.instanceData);
+
+        // 3. Materials with TSL
+        const materials = createMaterials();
+
+        // 4. InstancedMesh
+        const mesh = new THREE.InstancedMesh(geometry, materials, capacity);
+        mesh.userData.seasonRole = 'cap';
+
+        // PALETTE: Initialize instanceColor manually since we use TSL
+        const colors = new Float32Array(capacity * 3);
+        mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+        mesh.geometry.setAttribute('instanceColor', mesh.instanceColor);
+        initInstanceLodAttribute(mesh, capacity);
+
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.count = 0;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.frustumCulled = true;
+
+        // Add to Scene (assuming foliageGroup exists and is in scene)
+        if (foliageGroup) {
+            foliageGroup.add(mesh);
+        } else {
+            console.warn('[MushroomBatcher] foliageGroup not found, mushrooms might not be visible.');
+        }
+
+        registerFoliageBatcherLod({ id: 'mushroom', getMeshes: () => [mesh] });
+        console.log('[MushroomBatcher] Initialized with capacity ' + capacity);
+        return mesh;
+    }
 
     getRandomPosition(out: THREE.Vector3): boolean {
         if (!this.mesh || this.count === 0) return false;
@@ -75,96 +104,14 @@ export class MushroomBatcher {
         return MushroomBatcher.instance;
     }
 
-    init() {
-        if (this.initialized) return;
-
-        // 1. Create Merged Geometry
-        const geometry = createMergedGeometry();
-
-        // 2. Attributes - SINGLE packed attribute to stay within WebGPU 8 buffer limit
-        this.instanceData = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 4), 4);
-
-        // C++ / TS batching SoA buffers (#1358 writeInstancePose)
-        this._batchPositions = new Float32Array(MAX_MUSHROOMS * 3);
-        this._batchQuaternions = new Float32Array(MAX_MUSHROOMS * 4);
-        this._batchScales = new Float32Array(MAX_MUSHROOMS * 3);
-        this._batchColors = new Float32Array(MAX_MUSHROOMS * 3);
-
-        geometry.setAttribute('instanceData', this.instanceData);
-
-        // 3. Materials with TSL
-        const materials = createMaterials();
-
-        // 4. InstancedMesh
-        this.mesh = new THREE.InstancedMesh(geometry, materials, MAX_MUSHROOMS);
-        this.mesh.userData.seasonRole = 'cap';
-
-        // PALETTE: Initialize instanceColor manually since we use TSL
-        const colors = new Float32Array(MAX_MUSHROOMS * 3);
-        this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
-        this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
-        initInstanceLodAttribute(this.mesh, MAX_MUSHROOMS);
-
-        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.mesh.count = 0;
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-        this.mesh.frustumCulled = true;
-
-        // Add to Scene (assuming foliageGroup exists and is in scene)
-        if (foliageGroup) {
-            foliageGroup.add(this.mesh);
-        } else {
-            console.warn('[MushroomBatcher] foliageGroup not found, mushrooms might not be visible.');
-        }
-
-        this.initialized = true;
-        registerFoliageBatcherLod({ id: 'mushroom', getMeshes: () => this.mesh ? [this.mesh] : [] });
-        console.log('[MushroomBatcher] Initialized with capacity ' + MAX_MUSHROOMS);
-    }
-
     getLODMeshes(): THREE.InstancedMesh[] {
         return this.mesh ? [this.mesh] : [];
     }
 
-    private flushMatrices() {
-        if (!this._matricesDirty || !this.mesh || this.count === 0) return;
-
-        const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
-        const colorArray = this.mesh.instanceColor
-            ? (this.mesh.instanceColor.array as Float32Array)
-            : null;
-
-        writeInstancePose(
-            this._batchPositions,
-            this._batchQuaternions,
-            this._batchScales,
-            this._batchColors,
-            matrixArray,
-            colorArray,
-            1.0,
-            this.count
-        );
-
-        if (!shouldUseFoliageGpuBatch(this.count)) {
-            this.mesh.instanceMatrix.needsUpdate = true;
-            if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
-        }
-        this._matricesDirty = false;
-    }
-    register(dummy: THREE.Object3D, options: any) {
-        if (!this.initialized) this.init();
-        if (this.count >= MAX_MUSHROOMS) return;
-
-        const i = this.count;
-        this.count++;
-
-        // ⚡ OPTIMIZATION: Mark as batched
-        dummy.userData.isBatched = true;
-
-        // Track ID for removal
-        this.logicIdToInstance.set(dummy.id, i);
-        this.instanceToLogicId[i] = dummy.id;
+    protected writeRecord(record: { proxy: THREE.Object3D, options: any }, slot: number, array: Float32Array): void {
+        const dummy = record.proxy;
+        const options = record.options;
+        const i = slot;
 
         // 1. Set Matrix
         getGroundAlignedQuaternion(dummy, _scratchQuat);
@@ -189,32 +136,73 @@ export class MushroomBatcher {
         this._batchColors[i * 3 + 1] = _scratchColor.g;
         this._batchColors[i * 3 + 2] = _scratchColor.b;
 
-        this._matricesDirty = true;
-        this.flushMatrices();
+        // Note: The base class expects us to write to `array`, but because we use writeInstancePose for SoA->AoS,
+        // we'll flag matricesDirty and defer the actual matrix array population to flushMatrices() inside update().
+        // BUT we need it immediately if not using WASM or we can just call writeInstancePose here for this one slot.
+        // Actually writeInstancePose writes a range, so it's easier to just flag it.
+        // The base class will set this.mesh.instanceMatrix.needsUpdate if we called this.markDirty().
+    }
 
-        // 2. Set Attributes - Packed into single vec4
-        // packedFlags: noteIndex+1 + hasFace*20 + isGiant*40
+    protected step(ctx: FrameContext): void {
+        if (this.matricesDirty) {
+            this.flushMatrices();
+        }
+    }
+
+    private flushMatrices() {
+        if (!this.mesh || this.count === 0) return;
+
+        const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+        const colorArray = this.mesh.instanceColor
+            ? (this.mesh.instanceColor.array as Float32Array)
+            : null;
+
+        writeInstancePose(
+            this._batchPositions,
+            this._batchQuaternions,
+            this._batchScales,
+            this._batchColors,
+            matrixArray,
+            colorArray,
+            1.0,
+            this.count
+        );
+
+        if (!shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh.instanceMatrix.needsUpdate = true;
+            if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+        }
+        this.matricesDirty = false;
+    }
+
+    register(dummy: THREE.Object3D, options: any) {
+        // Prepare the new record attributes so they're ready when writeRecord is called
+        const handle = this.add({ proxy: dummy, options });
+        if (handle === null) return;
+        const slot = this.handleToSlot.get(handle)!;
+
+        // ⚡ OPTIMIZATION: Mark as batched
+        dummy.userData.isBatched = true;
+        dummy.userData.batchHandle = handle;
+
         const hasFace = options.hasFace ? 1.0 : 0.0;
         const noteIndex = options.noteIndex !== undefined ? options.noteIndex : -1;
         const isGiant = options.size === 'giant' ? 1.0 : 0.0;
         const spawnTime = options.spawnTime || -100.0;
         const packedFlags = (noteIndex + 1) + hasFace * 20 + isGiant * 40;
 
-        // instanceData: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
-        // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setXYZW overhead by writing directly to typed array
         const instanceDataArray = this.instanceData!.array as Float32Array;
-        const i4 = i * 4;
+        const i4 = slot * 4;
         instanceDataArray[i4] = packedFlags;
         instanceDataArray[i4 + 1] = spawnTime;
         instanceDataArray[i4 + 2] = -100.0;
         instanceDataArray[i4 + 3] = 0;
 
-        // 3. Update Mapping
         if (noteIndex >= 0) {
             if (!this.noteToInstances.has(noteIndex)) {
                 this.noteToInstances.set(noteIndex, []);
             }
-            this.noteToInstances.get(noteIndex)!.push(i);
+            this.noteToInstances.get(noteIndex)!.push(slot);
         }
 
         if (!shouldUseFoliageGpuBatch(this.count)) {
@@ -224,87 +212,68 @@ export class MushroomBatcher {
         this.instanceData!.needsUpdate = true;
     }
 
-    removeInstance(logicObject: THREE.Object3D) {
-        if (!this.initialized || !logicObject) return;
-
-        const id = logicObject.id;
-        if (!this.logicIdToInstance.has(id)) return;
-
-        const indexToRemove = this.logicIdToInstance.get(id)!;
-        const lastIndex = this.count - 1;
-
-        // 1. Remove from Note Mapping
-        // Decode noteIndex from packedFlags: noteIndex = (packed % 20) - 1
+    protected onSwap(fromSlot: number, toSlot: number): void {
         const instanceDataArray = this.instanceData!.array as Float32Array;
-        const removedPackedFlags = instanceDataArray[indexToRemove * 4];
+
+        // Fix up noteToInstances for the swapped slot
+        const lastPackedFlags = instanceDataArray[fromSlot * 4];
+        const movedNoteIndex = (lastPackedFlags % 20) - 1;
+        if (movedNoteIndex >= 0) {
+            const list = this.noteToInstances.get(movedNoteIndex);
+            if (list) {
+                const idx = list.indexOf(fromSlot);
+                if (idx > -1) list[idx] = toSlot;
+            }
+        }
+
+        // Copy custom attributes
+        for (let k = 0; k < 3; k++) {
+            this._batchPositions[toSlot * 3 + k] = this._batchPositions[fromSlot * 3 + k];
+            this._batchScales[toSlot * 3 + k] = this._batchScales[fromSlot * 3 + k];
+            this._batchColors[toSlot * 3 + k] = this._batchColors[fromSlot * 3 + k];
+        }
+        for (let k = 0; k < 4; k++) {
+            this._batchQuaternions[toSlot * 4 + k] = this._batchQuaternions[fromSlot * 4 + k];
+        }
+
+        const iRem4 = toSlot * 4;
+        const iLast4 = fromSlot * 4;
+        instanceDataArray[iRem4] = instanceDataArray[iLast4];
+        instanceDataArray[iRem4 + 1] = instanceDataArray[iLast4 + 1];
+        instanceDataArray[iRem4 + 2] = instanceDataArray[iLast4 + 2];
+        instanceDataArray[iRem4 + 3] = instanceDataArray[iLast4 + 3];
+    }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!logicObject) return;
+        const handle = logicObject.userData.batchHandle;
+        if (typeof handle !== 'number') return;
+        const slotToRemove = this.handleToSlot.get(handle);
+        if (slotToRemove === undefined) return;
+
+        // Clean up our specific state before swap-remove
+        const instanceDataArray = this.instanceData!.array as Float32Array;
+        const removedPackedFlags = instanceDataArray[slotToRemove * 4];
         const removedNoteIndex = (removedPackedFlags % 20) - 1;
         if (removedNoteIndex >= 0) {
             const list = this.noteToInstances.get(removedNoteIndex);
             if (list) {
-                const idx = list.indexOf(indexToRemove);
+                const idx = list.indexOf(slotToRemove);
                 if (idx > -1) list.splice(idx, 1);
             }
         }
 
-        // 2. Perform Swap (if not last)
-        if (indexToRemove !== lastIndex) {
-            const lastId = this.instanceToLogicId[lastIndex];
-            // Decode noteIndex from packedFlags
-            const lastPackedFlags = instanceDataArray[lastIndex * 4];
-            const movedNoteIndex = (lastPackedFlags % 20) - 1;
+        this.remove(handle);
 
-            // A. Copy Attributes from Last to Removed
-            // Matrix & Color (SoA updates)
-            for (let k = 0; k < 3; k++) {
-                this._batchPositions[indexToRemove * 3 + k] = this._batchPositions[lastIndex * 3 + k];
-                this._batchScales[indexToRemove * 3 + k] = this._batchScales[lastIndex * 3 + k];
-                this._batchColors[indexToRemove * 3 + k] = this._batchColors[lastIndex * 3 + k];
-            }
-            for (let k = 0; k < 4; k++) {
-                this._batchQuaternions[indexToRemove * 4 + k] = this._batchQuaternions[lastIndex * 4 + k];
-            }
-            this._matricesDirty = true;
-            this.flushMatrices();
-
-            // Single packed attribute
-            // ⚡ OPTIMIZATION: Bypassed setXYZW overhead
-            const iRem4 = indexToRemove * 4;
-            const iLast4 = lastIndex * 4;
-            instanceDataArray[iRem4] = instanceDataArray[iLast4];
-            instanceDataArray[iRem4 + 1] = instanceDataArray[iLast4 + 1];
-            instanceDataArray[iRem4 + 2] = instanceDataArray[iLast4 + 2];
-            instanceDataArray[iRem4 + 3] = instanceDataArray[iLast4 + 3];
-
-            // B. Update Note Mapping for the MOVED instance
-            if (movedNoteIndex >= 0) {
-                const list = this.noteToInstances.get(movedNoteIndex);
-                if (list) {
-                    const idx = list.indexOf(lastIndex);
-                    if (idx > -1) list[idx] = indexToRemove;
-                }
-            }
-
-            // C. Update ID Maps
-            this.logicIdToInstance.set(lastId, indexToRemove);
-            this.instanceToLogicId[indexToRemove] = lastId;
+        if (this.mesh && !shouldUseFoliageGpuBatch(this.count)) {
+            this.mesh.instanceMatrix.needsUpdate = true;
+            if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
         }
-
-        // 3. Cleanup
-        this.logicIdToInstance.delete(id);
-        this.instanceToLogicId[lastIndex] = -1;
-        this.count--;
-
-        // 4. Mark Updates
-        this.mesh!.count = this.count;
-        if (!shouldUseFoliageGpuBatch(this.count)) {
-            this.mesh!.instanceMatrix.needsUpdate = true;
-            if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
-        }
-        this.instanceData!.needsUpdate = true;
+        if (this.instanceData) this.instanceData.needsUpdate = true;
     }
 
     handleNote(noteIndex: number, velocity: number) {
-        if (!this.initialized) return;
+        if (!this.mesh) return;
 
         const indices = this.noteToInstances.get(noteIndex);
         if (indices) {
@@ -322,33 +291,31 @@ export class MushroomBatcher {
                 instanceDataArray[i * 4 + 3] = normalizedVelocity; // Normalize velocity
 
                 // PALETTE: Spawn Spores!
-                if (this.mesh) {
-                    // ⚡ OPTIMIZATION: Bypassed .getMatrixAt(), .decompose() and .getColorAt() for fast spawn extraction
-                    const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
-                    const matOffset = i * 16;
+                // ⚡ OPTIMIZATION: Bypassed .getMatrixAt(), .decompose() and .getColorAt() for fast spawn extraction
+                const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+                const matOffset = i * 16;
 
-                    // Extract position
-                    _scratchPos.set(matrixArray[matOffset + 12], matrixArray[matOffset + 13], matrixArray[matOffset + 14]);
+                // Extract position
+                _scratchPos.set(matrixArray[matOffset + 12], matrixArray[matOffset + 13], matrixArray[matOffset + 14]);
 
-                    // Extract scale Y (magnitude of the second column)
-                    const m10 = matrixArray[matOffset + 4], m11 = matrixArray[matOffset + 5], m12 = matrixArray[matOffset + 6];
-                    const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
-                    const scaleY = scaleYSq > 0.0001 ? Math.sqrt(scaleYSq) : 0;
+                // Extract scale Y (magnitude of the second column)
+                const m10 = matrixArray[matOffset + 4], m11 = matrixArray[matOffset + 5], m12 = matrixArray[matOffset + 6];
+                const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
+                const scaleY = scaleYSq > 0.0001 ? Math.sqrt(scaleYSq) : 0;
 
-                    if (this.mesh.instanceColor) {
-                        const colorArray = this.mesh.instanceColor.array as Float32Array;
-                        const colOffset = i * 3;
-                        _scratchColor.setRGB(colorArray[colOffset], colorArray[colOffset + 1], colorArray[colOffset + 2]);
-                    } else {
-                        _scratchColor.setHex(0xFFFFFF);
-                    }
-
-                    // Offset slightly up (cap height approx 1.0 * scale.y)
-                    _scratchPos.y += 0.8 * scaleY;
-
-                    // Spawn impact
-                    spawnImpact(_scratchPos, 'spore', _scratchColor);
+                if (this.mesh.instanceColor) {
+                    const colorArray = this.mesh.instanceColor.array as Float32Array;
+                    const colOffset = i * 3;
+                    _scratchColor.setRGB(colorArray[colOffset], colorArray[colOffset + 1], colorArray[colOffset + 2]);
+                } else {
+                    _scratchColor.setHex(0xFFFFFF);
                 }
+
+                // Offset slightly up (cap height approx 1.0 * scale.y)
+                _scratchPos.y += 0.8 * scaleY;
+
+                // Spawn impact
+                spawnImpact(_scratchPos, 'spore', _scratchColor);
             }
             this.instanceData!.needsUpdate = true;
             // Optim: Use addUpdateRange if indices are contiguous?
