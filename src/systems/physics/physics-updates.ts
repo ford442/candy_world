@@ -92,7 +92,7 @@ function hasFinitePosition(obj: PhysicsSyncObject): boolean {
 }
 
 function filterValidPhysicsObjects<T extends PhysicsSyncObject>(
-    objects: T[] | undefined,
+    objects: readonly T[] | undefined,
     label: string
 ): T[] {
     if (!Array.isArray(objects) || objects.length === 0) {

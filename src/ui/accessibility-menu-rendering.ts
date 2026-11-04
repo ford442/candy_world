@@ -39,6 +39,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
 
         // Create menu container
         this.container = document.createElement('div');
+        this.container.id = 'a11y-menu-container';
         this.container.className = 'a11y-menu-container';
         this.container.setAttribute('role', 'dialog');
         this.container.setAttribute('aria-modal', 'true');

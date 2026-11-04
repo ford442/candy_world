@@ -37,7 +37,7 @@ import {
     reset as resetSpawnTracker,
     getReport as getSpawnReport,
 } from '../../world/spawn-tracker.ts';
-import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
+import { entities } from '../../world/state.ts';
 import {
     applyAwakenedPersistenceAfterWorldLoad,
     initDeferredVisuals,
@@ -255,10 +255,7 @@ export function setupStartScreen(ctx: MainContext): void {
             const previewMushroom = (window as any).previewMushroom;
             if (typeof previewMushroom !== 'undefined' && previewMushroom) {
                 safeRemoveAndDispose(scene, previewMushroom);
-                const idx = animatedFoliage.indexOf(previewMushroom);
-                if (idx > -1) animatedFoliage.splice(idx, 1);
-                const intIdx = interactiveObjects.indexOf(previewMushroom);
-                if (intIdx > -1) interactiveObjects.splice(intIdx, 1);
+                entities.despawn(previewMushroom.uuid);
             }
 
             console.log(

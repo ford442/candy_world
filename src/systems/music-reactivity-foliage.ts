@@ -18,7 +18,7 @@ import { _frustum, _projScreenMatrix, _emptyAudioState } from './music-reactivit
         time: number,
         deltaTime: number,
         audioState: AudioData | null,
-        cpuAnimatedFoliage: FoliageObject[],
+        cpuAnimatedFoliage: readonly FoliageObject[],
         camera: THREE.Camera,
         isDay: boolean,
         isDeepNight: boolean

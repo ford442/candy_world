@@ -2,7 +2,7 @@
  * GPU frame time from `timestamp-query`, for the performance budget (#1824).
  *
  * The renderer is built with `trackTimestamp` when the device granted
- * `timestamp-query` (`?debug` or `?graphics=high`). Three then writes
+ * `timestamp-query` (every WebGPU boot unless `?dynres=0`). Three then writes
  * begin/end timestamps for every render and compute pass into a query pool per
  * type, and `renderer.resolveTimestampsAsync(type)` reads the pool back,
  * returning the GPU time of the last frame it holds. Nothing in the game loop
@@ -12,12 +12,12 @@
  * Every {@link SAMPLE_INTERVAL_FRAMES} frames this resolves the `render` and
  * `compute` pools and reports their sum. One resolve is in flight at a time;
  * Three skips the copy into a result buffer that is still mapped, so the
- * readback never stalls a frame. Thirty frames of passes stay well inside the
+ * readback never stalls a frame. A dozen frames of passes stay well inside the
  * pool's 2048 queries (it resolves itself if it ever fills).
  */
 
-/** Frames between readbacks. */
-export const SAMPLE_INTERVAL_FRAMES = 30;
+/** Frames between readbacks. Short enough that a struggling GPU drops scale within about a second. */
+export const SAMPLE_INTERVAL_FRAMES = 12;
 
 type TimestampType = 'render' | 'compute';
 
