@@ -12,13 +12,14 @@
  * context sits above the route, the action reads as released.
  */
 
-import { DEFAULT_CONTEXTS, isRebindableSource } from './bindings.ts';
+import { DEFAULT_CONTEXTS, isRebindableSource, sourceDevice } from './bindings.ts';
 import {
     ACTION_IDS,
     type ActionId,
     type ActionState,
     type Binding,
     type Device,
+    type GamepadSettings,
     type HoldToggleAction,
     type InputContext,
     type InputContextId,
@@ -81,6 +82,7 @@ export const DEFAULT_SETTINGS: InputSettings = {
     lookSensitivity: { kbm: 1, gamepad: 1, touch: 1, xr: 1 },
     invertY: false,
     holdToggle: { sprint: 'hold', sneak: 'hold' },
+    gamepad: { deadzone: 0.15, lookCurve: 2, haptics: false },
 };
 
 export interface PersistedInput {
@@ -106,6 +108,8 @@ interface SourceState {
     /** Went down since the last sample, so a tap shorter than a frame still counts. */
     tapped: boolean;
     repeats: number;
+    /** Analog level of a button (a trigger's pull), 0–1. Keys are 1. */
+    level: number;
     route: Route | null;
 }
 
@@ -116,6 +120,8 @@ interface Analog {
 }
 
 type Listener = (state: Readonly<ActionState>) => void;
+
+type CaptureSpec = { source: string; mods: Modifiers | undefined };
 
 const newState = (): ActionState => ({
     pressed: false,
@@ -144,10 +150,12 @@ export class ActionLayer {
     private readonly rawPrev: Record<HoldToggleAction, boolean> = { sprint: false, sneak: false };
     private readonly listeners = new Map<ActionId, Set<Listener>>();
     private readonly changeListeners = new Set<() => void>();
-    private capture:
-        ((spec: { source: string; mods: Modifiers | undefined } | null) => void) | null = null;
+    private capture: ((spec: CaptureSpec | null) => void) | null = null;
+    private captureDevice: Device | null = null;
     private captureModifier: string | null = null;
     private device: Device = 'kbm';
+    private sampledDevice: Device = 'kbm';
+    private readonly deviceListeners = new Set<(d: Device) => void>();
 
     constructor(
         persisted: Partial<PersistedInput> = {},
@@ -241,12 +249,24 @@ export class ActionLayer {
 
     /**
      * A source went down (or auto-repeated). Returns true when an action or a
-     * rebind capture took it, so the device can `preventDefault`.
+     * rebind capture took it, so the device can `preventDefault`. `level` is
+     * an analog button's pull (a trigger), read back as the action's `value`.
      */
-    press(source: string, mods: Modifiers | number, device: Device, repeat = false): boolean {
+    press(
+        source: string,
+        mods: Modifiers | number,
+        device: Device,
+        repeat = false,
+        level = 1
+    ): boolean {
         const mask = typeof mods === 'number' ? mods : modsMask(mods);
         this.device = device;
-        if (this.capture && !repeat) {
+        const wanted = this.captureDevice;
+        if (
+            this.capture &&
+            !repeat &&
+            (!wanted || wanted === sourceDevice(source) || source === 'key:Escape')
+        ) {
             if (source === 'key:Escape') {
                 this.endCapture(null);
                 return true;
@@ -270,11 +290,18 @@ export class ActionLayer {
         if (existing) {
             existing.down = true;
             existing.tapped = true;
+            existing.level = level;
             existing.route = route;
         } else {
-            this.sources.set(source, { down: true, tapped: true, repeats: 0, route });
+            this.sources.set(source, { down: true, tapped: true, repeats: 0, level, route });
         }
         return route !== null;
+    }
+
+    /** A held analog button moved (a trigger squeezed further): its new `value`. */
+    setLevel(source: string, level: number): void {
+        const s = this.sources.get(source);
+        if (s?.down) s.level = level;
     }
 
     release(source: string): void {
@@ -291,7 +318,7 @@ export class ActionLayer {
         for (const s of this.sources.values()) s.down = false;
     }
 
-    /** Accumulate an analog delta (mouse motion; sticks later). Look deltas are radians. */
+    /** Accumulate an analog delta (mouse motion, a stick). Look deltas are radians. */
     addAnalog(source: string, x: number, y: number, device: Device): void {
         this.device = device;
         const a = this.analog.get(source);
@@ -324,7 +351,7 @@ export class ActionLayer {
             const route = s.route;
             if (route && (s.down || s.tapped) && (s.tapped || this.reaches(route.context))) {
                 const repeated = s.repeats > 0 && !s.tapped;
-                for (const b of route.bindings) this.contribute(b, 1, 1, repeated);
+                for (const b of route.bindings) this.contribute(b, s.level, 1, repeated);
             }
             s.tapped = false;
             s.repeats = 0;
@@ -387,6 +414,11 @@ export class ActionLayer {
             this.prev[a] = acc.pressed;
         }
 
+        if (this.device !== this.sampledDevice) {
+            this.sampledDevice = this.device;
+            for (const fn of this.deviceListeners) fn(this.device);
+        }
+
         for (const [a, set] of this.listeners) {
             const st = this.states[a];
             if (!st.justPressed && !st.justReleased && !st.repeated) continue;
@@ -409,10 +441,11 @@ export class ActionLayer {
             if (x !== 0 || y !== 0) s.pressed = true;
             return;
         }
+        // `x` is the source's level: 1 for keys, a trigger's pull for analog buttons.
         s.pressed = true;
         s.repeated ||= repeated;
-        if (b.axis) s.axis[b.axis] += scale;
-        else s.value += scale;
+        if (b.axis) s.axis[b.axis] += scale * x;
+        else s.value += scale * x;
     }
 
     // -------------------------------------------------------------- game side
@@ -441,6 +474,17 @@ export class ActionLayer {
         return this.device;
     }
 
+    /** A device was plugged in or unplugged: prompts follow it before its first press. */
+    setDevice(device: Device): void {
+        this.device = device;
+    }
+
+    /** `lastDevice()` changed, reported once from the next `sample()`. */
+    onDeviceChange(fn: (device: Device) => void): () => void {
+        this.deviceListeners.add(fn);
+        return () => void this.deviceListeners.delete(fn);
+    }
+
     // -------------------------------------------------------------- rebinding
 
     getSettings(): Readonly<InputSettings> {
@@ -452,12 +496,13 @@ export class ActionLayer {
         this.save();
     }
 
-    /** Every rebindable keyboard/mouse binding, in context then table order. */
-    listBindings(): BindingRow[] {
+    /** Every rebindable binding (of one device, if given), in context then table order. */
+    listBindings(device?: Device): BindingRow[] {
         const rows: BindingRow[] = [];
         for (const context of CONTEXT_PRIORITY) {
             for (const def of this.defaults[context].bindings) {
                 if (!isRebindableSource(def.source)) continue;
+                if (device && sourceDevice(def.source) !== device) continue;
                 const key = bindingKey(context, def);
                 const spec = this.overrides[key];
                 const binding: Binding =
@@ -502,12 +547,18 @@ export class ActionLayer {
         this.save();
     }
 
-    /** The next key or mouse button goes to `fn` instead of the game; Escape cancels (null). */
+    /**
+     * The next key, mouse or pad button goes to `fn` instead of the game;
+     * Escape cancels (null). With `device`, only that device's buttons are
+     * taken, and the others keep working (a pad can still move menu focus).
+     */
     captureNext(
-        fn: (spec: { source: string; mods: Modifiers | undefined } | null) => void
+        fn: (spec: CaptureSpec | null) => void,
+        opts: { device?: Device } = {}
     ): () => void {
         this.capture?.(null);
         this.capture = fn;
+        this.captureDevice = opts.device ?? null;
         this.captureModifier = null;
         return () => {
             if (this.capture === fn) this.capture = null;
@@ -518,9 +569,10 @@ export class ActionLayer {
         return this.capture !== null;
     }
 
-    private endCapture(spec: { source: string; mods: Modifiers | undefined } | null): void {
+    private endCapture(spec: CaptureSpec | null): void {
         const fn = this.capture;
         this.capture = null;
+        this.captureDevice = null;
         this.captureModifier = null;
         fn?.(spec);
     }
@@ -537,8 +589,21 @@ export class ActionLayer {
     }
 }
 
+/** Keys that modify the next press, and the pad's View (its Ctrl). */
 function isModifierKey(source: string): boolean {
-    return /^key:(Shift|Control|Alt|Meta)(Left|Right)$/.test(source);
+    return source === 'pad:back' || /^key:(Shift|Control|Alt|Meta)(Left|Right)$/.test(source);
+}
+
+const clampNum = (v: unknown, lo: number, hi: number, fallback: number): number =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
+
+function mergeGamepad(g: Partial<GamepadSettings> | undefined): GamepadSettings {
+    const d = DEFAULT_SETTINGS.gamepad;
+    return {
+        deadzone: clampNum(g?.deadzone, 0, 0.5, d.deadzone),
+        lookCurve: clampNum(g?.lookCurve, 1, 3, d.lookCurve),
+        haptics: typeof g?.haptics === 'boolean' ? g.haptics : d.haptics,
+    };
 }
 
 function mergeSettings(s: Partial<InputSettings> | undefined): InputSettings {
@@ -546,5 +611,6 @@ function mergeSettings(s: Partial<InputSettings> | undefined): InputSettings {
         lookSensitivity: { ...DEFAULT_SETTINGS.lookSensitivity, ...(s?.lookSensitivity ?? {}) },
         invertY: s?.invertY ?? DEFAULT_SETTINGS.invertY,
         holdToggle: { ...DEFAULT_SETTINGS.holdToggle, ...(s?.holdToggle ?? {}) },
+        gamepad: mergeGamepad(s?.gamepad),
     };
 }

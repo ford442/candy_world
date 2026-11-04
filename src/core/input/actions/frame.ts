@@ -2,7 +2,8 @@
  * The `input-actions` system (#2027): first in the scheduler's `input` phase.
  *
  * 1. The `menu` context follows the DOM (pause menu, jukebox).
- * 2. The layer samples every device into actions.
+ * 2. Polled devices (the gamepad) write this frame's sources, then the layer
+ *    samples every device into actions.
  * 3. Actions become `keyStates`, the input frame the fixed-step physics
  *    reads (and the determinism test replays).
  * 4. `look` turns the camera, in place of PointerLockControls' own mousemove.
@@ -28,6 +29,8 @@ export interface InputFrameBindings {
     isMenuOpen: () => boolean;
     /** Explore camera with WASD pan (hybrid) is active. */
     isExploreHybrid: () => boolean;
+    /** Devices without events (the gamepad) poll here, just before the sample. */
+    poll?: () => void;
     /** HUD elements that light up while their action is held. */
     hud: Partial<
         Record<
@@ -70,6 +73,7 @@ export function updateInputActions(exploreActive: boolean): void {
         _popMenu = null;
     }
 
+    _bound?.poll?.();
     input.sample();
 
     // Explore (dev orbit camera) pauses the player: no abilities, and movement
