@@ -123,8 +123,7 @@ export function classifyForEviction(obj: THREE.Object3D): EvictionClass {
 /** The class cached on `userData.__evictionClass` (ChunkStreamer stamps it at spawn), else classify now. */
 function resolveEvictionClass(obj: THREE.Object3D): EvictionClass {
     const cached = (obj.userData as Record<string, unknown>).__evictionClass as
-        | EvictionClass
-        | undefined;
+        EvictionClass | undefined;
     return cached ?? classifyForEviction(obj);
 }
 
