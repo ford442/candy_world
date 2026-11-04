@@ -9,36 +9,43 @@ import * as THREE from 'three';
 import { color, float, positionLocal } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { applyStandardDeformation, createJuicyRimLight } from './material-core.ts';
+import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { LAKE_ISLAND } from '../systems/ground-height-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { spawnImpact } from './impacts.ts';
+import { applyStandardDeformation, createJuicyRimLight } from './material-core.ts';
+
 
 const STONE_RADIUS = 0.9;
 const STONE_COLOR = 0xb39ddb;
 
+
 let _geometry: THREE.DodecahedronGeometry | null = null;
-let _material: MeshStandardNodeMaterial | null = null;
+let _material: MeshPhysicalNodeMaterial | null = null;
 
 function sharedStone(): {
     geometry: THREE.DodecahedronGeometry;
-    material: MeshStandardNodeMaterial;
+    material: MeshPhysicalNodeMaterial;
 } {
     _geometry ??= new THREE.DodecahedronGeometry(STONE_RADIUS, 1);
     if (!_material) {
-        _material = new MeshStandardNodeMaterial({
-            color: STONE_COLOR,
-            roughness: 0.35,
-            metalness: 0.0,
-        });
+        _material = new MeshPhysicalNodeMaterial();
+        _material.colorNode = color(STONE_COLOR);
+        _material.roughnessNode = float(0.35);
+        _material.metalnessNode = float(0.0);
+        _material.clearcoatNode = float(0.8);
+        _material.clearcoatRoughnessNode = float(0.2);
 
-        // 🎨 PALETTE: Add gentle wind sway and juicy rim light
-        _material.positionNode = applyStandardDeformation(positionLocal, { amplitude: float(0.1) });
-        _material.emissiveNode = createJuicyRimLight(color(STONE_COLOR), float(1.2), float(2.0), null);
+        // 🎨 PALETTE: Add gentle wind sway and a rim light to the heavy stone
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        _material.positionNode = applyStandardDeformation(positionLocal);
+        _material.emissiveNode = createJuicyRimLight(color(STONE_COLOR), float(1.0), float(3.0), null);
     }
     return { geometry: _geometry, material: _material };
 }
+
 
 /** Island stones sit between the geyser ring (0.7 r) and the flower ring (0.45 r). */
 const ISLAND_RING = LAKE_ISLAND.radius * 0.58;
