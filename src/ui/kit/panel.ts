@@ -83,6 +83,7 @@ export function createPanel(options: PanelOptions = {}): Panel {
             role: role === 'presentation' ? 'presentation' : role,
             // ♿ Every non-presentational region needs a name to be announced.
             'aria-label': role === 'presentation' ? null : (label ?? null),
+            ...(role === 'dialog' ? { tabindex: '-1' } : {}),
         },
     });
 
