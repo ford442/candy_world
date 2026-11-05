@@ -143,6 +143,7 @@ export class PhotoControlsOverlay {
             root.id = 'photo-mode-panel';
             root.setAttribute('role', 'dialog');
             root.setAttribute('aria-modal', 'true');
+            root.setAttribute('tabindex', '-1');
             root.setAttribute('aria-label', 'Photo mode controls');
             document.body.appendChild(root);
         }
