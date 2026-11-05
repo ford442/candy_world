@@ -232,6 +232,13 @@ await test('generative by default; tracker only when opted out', async () => {
     assert.equal(resolveMusicMode(), 'generative');
 });
 
+
+console.log('Photo mode default');
+await test('photo mode by default; off only when opted out', async () => {
+    const { FEATURE_FLAGS } = await import('../src/core/config.ts');
+    assert.equal(FEATURE_FLAGS.photoMode, true);
+});
+
 if (failures > 0) {
     console.error(`\n${failures} progression-effects test(s) failed`);
     process.exit(1);
