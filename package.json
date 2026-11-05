@@ -27,6 +27,7 @@
         "test:wasm": "node tests/wasm.mjs",
         "test:native-memory": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/native-memory.test.mjs",
         "test:native-batch-parity": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/native-batch-parity.test.mjs",
+        "test:native-boids-parity": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/native-boids-parity.test.mjs",
         "check:memory-layout": "node scripts/check-memory-layout.mjs",
         "release:stable": "node scripts/promote-stable.mjs",
         "test:rigidbody": "node tests/rigid-body.mjs",
