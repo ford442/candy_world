@@ -136,6 +136,10 @@ export const adjustVolume = (delta: number) => {
  */
 export function handleMuteKey(): void {
     toggleMute();
+    if (toggleMuteBtn) {
+        toggleMuteBtn.classList.add('keyboard-active');
+        setTimeout(() => toggleMuteBtn?.classList.remove('keyboard-active'), 100);
+    }
 }
 
 /**
@@ -143,4 +147,9 @@ export function handleMuteKey(): void {
  */
 export function handleVolumeKey(delta: number): void {
     adjustVolume(delta);
+    const btn = delta > 0 ? volUpBtn : volDownBtn;
+    if (btn) {
+        btn.classList.add('keyboard-active');
+        setTimeout(() => btn.classList.remove('keyboard-active'), 100);
+    }
 }

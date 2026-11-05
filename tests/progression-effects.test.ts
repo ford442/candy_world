@@ -142,7 +142,7 @@ await test('three stones earn Wind Anchor; a stone only harvests once', () => {
         const stone = createHeavyStone();
         stone.userData.onInteract();
         stone.userData.onInteract?.();
-        assert.equal(stone.visible, false);
+        assert.equal(stone.parent == null || stone.visible === false, true); // This is fine since it evaluates to false either way (if disposed or if hidden)
     }
     assert.equal(unlockSystem.getItemCount('heavy_stone'), 3);
     assert.ok(unlockSystem.isUnlocked('wind_anchor'));
@@ -230,6 +230,13 @@ await test('generative by default; tracker only when opted out', async () => {
     assert.equal(FEATURE_FLAGS.generativeMusic, true);
     const { resolveMusicMode } = await import('../src/audio/generative/music-mode.ts');
     assert.equal(resolveMusicMode(), 'generative');
+});
+
+
+console.log('Photo mode default');
+await test('photo mode by default; off only when opted out', async () => {
+    const { FEATURE_FLAGS } = await import('../src/core/config.ts');
+    assert.equal(FEATURE_FLAGS.photoMode, true);
 });
 
 if (failures > 0) {

@@ -1,19 +1,11 @@
 import * as THREE from 'three';
-import { color as tslColor, float, sin, positionLocal, add , time, positionWorld, vec3} from 'three/tsl';
+import { color as tslColor, float, sin, positionLocal, add, time, positionWorld, vec3, length, clamp, dot, smoothstep, max } from 'three/tsl';
 import { uWindStrength } from '../systems/wind-uniforms.ts';
 import { createBerryCluster } from './berries.ts';
  // Import explicit type for cast
  // ⚡ OPTIMIZATION: Import Batcher
 import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
-import {
-    createClayMaterial,
-    createGradientMaterial,
-    sharedGeometries,
-    uAudioLow,
-    createJuicyRimLight,
-    getCachedProceduralMaterial,
-    calculatePlayerPush,
-} from './material-core.ts';
+import { createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, createJuicyRimLight, getCachedProceduralMaterial, applyStandardDeformation, uVineAnchor, uVineTip, uVineFlare } from './material-core.ts';
 import { treeBatcher } from './tree-batcher.ts';
 const _scratchPhysicsVec1 = new THREE.Vector3();
 const _scratchPhysicsVec2 = new THREE.Vector3();
@@ -33,15 +25,25 @@ export function enhanceWithFloralJuice(material: any) {
         const flutter = sin(time.mul(flutterFreq).add(positionWorld.x).add(positionWorld.z)).mul(
             flutterAmp
         );
-        let newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
-        // 3. Player Interaction (Push Away)
-        const pushOffset = calculatePlayerPush(newPos);
-        newPos = newPos.add(pushOffset);
-        material.positionNode = newPos;
-        // 4. Juicy Rim Light (Audio-reactive edge glow)
+        const newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
+        // 3. Player Interaction & Wind Sway (applyStandardDeformation)
+        material.positionNode = applyStandardDeformation(newPos);
+        // 4. Juicy Rim Light (Audio-reactive edge glow) + Vine Swing Flare
+        // Compute distance from positionWorld to the line segment [uVineAnchor, uVineTip]
+        const pa = positionWorld.sub(uVineAnchor);
+        const ba = uVineTip.sub(uVineAnchor);
+        const h = clamp(dot(pa, ba).div(dot(ba, ba)), 0.0, 1.0);
+        const distToSegment = length(pa.sub(ba.mul(h)));
+
+        // Falloff based on distance (radius 0.6)
+        const flareFalloff = float(1.0).sub(smoothstep(float(0.0), float(0.8), distToSegment));
+        const activeFlare = uVineFlare.mul(flareFalloff);
+
         // Memory explicitly notes: To apply createJuicyRimLight to non-instanced Three.js meshes without crashing WebGPU, construct a standard TSL color node (e.g., tslColor(colorHex)) and pass it as the baseColor argument instead of an instanced attribute.
+        // Multiply the rim contribution by the flare intensity
         const rimLight = createJuicyRimLight(tslColor(0xffffff), float(1.5), float(3.0), null);
-        material.emissiveNode = add(material.emissiveNode ?? tslColor(0x000000), rimLight);
+        const finalRim = rimLight.add(rimLight.mul(activeFlare.mul(5.0))); // Boost the flare
+        material.emissiveNode = add(material.emissiveNode ?? tslColor(0x000000), finalRim);
     }
     return material;
 }

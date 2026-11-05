@@ -1,12 +1,13 @@
 /**
- * Default bindings per context (#2027). Keyboard/mouse only in this slice;
- * gamepad, touch and XR sources join the same tables later.
+ * Default bindings per context (#2027): keyboard/mouse and gamepad. Touch and
+ * XR sources join the same tables later.
  *
  * The `ui:` sources are the on-screen controls (D-pad, ability slots). They
- * are not rebindable and the rebinding UI hides them.
+ * are not rebindable and the rebinding UI hides them, as it hides the analog
+ * `mouse:move` and `stick:` sources.
  */
 
-import type { ActionId, Binding, InputContextId, Modifiers } from './types.ts';
+import type { ActionId, Binding, Device, InputContextId, Modifiers } from './types.ts';
 
 const key = (action: ActionId, code: string, extra: Partial<Binding> = {}): Binding => ({
     action,
@@ -16,6 +17,114 @@ const key = (action: ActionId, code: string, extra: Partial<Binding> = {}): Bind
 const ctrl: Modifiers = { ctrl: true };
 const shift: Modifiers = { shift: true };
 const ctrlShift: Modifiers = { ctrl: true, shift: true };
+
+/**
+ * A gamepad button. Holding View (`pad:back`) is the pad's `ctrl`, so
+ * `pad('undo', 'lb', { mods: view })` is View+LB. Plain buttons that share a
+ * button with a View chord carry `mods: {}` so the chord does not fire both.
+ */
+const pad = (action: ActionId, button: string, extra: Partial<Binding> = {}): Binding => ({
+    action,
+    source: `pad:${button}`,
+    ...extra,
+});
+const view: Modifiers = ctrl;
+const plain: Modifiers = {};
+
+/**
+ * Gameplay on a pad: sticks walk and look, face buttons are jump / dash /
+ * interact / build, shoulders and the d-pad are the abilities, Start pauses.
+ * Holding View gives the HUD toggles.
+ */
+const GAMEPLAY_PAD: Binding[] = [
+    { action: 'move', source: 'stick:left' },
+    { action: 'look', source: 'stick:right' },
+    pad('jump', 'a', { mods: plain }),
+    pad('dash', 'b', { mods: plain }),
+    pad('interact', 'x', { mods: plain }),
+    pad('build.toggle', 'y', { mods: plain }),
+    pad('fire', 'rt'),
+    pad('grenade', 'lt'),
+    pad('dodge', 'lb'),
+    pad('strike', 'rb'),
+    pad('sprint', 'ls'),
+    pad('sneak', 'rs'),
+    pad('phase', 'up', { mods: plain }),
+    pad('mine', 'down', { mods: plain }),
+    pad('clap', 'left', { mods: plain }),
+    pad('dance', 'right', { mods: plain }),
+    pad('pause', 'start'),
+    pad('photo.toggle', 'y', { mods: view }),
+    pad('log', 'a', { mods: view }),
+    pad('jukebox', 'x', { mods: view }),
+    pad('mute', 'b', { mods: view }),
+    pad('daynight', 'up', { mods: view }),
+    pad('volume.down', 'left', { mods: view }),
+    pad('volume.up', 'right', { mods: view }),
+];
+
+/**
+ * Build mode on a pad. Like the keyboard table it claims only what it binds:
+ * the sticks, A (jump), Y (leave build mode) and Start fall through to gameplay.
+ * RT places where `fire` would shoot, so `fire` does nothing here.
+ */
+const BUILD_PAD: Binding[] = [
+    pad('build.place', 'rt', { mods: plain }),
+    pad('build.select.add', 'rt', { mods: view }),
+    pad('build.remove', 'lt', { mods: plain }),
+    pad('build.paint', 'lt', { mods: view }),
+    pad('build.rotate', 'lb', { mods: plain, scale: -1 }),
+    pad('build.rotate', 'rb', { mods: plain }),
+    pad('undo', 'lb', { mods: view }),
+    pad('redo', 'rb', { mods: view }),
+    pad('build.piece', 'left', { mods: plain, scale: -1 }),
+    pad('build.piece', 'right', { mods: plain }),
+    pad('build.scale', 'up', { mods: plain }),
+    pad('build.scale', 'down', { mods: plain, scale: -1 }),
+    pad('build.category', 'left', { mods: view, scale: -1 }),
+    pad('build.category', 'right', { mods: view }),
+    pad('build.snap', 'up', { mods: view }),
+    pad('build.recenter', 'down', { mods: view }),
+    pad('build.grab', 'x', { mods: plain }),
+    pad('build.gizmo', 'rs'),
+    pad('build.cancel', 'b', { mods: plain }),
+    pad('build.tool.1', 'a', { mods: view }),
+    pad('build.tool.2', 'x', { mods: view }),
+    pad('build.tool.3', 'y', { mods: view }),
+    pad('build.tool.4', 'b', { mods: view }),
+];
+
+const GIZMO_PAD: Binding[] = [
+    pad('gizmo.translate', 'x'),
+    pad('gizmo.rotate', 'y'),
+    pad('gizmo.scale', 'rb', { mods: plain }),
+    pad('gizmo.done', 'a'),
+    pad('gizmo.done', 'b'),
+    pad('undo', 'lb', { mods: view }),
+    pad('redo', 'rb', { mods: view }),
+];
+
+/**
+ * Menus keep their DOM focus handling for the keyboard. A pad has no Tab,
+ * Enter or Escape, so in `menu` it moves focus, clicks and backs out through
+ * these actions (`core/input/input/gamepad-menu.ts`), and Start resumes.
+ */
+const MENU_PAD: Binding[] = [
+    pad('menu.confirm', 'a'),
+    pad('menu.back', 'b'),
+    pad('menu.next', 'down'),
+    pad('menu.next', 'right'),
+    pad('menu.prev', 'up'),
+    pad('menu.prev', 'left'),
+    pad('pause', 'start'),
+];
+
+/** Photo mode's panel is DOM too: the pad walks it like a menu, and B or View+Y leaves. */
+const PHOTO_PAD: Binding[] = [
+    ...MENU_PAD.filter((b) => b.action !== 'menu.back' && b.action !== 'pause'),
+    pad('photo.toggle', 'b'),
+    pad('photo.toggle', 'y', { mods: view }),
+];
 
 const GAMEPLAY: Binding[] = [
     key('move', 'KeyW', { axis: 'y', scale: 1 }),
@@ -60,6 +169,7 @@ const GAMEPLAY: Binding[] = [
     // P toggles photo mode and the frame profiler together, as it did before the action layer.
     key('debug.profiler', 'KeyP', { mods: {} }),
     key('debug.overlay', 'KeyO', { mods: {} }),
+    ...GAMEPLAY_PAD,
 ];
 
 // Build mode keeps walking (WASD, look, jump) from gameplay: it only claims
@@ -107,6 +217,7 @@ const BUILD: Binding[] = [
     key('undo', 'KeyZ', { mods: ctrl }),
     key('redo', 'KeyZ', { mods: ctrlShift }),
     key('redo', 'KeyY', { mods: ctrl }),
+    ...BUILD_PAD,
 ];
 
 // The gizmo frees the cursor for dragging handles, so it blocks walking too.
@@ -120,6 +231,7 @@ const GIZMO: Binding[] = [
     key('undo', 'KeyZ', { mods: ctrl }),
     key('redo', 'KeyZ', { mods: ctrlShift }),
     key('redo', 'KeyY', { mods: ctrl }),
+    ...GIZMO_PAD,
 ];
 
 export const DEFAULT_CONTEXTS: Record<
@@ -131,10 +243,11 @@ export const DEFAULT_CONTEXTS: Record<
     gizmo: { bindings: GIZMO, blocksBelow: true },
     // Photo mode's panel and the menus handle their own keys through the DOM
     // (focus, Enter, Escape) so screen readers and focus traps keep working.
-    // Their contexts exist to stop presses reaching the game underneath.
-    photo: { bindings: [], blocksBelow: true },
+    // Their contexts exist to stop presses reaching the game underneath, and
+    // to give a pad, which has no Tab or Enter, a way through them.
+    photo: { bindings: PHOTO_PAD, blocksBelow: true },
     // L toggles the discovery log from anywhere, as before: it opens as a menu.
-    menu: { bindings: [key('log', 'KeyL')], blocksBelow: true },
+    menu: { bindings: [key('log', 'KeyL'), ...MENU_PAD], blocksBelow: true },
     xr: { bindings: [], blocksBelow: false },
 };
 
@@ -168,8 +281,28 @@ export const ACTION_LABELS: Partial<Record<ActionId, string>> = {
     'build.grab': 'Build: move piece',
     'build.gizmo': 'Build: gizmo',
     'build.snap': 'Build: grid snap',
+    'build.select.add': 'Build: add to selection',
+    'build.scale': 'Build: scale',
+    'build.piece': 'Build: next piece',
+    'build.category': 'Build: next category',
+    'build.paint': 'Build: next paint',
+    'build.recenter': 'Build: recenter cursor',
+    'build.cancel': 'Build: cancel',
+    'build.tool.1': 'Build: place tool',
+    'build.tool.2': 'Build: select tool',
+    'build.tool.3': 'Build: paint tool',
+    'build.tool.4': 'Build: remove tool',
     undo: 'Undo',
     redo: 'Redo',
+    'gizmo.translate': 'Gizmo: move',
+    'gizmo.rotate': 'Gizmo: rotate',
+    'gizmo.scale': 'Gizmo: scale',
+    'gizmo.done': 'Gizmo: done',
+    pause: 'Pause / resume',
+    'menu.confirm': 'Menu: select',
+    'menu.back': 'Menu: back',
+    'menu.next': 'Menu: next',
+    'menu.prev': 'Menu: previous',
 };
 
 const MOVE_LABELS: Record<string, string> = {
@@ -209,9 +342,74 @@ const KEY_NAMES: Record<string, string> = {
 
 const MOUSE_NAMES = ['Left click', 'Middle click', 'Right click', 'Mouse 4', 'Mouse 5'];
 
-/** `Ctrl+Shift+Z`, `Left click`, `Wheel up`: what a button prompt shows. */
-export function formatSource(source: string, mods?: Modifiers): string {
+/** Button glyph families: the pad's vendor picks which names a prompt shows. */
+export type PadStyle = 'xbox' | 'playstation';
+
+/** Standard Gamepad mapping, button index → source name (`pad:<name>`). */
+export const PAD_BUTTONS = [
+    'a',
+    'b',
+    'x',
+    'y',
+    'lb',
+    'rb',
+    'lt',
+    'rt',
+    'back',
+    'start',
+    'ls',
+    'rs',
+    'up',
+    'down',
+    'left',
+    'right',
+    'home',
+] as const;
+
+const PAD_NAMES: Record<PadStyle, Record<string, string>> = {
+    xbox: {
+        a: 'A',
+        b: 'B',
+        x: 'X',
+        y: 'Y',
+        lb: 'LB',
+        rb: 'RB',
+        lt: 'LT',
+        rt: 'RT',
+        back: 'View',
+        start: 'Menu',
+        ls: 'Left stick click',
+        rs: 'Right stick click',
+        home: 'Guide',
+    },
+    playstation: {
+        a: 'Cross',
+        b: 'Circle',
+        x: 'Square',
+        y: 'Triangle',
+        lb: 'L1',
+        rb: 'R1',
+        lt: 'L2',
+        rt: 'R2',
+        back: 'Create',
+        start: 'Options',
+        ls: 'L3',
+        rs: 'R3',
+        home: 'PS',
+    },
+};
+
+/** `Ctrl+Shift+Z`, `Left click`, `Wheel up`, `View+LB`: what a button prompt shows. */
+export function formatSource(source: string, mods?: Modifiers, style: PadStyle = 'xbox'): string {
     const [kind, rest] = splitSource(source);
+    if (kind === 'pad' || kind === 'stick') {
+        const names = PAD_NAMES[style];
+        const name =
+            kind === 'stick'
+                ? `${rest === 'left' ? 'Left' : 'Right'} stick`
+                : (names[rest] ?? `D-pad ${rest}`);
+        return mods?.ctrl ? `${names.back}+${name}` : name;
+    }
     let name: string;
     if (kind === 'key') {
         name = KEY_NAMES[rest] ?? rest.replace(/^(Key|Digit|Arrow)/, '');
@@ -232,8 +430,16 @@ export function splitSource(source: string): [string, string] {
     return i < 0 ? [source, ''] : [source.slice(0, i), source.slice(i + 1)];
 }
 
-/** Keyboard and mouse sources the player may rebind (not analog or on-screen ones). */
+/** Keyboard, mouse and gamepad buttons the player may rebind (not analog or on-screen ones). */
 export function isRebindableSource(source: string): boolean {
     const [kind, rest] = splitSource(source);
-    return kind === 'key' || (kind === 'mouse' && rest !== 'move');
+    return kind === 'key' || kind === 'pad' || (kind === 'mouse' && rest !== 'move');
+}
+
+/** Which device produces `source`; null for on-screen `ui:` controls. */
+export function sourceDevice(source: string): Device | null {
+    const kind = splitSource(source)[0];
+    if (kind === 'pad' || kind === 'stick') return 'gamepad';
+    if (kind === 'key' || kind === 'mouse' || kind === 'wheel') return 'kbm';
+    return null;
 }

@@ -115,6 +115,7 @@ export let emscriptenMemory: ArrayBufferLike | null = null;
 
 export let initPhysics: ((...args: number[]) => number) | null = null;
 export let updatePhysicsCPP: ((...args: number[]) => number) | null = null;
+export let cppUpdateBoids: ((ptr: number, count: number, dt: number, playerX: number, playerZ: number, time: number) => void) | null = null;
 export let setPlayerState: ((...args: number[]) => number) | null = null;
 export let getPlayerX: ((...args: number[]) => number) | null = null;
 export let getPlayerY: ((...args: number[]) => number) | null = null;
@@ -158,6 +159,7 @@ export function initCppFunctions(): void {
     // Physics
     initPhysics = getNativeFunc('initPhysics');
     updatePhysicsCPP = getNativeFunc('updatePhysicsCPP');
+    cppUpdateBoids = getNativeFuncVoid('updateBoids_c');
 
     // Player & Math fallbacks
     setPlayerState = getNativeFunc('setPlayerState');

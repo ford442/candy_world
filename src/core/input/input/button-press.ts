@@ -6,8 +6,17 @@ export interface ButtonPressHandlers {
 }
 
 export function createButtonPressHandlers(session: InputSession): ButtonPressHandlers {
+    const elementCache = new Map<string, HTMLElement | null>();
+
+    function getCachedElement(id: string): HTMLElement | null {
+        if (!elementCache.has(id)) {
+            elementCache.set(id, document.getElementById(id));
+        }
+        return elementCache.get(id) || null;
+    }
+
     function triggerButtonPressDown(buttonId: string): void {
-        const btn = document.getElementById(buttonId);
+        const btn = getCachedElement(buttonId);
         if (btn && btn.getAttribute('aria-disabled') !== 'true') {
             btn.classList.add('keyboard-active');
             session.activeKeyboardButtons.add(buttonId);
@@ -15,7 +24,7 @@ export function createButtonPressHandlers(session: InputSession): ButtonPressHan
     }
 
     function triggerButtonPressUp(buttonId: string): void {
-        const btn = document.getElementById(buttonId);
+        const btn = getCachedElement(buttonId);
         if (btn) {
             btn.classList.remove('keyboard-active');
         }

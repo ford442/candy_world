@@ -11,7 +11,6 @@
 
 import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import type { EntitySnapshot } from '../entity-snapshot-core.ts';
 import { getGroundHeight } from '../ground-system.ts';
 import { round } from './placement-core.ts';
@@ -113,9 +112,10 @@ export class BuildGizmo {
     close(): void {
         this.controls.detach();
         this.controls.enabled = false;
-        // ⚡ OPTIMIZATION: Replaced scene.remove with safeRemoveAndDispose to prevent VRAM leaks
-        safeRemoveAndDispose(this.scene, this.controls.getHelper());
-        safeRemoveAndDispose(this.scene, this.proxy);
+        // Detach only: open() re-adds the same helper and proxy, and dispose()
+        // frees their GPU resources once, when build mode goes away.
+        this.scene.remove(this.controls.getHelper());
+        this.scene.remove(this.proxy);
         this.current = null;
         this.dragging = false;
     }
