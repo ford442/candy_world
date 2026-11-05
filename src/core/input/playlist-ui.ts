@@ -116,7 +116,7 @@ export function renderPlaylist(): void {
     if (songs.length === 0) {
         // 🎨 Palette: Rich Empty State for the Jukebox
         const li = document.createElement('li');
-        li.className = 'jukebox-empty-state';
+        li.className = 'jukebox-empty-state candy-empty-state';
         li.style.listStyle = 'none';
 
         // ♿ Aria: A status region named by its visible copy (aria-labelledby
@@ -124,14 +124,14 @@ export function renderPlaylist(): void {
         li.setAttribute('role', 'status');
 
         const iconContainer = document.createElement('div');
-        iconContainer.className = 'jukebox-empty-icon-container';
+        iconContainer.className = 'jukebox-empty-icon-container candy-empty-state__icon';
         const icon = document.createElement('div');
         icon.className = 'jukebox-empty-icon';
         icon.innerHTML = '<span aria-hidden="true">🎵</span>';
         iconContainer.appendChild(icon);
 
         const text = document.createElement('div');
-        text.className = 'jukebox-empty-text';
+        text.className = 'jukebox-empty-text candy-empty-state__text';
         text.id = 'jukebox-empty-desc';
         text.innerText = 'Your playlist is empty — drop some tracks in!';
 

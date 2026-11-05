@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { uChromaticIntensity } from '../../foliage/chromatic-nodes.ts';
+import { uVineAnchor, uVineTip, uVineFlare } from '../../foliage/material-core.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { simRng } from '../../utils/sim-rng.ts';
 import { 
@@ -48,7 +49,9 @@ export function updateEnvironmentalModifiers(delta: number, audioState: AudioSta
         grooveGravity.multiplier += (grooveGravity.targetMultiplier - grooveGravity.multiplier) * delta * 5.0;
         player.gravity = grooveGravity.baseGravity * grooveGravity.multiplier;
 
-        // BPM Wind (Visuals only for now)
+        // BPM wind strength. physics-core folds a capped drift into the
+        // walk target (Wind Anchor zeroes it). This used to say "visuals only"
+        // while the controller was already shoving the player.
         const currentBPM = audioState.bpm || 120;
         bpmWind.bpm = currentBPM;
         bpmWind.targetStrength = Math.min(1.0, (currentBPM - 60) / 120);
@@ -246,6 +249,11 @@ export function updateVineState(delta: number, camera: THREE.Camera, keyStates: 
         // because VineSwing modified camera.position
         player.position.copy(camera.position);
 
+        // Update uniforms for vine swing visual flare
+        uVineAnchor.value.copy(activeVineSwing.anchorPoint);
+        uVineTip.value.copy(player.position);
+        uVineFlare.value = Math.min(1.0, Math.abs(activeVineSwing.swingAngularVel) * 5.0);
+
         if (keyStates.jump) {
             // detach modifies velocity, pass player (has velocity)
             // Stamp with the physics clock the re-attach check reads. detach()'s
@@ -255,6 +263,11 @@ export function updateVineState(delta: number, camera: THREE.Camera, keyStates: 
             setActiveVineSwing(null);
             keyStates.jump = false;
             player.currentState = PlayerState.DEFAULT;
+            uVineFlare.value = 1.0;
+        }
+    } else {
+        if (uVineFlare.value > 0) {
+            uVineFlare.value = Math.max(0.0, uVineFlare.value - delta * 2.0);
         }
     }
 }

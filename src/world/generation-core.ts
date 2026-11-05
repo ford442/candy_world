@@ -57,13 +57,7 @@ import {
 } from './map-music-context.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
-import {
-    animatedFoliage,
-    computeFoliageObjects,
-    cpuAnimatedFoliage,
-    foliageGroup,
-    worldGroup,
-} from './state.ts';
+import { animatedFoliage, entities, foliageGroup, worldGroup } from './state.ts';
 import { createPathTerrain, rebuildTerrainForPath } from './terrain-mesh.ts';
 import {
     LOBBY_FLOOR_TOP_Y,
@@ -831,11 +825,6 @@ const LOBBY_ROOM_HALF = 10;
 const LOBBY_WALL_HEIGHT = 6.5;
 const LOBBY_WALL_THICKNESS = 0.7;
 
-function removeFromArray<T>(arr: T[], item: T): void {
-    const idx = arr.indexOf(item);
-    if (idx !== -1) arr.splice(idx, 1);
-}
-
 /**
  * `?boot=lobby` never builds the outdoor set. When Lobby was picked on the
  * start screen instead, the Play-sized terrain and lake set already exist:
@@ -850,9 +839,7 @@ async function prepareSceneForLobby(scene: THREE.Scene): Promise<void> {
             if (t === 'water' || t === 'lake_island') doomed.push(obj);
         });
         for (const obj of doomed) {
-            removeFromArray(animatedFoliage, obj as any);
-            removeFromArray(cpuAnimatedFoliage, obj as any);
-            removeFromArray(computeFoliageObjects, obj as any);
+            entities.despawn(obj.uuid);
             if (obj.userData.type === 'lake_island') {
                 const i = obstaclesData.findIndex(
                     (o) => o.x === obj.position.x && o.z === obj.position.z
