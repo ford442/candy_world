@@ -83,12 +83,18 @@ export function renderPlaylist(): void {
                 const remainingSongs = state.audioSystemRef!.getPlaylist().length;
                 if (remainingSongs === 0) {
                     announce('Playlist is now empty', 'polite');
-                    // Fallback to empty state button if list is now empty
-                    const emptyBtn =
-                        state.playlistList?.querySelector('.jukebox-browse-btn') ||
-                        document.getElementById('addSongsBtn');
-                    if (emptyBtn) {
-                        (emptyBtn as HTMLElement).focus({ preventScroll: true });
+
+                    // Fallback to title to prevent focus loss, then empty state button
+                    const titleBtn = document.getElementById('playlist-title');
+                    if (titleBtn) {
+                        titleBtn.focus({ preventScroll: true });
+                    } else {
+                        const emptyBtn =
+                            state.playlistList?.querySelector('.jukebox-browse-btn') ||
+                            document.getElementById('addSongsBtn');
+                        if (emptyBtn) {
+                            (emptyBtn as HTMLElement).focus({ preventScroll: true });
+                        }
                     }
                 } else {
                     const removeBtns = state.playlistList?.querySelectorAll('.playlist-remove-btn') || [];
