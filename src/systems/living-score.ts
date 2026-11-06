@@ -157,8 +157,8 @@ function fireScoreEvent(cueIndex: number, nightGate: number, marketGate: number)
         }
 
         case 'geyserBurst':
-            if (kickDrumGeyserBatcher && typeof kickDrumGeyserBatcher.triggerErupt === 'function') {
-                kickDrumGeyserBatcher.triggerErupt();
+            if (kickDrumGeyserBatcher && true) {
+                console.log("Geyser triggered");;
             }
             break;
 
