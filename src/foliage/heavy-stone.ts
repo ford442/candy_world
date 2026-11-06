@@ -15,6 +15,8 @@ import { unlockSystem } from '../systems/unlocks.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { spawnImpact } from './impacts.ts';
+import { applyStandardDeformation, createJuicyRimLight } from './material-core.ts';
+
 
 
 const STONE_RADIUS = 0.9;
