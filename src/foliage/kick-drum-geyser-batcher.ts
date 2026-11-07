@@ -6,6 +6,7 @@ import type { FrameContext } from '../core/scheduler/types.ts';
 import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     CandyPresets,
@@ -263,22 +264,12 @@ export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
     dispose() {
         super.dispose();
         if (this.coreMesh && this.coreMesh.parent) {
-            this.coreMesh.parent.remove(this.coreMesh);
-            this.coreMesh.geometry?.dispose();
-            if (Array.isArray(this.coreMesh.material)) {
-                this.coreMesh.material.forEach(m => m.dispose());
-            } else {
-                this.coreMesh.material?.dispose();
-            }
+            // ⚡ OPTIMIZATION: Bypassed VRAM leaks using safeRemoveAndDispose
+            safeRemoveAndDispose(this.coreMesh.parent as THREE.Object3D, this.coreMesh);
         }
         if (this.plumeMesh && this.plumeMesh.parent) {
-            this.plumeMesh.parent.remove(this.plumeMesh);
-            this.plumeMesh.geometry?.dispose();
-            if (Array.isArray(this.plumeMesh.material)) {
-                this.plumeMesh.material.forEach(m => m.dispose());
-            } else {
-                this.plumeMesh.material?.dispose();
-            }
+            // ⚡ OPTIMIZATION: Bypassed VRAM leaks using safeRemoveAndDispose
+            safeRemoveAndDispose(this.plumeMesh.parent as THREE.Object3D, this.plumeMesh);
         }
     }
 }
