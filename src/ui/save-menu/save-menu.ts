@@ -325,7 +325,7 @@ export class SaveMenu {
 
         return `
             <div class="candy-save-menu__header">
-                <h2 id="save-menu-title" class="candy-save-menu__title">${titles[this.currentMode]}</h2>
+                <h2 id="save-menu-title" class="candy-save-menu__title" tabindex="-1">${titles[this.currentMode]}</h2>
                 <button type="button" class="candy-save-menu__close" data-action="close" aria-label="Close menu" title="Close"><span aria-hidden="true">✕</span></button>
             </div>
         `;

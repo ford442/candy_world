@@ -74,9 +74,9 @@ export function showWebGPUFatalScreen(error: unknown): void {
     overlay.id = OVERLAY_ID;
     overlay.setAttribute('role', 'alertdialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('tabindex', '-1');
     overlay.setAttribute('aria-labelledby', 'webgpu-fatal-title');
     overlay.setAttribute('aria-describedby', 'webgpu-fatal-body');
+    overlay.setAttribute('tabindex', '-1');
 
     const diagnostics = JSON.stringify(
         {

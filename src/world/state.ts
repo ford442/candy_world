@@ -22,27 +22,27 @@ export const entities = new EntityRegistry<DespawnContext>({
 // Read-only, referentially stable views: hold them from module load and read
 // them every frame. Only the registry mutates them. Taking a view declares the
 // kind; these kinds have no hooks, so they need no registerKind.
-export const animatedFoliage = entities.view<FoliageObject>('animatedFoliage');
-export const cpuAnimatedFoliage = entities.view<FoliageObject>('cpuAnimatedFoliage');
-export const obstacles = entities.view<THREE.Object3D>('obstacle');
+export const animatedFoliage: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('animatedFoliage');
+export const cpuAnimatedFoliage: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('cpuAnimatedFoliage');
+export const obstacles: ReadonlyArray<THREE.Object3D> = entities.view<THREE.Object3D>('obstacle');
 
 // Optimization: Categorized views for faster collision/logic
-export const foliageMushrooms = entities.view<FoliageObject>('foliageMushroom');
-export const foliageTrampolines = entities.view<FoliageObject>('foliageTrampoline');
-export const foliagePanningPads = entities.view<FoliageObject>('foliagePanningPad');
-export const foliageClouds = entities.view<FoliageObject>('foliageCloud');
-export const foliageGeysers = entities.view<FoliageObject>('foliageGeyser'); // Added for physics interaction
-export const foliageTraps = entities.view<FoliageObject>('foliageTrap'); // Added for snare trap interaction
-export const foliagePortamentoPines = entities.view<FoliageObject>('foliagePortamentoPine'); // Added for slingshot interaction
+export const foliageMushrooms: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('foliageMushroom');
+export const foliageTrampolines: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('foliageTrampoline');
+export const foliagePanningPads: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('foliagePanningPad');
+export const foliageClouds: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('foliageCloud');
+export const foliageGeysers: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('foliageGeyser'); // Added for physics interaction
+export const foliageTraps: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('foliageTrap'); // Added for snare trap interaction
+export const foliagePortamentoPines: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('foliagePortamentoPine'); // Added for slingshot interaction
 /** Swing-physics managers; spawned as `entities.spawn('vineSwing', vine, manager)`. */
-export const vineSwings = entities.view<VineSwing>('vineSwing');
-export const foliageVineLadders = entities.view<FoliageObject>('foliageVineLadder'); // Static climbable vines
+export const vineSwings: ReadonlyArray<VineSwing> = entities.view<VineSwing>('vineSwing');
+export const foliageVineLadders: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('foliageVineLadder'); // Static climbable vines
 
 // ⚡ OPTIMIZATION: Pre-filtered views to eliminate O(N) scans in hot loops
 // Objects that have WebGPU compute nodes (waterfall, pollen, etc.)
-export const computeFoliageObjects = entities.view<FoliageObject>('computeFoliageObject');
+export const computeFoliageObjects: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('computeFoliageObject');
 // Objects that have interaction callbacks/text (gaze, proximity, interact)
-export const interactiveObjects = entities.view<FoliageObject>('interactiveObject');
+export const interactiveObjects: ReadonlyArray<FoliageObject> = entities.view<FoliageObject>('interactiveObject');
 
 // Groups
 export const worldGroup = new THREE.Group();

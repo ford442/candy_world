@@ -89,21 +89,21 @@ test('place → undo → redo keeps the mushroom batcher balanced', () => {
 test('undo frees a kick drum geyser instance slot', () => {
     // #1834's revert only knew six batchers; a geyser's instance stayed drawn.
     const h = new EditHistory();
-    const slotsBefore = kickDrumGeyserBatcher.baseMesh.count;
+    const slotsBefore = kickDrumGeyserBatcher.count;
     assert.equal(
         h.execute(new PlaceCommand(snap('wc-geyser', 'kick_drum_geyser', [-6, 0, 9]))),
         true
     );
     assert.equal(findLive('wc-geyser').length, 1, 'geyser placed');
     assert.equal(
-        kickDrumGeyserBatcher.baseMesh.count,
+        kickDrumGeyserBatcher.count,
         slotsBefore + 1,
         'fixture must batch the geyser'
     );
 
     assert.equal(h.undo(), true);
     assert.equal(findLive('wc-geyser').length, 0);
-    assert.equal(kickDrumGeyserBatcher.baseMesh.count, slotsBefore, 'instance slot freed');
+    assert.equal(kickDrumGeyserBatcher.count, slotsBefore, 'instance slot freed');
 });
 
 test('repeated place/undo cycles do not leak instances', () => {
