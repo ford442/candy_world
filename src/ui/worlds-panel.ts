@@ -286,18 +286,19 @@ export function installWorldsStartScreenUI(): void {
             more.hidden = !page.next;
             if (grid.childElementCount === 0) {
                 const emptyMsg = TABS.find((t) => t.id === tab)!.empty;
+                const emptyTextId = `worlds-panel-empty-${tab}`;
                 say(emptyMsg);
                 grid.appendChild(
                     el('li', {
                         classes: ['candy-empty-state'],
-                        attrs: { role: 'status' },
+                        attrs: { role: 'status', 'aria-labelledby': emptyTextId },
                         children: [
                             el('div', {
                                 classes: ['candy-empty-state__icon'],
                                 attrs: { 'aria-hidden': 'true' },
                                 text: '🌍',
                             }),
-                            el('div', { classes: ['candy-empty-state__text'], text: emptyMsg }),
+                            el('div', { classes: ['candy-empty-state__text'], attrs: { id: emptyTextId }, text: emptyMsg }),
                         ],
                     })
                 );
