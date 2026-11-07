@@ -21,14 +21,6 @@ export interface WasmFileCheckResult {
     path: string | null;
 }
 
-/**
- * WebAssembly export descriptor
- */
-interface WasmExport {
-    name: string;
-    kind: string;
-}
-
 /** WebAssembly binary magic: `\0asm` */
 const WASM_MAGIC = new Uint8Array([0x00, 0x61, 0x73, 0x6d]);
 
@@ -109,64 +101,6 @@ export async function checkWasmFileExists(filename: string): Promise<WasmFileChe
     }
 
     return { exists: false, path: null };
-}
-
-/**
- * Inspect exports in a WASM file
- * @param filename - The WASM filename to inspect
- * @returns Array of export names or null if failed
- */
-export async function inspectWasmExports(filename: string): Promise<string[] | null> {
-    const wasmCheck = await checkWasmFileExists(filename);
-    if (!wasmCheck.exists) return null;
-
-    const prefix = wasmCheck.path || '';
-    const cleanPrefix = prefix.endsWith('/') ? prefix : (prefix ? `${prefix}/` : '');
-    const url = `${cleanPrefix}${filename}`;
-
-    try {
-        const resp = await fetch(url);
-        if (!resp.ok) return null;
-        const bytes = await resp.arrayBuffer();
-
-        const WA = window.NativeWebAssembly || WebAssembly;
-        let module: WebAssembly.Module | null = null;
-
-        try {
-            if (typeof (WA as any).Module === 'function') {
-                module = new (WA as any).Module(bytes);
-            }
-        } catch (e) {
-            // Module creation failed
-        }
-
-        if (!module && typeof WA.compile === 'function') {
-            try { 
-                module = await WA.compile(bytes); 
-            } catch(e) {
-                // Compile failed
-            }
-        }
-
-        if (!module) {
-            try {
-                const inst = await WA.instantiate(bytes, {});
-                module = inst.module || (inst.instance && (inst.instance as any).constructor && (inst.instance as any).constructor.module);
-            } catch (e) {
-                // Instantiate failed
-            }
-        }
-
-        if (!module) return null;
-
-        const exporter = (WA as any).Module && (WA as any).Module.exports 
-            ? (WA as any).Module.exports 
-            : WebAssembly.Module.exports;
-        return exporter(module).map((e: WasmExport) => e.name);
-    } catch (e) {
-        console.warn('[WASM Utils] Failed to inspect wasm exports', e);
-        return null;
-    }
 }
 
 /**

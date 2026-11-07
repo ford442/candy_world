@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type UniformNode from 'three/src/nodes/core/UniformNode.js';
+import type { UniformNode } from 'three/webgpu';
 import {
     color,
     uv,
@@ -24,7 +24,14 @@ import {
 } from 'three/tsl';
 import { createStorageBufferAttribute } from '../utils/storage-buffer-attribute.ts';
 import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uTime, createJuicyRimLight } from './material-core.ts';
+import {
+    CandyPresets,
+    uAudioHigh,
+    uTime,
+    createJuicyRimLight,
+    $sn,
+    $sf,
+} from './material-core.ts';
 /**
  * Creates a bioluminescent waterfall connecting two points.
  * @param {THREE.Vector3} startPos - Top position
@@ -72,7 +79,7 @@ export function createWaterfall(
     const uBaseEmission = float(0.2);
 
     const gradient = mix(color(0xff00ff), color(0x00ffff), uv().y);
-    mat.colorNode = mix(mat.colorNode ?? color(0x00FFFF), gradient, 0.5);
+    mat.colorNode = mix($sn(mat.colorNode ?? color(0x00FFFF)), gradient, 0.5);
 
     // 🎨 PALETTE: Make Rim Light audio reactive for extra juice!
     const rim = createJuicyRimLight(gradient, float(2.0).add(uAudioHigh.mul(2.0)), float(3.0), normalWorld);
@@ -81,7 +88,7 @@ export function createWaterfall(
     const highIntensity = uAudioHigh.pow(float(1.5)).mul(1.5);
     mat.emissiveNode = emission.add(rim).add(gradient.mul(highIntensity));
 
-    const currentRoughness = mat.roughnessNode ?? float(mat.roughness);
+    const currentRoughness = $sf(mat.roughnessNode ?? float(mat.roughness));
     mat.roughnessNode = add(currentRoughness, foam.mul(0.5));
 
     const mesh = new THREE.Mesh(geo, mat);
@@ -205,15 +212,15 @@ export function createWaterfall(
     (group as any).reactToNote = (note: any, colorVal: any, velocity: number) => {
         // Strong visual pulse + splash explosion on high-velocity notes
         const targetPulse = 0.6 + velocity * 2.2;
-        (mesh.userData.uPulseIntensity as UniformNode<number>).value = Math.max(
-            (mesh.userData.uPulseIntensity as UniformNode<number>).value,
+        (mesh.userData.uPulseIntensity as UniformNode<'float', number>).value = Math.max(
+            (mesh.userData.uPulseIntensity as UniformNode<'float', number>).value,
             targetPulse
         );
     };
 
     (group as any).onAnimate = (delta: number, _time: number) => {
         // Only decay the pulse (physics is now fully GPU-driven)
-        const pulse = mesh.userData.uPulseIntensity as UniformNode<number>;
+        const pulse = mesh.userData.uPulseIntensity as UniformNode<'float', number>;
         if (pulse.value > 0.01) {
             pulse.value = THREE.MathUtils.lerp(pulse.value, 0.0, delta * 6.0);
         }

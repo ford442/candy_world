@@ -10,7 +10,7 @@ import { spawnImpact } from '../../foliage/impacts.ts';
 import { simRng } from '../../utils/sim-rng.ts';
 import { showToast } from '../../utils/toast.ts';
 import { animatedFoliage } from '../../world/state.ts';
-import { discoverySystem } from '../discovery.ts';
+import { discoverySystem } from '../discovery-optimized.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { physicsFoliageGrid } from './physics-grids.ts';
 import { player, _lastInputState, _scratchCamDir, _scratchHeadOffset, _scratchPos, _clapColor, AudioState, KeyStates } from './physics-types.ts';

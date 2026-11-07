@@ -181,14 +181,6 @@ bool ecsIsAlive(uint32_t id) {
 }
 
 /**
- * Number of alive entities.
- */
-EMSCRIPTEN_KEEPALIVE
-int ecsGetEntityCount() {
-    return s_aliveCount;
-}
-
-/**
  * Register a component type with a fixed per-entity stride.
  * @param strideBytes  Bytes per entity for this component.
  * @param maxEntities  Max entities that can carry this component (≤ MAX_ENTITIES).
@@ -353,15 +345,6 @@ int ecsGetComponentStride(int componentType) {
     if (componentType < 0 || componentType >= s_slabCount) return 0;
     if (!s_slabs[componentType].registered) return 0;
     return s_slabs[componentType].strideBytes;
-}
-
-/**
- * Raw component bitmask for an entity (useful for debugging / archetype systems).
- */
-EMSCRIPTEN_KEEPALIVE
-uint32_t ecsGetComponentMask(uint32_t entityId) {
-    if (!validId(entityId)) return 0;
-    return s_componentMask[slotOf(entityId)];
 }
 
 } // extern "C"

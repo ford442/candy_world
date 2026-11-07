@@ -28,7 +28,7 @@ factory or copy a shipping batcher** before hand-rolling a material.
 
 ## Rendering stack (2026 baseline)
 
-Candy World ships on **`three@^0.171.0`** with WebGPU-first TSL materials:
+Candy World ships on **`three@^0.186.1`** with WebGPU-first TSL materials:
 
 ```ts
 import { MeshStandardNodeMaterial } from 'three/webgpu';

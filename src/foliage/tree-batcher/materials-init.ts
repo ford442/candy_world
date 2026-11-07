@@ -43,6 +43,7 @@ import {
     uWindSpeed,
     uWindStrength,
     createSugarSparkle,
+    $sn,
 } from '../material-core.ts';
 import { applyBaseContactAO, getBaseContactHeight } from '../material-core.ts';
 import { applySeasonTint } from '../material-core/season-nodes.ts';
@@ -98,7 +99,7 @@ export function initializeTreeBatcherMeshes(
 
     // 🎨 PALETTE: Add Juicy Rim Light to tree trunks
     trunkMat.emissiveNode = add(
-        trunkMat.emissiveNode ?? color(0x000000),
+        $sn(trunkMat.emissiveNode ?? color(0x000000)),
         createJuicyRimLight(color(0x8b4513), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), null)
     );
 
@@ -282,7 +283,7 @@ export function initializeTreeBatcherMeshes(
 
     // 🎨 PALETTE: Juicy Rim Light for tree branches
     capsuleMat.emissiveNode = add(
-        capsuleMat.emissiveNode ?? color(0x000000),
+        $sn(capsuleMat.emissiveNode ?? color(0x000000)),
         createJuicyRimLight(color(0x8b4513), float(0.8).add(uAudioLow.mul(0.3)), float(3.0), null)
     );
 
@@ -435,7 +436,7 @@ export function initializeTreeBatcherMeshes(
 
     // 🎨 PALETTE: Juicy Rim Light for roses
     roseMat.emissiveNode = add(
-        roseMat.emissiveNode ?? color(0x000000),
+        $sn(roseMat.emissiveNode ?? color(0x000000)),
         createJuicyRimLight(roseColor, float(1.4).add(uAudioHigh.mul(0.6)), float(2.8), null)
     );
 

@@ -468,6 +468,3 @@ export function calcVineDetachImpulse(
     };
 }
 
-export function isNativeFoliageInteractReady(): boolean {
-    return cppBatchGeyserLaunch !== null && isEmscriptenReady();
-}

@@ -18,9 +18,9 @@ import {
     smoothstep,
 } from 'three/tsl';
 import { uTime, uAudioHigh } from './shared-resources.ts';
-import type { TSLArg, TSLArgOpt } from './tsl-types.ts';
+import type { ColorLike, FloatNode, Vec3Node } from './tsl-types.ts';
 
-export const triplanarNoise = Fn<[TSLArg, TSLArg]>(([pos, scale]) => {
+export const triplanarNoise = Fn(([pos, scale]: [Vec3Node, FloatNode]) => {
     const p = pos.mul(scale);
     const n = abs(normalWorld);
 
@@ -32,8 +32,8 @@ export const triplanarNoise = Fn<[TSLArg, TSLArg]>(([pos, scale]) => {
     return noiseX.mul(blend.x).add(noiseY.mul(blend.y)).add(noiseZ.mul(blend.z));
 });
 
-export const perturbNormal = Fn<[TSLArg, TSLArg, TSLArg, TSLArg]>(
-    ([pos, normal, scale, strength]) => {
+export const perturbNormal = Fn(
+    ([pos, normal, scale, strength]: [Vec3Node, Vec3Node, FloatNode, FloatNode]) => {
         const eps = float(0.01);
         const s = scale;
 
@@ -52,19 +52,29 @@ export const perturbNormal = Fn<[TSLArg, TSLArg, TSLArg, TSLArg]>(
     }
 );
 
-export const createRimLight = Fn<[TSLArg, TSLArg, TSLArg, TSLArgOpt]>(
-    ([colorNode, intensity, power, normalNode]) => {
+export const createRimLight = Fn(
+    ([colorNode, intensity, power, normalNode]: [
+        ColorLike,
+        FloatNode,
+        FloatNode,
+        Vec3Node | null,
+    ]) => {
         const viewDir = normalize(cameraPosition.sub(positionWorld));
         const N = normalNode || normalWorld;
 
         const NdotV = abs(dot(N, viewDir));
         const rim = float(1.0).sub(NdotV).pow(power);
-        return colorNode.mul(rim).mul(intensity);
+        return (colorNode as Vec3Node).mul(rim).mul(intensity);
     }
 );
 
-export const createJuicyRimLight = Fn<[TSLArg, TSLArg, TSLArg, TSLArgOpt]>(
-    ([baseColor, intensity, power, normalNode]) => {
+export const createJuicyRimLight = Fn(
+    ([baseColor, intensity, power, normalNode]: [
+        ColorLike,
+        FloatNode,
+        FloatNode,
+        Vec3Node | null,
+    ]) => {
         const viewDir = normalize(cameraPosition.sub(positionWorld));
         const N = normalNode || normalWorld;
         const NdotV = abs(dot(N, viewDir));
@@ -75,7 +85,7 @@ export const createJuicyRimLight = Fn<[TSLArg, TSLArg, TSLArg, TSLArgOpt]>(
 
         const magicColor = color(0x00ffff);
         const colorMix = rim.mul(0.5).add(audioBoost.mul(0.2)).min(1.0);
-        const finalColor = mix(baseColor, magicColor, colorMix);
+        const finalColor = mix(baseColor as Vec3Node, magicColor, colorMix);
 
         const finalIntensity = intensity.mul(pulse).add(audioBoost);
 
@@ -83,8 +93,13 @@ export const createJuicyRimLight = Fn<[TSLArg, TSLArg, TSLArg, TSLArgOpt]>(
     }
 );
 
-export const createSugarSparkle = Fn<[TSLArgOpt, TSLArg, TSLArg, TSLArg]>(
-    ([normalNode, scale, density, intensity]) => {
+export const createSugarSparkle = Fn(
+    ([normalNode, scale, density, intensity]: [
+        Vec3Node | null,
+        FloatNode,
+        FloatNode,
+        FloatNode,
+    ]) => {
         const viewDir = normalize(cameraPosition.sub(positionWorld));
 
         const noiseCoord = positionLocal.mul(scale).add(viewDir.mul(2.0));
@@ -105,11 +120,13 @@ export const createSugarSparkle = Fn<[TSLArgOpt, TSLArg, TSLArg, TSLArg]>(
     }
 );
 
-export const addRimLight = Fn<[TSLArg, TSLArgOpt]>(([baseColorNode, normalNode]) => {
-    return baseColorNode.add(createRimLight(color(0xffffff), float(0.5), float(3.0), normalNode));
+export const addRimLight = Fn(([baseColorNode, normalNode]: [ColorLike, Vec3Node | null]) => {
+    return (baseColorNode as Vec3Node).add(
+        createRimLight(color(0xffffff), float(0.5), float(3.0), normalNode)
+    );
 });
 
-export const colorFromNote = Fn<[TSLArg]>(([noteIndex]) => {
+export const colorFromNote = Fn(([noteIndex]: [FloatNode]) => {
     const angle = noteIndex.div(12.0).mul(6.28318);
 
     const r = sin(angle).mul(0.5).add(0.5);

@@ -5,6 +5,7 @@ import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import { nightGateFromBias } from './atmosphere-reactivity-core.ts';
 import { BiomeUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
 import { triggerFaunaImpulse } from './fauna/fauna-system.ts';
+import { unlockSystem } from './unlocks.ts';
 import { getWeatherSystem } from './weather/lazy.ts';
 
 export interface ScoreCue {
@@ -15,6 +16,8 @@ export interface ScoreCue {
     note?: string;
     rowMod?: number;
     event: string;
+    /** Only fires once this unlock is earned (e.g. `island_scholar`). */
+    unlock?: string;
 }
 
 // Readonly struct arrays to avoid allocations on iteration
@@ -24,6 +27,7 @@ const cueInstruments: number[] = [];
 const cueNotes: string[] = [];
 const cueRowMods: number[] = [];
 const cueEvents: string[] = [];
+const cueUnlocks: string[] = [];
 const cueIds: string[] = [];
 
 let _cuesLoaded = false;
@@ -52,6 +56,7 @@ export async function initLivingScore(): Promise<void> {
                 cueNotes.push(cue.note || '');
                 cueRowMods.push(cue.rowMod || 0);
                 cueEvents.push(cue.event);
+                cueUnlocks.push(cue.unlock || '');
             }
             _cuesLoaded = true;
         }
@@ -113,6 +118,7 @@ export function updateLivingScore(
         const channel = cueChannels[i];
         const src = channels[channel];
         if (!src) continue;
+        if (cueUnlocks[i] !== '' && !unlockSystem.isUnlocked(cueUnlocks[i])) continue;
 
         const inst = src.instrument;
         const noteStr = src.note || '';
@@ -159,6 +165,12 @@ function fireScoreEvent(cueIndex: number, nightGate: number, marketGate: number)
         case 'cavePulse':
             sugarCavesShimmerEnvelope = 1.0 * nightGate;
             break;
+
+        case 'islandGlow': {
+            const luminous = LuminousPlantUniforms.intensity;
+            if (luminous) luminous.value = Math.max(luminous.value, 1.0 * nightGate);
+            break;
+        }
 
         case 'faunaImpulse':
             triggerFaunaImpulse(5);

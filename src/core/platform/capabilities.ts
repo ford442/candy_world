@@ -66,13 +66,16 @@ export interface PlatformCapabilityInputs {
 export const EXTENDED_RANGE_CONFIGURED = false;
 
 /**
- * `pixelRatio` cap per tier. `medium`/`high` keep the 1.5 init.ts always used
- * (Chrome reports at most 8 GB of `deviceMemory`, so most Chrome players are
- * `medium`); `low` renders one pixel per CSS pixel.
+ * `pixelRatio` cap per tier: `low` renders one pixel per CSS pixel, `medium`
+ * 1.25, `high` 1.5. Chrome reports at most 8 GB of `deviceMemory`, so most
+ * Chrome players are `medium`; on a 2× display that is 1.56× the pixels of
+ * 1.0 instead of the 2.25× the old flat 1.5 cap drew. The dynamic-resolution
+ * controller (`rendering/dynamic-resolution.ts`) scales the scene pass below
+ * this cap; it never raises it.
  */
 export const MAX_PIXEL_RATIO: Readonly<Record<PlatformTier, number>> = Object.freeze({
     low: 1,
-    medium: 1.5,
+    medium: 1.25,
     high: 1.5,
 });
 

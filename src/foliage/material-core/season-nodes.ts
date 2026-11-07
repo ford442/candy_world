@@ -22,7 +22,7 @@ import {
 } from '../../systems/season-core.ts';
 import { $sn } from './tsl-types.ts';
 
-type ColorNode = ReturnType<typeof vec3>;
+type ColorNode = Node<'vec3'>;
 
 const _roleTarget = SEASON_ROLES.map(() => uniform(new THREE.Color(1, 1, 1)));
 /** x = amount, y = frost, z = chroma − 1 (so the identity is an exact 0). */
@@ -126,7 +126,7 @@ export function instanceKey01(index: Node): ColorNode {
  */
 export function seasonDensityKeep(key01: Node | ColorNode, density: Node | ColorNode): ColorNode {
     const k = $sn(key01 as Node);
-    return smoothstep(k.sub(0.04), k, float($sn(density as Node))) as unknown as ColorNode;
+    return smoothstep(k.sub(0.04), k, density as Node<'float'>) as unknown as ColorNode;
 }
 
 /** 0 = open water, 1 = frozen lake (eased by the season controller). */

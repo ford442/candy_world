@@ -22,6 +22,7 @@ import {
 } from '../systems/net/shared-worlds.ts';
 import type { SharedWorldSummary, WorldVisibility } from '../world/document/remote-store.ts';
 import { el } from './kit/index.ts';
+import { trapFocusInside } from '../utils/focus-trap.ts';
 
 const PANEL_ID = 'worlds-panel';
 type Tab = 'mine' | 'shared' | 'public';
@@ -373,6 +374,7 @@ export function installWorldsStartScreenUI(): void {
     body.append(head, tablist, grid, more, publish, account, status);
 
     let opened = false;
+    let releaseTrap: (() => void) | null = null;
     function setOpen(open: boolean): void {
         toggle.setAttribute('aria-expanded', String(open));
         body.hidden = !open;
@@ -381,20 +383,20 @@ export function installWorldsStartScreenUI(): void {
                 opened = true;
                 void renderAccount().then(() => select('mine'));
             }
+            releaseTrap = trapFocusInside(body, { skipAutoFocus: true, onEscape: () => setOpen(false) });
             tabButtons.get(active)?.focus();
         } else {
+            if (releaseTrap) {
+                releaseTrap();
+                releaseTrap = null;
+            }
             toggle.focus();
         }
     }
     toggle.addEventListener('click', () =>
         setOpen(toggle.getAttribute('aria-expanded') !== 'true')
     );
-    body.addEventListener('keydown', (e) => {
-        if (e.key !== 'Escape') return;
-        e.preventDefault();
-        e.stopPropagation();
-        setOpen(false);
-    });
+
 
     window.addEventListener('candy:start-screen-hidden', () => wrapper.remove(), { once: true });
     modeSelect.insertAdjacentElement('afterend', wrapper);

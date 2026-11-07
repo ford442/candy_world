@@ -5,7 +5,6 @@ import {
     sin,
     cos,
     positionLocal,
-    timerLocal
 } from 'three/tsl';
 import { createUnifiedMaterial, uTime, uAudioLow } from './material-core.ts';
 

@@ -10,6 +10,7 @@
  * - Integration with save-system.ts
  */
 
+import { input } from '../../core/input/actions/index.ts';
 import {
     saveSystem,
     SaveData,
@@ -66,6 +67,8 @@ export class SaveMenu {
     private selectedSlot: string | null = null;
     private settings: SettingsSaveData;
     private listeningKeybind: keyof KeyBindings | null = null;
+    /** Pops the `menu` input context: no game actions while the menu is open. */
+    private popMenuContext: (() => void) | null = null;
     private onLoadCallback?: (data: SaveData) => void;
     private onSaveCallback?: (slotId: string) => void;
     private onCloseCallback?: () => void;
@@ -113,6 +116,7 @@ export class SaveMenu {
 
         this.container = document.createElement('div');
         this.container.className = 'candy-save-menu';
+        this.popMenuContext = input.pushContext('menu');
         // 🎨 PALETTE: Trap focus accessibility juice
         this.container.setAttribute('role', 'dialog');
         this.container.setAttribute('aria-modal', 'true');
@@ -166,6 +170,8 @@ export class SaveMenu {
      */
     close(): void {
         if (!this.container) return;
+        this.popMenuContext?.();
+        this.popMenuContext = null;
 
         // Add exit animation
         this.container.style.animation = 'fadeOut 0.3s ease forwards';

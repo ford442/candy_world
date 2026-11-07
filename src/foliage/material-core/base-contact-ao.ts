@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { float, vec3, uniform, mix, smoothstep, max } from 'three/tsl';
 import { CONFIG } from '../../core/config.ts';
+import type { Node } from 'three/webgpu';
 
 export const uBaseContactAOEnabled = uniform(1.0);
 export const uBaseContactAOStrength = uniform(0.32);
@@ -21,10 +22,10 @@ export function getBaseContactHeight(entityType: string): number {
 }
 
 export function applyBaseContactAO(
-    baseColor: ReturnType<typeof vec3>,
-    localY: ReturnType<typeof float>,
-    contactHeight: ReturnType<typeof float> = float(0.4),
-    strengthMul: ReturnType<typeof float> = float(1.0)
+    baseColor: Node<'vec3'>,
+    localY: Node<'float'>,
+    contactHeight: Node<'float'> = float(0.4),
+    strengthMul: Node<'float'> = float(1.0)
 ) {
     const nightBoost = float(1.0).add(uBaseContactAONightBoost.mul(uBaseContactAONightFactor));
     const strength = uBaseContactAOStrength

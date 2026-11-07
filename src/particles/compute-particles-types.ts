@@ -4,6 +4,7 @@
  */
 
 import * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 
 export type ComputeParticleType =
     | 'fireflies'
@@ -123,7 +124,7 @@ export interface ComputeParticleSystem {
     particlesMesh: any;
     computeNode: any;
     update(
-        renderer: THREE.Renderer,
+        renderer: Renderer,
         deltaTime: number,
         playerPosition: THREE.Vector3,
         audioData: ParticleAudioData

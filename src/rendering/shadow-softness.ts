@@ -14,6 +14,7 @@
  */
 import * as THREE from 'three';
 import { Fn, texture, vec2, float, reference, abs, mix, clamp, renderGroup } from 'three/tsl';
+import type { Node } from 'three/webgpu';
 import { CONFIG } from '../core/config/defaults.ts';
 import {
     clampSoftness,
@@ -85,8 +86,11 @@ function createCandyPcfFilter(kernel: 3 | 5) {
         const shadowCoord = args['shadowCoord'] as { xy: UvNode; z: unknown };
         const shadow = args['shadow'] as SoftLightShadow;
 
+        // A depth comparison yields one float; three's types say vec4.
         const depthCompare = (uv: unknown, compare: unknown) =>
-            texture(depthTexture as never, uv as never).compare(compare as never);
+            texture(depthTexture as never, uv as never).compare(
+                compare as never
+            ) as unknown as Node<'float'>;
 
         const mapSize = groupedRef('mapSize', 'vec2', shadow);
         const radius = groupedRef('radius', 'float', shadow);
@@ -109,7 +113,7 @@ function createCandyPcfFilter(kernel: 3 | 5) {
         const contactRadius = mix(float(0.4), radius as never, edgeAmt);
         const effective = mix(radius as never, contactRadius, clamp(lightSize as never, 0, 1));
 
-        let sum = float(0);
+        let sum: Node<'float'> = float(0);
         for (let y = -half; y <= half; y++) {
             for (let x = -half; x <= half; x++) {
                 const offset = texelSize.mul(vec2(x, y)).mul(effective);

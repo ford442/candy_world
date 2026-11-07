@@ -347,7 +347,7 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
         let needsUpdate = false;
 
         // ⚡ OPTIMIZATION: Bypassed pure JS O(N) distance checks and smoothstep math with a single WASM batch call
-        let useWasm = isEmscriptenReady();
+        const useWasm = isEmscriptenReady();
         if (useWasm) {
             const statsArray = _scratchStatsArray;
             batchUpdateLodFactors_c(

@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import type { ShaderNodeObject, Node } from 'three/tsl';
+import type { Node } from 'three/webgpu';
 
 /**
  * Material type identifiers for the factory
@@ -110,13 +110,13 @@ export interface IAudioReactiveMaterial {
  */
 export interface CandyMaterial extends THREE.Material {
     /** TSL color node for dynamic coloring */
-    colorNode?: ShaderNodeObject<Node>;
+    colorNode?: Node;
     /** TSL emissive node for dynamic glow */
-    emissiveNode?: ShaderNodeObject<Node>;
+    emissiveNode?: Node;
     /** TSL emissive intensity node */
-    emissiveIntensityNode?: ShaderNodeObject<Node>;
+    emissiveIntensityNode?: Node;
     /** TSL position node for vertex displacement */
-    positionNode?: ShaderNodeObject<Node>;
+    positionNode?: Node;
     /** Material user data */
     userData: {
         readonly type?: MaterialTypeValue;
@@ -130,9 +130,9 @@ export interface CandyMaterial extends THREE.Material {
  */
 export interface AudioUniforms {
     /** Audio pulse strength uniform */
-    readonly audioPulse: ShaderNodeObject<Node>;
+    readonly audioPulse: Node;
     /** Audio color uniform */
-    readonly audioColor: ShaderNodeObject<Node>;
+    readonly audioColor: Node;
 }
 
 /**

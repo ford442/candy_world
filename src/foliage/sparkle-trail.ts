@@ -10,7 +10,13 @@ const modFloat = (x: any, y: any) => {
     const yf = float(y);
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
-import { uTime, uAudioHigh, uAudioLow } from './material-core.ts';
+import {
+    uTime,
+    uAudioHigh,
+    uAudioLow,
+    asNode,
+    type FloatNode,
+} from './material-core.ts';
 
 const TRAIL_SIZE = 2000; // Increased buffer size for richer trails
 
@@ -158,7 +164,8 @@ export function createSparkleTrail(): THREE.Points {
     const uCurrentTime = uniform(0);
 
     const updateTrailCompute = (Fn as any)((): void => {
-        const index = instanceIndex;
+        // uint index against float uniforms: TSL converts, three's types do not.
+        const index = asNode<FloatNode>(instanceIndex);
 
         const posNode = storage(positionBuffer, 'vec3', positionBuffer.count).element(index);
         const stateNode = storage(stateBuffer, 'vec4', stateBuffer.count).element(index);

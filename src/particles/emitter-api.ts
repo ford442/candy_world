@@ -22,6 +22,7 @@
  */
 
 import * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 import { enforceCap, withinCap } from '../systems/performance-budget/systems-budget.ts';
 import { profiler } from '../utils/profiler.ts';
 import type {
@@ -612,7 +613,7 @@ export function disposeAllEmitters(): void {
  * phase of the game loop. Allocation-free.
  */
 export function updateEmitters(
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     deltaTime: number,
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData

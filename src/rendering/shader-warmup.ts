@@ -12,6 +12,11 @@
  * keeps the render objects, node builder states and pipelines the next frame
  * looks up, so the first real frame finds them already built.
  *
+ * Once per object: the boot pass compiles the scene that exists before world
+ * generation and the deferred pass the generated world. Each renderer
+ * remembers which objects it compiled, with which material, so the deferred
+ * pass skips what boot already built and only a swapped material compiles again.
+ *
  * Progressive: `compileAsync(scene, camera)` would project and build the whole
  * scene in one synchronous task. Instead each call sees one chunk of objects
  * through a spare camera layer ({@link WARMUP_LAYER}), and the event loop gets
@@ -19,8 +24,12 @@
  * environment and the full light list match a real frame and the compiled
  * programs are the ones the frame will use. Layers, culling flags and the
  * render target are swapped and restored synchronously around each call:
- * Three projects and builds before its first `await`, and no frame can run in
- * between, so a running game loop never sees the swapped state.
+ * Three projects the chunk and fixes its render context before its first
+ * `await`, and no frame can run in between, so a running game loop never sees
+ * the swapped state. The node builds themselves run on after that (r186
+ * yields between shader stages) and read `renderer.getMRT()` when they get to
+ * the material's setup, so an MRT target cannot be warmed this way: the post
+ * graph offers no target under TRAA.
  */
 
 import type * as THREE from 'three';
@@ -52,6 +61,8 @@ export interface ProgressiveCompileOptions {
 
 export interface ProgressiveCompileStats {
     objects: number;
+    /** Visible objects skipped because this renderer already compiled them. */
+    alreadyCompiled: number;
     chunks: number;
     failedChunks: number;
     maxChunkMs: number;
@@ -68,40 +79,44 @@ export interface CompilingRenderer {
     setMRT?(mrt: unknown): unknown;
 }
 
-/** Internals read off the renderer (Three 0.171 `Renderer` / `WebGPUBackend`). */
-function rendererDevice(renderer: CompilingRenderer): GPUDevice | null {
-    return (renderer as { backend?: { device?: GPUDevice | null } }).backend?.device ?? null;
-}
-
-/** Set by Three (and gpu-context.ts) once the device or GL context is lost. */
+/**
+ * Set by Three (and gpu-context.ts) once the device or GL context is lost.
+ * A rejected async pipeline no longer needs handling here: Three (r172+)
+ * always settles `compileAsync()`, logging and marking the failed pipeline,
+ * where 0.171 left it pending forever.
+ */
 function isRendererLost(renderer: CompilingRenderer): boolean {
     return (renderer as { _isDeviceLost?: boolean })._isDeviceLost === true;
 }
 
+type Renderable = THREE.Object3D & { frustumCulled: boolean; material?: unknown };
+
 /**
- * Three 0.171's `WebGPUPipelineUtils` wraps `createRenderPipelineAsync()` in a
- * promise that only resolves: if creation rejects (device lost, or a shader
- * the driver refuses), that promise never settles, `compileAsync()` hangs
- * forever and the rejection goes unhandled, which the bootstrap reports as a
- * fatal startup error. While a compile call is building, route a rejected
- * async creation to the synchronous `createRenderPipeline()`. That is what a
- * normal frame does: it returns an invalid pipeline and reports the error
- * through `uncapturederror` (or does nothing on a lost device), so the warmup
- * fails exactly like a first draw would, and keeps going.
+ * Per backend: each compiled object and the {@link compileKey} it was compiled
+ * with. Not per renderer: device-loss recovery rebuilds the renderer in place
+ * on a new backend (`device-recovery.ts`), which has compiled nothing.
  */
-function guardAsyncPipelines(device: GPUDevice | null | undefined): () => void {
-    if (!device || typeof device.createRenderPipelineAsync !== 'function') return () => {};
-    const own = Object.prototype.hasOwnProperty.call(device, 'createRenderPipelineAsync');
-    const original = device.createRenderPipelineAsync;
-    device.createRenderPipelineAsync = (descriptor: GPURenderPipelineDescriptor) =>
-        original.call(device, descriptor).catch(() => device.createRenderPipeline(descriptor));
-    return () => {
-        if (own) device.createRenderPipelineAsync = original;
-        else delete (device as { createRenderPipelineAsync?: unknown }).createRenderPipelineAsync;
-    };
+const compiledByBackend = new WeakMap<object, WeakMap<THREE.Object3D, string>>();
+
+/**
+ * What an object was compiled with: its material(s) and their versions, so a
+ * swapped material, or one changed and flagged `needsUpdate`, compiles again.
+ */
+function compileKey(o: Renderable): string {
+    const material = o.material as THREE.Material | THREE.Material[] | undefined;
+    const materials = Array.isArray(material) ? material : [material];
+    return materials.map((m) => (m ? `${m.uuid}:${m.version}` : '-')).join('|');
 }
 
-type Renderable = THREE.Object3D & { frustumCulled: boolean };
+function compiledFor(renderer: CompilingRenderer): WeakMap<THREE.Object3D, string> {
+    const backend = (renderer as { backend?: object }).backend ?? renderer;
+    let compiled = compiledByBackend.get(backend);
+    if (!compiled) {
+        compiled = new WeakMap();
+        compiledByBackend.set(backend, compiled);
+    }
+    return compiled;
+}
 
 function isRenderable(obj: THREE.Object3D): obj is Renderable {
     const o = obj as { isMesh?: boolean; isLine?: boolean; isPoints?: boolean; isSprite?: boolean };
@@ -154,7 +169,6 @@ export function compileChunk(
     const lightMasks = lights.map((l) => l.layers.mask);
     const prevTarget = target ? renderer.getRenderTarget() : null;
     const prevMrt = target ? renderer.getMRT?.() : undefined;
-    const restorePipelines = guardAsyncPipelines(rendererDevice(renderer));
 
     try {
         for (const o of chunk) {
@@ -171,7 +185,6 @@ export function compileChunk(
         }
         return renderer.compileAsync(scene, camera);
     } finally {
-        restorePipelines();
         camera.layers.mask = cameraMask;
         for (let i = 0; i < chunk.length; i++) {
             chunk[i].layers.mask = objectMasks[i];
@@ -200,17 +213,21 @@ export async function compileSceneProgressively(
 ): Promise<ProgressiveCompileStats> {
     const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_CHUNK_SIZE);
     const start = performance.now();
-    const { objects, lights } = collectCompileSet(scene, camera);
+    const visible = collectCompileSet(scene, camera);
+    const compiled = compiledFor(renderer);
+    const objects = visible.objects.filter((o) => compiled.get(o) !== compileKey(o));
+    const { lights } = visible;
     const stats: ProgressiveCompileStats = {
         objects: objects.length,
+        alreadyCompiled: visible.objects.length - objects.length,
         chunks: 0,
         failedChunks: 0,
         maxChunkMs: 0,
         totalMs: 0,
-        aborted: false,
+        aborted: isRendererLost(renderer),
     };
 
-    for (let i = 0; i < objects.length; i += chunkSize) {
+    for (let i = 0; i < objects.length && !stats.aborted; i += chunkSize) {
         // A lost device makes every later chunk a no-op (Three returns early).
         if (isRendererLost(renderer) || options.shouldAbort?.()) {
             stats.aborted = true;
@@ -218,15 +235,10 @@ export async function compileSceneProgressively(
         }
         const chunkStart = performance.now();
         const target = options.target ? options.target() : defaultTarget(renderer);
+        const chunk = objects.slice(i, i + chunkSize);
         try {
-            await compileChunk(
-                renderer,
-                scene,
-                camera,
-                objects.slice(i, i + chunkSize),
-                lights,
-                target
-            );
+            await compileChunk(renderer, scene, camera, chunk, lights, target);
+            for (const o of chunk) compiled.set(o, compileKey(o));
         } catch (err) {
             stats.failedChunks++;
             console.warn('[ShaderWarmup] compileAsync failed for a chunk (non-fatal):', err);

@@ -3,7 +3,7 @@ import { color, float, attribute, positionLocal,
     dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
     max, uv, floor, instanceIndex, varyingProperty, mix, vec3, cameraPosition
 } from "three/tsl";
-import { MeshStandardNodeMaterial } from "three/webgpu";
+import { MeshStandardNodeMaterial, type Node } from "three/webgpu";
 import { CONFIG } from "../../core/config.ts";
 import { BiomeUniforms, uCircadianPoseOffset } from "../../systems/biome-uniforms.ts";
 import { circadianNightGlowMult } from "../../systems/biome-uniforms.ts";
@@ -111,7 +111,7 @@ export function createMaterials(): MeshStandardNodeMaterial[] {
         });
 
         // --- PALETTE: Jelly Wobble (Audio Reaction) ---
-        const calculateJellyWobble = Fn(([pos]: any) => {
+        const calculateJellyWobble = Fn(([pos]: [Node<'vec3'>]) => {
             // Only wobble when bouncing (triggered by note)
             // Frequency 10.0, Speed 15.0
             const wobbleFreq = float(10.0);

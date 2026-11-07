@@ -14,20 +14,24 @@
  * follow map. See `docs/webgl-fallback.md`.
  */
 import * as THREE from 'three';
-import { CSMShadowNode } from 'three/examples/jsm/csm/CSMShadowNode.js';
+import type { Renderer } from 'three/webgpu';
+import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
 import { clampCascadeCount, type ShadowSettings } from '../core/config/postfx.ts';
 import { hasUrlFlag, getUrlFlag } from '../core/config/url-flags.ts';
 import { CONFIG } from '../core/config.ts';
+import { isWebGLBackendRenderer } from '../rendering/renderer-mode.ts';
 import { profiler } from '../utils/profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 
 /**
- * `@types/three` for r171 declares CSMShadowNode's fields and `updateFrustums()`
- * but omits the `init()` / `dispose()` lifecycle the JS actually exports.
- * Declare the missing surface structurally rather than casting through `any`.
+ * `@types/three` declares CSMShadowNode's fields and `updateFrustums()` but not
+ * the `_init()` / `dispose()` lifecycle the JS has. r186 made `init()` private
+ * (`_init()`, run lazily from `setup()` when `camera` is still null); we run it
+ * up front so the per-cascade lights exist for the map-size taper, and
+ * `setup()` then skips it. Declared structurally rather than cast through `any`.
  */
 type CSMShadowNodeLifecycle = CSMShadowNode & {
-    init(context: { camera: THREE.Camera; renderer: THREE.Renderer }): void;
+    _init(context: { camera: THREE.Camera; renderer: Renderer }): void;
     dispose(): void;
 };
 
@@ -52,28 +56,29 @@ export function getSunCascades(): SunCascades | null {
 }
 
 /**
- * CSM rides the TSL node graph, so it needs the WebGPU backend. We read the
- * renderer rather than the URL preference: the app silently falls back to
- * WebGL when WebGPU is unavailable, and only the actual backend is truthful.
+ * CSM runs on the WebGPU backend only; the WebGL2 fallback keeps the single
+ * follow map. We read the renderer's backend rather than the URL preference or
+ * `isWebGPURenderer`: the app falls back to WebGL2 when WebGPU is unavailable,
+ * `isWebGPURenderer` is true on that path too, and only the backend is truthful.
  */
-export function isCascadeSupported(renderer: THREE.Renderer | null | undefined): boolean {
+export function isCascadeSupported(renderer: Renderer | null | undefined): boolean {
     if (!renderer) return false;
-    const r = renderer as THREE.Renderer & { isWebGPURenderer?: boolean; backend?: unknown };
-    return r.isWebGPURenderer === true && r.backend !== undefined;
+    const r = renderer as Renderer & { isWebGPURenderer?: boolean; backend?: unknown };
+    return r.isWebGPURenderer === true && r.backend != null && !isWebGLBackendRenderer(r);
 }
 
 /**
  * Attach a cascade rig to the sun light.
  *
- * The light MUST already be in the scene graph — `CSMShadowNode.init()` parents
- * its per-cascade light proxies to `light.parent`.
+ * The light MUST already be in the scene graph — `CSMShadowNode` parents its
+ * per-cascade light proxies to `light.parent`.
  *
  * @returns the handle, or null when CSM is unavailable/disabled (caller keeps
  *          the legacy single follow map).
  */
 export function initSunCascades(
     sunLight: THREE.DirectionalLight,
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     camera: THREE.PerspectiveCamera,
     settings: ShadowSettings
 ): SunCascades | null {
@@ -92,7 +97,7 @@ export function initSunCascades(
     try {
         // Cascade ortho extents are derived from the camera frustum, so the shadow
         // camera's own near/far are irrelevant here — but mapSize and bias are
-        // cloned per cascade by init(), so they must be set first. filterNode is
+        // cloned per cascade by _init(), so they must be set first. filterNode is
         // *not* cloned by LightShadow.copy() — applyShadowSoftness() binds it
         // after this returns.
         sunLight.shadow.mapSize.set(settings.mapSize, settings.mapSize);
@@ -108,7 +113,7 @@ export function initSunCascades(
             lightMargin: cfg.cascadeLightMargin,
         }) as CSMShadowNodeLifecycle;
         node.fade = cfg.cascadeFade;
-        node.init({ camera, renderer });
+        node._init({ camera, renderer });
 
         // AnalyticLightNode picks this up when it builds the light's shadow graph.
         (sunLight.shadow as THREE.DirectionalLightShadow & { shadowNode?: unknown }).shadowNode =
@@ -216,7 +221,7 @@ function cascadeDebugRequested(): boolean {
 export function attachCascadeDebug(scene: THREE.Scene): void {
     if (!_active || _helper || !cascadeDebugRequested()) return;
 
-    void import('three/examples/jsm/csm/CSMHelper.js')
+    void import('three/addons/csm/CSMHelper.js')
         .then(({ CSMHelper }) => {
             if (!_active) return;
             const helper = new CSMHelper(_active.node) as unknown as CascadeHelper;

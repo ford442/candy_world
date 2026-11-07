@@ -27,7 +27,6 @@
  */
 
 import * as THREE from 'three';
-import type { ShaderNodeObject } from 'three/src/nodes/tsl/TSLCore.js';
 import {
     color,
     vec3,
@@ -378,8 +377,8 @@ export class MaterialFactory {
      */
     public getAudioUniforms(): AudioUniforms {
         return {
-            audioPulse: uAudioPulse as unknown as ShaderNodeObject<Node>,
-            audioColor: uAudioColor as unknown as ShaderNodeObject<Node>
+            audioPulse: uAudioPulse as unknown as Node,
+            audioColor: uAudioColor as unknown as Node
         };
     }
 

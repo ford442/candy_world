@@ -19,7 +19,7 @@
 
 | Component          | Technology                                        | Purpose                                                             |
 | ------------------ | ------------------------------------------------- | ------------------------------------------------------------------- |
-| Rendering          | Three.js ^0.171.0 + WebGPU                        | 3D graphics with `MeshPhysicalMaterial` for candy gloss             |
+| Rendering          | Three.js ^0.186.1 + WebGPU                        | 3D graphics with `MeshPhysicalMaterial` for candy gloss             |
 | Build System       | Vite ^5.0.0                                       | Module bundling, dev server, and production builds                  |
 | Language           | TypeScript ^5.9.3 (ES2020 target, ES2022 modules) | Application source code                                             |
 | Physics (Required) | AssemblyScript ^0.27.37 → WASM                    | Stateful physics, collision detection, spatial grid                 |
@@ -61,35 +61,31 @@
 │   │   └── save-menu/            # Save menu styles, slots, settings
 │   ├── utils/                    # WASM loader barrel, profiler, geometry dedup, startup profiler
 │   ├── wasm/                     # WASM bindings, type definitions, compiled candy_physics.wasm
-│   ├── workers/                  # Web Workers for physics and world generation
 │   ├── world/                    # World generation, state management
 │   ├── accessibility-index.ts    # Accessibility system entry point
 │   └── main.ts                   # Application entry point (re-exports from core)
 ├── assembly/                     # AssemblyScript source (physics module)
-│   ├── index.ts                  # Module exports
+│   ├── index.ts                  # The wasm ABI: every export by name (check:native-exports)
 │   ├── physics.ts                # Collision detection, spatial grid
-│   ├── animation.ts              # Animation calculations
+│   ├── animation.ts              # Arpeggio step state machine
 │   ├── animation_batch.ts        # Batch animation operations
 │   ├── batch.ts                  # Batch operations
 │   ├── constants.ts              # Memory layout constants
 │   ├── discovery.ts              # Discovery system logic
 │   ├── foliage.ts                # Foliage-specific helpers
 │   ├── material_batch.ts         # Material batching
-│   ├── math.ts                   # Math utilities
-│   ├── memory.ts                 # Memory management
+│   ├── math.ts                   # Ground height, frequency → hue
 │   └── particles.ts              # Particle physics
 ├── emscripten/                   # C++ source (compute/animations)
-│   ├── animation.cpp             # Animation functions
-│   ├── animation_batch.cpp       # Batch animation functions
+│   ├── animation.cpp             # Arpeggio step state machine
+│   ├── animation_batch.cpp       # Foliage batch animations (shiver/spring/float/cloud bob)
 │   ├── batch.cpp                 # Batch distance culling
-│   ├── bootstrap_loader.cpp      # Bootstrap / shader warmup progress
 │   ├── fluid.cpp                 # Fluid simulation
-│   ├── lod_batch.cpp             # LOD matrix batch updates
-│   ├── math.cpp                  # Math utilities (noise, hash, SIMD, OpenMP)
-│   ├── mesh_deformation.cpp      # Mesh deformation
-│   ├── particle_physics.cpp      # Particle systems
+│   ├── lod_batch.cpp             # LOD factors + matrix composition
+│   ├── math.cpp                  # Ground height (scalar + SIMD batch), OpenMP team cap
+│   ├── particle_physics.cpp      # CPU particle fallback
 │   ├── physics.cpp               # Physics computations
-│   ├── build.sh                  # Build script with conditional exports
+│   ├── build.sh                  # Build script; ANIMATION_FUNCTIONS is the whole C++ ABI
 │   ├── exports.txt               # Committed export manifest (CI is source of truth)
 │   ├── vendor/libomp.a           # Vendored OpenMP static archive (kept tracked)
 │   └── omp.h                     # OpenMP headers
@@ -140,22 +136,26 @@ npm run dev:fast
 # Full production build (AssemblyScript WASM + Emscripten C++ WASM + Vite)
 npm run build
 
-# Full production build with post-WASM optimization (requires wasm-opt)
+# Full production build plus the tools/build-optimizer analysis pass
+# (no extra wasm-opt pass: asc --optimize and emcc -O2 already run Binaryen)
 npm run build:optimized
 ```
 
 ### Specific Build Steps
 
 ```bash
-# Build AssemblyScript physics module only
-# Output: src/wasm/candy_physics.wasm + .wat + source map
+# Build AssemblyScript physics module only (prod: .wasm, no .wat, no map, no sourceMappingURL)
+# Output: src/wasm/candy_physics.wasm
 npm run build:wasm
+
+# Same flags plus src/wasm/candy_physics.wat and a source map (npm run dev uses this)
+npm run build:wasm:debug
 
 # Build C++ native module only (requires Emscripten in PATH)
 # Outputs both multi-threaded (public/candy_native.*) and single-threaded (public/candy_native_st.*)
 npm run build:emcc
 
-# Optimize WASM binaries (requires wasm-opt / wasmedge; runs tools/build-optimizer)
+# Bundle/asset analysis and optimization tools (tools/build-optimizer)
 npm run optimize
 npm run optimize:assets
 npm run optimize:split
@@ -208,7 +208,8 @@ npm run verify:emcc:manifest
 
 - **Tier 1** (`.github/workflows/emscripten-ci.yml`): path-filtered PRs/pushes run `pnpm run verify:emcc:manifest` — asserts `build.sh` selection ⊆/`==` committed `emscripten/exports.txt`. No emsdk.
 - **Tier 2** (`.github/workflows/emscripten-verify.yml`): release tags, nightly `main`, and `workflow_dispatch` run `CANDY_DEBUG=0 pnpm run build:emcc` + `verify:emcc --strict` + manifest lint. Not a required PR check (emsdk can flake).
-- After changing `emscripten/build.sh` or `*.cpp` exports, refresh with `pnpm run verify:emcc:manifest -- --write` (or a local `build:emcc`) and commit `exports.txt`.
+- After changing `emscripten/build.sh` or `*.cpp` exports, refresh with `pnpm run verify:emcc:manifest -- --write` (or a local `build:emcc`) and commit `exports.txt`. The manifest lint also fails if an `EMSCRIPTEN_KEEPALIVE` function is missing from `ANIMATION_FUNCTIONS` (EXPORT_KEEPALIVE=1 exports it anyway) or a declared name has no definition.
+- **Dead exports / stale lookups** (`pnpm run check:native-exports`, in `test:fast`): every AS export (`assembly/index.ts`, names only, no `export *`) and every C++ export (exports.txt + KEEPALIVE) must have a caller in `src/` or `tests/`, and every `getNativeFunc('x')` / `exports.x` must name a real export. Baseline `scripts/native-exports-baseline.json` is 0/0 and can only shrink. To add an export, call it from TS (or a test) in the same PR; to drop one, remove it from `assembly/index.ts` or from `build.sh` together with its `EMSCRIPTEN_KEEPALIVE`.
 
 ### Preview & Deploy
 
@@ -244,7 +245,7 @@ Key capabilities:
 ### Module 2: Emscripten/C++ (`candy_native.wasm`)
 
 - **Purpose**: Stateless compute functions, SIMD-optimized math
-- **Language**: C++17 with OpenMP pragmas and SIMD (`-msimd128`, `-mrelaxed-simd`)
+- **Language**: C++17 with OpenMP pragmas and SIMD (`-msimd128`; no `-mrelaxed-simd`)
 - **Location**: `emscripten/*.cpp`
 - **Output**:
     - `public/candy_native.js` + `public/candy_native.wasm` (multi-threaded, with pthread)
@@ -253,13 +254,15 @@ Key capabilities:
 
 Key capabilities:
 
-- Animation calculations (bounce, sway, wobble, hop, fiber whip, spiral wave, etc.)
-- Math utilities (fast inverse sqrt, noise, hash, SIMD batches)
-- Batch distance and frustum culling
-- Particle physics updates
-- Fluid simulation step
-- Mesh deformation (wave, jiggle, wobble)
-- Bootstrap loader / shader warmup progress tracking
+- Unified ground height (platforms, cache) and the SIMD batch ground height
+- Player physics assist (`updatePhysicsCPP`, tested by `test:character-native`)
+- Foliage batch animations for the ECS bridge, arpeggio step, foliage interaction batches
+- LOD factors, instanced pose → matrix/color, distance culling
+- CPU particle fallback, fluid simulation step, boids, discovery grid, ECS slabs
+
+Every export has a caller (`npm run check:native-exports`). #2026 slice 1 deleted the 93 that
+had none (the scalar animation calculators, mesh deformation, the bootstrap pthread, the
+noise/fast-math twins, the percussion/melodic/effects batches).
 
 ### Build Behavior
 
@@ -268,6 +271,8 @@ The build system gracefully handles missing Emscripten:
 - If `em++` is not found, the build skips C++ compilation and removes stale artifacts
 - JavaScript fallbacks are used for all native functions
 - The application runs in "JavaScript fallback mode"
+- If `em++` is found but the MT or ST compile fails, `build:emcc` removes both tiers' artifacts and
+  exits 1 (it used to exit 0, so `npm run build` could ship a missing or stale `candy_native*`)
 
 ---
 
@@ -283,12 +288,17 @@ The build system gracefully handles missing Emscripten:
 
 # Artifacts: candy_native.{js,wasm} (MT: -pthread, SHARED_MEMORY, INITIAL_MEMORY=64MB,
 # MAXIMUM_MEMORY=512MB) and candy_native_st.{js,wasm} (ST: 64MB -> 256MB).
-# Both: -flto -fno-exceptions, STACK_SIZE=16MB, no -lembind, and
+# Both: -flto -fno-exceptions -msimd128, STACK_SIZE=1MB, no -lembind, and
 # EXPORTED_RUNTIME_METHODS includes HEAP8/HEAPU8/HEAP32/HEAPF32 (the JS bridges
 # read Module.HEAPF32; without it they fall back to views over wasmMemory).
+# No -mrelaxed-simd (no source uses a relaxed intrinsic; ST is the Safari
+# fallback) and no WASM_BIGINT=0 (no export passes i64). STACK_SIZE is also the
+# default pthread stack, and every big C++ buffer is static or heap.
 # MT: PTHREAD_POOL_SIZE=4, and math.cpp caps the OpenMP team at the same size.
 # emsdk is pinned in .emsdk-version (4.0.10); build.sh warns on any other
-# version and CI/release builds set CANDY_STRICT_EMSDK=1 to make it fatal.
+# version and continues. CANDY_STRICT_EMSDK=1 (CI/release) makes it fatal.
+# `verify:emcc:manifest` fails if -mrelaxed-simd or WASM_BIGINT=0 come back, if
+# MT/ST STACK_SIZE disagree with this file, or if an env knob has no default.
 
 # Do NOT pass -s MINIFY_WASM_IMPORTS_AND_EXPORTS=0 (or MINIFY_WASM_EXPORT_NAMES).
 # Both are *internal* Emscripten settings; emcc 4.0.10 rejects them on the
@@ -303,10 +313,16 @@ The build system gracefully handles missing Emscripten:
 
 ### AssemblyScript Build (`build:wasm`)
 
-- Physics WASM (`src/wasm/candy_physics.wasm`) is **linear-memory MVP** + SIMD + bulk-memory:
-  `--enable simd --enable bulk-memory --memoryBase 589824 --initialMemory 16 --maximumMemory 256`
-  is the contract (`.wat` shows `(memory $0 16 256)`). No `--exportRuntime` and no
-  `--enable reference-types`.
+- Physics WASM (`src/wasm/candy_physics.wasm`) is **linear-memory MVP** + bulk-memory:
+  `--enable bulk-memory --memoryBase 589824 --initialMemory 16 --maximumMemory 256`
+  is the contract (the `build:wasm:debug` `.wat` shows `(memory $0 16 256)`). No `--exportRuntime`
+  and no `--enable reference-types`. No `--enable simd`: `assembly/` has no `v128` code, so the
+  flag changed nothing (the binary is byte-identical without it). Add it back with the first
+  `v128` loop; `verify:emcc:manifest` fails on the flag without SIMD code.
+- Prod `build:wasm` passes no `--textFile` and no `--sourceMap`, so the shipped module has no
+  `sourceMappingURL` (it pointed at a map that was never deployed). `build:wasm:debug` is
+  `npm run build:wasm -- --textFile … --sourceMap`; `npm run check:dist-wasm` (Bundle Budget CI)
+  fails if `dist/` has a `.wat`, a `.wasm.map` or a module with a `sourceMappingURL`.
 - Fixed linear-memory regions live in **one table**, `scripts/memory-layout.mjs`, which generates
   `assembly/memory_layout.ts` and `src/utils/native-memory-layout.ts`. `--memoryBase` must equal
   its `HEAP_BASE_FLOOR` so the AS runtime heap (StaticArrays, `malloc`) starts above every
@@ -392,7 +408,7 @@ Cross-Origin-Embedder-Policy: require-corp
 
 - C++17 standard
 - Use `EMSCRIPTEN_KEEPALIVE` for exported functions
-- SIMD enabled with `-msimd128 -mrelaxed-simd`
+- SIMD enabled with `-msimd128` (no relaxed SIMD)
 - OpenMP pragmas for parallelization (`#pragma omp parallel for`)
 
 ### Visual / Aesthetic Conventions
@@ -525,7 +541,7 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ### Runtime
 
-- `three` (^0.171.0) — 3D rendering engine (WebGPU + TSL)
+- `three` (^0.186.1) — 3D rendering engine (WebGPU + TSL)
 - `libopenmpt.js` — Module music player (loaded via script tag in `index.html`)
 
 ### Build
@@ -595,7 +611,7 @@ Clean and rebuild:
 
 ```bash
 rm -rf public/*.wasm public/candy_native*.js
-cd src/wasm && rm -f candy_physics.wasm candy_physics.wat
+cd src/wasm && rm -f candy_physics.wasm candy_physics.wat candy_physics.wasm.map
 cd ../..
 npm run build
 ```

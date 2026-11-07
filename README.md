@@ -107,7 +107,7 @@ npm run preview
 
 ## Technical Details
 
-- Built with Three.js ^0.171 (`three/webgpu` + `three/tsl`) on a single probed WebGPU device
+- Built with Three.js ^0.186 (`three/webgpu` + `three/tsl`) on a single probed WebGPU device
 - WebGPU only: Three's automatic WebGL2 backend fallback is disabled (see [docs/WEBGPU_CONTEXT.md](./docs/WEBGPU_CONTEXT.md))
 - Advanced materials:
     - MeshPhysicalMaterial with clearcoat for candy surfaces

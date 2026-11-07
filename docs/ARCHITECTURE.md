@@ -30,7 +30,7 @@ unless `after` / `before` say otherwise.
 
 | Phase         | What belongs here                                                                  | Systems today                                                                                                                      |
 | ------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `input`       | Device reads, raycasts, clamping the player to streamed terrain                    | `interaction`, `chunk-streaming`                                                                                                   |
+| `input`       | Device reads, raycasts, clamping the player to streamed terrain                    | `input-actions`, `interaction`, `chunk-streaming`                                                                                  |
 | `fixed`       | Deterministic simulation at `fixedDt` (1/60 s), 0–5 times per frame                | `player-physics`                                                                                                                   |
 | `simulate`    | The render-side view of the fixed state, then variable-step simulation             | `player-view`, `rigid-bodies`, `fauna`, `entity-behaviors`, `sugar-caves-traversal`, `presence`, `gameplay`                        |
 | `animate`     | Things that read the settled sim: sky, weather, lighting, foliage, particles, rigs | `beat-pulse`, `sky-weather-lighting`, `foliage`, `particles`, `firefly-visibility`, `impacts`, `dandelion-seeds`, `hero-animation` |

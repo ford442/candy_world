@@ -121,26 +121,6 @@ export function addCollisionObject(type: i32, x: f32, y: f32, z: f32, d1: f32, d
   collisionObjectCount++;
 }
 
-// Check collision for simple sphere (Legacy support)
-export function checkCollision(playerX: f32, playerZ: f32, playerRadius: f32, objectCount: i32): i32 {
-  for (let i = 0; i < objectCount; i++) {
-    const ptr = POSITION_OFFSET + i * 16;
-    const objX = load<f32>(ptr);
-    const objZ = load<f32>(ptr + 8); // Skip Y
-    const objR = load<f32>(ptr + 12);
-
-    const dx = playerX - objX;
-    const dz = playerZ - objZ;
-    const distSq = dx * dx + dz * dz;
-    const radii = playerRadius + objR;
-
-    if (distSq < radii * radii) {
-      return 1; // Collision detected
-    }
-  }
-  return 0;
-}
-
 export function checkPositionValidity(x: f32, z: f32, radius: f32): i32 {
   const centerCol = i32(Math.floor((x - GRID_ORIGIN_X) / GRID_CELL_SIZE));
   const centerRow = i32(Math.floor((z - GRID_ORIGIN_Z) / GRID_CELL_SIZE));
@@ -361,68 +341,6 @@ export function batchGroundHeight(
 }
 
 /**
- * Velocity damping for multiple objects
- * Applies damping factor to each velocity component
- * 
- * @param velocityPtr - Pointer to [vx, vy, vz, vx, vy, vz, ...] array
- * @param count - Number of velocities
- * @param damping - Damping factor (0.0 to 1.0, where 1.0 = no damping)
- */
-export function dampVelocity(
-  velocityPtr: usize,
-  count: i32,
-  damping: f32
-): void {
-  for (let i = 0; i < count; i++) {
-    const base = velocityPtr + (<usize>i * 12); // 3 floats * 4 bytes = 12 bytes per velocity
-    
-    const vx = load<f32>(base);
-    const vy = load<f32>(base + 4);
-    const vz = load<f32>(base + 8);
-    
-    store<f32>(base, vx * damping);
-    store<f32>(base + 4, vy * damping);
-    store<f32>(base + 8, vz * damping);
-  }
-}
-
-/**
- * Batch distance calculation for culling
- * Calculates squared distances from camera to multiple objects
- * 
- * @param positionsPtr - Pointer to [x, y, z, x, y, z, ...] array
- * @param count - Number of positions
- * @param camX - Camera X position
- * @param camY - Camera Y position  
- * @param camZ - Camera Z position
- * @param outputPtr - Pointer to output [distSq, distSq, ...] array
- */
-export function batchDistanceCalc(
-  positionsPtr: usize,
-  count: i32,
-  camX: f32,
-  camY: f32,
-  camZ: f32,
-  outputPtr: usize
-): void {
-  for (let i = 0; i < count; i++) {
-    const base = positionsPtr + (<usize>i * 12); // 3 floats * 4 bytes
-    
-    const x = load<f32>(base);
-    const y = load<f32>(base + 4);
-    const z = load<f32>(base + 8);
-    
-    const dx = x - camX;
-    const dy = y - camY;
-    const dz = z - camZ;
-    
-    const distSq = dx * dx + dy * dy + dz * dz;
-    
-    store<f32>(outputPtr + (<usize>i << 2), distSq);
-  }
-}
-
-/**
  * Simple sphere-frustum test for batch culling
  * Performs quick sphere-frustum intersection tests
  * 
@@ -485,44 +403,3 @@ export function batchFrustumTest(
   return visibleCount;
 }
 
-/**
- * LOD (Level of Detail) selection based on distance
- * Calculates LOD level for each object based on distance from camera
- * 
- * @param distancesPtr - Pointer to squared distances array
- * @param count - Number of distances
- * @param lodThresholdsPtr - Pointer to 3 LOD distance thresholds [near, mid, far]
- * @param outputPtr - Pointer to output LOD levels [0=high, 1=mid, 2=low, 3=cull]
- * @returns Number of objects to cull (LOD level 3)
- */
-export function batchLODSelect(
-  distancesPtr: usize,
-  count: i32,
-  lodThresholdsPtr: usize,
-  outputPtr: usize
-): i32 {
-  const nearSq = load<f32>(lodThresholdsPtr);
-  const midSq = load<f32>(lodThresholdsPtr + 4);
-  const farSq = load<f32>(lodThresholdsPtr + 8);
-  
-  let cullCount = 0;
-  
-  for (let i = 0; i < count; i++) {
-    const distSq = load<f32>(distancesPtr + (<usize>i << 2));
-    
-    let lod: f32 = 0.0; // High detail
-    
-    if (distSq > farSq) {
-      lod = 3.0; // Cull
-      cullCount++;
-    } else if (distSq > midSq) {
-      lod = 2.0; // Low detail
-    } else if (distSq > nearSq) {
-      lod = 1.0; // Medium detail
-    }
-    
-    store<f32>(outputPtr + (<usize>i << 2), lod);
-  }
-  
-  return cullCount;
-}

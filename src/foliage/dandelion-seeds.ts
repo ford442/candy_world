@@ -33,7 +33,7 @@ import {
     createSugarSparkle,
 } from './material-core.ts';
 import { seasonSpawnCpu } from './material-core/season-nodes.ts';
-import { createJuicyRimLight } from './material-core.ts';
+import { createJuicyRimLight, asNode, type FloatNode } from './material-core.ts';
 
 const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
 const MAX_SPAWNS_PER_FRAME = 200; // Allow multiple explosions in a single frame
@@ -181,7 +181,8 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     // Rotation: Tumbling
     const tumbleSpeed = float(2.0);
     const tumbleAngle = age.mul(tumbleSpeed).add(randomPhase);
-    const rotatedLocal = rotate(positionLocal, tumbleAngle);
+    // One angle on all three axes (three's rotate() swizzled a float rotation).
+    const rotatedLocal = rotate(positionLocal, vec3(tumbleAngle));
 
     // Apply Position
     mat.positionNode = particleWorldPos.add(rotatedLocal);
@@ -207,7 +208,7 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
 
     // Fade Out
     const opacity = float(1.0).sub(smoothstep(0.7, 1.0, lifeProgress));
-    mat.opacityNode = opacity.mul(isAlive);
+    mat.opacityNode = opacity.mul(asNode<FloatNode>(isAlive));
 
     // --- 3. Mesh Setup ---
 

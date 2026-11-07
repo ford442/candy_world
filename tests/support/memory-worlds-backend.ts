@@ -1,9 +1,9 @@
 /**
  * In-memory `SharedWorldsBackend` for the shared-worlds tests. Writes go
  * through the real validate-world handler (supabase/functions/validate-world/
- * handler.ts) over a store that applies the same rules as the table's RLS and
- * trigger: owner or editor writes, only the owner renames or changes
- * visibility, unlisted rows open by id, `updated_at` moves on every write.
+ * handler.ts), which does the access checks, over a store that behaves like
+ * the function's service-role client: it sees every row, and `updated_at`
+ * moves on every write. Reads apply the tables' RLS (unlisted rows open by id).
  */
 
 import {
@@ -87,30 +87,33 @@ export class MemoryWorldsBackend implements SharedWorldsBackend {
 
     constructor(
         readonly db: MemoryWorldsDb,
-        readonly user: string | null
+        readonly user: string | null,
+        /** An anonymous sign-in (may not publish public worlds). */
+        readonly anonymous = false
     ) {}
 
     private guard(): void {
         if (this.offline) throw new TypeError('Failed to fetch');
     }
 
-    /** The caller's view of the table, as the edge function gets it (RLS + trigger). */
+    /** The edge function's store: the caller from the JWT, the rest as the service role. */
     private writeStore(): WorldWriteStore {
-        const { db, user } = this;
+        const { db, user, anonymous } = this;
         return {
+            async caller() {
+                return user ? { id: user, anonymous } : null;
+            },
             async get(id: string): Promise<WorldRow | null> {
-                return db.canRead(id, user, true) ? clone(db.rows.get(id)!) : null;
+                const row = db.rows.get(id);
+                return row ? clone(row) : null;
+            },
+            async memberRole(worldId: string, userId: string) {
+                return db.editors.get(worldId)?.get(userId) ?? null;
             },
             async insert(row: NewWorldRow): Promise<WorldRow> {
-                if (!user) throw new WorldStoreError('permission denied', '42501');
                 if (db.rows.has(row.id)) throw new WorldStoreError('duplicate key', '23505');
                 const at = db.stamp();
-                const stored: WorldRow = {
-                    ...clone(row),
-                    owner: user,
-                    created_at: at,
-                    updated_at: at,
-                };
+                const stored: WorldRow = { ...clone(row), created_at: at, updated_at: at };
                 db.rows.set(row.id, stored);
                 return clone(stored);
             },
@@ -120,18 +123,7 @@ export class MemoryWorldsBackend implements SharedWorldsBackend {
                 expected?: string
             ): Promise<WorldRow | null> {
                 const row = db.rows.get(id);
-                const role = db.role(id, user);
-                if (!row || (role !== 'owner' && role !== 'editor')) return null;
-                if (expected && row.updated_at !== expected) return null;
-                if (
-                    role !== 'owner' &&
-                    (patch.title !== undefined || patch.visibility !== undefined)
-                ) {
-                    throw new WorldStoreError(
-                        'only the owner can change title, visibility',
-                        '42501'
-                    );
-                }
+                if (!row || (expected && row.updated_at !== expected)) return null;
                 Object.assign(row, clone(patch), { updated_at: db.stamp() });
                 return clone(row);
             },

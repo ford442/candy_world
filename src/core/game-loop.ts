@@ -4,6 +4,7 @@
 // (phases, fixed step and how to add a system: docs/ARCHITECTURE.md).
 
 import * as THREE from 'three';
+import { installFrameHitchCounter } from '../rendering/frame-hitches.ts';
 import { createGpuFrameTimer, type GpuFrameTimer } from '../rendering/gpu-frame-timer.ts';
 import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
@@ -35,7 +36,9 @@ export { addCameraShake } from './camera-shake.ts';
 export { frameScheduler };
 
 // --- Animation Loop State ---
-const clock = new THREE.Clock();
+// `Timer` replaces the deprecated `Clock`; not connected to the Page Visibility
+// API, so a hidden tab still yields one long delta (clamped below), as before.
+const clock = new THREE.Timer();
 
 registerFrameSystems(frameScheduler);
 if (typeof window !== 'undefined') window.__frameScheduler = frameScheduler;
@@ -44,6 +47,8 @@ let _entryLogged = false;
 let _firstFrameLogged = false;
 /** Created on the first rendered frame; a no-op unless timestamp-query was granted. */
 let gpuFrameTimer: GpuFrameTimer | null = null;
+/** First-frame time and hitches in the first 30 s of play (shader-compile stalls). */
+const frameHitches = installFrameHitchCounter();
 
 export function animate() {
     if (!_entryLogged) {
@@ -64,6 +69,7 @@ export function animate() {
     }
     _entryLogged = true;
 
+    frameHitches.beginFrame(performance.now());
     profiler.startFrame();
     performanceBudget.beginFrame();
 
@@ -82,6 +88,7 @@ export function animate() {
         simRng.setSeed(getWorldSeed());
     }
 
+    clock.update();
     const rawDelta = clock.getDelta();
     const photoMode = getPhotoMode();
     photoMode?.update(rawDelta);
@@ -107,9 +114,11 @@ export function animate() {
 
     // GPU time from timestamp-query (when granted), sampled every few frames.
     if (rendererRef) {
-        gpuFrameTimer ??= createGpuFrameTimer(rendererRef, (ms) =>
-            performanceBudget.setGpuFrameTime(ms)
-        );
+        gpuFrameTimer ??= createGpuFrameTimer(rendererRef, (ms) => {
+            performanceBudget.setGpuFrameTime(ms);
+            postProcessingRef?.onGpuFrameTime?.(ms);
+        });
         gpuFrameTimer.endFrame();
     }
+    frameHitches.endFrame(performance.now());
 }

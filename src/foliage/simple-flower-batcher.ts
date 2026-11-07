@@ -28,6 +28,7 @@ import {
     uAudioHigh,
     uAudioLow,
     uPlayerPosition,
+    $sn,
 } from './material-core.ts';
 import { applySeasonTint } from './material-core/season-nodes.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
@@ -186,7 +187,7 @@ export class SimpleFlowerBatcher {
         // Circadian: diurnal rest dim — music/touch/twilight still add on top.
         const dayGlow = circadianDayGlowMult(0.2);
         petalMat.emissiveNode = add(
-            petalMat.emissiveNode ?? tslColor(0x000000),
+            $sn(petalMat.emissiveNode ?? tslColor(0x000000)),
             rim,
             glitter,
             touchColor,

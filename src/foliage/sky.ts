@@ -1,8 +1,8 @@
 // src/foliage/sky.ts
 
 import * as THREE from 'three';
-import type UniformNode from 'three/src/nodes/core/UniformNode.js';
-import { color, mix, positionWorld, float, uniform, smoothstep, rangeFog, nodeObject, sin, pow } from 'three/tsl';
+import type { UniformNode } from 'three/webgpu';
+import { color, mix, positionWorld, float, uniform, smoothstep, fog, rangeFogFactor, nodeObject, sin, pow } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { SkyUniforms, skyNoteColorNode } from '../systems/biome-uniforms.ts';
 import { uAudioLow, uAudioHigh, uTime } from './material-core.ts';
@@ -39,7 +39,7 @@ export function createCrescendoFogNode(colorNode: any) {
     // Apply scene darkness to fog color (matches sky logic)
     const finalFogColor = mix(colorNode, color(0x000000), uSkyDarkness);
 
-    return rangeFog(finalFogColor, currentNear, currentFar);
+    return fog(finalFogColor, rangeFogFactor(currentNear, currentFar));
 }
 // -------------------------------------------------------
 

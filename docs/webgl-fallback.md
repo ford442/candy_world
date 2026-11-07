@@ -49,18 +49,24 @@ A quiet GL render once hid the Chrome-vs-Edge adapter bug, so the fallback is al
 
 ## Context loss
 
-A lost GL context used to leave a silent black canvas. `createWebGLRenderer()` now calls
-`watchWebGLContextLoss(renderer, canvas)` (`src/rendering/gpu-context.ts`):
+A lost GL context used to leave a silent black canvas, and then a banner that only a reload
+cleared. `createWebGLRenderer()` calls `watchWebGLContextLoss(renderer, canvas)`
+(`src/rendering/gpu-context.ts`):
 
 - `webglcontextlost` (cancelled, so the browser may restore it) and Three's `renderer.onDeviceLost`
   both route into the same handler as a WebGPU device loss: `window.__gpuContext.lost` becomes
-  `true`, `onGpuDeviceLost` listeners fire, `renderer._isDeviceLost` stops `render()`, and the
-  **Graphics stopped — Reload** banner appears.
-- `webglcontextrestored` only sets `window.__gpuContext.contextRestored`. Three 0.171 does not
-  rebuild its GL programs, buffers or textures, so the banner stays and a reload is still needed.
+  `true`, `onGpuDeviceLost` listeners fire, `renderer._isDeviceLost` stops `render()`, and the frame
+  loop pauses.
+- `webglcontextrestored` hands the context back, and recovery rebuilds the renderer on it in place
+  (a new `WebGLBackend`, `init()` again; see
+  [`WEBGPU_CONTEXT.md`](./WEBGPU_CONTEXT.md#device-lost-policy)). Every GL program, buffer and
+  texture is re-created from its CPU-side source on first use; the loop resumes and
+  `window.__gpuContext.recoveries` counts it.
+- The **Graphics stopped — Reload** banner appears only when that fails: no restore within 10 s, or
+  two failed rebuilds.
 
-To check by hand on `?renderer=webgl`:
-`game.renderer.backend.gl.getExtension('WEBGL_lose_context').loseContext()`.
+To check by hand: `?renderer=webgl&debug_lose_device` loses the context with `WEBGL_lose_context`
+5 s after the scene is up (`=<seconds>` to change the delay) and restores it a second later.
 
 ## What is reduced on WebGL2
 

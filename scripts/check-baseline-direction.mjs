@@ -2,20 +2,21 @@
 /**
  * Baselines only go down.
  *
- * The ratchets (eslint-ratchet, tsc-ratchet, cycles-ratchet) compare the
- * current count against a committed JSON baseline, and their --update refuses
- * to raise it. Nothing stopped a PR from simply committing a higher number:
- * between 2026-10-09 and 10-10 four bot PRs moved maxProblems 4784 → 4786 →
- * 4823 → 4786. This compares each baseline in the PR against origin/<base>.
+ * The ratchets (eslint-ratchet, tsc-ratchet, cycles-ratchet,
+ * check-native-exports) compare the current count against a committed JSON
+ * baseline, and their --update refuses to raise it. Nothing stopped a PR from
+ * simply committing a higher number: between 2026-10-09 and 10-10 four bot PRs
+ * moved maxProblems 4784 → 4786 → 4823 → 4786. This compares each baseline in
+ * the PR against origin/<base>.
  *
  *   lower or equal   pass
  *   higher           fail, naming the file, key and both numbers
  *
  * One exception, ESLint only: a person adds the `ratchet-reset` label AND the
  * PR changes eslint.config.js or scripts/eslint-ratchet.mjs (a rule-set
- * change, like #1858's type-aware re-base 1752 → 4787). tsc and cycles are
- * exact at 0 and never accept a raise. The label is read from the event
- * payload at GITHUB_EVENT_PATH, so no API call is needed.
+ * change, like #1858's type-aware re-base 1752 → 4787). tsc, cycles and
+ * native-exports are exact at 0 and never accept a raise. The label is read
+ * from the event payload at GITHUB_EVENT_PATH, so no API call is needed.
  *
  * Outside pull_request (local runs, push) it prints both numbers and exits 0.
  *
@@ -36,6 +37,11 @@ const BASELINES = [
     {
         file: 'scripts/cycles-baseline.json',
         keys: ['cyclicModules', 'cyclicEdges', 'madgeCycles'],
+        resettable: false,
+    },
+    {
+        file: 'scripts/native-exports-baseline.json',
+        keys: ['deadExports', 'staleLookups'],
         resettable: false,
     },
 ];

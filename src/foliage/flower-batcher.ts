@@ -88,7 +88,9 @@ export class FlowerBatcher {
 
     private ensureInstanceColor(mesh: THREE.InstancedMesh) {
         if (!mesh.instanceColor) {
-            const defaultColors = new Float32Array(mesh.count * 3);
+            // Capacity, not `count`: count is the live instance count (0 at init),
+            // and a 0-length colour buffer makes every draw of this mesh invalid.
+            const defaultColors = new Float32Array(mesh.instanceMatrix.count * 3);
             defaultColors.fill(1.0); // White (no tint)
             mesh.instanceColor = new THREE.InstancedBufferAttribute(defaultColors, 3);
         }

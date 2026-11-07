@@ -10,6 +10,7 @@ import {
     uTime,
     applyStandardDeformation,
     createJuicyRimLight,
+    $sn,
 } from './material-core.ts';
 
 const MAX_GEYSERS = 500;
@@ -61,7 +62,7 @@ export class KickDrumGeyserBatcher {
         });
         // 🎨 PALETTE: Add juicy rim light to geyser core
         coreMat.emissiveNode = add(
-            coreMat.emissiveNode ?? color(0x000000),
+            $sn(coreMat.emissiveNode ?? color(0x000000)),
             createJuicyRimLight(color(0xff4500), float(1.5), float(3.0), normalLocal)
         );
         registerReactiveMaterial(coreMat);

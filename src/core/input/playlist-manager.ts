@@ -3,7 +3,7 @@
  * Orchestrates playlist initialization and holds shared state.
  */
 
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { AudioSystem } from '../../audio/audio-system';
 import { announce } from '../../ui/announcer.ts';
 import { trapFocusInside } from '../../utils/focus-trap.ts';

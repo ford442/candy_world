@@ -19,6 +19,77 @@ export function resolvePostfxQuality(): 'off' | 'low' | 'high' {
     }
 }
 
+/**
+ * `?postfx=off`: draw the world straight to the canvas with `renderer.render()`
+ * and build no post graph at all (no scene pass, bloom or composite).
+ *
+ * Only the URL flag does this. The `low` graphics tier, WebGL2 and automation
+ * also resolve the post-FX *quality* to `'off'`, but that means "no optional
+ * effects" (DoF, GTAO, god rays): they keep bloom and the colour grade.
+ */
+export function isPostStackBypassed(): boolean {
+    return _getFlag('postfx') === 'off';
+}
+
+export type AntialiasMode = 'off' | 'msaa' | 'fxaa' | 'smaa' | 'traa';
+
+function isAntialiasMode(value: string | null): value is AntialiasMode {
+    return (
+        value === 'off' ||
+        value === 'msaa' ||
+        value === 'fxaa' ||
+        value === 'smaa' ||
+        value === 'traa'
+    );
+}
+
+/**
+ * How the post graph antialiases the world. `?aa=off|msaa|fxaa|smaa|traa` wins.
+ *
+ * - WebGL2 and the `low` tier: FXAA on the tone-mapped image. Their scene pass
+ *   has no MSAA (the GLSL backend never had it, and a 4× `rgba16float` buffer
+ *   is the low tier's biggest one), so before this they had no geometric AA.
+ * - `medium` / `high`: 4× MSAA on the scene pass, except with GTAO (`high`'s
+ *   default), which gets SMAA: GTAO gathers the scene pass's depth, and WGSL
+ *   has no `textureGather` for the 4× pass's `texture_depth_multisampled_2d`,
+ *   so its shader fails to compile. That holds for `?aa=msaa` too.
+ * - TRAA is opt-in: the velocity buffer it reprojects with does not see the
+ *   foliage's vertex-shader sway, so it needs a check on real hardware before
+ *   it can be anyone's default.
+ */
+export function resolveAntialiasMode(
+    backend: 'webgpu' | 'webgl',
+    aoEnabled = false
+): AntialiasMode {
+    const mode = pickAntialiasMode(backend);
+    return mode === 'msaa' && aoEnabled ? 'smaa' : mode;
+}
+
+function pickAntialiasMode(backend: 'webgpu' | 'webgl'): AntialiasMode {
+    const flag = _getFlag('aa');
+    if (isAntialiasMode(flag)) return flag;
+    if (backend === 'webgl') return 'fxaa';
+    let graphics: 'low' | 'medium' | 'high' = 'medium';
+    try {
+        graphics = getStartupCapabilities().graphics;
+    } catch {
+        /* capabilities not resolved yet (tests): medium */
+    }
+    return graphics === 'low' ? 'fxaa' : 'msaa';
+}
+
+/**
+ * Dynamic resolution on the scene pass (rendering/dynamic-resolution.ts). It
+ * needs GPU frame times, so it runs where `timestamp-query` was requested
+ * (`?debug`, `?graphics=high`, or `?dynres=1`, which also requests it) and
+ * granted. `?dynres=0|off` turns it off; automation never runs it.
+ */
+export function isDynamicResolutionAllowed(): boolean {
+    const flag = _getFlag('dynres');
+    if (flag === '0' || flag === 'off') return false;
+    return !isAutomation();
+}
+
 /** Whether sunrise/sunset/moon god-ray shafts should render this session. */
 export function areGodRaysEnabled(): boolean {
     if (resolvePostfxQuality() === 'off') return false;
@@ -47,7 +118,7 @@ export function isDofManual(): boolean {
 
 /**
  * WebGPU GTAO. Off on `low` / `off` / CI unless `?ao`. `?no_ao` always wins.
- * WebGL never builds this pass (EffectComposer keeps bloom-only).
+ * The WebGL2 fallback never builds this pass (`initPostProcessing` gates it on the backend).
  */
 export function isAoEnabled(): boolean {
     if (_hasFlag('no_ao')) return false;

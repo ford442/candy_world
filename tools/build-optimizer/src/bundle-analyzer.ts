@@ -724,7 +724,7 @@ class BundleAnalyzer {
     if (wasmChunk && wasmChunk.size > 200 * 1024) {
       recommendations.push({
         title: 'Optimize WASM Bundle',
-        description: 'WASM files are large. Enable wasm-opt (Binaryen) with -O3 -s for production builds.',
+        description: 'WASM files are large. Both native builds already run wasm-opt; drop unused exports (npm run check:native-exports) instead.',
         impact: 'High',
         effort: 'Low'
       });

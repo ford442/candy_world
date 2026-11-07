@@ -5,8 +5,8 @@
  */
 
 import * as THREE from 'three';
-import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import type { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { getPlayerGroundHeight } from '../systems/ground-system.ts';
 import { player } from '../systems/physics/index.ts';
 import { announcePolite } from '../ui/announcer.ts';
@@ -160,12 +160,12 @@ export class ExploreCameraController {
     private async ensureOrbitControls(): Promise<OrbitControls | null> {
         if (this.orbitControls) return this.orbitControls;
         if (!this.orbitPromise) {
-            this.orbitPromise = import('three/examples/jsm/controls/OrbitControls.js').then(() => undefined);
+            this.orbitPromise = import('three/addons/controls/OrbitControls.js').then(() => undefined);
         }
         await this.orbitPromise;
         if (this.orbitControls) return this.orbitControls;
 
-        const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
+        const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
         const orbit = new OrbitControls(this.camera, this.canvas);
         orbit.enableDamping = true;
         orbit.dampingFactor = 0.08;

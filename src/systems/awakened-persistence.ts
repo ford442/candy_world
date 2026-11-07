@@ -218,6 +218,11 @@ export class AwakenedStore {
         return this.awakened.has(persistentId);
     }
 
+    /** The type of the awakenable flora placed under this id, if one is. */
+    placedType(persistentId: number): string | undefined {
+        return this.placed.get(persistentId)?.type;
+    }
+
     /** Reused output buffer — no allocation */
     getAwakenedIds(out: number[]): number {
         out.length = 0;
@@ -573,6 +578,10 @@ export const awakenedPersistence = {
 
     isAwakened(persistentId: number): boolean {
         return store()?.isAwakened(persistentId) ?? false;
+    },
+
+    placedType(persistentId: number): string | undefined {
+        return store()?.placedType(persistentId);
     },
 
     getState(persistentId: number): AwakenedMeta | undefined {

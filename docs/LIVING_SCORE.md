@@ -19,6 +19,11 @@ Cues are defined in \`assets/score-cues.json\`. At runtime, they are loaded into
 | \`market.lantern_fill\` | \`night_market\` | 3 | instrument 12, rowMod 16 | \`lanternPhrase\` |
 | \`grove.geyser\` | \`arpeggio_grove\` | 1 | note \`C-5\` | \`geyserBurst\` |
 | \`cave.shimmer\` | \`sugar_caves\` | 2 | rowMod 8 | \`cavePulse\` |
+| \`island.glow\` | \`lake_island\` | 0 | rowMod 8 | \`islandGlow\` (needs \`island_scholar\`) |
+| \`island.geyser\` | \`lake_island\` | 1 | rowMod 16 | \`geyserBurst\` (needs \`island_scholar\`) |
+| \`island.fauna\` | \`lake_island\` | 2 | rowMod 32 | \`faunaImpulse\` (needs \`island_scholar\`) |
+
+A cue may set \`"unlock": "<id>"\`; it only fires once that unlock is earned (see \`docs/PROGRESSION.md\`).
 
 ## Target Systems
 

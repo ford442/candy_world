@@ -73,6 +73,11 @@ export const awakenedPersistence = {
         return _mod?.awakenedPersistence.isAwakened(persistentId) ?? false;
     },
 
+    /** The type of the awakenable flora placed under this id, if one is (and the store is loaded). */
+    placedType(persistentId: number): string | undefined {
+        return _mod?.awakenedPersistence.placedType(persistentId);
+    },
+
     getState(persistentId: number): AwakenedMeta | undefined {
         return _mod?.awakenedPersistence.getState(persistentId);
     },

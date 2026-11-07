@@ -10,13 +10,14 @@ import {
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { uChromaticIntensity, candyPulseWarpUv, gradeCandyGlowPulse } from './chromatic-nodes.ts';
+import type { Node } from 'three/webgpu';
 
 export { uChromaticIntensity, candyPulseWarpUv, gradeCandyGlowPulse };
 
 // Global uniform for Candy Impact / Glow Pulse intensity.
 // Driven by dashes, impacts, strong beats, etc.
 
-type UvNode = ReturnType<typeof vec2>;
+type UvNode = Node<'vec2'>;
 
 
 /**

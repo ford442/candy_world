@@ -6,7 +6,7 @@ import {
     uv, normalize, smoothstep, mix, abs, max, positionWorld,
     mx_noise_float, normalLocal, dot, clamp, length
 } from 'three/tsl';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial, type Node } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
 import { LAKE_DESCENT } from '../systems/ground-height-core.ts';
 import { LAKE_ICE_HOLE_HALF_WIDTH } from '../systems/physics/lake-ice-core.ts';
@@ -16,6 +16,8 @@ import {
     uAudioHigh,
     createRimLight,
     createJuicyRimLight,
+    $sf,
+    $sn,
 } from './material-core.ts';
 import { uLakeIce } from './material-core/season-nodes.ts';
 
@@ -35,7 +37,7 @@ export function createWaveformWater(width: number = 400, depth: number = 400): T
     geometry.rotateX(-Math.PI / 2); // Lay flat
 
     // --- TSL Displacement Logic ---
-    const waterDisplacement = Fn(([pos]: any) => {
+    const waterDisplacement = Fn(([pos]: [Node<'vec3'>]) => {
         // Base rolling wave (Time dependent)
         const bigWave = sin(pos.x.mul(0.05).add(time.mul(0.5))).mul(2.0);
 
@@ -85,7 +87,7 @@ export function createWaveformWater(width: number = 400, depth: number = 400): T
     // We can change color based on height
     const heightFactor = smoothstep(2.0, 5.0, displacement); // 0 at low, 1 at high peaks
     const foamColor = color(0xFFFFFF);
-    const waterColor = material.colorNode; // The base color from SeaJelly
+    const waterColor = material.colorNode ? $sn(material.colorNode) : null; // The base color from SeaJelly
 
     // Mix foam into base color
     const liquidColor = mix(waterColor ?? color(0x00FFFF), foamColor, heightFactor.mul(0.5));
@@ -102,7 +104,7 @@ export function createWaveformWater(width: number = 400, depth: number = 400): T
     );
     // PALETTE: icy pastel, never grey (docs/CANDY_AESTHETIC_GUARDRAILS.md).
     material.colorNode = mix(liquidColor, color(CONFIG.season.lake.iceColor), iceMask.mul(0.85));
-    material.roughnessNode = mix(material.roughnessNode ?? float(0.1), float(0.35), iceMask);
+    material.roughnessNode = mix($sf(material.roughnessNode ?? float(0.1)), float(0.35), iceMask);
     material.transmissionNode = mix(float(0.9), float(0.25), iceMask);
 
     // --- PALETTE Polish: Melody Sparkles & Rim Light ---

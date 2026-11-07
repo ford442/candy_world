@@ -28,6 +28,8 @@ import {
     CandyPresets,
     createJuicyRimLight,
     applyStandardDeformation,
+    $sn,
+    $sf,
 } from './material-core.ts';
 
 const MAX_WATERFALLS = getCIAdjustedCount(50, 0.2, 10); // Reduced from 200 for WebGPU uniform buffer limits
@@ -131,7 +133,7 @@ export class WaterfallBatcher {
         const gradient = mix(color(0xFF00FF), color(0x00FFFF), uv().y);
 
         // Mix gradient into base color (Base is Cyan from SeaJelly)
-        colMat.colorNode = mix(colMat.colorNode ?? color(0x00FFFF), gradient, 0.5);
+        colMat.colorNode = mix($sn(colMat.colorNode ?? color(0x00FFFF)), gradient, 0.5);
 
         // Juicy Rim Light (The "Palette" Polish)
         // Makes the edges glow with energy
@@ -149,7 +151,7 @@ export class WaterfallBatcher {
         colMat.emissiveNode = gradient.mul(uBaseEmission).add(foamEmission).add(rim).add(musicTint);
 
         // Roughness: Foam makes it rougher
-        const currentRoughness = colMat.roughnessNode ?? float(colMat.roughness);
+        const currentRoughness = $sf(colMat.roughnessNode ?? float(colMat.roughness));
         colMat.roughnessNode = add(currentRoughness, totalFoam.mul(0.5));
 
         this.mesh = new THREE.InstancedMesh(colGeo, colMat, MAX_WATERFALLS);

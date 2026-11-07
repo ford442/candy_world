@@ -9,7 +9,7 @@
  */
 
 import { awakenedPersistence } from '../../systems/awakened-persistence-api.ts';
-import { discoverySystem } from '../../systems/discovery.ts';
+import { discoverySystem } from '../../systems/discovery-optimized.ts';
 import { unlockSystem } from '../../systems/unlocks.ts';
 import { isSugarCavesUnlocked, unlockSugarCaves } from '../part-ii-unlock.ts';
 import { normalizeAwakened, splitStamps } from './legacy-records.ts';

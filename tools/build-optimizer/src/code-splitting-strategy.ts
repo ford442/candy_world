@@ -95,7 +95,7 @@ class CodeSplittingStrategy {
     const directories = [
       'audio', 'compute', 'core', 'foliage', 'gameplay', 
       'particles', 'rendering', 'systems', 'types', 'ui', 
-      'utils', 'wasm', 'workers', 'world'
+      'utils', 'wasm', 'world'
     ];
     
     for (const dir of directories) {

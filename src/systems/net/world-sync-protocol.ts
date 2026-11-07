@@ -74,6 +74,8 @@ export const WORLD_SYNC_LIMITS = {
     /** Inbound token buckets, per peer. */
     cmdRate: { perSecond: 12, burst: 40 },
     progressRate: { perSecond: 10, burst: 30 },
+    /** All peers' `progress` together: a room can't be flooded by rotating author ids. */
+    progressRoomRate: { perSecond: 4, burst: 40 },
     cursorRate: { perSecond: 8, burst: 8 },
     /** Build-mode cursor send rate (poses go at `CONFIG.presence.tickHz`). */
     cursorHz: 4,
@@ -98,6 +100,12 @@ export interface CmdMessage {
      * that missed the entity's first write still learns its true base.
      */
     origins?: Record<string, OriginClaim>;
+    /**
+     * Sent again after a sync showed the host missed it. Skips the seq dedupe
+     * (whose window may have given up on the gap); applying it twice is
+     * harmless, the stamp comparison makes it a no-op.
+     */
+    resend?: true;
 }
 
 export interface OriginClaim {
@@ -161,6 +169,7 @@ const CmdMessageSchema = v.object({
             v.object({ state: v.nullable(EntitySnapshotSchema), stamp: v.nullable(StampSchema) })
         )
     ),
+    resend: v.optional(v.literal(true)),
 });
 
 const ProgressMessageSchema = v.object({
@@ -231,23 +240,25 @@ function idsConsistent(cmd: DocumentCommand): boolean {
 }
 
 /**
- * Aesthetic guardrail: a paint outside `CANDY_PAINT_PALETTE` becomes the
- * nearest candy colour. Deterministic, so every replica clamps alike.
+ * Aesthetic guardrail: a colour outside `CANDY_PAINT_PALETTE` (a paint, a
+ * placement, or a move that recolours) becomes the nearest candy colour.
+ * Deterministic, so every replica clamps alike.
  */
 export function clampCommandPalette(cmd: DocumentCommand): DocumentCommand {
     if (cmd.type === 'batch') return { ...cmd, commands: cmd.commands.map(clampCommandPalette) };
-    if (cmd.type !== 'paint') return cmd;
-    const params: Record<string, unknown> = cmd.to.entity.params ?? {};
+    if (cmd.type === 'remove') return cmd;
+    const to = cmd.type === 'place' ? cmd.snapshot : cmd.to;
+    const params: Record<string, unknown> = to.entity.params ?? {};
     const color = params.color;
     if (color === undefined || isCandyPaint(color)) return cmd;
+    // A move that keeps the colour it had is not a recolour (map pieces).
+    if (cmd.type === 'move' && color === (cmd.from.entity.params ?? {}).color) return cmd;
     const clamped =
         typeof color === 'number' && Number.isFinite(color)
             ? nearestCandyPaint(color & 0xffffff)
             : CANDY_PAINT_PALETTE[0].hex;
-    return {
-        ...cmd,
-        to: { ...cmd.to, entity: { ...cmd.to.entity, params: { ...params, color: clamped } } },
-    };
+    const recoloured = { ...to, entity: { ...to.entity, params: { ...params, color: clamped } } };
+    return cmd.type === 'place' ? { ...cmd, snapshot: recoloured } : { ...cmd, to: recoloured };
 }
 
 /** Validate an inbound `cmd` payload; the palette is clamped on the way in. */
@@ -284,6 +295,43 @@ export function parseSyncMessage(payload: unknown): InboundResult<SyncMessage> {
 
 export function parseKickMessage(payload: unknown): InboundResult<KickMessage> {
     return parseWith(KickMessageSchema, payload, WORLD_SYNC_LIMITS.maxSmallChars, 'kick');
+}
+
+/** What a peer's progress may name. */
+export interface ProgressCatalog {
+    /** Discovery ids (`DISCOVERY_MAP`). */
+    discoveries: ReadonlySet<string>;
+    /** Flora types that awaken (`AWAKENABLE_TYPES`). */
+    awakenable: ReadonlySet<string>;
+    /** The type of the flora placed here under this persistent id, if one is. */
+    placedType?(persistentId: number): string | undefined;
+}
+
+/** `night_market_stamp:<stall entity id>` (`night-market-stamps.ts`). */
+const STAMP_ID_RE = /^night_market_stamp:[A-Za-z0-9_.:-]{1,96}$/;
+
+/**
+ * Why a peer's progress can't be applied (null: it can). A discovery has to
+ * be in the catalog, a stamp well formed, an awakening a uint32 persistent id
+ * of an awakenable type; when the flora is placed here, its own type decides.
+ */
+export function progressRefusal(message: ProgressMessage, catalog: ProgressCatalog): string | null {
+    if (message.kind === 'discovery') {
+        return catalog.discoveries.has(message.id) ? null : `unknown discovery "${message.id}"`;
+    }
+    if (message.kind === 'stamp') {
+        return STAMP_ID_RE.test(message.id) ? null : `malformed stamp "${message.id}"`;
+    }
+    const persistentId = Number(message.id);
+    if (!/^[0-9]{1,10}$/.test(message.id) || persistentId <= 0 || persistentId > 0xffffffff) {
+        return `malformed flora id "${message.id}"`;
+    }
+    const placed = catalog.placedType?.(persistentId);
+    if (placed && message.type && placed !== message.type) {
+        return `flora ${persistentId} is a ${placed}, not a ${message.type}`;
+    }
+    const type = placed ?? message.type;
+    return type && catalog.awakenable.has(type) ? null : `a "${type ?? 'unknown'}" can't awaken`;
 }
 
 // ---------------------------------------------------------------------------
@@ -422,7 +470,7 @@ export type ReceiveOutcome =
     | { status: 'rejected'; reason: 'over_cap' | 'clock'; detail: string };
 
 /** A write may run at most this far ahead of the replica's clock (a forged rev would win forever). */
-export const MAX_REV_JUMP = 100_000;
+export const MAX_REV_JUMP = SHARED_WORLD_LIMITS.maxRevJump;
 
 export interface ReplicaCaps {
     total: number;
@@ -505,7 +553,8 @@ export class SharedWorldReplica {
 
     /** An inbound edit (already through `parseCmdMessage`). */
     receive(message: CmdMessage): ReceiveOutcome {
-        if (message.author === this.author || !this.seen.add(message.author, message.seq)) {
+        if (message.author === this.author) return { status: 'duplicate' };
+        if (!this.seen.add(message.author, message.seq) && !message.resend) {
             return { status: 'duplicate' };
         }
         if (message.rev > this.clock + MAX_REV_JUMP) {
@@ -559,8 +608,9 @@ export class SharedWorldReplica {
 
     /**
      * Anti-entropy against a stored document: adopt every write it holds that
-     * is newer than ours, and return our own writes it is missing (re-send
-     * them). The document's commands may be any log; its clock decides.
+     * is newer than ours, and return our own writes it is missing (broadcast
+     * them as they are: they carry `resend`). The document's commands may be
+     * any log; its clock decides.
      */
     reconcile(doc: SharedDocumentState): { effects: WorldEffect[]; resend: CmdMessage[] } {
         const clock = doc.entityClock ?? {};
@@ -604,7 +654,8 @@ export class SharedWorldReplica {
             this.registers.set(id, { stamp: docStamp, state: target });
             if (!sameJson(shown, target)) effects.push({ id, from: shown, to: target });
         }
-        return { effects, resend: [...resend] };
+        // Marked, so a peer whose dedupe window gave up on the gap still takes them.
+        return { effects, resend: [...resend].map((m) => ({ ...m, resend: true as const })) };
     }
 
     /**
@@ -655,6 +706,16 @@ export class SharedWorldReplica {
         return out;
     }
 
+    /**
+     * Would this local edit take the world past a cap, as `receive` judges a
+     * peer's? Build mode checks its own placements and moves; this is the
+     * backstop (a redo, an undo, a world this replica holds fuller). Ask
+     * before `local`; null means within the caps.
+     */
+    capRefusal(command: DocumentCommand): string | null {
+        return this.capViolation([...netEntityChanges([command])]);
+    }
+
     /** Authored entities, in total and in the fullest chunk a write would touch. */
     private capViolation(winners: ReadonlyArray<[string, { after: EntityState }]>): string | null {
         if (!this.caps || winners.length === 0) return null;
@@ -679,10 +740,10 @@ export class SharedWorldReplica {
     } {
         const perChunk = new Map<string, number>();
         let total = 0;
-        const visit = (id: string, state: EntityState | undefined): void => {
+        // Every present entity a write touched counts, as in build mode and
+        // `countDocumentEntities` (a piece moved back is re-placed, so authored).
+        const visit = (_id: string, state: EntityState | undefined): void => {
             if (!state) return;
-            const origin = this.origins.get(id);
-            if (origin && isUnchanged(state, origin.state)) return;
             const [x, , z] = state.entity.position;
             const key = sharedChunkKey(x, z);
             perChunk.set(key, (perChunk.get(key) ?? 0) + 1);

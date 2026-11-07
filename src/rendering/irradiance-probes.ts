@@ -603,7 +603,7 @@ export function updateIrradianceProbes(centre: THREE.Vector3, env: Partial<GiEnv
  * Returns *irradiance*, not final colour: callers multiply by albedo so the
  * bounce stays a tint on the material rather than a wash over it.
  */
-export function getIrradianceNode(worldPos: Node, worldNormal: Node): Node | null {
+export function getIrradianceNode(worldPos: Node<'vec3'>, worldNormal: Node<'vec3'>): Node | null {
     if (!_volume || !_enabled) return null;
 
     const uvw = vec3(worldPos).sub(uGiOrigin).mul(uGiInvSize);

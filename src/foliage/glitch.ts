@@ -5,11 +5,11 @@ import {
     mx_noise_float,
     mix
 } from 'three/tsl';
-import type { ShaderNodeObject, Node } from 'three/tsl';
+import type { Node } from 'three/webgpu';
 
 export interface GlitchResult {
-  uv: ShaderNodeObject<Node>;
-  position: ShaderNodeObject<Node>;
+  uv: Node<'vec2'>;
+  position: Node<'vec3'>;
 }
 
 /**
@@ -20,7 +20,11 @@ export interface GlitchResult {
  * @param intensity - The glitch intensity (0.0 to 1.0).
  * @returns An object containing the modified `{ uv: uvNode, position: positionNode }`.
  */
-export const applyGlitch = (baseUV: ShaderNodeObject<Node>, basePosition: ShaderNodeObject<Node>, intensity: ShaderNodeObject<Node>): GlitchResult => {
+export const applyGlitch = (
+    baseUV: Node<'vec2'>,
+    basePosition: Node<'vec3'>,
+    intensity: Node<'float'>
+): GlitchResult => {
     // 1. UV Pixelation / Quantization
     // At high intensity, UVs become blocky
     const pixels = mix(float(2048.0), float(32.0), intensity); // From smooth to blocky

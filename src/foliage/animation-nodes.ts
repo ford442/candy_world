@@ -1,4 +1,5 @@
 import { positionLocal, time, float, sin, cos, vec3, attribute, select, positionWorld, normalLocal } from 'three/tsl';
+import type { Node } from 'three/webgpu';
 import { uAudioLow, uAudioHigh } from './material-core.ts';
 
 
@@ -107,7 +108,7 @@ export const applyInstanceAnimation = () => {
     const animOffset = attribute('instanceAnimOffset', 'float');
 
     // Default: return zero offset
-    let offset = vec3(0, 0, 0);
+    let offset: Node<'vec3'> = vec3(0, 0, 0);
 
     offset = select(animType.equal(ANIMATION_TYPES.GENTLE_SWAY), gentleSwayNode(animOffset), offset);
     offset = select(animType.equal(ANIMATION_TYPES.BOUNCE), bounceNode(animOffset), offset);

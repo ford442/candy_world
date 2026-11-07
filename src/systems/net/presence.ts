@@ -12,6 +12,7 @@
 
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import * as THREE from 'three';
+import type { Renderer } from 'three/webgpu';
 import { CONFIG, FEATURE_FLAGS } from '../../core/config.ts';
 import type { ImpactType } from '../../foliage/impacts.ts';
 import { announce } from '../../ui/announcer.ts';
@@ -66,8 +67,6 @@ export interface PresenceJoinOptions {
     sessionId?: string;
     /** Merged into the tracked presence meta (role, join time). */
     meta?: Record<string, unknown>;
-    /** Extra broadcast events on the room, registered before subscribing. */
-    broadcast?: Record<string, (payload: unknown) => void>;
 }
 
 export function isPresenceOptedIn(): boolean {
@@ -152,12 +151,6 @@ export class PresenceSystem {
         return this._room;
     }
 
-    /** Send a broadcast on the joined room (shared-world progress events). */
-    broadcast(event: string, payload: unknown): void {
-        if (!this._joined || !this._channel) return;
-        void this._channel.send({ type: 'broadcast', event, payload });
-    }
-
     /** The world owner can remove peers: the peer list shows a Remove button while set. */
     setKickHandler(handler: ((peerId: string) => void) | null): void {
         this._kickHandler = handler;
@@ -207,7 +200,7 @@ export class PresenceSystem {
     bindScene(
         scene: THREE.Scene,
         camera: THREE.PerspectiveCamera,
-        renderer: THREE.Renderer,
+        renderer: Renderer,
         hooks?: PresenceInitHooks
     ): void {
         if (hooks?.spawnImpact) this._spawnImpact = hooks.spawnImpact;
@@ -262,13 +255,6 @@ export class PresenceSystem {
             },
         });
 
-        for (const [event, handler] of Object.entries(opts.broadcast ?? {})) {
-            this._channel.on('broadcast', { event }, ({ payload }) => {
-                const sender = (payload as { author?: unknown } | null)?.author;
-                if (typeof sender === 'string' && this._mutedPeerIds.has(sender)) return;
-                handler(payload);
-            });
-        }
         this._channel.on('presence', { event: 'sync' }, () => {
             this._mergePresenceState();
         });
@@ -463,7 +449,7 @@ if (typeof window !== 'undefined') {
 export function initPresenceFromOptIn(
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     hooks?: PresenceInitHooks
 ): void {
     if (!FEATURE_FLAGS.presence) return;

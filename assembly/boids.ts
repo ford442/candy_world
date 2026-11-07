@@ -259,9 +259,3 @@ export function updateBoids(
   }
 }
 
-/** Bytes required for `count` boids (8 f32 each). */
-export function boidsBufferBytes(count: i32): i32 {
-  if (count <= 0) return 0;
-  const n = count > MAX_BOIDS ? MAX_BOIDS : count;
-  return n * BOID_STRIDE * 4;
-}

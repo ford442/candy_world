@@ -29,6 +29,8 @@ import {
     uAudioHigh,
     uAudioLow,
     uTime,
+    asVec3,
+    type Vec3Node,
 } from './material-core.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { uTwilight } from './sky.ts';
@@ -143,7 +145,7 @@ export class PortamentoPineBatcher {
 
     // --- TSL ANIMATION LOGIC ---
     // Combined deformation: Note Bend + Wind Sway + Player Push
-    const animatedPosition = (basePos: any) => {
+    const animatedPosition = (basePos: Vec3Node) => {
         // 1. Instance Bend (Note Play)
         const instanceBend = attribute('instanceBend', 'float');
         // Quadratic bend: more at top
@@ -180,7 +182,7 @@ export class PortamentoPineBatcher {
     });
 
     // 🎨 Palette: TSL Audio-Reactive Juice & Neon Rim Light
-    const baseGlowColor = color(0x00FF00);
+    const baseGlowColor = asVec3(color(0x00FF00));
     const audioGlow = uAudioHigh.mul(1.5).add(uAudioLow.mul(0.5));
     const rimLight = createJuicyRimLight(baseGlowColor, float(1.5), float(3.0), null);
 

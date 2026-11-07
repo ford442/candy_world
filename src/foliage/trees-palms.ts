@@ -11,6 +11,8 @@ import {
     createJuicyRimLight,
     uAudioLow,
     uAudioHigh,
+    $sn,
+    type Vec3Node,
 } from './material-core.ts';
 const _scratchPhysicsVec1 = new THREE.Vector3();
 const _scratchPhysicsVec2 = new THREE.Vector3();
@@ -32,9 +34,9 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
             tslColor(0x8b4513),
             float(1.0).add(uAudioLow.mul(0.5)),
             float(3.0),
-            mat.normalNode || normalLocal
+            (mat.normalNode as Vec3Node | null) || normalLocal
         );
-        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), rim);
+        mat.emissiveNode = add($sn(mat.emissiveNode ?? tslColor(0x000000)), rim);
         return mat;
     });
     registerReactiveMaterial(pleatMatBase);
@@ -45,9 +47,9 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
             tslColor(0xa0522d),
             float(1.0).add(uAudioLow.mul(0.5)),
             float(3.0),
-            mat.normalNode || normalLocal
+            (mat.normalNode as Vec3Node | null) || normalLocal
         );
-        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), rim);
+        mat.emissiveNode = add($sn(mat.emissiveNode ?? tslColor(0x000000)), rim);
         return mat;
     });
     registerReactiveMaterial(pleatMatAlt);
@@ -70,9 +72,9 @@ export function createAccordionPalm(options: AccordionPalmOptions = {}): THREE.G
             tslColor(color),
             float(1.5).add(uAudioHigh.mul(2.0)),
             float(3.0),
-            mat.normalNode || normalLocal
+            (mat.normalNode as Vec3Node | null) || normalLocal
         );
-        mat.emissiveNode = add(mat.emissiveNode ?? tslColor(0x000000), rim);
+        mat.emissiveNode = add($sn(mat.emissiveNode ?? tslColor(0x000000)), rim);
         return mat;
     });
     registerReactiveMaterial(leafMat);

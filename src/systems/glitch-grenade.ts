@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { color, float, attribute, storage, instanceIndex, Fn, If, vec4, uniform, positionLocal, smoothstep } from 'three/tsl';
-import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
+import {
+    MeshStandardNodeMaterial,
+    StorageInstancedBufferAttribute,
+    type UniformNode,
+} from 'three/webgpu';
 import { addCameraShake } from '../core/camera-shake.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius, sharedGeometries } from '../foliage/index.ts';
@@ -26,7 +30,7 @@ class GlitchGrenadeSystem {
 
     // Compute Shader nodes
     private computeNode: any;
-    private uDeltaTime: any;
+    private uDeltaTime!: UniformNode<'float', number>;
 
     // Buffers for CPU <-> GPU sync
     private stateArray: Float32Array;

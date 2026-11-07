@@ -13,6 +13,7 @@ import {
     createJuicyRimLight,
     getCachedProceduralMaterial,
     applyStandardDeformation,
+    $sn,
 } from './material-core.ts';
 import { uTwilight } from './sky.ts';
 import { treeBatcher } from './tree-batcher.ts';
@@ -91,7 +92,7 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
         m.roughness = 0.4;
         m.positionNode = applyStandardDeformation(positionLocal);
         m.emissiveNode = add(
-            m.emissiveNode ?? tslColor(0x000000),
+            $sn(m.emissiveNode ?? tslColor(0x000000)),
             createJuicyRimLight(
                 tslColor(0x222222),
                 float(1.0).add(uAudioLow.mul(0.5)),

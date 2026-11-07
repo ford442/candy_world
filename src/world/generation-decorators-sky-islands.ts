@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { sugarCaveBatcher } from '../foliage/index.ts';
+import { createHeavyStone, heavyStoneIslandSites } from '../foliage/heavy-stone.ts';
 import { createSkyIsland, skyIslandBatcher } from '../foliage/sky-islands.ts';
 import {
     registerWalkableIslandPlatform,
     registerWalkableCloudPlatform,
     getGroundHeight,
 } from '../systems/ground-system.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
 import { debugHooks } from '../utils/debug-hooks.ts';
 import { getSeededRandom } from '../utils/seeded-random.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
@@ -26,6 +28,7 @@ import {
     validateSkyIslandGraph,
     initSkyIslandDebug,
 } from './sky-island-graph.ts';
+import { SUGAR_CAVES_TRAVERSAL } from './sugar-caves-traversal.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
 
 /**
@@ -71,6 +74,29 @@ export async function populateSugarCaves(weatherSystem: WeatherSystem): Promise<
         sugarCaveBatcher.add(_scratchPos, _scratchQuat, scale);
 
         if (i % 20 === 19) await yieldControl();
+    }
+
+    placeHeavyStones(weatherSystem);
+}
+
+/**
+ * Heavy stones for Wind Anchor (needs 3): three on the lake island around the
+ * Part II door, reachable before it opens, and one on the cave floor.
+ */
+function placeHeavyStones(weatherSystem: WeatherSystem): void {
+    const { startX, startZ, endX, endZ } = SUGAR_CAVES;
+    const sites = heavyStoneIslandSites().map((s) => ({ ...s, y: sampleGroundY(s.x, s.z) }));
+    sites.push({
+        id: 'heavy_stone:caves:0',
+        x: (startX + endX) * 0.5 + 2.5,
+        y: SUGAR_CAVES_TRAVERSAL.caveFloorY,
+        z: (startZ + endZ) * 0.5 + 2.5,
+    });
+    for (const site of sites) {
+        if (unlockSystem.isSiteHarvested(site.id)) continue;
+        const stone = createHeavyStone(site.id);
+        stone.position.set(site.x, site.y, site.z);
+        safeAddFoliage(stone, false, 1.0, weatherSystem);
     }
 }
 

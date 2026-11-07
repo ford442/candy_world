@@ -62,6 +62,7 @@ const { resolveMaxPixelRatio, resolvePlatformCapabilities } =
 const viewport = await import('../src/rendering/viewport.ts');
 const warmup = await import('../src/rendering/shader-warmup.ts');
 const timer = await import('../src/rendering/gpu-frame-timer.ts');
+const hitches = await import('../src/rendering/frame-hitches.ts');
 
 const quiet = async (fn) => {
     const warn = console.warn;
@@ -73,9 +74,12 @@ const quiet = async (fn) => {
     }
 };
 
-// --- WebGL2 context loss shows the reload banner ---------------------------
+// --- WebGL2 context loss ends at the reload banner when it cannot recover --
+// (Recovery itself is covered by tests/device-recovery.test.mjs; this renderer
+// has no backend to rebuild, and the context is never restored.)
 await quiet(async () => {
     gpu.__resetGpuContextForTests();
+    gpu.__setRecoveryTimingForTests({ retryMs: 0, restoreTimeoutMs: 20 });
     gpu.settleWebGLContext('explicit-webgl');
     const canvas = new EventTarget();
     const renderer = {};
@@ -86,16 +90,16 @@ await quiet(async () => {
 
     // Three's backend reports loss through renderer.onDeviceLost …
     renderer.onDeviceLost({ message: 'GPU reset' });
-    assert.equal(renderer._isDeviceLost, true, 'render() must stop, as Three’s own handler does');
-    assert.equal(heard, 'GPU reset');
-    assert.equal(typeof renderer.compute, 'function');
     assert.equal(
-        renderer.compute(),
-        undefined,
-        'compute dispatch stops too (Three 0.171 ignores the flag)'
+        renderer._isDeviceLost,
+        true,
+        'render(), compute() and compileAsync() stop, as with Three’s own handler'
     );
+    assert.equal(heard, 'GPU reset');
     assert.equal(window.__gpuContext.lost, true);
     assert.equal(window.__gpuContext.backend, 'webgl');
+    assert.equal(document.getElementById('gpu-device-lost-banner'), null, 'recovery first');
+    assert.equal(await gpu.whenGraphicsRecovered(), false);
 
     const banner = document.getElementById('gpu-device-lost-banner');
     assert.ok(banner, 'banner shown');
@@ -111,7 +115,7 @@ await quiet(async () => {
 
     canvas.dispatchEvent(new Event('webglcontextrestored'));
     assert.equal(window.__gpuContext.contextRestored, true);
-    assert.equal(window.__gpuContext.lost, true, 'restore does not rebuild Three resources');
+    assert.equal(window.__gpuContext.lost, true, 'a late restore after giving up changes nothing');
 });
 
 // --- Uncaptured WebGPU errors are recorded on window.__gpuContext ----------
@@ -138,7 +142,7 @@ await quiet(async () => {
 // --- Pixel ratio: tier-scaled cap, re-applied on DPR change ----------------
 {
     assert.equal(resolveMaxPixelRatio('low', 'webgpu'), 1);
-    assert.equal(resolveMaxPixelRatio('medium', 'webgpu'), 1.5);
+    assert.equal(resolveMaxPixelRatio('medium', 'webgpu'), 1.25);
     assert.equal(resolveMaxPixelRatio('high', 'webgpu'), 1.5);
     assert.equal(resolveMaxPixelRatio('high', 'webgl2'), 1, 'WebGL2 is always 1');
 
@@ -156,6 +160,7 @@ await quiet(async () => {
             ...o,
         });
     assert.equal(caps({}).maxPixelRatio, 1.5);
+    assert.equal(caps({ deviceMemoryGB: 8 }).maxPixelRatio, 1.25, 'Chrome caps deviceMemory at 8');
     assert.equal(caps({ deviceMemoryGB: 4 }).maxPixelRatio, 1);
     assert.equal(caps({ backend: 'webgl2', graphicsOverride: 'high' }).maxPixelRatio, 1);
 
@@ -247,7 +252,7 @@ await quiet(async () => {
     const realTarget = new THREE.RenderTarget(1, 1);
     const passTarget = new THREE.RenderTarget(1, 1);
     const seen = [];
-    const renderer = {
+    let renderer = {
         target: realTarget,
         mrt: 'frame-mrt',
         getRenderTarget() {
@@ -305,7 +310,43 @@ await quiet(async () => {
     assert.equal(renderer.target, realTarget);
     assert.equal(renderer.mrt, 'frame-mrt');
 
+    // Each object compiles once per renderer: a second pass (the deferred
+    // warmup after boot's) skips them, and a swapped material compiles again.
+    seen.length = 0;
+    const again = await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    assert.equal(again.objects, 0);
+    assert.equal(again.alreadyCompiled, 5);
+    assert.equal(seen.length, 0, 'nothing left to compile');
+    meshes[3].material = new THREE.MeshBasicMaterial();
+    const swapped = await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    assert.equal(swapped.objects, 1);
+    assert.deepEqual(seen.at(-1).projected, [meshes[3]]);
+    meshes[3].material = mat;
+    // So does a material changed in place and flagged for a rebuild.
+    await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    mat.needsUpdate = true;
+    const changed = await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    assert.equal(changed.objects, 5, 'needsUpdate on a shared material recompiles its users');
+    // Device-loss recovery rebuilds the renderer in place on a new backend,
+    // which has compiled nothing: the cache is per backend, not per renderer.
+    renderer.backend = { rebuilt: true };
+    const rebuilt = await warmup.compileSceneProgressively(renderer, scene, camera, {
+        target: () => ({ renderTarget: passTarget, mrt: 'pass-mrt' }),
+    });
+    assert.equal(rebuilt.objects, 5, 'a rebuilt backend compiles everything again');
+    delete renderer.backend;
+
     // A throwing chunk is restored and skipped; abort stops between chunks.
+    // A fresh renderer has compiled nothing yet.
+    renderer = { ...renderer };
     let n = 0;
     renderer.compileAsync = () => {
         if (n++ === 0) throw new Error('boom');
@@ -324,107 +365,86 @@ await quiet(async () => {
     assert.ok(meshes.every((m) => m.frustumCulled && m.layers.mask === 1));
 }
 
-// --- A rejected async pipeline cannot hang the warmup ---------------------
+// --- A lost renderer stops the warmup before compiling anything -----------
 {
     const scene = new THREE.Scene();
     scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
     const camera = new THREE.PerspectiveCamera();
-    let syncFallbacks = 0;
-    const device = {
-        createRenderPipelineAsync: () => Promise.reject(new Error('GPUPipelineError')),
-        createRenderPipeline: () => {
-            syncFallbacks++;
-            return { invalid: true };
-        },
-    };
-    const originalAsync = device.createRenderPipelineAsync;
-    const pipelineData = {};
+    let called = 0;
     const renderer = {
-        backend: { device },
+        _isDeviceLost: true,
         getRenderTarget: () => null,
         setRenderTarget() {},
-        // Three 0.171 WebGPUPipelineUtils: resolves on success only.
-        compileAsync() {
-            const p = new Promise((resolve) => {
-                device.createRenderPipelineAsync({}).then((pipeline) => {
-                    pipelineData.pipeline = pipeline;
-                    resolve();
-                });
-            });
-            return Promise.all([p]);
-        },
+        compileAsync: async () => void called++,
     };
-    const settled = await Promise.race([
-        warmup.compileSceneProgressively(renderer, scene, camera).then(() => 'settled'),
-        new Promise((r) => setTimeout(() => r('hung'), 500)),
-    ]);
-    assert.equal(settled, 'settled', 'compileAsync settles when async creation rejects');
-    assert.equal(syncFallbacks, 1, 'falls back to sync createRenderPipeline, like a frame');
-    assert.deepEqual(pipelineData.pipeline, { invalid: true });
-    assert.equal(device.createRenderPipelineAsync, originalAsync, 'device method restored');
-
-    // A lost renderer stops before compiling anything.
-    renderer._isDeviceLost = true;
-    let called = 0;
-    renderer.compileAsync = async () => void called++;
     const lost = await warmup.compileSceneProgressively(renderer, scene, camera);
     assert.equal(called, 0);
     assert.equal(lost.aborted, true);
 }
 
-// --- GPU frame timer reads Three's timestamp result buffers ----------------
+// --- GPU frame timer resolves Three's timestamp pools -------------------------
 {
-    globalThis.GPUMapMode = { READ: 1 };
-    assert.equal(timer.passDurationMs(1_000_000n, 3_500_000n), 2.5);
-    assert.equal(timer.passDurationMs(5n, 1n), 0);
-
     const noop = timer.createGpuFrameTimer({ backend: { trackTimestamp: false } }, () => {
         throw new Error('must not report');
     });
     for (let i = 0; i < 60; i++) noop.endFrame();
 
-    const makeBuffer = (begin, end) => ({
-        mapState: 'unmapped',
-        async mapAsync() {
-            this.mapState = 'mapped';
+    const resolved = [];
+    let release;
+    const renderer = {
+        backend: { trackTimestamp: true },
+        resolveTimestampsAsync(type) {
+            resolved.push(type);
+            return type === 'render'
+                ? new Promise((r) => (release = () => r(2.5)))
+                : Promise.resolve(1);
         },
-        getMappedRange() {
-            return new BigUint64Array([begin, end]).buffer;
-        },
-        unmap() {
-            this.mapState = 'unmapped';
-        },
-    });
-    const data = new Map();
-    const passes = [{}, {}];
-    data.set(passes[0], {
-        currentTimestampQueryBuffers: { resultBuffer: makeBuffer(0n, 2_000_000n) },
-    });
-    data.set(passes[1], {
-        currentTimestampQueryBuffers: { resultBuffer: makeBuffer(0n, 1_500_000n) },
-    });
-    let prepared = 0;
-    const backend = {
-        trackTimestamp: true,
-        prepareTimestampBuffer() {
-            prepared++;
-        },
-        get: (ctx) => data.get(ctx) ?? {},
     };
     const reports = [];
-    const t = timer.createGpuFrameTimer({ backend }, (ms) => reports.push(ms));
-    for (let f = 1; f <= timer.SAMPLE_INTERVAL_FRAMES; f++) {
-        for (const p of passes) backend.prepareTimestampBuffer(p, null);
-        t.endFrame();
-    }
-    assert.equal(prepared, passes.length * timer.SAMPLE_INTERVAL_FRAMES, 'Three’s copy still runs');
+    const t = timer.createGpuFrameTimer(renderer, (ms) => reports.push(ms));
+    for (let f = 1; f < timer.SAMPLE_INTERVAL_FRAMES; f++) t.endFrame();
+    assert.deepEqual(resolved, [], 'nothing resolved before the interval');
+    t.endFrame();
+    assert.deepEqual(resolved, ['render', 'compute']);
+    // One resolve in flight at a time: the next interval is skipped.
+    for (let f = 0; f < timer.SAMPLE_INTERVAL_FRAMES; f++) t.endFrame();
+    assert.equal(resolved.length, 2);
+    release();
     await new Promise((r) => setTimeout(r, 0));
-    assert.deepEqual(reports, [3.5], 'sum of the frame’s pass durations');
-    assert.ok(
-        [...data.values()].every(
-            (d) => d.currentTimestampQueryBuffers.resultBuffer.mapState === 'unmapped'
-        )
-    );
+    assert.deepEqual(reports, [3.5], 'render + compute GPU ms of the last frame');
+}
+
+// --- First-30 s frame hitch counter ----------------------------------------
+{
+    let done = null;
+    const c = hitches.createFrameHitchCounter((r) => (done = { ...r }));
+    // First frame: 120 ms of work (a cold pipeline), then 16 ms frames with
+    // one 60 ms and one 140 ms interval.
+    let t = 1000;
+    c.beginFrame(t);
+    c.endFrame(t + 120);
+    t += 125;
+    const intervals = [16, 60, 16, 140, 16];
+    for (const dt of intervals) {
+        c.beginFrame(t);
+        c.endFrame(t + 4);
+        t += dt;
+    }
+    const r = c.report();
+    assert.equal(r.firstFrameMs, 120);
+    assert.equal(r.frames, 1 + intervals.length);
+    assert.equal(r.over50, 3, 'the 125 ms first interval, 60 ms and 140 ms');
+    assert.equal(r.over100, 2);
+    assert.equal(r.worstMs, 140);
+    assert.equal(r.done, false);
+    assert.equal(done, null);
+
+    // The window closes once, and the numbers freeze.
+    c.beginFrame(1000 + hitches.HITCH_WINDOW_MS);
+    assert.equal(c.report().done, true);
+    assert.equal(done.frames, r.frames);
+    c.beginFrame(1000 + hitches.HITCH_WINDOW_MS + 500);
+    assert.equal(c.report().frames, done.frames, 'frozen after the window');
 }
 
 console.log('context-creation: all assertions passed');

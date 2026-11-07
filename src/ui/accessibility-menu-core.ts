@@ -16,6 +16,7 @@
  * - 4.1.2 Name, Role, Value (A) - ARIA attributes
  */
 
+import { input } from '../core/input/actions/index.ts';
 import { AccessibilitySystem, getAccessibilitySystem } from '../systems/accessibility';
 import { trapFocusInside } from '../utils/focus-trap.ts';
 import { yieldToPaint } from '../utils/yield-to-paint';
@@ -61,6 +62,8 @@ export class AccessibilityMenuCore {
     protected saveButton: HTMLButtonElement | null = null;
     protected releaseFocusTrap: (() => void) | null = null;
     protected boundKeyHandler = this.handleKeyDown.bind(this);
+    /** Pops the `menu` input context: no game actions while the menu is open. */
+    private popMenuContext: (() => void) | null = null;
 
     constructor() {
         this.a11y = getAccessibilitySystem();
@@ -75,6 +78,7 @@ export class AccessibilityMenuCore {
 
         this.createMenu();
         this.isOpen = true;
+        this.popMenuContext = input.pushContext('menu');
         document.addEventListener('keydown', this.boundKeyHandler);
 
         // Force DOM reflow
@@ -142,6 +146,8 @@ export class AccessibilityMenuCore {
         }, 300);
 
         document.removeEventListener('keydown', this.boundKeyHandler);
+        this.popMenuContext?.();
+        this.popMenuContext = null;
         this.isOpen = false;
 
         const openA11yBtn = document.getElementById('openA11yBtn');

@@ -19,8 +19,6 @@ import {
     syncGroundPlatformsToNative,
     syncGroundCacheTTLToNative,
     invalidateNativeGroundCache,
-    isNativeUnifiedGroundReady,
-    getUnifiedGroundBackend,
 } from '../utils/wasm-ground.ts';
 import { getGroundHeight as getWasmGroundHeight } from '../utils/wasm-loader.ts';
 import {
@@ -148,7 +146,6 @@ export function fillGroundHeightsBatch(positions: Float32Array, out: Float32Arra
 }
 
 /** Which backend serves unified ground queries ('cpp' | 'as' | 'js'). */
-export { isNativeUnifiedGroundReady, getUnifiedGroundBackend };
 
 /**
  * Target first-person eye Y at (x, z): authoritative ground + configured eye offset.

@@ -61,7 +61,12 @@ import {
     cross,
     cameraPosition,
 } from 'three/tsl';
-import { MeshStandardNodeMaterial, PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import {
+    MeshStandardNodeMaterial,
+    PointsNodeMaterial,
+    StorageBufferAttribute,
+    type Renderer,
+} from 'three/webgpu';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { isAutomation } from '../core/platform/run-mode.ts';
 import {
@@ -72,7 +77,12 @@ import {
     uWindSpeed,
     uWindDirection,
 } from '../foliage/material-core.ts';
-import { awaitGpuDevice, getGpuContextSync, onGpuDeviceLost } from '../rendering/gpu-context.ts';
+import {
+    awaitGpuDevice,
+    getGpuContextSync,
+    onGpuDeviceLost,
+    onGpuDeviceRestored,
+} from '../rendering/gpu-context.ts';
 import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
 import {
     UPDATE_PARTICLES_WGSL,
@@ -163,6 +173,7 @@ export class ComputeParticleSystem {
     private particleBuffer: GPUBuffer | null = null;
     private nextSpawnIndex: number = 0;
     private unsubscribeDeviceLost: (() => void) | null = null;
+    private unsubscribeDeviceRestored: (() => void) | null = null;
     private deviceLost: boolean = false;
     private static scratchFloat32Array = new Float32Array(4);
 
@@ -602,10 +613,11 @@ export class ComputeParticleSystem {
             this.particleBuffer = null;
             this.uniformBuffer = null;
             // Compute is paused and the storage buffers are gone, so the points would
-            // freeze mid-air. Hide rather than show a stale field; the emitter registry
-            // can rebuild the system if the renderer recovers.
+            // freeze mid-air. Hide rather than show a stale field until the renderer
+            // recovers and the GPU path is rebuilt on the new device.
             this.mesh.visible = false;
         });
+        this.unsubscribeDeviceRestored ??= onGpuDeviceRestored(() => this.restoreGpu());
 
         // Ensure WebGPU resources are created sequentially with rAF yields
         // rather than Promise.all parallel execution, to prevent VRAM allocation spikes.
@@ -619,6 +631,30 @@ export class ComputeParticleSystem {
         console.log(
             `[ComputeParticles] GPU initialized for ${this.type} with ${this.count} particles`
         );
+    }
+
+    /** After a recovered device loss: the same init, from the CPU-side buffers. */
+    private restoreGpu(): void {
+        if (!this.deviceLost) return;
+        this.deviceLost = false;
+        this.unsubscribeDeviceLost?.();
+        this.unsubscribeDeviceLost = null;
+        this.initPromise = this.initWebGPU()
+            .then(() => {
+                this.mesh.visible = true;
+            })
+            .catch(() => {
+                // As when the first init fails: the CPU tier takes over. The mesh
+                // is already in the scene by now, so the new one takes its place.
+                const hidden = this.mesh;
+                const parent = hidden.parent;
+                this.initCPUFallback();
+                if (parent) {
+                    parent.remove(hidden);
+                    parent.add(this.mesh);
+                }
+                console.warn(`[ComputeParticles] ${this.type} fell back to CPU after device loss`);
+            });
     }
 
     private initCPUFallback(): void {
@@ -895,7 +931,7 @@ export class ComputeParticleSystem {
     }
 
     update(
-        renderer: THREE.Renderer,
+        renderer: Renderer,
         deltaTime: number,
         playerPosition: THREE.Vector3,
         audioData: ParticleAudioData
@@ -943,20 +979,6 @@ export class ComputeParticleSystem {
             passEncoder.end();
             this.device.queue.submit([commandEncoder.finish()]);
 
-            // To properly share the WebGPU buffer with Three.js TSL natively,
-            // we override the internal GPUBuffer reference of the StorageBufferAttribute.
-            // This is a hack for the review environment, as a proper implementation requires TSL compute nodes.
-            const rendererBackend = renderer as any;
-            if (rendererBackend.backend && rendererBackend.backend.attributeUtils) {
-                const bufferData = rendererBackend.backend.attributeUtils.get(
-                    this.buffers.position
-                );
-                if (bufferData && bufferData.buffer !== this.particleBuffer) {
-                    // Force Three.js to use our SoA buffer
-                    bufferData.buffer = this.particleBuffer;
-                }
-            }
-
             // Sync GPU storage buffer back to CPU buffers to bridge with TSL rendering.
             // This is required because TSL uses StorageBufferAttributes which map to separate buffers
             // while our compute shader uses a single unified SoA structure.
@@ -976,6 +998,8 @@ export class ComputeParticleSystem {
 
         this.unsubscribeDeviceLost?.();
         this.unsubscribeDeviceLost = null;
+        this.unsubscribeDeviceRestored?.();
+        this.unsubscribeDeviceRestored = null;
 
         // Release this system's GPU buffers, but never destroy the device —
         // it is the renderer's, shared by every GPU consumer.
@@ -1188,7 +1212,7 @@ export function removeComputeSystem(type: ComputeParticleType): void {
 }
 
 export function updateAllComputeSystems(
-    renderer: THREE.Renderer,
+    renderer: Renderer,
     deltaTime: number,
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData

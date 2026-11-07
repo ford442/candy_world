@@ -2,7 +2,7 @@
  * Shared types for the playlist manager submodules
  */
 
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { AudioSystem } from '../../audio/audio-system';
 
 export interface PlaylistManagerState {

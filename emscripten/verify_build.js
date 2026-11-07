@@ -26,139 +26,24 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// List of all expected animation function exports (without underscore prefix)
-// These should match the functions in animation.cpp and other source files
-const EXPECTED_EXPORTS = {
-    // Animation functions (animation.cpp) - HIGH priority
-    animation: [
-        'calcFiberWhip',
-        'getFiberBaseRotY',
-        'getFiberBranchRotZ',
-        'calcHopY',
-        'calcShiver',
-        'getShiverRotX',
-        'getShiverRotZ',
-        'calcSpiralWave',
-        'getSpiralRotY',
-        'getSpiralYOffset',
-        'getSpiralScale',
-        'calcPrismRose',
-        'getPrismUnfurl',
-        'getPrismSpin',
-        'getPrismPulse',
-        'getPrismHue',
-        'calcFloatingParticle',
-        'getParticleX',
-        'getParticleY',
-        'getParticleZ',
-        'calcArpeggioStep_c',
-        'getArpeggioTargetStep_c',
-        'getArpeggioUnfurlStep_c',
-        'calcSpeakerPulse',
-        'getSpeakerScale',
-        'calcBounceY',
-        'calcSwayRotZ',
-        'calcWobble',
-        'getWobbleX',
-        'getWobbleZ',
-        'calcAccordionStretch',
-        'getAccordionStretchY',
-        'getAccordionWidthXZ',
-        'calcRainDropY',
-        'calcFloatingY'
-    ],
-    
-    // Physics functions (physics.cpp) - HIGH priority
-    physics: [
-        'initPhysicsMemory',
-        'initPhysics',
-        'addCollisionObject',
-        'addCollisionObjectsBatch',
+// Expected exports: emscripten/exports.txt (EXPORTED_FUNCTIONS, which
+// verify:emcc:manifest proves is the whole C++ ABI), grouped by the source tag
+// build.sh gives each name. A hand-kept copy here drifted from the real list.
+function loadExpectedExports() {
+    const listed = fs
+        .readFileSync(path.resolve(__dirname, 'exports.txt'), 'utf8')
+        .split(/\r?\n/)
+        .map((l) => l.trim().replace(/^_/, ''))
+        .filter((l) => l && !['main', 'malloc', 'free'].includes(l));
+    const tags = new Map();
+    const buildSh = fs.readFileSync(path.resolve(__dirname, 'build.sh'), 'utf8');
+    for (const m of buildSh.matchAll(/\["(\w+)"\]="(\w+)"/g)) tags.set(m[1], m[2]);
+    const byTag = {};
+    for (const name of listed) (byTag[tags.get(name) ?? 'other'] ??= []).push(name);
+    return byTag;
+}
 
-        'setPlayerState',
-        'getPlayerX',
-        'getPlayerY',
-        'getPlayerZ',
-        'getPlayerVX',
-        'getPlayerVY',
-        'getPlayerVZ',
-        'updatePhysicsCPP',
-        'fastDistance',
-        'smoothDamp',
-        'updateParticles',
-        'checkCollision'
-    ],
-    
-    // Math functions (math.cpp) - MEDIUM priority
-    math: [
-        'hash',
-        'valueNoise2D',
-        'fbm',
-        'fastInvSqrt',
-        'getGroundHeight'
-    ],
-
-    // Unified ground (ground.cpp) — #1327
-    ground: [
-        'clearGroundPlatforms',
-        'addGroundPlatform',
-        'invalidateGroundCache',
-        'setGroundCacheTTL',
-        'getUnifiedGroundHeight',
-        'batchUnifiedGroundHeight'
-    ],
-
-    // Particle physics (particle_physics.cpp) — includes #1329 CPU path
-    particle_physics: [
-        'updateParticlesWASM',
-        'updateCpuParticlesWASM',
-        'getParticlePhysicsVersion',
-        'initParticleRandom'
-    ],
-    
-    // Batch functions (batch.cpp) - MEDIUM priority
-    batch: [
-        'batchDistances',
-        'batchDistanceCull_c',
-        'batchSinWave'
-    ],
-    
-    // Bootstrap functions (bootstrap_loader.cpp) - LOW priority
-    bootstrap: [
-        'startBootstrapInit',
-        'getBootstrapProgress',
-        'isBootstrapComplete',
-        'getBootstrapHeight',
-        'resetBootstrap'
-    ],
-
-    // Discovery spatial-grid functions (discovery.cpp)
-    discovery: [
-        'initDiscoveryGrid',
-        'registerDiscoverable',
-        'queryDiscoveries',
-        'clearDiscoveryGrid'
-    ],
-
-    // ECS entity-component system (ecs.cpp)
-    ecs: [
-        'ecsInit',
-        'ecsCreateEntity',
-        'ecsDestroyEntity',
-        'ecsIsAlive',
-        'ecsGetEntityCount',
-        'ecsRegisterComponent',
-        'ecsGetComponent',
-        'ecsSetComponent',
-        'ecsAddComponent',
-        'ecsRemoveComponent',
-        'ecsHasComponent',
-        'ecsQueryComponents',
-        'ecsQueryComponentPointers',
-        'ecsGetComponentStride',
-        'ecsGetComponentMask'
-    ]
-};
+const EXPECTED_EXPORTS = loadExpectedExports();
 
 /**
  * Read and parse WASM exports from a compiled module
@@ -275,7 +160,7 @@ function main() {
     if (results.missing.length === 0) {
         console.log(`Missing: none`);
         console.log('');
-        console.log('✅ All animation functions are exported!');
+        console.log('✅ Every exports.txt function is exported!');
     } else {
         console.log(`Missing: ${results.missing.length} functions`);
         console.log('');
@@ -291,11 +176,11 @@ function main() {
     console.log('------------------------------------------');
     
     const keyFunctions = [
-        'calcFiberWhip',
-        'calcHopY', 
-        'calcShiver',
-        'initPhysics',
-        'updatePhysicsCPP'
+        'getUnifiedGroundHeight',
+        'batchGroundHeight_simd',
+        'updatePhysicsCPP',
+        'updateCpuParticlesWASM',
+        'ecsInit'
     ];
     
     for (const func of keyFunctions) {

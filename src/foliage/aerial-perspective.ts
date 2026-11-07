@@ -16,6 +16,7 @@ import {
 } from 'three/tsl';
 import { CONFIG } from '../core/config.ts';
 import { lodFarGate, lodMidOnlyGate } from './lod-nodes.ts';
+import type { Node } from 'three/webgpu';
 
 /** 0 = disabled, 1 = full strength (scaled by night/fog gates on CPU). */
 export const uAerialStrength = uniform(0.0);
@@ -43,9 +44,9 @@ export const aerialPerspectiveLodBoost = () =>
  * @param lodBoost   Optional LOD multiplier node (default 1.0)
  */
 export function applyAerialPerspective(
-    baseColor: ReturnType<typeof vec3>,
-    worldPos: ReturnType<typeof vec3>,
-    lodBoost: ReturnType<typeof float> = float(1.0),
+    baseColor: Node<'vec3'>,
+    worldPos: Node<'vec3'>,
+    lodBoost: Node<'float'> = float(1.0),
 ) {
     const dist = cameraPosition.distance(worldPos);
     const distT = smoothstep(uAerialStartDist, uAerialEndDist, dist);

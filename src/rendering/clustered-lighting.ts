@@ -47,6 +47,7 @@ import {
 } from './clustered-bin.ts';
 import { isGpuComputeAvailable, onGpuDeviceLost } from './gpu-context.ts';
 import { forEachLocalLight, getLocalLightStats, muteAnalyticLocalLights } from './lights.ts';
+import type { Node, UniformNode } from 'three/webgpu';
 
 const _worldPos = new THREE.Vector3();
 const _viewPos = new THREE.Vector3();
@@ -103,10 +104,10 @@ export class ClusteredLightingSystem {
     private clusterData: Uint32Array;
     private clusterBuffer: StorageInstancedBufferAttribute;
 
-    private numLightsUniform: ReturnType<typeof uniform>;
-    private nearUniform: ReturnType<typeof uniform>;
-    private farUniform: ReturnType<typeof uniform>;
-    private scaleZUniform: ReturnType<typeof uniform>;
+    private numLightsUniform: UniformNode<'float', number>;
+    private nearUniform: UniformNode<'float', number>;
+    private farUniform: UniformNode<'float', number>;
+    private scaleZUniform: UniformNode<'float', number>;
 
     private lastLights = 0;
     private lastClustersWritten = 0;
@@ -270,8 +271,8 @@ export class ClusteredLightingSystem {
             this.gridX * this.gridY * this.gridZ * clusterStride(this.maxLightsPerCluster)
         );
 
-        const vZ = (viewPos as { z: { negate: () => unknown } }).z.negate();
-        const zSlice = log(max(this.nearUniform, vZ as never).div(this.nearUniform))
+        const vZ = (viewPos as Node<'vec3'>).z.negate();
+        const zSlice = log(max(this.nearUniform, vZ).div(this.nearUniform))
             .mul(this.scaleZUniform)
             .floor();
         const zClamped = clamp(zSlice, 0.0, float(this.gridZ - 1));
@@ -295,7 +296,7 @@ export class ClusteredLightingSystem {
 
         Loop(
             { start: uint(0), end: lightCount, type: 'uint', condition: '<' },
-            ({ i }: { i: ReturnType<typeof uint> }) => {
+            ({ i }: { i: Node<'uint'> }) => {
                 const lightIdx = sClusterData.element(clusterOffset.add(1).add(i));
                 const v0 = sLightData.element(lightIdx.mul(3));
                 const v1 = sLightData.element(lightIdx.mul(3).add(1));

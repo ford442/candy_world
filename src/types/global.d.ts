@@ -1,3 +1,6 @@
+/// <reference types="@webgpu/types" />
+// WebGPU globals (GPUDevice, GPUBufferUsage, ...). @types/three pulled these in
+// until 0.186; the app uses the raw API directly, so it references them itself.
 export {};
 
 // Loading Screen types
@@ -203,10 +206,8 @@ declare global {
 // Declare modules for JS files without types
 declare module '*/src/utils/wasm-loader.ts' {
     export function initWasm(): Promise<boolean>;
-    export function initWasmParallel(): Promise<boolean>;
     export function isWasmReady(): boolean;
     export function getGroundHeight(x: number, z: number): number;
-    export const LOADING_PHASES: any;
 }
 
 // Declare WASM module imports (Vite's built-in `?init` suffix)

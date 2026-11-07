@@ -17,6 +17,7 @@ import {
     uWindSpeed,
     uWindDirection
 } from './material-core.ts';
+import { $sn, type Vec3Node } from './material-core/tsl-types.ts';
 
 // --- MATERIAL DEFINITIONS ---
 
@@ -31,7 +32,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         // 🎨 PALETTE: Add Juicy Rim Light to stem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
-        mat.emissiveNode = add(mat.emissiveNode ?? color(0x000000), rimLight);
+        mat.emissiveNode = add($sn(mat.emissiveNode ?? color(0x000000)), rimLight);
 
         return mat;
     })(),
@@ -51,7 +52,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         // 🎨 PALETTE: Add Juicy Rim Light to flowerStem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
-        mat.emissiveNode = add(mat.emissiveNode ?? color(0x000000), rimLight);
+        mat.emissiveNode = add($sn(mat.emissiveNode ?? color(0x000000)), rimLight);
 
         return mat;
     })(),
@@ -124,8 +125,8 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
 
         // 🎨 PALETTE: Add Juicy Rim Light to mushroomStem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        const rimLight = createJuicyRimLight(color(0xF5F5DC), audioRimIntensity, float(3.0), mat.normalNode);
-        mat.emissiveNode = add(mat.emissiveNode ?? color(0x000000), rimLight);
+        const rimLight = createJuicyRimLight(color(0xF5F5DC), audioRimIntensity, float(3.0), mat.normalNode as Vec3Node | null);
+        mat.emissiveNode = add($sn(mat.emissiveNode ?? color(0x000000)), rimLight);
 
         return mat;
     })(),
@@ -162,3 +163,21 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
     get mouth() { return CandyPresets.Clay(0x2D3436); },
     get clayMouth() { return CandyPresets.Clay(0x2D3436); }
 };
+
+// The getters above used to build a new material (and its node graph) on every
+// read, so `validateFoliageMaterials` and shader warmup each built throwaway
+// copies. Each getter now runs once: its first read replaces it with a plain
+// property holding that instance. Callers that need their own copy `.clone()`.
+for (const [key, desc] of Object.entries(Object.getOwnPropertyDescriptors(foliageMaterials))) {
+    if (!desc.get) continue;
+    const build = desc.get.bind(foliageMaterials) as () => THREE.Material | THREE.Material[];
+    Object.defineProperty(foliageMaterials, key, {
+        configurable: true,
+        enumerable: true,
+        get() {
+            const value = build();
+            Object.defineProperty(foliageMaterials, key, { value, writable: true, enumerable: true });
+            return value;
+        },
+    });
+}

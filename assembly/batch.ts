@@ -1,5 +1,5 @@
 import { POSITION_OFFSET, ANIMATION_OFFSET, MATERIAL_DATA_OFFSET, OUTPUT_OFFSET } from "./constants";
-import { getGroundHeight, lerp, hslToRgb, distSq3D } from "./math";
+import { getGroundHeight, } from "./math";
 
 // Constants for batch operations
 const STRIDE_F32 = 4;
@@ -83,13 +83,6 @@ export function analyzeMaterials(materialPtr: i32, count: i32): i32 {
 }
 
 /**
- * Get the cached unique shader count from last analysis
- */
-export function getUniqueShaderCount(): i32 {
-    return _uniqueShaderCount;
-}
-
-/**
  * Compute a hash for shader configuration
  * This creates a unique identifier for each shader variant
  */
@@ -101,45 +94,6 @@ function computeShaderHash(vertexId: i32, fragmentId: i32, blendMode: i32, flags
     hash = hash * 31 + blendMode;
     hash = hash * 31 + (flags & 0xFF); // Only use low bits of flags
     return hash & 0x7FFFFFFF; // Keep positive
-}
-
-/**
- * Update animation state for all objects
- * Logic from original batchAnimationCalc:
- *  - Calculates bounce/sway/kick animations
- *  - Updates position Y and rotation
- *  - Stores results back to shared memory
- *  - Supports specific animation types based on animData stored in ANIMATION_OFFSET
- */
-export function batchAnimationCalc(time: f32, intensity: f32, kick: f32, objectCount: i32): void {
-  for (let i = 0; i < objectCount; i++) {
-     const posPtr = POSITION_OFFSET + i * 16;
-     const animPtr = ANIMATION_OFFSET + i * 16;
-
-     const x = load<f32>(posPtr);
-     const z = load<f32>(posPtr + 8);
-     const initialY = load<f32>(animPtr + 8); // We store initialY at offset 8 (was velocity/unused)
-     const animType = <i32>load<f32>(animPtr + 12); // animType at offset 12 (was phase)
-     const offset = (x + z) * 0.1;
-
-     let newY = initialY;
-
-     // 1 = BOUNCE (Mushrooms)
-     if (animType == 1) {
-       let yOffset = Mathf.sin((time + offset) * 3.0) * 0.1 * intensity;
-       if (kick > 0.1) yOffset += kick * 0.2;
-       newY += yOffset;
-     }
-     // 2 = SWAY (Flowers)
-     else if (animType == 2) {
-       // Sway affects rotation mainly, but let's add slight bob
-       newY += Mathf.sin((time + offset) * 2.0) * 0.05 * intensity;
-     }
-
-     // Store updated Y
-     store<f32>(animPtr, newY); // CurrentY
-     store<f32>(posPtr + 4, newY); // Update position for rendering/physics
-  }
 }
 
 /**
@@ -276,109 +230,13 @@ export function batchMushroomSpawnCandidates(
 // BATCH COLOR OPERATIONS (for reactive materials)
 // =============================================================================
 
-/**
- * Batch HSL to RGB conversion for reactive materials
- * Input: pointer to packed color array [hue, sat, light, intensity, ...]
- * Output: writes packed RGBA values back to same memory (in-place conversion)
- * 
- * @param ptr - Pointer to HSLA array (4 floats per color)
- * @param count - Number of colors to convert
- */
-export function batchHslToRgb(ptr: usize, count: i32): void {
-  if (count <= 0 || ptr == 0) return;
-
-  for (let i: i32 = 0; i < count; i++) {
-    const base = ptr + <usize>(i * 4 * STRIDE_F32);
-    
-    const h = load<f32>(base);
-    const s = load<f32>(base + STRIDE_F32);
-    const l = load<f32>(base + 2 * STRIDE_F32);
-    const intensity = load<f32>(base + 3 * STRIDE_F32);
-    
-    const rgb = hslToRgb(h, s, l);
-    
-    // Pack RGB into first 3 bytes, keep intensity in alpha channel
-    const r = (rgb >> 16) & 0xFF;
-    const g = (rgb >> 8) & 0xFF;
-    const b = rgb & 0xFF;
-    
-    // Store normalized RGB (0-1 range for shader use) + intensity
-    store<f32>(base, <f32>r / 255.0);
-    store<f32>(base + STRIDE_F32, <f32>g / 255.0);
-    store<f32>(base + 2 * STRIDE_F32, <f32>b / 255.0);
-    store<f32>(base + 3 * STRIDE_F32, intensity);
-  }
-}
-
 // =============================================================================
 // BATCH CULLING OPERATIONS
 // =============================================================================
 
-/**
- * Batch sphere culling for visibility testing
- * Input: pointer to positions array [x, y, z, x, y, z, ...]
- * Output: writes visibility flags (1.0 = visible, 0.0 = culled) for each sphere
- * 
- * @param positionsPtr - Pointer to positions array (3 floats per position)
- * @param count - Number of spheres to test
- * @param camX - Camera X position
- * @param camY - Camera Y position
- * @param camZ - Camera Z position
- * @param maxDist - Maximum distance for visibility
- * @param outputPtr - Pointer to output array (1 float per sphere)
- */
-export function batchSphereCull(
-  positionsPtr: usize,
-  count: i32,
-  camX: f32, camY: f32, camZ: f32,
-  maxDist: f32,
-  outputPtr: usize
-): void {
-  if (count <= 0 || positionsPtr == 0 || outputPtr == 0) return;
-
-  const maxDistSq = maxDist * maxDist;
-
-  for (let i: i32 = 0; i < count; i++) {
-    const posBase = positionsPtr + <usize>(i * 3 * STRIDE_F32);
-    const outBase = outputPtr + <usize>(i * STRIDE_F32);
-    
-    const x = load<f32>(posBase);
-    const y = load<f32>(posBase + STRIDE_F32);
-    const z = load<f32>(posBase + 2 * STRIDE_F32);
-    
-    const distSq = distSq3D(camX, camY, camZ, x, y, z);
-    
-    store<f32>(outBase, distSq < maxDistSq ? 1.0 : 0.0);
-  }
-}
-
 // =============================================================================
 // BATCH ANIMATION OPERATIONS
 // =============================================================================
-
-/**
- * Batch lerp for animation properties
- * Input: pointer to [current, target, speed, ...] for each property
- * Updates current values in-place using: current += (target - current) * speed
- * 
- * @param ptr - Pointer to property array (3 floats per property)
- * @param count - Number of properties to update
- */
-export function batchLerp(ptr: usize, count: i32): void {
-  if (count <= 0 || ptr == 0) return;
-
-  for (let i: i32 = 0; i < count; i++) {
-    const base = ptr + <usize>(i * 3 * STRIDE_F32);
-    
-    const current = load<f32>(base);
-    const target = load<f32>(base + STRIDE_F32);
-    const speed = load<f32>(base + 2 * STRIDE_F32);
-    
-    const newValue = lerp(current, target, speed);
-    
-    store<f32>(base, newValue);
-  }
-}
 
 // =============================================================================
 // MATRIX COMPOSITION (parity with emscripten/lod_batch.cpp batchComposeMatrices_c

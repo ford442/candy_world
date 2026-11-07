@@ -72,11 +72,6 @@ export default defineConfig({
                     if (id.includes('/src/core/platform/')) {
                         return 'platform';
                     }
-                    // Workers
-                    if (id.includes('/src/workers/')) {
-                        return 'workers';
-                    }
-
                     // --- Lazy chunks (#1361): only reached via dynamic import() ---
                     // Thin *lazy.ts stubs stay in `app` (statically imported); the heavy
                     // modules below are loaded via import() from those stubs.
@@ -127,10 +122,12 @@ export default defineConfig({
                     // World content decorators: generation-decorators.ts and every
                     // generation-decorators-*.ts populator it re-exports. The populators
                     // are only reachable through it, so they load with this chunk; the
-                    // catch-all below used to pin them in `app` (#1827).
+                    // catch-all below used to pin them in `app` (#1827). Heavy stones
+                    // are only placed by the Sugar Caves populator, so they ride along.
                     if (
                         id.includes('/src/world/generation-decorators') ||
-                        id.includes('/src/world/decorator-streamer.ts')
+                        id.includes('/src/world/decorator-streamer.ts') ||
+                        id.endsWith('/src/foliage/heavy-stone.ts')
                     ) {
                         return 'world-content';
                     }
@@ -220,6 +217,20 @@ export default defineConfig({
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
                     }
+                    // Import-free rendering leaves (hitch counter, dynamic resolution,
+                    // backend checks, viewport sizing): own chunk, so `app` does not grow.
+                    if (
+                        id.includes('/src/rendering/frame-hitches.ts') ||
+                        id.includes('/src/rendering/dynamic-resolution.ts') ||
+                        id.includes('/src/rendering/renderer-mode.ts') ||
+                        id.includes('/src/rendering/viewport.ts')
+                    ) {
+                        return 'render-runtime';
+                    }
+                    // Device-loss recovery: gpu-context imports it on the first loss only.
+                    if (id.includes('/src/rendering/device-recovery.ts')) {
+                        return 'device-recovery';
+                    }
                     // Pure TSL nodes shared between app and postfx chunks
                     if (
                         id.includes('/src/foliage/chromatic-nodes.ts') ||
@@ -229,10 +240,7 @@ export default defineConfig({
                     }
                     // Graphs only. The stub stays in `app` and must not live in this
                     // chunk: postfx → app TLA + app awaiting postfx deadlocks boot.
-                    if (
-                        id.includes('/src/foliage/post-processing-webgpu.ts') ||
-                        id.includes('/src/foliage/post-processing-webgl.ts')
-                    ) {
+                    if (id.includes('/src/foliage/post-processing-webgpu.ts')) {
                         return 'postfx-webgpu';
                     }
                     // Shader warmup (loading-screen phase — not first-paint brain)

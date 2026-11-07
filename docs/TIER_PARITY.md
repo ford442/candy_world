@@ -13,13 +13,13 @@ Wired into `pnpm run test:integration` after `test:wasm`.
 
 ## Source of truth
 
-| Domain                                                                              | Canonical tier                                     | Notes                                                                                              |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Ground height (`getGroundHeight`)                                                   | **AssemblyScript** (`assembly/math.ts`)            | C++ `math.cpp` mirrors the same closed-form hills formula                                          |
-| Particle integration (`updateParticles`)                                            | **AssemblyScript** (`assembly/particles.ts`)       | C++ `physics.cpp::updateParticles` is a _different_ API — not compared                             |
-| Value noise / FBM (`valueNoise2D`, `fbm2D`)                                         | **AssemblyScript** (`assembly/math.ts`)            | C++ uses a **different hash** (`math.cpp`) — AS↔C++ not compared; C++ simd4 wrapper self-test only |
-| Batch foliage (`batchShiver_c`, `batchSpring_c`, `batchFloat_c`, `batchCloudBob_c`) | **C++** (`emscripten/animation_batch_foliage.cpp`) | No AS tier; JS scalar reference mirrors C++ tail loops                                             |
-| Shipped JS fallbacks                                                                | `src/utils/wasm-physics.ts`, `wasm-batch-math.ts`  | Compared to AS to document **production drift**                                                    |
+| Domain                                                                              | Canonical tier                               | Notes                                                                                              |
+| ----------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Ground height (`getGroundHeight`)                                                   | **AssemblyScript** (`assembly/math.ts`)      | C++ `math.cpp` mirrors the same closed-form hills formula                                          |
+| Particle integration (`updateParticles`)                                            | **AssemblyScript** (`assembly/particles.ts`) | C++ `physics.cpp::updateParticles` is a _different_ API — not compared                             |
+| Value noise / FBM (`valueNoise2D`, `fbm2D`)                                         | **AssemblyScript** (`assembly/math.ts`)      | C++ uses a **different hash** (`math.cpp`) — AS↔C++ not compared; C++ simd4 wrapper self-test only |
+| Batch foliage (`batchShiver_c`, `batchSpring_c`, `batchFloat_c`, `batchCloudBob_c`) | **C++** (`emscripten/animation_batch.cpp`)   | No AS tier; JS scalar reference mirrors C++ tail loops                                             |
+| Shipped JS fallbacks                                                                | `src/utils/wasm-physics.ts`                  | Compared to AS to document **production drift**                                                    |
 
 See also: [PERFORMANCE_MIGRATION_STRATEGY.md](archive/PERFORMANCE_MIGRATION_STRATEGY.md) (15% slice / sandwich pattern).
 
@@ -61,19 +61,19 @@ When C++ artifacts are missing, the runner prints `C++ tier unavailable` and ski
 
 Functions with **≥2 implementations** in the migration stack (initial parity slice in **bold**):
 
-| Function                              | JS fallback                             | AssemblyScript                  | C++/Emscripten                         | WebGPU compute      | In harness  |
-| ------------------------------------- | --------------------------------------- | ------------------------------- | -------------------------------------- | ------------------- | ----------- |
-| **`getGroundHeight`**                 | `wasm-physics.ts`                       | `assembly/math.ts`              | `math.cpp`                             | —                   | ✅          |
-| **`valueNoise2D`**                    | `wasm-physics.ts`, `wasm-batch-math.ts` | `assembly/math.ts`              | `math.cpp` (different hash)            | —                   | ✅          |
-| **`fbm2D` / `fbm`**                   | `wasm-physics.ts` (non-normalized)      | `assembly/math.ts` (normalized) | `math.cpp` (different hash)            | —                   | ✅          |
-| **`updateParticles`**                 | `wasm-batch-particles.ts`               | `assembly/particles.ts`         | `particle_physics.cpp` (different API) | —                   | ✅ (JS↔AS)  |
-| **`batchShiver_c`**                   | scalar ref in harness                   | —                               | `animation_batch_foliage.cpp`          | —                   | ✅ (JS↔C++) |
-| **`batchSpring_c`**                   | scalar ref in harness                   | —                               | `animation_batch_foliage.cpp`          | —                   | ✅          |
-| **`batchFloat_c`**                    | scalar ref in harness                   | —                               | `animation_batch_foliage.cpp`          | —                   | ✅          |
-| **`batchCloudBob_c`**                 | scalar ref in harness                   | —                               | `animation_batch_foliage.cpp`          | —                   | ✅          |
-| `fastInvSqrt`, `fastDistance`, `hash` | `wasm-physics.ts`                       | `assembly/math.ts`              | `math.cpp`                             | —                   | ⏳ future   |
-| `batchGroundHeight_simd`              | scalar loop in `wasm-physics.ts`        | `getGroundHeight` per sample    | `math.cpp`                             | —                   | ⏳ future   |
-| Foliage batchers (TSL pose)           | batcher `update()`                      | —                               | via `wasm-loader-cpp.ts`               | GPU compute shaders | ⏳ future   |
+| Function                              | JS fallback                          | AssemblyScript                  | C++/Emscripten                         | WebGPU compute      | In harness  |
+| ------------------------------------- | ------------------------------------ | ------------------------------- | -------------------------------------- | ------------------- | ----------- |
+| **`getGroundHeight`**                 | `wasm-physics.ts`                    | `assembly/math.ts`              | `math.cpp`                             | —                   | ✅          |
+| **`valueNoise2D`**                    | — (JS wrappers had no caller, #2026) | `assembly/math.ts`              | `math.cpp` (different hash)            | —                   | ✅          |
+| **`fbm2D` / `fbm`**                   | — (JS wrappers had no caller, #2026) | `assembly/math.ts` (normalized) | `math.cpp` (different hash)            | —                   | ✅          |
+| **`updateParticles`**                 | — (JS wrapper had no caller, #2026)  | `assembly/particles.ts`         | `particle_physics.cpp` (different API) | —                   | ✅ (JS↔AS)  |
+| **`batchShiver_c`**                   | scalar ref in harness                | —                               | `animation_batch.cpp`                  | —                   | ✅ (JS↔C++) |
+| **`batchSpring_c`**                   | scalar ref in harness                | —                               | `animation_batch.cpp`                  | —                   | ✅          |
+| **`batchFloat_c`**                    | scalar ref in harness                | —                               | `animation_batch.cpp`                  | —                   | ✅          |
+| **`batchCloudBob_c`**                 | scalar ref in harness                | —                               | `animation_batch.cpp`                  | —                   | ✅          |
+| `fastInvSqrt`, `fastDistance`, `hash` | — (JS wrappers had no caller, #2026) | `assembly/math.ts`              | `math.cpp`                             | —                   | ⏳ future   |
+| `batchGroundHeight_simd`              | scalar loop in `wasm-physics.ts`     | `getGroundHeight` per sample    | `math.cpp`                             | —                   | ⏳ future   |
+| Foliage batchers (TSL pose)           | batcher `update()`                   | —                               | via `wasm-loader-cpp.ts`               | GPU compute shaders | ⏳ future   |
 
 Runtime selection: `src/utils/wasm-loader-core.ts` → `wasm-physics.ts` / `wasm-loader-cpp.ts` / `wasm-orchestrator.ts`.
 

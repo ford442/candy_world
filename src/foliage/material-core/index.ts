@@ -1,5 +1,13 @@
 export * from './shared-resources.ts';
-export type { TSLArg, TSLArgOpt } from './tsl-types.ts';
+export type {
+    TSLArg,
+    TSLArgOpt,
+    FloatNode,
+    Vec3Node,
+    ColorLike,
+    MaterialColorNode,
+} from './tsl-types.ts';
+export { $sf, $sn, asNode, asVec3, colorOf } from './tsl-types.ts';
 export * from './tsl-nodes.ts';
 export * from './deformation.ts';
 export * from './quality-gate.ts';

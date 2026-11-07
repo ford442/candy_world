@@ -8,7 +8,7 @@ import {
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 import { registerReactiveMaterial, attachReactivity } from './foliage-reactivity.ts';
 import { spawnImpact } from './impacts.ts';
-import { $sn } from './material-core/tsl-types.ts';
+import { $sf, $sn, asVec3, colorOf } from './material-core/tsl-types.ts';
 import {
     createUnifiedMaterial,
     sharedGeometries,
@@ -82,7 +82,7 @@ export function createPanningPad(options: PanningPadOptions = {}): THREE.Group {
     const padMat = createUnifiedMaterial(0xCCCCCC, padMatOpts);
 
     // 🎨 PALETTE: Add Juicy Rim Light to the pad's edge
-    const rimLight = createJuicyRimLight(color(baseColor), float(1.5), float(3.0), null);
+    const rimLight = createJuicyRimLight(colorOf(baseColor), float(1.5), float(3.0), null);
     padMat.emissiveNode = padMat.emissiveNode ? $sn(padMat.emissiveNode).add(rimLight) : rimLight;
 
     registerReactiveMaterial(padMat);
@@ -124,7 +124,7 @@ export function createPanningPad(options: PanningPadOptions = {}): THREE.Group {
     // Music Impact: arpeggio grove shimmer/noteColor drives pad glow intensity
     const groveUniforms = getBiomeUniforms('arpeggio_grove');
     const musicGlow = $sn(glowMat.opacityNode).mul(groveUniforms.noteColor).mul(groveUniforms.shimmer).mul(0.5);
-    glowMat.emissiveNode = color(glowColor).mul(glowMat.opacityNode).add(musicGlow);
+    glowMat.emissiveNode = asVec3(colorOf(glowColor)).mul($sf(glowMat.opacityNode)).add(musicGlow);
 
     const glowDisc = new THREE.Mesh(sharedGeometries.quad, glowMat);
     glowDisc.rotation.x = -Math.PI / 2;

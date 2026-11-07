@@ -19,13 +19,16 @@
 # 3. EMSCRIPTEN FALLBACK: If Emscripten is not installed, the script exits
 #    gracefully and removes stale WASM artifacts. The application will use
 #    pure JavaScript fallbacks defined in src/utils/wasm-loader.js.
+#    With em++ present, a failed MT or ST compile removes both artifacts and
+#    exits 1, so `npm run build` cannot ship a missing or stale module green.
 #
 # 4. POST-BUILD VERIFICATION: After successful compilation, runs a Node.js
 #    script to verify which functions were actually exported.
 #
 # Environment Variables:
-#   CANDY_DEBUG=1  - Enable assertions for debugging (default: 0)
-#   SKIP_VERIFY=1  - Skip post-build verification step (default: 0)
+#   CANDY_DEBUG=1        - Enable assertions for debugging (default: 0)
+#   SKIP_VERIFY=1        - Skip post-build verification step (default: 0)
+#   CANDY_STRICT_EMSDK=1 - Fail if em++ differs from .emsdk-version (default: 0, warn)
 #
 # =============================================================================
 
@@ -42,6 +45,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Debug mode (enables assertions)
 CANDY_DEBUG="${CANDY_DEBUG:-0}"
 SKIP_VERIFY="${SKIP_VERIFY:-0}"
+# set -u: every env knob needs a default, or reading it aborts the script.
+CANDY_STRICT_EMSDK="${CANDY_STRICT_EMSDK:-0}"
 
 # Build summary variables
 BUILD_START_TIME=$(date +%s)
@@ -115,6 +120,7 @@ if [ -n "$PINNED_EMSDK" ] && [ "$PINNED_EMSDK" != "$ACTUAL_EMSDK" ]; then
     echo "[WARN] em++ is $ACTUAL_EMSDK but .emsdk-version pins $PINNED_EMSDK"
     echo "       Install the pinned SDK: ./emsdk install $PINNED_EMSDK && ./emsdk activate $PINNED_EMSDK"
     if [ "$CANDY_STRICT_EMSDK" = "1" ]; then
+        echo "[ERROR] CANDY_STRICT_EMSDK=1: refusing to build with an unpinned emsdk"
         exit 1
     fi
 fi
@@ -133,26 +139,8 @@ echo "[INFO] Scanning source files for implemented functions..."
 # All C++ source files (used for function scanning)
 CPP_FILES="$SCRIPT_DIR"/*.cpp
 
-# Compilation units: exclude sub-files that are #included by animation_batch.cpp.
-# Compiling them both as part of the wrapper AND as standalone files causes
-# duplicate symbol errors from the linker.
-ANIM_BATCH_SUBFILES=(
-    "animation_batch_effects.cpp"
-    "animation_batch_foliage.cpp"
-    "animation_batch_melodic.cpp"
-    "animation_batch_percussion.cpp"
-    "animation_batch_simd.cpp"
-)
-COMPILE_UNITS=()
-for _f in "$SCRIPT_DIR"/*.cpp; do
-    _base="$(basename "$_f")"
-    _skip=0
-    for _sub in "${ANIM_BATCH_SUBFILES[@]}"; do
-        if [ "$_base" = "$_sub" ]; then _skip=1; break; fi
-    done
-    [ $_skip -eq 0 ] && COMPILE_UNITS+=("$_f")
-done
-unset _f _base _skip _sub
+# Compilation units: every emscripten/*.cpp (none #includes another).
+COMPILE_UNITS=("$SCRIPT_DIR"/*.cpp)
 
 # Function to check if a function is implemented in source
 # This verifies the function has EMSCRIPTEN_KEEPALIVE and a proper function signature
@@ -183,33 +171,18 @@ done
 
 # Define all animation function exports and check each one
 # Format: "c_function_name" (without underscore prefix)
-# List only functions src/ calls, by name or through getNativeFunc. #1822 removed
-# the *_simd twins, the SIMD/LOD cull kernels, and the unused colour/arpeggio
-# C++ twins. They stay in the source as internal helpers without
-# EMSCRIPTEN_KEEPALIVE, so the linker can drop any that nothing reaches.
+# This is the whole C++ ABI: every name here has a caller in src/ or tests/
+# (scripts/check-native-exports.mjs), and every EMSCRIPTEN_KEEPALIVE function
+# in emscripten/*.cpp must be listed (EXPORT_KEEPALIVE=1 exports it either way;
+# verify:emcc:manifest enforces both). #2026 deleted the 93 exports nothing
+# called: the animation.cpp scalars, mesh_deformation.cpp, the percussion /
+# melodic / effects / *_simd batches, the noise and fast-math twins, and the
+# legacy physics particles.
 declare -A ANIMATION_FUNCTIONS=(
-    # Math functions (math.cpp)
-    ["hash"]="math"
-    ["valueNoise2D"]="math"
-    ["fbm"]="math"
-    ["fastInvSqrt"]="math"
+    # Math (math.cpp): getGroundHeight is the parity reference (tests/parity.mjs)
     ["getGroundHeight"]="math"
-    
-    # SIMD-optimized math functions (math.cpp)
-    ["valueNoise2D_simd4"]="math"
-    ["fbm2D_simd4"]="math"
     ["batchGroundHeight_simd"]="math"
-    
-    # OpenMP-parallelized batch functions (math.cpp)
-    ["batchValueNoise_omp"]="math"
-    ["batchFbm_omp"]="math"
-    ["batchDistSq3D_omp"]="math"
-    
-    # Fast approximation functions (math.cpp)
-    ["fastSin"]="math"
-    ["fastCos"]="math"
-    ["fastPow2"]="math"
-    
+
     # Unified ground height (ground.cpp)
     ["clearGroundPlatforms"]="ground"
     ["addGroundPlatform"]="ground"
@@ -222,16 +195,11 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchGeyserLaunch_c"]="foliage_interact"
     ["batchPadForces_c"]="foliage_interact"
     ["batchVineInteraction_c"]="foliage_interact"
-    
-    # Physics functions (physics.cpp)
-    ["initPhysicsMemory"]="physics"
-    ["fastDistance"]="physics"
-    ["smoothDamp"]="physics"
-    ["updateParticles"]="physics"
-    ["checkCollision"]="physics"
+    ["calcVineDetachImpulse_c"]="foliage_interact"
+
+    # Player physics assist ABI (physics.cpp, tests/character-controller-native)
     ["initPhysics"]="physics"
     ["addCollisionObject"]="physics"
-    ["addCollisionObjectsBatch"]="physics"
     ["setPlayerState"]="physics"
     ["getPlayerX"]="physics"
     ["getPlayerY"]="physics"
@@ -240,143 +208,52 @@ declare -A ANIMATION_FUNCTIONS=(
     ["getPlayerVY"]="physics"
     ["getPlayerVZ"]="physics"
     ["updatePhysicsCPP"]="physics"
-    
-    # Agent 4: Frustum/distance culling functions
-    ["batchFrustumCull_c"]="physics"
-    ["batchDistanceCullIndexed_c"]="physics"
-    
-    # Batch physics functions (physics.cpp)
-    ["batchCollisionCheck_c"]="physics"
-    ["batchRaycast_c"]="physics"
-    
-    # Batch functions (batch.cpp)
-    ["batchDistances"]="batch"
+
+    # Distance culling (batch.cpp)
     ["batchDistanceCull_c"]="batch"
-    ["batchSinWave"]="batch"
-    ["batchCalcFiberWhip"]="batch"
-    ["batchCalcSpiralWave"]="batch"
-    ["batchCalcWobble"]="batch"
-    
-    # Agent 3: LOD batch update functions (lod_batch.cpp)
-    ["batchUpdateLODMatrices_c"]="lod_batch"
+
+    # LOD factors and matrix composition (lod_batch.cpp)
     ["batchUpdateLodFactors_c"]="lod_batch"
-    ["batchScaleMatrices_c"]="lod_batch"
-    ["batchTranslateMatrices_c"]="lod_batch"
-    ["batchFadeColors_c"]="lod_batch"
     ["batchComposeMatrices_c"]="lod_batch"
 
-    # #1358: instanced batcher pose → matrix/color (batcher_instance.cpp)
+    # #1358: instanced batcher pose -> matrix/color (batcher_instance.cpp)
     ["batchWriteInstancePose_c"]="batcher_instance"
-    
-    # New batch animation functions (animation_batch.cpp)
-    ["batchSnareSnap_c"]="animation_batch"
-    ["batchAccordion_c"]="animation_batch"
-    ["batchFiberWhip_c"]="animation_batch"
-    ["batchSpiralWave_c"]="animation_batch"
-    ["batchVibratoShake_c"]="animation_batch"
-    ["batchTremoloPulse_c"]="animation_batch"
-    ["batchCymbalShake_c"]="animation_batch"
-    ["batchPanningBob_c"]="animation_batch"
-    ["batchSpiritFade_c"]="animation_batch"
-    ["processBatchUniversal_c"]="animation_batch"
-    
-    # Agent 1: Simple animation types migrated from TS
+
+    # Foliage batch animations for the ECS bridge (animation_batch.cpp)
     ["batchShiver_c"]="animation_batch"
     ["batchSpring_c"]="animation_batch"
     ["batchFloat_c"]="animation_batch"
     ["batchCloudBob_c"]="animation_batch"
-    
-    # Agent 1: SIMD-optimized animation batch functions
-    ["batchGeyserErupt_c"]="animation_batch"
-    
-    # Mesh deformation functions (mesh_deformation.cpp)
-    ["deformMeshWave"]="mesh_deformation"
-    ["deformMeshJiggle"]="mesh_deformation"
-    ["deformMeshWobble"]="mesh_deformation"
-    ["recomputeNormals"]="mesh_deformation"
-    ["batchDeformMeshes"]="mesh_deformation"
-    ["getDeformBatchSize"]="mesh_deformation"
-    ["hasSIMDSupport"]="mesh_deformation"
-    
-    # Agent 2: SIMD-optimized batch deformation functions
-    ["deformWave_c"]="mesh_deformation"
-    ["deformJiggle_c"]="mesh_deformation"
-    ["deformWobble_c"]="mesh_deformation"
-    
-    # Bootstrap functions (bootstrap_loader.cpp)
-    ["startBootstrapInit"]="bootstrap"
-    ["getBootstrapProgress"]="bootstrap"
-    ["isBootstrapComplete"]="bootstrap"
-    ["getBootstrapHeight"]="bootstrap"
-    ["resetBootstrap"]="bootstrap"
-    ["startShaderWarmup"]="bootstrap"
-    ["getShaderWarmupProgress"]="bootstrap"
-    
-    # Animation functions (animation.cpp)
+
+    # Arpeggio state machine (animation.cpp)
     ["calcArpeggioStep_c"]="animation"
     ["getArpeggioTargetStep_c"]="animation"
     ["getArpeggioUnfurlStep_c"]="animation"
-    ["calcFiberWhip"]="animation"
-    ["getFiberBaseRotY"]="animation"
-    ["getFiberBranchRotZ"]="animation"
-    ["calcHopY"]="animation"
-    ["calcShiver"]="animation"
-    ["getShiverRotX"]="animation"
-    ["getShiverRotZ"]="animation"
-    ["calcSpiralWave"]="animation"
-    ["getSpiralRotY"]="animation"
-    ["getSpiralYOffset"]="animation"
-    ["getSpiralScale"]="animation"
-    ["calcPrismRose"]="animation"
-    ["getPrismUnfurl"]="animation"
-    ["getPrismSpin"]="animation"
-    ["getPrismPulse"]="animation"
-    ["getPrismHue"]="animation"
-    ["calcFloatingParticle"]="animation"
-    ["getParticleX"]="animation"
-    ["getParticleY"]="animation"
-    ["getParticleZ"]="animation"
-    ["calcSpeakerPulse"]="animation"
-    ["getSpeakerScale"]="animation"
-    ["calcBounceY"]="animation"
-    ["calcSwayRotZ"]="animation"
-    ["calcWobble"]="animation"
-    ["getWobbleX"]="animation"
-    ["getWobbleZ"]="animation"
-    ["calcAccordionStretch"]="animation"
-    ["getAccordionStretchY"]="animation"
-    ["getAccordionWidthXZ"]="animation"
-    ["calcRainDropY"]="animation"
-    ["calcFloatingY"]="animation"
 
-    # Fluid functions (fluid.cpp)
+    # Fluid (fluid.cpp)
     ["fluidInit"]="fluid"
     ["fluidStep"]="fluid"
     ["fluidAddDensity"]="fluid"
     ["fluidAddVelocity"]="fluid"
     ["fluidGetDensityPtr"]="fluid"
-    
-    # Particle physics functions (particle_physics.cpp)
-    ["updateParticlesWASM"]="particle_physics"
-    ["updateCpuParticlesWASM"]="particle_physics"
-    ["getParticlePhysicsVersion"]="particle_physics"
-    ["initParticleRandom"]="particle_physics"
 
-    # Discovery spatial-grid functions (discovery.cpp)
+    # CPU particle fallback (particle_physics.cpp)
+    ["updateCpuParticlesWASM"]="particle_physics"
+
+    # Discovery spatial grid (discovery.cpp)
     ["initDiscoveryGrid"]="discovery"
     ["registerDiscoverable"]="discovery"
     ["queryDiscoveries"]="discovery"
     ["clearDiscoveryGrid"]="discovery"
 
-    # ECS entity-component system (ecs.cpp)
-    ["ecsInit"]="ecs"
-
     # Boids (boids.cpp)
     ["updateBoids_c"]="boids"
+
+    # ECS slabs (ecs.cpp, src/systems/ecs/world.ts)
+    ["ecsInit"]="ecs"
     ["ecsCreateEntity"]="ecs"
     ["ecsDestroyEntity"]="ecs"
     ["ecsIsAlive"]="ecs"
-    ["ecsGetEntityCount"]="ecs"
     ["ecsRegisterComponent"]="ecs"
     ["ecsGetComponent"]="ecs"
     ["ecsSetComponent"]="ecs"
@@ -384,7 +261,8 @@ declare -A ANIMATION_FUNCTIONS=(
     ["ecsRemoveComponent"]="ecs"
     ["ecsHasComponent"]="ecs"
     ["ecsQueryComponents"]="ecs"
-    ["ecsGetComponentMask"]="ecs"
+    ["ecsQueryComponentPointers"]="ecs"
+    ["ecsGetComponentStride"]="ecs"
 )
 
 # Check each function and add to export list if it exists
@@ -431,8 +309,9 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 #   link steps of the MT and ST artifacts. AGENTS.md documents the same level;
 #   change them together, and only after a measured -O3 pass keeps
 #   exports.txt + `npm run verify:emcc:manifest` green.
-# - msimd128: Enable SIMD for vectorized math operations
-# - mrelaxed-simd: Allow relaxed SIMD operations for better performance
+# - msimd128: Enable SIMD for vectorized math operations. No -mrelaxed-simd:
+#   no source uses a relaxed intrinsic, and the ST build is the fallback for
+#   browsers without cross-origin isolation (Safari), where it only adds risk
 # - fno-rtti: Disable RTTI to reduce code size
 # - pthread: Enable threading support for parallel operations
 # - fopenmp: Enable OpenMP for parallel batch operations
@@ -448,7 +327,7 @@ echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 # numeric agreement to |Δ| <= 1e-5, which -ffast-math's reassociation can
 # violate in a compiler-version-dependent way.
 PTHREAD_POOL_SIZE=4
-COMPILE_FLAGS="-O2 -flto -fno-exceptions -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops -fopenmp -pthread -matomics -DCANDY_PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -I."
+COMPILE_FLAGS="-O2 -flto -fno-exceptions -msimd128 -fno-rtti -funroll-loops -fopenmp -pthread -matomics -DCANDY_PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -I."
 
 # Runtime methods JS needs on Module. HEAP8/HEAPU8/HEAP32/HEAPF32 must be listed
 # or Module.HEAPF32 is undefined (and every `em.HEAPF32.set(...)` throws);
@@ -459,7 +338,11 @@ RUNTIME_METHODS='["ccall","cwrap","wasmMemory","HEAP8","HEAPU8","HEAP32","HEAPF3
 # - pthread: Enable pthread support (requires SharedArrayBuffer); replaces the
 #   deprecated -s USE_PTHREADS=1. emsdk >= 3.1.58 emits no .worker.js file.
 # - PTHREAD_POOL_SIZE: Pre-spawn worker threads (also the OpenMP team size)
-# - STACK_SIZE: replaces the deprecated TOTAL_STACK
+# - STACK_SIZE: replaces the deprecated TOTAL_STACK. 1MB: every large buffer in
+#   emscripten/*.cpp is static data or heap (std::vector) and nothing recurses.
+#   16MB took a quarter of the 64MB initial heap, and pthreads created with
+#   default attributes inherit it (DEFAULT_PTHREAD_STACK_SIZE follows STACK_SIZE).
+# - no WASM_BIGINT=0: no export takes or returns i64, and BigInt is the default
 # - no -lembind: nothing uses EMSCRIPTEN_BINDINGS
 # - ALLOW_MEMORY_GROWTH=1: Allow dynamic memory allocation
 # - MODULARIZE=1: Generate ES6 module for clean importing
@@ -489,11 +372,11 @@ else
     echo "[INFO] Assertions DISABLED for production"
 fi
 
-LINK_FLAGS="-O2 -flto -std=c++17 -s PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+LINK_FLAGS="-O2 -flto -std=c++17 -s PTHREAD_POOL_SIZE=$PTHREAD_POOL_SIZE -s WASM=1 \
+-s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=1MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=$RUNTIME_METHODS -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web,worker -s SHARED_MEMORY=1 \
--matomics -fopenmp -msimd128 -mrelaxed-simd -pthread -L$SCRIPT_DIR/vendor -lomp"
+-matomics -fopenmp -msimd128 -pthread -L$SCRIPT_DIR/vendor -lomp"
 
 # ---------------------------------------------------------
 # STEP 5: Compile and Link
@@ -503,8 +386,11 @@ echo ""
 echo "[INFO] Compiling C++ to WebAssembly..."
 echo "[INFO] Output: $OUTPUT_JS"
 
-# Clean old files
-rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "penmp" "penmp.wasm" 2>/dev/null || true
+OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
+OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
+
+# Clean old files (both tiers: a stale ST must not outlive a failed build)
+rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "$OUTPUT_JS_ST" "$OUTPUT_WASM_ST" "penmp" "penmp.wasm" 2>/dev/null || true
 
 # Compile with error handling
 BUILD_SUCCESS=0
@@ -565,16 +451,13 @@ else
     echo "=========================================="
     echo "[ERROR] Build failed!"
     echo "=========================================="
-    echo "The WASM module could not be compiled."
-    echo "The application will use JavaScript fallbacks."
+    echo "The WASM module could not be compiled (see the em++ output above)."
     echo ""
-    
-    # Clean up partial artifacts
+
+    # Clean up partial artifacts. em++ is installed, so this is a real
+    # compile/link error: fail, rather than let a release ship JS-only.
     rm -f "$OUTPUT_JS" "$OUTPUT_WASM" 2>/dev/null || true
-    
-    # Don't fail the overall build - JS fallbacks will work
-    # But we won't try to build the ST version if the compiler failed completely
-    exit 0
+    exit 1
 fi
 
 # ---------------------------------------------------------
@@ -583,36 +466,42 @@ fi
 echo ""
 echo "[INFO] Compiling C++ to Single-Threaded WebAssembly (Fallback)..."
 
-OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
-OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
-
 # Compiler flags for ST (remove pthread, atomics, etc)
 # NOTE: -ffast-math intentionally omitted; see COMPILE_FLAGS comment above.
-COMPILE_FLAGS_ST="-O2 -flto -fno-exceptions -msimd128 -mrelaxed-simd -fno-rtti -funroll-loops"
+COMPILE_FLAGS_ST="-O2 -flto -fno-exceptions -msimd128 -fno-rtti -funroll-loops"
 
 # Linker flags for ST (remove pthread, shared memory)
-LINK_FLAGS_ST="-O2 -flto -std=c++17 -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+LINK_FLAGS_ST="-O2 -flto -std=c++17 -s WASM=1 \
+-s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s STACK_SIZE=1MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=$RUNTIME_METHODS -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web \
--msimd128 -mrelaxed-simd"
+-msimd128"
 
 # noglob: EXPORTED_RUNTIME_METHODS=[...] above looks like a glob character
 # class to bash when expanded unquoted below; disable pathname expansion for
 # this invocation so a coincidentally-matching filename can't rewrite it.
+ST_SUCCESS=0
 set -f
 if em++ "${COMPILE_UNITS[@]}" \
   $COMPILE_FLAGS_ST \
   $LINK_FLAGS_ST \
   -s EXPORTED_FUNCTIONS=@"$EXPORTS_FILE" -s EXPORT_KEEPALIVE=1 --closure 0  \
   -o "$OUTPUT_JS_ST" 2>&1; then
+    ST_SUCCESS=1
+fi
+set +f
+
+if [ $ST_SUCCESS -eq 1 ] && [ -f "$OUTPUT_WASM_ST" ]; then
     echo "[OK] Single-threaded build successful!"
     echo "  - public/candy_native_st.js"
     echo "  - public/candy_native_st.wasm"
 else
-    echo "[WARN] Single-threaded build failed!"
+    # Without cross-origin isolation (production today) the ST build is the
+    # only native tier that can load, so a missing one is a release blocker.
+    echo "[ERROR] Single-threaded build failed!"
+    rm -f "$OUTPUT_JS_ST" "$OUTPUT_WASM_ST" 2>/dev/null || true
+    exit 1
 fi
-set +f
 
 # ---------------------------------------------------------
 # Build Summary

@@ -19,7 +19,7 @@ globalThis.ProgressEvent ??= class ProgressEvent {
 
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
     MAX_HERO_RIGS,
     disposeHeroAnimations,

@@ -22,7 +22,11 @@ import {
     rotate,
     varyingProperty,
 } from 'three/tsl';
-import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
+import {
+    MeshStandardNodeMaterial,
+    StorageInstancedBufferAttribute,
+    type UniformNode,
+} from 'three/webgpu';
 import { getCelestialState } from '../core/cycle.ts';
 import { burstCandyDebris } from '../foliage/candy-debris-batcher.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
@@ -130,7 +134,7 @@ class ProjectilePool {
 
     // TSL Compute Shader Nodes
     computeNode: any;
-    uDeltaTime: any;
+    uDeltaTime!: UniformNode<'float', number>;
 
     // Buffers for CPU <-> GPU sync
     stateArray: Float32Array;
@@ -192,7 +196,8 @@ class ProjectilePool {
         // Apply spinning rotation ("Juice")
         const spinAxis = normalize(vec3(1.0, 0.0, 1.0));
         const spunTime = uTime ? uTime.mul(float(5.0)) : float(0.0);
-        const spunPosition = rotate(positionLocal, spunTime);
+        // One angle on all three axes (three's rotate() swizzled a float rotation).
+        const spunPosition = rotate(positionLocal, vec3(spunTime));
 
         // Apply Total Deformation based on compute shader scale and position
         mat.positionNode = spunPosition

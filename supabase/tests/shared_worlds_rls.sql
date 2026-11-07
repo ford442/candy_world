@@ -4,7 +4,8 @@
 --
 -- Cast: alice (permanent account, owns worlds), bob (anonymous, joins as an
 -- editor through an invite), carol (anonymous stranger), dave (anonymous,
--- viewer of alice's private world), and the `anon` role (no session).
+-- viewer of alice's private world), the `anon` role (no session), and
+-- service_role (the validate-world edge function, the only document writer).
 
 \set ON_ERROR_STOP 1
 \set QUIET 1
@@ -87,33 +88,44 @@ insert into auth.users (id, is_anonymous) values
 -- Worlds: W1 unlisted (alice), W2 public (alice), W4 private (alice).
 --         W3 unlisted (carol).
 
-do $$ begin raise notice '== worlds: owners publish =='; end $$;
+do $$ begin raise notice '== worlds: clients cannot write documents =='; end $$;
 select pg_temp.login('a11ce000-0000-4000-8000-000000000001', false);
 set role authenticated;
-
-select pg_temp.affects($$
+select pg_temp.fails($$
     insert into public.worlds (id, title, seed, map_version, doc, visibility)
     values ('00000000-0000-4000-8000-0000000000a1', 'Grove', 12345, '1.0',
             pg_temp.doc('00000000-0000-4000-8000-0000000000a1', 12345), 'unlisted')
-$$, 1, 'alice publishes an unlisted world');
+$$, 'a client cannot insert a world (validate-world publishes)');
+reset role;
+
+do $$ begin raise notice '== worlds: validate-world publishes (service_role) =='; end $$;
+select set_config('request.jwt.claims', '', false);
+set role service_role;
 
 select pg_temp.affects($$
-    insert into public.worlds (id, title, seed, map_version, doc, visibility)
-    values ('00000000-0000-4000-8000-0000000000a2', 'Gallery', 7, '1.0',
-            pg_temp.doc('00000000-0000-4000-8000-0000000000a2', 7), 'public')
-$$, 1, 'a permanent account publishes a public world');
+    insert into public.worlds (id, owner, title, seed, map_version, doc, visibility)
+    values ('00000000-0000-4000-8000-0000000000a1', 'a11ce000-0000-4000-8000-000000000001',
+            'Grove', 12345, '1.0', pg_temp.doc('00000000-0000-4000-8000-0000000000a1', 12345),
+            'unlisted')
+$$, 1, 'alice''s unlisted world is published');
 
 select pg_temp.affects($$
-    insert into public.worlds (id, title, seed, map_version, doc, visibility)
-    values ('00000000-0000-4000-8000-0000000000a4', 'Secret', 99, '1.0',
-            pg_temp.doc('00000000-0000-4000-8000-0000000000a4', 99), 'private')
-$$, 1, 'alice publishes a private world');
+    insert into public.worlds (id, owner, title, seed, map_version, doc, visibility)
+    values ('00000000-0000-4000-8000-0000000000a2', 'a11ce000-0000-4000-8000-000000000001',
+            'Gallery', 7, '1.0', pg_temp.doc('00000000-0000-4000-8000-0000000000a2', 7), 'public')
+$$, 1, 'alice''s public world is published');
 
-select pg_temp.check(
-    (select owner from public.worlds where id = '00000000-0000-4000-8000-0000000000a1')
-        = 'a11ce000-0000-4000-8000-000000000001',
-    'owner defaults to the caller'
-);
+select pg_temp.affects($$
+    insert into public.worlds (id, owner, title, seed, map_version, doc, visibility)
+    values ('00000000-0000-4000-8000-0000000000a4', 'a11ce000-0000-4000-8000-000000000001',
+            'Secret', 99, '1.0', pg_temp.doc('00000000-0000-4000-8000-0000000000a4', 99), 'private')
+$$, 1, 'alice''s private world is published');
+
+select pg_temp.affects($$
+    insert into public.worlds (id, owner, title, seed, map_version, doc, visibility)
+    values ('00000000-0000-4000-8000-0000000000a3', 'ca401000-0000-4000-8000-000000000003',
+            'Carol''s', 5, '1.0', pg_temp.doc('00000000-0000-4000-8000-0000000000a3', 5), 'unlisted')
+$$, 1, 'carol''s (anonymous) unlisted world is published');
 
 select pg_temp.check(
     (select command_count from public.worlds where id = '00000000-0000-4000-8000-0000000000a1') = 0
@@ -123,36 +135,46 @@ select pg_temp.check(
 );
 
 select pg_temp.fails($$
-    insert into public.worlds (id, title, seed, map_version, doc)
-    values ('00000000-0000-4000-8000-0000000000b1', 'Bad', 1, '1.0',
-            pg_temp.doc('00000000-0000-4000-8000-0000000000b2', 1))
+    insert into public.worlds (id, owner, title, seed, map_version, doc)
+    values ('00000000-0000-4000-8000-0000000000b1', 'a11ce000-0000-4000-8000-000000000001',
+            'Bad', 1, '1.0', pg_temp.doc('00000000-0000-4000-8000-0000000000b2', 1))
 $$, 'document id must match the world id');
 
 select pg_temp.fails($$
-    insert into public.worlds (id, title, seed, map_version, doc)
-    values ('00000000-0000-4000-8000-0000000000b1', 'Bad', 2, '1.0',
-            pg_temp.doc('00000000-0000-4000-8000-0000000000b1', 1))
+    insert into public.worlds (id, owner, title, seed, map_version, doc)
+    values ('00000000-0000-4000-8000-0000000000b1', 'a11ce000-0000-4000-8000-000000000001',
+            'Bad', 2, '1.0', pg_temp.doc('00000000-0000-4000-8000-0000000000b1', 1))
 $$, 'document seed must match the world seed');
 
 select pg_temp.fails($$
-    insert into public.worlds (id, title, seed, map_version, doc)
-    values ('00000000-0000-4000-8000-0000000000b1', 'Bad', 1, '1.0',
+    insert into public.worlds (id, owner, title, seed, map_version, doc)
+    values ('00000000-0000-4000-8000-0000000000b1', 'a11ce000-0000-4000-8000-000000000001',
+            'Bad', 1, '1.0',
             pg_temp.doc('00000000-0000-4000-8000-0000000000b1', 1) || '{"schema": 2}')
 $$, 'only schema 1 documents are stored');
 
 select pg_temp.fails($$
-    insert into public.worlds (id, title, seed, map_version, doc)
-    values ('00000000-0000-4000-8000-0000000000b1', 'Bad', 1, '1.0',
+    insert into public.worlds (id, owner, title, seed, map_version, doc)
+    values ('00000000-0000-4000-8000-0000000000b1', 'a11ce000-0000-4000-8000-000000000001',
+            'Bad', 1, '1.0',
             jsonb_set(pg_temp.doc('00000000-0000-4000-8000-0000000000b1', 1), '{commands}',
                       (select jsonb_agg('{}'::jsonb) from generate_series(1, 20001))))
 $$, 'more than 20000 commands is refused');
 
+select pg_temp.affects($$
+    update public.worlds
+    set doc = jsonb_set(doc, '{meta,updatedAt}', '5'), rev = 3,
+        entity_clock = '{"e1": [3, "peer-b"]}', title = 'Grove'
+    where id = '00000000-0000-4000-8000-0000000000a1'
+$$, 1, 'validate-world writes the document and its clock');
 select pg_temp.fails($$
-    insert into public.worlds (id, owner, title, seed, map_version, doc)
-    values ('00000000-0000-4000-8000-0000000000b1', 'ca401000-0000-4000-8000-000000000003',
-            'Forged', 1, '1.0', pg_temp.doc('00000000-0000-4000-8000-0000000000b1', 1))
-$$, 'nobody publishes in someone else''s name');
-
+    update public.worlds set entity_clock = '[1]'
+    where id = '00000000-0000-4000-8000-0000000000a1'
+$$, 'the clock must be an object, whoever writes it');
+select pg_temp.fails($$
+    update public.worlds set owner = 'ca401000-0000-4000-8000-000000000003'
+    where id = '00000000-0000-4000-8000-0000000000a1'
+$$, 'ownership never moves, whoever writes it');
 reset role;
 
 do $$ begin raise notice '== worlds: anonymous accounts =='; end $$;
@@ -160,21 +182,14 @@ select pg_temp.login('ca401000-0000-4000-8000-000000000003', true);
 set role authenticated;
 
 select pg_temp.fails($$
-    insert into public.worlds (id, title, seed, map_version, doc, visibility)
-    values ('00000000-0000-4000-8000-0000000000c9', 'Spam', 5, '1.0',
-            pg_temp.doc('00000000-0000-4000-8000-0000000000c9', 5), 'public')
-$$, 'an anonymous account cannot publish a public world');
-
-select pg_temp.affects($$
-    insert into public.worlds (id, title, seed, map_version, doc, visibility)
-    values ('00000000-0000-4000-8000-0000000000a3', 'Carol''s', 5, '1.0',
-            pg_temp.doc('00000000-0000-4000-8000-0000000000a3', 5), 'unlisted')
-$$, 1, 'an anonymous account publishes an unlisted world');
-
-select pg_temp.fails($$
     update public.worlds set visibility = 'public'
     where id = '00000000-0000-4000-8000-0000000000a3'
 $$, 'an anonymous owner cannot make a world public');
+
+select pg_temp.affects($$
+    update public.worlds set title = 'Carol''s grove'
+    where id = '00000000-0000-4000-8000-0000000000a3'
+$$, 1, 'an anonymous owner renames their world');
 
 select pg_temp.check(
     (select array_agg(id order by id) from public.worlds)
@@ -195,28 +210,32 @@ select pg_temp.check(
 );
 select set_config('request.headers', '', false);
 
-select pg_temp.affects($$
+select pg_temp.fails($$
     update public.worlds set doc = doc || '{"meta": {"createdAt": 1, "updatedAt": 2}}'
     where id = '00000000-0000-4000-8000-0000000000a1'
-$$, 0, 'a stranger cannot edit someone else''s world');
+$$, 'a stranger cannot edit someone else''s world');
+
+select pg_temp.affects($$
+    update public.worlds set title = 'Mine'
+    where id = '00000000-0000-4000-8000-0000000000a2'
+$$, 0, 'a stranger cannot rename a public world');
 
 select pg_temp.affects($$
     delete from public.worlds where id = '00000000-0000-4000-8000-0000000000a2'
 $$, 0, 'a stranger cannot delete a public world');
+reset role;
 
+-- carol remixes the public world (validate-world names a public source only).
+set role service_role;
 select pg_temp.affects($$
-    insert into public.worlds (id, title, seed, map_version, doc, remix_of)
-    values ('00000000-0000-4000-8000-0000000000c1', 'Remix', 7, '1.0',
-            pg_temp.doc('00000000-0000-4000-8000-0000000000c1', 7),
+    insert into public.worlds (id, owner, title, seed, map_version, doc, remix_of)
+    values ('00000000-0000-4000-8000-0000000000c1', 'ca401000-0000-4000-8000-000000000003',
+            'Remix', 7, '1.0', pg_temp.doc('00000000-0000-4000-8000-0000000000c1', 7),
             '00000000-0000-4000-8000-0000000000a2')
-$$, 1, 'anyone can remix a public world');
-
-select pg_temp.fails($$
-    insert into public.worlds (id, title, seed, map_version, doc, remix_of)
-    values ('00000000-0000-4000-8000-0000000000c2', 'Remix', 99, '1.0',
-            pg_temp.doc('00000000-0000-4000-8000-0000000000c2', 99),
-            '00000000-0000-4000-8000-0000000000a4')
-$$, 'nobody remixes a private world they cannot read');
+$$, 1, 'a remix of a public world points back at it');
+reset role;
+select pg_temp.login('ca401000-0000-4000-8000-000000000003', true);
+set role authenticated;
 
 select pg_temp.affects($$
     select * from public.world_invites
@@ -294,17 +313,21 @@ select pg_temp.check(
     exists (select 1 from public.worlds where id = '00000000-0000-4000-8000-0000000000a1'),
     'an editor sees the unlisted world without naming it'
 );
-select pg_temp.affects($$
+select pg_temp.fails($$
     update public.worlds
-    set doc = jsonb_set(doc, '{meta,updatedAt}', '5'), rev = 3, entity_clock = '{"e1": [3, "peer-b"]}'
+    set doc = jsonb_set(doc, '{meta,updatedAt}', '6'), rev = 4
     where id = '00000000-0000-4000-8000-0000000000a1'
-$$, 1, 'an editor updates the document and its clock');
+$$, 'an editor writes the document only through validate-world');
 select pg_temp.fails($$
+    update public.worlds set entity_clock = '{"e1": [999999999, "peer-b"]}'
+    where id = '00000000-0000-4000-8000-0000000000a1'
+$$, '...and cannot forge the clock directly');
+select pg_temp.affects($$
     update public.worlds set title = 'Mine now' where id = '00000000-0000-4000-8000-0000000000a1'
-$$, 'an editor cannot rename the world');
-select pg_temp.fails($$
+$$, 0, 'an editor cannot rename the world');
+select pg_temp.affects($$
     update public.worlds set visibility = 'private' where id = '00000000-0000-4000-8000-0000000000a1'
-$$, 'an editor cannot change visibility');
+$$, 0, 'an editor cannot change visibility');
 select pg_temp.fails($$
     update public.worlds set owner = 'b0b00000-0000-4000-8000-000000000002'
     where id = '00000000-0000-4000-8000-0000000000a1'
@@ -329,9 +352,9 @@ select pg_temp.check(
     exists (select 1 from public.worlds where id = '00000000-0000-4000-8000-0000000000a4'),
     'a viewer reads the private world'
 );
-select pg_temp.affects($$
+select pg_temp.fails($$
     update public.worlds set rev = 9 where id = '00000000-0000-4000-8000-0000000000a4'
-$$, 0, 'a viewer cannot edit');
+$$, 'a viewer cannot edit');
 reset role;
 
 select pg_temp.login('a11ce000-0000-4000-8000-000000000001', false);
@@ -418,6 +441,7 @@ do $$ begin raise notice '== realtime rooms =='; end $$;
 insert into realtime.messages (topic, extension) values
     ('world:00000000-0000-4000-8000-0000000000a1', 'broadcast'),
     ('world:00000000-0000-4000-8000-0000000000a1:edit', 'broadcast'),
+    ('world:00000000-0000-4000-8000-0000000000a1:owner', 'broadcast'),
     ('world:00000000-0000-4000-8000-0000000000a4', 'presence'),
     ('world:00000000-0000-4000-8000-0000000000a4:edit', 'broadcast'),
     ('candy:12345', 'broadcast');
@@ -455,6 +479,10 @@ select pg_temp.check(pg_temp.can_receive('world:00000000-0000-4000-8000-00000000
     '...and watches the edits');
 select pg_temp.check(not pg_temp.can_send('world:00000000-0000-4000-8000-0000000000a1:edit', 'broadcast'),
     '...but cannot send edits');
+select pg_temp.check(pg_temp.can_receive('world:00000000-0000-4000-8000-0000000000a1:owner'),
+    '...hears the owner''s kicks');
+select pg_temp.check(not pg_temp.can_send('world:00000000-0000-4000-8000-0000000000a1:owner', 'broadcast'),
+    '...and cannot forge one');
 select pg_temp.check(not pg_temp.can_receive('world:00000000-0000-4000-8000-0000000000a4'),
     'a stranger cannot join a private room');
 select pg_temp.check(not pg_temp.can_send('world:00000000-0000-4000-8000-0000000000a4', 'presence'),
@@ -469,6 +497,16 @@ select pg_temp.login('b0b00000-0000-4000-8000-000000000002', true);
 set role authenticated;
 select pg_temp.check(pg_temp.can_send('world:00000000-0000-4000-8000-0000000000a1:edit', 'broadcast'),
     'an editor sends edits');
+select pg_temp.check(not pg_temp.can_send('world:00000000-0000-4000-8000-0000000000a1:owner', 'broadcast'),
+    '...but cannot kick');
+reset role;
+
+select pg_temp.login('a11ce000-0000-4000-8000-000000000001', false);
+set role authenticated;
+select pg_temp.check(pg_temp.can_send('world:00000000-0000-4000-8000-0000000000a1:owner', 'broadcast'),
+    'the owner kicks');
+select pg_temp.check(not pg_temp.can_send('world:00000000-0000-4000-8000-0000000000a3:owner', 'broadcast'),
+    '...only in their own worlds');
 reset role;
 
 select pg_temp.login('da7e0000-0000-4000-8000-000000000004', true);
@@ -487,9 +525,9 @@ select pg_temp.affects($$
 $$, 1, 'a member can leave');
 select pg_temp.check(not pg_temp.can_send('world:00000000-0000-4000-8000-0000000000a1:edit', 'broadcast'),
     'a former editor cannot send edits');
-select pg_temp.affects($$
+select pg_temp.fails($$
     update public.worlds set rev = 10 where id = '00000000-0000-4000-8000-0000000000a1'
-$$, 0, 'a former editor cannot change the document');
+$$, 'a former editor cannot change the document');
 reset role;
 
 select pg_temp.login('a11ce000-0000-4000-8000-000000000001', false);
@@ -504,6 +542,17 @@ select pg_temp.check(
     and not exists (select 1 from public.world_invites
                     where world_id = '00000000-0000-4000-8000-0000000000a4'),
     'its members and invites go with it'
+);
+
+select pg_temp.login('a11ce000-0000-4000-8000-000000000001', false);
+set role authenticated;
+select pg_temp.affects($$
+    delete from public.worlds where id = '00000000-0000-4000-8000-0000000000a2'
+$$, 1, 'the owner deletes a world someone remixed');
+reset role;
+select pg_temp.check(
+    (select remix_of from public.worlds where id = '00000000-0000-4000-8000-0000000000c1') is null,
+    'the remix stays, no longer pointing back'
 );
 
 do $$ begin raise notice 'shared_worlds_rls: all checks passed'; end $$;

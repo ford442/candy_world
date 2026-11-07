@@ -73,7 +73,7 @@ export interface ConfigType {
          * Music source mode:
          * - `tracker` — libopenmpt module playback (default, user-uploaded .mod/.xm)
          * - `generative` — in-browser seeded sequencer (no asset download)
-         * - `auto` — generative when FEATURE_FLAGS.generativeMusic, else tracker
+         * - `auto` — generative unless opted out (`?no_generative`, `?music=tracker`, or a saved tracker preference), else tracker
          */
         musicMode: 'tracker' | 'generative' | 'auto';
         /** Seed for deterministic generative patterns (0 = default). */
@@ -478,8 +478,8 @@ export interface ConfigType {
         dofEnabled: boolean;
         dofFocusFollow: boolean;
         dofFocusDistance: number;
-        dofAperture: number;
-        dofMaxBlur: number;
+        dofFocalLength: number;
+        dofBokehScale: number;
         dofProximity: number;
     };
 

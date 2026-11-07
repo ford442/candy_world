@@ -6,7 +6,6 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { makeInteractive as makeInteractiveUtils } from '../utils/interaction-utils.ts';
-import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.ts';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
 import { spawnDandelionExplosion } from './dandelion-seeds.ts';
@@ -21,6 +20,7 @@ import {
     uAudioLow,
     uTime,
     uGlitchIntensity,
+    $sn,
 } from './material-core.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
 
@@ -86,7 +86,7 @@ function createGlitchyMaterial(hexColor: number): MeshStandardNodeMaterial {
 
     // Color Shift: Mix base color with Cyan based on scanline strength
     // PRESERVE: Use existing colorNode (Clay preset AO) as base
-    const baseColorNode = material.colorNode || color(hexColor);
+    const baseColorNode = $sn(material.colorNode || color(hexColor));
     const glitchColor = color(0x00FFFF); // Cyan
 
     // Emissive boost on scanline

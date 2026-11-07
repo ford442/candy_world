@@ -1,17 +1,27 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { ShaderNodeObject, Node } from 'three/tsl';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { Node } from 'three/webgpu';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, float
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, uCircadianPhase, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import { discoverySystem } from '../systems/discovery.ts';
+import { discoverySystem } from '../systems/discovery-optimized.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { spawnImpact } from './impacts.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyStandardDeformation } from './material-core.ts';
+import {
+    CandyPresets,
+    uAudioHigh,
+    uAudioLow,
+    uTime,
+    createJuicyRimLight,
+    getCachedProceduralMaterial,
+    applyStandardDeformation,
+    $sn,
+    asVec3,
+} from './material-core.ts';
 import { uTwilight } from './sky.ts';
 
 export interface WisteriaClusterOptions {
@@ -73,14 +83,14 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
 
         // Glow Effect based on audio
 
-        const glowColor = color(0xFF66FF); // Neon pink glow
+        const glowColor = asVec3(color(0xFF66FF)); // Neon pink glow
         // Emissive boost driven by uAudioHigh, fading in smoothly — nocturnal gate
         const nightGlow = circadianNightGlowMult();
         mat.emissiveNode = glowColor.mul(BiomeUniforms.arpeggioGrove.noteColor).mul(uAudioHigh.mul(0.8)).mul(nightGlow);
 
         // 🎨 PALETTE: Juicy Rim Light for volumetric glow
         const rimLight = createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null);
-        mat.emissiveNode = (mat.emissiveNode as ShaderNodeObject<Node>).add(rimLight.mul(nightGlow));
+        mat.emissiveNode = $sn(mat.emissiveNode).add(rimLight.mul(nightGlow));
 
         // 🎨 PALETTE: Twilight Glow for wisteria
         const glowPhaseOffset = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.3));
@@ -95,7 +105,7 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         // Here we just use audioEnergy for a simple ADSR-like reaction
         const baseAdsrGlow = targetGlowColor.mul(audioEnergy).mul(0.3).mul(nightGlow);
 
-        mat.emissiveNode = (mat.emissiveNode as ShaderNodeObject<Node>).add(twilightGlowTint).add(baseAdsrGlow);
+        mat.emissiveNode = $sn(mat.emissiveNode).add(twilightGlowTint).add(baseAdsrGlow);
 
         return mat;
     }) as MeshStandardNodeMaterial;

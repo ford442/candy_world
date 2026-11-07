@@ -32,10 +32,9 @@ src/core/init.ts
   await probeWebGPU(canvas)         // THE adapter + device request (see below)
         └─ throws → WebGPURenderer({ forceWebGL: true }) + settleWebGLContext()  // fallback
   new WebGPURenderer({ canvas, device, context, antialias, alpha, ... })
-        └─ renderer._getFallback = null   // no silent WebGL swap-in
   await armGpuContext(renderer, probe)
         └─ await renderer.init()          // adopts the probed device, requests nothing
-        └─ throw unless backend.isWebGPUBackend
+        └─ throw unless backend.isWebGPUBackend   // Three's own WebGL swap-in is refused here
         └─ register device.lost + renderer.onDeviceLost
         └─ resolve getGpuContext(), publish window.__gpuContext, log once
 ```
@@ -73,13 +72,13 @@ and leave the device to the renderer.
 
 Set explicitly in `src/core/init.ts`, with the values defined in `gpu-context.ts`:
 
-| Option             | Value                                     | Rationale                                                                                                                                                                                                                 |
-| ------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `powerPreference`  | `'high-performance'`                      | The compute devices already asked for it; the main renderer did not. On a hybrid laptop that could put the renderer on the iGPU and compute on the dGPU — two heaps and cross-adapter copies. One device, one preference. |
-| `antialias`        | `true`                                    | Unchanged from before. The post chain has no full-screen AA resolve of its own, so swap-chain MSAA is still the only geometric AA. Swapping to post-AA is a visual change and out of scope.                               |
-| `alpha`            | `true` → `alphaMode: 'premultiplied'`     | Three's default, pinned explicitly. HUD, loading screen, badges, and the accessibility menu are DOM layers composited over the canvas and depend on premultiplied blending.                                               |
-| `requiredLimits`   | adapter-clamped, see below                | Aligns the renderer's device with the compute tier's ceilings. Informational on the renderer: the device is already created by the probe.                                                                                 |
-| `outputColorSpace` | `'display-p3'` / `'srgb'` string literals | Chosen by the probe and mirrored onto the canvas `colorSpace` — see [Color space](#color-space). String literals stay: the Three enum regression is tracked separately.                                                   |
+| Option             | Value                                     | Rationale                                                                                                                                                                                                                                                                                                                              |
+| ------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `powerPreference`  | `'high-performance'`                      | The compute devices already asked for it; the main renderer did not. On a hybrid laptop that could put the renderer on the iGPU and compute on the dGPU — two heaps and cross-adapter copies. One device, one preference.                                                                                                              |
+| `antialias`        | `false` (`true` only with `?postfx=off`)  | The world is drawn into the post-FX scene pass, which asks for its own 4× MSAA (`SCENE_PASS_SAMPLES`); the canvas only receives the fullscreen post quad, so canvas MSAA was a second 4× buffer for nothing. `?postfx=off` draws the world to the canvas directly and keeps it. See [POSTFX_STACK.md](./POSTFX_STACK.md#antialiasing). |
+| `alpha`            | `true` → `alphaMode: 'premultiplied'`     | Three's default, pinned explicitly. HUD, loading screen, badges, and the accessibility menu are DOM layers composited over the canvas and depend on premultiplied blending.                                                                                                                                                            |
+| `requiredLimits`   | adapter-clamped, see below                | Aligns the renderer's device with the compute tier's ceilings. Informational on the renderer: the device is already created by the probe.                                                                                                                                                                                              |
+| `outputColorSpace` | `'display-p3'` / `'srgb'` string literals | Chosen by the probe and mirrored onto the canvas `colorSpace` — see [Color space](#color-space). String literals stay: the Three enum regression is tracked separately.                                                                                                                                                                |
 
 ### Limits matrix
 
@@ -137,9 +136,10 @@ Display P3 is gated on real extended range, not on `(dynamic-range: high)`:
 
 - `resolveHdrSupport(display, extendedRange)` (`src/core/platform/capabilities.ts`) returns
   `canvas: 'display-p3'` only when both are true. `extendedRange` is the constant
-  `EXTENDED_RANGE_CONFIGURED`, `false` today, because Three 0.171's `WebGPUBackend` configures
-  `getPreferredCanvasFormat()` without `toneMapping`.
-- Three 0.171 registers only `srgb` / `srgb-linear`. An unregistered `outputColorSpace` makes the
+  `EXTENDED_RANGE_CONFIGURED`, `false` today: Three's `WebGPUBackend` configures
+  `getPreferredCanvasFormat()` with `toneMapping: { mode: 'standard' }` unless the renderer is built
+  with `outputType: HalfFloatType` (r186), which the app does not do yet.
+- Three (0.186 as in 0.171) registers only `srgb` / `srgb-linear`. An unregistered `outputColorSpace` makes the
   output transform's `ColorManagement.getPrimaries()` throw a TypeError on first render, and the
   `try` around the assignment never sees it. `ensureOutputColorSpace()`
   (`src/rendering/color-spaces.ts`) registers Display P3 from `three/addons/math/ColorSpaces.js`
@@ -156,10 +156,11 @@ How the two surfaces are kept in agreement:
    and passes it as `colorSpace` on `configure`.
 2. `init.ts` sets `renderer.outputColorSpace` from `probe.canvas.colorSpace` and
    `platformCaps.hdr`, going through `ensureOutputColorSpace()`.
-3. `WebGPUBackend.init()` (three 0.171) calls `configure()` again **without** `colorSpace`, which
-   resets it to `srgb`. `init.ts` therefore calls `applyCanvasColorSpace(probe, outputColorSpace)`
-   after arming, re-tagging the same device/format/alphaMode with the color space the renderer
-   actually uses.
+3. `WebGPUBackend` (three 0.186) calls `configure()` again **without** `colorSpace`, which
+   resets it to `srgb`: lazily on the first frame, and after every resize (`updateSize()` drops
+   its cached context). `init.ts` calls `applyCanvasColorSpace(probe, outputColorSpace)` after
+   arming, which re-tags the swap chain with the color space the renderer actually uses and pins
+   it on the context instance, so each of Three's later configures carries it too.
 
 `window.webgpuProbe.canvas` reports `{ format, alphaMode, colorSpace }` as finally applied.
 
@@ -187,8 +188,8 @@ questions (#1972):
 - `tier` comes from `?graphics=`, backend / fallback adapter, `navigator.deviceMemory` and the
   adapter's light-load hint. It is published for diagnostics; graphics decisions still go through
   `StartupCapabilities` (`src/core/startup/capabilities.ts`). No GPU-time probe yet.
-- `maxPixelRatio` is tier-scaled: `low` and every WebGL2 boot render at 1, `medium`/`high` keep
-  the historical 1.5 (Chrome reports at most 8 GB of `deviceMemory`, so most Chrome players are
+- `maxPixelRatio` is tier-scaled: `low` and every WebGL2 boot render at 1, `medium` at 1.25,
+  `high` at 1.5 (Chrome reports at most 8 GB of `deviceMemory`, so most Chrome players are
   `medium`). See [Viewport](#viewport-pixel-ratio-and-resize).
 - The animation loop always starts. `?freezeLoop=1` is the only way to boot to `__sceneReady`
   without it; the smoke, boot-timing, population and visual-regression harnesses pass it.
@@ -206,7 +207,7 @@ questions (#1972):
 - watches `matchMedia('(resolution: <dpr>dppx)')` and re-applies when it stops matching (window
   dragged to a monitor with a different DPR, browser zoom), re-arming for the new DPR;
 - then calls each `onViewportResize()` subscriber. `scene-pipeline.ts` subscribes the post-FX
-  `syncSize` (WebGPU: `postProcessing.needsUpdate`; the composer path: `composer.setSize`).
+  `syncSize` (`postProcessing.needsUpdate`; a no-op for `?postfx=off`).
 
 The canvas sits directly in `<body>`, whose height is its content, so there is no viewport-sized
 container a `ResizeObserver` could watch without missing height-only resizes; the window stays the
@@ -229,54 +230,76 @@ also skips `safeMode`, the deferred pass `?boot=instant`.
   layer 31 (`WARMUP_LAYER`). Layers, `frustumCulled`, the render target and MRT are swapped and
   restored synchronously around the call: Three projects and builds before its first `await`.
 - **Target:** Three keys render objects and pipelines on the render target. The post-FX scene pass
-  draws into its own `rgba16float` target with the renderer's MSAA, so `initWebGPUPostProcessing()`
+  draws into its own `rgba16float` target with its own 4× MSAA, so `initWebGPUPostProcessing()`
   exposes `compileTarget()` (the pass target, with samples mirrored from `PassNode.setup()`, and its
   MRT). Without post-FX the default is the target `render()` itself uses
   (`renderer._getFrameBufferTarget()`), or the canvas.
-- **A failed pipeline cannot hang boot:** Three 0.171 wraps `createRenderPipelineAsync()` in a
-  promise that only resolves, so a rejection (device lost, a shader the driver refuses) left
-  `compileAsync()` pending forever and surfaced as an unhandled rejection, which the bootstrap shows
-  as a fatal startup error. During each call a rejected async creation falls back to the sync
-  `createRenderPipeline()`, which is what a normal frame does. Warmup also stops once the renderer
-  reports `_isDeviceLost`.
+- **A failed pipeline cannot hang boot:** Three 0.171 wrapped `createRenderPipelineAsync()` in a
+  promise that only resolved, so a rejection left `compileAsync()` pending forever; the warmup used
+  to route rejections to the sync `createRenderPipeline()` around each call. Three r172+ always
+  settles it (it logs, marks the pipeline failed and resolves), so that guard is gone. Warmup stops
+  once the renderer reports `_isDeviceLost`.
+- **Once per object:** each renderer remembers which objects it compiled with which material, so the
+  deferred pass skips what the boot pass already built (`alreadyCompiled` in its stats).
 - `forceFullSceneWarmup()` (never called) and the per-material `ShaderWarmup` class are gone.
 
 ## GPU frame time (timestamp-query)
 
-`timestamp-query` is requested only for `?debug` and `?graphics=high`, and the renderer is then
-built with `trackTimestamp`. Three 0.171 writes per-pass timestamps but reads them back only from
-`renderAsync()` / `computeAsync()`; the game loop renders synchronously, so
-`renderer.info.render.timestamp` was always 0 and the budget never got a GPU time.
-`createGpuFrameTimer()` (`src/rendering/gpu-frame-timer.ts`) wraps the backend's
-`prepareTimestampBuffer()` to note each frame's passes and, every 30 frames, maps their result
-buffers and calls `performanceBudget.setGpuFrameTime(sum of pass durations)`. One readback is in
-flight at a time; Three skips its copy into a mapped buffer, so nothing stalls. Without the feature
+`timestamp-query` is requested only for `?debug`, `?graphics=high` and `?dynres=1`, and the
+renderer is then built with `trackTimestamp`. Three writes every render and compute pass's
+timestamps into a query pool per type; nothing reads it back unless the app asks, because the game
+loop renders synchronously. `createGpuFrameTimer()` (`src/rendering/gpu-frame-timer.ts`) calls the
+public `renderer.resolveTimestampsAsync('render' | 'compute')` every 30 frames and reports the sum
+(the GPU time of the last frame in the pool) to `performanceBudget.setGpuFrameTime()` and to the
+post graph, whose dynamic resolution runs on it
+([`POSTFX_STACK.md`](./POSTFX_STACK.md#dynamic-resolution)). One resolve is in flight at a time;
+Three skips the copy into a still-mapped result buffer, so nothing stalls. On r171 this had to wrap
+the private `prepareTimestampBuffer()` and map Three's per-pass buffers itself. Without the feature
 the timer is a no-op and `gpuFrameTime` stays `null`.
 
 ## Device-lost policy
 
 1. `gpu-context.ts` registers **both** `device.lost` and `renderer.onDeviceLost`. Three's default
-   handler logged and set `renderer._isDeviceLost`; ours sets that flag too, so `render()` and
-   `compileAsync()` stop submitting work, and stubs `compute()` / `computeAsync()`, which ignore the
-   flag in Three 0.171 (per-frame dispatches otherwise threw a `createBuffer` page error every frame
-   on the dead device). Both route into one handler that runs at most once. On
+   handler logged and set `renderer._isDeviceLost`; ours sets that flag too, so `render()`,
+   `compute()` and `compileAsync()` stop submitting work (r171's `compute()` ignored the flag and had
+   to be stubbed). Both route into one handler that runs at most once per loss. Three r186 forwards
+   `uncapturederror` to `renderer.onError`, whose default is a `console.error` per event;
+   `gpu-context.ts` routes it into `recordGpuError()` (counted, console-capped) instead. On
    the WebGL2 fallback, `watchWebGLContextLoss()` routes `webglcontextlost` into the same handler
    (see [`webgl-fallback.md`](./webgl-fallback.md#context-loss)).
 2. The shared context flips to `available: false`, `device: null`, `lost: true`. Any later
    `awaitGpuDevice()` returns `null`, so newly created systems start on their CPU tier.
 3. Registered `onGpuDeviceLost` listeners fire. `GPUComputeLibrary` soft-disables itself and drops
    its pipeline and layout caches (they belonged to the dead device); each `ComputeParticleSystem`
-   clears its GPU state so `update()` stops dispatching. A listener that throws is caught and
-   logged — it cannot break the others.
-4. A banner appears, styled after the existing renderer badge in `src/ui/mode-badge.ts`: a fixed
-   `role="alert"` pill reading **Graphics stopped —** with a **Reload** button. Rendering really has
-   stopped (Three has no device to draw with), so it no longer says "effects reduced". No modal, no
-   input capture, no new UI system. Re-probing and re-initialising the renderer in place is not
-   attempted: every pipeline, buffer and texture belonged to the dead device.
-5. Everything is logged at `warn` level and nothing throws.
+   clears its GPU state and hides its points. A listener that throws is caught and logged — it
+   cannot break the others.
+4. **Recovery**, unless the device was `destroyed` (nothing in the app destroys the shared device,
+   so that is a deliberate teardown, not a fault). The frame loop is paused (the scheduler runs
+   inside it), and `device-recovery.ts`, a lazy chunk, rebuilds the renderer **in place**: a new
+   device from the same probe as boot (adapter → device → canvas configure → compute pipeline), a
+   new backend on it, and `Renderer.init()` again on the same renderer object. Three's `init()`
+   builds every manager (nodes, textures, geometries, pipelines, bindings, render contexts) from
+   scratch, so every GPU object of the dead device is dropped and re-created from its CPU-side
+   source on first use: textures from their images and data, buffers from their arrays, materials,
+   TSL compute and the post graph from their nodes. Every module holding the renderer keeps a valid
+   reference. Then the loop resumes and `onGpuDeviceRestored` listeners fire: `GPUComputeLibrary`
+   adopts the new device (plant pose, foliage batches and chores come back lazily) and compute
+   particles rebuild their GPU path. What only ever lived on the GPU — render-target contents,
+   compute results, TRAA history — starts over. The GPU foliage animator stays on its CPU tier
+   for the session.
+5. Two attempts, a second apart. Only when both fail (no adapter, a rejected device, a failed
+   `init()`, or on WebGL2 no `webglcontextrestored` within 10 s) does a banner appear, styled after
+   the renderer badge in `src/ui/mode-badge.ts`: a fixed `role="alert"` pill reading **Graphics
+   stopped —** with a **Reload** button. A fourth loss inside a minute of three recoveries goes
+   straight to the banner rather than chasing a GPU that keeps resetting.
+6. Everything is logged at `warn` level and nothing throws. `window.__gpuContext` reports
+   `recovering` and `recoveries`.
 
-To check by hand, run `game.renderer.backend.device.destroy()` in devtools: the banner appears and
-`window.__gpuContext.lost` is `true`.
+To check by hand, add `?debug_lose_device` (optionally `=<seconds>`, default 5): that long after
+the scene is up it calls `device.destroy()`, marked as simulated so recovery runs despite the
+`destroyed` reason. The world pauses for a moment and carries on; `window.__gpuContext.recoveries`
+becomes 1. A plain `game.renderer.backend.device.destroy()` in devtools is a real destroy: the
+banner appears and `window.__gpuContext.lost` stays `true`.
 
 ### Uncaptured errors
 
@@ -284,9 +307,6 @@ To check by hand, run `game.renderer.backend.device.destroy()` in devtools: the 
 `{ type: 'validation' | 'out-of-memory' | 'internal' | 'unknown', message, at }` on
 `window.__gpuContext.errors` (`count`, plus the last 20 in `recent`); the first three are echoed with
 `console.warn`. The event is not cancelled, so the browser still logs it as well.
-
-All losses are treated as faults, including `reason: 'destroyed'` — nothing in the app destroys the
-shared device any more, so a destroy means something external tore it down.
 
 ## Boot log
 
@@ -301,7 +321,7 @@ maxStorageBufferBindingSize=134217728/134217728 maxComputeWorkgroupSizeX=256/256
 Each limit is logged as `granted/requested`.
 
 `window.__gpuContext` carries `backend`, `available`, `lost`, `lostReason`, `reason`,
-`powerPreference`, `requiredLimits`, `adapter`, `adapterName`, `limits`, `alpha`, `antialias`,
+`powerPreference`, `requiredLimits`, `adapter`, `adapterName`, `limits`, `alpha`, `antialias` (canvas MSAA),
 `contextRestored` (WebGL2) and `errors` (`{ count, recent }`, see above).
 It is published from module load, so it is always readable — before arming it reports
 `available: false`. The smoke test asserts its shape on the WebGPU path.

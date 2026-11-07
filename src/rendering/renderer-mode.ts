@@ -18,6 +18,17 @@ export type RendererBackend = 'webgpu' | 'webgl';
 
 export const RENDERER_STORAGE_KEY = 'candy.renderer';
 
+/**
+ * True when `renderer` draws through Three's GLSL node backend (WebGL2).
+ * `isWebGPURenderer` is true for `WebGPURenderer({ forceWebGL: true })` as
+ * well, so only the backend says which API is drawing.
+ */
+export function isWebGLBackendRenderer(renderer: unknown): boolean {
+    const backend = (renderer as { backend?: { isWebGLBackend?: boolean } } | null | undefined)
+        ?.backend;
+    return backend?.isWebGLBackend === true;
+}
+
 export function isRendererBackend(value: string): value is RendererBackend {
     return value === 'webgl' || value === 'webgpu';
 }
