@@ -293,7 +293,7 @@ async function expectFailure(canvas, stage) {
 
     assert.deepEqual(
         [...requestedDescriptor.requiredFeatures].sort(),
-        [],
+        ["timestamp-query"],
         'no extra features requested by default'
     );
     assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);

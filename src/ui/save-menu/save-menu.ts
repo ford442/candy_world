@@ -159,7 +159,12 @@ export class SaveMenu {
                     const firstTab = this.container.querySelector(
                         '.candy-save-menu__tab'
                     ) as HTMLElement;
-                    if (firstTab) firstTab.focus({ preventScroll: true });
+                    if (firstTab) {
+                        firstTab.focus({ preventScroll: true });
+                    } else {
+                        const fallbackTitle = this.container.querySelector('#save-menu-title') as HTMLElement;
+                        if (fallbackTitle) fallbackTitle.focus({ preventScroll: true });
+                    }
                 }
             }
         });
@@ -290,11 +295,17 @@ export class SaveMenu {
                     if (activeTab) {
                         activeTab.focus({ preventScroll: true });
                     } else {
-                        // Fallback to first focusable element
-                        const firstFocusable = this.container.querySelector(
-                            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-                        ) as HTMLElement;
-                        if (firstFocusable) firstFocusable.focus({ preventScroll: true });
+                        // Fallback to title element
+                        const fallbackTitle = this.container.querySelector('#save-menu-title') as HTMLElement;
+                        if (fallbackTitle) {
+                            fallbackTitle.focus({ preventScroll: true });
+                        } else {
+                            // Fallback to first focusable element
+                            const firstFocusable = this.container.querySelector(
+                                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                            ) as HTMLElement;
+                            if (firstFocusable) firstFocusable.focus({ preventScroll: true });
+                        }
                     }
                 }
             });
@@ -325,7 +336,7 @@ export class SaveMenu {
 
         return `
             <div class="candy-save-menu__header">
-                <h2 id="save-menu-title" class="candy-save-menu__title" tabindex="-1">${titles[this.currentMode]}</h2>
+                <h2 id="save-menu-title" tabindex="-1" class="candy-save-menu__title">${titles[this.currentMode]}</h2>
                 <button type="button" class="candy-save-menu__close" data-action="close" aria-label="Close menu" title="Close"><span aria-hidden="true">✕</span></button>
             </div>
         `;
