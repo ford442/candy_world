@@ -18,7 +18,8 @@ import {
 } from '../systems/region-manager-core.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { isAuthoredEntity } from './authored-entities.ts';
-import { classifyForEviction, despawnEntity, isDespawned } from './entity-despawn.ts';
+import { despawnEntity, isDespawned } from './entity-despawn.ts';
+import { classifyForEviction } from './generation-entity-kinds.ts';
 import { recordGenerationChunk } from '../utils/startup-profiler.ts';
 import { processMapEntity } from './generation-entities.ts';
 import { yieldControl, type WeatherSystem } from './generation-utils.ts';

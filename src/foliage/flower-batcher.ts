@@ -33,7 +33,11 @@ const _scratchEuler = new THREE.Euler();
 const _scratchColor = new THREE.Color();
 const _scratchHsl = { h: 0, s: 0, l: 0 };
 
-export class FlowerBatcher {
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
+import { getDayNightBias } from '../core/cycle.ts';
+
+class FlowerBatcher extends InstancedBatcher {
+    readonly id = 'flower-batcher';
     private static instance: FlowerBatcher;
     private initialized = false;
 
@@ -64,6 +68,7 @@ export class FlowerBatcher {
     private _gpuPoseInFlight = false;
 
     private constructor() {
+        super();
         // Deferred init
     }
 
@@ -565,7 +570,11 @@ export class FlowerBatcher {
         this.logicIdToParts.delete(id);
     }
 
-    update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {
+    update(ctx: any) {
+        this.updateInternal(ctx.time, ctx.dt, ctx.audio, getDayNightBias(ctx.time));
+    }
+
+    updateInternal(time: number, deltaTime: number, audioState: any, dayNightBias: number) {
         if (!this.initialized || !this._poseMachine) return;
         
         const config = CONFIG.plantPose.flower;

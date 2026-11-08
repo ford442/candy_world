@@ -5,11 +5,13 @@
 import type * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import type { AudioSystem } from '../../../audio/audio-system';
+import { BeatSync } from '../../../audio/beat-sync.ts';
 import { announce } from '../../../ui/announcer.ts';
 import { showToast } from '../../../utils/toast.ts';
 import { resolveExploreVariant } from '../../camera-modes.ts';
 import { bindInputFrame, type LookTarget } from '../actions/frame.ts';
-import { input } from '../actions/index.ts';
+import { attachGamepad } from '../actions/gamepad.ts';
+import { gamepadHaptics, input, setActiveGamepad } from '../actions/index.ts';
 import { attachKeyboardMouse } from '../actions/keyboard-mouse.ts';
 import { initAudioControls } from '../audio-controls.ts';
 import type { InitInputResult } from '../input-types.ts';
@@ -21,6 +23,7 @@ import {
 import { createButtonPressHandlers } from './button-press.ts';
 import { setupDragDrop } from './drag-drop.ts';
 import { setupExploreToggle } from './explore-toggle.ts';
+import { bindGamepadMenu } from './gamepad-menu.ts';
 import { setupHudControls } from './hud-setup.ts';
 import { bindGameActions, createKeyboardHandlers } from './keyboard-handlers.ts';
 import { initExploreCameraForSession } from './menu-helpers.ts';
@@ -75,15 +78,30 @@ export function initInput(
     const onBodyClick = setupPointerLock(session);
 
     const buttonHandlers = createButtonPressHandlers(session);
-    const keyboardHandlers = createKeyboardHandlers(session, buttonHandlers);
+    const keyboardHandlers = createKeyboardHandlers(session);
     const unbindGameActions = bindGameActions(session, buttonHandlers);
     const detachKeyboardMouse = attachKeyboardMouse(input);
+    const gamepad = attachGamepad(input, (message) => announce(message, 'polite'));
+    setActiveGamepad(gamepad);
+    const unbindGamepadMenu = bindGamepadMenu(session);
+    // Beat haptics keep their own beat detector on the same audio (one rumble
+    // slot per beat) and read the kick each frame, only while a pad is
+    // connected and rumble is on: nothing runs otherwise.
+    const hapticBeats = new BeatSync(audioSystem);
+    hapticBeats.onBeat(gamepadHaptics.onBeat);
     const unbindFrame = bindInputFrame({
         look: takeOverMouseLook(controls),
         isMenuOpen: () =>
             getIsPlaylistOpen() ||
             (!!session.instructions && session.instructions.style.display !== 'none'),
         isExploreHybrid: () => session.exploreCamera.isHybrid(),
+        poll: () => {
+            gamepad.poll();
+            if (gamepad.isConnected() && gamepadHaptics.enabled()) {
+                hapticBeats.update();
+                gamepadHaptics.onAudioFrame(audioSystem.visualState);
+            }
+        },
         hud: {
             forward: document.getElementById('dpad-forward'),
             backward: document.getElementById('dpad-backward'),
@@ -111,6 +129,10 @@ export function initInput(
             session.exploreCamera.dispose();
             unbindGameActions();
             detachKeyboardMouse();
+            unbindGamepadMenu();
+            hapticBeats.offBeat(gamepadHaptics.onBeat);
+            gamepad.detach();
+            setActiveGamepad(null);
             unbindFrame();
             document.body.removeEventListener('click', onBodyClick);
             document.removeEventListener('keydown', keyboardHandlers.onKeyDown);

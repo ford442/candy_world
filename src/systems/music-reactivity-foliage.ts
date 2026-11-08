@@ -18,7 +18,7 @@ import { _frustum, _projScreenMatrix, _emptyAudioState } from './music-reactivit
         time: number,
         deltaTime: number,
         audioState: AudioData | null,
-        cpuAnimatedFoliage: FoliageObject[],
+        cpuAnimatedFoliage: readonly FoliageObject[],
         camera: THREE.Camera,
         isDay: boolean,
         isDeepNight: boolean
@@ -86,7 +86,7 @@ import { _frustum, _projScreenMatrix, _emptyAudioState } from './music-reactivit
             portamentoPineBatcher.update(time, audioState, dayNightBias);
 
             // Update Flower Batchers (aPoseState driven by audio)
-            flowerBatcher.update(time, deltaTime, audioState, dayNightBias);
+            flowerBatcher.updateInternal(time, deltaTime, audioState, dayNightBias);
             simpleFlowerBatcher.update(time, deltaTime, audioState, dayNightBias);
 
             // Update Kick Drum Geysers

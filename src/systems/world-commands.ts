@@ -10,7 +10,7 @@
 import type * as THREE from 'three';
 import { claimAuthoredEntity } from '../world/authored-entities.ts';
 import { canDespawn, despawnEntity } from '../world/entity-despawn.ts';
-import { animatedFoliage } from '../world/state.ts';
+import { entities } from '../world/state.ts';
 import type { SerializedWorldCommand, WorldCommand } from './edit-history.ts';
 import type { EntitySnapshot } from './entity-snapshot-core.ts';
 import { restoreEntity } from './entity-snapshot.ts';
@@ -23,13 +23,14 @@ export interface PlaceCommandHooks {
     onReverted?(snapshot: EntitySnapshot): void;
 }
 
-/** Live objects stamped with this snapshot id by restoreEntityWith. */
+/**
+ * Live objects stamped with this snapshot id by restoreEntityWith. The id is
+ * the map entity id (`userData.mapEntityId`), not `obj.uuid`, so this is the
+ * registry's key index rather than `entities.byId`; copied because despawning
+ * mutates it.
+ */
 function findLive(id: string): THREE.Object3D[] {
-    const out: THREE.Object3D[] = [];
-    for (const obj of animatedFoliage as unknown as THREE.Object3D[]) {
-        if (obj?.userData?.mapEntityId === id) out.push(obj);
-    }
-    return out;
+    return entities.byKey(id).slice();
 }
 
 /** Place one authored entity described by a snapshot. */

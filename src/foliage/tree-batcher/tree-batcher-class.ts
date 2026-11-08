@@ -20,7 +20,10 @@ import {
 } from './ops.ts';
 import type { TreeBatcherState, InstanceCountProp } from './types.ts';
 
-export class TreeBatcher implements TreeBatcherState {
+import { InstancedBatcher } from '../../core/batcher/instanced-batcher.ts';
+
+export class TreeBatcher extends InstancedBatcher implements TreeBatcherState {
+    readonly id = 'tree-batcher';
     private static instance: TreeBatcher;
     initialized = false;
 
@@ -61,6 +64,7 @@ export class TreeBatcher implements TreeBatcherState {
     _pendingInstances: PendingInstance[] = [];
 
     private constructor() {
+        super();
         // Deferred initialization
     }
 
@@ -248,6 +252,10 @@ export class TreeBatcher implements TreeBatcherState {
             helices: { count: this.helixCount, capacity: this.helixCapacity },
             roses: { count: this.roseCount, capacity: this.roseCapacity },
         };
+    }
+
+    update(ctx: any) {
+        // TreeBatcher does not have an update loop yet, handles animation in TSL
     }
 
     dispose() {

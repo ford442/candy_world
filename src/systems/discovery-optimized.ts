@@ -594,7 +594,7 @@ export const discoverySystem = optimizedDiscovery;
  * Integration helper: Initialize discovery for all animated foliage
  * Call this after world generation is complete
  */
-export function initDiscoveryForFoliage(foliageObjects: THREE.Object3D[]): void {
+export function initDiscoveryForFoliage(foliageObjects: readonly THREE.Object3D[]): void {
     console.log(`[Discovery] Registering ${foliageObjects.length} objects...`);
 
     let registered = 0;
