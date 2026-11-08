@@ -315,7 +315,7 @@ async function expectFailure(canvas, stage) {
             },
         })
     );
-    globalThis.window.location = { search: '?debug=1' }; // want timestamp
+    globalThis.window.location = { search: '?dynres=1' }; // want timestamp
     await probeWebGPU(makeCanvas());
 
     assert.deepEqual(

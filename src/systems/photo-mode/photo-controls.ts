@@ -144,6 +144,7 @@ export class PhotoControlsOverlay {
             root.setAttribute('role', 'dialog');
             root.setAttribute('aria-modal', 'true');
             root.setAttribute('aria-label', 'Photo mode controls');
+            root.setAttribute('tabindex', '-1');
             document.body.appendChild(root);
         }
         this.root = root;
@@ -152,7 +153,7 @@ export class PhotoControlsOverlay {
         const header = document.createElement('div');
         header.className = 'photo-mode-panel__header';
         header.innerHTML =
-            '<h2 id="photo-mode-title">Photo Mode</h2><p id="photo-mode-desc">Frame your shot — simulation paused</p>';
+            '<h2 id="photo-mode-title" tabindex="-1">Photo Mode</h2><p id="photo-mode-desc">Frame your shot — simulation paused</p>';
         root.appendChild(header);
 
         const presets = document.createElement('div');

@@ -443,8 +443,9 @@ export function wantsTimestampQuery(): boolean {
     if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;
     const location = window.location;
     try {
-        const dynres = (new URLSearchParams(location.search).get('dynres') || '').toLowerCase();
-        return dynres !== '0' && dynres !== 'off';
+        const params = new URLSearchParams(location.search);
+        const dynres = (params.get('dynres') || '').toLowerCase();
+        return dynres === '1' || dynres === 'on' || dynres === 'true';
     } catch {
         return false;
     }
