@@ -1,3 +1,4 @@
+import { announce } from '../../../ui/announcer.ts';
 import { closeAccessibilityMenu } from '../../../ui/accessibility-menu-lazy.ts';
 import { trapFocusInside } from '../../../utils/focus-trap.ts';
 import { yieldToPaint } from '../../../utils/yield-to-paint.ts';
@@ -63,6 +64,7 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
                 if (session.instructions) session.instructions.style.display = 'none';
                 setPausedTitle(session, false);
                 setStartButtonEnterLabel(session);
+                announce('Dream resumed.', 'polite');
             }, 200);
         }
 
@@ -141,6 +143,7 @@ export function setupPointerLock(session: InputSession): (event: MouseEvent) => 
             // UX: Update Title to "Paused" to give context
             setPausedTitle(session, true);
             setStartButtonResumeLabel(session);
+            announce('Dream paused. Use Tab to navigate menus.', 'assertive');
         }
     });
 
