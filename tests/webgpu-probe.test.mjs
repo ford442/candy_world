@@ -293,7 +293,7 @@ async function expectFailure(canvas, stage) {
 
     assert.deepEqual(
         [...requestedDescriptor.requiredFeatures].sort(),
-        [],
+        ["timestamp-query"],
         'no extra features requested by default'
     );
     assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
@@ -315,7 +315,7 @@ async function expectFailure(canvas, stage) {
             },
         })
     );
-    globalThis.window.location = { search: '?debug=1' }; // want timestamp
+    globalThis.window.location = { search: '?dynres=1' }; // want timestamp
     await probeWebGPU(makeCanvas());
 
     assert.deepEqual(

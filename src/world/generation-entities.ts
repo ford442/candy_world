@@ -110,7 +110,7 @@ export function applyDreamyPopIn(obj: THREE.Object3D): void {
         if (!mesh.material) return;
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const material of materials) {
-            if (!(material as any).isMaterial || !('opacity' in material)) continue;
+            if (!((material as unknown) as { isMaterial?: boolean }).isMaterial || !('opacity' in material)) continue;
             const typed = material as THREE.Material & { opacity: number; transparent: boolean };
             if (typed.opacity >= 0.99) {
                 typed.transparent = true;
@@ -254,7 +254,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                 createParams.variant = item.variant === 'glowing' ? 'glowing' : 'simple';
                 break;
             case 'cloud':
-                cloudTier = (item as any).tier || 1;
+                cloudTier = ((item as unknown) as { tier?: number }).tier || 1;
                 createParams.size = typeof item.size === 'number' ? item.size : getParamNumber('size', 1.5);
                 break;
             case 'subwoofer_lotus':

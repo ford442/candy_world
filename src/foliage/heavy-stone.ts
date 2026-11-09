@@ -8,13 +8,14 @@
 import * as THREE from 'three';
 import { color, float, positionLocal } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { applyStandardDeformation, createJuicyRimLight } from './material-core.ts';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { LAKE_ISLAND } from '../systems/ground-height-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { spawnImpact } from './impacts.ts';
+import { applyStandardDeformation } from './material-core/deformation.ts';
+import { createJuicyRimLight } from './material-core/tsl-nodes.ts';
 
 
 
