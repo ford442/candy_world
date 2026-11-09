@@ -508,7 +508,11 @@ export function updateMetricsStats(container: HTMLElement, stats: DebugStats): v
 export function updateEventLogUI(container: HTMLElement, eventLog: Array<{ time: string; type: string; props: string }>): void {
   if (eventLog.length === 0) {
     container.innerHTML = `
-      <div class="analytics-debug-empty">No events yet...<br><br><button class="analytics-debug-button" id="analytics-test-event-btn"><span aria-hidden="true">🔔</span> Send Test Event</button></div>
+      <div class="analytics-debug-empty candy-empty-state" role="status" aria-labelledby="analytics-empty-text">
+        <div class="candy-empty-state__icon" aria-hidden="true">📊</div>
+        <div class="candy-empty-state__text" id="analytics-empty-text">No events yet...</div>
+        <button class="analytics-debug-button" id="analytics-test-event-btn"><span aria-hidden="true">🔔</span> Send Test Event</button>
+      </div>
     `;
     return;
   }
@@ -633,7 +637,11 @@ export function createElements(
   eventsSection.innerHTML = `
     <div class="analytics-debug-section-title">Recent Events</div>
     <div class="analytics-debug-events" id="analytics-events-log">
-      <div class="analytics-debug-empty">No events yet...<br><br><button class="analytics-debug-button" id="analytics-test-event-btn"><span aria-hidden="true">🔔</span> Send Test Event</button></div>
+      <div class="analytics-debug-empty candy-empty-state" role="status" aria-labelledby="analytics-empty-text">
+        <div class="candy-empty-state__icon" aria-hidden="true">📊</div>
+        <div class="candy-empty-state__text" id="analytics-empty-text">No events yet...</div>
+        <button class="analytics-debug-button" id="analytics-test-event-btn"><span aria-hidden="true">🔔</span> Send Test Event</button>
+      </div>
     </div>
   `;
   content.appendChild(eventsSection);
