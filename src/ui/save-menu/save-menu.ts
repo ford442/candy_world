@@ -581,6 +581,9 @@ export class SaveMenu {
             const empty = document.createElement('li');
             empty.className = 'candy-empty-state';
             empty.setAttribute('role', 'status');
+            empty.innerHTML = `
+                <div class="candy-empty-state__icon" aria-hidden="true">🌍</div>
+                <div class="candy-empty-state__text">No saved worlds yet.</div>
             empty.setAttribute('aria-labelledby', 'candy-recent-empty-state-text');
             empty.innerHTML = `
                 <div class="candy-empty-state__icon" aria-hidden="true">📝</div>
