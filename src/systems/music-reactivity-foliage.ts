@@ -18,7 +18,7 @@ import { _frustum, _projScreenMatrix, _emptyAudioState } from './music-reactivit
         time: number,
         deltaTime: number,
         audioState: AudioData | null,
-        cpuAnimatedFoliage: FoliageObject[],
+        cpuAnimatedFoliage: readonly FoliageObject[],
         camera: THREE.Camera,
         isDay: boolean,
         isDeepNight: boolean
@@ -90,7 +90,7 @@ import { _frustum, _projScreenMatrix, _emptyAudioState } from './music-reactivit
             simpleFlowerBatcher.update(time, deltaTime, audioState, dayNightBias);
 
             // Update Kick Drum Geysers
-            kickDrumGeyserBatcher.update(time, deltaTime, audioState, MRState.activeWave);
+            kickDrumGeyserBatcher.legacyUpdate(time, deltaTime, audioState, MRState.activeWave);
             // Note: subwooferLotusBatcher responds via TSL uniforms, no JS update loop required.
         }
     }

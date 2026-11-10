@@ -300,11 +300,16 @@ export function togglePlaylist(): void {
                         // Ensure the active song is visible in the scrollable list
                         activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
                     } else {
-                        const emptyBtn = _state.playlistList.querySelector('.jukebox-browse-btn');
-                        if (emptyBtn) {
-                            (emptyBtn as HTMLElement).focus({ preventScroll: true });
-                        } else if (_state.closePlaylistBtn) {
-                            _state.closePlaylistBtn.focus({ preventScroll: true });
+                        const titleBtn = document.getElementById('playlist-title');
+                        if (titleBtn) {
+                            titleBtn.focus({ preventScroll: true });
+                        } else {
+                            const emptyBtn = _state.playlistList.querySelector('.jukebox-browse-btn');
+                            if (emptyBtn) {
+                                (emptyBtn as HTMLElement).focus({ preventScroll: true });
+                            } else if (_state.closePlaylistBtn) {
+                                _state.closePlaylistBtn.focus({ preventScroll: true });
+                            }
                         }
                     }
                 }

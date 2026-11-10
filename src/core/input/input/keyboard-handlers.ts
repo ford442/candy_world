@@ -12,7 +12,6 @@ import { sceneRef } from '../../game-loop-core.ts';
 import { input } from '../actions/index.ts';
 import type { ActionId } from '../actions/index.ts';
 import { handleMuteKey, handleVolumeKey } from '../audio-controls.ts';
-import { keyStates } from '../input-types.ts';
 import {
     getIsPlaylistOpen,
     togglePlaylist,
@@ -28,7 +27,6 @@ import {
 } from './menu-helpers.ts';
 import type { InputSession } from './session.ts';
 
-
 export interface InputKeyboardHandlers {
     onKeyDown: (event: KeyboardEvent) => void;
     onKeyUp: (event: KeyboardEvent) => void;
@@ -42,12 +40,7 @@ function isGameFocused(session: InputSession): boolean {
     return activeEl === document.body || activeEl === canvas;
 }
 
-export function createKeyboardHandlers(
-    session: InputSession,
-    buttons: ButtonPressHandlers
-): InputKeyboardHandlers {
-    const { triggerButtonPressDown, triggerButtonPressUp } = buttons;
-
+export function createKeyboardHandlers(session: InputSession): InputKeyboardHandlers {
     const onKeyDown = function (event: KeyboardEvent) {
         if (getPhotoMode()?.handleKeyDown(event)) {
             return;
@@ -146,8 +139,13 @@ export function createKeyboardHandlers(
                                 session.instructions,
                                 { skipAutoFocus: true, onEscape: () => session.controls.lock() }
                             );
-                            if (session.startButton) {
+                            if (session.startButton && session.startButton.style.display !== 'none') {
                                 session.startButton.focus({ preventScroll: true });
+                            } else {
+                                const title = session.instructions.querySelector('#instructions-title') as HTMLElement;
+                                if (title) {
+                                    title.focus({ preventScroll: true });
+                                }
                             }
                         }
                     });
@@ -208,129 +206,6 @@ export function createKeyboardHandlers(
             });
         }
 
-        if (handlePlaylistKeyDown(event)) {
-            return;
-        }
-
-        switch (event.code) {
-            case 'KeyL':
-                if (document.pointerLockElement) {
-                    session.controls.unlock();
-                }
-                discoverySystem.showLog();
-                break;
-            case 'KeyQ':
-                if (getIsPlaylistOpen()) return;
-                if (event.repeat) return;
-                triggerButtonPressDown('openJukeboxBtn');
-                togglePlaylist();
-                break;
-            case 'KeyW':
-                if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
-                keyStates.forward = true;
-                if (!event.repeat) triggerButtonPressDown('dpad-forward');
-                break;
-            case 'KeyA':
-                if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
-                keyStates.left = true;
-                if (!event.repeat) triggerButtonPressDown('dpad-left');
-                break;
-            case 'KeyS':
-                if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
-                keyStates.backward = true;
-                if (!event.repeat) triggerButtonPressDown('dpad-backward');
-                break;
-            case 'KeyD':
-                if (isExploreActive() && !session.exploreCamera.isHybrid()) break;
-                keyStates.right = true;
-                if (!event.repeat) triggerButtonPressDown('dpad-right');
-                break;
-            case 'KeyF':
-                if (isExploreActive()) break;
-                keyStates.action = true;
-                if (session.hudMine) triggerButtonPressDown(session.hudMine.id);
-                break;
-            case 'KeyE':
-            case 'e':
-                if (isExploreActive()) break;
-                keyStates.dash = true;
-                if (session.hudDash) triggerButtonPressDown(session.hudDash.id);
-                break;
-            case 'KeyX':
-            case 'x':
-                if (isExploreActive()) break;
-                keyStates.dodgeRoll = true;
-                break;
-            case 'KeyZ':
-            case 'z':
-                if (isExploreActive()) break;
-                keyStates.phase = true;
-                if (session.hudPhase) triggerButtonPressDown(session.hudPhase.id);
-                break;
-            case 'KeyC':
-            case 'c':
-                if (isExploreActive()) break;
-                keyStates.clap = true;
-                break;
-            case 'KeyV':
-            case 'v':
-                if (isExploreActive()) break;
-                keyStates.strike = true;
-                break;
-            case 'KeyR':
-            case 'r':
-                if (isExploreActive()) break;
-                keyStates.dance = true;
-                break;
-            case 'Space':
-                if (isExploreActive()) break;
-                keyStates.jump = true;
-                break;
-            case 'KeyB':
-                if (event.repeat) return;
-                if (sceneRef) toggleBuildMode(sceneRef);
-                break;
-            case 'KeyN':
-                if (event.repeat) return;
-                triggerButtonPressDown('toggleDayNight');
-                if (session.toggleDayNightCallback) session.toggleDayNightCallback();
-                break;
-            case 'KeyM':
-                if (event.repeat) return;
-                triggerButtonPressDown('toggleMuteBtn');
-                handleMuteKey();
-                break;
-            case 'KeyU': {
-                if (event.repeat) return;
-                triggerButtonPressDown('musicUploadBtn');
-                const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
-                if (uploadInput) uploadInput.click();
-                break;
-            }
-            case 'Equal':
-            case 'NumpadAdd':
-                if (event.repeat) return;
-                triggerButtonPressDown('volUpBtn');
-                handleVolumeKey(0.1);
-                break;
-            case 'Minus':
-            case 'NumpadSubtract':
-                if (event.repeat) return;
-                triggerButtonPressDown('volDownBtn');
-                handleVolumeKey(-0.1);
-                break;
-            case 'ControlLeft':
-            case 'ControlRight':
-                if (isExploreActive()) break;
-                keyStates.sneak = true;
-                event.preventDefault();
-                break;
-            case 'ShiftLeft':
-            case 'ShiftRight':
-                if (isExploreActive()) break;
-                keyStates.sprint = true;
-                break;
-        }
         handlePlaylistKeyDown(event);
     };
 
@@ -364,86 +239,6 @@ export function createKeyboardHandlers(
                     k.classList.remove('key-highlight');
                 }
             });
-        }
-
-        switch (event.code) {
-            case 'KeyW':
-                keyStates.forward = false;
-                triggerButtonPressUp('dpad-forward');
-                break;
-            case 'KeyA':
-                keyStates.left = false;
-                triggerButtonPressUp('dpad-left');
-                break;
-            case 'KeyS':
-                keyStates.backward = false;
-                triggerButtonPressUp('dpad-backward');
-                break;
-            case 'KeyD':
-                keyStates.right = false;
-                triggerButtonPressUp('dpad-right');
-                break;
-            case 'KeyF':
-                keyStates.action = false;
-                if (session.hudMine) triggerButtonPressUp(session.hudMine.id);
-                break;
-            case 'KeyE':
-            case 'e':
-                keyStates.dash = false;
-                if (session.hudDash) triggerButtonPressUp(session.hudDash.id);
-                break;
-            case 'KeyX':
-            case 'x':
-                keyStates.dodgeRoll = false;
-                break;
-            case 'KeyZ':
-            case 'z':
-                keyStates.phase = false;
-                if (session.hudPhase) triggerButtonPressUp(session.hudPhase.id);
-                break;
-            case 'KeyR':
-            case 'r':
-                keyStates.dance = false;
-                break;
-            case 'Space':
-                keyStates.jump = false;
-                break;
-            case 'KeyC':
-            case 'c':
-                keyStates.clap = false;
-                break;
-            case 'KeyV':
-            case 'v':
-                keyStates.strike = false;
-                break;
-            case 'ControlLeft':
-            case 'ControlRight':
-                keyStates.sneak = false;
-                break;
-            case 'ShiftLeft':
-            case 'ShiftRight':
-                keyStates.sprint = false;
-                break;
-            case 'KeyQ':
-                triggerButtonPressUp('openJukeboxBtn');
-                break;
-            case 'KeyN':
-                triggerButtonPressUp('toggleDayNight');
-                break;
-            case 'KeyM':
-                triggerButtonPressUp('toggleMuteBtn');
-                break;
-            case 'KeyU':
-                triggerButtonPressUp('musicUploadBtn');
-                break;
-            case 'Equal':
-            case 'NumpadAdd':
-                triggerButtonPressUp('volUpBtn');
-                break;
-            case 'Minus':
-            case 'NumpadSubtract':
-                triggerButtonPressUp('volDownBtn');
-                break;
         }
     };
 

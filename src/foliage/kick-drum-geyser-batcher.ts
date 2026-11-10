@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 import { color, float, vec3, vec4, sin, cos, positionLocal, normalLocal, add } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
+import type { FrameContext } from '../core/scheduler/types.ts';
 import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { getActiveWave } from '../systems/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     CandyPresets,
@@ -15,30 +18,30 @@ import {
 
 const MAX_GEYSERS = 500;
 
-export class KickDrumGeyserBatcher {
-    baseMesh!: THREE.InstancedMesh;
+export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
     coreMesh!: THREE.InstancedMesh;
     plumeMesh!: THREE.InstancedMesh;
 
-    private _count = 0;
-    private _scratchMatrix = new THREE.Matrix4();
     private _scratchVec3 = new THREE.Vector3();
     private _scratchPos = new THREE.Vector3();
 
     // Data arrays for animation
     private _offsets: Float32Array;
     private _maxHeights: Float32Array;
-    private logicGeysers: THREE.Object3D[] = [];
 
     group = new THREE.Group();
 
     constructor() {
+        super('kick-drum-geyser', 'animate', MAX_GEYSERS);
         this._offsets = new Float32Array(MAX_GEYSERS);
         this._maxHeights = new Float32Array(MAX_GEYSERS);
-        this.init();
+        // Add dummy meshes so register works correctly before mesh is assigned
+        // The base class will call createMesh on first add, but we want it up front
+        this.mesh = this.createMesh(MAX_GEYSERS);
+        this.mesh.count = 0;
     }
 
-    private init() {
+    protected createMesh(capacity: number): THREE.InstancedMesh {
         // Base Clay Mesh
         const baseGeo = new THREE.RingGeometry(0.1, 0.4, 8, 1);
         baseGeo.rotateX(-Math.PI / 2);
@@ -47,10 +50,10 @@ export class KickDrumGeyserBatcher {
             emissive: 0xff4500,
             emissiveIntensity: 0.1,
         });
-        this.baseMesh = new THREE.InstancedMesh(baseGeo, baseMat, MAX_GEYSERS);
-        this.baseMesh.count = 0;
-        this.baseMesh.frustumCulled = false;
-        foliageGroup.add(this.baseMesh);
+        const baseMesh = new THREE.InstancedMesh(baseGeo, baseMat, capacity);
+        baseMesh.count = 0;
+        baseMesh.frustumCulled = false;
+        foliageGroup.add(baseMesh);
 
         // Core Gummy Mesh
         const coreGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.1, 8);
@@ -66,7 +69,7 @@ export class KickDrumGeyserBatcher {
             createJuicyRimLight(color(0xff4500), float(1.5), float(3.0), normalLocal)
         );
         registerReactiveMaterial(coreMat);
-        this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, MAX_GEYSERS);
+        this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, capacity);
         this.coreMesh.count = 0;
         this.coreMesh.frustumCulled = false;
         foliageGroup.add(this.coreMesh);
@@ -101,49 +104,62 @@ export class KickDrumGeyserBatcher {
         plumeMat.positionNode = applyStandardDeformation(plumePos.add(circadianDroop));
         plumeMat.colorNode = vec4(color(0xff4500), float(0.8));
 
-        this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, MAX_GEYSERS);
+        this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, capacity);
         this.plumeMesh.count = 0;
         this.plumeMesh.frustumCulled = false;
         foliageGroup.add(this.plumeMesh);
+
+        return baseMesh;
+    }
+
+    public get baseMesh(): THREE.InstancedMesh {
+        return this.mesh!;
+    }
+
+    protected writeRecord(record: THREE.Object3D, slot: number, array: Float32Array): void {
+        record.matrixWorld.compose(record.position, record.quaternion, record.scale);
+        if (record.parent) {
+            record.matrixWorld.multiplyMatrices(record.parent.matrixWorld, record.matrixWorld);
+        }
+        const matrixArray = record.matrixWorld.elements;
+
+        for (let j = 0; j < 16; j++) {
+            array[slot * 16 + j] = matrixArray[j];
+            this.coreMesh.instanceMatrix.array[slot * 16 + j] = matrixArray[j];
+            this.plumeMesh.instanceMatrix.array[slot * 16 + j] = matrixArray[j];
+        }
+
+        this.coreMesh.instanceMatrix.needsUpdate = true;
+        this.plumeMesh.instanceMatrix.needsUpdate = true;
+    }
+
+    protected onSwap(fromSlot: number, toSlot: number): void {
+        this._offsets[toSlot] = this._offsets[fromSlot];
+        this._maxHeights[toSlot] = this._maxHeights[fromSlot];
+
+        // Ensure secondary meshes count is updated
+        this.coreMesh.count = this.count - 1; // Since swap happens before count decrement, we will adjust it after in remove
+        this.plumeMesh.count = this.count - 1;
     }
 
     /**
      * Registers a new Geyser instance.
      */
     register(proxy: THREE.Object3D, options: { maxHeight?: number } = {}) {
-        if (this._count >= MAX_GEYSERS) return;
+        const handle = this.add(proxy);
+        if (handle === null) return;
+        const slot = this.handleToSlot.get(handle)!;
 
-        const i = this._count;
-        this._count++;
-
-        this.baseMesh.count = this._count;
-        this.coreMesh.count = this._count;
-        this.plumeMesh.count = this._count;
-
-        // Apply Transform
-        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix
-        proxy.matrixWorld.compose(proxy.position, proxy.quaternion, proxy.scale);
-        if (proxy.parent) {
-            proxy.matrixWorld.multiplyMatrices(proxy.parent.matrixWorld, proxy.matrixWorld);
-        }
-        const matrixArray = proxy.matrixWorld.elements;
-
-        for (let j = 0; j < 16; j++) {
-            this.baseMesh.instanceMatrix.array[i * 16 + j] = matrixArray[j];
-            this.coreMesh.instanceMatrix.array[i * 16 + j] = matrixArray[j];
-            this.plumeMesh.instanceMatrix.array[i * 16 + j] = matrixArray[j]; // Plume will be scaled dynamically later
-        }
-
-        this.baseMesh.instanceMatrix.needsUpdate = true;
-        this.coreMesh.instanceMatrix.needsUpdate = true;
-        this.plumeMesh.instanceMatrix.needsUpdate = true;
-
-        this._offsets[i] = Math.random() * 10.0;
-        this._maxHeights[i] = options.maxHeight ?? 5.0;
-        proxy.userData.batchIndex = i;
+        this._offsets[slot] = Math.random() * 10.0;
+        this._maxHeights[slot] = options.maxHeight ?? 5.0;
+        proxy.userData.batchHandle = handle;
         proxy.userData.isBatched = true;
         proxy.userData.type = 'kick_drum_geyser';
-        this.logicGeysers[i] = proxy;
+
+        // Also keep coreMesh/plumeMesh count in sync since they're updated when add calls markDirty
+        // actually markDirty doesn't touch count, but baseMesh count is updated.
+        this.coreMesh.count = this.count;
+        this.plumeMesh.count = this.count;
     }
 
     /**
@@ -152,61 +168,22 @@ export class KickDrumGeyserBatcher {
 
     removeInstance(logicObject: THREE.Object3D): void {
         if (!logicObject) return;
-        const index = logicObject.userData?.batchIndex;
-        if (
-            typeof index !== 'number' ||
-            index < 0 ||
-            index >= this._count ||
-            this.logicGeysers[index] !== logicObject
-        ) {
+        const handle = logicObject.userData?.batchHandle;
+        if (typeof handle !== 'number') {
             return;
         }
 
-        const last = this._count - 1;
-        if (index !== last) {
-            const movedGeyser = this.logicGeysers[last];
-            this.logicGeysers[index] = movedGeyser;
-            if (movedGeyser) movedGeyser.userData.batchIndex = index;
-
-            const baseArray = this.baseMesh.instanceMatrix.array;
-            const coreArray = this.coreMesh.instanceMatrix.array;
-            const plumeArray = this.plumeMesh.instanceMatrix.array;
-            for (let j = 0; j < 16; j++) {
-                baseArray[index * 16 + j] = baseArray[last * 16 + j];
-                coreArray[index * 16 + j] = coreArray[last * 16 + j];
-                plumeArray[index * 16 + j] = plumeArray[last * 16 + j];
-            }
-
-            this._offsets[index] = this._offsets[last];
-            this._maxHeights[index] = this._maxHeights[last];
-        }
-
-        this.logicGeysers.length = last;
-        this._count = last;
-        this.baseMesh.count = last;
-        this.coreMesh.count = last;
-        this.plumeMesh.count = last;
-        logicObject.userData.batchIndex = undefined;
-
-        this.baseMesh.instanceMatrix.needsUpdate = true;
-        this.coreMesh.instanceMatrix.needsUpdate = true;
-        this.plumeMesh.instanceMatrix.needsUpdate = true;
+        this.remove(handle);
+        this.coreMesh.count = this.count;
+        this.plumeMesh.count = this.count;
     }
 
-    triggerErupt(): void {
-        // Geysers track eruption strength in the TSL uniform `eruptionStrength` per-instance
-        // The update loop uses _eruptionStrengths from somewhere else? Let's check logicGeysers.
-        for (const geyser of this.logicGeysers) {
-            if (geyser.userData) {
-                const bag = geyser.userData as { eruptionStrength?: number };
-                const prev = bag.eruptionStrength ?? 0;
-                bag.eruptionStrength = prev + 0.5 > 1 ? 1 : prev + 0.5;
-            }
-        }
+    protected step(ctx: FrameContext): void {
+        this.legacyUpdate(ctx.time, ctx.dt, ctx.audio, getActiveWave());
     }
 
-    update(_time: number, _deltaTime: number, audioState: any, activeWave: any) {
-        if (this._count === 0) return;
+    legacyUpdate(_time: number, _deltaTime: number, audioState: any, activeWave: any) {
+        if (this.count === 0) return;
 
         // Eruption logic is driven by the 'kick' channel (typically uAudioLow in similar batchers or audioState.kick)
         const globalKick = audioState?.channels?.kick?.intensity || 0;
@@ -239,8 +216,7 @@ export class KickDrumGeyserBatcher {
         }
 
         // O(N) zero-allocation hot path
-        const needsUpload = false;
-        for (let i = 0; i < this._count; i++) {
+        for (let i = 0; i < this.count; i++) {
             const baseIndex = i * 16;
             let localKick = globalKick;
 
@@ -268,40 +244,16 @@ export class KickDrumGeyserBatcher {
                 }
             }
 
-            // Plume vertical scaling
-            const targetHeight = this._maxHeights[i] * localKick;
+            const targetScaleY = localKick * this._maxHeights[i] + 0.1;
 
-            // Manual matrix composition for plume
-            // Keep base transform, but scale Y axis
-            // ⚡ OPTIMIZATION: Bypassed Matrix4 composition overhead by directly modifying the Y-axis basis vector in the Float32Array
-            const scaleY = targetHeight + 0.01; // 0.01 to prevent singular matrix warning
+            const plumeM00 = plumeArray[baseIndex + 0];
+            const plumeM11 = plumeArray[baseIndex + 5];
 
-            // dirty check
-            if (Math.abs(plumeArray[baseIndex + 5] - baseArray[baseIndex + 5] * scaleY) < 1e-6)
-                continue;
-
-            plumeDirty = true;
-
-            plumeArray[baseIndex + 0] = baseArray[baseIndex + 0];
-            plumeArray[baseIndex + 1] = baseArray[baseIndex + 1];
-            plumeArray[baseIndex + 2] = baseArray[baseIndex + 2];
-            plumeArray[baseIndex + 3] = baseArray[baseIndex + 3];
-
-            // Scale Y-axis basis vector
-            plumeArray[baseIndex + 4] = baseArray[baseIndex + 4] * scaleY;
-            plumeArray[baseIndex + 5] = baseArray[baseIndex + 5] * scaleY;
-            plumeArray[baseIndex + 6] = baseArray[baseIndex + 6] * scaleY;
-            plumeArray[baseIndex + 7] = baseArray[baseIndex + 7] * scaleY;
-
-            plumeArray[baseIndex + 8] = baseArray[baseIndex + 8];
-            plumeArray[baseIndex + 9] = baseArray[baseIndex + 9];
-            plumeArray[baseIndex + 10] = baseArray[baseIndex + 10];
-            plumeArray[baseIndex + 11] = baseArray[baseIndex + 11];
-
-            plumeArray[baseIndex + 12] = baseArray[baseIndex + 12];
-            plumeArray[baseIndex + 13] = baseArray[baseIndex + 13];
-            plumeArray[baseIndex + 14] = baseArray[baseIndex + 14];
-            plumeArray[baseIndex + 15] = baseArray[baseIndex + 15];
+            // Only write if scale changed significantly
+            if (Math.abs(plumeM11 - targetScaleY) > 0.01) {
+                plumeArray[baseIndex + 5] = targetScaleY;
+                plumeDirty = true;
+            }
         }
 
         if (plumeDirty) {
@@ -310,14 +262,14 @@ export class KickDrumGeyserBatcher {
     }
 
     dispose() {
-        if (this.baseMesh && this.baseMesh.parent) {
-            safeRemoveAndDispose(this.baseMesh.parent, this.baseMesh);
-        }
+        super.dispose();
         if (this.coreMesh && this.coreMesh.parent) {
-            safeRemoveAndDispose(this.coreMesh.parent, this.coreMesh);
+            // ⚡ OPTIMIZATION: Bypassed VRAM leaks using safeRemoveAndDispose
+            safeRemoveAndDispose(this.coreMesh.parent as THREE.Object3D, this.coreMesh);
         }
         if (this.plumeMesh && this.plumeMesh.parent) {
-            safeRemoveAndDispose(this.plumeMesh.parent, this.plumeMesh);
+            // ⚡ OPTIMIZATION: Bypassed VRAM leaks using safeRemoveAndDispose
+            safeRemoveAndDispose(this.plumeMesh.parent as THREE.Object3D, this.plumeMesh);
         }
     }
 }

@@ -6,32 +6,47 @@
 // floor. Harvested stones are remembered by site id and are not placed again.
 
 import * as THREE from 'three';
+import { color, float, positionLocal } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { LAKE_ISLAND } from '../systems/ground-height-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { spawnImpact } from './impacts.ts';
+import { applyStandardDeformation } from './material-core/deformation.ts';
+import { createJuicyRimLight } from './material-core/tsl-nodes.ts';
+
+
 
 const STONE_RADIUS = 0.9;
 const STONE_COLOR = 0xb39ddb;
 
+
 let _geometry: THREE.DodecahedronGeometry | null = null;
-let _material: THREE.MeshPhysicalMaterial | null = null;
+let _material: MeshPhysicalNodeMaterial | null = null;
 
 function sharedStone(): {
     geometry: THREE.DodecahedronGeometry;
-    material: THREE.MeshPhysicalMaterial;
+    material: MeshPhysicalNodeMaterial;
 } {
     _geometry ??= new THREE.DodecahedronGeometry(STONE_RADIUS, 1);
-    _material ??= new THREE.MeshPhysicalMaterial({
-        color: STONE_COLOR,
-        roughness: 0.35,
-        metalness: 0.0,
-        clearcoat: 0.8,
-        clearcoatRoughness: 0.2,
-    });
+    if (!_material) {
+        _material = new MeshPhysicalNodeMaterial();
+        _material.colorNode = color(STONE_COLOR);
+        _material.roughnessNode = float(0.35);
+        _material.metalnessNode = float(0.0);
+        _material.clearcoatNode = float(0.8);
+        _material.clearcoatRoughnessNode = float(0.2);
+
+        // 🎨 PALETTE: Add gentle wind sway and a rim light to the heavy stone
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        _material.positionNode = applyStandardDeformation(positionLocal);
+        _material.emissiveNode = createJuicyRimLight(color(STONE_COLOR), float(1.0), float(3.0), null);
+    }
     return { geometry: _geometry, material: _material };
 }
+
 
 /** Island stones sit between the geyser ring (0.7 r) and the flower ring (0.45 r). */
 const ISLAND_RING = LAKE_ISLAND.radius * 0.58;

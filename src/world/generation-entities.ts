@@ -7,12 +7,7 @@ import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObje
 import { WeatherSystem, normalizeMapEntityType, MapEntity, obstaclesData } from './generation-utils.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
-import {
-    animatedFoliage, cpuAnimatedFoliage, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers,
-    foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders,
-    computeFoliageObjects
-} from './state.ts';
+import { entities, cpuAnimatedFoliage, foliageGroup, foliageTraps } from './state.ts';
 
 registerBuiltinWorldObjectTypes();
 
@@ -50,28 +45,28 @@ export function safeAddFoliage(
     }
 
     foliageGroup.add(obj);
-    animatedFoliage.push(obj);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (obj.userData.computeNode) computeFoliageObjects.push(obj as any);
-    if (!isBatched) cpuAnimatedFoliage.push(obj);
+    entities.spawn('animatedFoliage', obj);
+    if (obj.userData.computeNode) entities.spawn('computeFoliageObject', obj);
+    if (!isBatched) entities.spawn('cpuAnimatedFoliage', obj);
 
     if (isObstacle) {
         obstaclesData.push({ x: obj.position.x, y: obj.position.y, z: obj.position.z, radius });
+        entities.spawn('obstacle', obj);
     }
 
-    if (obj.userData.type === 'mushroom') foliageMushrooms.push(obj);
-    if (obj.userData.type === 'cloud') foliageClouds.push(obj);
-    if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
-    if (obj.userData.type === 'panningPad') foliagePanningPads.push(obj);
-    if (obj.userData.type === 'geyser') foliageGeysers.push(obj);
+    if (obj.userData.type === 'mushroom') entities.spawn('foliageMushroom', obj);
+    if (obj.userData.type === 'cloud') entities.spawn('foliageCloud', obj);
+    if (obj.userData.isTrampoline) entities.spawn('foliageTrampoline', obj);
+    if (obj.userData.type === 'panningPad') entities.spawn('foliagePanningPad', obj);
+    if (obj.userData.type === 'geyser') entities.spawn('foliageGeyser', obj);
     if (obj.userData.type === 'trap') {
-        foliageTraps.push(obj);
+        entities.spawn('foliageTrap', obj);
         console.log('[World] Registered Snare Trap. Total:', foliageTraps.length);
     }
     if (obj.userData.type === 'tree' && obj.userData.animationType === 'batchedPortamento') {
-        foliagePortamentoPines.push(obj);
+        entities.spawn('foliagePortamentoPine', obj);
     }
-    if (obj.userData.type === 'vine_ladder') foliageVineLadders.push(obj);
+    if (obj.userData.type === 'vine_ladder') entities.spawn('foliageVineLadder', obj);
 
     // Batcher registration — must not throw silently.
     if (obj.userData.onPlacement) {
@@ -115,7 +110,7 @@ export function applyDreamyPopIn(obj: THREE.Object3D): void {
         if (!mesh.material) return;
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const material of materials) {
-            if (!(material as any).isMaterial || !('opacity' in material)) continue;
+            if (!((material as unknown) as { isMaterial?: boolean }).isMaterial || !('opacity' in material)) continue;
             const typed = material as THREE.Material & { opacity: number; transparent: boolean };
             if (typed.opacity >= 0.99) {
                 typed.transparent = true;
@@ -229,6 +224,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
         let radius = meta?.defaultRadius ?? 0.5;
         let caveLookAtOrigin = false;
         let caveNeedsWaterfallProxy = false;
+        let vineSwing: VineSwing | null = null;
         const createParams: Record<string, unknown> = { ...params };
         if (item.variant !== undefined) createParams.variant = item.variant;
         if (mapPersistentId) createParams.persistentId = mapPersistentId;
@@ -258,7 +254,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                 createParams.variant = item.variant === 'glowing' ? 'glowing' : 'simple';
                 break;
             case 'cloud':
-                cloudTier = (item as any).tier || 1;
+                cloudTier = ((item as unknown) as { tier?: number }).tier || 1;
                 createParams.size = typeof item.size === 'number' ? item.size : getParamNumber('size', 1.5);
                 break;
             case 'subwoofer_lotus':
@@ -332,7 +328,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
             obj.userData.isBatched = true; // explicitly mark cloud as batched
         } else if (entityType === 'swingable_vine') {
             const vineLength = typeof createParams.length === 'number' ? createParams.length : 8;
-            if (vineSwings) vineSwings.push(new VineSwing(obj, vineLength));
+            vineSwing = new VineSwing(obj, vineLength);
         } else if (entityType === 'melody_mirror') {
             if (Number.isInteger(item.noteIndex)) obj.userData.noteIndex = item.noteIndex;
             if (typeof item.note === 'string') obj.userData.note = item.note;
@@ -383,6 +379,8 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                 recordSpawnAttempt(entityType, false, new Error('CPU animation limit reached; object dropped'));
                 return;
             }
+            // Only a placed vine swings; despawning the vine drops its manager.
+            if (vineSwing) entities.spawn('vineSwing', obj, vineSwing);
             if (entityType === 'cave' && caveNeedsWaterfallProxy && obj.userData.gatePosition) {
                 const waterfallProxy = new THREE.Object3D();
                 // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy by doing pure math composition
@@ -392,10 +390,8 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
                     .applyQuaternion(obj.quaternion)
                     .add(obj.position);
                 waterfallProxy.userData.type = 'waterfall';
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                animatedFoliage.push(waterfallProxy as any);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (waterfallProxy.userData.computeNode) computeFoliageObjects.push(waterfallProxy as any);
+                entities.spawn('animatedFoliage', waterfallProxy);
+                if (waterfallProxy.userData.computeNode) entities.spawn('computeFoliageObject', waterfallProxy);
             }
         }
 

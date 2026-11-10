@@ -431,18 +431,21 @@ export interface GpuFeatureReport {
 }
 
 /**
- * `?debug=1`, `?graphics=high` or `?dynres=1` (dynamic resolution needs GPU
- * frame times). Never throws; a bad location means "do not request".
+ * GPU frame times feed dynamic resolution and the performance budget.
+ * Request `timestamp-query` on every real boot when the adapter has it.
+ * Chrome caps `deviceMemory` at 8 GB, so almost every player is the `medium`
+ * tier — and that tier used to skip the feature, which left the scene pass
+ * at full resolution while the GPU was over budget.
+ * `?dynres=0` / `?dynres=off` opts out. SwiftShader still lacks the feature;
+ * `selectRequiredFeatures` only adds it when advertised.
  */
 export function wantsTimestampQuery(): boolean {
     if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;
     const location = window.location;
     try {
-        const q = new URLSearchParams(location.search);
-        if (q.get('debug') === '1' || q.has('debug')) return true;
-        const dynres = q.get('dynres');
-        if (dynres === '1' || dynres === 'on') return true;
-        return (q.get('graphics') || q.get('quality') || '').toLowerCase() === 'high';
+        const params = new URLSearchParams(location.search);
+        const dynres = (params.get('dynres') || '').toLowerCase();
+        return !(dynres === '0' || dynres === 'off');
     } catch {
         return false;
     }

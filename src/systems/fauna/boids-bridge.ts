@@ -6,8 +6,7 @@
 import { asAllocF32, asFree, emAllocF32, type NativeF32 } from '../../utils/native-memory.ts';
 import {
     cppUpdateBoids,
-    getEmscriptenInstance,
-    wasmUpdateBoids,
+    getEmscriptenInstance
 } from '../../utils/wasm-loader-core.ts';
 import { FAUNA_BOID_STRIDE } from './types.ts';
 
@@ -256,7 +255,6 @@ export function updateBoidsJS(
 }
 
 export function bindBoidsWasm(): void {
-    // wasmUpdateBoids is populated by wasm-loader-core cacheWasmFunctions at boot.
 }
 
 export type BoidsBackend = 'cpp' | 'as' | 'js';
@@ -299,10 +297,6 @@ export function updateBoidsBatch(
             cppUpdateBoids(ptr, count, dt, playerX, playerZ, time);
             return;
         }
-        if (buffer.backend === 'as' && wasmUpdateBoids) {
-            wasmUpdateBoids(ptr, count, dt, playerX, playerZ, time);
-            return;
-        }
     }
     updateBoidsJS(buffer.view, 0, count, dt, playerX, playerZ, time);
 }
@@ -313,10 +307,6 @@ export function allocateBoidsBuffer(count: number): BoidsBuffer {
     if (cppUpdateBoids) {
         const native = emAllocF32(getEmscriptenInstance(), floats);
         if (native) return new BoidsBuffer('cpp', native, null);
-    }
-    if (wasmUpdateBoids) {
-        const native = asAllocF32(floats);
-        if (native) return new BoidsBuffer('as', native, null);
     }
     return new BoidsBuffer('js', null, new Float32Array(floats));
 }

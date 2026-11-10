@@ -10,7 +10,6 @@
  * - getNativeFunc() helper
  */
 
-import { createNativeModule, firstNativeModule } from './native-instantiate.ts';
 import { isSharedMemoryAvailable } from './wasm-orchestrator.ts';
 import { checkWasmFileExists, patchWasmInstantiateAliases } from './wasm-utils.ts';
 
@@ -18,7 +17,7 @@ import { checkWasmFileExists, patchWasmInstantiateAliases } from './wasm-utils.t
 import initCandyPhysics from '../wasm/candy_physics.wasm?init';
 import { bootProgress } from './boot-progress.ts';
 import { log } from './log.ts';
-import { bindAssemblyScriptMemory } from './native-memory.ts';
+import { createNativeModule, firstNativeModule } from './native-instantiate.ts';
 import {
     POSITION_OFFSET,
     POSITION_BYTES,
@@ -29,6 +28,7 @@ import {
     PLAYER_STATE_OFFSET,
     PLAYER_STATE_BYTES,
 } from './native-memory-layout.ts';
+import { bindAssemblyScriptMemory } from './native-memory.ts';
 
 // =============================================================================
 // STATE EXPORTS
@@ -78,17 +78,7 @@ export let wasmResolveGameCollisions: ((kickTrigger: number) => number) | null =
 export let wasmCheckPositionValidity: ((x: number, z: number, radius: number) => number) | null =
     null;
 /** Fauna boids from assembly/boids.ts (ptr,count,dt,playerX,playerZ,time) */
-export let wasmUpdateBoids:
-    | ((
-          boidsPtr: number,
-          count: number,
-          dt: number,
-          playerX: number,
-          playerZ: number,
-          time: number
-      ) => void)
-    | null = null;
-export let cppUpdateBoids:
+export const cppUpdateBoids:
     | ((
           boidsPtr: number,
           count: number,
@@ -274,10 +264,9 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmAddCollisionObject = exports.addCollisionObject || null;
     wasmResolveGameCollisions = exports.resolveGameCollisions || null;
     wasmCheckPositionValidity = exports.checkPositionValidity || null;
-    wasmUpdateBoids = exports.updateBoids || null;
 
     wasmBatchGroundHeight = exports.batchGroundHeight || null;
-    cppUpdateBoids = getNativeFuncVoid('updateBoids_c');
+
 
     wasmGetUnifiedGroundHeight = exports.getUnifiedGroundHeight || null;
     wasmBatchUnifiedGroundHeight = exports.batchUnifiedGroundHeight || null;
@@ -408,7 +397,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
 
     setEmscriptenInstance(instance);
     if (instance.wasmMemory) {
-        setEmscriptenMemory(instance.wasmMemory.buffer as ArrayBuffer);
+        setEmscriptenMemory(instance.wasmMemory.buffer);
     } else if (instance.HEAP8) {
         setEmscriptenMemory(instance.HEAP8.buffer as ArrayBuffer);
     }
@@ -561,7 +550,7 @@ async function loadEmscriptenVariant(
  * @returns The WASM memory ArrayBuffer or null if not initialized
  */
 export function getWasmMemory(): ArrayBuffer | null {
-    return wasmMemory ? (wasmMemory.buffer as ArrayBuffer) : null;
+    return wasmMemory ? (wasmMemory.buffer) : null;
 }
 
 // =============================================================================

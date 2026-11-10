@@ -266,8 +266,10 @@ export class ClothSim {
             let vy = (pos[p + 1] - prev[p + 1]) * keep;
             let vz = (pos[p + 2] - prev[p + 2]) * keep;
 
-            const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
-            if (speed > maxStep) {
+            // ⚡ OPTIMIZATION: Check speed squared to bypass Math.sqrt() in soft-body integration loop when under max speed.
+            const speedSq = vx * vx + vy * vy + vz * vz;
+            if (speedSq > maxStep * maxStep) {
+                const speed = Math.sqrt(speedSq);
                 const s = maxStep / speed;
                 vx *= s;
                 vy *= s;
@@ -302,10 +304,20 @@ export class ClothSim {
             const dx = pos[b] - pos[a];
             const dy = pos[b + 1] - pos[a + 1];
             const dz = pos[b + 2] - pos[a + 2];
-            const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (d < 1e-6) continue;
+
+            // ⚡ OPTIMIZATION: Bypassed Math.sqrt() in soft-body constraint loop for resting/settled links.
+            const distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq < 1e-12) continue;
 
             const rest = this.rest[k];
+            const restSq = rest * rest;
+            const epsSq = 1e-8; // Allow a tiny bit of squared tolerance to avoid sqrt
+
+            // If the link is exactly at rest, do nothing.
+            if (Math.abs(distSq - restSq) < epsSq) continue;
+
+            const d = Math.sqrt(distSq);
+
             // Hard clamp first: a link may never exceed MAX_STRETCH × rest,
             // whatever the stiffness says. This is what stops candy from
             // pulling into strings.
@@ -353,13 +365,15 @@ export class ClothSim {
                 const dx = pos[p] - player.x;
                 const dz = pos[p + 2] - player.z;
                 const dy = pos[p + 1] - cy;
-                const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                // ⚡ OPTIMIZATION: Bypassed repeated Math.sqrt() in soft-body collision loop by checking distance squared first.
+                const distSq = dx * dx + dy * dy + dz * dz;
                 const r = player.radius;
-                if (d < r) {
-                    if (d < 1e-5) {
+                if (distSq < r * r) {
+                    if (distSq < 1e-10) { // (1e-5)^2
                         // Degenerate: nudge along +X so the push has a direction.
                         pos[p] += r;
                     } else {
+                        const d = Math.sqrt(distSq);
                         const s = (r - d) / d;
                         pos[p] += dx * s;
                         pos[p + 1] += dy * s;
@@ -420,12 +434,14 @@ export class ClothSim {
             }
         }
         for (let i = 0; i < out.length; i += 3) {
-            const l = Math.sqrt(out[i] * out[i] + out[i + 1] * out[i + 1] + out[i + 2] * out[i + 2]);
-            if (l < 1e-6) {
+            // ⚡ OPTIMIZATION: Check squared magnitude before calculating Math.sqrt() in hot normal computation loop.
+            const lSq = out[i] * out[i] + out[i + 1] * out[i + 1] + out[i + 2] * out[i + 2];
+            if (lSq < 1e-12) {
                 out[i] = 0;
                 out[i + 1] = 0;
                 out[i + 2] = 1;
             } else {
+                const l = Math.sqrt(lSq);
                 out[i] /= l;
                 out[i + 1] /= l;
                 out[i + 2] /= l;

@@ -37,6 +37,7 @@ const {
     getGpuContextSync,
     awaitGpuDevice,
     selectRequiredFeatures,
+    wantsTimestampQuery,
 } = await import('../src/rendering/gpu-context.ts');
 const { resolveRendererBackend } = await import('../src/rendering/renderer-mode.ts');
 
@@ -266,6 +267,8 @@ async function expectFailure(canvas, stage) {
     assert.match(getWebGPUProbeReport().reason, /entryPoint not found/);
 }
 
+const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } };
+
 // --- Features are properly requested ------------------------------------------
 {
     reset();
@@ -293,7 +296,7 @@ async function expectFailure(canvas, stage) {
 
     assert.deepEqual(
         [...requestedDescriptor.requiredFeatures].sort(),
-        [],
+        ["timestamp-query"],
         'no extra features requested by default'
     );
     assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
@@ -315,7 +318,7 @@ async function expectFailure(canvas, stage) {
             },
         })
     );
-    globalThis.window.location = { search: '?debug=1' }; // want timestamp
+    globalThis.window.location = { search: '?dynres=1' }; // want timestamp
     await probeWebGPU(makeCanvas());
 
     assert.deepEqual(
@@ -324,7 +327,49 @@ async function expectFailure(canvas, stage) {
         'timestamp-query requested when wanted and supported'
     );
 
+    // Default-on (fad443b / #2107): ?dynres=0 and ?dynres=off are the only opt-outs.
+    for (const search of ['?dynres=0', '?dynres=off', '?dynres=OFF']) {
+        globalThis.window.location = { search };
+        assert.equal(wantsTimestampQuery(), false, `${search} opts out`);
+        assert.deepEqual(
+            selectRequiredFeatures(adapter3Like, {}),
+            [],
+            `${search}: timestamp-query not requested`
+        );
+    }
+    for (const search of ['', '?dynres=1', '?foo=bar']) {
+        globalThis.window.location = { search };
+        assert.equal(wantsTimestampQuery(), true, `"${search}" wants timestamp-query`);
+        assert.deepEqual(selectRequiredFeatures(adapter3Like, {}), ['timestamp-query'], `"${search}" requests it`);
+        assert.deepEqual(
+            selectRequiredFeatures({ features: { has: (n) => n === 'foo' } }, {}),
+            [],
+            `"${search}": adapter without the feature is not asked for it`
+        );
+    }
+
+    reset();
+    installGpu(async () =>
+        makeAdapter(device, {
+            features: {
+                has: (name) => name === 'timestamp-query',
+                keys: () => ['timestamp-query'],
+                [Symbol.iterator]: function* () {
+                    yield 'timestamp-query';
+                },
+            },
+            requestDevice: async (descriptor) => {
+                requestedDescriptor = descriptor;
+                return device;
+            },
+        })
+    );
+    globalThis.window.location = { search: '?dynres=0' };
+    await probeWebGPU(makeCanvas());
+    assert.deepEqual([...requestedDescriptor.requiredFeatures], [], '?dynres=0 probe skips timestamp-query');
+
     globalThis.window.location = undefined; // Reset
+    assert.equal(wantsTimestampQuery(), false, 'no location → false');
 }
 
 // --- selectRequiredFeatures unit test ------------------------------------------

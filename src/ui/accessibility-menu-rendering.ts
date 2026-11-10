@@ -39,6 +39,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
 
         // Create menu container
         this.container = document.createElement('div');
+        this.container.id = 'a11y-menu-container';
         this.container.className = 'a11y-menu-container';
         this.container.setAttribute('role', 'dialog');
         this.container.setAttribute('aria-modal', 'true');
@@ -84,6 +85,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         const title = document.createElement('h2');
         title.id = 'a11y-menu-title';
         title.textContent = 'Accessibility Settings';
+        title.tabIndex = -1;
         title.style.cssText = `
       margin: 0;
       font-size: 1.5rem;
