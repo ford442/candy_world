@@ -106,6 +106,7 @@
         "check:net-chunk": "node scripts/check-net-chunk.mjs",
         "check:dist-wasm": "node scripts/check-dist-wasm.mjs",
         "check:native-exports": "node scripts/check-native-exports.mjs",
+        "check:raw-keys": "node scripts/check-raw-keys.mjs",
         "test:native-exports": "node tests/native-exports.test.mjs",
         "e2e:shared-worlds": "node scripts/e2e-shared-worlds.mjs",
         "check:validate-world": "cd supabase/functions/validate-world && deno check --config deno.json index.ts",
