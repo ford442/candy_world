@@ -861,6 +861,118 @@ test('unionMelodyProgress: empty is the identity in both orders, larger step win
     assert.deepEqual(unionMelodyProgress(u, u), u, 'idempotent');
 });
 
+// ---------------------------------------------------------------------------
+// Step 3: progress.melodies in the WorldDocument, and its union rule
+// ---------------------------------------------------------------------------
+
+const { createEmptyDocument, emptyProgress, validateWorldDocument } =
+    await import('../src/world/document/schema.ts');
+const { unionProgress } = await import('../src/world/document/progress-union.ts');
+
+const newDoc = () => createEmptyDocument({ seed: 7, mapVersion: 'test', now: 1_000 });
+
+test('a document without melodies validates and gets the empty state', () => {
+    const raw = JSON.parse(JSON.stringify(newDoc()));
+    delete raw.progress.melodies; // as saved before Melodies existed
+    const result = validateWorldDocument(raw);
+    assert.ok(result.ok, result.ok ? '' : result.error.message);
+    assert.deepEqual(result.doc.progress.melodies, { completed: [], step: {} });
+    assert.equal(result.doc.schema, 1, 'WORLD_DOCUMENT_SCHEMA stays 1');
+
+    // Each load gets its own default object, so one document cannot change another.
+    const other = validateWorldDocument(raw);
+    assert.ok(other.ok);
+    assert.notEqual(other.doc.progress.melodies, result.doc.progress.melodies);
+});
+
+test('progress.melodies round-trips through validateWorldDocument', () => {
+    const doc = newDoc();
+    doc.progress.melodies = {
+        completed: ['meadow'],
+        step: { 'night-market': 3, 'sugar-caves': 0 },
+    };
+    const result = validateWorldDocument(JSON.parse(JSON.stringify(doc)));
+    assert.ok(result.ok, result.ok ? '' : result.error.message);
+    assert.deepEqual(result.doc, doc);
+    assert.deepEqual(emptyProgress().melodies, { completed: [], step: {} });
+});
+
+test('a malformed melodies field is refused with its path', () => {
+    const refuses = (mutate: (p: Record<string, any>) => void, path: RegExp) => {
+        const raw = JSON.parse(JSON.stringify(newDoc()));
+        mutate(raw.progress);
+        const result = validateWorldDocument(raw);
+        assert.ok(!result.ok);
+        assert.match(result.error.message, path);
+    };
+    refuses(
+        (p) => (p.melodies = { completed: [], step: { a: -1 } }),
+        /progress\.melodies\.step\.a/
+    );
+    refuses(
+        (p) => (p.melodies = { completed: [], step: { a: 1.5 } }),
+        /progress\.melodies\.step\.a/
+    );
+    refuses((p) => (p.melodies = { completed: [7], step: {} }), /progress\.melodies\.completed\.0/);
+    refuses(
+        (p) => (p.melodies = { completed: [''], step: {} }),
+        /progress\.melodies\.completed\.0/
+    );
+    refuses((p) => (p.melodies = { step: {} }), /progress\.melodies\.completed/);
+    refuses((p) => (p.melodies = 'done'), /progress\.melodies/);
+});
+
+test('unionProgress: the empty melodies state is the identity, in both argument orders', () => {
+    const full = emptyProgress();
+    full.discoveries = ['cave'];
+    full.melodies = { completed: ['meadow'], step: { 'night-market': 2 } };
+    assert.deepEqual(unionProgress(full, emptyProgress()), full);
+    assert.deepEqual(unionProgress(emptyProgress(), full), full);
+    assert.deepEqual(unionProgress(full, full), full, 'idempotent');
+});
+
+test('unionProgress: the larger step wins, and a completed Melody has no step entry', () => {
+    const a = emptyProgress();
+    a.melodies = { completed: ['meadow'], step: { 'night-market': 2, 'sugar-caves': 0 } };
+    const b = emptyProgress();
+    b.melodies = { completed: ['sugar-caves'], step: { 'night-market': 5, meadow: 1 } };
+    const ab = unionProgress(a, b).melodies;
+    assert.deepEqual([...ab.completed].sort(), ['meadow', 'sugar-caves']);
+    assert.deepEqual(ab.step, { 'night-market': 5 });
+    const ba = unionProgress(b, a).melodies;
+    assert.deepEqual([...ba.completed].sort(), [...ab.completed].sort());
+    assert.deepEqual(ba.step, ab.step, 'commutative');
+});
+
+test('unionProgress: either side may lack the field (a record built before it existed)', () => {
+    const withField = emptyProgress();
+    withField.melodies = { completed: ['meadow'], step: { x: 1 } };
+    const without = emptyProgress() as Record<string, any>;
+    delete without.melodies;
+    assert.deepEqual(unionProgress(withField, without as any).melodies, withField.melodies);
+    assert.deepEqual(unionProgress(without as any, withField).melodies, withField.melodies);
+    assert.deepEqual(unionProgress(without as any, without as any).melodies, {
+        completed: [],
+        step: {},
+    });
+});
+
+test('unionProgress still unions every other field', () => {
+    const a = emptyProgress();
+    a.discoveries = ['x'];
+    a.inventory = { gem: 2 };
+    a.partII = { sugarCavesUnlocked: true };
+    const b = emptyProgress();
+    b.discoveries = ['y'];
+    b.inventory = { gem: 5, nectar: 1 };
+    b.melodies = { completed: ['meadow'], step: {} };
+    const u = unionProgress(a, b);
+    assert.deepEqual(u.discoveries, ['x', 'y']);
+    assert.deepEqual(u.inventory, { gem: 5, nectar: 1 });
+    assert.equal(u.partII.sugarCavesUnlocked, true);
+    assert.deepEqual(u.melodies.completed, ['meadow']);
+});
+
 if (failures > 0) {
     console.error(`\n${failures} objectives test(s) failed`);
     process.exit(1);
