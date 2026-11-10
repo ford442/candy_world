@@ -1,5 +1,6 @@
 import { printBootSummary, runBootStage } from '../../debug/index.ts';
 import { preloadGameplay } from '../../gameplay/lazy.ts';
+import { preloadObjectives } from '../../gameplay/objectives-lazy.ts';
 import { CONFIG } from '../config.ts';
 import { animate } from '../game-loop.ts';
 import { isAutomation, isLoopFreezeRequested } from '../platform/run-mode.ts';
@@ -67,6 +68,8 @@ export function runShaderWarmup(ctx: MainContext): void {
             }
         }
         void preloadGameplay();
+        // After __sceneReady, and never awaited (see objectives-lazy.ts).
+        void preloadObjectives();
 
         if (!worldGenerationActive) {
             loadingScreen.hide();
