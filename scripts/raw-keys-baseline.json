@@ -1,0 +1,19 @@
+{
+  "maxProblems": 15,
+  "updatedAt": "2026-11-09",
+  "files": [
+    "src/debug/debug-place.ts",
+    "src/debug/hero-animation-demo.ts",
+    "src/debug/panel.ts",
+    "src/debug/physics-sandbox.ts",
+    "src/debug/soft-body-demo.ts",
+    "src/rendering/webgl-debug.ts",
+    "src/systems/accessibility.ts",
+    "src/systems/save-system/save-system.ts",
+    "src/ui/accessibility-menu-core.ts",
+    "src/ui/analytics-debug-handlers.ts",
+    "src/ui/save-menu/save-menu.ts",
+    "src/utils/interaction-utils.ts",
+    "src/world/cloud-placer.ts"
+  ]
+}
