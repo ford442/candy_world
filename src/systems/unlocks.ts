@@ -82,12 +82,20 @@ export const UNLOCK_DEFINITIONS: Record<string, UnlockDefinition> = {
     },
 };
 
+/**
+ * Called at the end of every `harvest`, after the inventory holds the new
+ * count. `amount` is what this harvest added (`chime_shard` adds 3 at a time),
+ * `total` is the count afterwards.
+ */
+export type HarvestListener = (itemId: string, amount: number, total: number) => void;
+
 class UnlockSystem {
     private inventory: Record<string, number>;
     private unlocks: Set<string>;
     /** One-shot sources already harvested (`heavy_stone:island:0`, `bounce_shroom:12,-40`). */
     private harvestedSites: Set<string>;
     private storageKey: string;
+    private harvestListeners: HarvestListener[] = [];
 
     constructor() {
         this.inventory = {};
@@ -153,6 +161,32 @@ class UnlockSystem {
 
         this.checkUnlocks();
         this.save();
+        this.notifyHarvest(itemId, amount);
+    }
+
+    /**
+     * Listen for harvests made by this player (not `restore`, which merges a saved
+     * world). Not a `ProgressKind`: harvest counts already reach other players
+     * through `inventory` in the world document. Returns an unsubscribe function.
+     */
+    public onHarvest(listener: HarvestListener): () => void {
+        this.harvestListeners.push(listener);
+        return () => {
+            const i = this.harvestListeners.indexOf(listener);
+            if (i >= 0) this.harvestListeners.splice(i, 1);
+        };
+    }
+
+    private notifyHarvest(itemId: string, amount: number): void {
+        if (this.harvestListeners.length === 0) return;
+        const total = this.inventory[itemId] ?? 0;
+        for (const listener of this.harvestListeners.slice()) {
+            try {
+                listener(itemId, amount, total);
+            } catch (err) {
+                console.warn('[UnlockSystem] Harvest listener failed:', err);
+            }
+        }
     }
 
     /**
