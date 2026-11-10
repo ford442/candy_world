@@ -21,6 +21,7 @@ import {
     stopHeroClip,
     unregisterHeroRig,
 } from '../systems/animation/clip-player.ts';
+import { input } from '../core/input/actions/index.ts';
 import { HERO_TEST_ASSET, loadHeroRig } from '../systems/animation/hero-rig-loader.ts';
 import { getUnifiedGroundHeightTyped } from '../systems/physics/physics-math.ts';
 
@@ -39,7 +40,8 @@ let _enabled = false;
 let _scene: THREE.Scene | null = null;
 let _root: THREE.Object3D | null = null;
 let _pedestal: THREE.Mesh | null = null;
-let _keyHandler: ((e: KeyboardEvent) => void) | null = null;
+let _nextUnbind: (() => void) | null = null;
+let _toggleUnbind: (() => void) | null = null;
 
 export function isHeroAnimationDemoEnabled(): boolean {
     return _enabled;
@@ -130,28 +132,23 @@ export function cycleHeroAnimationClip(): void {
 }
 
 function installKeys(): void {
-    if (_keyHandler) return;
-    _keyHandler = (e: KeyboardEvent) => {
+    if (_nextUnbind) return;
+    _nextUnbind = input.onPress('debug.hero.next', () => {
         if (!_enabled) return;
-        const el = document.activeElement as HTMLElement | null;
-        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
-            return;
+        cycleHeroAnimationClip();
+    });
+    _toggleUnbind = input.onPress('debug.hero.toggle', () => {
+        if (!_enabled) return;
+        const rig = getHeroRig(RIG);
+        if (!rig) return;
+        if (rig.current) {
+            stopHeroClip(RIG, 0.2);
+            console.warn('[hero-anim] stopped');
+        } else {
+            playHeroClip(RIG, rig.clipNames[0], { loop: true, restart: true });
+            console.warn(`[hero-anim] → ${rig.clipNames[0]}`);
         }
-        if (e.code === 'KeyJ') {
-            cycleHeroAnimationClip();
-        } else if (e.code === 'KeyK') {
-            const rig = getHeroRig(RIG);
-            if (!rig) return;
-            if (rig.current) {
-                stopHeroClip(RIG, 0.2);
-                console.warn('[hero-anim] stopped');
-            } else {
-                playHeroClip(RIG, rig.clipNames[0], { loop: true, restart: true });
-                console.warn(`[hero-anim] → ${rig.clipNames[0]}`);
-            }
-        }
-    };
-    window.addEventListener('keydown', _keyHandler);
+    });
 }
 
 /** Console handle, matching the soft-body / rigid-body sandbox shape. */
@@ -203,9 +200,13 @@ export function disposeHeroAnimationDemo(): void {
         (_pedestal.material as THREE.Material).dispose();
         _pedestal = null;
     }
-    if (_keyHandler) {
-        window.removeEventListener('keydown', _keyHandler);
-        _keyHandler = null;
+    if (_nextUnbind) {
+        _nextUnbind();
+        _nextUnbind = null;
+    }
+    if (_toggleUnbind) {
+        _toggleUnbind();
+        _toggleUnbind = null;
     }
     _enabled = false;
     _scene = null;
