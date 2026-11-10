@@ -395,8 +395,54 @@ void updateCpuParticlesWASM(
     if (!positions || !velocities || !lives || count <= 0) return;
     if (deltaTime > 0.1f) deltaTime = 0.1f;
 
-    #pragma omp parallel for schedule(static)
+    // One pointer to the inputs instead of ~27 captured variables: libomp's
+    // generic microtask invoker takes at most 15 and calls exit() past that
+    // (docs/NATIVE_LAYER.md, tests/native-omp-regions).
+    struct CpuParticleArgs {
+        float* positions; float* velocities; float* lives;
+        float* sizes; float* colors; float* seeds;
+        int particleType;
+        float deltaTime;
+        float centerX, centerY, centerZ;
+        float boundsX, boundsY, boundsZ;
+        float sizeMin, sizeMax;
+        float playerX, playerY, playerZ;
+        float audioLow, audioHigh;
+        float windX, windZ;
+        float timeOffsetFirefly, timeOffsetPollen, timeSec;
+    };
+    const CpuParticleArgs args = {
+        positions, velocities, lives, sizes, colors, seeds,
+        particleType, deltaTime,
+        centerX, centerY, centerZ,
+        boundsX, boundsY, boundsZ,
+        sizeMin, sizeMax,
+        playerX, playerY, playerZ,
+        audioLow, audioHigh,
+        windX, windZ,
+        timeOffsetFirefly, timeOffsetPollen, timeSec,
+    };
+    const CpuParticleArgs* const A = &args;
+
+    #pragma omp parallel for schedule(static) firstprivate(A)
     for (int i = 0; i < count; i++) {
+        float* const positions = A->positions;
+        float* const velocities = A->velocities;
+        float* const lives = A->lives;
+        float* const sizes = A->sizes;
+        float* const colors = A->colors;
+        float* const seeds = A->seeds;
+        const int particleType = A->particleType;
+        const float deltaTime = A->deltaTime;
+        const float centerX = A->centerX, centerY = A->centerY, centerZ = A->centerZ;
+        const float boundsX = A->boundsX, boundsY = A->boundsY, boundsZ = A->boundsZ;
+        const float sizeMin = A->sizeMin, sizeMax = A->sizeMax;
+        const float playerX = A->playerX, playerY = A->playerY, playerZ = A->playerZ;
+        const float audioLow = A->audioLow, audioHigh = A->audioHigh;
+        const float windX = A->windX, windZ = A->windZ;
+        const float timeOffsetFirefly = A->timeOffsetFirefly;
+        const float timeOffsetPollen = A->timeOffsetPollen;
+        const float timeSec = A->timeSec;
         lives[i] -= deltaTime;
 
         if (lives[i] <= 0.0f) {

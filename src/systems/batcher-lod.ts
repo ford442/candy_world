@@ -81,6 +81,9 @@ let _impostorMesh: THREE.InstancedMesh | null = null;
 const _impostorCapacity = 4096;
 let _debugHighlight = false;
 
+/** Set once the native LOD batch throws; the JS path takes over for the session. */
+let _nativeLodFailed = false;
+
 export function getFoliageLodConfig(): FoliageLodConfig {
     const lod = CONFIG.foliage?.lod ?? {};
     return {
@@ -347,24 +350,34 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
         let needsUpdate = false;
 
         // ⚡ OPTIMIZATION: Bypassed pure JS O(N) distance checks and smoothstep math with a single WASM batch call
-        const useWasm = isEmscriptenReady();
+        let useWasm = !_nativeLodFailed && isEmscriptenReady();
         if (useWasm) {
             const statsArray = _scratchStatsArray;
-            batchUpdateLodFactors_c(
-                matrixArray,
-                smoothed,
-                count,
-                _cameraPos.x,
-                _cameraPos.y,
-                _cameraPos.z,
-                cfg.heroMax,
-                cfg.midMax,
-                cfg.blendWidth,
-                farCullSq,
-                blendT,
-                statsArray
-            );
-
+            try {
+                batchUpdateLodFactors_c(
+                    matrixArray,
+                    smoothed,
+                    count,
+                    _cameraPos.x,
+                    _cameraPos.y,
+                    _cameraPos.z,
+                    cfg.heroMax,
+                    cfg.midMax,
+                    cfg.blendWidth,
+                    farCullSq,
+                    blendT,
+                    statsArray
+                );
+            } catch (err) {
+                // One broken native export must not take down animate:foliage:
+                // this call site uses the JS path for the rest of the session.
+                _nativeLodFailed = true;
+                useWasm = false;
+                console.warn('[batcher-lod] native batchUpdateLodFactors_c threw; using the JS path', err);
+            }
+        }
+        if (useWasm) {
+            const statsArray = _scratchStatsArray;
             _stats.hero += statsArray[0];
             _stats.mid += statsArray[1];
             _stats.far += statsArray[2];
