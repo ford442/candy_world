@@ -1,4 +1,4 @@
-import { analytics, trackEvent } from '../systems/analytics';
+import { analytics } from '../systems/analytics';
 import type { FPSHistogram, FrameTimePercentiles } from '../systems/analytics';
 
 export interface DebugPanelElements {
