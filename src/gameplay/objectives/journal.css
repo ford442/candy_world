@@ -3,6 +3,8 @@
    day/night theme. The dialog is a kit panel on the `overlay` layer. */
 
 .journal-panel {
+    /* Solid, unlike the 85% HUD surface: a modal over a busy scene must stay legible. */
+    background: var(--ck-surface-solid);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -46,7 +48,8 @@
 
 .journal-heading {
     margin: 0 0 var(--ck-space-2);
-    color: var(--ck-text-accent);
+    /* Body text colour: the coral accent is too faint at this size on a light surface. */
+    color: var(--ck-text);
     font-size: 0.8em;
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -63,7 +66,9 @@
 
 .journal-item {
     padding: var(--ck-space-2) var(--ck-space-3);
-    background: var(--ck-surface-sunken);
+    /* --ck-text is designed to sit on --ck-surface-solid (dark on white by day, light on navy at
+       night). --ck-surface-sunken is the dark meter-track colour: dark text on it is unreadable. */
+    background: var(--ck-surface-solid);
     border: var(--ck-border-width) solid var(--ck-border);
     border-radius: var(--ck-radius-md);
 }
