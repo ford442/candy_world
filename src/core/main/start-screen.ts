@@ -127,6 +127,10 @@ export function setupStartScreen(ctx: MainContext): void {
                     instructions,
                     { skipAutoFocus: true }
                 );
+                const title = instructions.querySelector('#instructions-title') as HTMLElement | null;
+                if (title) {
+                    title.focus({ preventScroll: true });
+                }
             }
         }
     });
