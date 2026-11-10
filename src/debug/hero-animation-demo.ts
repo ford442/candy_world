@@ -6,7 +6,8 @@
  * in `src/systems/animation/clip-player.ts` has a visible surface to verify
  * against. Nothing in the default boot path loads this.
  *
- * Controls (while the flag is on):
+ * Controls (bound only when the page boots with the flag; see
+ * `heroDemoBindings()` in `src/core/input/actions/bindings.ts`):
  *   J — next clip (crossfades)
  *   K — stop / restart the current clip
  *
