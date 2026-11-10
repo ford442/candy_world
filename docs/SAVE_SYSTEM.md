@@ -22,6 +22,7 @@ interface WorldDocumentV1 {
     progress: {
         discoveries: string[]; unlocks: string[]; inventory: Record<string, number>;
         awakened: AwakenedRecord[]; stamps: string[]; partII: { sugarCavesUnlocked: boolean };
+        melodies?: { completed: string[]; step: Record<string, number> }; // quest chains, docs/PROGRESSION.md
     };
     player: { position: [x, y, z]; yaw: number; season?: SeasonOverride };
     meta: { title?: string; createdAt: number; updatedAt: number; author?: string };
