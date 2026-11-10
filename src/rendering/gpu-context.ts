@@ -445,7 +445,7 @@ export function wantsTimestampQuery(): boolean {
     try {
         const params = new URLSearchParams(location.search);
         const dynres = (params.get('dynres') || '').toLowerCase();
-        return dynres === '1' || dynres === 'on' || dynres === 'true';
+        return !(dynres === '0' || dynres === 'off');
     } catch {
         return false;
     }

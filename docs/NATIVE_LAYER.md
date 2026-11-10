@@ -179,6 +179,31 @@ JS (`firstNativeModule`).
   `*.map`. `madge` is a devDependency. Stale `public/candy_physics.*` are
   removed before every Vite build (`scripts/clean-public-artifacts.mjs`).
 
+## OpenMP regions: the 15-argument limit
+
+Both deploy hosts send COOP/COEP, so real browsers are cross-origin isolated
+and load the **multi-threaded** tier (`candy_native.js`, built with
+`-fopenmp`). The single-threaded tier ignores the pragmas, so a bug in an
+OpenMP region only shows up where players are.
+
+The vendored libomp's generic `__kmp_invoke_microtask` passes at most **15**
+captured arguments to an outlined region. Past that it prints
+`Too many args to microtask: N!` and calls `exit()`, which surfaces in JS as
+`ExitStatus` (this disabled `animate:foliage` through
+`batchUpdateLodFactors_c`, 20 arguments, and would have hit
+`updateCpuParticlesWASM`, 27). Every shared variable, reduction variable and
+firstprivate counts. Keep regions small: put read-only inputs in a local
+struct and capture one pointer to it (see `lod_batch.cpp`,
+`particle_physics.cpp`), or drop the pragma when the loop is cheap.
+
+`npm run test:native-omp-regions` (end of `test:fast`) loads the MT build in
+headless Chromium behind a COOP/COEP server and calls every exported function
+with an OpenMP region above its `if` threshold; it fails on that message and
+checks the LOD batch against the JS path. Add new OpenMP exports to it. It is
+skipped without `build:emcc` unless `CANDY_PARITY_REQUIRE_CPP=1`.
+`npm run test:smoke-loop` runs the real frame loop for ~30 s in an isolated
+page and fails on `[Native Err]` or a scheduler system throwing.
+
 ## Open items
 
 - **MT fixed memory.** Growth combined with SharedArrayBuffer slows JS heap
