@@ -169,6 +169,8 @@ const GAMEPLAY: Binding[] = [
     // P toggles photo mode and the frame profiler together, as it did before the action layer.
     key('debug.profiler', 'KeyP', { mods: {} }),
     key('debug.overlay', 'KeyO', { mods: {} }),
+    key('debug.hero.next', 'KeyJ', { mods: {} }),
+    key('debug.hero.toggle', 'KeyK', { mods: {} }),
     ...GAMEPLAY_PAD,
 ];
 
