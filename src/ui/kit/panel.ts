@@ -88,7 +88,7 @@ export function createPanel(options: PanelOptions = {}): Panel {
     });
 
     if (title) {
-        root.appendChild(el('div', { classes: ['ck-panel-title'], text: title }));
+        root.appendChild(el('div', { classes: ['ck-panel-title'], attrs: { tabindex: '-1' }, text: title }));
     }
 
     for (const child of children) {
@@ -96,11 +96,16 @@ export function createPanel(options: PanelOptions = {}): Panel {
     }
 
     let release: (() => void) | null = null;
+    let lastFocusedElement: HTMLElement | null = null;
 
     const releaseFocus = () => {
         if (release) {
             release();
             release = null;
+            if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                lastFocusedElement.focus({ preventScroll: true });
+            }
+            lastFocusedElement = null;
         }
     };
 
@@ -129,7 +134,14 @@ export function createPanel(options: PanelOptions = {}): Panel {
         },
         trapFocus(trapOptions) {
             if (!release) {
+                lastFocusedElement = document.activeElement as HTMLElement;
                 release = trapFocusInside(root, trapOptions);
+
+                // Fallback focus to the title if it wasn't explicitly focused elsewhere
+                const titleEl = root.querySelector('.ck-panel-title') as HTMLElement | null;
+                if (titleEl && !root.contains(document.activeElement)) {
+                    titleEl.focus({ preventScroll: true });
+                }
             }
             return releaseFocus;
         },
