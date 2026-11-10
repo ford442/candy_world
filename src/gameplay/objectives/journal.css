@@ -1,0 +1,117 @@
+/* Melody journal (#2028 slice B). Loaded with the lazy `objectives` chunk, imported by index.ts.
+   Every value comes from the Candy UI Kit tokens (styles/kit-tokens.css), so it follows the
+   day/night theme. The dialog is a kit panel on the `overlay` layer. */
+
+.journal-panel {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(92vw, 30rem);
+    max-height: min(80vh, 36rem);
+    overflow-y: auto;
+    padding: var(--ck-space-4);
+    gap: var(--ck-space-3);
+}
+
+.journal-panel > .journal-close {
+    position: absolute;
+    top: var(--ck-space-2);
+    right: var(--ck-space-3);
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    color: var(--ck-text);
+    font: inherit;
+    line-height: 1;
+    background: none;
+    border: var(--ck-border-width) solid transparent;
+    border-radius: var(--ck-radius-md);
+    cursor: pointer;
+}
+
+.journal-panel > .journal-close:hover {
+    border-color: var(--ck-border);
+}
+
+.journal-panel > .journal-close:focus-visible {
+    outline: none;
+    box-shadow: var(--ck-focus-ring);
+}
+
+.journal-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ck-space-4);
+}
+
+.journal-heading {
+    margin: 0 0 var(--ck-space-2);
+    color: var(--ck-text-accent);
+    font-size: 0.8em;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.journal-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ck-space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.journal-item {
+    padding: var(--ck-space-2) var(--ck-space-3);
+    background: var(--ck-surface-sunken);
+    border: var(--ck-border-width) solid var(--ck-border);
+    border-radius: var(--ck-radius-md);
+}
+
+.journal-item-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ck-space-2);
+}
+
+.journal-item-progress {
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+.journal-item-step {
+    margin: var(--ck-space-1) 0 0;
+}
+
+.journal-item--done {
+    display: flex;
+    align-items: center;
+    gap: var(--ck-space-2);
+}
+
+.journal-check {
+    color: var(--ck-mint);
+    font-weight: bold;
+}
+
+.journal-empty {
+    margin: 0;
+    opacity: 0.8;
+}
+
+/* The open button reuses the ability slot (styles/ability-hud.css); a native <button> only needs
+   its default chrome removed. */
+.journal-button {
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    font-size: 24px;
+    cursor: pointer;
+    appearance: none;
+}
+
+.journal-button[aria-expanded='true'] {
+    border-color: var(--ck-magenta);
+}

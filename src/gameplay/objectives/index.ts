@@ -10,12 +10,14 @@
  * fires twice, or one that arrives before the state it reports, costs nothing.
  */
 
-import { announceQuest } from '../../ui/announcer.ts';
 import { awakenedPersistence } from '../../systems/awakened-persistence-api.ts';
 import { discoverySystem } from '../../systems/discovery-optimized.ts';
 import { registerMelodyStore } from '../../systems/melody-progress.ts';
 import { onProgress } from '../../systems/progress-events.ts';
 import { unlockSystem } from '../../systems/unlocks.ts';
+import { announceQuest } from '../../ui/announcer.ts';
+import './journal.css';
+import { mountJournal, type Journal } from './journal.ts';
 import { loadLocalMelodyProgress, saveLocalMelodyProgress } from './local-store.ts';
 import {
     createObjectiveSystem,
@@ -30,7 +32,7 @@ import { parseMelodyFiles } from './schema.ts';
 const FILES = import.meta.glob('../../../assets/melodies/*.json', {
     eager: true,
     import: 'default',
-}) as Record<string, unknown>;
+});
 
 function melodyFiles(): Record<string, unknown> {
     const byName: Record<string, unknown> = {};
@@ -79,7 +81,10 @@ function startObjectives(): ObjectiveSystem {
 
     // From here the document layer reads and merges through this system. Anything a document
     // applied before this chunk loaded is handed over now, silently.
-    registerMelodyStore({ read: system.getProgress, apply: system.apply });
+    registerMelodyStore({
+        read: () => system.getProgress(),
+        apply: (progress) => system.apply(progress),
+    });
 
     unlockSystem.onHarvest(() => system.evaluate());
     onProgress(() => system.evaluate());
@@ -92,3 +97,5 @@ function startObjectives(): ObjectiveSystem {
 }
 
 export const objectiveSystem: ObjectiveSystem = startObjectives();
+export const journal: Journal | null =
+    typeof document === 'undefined' ? null : mountJournal(objectiveSystem);

@@ -57,7 +57,7 @@
         "test:fixed-step": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/fixed-step-determinism.test.ts",
         "test:fauna": "tsx tests/fauna-behavior.test.ts",
         "test:progression": "tsx tests/progression-reachability.test.ts && tsx --import ./tests/support/register-wasm-hooks.mjs tests/progression-effects.test.ts",
-        "test:objectives": "tsx tests/objectives.test.ts && tsx --import ./tests/support/register-wasm-hooks.mjs tests/objectives-bridge.test.ts",
+        "test:objectives": "tsx tests/objectives.test.ts && tsx tests/objectives-journal.test.ts && tsx --import ./tests/support/register-wasm-hooks.mjs tests/objectives-bridge.test.ts",
         "test:sugar-caves": "tsx tests/sugar-caves-traversal.test.mjs",
         "test:night-market": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/night-market-traversal.test.mjs",
         "test:foliage-interact": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/foliage-interact.test.mjs",
