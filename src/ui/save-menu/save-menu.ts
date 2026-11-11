@@ -162,7 +162,9 @@ export class SaveMenu {
                     if (firstTab) {
                         firstTab.focus({ preventScroll: true });
                     } else {
-                        const fallbackTitle = this.container.querySelector('#save-menu-title') as HTMLElement;
+                        const fallbackTitle = this.container.querySelector(
+                            '#save-menu-title'
+                        ) as HTMLElement;
                         if (fallbackTitle) fallbackTitle.focus({ preventScroll: true });
                     }
                 }
@@ -296,7 +298,9 @@ export class SaveMenu {
                         activeTab.focus({ preventScroll: true });
                     } else {
                         // Fallback to title element
-                        const fallbackTitle = this.container.querySelector('#save-menu-title') as HTMLElement;
+                        const fallbackTitle = this.container.querySelector(
+                            '#save-menu-title'
+                        ) as HTMLElement;
                         if (fallbackTitle) {
                             fallbackTitle.focus({ preventScroll: true });
                         } else {
@@ -581,9 +585,6 @@ export class SaveMenu {
             const empty = document.createElement('li');
             empty.className = 'candy-empty-state';
             empty.setAttribute('role', 'status');
-            empty.innerHTML = `
-                <div class="candy-empty-state__icon" aria-hidden="true">🌍</div>
-                <div class="candy-empty-state__text">No saved worlds yet.</div>
             empty.setAttribute('aria-labelledby', 'candy-recent-empty-state-text');
             empty.innerHTML = `
                 <div class="candy-empty-state__icon" aria-hidden="true">📝</div>

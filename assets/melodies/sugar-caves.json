@@ -1,0 +1,11 @@
+{
+    "id": "sugar-caves",
+    "title": "Sugar Caves",
+    "steps": [
+        {
+            "id": "awaken-flora",
+            "text": "Awaken three glowing plants or gem trees to open the way to the Sugar Caves.",
+            "trigger": { "kind": "awaken", "count": 3 }
+        }
+    ]
+}
