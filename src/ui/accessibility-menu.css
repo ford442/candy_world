@@ -29,7 +29,8 @@
 .a11y-button:focus-visible,
 .a11y-tab:focus-visible,
 .a11y-preset-card:focus-visible,
-.a11y-close-btn:focus-visible {
+.a11y-close-btn:focus-visible,
+.a11y-floating-button:focus-visible {
     outline: none !important;
     box-shadow: 0 0 0 3px var(--menu-bg, #2a2a2a), 0 0 0 6px var(--a11y-color, #00aaff) !important;
     position: relative;
