@@ -92,6 +92,19 @@ export const PartIIStateSchema = v.object({
     sugarCavesUnlocked: v.boolean(),
 });
 
+/**
+ * Melody (quest chain) state, #2028 slice B. Steps are derived from the progress above, so this
+ * only records which Melodies are done and how far each open one has got (and been announced).
+ * Merged as a union (`unionMelodyProgress`): `completed` is a set, `step` keeps the larger index.
+ */
+export const MelodyStateSchema = v.object({
+    completed: IdListSchema,
+    step: v.pipe(
+        v.record(IdSchema, v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(10_000))),
+        v.maxEntries(MAX_PROGRESS_ENTRIES)
+    ),
+});
+
 export const ProgressSchema = v.object({
     discoveries: IdListSchema,
     unlocks: IdListSchema,
@@ -101,6 +114,11 @@ export const ProgressSchema = v.object({
     /** Night Market stall stamps (`night_market_stamp:<stall id>`). */
     stamps: IdListSchema,
     partII: PartIIStateSchema,
+    /**
+     * Optional so documents saved before Melodies existed still load; they get the empty state, and
+     * `WORLD_DOCUMENT_SCHEMA` stays 1. A build older than this one strips the key when it saves.
+     */
+    melodies: v.optional(MelodyStateSchema, () => ({ completed: [], step: {} })),
 });
 
 export const PlayerSchema = v.object({
@@ -160,6 +178,7 @@ export function emptyProgress(): DocumentProgress {
         awakened: [],
         stamps: [],
         partII: { sugarCavesUnlocked: false },
+        melodies: { completed: [], step: {} },
     };
 }
 

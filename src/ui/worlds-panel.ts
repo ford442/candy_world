@@ -387,7 +387,7 @@ export function installWorldsStartScreenUI(): void {
     const close = button('Close', () => setOpen(false), 'Close the worlds panel');
     const head = el('div', {
         classes: ['worlds-head'],
-        children: [el('h2', { id: `${PANEL_ID}-title`, text: '🌍 Worlds' }), close],
+        children: [el('h2', { id: `${PANEL_ID}-title`, attrs: { tabindex: '-1' }, text: '🌍 Worlds' }), close],
     });
     body.append(head, tablist, grid, more, publish, account, status);
 
@@ -402,7 +402,12 @@ export function installWorldsStartScreenUI(): void {
                 void renderAccount().then(() => select('mine'));
             }
             releaseTrap = trapFocusInside(body, { skipAutoFocus: true, onEscape: () => setOpen(false) });
-            tabButtons.get(active)?.focus();
+            const title = document.getElementById(`${PANEL_ID}-title`);
+            if (title) {
+                title.focus({ preventScroll: true });
+            } else {
+                tabButtons.get(active)?.focus();
+            }
         } else {
             if (releaseTrap) {
                 releaseTrap();

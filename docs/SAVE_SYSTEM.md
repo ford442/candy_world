@@ -3,6 +3,7 @@
 ## Overview
 
 The Candy World Save System provides comprehensive save/load functionality with dual storage backends:
+
 - **localStorage** (sync) - For settings and small data
 - **IndexedDB** (async) - For world state and large save files
 
@@ -17,11 +18,17 @@ door, awakened flora, and the dev entity-snapshot sidecar):
 interface WorldDocumentV1 {
     schema: 1;
     id: string; // uuid
-    seed: number; mapVersion: string; // regenerate the base world
+    seed: number;
+    mapVersion: string; // regenerate the base world
     commands: DocumentCommand[]; // authored edits, replayed in order on top of it
     progress: {
-        discoveries: string[]; unlocks: string[]; inventory: Record<string, number>;
-        awakened: AwakenedRecord[]; stamps: string[]; partII: { sugarCavesUnlocked: boolean };
+        discoveries: string[];
+        unlocks: string[];
+        inventory: Record<string, number>;
+        awakened: AwakenedRecord[];
+        stamps: string[];
+        partII: { sugarCavesUnlocked: boolean };
+        melodies?: { completed: string[]; step: Record<string, number> }; // quest chains, docs/PROGRESSION.md
     };
     player: { position: [x, y, z]; yaw: number; season?: SeasonOverride };
     meta: { title?: string; createdAt: number; updatedAt: number; author?: string };
@@ -33,8 +40,8 @@ interface WorldDocumentV1 {
   `parseWorldDocument()` (`migrations.ts`) is the one entry point for
   untrusted input (IndexedDB, imported files, a future remote store): it
   migrates, validates, and returns a `WorldDocumentError` whose `userMessage`
-  is shown to the player, e.g. *"This world file is damaged or from an
-  unsupported build at "commands.3.snapshot.entity.position"."*
+  is shown to the player, e.g. _"This world file is damaged or from an
+  unsupported build at "commands.3.snapshot.entity.position"."_
 - **Migrations.** An ordered `registerDocumentMigration(fromSchema, fn)`
   table, one hop at a time, a unit test per hop. Schema 0 is the pre-document
   save-slot export (`SaveData` 1.0.0), so an old exported save still opens.
@@ -55,11 +62,11 @@ interface WorldDocumentV1 {
   (on; `?legacyRead=0` turns it off) keeps the old systems reading and writing
   them, so a rollback loses nothing. The next release drops the flag and the
   keys.
-- **Export / import.** Save menu → Import/Export → *World File*: **Export
+- **Export / import.** Save menu → Import/Export → _World File_: **Export
   World** downloads `<title>.candyworld` (gzipped JSON via
   `CompressionStream`); **Open World File** opens one (or a legacy save JSON)
   as the active world, after saving the current one, which stays under
-  *Recent Worlds*. A file from another seed reloads the page on that seed.
+  _Recent Worlds_. A file from another seed reloads the page on that seed.
 - **Save slots.** `SaveData` 1.1.0 carries `document`, and loading a slot
   applies it (edits, progress, player pose). The 1.1.0 migration builds a
   document for every 1.0.0 save from its own fields. `world.entitySnapshots`
@@ -180,19 +187,14 @@ saveSystem.onLoadError = (error) => console.error('Load failed:', error);
 #### Opening Menus
 
 ```typescript
-import { 
-    openSaveMenu, 
-    openLoadMenu, 
-    openSaveGameMenu,
-    closeSaveMenu 
-} from './ui/save-menu.ts';
+import { openSaveMenu, openLoadMenu, openSaveGameMenu, closeSaveMenu } from './ui/save-menu.ts';
 
 // Full menu with all tabs
 openSaveMenu({
     mode: 'full', // 'full' | 'load' | 'save'
     onLoad: (data) => applySaveData(data),
     onSave: (slotId) => console.log('Saved to', slotId),
-    onClose: () => console.log('Menu closed')
+    onClose: () => console.log('Menu closed'),
 });
 
 // Load only mode
@@ -216,7 +218,7 @@ import { SaveMenu } from './ui/save-menu.ts';
 
 const menu = new SaveMenu({
     mode: 'load',
-    onLoad: (data) => applySaveData(data)
+    onLoad: (data) => applySaveData(data),
 });
 
 await menu.show();
@@ -244,13 +246,13 @@ interface SaveData {
 
 ```typescript
 interface PlayerSaveData {
-    position: SerializableVector3;    // { x, y, z }
-    rotation: SerializableVector3;    // { x, y, z }
-    velocity: SerializableVector3;    // { x, y, z }
-    unlockedAbilities: string[];       // Ability IDs
+    position: SerializableVector3; // { x, y, z }
+    rotation: SerializableVector3; // { x, y, z }
+    velocity: SerializableVector3; // { x, y, z }
+    unlockedAbilities: string[]; // Ability IDs
     energy: number;
     maxEnergy: number;
-    currentState: string;              // 'default' | 'swimming' | etc.
+    currentState: string; // 'default' | 'swimming' | etc.
     airJumpsLeft: number;
     hasShield: boolean;
     isPhasing: boolean;
@@ -262,13 +264,13 @@ interface PlayerSaveData {
 
 ```typescript
 interface WorldSaveData {
-    timeOfDay: number;                 // 0-1 (0=midnight, 0.5=noon)
+    timeOfDay: number; // 0-1 (0=midnight, 0.5=noon)
     weatherState: 'clear' | 'rain' | 'storm';
-    weatherIntensity: number;          // 0-1
-    stormCharge: number;               // 0-1
+    weatherIntensity: number; // 0-1
+    stormCharge: number; // 0-1
     season: string;
-    seasonProgress: number;            // 0-1
-    moonPhase: number;                 // 0-1
+    seasonProgress: number; // 0-1
+    moonPhase: number; // 0-1
 }
 ```
 
@@ -276,11 +278,11 @@ interface WorldSaveData {
 
 ```typescript
 interface ProgressSaveData {
-    discoveredEntities: string[];      // Discovery IDs
+    discoveredEntities: string[]; // Discovery IDs
     collectionCounts: Record<string, number>;
-    milestones: string[];              // Achievement IDs
-    playtime: number;                  // Total seconds
-    unlocks: string[];                 // Unlock IDs
+    milestones: string[]; // Achievement IDs
+    playtime: number; // Total seconds
+    unlocks: string[]; // Unlock IDs
     inventory: Record<string, number>;
 }
 ```
@@ -290,15 +292,15 @@ interface ProgressSaveData {
 ```typescript
 interface SettingsSaveData {
     graphicsQuality: 'low' | 'medium' | 'high' | 'ultra';
-    drawDistance: number;              // 50-500 meters
+    drawDistance: number; // 50-500 meters
     shadows: boolean;
     postProcessing: boolean;
-    audioVolume: number;               // 0-1
-    musicVolume: number;               // 0-1
-    sfxVolume: number;                 // 0-1
+    audioVolume: number; // 0-1
+    musicVolume: number; // 0-1
+    sfxVolume: number; // 0-1
     keyBindings: KeyBindings;
-    fov: number;                       // 60-120 degrees
-    sensitivity: number;               // Mouse sensitivity
+    fov: number; // 60-120 degrees
+    sensitivity: number; // Mouse sensitivity
 }
 
 interface KeyBindings {
@@ -337,7 +339,7 @@ import { saveSystem, createPlayerSaveData } from './systems/save-system.ts';
             airJumpsLeft: player.airJumpsLeft,
             hasShield: player.hasShield,
             isPhasing: player.isPhasing,
-            isInvisible: player.isInvisible
+            isInvisible: player.isInvisible,
         }
     );
 };
@@ -354,7 +356,11 @@ const season = getSeasonState(); // systems/season-controller.ts
 createWorldSaveData(
     timeOfDayFromCyclePos(weather.cyclePos), // 0 = midnight, 0.5 = noon
     { state: weather.state, intensity: weather.intensity, stormCharge: weather.stormCharge },
-    { season: SEASON_NAMES[season.current], progress: season.seasonProgress, moonPhase: weather.moonPhase }
+    {
+        season: SEASON_NAMES[season.current],
+        progress: season.seasonProgress,
+        moonPhase: weather.moonPhase,
+    }
 );
 ```
 
@@ -399,10 +405,10 @@ unlockSystem.onUnlock = (id) => {
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
+| Shortcut | Action                                                             |
+| -------- | ------------------------------------------------------------------ |
 | `Ctrl+S` | Quick Save (creates new manual save or overwrites quick-save slot) |
-| `Escape` | Close save menu |
+| `Escape` | Close save menu                                                    |
 
 ## Debug Commands
 
@@ -439,16 +445,19 @@ window.openSaveGameMenu();
 ## Save Slots
 
 ### Manual Slots (5)
+
 - `manual-1` through `manual-5`
 - User-controlled saves
 - Named by user
 
 ### Auto Slots (3)
+
 - `auto-0`, `auto-1`, `auto-2`
 - Rotating saves every 30 seconds
 - Automatically overwrites oldest
 
 ### Special Slots
+
 - `quick-save` - Used by Ctrl+S shortcut
 - `legacy-migrated` - Migrated from old format
 
@@ -460,7 +469,11 @@ The first real one is 1.0.0 → 1.1.0, which adds `document`:
 
 ```typescript
 this.migrations.registerMigration('1.1.0', (data) => {
-    const doc = migrateLegacySave(data, { seed: getWorldSeed(), mapVersion: getMapVersion(), now: Date.now() });
+    const doc = migrateLegacySave(data, {
+        seed: getWorldSeed(),
+        mapVersion: getMapVersion(),
+        now: Date.now(),
+    });
     doc.schema = WORLD_DOCUMENT_SCHEMA;
     const checked = validateWorldDocument(doc);
     return checked.ok ? { ...data, document: checked.doc } : data;
@@ -499,6 +512,7 @@ Users can delete all their data:
 4. Confirm the warning dialog
 
 This removes:
+
 - All save files (IndexedDB)
 - Settings (localStorage)
 - Any cached metadata
@@ -553,6 +567,7 @@ src/
 - Edge 79+
 
 Requires:
+
 - `Promise`
 - `indexedDB`
 - `localStorage`
@@ -561,6 +576,7 @@ Requires:
 ## Future Enhancements
 
 Potential improvements:
+
 - Cloud save integration
 - Screenshot thumbnails for saves
 - Save file encryption

@@ -162,7 +162,9 @@ export class SaveMenu {
                     if (firstTab) {
                         firstTab.focus({ preventScroll: true });
                     } else {
-                        const fallbackTitle = this.container.querySelector('#save-menu-title') as HTMLElement;
+                        const fallbackTitle = this.container.querySelector(
+                            '#save-menu-title'
+                        ) as HTMLElement;
                         if (fallbackTitle) fallbackTitle.focus({ preventScroll: true });
                     }
                 }
@@ -296,7 +298,9 @@ export class SaveMenu {
                         activeTab.focus({ preventScroll: true });
                     } else {
                         // Fallback to title element
-                        const fallbackTitle = this.container.querySelector('#save-menu-title') as HTMLElement;
+                        const fallbackTitle = this.container.querySelector(
+                            '#save-menu-title'
+                        ) as HTMLElement;
                         if (fallbackTitle) {
                             fallbackTitle.focus({ preventScroll: true });
                         } else {

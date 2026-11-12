@@ -67,6 +67,8 @@ const HUD_SELECTORS = [
     '#game-reticle',
     '#explore-hint',
     '#openJukeboxBtn',
+    // The Melody journal dialog (gameplay/objectives/journal.ts); its open button is in #ability-hud.
+    '#journal-panel',
 ];
 
 function prefersReducedMotion(): boolean {

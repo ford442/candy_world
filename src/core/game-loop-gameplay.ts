@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { harmonyOrbSystem } from '../foliage/aurora.ts';
 import { updateFallingBerries, collectFallingBerries } from '../foliage/berries.ts';
 import { CloudBatcher } from '../foliage/cloud-batcher.ts';

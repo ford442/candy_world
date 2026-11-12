@@ -14,7 +14,7 @@
  * is fetched, so a row written past the edge function is refused, not replayed.
  */
 
-import { newDocumentId, type WorldDocumentV1 } from './schema.ts';
+import { emptyProgress, newDocumentId, type WorldDocumentV1 } from './schema.ts';
 import {
     isUuid,
     parseEntityClock,
@@ -222,14 +222,7 @@ export class RemoteDocumentStore implements DocumentStore {
         const doc: WorldDocumentV1 = {
             ...structuredClone(source.doc),
             id: newDocumentId(),
-            progress: {
-                discoveries: [],
-                unlocks: [],
-                inventory: {},
-                awakened: [],
-                stamps: [],
-                partII: { sugarCavesUnlocked: false },
-            },
+            progress: emptyProgress(),
             meta: { title, createdAt: now, updatedAt: now },
         };
         const remixOf = source.summary.visibility === 'public' ? id : null;
