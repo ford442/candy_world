@@ -291,15 +291,69 @@ const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } }
         })
     );
 
-    globalThis.window.location = { search: '' }; // no timestamp
+    globalThis.window.location = { search: '' }; // default requests timestamp-query
     await probeWebGPU(makeCanvas());
 
     assert.deepEqual(
         [...requestedDescriptor.requiredFeatures].sort(),
         ["timestamp-query"],
-        'no extra features requested by default'
+        'timestamp-query requested by default'
     );
     assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
+
+    reset();
+    installGpu(async () =>
+        makeAdapter(device, {
+            features: {
+                has: (name) => name === 'timestamp-query' || name === 'foo',
+                keys: () => ['timestamp-query', 'foo'],
+                [Symbol.iterator]: function* () {
+                    yield 'timestamp-query';
+                    yield 'foo';
+                },
+            },
+            requestDevice: async (descriptor) => {
+                requestedDescriptor = descriptor;
+                return device;
+            },
+        })
+    );
+
+    globalThis.window.location = { search: '?dynres=0' }; // opt-out
+    await probeWebGPU(makeCanvas());
+
+    assert.deepEqual(
+        [...requestedDescriptor.requiredFeatures].sort(),
+        [],
+        'timestamp-query omitted when opt-out ?dynres=0 is given'
+    );
+
+    reset();
+    installGpu(async () =>
+        makeAdapter(device, {
+            features: {
+                has: (name) => name === 'timestamp-query' || name === 'foo',
+                keys: () => ['timestamp-query', 'foo'],
+                [Symbol.iterator]: function* () {
+                    yield 'timestamp-query';
+                    yield 'foo';
+                },
+            },
+            requestDevice: async (descriptor) => {
+                requestedDescriptor = descriptor;
+                return device;
+            },
+        })
+    );
+
+    globalThis.window.location = { search: '?dynres=off' }; // opt-out
+    await probeWebGPU(makeCanvas());
+
+    assert.deepEqual(
+        [...requestedDescriptor.requiredFeatures].sort(),
+        [],
+        'timestamp-query omitted when opt-out ?dynres=off is given'
+    );
 
     reset();
     installGpu(async () =>
