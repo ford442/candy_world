@@ -18,6 +18,8 @@ import { isAutomation } from '../platform/run-mode.ts';
 //   ?presence=1           — show shared-presence opt-in UI (still requires explicit join)
 //   ?world=<uuid>         — open a shared world and join its room (docs/SHARED_WORLDS.md)
 //   ?no_generative        — opt out of the default generative soundtrack (or ?music=tracker)
+//   ?no_dsp               — play it through Web Audio nodes (SynthVoice) instead of the
+//                           garden DSP AudioWorklet (docs/MUSIC_GARDEN.md)
 //   ?photo=1              — cinematic photo mode (or ?mode=photo)
 //   ?lights=1             — show local point/spot helpers (also implied by ?debug=1)
 //   ?no_clustered         — skip Forward+ clustered local lights (tiny Three.js pool only)
@@ -147,6 +149,12 @@ export const FEATURE_FLAGS = {
         hasUrlFlag('generative') ||
         getUrlFlag('music') === 'generative' ||
         (!hasUrlFlag('no_generative') && getUrlFlag('music') !== 'tracker'),
+    /**
+     * Garden DSP engine (candy_dsp.wasm in an AudioWorklet) for the generative
+     * soundtrack. On by default when the module was built; `?no_dsp` keeps the
+     * Web Audio node voices (SynthVoice), which are also the automatic fallback.
+     */
+    gardenDsp: !hasUrlFlag('no_dsp'),
     /** Cinematic photo mode (?photo=1 or ?mode=photo). */
     photoMode:
         !hasUrlFlag('no_photo') ||

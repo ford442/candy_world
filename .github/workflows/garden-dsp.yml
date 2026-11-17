@@ -1,0 +1,66 @@
+# Garden DSP module (emscripten/dsp/ -> public/candy_dsp.wasm): build it with
+# the pinned emsdk and run the offline render tests on PRs that touch it.
+# Path-filtered and not a required check (emsdk installs can flake, as for
+# emscripten-verify.yml); the PR gate (node-protocol-tests.yml) runs the same
+# test, which skips there because it has no emsdk. See docs/CI_CONTRACT.md.
+name: Garden DSP
+
+permissions:
+    contents: read
+
+on:
+    pull_request:
+        branches: [main]
+        paths:
+            - 'emscripten/dsp/**'
+            - 'src/audio/worklet/**'
+            - 'src/audio/generative/**'
+            - 'tests/dsp-render.test.mjs'
+            - 'tests/fixtures/dsp-golden.json'
+            - 'scripts/check-dsp-wasm.mjs'
+            - 'scripts/check-emcc-manifest.mjs'
+            - '.emsdk-version'
+            - '.github/workflows/garden-dsp.yml'
+    workflow_dispatch:
+
+env:
+    CANDY_STRICT_EMSDK: '1'
+
+jobs:
+    dsp-render:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v7
+
+            - name: Read pinned emsdk version
+              run: echo "EM_VERSION=$(tr -d '[:space:]' < .emsdk-version)" >> "$GITHUB_ENV"
+
+            - name: Setup emsdk
+              uses: emscripten-core/setup-emsdk@v16
+              with:
+                  version: ${{ env.EM_VERSION }}
+                  actions-cache-folder: emsdk-cache
+
+            - uses: pnpm/action-setup@v6
+              with:
+                  version: 9
+
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - name: Install root deps
+              run: pnpm install --frozen-lockfile
+
+            - name: Toolchain contract (DSP flags, dsp_* namespace)
+              run: pnpm run verify:emcc:manifest
+
+            - name: Build the garden DSP module
+              run: pnpm run build:dsp
+
+            - name: Offline render (ABI, golden, safety, timing, 64-voice budget)
+              run: pnpm run test:dsp-render
+              env:
+                  CANDY_DSP_REQUIRE: '1'

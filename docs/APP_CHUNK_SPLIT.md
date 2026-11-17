@@ -70,7 +70,8 @@ Confirm flags-off: `pnpm run analyze:bundle` or grep `dist/chunks/app-*.js` for
 | `world-content`    | ~14 KB        | ~5 KB   | Procedural extras                                     |
 | `profiler`         | ~14 KB        | ~5 KB   | Boot (circular with `app`)                            |
 | `photo-mode`       | ~13 KB        | ~4 KB   | `FEATURE_FLAGS.photoMode`, **P** or the HUD button   |
-| `generative-music` | ~11 KB        | ~4 KB   | first click/key (default) / `enableGenerativeMode()`  |
+| `generative-music` | ~17 KB        | ~6 KB   | first click/key (default) / `enableGenerativeMode()`  |
+| `garden-audio`     | ~6 KB         | ~2 KB   | with `generative-music`, unless `?no_dsp` (the garden DSP host; `docs/MUSIC_GARDEN.md`) |
 | `playlist-ui`      | ~10 KB        | ~3 KB   | Boot (circular with `app`)                            |
 | `awakened`         | ~9 KB         | ~3 KB   | After world load (on by default; `?no_awakened` off)  |
 | `authoring`        | see build     | —       | First **B** (build mode + `TransformControls`)        |
@@ -165,6 +166,7 @@ systems-folder move (35 files) changed no chunk except `weather`, by 6 bytes.
 | weather / particles / compute                              | `weather` (do not fold into `app`) |
 | `src/systems/net/*` except the stubs (`lazy.ts`, `shared-worlds-lazy.ts`, `supabase-config.ts`, `biome-at-position`), `@supabase/*` | `net` |
 | `src/systems/photo-mode/*` except `lazy.ts`                | `photo-mode`                       |
+| `src/audio/worklet/*` (garden DSP host)                    | `garden-audio`; its only static import is `log`. The processor is a separate `?worker&url` asset (`garden-processor-[hash].js`, no imports) |
 | `src/world/map-loader.ts`                                  | `map-loader`                       |
 
 Presence reverse edges were cut: `spawnImpact` is injected from `net/lazy.ts`;

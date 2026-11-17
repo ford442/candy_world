@@ -264,6 +264,22 @@ Every export has a caller (`npm run check:native-exports`). #2026 slice 1 delete
 had none (the scalar animation calculators, mesh deformation, the bootstrap pthread, the
 noise/fast-math twins, the percussion/melodic/effects batches).
 
+### Module 3: Garden DSP (`candy_dsp.wasm`)
+
+- **Purpose**: the polyphonic synth engine behind the garden AudioWorklet: wavetable / 2-op FM /
+  kick / noise voices (64), a per-voice SVF and envelope, a shared Freeverb and a sidechain beat duck
+- **Language**: C++17, SIMD over the 128-frame render quantum (`-msimd128`)
+- **Location**: `emscripten/dsp/*.cpp`, built by `emscripten/dsp/build.sh` (`npm run build:dsp`;
+  `npm run build:emcc` builds it after `candy_native`)
+- **Output**: `public/candy_dsp.wasm` only: a standalone reactor with no JS glue and no imports
+- **Loaded by**: `src/audio/worklet/garden-engine.ts` fetches the bytes and posts them to
+  `src/audio/worklet/garden-processor.ts`, which instantiates them inside `AudioWorkletGlobalScope`
+  (no fetch, no threads there)
+- **Required**: **No** — without it the generative soundtrack plays through `SynthVoice`
+- **ABI**: every `EMSCRIPTEN_KEEPALIVE` function in `emscripten/dsp/*.cpp`, all named `dsp_*` (no
+  export list). `scripts/check-dsp-wasm.mjs` checks the linked binary; `check:native-exports` and
+  `gen:native-types` (`DspExports`) cover it like the other two modules. See `docs/MUSIC_GARDEN.md`
+
 ### Build Behavior
 
 The build system gracefully handles missing Emscripten:
@@ -309,6 +325,17 @@ The build system gracefully handles missing Emscripten:
 # Assertions are DISABLED by default (ASSERTIONS=0) and ERROR_ON_UNDEFINED_SYMBOLS
 # is relaxed so missing exports fall back to JS. Set CANDY_DEBUG=1 to enable
 # assertions for debugging (this also disables name minification).
+
+# Garden DSP (emscripten/dsp/build.sh) loads in AudioWorkletGlobalScope, so:
+# candy_dsp.wasm: -O2 -flto -msimd128, --no-entry, STANDALONE_WASM=1, FILESYSTEM=0, INITIAL_MEMORY=2MB, STACK_SIZE=64KB, ALLOW_MEMORY_GROWTH=0, ERROR_ON_UNDEFINED_SYMBOLS=1
+# Same -O level as candy_native. No -pthread / -fopenmp / -matomics /
+# SHARED_MEMORY / WASM_WORKERS / AUDIO_WORKLET (the worklet cannot start
+# threads, and the module must load without cross-origin isolation), no
+# -ffast-math (NaN guards), no -mrelaxed-simd, no memory growth (the worklet's
+# output views over memory.buffer would detach). An import is a link error.
+# Every export is dsp_* and only emscripten/dsp/ exports dsp_*.
+# `verify:emcc:manifest` enforces all of it; scripts/check-dsp-wasm.mjs checks
+# the linked binary (no imports, exports == KEEPALIVE set, memory fixed).
 ```
 
 ### AssemblyScript Build (`build:wasm`)

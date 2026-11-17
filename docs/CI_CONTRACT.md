@@ -109,6 +109,35 @@ rows fail on `main` before #2166 at "draw count": the base never set
 `check:native-exports` also fails when `src/utils/native-exports.generated.ts`
 is stale (docs/NATIVE_LAYER.md, Decision 1c).
 
+## Garden DSP: `test:dsp-render`, `test:garden-events`, `test:generative-scheduler`
+
+All three are inside `test:fast`. `test:garden-events` (the worklet's SPSC
+event ring, including a two-thread run, and the posted-batch fallback) and
+`test:generative-scheduler` (notes on the audio-clock grid through frame
+jitter and stalls) need nothing but Node. `test:dsp-render` renders
+`public/candy_dsp.wasm` offline (docs/MUSIC_GARDEN.md, "Tests"), so in the PR
+gate, which has no emsdk, it prints a skip and exits 0. Like `test:parity`'s
+C++ tier, it runs fail-closed (`CANDY_DSP_REQUIRE=1`) where the toolchain
+exists:
+
+- **`Garden DSP`** (`.github/workflows/garden-dsp.yml`): PRs touching
+  `emscripten/dsp/`, `src/audio/worklet/`, `src/audio/generative/`, the test,
+  its golden fixture or the DSP checks. It installs the pinned emsdk, runs
+  `verify:emcc:manifest`, `build:dsp` and `test:dsp-render`. It is not a
+  required check, because emsdk installs can flake (as for
+  `emscripten-verify.yml`).
+- **`Emscripten Verify`** and **`release stable`** run `check:dsp-wasm` and
+  `test:dsp-render` after `build:emcc` / `build`. The release also requires
+  `dist/candy_dsp.wasm`.
+
+Proven red: setting `SCHEDULE_AHEAD_SEC` to 0 (the old frame-rate scheduling)
+fails `test:generative-scheduler` with "a note was queued 5.8 ms late".
+Removing the `queueMicrotask` wrapper in `EventBatch` (the Chromium-only
+"Illegal invocation" the browser check found) fails `test:garden-events`. Each
+DSP flag rule in `verify:emcc:manifest` was flipped once (`-O3`, `-pthread`,
+`ALLOW_MEMORY_GROWTH=1`, a `STACK_SIZE` that disagrees with `AGENTS.md`) and
+failed with its own message.
+
 ## Baselines only go down
 
 Added 2026-10-14. `scripts/check-baseline-direction.mjs` (`npm run
@@ -229,7 +258,7 @@ declares `node24`: `actions/checkout@v7`, `actions/setup-node@v7`,
 intentional: `tools/build-optimizer` is not in `pnpm-workspace.yaml` and has
 its own `package-lock.json`. Not yet bumped: the disabled
 `visual-regression.yml` (`github-script@v7`), `release-stable.yml` and the
-two emscripten workflows.
+two emscripten workflows. `garden-dsp.yml` uses the PR-gate majors.
 
 ## `Visual Regression Tests` — DISABLED 2026-09-23
 

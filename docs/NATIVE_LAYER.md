@@ -202,6 +202,12 @@ JS (`firstNativeModule`).
   OpenMP team at the same size, so `#pragma omp parallel` never waits on
   workers the pool never spawned. emsdk ≥ 3.1.58 emits no `.worker.js`, and the
   loader no longer looks for one.
+- **Garden DSP** (`emscripten/dsp/`, a third module): a standalone reactor
+  for the AudioWorklet (`-O2 -flto -msimd128`, `--no-entry`,
+  `STANDALONE_WASM=1`, fixed 2MB memory, 64KB stack, no imports, no threads or
+  shared memory). Its ABI is its `dsp_*` `EMSCRIPTEN_KEEPALIVE` functions;
+  `check:native-exports` and `gen:native-types` (`DspExports`) cover it, and
+  `scripts/check-dsp-wasm.mjs` checks the binary. See `docs/MUSIC_GARDEN.md`.
 - **AssemblyScript**: `--enable bulk-memory --memoryBase 589824
 --initialMemory 16 --maximumMemory 256`. No `--enable simd`: `assembly/` has no
   `v128` code and the binary is byte-identical without the flag. Prod

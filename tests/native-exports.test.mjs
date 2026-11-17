@@ -19,13 +19,17 @@ import {
     cppAbi,
     cppReferences,
     cppStringLookups,
+    dspAbi,
+    dspLookups,
     keepaliveNames,
     stripComments,
     stripTypeDeclarations,
 } from '../scripts/check-native-exports.mjs';
+import { DSP_RUNTIME_EXPORTS } from '../scripts/check-dsp-wasm.mjs';
 import {
     cppSignatures,
     cppTypeTag,
+    dspSignatures,
     findCppDefinition,
     loadStructs,
     parseAscBindings,
@@ -162,6 +166,33 @@ test('export * is flagged, and expands for the ABI', () => {
     assert.ok(abi.values.has('LIMIT'));
 });
 
+test('the DSP module: KEEPALIVE in emscripten/dsp/ is its ABI; .dsp_x is its lookup', () => {
+    const r = analyze(
+        fixture({
+            ...base,
+            'emscripten/dsp/g.cpp':
+                'EMSCRIPTEN_KEEPALIVE int dsp_used(double f) { return 0; }\nEMSCRIPTEN_KEEPALIVE void dsp_dead() {}\nEMSCRIPTEN_KEEPALIVE void dsp_tested() {}\n',
+            'src/dsp-use.ts': [
+                'host.dsp.dsp_used(0);',
+                'instance.exports.dsp_used(1);', // a DSP lookup, not a stale AS one
+                'host.dsp.dsp_missing();',
+                '// host.dsp.dsp_dead() in a comment is no use',
+            ].join('\n'),
+            'tests/dsp.mjs': 'e.dsp_tested();\n',
+        })
+    );
+    assert.ok(r.dead.includes('dsp:dsp_dead'));
+    assert.ok(!r.dead.includes('dsp:dsp_used'));
+    assert.ok(r.stale.includes('dsp:dsp_missing (src/dsp-use.ts)'));
+    assert.ok(!r.stale.some((x) => x.startsWith('as:dsp_')), 'exports.dsp_x is not an AS lookup');
+    assert.ok(r.testOnly.includes('dsp:dsp_tested'));
+    assert.ok(
+        !cppAbi(fixture(base)).functions.has('dsp_used'),
+        'emscripten/dsp/ is not candy_native'
+    );
+    assert.deepEqual(dspLookups("a.dsp_x(); 'b.dsp_y'; c . dsp_z"), ['dsp_x', 'dsp_z']);
+});
+
 console.log('native-exports: real tree');
 
 test('the repository is at 0 dead exports and 0 stale lookups', () => {
@@ -202,6 +233,19 @@ if (fs.existsSync(glue)) {
     });
 } else {
     console.log('  ⏭ candy_native_st.js not built (npm run build:emcc); C++ cross-check skipped');
+}
+
+const dspWasm = path.join(ROOT, 'public', 'candy_dsp.wasm');
+if (fs.existsSync(dspWasm)) {
+    test('parsed DSP ABI == candy_dsp.wasm exports (less the reactor runtime)', () => {
+        const fns = WebAssembly.Module.exports(new WebAssembly.Module(fs.readFileSync(dspWasm)))
+            .filter((e) => e.kind === 'function' && !DSP_RUNTIME_EXPORTS.has(e.name))
+            .map((e) => e.name)
+            .sort();
+        assert.deepEqual(fns, [...dspAbi(ROOT).functions].sort());
+    });
+} else {
+    console.log('  ⏭ candy_dsp.wasm not built (npm run build:dsp); DSP cross-check skipped');
 }
 
 console.log('native-exports: generated signatures (scripts/gen-native-types.mjs)');
@@ -308,6 +352,16 @@ test('every real C++ export has a parsed definition', () => {
     const lod = sigs.find((s) => s.name === 'batchUpdateLodFactors_c');
     assert.equal(lod.params.length, 12, 'batchUpdateLodFactors_c arity');
     assert.equal(sigs.find((s) => s.name === 'updateCpuParticlesWASM').params.length, 27);
+});
+
+test('every DSP export has a parsed definition; frames cross as f64', () => {
+    const { sigs, missing } = dspSignatures(ROOT);
+    assert.deepEqual(missing, []);
+    assert.ok(sigs.length > 0 && sigs.every((s) => s.name.startsWith('dsp_')));
+    const noteOn = sigs.find((s) => s.name === 'dsp_note_on');
+    assert.equal(noteOn.params.length, 7, 'dsp_note_on arity');
+    assert.equal(noteOn.params[0].type, 'f64', 'the frame is a double');
+    assert.equal(sigs.find((s) => s.name === 'dsp_output').ret, 'ptr<float>');
 });
 
 for (const dir of fixtures) fs.rmSync(dir, { recursive: true, force: true });
