@@ -1,16 +1,21 @@
 
+/** Chromium's non-standard performance.memory. */
+interface PerformanceMemory {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+}
+
+function performanceMemory(): PerformanceMemory | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return (window.performance as Performance & { memory?: PerformanceMemory })?.memory;
+}
+
 export function getMemoryUsage(): number {
-  if (typeof window !== 'undefined' && (window.performance as any)?.memory) {
-    return (window.performance as any).memory.usedJSHeapSize;
-  }
-  return 0;
+  return performanceMemory()?.usedJSHeapSize ?? 0;
 }
 
 export function getMemoryTotal(): number {
-  if (typeof window !== 'undefined' && (window.performance as any)?.memory) {
-    return (window.performance as any).memory.totalJSHeapSize;
-  }
-  return 0;
+  return performanceMemory()?.totalJSHeapSize ?? 0;
 }
 
 export function formatBytes(bytes: number): string {

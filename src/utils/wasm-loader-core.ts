@@ -42,41 +42,21 @@ export let animationView: Float32Array | null = null; // Float32Array for animat
 export let outputView: Float32Array | null = null; // Float32Array for reading results
 export let playerStateView: Float32Array | null = null; // Float32Array for player physics state
 
-/** Cached WASM function references */
-export let wasmGetGroundHeight: ((x: number, z: number) => number) | null = null;
-export let wasmFreqToHue: ((freq: number) => number) | null = null;
-export let wasmBatchMushroomSpawnCandidates:
-    | ((
-          time: number,
-          windX: number,
-          windZ: number,
-          windSpeed: number,
-          objectCount: number,
-          spawnThreshold: number,
-          minDistance: number,
-          maxDistance: number
-      ) => number)
-    | null = null;
+/**
+ * Cached WASM function references, typed from the AS ABI
+ * (src/utils/native-exports.generated.ts).
+ */
+type AsFn<K extends keyof AsExports> = AsExports[K] | null;
+export let wasmGetGroundHeight: AsFn<'getGroundHeight'> = null;
+export let wasmFreqToHue: AsFn<'freqToHue'> = null;
+export let wasmBatchMushroomSpawnCandidates: AsFn<'batchMushroomSpawnCandidates'> = null;
 
 /** New Physics exports */
-export let wasmInitDynamicFoliageMemory: ((maxInstances: number) => number) | null = null;
-export let wasmInitCollisionSystem: (() => void) | null = null;
-export let wasmAddCollisionObject:
-    | ((
-          type: number,
-          x: number,
-          y: number,
-          z: number,
-          r: number,
-          h: number,
-          p1: number,
-          p2: number,
-          p3: number
-      ) => void)
-    | null = null;
-export let wasmResolveGameCollisions: ((kickTrigger: number) => number) | null = null;
-export let wasmCheckPositionValidity: ((x: number, z: number, radius: number) => number) | null =
-    null;
+export let wasmInitDynamicFoliageMemory: AsFn<'initDynamicFoliageMemory'> = null;
+export let wasmInitCollisionSystem: AsFn<'initCollisionSystem'> = null;
+export let wasmAddCollisionObject: AsFn<'addCollisionObject'> = null;
+export let wasmResolveGameCollisions: AsFn<'resolveGameCollisions'> = null;
+export let wasmCheckPositionValidity: AsFn<'checkPositionValidity'> = null;
 /** Fauna boids from assembly/boids.ts (ptr,count,dt,playerX,playerZ,time) */
 export const cppUpdateBoids:
     | ((
@@ -105,23 +85,15 @@ export const wasmBatchGrowth: ((dataPtr: number, count: number) => void) | null 
 export const wasmBatchBloom: ((dataPtr: number, count: number) => void) | null = null;
 export const wasmBatchScaleAnimation: ((dataPtr: number, count: number) => void) | null = null;
 
-
 /** Hot-path Physics exports (Migrated from TS) */
-export let wasmBatchGroundHeight:
-    ((positionsPtr: number, count: number, outputPtr: number) => void) | null = null;
+export let wasmBatchGroundHeight: AsFn<'batchGroundHeight'> = null;
 /** Unified ground height (assembly/ground.ts) */
-export let wasmGetUnifiedGroundHeight: ((x: number, z: number, nowMs: number) => number) | null =
-    null;
-export let wasmBatchUnifiedGroundHeight:
-    ((positionsPtr: number, count: number, outputPtr: number, nowMs: number) => void) | null = null;
-export let wasmClearGroundPlatforms: (() => void) | null = null;
-export let wasmAddGroundPlatform:
-    ((minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void) | null = null;
-export let wasmInvalidateGroundCache: (() => void) | null = null;
-export let wasmSetGroundCacheTTL: ((seconds: number) => void) | null = null;
-
-
-
+export let wasmGetUnifiedGroundHeight: AsFn<'getUnifiedGroundHeight'> = null;
+export let wasmBatchUnifiedGroundHeight: AsFn<'batchUnifiedGroundHeight'> = null;
+export let wasmClearGroundPlatforms: AsFn<'clearGroundPlatforms'> = null;
+export let wasmAddGroundPlatform: AsFn<'addGroundPlatform'> = null;
+export let wasmInvalidateGroundCache: AsFn<'invalidateGroundCache'> = null;
+export let wasmSetGroundCacheTTL: AsFn<'setGroundCacheTTL'> = null;
 
 export * from './wasm-loader-cpp.ts';
 import {
@@ -146,6 +118,7 @@ export {
 } from './native-memory-layout.ts';
 
 export * from './wasm-loader-types.ts';
+import type { AsExports } from './native-exports.generated.ts';
 import type {
     EmscriptenModule,
     ExtendedEmscriptenModule,

@@ -9,6 +9,8 @@ import {
     shouldUseFoliageGpuBatch,
 } from '../../compute/foliage-gpu-batch.ts';
 import type { FoliageGpuBatchMode } from '../../compute/foliage-gpu-batch.ts';
+import type { WasmExports } from '../../utils/wasm-loader-types.ts';
+import type { AudioData } from '../types.ts';
 import { FoliageEcsBridge, type SimpleAnimType } from '../../systems/ecs/foliage-ecs-bridge.ts';
 import { asFree, asMalloc } from '../../utils/native-memory.ts';
 import { getWasmInstance } from '../../utils/wasm-loader.ts';
@@ -84,9 +86,8 @@ export class FoliageBatcher {
     // OPTIMIZATION: Cached Float32Array view to prevent GC spikes in hot loops
     private cachedMemoryView: Float32Array | null = null;
 
-    private getMemoryView(instance: any): Float32Array {
-        const memory = instance.exports.memory;
-        const buffer = memory.buffer || memory;
+    private getMemoryView(instance: WebAssembly.Instance): Float32Array {
+        const buffer = (instance.exports as WasmExports).memory.buffer;
         if (!this.cachedMemoryView || this.cachedMemoryView.buffer !== buffer) {
             this.cachedMemoryView = new Float32Array(buffer);
         }
@@ -497,7 +498,7 @@ export class FoliageBatcher {
         return true;
     }
 
-    flush(time: number, kick: number, audioData: any = null) {
+    flush(time: number, kick: number, audioData: AudioData | null = null) {
         if (!this.initialized) return;
 
         // Process Sway
@@ -534,7 +535,7 @@ export class FoliageBatcher {
 
     private processSimpleBatch(
         batch: BatchState,
-        funcName: string,
+        funcName: 'computeSway' | 'computeGentleSway',
         time: number,
         apply: (o: FoliageObject, v: number) => void
     ) {
@@ -548,8 +549,8 @@ export class FoliageBatcher {
             const gpuScalars = takeFoliageGpuScalarResult(batchKey);
             if (gpuScalars && gpuScalars.length >= count) {
                 for (let i = 0; i < count; i++) {
-                    apply(batch.objects[i], gpuScalars[i]);
-                    batch.objects[i] = undefined as any;
+                    apply(batch.objects[i]!, gpuScalars[i]);
+                    batch.objects[i] = undefined;
                 }
                 submitFoliageGpuScalarBatch(
                     batchKey,
@@ -583,7 +584,7 @@ export class FoliageBatcher {
             F32.set(batch.intensities.subarray(0, validCount), intPtr);
         }
 
-        const func = (instance.exports as any)[funcName];
+        const func = (instance.exports as WasmExports)[funcName];
         if (func) {
             func(batch.count, time, batch.ptrOffsets, batch.ptrIntensities, batch.ptrOutScalars);
 
@@ -591,8 +592,8 @@ export class FoliageBatcher {
             const res = this.getMemoryView(instance).subarray(outPtr, outPtr + batch.count);
 
             for (let i = 0; i < batch.count; i++) {
-                apply(batch.objects[i], res[i]);
-                batch.objects[i] = undefined as any;
+                apply(batch.objects[i]!, res[i]);
+                batch.objects[i] = undefined;
             }
         }
 
@@ -629,7 +630,7 @@ export class FoliageBatcher {
 
     private processPhysicsBatch(
         batch: BatchState,
-        funcName: string,
+        funcName: 'computeBounce' | 'computeHop',
         time: number,
         kick: number,
         apply: (o: FoliageObject, v: number) => void
@@ -644,8 +645,8 @@ export class FoliageBatcher {
             const gpuScalars = takeFoliageGpuScalarResult(batchKey);
             if (gpuScalars && gpuScalars.length >= count) {
                 for (let i = 0; i < count; i++) {
-                    apply(batch.objects[i], gpuScalars[i]);
-                    batch.objects[i] = undefined as any;
+                    apply(batch.objects[i]!, gpuScalars[i]);
+                    batch.objects[i] = undefined;
                 }
                 submitFoliageGpuScalarBatch(
                     batchKey,
@@ -681,12 +682,12 @@ export class FoliageBatcher {
         }
         F32.set(batch.originalYs!.subarray(0, batch.count), orgPtr);
 
-        const func = (instance.exports as any)[funcName];
+        const func = (instance.exports as WasmExports)[funcName];
         if (func) {
             func(
                 batch.count,
                 time,
-                batch.ptrOriginalYs,
+                batch.ptrOriginalYs!,
                 batch.ptrOffsets,
                 batch.ptrIntensities,
                 kick,
@@ -697,8 +698,8 @@ export class FoliageBatcher {
             const res = this.getMemoryView(instance).subarray(outPtr, outPtr + batch.count);
 
             for (let i = 0; i < batch.count; i++) {
-                apply(batch.objects[i], res[i]);
-                batch.objects[i] = undefined as any;
+                apply(batch.objects[i]!, res[i]);
+                batch.objects[i] = undefined;
             }
         }
 
@@ -740,16 +741,16 @@ export class FoliageBatcher {
         }
         F32.set(batch.wobbleBoosts!.subarray(0, batch.count), boostPtr);
 
-        const func = (instance.exports as any)['computeWobble'];
+        const func = (instance.exports as WasmExports).computeWobble;
         if (func) {
             func(
                 batch.count,
                 time,
                 batch.ptrOffsets,
                 batch.ptrIntensities,
-                batch.ptrWobbleBoosts,
+                batch.ptrWobbleBoosts!,
                 batch.ptrOutScalars,
-                batch.ptrOutScalars2
+                batch.ptrOutScalars2!
             );
 
             const outPtr1 = batch.ptrOutScalars >>> 2;
@@ -757,14 +758,14 @@ export class FoliageBatcher {
             const out = this.getMemoryView(instance);
 
             for (let i = 0; i < batch.count; i++) {
-                const obj = batch.objects[i];
+                const obj = batch.objects[i]!;
                 obj.rotation.x = out[outPtr1 + i];
                 obj.rotation.z = out[outPtr2 + i];
                 // Decay wobble state
                 if (obj.userData.wobbleCurrent) {
                     obj.userData.wobbleCurrent *= 0.9;
                 }
-                batch.objects[i] = undefined as any;
+                batch.objects[i] = undefined;
             }
         }
         batch.count = 0;
@@ -800,7 +801,7 @@ export class FoliageBatcher {
         // Universal batch processor (AssemblyScript). The pointers are in AS
         // memory, so only the AS export can take them; the old lookup of
         // processBatchUniversal_c on the AS instance always missed (#2026).
-        const func = (instance.exports as any)['processBatchUniversal'];
+        const func = (instance.exports as WasmExports).processBatchUniversal;
 
         if (func) {
             func(
@@ -825,17 +826,17 @@ export class FoliageBatcher {
             // Apply results to objects
             // OPTIMIZATION: Removed 'results.subarray' allocation in loop
             for (let i = 0; i < batch.count; i++) {
-                const obj = batch.objects[i];
+                const obj = batch.objects[i]!;
                 const outOffset = i * RESULT_STRIDE;
                 apply(obj, results, outOffset);
-                batch.objects[i] = undefined as any;
+                batch.objects[i] = undefined;
             }
         }
 
         batch.count = 0;
     }
 
-    private flushExtended(time: number, kick: number, audioData: any) {
+    private flushExtended(time: number, kick: number, audioData: AudioData | null) {
         if (!this.extendedInitialized) return;
 
         const instance = getWasmInstance();
@@ -964,7 +965,7 @@ export class FoliageBatcher {
         const instance = getWasmInstance();
         if (!instance) return;
 
-        const func = (instance.exports as any)['processBatchUniversal'];
+        const func = (instance.exports as WasmExports).processBatchUniversal;
         if (!func) return;
 
         // Animation type codes for simple batches (22-25)
@@ -1035,10 +1036,10 @@ export class FoliageBatcher {
 
             // Apply to objects
             for (let i = 0; i < batch.count; i++) {
-                const obj = batch.objects[i];
+                const obj = batch.objects[i]!;
                 const offset = i * RESULT_STRIDE;
                 config.apply(obj, results, offset);
-                batch.objects[i] = undefined as any;
+                batch.objects[i] = undefined;
             }
 
             batch.count = 0;

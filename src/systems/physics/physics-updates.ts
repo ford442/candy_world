@@ -57,6 +57,8 @@ import {
 } from '../ground-system.ts';
 import { getUnifiedGroundHeightTyped } from './physics-math.ts';
 import { unlockSystem } from '../unlocks.ts';
+import type { VineSwing } from '../../foliage/vine-swing.ts';
+import type { Cloud, Trampoline } from '../../utils/wasm-loader-types.ts';
 import {
     physicsFoliageGrid,
     physicsDiscoveryGrid,
@@ -75,6 +77,15 @@ import {
     foliageCaves,
     physicsClock,
 } from './physics-types.ts';
+
+/** The slice of the global `window.AudioSystem` the physics checks call. */
+interface PhysicsAudioHook {
+    playSound?: (name: string, options?: { volume?: number; pitch?: number }) => void;
+}
+
+function physicsAudioSystem(): PhysicsAudioHook | undefined {
+    return (window as Window & { AudioSystem?: PhysicsAudioHook }).AudioSystem;
+}
 
 interface PhysicsSyncObject {
     position?: {
@@ -350,8 +361,9 @@ export function checkSnareTraps(delta: number) {
                         if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
                         spawnImpact(player.position, 'snare');
                         addCameraShake(0.6);
-                        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                            (window as any).AudioSystem.playSound('impact', {
+                        const audioSystem = physicsAudioSystem();
+                        if (audioSystem && audioSystem.playSound) {
+                            audioSystem.playSound('impact', {
                                 pitch: 0.4,
                                 volume: 1.0,
                             });
@@ -441,7 +453,7 @@ export function checkVineAttachment(_camera: THREE.Camera) {
 
     const playerPos = player.position;
     const playerVel = player.velocity;
-    const vineManagers: unknown[] = [];
+    const vineManagers: VineSwing[] = [];
     const { data, count } = packVines(vineSwings, undefined, vineManagers);
     if (count === 0) return;
 
@@ -458,7 +470,7 @@ export function checkVineAttachment(_camera: THREE.Camera) {
 
     if (!prox.inAttachZone || prox.candidateIndex < 0) return;
 
-    const vineManager = vineManagers[prox.candidateIndex] as any;
+    const vineManager: VineSwing | undefined = vineManagers[prox.candidateIndex];
     if (vineManager) {
         vineManager.isPlayerAttached = true;
         if (vineManager.swingPlane) {
@@ -476,8 +488,10 @@ export function checkVineAttachment(_camera: THREE.Camera) {
 export async function initCppPhysics(camera: THREE.Camera) {
     initPhysics(camera.position.x, camera.position.y, camera.position.z);
     const validMushrooms = filterValidPhysicsObjects(foliageMushrooms, 'mushroom');
-    const validClouds = filterValidPhysicsObjects(foliageClouds, 'cloud');
-    const validTrampolines = filterValidPhysicsObjects(foliageTrampolines, 'trampoline');
+    // Clouds carry `userData.tier` and trampolines `userData.capRadius/capHeight`,
+    // which FoliageObject's userData does not declare.
+    const validClouds = filterValidPhysicsObjects(foliageClouds, 'cloud') as Cloud[];
+    const validTrampolines = filterValidPhysicsObjects(foliageTrampolines, 'trampoline') as Trampoline[];
     // ⚡ OPTIMIZATION: Removed unused batchData allocation to prevent GC spikes.
     // C++ obstacles are intentionally unused because AssemblyScript owns collision.
 
@@ -495,19 +509,19 @@ export async function initCppPhysics(camera: THREE.Camera) {
     }
     if (fernCount > 0) {
         uploadCollisionObjects(
-            validCaves as any,
-            validMushrooms as any,
-            validClouds as any,
-            validTrampolines as any,
+            validCaves,
+            validMushrooms,
+            validClouds,
+            validTrampolines,
             validFerns
         );
     } else {
         // No arpeggio ferns yet (Core mode): upload only structural collision objects.
         uploadCollisionObjects(
-            validCaves as any,
-            validMushrooms as any,
-            validClouds as any,
-            validTrampolines as any,
+            validCaves,
+            validMushrooms,
+            validClouds,
+            validTrampolines,
             []
         );
     }

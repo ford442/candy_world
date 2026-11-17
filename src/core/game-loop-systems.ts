@@ -4,6 +4,7 @@
 // See docs/ARCHITECTURE.md before moving a system between phases.
 
 import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
+import { updateInstancedBatchers } from './batcher/instanced-batcher.ts';
 import { ensureHeroAnimationDemo, isHeroAnimationDemoEnabled } from '../debug/tools-stub.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { setFireflyMeshesVisible } from '../foliage/firefly-registry.ts';
@@ -197,6 +198,15 @@ export const FRAME_SYSTEMS: readonly System[] = [
                 _visuals!.isNightNow,
                 _visuals!.isDeepNight
             ),
+    },
+    {
+        // Every InstancedBatcher: its step(), then one upload of the slots
+        // that changed this frame. After foliage and particles, whose music
+        // reactivity writes batcher instances.
+        id: 'instanced-batchers',
+        phase: 'animate',
+        after: ['foliage', 'particles'],
+        update: (ctx) => updateInstancedBatchers(ctx),
     },
     {
         id: 'firefly-visibility',

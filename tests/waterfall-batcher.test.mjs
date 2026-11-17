@@ -14,7 +14,7 @@ import { EcosystemManager } from '../src/systems/weather/weather-ecosystem.ts';
 // Column instance translation: add() stores the column mid point,
 // i.e. position.y - height / 2.
 function columnTranslation(id) {
-    const index = waterfallBatcher.idToIndex.get(id);
+    const index = waterfallBatcher.slotOf(id);
     const m = new THREE.Matrix4().fromArray(waterfallBatcher.mesh.instanceMatrix.array, index * 16);
     return new THREE.Vector3().setFromMatrixPosition(m);
 }

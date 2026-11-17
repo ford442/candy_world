@@ -1,4 +1,19 @@
 import * as THREE from 'three';
+import type {
+    AsExportName,
+    AsExports,
+    AsGlobals,
+    CppModuleExports,
+} from './native-exports.generated.ts';
+
+export type {
+    AsExportName,
+    AsExports,
+    AsGlobals,
+    CppExportName,
+    CppExports,
+    NativePtr,
+} from './native-exports.generated.ts';
 // =============================================================================
 // TYPE DEFINITIONS
 // =============================================================================
@@ -48,60 +63,11 @@ export interface EmscriptenModule {
 }
 
 /**
- * Extended Emscripten module with potential exports
+ * The Emscripten module with its C++ exports (`_name`), typed from the C++
+ * definitions by scripts/gen-native-types.mjs. Partial: the ST and MT builds
+ * and a module that failed to load may lack some.
  */
-export interface ExtendedEmscriptenModule extends EmscriptenModule {
-    // Physics functions
-    _updatePhysicsCPP?: (...args: number[]) => number;
-    _initPhysics?: (...args: number[]) => void;
-    _setPlayerState?: (...args: number[]) => void;
-    _getPlayerX?: () => number;
-    _getPlayerY?: () => number;
-    _getPlayerZ?: () => number;
-    _getPlayerVX?: () => number;
-    _getPlayerVY?: () => number;
-    _getPlayerVZ?: () => number;
-    _valueNoise2D?: (x: number, y: number) => number;
-    _fbm?: (x: number, y: number, octaves: number) => number;
-    _fastInvSqrt?: (x: number) => number;
-    _fastDistance?: (
-        x1: number,
-        y1: number,
-        z1: number,
-        x2: number,
-        y2: number,
-        z2: number
-    ) => number;
-    _hash?: (x: number, y: number) => number;
-    // Batch functions
-    _batchShiver_c?: (...args: number[]) => void;
-    _batchSpring_c?: (...args: number[]) => void;
-    _batchFloat_c?: (...args: number[]) => void;
-    _batchCloudBob_c?: (...args: number[]) => void;
-    _deformWave_c?: (...args: number[]) => void;
-    _deformJiggle_c?: (...args: number[]) => void;
-    _deformWobble_c?: (...args: number[]) => void;
-    _batchUpdateLODMatrices_c?: (...args: number[]) => void;
-    _batchUpdateLodFactors_c?: (...args: number[]) => void;
-    _batchScaleMatrices_c?: (...args: number[]) => void;
-    _batchFadeColors_c?: (...args: number[]) => void;
-    _batchFrustumCull_c?: (...args: number[]) => void;
-    _batchDistanceCullIndexed_c?: (...args: number[]) => void;
-    // Fluid functions
-    _fluidInit?: (size: number) => void;
-    _fluidStep?: (dt: number, visc: number, diff: number) => void;
-    _fluidAddDensity?: (x: number, y: number, amount: number) => void;
-    _fluidAddVelocity?: (x: number, y: number, amountX: number, amountY: number) => void;
-    _fluidGetDensityPtr?: () => number;
-    _updateParticlesWASM?: (...args: number[]) => void;
-    // Speaker and animation
-    _calcSpeakerPulse?: (...args: number[]) => void;
-    _getSpeakerScale?: () => number;
-    // Arpeggio
-    _calcArpeggioStep_c?: (...args: number[]) => void;
-    _getArpeggioTargetStep_c?: () => number;
-    _getArpeggioUnfurlStep_c?: () => number;
-}
+export type ExtendedEmscriptenModule = EmscriptenModule & Partial<CppModuleExports>;
 
 /**
  * Three.js Object3D-like interface for position
@@ -193,209 +159,20 @@ export interface PlayerState {
     isGrounded: boolean;
 }
 
-/**
- * Generic WASM export value type
- */
-export type WasmExportValue =
-    WebAssembly.ExportValue | ((...args: number[]) => number) | ((...args: number[]) => void);
+/** Any value an AS export can hold. */
+export type WasmExportValue = AsExports[AsExportName] | WebAssembly.Global | WebAssembly.Memory;
 
 /**
- * WASM exports interface
+ * The AssemblyScript module's exports, typed from asc's own bindings by
+ * scripts/gen-native-types.mjs (assembly/index.ts is the list). Functions are
+ * optional because callers feature-test them; memory and the two functions
+ * the loader validates at boot are required.
  */
-export interface WasmExports {
-    updateBoids?: (
-        boidsPtr: number,
-        count: number,
-        dt: number,
-        playerX: number,
-        playerZ: number,
-        time: number
-    ) => void;
-    [key: string]: WasmExportValue | undefined;
-    memory: WebAssembly.Memory;
-    smoothWobble?: (
-        noteBufferPtr: number,
-        bufferSize: number,
-        currentWobble: number,
-        scale: number,
-        maxAmplitude: number,
-        minThreshold: number,
-        smoothingRate: number
-    ) => number;
-    getGroundHeight: (x: number, z: number) => number;
-    freqToHue: (freq: number) => number;
-    batchMushroomSpawnCandidates?: (
-        time: number,
-        windX: number,
-        windZ: number,
-        windSpeed: number,
-        objectCount: number,
-        spawnThreshold: number,
-        minDistance: number,
-        maxDistance: number
-    ) => number;
-    initDynamicFoliageMemory?: (maxInstances: number) => number;
-    initCollisionSystem?: () => void;
-    addCollisionObject?: (
-        type: number,
-        x: number,
-        y: number,
-        z: number,
-        r: number,
-        h: number,
-        p1: number,
-        p2: number,
-        p3: number
-    ) => void;
-    resolveGameCollisions?: (kickTrigger: number) => number;
-
-    // --- Dynamic rigid bodies (assembly/rigidbody.ts) --------------------
-    /** Allocates/resets the body pool; returns the byte pointer to its data. */
-    initRigidBodySystem?: () => number;
-    rbCapacity?: () => number;
-    rbCount?: () => number;
-    rbAwakeCount?: () => number;
-    rbSpawn?: (
-        shape: number,
-        x: number,
-        y: number,
-        z: number,
-        mass: number,
-        restitution: number,
-        friction: number,
-        d1: number,
-        d2: number,
-        d3: number,
-        userId: number
-    ) => number;
-    rbDespawn?: (id: number) => void;
-    rbClear?: () => void;
-    rbApplyImpulse?: (id: number, ix: number, iy: number, iz: number) => void;
-    rbApplyRadialImpulse?: (
-        x: number,
-        y: number,
-        z: number,
-        radius: number,
-        strength: number,
-        upBias: number
-    ) => number;
-    rbSetPlayerProxy?: (
-        x: number,
-        y: number,
-        z: number,
-        radius: number,
-        height: number,
-        vx: number,
-        vy: number,
-        vz: number
-    ) => void;
-    rbDisablePlayerProxy?: () => void;
-    rbIsSleeping?: (id: number) => number;
-
-    // Joints (assembly/joints.ts). initJointSystem() is called for you by
-    // initRigidBodySystem(); the bridge only needs the pointer back.
-    jointPoolPointer?: () => number;
-    jointHighWater?: () => number;
-    jointCapacity?: () => number;
-    jointCount?: () => number;
-    jointCreate?: (
-        type: number,
-        bodyA: number,
-        bodyB: number,
-        ax: number,
-        ay: number,
-        az: number,
-        bx: number,
-        by: number,
-        bz: number,
-        p0: number,
-        p1: number,
-        p2: number
-    ) => number;
-    jointCreateFixed?: (bodyA: number, bodyB: number) => number;
-    jointCreateHinge?: (
-        bodyA: number,
-        bodyB: number,
-        pivotX: number,
-        pivotY: number,
-        pivotZ: number,
-        axisX: number,
-        axisY: number,
-        axisZ: number
-    ) => number;
-    jointCreateSpring?: (
-        bodyA: number,
-        bodyB: number,
-        rest: number,
-        stiffness: number,
-        damping: number
-    ) => number;
-    jointDestroy?: (id: number) => void;
-    jointsClear?: () => void;
-    jointSetSoftness?: (id: number, softness: number) => void;
-    jointGetError?: (id: number) => number;
-    stepRigidBodies?: (dt: number, nowMs: number) => number;
-    checkPositionValidity?: (x: number, z: number, radius: number) => number;
-    addCollisionObjectsBatch?: (ptr: number, count: number) => void;
-    /** Unmanaged TLSF allocation (assembly/allocator.ts); never use __new as malloc */
-    malloc?: (size: number) => number;
-    free?: (ptr: number) => void;
-    getHeapBase?: () => number;
-    batchDistanceCull?: (
-        cameraX: number,
-        cameraY: number,
-        cameraZ: number,
-        maxDistSq: number,
-        objectCount: number,
-        flagsPtr: number
-    ) => number;
-    // Hot-path Physics exports (from assembly/physics.ts)
-    batchGroundHeight?: (positionsPtr: number, count: number, outputPtr: number) => void;
-    getUnifiedGroundHeight?: (x: number, z: number, nowMs: number) => number;
-    batchUnifiedGroundHeight?: (
-        positionsPtr: number,
-        count: number,
-        outputPtr: number,
-        nowMs: number
-    ) => void;
-    clearGroundPlatforms?: () => void;
-    addGroundPlatform?: (
-        minX: number,
-        maxX: number,
-        minZ: number,
-        maxZ: number,
-        maxY: number
-    ) => void;
-    invalidateGroundCache?: () => void;
-    setGroundCacheTTL?: (seconds: number) => void;
-    batchFrustumTest?: (
-        positionsPtr: number,
-        count: number,
-        frustumPlanesPtr: number,
-        outputPtr: number
-    ) => number;
-    analyzeMaterials?: (offset: number, count: number) => number;
-    calcArpeggioStep?: (
-        currentUnfurl: number,
-        currentTarget: number,
-        lastTrigger: number,
-        arpeggioActive: number,
-        noteTrigger: number,
-        maxSteps: number
-    ) => void;
-    getArpeggioTargetStep?: () => number;
-    getArpeggioUnfurlStep?: () => number;
-    // New particle functions from assembly/particles.ts
-    updateParticles?: (positionsPtr: number, count: number, dt: number, gravity: number) => void;
-    accumulateArpeggioChannels?: (
-        volumesPtr: number,
-        shimmerCount: number,
-        hueShiftCount: number,
-        nightGate: number,
-        intensityScale: number,
-        outPtr: number
-    ) => void;
-}
+export type WasmExports = Partial<AsExports> &
+    Partial<AsGlobals> &
+    Pick<AsExports, 'getGroundHeight' | 'freqToHue'> & {
+        memory: WebAssembly.Memory;
+    };
 
 // Extend window for global functions
 declare global {

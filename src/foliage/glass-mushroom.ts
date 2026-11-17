@@ -41,12 +41,14 @@ export function createGlassMushroom(options: GlassMushroomOptions = {}): Foliage
         if (group.userData.batchIndex !== undefined && group.userData.batchIndex !== -1) {
             group.scale.setScalar(scale * 1.2);
             group.updateMatrixWorld(true);
-            glassMushroomBatcher.updateInstance(group.userData.batchIndex, group.matrixWorld);
+            // By object, not batchIndex: the slot moves when another glass
+            // mushroom is removed, and the old index then hit that one.
+            glassMushroomBatcher.updateObject(group, group.matrixWorld);
 
             setTimeout(() => {
                 group.scale.setScalar(scale);
                 group.updateMatrixWorld(true);
-                glassMushroomBatcher.updateInstance(group.userData.batchIndex, group.matrixWorld);
+                glassMushroomBatcher.updateObject(group, group.matrixWorld);
             }, 150);
         }
     };

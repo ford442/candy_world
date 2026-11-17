@@ -14,8 +14,8 @@
  *
  * One exception, ESLint only: a person adds the `ratchet-reset` label AND the
  * PR changes eslint.config.js or scripts/eslint-ratchet.mjs (a rule-set
- * change, like #1858's type-aware re-base 1752 → 4787). tsc, cycles and
- * native-exports are exact at 0 and never accept a raise. The label is read
+ * change, like #1858's type-aware re-base 1752 → 4787). tsc, cycles,
+ * native-exports and any never accept a raise. The label is read
  * from the event payload at GITHUB_EVENT_PATH, so no API call is needed.
  *
  * Outside pull_request (local runs, push) it prints both numbers and exits 0.
@@ -44,6 +44,7 @@ const BASELINES = [
         keys: ['deadExports', 'staleLookups'],
         resettable: false,
     },
+    { file: 'scripts/any-baseline.json', keys: ['total'], resettable: false },
 ];
 
 const readLocal = (file) => (existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null);

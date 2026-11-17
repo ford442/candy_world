@@ -2,7 +2,8 @@
 // Core WeatherSystem orchestrator - delegates to specialized managers
 
 import * as THREE from 'three';
-import { VisualState } from '../../audio/audio-system.ts';
+import type { Renderer } from 'three/webgpu';
+import { VisualState, type ChannelData } from '../../audio/audio-system.ts';
 import { camera } from '../../core/camera-ref.ts';
 import { CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, CONFIG } from '../../core/config.ts';
 import * as Cycle from '../../core/cycle.ts';
@@ -11,7 +12,9 @@ import { triggerGrowth } from '../../foliage/animation.ts';
 import { BerryBatcher } from '../../foliage/berries.ts';
 import { updateCaveWaterLevel } from '../../foliage/cave.ts';
 import { uTwilight } from '../../foliage/sky.ts';
+import type { FoliageObject } from '../../foliage/types.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
+import type { ComputeParticleSystem } from '../../particles/compute-particles-types.ts';
 import { announce } from '../../ui/announcer.ts';
 import { computeAtmosphereFogTargets } from '../environment/atmosphere-fog.ts';
 import { SEASON_NAMES, type SeasonName, type SeasonState } from '../environment/season-core.ts';
@@ -57,6 +60,27 @@ function stateToFront(state: WeatherState): number {
     return state === WeatherState.STORM ? FRONT_STORM : state === WeatherState.RAIN ? FRONT_RAIN : FRONT_CLEAR;
 }
 
+/** Called with each object the weather spawns (`isNew`, grow-in `duration` in seconds). */
+export type SpawnFoliageCallback = (object: THREE.Object3D, isNew: boolean, duration: number) => void;
+
+/** Sun and moon brightness from Cycle.getCelestialState(). */
+export interface CelestialLight {
+    sunIntensity: number;
+    moonIntensity: number;
+}
+
+/** Sky-light inputs: sun height from the season calendar, moon phase from game time. */
+export interface SkyLight {
+    sunInclination: number;
+    moonPhase: number;
+}
+
+/**
+ * What setRenderer() receives: the app's WebGPURenderer (loadWeatherSystem types
+ * it as a WebGLRenderer). Only forwarded to the particle systems.
+ */
+type WeatherRenderer = Renderer | THREE.WebGLRenderer;
+
 // Music-reactive weather constants
 const THUNDER_PULSE_THRESHOLD = 0.75;  // WeatherMusicTargets.thunderPulse value that triggers a storm charge boost
 const THUNDER_STORM_CHARGE_BOOST = 0.05; // Storm charge increment per frame when thunder pulse fires
@@ -98,20 +122,20 @@ export class WeatherSystem {
 
     // Ground Water Logic
     groundWaterLevel: number;
-    trackedCaves: any[];
+    trackedCaves: THREE.Group[];
 
     // Managers
     private ecosystemManager: EcosystemManager;
     private atmosphereManager: AtmosphereManager;
     private effectsManager: EffectsManager;
-    private renderer: any;
+    private renderer: WeatherRenderer | undefined;
 
     // Tracked entities
-    trackedTrees: any[];
-    trackedShrubs: any[];
-    trackedFlowers: any[];
-    trackedMushrooms: any[];
-    mushroomPool: any[]; // Object pool for weather mushrooms
+    trackedTrees: FoliageObject[];
+    trackedShrubs: FoliageObject[];
+    trackedFlowers: FoliageObject[];
+    trackedMushrooms: FoliageObject[];
+    mushroomPool: FoliageObject[]; // Object pool for weather mushrooms
 
     // Particle systems (delegated to EffectsManager but exposed for compatibility)
     mushroomWaterfalls: Set<string>;
@@ -122,8 +146,8 @@ export class WeatherSystem {
     lightningActive: boolean;
 
     // Visual effects (delegated to EffectsManager)
-    rainbow: any; // Mesh
-    aurora: any; // Mesh
+    rainbow: THREE.Mesh | THREE.Group | null;
+    aurora: THREE.Mesh | null;
     rainbowTimer: number;
 
     // Weather transitions
@@ -136,7 +160,7 @@ export class WeatherSystem {
     windTargetSpeed: number;
 
     // Spawn handling
-    onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null;
+    onSpawnFoliage: SpawnFoliageCallback | null;
     private lastPatternIndex: number;
 
     // Fog
@@ -152,8 +176,8 @@ export class WeatherSystem {
     mistMesh: THREE.Points | null = null;
 
     // Internal particle systems reference
-    percussionRain: any;
-    melodicMist: any;
+    percussionRain: ComputeParticleSystem | null | undefined;
+    melodicMist: ComputeParticleSystem | null | undefined;
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -223,7 +247,7 @@ export class WeatherSystem {
     /**
      * Set renderer for particle systems
      */
-    setRenderer(renderer: any): void {
+    setRenderer(renderer: WeatherRenderer): void {
         this.renderer = renderer;
         this.effectsManager.setRenderer(renderer);
 
@@ -238,7 +262,7 @@ export class WeatherSystem {
     /**
      * Register a mushroom for tracking
      */
-    registerMushroom(mushroom: any): void {
+    registerMushroom(mushroom: THREE.Object3D): void {
         if (!mushroom) return;
         if (!this.trackedMushrooms.includes(mushroom)) this.trackedMushrooms.push(mushroom);
     }
@@ -246,17 +270,19 @@ export class WeatherSystem {
     /**
      * Register a cave for tracking
      */
-    registerCave(cave: any): void {
-        if (!this.trackedCaves.includes(cave)) {
-            this.trackedCaves.push(cave);
+    registerCave(cave: THREE.Object3D): void {
+        // Caves are groups (createCave); the tracked list feeds updateCaveWaterLevel.
+        const group = cave as THREE.Group;
+        if (!this.trackedCaves.includes(group)) {
+            this.trackedCaves.push(group);
         }
     }
 
     /**
      * Unregister a cave from tracking
      */
-    unregisterCave(cave: any): void {
-        const index = this.trackedCaves.indexOf(cave);
+    unregisterCave(cave: THREE.Object3D): void {
+        const index = this.trackedCaves.indexOf(cave as THREE.Group);
         if (index > -1) {
             this.trackedCaves.splice(index, 1);
         }
@@ -265,21 +291,21 @@ export class WeatherSystem {
     /**
      * Register a tree for tracking
      */
-    registerTree(tree: any): void {
+    registerTree(tree: THREE.Object3D): void {
         this.trackedTrees.push(tree);
     }
 
     /**
      * Register a shrub for tracking
      */
-    registerShrub(shrub: any): void {
+    registerShrub(shrub: THREE.Object3D): void {
         this.trackedShrubs.push(shrub);
     }
 
     /**
      * Register a flower for tracking
      */
-    registerFlower(flower: any): void {
+    registerFlower(flower: THREE.Object3D): void {
         this.trackedFlowers.push(flower);
     }
 
@@ -312,7 +338,7 @@ export class WeatherSystem {
         const bassIntensity = audioData.kickTrigger || 0;
         const groove = audioData.grooveAmount || 0;
         const channels = audioData.channelData || [];
-        const melodyVol = (channels[2] as any)?.volume || 0;
+        const melodyVol = (channels[2] as ChannelData | undefined)?.volume || 0;
 
         const celestial = Cycle.getCelestialState(time, _scratchCelestialState);
         const season = this.seasonState;
@@ -365,7 +391,7 @@ export class WeatherSystem {
         this.currentLightLevel = this.atmosphereManager.getGlobalLightLevel(celestial, _scratchSkyLight);
         this.targetIntensity *= this.cloudDensity;
 
-        const highVol = (channels[3] as any)?.volume || 0;
+        const highVol = (channels[3] as ChannelData | undefined)?.volume || 0;
 
         // Cloud rainbow intensity
         this.effectsManager.updateCloudRainbow(melodyVol, highVol, this.cloudDensity);
@@ -621,7 +647,7 @@ export class WeatherSystem {
     /**
      * Legacy compatibility methods delegated to ecosystem manager
      */
-    transformMushroom(oldMushroom: any): void {
+    transformMushroom(oldMushroom: FoliageObject): void {
         this.ecosystemManager.transformMushroom(oldMushroom);
     }
 
@@ -645,7 +671,7 @@ export class WeatherSystem {
     /**
      * Legacy compatibility methods delegated to atmosphere manager
      */
-    getGlobalLightLevel(celestial: any, seasonal: any): number {
+    getGlobalLightLevel(celestial: CelestialLight, seasonal: SkyLight | null): number {
         return this.atmosphereManager.getGlobalLightLevel(celestial, seasonal);
     }
 
@@ -657,13 +683,15 @@ export class WeatherSystem {
         return this.atmosphereManager.isNight(this.lastTwilightProgress);
     }
 
-    applyDarknessLogic(celestial: any, moonPhase: number): void {
+    applyDarknessLogic(celestial: CelestialLight, moonPhase: number): void {
         this.atmosphereManager.applyDarknessLogic(celestial, moonPhase);
     }
 
     updateFog(audioData: VisualState): void {
         if (camera) {
-            const cyclePos = (audioData as any)?.time ? (audioData as any).time % CYCLE_DURATION : 0;
+            // Some callers pass a frame that also carries a `time` (s); VisualState does not declare it.
+            const frameTime = (audioData as VisualState & { time?: number })?.time;
+            const cyclePos = frameTime ? frameTime % CYCLE_DURATION : 0;
             const fogTargets = computeAtmosphereFogTargets(
                 camera,
                 camera.position.y,
@@ -689,7 +717,7 @@ export class WeatherSystem {
         this.atmosphereManager.updateBerrySeasonalSize(cyclePos);
     }
 
-    updateWind(time: number, audioData: VisualState, celestial: any): void {
+    updateWind(time: number, audioData: VisualState, celestial: CelestialLight): void {
         const windResult = this.atmosphereManager.updateWind(
             time,
             audioData,

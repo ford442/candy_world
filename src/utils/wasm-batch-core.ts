@@ -135,15 +135,22 @@ export function batchMushroomSpawnCandidates(
     maxDistance: number
 ): number {
     if (wasmBatchMushroomSpawnCandidates && wasmInstance) {
+        // AS order (assembly/batch.ts). This used to pass the arguments in the
+        // order above, so objectCount reached AS as 0 and no candidate was
+        // ever produced; the generated ABI types made that a tsc error.
+        // playerX/playerZ are unused by the kernel; candidateCount starts at 0.
         return wasmBatchMushroomSpawnCandidates(
             time,
+            0,
+            0,
+            minDistance,
+            maxDistance,
+            windSpeed,
             windX,
             windZ,
-            windSpeed,
             objectCount,
-            spawnThreshold,
-            minDistance,
-            maxDistance
+            0,
+            spawnThreshold
         );
     }
     return 0;

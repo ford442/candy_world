@@ -6,7 +6,7 @@
  * live here had no caller and were deleted with their C++ exports (#2026).
  */
 
-import { getEmscriptenInstance, emscriptenMemory, getNativeFunc } from './wasm-loader-core.ts';
+import { getEmscriptenInstance, getEmscriptenMemory, getNativeFunc } from './wasm-loader-core.ts';
 
 // =============================================================================
 // LOD BATCH FUNCTIONS
@@ -33,7 +33,7 @@ export function batchUpdateLodFactors_c(
 ): void {
     const f = getNativeFunc('batchUpdateLodFactors_c');
     const emsc = getEmscriptenInstance();
-    if (!f || !emscriptenMemory || !emsc || !emsc._malloc || !emsc._free) {
+    if (!f || !getEmscriptenMemory() || !emsc || !emsc._malloc || !emsc._free) {
         return;
     }
 
@@ -50,7 +50,9 @@ export function batchUpdateLodFactors_c(
 
     if (!_lodFactorsPtrPos || !_lodFactorsPtrSmoothed || !_lodFactorsPtrStats) return;
 
-    const memoryBuffer = (emscriptenMemory as any).buffer || emscriptenMemory;
+    // Read after the mallocs above, which can grow (and so detach or outgrow)
+    // the buffer the load-time `emscriptenMemory` snapshot still points at.
+    const memoryBuffer = getEmscriptenMemory()!;
     let heapF32 = _cachedHeapF32;
     if (!heapF32 || heapF32.buffer !== memoryBuffer || heapF32.length === 0) {
         heapF32 = _cachedHeapF32 = new Float32Array(memoryBuffer);
@@ -115,7 +117,7 @@ export function batchDistanceCull_c(
 ): number {
     const f = getNativeFunc('batchDistanceCull_c');
     const emsc = getEmscriptenInstance();
-    if (!f || !emscriptenMemory || !emsc || !emsc._malloc || !emsc._free) {
+    if (!f || !getEmscriptenMemory() || !emsc || !emsc._malloc || !emsc._free) {
         // TypeScript Fallback
         let visibleCount = 0;
         for (let i = 0; i < count; i++) {
@@ -146,7 +148,9 @@ export function batchDistanceCull_c(
 
     if (!_distanceCullPtrPos || !_distanceCullPtrFlags) return 0;
 
-    const memoryBuffer = (emscriptenMemory as any).buffer || emscriptenMemory;
+    // Read after the mallocs above, which can grow (and so detach or outgrow)
+    // the buffer the load-time `emscriptenMemory` snapshot still points at.
+    const memoryBuffer = getEmscriptenMemory()!;
     // ⚡ OPTIMIZATION: Use a cached view instead of new Float32Array every frame to eliminate GC spikes
     let heapF32 = _cachedHeapF32;
     if (!heapF32 || heapF32.buffer !== memoryBuffer || heapF32.length === 0) {
@@ -219,9 +223,10 @@ export function fluidAddVelocity(x: number, y: number, amountX: number, amountY:
  */
 export function getFluidDensityView(size = 128): Float32Array | null {
     const f = getNativeFunc('fluidGetDensityPtr');
-    if (f && emscriptenMemory) {
+    const memory = getEmscriptenMemory();
+    if (f && memory) {
         const ptr = f();
-        return new Float32Array(emscriptenMemory, ptr, size * size);
+        return new Float32Array(memory, ptr, size * size);
     }
     return null;
 }

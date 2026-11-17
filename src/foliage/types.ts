@@ -9,6 +9,8 @@ export interface AudioData {
     grooveAmount?: number;
     beatPhase?: number;
     patternIndex?: number;
+    /** Overall level, when the source provides one (the foliage batcher falls back to the kick). */
+    intensity?: number;
 }
 
 export interface FoliageMaterial extends THREE.Material {

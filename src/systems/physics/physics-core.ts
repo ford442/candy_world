@@ -43,6 +43,7 @@ import {
     lastVineDetachTime,
     foliageTrampolines,
 } from '../../world/state.ts';
+import type { PlayerObject } from '../../foliage/vine-swing.ts';
 import { recordMushroomBounce } from '../bounce-shrooms.ts';
 import { discoverySystem } from '../discovery/discovery-optimized.ts';
 import { calculateMovementInput } from './physics-math.ts';
@@ -57,6 +58,31 @@ import {
 import { unlockSystem } from '../unlocks.ts';
 import { resolveCharacterMovement } from './character-controller.ts';
 import { iceAwareFootprint, updateLakeIcePhysics } from './lake-ice-core.ts';
+
+/** What the physics states need from the pointer-lock controls (dancing unlocks the pointer). */
+export interface PhysicsControls {
+    unlock(): void;
+}
+
+/** The slice of the global `window.AudioSystem` the physics loop calls. */
+interface PhysicsAudioHook {
+    playSound?: (name: string, options?: { volume?: number; pitch?: number }) => void;
+}
+
+/** Debug/diagnostic globals this module reads and writes on `window`. */
+interface PhysicsWindowGlobals {
+    AudioSystem?: PhysicsAudioHook;
+    __diagPhysicsCount?: number;
+    __physicsPathStats?: typeof physicsPathStats;
+}
+
+function physicsWindow(): Window & PhysicsWindowGlobals {
+    return window as Window & PhysicsWindowGlobals;
+}
+
+// VineSwing.update only reads/writes position and velocity; the player record
+// has both but is not an Object3D.
+const _vinePlayer = player as unknown as PlayerObject;
 
 // Winter ice is a ground-height rule (lake-ice-core.ts), so every ground query the
 // player's movement makes goes through it. Built once: no per-frame closures.
@@ -185,7 +211,7 @@ import {
 export function updatePhysics(
     delta: number,
     camera: THREE.Camera,
-    controls: any,
+    controls: PhysicsControls,
     keyStates: KeyStates,
     audioState: AudioState
 ) {
@@ -294,7 +320,7 @@ export const physicsPathStats = {
 let _warnedNativePathActive = false;
 
 if (typeof window !== 'undefined') {
-    (window as any).__physicsPathStats = physicsPathStats;
+    physicsWindow().__physicsPathStats = physicsPathStats;
 }
 
 /**
@@ -304,7 +330,7 @@ if (typeof window !== 'undefined') {
 function updateDefaultState(
     delta: number,
     camera: THREE.Camera,
-    controls: any,
+    controls: PhysicsControls,
     keyStates: KeyStates,
     audioState: AudioState
 ) {
@@ -332,10 +358,10 @@ function updateDefaultState(
                 const dx = player.position.x - v.anchorPoint.x;
                 const dz = player.position.z - v.anchorPoint.z;
                 if (dx * dx + dz * dz < 2500) {
-                    v.update(player as any, delta, null);
+                    v.update(_vinePlayer, delta, null);
                 }
             } else {
-                v.update(player as any, delta, null);
+                v.update(_vinePlayer, delta, null);
             }
         }
     }
@@ -344,16 +370,16 @@ function updateDefaultState(
         checkVineAttachment(camera);
     }
 
-    if (!cppPhysicsInitialized || (window as any).__diagPhysicsCount === undefined) {
-        (window as any).__diagPhysicsCount = 1;
+    if (!cppPhysicsInitialized || physicsWindow().__diagPhysicsCount === undefined) {
+        physicsWindow().__diagPhysicsCount = 1;
         console.log('[PhysicsDiag] updateDefaultState: vines loop finished');
     }
 
     // --- ABILITIES & MOVEMENT ---
     handleAbilities(delta, camera, keyStates);
 
-    if ((window as any).__diagPhysicsCount === 1) {
-        (window as any).__diagPhysicsCount = 2;
+    if (physicsWindow().__diagPhysicsCount === 1) {
+        physicsWindow().__diagPhysicsCount = 2;
         console.log('[PhysicsDiag] updateDefaultState: handleAbilities finished');
     }
 
@@ -424,8 +450,8 @@ function updateDefaultState(
         discoverySystem.discover('wind_anchor', 'Wind Anchor', '⚓');
     }
 
-    if ((window as any).__diagPhysicsCount === 2) {
-        (window as any).__diagPhysicsCount = 3;
+    if (physicsWindow().__diagPhysicsCount === 2) {
+        physicsWindow().__diagPhysicsCount = 3;
         console.log(
             '[PhysicsDiag] updateDefaultState: Calling updatePhysicsCPP (LakeBasin=' +
                 inLakeBasin +
@@ -526,21 +552,24 @@ function updateDefaultState(
             spawnImpact(player.position, 'dash');
             addCameraShake(0.4);
             if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
+            const audioSystem = physicsWindow().AudioSystem;
+            if (audioSystem && audioSystem.playSound) {
+                audioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
             }
         } else if (fallSpeed > 8.0) {
             spawnImpact(player.position, 'land');
             addCameraShake(0.15);
             if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
+            const audioSystem = physicsWindow().AudioSystem;
+            if (audioSystem && audioSystem.playSound) {
+                audioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
             }
         } else {
             spawnImpact(player.position, 'jump');
             if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
+            const audioSystem = physicsWindow().AudioSystem;
+            if (audioSystem && audioSystem.playSound) {
+                audioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
             }
         }
     }
@@ -550,8 +579,9 @@ function updateDefaultState(
         keyStates.jump = false;
         spawnImpact(player.position, 'jump');
         // 🎨 Palette: Audio feedback for jump
-        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-            (window as any).AudioSystem.playSound('jump', {
+        const audioSystem = physicsWindow().AudioSystem;
+        if (audioSystem && audioSystem.playSound) {
+            audioSystem.playSound('jump', {
                 pitch: simRng.next() * 0.2 + 0.9,
                 volume: 0.5,
             });
@@ -560,8 +590,8 @@ function updateDefaultState(
             uChromaticIntensity.value = 0.2;
         }
     }
-    if ((window as any).__diagPhysicsCount === 4) {
-        (window as any).__diagPhysicsCount = 5;
+    if (physicsWindow().__diagPhysicsCount === 4) {
+        physicsWindow().__diagPhysicsCount = 5;
         console.log('[PhysicsDiag] updateDefaultState: Reconcile Y begin');
     }
 
@@ -581,8 +611,8 @@ function updateDefaultState(
         }
     }
 
-    if ((window as any).__diagPhysicsCount === 5) {
-        (window as any).__diagPhysicsCount = 6;
+    if (physicsWindow().__diagPhysicsCount === 5) {
+        physicsWindow().__diagPhysicsCount = 6;
         console.log('[PhysicsDiag] updateDefaultState: WASM collision resolver begin');
     }
 
@@ -596,8 +626,8 @@ function updateDefaultState(
         console.error('[PhysicsDiag] WASM crash', e);
     }
 
-    if ((window as any).__diagPhysicsCount === 6) {
-        (window as any).__diagPhysicsCount = 7;
+    if (physicsWindow().__diagPhysicsCount === 6) {
+        physicsWindow().__diagPhysicsCount = 7;
         console.log('[PhysicsDiag] updateDefaultState: WASM collision resolver returned');
     }
 
@@ -623,8 +653,9 @@ function updateDefaultState(
             // 🎨 Palette: Add "Juice" to trampoline mushroom bounce
             spawnImpact(player.position, 'jump');
             addCameraShake(0.3 * bounceMultiplier); // 🎨 Palette: Trampoline bounce shake
-            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                (window as any).AudioSystem.playSound('impact', {
+            const audioSystem = physicsWindow().AudioSystem;
+            if (audioSystem && audioSystem.playSound) {
+                audioSystem.playSound('impact', {
                     pitch: 1.2 + noteStrength * 0.6,
                     volume: 0.8,
                 });
@@ -639,8 +670,8 @@ function updateDefaultState(
         }
     }
 
-    if ((window as any).__diagPhysicsCount === 7) {
-        (window as any).__diagPhysicsCount = 8;
+    if (physicsWindow().__diagPhysicsCount === 7) {
+        physicsWindow().__diagPhysicsCount = 8;
         console.log('[PhysicsDiag] updateDefaultState: Entering JS physics checks');
     }
     // Platform-preservation: reconcile Y after WASM; skips elevated platforms internally.
@@ -678,8 +709,8 @@ function updateDefaultState(
     // --- Harmony Orbs (Collection) ---
     checkHarmonyOrbs();
 
-    if ((window as any).__diagPhysicsCount === 8) {
-        (window as any).__diagPhysicsCount = 9;
+    if (physicsWindow().__diagPhysicsCount === 8) {
+        physicsWindow().__diagPhysicsCount = 9;
         console.log('[PhysicsDiag] updateDefaultState: FINISHED ENTIRELY');
     }
 }

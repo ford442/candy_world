@@ -9,7 +9,7 @@ import { cleanupReactivity } from '../../foliage/foliage-reactivity.ts';
 import { mushroomBatcher } from '../../foliage/mushroom-batcher/index.ts';
 import { createMushroom } from '../../foliage/mushrooms.ts';
 import { replaceMushroomWithGiant } from '../../foliage/mushrooms.ts';
-import { FoliageGrowthOptions } from '../../foliage/types.ts';
+import { FoliageGrowthOptions, type FoliageObject } from '../../foliage/types.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import { getGroundHeight, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../../utils/wasm-loader.ts';
@@ -17,7 +17,8 @@ import { spawnNearbyFoliage } from '../../world/generation.ts';
 import { foliageClouds } from '../../world/state.ts';
 import { cpuAnimatedFoliage } from '../../world/state.ts';
 import { musicReactivitySystem } from '../music-reactivity/music-reactivity.ts';
-import type { WeatherSystem } from './weather.ts';
+import type { WeatherState } from './weather-types.ts';
+import type { SpawnFoliageCallback, WeatherSystem } from './weather.ts';
 
 // Scratch objects for optimization
 const _scratchWaterfallPos = new THREE.Vector3();
@@ -54,7 +55,7 @@ export class EcosystemManager {
 
         // 1. Register existing locks first
         for (let i = 0, len = foliageClouds.length; i < len; i++) {
-            const cloud: any = foliageClouds[i];
+            const cloud = foliageClouds[i];
             if (cloud.userData.targetMushroom) {
                 claimedMushrooms.add(cloud.userData.targetMushroom.uuid);
             }
@@ -62,7 +63,7 @@ export class EcosystemManager {
 
         // 2. Process Clouds
         for (let i = 0, len = foliageClouds.length; i < len; i++) {
-            const cloud: any = foliageClouds[i];
+            const cloud = foliageClouds[i];
             // Skip dead/falling clouds
             if (cloud.userData.isFalling) {
                 // If it had a target, we implicitly release it by not moving towards it
@@ -136,7 +137,7 @@ export class EcosystemManager {
     /**
      * Transform a regular mushroom into a giant mushroom
      */
-    transformMushroom(oldMushroom: any): void {
+    transformMushroom(oldMushroom: FoliageObject): void {
         const scene = this.weatherSystem.scene;
         const trackedMushrooms = this.weatherSystem.trackedMushrooms;
         const index = trackedMushrooms.indexOf(oldMushroom);
@@ -152,7 +153,7 @@ export class EcosystemManager {
             // Critical: Update the Cloud's reference!
             // Find the cloud that was targeting the old mushroom
             for (let i = 0, len = foliageClouds.length; i < len; i++) {
-                const c: any = foliageClouds[i];
+                const c = foliageClouds[i];
                 if (c.userData.targetMushroom === oldMushroom) {
                     c.userData.targetMushroom = newGiant;
 
@@ -191,11 +192,13 @@ export class EcosystemManager {
                     mushroomPool.push(toRemove);
                 } else {
                     // Dispose special mushrooms (e.g. Giant, Bioluminescent)
-                    toRemove.traverse((child: any) => {
+                    toRemove.traverse((obj) => {
+                        // Not every node is a mesh; `material` is undefined on the rest.
+                        const child = obj as Partial<THREE.Mesh>;
                         if (child.material) {
                             if (Array.isArray(child.material)) {
                                 for (let i = 0; i < child.material.length; i++) {
-                                    const m: any = child.material[i];
+                                    const m: THREE.Material = child.material[i];
                                     if (m.userData?.isClone && m.dispose) m.dispose();
                                 }
                             } else if (child.material.userData?.isClone && child.material.dispose) {
@@ -211,7 +214,7 @@ export class EcosystemManager {
     /**
      * Update mushroom waterfall particle effects
      */
-    updateMushroomWaterfalls(time: number, bassIntensity: number, state: any, intensity: number, trackedMushrooms: any[], mushroomWaterfalls: Set<string>): void {
+    updateMushroomWaterfalls(time: number, bassIntensity: number, state: WeatherState, intensity: number, trackedMushrooms: FoliageObject[], mushroomWaterfalls: Set<string>): void {
         const isRaining = state !== 'clear' && intensity > 0.4;
 
         for (let i = 0, len = trackedMushrooms.length; i < len; i++) {
@@ -251,7 +254,7 @@ export class EcosystemManager {
     /**
      * Handle spawning logic based on favorability scores
      */
-    handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number, onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null, isRaining: boolean): void {
+    handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number, onSpawnFoliage: SpawnFoliageCallback | null, isRaining: boolean): void {
         if (time - this._lastSpawnCheck < this._spawnThrottle) return;
         this._lastSpawnCheck = time;
 
@@ -315,7 +318,7 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
     /**
      * Spawn a single foliage object
      */
-    spawnFoliage(type: string, isGlowing: boolean, onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null): void {
+    spawnFoliage(type: string, isGlowing: boolean, onSpawnFoliage: SpawnFoliageCallback | null): void {
         if (!onSpawnFoliage) return;
 
         const x = (Math.random() - 0.5) * 60;
@@ -355,9 +358,9 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
         time: number,
         windSpeed: number,
         windDirection: THREE.Vector3,
-        trackedMushrooms: any[],
-        mushroomPool: any[],
-        onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null,
+        trackedMushrooms: FoliageObject[],
+        mushroomPool: FoliageObject[],
+        onSpawnFoliage: SpawnFoliageCallback | null,
         scene: THREE.Scene
     ): void {
         const count = trackedMushrooms.length;
@@ -377,9 +380,9 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
     private spawnMushroomsJS(
         windSpeed: number,
         windDirection: THREE.Vector3,
-        trackedMushrooms: any[],
-        mushroomPool: any[],
-        onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null,
+        trackedMushrooms: FoliageObject[],
+        mushroomPool: FoliageObject[],
+        onSpawnFoliage: SpawnFoliageCallback | null,
         scene: THREE.Scene
     ): void {
         let spawned = 0;
@@ -396,7 +399,8 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
                 const ny = getGroundHeight(nx, nz);
                 let newM;
                 if (mushroomPool.length > 0) {
-                    newM = mushroomPool.pop();
+                    // length > 0, so pop() returns a mushroom.
+                    newM = mushroomPool.pop() as FoliageObject;
                     if (newM) newM.visible = true;
                     newM.scale.setScalar(0.7);
                     newM.userData.colorIndex = colorIndex;
@@ -422,9 +426,9 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
         windDirection: THREE.Vector3,
         windSpeed: number,
         count: number,
-        trackedMushrooms: any[],
-        mushroomPool: any[],
-        onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null,
+        trackedMushrooms: FoliageObject[],
+        mushroomPool: FoliageObject[],
+        onSpawnFoliage: SpawnFoliageCallback | null,
         scene: THREE.Scene
     ): void {
         try {
@@ -440,7 +444,8 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
                     if (spawned >= this._spawnCapPerFrame) break;
                     let newM;
                     if (mushroomPool.length > 0) {
-                        newM = mushroomPool.pop();
+                        // length > 0, so pop() returns a mushroom.
+                        newM = mushroomPool.pop() as FoliageObject;
                         if (newM) newM.visible = true;
                         newM.scale.setScalar(0.7);
                         newM.userData.colorIndex = c.colorIndex;

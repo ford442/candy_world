@@ -48,9 +48,13 @@ const SELF = path.join(ROOT, 'scripts', 'check-native-exports.mjs');
 
 /** Where references are searched. tests/ and scripts/ count, but are reported as test-only. */
 const CORPUS_DIRS = ['src', 'tests', 'scripts'];
-/** asc --bindings output (gitignored), and this script and its test, whose fixtures name exports. */
+/**
+ * asc --bindings output (gitignored); the generated ABI types, which name every
+ * export by definition; and this script and its test, whose fixtures name exports.
+ */
 const CORPUS_SKIP = [
     path.join(ROOT, 'src', 'wasm'),
+    path.join(ROOT, 'src', 'utils', 'native-exports.generated.ts'),
     SELF,
     path.join(ROOT, 'tests', 'native-exports.test.mjs'),
 ];
@@ -371,7 +375,7 @@ export function analyze(root = ROOT) {
 // Gate
 // -----------------------------------------------------------------------------
 
-function main() {
+async function main() {
     const update = process.argv.includes('--update');
     const list = process.argv.includes('--list');
     const report = analyze();
@@ -458,6 +462,27 @@ function main() {
         process.exit(1);
     }
     console.log(`\n✅ [${TAG}] matches the baseline.`);
+
+    // The generated signatures (scripts/gen-native-types.mjs) must match the
+    // ABI this just checked, or tsc is checking calls against a stale list.
+    const { generate, OUT } = await import('./gen-native-types.mjs');
+    const want = await generate(ROOT);
+    const have = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : null;
+    if (want !== have) {
+        console.error(
+            `\n❌ [${TAG}] ${path.relative(ROOT, OUT)} is stale: a native signature changed.\n` +
+                '   Run `npm run gen:native-types` and commit the result.'
+        );
+        process.exit(1);
+    }
+    console.log(`✅ [${TAG}] ${path.relative(ROOT, OUT)} matches the native sources.`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+// Not awaited at top level: gen-native-types.mjs imports this module, and the
+// dynamic import in main() would wait on this module's evaluation forever.
+if (import.meta.url === `file://${process.argv[1]}`) {
+    main().catch((err) => {
+        console.error(`❌ [${TAG}]`, err);
+        process.exit(1);
+    });
+}

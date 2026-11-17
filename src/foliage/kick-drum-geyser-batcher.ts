@@ -3,10 +3,10 @@ import { color, float, vec3, vec4, sin, cos, positionLocal, normalLocal, add } f
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import type { FrameContext } from '../core/scheduler/types.ts';
+import type { ActiveWave } from '../systems/music-reactivity/music-wave.ts';
+import type { AudioData } from './types.ts';
 import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
-import { getActiveWave } from '../systems/music-reactivity/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     CandyPresets,
@@ -17,6 +17,9 @@ import {
 } from './material-core.ts';
 
 const MAX_GEYSERS = 500;
+
+/** The audio frame legacyUpdate reads: the kick channel's intensity, when the source has one. */
+type GeyserAudio = AudioData & { channels?: { kick?: { intensity?: number } } };
 
 export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
     coreMesh!: THREE.InstancedMesh;
@@ -37,8 +40,7 @@ export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
         this._maxHeights = new Float32Array(MAX_GEYSERS);
         // Add dummy meshes so register works correctly before mesh is assigned
         // The base class will call createMesh on first add, but we want it up front
-        this.mesh = this.createMesh(MAX_GEYSERS);
-        this.mesh.count = 0;
+        this.ensureMesh();
     }
 
     protected createMesh(capacity: number): THREE.InstancedMesh {
@@ -69,8 +71,7 @@ export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
             createJuicyRimLight(color(0xff4500), float(1.5), float(3.0), normalLocal)
         );
         registerReactiveMaterial(coreMat);
-        this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, capacity);
-        this.coreMesh.count = 0;
+        this.coreMesh = this.linkMesh(new THREE.InstancedMesh(coreGeo, coreMat, capacity));
         this.coreMesh.frustumCulled = false;
         foliageGroup.add(this.coreMesh);
 
@@ -104,8 +105,7 @@ export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
         plumeMat.positionNode = applyStandardDeformation(plumePos.add(circadianDroop));
         plumeMat.colorNode = vec4(color(0xff4500), float(0.8));
 
-        this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, capacity);
-        this.plumeMesh.count = 0;
+        this.plumeMesh = this.linkMesh(new THREE.InstancedMesh(plumeGeo, plumeMat, capacity));
         this.plumeMesh.frustumCulled = false;
         foliageGroup.add(this.plumeMesh);
 
@@ -136,10 +136,6 @@ export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
     protected onSwap(fromSlot: number, toSlot: number): void {
         this._offsets[toSlot] = this._offsets[fromSlot];
         this._maxHeights[toSlot] = this._maxHeights[fromSlot];
-
-        // Ensure secondary meshes count is updated
-        this.coreMesh.count = this.count - 1; // Since swap happens before count decrement, we will adjust it after in remove
-        this.plumeMesh.count = this.count - 1;
     }
 
     /**
@@ -155,11 +151,6 @@ export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
         proxy.userData.batchHandle = handle;
         proxy.userData.isBatched = true;
         proxy.userData.type = 'kick_drum_geyser';
-
-        // Also keep coreMesh/plumeMesh count in sync since they're updated when add calls markDirty
-        // actually markDirty doesn't touch count, but baseMesh count is updated.
-        this.coreMesh.count = this.count;
-        this.plumeMesh.count = this.count;
     }
 
     /**
@@ -174,15 +165,21 @@ export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
         }
 
         this.remove(handle);
-        this.coreMesh.count = this.count;
-        this.plumeMesh.count = this.count;
+        delete logicObject.userData.batchHandle;
     }
 
-    protected step(ctx: FrameContext): void {
-        this.legacyUpdate(ctx.time, ctx.dt, ctx.audio, getActiveWave());
+    protected step(_ctx: FrameContext): void {
+        // Animated by music-reactivity-foliage.ts (legacyUpdate, with the
+        // reactivity pass's active wave and visibility gating); the frame
+        // system only uploads.
     }
 
-    legacyUpdate(_time: number, _deltaTime: number, audioState: any, activeWave: any) {
+    legacyUpdate(
+        _time: number,
+        _deltaTime: number,
+        audioState: GeyserAudio | null | undefined,
+        activeWave: ActiveWave | null
+    ) {
         if (this.count === 0) return;
 
         // Eruption logic is driven by the 'kick' channel (typically uAudioLow in similar batchers or audioState.kick)
@@ -258,18 +255,6 @@ export class KickDrumGeyserBatcher extends InstancedBatcher<THREE.Object3D> {
 
         if (plumeDirty) {
             this.plumeMesh.instanceMatrix.needsUpdate = true;
-        }
-    }
-
-    dispose() {
-        super.dispose();
-        if (this.coreMesh && this.coreMesh.parent) {
-            // ⚡ OPTIMIZATION: Bypassed VRAM leaks using safeRemoveAndDispose
-            safeRemoveAndDispose(this.coreMesh.parent as THREE.Object3D, this.coreMesh);
-        }
-        if (this.plumeMesh && this.plumeMesh.parent) {
-            // ⚡ OPTIMIZATION: Bypassed VRAM leaks using safeRemoveAndDispose
-            safeRemoveAndDispose(this.plumeMesh.parent as THREE.Object3D, this.plumeMesh);
         }
     }
 }

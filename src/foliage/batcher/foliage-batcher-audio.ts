@@ -1,11 +1,13 @@
 // src/foliage/batcher/foliage-batcher-audio.ts
 // Audio analysis helper functions for foliage batch processing
 
+import type { AudioData } from '../types.ts';
+
 /**
  * Get vibrato amount from audio data
  * Effect code 1 = vibrato
  */
-export function getVibratoAmount(audioData: any): number {
+export function getVibratoAmount(audioData: AudioData | null | undefined): number {
     if (!audioData?.channelData) return 0;
     let amount = 0;
     for (const ch of audioData.channelData) {
@@ -20,7 +22,7 @@ export function getVibratoAmount(audioData: any): number {
  * Get tremolo amount from audio data
  * Effect code 3 = tremolo
  */
-export function getTremoloAmount(audioData: any): number {
+export function getTremoloAmount(audioData: AudioData | null | undefined): number {
     if (!audioData?.channelData) return 0;
     let amount = 0;
     for (const ch of audioData.channelData) {
@@ -36,7 +38,7 @@ export function getTremoloAmount(audioData: any): number {
 /**
  * Get high frequency amount (channels 3 and 4 volume)
  */
-export function getHighFreqAmount(audioData: any): number {
+export function getHighFreqAmount(audioData: AudioData | null | undefined): number {
     if (!audioData?.channelData) return 0;
     const ch3 = audioData.channelData[3]?.volume || 0;
     const ch4 = audioData.channelData[4]?.volume || 0;
@@ -46,7 +48,7 @@ export function getHighFreqAmount(audioData: any): number {
 /**
  * Get average volume across all channels
  */
-export function getAverageVolume(audioData: any): number {
+export function getAverageVolume(audioData: AudioData | null | undefined): number {
     if (!audioData?.channelData) return 1.0;
     let sum = 0;
     for (const ch of audioData.channelData) {
@@ -58,7 +60,7 @@ export function getAverageVolume(audioData: any): number {
 /**
  * Get pan activity (volume weighted by pan amount)
  */
-export function getPanActivity(audioData: any): number {
+export function getPanActivity(audioData: AudioData | null | undefined): number {
     if (!audioData?.channelData) return 0;
     let activity = 0;
     for (const ch of audioData.channelData) {

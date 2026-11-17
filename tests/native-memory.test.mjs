@@ -1,7 +1,7 @@
-import { register } from "node:module";
+import { register } from 'node:module';
 
-import { pathToFileURL } from "node:url";
-register("./support/wasm-init-hooks.mjs", import.meta.url);
+import { pathToFileURL } from 'node:url';
+register('./support/wasm-init-hooks.mjs', import.meta.url);
 
 /**
  * Native-layer memory safety, against the real AssemblyScript build.
@@ -122,6 +122,45 @@ await test('emHeapF32 works without an exported HEAPF32', () => {
     memory.grow(1);
     assert.equal(nativeMemory.emHeapF32({ wasmMemory: memory }).length, (2 * 65536) / 4);
     assert.equal(nativeMemory.emHeapF32(null), null);
+});
+
+// --- Structs (defineNativeStruct, scripts/native-structs.json) --------------
+
+const { NATIVE_STRUCTS } = await import('../src/utils/native-exports.generated.ts');
+const { BATCH_UPLOAD_OFFSET, COLLISION_OFFSET, COLLISION_STRIDE } =
+    await import('../src/utils/native-memory-layout.ts');
+
+await test('defineNativeStruct packs 4-byte fields in declaration order', () => {
+    const s = nativeMemory.defineNativeStruct({ count: 'i32', hero: 'f32', ptr: 'ptr' });
+    assert.deepEqual({ ...s.offsets }, { count: 0, hero: 4, ptr: 8 });
+    assert.equal(s.size, 12);
+});
+
+await test('NativeStructArray reads back each field type and follows memory.grow', () => {
+    const s = nativeMemory.defineNativeStruct({ a: 'i32', b: 'f32', c: 'u32' });
+    const arr = nativeMemory.asAllocStruct(s, 4);
+    assert.ok(arr, 'asAllocStruct returned null');
+    arr.write(3, { a: -7, b: 1.5, c: 0xffffffff });
+    exports.memory.grow(1);
+    assert.equal(arr.get(3, 'a'), -7);
+    assert.equal(arr.get(3, 'b'), 1.5);
+    assert.equal(arr.get(3, 'c'), 0xffffffff);
+    assert.throws(() => arr.get(4, 'a'), RangeError);
+    nativeMemory.asFree(arr.ptr);
+});
+
+await test('CollisionObject struct matches what addCollisionObjectsBatch reads', () => {
+    const s = nativeMemory.defineNativeStruct(NATIVE_STRUCTS.CollisionObject);
+    assert.equal(s.size, COLLISION_STRIDE, 'batch record and stored record differ in size');
+    const region = nativeMemory.asRegionStruct(s, BATCH_UPLOAD_OFFSET, 2);
+    exports.initCollisionSystem();
+    region.write(0, { type: 1, x: 10, y: 2, z: -5, d1: 3, d2: 4, d3: 0, flags: 0 });
+    region.write(1, { type: 5, x: -20, y: 0, z: 8, d1: 0.5, d2: 6, d3: 7, flags: 1 });
+    exports.addCollisionObjectsBatch(BATCH_UPLOAD_OFFSET, 2);
+    // AS stores each object at COLLISION_OFFSET with the same 8-float layout.
+    const stored = new Float32Array(exports.memory.buffer, COLLISION_OFFSET, 16);
+    assert.deepEqual(Array.from(stored), [1, 10, 2, -5, 3, 4, 0, 0, 5, -20, 0, 8, 0.5, 6, 7, 1]);
+    exports.initCollisionSystem();
 });
 
 // --- Emscripten instantiate failure handling --------------------------------

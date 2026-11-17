@@ -23,6 +23,7 @@
  */
 
 import * as THREE from 'three';
+import type { AsExports } from '../utils/native-exports.generated.ts';
 import { CONFIG } from '../core/config.ts';
 import { log } from '../utils/log.ts';
 import { getWasmInstance } from '../utils/wasm-loader.ts';
@@ -42,26 +43,17 @@ type ColoredMaterial = THREE.Material & {
 };
 
 /** WASM exports this batcher binds to (absent when the AS build lacks them). */
-interface MaterialBatcherExports {
-    batchMaterialFlash?: (
-        count: number,
-        fadeSpeed: number,
-        snapThreshold: number,
-        flashScale: number
-    ) => number;
-    initMaterialEntry?: (index: number, ...args: number[]) => void;
-    triggerMaterialFlash?: (
-        index: number,
-        r: number,
-        g: number,
-        b: number,
-        intensity: number
-    ) => void;
-    getMaterialResult?: (index: number, outPtr: number) => void;
-    materialNeedsFadeBack?: (index: number) => number;
-    getMaterialFlashIntensity?: (index: number) => number;
-    memory?: WebAssembly.Memory;
-}
+type MaterialBatcherExports = Partial<
+    Pick<
+        AsExports,
+        | 'batchMaterialFlash'
+        | 'initMaterialEntry'
+        | 'triggerMaterialFlash'
+        | 'getMaterialResult'
+        | 'materialNeedsFadeBack'
+        | 'getMaterialFlashIntensity'
+    >
+> & { memory?: WebAssembly.Memory };
 
 /** Optional reactivity tuning; CONFIG does not currently declare these, so defaults apply. */
 type ReactivityTuning = {
@@ -107,15 +99,12 @@ export class MaterialBatcher {
     private nextIndex = 0;
 
     // WASM function bindings
-    private wasmBatchFlash:
-        | ((count: number, fadeSpeed: number, snapThreshold: number, flashScale: number) => number)
-        | null = null;
-    private wasmInitMaterial: ((index: number, ...args: number[]) => void) | null = null;
-    private wasmTriggerFlash:
-        ((index: number, r: number, g: number, b: number, intensity: number) => void) | null = null;
-    private wasmGetResult: ((index: number, outPtr: number) => void) | null = null;
-    private wasmNeedsFadeBack: ((index: number) => number) | null = null;
-    private wasmGetFlashIntensity: ((index: number) => number) | null = null;
+    private wasmBatchFlash: AsExports['batchMaterialFlash'] | null = null;
+    private wasmInitMaterial: AsExports['initMaterialEntry'] | null = null;
+    private wasmTriggerFlash: AsExports['triggerMaterialFlash'] | null = null;
+    private wasmGetResult: AsExports['getMaterialResult'] | null = null;
+    private wasmNeedsFadeBack: AsExports['materialNeedsFadeBack'] | null = null;
+    private wasmGetFlashIntensity: AsExports['getMaterialFlashIntensity'] | null = null;
 
     // Result buffer (reused)
     private resultBuffer = new Float32Array(RESULT_STRIDE);

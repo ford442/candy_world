@@ -3,7 +3,7 @@ import { shouldUseFoliageGpuBatch } from '../../compute/foliage-gpu-batch.ts';
 import { getCIAdjustedCount } from '../../core/config.ts';
 import { InstancedBatcher } from '../../core/batcher/instanced-batcher.ts';
 import type { FrameContext } from '../../core/scheduler/types.ts';
-import { registerFoliageBatcherLod } from '../../systems/batcher-lod.ts';
+import { refreshFoliageLodMesh, registerFoliageBatcherLod } from '../../systems/batcher-lod.ts';
 import { writeInstancePose } from '../../utils/wasm-batcher-instance.ts';
 import { getGroundAlignedQuaternion } from '../../world/placement-utils.ts';
 import { foliageGroup } from '../../world/state.ts';
@@ -20,7 +20,27 @@ import {
 import { createMergedGeometry } from './geometry.ts';
 import { createMaterials } from './materials.ts';
 
-export class MushroomBatcher extends InstancedBatcher<{ proxy: THREE.Object3D, options: any }> {
+/** What mushrooms.ts passes to register(). */
+export interface MushroomBatchOptions {
+    hasFace?: boolean;
+    /** 0–11; -1 or absent for a mushroom no note triggers. */
+    noteIndex?: number;
+    size?: string;
+    /**
+     * Cap colour (hex); 0xFF6B6B when absent. mushrooms.ts passes null for a
+     * mushroom with neither a note nor a colour, which has always come out
+     * black (setHex(null) is 0); kept as is.
+     */
+    noteColor?: number | null;
+    spawnTime?: number;
+}
+
+interface MushroomRecord {
+    proxy: THREE.Object3D;
+    options: MushroomBatchOptions;
+}
+
+export class MushroomBatcher extends InstancedBatcher<MushroomRecord> {
     private static instance: MushroomBatcher;
 
     // OPTIMIZED: Packed into single vec4 to reduce vertex buffers from 11 to 8
@@ -36,6 +56,9 @@ export class MushroomBatcher extends InstancedBatcher<{ proxy: THREE.Object3D, o
 
     // Mapping: Note Index (0-11) -> Array of Instance Indices (slots)
     private noteToInstances: Map<number, number[]> = new Map();
+
+    /** The mesh the LOD system tracks, so a recreated mesh can replace it. */
+    private lodMesh: THREE.InstancedMesh | null = null;
 
     private constructor() {
         super('mushroom', 'animate', MAX_MUSHROOMS);
@@ -80,7 +103,11 @@ export class MushroomBatcher extends InstancedBatcher<{ proxy: THREE.Object3D, o
             console.warn('[MushroomBatcher] foliageGroup not found, mushrooms might not be visible.');
         }
 
-        registerFoliageBatcherLod({ id: 'mushroom', getMeshes: () => [mesh] });
+        // After a dispose + refill, hand the LOD track over to the new mesh
+        // instead of leaving the disposed one tracked.
+        if (this.lodMesh) refreshFoliageLodMesh(mesh, this.lodMesh);
+        else registerFoliageBatcherLod({ id: 'mushroom', getMeshes: () => (this.mesh ? [this.mesh] : []) });
+        this.lodMesh = mesh;
         console.log('[MushroomBatcher] Initialized with capacity ' + capacity);
         return mesh;
     }
@@ -108,7 +135,7 @@ export class MushroomBatcher extends InstancedBatcher<{ proxy: THREE.Object3D, o
         return this.mesh ? [this.mesh] : [];
     }
 
-    protected writeRecord(record: { proxy: THREE.Object3D, options: any }, slot: number, array: Float32Array): void {
+    protected writeRecord(record: MushroomRecord, slot: number, array: Float32Array): void {
         const dummy = record.proxy;
         const options = record.options;
         const i = slot;
@@ -131,7 +158,7 @@ export class MushroomBatcher extends InstancedBatcher<{ proxy: THREE.Object3D, o
         // PALETTE: Set Color
         // Default to Red (0xFF6B6B) if no note color provided
         const colorHex = options.noteColor !== undefined ? options.noteColor : 0xFF6B6B;
-        _scratchColor.setHex(colorHex);
+        _scratchColor.setHex(colorHex ?? 0x000000);
         this._batchColors[i * 3 + 0] = _scratchColor.r;
         this._batchColors[i * 3 + 1] = _scratchColor.g;
         this._batchColors[i * 3 + 2] = _scratchColor.b;
@@ -175,7 +202,7 @@ export class MushroomBatcher extends InstancedBatcher<{ proxy: THREE.Object3D, o
         this.matricesDirty = false;
     }
 
-    register(dummy: THREE.Object3D, options: any) {
+    register(dummy: THREE.Object3D, options: MushroomBatchOptions) {
         // Prepare the new record attributes so they're ready when writeRecord is called
         const handle = this.add({ proxy: dummy, options });
         if (handle === null) return;
@@ -272,14 +299,19 @@ export class MushroomBatcher extends InstancedBatcher<{ proxy: THREE.Object3D, o
         if (this.instanceData) this.instanceData.needsUpdate = true;
     }
 
+    dispose(): void {
+        super.dispose();
+        this.noteToInstances.clear();
+        this.instanceData = null;
+    }
+
     handleNote(noteIndex: number, velocity: number) {
         if (!this.mesh) return;
 
         const indices = this.noteToInstances.get(noteIndex);
         if (indices) {
             // PALETTE FIX: Use uTime.value for sync with TSL shader
-            // Cast to any to access .value on UniformNode
-            const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000.0;
+            const now = typeof uTime.value === 'number' ? uTime.value : performance.now() / 1000.0;
             const normalizedVelocity = velocity / 127.0;
 
             const instanceDataArray = this.instanceData!.array as Float32Array;

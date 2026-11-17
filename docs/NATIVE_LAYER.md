@@ -82,6 +82,42 @@ and the `processBatchUniversal_c` / `batch*_c` lookups on the **AS** instance
 in `foliage-batcher-core.ts` (AS pointers, so the C++ path could never have
 worked) are gone.
 
+## Decision 1c: the boundary types are generated (#2166)
+
+The C++ and AS signatures TS calls were written by hand in
+`src/utils/wasm-loader-types.ts`, and 20 C++ entries were
+`(...args: number[]) => …`, so a missing or swapped argument compiled and the
+native side read garbage. They are now generated:
+
+- **`npm run gen:native-types`** (`scripts/gen-native-types.mjs`) writes
+  `src/utils/native-exports.generated.ts`. C++: every function `check:native-exports`
+  counts as exported, parsed from its definition in `emscripten/*.cpp` (scalars
+  → `number`, `int64` → `bigint`, pointers → `NativePtr`, the C type in a doc
+  comment). AS: every export of `assembly/index.ts`, read from the `.d.ts` that
+  `asc --bindings raw` writes (a debug compile into a temp dir, about a second).
+- **`getNativeFunc('name')` is typed by name** (`CppExports[K]`), so every C++
+  call site is checked; `WasmExports` is `Partial<AsExports>` with no index
+  signature. There is no `(...args: number[])` left in `src/`.
+- **`check:native-exports` fails while the generated file is stale.** Change
+  the native source, run `npm run gen:native-types`, commit both.
+
+Turning the types on found three real mismatches: `batchMushroomSpawnCandidates`
+was called with 8 arguments in the wrong order for an 11-argument kernel
+(`objectCount` reached AS as 0, so the WASM wind-spawn path never produced a
+candidate); the AS `addCollisionObject` takes 8 arguments and was passed 9
+(harmless, the extra was 0); C++ `initPhysics` / `setPlayerState` return
+`void`, typed `number`.
+
+**Structs JS writes into native memory** are declared in
+`scripts/native-structs.json` (field order and type; `countsKey` ties the
+field count to a `scripts/memory-layout.mjs` COUNTS entry). The generator emits
+them as `NATIVE_STRUCTS`; `defineNativeStruct(spec)` in `native-memory.ts`
+lays one out and `asRegionStruct` / `asAllocStruct` / `emAllocStruct` return a
+`NativeStructArray` with typed `get` / `set` / `write` that re-derives its
+views after `memory.grow`. The collision batch upload (`CollisionObject`, read
+by `addCollisionObjectsBatch`) is the first user; `test:native-memory` round
+trips it through the real AS build.
+
 ## Decision 2: one memory layout, real allocations for everything else
 
 - **AS fixed regions** are declared once, in `scripts/memory-layout.mjs`.
@@ -121,6 +157,7 @@ across a native call.**
   fresh. The `emscriptenMemory` snapshot is kept only for compatibility.
 
 `native-memory.ts` is the start of the typed bridge. New code goes through it.
+A struct passed by pointer goes through `defineNativeStruct` (Decision 1c).
 The remaining `src/utils/wasm-*.ts` `export let` function caches migrate to it
 subsystem by subsystem, alongside the twin deletions above.
 

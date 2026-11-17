@@ -8,6 +8,7 @@
 // One InstancedMesh, one glass material => a single draw call for the whole grove.
 
 import * as THREE from 'three';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
     color, float, vec3, attribute, positionLocal, normalLocal,
@@ -22,7 +23,6 @@ import {
     uCircadianPoseOffset,
     circadianNightGlowMult,
 } from '../systems/biome-uniforms.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
@@ -144,16 +144,17 @@ function createGlassMushroomMaterial(): MeshStandardNodeMaterial {
     return mat;
 }
 
-export class GlassMushroomBatcher {
+interface GlassRecord {
+    /** Column-major instance matrix; updateObject() rewrites it. */
+    matrix: Float32Array;
+    phase: number;
+}
+
+/** Glass mushrooms (#2166: ported to InstancedBatcher). */
+export class GlassMushroomBatcher extends InstancedBatcher<GlassRecord> {
     private static _instance: GlassMushroomBatcher | null = null;
 
-    public mesh: THREE.InstancedMesh;
-    private maxInstances: number;
-    private count = 0;
-
-    // Track logical objects to instance indices for fast O(1) removal
-    private logicIdToInstance = new Map<number, number>();
-    private instanceToLogicId: number[] = [];
+    private aPhase!: THREE.InstancedBufferAttribute;
 
     static getInstance(): GlassMushroomBatcher {
         if (!GlassMushroomBatcher._instance) {
@@ -163,89 +164,87 @@ export class GlassMushroomBatcher {
     }
 
     constructor(maxInstances: number = MAX_GLASS_MUSHROOMS) {
-        this.maxInstances = maxInstances;
+        super('glass-mushroom', 'animate', maxInstances);
+        this.rangedUploads = true;
+        this.ensureMesh();
+    }
 
+    protected createMesh(capacity: number): THREE.InstancedMesh {
         const geo = getGlassMushroomGeometry();
         const mat = createGlassMushroomMaterial();
 
-        this.mesh = new THREE.InstancedMesh(geo, mat, maxInstances);
-        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = false;
-        this.mesh.frustumCulled = true;
-        this.mesh.count = 0;
-        this.mesh.userData.type = 'glass_mushroom';
+        const mesh = new THREE.InstancedMesh(geo, mat, capacity);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.castShadow = true;
+        mesh.receiveShadow = false;
+        mesh.frustumCulled = true;
+        mesh.count = 0;
+        mesh.userData.type = 'glass_mushroom';
 
-        const phaseArray = new Float32Array(maxInstances);
-        this.mesh.geometry.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phaseArray, 1));
+        this.aPhase = this.registerAttribute(
+            new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1)
+        );
+        mesh.geometry.setAttribute('aPhase', this.aPhase);
 
         if (foliageGroup) {
-            foliageGroup.add(this.mesh);
+            foliageGroup.add(mesh);
         } else {
             console.warn('[GlassMushroomBatcher] foliageGroup not found, glass mushrooms may not be visible.');
         }
+        return mesh;
     }
 
-    /** Register a placed glass-mushroom group; returns its instance index or -1 if full. */
+    protected writeRecord(r: GlassRecord, slot: number, array: Float32Array): void {
+        array.set(r.matrix, slot * 16);
+        this.aPhase.setX(slot, r.phase);
+    }
+
+    protected step(): void {
+        // Static instances; the TSL graph animates them.
+    }
+
+    /** Register a placed glass-mushroom group; returns its current slot or -1 if full. */
     register(group: THREE.Object3D): number {
-        if (this.count >= this.maxInstances) {
+        _scratchMatrix.compose(group.position, group.quaternion, group.scale);
+        const handle = this.addKeyed(group.id, {
+            matrix: new Float32Array(_scratchMatrix.elements),
+            phase: Math.random() * Math.PI * 2,
+        });
+        if (handle === null) {
             console.warn('[GlassMushroomBatcher] Max capacity reached');
             return -1;
         }
-        const id = this.count;
-
-        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setX() overhead by writing directly to buffer arrays
-        _scratchMatrix.compose(group.position, group.quaternion, group.scale);
-        _scratchMatrix.toArray(this.mesh.instanceMatrix.array, id * 16);
-
-        const phaseAttr = this.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
-        phaseAttr.array[id] = Math.random() * Math.PI * 2;
-
-        this.logicIdToInstance.set(group.id, id);
-        this.instanceToLogicId[id] = group.id;
-
-        this.count++;
-        this.mesh.count = this.count;
-        this.mesh.instanceMatrix.needsUpdate = true;
-        phaseAttr.needsUpdate = true;
-        return id;
+        this.flush();
+        return this.slotOf(handle)!;
     }
 
-    /** Update a specific instance matrix after registration */
+    /**
+     * Set a registered group's instance matrix. Use this rather than
+     * updateInstance(): a slot index moves when another mushroom is removed.
+     */
+    updateObject(group: THREE.Object3D, matrix: THREE.Matrix4): void {
+        const slot = this.slotOfKey(group.id);
+        if (slot === undefined) return;
+        this.setSlotMatrix(slot, matrix);
+    }
+
+    /** Update the instance in slot `index` (slots move on removal; prefer updateObject). */
     updateInstance(index: number, matrix: THREE.Matrix4): void {
         if (index < 0 || index >= this.count) return;
-        matrix.toArray(this.mesh.instanceMatrix.array, index * 16);
-        this.mesh.instanceMatrix.needsUpdate = true;
+        this.setSlotMatrix(index, matrix);
     }
 
-    /** Remove an instance efficiently by swapping with the last instance to prevent VRAM growth. */
+    private setSlotMatrix(slot: number, matrix: THREE.Matrix4): void {
+        const r = this.recordAt(slot)!;
+        r.matrix.set(matrix.elements);
+        this.mesh!.instanceMatrix.array.set(r.matrix, slot * 16);
+        this.markSlotDirty(slot);
+        this.flush();
+    }
+
     removeInstance(logicObject: THREE.Object3D) {
         if (!logicObject) return;
-
-        const id = logicObject.id;
-        const index = this.logicIdToInstance.get(id);
-        if (index === undefined) return;
-
-        const last = this.count - 1;
-        if (index !== last) {
-            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
-            for (let i = 0; i < 16; i++) {
-                matrixArray[index * 16 + i] = matrixArray[last * 16 + i];
-            }
-            this.mesh.instanceMatrix.needsUpdate = true;
-
-            const phaseAttr = this.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
-            phaseAttr.array[index] = phaseAttr.array[last];
-            phaseAttr.needsUpdate = true;
-
-            const lastLogicId = this.instanceToLogicId[last];
-            this.logicIdToInstance.set(lastLogicId, index);
-            this.instanceToLogicId[index] = lastLogicId;
-        }
-
-        this.logicIdToInstance.delete(id);
-        this.count--;
-        this.mesh.count = this.count;
+        if (this.removeKeyed(logicObject.id)) this.flush();
     }
 
     /** Live instance count — used by world-health / telemetry callers. */
@@ -254,34 +253,11 @@ export class GlassMushroomBatcher {
     }
 
     dispose(): void {
-        if (this.mesh) {
-            const phaseAttr = this.mesh.geometry?.getAttribute('aPhase');
-            if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
-                try { (phaseAttr as any).dispose(); } catch { /* noop */ }
-            }
-            if (this.mesh.geometry && this.mesh.geometry !== _sharedGlassGeo) {
-                this.mesh.geometry.dispose();
-            }
-            if (this.mesh.material) {
-                if (Array.isArray(this.mesh.material)) {
-                    this.mesh.material.forEach((m) => m.dispose());
-                } else {
-                    (this.mesh.material as THREE.Material).dispose();
-                }
-            }
-            if (this.mesh.instanceMatrix && typeof (this.mesh.instanceMatrix as any).dispose === 'function') {
-                try { (this.mesh.instanceMatrix as any).dispose(); } catch { /* noop */ }
-            }
-            if (foliageGroup) {
-                safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.mesh);
-            }
-        }
-        if (_sharedGlassGeo) {
-            _sharedGlassGeo.dispose();
-            _sharedGlassGeo = null;
-        }
-        this.count = 0;
-        GlassMushroomBatcher._instance = null;
+        // super.dispose() frees the mesh's geometry, which is the shared one;
+        // forget it so the next createMesh() builds a fresh one.
+        super.dispose();
+        _sharedGlassGeo = null;
+        if (GlassMushroomBatcher._instance === this) GlassMushroomBatcher._instance = null;
     }
 }
 
