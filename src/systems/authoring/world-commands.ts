@@ -8,7 +8,11 @@
  */
 
 import type * as THREE from 'three';
-import { claimAuthoredEntity } from '../../world/authored-entities.ts';
+import {
+    claimAuthoredEntity,
+    markPlacedEntity,
+    unmarkPlacedEntity,
+} from '../../world/authored-entities.ts';
 import { canDespawn, despawnEntity } from '../../world/entity-despawn.ts';
 import { entities } from '../../world/state.ts';
 import type { EntitySnapshot } from '../entity-snapshot/entity-snapshot-core.ts';
@@ -49,6 +53,7 @@ export class PlaceCommand implements WorldCommand {
                 throw new Error(`Could not create entity type "${this.snapshot.entity.type}"`);
             }
         }
+        markPlacedEntity(this.snapshot.id, this.snapshot.entity.type);
         this.hooks.onApplied?.(objects, this.snapshot);
     }
 
@@ -66,6 +71,7 @@ export class PlaceCommand implements WorldCommand {
         }
         for (const obj of objects) despawnEntity(obj);
         if (objects.length > 0) populatePhysicsGrids();
+        unmarkPlacedEntity(this.snapshot.id);
         this.hooks.onReverted?.(this.snapshot);
     }
 

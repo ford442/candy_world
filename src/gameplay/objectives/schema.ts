@@ -3,9 +3,14 @@
  * @brief The Melody file format: authored quest chains (#2028 slice B).
  *
  * A Melody is a short, ordered list of steps; each step names one trigger that
- * is *derived* from progress the player already has (an item count, a
- * discovery, a Night Market stamp, the number of awakened flora). Nothing here
- * counts events, so a save that already satisfies a step passes it on load.
+ * is *derived* from state the player already has. Two families:
+ *   - held: an item count, a discovery, a Night Market stamp, awakened flora,
+ *     authored entities placed (`build`). A save that already satisfies a step
+ *     passes it on load.
+ *   - present-tense: standing in a biome (`visit`) or an on-beat streak of an
+ *     action (`play-on-beat`). True only right now; the stored step index is
+ *     what remembers that it happened.
+ * Nothing here counts events, so a replayed or duplicated event cannot count twice.
  *
  * Authored files live in `assets/melodies/*.json`. Valibot validates them and
  * every failure names the file and the dot path of the bad field, the same
@@ -18,16 +23,23 @@ import * as v from 'valibot';
 /** Awakenable flora types (`AWAKENABLE_TYPES` in `awakened-persistence.ts`). */
 export const AWAKEN_TYPES = ['luminous_plant', 'gem_canopy_tree'] as const;
 
-/**
- * Parsed and kept, but not acted on yet: seasonal Melodies are a later cut, and
- * a file that already carries a season keeps validating when that lands.
- */
+/** A Melody with a `season` is only active (evaluated, shown as in progress) in that season. */
 export const MELODY_SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
 
 /** `night_market_stamp:<stall entity id>`; the same shape a shared-world peer accepts. */
 export const STAMP_ID_RE = /^night_market_stamp:[A-Za-z0-9_.:-]{1,96}$/;
 
 export const MAX_MELODY_STEPS = 32;
+
+/**
+ * Actions a `play-on-beat` step may name: the in-world abilities a player performs to the music.
+ * Each is an `ActionId` (`core/input/actions/types.ts`); the objectives test checks that.
+ */
+export const BEAT_ACTIONS = ['clap', 'strike', 'dance', 'jump', 'fire'] as const;
+
+/** Map region / biome ids (`getBiomeAtPosition`); the objectives test checks a shipped one exists. */
+const BiomeIdSchema = v.pipe(v.string(), v.regex(/^[a-z0-9_]{1,64}$/, 'must be a biome id'));
+const ItemIdSchema = v.pipe(v.string(), v.regex(/^[a-z0-9_]{1,64}$/));
 
 /** Melody ids are record keys in `progress.melodies`, so they (and step ids) stay short and plain. */
 const SlugSchema = v.pipe(
@@ -37,12 +49,12 @@ const SlugSchema = v.pipe(
 const Text = (max: number) => v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(max));
 const Count = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(9999));
 
-// `strictObject`: an unknown key (a typo such as `cout`, or a `reward` this cut
-// does not have) is an error that names its path, not a silently ignored field.
+// `strictObject`: an unknown key (a typo such as `cout`, or a trigger field a
+// later cut adds) is an error that names its path, not a silently ignored field.
 export const TriggerSchema = v.variant('kind', [
     v.strictObject({
         kind: v.literal('harvest'),
-        item: v.pipe(v.string(), v.regex(/^[a-z0-9_]{1,64}$/)),
+        item: ItemIdSchema,
         count: Count,
     }),
     v.strictObject({
@@ -58,7 +70,36 @@ export const TriggerSchema = v.variant('kind', [
         kind: v.literal('discover'),
         id: v.pipe(v.string(), v.regex(/^[A-Za-z0-9_.:-]{1,128}$/)),
     }),
+    v.strictObject({
+        kind: v.literal('visit'),
+        biome: BiomeIdSchema,
+    }),
+    v.strictObject({
+        kind: v.literal('play-on-beat'),
+        action: v.picklist(BEAT_ACTIONS),
+        /** Consecutive on-beat presses; an off-beat press resets the streak. */
+        count: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(64)),
+    }),
+    v.strictObject({
+        kind: v.literal('build'),
+        count: Count,
+        /** Map entity type (`EntitySnapshot.entity.type`), e.g. `mushroom`. Any type when absent. */
+        type: v.optional(v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,64}$/))),
+    }),
 ]);
+
+/**
+ * Granted once, when this client's own evaluation completes the Melody. Items go through
+ * `unlockSystem.harvest`, so they land in the inventory, which merges by max across saves and
+ * peers: two clients completing the same Melody apart do not end up with the reward twice.
+ */
+export const RewardSchema = v.strictObject({
+    items: v.pipe(
+        v.array(v.strictObject({ item: ItemIdSchema, count: Count })),
+        v.minLength(1),
+        v.maxLength(8)
+    ),
+});
 
 export const StepSchema = v.strictObject({
     id: SlugSchema,
@@ -73,6 +114,7 @@ export const MelodySchema = v.pipe(
         season: v.optional(v.picklist(MELODY_SEASONS)),
         prereq: v.optional(v.pipe(v.array(SlugSchema), v.maxLength(8))),
         steps: v.pipe(v.array(StepSchema), v.minLength(1), v.maxLength(MAX_MELODY_STEPS)),
+        reward: v.optional(RewardSchema),
     }),
     v.check(
         (m) => new Set(m.steps.map((s) => s.id)).size === m.steps.length,
@@ -82,6 +124,7 @@ export const MelodySchema = v.pipe(
 );
 
 export type Trigger = v.InferOutput<typeof TriggerSchema>;
+export type MelodyReward = v.InferOutput<typeof RewardSchema>;
 export type MelodyStep = v.InferOutput<typeof StepSchema>;
 export type Melody = v.InferOutput<typeof MelodySchema>;
 

@@ -1,8 +1,12 @@
 import type * as THREE from 'three';
 import type { VisualState } from '../audio/audio-system-core.ts';
 import { getSeasonState } from '../systems/environment/season-controller.ts';
-import { blendSeasonMusicModifier, createSeasonMusicModifier } from '../systems/environment/season-core.ts';
+import {
+    blendSeasonMusicModifier,
+    createSeasonMusicModifier,
+} from '../systems/environment/season-core.ts';
 import { getBiomeAtPosition } from '../systems/net/biome-at-position.ts';
+import { reportBiome, setBeatPhase } from '../systems/objective-signals.ts';
 import { profiler } from '../utils/profiler.ts';
 import { CONFIG } from './config.ts';
 import {
@@ -24,9 +28,12 @@ import {
 import type { FrameClock, FrameSource } from './scheduler/index.ts';
 
 let _genAudioFrameCount = 0;
+let _biomeFrameCount = 0;
 const _seasonMusic = createSeasonMusicModifier();
 
 export function updateGenerativeAudioContext(playerPos: THREE.Vector3, dayNightBias: number): void {
+    // Melody `visit` steps: the biome is sampled every 10 frames and cues only on a change.
+    if (++_biomeFrameCount % 10 === 0) reportBiome(getBiomeAtPosition(playerPos.x, playerPos.z));
     if (!audioSystemRef || !audioSystemRef.isGenerativeActive()) return;
 
     _genAudioFrameCount++;
@@ -64,6 +71,7 @@ export const audioClockSource: FrameSource = {
     id: 'audio-clock',
     sample(dt: number): FrameClock {
         const audio = updateAudioPhase(dt);
+        setBeatPhase(audio?.beatPhase ?? 0);
         const bpm = audio?.bpm || 120;
         const time = getGameTime() + dt * (120 / Math.max(10, bpm));
         setGameTime(time);

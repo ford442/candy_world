@@ -17,6 +17,7 @@ import {
 } from '../../foliage/material-core/season-nodes.ts';
 import { announce } from '../../ui/announcer.ts';
 import { getWorldSeed, getWorldSeedVersion } from '../../world/world-seed.ts';
+import { emitObjectiveCue } from '../objective-signals.ts';
 import {
     SEASON_NAMES,
     SEASON_ROLE_STRIDE,
@@ -128,6 +129,7 @@ export const seasonController = {
         if (_state.current !== _lastAnnounced) {
             _lastAnnounced = _state.current;
             announce(SEASON_ARRIVALS[_state.current], 'polite');
+            emitObjectiveCue({ kind: 'season' });
         }
     },
 
@@ -136,6 +138,7 @@ export const seasonController = {
         _pinned = parseSeasonName(name);
         refresh(Date.now(), true);
         _lastAnnounced = _state.current;
+        emitObjectiveCue({ kind: 'season' });
     },
 
     getName(): SeasonName {

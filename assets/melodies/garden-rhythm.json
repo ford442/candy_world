@@ -1,0 +1,23 @@
+{
+    "id": "garden-rhythm",
+    "title": "Garden Rhythm",
+    "prereq": ["meadow"],
+    "steps": [
+        {
+            "id": "up-to-the-islands",
+            "text": "Climb up to the Sky Islands.",
+            "trigger": { "kind": "visit", "biome": "sky_islands" }
+        },
+        {
+            "id": "clap-in-time",
+            "text": "Clap on the beat four times in a row.",
+            "trigger": { "kind": "play-on-beat", "action": "clap", "count": 4 }
+        },
+        {
+            "id": "plant-a-mushroom",
+            "text": "Open build mode (B) and place a mushroom of your own.",
+            "trigger": { "kind": "build", "count": 1, "type": "mushroom" }
+        }
+    ],
+    "reward": { "items": [{ "item": "fern_core", "count": 1 }] }
+}

@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ACTION_IDS } from '../src/core/input/actions/types.ts';
 import { DISCOVERY_MAP } from '../src/systems/discovery/discovery-map.ts';
 import {
     AWAKEN_TYPES,
@@ -100,6 +101,24 @@ interface Catalog {
     discoveries: ReadonlySet<string>;
     stamps: ReadonlySet<string>;
     awaken: ReadonlySet<string>;
+    biomes: ReadonlySet<string>;
+    actions: ReadonlySet<string>;
+    placeable: ReadonlySet<string>;
+}
+
+/** Biomes `getBiomeAtPosition` can return: map regions plus the procedural ones in generation-core. */
+function biomeIds(): Set<string> {
+    const map = JSON.parse(readFileSync(join(ROOT, 'assets', 'map.json'), 'utf8')) as {
+        regions?: Array<{ id?: string; biome?: string }>;
+    };
+    const out = new Set<string>();
+    for (const r of map.regions ?? []) {
+        const b = r.biome ?? r.id;
+        if (b) out.add(b);
+    }
+    const gen = readFileSync(join(SRC, 'world', 'generation-core.ts'), 'utf8');
+    for (const m of gen.matchAll(/biome:\s*'([a-z0-9_]+)'/g)) out.add(m[1]);
+    return out;
 }
 
 const catalog: Catalog = {
@@ -108,6 +127,16 @@ const catalog: Catalog = {
     discoveries: new Set(Object.keys(DISCOVERY_MAP)),
     stamps: stampIdsFromMap(),
     awaken: awakenableTypes(),
+    biomes: biomeIds(),
+    actions: new Set(ACTION_IDS),
+    // Build mode places registered map entity types; every type the shipped map uses is one.
+    placeable: new Set(
+        (
+            JSON.parse(readFileSync(join(ROOT, 'assets', 'map.json'), 'utf8')) as {
+                entities: Array<{ type: string }>;
+            }
+        ).entities.map((e) => e.type)
+    ),
 };
 
 /** Every trigger target that does not resolve, as a message naming the Melody and step. */
@@ -130,9 +159,23 @@ function findUnresolved(melodies: readonly Melody[], c: Catalog): string[] {
             } else if (t.kind === 'stamp') {
                 if (!c.stamps.has(t.id))
                     out.push(`${where}: no Night Market stall gives "${t.id}"`);
+            } else if (t.kind === 'visit') {
+                if (!c.biomes.has(t.biome))
+                    out.push(`${where}: no map region is biome "${t.biome}"`);
+            } else if (t.kind === 'play-on-beat') {
+                if (!c.actions.has(t.action))
+                    out.push(`${where}: "${t.action}" is not an ActionId`);
+            } else if (t.kind === 'build') {
+                if (t.type && !c.placeable.has(t.type)) {
+                    out.push(`${where}: build mode cannot place "${t.type}"`);
+                }
             } else if (t.type && !c.awaken.has(t.type)) {
                 out.push(`${where}: "${t.type}" is not an awakenable flora type`);
             }
+        }
+        for (const [i, r] of (m.reward?.items ?? []).entries()) {
+            if (!c.harvest.has(r.item))
+                out.push(`${m.id}/reward.items.${i}: unknown item "${r.item}"`);
         }
     }
     return out;
@@ -144,9 +187,15 @@ function findUnresolved(melodies: readonly Melody[], c: Catalog): string[] {
 
 const shipped = parseMelodyFiles(readJsonDir(MELODY_DIR));
 
+const STARTERS = ['meadow', 'night-market', 'sugar-caves'];
+
 test('every assets/melodies/*.json parses, and the three starters are there', () => {
-    assert.deepEqual(shipped.map((m) => m.id).sort(), ['meadow', 'night-market', 'sugar-caves']);
-    for (const m of shipped) {
+    for (const id of STARTERS)
+        assert.ok(
+            shipped.some((m) => m.id === id),
+            `missing ${id}`
+        );
+    for (const m of shipped.filter((x) => STARTERS.includes(x.id))) {
         assert.equal(m.prereq, undefined, `${m.id}: starters have no prereq`);
         assert.equal(m.season, undefined, `${m.id}: starters have no season`);
     }
@@ -207,7 +256,7 @@ test('unknown keys, bad ids and out-of-range counts are refused with their path'
     refuses((m) => (m.steps[0].trigger.cout = 1), /steps\.0\.trigger\.cout/);
     refuses((m) => (m.steps[0].trigger.count = 0), /steps\.0\.trigger\.count/);
     refuses((m) => (m.steps[0].trigger.count = 1.5), /steps\.0\.trigger\.count/);
-    refuses((m) => (m.steps[0].trigger.kind = 'visit'), /steps\.0\.trigger\.kind/); // later cut
+    refuses((m) => (m.steps[0].trigger.kind = 'fauna'), /steps\.0\.trigger\.kind/); // later cut
     refuses((m) => (m.id = 'Has Spaces'), /at "id"/);
     refuses((m) => (m.steps = []), /at "steps"/);
     refuses((m) => (m.steps[1].id = m.steps[0].id), /step ids must be unique/);
@@ -431,6 +480,7 @@ function build(
 }
 
 const melody = (id: string) => shipped.find((m) => m.id === id)!;
+const starters = shipped.filter((m) => STARTERS.includes(m.id));
 const STALL = (n: number) => `night_market_stamp:setpiece:night_market:stall:${n}`;
 
 test('Meadow runs from start to completed with the expected announcements', () => {
@@ -466,7 +516,7 @@ test('Meadow runs from start to completed with the expected announcements', () =
 });
 
 test('a snapshot that already satisfies everything completes with one announcement per Melody', () => {
-    const { world, system, calls } = build(shipped);
+    const { world, system, calls } = build(starters);
     for (const item of ['fern_core', 'vibrato_nectar', 'snap_shard']) world.give(item);
     for (let i = 0; i < 3; i++) world.awaken();
     for (let n = 0; n < 6; n++) world.discover(STALL(n));
@@ -492,7 +542,7 @@ test('a Melody that jumps part-way announces one step, not one per step', () => 
 });
 
 test('a fresh start announces every active Melody as started, once', () => {
-    const { system, calls } = build(shipped);
+    const { system, calls } = build(starters);
     system.evaluate();
     assert.deepEqual(
         calls.map((c) => c[0]),
@@ -648,7 +698,7 @@ test('a prerequisite keeps a Melody locked until it completes, and opening it co
 });
 
 test('apply is silent: state from a document or a peer is never announced', () => {
-    const { world, system, calls } = build(shipped);
+    const { world, system, calls } = build(starters);
     system.apply({ completed: ['meadow'], step: { 'night-market': 3 } });
     assert.deepEqual(calls, []);
     assert.deepEqual(system.getProgress(), {

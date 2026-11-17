@@ -1,0 +1,18 @@
+{
+    "id": "winter-song",
+    "title": "Winter Song",
+    "season": "winter",
+    "steps": [
+        {
+            "id": "frosted-market",
+            "text": "Visit the Night Market while frost is on the lanterns.",
+            "trigger": { "kind": "visit", "biome": "night_market" }
+        },
+        {
+            "id": "dance-in-the-snow",
+            "text": "Dance on the beat three times in a row.",
+            "trigger": { "kind": "play-on-beat", "action": "dance", "count": 3 }
+        }
+    ],
+    "reward": { "items": [{ "item": "vibrato_nectar", "count": 1 }] }
+}
