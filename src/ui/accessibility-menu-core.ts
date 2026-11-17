@@ -102,7 +102,12 @@ export class AccessibilityMenuCore {
                     const activeTab = this.container.querySelector(
                         '.a11y-tab[aria-selected="true"]'
                     ) as HTMLElement;
-                    if (activeTab) {
+                    const titleTab = this.container.querySelector(
+                        '#a11y-menu-title'
+                    ) as HTMLElement;
+                    if (titleTab) {
+                        titleTab.focus({ preventScroll: true });
+                    } else if (activeTab) {
                         activeTab.focus({ preventScroll: true });
                     } else {
                         const firstTab = this.container.querySelector('.a11y-tab') as HTMLElement;

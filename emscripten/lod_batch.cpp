@@ -39,16 +39,31 @@ void batchUpdateLodFactors_c(
     float blendT,
     int* statsOut // Array of 6 ints: [hero, mid, far, culled, blendBand, total]
 ) {
-    float bw = blendWidth < 1.0f ? 1.0f : blendWidth;
-    float heroMin = heroMax - bw;
-    float heroMaxRange = heroMax + bw;
-    float heroMinSq = heroMin * heroMin;
-    float heroMaxRangeSq = heroMaxRange * heroMaxRange;
-
-    float midMin = midMax - bw;
-    float midMaxRange = midMax + bw;
-    float midMinSq = midMin * midMin;
-    float midMaxRangeSq = midMaxRange * midMaxRange;
+    // Read-only inputs go to the parallel region as one pointer: libomp's
+    // generic microtask invoker takes at most 15 captured arguments and calls
+    // exit() past that (docs/NATIVE_LAYER.md, tests/native-omp-regions).
+    struct LodParams {
+        float camX, camY, camZ;
+        float bw, heroMin, heroMinSq, heroMaxRangeSq;
+        float midMin, midMinSq, midMaxRangeSq;
+        float farCullSq, blendT;
+    };
+    LodParams params;
+    params.bw = blendWidth < 1.0f ? 1.0f : blendWidth;
+    params.camX = cameraX;
+    params.camY = cameraY;
+    params.camZ = cameraZ;
+    params.heroMin = heroMax - params.bw;
+    const float heroMaxRange = heroMax + params.bw;
+    params.heroMinSq = params.heroMin * params.heroMin;
+    params.heroMaxRangeSq = heroMaxRange * heroMaxRange;
+    params.midMin = midMax - params.bw;
+    const float midMaxRange = midMax + params.bw;
+    params.midMinSq = params.midMin * params.midMin;
+    params.midMaxRangeSq = midMaxRange * midMaxRange;
+    params.farCullSq = farCullSq;
+    params.blendT = blendT;
+    const LodParams* const P = &params;
 
     int hero = 0;
     int mid = 0;
@@ -57,30 +72,33 @@ void batchUpdateLodFactors_c(
     int blendBand = 0;
     int total = count;
 
-    #pragma omp parallel for schedule(static) if(count > 100) reduction(+:hero, mid, far, culled, blendBand)
+    #pragma omp parallel for schedule(static) if(count > 100) reduction(+:hero, mid, far, culled, blendBand) firstprivate(P)
     for (int i = 0; i < count; i++) {
+        const float bw = P->bw;
+        const float heroMin = P->heroMin;
+        const float midMin = P->midMin;
         int matOffset = i * 16;
         float posX = matrices[matOffset + 12];
         float posY = matrices[matOffset + 13];
         float posZ = matrices[matOffset + 14];
 
-        float dx = posX - cameraX;
-        float dy = posY - cameraY;
-        float dz = posZ - cameraZ;
+        float dx = posX - P->camX;
+        float dy = posY - P->camY;
+        float dz = posZ - P->camZ;
         float distSq = dx * dx + dy * dy + dz * dz;
 
         float target = 3.0f; // Default culled
 
-        if (distSq < farCullSq) {
-            if (heroMin >= 0.0f && distSq <= heroMinSq) {
+        if (distSq < P->farCullSq) {
+            if (heroMin >= 0.0f && distSq <= P->heroMinSq) {
                 target = 0.0f;
-            } else if (distSq <= heroMaxRangeSq) {
+            } else if (distSq <= P->heroMaxRangeSq) {
                 float dist = std::sqrt(distSq);
                 float t = (dist - heroMin) / (2.0f * bw);
                 target = smoothstep_local(t);
-            } else if (midMin >= 0.0f && distSq <= midMinSq) {
+            } else if (midMin >= 0.0f && distSq <= P->midMinSq) {
                 target = 1.0f;
-            } else if (distSq <= midMaxRangeSq) {
+            } else if (distSq <= P->midMaxRangeSq) {
                 float dist = std::sqrt(distSq);
                 float t = (dist - midMin) / (2.0f * bw);
                 target = 1.0f + smoothstep_local(t);
@@ -93,7 +111,7 @@ void batchUpdateLodFactors_c(
         float diff = std::abs(target - current);
 
         if (diff > 1e-3f) {
-            smoothed[i] = current + (target - current) * blendT;
+            smoothed[i] = current + (target - current) * P->blendT;
         } else if (current != target) {
             smoothed[i] = target;
         }

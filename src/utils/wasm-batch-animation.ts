@@ -56,7 +56,10 @@ export function batchUpdateLodFactors_c(
         heapF32 = _cachedHeapF32 = new Float32Array(memoryBuffer);
     }
 
-    const heapI32 = new Int32Array(memoryBuffer);
+    let heapI32 = _cachedHeapI32;
+    if (!heapI32 || heapI32.buffer !== memoryBuffer || heapI32.length === 0) {
+        heapI32 = _cachedHeapI32 = new Int32Array(memoryBuffer);
+    }
 
     heapF32.set(matrices.subarray(0, count * 16), _lodFactorsPtrPos >> 2);
     heapF32.set(smoothed.subarray(0, count), _lodFactorsPtrSmoothed >> 2);
@@ -88,6 +91,7 @@ let _distanceCullCapacity = 0;
 let _distanceCullPtrPos = 0;
 let _distanceCullPtrFlags = 0;
 let _cachedHeapF32: Float32Array | null = null;
+let _cachedHeapI32: Int32Array | null = null;
 
 /**
  * Batch distance cull (SIMD/WASM) for flat positions

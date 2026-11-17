@@ -62,6 +62,8 @@ export const ACTION_IDS = [
     // Dev overlays
     'debug.profiler',
     'debug.overlay',
+    'debug.hero.next',
+    'debug.hero.toggle',
     // Pause and menu navigation (gamepad: a pad has no Escape, Tab or Enter)
     'pause',
     'menu.confirm',

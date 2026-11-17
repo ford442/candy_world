@@ -56,6 +56,7 @@ const style = document.createElement('style');
 
     const title = document.createElement('h2');
     title.id = 'presence-title';
+    title.tabIndex = -1;
     title.style.cssText = 'margin:0 0 8px;font-weight:600;opacity:0.95;';
     title.textContent = '🫧 Shared presence (opt-in)';
 
@@ -304,6 +305,6 @@ const style = document.createElement('style');
         };
         window.addEventListener('candy:start-screen-hidden', cleanup);
 
-        checkbox.focus({ preventScroll: true });
+        title.focus({ preventScroll: true });
     });
 }

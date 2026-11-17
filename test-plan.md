@@ -1,15 +1,12 @@
-1. **Add Uniforms to `src/foliage/material-core/shared-resources.ts`**:
-    - Add `uVineAnchor`, `uVineTip`, and `uVineFlare` global uniforms.
-2. **Export Uniforms from `src/foliage/material-core.ts`**:
-    - Ensure these new uniforms are exported for use in physics updates and shaders.
-3. **Enhance `enhanceWithFloralJuice` in `src/foliage/trees-core.ts`**:
-    - Compute the closest distance between `positionWorld` and the line segment defined by `uVineAnchor` and `uVineTip`.
-    - Falloff the flare effect based on distance, e.g., using a radius of 0.6.
-    - Multiply `createJuicyRimLight` by `uVineFlare` combined with the falloff, and add it to the material's emissive node.
-4. **Update Uniforms in `src/systems/physics/physics-states.ts`**:
-    - In `updateVineState` while the player is attached (`activeVineSwing` exists), set `uVineAnchor` to `activeVineSwing.anchorPoint`, `uVineTip` to `player.position`, and `uVineFlare` to `Math.min(1, Math.abs(activeVineSwing.swingAngularVel) * 5)`.
-    - On detach, set `uVineFlare.value = 1`.
-5. **Decay `uVineFlare` in `updateVineState`**:
-    - Ensure that when no vine is attached, if `uVineFlare.value > 0`, it decays toward 0 using `delta` (e.g., `Math.max(0, uVineFlare.value - delta * 2)`).
-6. **Pre-commit**: Complete pre commit steps to ensure proper testing, verification, review, and reflection are done.
-7. **Submit**: Submit the branch with a descriptive commit message matching the Bolt/Palette conventions.
+1. **Understand the Goal**: As Bolt ⚡, I need to find an orphaned system and implement proper `.dispose()` cleanup to prevent VRAM leaks (Memory Rescue). The user recommended picking one of the three systems (`chord-strike.ts`, `rainbow-blaster.ts`, `glitch-grenade.ts`) that is rebuilt often.
+
+2. **Select Target**: Based on grep results, `chord-strike.ts` and `rainbow-blaster.ts` have re-instantiations (`_chordStrikeSystem = new ChordStrikeSystem()` and `_projectilePool = new ProjectilePool()`). `glitch-grenade.ts` does not.
+Between `chord-strike.ts` and `rainbow-blaster.ts`, `chord-strike.ts` is simpler and safer to start with. It creates a `THREE.Mesh`, a `THREE.CylinderGeometry`, and a `MeshStandardNodeMaterial`.
+
+3. **Plan Details for `chord-strike.ts`**:
+   - Implement `dispose()` in `ChordStrikeSystem`.
+   - In `dispose()`, use `safeRemoveAndDispose(this.mesh.parent, this.mesh)` or call `this.mesh.removeFromParent()` and dispose geometry/material manually. Since the instruction says "Reuse the existing `safeRemoveAndDispose` helper where you can", we should import it and use it. Wait, `safeRemoveAndDispose(this.mesh.parent || scene, this.mesh)`. The user said: "Reuse the existing `safeRemoveAndDispose` helper where you can, as `weather-effects.ts` does." Wait, in `weather-effects.ts`, it's `safeRemoveAndDispose(this.scene, state.rainMesh)`. But `ChordStrikeSystem` doesn't keep a reference to `scene`. We can just use `if (this.mesh.parent) safeRemoveAndDispose(this.mesh.parent, this.mesh)`. But wait, `safeRemoveAndDispose` from `src/utils/dispose-utils.ts` expects `scene: THREE.Object3D, obj: ...`. So `if (this.mesh.parent) safeRemoveAndDispose(this.mesh.parent, this.mesh);`.
+   - Ensure we also check if `this.mesh` exists.
+
+4. **Testing**: Write a unit test `tests/chord-strike-dispose.test.ts`. Mock `geometry.dispose` and `material.dispose` with spies and check `scene.children` before and after.
+   - `npm run test:fast` to run tests.

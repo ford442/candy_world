@@ -13,7 +13,8 @@ import { unlockSystem } from '../systems/unlocks.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { spawnImpact } from './impacts.ts';
-import { applyStandardDeformation, createJuicyRimLight } from './material-core.ts';
+import { applyStandardDeformation } from './material-core/deformation.ts';
+import { createJuicyRimLight } from './material-core/tsl-nodes.ts';
 
 
 

@@ -1,0 +1,54 @@
+{
+    "id": "night-market",
+    "title": "Night Market Stamps",
+    "steps": [
+        {
+            "id": "stall-0",
+            "text": "Collect the stamp from Night Market stall 1 of 6. The market trades after dusk.",
+            "trigger": {
+                "kind": "stamp",
+                "id": "night_market_stamp:setpiece:night_market:stall:0"
+            }
+        },
+        {
+            "id": "stall-1",
+            "text": "Collect the stamp from Night Market stall 2 of 6. The market trades after dusk.",
+            "trigger": {
+                "kind": "stamp",
+                "id": "night_market_stamp:setpiece:night_market:stall:1"
+            }
+        },
+        {
+            "id": "stall-2",
+            "text": "Collect the stamp from Night Market stall 3 of 6. The market trades after dusk.",
+            "trigger": {
+                "kind": "stamp",
+                "id": "night_market_stamp:setpiece:night_market:stall:2"
+            }
+        },
+        {
+            "id": "stall-3",
+            "text": "Collect the stamp from Night Market stall 4 of 6. The market trades after dusk.",
+            "trigger": {
+                "kind": "stamp",
+                "id": "night_market_stamp:setpiece:night_market:stall:3"
+            }
+        },
+        {
+            "id": "stall-4",
+            "text": "Collect the stamp from Night Market stall 5 of 6. The market trades after dusk.",
+            "trigger": {
+                "kind": "stamp",
+                "id": "night_market_stamp:setpiece:night_market:stall:4"
+            }
+        },
+        {
+            "id": "stall-5",
+            "text": "Collect the stamp from Night Market stall 6 of 6. The market trades after dusk.",
+            "trigger": {
+                "kind": "stamp",
+                "id": "night_market_stamp:setpiece:night_market:stall:5"
+            }
+        }
+    ]
+}

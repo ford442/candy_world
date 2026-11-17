@@ -5,6 +5,7 @@ import { uChromaticIntensity } from '../foliage/chromatic-nodes.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { uAudioLow, uAudioHigh, createJuicyRimLight, uTime } from '../foliage/material-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { showToast } from '../utils/toast.ts';
 
 export class ChordStrikeSystem {
@@ -145,6 +146,13 @@ export class ChordStrikeSystem {
             spawnImpact(this.position, 'magic', 0x00FFCC);
         }
     }
+
+    dispose() {
+        if (this.mesh && this.mesh.parent) {
+            // ⚡ OPTIMIZATION: Bypassed VRAM leaks using safeRemoveAndDispose
+            safeRemoveAndDispose(this.mesh.parent, this.mesh);
+        }
+    }
 }
 
 // Lazy init to avoid TSL initialization order issues
@@ -161,7 +169,18 @@ export const chordStrikeSystem = new Proxy({} as ChordStrikeSystem, {
         if (!_chordStrikeSystem) {
             _chordStrikeSystem = new ChordStrikeSystem();
         }
+        if (prop === 'dispose') {
+            return true; // Proxy handles lifecycle, ignore direct property set for dispose
+        }
         (_chordStrikeSystem as any)[prop] = value;
         return true;
     }
 });
+
+// Expose a setter for tests/rebuilding that cleans up the old one
+export function resetChordStrikeSystem() {
+    if (_chordStrikeSystem) {
+        _chordStrikeSystem.dispose();
+    }
+    _chordStrikeSystem = new ChordStrikeSystem();
+}

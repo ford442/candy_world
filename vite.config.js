@@ -75,9 +75,18 @@ export default defineConfig({
                     // --- Lazy chunks (#1361): only reached via dynamic import() ---
                     // Thin *lazy.ts stubs stay in `app` (statically imported); the heavy
                     // modules below are loaded via import() from those stubs.
+                    // Melody quest chains + journal (#2028 slice B): loaded after
+                    // __sceneReady by the objectives-lazy.ts stub, which stays in `app`.
+                    // Must come before the `gameplay` rule below, which would claim it.
+                    // Its leaf (systems/melody-progress.ts) has no imports and stays in `app`.
+                    if (id.includes('/src/gameplay/objectives/')) {
+                        return 'objectives';
+                    }
                     // Gameplay abilities (blaster, mines, chord, harpoon, glitch grenade)
                     if (
-                        (id.includes('/src/gameplay/') && !id.endsWith('/gameplay/lazy.ts')) ||
+                        (id.includes('/src/gameplay/') &&
+                            !id.endsWith('/gameplay/lazy.ts') &&
+                            !id.endsWith('/gameplay/objectives-lazy.ts')) ||
                         id.includes('/src/systems/glitch-grenade.ts')
                     ) {
                         return 'gameplay';

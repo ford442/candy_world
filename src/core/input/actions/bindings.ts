@@ -169,8 +169,24 @@ const GAMEPLAY: Binding[] = [
     // P toggles photo mode and the frame profiler together, as it did before the action layer.
     key('debug.profiler', 'KeyP', { mods: {} }),
     key('debug.overlay', 'KeyO', { mods: {} }),
+    ...heroDemoBindings(),
     ...GAMEPLAY_PAD,
 ];
+
+/**
+ * J / K drive the hero clip demo (`src/debug/hero-animation-demo.ts`) and
+ * exist only when the page boots with `?heroAnim=1`, so the demo never takes
+ * two keys from every player (or from rebinding, which treats J as free).
+ */
+function heroDemoBindings(): Binding[] {
+    try {
+        if (typeof location === 'undefined') return [];
+        if (new URLSearchParams(location.search).get('heroAnim') !== '1') return [];
+    } catch {
+        return [];
+    }
+    return [key('debug.hero.next', 'KeyJ', { mods: {} }), key('debug.hero.toggle', 'KeyK', { mods: {} })];
+}
 
 // Build mode keeps walking (WASD, look, jump) from gameplay: it only claims
 // the sources it binds. Mouse 0 placing here is why `fire` does nothing in it.

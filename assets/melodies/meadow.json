@@ -1,0 +1,21 @@
+{
+    "id": "meadow",
+    "title": "Meadow Melody",
+    "steps": [
+        {
+            "id": "fern-core",
+            "text": "Harvest a fern core from an Arpeggio Fern once it has unfurled.",
+            "trigger": { "kind": "harvest", "item": "fern_core", "count": 1 }
+        },
+        {
+            "id": "vibrato-nectar",
+            "text": "Harvest vibrato nectar from a Vibrato Violet.",
+            "trigger": { "kind": "harvest", "item": "vibrato_nectar", "count": 1 }
+        },
+        {
+            "id": "snap-shard",
+            "text": "Harvest a snap shard from a Snare-Snap Trap.",
+            "trigger": { "kind": "harvest", "item": "snap_shard", "count": 1 }
+        }
+    ]
+}

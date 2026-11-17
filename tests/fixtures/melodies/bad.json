@@ -1,0 +1,16 @@
+{
+    "id": "bad-melody",
+    "title": "A Melody With One Bad Field",
+    "steps": [
+        {
+            "id": "first",
+            "text": "This step is fine.",
+            "trigger": { "kind": "harvest", "item": "fern_core", "count": 1 }
+        },
+        {
+            "id": "second",
+            "text": "This step asks for a count that is not a number.",
+            "trigger": { "kind": "harvest", "item": "fern_core", "count": "three" }
+        }
+    ]
+}

@@ -12,6 +12,11 @@
 //   (default)           Play path: wait for __sceneReady + jukebox, no Enter click
 //   RENDERER=webgl      Hide navigator.gpu so boot takes the real WebGL2 fallback,
 //                       then assert the fallback is active and announced
+//   SMOKE_LOOP=1        Loop smoke (npm run test:smoke-loop): boot=explore WITHOUT
+//                       freezeLoop, click Enter, run the frame loop ~30s
+//                       (SMOKE_LOOP_SECONDS), fail on [Native Err] / a scheduler
+//                       system throwing or being disabled. Asserts
+//                       crossOriginIsolated so the multi-threaded native tier loads.
 //
 // URL flags: ?boot=play|explore|core|instant  ?graphics=low|medium|high
 
@@ -668,15 +673,183 @@ async function runSmokeTest() {
     }
 }
 
-// Run test
-runSmokeTest().then((success) => {
-    // If the test failed but we are in FULL_BOOT headless mode,
-    // we exit with 0 to prevent the flakey headless WebGPU context limit from blocking CI.
-    if (!success && IS_FULL_BOOT && !process.env.STRICT_FULL_BOOT) {
-        console.log(
-            '\n[CI] Ignoring failure in FULL_BOOT mode (flakey headless WebGPU). Exiting with 0.'
-        );
-        process.exit(0);
+// ---------------------------------------------------------------------------
+// SMOKE_LOOP=1: the frame loop actually runs (no freezeLoop), so per-frame
+// failures in scheduler systems — e.g. animate:foliage dying on a native
+// OpenMP exit() in the multi-threaded tier — are visible. See
+// docs/NATIVE_LAYER.md ("OpenMP regions: the 15-argument limit").
+// ---------------------------------------------------------------------------
+const LOOP_SECONDS = Number(process.env.SMOKE_LOOP_SECONDS ?? 30);
+const LOOP_FAIL_PATTERNS = [
+    /\[Native Err\]/,
+    /\[Scheduler\].*\bthrew\b/,
+    // A system the scheduler turned off ("... threw 30 frames in a row — disabled").
+    // Plain "disabled" also matches boot notes like "Sun shadows disabled".
+    /\[Scheduler\].*\bdisabled\b/,
+    /Too many args to microtask/,
+    // Cross-origin isolated, so the MT tier must be the one running.
+    /\[Native\] Using Single-Threaded Fallback/,
+];
+
+// SMOKE_LOOP_IGNORE=<regex>: a known failure being tracked elsewhere. Every
+// ignored line is printed and counted in the summary; never set it in CI.
+const LOOP_IGNORE = process.env.SMOKE_LOOP_IGNORE ? new RegExp(process.env.SMOKE_LOOP_IGNORE) : null;
+
+async function runLoopSmoke() {
+    console.log('🎮 Candy World Loop Smoke (SMOKE_LOOP=1)');
+    console.log('=======================================\n');
+    let viteServer = null;
+    let browser = null;
+    const failures = [];
+    const ignored = [];
+    // Headless WebGPU has wedged under a running loop before: bound the whole run.
+    const hardTimeoutMs = (LOOP_SECONDS + 150) * 1000;
+    const hardTimer = setTimeout(() => {
+        console.error(`\n❌ Loop smoke exceeded ${hardTimeoutMs / 1000}s — page or GPU wedged`);
+        try {
+            viteServer?.process.kill();
+        } catch {
+            /* already gone */
+        }
+        process.exit(1);
+    }, hardTimeoutMs);
+    hardTimer.unref();
+
+    try {
+        if (!(await checkServerOnPort(4173))) {
+            viteServer = await startVitePreview();
+        } else {
+            console.log('✓ Existing server on 4173 (it must send COOP/COEP)');
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+        browser = await chromium.launch({
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--enable-webgl',
+                '--enable-webgpu',
+                '--enable-features=Vulkan,WebGPU',
+                '--enable-unsafe-webgpu',
+                '--use-gl=angle',
+                '--ignore-gpu-blocklist',
+                '--disable-gpu-sandbox',
+            ],
+        });
+        const page = await browser.newPage();
+        page.on('console', (msg) => {
+            const text = msg.text();
+            const hit = LOOP_FAIL_PATTERNS.some((re) => re.test(text));
+            if (hit && LOOP_IGNORE && LOOP_IGNORE.test(text)) {
+                console.warn(`[LOOP IGNORED by SMOKE_LOOP_IGNORE] ${text.split('\n')[0]}`);
+                ignored.push(text.split('\n')[0]);
+            } else if (hit) {
+                console.error(`[LOOP FAIL] ${text}`);
+                failures.push(text);
+            } else if (msg.type() === 'error' || msg.type() === 'warning') {
+                console.log(`[CONSOLE] ${msg.type().toUpperCase()}: ${text.slice(0, 300)}`);
+            }
+        });
+        page.on('pageerror', (err) => console.log(`[PAGE ERROR] ${err.message}`));
+        let mtWasmLoaded = false;
+        page.on('response', (res) => {
+            if (/\/candy_native\.wasm(\?|$)/.test(res.url()) && res.ok()) mtWasmLoaded = true;
+        });
+        await page.addInitScript(() => {
+            window.__IS_CI_TEST = true;
+        });
+        if (WEBGL_BOOT_REQUESTED) {
+            console.log('RENDERER=webgl — hiding navigator.gpu');
+            await page.addInitScript(() => {
+                Object.defineProperty(Navigator.prototype, 'gpu', {
+                    get: () => undefined,
+                    configurable: true,
+                });
+            });
+        }
+        const extraQs = EXTRA_QS ? `&${EXTRA_QS}` : '';
+        const url = `http://localhost:4173/?boot=explore&graphics=low${extraQs}`;
+        console.log(`Navigating to ${url}`);
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+        const isolated = await page.evaluate(() => window.crossOriginIsolated === true);
+        if (!isolated) {
+            throw new Error(
+                'crossOriginIsolated is false: the preview server is not sending COOP/COEP, so the multi-threaded native tier cannot load and this smoke would test the wrong build'
+            );
+        }
+        console.log('✓ crossOriginIsolated === true');
+
+        await page.waitForFunction(() => window.__sceneReady === true, { timeout: 90000 });
+        console.log('✓ Scene ready; clicking #startButton');
+        await page.waitForSelector('#startButton', { timeout: 30000 });
+        await page.evaluate(() => document.getElementById('startButton')?.click());
+
+        const frames0 = await page.evaluate(() => performance.now());
+        console.log(`⏳ Running the loop for ${LOOP_SECONDS}s...`);
+        const deadline = Date.now() + LOOP_SECONDS * 1000;
+        while (Date.now() < deadline) {
+            await page.waitForTimeout(2000);
+            if (failures.length) break;
+        }
+        // The loop must actually be running: count rAF callbacks over 2s.
+        const rafCount = await Promise.race([
+            page.evaluate(
+                () =>
+                    new Promise((resolve) => {
+                        let n = 0;
+                        const end = performance.now() + 2000;
+                        const tick = () => {
+                            n++;
+                            if (performance.now() < end) requestAnimationFrame(tick);
+                            else resolve(n);
+                        };
+                        requestAnimationFrame(tick);
+                    })
+            ),
+            new Promise((resolve) => setTimeout(() => resolve(-1), 15000)),
+        ]);
+        const elapsed = await page.evaluate((t0) => performance.now() - t0, frames0);
+        console.log(`rAF callbacks in 2s: ${rafCount}; page time ${Math.round(elapsed)}ms`);
+        if (rafCount < 0) failures.push('page stopped answering requestAnimationFrame (wedged)');
+        if (!mtWasmLoaded) {
+            failures.push(
+                'the multi-threaded candy_native.wasm was never fetched (missing from dist/? run npm run build with emsdk)'
+            );
+        } else {
+            console.log('✓ multi-threaded candy_native.wasm loaded');
+        }
+    } catch (err) {
+        failures.push(`harness: ${err.message}`);
+    } finally {
+        if (browser) await browser.close().catch(() => {});
+        if (viteServer?.process) viteServer.process.kill();
     }
-    process.exit(success ? 0 : 1);
-});
+
+    if (ignored.length) {
+        console.warn(`\n⚠ ${ignored.length} line(s) ignored by SMOKE_LOOP_IGNORE=${process.env.SMOKE_LOOP_IGNORE}`);
+    }
+    if (failures.length) {
+        console.error(`\n❌ Loop smoke FAILED (${failures.length}):`);
+        for (const f of failures.slice(0, 20)) console.error(`   ${f}`);
+        return false;
+    }
+    console.log('\n✅ Loop smoke PASSED');
+    return true;
+}
+
+if (process.env.SMOKE_LOOP === '1') {
+    runLoopSmoke().then((ok) => process.exit(ok ? 0 : 1));
+} else {
+    // Run test
+    runSmokeTest().then((success) => {
+        // If the test failed but we are in FULL_BOOT headless mode,
+        // we exit with 0 to prevent the flakey headless WebGPU context limit from blocking CI.
+        if (!success && IS_FULL_BOOT && !process.env.STRICT_FULL_BOOT) {
+            console.log(
+                '\n[CI] Ignoring failure in FULL_BOOT mode (flakey headless WebGPU). Exiting with 0.'
+            );
+            process.exit(0);
+        }
+        process.exit(success ? 0 : 1);
+    });
+}

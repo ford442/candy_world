@@ -10,6 +10,7 @@
 
 import { awakenedPersistence } from '../../systems/awakened-persistence-api.ts';
 import { discoverySystem } from '../../systems/discovery-optimized.ts';
+import { applyMelodyProgress, readMelodyProgress } from '../../systems/melody-progress.ts';
 import { unlockSystem } from '../../systems/unlocks.ts';
 import { isSugarCavesUnlocked, unlockSugarCaves } from '../part-ii-unlock.ts';
 import { normalizeAwakened, splitStamps } from './legacy-records.ts';
@@ -27,6 +28,9 @@ export function readLiveProgress(now = Date.now()): DocumentProgress {
         awakened: normalizeAwakened(awakenedPersistence.serialize(), now),
         stamps,
         partII: { sugarCavesUnlocked: isSugarCavesUnlocked() },
+        // The lazy objectives chunk owns this state once it has loaded; before that the leaf
+        // holds whatever a document applied, so a capture never drops saved chains.
+        melodies: readMelodyProgress(),
     };
 }
 
@@ -50,4 +54,7 @@ export async function mergeLiveProgress(progress: DocumentProgress): Promise<voi
             emissiveScale: a.emissiveScale,
         }))
     );
+    // Last, so the inventory, discoveries and awakened flora merged above are in place when the
+    // objective system re-evaluates. Applying is silent: nothing here is announced as a quest.
+    applyMelodyProgress(progress.melodies);
 }

@@ -1,9 +1,7 @@
-import * as THREE from 'three';
 import { updateCandyDebris } from '../foliage/candy-debris-batcher.ts';
 import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateAllIntegratedSystems } from '../particles/compute-integration.ts';
 import { updateEmitters } from '../particles/emitter-api.ts';
-import { getParticles } from '../particles/lazy.ts';
 import { fluidSystem } from '../systems/fluid-system.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { player } from '../systems/physics/index.ts';

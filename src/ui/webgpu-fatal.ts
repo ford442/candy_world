@@ -76,6 +76,7 @@ export function showWebGPUFatalScreen(error: unknown): void {
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'webgpu-fatal-title');
     overlay.setAttribute('aria-describedby', 'webgpu-fatal-body');
+    overlay.setAttribute('tabindex', '-1');
 
     const diagnostics = JSON.stringify(
         {
@@ -138,7 +139,7 @@ export function showWebGPUFatalScreen(error: unknown): void {
         #${OVERLAY_ID} button:focus-visible { outline: 3px solid #ffe9f2; outline-offset: 2px; }
       </style>
       <div class="card">
-        <h1 id="webgpu-fatal-title">${
+        <h1 id="webgpu-fatal-title" tabindex="-1">${
             webglFailed ? 'Candy World needs WebGPU or WebGL2' : 'Candy World needs WebGPU'
         }</h1>
         <div class="stage">probe failed at: ${escapeHtml(String(stage))}</div>
@@ -197,7 +198,12 @@ export function showWebGPUFatalScreen(error: unknown): void {
                 // Fatal screen cannot be dismissed
             }
         });
-        reload.focus({ preventScroll: true });
+        const title = overlay.querySelector('#webgpu-fatal-title') as HTMLElement | null;
+        if (title) {
+            title.focus({ preventScroll: true });
+        } else {
+            reload.focus({ preventScroll: true });
+        }
     });
 
     console.error('[Boot] WebGPU hard-fail:', diagnostics);
