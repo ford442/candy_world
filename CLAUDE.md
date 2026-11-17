@@ -41,6 +41,9 @@ npm run typecheck          # tsc --noEmit against scripts/tsc-baseline.json (0 e
 npm run lint               # ESLint problem count against scripts/eslint-baseline.json
 npm run test:cycles        # runtime import cycles reachable from src/main.ts (0)
 npm run check:root-files   # every tracked top-level file/dir is on scripts/root-files-allowlist.json
+npm run check:any          # `any` per src/ directory against scripts/any-baseline.json (exact)
+npm run test:batchers      # InstancedBatcher base + one parity row per ported batcher
+npm run gen:native-types   # regenerate src/utils/native-exports.generated.ts after a native signature change
 
 # WASM & build tools
 npm run build:wasm         # Compile AssemblyScript
@@ -116,7 +119,7 @@ Related modules live in folders. A folder's `index.ts` is its public surface, bu
 - **`mushrooms.ts`**: Mushroom creation (caps, stems, faces)
 - **`trees.ts`**: Tree/vegetation creation
 - **`post-processing.ts`**: Post-FX entry (`PostFxPipeline`). The TSL graphs (bloom, depth of field, color grading, AA, AO) are in `post-processing-webgpu.ts`, loaded by `import()` into the `postfx-webgpu` chunk; uniforms are in `post-processing-uniforms.ts`. See `docs/POSTFX_STACK.md`
-- **`*-batcher.ts`**: Optimized rendering for foliage
+- **`*-batcher.ts`**: Optimized rendering for foliage. New and ported batchers extend `InstancedBatcher` (`src/core/batcher/instanced-batcher.ts`; slots, linked meshes, attributes, uploads and dispose live there, and one `instanced-batchers` frame system updates them all) and get a row in `tests/batcher-parity.test.ts`. See `docs/ARCHITECTURE.md` ("Instanced batchers")
 
 #### `/src/audio` — Audio System
 
@@ -277,7 +280,7 @@ npm run budget:check  # Verify chunk size constraints
 - `npm run check:memory-layout`: static layout check (overlaps, `--memoryBase`, raw offsets, built binary)
 - `npm run test:native-memory`: heap/boids/growth/instantiate-fallback tests against the real AS build
 - `npm run test:native-batch-parity`: C++ ↔ AS ↔ JS batch ground heights through the production bridges (C++ tier needs `build:emcc`; `CANDY_PARITY_REQUIRE_CPP=1` makes it mandatory)
-- `npm run check:native-exports`: every AS export (`assembly/index.ts`, listed by name) and C++ export (exports.txt + `EMSCRIPTEN_KEEPALIVE`) has a caller in `src/`/`tests/`, and no lookup names a missing export (0/0 ratchet, `scripts/native-exports-baseline.json`)
+- `npm run check:native-exports`: every AS export (`assembly/index.ts`, listed by name) and C++ export (exports.txt + `EMSCRIPTEN_KEEPALIVE`) has a caller in `src/`/`tests/`, and no lookup names a missing export (0/0 ratchet, `scripts/native-exports-baseline.json`); also fails while `src/utils/native-exports.generated.ts` (the exact C++/AS signatures, from `npm run gen:native-types`) is stale. `getNativeFunc('name')` is typed by name from it
 
 ### Shared worlds tests
 
@@ -330,7 +333,7 @@ npm run budget:check  # Verify chunk size constraints
 
 - **AssemblyScript** (`build:wasm`): linear-memory MVP + `--enable bulk-memory`, `--memoryBase 589824 --initialMemory 16 --maximumMemory 256`. No `--enable simd` (`assembly/` has no `v128` code), no `--textFile`/`--sourceMap` in prod (`build:wasm:debug` adds them; `npm run check:dist-wasm` guards `dist/`). No `--exportRuntime`, no `--enable reference-types`. No `asconfig.json`, so no `--target`; `--enable gc` (Wasm GC) is not used. `--memoryBase` must equal `HEAP_BASE_FLOOR` from the memory layout table (`scripts/memory-layout.mjs`); `npm run check:memory-layout` enforces it.
 - **Emscripten** (`emscripten/build.sh`): `-O2 -flto -fno-exceptions` for compile and link, MT and ST; `-msimd128` (no `-mrelaxed-simd`); `-pthread`, `PTHREAD_POOL_SIZE=4` (MT); `STACK_SIZE=1MB`; no `WASM_BIGINT=0`; no `-lembind`; `EXPORTED_RUNTIME_METHODS` includes `HEAP8,HEAPU8,HEAP32,HEAPF32`. Do not pass `-s MINIFY_WASM_IMPORTS_AND_EXPORTS` (internal setting; emcc rejects it). `npm run verify:emcc:manifest` enforces the `-O` level and `STACK_SIZE` against `AGENTS.md`, the forbidden flags, and the prod AS flags. emsdk is pinned in `.emsdk-version`; a mismatch warns, `CANDY_STRICT_EMSDK=1` makes it fatal.
-- **Native memory**: fixed AS regions come only from the generated layout; JS buffers in native memory use `malloc`/`free` through `src/utils/native-memory.ts`, whose views re-derive after `memory.grow`. See `docs/NATIVE_LAYER.md`.
+- **Native memory**: fixed AS regions come only from the generated layout; JS buffers in native memory use `malloc`/`free` through `src/utils/native-memory.ts`, whose views re-derive after `memory.grow`. A struct passed by pointer is declared in `scripts/native-structs.json` and written through `defineNativeStruct`. See `docs/NATIVE_LAYER.md`.
 - **WebGPU** is preferred; a failed boot probe falls back to WebGL2 (badge shows `WEBGL2 FALLBACK`, no GPU compute). Device limits are adapter-clamped, and the canvas `colorSpace` matches `outputColorSpace` — see `docs/WEBGPU_CONTEXT.md` and `docs/webgl-fallback.md`.
 
 ### Map/World Constants (`src/world/generation.ts`)

@@ -8,16 +8,19 @@ import {
     type CpuParticleBuffers,
     type CpuParticleSimParams,
 } from '../particles/cpu-particle-simulate.ts';
+import type { CppExports } from './native-exports.generated.ts';
 import {
-    emscriptenMemory,
+    getEmscriptenMemory,
     getEmscriptenInstance,
     getNativeFuncVoid,
     isEmscriptenReady,
 } from './wasm-loader-core.ts';
 
-let cachedUpdateCpuParticles: ((...args: number[]) => void) | null = null;
+type UpdateCpuParticlesFn = CppExports['updateCpuParticlesWASM'];
 
-function getUpdateCpuParticlesFn(): ((...args: number[]) => void) | null {
+let cachedUpdateCpuParticles: UpdateCpuParticlesFn | null = null;
+
+function getUpdateCpuParticlesFn(): UpdateCpuParticlesFn | null {
     if (cachedUpdateCpuParticles !== null) return cachedUpdateCpuParticles;
     cachedUpdateCpuParticles = getNativeFuncVoid('updateCpuParticlesWASM');
     return cachedUpdateCpuParticles;
@@ -35,7 +38,7 @@ export function updateCpuParticlesNative(
 
     const fn = getUpdateCpuParticlesFn();
     const emModule = getEmscriptenInstance();
-    if (!fn || !emscriptenMemory || !emModule?._malloc || !emModule._free) {
+    if (!fn || !getEmscriptenMemory() || !emModule?._malloc || !emModule._free) {
         return false;
     }
 
@@ -64,7 +67,14 @@ export function updateCpuParticlesNative(
         return false;
     }
 
-    const heap = new Float32Array((emscriptenMemory as any).buffer || emscriptenMemory);
+    // Read the buffer after the mallocs: one of them may have grown memory,
+    // which detaches (ST) or outgrows (MT) a buffer taken before it.
+    const buffer = getEmscriptenMemory();
+    if (!buffer) {
+        for (const p of [ptrPos, ptrVel, ptrLife, ptrSize, ptrColor, ptrSeed]) emModule._free(p);
+        return false;
+    }
+    let heap = new Float32Array(buffer);
     const posOff = ptrPos >> 2;
     const velOff = ptrVel >> 2;
     const lifeOff = ptrLife >> 2;
@@ -110,6 +120,9 @@ export function updateCpuParticlesNative(
             params.timeSec
         );
 
+        // The kernel does not allocate, but re-derive anyway (the native-memory contract).
+        const after = getEmscriptenMemory();
+        if (after && after !== heap.buffer) heap = new Float32Array(after);
         buffers.positions.set(heap.subarray(posOff, posOff + count * 3));
         buffers.velocities.set(heap.subarray(velOff, velOff + count * 3));
         buffers.lives.set(heap.subarray(lifeOff, lifeOff + count));

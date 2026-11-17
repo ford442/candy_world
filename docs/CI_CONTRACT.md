@@ -86,6 +86,29 @@ ESLint warnings / 0 errors.
   Type-aware linting takes about 2 minutes, and `lint.yml` runs ESLint twice
   (gate plus human-readable report).
 
+## `npm run check:any` — the `any` ratchet
+
+Added 2026-11-17 (#2166), inside `test:fast`. `scripts/any-ratchet.mjs` counts
+the `any` type keyword per directory of `src/` with the TypeScript parser (so
+`any[]`, `<any>`, `Record<string, any>` count; comments and strings do not) and
+compares with `scripts/any-baseline.json`. Exact, like `test:cycles`: a
+directory above its count fails, one below fails with
+`npm run check:any -- --update`. `--update` refuses to raise the total and
+accepts one directory rising while another falls (a file move). The ESLint
+baseline counted `any` together with every other problem, so an `any` could
+hide behind an unrelated lint fix. 703 on `main` when it landed.
+
+## `npm run test:batchers`
+
+Inside `test:fast`. The `InstancedBatcher` base tests and one parity row per
+ported batcher (`tests/batcher-parity.test.ts`, see docs/ARCHITECTURE.md
+"Instanced batchers"), plus the gem-fruit and waterfall tests. The parity
+rows fail on `main` before #2166 at "draw count": the base never set
+`mesh.count` on add.
+
+`check:native-exports` also fails when `src/utils/native-exports.generated.ts`
+is stale (docs/NATIVE_LAYER.md, Decision 1c).
+
 ## Baselines only go down
 
 Added 2026-10-14. `scripts/check-baseline-direction.mjs` (`npm run
@@ -97,6 +120,7 @@ each committed baseline in a PR with `origin/main`'s copy:
 | `scripts/eslint-baseline.json` | `maxProblems` | the PR has the `ratchet-reset` label **and** changes `eslint.config.js` or `scripts/eslint-ratchet.mjs` |
 | `scripts/tsc-baseline.json` | `errors` | never |
 | `scripts/cycles-baseline.json` | `cyclicModules`, `cyclicEdges`, `madgeCycles` | never |
+| `scripts/any-baseline.json` | `total` | never |
 
 Lower or equal passes. Higher fails and prints the file, the key and both
 numbers. A deleted baseline file or key also fails, because `eslint-ratchet`

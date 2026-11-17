@@ -32,6 +32,7 @@
 import * as THREE from 'three';
 import { showToast } from '../../utils/toast.ts';
 import { isEmscriptenReady, getEmscriptenInstance, getNativeFunc } from '../../utils/wasm-loader-core.ts';
+import type { CppExports } from '../../utils/native-exports.generated.ts';
 import { getWasmInstance } from '../../utils/wasm-loader.ts';
 import { emitProgress, progressKindOfDiscovery } from '../progress-events.ts';
 import { showDiscoveryLog } from './discovery-log.ts';
@@ -96,9 +97,9 @@ export class OptimizedDiscoverySystem {
 
     // C++/Emscripten function bindings
     private cppInitialized = false;
-    private cppRegister: ((...args: number[]) => number) | null = null;
-    private cppQuery: ((...args: number[]) => number) | null = null;
-    private cppClear: ((...args: number[]) => number) | null = null;
+    private cppRegister: CppExports['registerDiscoverable'] | null = null;
+    private cppQuery: CppExports['queryDiscoveries'] | null = null;
+    private cppClear: CppExports['clearDiscoveryGrid'] | null = null;
     private cppMalloc: ((size: number) => number) | null = null;
     private cppFree: ((ptr: number) => void) | null = null;
     private cppHeap32: Int32Array | null = null;

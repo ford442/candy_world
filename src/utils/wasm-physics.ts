@@ -46,9 +46,18 @@ import {
     type PlayerState,
 } from './wasm-loader-core.ts';
 import { BATCH_UPLOAD_BYTES } from './native-memory-layout.ts';
-import { asFree, asMalloc, asMemoryBuffer, emHeapF32 } from './native-memory.ts';
+import { NATIVE_STRUCTS } from './native-exports.generated.ts';
+import {
+    asFree,
+    asMalloc,
+    asMemoryBuffer,
+    asRegionStruct,
+    defineNativeStruct,
+    emHeapF32,
+} from './native-memory.ts';
 
-let _collisionScratchBuffer = new Float32Array(1024);
+/** The record addCollisionObjectsBatch reads (scripts/native-structs.json). */
+const COLLISION_OBJECT = defineNativeStruct(NATIVE_STRUCTS.CollisionObject);
 
 // Zero-allocation persistent buffers for batchGroundHeight
 let _batchGroundHeightInPtr: number | null = null;
@@ -131,7 +140,7 @@ export function uploadCollisionObjects(
     mushrooms: Mushroom[] | undefined,
     clouds: Cloud[] | undefined,
     trampolines: Trampoline[] | undefined,
-    arpeggioFerns: any[] | undefined = undefined
+    arpeggioFerns: THREE.Object3D[] | undefined = undefined
 ): boolean {
     // ========== TASK 1: Guard Against Uninitialized Batchers ==========
     // Validate WASM availability before proceeding
@@ -207,17 +216,27 @@ export function uploadCollisionObjects(
     const hasBatchFunction = exports.addCollisionObjectsBatch;
 
     if (hasBatchFunction) {
-        // Use batch upload - reduces JS<->WASM bridge crossings from N to 1
-        const BATCH_SIZE = 8; // [type, x, y, z, r, h, p1, p2]
-        // ⚡ OPTIMIZATION: Replaced per-frame Float32Array allocation with a reusable, auto-growing scratch buffer to eliminate GC spikes on the WASM bridge.
-        const requiredSize = totalCount * BATCH_SIZE;
-        if (requiredSize > _collisionScratchBuffer.length) {
-            _collisionScratchBuffer = new Float32Array(
-                Math.max(requiredSize, Math.ceil(_collisionScratchBuffer.length * 1.5))
-            );
-        }
-        const batchData = _collisionScratchBuffer.subarray(0, requiredSize);
-        let ptr = 0;
+        // Use batch upload - reduces JS<->WASM bridge crossings from N to 1.
+        // Objects go straight into the fixed staging region through the
+        // CollisionObject struct (scripts/native-structs.json), the layout
+        // addCollisionObjectsBatch reads. Clamped so a huge world can never
+        // spill past BATCH_UPLOAD into the next region.
+        const capacity = BATCH_UPLOAD_BYTES / COLLISION_OBJECT.size;
+        const region = asRegionStruct(COLLISION_OBJECT, BATCH_UPLOAD_OFFSET, capacity);
+        if (!region) return false;
+        let n = 0;
+        const push = (
+            type: number,
+            x: number,
+            y: number,
+            z: number,
+            d1: number,
+            d2: number,
+            d3: number
+        ): void => {
+            if (n < capacity) region.write(n, { type, x, y, z, d1, d2, d3, flags: 0 });
+            n++;
+        };
 
         // 1. Gates (TASK 1: Guard against undefined cave/userData)
         if (caves && caves.length > 0) {
@@ -231,14 +250,7 @@ export function uploadCollisionObjects(
                     const gatePos = _scratchGatePos
                         .copy(gatePosition)
                         .applyMatrix4(cave.matrixWorld as THREE.Matrix4);
-                    batchData[ptr++] = 3; // type
-                    batchData[ptr++] = gatePos.x;
-                    batchData[ptr++] = gatePos.y;
-                    batchData[ptr++] = gatePos.z;
-                    batchData[ptr++] = 2.5; // r
-                    batchData[ptr++] = 5.0; // h
-                    batchData[ptr++] = 0; // p1
-                    batchData[ptr++] = 0; // p2
+                    push(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0);
                 }
             }
         }
@@ -247,15 +259,15 @@ export function uploadCollisionObjects(
         if (mushrooms && mushrooms.length > 0) {
             for (const m of mushrooms) {
                 if (m && m.userData && m.position) {
-                    const type = m.userData.isTrampoline ? 4 : 1;
-                    batchData[ptr++] = type;
-                    batchData[ptr++] = m.position.x;
-                    batchData[ptr++] = m.position.y;
-                    batchData[ptr++] = m.position.z;
-                    batchData[ptr++] = m.userData.capRadius || 2.0;
-                    batchData[ptr++] = m.userData.capHeight || 3.0;
-                    batchData[ptr++] = 0;
-                    batchData[ptr++] = 0;
+                    push(
+                        m.userData.isTrampoline ? 4 : 1,
+                        m.position.x,
+                        m.position.y,
+                        m.position.z,
+                        m.userData.capRadius || 2.0,
+                        m.userData.capHeight || 3.0,
+                        0
+                    );
                 }
             }
         }
@@ -264,14 +276,7 @@ export function uploadCollisionObjects(
         if (clouds && clouds.length > 0) {
             for (const c of clouds) {
                 if (c && c.userData && c.userData.tier === 1 && c.position && c.scale) {
-                    batchData[ptr++] = 2; // type
-                    batchData[ptr++] = c.position.x;
-                    batchData[ptr++] = c.position.y;
-                    batchData[ptr++] = c.position.z;
-                    batchData[ptr++] = c.scale.x || 1.0;
-                    batchData[ptr++] = c.scale.y || 1.0;
-                    batchData[ptr++] = 0;
-                    batchData[ptr++] = 0;
+                    push(2, c.position.x, c.position.y, c.position.z, c.scale.x || 1.0, c.scale.y || 1.0, 0);
                 }
             }
         }
@@ -281,34 +286,20 @@ export function uploadCollisionObjects(
             for (let i = 0; i < arpeggioFerns.length; i++) {
                 const f = arpeggioFerns[i];
                 if (f && f.userData && f.position && f.scale) {
-                    batchData[ptr++] = 5; // TYPE_DYNAMIC_FERN
-                    batchData[ptr++] = f.position.x;
-                    batchData[ptr++] = f.position.y;
-                    batchData[ptr++] = f.position.z;
-                    batchData[ptr++] = DYNAMIC_FERN_COLLIDER_RADIUS; // Base non-dynamic radius fallback
-                    batchData[ptr++] = (f.userData.height || 4.5) * (f.scale.y || 1.0); // Height
-                    batchData[ptr++] = i; // d3 / p1 (Dynamic ID index)
-                    batchData[ptr++] = 0;
+                    push(
+                        5, // TYPE_DYNAMIC_FERN
+                        f.position.x,
+                        f.position.y,
+                        f.position.z,
+                        DYNAMIC_FERN_COLLIDER_RADIUS, // Base non-dynamic radius fallback
+                        (f.userData.height || 4.5) * (f.scale.y || 1.0), // Height
+                        i // d3: dynamic ID index
+                    );
                 }
             }
         }
 
-        // Upload batch to WASM
-        const wasmBatchUpload = exports.addCollisionObjectsBatch;
-        if (wasmBatchUpload) {
-            // Write directly to the fixed staging region; clamp so a huge world
-            // can never spill past BATCH_UPLOAD into the next region.
-            const dataPtr = BATCH_UPLOAD_OFFSET;
-            const uploadCount = Math.min(totalCount, BATCH_UPLOAD_BYTES / (BATCH_SIZE * 4));
-            const wasmFloatView = new Float32Array(
-                wasmMemory!.buffer,
-                dataPtr,
-                uploadCount * BATCH_SIZE
-            );
-            wasmFloatView.set(batchData.subarray(0, uploadCount * BATCH_SIZE));
-
-            wasmBatchUpload(dataPtr, uploadCount);
-        }
+        exports.addCollisionObjectsBatch!(BATCH_UPLOAD_OFFSET, Math.min(n, capacity));
     } else {
         // Fallback: Sequential upload (for backwards compatibility)
         // 1. Gates (TASK 1: Guard against undefined cave/userData)
@@ -324,7 +315,7 @@ export function uploadCollisionObjects(
                     const gatePos = _scratchGatePos
                         .copy(gatePosition)
                         .applyMatrix4(cave.matrixWorld as THREE.Matrix4);
-                    wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0, 0);
+                    wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0);
                 }
             }
         }
@@ -343,7 +334,6 @@ export function uploadCollisionObjects(
                             m.userData.capRadius || 2.0,
                             m.userData.capHeight || 3.0,
                             0,
-                            0,
                             0
                         );
                     } else {
@@ -354,7 +344,6 @@ export function uploadCollisionObjects(
                             m.position.z,
                             m.userData.capRadius || 2.0,
                             m.userData.capHeight || 3.0,
-                            0,
                             0,
                             0
                         );
@@ -376,7 +365,6 @@ export function uploadCollisionObjects(
                         c.scale.x || 1.0,
                         c.scale.y || 1.0,
                         0,
-                        0,
                         0
                     );
                 }
@@ -396,7 +384,6 @@ export function uploadCollisionObjects(
                         DYNAMIC_FERN_COLLIDER_RADIUS,
                         (f.userData.height || 4.5) * (f.scale.y || 1.0),
                         i,
-                        0,
                         0
                     );
                 }
@@ -461,25 +448,23 @@ export function initCollisionSystem(): void {
  * @param x - X position
  * @param y - Y position
  * @param z - Z position
- * @param r - Radius
- * @param h - Height
- * @param p1 - Parameter 1
- * @param p2 - Parameter 2
- * @param p3 - Parameter 3 (boolean)
+ * @param d1 - Radius (cylinders) or half-extent X (boxes)
+ * @param d2 - Height or half-extent Y
+ * @param d3 - Depth or extra (fern index for type 5)
+ * @param flags - Flags (assembly/physics.ts stores it as the 8th field)
  */
 export function addCollisionObject(
     type: number,
     x: number,
     y: number,
     z: number,
-    r: number,
-    h: number,
-    p1: number,
-    p2: number,
-    p3?: boolean
+    d1: number,
+    d2: number,
+    d3: number,
+    flags = 0
 ): void {
     if (wasmAddCollisionObject) {
-        wasmAddCollisionObject(type, x, y, z, r, h, p1, p2, p3 ? 1.0 : 0.0);
+        wasmAddCollisionObject(type, x, y, z, d1, d2, d3, flags);
     }
 }
 

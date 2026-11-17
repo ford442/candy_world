@@ -32,6 +32,9 @@
 
 import type { FoliageObject } from '../../foliage/types.ts';
 import { getNativeFunc, isEmscriptenReady, getEmscriptenInstance } from '../../utils/wasm-loader-core.ts';
+
+/** The C++ kernels with the shared (input, count, time, intensity, output) shape. */
+type SimpleBatchFnName = 'batchShiver_c' | 'batchSpring_c' | 'batchFloat_c' | 'batchCloudBob_c';
 import type { NativeComponentCodec, Component } from './types.ts';
 import { World } from './world.ts';
 
@@ -133,7 +136,7 @@ interface TypeSlot {
     resultCompName: string;
     entities: FoliageObject[];  // parallel array: entityId → mesh
     entityIds: number[];
-    batchFnName: string;
+    batchFnName: SimpleBatchFnName;
     applyFn: ApplyFn;
 }
 
@@ -158,7 +161,7 @@ export class FoliageEcsBridge {
         this.world = new World();
 
         const types: SimpleAnimType[] = ['shiver', 'spring', 'float', 'cloudBob'];
-        const batchFns: Record<SimpleAnimType, string> = {
+        const batchFns: Record<SimpleAnimType, SimpleBatchFnName> = {
             shiver:   'batchShiver_c',
             spring:   'batchSpring_c',
             float:    'batchFloat_c',

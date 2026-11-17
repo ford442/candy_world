@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { color, float, mix, positionLocal, normalWorld, smoothstep } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { getLoadMemoryTier } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { worldGroup } from '../world/state.ts';
 import {
     createJuicyRimLight,
@@ -15,25 +15,25 @@ import {
 import { uTwilight } from './sky.ts';
 
 const _scratchMatrix = new THREE.Matrix4();
-const _scratchPos = new THREE.Vector3();
-const _scratchQuat = new THREE.Quaternion();
 const _scratchScale = new THREE.Vector3();
-const _scratchHide = new THREE.Matrix4().makeScale(0, 0, 0);
 
 const SUGAR_RIB_MAX = getCIAdjustedCount(800, 0.1, 150);
 
-export class SugarCaveBatcher {
-    private _mesh: THREE.InstancedMesh | null = null;
-    private _geo: THREE.ConeGeometry | null = null;
-    private _mat: MeshStandardNodeMaterial | null = null;
-    private _count = 0;
-    private logicObjects: THREE.Object3D[] = [];
+interface SugarRib {
+    /** Column-major instance matrix, so a swap-remove can rewrite the slot. */
+    matrix: Float32Array;
+}
 
-    init(): void {
-        if (this._mesh) return;
+/** The slot space for the crystal ribs. */
+class SugarRibSlots extends InstancedBatcher<SugarRib> {
+    constructor() {
+        super('sugar-cave', 'animate', SUGAR_RIB_MAX);
+        this.rangedUploads = true;
+    }
 
-        this._geo = new THREE.ConeGeometry(0.8, 3.0, 8);
-        const pos = this._geo.attributes.position;
+    protected createMesh(capacity: number): THREE.InstancedMesh {
+        const geo = new THREE.ConeGeometry(0.8, 3.0, 8);
+        const pos = geo.attributes.position;
         for (let i = 0; i < pos.count; i++) {
             const x = pos.getX(i);
             const y = pos.getY(i);
@@ -43,11 +43,11 @@ export class SugarCaveBatcher {
                 pos.setZ(i, z + (Math.random() - 0.5) * 0.3);
             }
         }
-        this._geo.computeVertexNormals();
+        geo.computeVertexNormals();
 
         const uniforms = getBiomeUniforms('sugar_caves');
 
-        this._mat = new MeshStandardNodeMaterial();
+        const mat = new MeshStandardNodeMaterial();
 
         const crystalNoiseScale = float(1.5);
         const crystalNoise = triplanarNoise(positionLocal, crystalNoiseScale);
@@ -73,102 +73,84 @@ export class SugarCaveBatcher {
             normalWorld
         );
 
-        this._mat.positionNode = applyStandardDeformation(positionLocal);
-        this._mat.colorNode = crystalBaseColor.add(crystalRim);
-        this._mat.emissiveNode = crystalGlowColor.mul(crystalGlowStrength);
-        this._mat.roughnessNode = float(0.2).add(crystalNoise.mul(0.1));
-        this._mat.metalnessNode = float(0.2);
+        mat.positionNode = applyStandardDeformation(positionLocal);
+        mat.colorNode = crystalBaseColor.add(crystalRim);
+        mat.emissiveNode = crystalGlowColor.mul(crystalGlowStrength);
+        mat.roughnessNode = float(0.2).add(crystalNoise.mul(0.1));
+        mat.metalnessNode = float(0.2);
 
-        this._mesh = new THREE.InstancedMesh(this._geo, this._mat, SUGAR_RIB_MAX);
-        this._mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this._mesh.castShadow = true;
-        this._mesh.receiveShadow = true;
+        const mesh = new THREE.InstancedMesh(geo, mat, capacity);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.count = 0;
+        worldGroup.add(mesh);
+        return mesh;
+    }
 
-        // Hide all initially
-        for (let i = 0; i < SUGAR_RIB_MAX; i++) {
-            _scratchHide.toArray(this._mesh.instanceMatrix.array, i * 16);
-        }
-        this._mesh.instanceMatrix.needsUpdate = true;
-        this._mesh.count = 0;
+    protected writeRecord(r: SugarRib, slot: number, array: Float32Array): void {
+        array.set(r.matrix, slot * 16);
+    }
 
-        worldGroup.add(this._mesh);
+    protected step(): void {
+        // Static instances; glow and sway are in the TSL graph.
+    }
+
+    open(): THREE.InstancedMesh {
+        return this.ensureMesh();
+    }
+}
+
+/**
+ * Crystal ribs in the sugar caves (#2166: ported to InstancedBatcher, through
+ * SugarRibSlots). Public API unchanged; register() keys by Object3D.id, so
+ * userData.batchIndex is no longer written.
+ */
+export class SugarCaveBatcher {
+    private readonly slots = new SugarRibSlots();
+
+    init(): void {
+        this.slots.open();
+    }
+
+    private record(position: THREE.Vector3, quaternion: THREE.Quaternion, scale: number): SugarRib {
+        _scratchScale.set(scale * 0.5, scale, scale * 0.5);
+        _scratchMatrix.compose(position, quaternion, _scratchScale);
+        return { matrix: new Float32Array(_scratchMatrix.elements) };
     }
 
     add(position: THREE.Vector3, quaternion: THREE.Quaternion, scale: number): void {
-        if (!this._mesh) this.init();
-        if (!this._mesh || this._count >= SUGAR_RIB_MAX) return;
-
-        _scratchScale.set(scale * 0.5, scale, scale * 0.5);
-        _scratchMatrix.compose(position, quaternion, _scratchScale);
-
-        // Zero-allocation matrix write
-        _scratchMatrix.toArray(this._mesh.instanceMatrix.array, this._count * 16);
-        this._mesh.instanceMatrix.needsUpdate = true;
-
-        this._count++;
-        this._mesh.count = this._count;
+        this.slots.add(this.record(position, quaternion, scale));
+        // Generation adds outside the frame; upload now.
+        this.slots.flush();
     }
 
     register(logicObject: THREE.Object3D): void {
-        if (!this._mesh) this.init();
-        if (!this._mesh || this._count >= SUGAR_RIB_MAX) return;
-
-        const i = this._count;
-        this.add(logicObject.position, logicObject.quaternion, logicObject.scale.y);
-
-        logicObject.userData.batchIndex = i;
-        this.logicObjects[i] = logicObject;
+        this.slots.addKeyed(
+            logicObject.id,
+            this.record(logicObject.position, logicObject.quaternion, logicObject.scale.y)
+        );
+        this.slots.flush();
     }
 
     removeInstance(logicObject: THREE.Object3D): void {
-        if (!this._mesh) return;
-
-        const indexToRemove = logicObject.userData.batchIndex;
-        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this._count) return;
-
-        const lastIndex = this._count - 1;
-
-        if (indexToRemove !== lastIndex) {
-            const matrixArray = this._mesh.instanceMatrix.array as Float32Array;
-            matrixArray.copyWithin(indexToRemove * 16, lastIndex * 16, lastIndex * 16 + 16);
-
-            const swappedObject = this.logicObjects[lastIndex];
-            if (swappedObject) {
-                swappedObject.userData.batchIndex = indexToRemove;
-                this.logicObjects[indexToRemove] = swappedObject;
-            }
-        }
-
-        this.logicObjects[lastIndex] = undefined as any;
-        this.logicObjects.length = lastIndex;
-
-        this._count--;
-        this._mesh.count = this._count;
-        this._mesh.instanceMatrix.needsUpdate = true;
+        if (this.slots.removeKeyed(logicObject.id)) this.slots.flush();
     }
 
     clear(): void {
-        this._count = 0;
-        if (this._mesh) {
-            this._mesh.count = 0;
-        }
-        this.logicObjects.length = 0;
+        this.slots.clear();
     }
 
     dispose(): void {
-        if (this._mesh) {
-            safeRemoveAndDispose(worldGroup, this._mesh);
-            this._mesh = null;
-        }
-        if (this._geo) {
-            this._geo.dispose();
-            this._geo = null;
-        }
-        if (this._mat) {
-            this._mat.dispose();
-            this._mat = null;
-        }
-        this._count = 0;
+        this.slots.dispose();
+    }
+
+    get mesh(): THREE.InstancedMesh | null {
+        return this.slots.mesh;
+    }
+
+    get count(): number {
+        return this.slots.instanceCount;
     }
 }
 

@@ -23,6 +23,15 @@ import {
     stripComments,
     stripTypeDeclarations,
 } from '../scripts/check-native-exports.mjs';
+import {
+    cppSignatures,
+    cppTypeTag,
+    findCppDefinition,
+    loadStructs,
+    parseAscBindings,
+    parseParam,
+    tsTypeOf,
+} from '../scripts/gen-native-types.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 let passed = 0;
@@ -194,6 +203,112 @@ if (fs.existsSync(glue)) {
 } else {
     console.log('  ⏭ candy_native_st.js not built (npm run build:emcc); C++ cross-check skipped');
 }
+
+console.log('native-exports: generated signatures (scripts/gen-native-types.mjs)');
+
+test('C++ types map to ABI tags and TS types', () => {
+    assert.equal(cppTypeTag('float'), 'f32');
+    assert.equal(cppTypeTag('const float*'), 'ptr<float>');
+    assert.equal(cppTypeTag('uint32_t * __restrict__'), 'ptr<uint32_t>');
+    assert.equal(cppTypeTag('void*'), 'ptr<void>');
+    assert.equal(cppTypeTag('unsigned int'), 'u32');
+    assert.equal(cppTypeTag('bool'), 'bool');
+    assert.equal(tsTypeOf('ptr<float>'), 'NativePtr');
+    assert.equal(tsTypeOf('i64'), 'bigint');
+    assert.equal(tsTypeOf('f32'), 'number');
+    assert.throws(() => cppTypeTag('std::vector<float>'), /unknown C\+\+ type/);
+    assert.throws(() => cppTypeTag('float&'), /reference type/);
+});
+
+test('parameters keep their names; unnamed ones get argN', () => {
+    assert.deepEqual(parseParam('const float* positions', 0), {
+        name: 'positions',
+        type: 'ptr<float>',
+    });
+    assert.deepEqual(parseParam('int count', 1), { name: 'count', type: 'i32' });
+    assert.deepEqual(parseParam('float', 2), { name: 'arg2', type: 'f32' });
+    assert.deepEqual(parseParam('int* statsOut', 3), { name: 'statsOut', type: 'ptr<int>' });
+});
+
+test('a definition is found across lines; a declaration is not', () => {
+    const src = [
+        'void later(float x);',
+        'extern "C" {',
+        'EMSCRIPTEN_KEEPALIVE',
+        'void batchThing_c(',
+        '    const float* in, int count,',
+        '    float t, float* out',
+        ') {',
+        '}',
+        'EMSCRIPTEN_KEEPALIVE uint32_t makeId() { return 1; }',
+        '}',
+    ].join('\n');
+    assert.deepEqual(findCppDefinition(src, 'batchThing_c'), {
+        ret: 'void',
+        params: [
+            { name: 'in', type: 'ptr<float>' },
+            { name: 'count', type: 'i32' },
+            { name: 't', type: 'f32' },
+            { name: 'out', type: 'ptr<float>' },
+        ],
+    });
+    assert.deepEqual(findCppDefinition(src, 'makeId'), { ret: 'u32', params: [] });
+    assert.equal(findCppDefinition(src, 'later'), null);
+});
+
+test('asc raw bindings parse into functions and globals', () => {
+    const dts = [
+        'declare namespace __AdaptedExports {',
+        '  /** Exported memory */',
+        '  export const memory: WebAssembly.Memory;',
+        '  /** assembly/x/LIMIT */',
+        '  export const LIMIT: {',
+        '    /** @type `i32` */',
+        '    get value(): number',
+        '  };',
+        '  /**',
+        '   * assembly/x/step',
+        '   * @param ptr `usize`',
+        '   * @param dt `f32`',
+        '   * @returns `i32`',
+        '   */',
+        '  export function step(ptr: number, dt: number): number;',
+        '  /**',
+        '   * assembly/x/reset',
+        '   */',
+        '  export function reset(): void;',
+        '}',
+    ].join('\n');
+    const { functions, globals } = parseAscBindings(dts);
+    assert.deepEqual(globals, [{ name: 'LIMIT', type: 'i32' }]);
+    assert.deepEqual(
+        functions.map((f) => [f.name, f.params.map((p) => `${p.name}:${p.type}`).join(','), f.ret]),
+        [
+            ['step', 'ptr:usize,dt:f32', 'i32'],
+            ['reset', '', 'void'],
+        ]
+    );
+});
+
+test('struct specs are validated against memory-layout COUNTS', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'candy-structs-'));
+    fixtures.push(dir);
+    const file = path.join(dir, 's.json');
+    const write = (structs) => fs.writeFileSync(file, JSON.stringify({ structs }));
+    write({ P: { countsKey: 'N', fields: { a: 'f32', b: 'i32' } } });
+    assert.equal(loadStructs(file, { N: 2 })[0].fields.length, 2);
+    assert.throws(() => loadStructs(file, { N: 3 }), /has 2 fields but .*COUNTS\.N is 3/);
+    write({ P: { fields: { a: 'f64' } } });
+    assert.throws(() => loadStructs(file, {}), /field type 'f64'/);
+});
+
+test('every real C++ export has a parsed definition', () => {
+    const { sigs, missing } = cppSignatures(ROOT);
+    assert.deepEqual(missing, []);
+    const lod = sigs.find((s) => s.name === 'batchUpdateLodFactors_c');
+    assert.equal(lod.params.length, 12, 'batchUpdateLodFactors_c arity');
+    assert.equal(sigs.find((s) => s.name === 'updateCpuParticlesWASM').params.length, 27);
+});
 
 for (const dir of fixtures) fs.rmSync(dir, { recursive: true, force: true });
 console.log(`\n✅ ${passed} native-exports tests passed`);

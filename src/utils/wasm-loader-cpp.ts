@@ -1,5 +1,6 @@
 import { emMemoryBuffer } from './native-memory.ts';
-import type { EmscriptenModule, ExtendedEmscriptenModule } from './wasm-loader-types.ts';
+import type { EmscriptenModule } from './wasm-loader-types.ts';
+import type { CppExportName, CppExports } from './native-exports.generated.ts';
 
 // =============================================================================
 // NATIVE FUNCTION LOOKUP
@@ -9,38 +10,20 @@ import type { EmscriptenModule, ExtendedEmscriptenModule } from './wasm-loader-t
 // core made this module import core back (#1827).
 
 /**
- * Get a native C++ function from the Emscripten module.
+ * Get a native C++ function from the Emscripten module, typed by its C name
+ * (src/utils/native-exports.generated.ts), so tsc checks every argument.
  * @param name - Function name without underscore prefix
- * @returns The function or null if not found
+ * @returns The function or null if the module is not loaded or lacks it
  */
-export function getNativeFunc<T extends (...args: any[]) => number>(name: string): T | null {
+export function getNativeFunc<K extends CppExportName>(name: K): CppExports[K] | null {
     if (!emscriptenInstance) return null;
-    const inst = emscriptenInstance as ExtendedEmscriptenModule;
-    const underscoreName = '_' + name;
-    if (typeof inst[underscoreName] === 'function') {
-        return inst[underscoreName] as T;
-    }
-    if (typeof inst[name] === 'function') {
-        return inst[name] as T;
-    }
-    return null;
+    const inst = emscriptenInstance as Record<string, unknown>;
+    const fn = inst['_' + name] ?? inst[name];
+    return typeof fn === 'function' ? (fn as CppExports[K]) : null;
 }
 
-/**
- * Get a native C++ function that returns void.
- */
-export function getNativeFuncVoid<T extends (...args: any[]) => void>(name: string): T | null {
-    if (!emscriptenInstance) return null;
-    const inst = emscriptenInstance as ExtendedEmscriptenModule;
-    const underscoreName = '_' + name;
-    if (typeof inst[underscoreName] === 'function') {
-        return inst[underscoreName] as T;
-    }
-    if (typeof inst[name] === 'function') {
-        return inst[name] as T;
-    }
-    return null;
-}
+/** Same as getNativeFunc; kept for call sites that read better saying "void". */
+export const getNativeFuncVoid = getNativeFunc;
 
 // =============================================================================
 // C++ EMSCRIPTEN FUNCTION REFERENCES (CACHED)
@@ -113,16 +96,16 @@ export let emscriptenInstance: EmscriptenModule | null = null;
 /** Snapshot taken at load; may be stale after memory growth. Use getEmscriptenMemory(). */
 export let emscriptenMemory: ArrayBufferLike | null = null;
 
-export let initPhysics: ((...args: number[]) => number) | null = null;
-export let updatePhysicsCPP: ((...args: number[]) => number) | null = null;
-export let cppUpdateBoids: ((ptr: number, count: number, dt: number, playerX: number, playerZ: number, time: number) => void) | null = null;
-export let setPlayerState: ((...args: number[]) => number) | null = null;
-export let getPlayerX: ((...args: number[]) => number) | null = null;
-export let getPlayerY: ((...args: number[]) => number) | null = null;
-export let getPlayerZ: ((...args: number[]) => number) | null = null;
-export let getPlayerVX: ((...args: number[]) => number) | null = null;
-export let getPlayerVY: ((...args: number[]) => number) | null = null;
-export let getPlayerVZ: ((...args: number[]) => number) | null = null;
+export let initPhysics: CppExports['initPhysics'] | null = null;
+export let updatePhysicsCPP: CppExports['updatePhysicsCPP'] | null = null;
+export let cppUpdateBoids: CppExports['updateBoids_c'] | null = null;
+export let setPlayerState: CppExports['setPlayerState'] | null = null;
+export let getPlayerX: CppExports['getPlayerX'] | null = null;
+export let getPlayerY: CppExports['getPlayerY'] | null = null;
+export let getPlayerZ: CppExports['getPlayerZ'] | null = null;
+export let getPlayerVX: CppExports['getPlayerVX'] | null = null;
+export let getPlayerVY: CppExports['getPlayerVY'] | null = null;
+export let getPlayerVZ: CppExports['getPlayerVZ'] | null = null;
 
 export function setEmscriptenInstance(instance: EmscriptenModule | null): void {
     emscriptenInstance = instance;

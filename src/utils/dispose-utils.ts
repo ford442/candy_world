@@ -11,20 +11,26 @@ export function safeRemoveAndDispose(scene: THREE.Object3D, obj: THREE.Object3D 
     if (!obj) return;
 
     // Traverse and dispose all children
-    obj.traverse((child: any) => {
+    obj.traverse((node) => {
+        const child = node as THREE.Object3D & {
+            geometry?: THREE.BufferGeometry;
+            material?: THREE.Material | THREE.Material[];
+            instanceColor?: THREE.InstancedBufferAttribute | null;
+            dispose?: () => void;
+        };
         if (child.geometry) {
             child.geometry.dispose();
         }
 
         if (child.material && !child.userData?.preventMaterialDispose) {
             if (Array.isArray(child.material)) {
-                child.material.forEach((m: any) => {
+                child.material.forEach((m) => {
                     m.dispose();
-                    if (m.map) m.map.dispose();
+                    (m as THREE.MeshStandardMaterial).map?.dispose();
                 });
             } else {
                 child.material.dispose();
-                if (child.material.map) child.material.map.dispose();
+                (child.material as THREE.MeshStandardMaterial).map?.dispose();
             }
         }
 

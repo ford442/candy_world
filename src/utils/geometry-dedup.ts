@@ -10,7 +10,8 @@ import { log } from './log.ts';
  */
 export interface GeometryParams {
     type: string;
-    args: any[];
+    /** Constructor arguments of the geometry `type` names (numbers, plus openEnded flags). */
+    args: (number | boolean | undefined)[];
     translate?: [number, number, number];
     rotate?: [number, number, number];
     scale?: [number, number, number];

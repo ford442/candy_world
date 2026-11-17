@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { addMergedRange } from '../core/batcher/instanced-batcher.ts';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
@@ -16,7 +17,7 @@ import {
     applyStandardDeformationWithLod,
     applyFoliageLodMaterialFade} from './lod-nodes.ts';
 import { uSeasonLuminousBoost } from './material-core/season-nodes.ts';
-import { uTime, createJuicyRimLight, applyBaseContactAO, getBaseContactHeight } from './material-core.ts';
+import { uTime, createJuicyRimLight, applyBaseContactAO, getBaseContactHeight, $sn } from './material-core.ts';
 import { uTwilight } from './sky.ts';
 
 const AWAKENED_ATTR_ENABLED = FEATURE_FLAGS.awakenedPersistence;
@@ -137,7 +138,7 @@ export class LuminousPlantBatcher {
         mat.emissiveNode = scaleEmissiveByLod(emissiveWithCircadian.mul(uSeasonLuminousBoost));
 
         const skyWaveTint = luminousUniforms.noteColor.mul(0.18);
-        mat.emissiveNode = (mat.emissiveNode as any).add(skyWaveTint);
+        mat.emissiveNode = $sn(mat.emissiveNode).add(skyWaveTint);
 
         applyFoliageLodMaterialFade(mat);
 
@@ -300,7 +301,6 @@ export class LuminousPlantBatcher {
             this.persistentIdToIndex.delete(removedPersistentId);
         }
 
-        this.logicObjects[lastIndex] = undefined as any;
         this.logicObjects.length = lastIndex;
         this.indexToPersistentId[lastIndex] = 0; // Clear it
 
@@ -381,11 +381,11 @@ export class LuminousPlantBatcher {
         const emissiveAttr = this.mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
         if (!awakenedAttr || !emissiveAttr) return;
 
+        // three r159+ replaced attr.updateRange with updateRanges; writing the
+        // old field threw (it is undefined), so this upload never ran.
         const count = this.uploadMax - this.uploadMin + 1;
-        (awakenedAttr as any).updateRange.offset = this.uploadMin;
-        (awakenedAttr as any).updateRange.count = count;
-        (emissiveAttr as any).updateRange.offset = this.uploadMin;
-        (emissiveAttr as any).updateRange.count = count;
+        addMergedRange(awakenedAttr, this.uploadMin, count);
+        addMergedRange(emissiveAttr, this.uploadMin, count);
         awakenedAttr.needsUpdate = true;
         emissiveAttr.needsUpdate = true;
 
@@ -412,26 +412,12 @@ export class LuminousPlantBatcher {
 
     dispose(): void {
         if (this.mesh) {
-            if (this.mesh.geometry) {
-                this.mesh.geometry.dispose();
-                const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset');
-                if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
-                    try { (phaseAttr as any).dispose(); } catch (e) { /* ignore */ }
-                }
-            }
-            if (this.mesh.material) {
-                if (Array.isArray(this.mesh.material)) {
-                    this.mesh.material.forEach(m => m.dispose());
-                } else {
-                    (this.mesh.material as any).dispose();
-                }
-            }
-            if (this.mesh.instanceColor && typeof (this.mesh.instanceColor as any).dispose === 'function') {
-                try { (this.mesh.instanceColor as any).dispose(); } catch (e) { /* ignore */ }
-            }
-            if (this.mesh.instanceMatrix && typeof (this.mesh.instanceMatrix as any).dispose === 'function') {
-                try { (this.mesh.instanceMatrix as any).dispose(); } catch (e) { /* ignore */ }
-            }
+            // The geometry's dispose frees its instanced attributes on the
+            // renderer; InstancedMesh.dispose frees instanceMatrix/instanceColor.
+            this.mesh.geometry?.dispose();
+            const materials = Array.isArray(this.mesh.material) ? this.mesh.material : [this.mesh.material];
+            for (const m of materials) m?.dispose();
+            this.mesh.dispose();
         }
     }
 }

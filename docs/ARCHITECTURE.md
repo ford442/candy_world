@@ -241,11 +241,41 @@ Hold them from module load and read them every frame; they never allocate.
 - `state.ts` exports no mutable arrays. A new per-kind list is a new kind plus
   `entities.view`, not a new array.
 
+## Instanced batchers
+
+`src/core/batcher/instanced-batcher.ts` is the base for instanced foliage and
+props. A port supplies `createMesh`, `writeRecord` and `step`; the base owns:
+
+- **Slots.** Records pack into `[0, count)`; removal swaps the last slot into
+  the hole, so every mesh's draw count is the live count. `addKeyed(key, …)` /
+  `removeKeyed(key)` key a record by `Object3D.id` or a uuid, which is what an
+  entity kind's despawn hook (`generation-entity-kinds.ts`) has.
+- **Meshes and streams.** `linkMesh(mesh, perSlot)` adds a mesh that shares
+  the slots (a stem under a bulb; 8 splashes per waterfall);
+  `registerAttribute(attr, perSlot)` adds a per-instance attribute. The base
+  copies every stream on swap, keeps every `count` in sync, and uploads once
+  per frame. With `rangedUploads` on it uploads only the dirty slot range
+  (merged across flushes); then write those streams only through the base.
+- **LOD and dispose.** `setLod(factor)` → `onLod`; `dispose()` frees every
+  geometry, material (unless `userData.preventMaterialDispose`) and attribute,
+  detaches the meshes, and leaves the batcher refillable.
+
+Every batcher is updated by one frame system, `instanced-batchers` (animate,
+after `foliage` and `particles`), so a port registers nothing. A batcher that
+is written outside the frame (generation) calls `flush()` itself.
+
+Ported: mushroom, kick-drum geyser, lantern, gem fruit, waterfall, sugar cave,
+glass mushroom. Each has a
+row in `tests/batcher-parity.test.ts` (`npm run test:batchers`): draw count ==
+live count on every mesh and every live object in exactly one slot with its own
+data, through seeded spawn/despawn sequences, with no reallocation below
+capacity and every geometry disposed at the end. Add a row with each port.
+
 ## Still to do (#1973)
 
 - **Slice 3 (remaining):** one ECS (the registry and kind-agnostic teardown
   are done; see "Entities").
-- **Slice 4:** the `InstancedBatcher<TRecord>` base for the 25 batchers. Each
-  batcher becomes a scheduler system.
+- **Slice 4 (in progress, #2166):** port the remaining batchers to
+  `InstancedBatcher` (see "Instanced batchers").
 - **Fixed step:** rigid bodies, fauna and particles move into `fixed` once they
   have render interpolation.

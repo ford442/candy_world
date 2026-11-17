@@ -15,6 +15,7 @@
     "animate:sky-weather-lighting",
     "animate:foliage",
     "animate:particles",
+    "animate:instanced-batchers",
     "animate:firefly-visibility",
     "animate:impacts",
     "animate:dandelion-seeds",

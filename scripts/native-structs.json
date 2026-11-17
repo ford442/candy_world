@@ -1,0 +1,20 @@
+{
+    "$comment": "Structs JS writes into native memory and passes by pointer. scripts/gen-native-types.mjs turns each into a NATIVE_STRUCTS entry (src/utils/native-exports.generated.ts) for defineNativeStruct() in src/utils/native-memory.ts. Field types: f32, i32, u32, ptr; every field is 4 bytes, in declaration order. `countsKey` names the scripts/memory-layout.mjs COUNTS entry that must equal the field count; `reader` is the native function that reads it.",
+    "structs": {
+        "CollisionObject": {
+            "doc": "One collision object in the BATCH_UPLOAD region. type and flags are stored as f32 and cast to i32 on read.",
+            "reader": "assembly/physics.ts addCollisionObjectsBatch",
+            "countsKey": "BATCH_UPLOAD_FLOATS_PER_OBJECT",
+            "fields": {
+                "type": "f32",
+                "x": "f32",
+                "y": "f32",
+                "z": "f32",
+                "d1": "f32",
+                "d2": "f32",
+                "d3": "f32",
+                "flags": "f32"
+            }
+        }
+    }
+}

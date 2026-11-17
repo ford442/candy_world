@@ -9,7 +9,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
 import { foliageGroup } from '../world/state.ts';
@@ -36,15 +36,22 @@ const _scratchN = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchColor = new THREE.Color();
 
-export class LanternBatcher {
+interface LanternRecord {
+    obj: THREE.Object3D;
+    height: number;
+    color: number;
+    spawnTime: number;
+    /** Per-instance swing phase, fixed at register so a swap keeps it. */
+    phase: number;
+}
+
+/**
+ * Lantern stems and tops (#2166: ported to InstancedBatcher). The top (hook,
+ * cap, bulb) is the primary mesh; the stem is linked and shares its slots.
+ */
+export class LanternBatcher extends InstancedBatcher<LanternRecord> {
     private static instance: LanternBatcher;
     private initialized = false;
-    private count = 0;
-
-    // Memory/Slot Management for Streaming
-    private freeList: number[] = [];
-    private logicIdToInstance = new Map<number, number>();
-    private instanceToLogicId: Record<number, number> = {};
 
     // Meshes
     public stemMesh: THREE.InstancedMesh | null = null;
@@ -54,7 +61,10 @@ export class LanternBatcher {
     private stemParams: THREE.InstancedBufferAttribute | null = null; // [height, unused, unused, spawnTime]
     private topParams: THREE.InstancedBufferAttribute | null = null;  // [height, randomPhase, unused, spawnTime]
 
-    private constructor() {}
+    private constructor() {
+        super('lantern', 'animate', MAX_LANTERNS);
+        this.rangedUploads = true;
+    }
 
     static getInstance(): LanternBatcher {
         if (!LanternBatcher.instance) {
@@ -65,18 +75,24 @@ export class LanternBatcher {
 
     init() {
         if (this.initialized) return;
+        this.ensureMesh();
+        this.initialized = true;
+        console.log('[LanternBatcher] Initialized with capacity ' + MAX_LANTERNS);
+    }
 
+    protected createMesh(): THREE.InstancedMesh {
         this.initStem();
         this.initTop();
+        this.linkMesh(this.stemMesh!);
+        this.registerAttribute(this.stemParams!);
+        this.registerAttribute(this.topParams!);
 
         // Add to Scene
         if (foliageGroup) {
-            if (this.stemMesh) foliageGroup.add(this.stemMesh);
-            if (this.topMesh) foliageGroup.add(this.topMesh);
+            foliageGroup.add(this.stemMesh!);
+            foliageGroup.add(this.topMesh!);
         }
-
-        this.initialized = true;
-        console.log('[LanternBatcher] Initialized with capacity ' + MAX_LANTERNS);
+        return this.topMesh!;
     }
 
     private initStem() {
@@ -325,101 +341,55 @@ export class LanternBatcher {
     register(dummy: THREE.Object3D, options: Record<string, unknown>) {
         if (!this.initialized) this.init();
 
-        let i: number;
-        if (this.freeList.length > 0) {
-            i = this.freeList.pop()!;
-        } else {
-            if (this.count >= MAX_LANTERNS) return;
-            i = this.count++;
-        }
-
-        this.logicIdToInstance.set(dummy.id, i);
-        this.instanceToLogicId[i] = dummy.id;
+        const handle = this.addKeyed(dummy.id, {
+            obj: dummy,
+            height: (options.height as number) || 2.5,
+            color: (options.color as number) || 0xFFA500,
+            spawnTime: options.spawnTime !== undefined ? (options.spawnTime as number) : -100.0,
+            phase: Math.random() * Math.PI * 2,
+        });
+        if (handle === null) return;
 
         // ⚡ OPTIMIZATION: Mark as batched
         dummy.userData.isBatched = true;
+        // Lanterns register during generation, outside the frame; upload now.
+        this.flush();
+    }
 
-        // Transforms
+    protected writeRecord(record: LanternRecord, slot: number, array: Float32Array): void {
+        const dummy = record.obj;
         _scratchMatrixBatch.compose(dummy.position, dummy.quaternion, dummy.scale);
-        // Stem
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrixBatch.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix arrays instead of updateMatrix + setMatrixAt
+        _scratchMatrixBatch.toArray(array, slot * 16); // top
+        _scratchMatrixBatch.toArray(this.stemMesh!.instanceMatrix.array, slot * 16);
 
-        // Top
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrixBatch.toArray(this.topMesh!.instanceMatrix.array, (i) * 16);
+        this.stemParams!.setXYZW(slot, record.height, 0, 0, record.spawnTime);
+        this.topParams!.setXYZW(slot, record.height, record.phase, 0, record.spawnTime);
 
-        // Params
-        const height = (options.height as number) || 2.5;
-        const colorHex = (options.color as number) || 0xFFA500;
-        const spawnTime = options.spawnTime !== undefined ? (options.spawnTime as number) : -100.0;
-        // ⚡ OPTIMIZATION: Reuse module-scoped scratch color to avoid GC
-        const c = _scratchColor.set(colorHex);
-
-        // Generate Random Phase for this instance
-        const randomPhase = Math.random() * Math.PI * 2;
-
-        this.stemParams!.setXYZW(i, height, 0, 0, spawnTime);
-        this.topParams!.setXYZW(i, height, randomPhase, 0, spawnTime);
-        
-        // Use setColorAt
         // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
-        if (this.topMesh!.instanceColor) {
-            const colorArray = this.topMesh!.instanceColor.array as Float32Array;
-            const colorOffset = i * 3;
-            colorArray[colorOffset] = c.r;
-            colorArray[colorOffset + 1] = c.g;
-            colorArray[colorOffset + 2] = c.b;
-        }
+        const c = _scratchColor.set(record.color);
+        const colorArray = this.topMesh!.instanceColor!.array as Float32Array;
+        colorArray[slot * 3] = c.r;
+        colorArray[slot * 3 + 1] = c.g;
+        colorArray[slot * 3 + 2] = c.b;
+    }
 
-        this.stemMesh!.instanceMatrix.needsUpdate = true;
-        this.topMesh!.instanceMatrix.needsUpdate = true;
-        this.stemParams!.needsUpdate = true;
-        this.topParams!.needsUpdate = true;
-        if (this.topMesh!.instanceColor) this.topMesh!.instanceColor.needsUpdate = true;
+    protected step(): void {
+        // Static instances; the TSL graph animates sway, swing and glow.
     }
 
     removeInstance(logicObject: THREE.Object3D) {
         if (!this.initialized || !logicObject) return;
-
-        const id = logicObject.id;
-        if (!this.logicIdToInstance.has(id)) return;
-
-        const i = this.logicIdToInstance.get(id)!;
-        this.logicIdToInstance.delete(id);
-        delete this.instanceToLogicId[i];
-        this.freeList.push(i);
-
-        // Scale instance to 0 to hide it
-        _scratchMatrixBatch.identity();
-        _scratchV.set(0, 0, 0);
-        _scratchMatrixBatch.scale(_scratchV);
-
-        if (this.stemMesh) {
-            _scratchMatrixBatch.toArray(this.stemMesh.instanceMatrix.array, i * 16);
-            this.stemMesh.instanceMatrix.needsUpdate = true;
-        }
-        if (this.topMesh) {
-            _scratchMatrixBatch.toArray(this.topMesh.instanceMatrix.array, i * 16);
-            this.topMesh.instanceMatrix.needsUpdate = true;
-        }
+        if (this.removeKeyed(logicObject.id)) this.flush();
     }
 
     dispose(): void {
-        this.freeList = [];
-        this.logicIdToInstance.clear();
-        this.instanceToLogicId = {};
-        this.count = 0;
-
-        const meshes = [
-            this.stemMesh,
-            this.topMesh
-        ];
-        meshes.forEach(mesh => {
-            if (mesh && mesh.parent) {
-                safeRemoveAndDispose(mesh.parent, mesh);
-            }
-        });
+        super.dispose();
+        this.stemMesh = null;
+        this.topMesh = null;
+        this.stemParams = null;
+        this.topParams = null;
+        this.initialized = false;
     }
 }
 

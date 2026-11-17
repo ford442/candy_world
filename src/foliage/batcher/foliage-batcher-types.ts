@@ -29,7 +29,8 @@ export interface BatchState {
     outScalars2?: Float32Array; // For rotX in wobble
     outScalars3?: Float32Array; // For additional outputs
     outScalars4?: Float32Array; // For additional outputs
-    objects: FoliageObject[];
+    /** Filled per flush, cleared after so the batch holds no stale references. */
+    objects: (FoliageObject | undefined)[];
     ptrOffsets: number;
     ptrIntensities: number;
     ptrOriginalYs?: number;
@@ -49,7 +50,8 @@ export interface ExtendedBatchState {
     input: Float32Array;
     // Output: 4 floats per object (RESULT_STRIDE)
     output: Float32Array;
-    objects: FoliageObject[];
+    /** Filled per flush, cleared after so the batch holds no stale references. */
+    objects: (FoliageObject | undefined)[];
     ptrInput: number;
     ptrOutput: number;
 }

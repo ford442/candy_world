@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import {
     color, float, vec3, vec2, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time, uv,
@@ -43,17 +43,112 @@ const _scratchScale = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchColor = new THREE.Color();
 
+interface WaterfallRecord {
+    position: THREE.Vector3;
+    height: number;
+    width: number;
+    /** Z thickness relative to width; updateInstance() pulses it. */
+    thickness: number;
+    /** Per-splash origin (xyz) and velocity seed (xyz), fixed at add. */
+    splashOrigins: Float32Array;
+    splashVelocities: Float32Array;
+}
+
+interface WaterfallMeshes {
+    column: THREE.InstancedMesh;
+    splash: THREE.InstancedMesh;
+    origin: THREE.InstancedBufferAttribute;
+    velocity: THREE.InstancedBufferAttribute;
+}
+
+/** The slot space: one column and SPLASHES_PER_WATERFALL splashes per waterfall. */
+class WaterfallSlots extends InstancedBatcher<WaterfallRecord> {
+    private parts: WaterfallMeshes | null = null;
+
+    constructor(private readonly build: () => WaterfallMeshes) {
+        super('waterfall', 'animate', MAX_WATERFALLS);
+        this.rangedUploads = true;
+    }
+
+    protected createMesh(): THREE.InstancedMesh {
+        const parts = this.build();
+        this.parts = parts;
+        this.linkMesh(parts.splash, SPLASHES_PER_WATERFALL);
+        this.registerAttribute(parts.origin, SPLASHES_PER_WATERFALL);
+        this.registerAttribute(parts.velocity, SPLASHES_PER_WATERFALL);
+        return parts.column;
+    }
+
+    protected writeRecord(r: WaterfallRecord, slot: number, array: Float32Array): void {
+        // Cylinder base R=1, H=1, centred: scale (width, height, width × thickness)
+        // and drop by half the height so `position` is the top centre.
+        _scratchScale.set(r.width, r.height, r.width * r.thickness);
+        _scratchQuat.identity();
+        _scratchPos.copy(r.position);
+        _scratchPos.y -= r.height * 0.5;
+        _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMatrix.toArray(array, slot * 16);
+
+        const { splash, origin, velocity } = this.parts!;
+        const start = slot * SPLASHES_PER_WATERFALL;
+        (origin.array as Float32Array).set(r.splashOrigins, start * 3);
+        (velocity.array as Float32Array).set(r.splashVelocities, start * 3);
+        // Identity matrices: the splash positionNode places each one.
+        _scratchMatrix.identity();
+        for (let i = 0; i < SPLASHES_PER_WATERFALL; i++) {
+            _scratchMatrix.toArray(splash.instanceMatrix.array, (start + i) * 16);
+        }
+    }
+
+    protected step(): void {
+        // The TSL graph animates flow and splashes.
+    }
+
+    /** Build the meshes now (init()), not on the first add. */
+    open(): void {
+        this.ensureMesh();
+    }
+
+    put(id: string, r: WaterfallRecord): boolean {
+        if (this.hasKey(id)) return false;
+        return this.addKeyed(id, r) !== null;
+    }
+
+    take(id: string): boolean {
+        return this.removeKeyed(id);
+    }
+
+    /** Rewrite `id`'s slot after its record changed. */
+    rewrite(id: string): void {
+        const slot = this.slotOfKey(id);
+        if (slot === undefined || !this.mesh) return;
+        this.writeRecord(this.recordAt(slot)!, slot, this.mesh.instanceMatrix.array as Float32Array);
+        this.markSlotDirty(slot);
+    }
+
+    record(id: string): WaterfallRecord | null {
+        const slot = this.slotOfKey(id);
+        return slot === undefined ? null : this.recordAt(slot);
+    }
+
+    release(): void {
+        this.parts = null;
+        this.dispose();
+    }
+}
+
+/**
+ * Waterfall columns and their splashes (#2166: ported to InstancedBatcher,
+ * through WaterfallSlots). Public API unchanged.
+ */
 export class WaterfallBatcher {
     private static instance: WaterfallBatcher;
     private initialized = false;
-    private count = 0;
+    private readonly slots = new WaterfallSlots(() => this.buildMeshes());
 
     public mesh: THREE.InstancedMesh | null = null;
     public splashMesh: THREE.InstancedMesh | null = null;
-
-    // ID Maps
-    private idToIndex: Map<string, number> = new Map();
-    private indexToId: string[] = [];
 
     // Splash Attributes
     private splashOrigin: THREE.InstancedBufferAttribute | null = null;
@@ -68,8 +163,27 @@ export class WaterfallBatcher {
         return WaterfallBatcher.instance;
     }
 
+    /** The column-mesh slot of waterfall `id`, or undefined. */
+    slotOf(id: string): number | undefined {
+        return this.slots.slotOfKey(id);
+    }
+
+    get maxInstances(): number {
+        return this.slots.maxInstances;
+    }
+
+    /** Live waterfalls. */
+    get count(): number {
+        return this.slots.instanceCount;
+    }
+
     init() {
         if (this.initialized) return;
+        this.initialized = true;
+        this.slots.open();
+    }
+
+    private buildMeshes(): WaterfallMeshes {
 
         // 1. Waterfall Column Mesh
         // Base Geometry: Top Radius 1, Bottom Radius 1.5, Height 1
@@ -233,21 +347,23 @@ export class WaterfallBatcher {
             foliageGroup.add(this.splashMesh);
         }
 
-        this.initialized = true;
         console.log('WaterfallBatcher initialized');
+        return {
+            column: this.mesh,
+            splash: this.splashMesh,
+            origin: this.splashOrigin,
+            velocity: this.splashVelocity,
+        };
     }
 
     dispose() {
         if (!this.initialized) return;
-
-        [this.mesh, this.splashMesh].forEach(mesh => {
-            if (!mesh) return;
-            safeRemoveAndDispose(foliageGroup, mesh);
-        });
-
+        this.slots.release();
+        this.mesh = null;
+        this.splashMesh = null;
+        this.splashOrigin = null;
+        this.splashVelocity = null;
         this.initialized = false;
-        this.count = 0;
-        this.idToIndex.clear();
     }
 
     /**
@@ -259,154 +375,55 @@ export class WaterfallBatcher {
      */
     add(id: string, position: THREE.Vector3, height: number, width: number) {
         if (!this.initialized) this.init();
-        if (this.idToIndex.has(id)) return;
-        if (this.count >= MAX_WATERFALLS) return;
+        if (this.slots.hasKey(id) || this.slots.instanceCount >= MAX_WATERFALLS) return;
 
-        const index = this.count;
-        this.count++;
-
-        this.idToIndex.set(id, index);
-        this.indexToId[index] = id;
-
-        // 1. Setup Column
-        // Cylinder Base: R=1, H=1.
-        // Scale: X=width, Y=height, Z=width
-        // Position: position.y - height/2 (Mid Point)
-        _scratchScale.set(width, height, width);
-        _scratchQuat.identity();
-        _scratchPos.copy(position);
-        _scratchPos.y -= height * 0.5;
-
-        _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (index) * 16);
-        this.mesh!.instanceMatrix.needsUpdate = true;
-
-        // 2. Setup Splashes (8 per waterfall)
-        const startSplash = index * SPLASHES_PER_WATERFALL;
+        // Splashes: origins randomly distributed at the bottom, velocity
+        // params (X/Z direction, Y phase seed). Drawn once here so a slot swap
+        // moves them with the waterfall.
+        const n = SPLASHES_PER_WATERFALL;
+        const splashOrigins = new Float32Array(n * 3);
+        const splashVelocities = new Float32Array(n * 3);
         const bottomY = position.y - height;
-
-        for (let i = 0; i < SPLASHES_PER_WATERFALL; i++) {
-            const si = startSplash + i;
-
-            // Origin: Randomly distributed at bottom
-            const offsetX = (Math.random() - 0.5) * width;
-            const offsetZ = (Math.random() - 0.5) * width;
-
-            this.splashOrigin!.setXYZ(si,
-                position.x + offsetX,
-                bottomY,
-                position.z + offsetZ
-            );
-
-            // Velocity Params: X/Z direction, Y seed
-            this.splashVelocity!.setXYZ(si,
-                (Math.random() - 0.5), // X dir
-                Math.random(),         // Y seed (phase)
-                (Math.random() - 0.5)  // Z dir
-            );
-
-            // Initialize matrix to identity (needed for rendering, even if positionNode overrides)
-            _scratchMatrix.identity();
-            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.splashMesh!.instanceMatrix.array, (si) * 16);
+        for (let i = 0; i < n; i++) {
+            splashOrigins[i * 3] = position.x + (Math.random() - 0.5) * width;
+            splashOrigins[i * 3 + 1] = bottomY;
+            splashOrigins[i * 3 + 2] = position.z + (Math.random() - 0.5) * width;
+            splashVelocities[i * 3] = Math.random() - 0.5;
+            splashVelocities[i * 3 + 1] = Math.random();
+            splashVelocities[i * 3 + 2] = Math.random() - 0.5;
         }
-
-        this.splashOrigin!.needsUpdate = true;
-        this.splashVelocity!.needsUpdate = true;
-
-        // Update counts
-        this.mesh!.count = this.count;
-        this.splashMesh!.count = this.count * SPLASHES_PER_WATERFALL;
-        this.splashMesh!.instanceMatrix.needsUpdate = true;
+        this.slots.put(id, {
+            position: position.clone(),
+            height,
+            width,
+            thickness: 1,
+            splashOrigins,
+            splashVelocities,
+        });
+        this.slots.flush();
     }
 
     remove(id: string) {
-        if (!this.initialized || !this.idToIndex.has(id)) return;
-
-        const indexToRemove = this.idToIndex.get(id)!;
-        const lastIndex = this.count - 1;
-        const lastId = this.indexToId[lastIndex];
-
-        if (indexToRemove !== lastIndex) {
-            // Swap Column
-            // ⚡ OPTIMIZATION: Fast memory copy bypassing object instantiation and setMatrixAt overhead
-            const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
-            const destOffset = indexToRemove * 16;
-            const srcOffset = lastIndex * 16;
-            matrixArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
-
-            // Swap Splashes (Block of 8)
-            const srcStart = lastIndex * SPLASHES_PER_WATERFALL;
-            const destStart = indexToRemove * SPLASHES_PER_WATERFALL;
-
-            this.splashOrigin!.array.copyWithin(destStart * 3, srcStart * 3, srcStart * 3 + SPLASHES_PER_WATERFALL * 3);
-            this.splashVelocity!.array.copyWithin(destStart * 3, srcStart * 3, srcStart * 3 + SPLASHES_PER_WATERFALL * 3);
-
-            // Update Map
-            this.idToIndex.set(lastId, indexToRemove);
-            this.indexToId[indexToRemove] = lastId;
-        }
-
-        this.idToIndex.delete(id);
-        this.count--;
-
-        this.mesh!.count = this.count;
-        this.splashMesh!.count = this.count * SPLASHES_PER_WATERFALL;
-
-        this.mesh!.instanceMatrix.needsUpdate = true;
-        this.splashOrigin!.needsUpdate = true;
-        this.splashVelocity!.needsUpdate = true;
+        if (!this.initialized) return;
+        if (this.slots.take(id)) this.slots.flush();
     }
 
     /**
      * Updates an instance (e.g. for pulsing thickness).
      * @param id
-     * @param thicknessScale Scaling factor for thickness (Z-axis flattening or uniform scale)
+     * @param thicknessScale Z thickness as a multiple of the width
      */
     updateInstance(id: string, thicknessScale: number) {
-        if (!this.initialized || !this.idToIndex.has(id)) return;
-
-        // Note: We need to know the original scale to modify it.
-        // But we didn't store it.
-        // We can get it from matrix.
-        const index = this.idToIndex.get(id)!;
-
-        // ⚡ OPTIMIZATION: Bypassed .getMatrixAt() and .decompose() overhead.
-        // Scale is encoded in the lengths of the column vectors of the 4x4 matrix.
-        // We need to change the Z scale. We can modify the 3rd column directly.
-        const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
-        const offset = index * 16;
-
-        // Assuming X and Z were equal initially (circular).
-        // Current X scale is the magnitude of the 1st column.
-        // ⚡ OPTIMIZATION: Use squared scale magnitudes and fast inverse square root to avoid Math.sqrt() in hot loops.
-        const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
-        const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
-
-        // Current Z scale is the magnitude of the 3rd column.
-        const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
-        const currentScaleZSq = m20 * m20 + m21 * m21 + m22 * m22;
-
-        // Apply scaling factor to the 3rd column
-        if (currentScaleZSq > 0.00000001 && scaleXSq > 0.00000001) {
-            // targetZ = X * thicknessScale
-            // We want ratio = targetZ / currentZ = (X * thicknessScale) / currentZ
-            // ratio = sqrt(scaleXSq) * thicknessScale / sqrt(currentScaleZSq)
-            const targetZSq = scaleXSq * thicknessScale * thicknessScale;
-
-            // ⚡ OPTIMIZATION: Bypassed Math.sqrt overhead completely by using a squared distance tolerance check for early-out.
-            // Since waterfall thicknesses rarely change dramatically frame-to-frame, this avoids the Math.sqrt in 99% of frames.
-            const diffSq = targetZSq - currentScaleZSq;
-            if (diffSq > 0.0001 || diffSq < -0.0001) {
-                const ratio = Math.sqrt(targetZSq / currentScaleZSq);
-                matrixArray[offset + 8] *= ratio;
-                matrixArray[offset + 9] *= ratio;
-                matrixArray[offset + 10] *= ratio;
-            }
-        }
-
-        this.mesh!.instanceMatrix.needsUpdate = true;
+        if (!this.initialized) return;
+        const r = this.slots.record(id);
+        if (!r) return;
+        // Skip sub-tolerance changes: callers pulse this every frame and the
+        // value rarely moves (same squared-scale tolerance as before the port).
+        const w2 = r.width * r.width;
+        const diffSq = w2 * (thicknessScale * thicknessScale - r.thickness * r.thickness);
+        if (diffSq <= 0.0001 && diffSq >= -0.0001) return;
+        r.thickness = thicknessScale;
+        this.slots.rewrite(id);
     }
 
     removeInstance(logicObject: THREE.Object3D) {
