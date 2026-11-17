@@ -8,7 +8,7 @@
 
 import type * as THREE from 'three';
 import { DEFAULT_MAP_CHUNK_STREAM_SIZE } from '../../world/map-chunk-size.ts';
-import { getAuthoredTransform } from '../entity-snapshot-core.ts';
+import { getAuthoredTransform } from '../entity-snapshot/entity-snapshot-core.ts';
 import { getCap, withinCap } from '../performance-budget/systems-budget.ts';
 
 export const AUTHORING_CHUNK_SIZE = DEFAULT_MAP_CHUNK_STREAM_SIZE;

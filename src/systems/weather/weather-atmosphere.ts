@@ -6,8 +6,8 @@ import type { VisualState } from '../../audio/audio-system.ts';
 import { CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN, CONFIG } from '../../core/config.ts';
 import { chargeBerries, shakeBerriesLoose, updateGlobalBerryScale } from '../../foliage/berries.ts';
 import { uSkyDarkness, uTwilight, uCrescendoFogDensity, uFogNear, uFogFar } from '../../foliage/sky.ts';
-import { syncFogTelemetryFromScene } from '../atmosphere-fog.ts';
-import { WeatherState } from '../weather-types.ts';
+import { syncFogTelemetryFromScene } from '../environment/atmosphere-fog.ts';
+import { WeatherState } from './weather-types.ts';
 import type { WeatherSystem } from './weather.ts';
 
 

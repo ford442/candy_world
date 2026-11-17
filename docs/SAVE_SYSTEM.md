@@ -352,7 +352,7 @@ season:
 
 ```typescript
 const weather = getWeatherSystem();
-const season = getSeasonState(); // systems/season-controller.ts
+const season = getSeasonState(); // systems/environment/season-controller.ts
 createWorldSaveData(
     timeOfDayFromCyclePos(weather.cyclePos), // 0 = midnight, 0.5 = noon
     { state: weather.state, intensity: weather.intensity, stormCharge: weather.stormCharge },
@@ -373,7 +373,7 @@ needed: `WorldSaveData` already had the fields; they used to be written as const
 
 ```typescript
 import { createProgressSaveData } from './systems/save-system.ts';
-import { discoverySystem } from './systems/discovery-optimized.ts';
+import { discoverySystem } from './systems/discovery/discovery-optimized.ts';
 import { unlockSystem } from './systems/unlocks.ts';
 
 (saveSystem as any).gatherProgressData = (playtime: number) => {

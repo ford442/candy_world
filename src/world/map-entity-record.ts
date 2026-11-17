@@ -5,7 +5,7 @@
  *
  * Extracted from `map-exporter.ts` (which still owns the whole-world export and
  * its instanced fallback) so that per-entity consumers — notably
- * `systems/entity-snapshot-core.ts` — can compose the same logic instead of
+ * `systems/entity-snapshot/entity-snapshot-core.ts` — can compose the same logic instead of
  * re-implementing rounding / scale-normalization / category inference.
  *
  * Deliberately free of `world/state.ts` and renderer imports: this module must

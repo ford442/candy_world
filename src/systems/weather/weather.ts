@@ -12,12 +12,10 @@ import { BerryBatcher } from '../../foliage/berries.ts';
 import { updateCaveWaterLevel } from '../../foliage/cave.ts';
 import { uTwilight } from '../../foliage/sky.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
-import { computeAtmosphereFogTargets } from '../atmosphere-fog.ts';
-import { WeatherMusicTargets } from '../music-reactivity.ts';
 import { announce } from '../../ui/announcer.ts';
-import { SEASON_NAMES, type SeasonName, type SeasonState } from '../season-core.ts';
-import { WeatherState } from '../weather-types.ts';
-import { rainFlavour } from '../weather-utils.ts';
+import { computeAtmosphereFogTargets } from '../environment/atmosphere-fog.ts';
+import { SEASON_NAMES, type SeasonName, type SeasonState } from '../environment/season-core.ts';
+import { WeatherMusicTargets } from '../music-reactivity/music-reactivity.ts';
 import { AtmosphereManager } from './weather-atmosphere.ts';
 import { EcosystemManager } from './weather-ecosystem.ts';
 import { EffectsManager } from './weather-effects.ts';
@@ -32,6 +30,8 @@ import {
     sampleWeatherFront,
     type WeatherTarget,
 } from './weather-fronts-core.ts';
+import { WeatherState } from './weather-types.ts';
+import { rainFlavour } from './weather-utils.ts';
 
 // Scratch objects for optimization
 const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
@@ -293,7 +293,7 @@ export class WeatherSystem {
     /**
      * Main update loop - orchestrates all weather systems
      */
-    /** Season controller state for this frame (systems/season-controller.ts). */
+    /** Season controller state for this frame (systems/environment/season-controller.ts). */
     setSeasonState(state: Readonly<SeasonState>): void {
         this.seasonState = state;
     }

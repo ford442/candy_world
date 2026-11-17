@@ -6,7 +6,7 @@ import {
     computePersistentId,
     persistentIdFromString,
     LUMINOUS_PLANT_TYPE_ID,
-} from '../systems/awakened-persistent-id.ts';
+} from '../systems/awakened/awakened-persistent-id.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPoseOffset, circadianNightGlowMult, type BiomeId } from '../systems/biome-uniforms.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';

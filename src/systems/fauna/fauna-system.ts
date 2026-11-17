@@ -8,9 +8,9 @@ import { FaunaBatcher } from '../../foliage/fauna-batcher.ts';
 import { debugHooks } from '../../utils/debug-hooks.ts';
 import { profiler } from '../../utils/profiler.ts';
 import { World } from '../ecs/world.ts';
+import { getSeasonState } from '../environment/season-controller.ts';
 import { sampleBakedGroundNormalInto, fillGroundHeightsBatch, _fdDelta } from '../ground-system.ts';
 import { player } from '../physics/physics-types.ts';
-import { getSeasonState } from '../season-controller.ts';
 import {
     FaunaBehaviorRunner,
     applyFaunaSeason,

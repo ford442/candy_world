@@ -18,7 +18,7 @@ import {
     createSeasonState,
     prepareSeasonPalette,
     virtualSeasonClock,
-} from '../src/systems/season-core.ts';
+} from '../src/systems/environment/season-core.ts';
 import {
     createWeatherFrontSample,
     sampleWeatherFront,

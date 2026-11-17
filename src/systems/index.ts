@@ -17,7 +17,7 @@
 
 // Main classes
 export { AssetStreamer } from './asset-streaming/index.ts';
-export { RegionManager, CellLoader } from './region-manager.ts';
+export { RegionManager, CellLoader } from './region-manager/region-manager.ts';
 
 // Supporting classes from asset-streaming
 export {
@@ -42,7 +42,7 @@ export {
 // Enums from region-manager
 export {
     CellState
-} from './region-manager.ts';
+} from './region-manager/region-manager.ts';
 
 // Types from asset-streaming
 export type {
@@ -66,7 +66,7 @@ export type {
     RegionStats,
     LODTransition,
     SpatialQueryResult
-} from './region-manager.ts';
+} from './region-manager/region-manager.ts';
 
 // Utility functions
 export {
@@ -81,11 +81,11 @@ export {
     worldToCell,
     cellToBounds,
     distanceToCellSq
-} from './region-manager.ts';
+} from './region-manager/region-manager.ts';
 
 // Default export
 export { default } from './asset-streaming/index.ts';
 export * from './ecs/index.ts';
 
 // Entity Snapshots
-export * from './entity-snapshot.ts';
+export * from './entity-snapshot/entity-snapshot.ts';

@@ -6,7 +6,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { CURRENT_SNAPSHOT_VERSION } from '../src/systems/entity-snapshot-core.ts';
+import { CURRENT_SNAPSHOT_VERSION } from '../src/systems/entity-snapshot/entity-snapshot-core.ts';
 import {
     buildDocumentFromLegacy,
     type LegacySources,

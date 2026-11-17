@@ -29,7 +29,7 @@ import {
 } from '../rendering/renderer-mode.ts';
 import { applyShadowSoftness } from '../rendering/shadow-softness.ts';
 import { installViewport } from '../rendering/viewport.ts';
-import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
+import { getInitialFogDistances } from '../systems/environment/atmosphere-fog.ts';
 import { getGroundHeight } from '../systems/ground-system.ts';
 import {
     initSunCascades,

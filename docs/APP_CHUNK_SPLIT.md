@@ -121,12 +121,38 @@ foliage/index → animation → batcher → ecs/world → wasm-loader → loadin
   → luminous-plant-batcher → … → foliage/index
 ```
 
+## Where the rules live
+
+All chunk rules are in the `manualChunks` function in `vite.config.js`. They match
+on the module id with `includes` / `endsWith`, and **the first match wins**, so
+both the path and the order matter: moving a file changes its chunk unless its
+rule moves with it. `src/systems/` is grouped into folders, and the folders map to
+chunks like this:
+
+| Path                                                       | Chunk                                                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `systems/authoring/*`                                      | `authoring` (first **B**), **except** `world-commands.ts` and `edit-history.ts` → `save-ui` |
+| `systems/weather/*`                                        | `weather`, **except** `weather-types.ts` → `weather-shared`                                |
+| `systems/environment/season-core.ts`                       | `weather-shared` (a leaf `app` and `weather` both read at module top level)                |
+| `systems/awakened/awakened-persistence.ts`                 | `awakened`                                                                                 |
+| `systems/net/*`, `photo-mode/*`, `save-system/*`           | `net`, `photo-mode`, `save-ui` (stubs stay in `app`, see below)                            |
+| the rest of `systems/` (`environment/`, `awakened/`, `entity-snapshot/`, `music-reactivity/`, `region-manager/`, `discovery/`, `physics/`, loose files) | `app`  |
+
+The two `authoring/` exceptions are pinned *above* the `authoring` rule on
+purpose: the directory rule would otherwise pull the command layer out of
+`save-ui`, which replays it when a save slot loads.
+
+**Checking a move.** A pure move should leave every chunk byte-for-byte the same.
+Run `pnpm run build:ci` on `main` and on the branch, and compare
+`dist/chunks/*.js` sizes (minus the content hash) and the Rollup warnings. The
+systems-folder move (35 files) changed no chunk except `weather`, by 6 bytes.
+
 ## Contributor table (must stay in `app`)
 
 | Area                                       | Why co-located                  |
 | ------------------------------------------ | ------------------------------- |
 | `src/foliage/*` batchers + `foliage/index` | TSL uniform live bindings       |
-| `src/systems/music-reactivity*.ts`         | Shared uniforms with batchers   |
+| `src/systems/music-reactivity/*`           | Shared uniforms with batchers   |
 | `src/systems/physics/*`                    | Per-frame player + discovery    |
 | `src/utils/wasm-loader*`                   | Ground height + boot pipeline   |
 | `src/core/game-loop*.ts`                   | Frame coordinator               |
@@ -153,7 +179,7 @@ post-FX uniforms and explore-camera APIs via `PhotoModeInitOptions`.
 | `net`              | `FEATURE_FLAGS.presence`, `?world=`, the Worlds panel (`docs/SHARED_WORLDS.md`)  | `src/systems/net/lazy.ts`, `src/systems/net/shared-worlds-lazy.ts`, `src/ui/presence-lazy.ts`, `src/ui/worlds-panel-lazy.ts` |
 | `photo-mode`       | `FEATURE_FLAGS.photoMode`, **P** or the HUD button                               | `src/systems/photo-mode/lazy.ts`                     |
 | `generative-music` | first click/key (default) / `enableGenerativeMode()`                             | `audio-system-playback.ts`                           |
-| `awakened`         | `FEATURE_FLAGS.awakenedPersistence`                                              | `src/systems/awakened-persistence-api.ts`            |
+| `awakened`         | `FEATURE_FLAGS.awakenedPersistence`                                              | `src/systems/awakened/awakened-persistence-api.ts`            |
 | `gameplay`         | `preloadGameplay()` / abilities                                                  | `src/gameplay/lazy.ts`                               |
 | `save-ui`          | `openSaveMenu`                                                                   | `src/ui/save-menu/lazy.ts`                           |
 | `map-loader`       | map fetch                                                                        | dynamic `import()` from `generation-core.ts`         |
@@ -177,8 +203,9 @@ When that is true **and** the user has not set a boot path via URL/storage,
 
 ## Budget
 
-`pnpm run budget:check` enforces `budgets.json` → `app: 740kb` (raw `app-*.js`; 737 KB
-after #1827). The 620 KB target stands.
+`pnpm run budget:check` enforces `tools/build-optimizer/budgets.json` → `app: 850kb`
+(raw `app-*.js`; 832.5 KB on 2026-11-17, so the check reports a warning at 98%).
+The 620 KB target stands.
 A 600 KB ceiling was attempted; `world-gen`, loading-screen DOM, and
 `discovery-persistence` in `save-ui` each failed boot with TDZ (`is not a function`).
 

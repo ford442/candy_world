@@ -18,7 +18,7 @@
  */
 
 import * as THREE from 'three';
-import { RegionManager, GridCell, CellState } from '../region-manager.ts';
+import { RegionManager, GridCell, CellState } from '../region-manager/region-manager.ts';
 import { LRUCache, NetworkManager } from './asset-loading-infrastructure.ts';
 import {
     ProgressiveTextureLoader,

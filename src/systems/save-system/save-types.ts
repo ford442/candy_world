@@ -3,7 +3,7 @@
  */
 
 import type { WorldDocumentV1 } from '../../world/document/schema.ts';
-import type { EntitySnapshot } from '../entity-snapshot-core.ts';
+import type { EntitySnapshot } from '../entity-snapshot/entity-snapshot-core.ts';
 
 // =============================================================================
 // CONSTANTS & CONFIG

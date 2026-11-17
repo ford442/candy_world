@@ -1,5 +1,5 @@
-import { calculateTimeOfDayBias } from '../src/systems/weather-utils.ts';
-import { WeatherState } from '../src/systems/weather-types.ts';
+import { calculateTimeOfDayBias } from '../src/systems/weather/weather-utils.ts';
+import { WeatherState } from '../src/systems/weather/weather-types.ts';
 
 // Basic assertions
 function assert(condition: boolean, message: string) {

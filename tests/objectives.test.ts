@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DISCOVERY_MAP } from '../src/systems/discovery-map.ts';
+import { DISCOVERY_MAP } from '../src/systems/discovery/discovery-map.ts';
 import {
     AWAKEN_TYPES,
     MelodyFileError,
@@ -76,7 +76,7 @@ for (const file of walk(SRC)) {
 
 /** `AWAKENABLE_TYPES = new Set(['a', 'b'])`, read from source: importing the store drags in the renderer. */
 function awakenableTypes(): Set<string> {
-    const text = readFileSync(join(SRC, 'systems', 'awakened-persistence.ts'), 'utf8');
+    const text = readFileSync(join(SRC, 'systems', 'awakened', 'awakened-persistence.ts'), 'utf8');
     const m = text.match(/AWAKENABLE_TYPES\s*=\s*new Set\(\[([^\]]*)\]\)/);
     assert.ok(m, 'could not find AWAKENABLE_TYPES in awakened-persistence.ts');
     return new Set([...m[1].matchAll(/['"]([a-z0-9_]+)['"]/g)].map((x) => x[1]));

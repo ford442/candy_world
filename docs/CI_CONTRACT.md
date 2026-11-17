@@ -25,7 +25,10 @@ post-FX, ground system and unified-ground parity, foliage interaction, shadow
 cascades, atmosphere reactivity, cookbook presets) plus five repo-integrity
 guards (`test:docs-symbols`, `test:plan-integrity`, `test:foliage-barrel`,
 `test:cycles`, `test:baselines`) and the self-tests of the two CI guards
-(`test:baseline-direction`, `test:stale-squash`).
+(`test:baseline-direction`, `test:stale-squash`). `check:root-files` also runs
+first: every tracked top-level file or directory must be on
+`scripts/root-files-allowlist.json`, so a one-shot script or scratch note cannot
+land at the repo root unnoticed (its self-test is `test:root-files`).
 
 **What it catches:** any regression in the pure-logic layer — physics and WASM
 parity, world/entity data contracts, rendering *configuration* — plus docs that

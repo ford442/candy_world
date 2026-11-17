@@ -32,8 +32,15 @@ npm run preview
 
 # Tests (see Testing section below)
 npm run test:wasm          # Fast WASM particle physics test (~2s)
+npm run test:fast          # PR gate: every node-only suite plus the repo guards (no browser)
 npm run test               # Smoke test - boot sequence (~2-3m)
 npm run test:integration   # Full test pipeline
+
+# Ratchets and guards (each is also part of the PR gate)
+npm run typecheck          # tsc --noEmit against scripts/tsc-baseline.json (0 errors)
+npm run lint               # ESLint problem count against scripts/eslint-baseline.json
+npm run test:cycles        # runtime import cycles reachable from src/main.ts (0)
+npm run check:root-files   # every tracked top-level file/dir is on scripts/root-files-allowlist.json
 
 # WASM & build tools
 npm run build:wasm         # Compile AssemblyScript
@@ -72,36 +79,43 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - **`game-loop.ts`**: Animation loop, frame timing, delta calculations; runs the frame through the `SystemScheduler` (`scheduler/`), with systems declared in `game-loop-systems.ts`. Phases, the fixed step and how to register a system: `docs/ARCHITECTURE.md`
 - **`hud.ts`**: Heads-up display, day/night toggle, theme updates
 - **`config.ts`**: Global configuration (colors, physics bounds, grid settings)
-- **`init.js`**: Scene creation (camera, renderer, lights, fog)
+- **`init.ts`**: Scene creation (camera, renderer, lights, fog)
 - **`deferred-init.ts`**: Post-startup warmup and visual initialization
 - **`input/`**: Input. Game code reads actions (`input.get()` / `input.onPress()` from `input/actions/`), never DOM key events; contexts (gameplay, build, gizmo, photo, menu) decide who gets a press. See `docs/INPUT.md`
 
 #### `/src/systems` — Game Systems (Modular)
 
-- **`physics/`**: Collision, movement, ground height queries (includes `physics-grid.ts` for spatial indexing)
-- **`region-manager.ts`**: Chunks/regions, LOD, visibility culling
-- **`music-reactivity.ts`**: Audio-driven visual feedback (beat pulses, reactivity)
-- **`weather/`**: Weather effects (rain, wind, snow)
-- **`interaction.ts`**: Clickable objects, inventory, UI responses
-- **`discovery-*.ts`**: Discovery system. `discovery-optimized.ts` holds the one registry (`discoverySystem`); `discovery-log.ts` is the log UI; `unlocks.ts` is the item/ability loop (`docs/PROGRESSION.md`)
-- **`accessibility.ts`**: Keyboard navigation, text alternatives
-- **`material-batcher.ts`**: Material optimization and batching
-- **`performance-budget/`**: Performance monitoring and alerts
-- **`authoring/`**: In-world build mode (lazy `authoring` chunk; `B` toggles via `build-mode-lazy.ts`). Edits are `world-commands.ts` commands through `edit-history.ts`. See `docs/AUTHORING.md`
+Related modules live in folders. A folder's `index.ts` is its public surface, but code inside the folder (and foliage code, which several of these folders import) imports the defining module directly, never the `index.ts`: going through the barrel can put the importer inside a runtime import cycle (for example foliage -> `music-reactivity/index.ts` -> `music-reactivity-foliage.ts` -> foliage), and `test:cycles` holds those at zero. A file's path decides its chunk (`vite.config.js` rules match paths), so moving one needs the rule moved with it; see `docs/APP_CHUNK_SPLIT.md`.
+
+- **`physics/`**: Collision, movement, ground height queries (`physics-grids.ts` holds the spatial grids)
+- **`region-manager/`**: Chunks/regions, LOD, visibility culling
+- **`music-reactivity/`**: Audio-driven visual feedback: beat pulses, per-biome bindings, foliage/luminous/sky-wave reactivity, `music-wave.ts`
+- **`environment/`**: Sky and air state: atmosphere fog and reactivity, the season calendar and controller (`season-core.ts`, `season-controller.ts`), the circadian (day/night) controller
+- **`weather/`**: Weather effects (rain, wind, snow), plus `weather-types.ts` (the state enum) and `weather-utils.ts`
+- **`awakened/`**: Awakened flora persistence. `awakened-persistence.ts` is its own lazy chunk; `awakened-persistence-api.ts` is the stub the rest of the app calls
+- **`entity-snapshot/`**: Typed, versioned per-entity snapshots (renderer-free core, sidecar store, production wiring through `processMapEntity`)
+- **`discovery/`**: Discovery system. `discovery-optimized.ts` holds the one registry (`discoverySystem`); `discovery-log.ts` is the log UI. `unlocks.ts` (in `systems/`) is the item/ability loop (`docs/PROGRESSION.md`)
+- **`authoring/`**: In-world build mode (lazy `authoring` chunk; `B` toggles via `build-mode-lazy.ts`). Edits are `world-commands.ts` commands through `edit-history.ts`; those two files sit here but ship in `save-ui`, because save slots replay them. See `docs/AUTHORING.md`
 - **`net/`**: Presence and shared worlds (lazy `net` chunk, which also holds supabase-js): publish/open `?world=` links, live co-editing (`world-sync-protocol.ts`, last-writer-wins per entity), the `validate-world` write path. Schema, RLS and the edge function are in `supabase/`. See `docs/SHARED_WORLDS.md`
+- **`performance-budget/`**: Performance monitoring and alerts
+- **`interaction.ts`**: Clickable objects, inventory, UI responses
+- **`accessibility.ts`**: The accessibility engine: remappable keys, colour-blind modes, UI scale, motion reduction, announcer integration. The settings menu is `src/ui/accessibility-menu*.ts`; both load in the lazy `accessibility-ui` chunk. See `docs/ACCESSIBILITY.md`
+- **`material-batcher.ts`**: Material optimization and batching
+- **`glitch-grenade.ts`**: Glitch grenade ability (bundled into the `gameplay` chunk)
 
-#### `/src/rendering` — Graphics & Post-Processing
+#### `/src/rendering` — GPU Context, Lights & Frame Services
 
-- Post-processing effects (bloom, depth of field, color grading)
-- Material definitions and shader management
-- TSL (Three.js Shading Language) shader nodes
+- **`gpu-context.ts`**: The single owner of adapter/device creation; everything else borrows the one `GPUDevice` (`docs/WEBGPU_CONTEXT.md`)
+- Materials and TSL shader nodes (`materials.ts`, `material-types.ts`), local and clustered lights, irradiance probes, shadow softness
+- Frame services: culling (`culling/`), dynamic resolution, viewport sizing, shader warmup, device-loss recovery, frame hitch counter
+- The post-processing pipeline is in `src/foliage/` (below), not here
 
 #### `/src/foliage` — Content Creation
 
 - **`index.ts`**: Validation and exports
 - **`mushrooms.ts`**: Mushroom creation (caps, stems, faces)
 - **`trees.ts`**: Tree/vegetation creation
-- **`post-processing.ts`**: Visual effects pipeline
+- **`post-processing.ts`**: Post-FX entry (`PostFxPipeline`). The TSL graphs (bloom, depth of field, color grading, AA, AO) are in `post-processing-webgpu.ts`, loaded by `import()` into the `postfx-webgpu` chunk; uniforms are in `post-processing-uniforms.ts`. See `docs/POSTFX_STACK.md`
 - **`*-batcher.ts`**: Optimized rendering for foliage
 
 #### `/src/audio` — Audio System
@@ -119,8 +133,8 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 
 #### `/src/gameplay` — Gameplay Mechanics
 
-- **`rainbow-blaster.ts`**: Weapon/ability systems
-- **`glitch-grenade.ts`**: Special effects
+- **`rainbow-blaster.ts`**, **`chord-strike.ts`**, **`harpoon-line.ts`**, **`jitter-mines.ts`**: Weapon/ability systems
+- **`objectives/`**: Melody quest chains and the journal (lazy `objectives` chunk)
 
 #### `/src/particles` — Particle Systems
 
@@ -134,7 +148,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 #### `/src/utils` — Utilities
 
 - **`wasm-loader.ts`**: WASM initialization and ground height queries
-- **`profiler.js`**: Performance profiling
+- **`profiler.ts`**: Performance profiling
 - **`startup-profiler.ts`**: Boot sequence instrumentation
 
 #### `/src/ui` — User Interface
@@ -152,20 +166,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 
 ### Build & Bundling Strategy
 
-**Vite Config** (`vite.config.js`) uses manual chunking for code-splitting:
-
-- `vendor` — Three.js and dependencies
-- `compute` — GPU compute shaders
-- `audio` — Audio system (lazy-loaded)
-- `gameplay` — Gameplay mechanics
-- `weather` — Weather effects
-- `ui` — UI components
-- `utils` — Utilities and loaders
-- `foliage` — Large foliage module set
-- `world` — World generation
-- `main` — Core app code
-
-This structure prioritizes loading the core scene first, with heavy systems (audio, compute, foliage) lazy-loaded.
+`vite.config.js` splits the bundle with a first-match-wins `manualChunks` function: `vendor`, lazy feature chunks (`authoring`, `net`, `photo-mode`, `save-ui`, `debug`, `objectives`, `map-loader`, ...), a few boot-order leaves (`platform`, `weather-shared`, `log`), and everything else in `app`. Which module lands where, which cycles are accepted, and the size budget are documented in `docs/APP_CHUNK_SPLIT.md`; that file is the only description of the chunk layout, so keep this section pointing there. After moving or renaming a module, run `pnpm run build:ci` and compare `dist/chunks/` with a build from `main`.
 
 ## Development Patterns
 
@@ -261,6 +262,16 @@ npm run budget:check  # Verify chunk size constraints
 
 ## Testing
 
+### Gate and repo guards
+
+`npm run test:fast` is the PR gate (`.github/workflows/node-protocol-tests.yml`, contract in `docs/CI_CONTRACT.md`). Besides the node-only suites it runs the guards below; `typecheck` and `lint` have their own workflows (`typecheck.yml`, `lint.yml`). `typecheck`, `lint` and `test:cycles` compare against a committed baseline in `scripts/`; `test:baselines` fails a PR that raises one.
+
+- `npm run typecheck`: `tsc --noEmit` error count (baseline 0)
+- `npm run lint`: ESLint problem count (`scripts/eslint-baseline.json`)
+- `npm run test:cycles`: runtime import cycles reachable from `src/main.ts` (0/0)
+- `npm run check:root-files`: a tracked top-level file or directory not on `scripts/root-files-allowlist.json` fails; so does an entry that is no longer there. Put new scripts in `scripts/`, notes in `docs/`
+- `npm run test:docs-symbols`, `test:plan-integrity`, `test:foliage-barrel`, `test:baselines`: docs cite real `CONFIG` knobs, `weekly_plan.md` is not vandalised, foliage modules do not import their barrel, no baseline goes up
+
 ### Native memory tests
 
 - `npm run check:memory-layout`: static layout check (overlaps, `--memoryBase`, raw offsets, built binary)
@@ -298,7 +309,7 @@ npm run budget:check  # Verify chunk size constraints
 2. Runs WASM test: `npm run test:wasm`
 3. Runs smoke test: `npm run test`
 
-**CI Requirements**: Node 18+, Playwright installed, Chromium with WebGPU enabled (Chrome 113+)
+**CI Requirements**: Node 24+ (`engines`), Playwright installed, Chromium with WebGPU enabled (Chrome 113+)
 
 ## Configuration & Constants
 
@@ -330,12 +341,12 @@ npm run budget:check  # Verify chunk size constraints
 
 ## TypeScript & Linting
 
-- **Target**: ES2020 (output), ES2022 (modules)
+- **Target**: ES2022 (target and modules)
 - **Mode**: Strict (`strict: true` in tsconfig.json)
 - **Module resolution**: `bundler` (Vite-compatible)
 - **No comments on config options**: Trust TypeScript's strict checking
 
-**Type checking is not run in CI**; tests are behavioral (boot sequence, physics bounds). Rely on pre-commit hooks or IDE integrations for TS errors.
+**Type checking is part of the gate.** `npm run typecheck` (`scripts/tsc-ratchet.mjs`, workflow `.github/workflows/typecheck.yml`) fails on any `error TSnnnn` above the baseline in `scripts/tsc-baseline.json`, which is 0. Run it before pushing. ESLint is ratcheted the same way (`npm run lint`).
 
 ## Git & Branching
 
@@ -382,14 +393,14 @@ Known-good builds are `stable-YYYY-MM-DD[-label]` tags + GitHub Releases + `cand
 ### Key Metrics
 
 - Target: 60 FPS on WebGPU-capable hardware
-- Budget: ~500KB per chunk (configured in vite.config.js)
+- Budget: `tools/build-optimizer/budgets.json` (`npm run budget:check`; `app` 850 KB, `vendor` 1.5 MB); Vite also warns above 500 KB per chunk
 - Scene complexity: 30 trees, 20 mushrooms, 15 clouds (tunable via CONFIG)
 
 ### Optimization Techniques
 
-- **Code splitting**: Lazy-load audio, gameplay, compute modules
+- **Code splitting**: feature chunks load on demand; the layout and its constraints are in `docs/APP_CHUNK_SPLIT.md`
 - **Material batching**: `src/systems/material-batcher.ts` combines materials
-- **Region culling**: `src/systems/region-manager.ts` hides distant regions
+- **Region culling**: `src/systems/region-manager/region-manager.ts` hides distant regions
 - **Particle bounds**: WASM enforces world bounds; particles beyond are recycled
 
 ### Profiling
@@ -417,7 +428,7 @@ npm run optimize        # Apply all optimizations (experimental)
 1. Create file in `src/systems/` (e.g., `my-system.ts`)
 2. Export initialization function
 3. Register it as a scheduler `System` (add it to `FRAME_SYSTEMS` in `src/core/game-loop-systems.ts`, or call `registerSystem()` at runtime), or hook it into deferred init. See `docs/ARCHITECTURE.md`
-4. Add to code-split chunk if heavy (edit `vite.config.js` manual chunks)
+4. Add a chunk rule if it is heavy and lazy (edit `vite.config.js` `manualChunks`; read `docs/APP_CHUNK_SPLIT.md` first, since a lazy chunk that `app` awaits at boot deadlocks it). New files in an existing `systems/` folder inherit that folder's rule
 
 ### New Audio Track
 
@@ -428,7 +439,10 @@ npm run optimize        # Apply all optimizations (experimental)
 
 ## Further Reading
 
+- **Quick-start**: `docs/QUICKSTART.md` — 5-minute orientation; `docs/DEVELOPER_CONTEXT.md` — hotspots and gotchas; `docs/SETUP_GUIDE.md` — environment and Emscripten
 - **Architecture**: `docs/ARCHITECTURE.md` — Frame phases, system registration, the fixed step, entity ownership
+- **Chunks and budget**: `docs/APP_CHUNK_SPLIT.md` — the `manualChunks` layout, accepted cycles, size budget
+- **CI**: `docs/CI_CONTRACT.md` — what each gate runs and catches
 - **Progression**: `docs/PROGRESSION.md` — Unlocks, their item sources and effects, adding one
 - **Input**: `docs/INPUT.md` — Actions, contexts, adding a binding, rebinding
 - **Authoring**: `docs/AUTHORING.md` — Build mode, world commands, the WorldDocument command log

@@ -25,7 +25,7 @@ import {
     WINTER,
     computeSeasonState,
     createSeasonState,
-} from '../src/systems/season-core.ts';
+} from '../src/systems/environment/season-core.ts';
 import {
     FAUNA_BOID_STRIDE,
     FaunaSpecies,

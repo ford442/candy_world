@@ -75,8 +75,8 @@ Entity and region hints are normalized by `MapLoader` and folded into runtime ma
 
 1. `src/world/generation-core.ts` loads the map and derives map music context.
 2. `src/world/map-music-context.ts` stores normalized overrides.
-3. `src/systems/music-reactivity.ts` atomically reapplies bindings when context version changes.
-4. `src/systems/atmosphere-reactivity.ts` maps audio energy to `uBloomStrength`, `uCrescendoFogDensity`, and shaft state (called from `MusicReactivitySystem.update()`).
+3. `src/systems/music-reactivity/music-reactivity.ts` atomically reapplies bindings when context version changes.
+4. `src/systems/environment/atmosphere-reactivity.ts` maps audio energy to `uBloomStrength`, `uCrescendoFogDensity`, and shaft state (called from `MusicReactivitySystem.update()`).
 5. Foliage/atmospheric batchers consume `BiomeUniforms` and reflect the new profile.
 
 ## Atmosphere Reactivity (`assets/music-bindings.json` → post-processing + sky)

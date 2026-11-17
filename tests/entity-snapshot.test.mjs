@@ -16,9 +16,9 @@ import {
     canonicalizeEntity,
     migrateSnapshot,
     snapshotEntity,
-} from '../src/systems/entity-snapshot-core.ts';
-import { restoreEntity } from '../src/systems/entity-snapshot.ts';
-import { mergeSnapshotLayers } from '../src/systems/entity-snapshot-store.ts';
+} from '../src/systems/entity-snapshot/entity-snapshot-core.ts';
+import { restoreEntity } from '../src/systems/entity-snapshot/entity-snapshot.ts';
+import { mergeSnapshotLayers } from '../src/systems/entity-snapshot/entity-snapshot-store.ts';
 import { animatedFoliage } from '../src/world/state.ts';
 
 let failures = 0;

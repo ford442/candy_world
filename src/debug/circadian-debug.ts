@@ -14,7 +14,7 @@ import { getDayNightBias } from '../core/cycle.ts';
 import { applyTimeOfDayPreset } from '../core/time-of-day-presets.ts';
 import { uTwilight } from '../foliage/sky.ts';
 import { uCircadianPhase, uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
-import { circadianController } from '../systems/circadian-controller.ts';
+import { circadianController } from '../systems/environment/circadian-controller.ts';
 
 const _hasFlag = (key: string): boolean => {
     try {

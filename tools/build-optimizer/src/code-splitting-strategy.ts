@@ -165,7 +165,7 @@ class CodeSplittingStrategy {
         files: [
           'src/audio/audio-system.ts',
           'src/audio/beat-sync.ts',
-          'src/systems/music-reactivity.ts'
+          'src/systems/music-reactivity/music-reactivity.ts'
         ],
         priority: 'medium',
         preloadStrategy: 'interaction',
@@ -202,7 +202,7 @@ class CodeSplittingStrategy {
         description: 'Weather system and effects',
         files: [
           'src/systems/weather/weather.ts',
-          'src/systems/weather-types.ts',
+          'src/systems/weather/weather-types.ts',
           'src/foliage/rainbow.ts',
           'src/foliage/aurora.ts',
           'src/foliage/stars.ts'
@@ -412,7 +412,7 @@ export default defineConfig({
           'audio': [
             './src/audio/audio-system.ts',
             './src/audio/beat-sync.ts',
-            './src/systems/music-reactivity.ts'
+            './src/systems/music-reactivity/music-reactivity.ts'
           ],
           
           // Weather effects

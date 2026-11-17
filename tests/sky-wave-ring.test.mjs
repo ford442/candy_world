@@ -2,7 +2,7 @@
 // WaveRing: overlapping sky waves keep their own timestamp/color and never allocate.
 // Imports music-wave.ts directly — music-reactivity.ts can't load under Node (uTwilight import cycle).
 import * as THREE from 'three';
-import { WaveRing, WAVE_SLOT_COUNT } from '../src/systems/music-wave.ts';
+import { WaveRing, WAVE_SLOT_COUNT } from '../src/systems/music-reactivity/music-wave.ts';
 
 let failed = 0;
 function assert(cond, msg) {

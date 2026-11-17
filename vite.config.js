@@ -38,6 +38,16 @@ export default defineConfig({
                     if (id.includes('three/examples/jsm/loaders/GLTFLoader')) {
                         return 'gltf-loader';
                     }
+                    // The command layer lives in systems/authoring/ next to build mode,
+                    // but save slots replay it too, so it rides `save-ui` (see the
+                    // save-ui rule below), not the lazy `authoring` chunk. Must come
+                    // before the `authoring` rule, whose directory match would claim it.
+                    if (
+                        id.endsWith('/src/systems/authoring/edit-history.ts') ||
+                        id.endsWith('/src/systems/authoring/world-commands.ts')
+                    ) {
+                        return 'save-ui';
+                    }
                     // Player authoring (#1974): build mode + its gizmo load on the
                     // first `B` press. The thin build-mode-lazy.ts stub stays in `app`.
                     if (
@@ -93,15 +103,14 @@ export default defineConfig({
                     }
                     // Save menu UI + save-system core (exclude thin lazy stubs), and the
                     // WorldDocument it saves: schema, store, session and the edit
-                    // command log. One chunk, because save slots embed documents and
-                    // the document store sits on the save database.
+                    // command log (edit-history.ts / world-commands.ts, pinned above).
+                    // One chunk, because save slots embed documents and the document
+                    // store sits on the save database.
                     if (
                         (id.includes('/src/ui/save-menu/') && !id.endsWith('/save-menu/lazy.ts')) ||
                         id.includes('/src/systems/save-system/') ||
                         (id.includes('/src/world/document/') &&
-                            !id.endsWith('/document/lazy.ts')) ||
-                        id.endsWith('/src/systems/edit-history.ts') ||
-                        id.endsWith('/src/systems/world-commands.ts')
+                            !id.endsWith('/document/lazy.ts'))
                     ) {
                         return 'save-ui';
                     }
@@ -261,8 +270,8 @@ export default defineConfig({
                     // weather chunk evaluates first across the weather ↔ app cycle and
                     // hits a TDZ (`SPRING`, `WeatherState.CLEAR`) that stops boot.
                     if (
-                        id.includes('/src/systems/season-core.ts') ||
-                        id.includes('/src/systems/weather-types.ts')
+                        id.includes('/src/systems/environment/season-core.ts') ||
+                        id.includes('/src/systems/weather/weather-types.ts')
                     ) {
                         return 'weather-shared';
                     }
@@ -271,7 +280,7 @@ export default defineConfig({
                         return 'clustered-lights';
                     }
                     // Awakened flora persistence (feature-flagged ?awakened)
-                    if (id.includes('/src/systems/awakened-persistence.ts')) {
+                    if (id.includes('/src/systems/awakened/awakened-persistence.ts')) {
                         return 'awakened';
                     }
                     // Generative soundtrack engine (not music-mode.ts resolver)
@@ -286,7 +295,6 @@ export default defineConfig({
                     // imported by it (see the top-level-await note above).
                     if (
                         id.includes('/src/systems/weather/') ||
-                        id.includes('/src/systems/weather-utils.ts') ||
                         id.includes('/src/particles/') ||
                         id.includes('/src/compute/') ||
                         id.includes('/src/foliage/berries.ts')

@@ -1,5 +1,5 @@
 import { CONFIG } from '../core/config.ts';
-import type { SeasonMusicModifier } from '../systems/season-core.ts';
+import type { SeasonMusicModifier } from '../systems/environment/season-core.ts';
 import {
     AudioSystemCore,
     noteToFreq,

@@ -6,7 +6,7 @@ so a returning player sees a different world.
 ## The clock
 
 The season is a pure function of **(world seed, wall-clock time)**:
-[`computeSeasonState`](../src/systems/season-core.ts).
+[`computeSeasonState`](../src/systems/environment/season-core.ts).
 
 - One season lasts `CONFIG.season.realDaysPerSeason` real days (default 1, so a year is 4 days).
 - Year progress 0 is the start of spring at `CONFIG.season.epochMs`. With `CONFIG.season.seedPhase`
@@ -145,8 +145,8 @@ them. Presence peers share a seed, so they share the season, the fronts and the 
 
 | File                                                                                    | Role                                                       |
 | --------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [`systems/season-core.ts`](../src/systems/season-core.ts)                               | Pure calendar, blend and tint math (no imports)            |
-| [`systems/season-controller.ts`](../src/systems/season-controller.ts)                   | Per-frame update, overrides, announcer, `window.setSeason` |
+| [`systems/environment/season-core.ts`](../src/systems/environment/season-core.ts)                               | Pure calendar, blend and tint math (no imports)            |
+| [`systems/environment/season-controller.ts`](../src/systems/environment/season-controller.ts)                   | Per-frame update, overrides, announcer, `window.setSeason` |
 | [`foliage/material-core/season-nodes.ts`](../src/foliage/material-core/season-nodes.ts) | Role uniforms and `applySeasonTint`                        |
 | [`core/config/season.ts`](../src/core/config/season.ts)                                 | Defaults and palette                                       |
 

@@ -19,7 +19,7 @@ import {
     SEASON_ROLE_STRIDE,
     SEASON_ROLES,
     type SeasonRole,
-} from '../../systems/season-core.ts';
+} from '../../systems/environment/season-core.ts';
 import { $sn } from './tsl-types.ts';
 
 type ColorNode = Node<'vec3'>;
@@ -66,7 +66,7 @@ const _luma = vec3(LUMA_R, LUMA_G, LUMA_B);
  * (chroma ≥ 1), a luminance-preserving move toward the season's hue, then
  * powdered-sugar frost on upward-facing surfaces. Every step is exact at its
  * spring value, so spring renders the authored colour bit for bit.
- * Mirrored on the CPU by `tintRgbInPlace` in systems/season-core.ts.
+ * Mirrored on the CPU by `tintRgbInPlace` in systems/environment/season-core.ts.
  */
 export function applySeasonTint(base: Node | ColorNode, role: SeasonRole): ColorNode {
     const i = SEASON_ROLE_INDEX[role];

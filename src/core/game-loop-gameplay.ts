@@ -3,7 +3,7 @@ import { updateFallingBerries, collectFallingBerries } from '../foliage/berries.
 import { CloudBatcher } from '../foliage/cloud-batcher.ts';
 import { updateFallingClouds } from '../foliage/clouds.ts';
 import { ensureGameplay, getGameplay, getJitterMineCooldown } from '../gameplay/lazy.ts';
-import { circadianController } from '../systems/circadian-controller.ts';
+import { circadianController } from '../systems/environment/circadian-controller.ts';
 import { getGroundHeight } from '../systems/ground-system.ts';
 import { onNightMarketChordStrike, updateNightMarketStamps } from '../systems/night-market-stamps.ts';
 import { player } from '../systems/physics/index.ts';

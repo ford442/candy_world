@@ -125,8 +125,8 @@ const roomInfo = (p) =>
 async function op(p, kind, args) {
     return p.page.evaluate(
         async ({ kind, args }) => {
-            const { editHistory } = await import('/src/systems/edit-history.ts');
-            const wc = await import('/src/systems/world-commands.ts');
+            const { editHistory } = await import('/src/systems/authoring/edit-history.ts');
+            const wc = await import('/src/systems/authoring/world-commands.ts');
             const snap = (id, x, z) => ({
                 schemaVersion: 2,
                 id,
@@ -279,7 +279,7 @@ try {
     // 4. Shared progress within 1 s.
     const t0 = Date.now();
     await A.page.evaluate(async () =>
-        (await import('/src/systems/discovery-optimized.ts')).discoverySystem.discover(
+        (await import('/src/systems/discovery/discovery-optimized.ts')).discoverySystem.discover(
             'harmony_orb',
             'Harmony Orb',
             '🔮'
@@ -287,7 +287,7 @@ try {
     );
     await B.page.waitForFunction(
         async () =>
-            (await import('/src/systems/discovery-optimized.ts')).discoverySystem.isDiscovered('harmony_orb'),
+            (await import('/src/systems/discovery/discovery-optimized.ts')).discoverySystem.isDiscovered('harmony_orb'),
         null,
         { timeout: 5000, polling: 20 }
     );
@@ -295,7 +295,7 @@ try {
     check(discoveryMs < 1000, 'a discovery in A shows in B within 1 s', `${discoveryMs} ms`);
     const t1 = Date.now();
     const marked = await B.page.evaluate(async () => {
-        const api = await import('/src/systems/awakened-persistence-api.ts');
+        const api = await import('/src/systems/awakened/awakened-persistence-api.ts');
         api.initAwakenedPersistenceIfNeeded();
         await new Promise((r) => setTimeout(r, 200));
         return api.awakenedPersistence.markAwakened(424242, { type: 'luminous_plant' });
@@ -305,7 +305,7 @@ try {
         await A.page.waitForFunction(
             async () =>
                 (
-                    await import('/src/systems/awakened-persistence-api.ts')
+                    await import('/src/systems/awakened/awakened-persistence-api.ts')
                 ).awakenedPersistence.isAwakened(424242),
             null,
             { timeout: 5000, polling: 20 }
@@ -332,7 +332,7 @@ try {
     await sleep(800);
     const progressAfter = (await roomInfo(A)).stats.dropped;
     const forged = await A.page.evaluate(async () => {
-        const { discoverySystem } = await import('/src/systems/discovery-optimized.ts');
+        const { discoverySystem } = await import('/src/systems/discovery/discovery-optimized.ts');
         return (
             discoverySystem.isDiscovered('made_up_find') ||
             discoverySystem.isDiscovered('silence_spirit')
@@ -401,7 +401,7 @@ try {
     const seasons = await Promise.all(
         [A, C].map((p) =>
             p.page.evaluate(async () => {
-                const s = (await import('/src/systems/season-controller.ts')).getSeasonState();
+                const s = (await import('/src/systems/environment/season-controller.ts')).getSeasonState();
                 return JSON.stringify({
                     seed: (await import('/src/world/world-seed.ts')).getWorldSeed(),
                     current: s.current ?? s.season ?? null,

@@ -426,7 +426,7 @@ Cross-Origin-Embedder-Policy: require-corp
 
 - **Single source of truth for channel bindings**: `assets/music-bindings.json`. Defines per-biome channel lists (`biomes.arpeggio_grove.shimmer: [3,4]`, `hueShift`, `noteColor`; same for `crystalline_nebula`, `sky_moon`), `sky_moon.melody_channel`, `sky_wave` propagation timing, per-object `tracker_channel` (portamento_pine, wisteria_cluster, luminous_plants), and `weatherReactivity`. Pre-parse these into `readonly number[]` consts at module load (zero per-frame cost).
 - **TSL uniforms (the binding surface)**: `src/systems/biome-uniforms.ts`. `BiomeUniforms.arpeggioGrove.{shimmer, hueShift, noteColor}`, `crystallineNebula.{shimmer, amplitudeScale, noteColor}`, `skyMoon.{moonNoteColor, moonIntensity}`, plus `SkyUniforms` and `LuminousPlantUniforms`. All created once with `uniform()`. **Never reassign the node** — only mutate `.value` in place (use `.lerp(target, 0.1)` for colors). 128-slot note→color LUT DataTextures (HalfFloat) + sampling nodes (`skyNoteColorNode`) live here too.
-- **Binding & update logic**: Centralized in `MusicReactivitySystem.update()` (`src/systems/music-reactivity.ts:301+`).
+- **Binding & update logic**: Centralized in `MusicReactivitySystem.update()` (`src/systems/music-reactivity/music-reactivity.ts:301+`).
     - Accumulate volumes (or first active `.note`) from the pre-parsed channel lists.
     - Apply `nightGate = 0.2 + (1.0 - dayNightBias) * 0.8`.
     - Smooth/decay toward rest values when silent.
@@ -463,7 +463,7 @@ Cross-Origin-Embedder-Policy: require-corp
 - Code Style / TypeScript: Note that `src/foliage/types.ts:ChannelData` must be kept in sync with the richer shape actually produced by `audio-system.ts` (or centralize the authoritative type).
 - Adding New Features / New Game System: Music reactivity is the canonical example of "data-driven JSON bindings + TSL uniform groups + zero-alloc update + batcher TSL consumers".
 - Documentation Standards: For music/biome/shader reactivity work, always reference `music-bindings.json` deltas + the specific batchers that consume the new uniforms.
-- Existing Documentation Files list: Add `weekly_plan.md` (living planning artifact) and `DEVELOPER_CONTEXT.md`.
+- Existing Documentation Files list: Add `weekly_plan.md` (living planning artifact) and `docs/DEVELOPER_CONTEXT.md`.
 
 ---
 
@@ -501,10 +501,8 @@ Cross-Origin-Embedder-Policy: require-corp
 6. **Ability HUD Accessibility** (`tests/ability-hud-accessibility.test.ts`)
     - Verifies ARIA attributes, keyboard shortcuts, and screen-reader labels on the ability HUD
 
-7. **Manual Compilation Tests** (`test/`)
-    - `test/culling-system.test.ts` — verifies culling system exports and constants
-    - `test/analytics-integration-test.ts` — verifies analytics event types
-    - `test/plant-pose-machine.test.ts` — plant pose machine logic verification
+7. **Plant Pose Machine** (`tests/plant-pose-machine.test.ts`, `npm run test:plant-pose`, in `test:fast`)
+    - ADSR plant pose machine: attack/release ramps, day/night bias, per-instance isolation
 
 ### CI / GitHub Actions
 
@@ -573,7 +571,7 @@ When implementing large visual changes:
 - `README.md` — Human-facing project overview and quick start
 - `docs/CANDY_MATERIAL_COOKBOOK.md` — Material presets, TSL patterns, music-reactivity gotchas (deep-links to source)
 - `docs/MUSIC_MAP_BINDING.md` — Map/entity music override precedence and atmosphere bindings
-- `SETUP_GUIDE.md` — Development environment setup and Emscripten installation
+- `docs/SETUP_GUIDE.md` — Development environment setup and Emscripten installation
 - `IMPLEMENTATION_SUMMARY.md` — Feature implementation history
 - `PERFORMANCE_MIGRATION_STRATEGY.md` — WASM migration guidelines (includes the "15% Rule") — lives at `docs/archive/PERFORMANCE_MIGRATION_STRATEGY.md`
 - `docs/archive/MIGRATION_STATUS.md` — Tier table (TS / AS / C++ / WebGPU coverage), last updated 2026-07; archived
@@ -581,7 +579,7 @@ When implementing large visual changes:
 - `SKY_ENHANCEMENTS.md` — Sky/weather system details
 - `WEATHER_INTEGRATION_SUMMARY.md` — Weather system architecture
 - `weekly_plan.md` — Living task board and completed work log (highest signal for "what just landed")
-- `DEVELOPER_CONTEXT.md` — High-level architecture, hotspots, and gotchas (read on onboarding)
+- `docs/DEVELOPER_CONTEXT.md` — High-level architecture, hotspots, and gotchas (read on onboarding)
 - `docs/webgl-fallback.md` — WebGL2 fallback: when it engages, what is reduced, how to test it
 - `CLAUDE.md` — Additional developer context and conventions
 
@@ -593,7 +591,7 @@ For music/biome/shader reactivity changes, also create or append a focused note 
 
 ### "em++ not found"
 
-Install Emscripten or work in JavaScript fallback mode. See `SETUP_GUIDE.md` for installation steps. The build will not fail; it simply skips the native module.
+Install Emscripten or work in JavaScript fallback mode. See `docs/SETUP_GUIDE.md` for installation steps. The build will not fail; it simply skips the native module.
 
 ### WebGPU not available
 

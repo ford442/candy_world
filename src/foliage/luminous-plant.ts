@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
+import { awakenedPersistence } from '../systems/awakened/awakened-persistence-api.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { LuminousPlantBatcher } from './luminous-plant-batcher.ts';
 

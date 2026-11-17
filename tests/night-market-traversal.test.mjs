@@ -24,15 +24,15 @@ const { ChunkStreamer } = await import('../src/world/chunk-streamer.ts');
 const { loadMap } = await import('../src/world/map-loader.ts');
 const { animatedFoliage } = await import('../src/world/state.ts');
 const { getLocalLightStats } = await import('../src/rendering/lights.ts');
-const { CURRENT_SNAPSHOT_VERSION } = await import('../src/systems/entity-snapshot-core.ts');
-const { restoreEntity } = await import('../src/systems/entity-snapshot.ts');
+const { CURRENT_SNAPSHOT_VERSION } = await import('../src/systems/entity-snapshot/entity-snapshot-core.ts');
+const { restoreEntity } = await import('../src/systems/entity-snapshot/entity-snapshot.ts');
 const { applyEntitySnapshots, serializeEntitySnapshots } =
     await import('../src/systems/save-system/entity-snapshot.ts');
 const stamps = await import('../src/systems/night-market-stamps.ts');
 const { BiomeUniforms, getBiomeUniforms } = await import('../src/systems/biome-uniforms.ts');
 const { updateBiomeChannelBindings, SILENT_DECAY_UNIFORMS } =
-    await import('../src/systems/music-reactivity-bindings.ts');
-const { MRState } = await import('../src/systems/music-reactivity-core.ts');
+    await import('../src/systems/music-reactivity/music-reactivity-bindings.ts');
+const { MRState } = await import('../src/systems/music-reactivity/music-reactivity-core.ts');
 const { CONFIG } = await import('../src/core/config.ts');
 
 let failures = 0;

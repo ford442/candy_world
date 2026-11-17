@@ -11,7 +11,7 @@
 
 import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import type { EntitySnapshot } from '../entity-snapshot-core.ts';
+import type { EntitySnapshot } from '../entity-snapshot/entity-snapshot-core.ts';
 import { getGroundHeight } from '../ground-system.ts';
 import { round } from './placement-core.ts';
 

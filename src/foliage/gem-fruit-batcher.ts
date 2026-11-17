@@ -7,7 +7,7 @@ import {
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { getCIAdjustedCount } from '../core/config.ts';
-import type { BatcherInstanceRef } from '../systems/awakened-types.ts';
+import type { BatcherInstanceRef } from '../systems/awakened/awakened-types.ts';
 import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId, uCircadianPoseOffset, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { sampleEntityScale } from '../world/entity-scale.ts';

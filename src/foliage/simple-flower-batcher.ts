@@ -13,7 +13,7 @@ import {
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, circadianDayGlowMult } from '../systems/biome-uniforms.ts';
-import { getActiveWave } from '../systems/music-wave.ts';
+import { getActiveWave } from '../systems/music-reactivity/music-wave.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import { foliageMaterials } from './foliage-materials.ts';

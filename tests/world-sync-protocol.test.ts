@@ -28,7 +28,7 @@ import {
     type CmdMessage,
     type WorldEffect,
 } from '../src/systems/net/world-sync-protocol.ts';
-import type { EntitySnapshot } from '../src/systems/entity-snapshot-types.ts';
+import type { EntitySnapshot } from '../src/systems/entity-snapshot/entity-snapshot-types.ts';
 import {
     documentStateHash,
     entityStateHash,

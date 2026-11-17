@@ -9,7 +9,7 @@
  * Renderer-free and import-free at runtime (the edge function loads it).
  */
 
-import type { EntitySnapshot } from '../../systems/entity-snapshot-types.ts';
+import type { EntitySnapshot } from '../../systems/entity-snapshot/entity-snapshot-types.ts';
 import type { DocumentCommand } from './schema.ts';
 
 export interface EntityTransition {

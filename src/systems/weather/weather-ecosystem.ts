@@ -16,7 +16,7 @@ import { getGroundHeight, uploadMushroomSpecs, batchMushroomSpawnCandidates, rea
 import { spawnNearbyFoliage } from '../../world/generation.ts';
 import { foliageClouds } from '../../world/state.ts';
 import { cpuAnimatedFoliage } from '../../world/state.ts';
-import { musicReactivitySystem } from '../music-reactivity.ts';
+import { musicReactivitySystem } from '../music-reactivity/music-reactivity.ts';
 import type { WeatherSystem } from './weather.ts';
 
 // Scratch objects for optimization

@@ -13,7 +13,7 @@
  */
 
 import * as v from 'valibot';
-import type { EntitySnapshot } from '../../systems/entity-snapshot-types.ts';
+import type { EntitySnapshot } from '../../systems/entity-snapshot/entity-snapshot-types.ts';
 
 /** Bump with a matching hop in `migrations.ts`. */
 export const WORLD_DOCUMENT_SCHEMA = 1;

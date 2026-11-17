@@ -27,7 +27,7 @@ import {
     globalClusteredLighting,
 } from '../../rendering/clustered-lighting.ts';
 import { getIrradianceNode } from '../../rendering/irradiance-probes.ts';
-import type { SeasonRole } from '../../systems/season-core.ts';
+import type { SeasonRole } from '../../systems/environment/season-core.ts';
 import { applyGlitch } from '../glitch.ts';
 import { applyDreamEnv } from './env-map.ts';
 import { isClearcoatEnabled } from './quality-gate.ts';

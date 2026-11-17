@@ -8,9 +8,9 @@
  */
 
 import assert from 'node:assert/strict';
-import { EditHistory } from '../src/systems/edit-history.ts';
-import { CURRENT_SNAPSHOT_VERSION } from '../src/systems/entity-snapshot-core.ts';
-import { PlaceCommand } from '../src/systems/world-commands.ts';
+import { EditHistory } from '../src/systems/authoring/edit-history.ts';
+import { CURRENT_SNAPSHOT_VERSION } from '../src/systems/entity-snapshot/entity-snapshot-core.ts';
+import { PlaceCommand } from '../src/systems/authoring/world-commands.ts';
 import { kickDrumGeyserBatcher } from '../src/foliage/kick-drum-geyser-batcher.ts';
 import { mushroomBatcher } from '../src/foliage/mushroom-batcher/index.ts';
 import { animatedFoliage } from '../src/world/state.ts';

@@ -16,6 +16,7 @@
  */
 
 import * as THREE from 'three';
+import { editHistory } from '../systems/authoring/edit-history.ts';
 import {
     EXCLUDED_TYPES,
     HOVER_RADIUS,
@@ -30,24 +31,23 @@ import {
     yawOf,
     type PlacementGhost,
 } from '../systems/authoring/placement-core.ts';
-import { editHistory } from '../systems/edit-history.ts';
-import {
-    nextSnapshotId,
-    snapshotEntity,
-    type EntitySnapshot,
-} from '../systems/entity-snapshot-core.ts';
-import {
-    deleteSnapshot,
-    loadDevSnapshots,
-    saveSnapshot,
-} from '../systems/entity-snapshot-store.ts';
-import { applyEntitySnapshots } from '../systems/save-system/entity-snapshot.ts';
 import {
     MoveCommand,
     PlaceCommand,
     RemoveCommand,
     type PlaceCommandHooks,
-} from '../systems/world-commands.ts';
+} from '../systems/authoring/world-commands.ts';
+import {
+    nextSnapshotId,
+    snapshotEntity,
+    type EntitySnapshot,
+} from '../systems/entity-snapshot/entity-snapshot-core.ts';
+import {
+    deleteSnapshot,
+    loadDevSnapshots,
+    saveSnapshot,
+} from '../systems/entity-snapshot/entity-snapshot-store.ts';
+import { applyEntitySnapshots } from '../systems/save-system/entity-snapshot.ts';
 import { announce } from '../ui/announcer.ts';
 import { showToast } from '../utils/toast.ts';
 import { getRegisteredTypes, registerBuiltinWorldObjectTypes } from '../world/foliage-registry.ts';

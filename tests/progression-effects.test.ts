@@ -34,7 +34,7 @@ const { unlockSystem, UNLOCK_DEFINITIONS } = await import('../src/systems/unlock
 const { BOUNCES_TO_RIPEN, recordMushroomBounce, harvestBounceShroom } =
     await import('../src/systems/bounce-shrooms.ts');
 const { pickNextShrine } = await import('../src/systems/shrine-travel.ts');
-const { buildDiscoveryLogEntries, DISCOVERY_MAP } = await import('../src/systems/discovery-map.ts');
+const { buildDiscoveryLogEntries, DISCOVERY_MAP } = await import('../src/systems/discovery/discovery-map.ts');
 const { createHeavyStone, heavyStoneIslandSites } = await import('../src/foliage/heavy-stone.ts');
 const { LAKE_ISLAND, LAKE_DESCENT } = await import('../src/systems/ground-height-core.ts');
 const savedSites = (): string[] => JSON.parse(store.get('candy_world_unlocks') ?? '{}').sites ?? [];

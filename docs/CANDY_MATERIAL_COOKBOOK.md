@@ -13,7 +13,7 @@ factory or copy a shipping batcher** before hand-rolling a material.
 | Standard deformation chain            | [`applyStandardDeformation`](../src/foliage/material-core/deformation.ts)                                                    |
 | LOD batcher deformation               | [`src/foliage/lod-nodes.ts`](../src/foliage/lod-nodes.ts) → `applyStandardDeformationWithLod`                                |
 | Biome / music uniforms                | [`src/systems/biome-uniforms.ts`](../src/systems/biome-uniforms.ts)                                                          |
-| Per-frame binding update              | [`src/systems/music-reactivity.ts`](../src/systems/music-reactivity.ts)                                                      |
+| Per-frame binding update              | [`src/systems/music-reactivity/music-reactivity.ts`](../src/systems/music-reactivity/music-reactivity.ts)                                                      |
 | Music map overrides                   | [`docs/MUSIC_MAP_BINDING.md`](./MUSIC_MAP_BINDING.md)                                                                        |
 | Binding conventions (authoritative)   | [`AGENTS.md`](../AGENTS.md) → "Music Reactivity & Biome / Channel-to-Shader Binding Conventions"                             |
 | Palette & note colors                 | [`src/core/config.ts`](../src/core/config.ts) (`PALETTE`, `noteColorMap`)                                                    |
@@ -224,7 +224,7 @@ Any new foliage data texture must follow the same pattern (see comment ≈ L157�
 
 **No `new THREE.Vector3` / `THREE.Color` inside `update()` / `animate()` / per-frame
 music binding.** Module-scope `_scratch*` only — e.g.
-[`music-reactivity-core.ts`](../src/systems/music-reactivity-core.ts),
+[`music-reactivity-core.ts`](../src/systems/music-reactivity/music-reactivity-core.ts),
 [`foliage-materials.ts`](../src/foliage/foliage-materials.ts). This is the project's
 #1 GC-hygiene rule; smoke + perf budget assume it.
 
