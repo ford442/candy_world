@@ -391,7 +391,7 @@ const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } }
             `${search}: timestamp-query not requested`
         );
     }
-    for (const search of ['', '?dynres=1', '?foo=bar']) {
+    for (const search of ['', '?dynres=1', '?dynres=false', '?foo=bar']) {
         globalThis.window.location = { search };
         assert.equal(wantsTimestampQuery(), true, `"${search}" wants timestamp-query`);
         assert.deepEqual(selectRequiredFeatures(adapter3Like, {}), ['timestamp-query'], `"${search}" requests it`);
