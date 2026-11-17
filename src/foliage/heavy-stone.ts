@@ -7,7 +7,6 @@
 
 import * as THREE from 'three';
 import { color, float, positionLocal } from 'three/tsl';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { LAKE_ISLAND } from '../systems/ground-height-core.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
