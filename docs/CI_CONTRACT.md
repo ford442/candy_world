@@ -31,7 +31,7 @@ first: every tracked top-level file or directory must be on
 land at the repo root unnoticed (its self-test is `test:root-files`).
 
 **What it catches:** any regression in the pure-logic layer — physics and WASM
-parity, world/entity data contracts, rendering *configuration* — plus docs that
+parity, world/entity data contracts, rendering _configuration_ — plus docs that
 cite config knobs which do not exist, find-and-replace vandalism of
 `weekly_plan.md`, any new runtime import cycle reachable from `src/main.ts`,
 and a PR that raises a committed ratchet baseline (see below).
@@ -144,12 +144,12 @@ Added 2026-10-14. `scripts/check-baseline-direction.mjs` (`npm run
 test:baselines`, inside `test:fast`, so inside the `protocol` check) compares
 each committed baseline in a PR with `origin/main`'s copy:
 
-| file | keys | a raise is accepted when |
-| --- | --- | --- |
-| `scripts/eslint-baseline.json` | `maxProblems` | the PR has the `ratchet-reset` label **and** changes `eslint.config.js` or `scripts/eslint-ratchet.mjs` |
-| `scripts/tsc-baseline.json` | `errors` | never |
-| `scripts/cycles-baseline.json` | `cyclicModules`, `cyclicEdges`, `madgeCycles` | never |
-| `scripts/any-baseline.json` | `total` | never |
+| file                           | keys                                          | a raise is accepted when                                                                                |
+| ------------------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `scripts/eslint-baseline.json` | `maxProblems`                                 | the PR has the `ratchet-reset` label **and** changes `eslint.config.js` or `scripts/eslint-ratchet.mjs` |
+| `scripts/tsc-baseline.json`    | `errors`                                      | never                                                                                                   |
+| `scripts/cycles-baseline.json` | `cyclicModules`, `cyclicEdges`, `madgeCycles` | never                                                                                                   |
+| `scripts/any-baseline.json`    | `total`                                       | never                                                                                                   |
 
 Lower or equal passes. Higher fails and prints the file, the key and both
 numbers. A deleted baseline file or key also fails, because `eslint-ratchet`
@@ -191,23 +191,23 @@ The stale-squash guard (`scripts/check-stale-squash.mjs`) has two modes.
   file-granular check on the squash that just landed. It flags files the
   squash (`HEAD^ → HEAD`) deletes lines from that `main` changed after the
   branch forked.
-  - A squash commit's only parent is the previous `main`, so the guard reads
-    the trailing `(#N)` from the subject and fetches `refs/pull/N/head`
-    (GitHub keeps it after merge). The trailing `(#N)` is the PR; an earlier
-    one is an issue the title cited (#1917's subject is `… (#1826) (#1917)`).
-    A subject with no trailing `(#N)` (a direct push or a rebase merge) is
-    logged and skipped.
-  - **The fork point is not `git merge-base HEAD^ <pr head>`.** #1917's branch
-    merged `main` in twice in the minute before it was squashed, so its
-    merge-base was `main`'s tip, and a merge-base check finds nothing. The
-    guard instead uses the parent of the oldest commit on the PR head's
-    first-parent chain that is not on `main`, i.e. where the branch's own work
-    started. For a branch that never merged `main`, that equals the merge-base.
-  - Replayed on the real #1917 squash (`df6f7182`), it names `package.json`,
-    `scripts/eslint-baseline.json`, `src/rendering/gpu-context.ts` and
-    `tests/webgpu-probe.test.mjs`. That is four of the five files `protocol`
-    named; the squash deleted no lines from `src/foliage/animation.ts`. With
-    the merge-base it named nothing.
+    - A squash commit's only parent is the previous `main`, so the guard reads
+      the trailing `(#N)` from the subject and fetches `refs/pull/N/head`
+      (GitHub keeps it after merge). The trailing `(#N)` is the PR; an earlier
+      one is an issue the title cited (#1917's subject is `… (#1826) (#1917)`).
+      A subject with no trailing `(#N)` (a direct push or a rebase merge) is
+      logged and skipped.
+    - **The fork point is not `git merge-base HEAD^ <pr head>`.** #1917's branch
+      merged `main` in twice in the minute before it was squashed, so its
+      merge-base was `main`'s tip, and a merge-base check finds nothing. The
+      guard instead uses the parent of the oldest commit on the PR head's
+      first-parent chain that is not on `main`, i.e. where the branch's own work
+      started. For a branch that never merged `main`, that equals the merge-base.
+    - Replayed on the real #1917 squash (`df6f7182`), it names `package.json`,
+      `scripts/eslint-baseline.json`, `src/rendering/gpu-context.ts` and
+      `tests/webgpu-probe.test.mjs`. That is four of the five files `protocol`
+      named; the squash deleted no lines from `src/foliage/animation.ts`. With
+      the merge-base it named nothing.
 
 Push mode cannot un-merge, so **a detection never fails the run**. It writes
 the result to `$GITHUB_OUTPUT`, and an `actions/github-script` step
@@ -283,12 +283,12 @@ test:integration:deferred = test:docs-symbols && test:plan-integrity
 
 advertised four suites. Verified on disk at commit `90bd6c1`:
 
-| leg | status then | status now |
-| --- | --- | --- |
-| `test:docs-symbols` | npm script undefined, `scripts/check-docs-symbols.mjs` absent | **written and wired into `test:fast`** |
-| `test:plan-integrity` | npm script undefined, `scripts/check-plan-integrity.mjs` absent | **written and wired into `test:fast`** |
-| `test:save-entity-snapshot` | script defined, but `tests/save-entity-snapshot-roundtrip.test.mjs` does not exist — `npm run test:save-entity-snapshot` exits 1 with `ERR_MODULE_NOT_FOUND` | **npm script deleted** |
-| `test:character-native` | npm script undefined; `tests/character-controller-native.test.mjs` does not exist either. It arrived with PR #1771, and the stale #1779 squash deleted it | **restored in #1822 as a Node-only test and wired into `test:fast` (skips without `build:emcc` output). It gates for real in `emscripten-verify.yml`** |
+| leg                         | status then                                                                                                                                                  | status now                                                                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `test:docs-symbols`         | npm script undefined, `scripts/check-docs-symbols.mjs` absent                                                                                                | **written and wired into `test:fast`**                                                                                                                 |
+| `test:plan-integrity`       | npm script undefined, `scripts/check-plan-integrity.mjs` absent                                                                                              | **written and wired into `test:fast`**                                                                                                                 |
+| `test:save-entity-snapshot` | script defined, but `tests/save-entity-snapshot-roundtrip.test.mjs` does not exist — `npm run test:save-entity-snapshot` exits 1 with `ERR_MODULE_NOT_FOUND` | **npm script deleted**                                                                                                                                 |
+| `test:character-native`     | npm script undefined; `tests/character-controller-native.test.mjs` does not exist either. It arrived with PR #1771, and the stale #1779 squash deleted it    | **restored in #1822 as a Node-only test and wired into `test:fast` (skips without `build:emcc` output). It gates for real in `emscripten-verify.yml`** |
 
 The chain itself is deleted. Two of the four legs now exist and gate PRs. The
 other two had no test file to point at, and writing a save-system round-trip
@@ -322,16 +322,16 @@ full runs took about 90 seconds, so the full job runs on PRs instead of a
 cut-down copy that could drift from it. Not a required check: a path-filtered
 workflow that does not start would block PRs that touch none of these paths.
 
-| step | what it fails on | PR | nightly / tags / dispatch |
-| --- | --- | --- | --- |
-| `verify:emcc:manifest` | `exports.txt` or the flag contract drifted from `build.sh` / `*.cpp` (runs before the compile) | yes | yes |
-| `build:emcc` | any compile or link error in the threaded or single-threaded build, or the garden DSP module | yes | yes |
-| `check:native-artifacts` | any of `candy_native.{js,wasm}`, `candy_native_st.{js,wasm}`, `candy_dsp.wasm` missing, truncated, not valid WebAssembly, a glue file without `Module._<name>` for every `exports.txt` name, a DSP module breaking its contract, or the ST module not instantiating in Node with every export callable | yes | yes |
-| `verify:emcc --strict` | an `exports.txt` name missing from `candy_native.wasm` | yes | yes |
-| `test:native-exports` | the parsed C++/AS ABI differs from the built glue / `candy_physics.wasm` (skips in the PR gate) | yes | yes |
-| `check:dsp-wasm`, `test:dsp-render` (`CANDY_DSP_REQUIRE=1`) | the DSP module's ABI, golden render, timing | yes | yes |
-| `test:parity`, `test:native-batch-parity`, `test:character-native` (`CANDY_PARITY_REQUIRE_CPP=1`) | a C++ skip, or any TS / AS / C++ disagreement | yes | yes |
-| `exports.txt` drift (`git diff`) | `build:emcc` regenerated a different manifest than the committed one | yes | yes |
+| step                                                                                              | what it fails on                                                                                                                                                                                                                                                                                       | PR  | nightly / tags / dispatch |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | ------------------------- |
+| `verify:emcc:manifest`                                                                            | `exports.txt` or the flag contract drifted from `build.sh` / `*.cpp` (runs before the compile)                                                                                                                                                                                                         | yes | yes                       |
+| `build:emcc`                                                                                      | any compile or link error in the threaded or single-threaded build, or the garden DSP module                                                                                                                                                                                                           | yes | yes                       |
+| `check:native-artifacts`                                                                          | any of `candy_native.{js,wasm}`, `candy_native_st.{js,wasm}`, `candy_dsp.wasm` missing, truncated, not valid WebAssembly, a glue file without `Module._<name>` for every `exports.txt` name, a DSP module breaking its contract, or the ST module not instantiating in Node with every export callable | yes | yes                       |
+| `verify:emcc --strict`                                                                            | an `exports.txt` name missing from `candy_native.wasm`                                                                                                                                                                                                                                                 | yes | yes                       |
+| `test:native-exports`                                                                             | the parsed C++/AS ABI differs from the built glue / `candy_physics.wasm` (skips in the PR gate)                                                                                                                                                                                                        | yes | yes                       |
+| `check:dsp-wasm`, `test:dsp-render` (`CANDY_DSP_REQUIRE=1`)                                       | the DSP module's ABI, golden render, timing                                                                                                                                                                                                                                                            | yes | yes                       |
+| `test:parity`, `test:native-batch-parity`, `test:character-native` (`CANDY_PARITY_REQUIRE_CPP=1`) | a C++ skip, or any TS / AS / C++ disagreement                                                                                                                                                                                                                                                          | yes | yes                       |
+| `exports.txt` drift (`git diff`)                                                                  | `build:emcc` regenerated a different manifest than the committed one                                                                                                                                                                                                                                   | yes | yes                       |
 
 Why `check:native-artifacts` exists: `emscripten/build.sh` and
 `emscripten/dsp/build.sh` print a warning, delete the stale artifacts and exit 0

@@ -44,7 +44,9 @@ if (!fs.existsSync(WASM_JS) || !fs.existsSync(WASM_BIN)) {
     console.log('[test:character-native] SKIPPED — public/candy_native_st.{js,wasm} not found.');
     console.log('[test:character-native] Build them with `npm run build:emcc` (requires emsdk).');
     if (process.env.CANDY_PARITY_REQUIRE_CPP === '1') {
-        console.error('[test:character-native] FAIL: CANDY_PARITY_REQUIRE_CPP=1 but the native module is missing.');
+        console.error(
+            '[test:character-native] FAIL: CANDY_PARITY_REQUIRE_CPP=1 but the native module is missing.'
+        );
         process.exit(1);
     }
     process.exit(0);
