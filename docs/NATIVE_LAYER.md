@@ -175,8 +175,10 @@ JS (`firstNativeModule`).
   release workflow (`release-stable.yml`) installs the pinned emsdk, builds both
   native tiers, requires `candy_native*.wasm` in `dist/`, and runs the
   cross-tier parity tests with `CANDY_PARITY_REQUIRE_CPP=1`.
-- PR CI (`build:ci`, `test:fast`) builds AS only. C++ is built and
-  parity-checked nightly and on tags (`emscripten-verify.yml`).
+- The PR gate (`build:ci`, `test:fast`) builds AS only. C++ is built and
+  parity-checked, fail-closed, on pull requests that touch the native ABI or
+  its bridges, nightly and on tags (`emscripten-verify.yml`; docs/CI_CONTRACT.md,
+  "Native tier on pull requests").
 - COOP/COEP headers are served by both `vite` and `vite preview`, so the smoke
   test and local previews run the MT build (`crossOriginIsolated === true`).
   **The deploy host must send the same two headers**

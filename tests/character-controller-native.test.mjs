@@ -24,7 +24,9 @@
  * tests/parity.mjs).
  *
  * SKIPS CLEANLY (exit 0) when public/candy_native_st.{js,wasm} are absent.
- * Build them with `npm run build:emcc` (requires emsdk).
+ * Build them with `npm run build:emcc` (requires emsdk). With
+ * CANDY_PARITY_REQUIRE_CPP=1 (set wherever build:emcc just ran) the skip is a
+ * failure instead, like the parity tests.
  *
  * Run: npm run test:character-native
  */
@@ -41,6 +43,12 @@ const WASM_BIN = path.join(REPO_ROOT, 'public', 'candy_native_st.wasm');
 if (!fs.existsSync(WASM_JS) || !fs.existsSync(WASM_BIN)) {
     console.log('[test:character-native] SKIPPED — public/candy_native_st.{js,wasm} not found.');
     console.log('[test:character-native] Build them with `npm run build:emcc` (requires emsdk).');
+    if (process.env.CANDY_PARITY_REQUIRE_CPP === '1') {
+        console.error(
+            '[test:character-native] FAIL: CANDY_PARITY_REQUIRE_CPP=1 but the native module is missing.'
+        );
+        process.exit(1);
+    }
     process.exit(0);
 }
 
