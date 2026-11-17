@@ -15,6 +15,12 @@ import {
     resolveAntialiasMode,
 } from '../core/config.ts';
 import type { CandyRenderer } from '../core/init.ts';
+import { getPlatformCapabilities } from '../core/platform/capabilities.ts';
+import {
+    HDR_ROLLOFF_KNEE,
+    onHdrPeakChange,
+    readHdrPreference,
+} from '../core/platform/hdr-preference.ts';
 import { SCENE_PASS_SAMPLES } from '../rendering/gpu-context.ts';
 import type { CompileTarget } from '../rendering/shader-warmup.ts';
 import * as postFxUniforms from './post-processing-uniforms.ts';
@@ -35,6 +41,26 @@ function tracksGpuTimestamps(renderer: CandyRenderer): boolean {
     return (
         (renderer as { backend?: { trackTimestamp?: boolean } }).backend?.trackTimestamp === true
     );
+}
+
+let unbindHdrPeak: (() => void) | null = null;
+
+/**
+ * On an extended-range swap chain, seed `uHdrPeak` from the player's
+ * preference and follow the accessibility slider live. Null on SDR, which
+ * leaves the post graph exactly as it was without HDR. Also null when
+ * `init.ts` could not select Display P3 and fell back to sRGB + ACES on the
+ * extended swap chain: ACES already bounds the output there.
+ */
+function bindHdrPeak(renderer: CandyRenderer): { knee: number } | null {
+    if (!getPlatformCapabilities().hdr.extendedRange) return null;
+    if (renderer.outputColorSpace !== 'display-p3') return null;
+    postFxUniforms.uHdrPeak.value = readHdrPreference().peak;
+    unbindHdrPeak?.();
+    unbindHdrPeak = onHdrPeakChange((peak) => {
+        postFxUniforms.uHdrPeak.value = peak;
+    });
+    return { knee: HDR_ROLLOFF_KNEE };
 }
 
 function publishPostFxPasses(count: number): void {
@@ -98,6 +124,7 @@ export async function initPostProcessing(
         aa,
         dynamicResolution:
             mode === 'webgpu' && isDynamicResolutionAllowed() && tracksGpuTimestamps(renderer),
+        hdr: mode === 'webgpu' ? bindHdrPeak(renderer) : null,
         u: postFxUniforms,
     });
 }

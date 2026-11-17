@@ -38,7 +38,12 @@ const {
     awaitGpuDevice,
     selectRequiredFeatures,
     wantsTimestampQuery,
+    wantsOptionalGpuFeatures,
+    grantedOptionalFeatures,
+    extendedRangeConfigured,
+    GPU_OPTIONAL_FEATURES,
 } = await import('../src/rendering/gpu-context.ts');
+const { HDR_STORAGE_KEY } = await import('../src/core/platform/hdr-preference.ts');
 const { resolveRendererBackend } = await import('../src/rendering/renderer-mode.ts');
 
 // --- Fakes -----------------------------------------------------------------
@@ -78,7 +83,13 @@ function makeAdapter(device, overrides = {}) {
 
 let configureCalls = 0;
 let lastConfigure = null;
-function makeCanvas(overrides = {}) {
+/**
+ * `reportsConfig`: the context implements `getConfiguration()` (Chrome 131+),
+ * echoing what was configured, the way the probe verifies extended range.
+ * `dropsToneMapping`: a browser that accepts the configure but ignores the
+ * `toneMapping` member (older Chrome), so it reports standard range.
+ */
+function makeCanvas(overrides = {}, { reportsConfig = false, dropsToneMapping = false } = {}) {
     return {
         getContext: (kind) => {
             assert.equal(kind, 'webgpu');
@@ -87,9 +98,30 @@ function makeCanvas(overrides = {}) {
                     configureCalls++;
                     lastConfigure = descriptor;
                 },
+                ...(reportsConfig
+                    ? {
+                          getConfiguration: () =>
+                              lastConfigure && {
+                                  ...lastConfigure,
+                                  toneMapping: dropsToneMapping
+                                      ? { mode: 'standard' }
+                                      : lastConfigure.toneMapping,
+                              },
+                      }
+                    : {}),
             };
         },
         ...overrides,
+    };
+}
+
+/** A feature set the way `GPUSupportedFeatures` behaves (has + iteration). */
+function featureSet(names) {
+    const set = new Set(names);
+    return {
+        has: (n) => set.has(n),
+        keys: () => set.keys(),
+        [Symbol.iterator]: () => set.values(),
     };
 }
 
@@ -116,6 +148,11 @@ function reset() {
     lastConfigure = null;
     delete globalThis.window.matchMedia;
     delete globalThis.window.webgpuProbe;
+    delete globalThis.window.localStorage;
+}
+
+function hdrDisplay() {
+    globalThis.window.matchMedia = (q) => ({ matches: q === '(dynamic-range: high)' });
 }
 
 async function expectFailure(canvas, stage) {
@@ -296,7 +333,7 @@ const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } }
 
     assert.deepEqual(
         [...requestedDescriptor.requiredFeatures].sort(),
-        ["timestamp-query"],
+        ['timestamp-query'],
         'timestamp-query requested by default'
     );
     assert.equal(requestedDescriptor.requiredLimits.maxStorageBufferBindingSize, 134217728);
@@ -394,7 +431,11 @@ const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } }
     for (const search of ['', '?dynres=1', '?dynres=false', '?foo=bar']) {
         globalThis.window.location = { search };
         assert.equal(wantsTimestampQuery(), true, `"${search}" wants timestamp-query`);
-        assert.deepEqual(selectRequiredFeatures(adapter3Like, {}), ['timestamp-query'], `"${search}" requests it`);
+        assert.deepEqual(
+            selectRequiredFeatures(adapter3Like, {}),
+            ['timestamp-query'],
+            `"${search}" requests it`
+        );
         assert.deepEqual(
             selectRequiredFeatures({ features: { has: (n) => n === 'foo' } }, {}),
             [],
@@ -420,7 +461,11 @@ const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } }
     );
     globalThis.window.location = { search: '?dynres=0' };
     await probeWebGPU(makeCanvas());
-    assert.deepEqual([...requestedDescriptor.requiredFeatures], [], '?dynres=0 probe skips timestamp-query');
+    assert.deepEqual(
+        [...requestedDescriptor.requiredFeatures],
+        [],
+        '?dynres=0 probe skips timestamp-query'
+    );
 
     globalThis.window.location = undefined; // Reset
     assert.equal(wantsTimestampQuery(), false, 'no location → false');
@@ -608,17 +653,28 @@ const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } }
         format: 'bgra8unorm',
         alphaMode: 'premultiplied',
         colorSpace: 'srgb',
+        toneMapping: 'standard',
     });
+    assert.deepEqual(lastConfigure.toneMapping, { mode: 'standard' });
+    assert.equal(configureCalls, 1, 'SDR display: no extended-range attempt');
+    assert.equal(getWebGPUProbeReport().hdr.attempted, false);
+    assert.match(getWebGPUProbeReport().hdr.reason, /dynamic-range/);
 }
 {
     reset();
     globalThis.window.matchMedia = (q) => ({ matches: q === '(dynamic-range: high)' });
     installGpu(async () => makeAdapter(makeDevice()));
     const probe = await probeWebGPU(makeCanvas());
-    // #1972: P3 needs a real extended-range swap chain, which is not configured
-    // (8-bit preferred format, no toneMapping), so an HDR display still gets sRGB.
+    // #1972: P3 needs a real extended-range swap chain. This context cannot
+    // report its configuration, so extended range is unverifiable and the
+    // probe settles on the 8-bit sRGB swap chain.
     assert.equal(lastConfigure.colorSpace, 'srgb', 'HDR display, SDR swap chain → srgb');
+    assert.equal(lastConfigure.format, 'bgra8unorm');
     assert.equal(probe.canvas.colorSpace, 'srgb');
+    assert.equal(probe.canvas.toneMapping, 'standard');
+    assert.equal(extendedRangeConfigured(probe), false);
+    assert.equal(getWebGPUProbeReport().hdr.attempted, true);
+    assert.match(getWebGPUProbeReport().hdr.reason, /did not report/);
 
     // Three's backend init re-configures without colorSpace; re-applying must
     // restore whatever outputColorSpace the renderer landed on.
@@ -643,6 +699,284 @@ const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } }
     applyCanvasColorSpace(probe, 'srgb');
     probe.context.configure({ device: probe.device, format: 'bgra8unorm' });
     assert.equal(lastConfigure.colorSpace, 'srgb', 'the pin follows the latest re-tag');
+}
+
+// --- Optional feature tiers: requested only when advertised ------------------
+{
+    const tiers = GPU_OPTIONAL_FEATURES.filter((n) => n !== 'timestamp-query');
+    assert.deepEqual(tiers, [
+        'shader-f16',
+        'float32-filterable',
+        'subgroups',
+        'indirect-first-instance',
+        'rg11b10ufloat-renderable',
+    ]);
+
+    const everything = { features: featureSet([...GPU_OPTIONAL_FEATURES, 'junk-feature']) };
+    assert.deepEqual(
+        selectRequiredFeatures(everything, { timestampQuery: true, optional: true }),
+        [...GPU_OPTIONAL_FEATURES],
+        'adapter has all: every optional feature, in list order, never junk'
+    );
+    assert.deepEqual(
+        selectRequiredFeatures(everything, { timestampQuery: false, optional: true }),
+        tiers,
+        'tiers do not depend on the timestamp switch'
+    );
+    assert.deepEqual(
+        selectRequiredFeatures(everything, { timestampQuery: true, optional: false }),
+        ['timestamp-query'],
+        'tiers off: timestamp-query keeps its own switch'
+    );
+    assert.deepEqual(
+        selectRequiredFeatures({ features: featureSet(['junk-feature']) }, { optional: true }),
+        [],
+        'adapter lacks all: nothing requested'
+    );
+    assert.deepEqual(
+        selectRequiredFeatures(
+            { features: featureSet(['shader-f16', 'subgroups']) },
+            {
+                timestampQuery: true,
+                optional: true,
+            }
+        ),
+        ['shader-f16', 'subgroups'],
+        'partial adapter: exactly the advertised subset'
+    );
+
+    for (const search of ['?gpuFeatures=off', '?gpuFeatures=0', '?gpuFeatures=none']) {
+        globalThis.window.location = { search };
+        assert.equal(wantsOptionalGpuFeatures(), false, `${search} opts out`);
+    }
+    for (const search of ['', '?gpuFeatures=on', '?foo=1']) {
+        globalThis.window.location = { search };
+        assert.equal(wantsOptionalGpuFeatures(), true, `"${search}" wants the tiers`);
+    }
+    globalThis.window.location = undefined;
+    assert.equal(wantsOptionalGpuFeatures(), true, 'no location → tiers on (default)');
+}
+
+// Probe: adapter has every tier, device grants a subset → the report tells
+// advertised / requested / granted apart per feature.
+{
+    reset();
+    globalThis.window.location = { search: '' };
+    let requested = null;
+    const device = makeDevice({ features: featureSet(['timestamp-query', 'shader-f16']) });
+    installGpu(async () =>
+        makeAdapter(device, {
+            features: featureSet([...GPU_OPTIONAL_FEATURES, 'depth32float-stencil8']),
+            requestDevice: async (descriptor) => {
+                requested = descriptor;
+                return device;
+            },
+        })
+    );
+    const probe = await probeWebGPU(makeCanvas());
+    assert.deepEqual(
+        [...requested.requiredFeatures].sort(),
+        [...GPU_OPTIONAL_FEATURES].sort(),
+        'all advertised tiers requested, depth32float-stencil8 is not'
+    );
+    const { optional } = getWebGPUProbeReport().features;
+    assert.deepEqual(Object.keys(optional).sort(), [...GPU_OPTIONAL_FEATURES].sort());
+    assert.deepEqual(optional['shader-f16'], { adapter: true, requested: true, granted: true });
+    assert.deepEqual(optional.subgroups, { adapter: true, requested: true, granted: false });
+    assert.deepEqual(grantedOptionalFeatures(probe), ['timestamp-query', 'shader-f16']);
+    assert.deepEqual(grantedOptionalFeatures(null), [], 'no probe (WebGL2) → none');
+}
+
+// Probe: SwiftShader as Chromium ships it (seen in a headless boot): every tier
+// but shader-f16. CI therefore runs the "has it" path for four of the five,
+// with limits still at the spec floor.
+{
+    reset();
+    globalThis.window.location = { search: '' };
+    let requested = null;
+    const swift = { vendor: 'google', architecture: 'swiftshader', device: '', description: '' };
+    const advertised = [
+        'core-features-and-limits',
+        'float32-filterable',
+        'indirect-first-instance',
+        'rg11b10ufloat-renderable',
+        'subgroups',
+        'timestamp-query',
+    ];
+    const device = makeDevice({ adapterInfo: swift, features: featureSet(advertised) });
+    installGpu(async () =>
+        makeAdapter(device, {
+            features: featureSet(advertised),
+            info: swift,
+            requestDevice: async (descriptor) => {
+                requested = descriptor;
+                return device;
+            },
+        })
+    );
+    const probe = await probeWebGPU(makeCanvas());
+    assert.deepEqual(
+        [...requested.requiredFeatures],
+        [
+            'timestamp-query',
+            'float32-filterable',
+            'subgroups',
+            'indirect-first-instance',
+            'rg11b10ufloat-renderable',
+        ],
+        'SwiftShader: the advertised tiers, never core-features-and-limits'
+    );
+    assert.deepEqual(requested.requiredLimits, GPU_REQUIRED_LIMITS, 'limits stay at the floor');
+    assert.deepEqual(getWebGPUProbeReport().features.optional['shader-f16'], {
+        adapter: false,
+        requested: false,
+        granted: false,
+    });
+    assert.equal(grantedOptionalFeatures(probe).includes('shader-f16'), false);
+    assert.equal(grantedOptionalFeatures(probe).length, 5);
+}
+
+// ?gpuFeatures=off: an adapter with every tier is asked for none but timestamp-query.
+{
+    reset();
+    globalThis.window.location = { search: '?gpuFeatures=off' };
+    let requested = null;
+    const device = makeDevice();
+    installGpu(async () =>
+        makeAdapter(device, {
+            features: featureSet([...GPU_OPTIONAL_FEATURES]),
+            requestDevice: async (descriptor) => {
+                requested = descriptor;
+                return device;
+            },
+        })
+    );
+    await probeWebGPU(makeCanvas());
+    assert.deepEqual([...requested.requiredFeatures], ['timestamp-query']);
+    assert.equal(getWebGPUProbeReport().features.optional['shader-f16'].requested, false);
+    assert.equal(getWebGPUProbeReport().features.optional['shader-f16'].adapter, true);
+    globalThis.window.location = undefined;
+}
+
+// --- HDR: extended-range swap chain ------------------------------------------
+// HDR display + a browser that reports the extended configure → rgba16float,
+// extended tone mapping, Display P3.
+{
+    reset();
+    hdrDisplay();
+    installGpu(async () => makeAdapter(makeDevice()));
+    const probe = await probeWebGPU(makeCanvas({}, { reportsConfig: true }));
+    assert.equal(configureCalls, 1, 'extended configure kept, no SDR re-configure');
+    assert.equal(lastConfigure.format, 'rgba16float');
+    assert.deepEqual(lastConfigure.toneMapping, { mode: 'extended' });
+    assert.equal(lastConfigure.colorSpace, 'display-p3');
+    assert.equal(lastConfigure.alphaMode, 'premultiplied');
+    assert.equal(extendedRangeConfigured(probe), true);
+    const report = getWebGPUProbeReport();
+    assert.deepEqual(report.canvas, {
+        format: 'rgba16float',
+        alphaMode: 'premultiplied',
+        colorSpace: 'display-p3',
+        toneMapping: 'extended',
+    });
+    assert.deepEqual(report.hdr, {
+        display: true,
+        preference: 'auto',
+        attempted: true,
+        configured: true,
+        reason: null,
+    });
+
+    // Three re-configures with its own descriptor (format from outputType,
+    // toneMapping, no colorSpace). The pin keeps colorSpace and tone mapping.
+    probe.context.configure({
+        device: probe.device,
+        format: 'rgba16float',
+        alphaMode: 'premultiplied',
+    });
+    assert.equal(
+        lastConfigure.colorSpace,
+        undefined,
+        "Three's configure drops colorSpace until pinned"
+    );
+    applyCanvasColorSpace(probe, 'display-p3');
+    assert.equal(lastConfigure.format, 'rgba16float', 're-tag keeps the HDR format');
+    assert.deepEqual(lastConfigure.toneMapping, { mode: 'extended' });
+    probe.context.configure({
+        device: probe.device,
+        format: 'rgba16float',
+        alphaMode: 'premultiplied',
+        toneMapping: { mode: 'standard' },
+    });
+    assert.equal(lastConfigure.colorSpace, 'display-p3', "Three's configure keeps P3");
+    assert.deepEqual(lastConfigure.toneMapping, { mode: 'extended' }, 'and extended range');
+}
+
+// HDR display, but the browser ignores toneMapping (accepts, reports standard).
+{
+    reset();
+    hdrDisplay();
+    installGpu(async () => makeAdapter(makeDevice()));
+    const probe = await probeWebGPU(
+        makeCanvas({}, { reportsConfig: true, dropsToneMapping: true })
+    );
+    assert.equal(configureCalls, 2, 'tried extended, then the SDR configure');
+    assert.equal(lastConfigure.format, 'bgra8unorm');
+    assert.equal(lastConfigure.colorSpace, 'srgb');
+    assert.equal(extendedRangeConfigured(probe), false);
+    assert.equal(getWebGPUProbeReport().hdr.configured, false);
+}
+
+// HDR display, extended configure throws → SDR, and the probe still passes.
+{
+    reset();
+    hdrDisplay();
+    installGpu(async () => makeAdapter(makeDevice()));
+    const canvas = {
+        getContext: () => ({
+            configure: (descriptor) => {
+                configureCalls++;
+                if (descriptor.format === 'rgba16float') throw new TypeError('unsupported format');
+                lastConfigure = descriptor;
+            },
+        }),
+    };
+    const warn = console.warn;
+    console.warn = () => {};
+    const probe = await probeWebGPU(canvas);
+    console.warn = warn;
+    assert.equal(
+        getWebGPUProbeReport().ok,
+        true,
+        'a rejected HDR configure is not a probe failure'
+    );
+    assert.equal(probe.canvas.format, 'bgra8unorm');
+    assert.match(getWebGPUProbeReport().hdr.reason, /unsupported format/);
+}
+
+// HDR turned off: stored preference and ?hdr=off both keep an HDR display on SDR.
+for (const setup of [
+    () => {
+        globalThis.window.localStorage = {
+            getItem: (k) =>
+                k === HDR_STORAGE_KEY ? JSON.stringify({ mode: 'off', peak: 2 }) : null,
+            setItem() {},
+        };
+    },
+    () => {
+        globalThis.window.location = { search: '?hdr=off' };
+    },
+]) {
+    reset();
+    setup();
+    hdrDisplay();
+    installGpu(async () => makeAdapter(makeDevice()));
+    const probe = await probeWebGPU(makeCanvas({}, { reportsConfig: true }));
+    assert.equal(configureCalls, 1, 'no extended-range attempt');
+    assert.equal(probe.canvas.format, 'bgra8unorm');
+    assert.equal(getWebGPUProbeReport().hdr.preference, 'off');
+    assert.match(getWebGPUProbeReport().hdr.reason, /turned off/);
+    globalThis.window.location = undefined;
 }
 
 // --- WebGL2 fallback contract -----------------------------------------------
