@@ -250,6 +250,26 @@ a11y.updateVisualSettings({
 });
 ```
 
+### HDR Output and Peak Brightness
+
+On a display that reports `(dynamic-range: high)`, WebGPU boots with an extended-range swap chain
+(see `docs/WEBGPU_CONTEXT.md#hdr-output`). The Visual section has two controls for it:
+
+- **HDR Output** (`auto` / `off`): `off` keeps the SDR swap chain on an HDR display, for players who
+  find HDR highlights uncomfortable or whose display tone-maps badly. Applies on the next load,
+  because the canvas format is fixed at boot. The line under it says whether HDR is active now.
+- **HDR Peak Brightness** (1–8 × SDR white, default 4): the ceiling bright highlights roll off
+  toward. Applies at once. Has no effect on SDR.
+
+These are not part of `AccessibilitySettings`: the boot probe reads them before this menu loads,
+so they live in `src/core/platform/hdr-preference.ts` (`localStorage candy.hdr`):
+
+```typescript
+import { readHdrPreference, writeHdrPreference } from '../core/platform/hdr-preference.ts';
+writeHdrPreference({ mode: 'off' });   // next load
+writeHdrPreference({ peak: 2 });       // now
+```
+
 ---
 
 ## Cognitive Accessibility

@@ -8,9 +8,23 @@
 import assert from 'node:assert/strict';
 import { ColorManagement } from 'three';
 import {
+    GPU_OPTIONAL_FEATURES,
     resolveHdrSupport,
     resolvePlatformCapabilities,
 } from '../src/core/platform/capabilities.ts';
+import {
+    HDR_PEAK_DEFAULT,
+    HDR_PEAK_MAX,
+    HDR_PEAK_MIN,
+    HDR_ROLLOFF_KNEE,
+    HDR_STORAGE_KEY,
+    __resetHdrPreferenceForTests,
+    clampHdrPeak,
+    hdrRolloff,
+    onHdrPeakChange,
+    readHdrPreference,
+    writeHdrPreference,
+} from '../src/core/platform/hdr-preference.ts';
 import {
     __resetRunModeForTests,
     classifyRunMode,
@@ -182,6 +196,9 @@ assert.equal(classifyRunMode(signals('Mozilla/5.0 NotHeadlessChromeish/1.0')), '
         matchMedia: (q) => ({ matches: q === '(dynamic-range: high)' }),
     };
     assert.equal(resolveCanvasColorSpace(), 'srgb', 'HDR display, SDR swap chain → srgb');
+    assert.equal(resolveCanvasColorSpace(true), 'display-p3', 'HDR display, extended → P3');
+    globalThis.window.matchMedia = () => ({ matches: false });
+    assert.equal(resolveCanvasColorSpace(true), 'srgb', 'SDR display never gets P3');
     if (!hadWindow) delete globalThis.window;
 
     // Three 0.171 does not know P3 until it is registered: this is the TypeError.
@@ -196,6 +213,115 @@ assert.equal(classifyRunMode(signals('Mozilla/5.0 NotHeadlessChromeish/1.0')), '
     console.warn = () => {};
     assert.equal(ensureOutputColorSpace('rec2100-pq'), 'srgb', 'unknown space falls back');
     console.warn = warn;
+}
+
+// Optional GPU feature tiers on the capabilities: `gpu.has()` reports only
+// granted optional features, only on WebGPU, and branches once (frozen).
+{
+    const base = {
+        runMode: 'player',
+        backend: 'webgpu',
+        fallbackAdapter: false,
+        gpuPrefersLite: false,
+        deviceMemoryGB: undefined,
+        timestampQuery: true,
+        displayHdr: false,
+        extendedRange: false,
+        graphicsOverride: null,
+    };
+    const caps = (o = {}) => resolvePlatformCapabilities({ ...base, ...o });
+
+    const none = caps();
+    assert.deepEqual(none.gpu.features, [], 'no gpuFeatures input → none');
+    for (const name of GPU_OPTIONAL_FEATURES) assert.equal(none.gpu.has(name), false);
+
+    const some = caps({ gpuFeatures: ['subgroups', 'shader-f16', 'depth32float-stencil8'] });
+    assert.deepEqual(some.gpu.features, ['shader-f16', 'subgroups'], 'list order, tiers only');
+    assert.equal(some.gpu.has('shader-f16'), true);
+    assert.equal(some.gpu.has('float32-filterable'), false);
+    assert.ok(Object.isFrozen(some.gpu) && Object.isFrozen(some.gpu.features));
+
+    const gl = caps({ backend: 'webgl2', gpuFeatures: [...GPU_OPTIONAL_FEATURES] });
+    assert.deepEqual(gl.gpu.features, [], 'WebGL2 has no WebGPU features');
+
+    // Extended range now comes from the probe, not a constant.
+    assert.equal(caps({ displayHdr: true, extendedRange: true }).hdr.extendedRange, true);
+    assert.equal(caps({ displayHdr: true, extendedRange: false }).hdr.extendedRange, false);
+}
+
+// HDR preference: storage + URL, clamped peak, live peak listeners.
+{
+    const hadWindow = 'window' in globalThis;
+    const store = new Map();
+    globalThis.window = {
+        location: { search: '' },
+        localStorage: {
+            getItem: (k) => store.get(k) ?? null,
+            setItem: (k, v) => store.set(k, v),
+        },
+    };
+
+    assert.deepEqual(readHdrPreference(), { mode: 'auto', peak: HDR_PEAK_DEFAULT }, 'defaults');
+
+    const heard = [];
+    const off = onHdrPeakChange((p) => heard.push(p));
+    writeHdrPreference({ mode: 'off' });
+    assert.deepEqual(heard, [], 'a mode change does not touch the live peak');
+    assert.deepEqual(JSON.parse(store.get(HDR_STORAGE_KEY)), {
+        mode: 'off',
+        peak: HDR_PEAK_DEFAULT,
+    });
+    writeHdrPreference({ peak: 2.5 });
+    assert.deepEqual(heard, [2.5], 'peak change heard live');
+    assert.deepEqual(readHdrPreference(), { mode: 'off', peak: 2.5 }, 'both persisted');
+    writeHdrPreference({ peak: 99 });
+    assert.equal(heard.at(-1), HDR_PEAK_MAX, 'peak clamped before listeners see it');
+    off();
+    writeHdrPreference({ peak: 3 });
+    assert.equal(heard.length, 2, 'unsubscribed');
+
+    assert.equal(readHdrPreference('?hdr=auto').mode, 'auto', 'URL beats storage');
+    assert.equal(readHdrPreference('?hdr=on').mode, 'auto', 'on is an alias of auto');
+    assert.equal(readHdrPreference('?hdrPeak=0.2').peak, HDR_PEAK_MIN);
+    assert.equal(clampHdrPeak('nope'), HDR_PEAK_DEFAULT);
+
+    store.set(HDR_STORAGE_KEY, '{not json');
+    assert.deepEqual(readHdrPreference(), { mode: 'auto', peak: HDR_PEAK_DEFAULT }, 'bad JSON');
+    globalThis.window.localStorage = {
+        getItem() {
+            throw new Error('denied');
+        },
+        setItem() {
+            throw new Error('denied');
+        },
+    };
+    assert.equal(readHdrPreference().mode, 'auto', 'storage denied → defaults');
+    assert.equal(writeHdrPreference({ peak: 2 }).peak, 2, 'write without storage still resolves');
+    __resetHdrPreferenceForTests();
+    if (!hadWindow) delete globalThis.window;
+}
+
+// HDR highlight roll-off (the CPU twin of the post graph's node).
+{
+    const peak = 4;
+    const knee = peak * HDR_ROLLOFF_KNEE;
+    for (const x of [0, 0.18, 1, 2.5, knee])
+        assert.equal(hdrRolloff(x, peak), x, `identity at ${x}`);
+    let prev = hdrRolloff(knee, peak);
+    for (let x = knee + 0.01; x < 200; x *= 1.2) {
+        const y = hdrRolloff(x, peak);
+        // Strictly rising while representable; far out it saturates at the peak.
+        assert.ok(
+            x < 20 ? y > prev && y < peak : y >= prev && y <= peak,
+            `rises to the peak at ${x}`
+        );
+        prev = y;
+    }
+    // Slope 1 at the knee (no visible kink).
+    const eps = 1e-4;
+    const slope = (hdrRolloff(knee + eps, peak) - hdrRolloff(knee, peak)) / eps;
+    assert.ok(Math.abs(slope - 1) < 1e-3, `slope at the knee is 1 (${slope})`);
+    assert.equal(hdrRolloff(5, 1, 1), 1, 'zero-width shoulder clips at the peak');
 }
 
 console.log('run-mode: all assertions passed');

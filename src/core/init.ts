@@ -9,6 +9,8 @@ import { ensureOutputColorSpace } from '../rendering/color-spaces.ts';
 import {
     applyCanvasColorSpace,
     armGpuContext,
+    extendedRangeConfigured,
+    grantedOptionalFeatures,
     probeWebGPU,
     settleWebGLContext,
     timestampQueryGranted,
@@ -164,6 +166,12 @@ function canvasAntialias(): boolean {
  * `armGpuContext()` checks the backend after `init()` and hard-fails if Three
  * landed on WebGL behind the passing probe. The deliberate WebGL2 path is
  * `forceWebGL: true` (`createWebGLRenderer`), which installs no fallback.
+ *
+ * `outputType: HalfFloatType` exactly when the probe configured an
+ * extended-range swap chain: Three then targets `rgba16float` with
+ * `toneMapping: { mode: 'extended' }` in its own configure and in every
+ * pipeline that draws to the canvas. Left unset otherwise, so SDR boots keep
+ * the preferred 8-bit format byte for byte.
  */
 function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): WebGPURenderer {
     return new WebGPURenderer({
@@ -176,6 +184,7 @@ function createNodeRenderer(canvas: HTMLCanvasElement, probe: GpuProbeResult): W
         device: probe.device,
         context: probe.context,
         trackTimestamp: timestampQueryGranted(probe),
+        ...(extendedRangeConfigured(probe) ? { outputType: THREE.HalfFloatType } : {}),
     } as ConstructorParameters<typeof WebGPURenderer>[0]);
 }
 
@@ -378,6 +387,8 @@ export async function initScene(): Promise<SceneInitResult> {
             ),
         gpuPrefersLite: shouldPreferLightWorldLoad(),
         timestampQuery: timestampQueryGranted(probe),
+        gpuFeatures: grantedOptionalFeatures(probe),
+        extendedRange: extendedRangeConfigured(probe),
     });
 
     const initialFog = getInitialFogDistances();
@@ -410,10 +421,17 @@ export async function initScene(): Promise<SceneInitResult> {
         probe.canvas.colorSpace === 'display-p3' &&
         ensureOutputColorSpace('display-p3') === 'display-p3';
     if (extendedP3) {
-        console.log('[Init] Extended-range swap chain — Display P3 output, linear tone mapping.');
+        console.log(
+            '[Init] Extended-range swap chain — Display P3 output, no tone mapping, ' +
+                'highlights rolled off at the HDR peak in the post graph.'
+        );
         renderer.outputColorSpace = 'display-p3';
         // Values > 1.0 survive only because the swap chain is extended range.
-        renderer.toneMapping = THREE.LinearToneMapping;
+        // Not LinearToneMapping: Three r186's linearToneMapping is
+        // `color * exposure` *clamped* to [0, 1], which would clip every
+        // highlight the extended swap chain exists for. The post graph's
+        // roll-off (post-processing-webgpu.ts) is the only ceiling.
+        renderer.toneMapping = THREE.NoToneMapping;
     } else {
         if (!onWebGpuBackend) {
             console.log('[Init] GLSL node backend — using standard SDR configuration.');

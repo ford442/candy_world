@@ -29,6 +29,9 @@ import {
     velocity,
     normalView,
     renderOutput,
+    max,
+    exp,
+    select,
 } from 'three/tsl';
 import { RenderPipeline, WebGPURenderer } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
@@ -70,6 +73,21 @@ function textureOf(effect: unknown): Node {
     return (effect as { getTextureNode(): Node }).getTextureNode();
 }
 
+/**
+ * HDR highlight roll-off on the brightest channel: identity up to
+ * `knee * peak`, then an exponential shoulder toward `peak` (slope 1 at the
+ * knee). One factor for all three channels keeps hue. Same formula as
+ * `hdrRolloff()` in `core/platform/hdr-preference.ts`, which the tests pin.
+ */
+function rolloffHighlights(color: Node<'vec3'>, peak: Node<'float'>, knee: number): Node<'vec3'> {
+    const m = max(max(color.x, color.y), max(color.z, float(1e-5)));
+    const k = peak.mul(knee);
+    const span = max(peak.sub(k), float(1e-5));
+    const shoulder = k.add(span.mul(float(1).sub(exp(m.sub(k).negate().div(span)))));
+    const scale = select(m.greaterThan(k), shoulder.div(m), float(1));
+    return color.mul(scale) as Node<'vec3'>;
+}
+
 /** Extra fullscreen passes each AA mode adds (for the pass-count readout). */
 const AA_PASSES: Readonly<Record<AntialiasMode, number>> = {
     off: 0,
@@ -94,6 +112,11 @@ export function initWebGPUPostProcessing(
         aa: AntialiasMode;
         /** Scale the scene pass from GPU frame times (needs timestamp-query). */
         dynamicResolution: boolean;
+        /**
+         * Extended-range swap chain: roll highlights off toward `u.uHdrPeak`.
+         * Null on SDR, where the graph is exactly what it was before HDR.
+         */
+        hdr: { knee: number } | null;
         u: U;
     }
 ) {
@@ -107,6 +130,7 @@ export function initWebGPUPostProcessing(
         uColorSaturation,
         uDofFocus,
         uDofMix,
+        uHdrPeak,
         uShaftScatterBoost,
         uVignetteStrength,
     } = opts.u;
@@ -244,7 +268,11 @@ export function initWebGPUPostProcessing(
         const vignetteMultiplier = mix(float(1.0), vig, uVignetteStrength);
         satColor = satColor.mul(vignetteMultiplier) as unknown as Node<'vec3'>;
 
-        return mixStrobeFlash(satColor as Node<'vec3'>);
+        const graded = mixStrobeFlash(satColor);
+        // SDR: ACES and the 8-bit swap chain bound the output, nothing to do.
+        // HDR: no tone mapping into an extended swap chain, so the peak
+        // has to be enforced here.
+        return opts.hdr ? rolloffHighlights(graded, uHdrPeak, opts.hdr.knee) : graded;
     });
 
     const composite = colorCorrection();
@@ -327,6 +355,7 @@ export function initWebGPUPostProcessing(
             contrast: uColorContrast,
             vignetteStrength: uVignetteStrength,
             aberrationStrength: uAberrationStrength,
+            hdrPeak: uHdrPeak,
         },
     };
 }

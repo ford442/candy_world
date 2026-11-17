@@ -2,6 +2,7 @@
 // Debug UI panel for toggling initialization stages
 
 import { CONFIG } from '../core/config.ts';
+import { GPU_OPTIONAL_FEATURES, getPlatformCapabilities } from '../core/platform/capabilities.ts';
 import { frameScheduler } from '../core/scheduler/frame-scheduler.ts';
 import { uAoStrength, uBloomRadius, uBloomThreshold } from '../foliage/post-processing-uniforms.ts';
 import { setIrradianceEnabled } from '../rendering/irradiance-probes.ts';
@@ -121,6 +122,7 @@ export class DebugPanel {
         <button id="debug-wireframe" title="WebGL2 renderer only" style="flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">Wireframe (G)</button>
         <button id="debug-matdebug" title="WebGL2 renderer only" style="flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">Mat Debug (M)</button>
       </div>
+      <div id="debug-gpu-features" style="color:#b8e4ff;font-size:10px;line-height:1.35;white-space:pre-wrap;"></div>
       <div style="color:#0f0;font-weight:bold;font-size:11px;">Lightweight GI</div>
       <div style="display:flex;gap:6px;">
         <button id="debug-gi-on" style="flex:1;background:#103018;border:1px solid #7dffb3;color:#b8ffd4;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">GI on</button>
@@ -128,6 +130,7 @@ export class DebugPanel {
       </div>
     `;
         panel.appendChild(rendererControls);
+        this.renderGpuFeatures(rendererControls);
 
         this.mountShadowSoftnessControls(panel);
         this.mountPostfxControls(panel);
@@ -393,6 +396,19 @@ export class DebugPanel {
                 `CPU ${cpu.toFixed(2)} ms  GPU ${gpu === null ? 'n/a' : `${gpu.toFixed(2)} ms`}\n` +
                 `fixed tick ${frameScheduler.fixedTick}  dropped ${frameScheduler.droppedSeconds.toFixed(2)} s`;
         }
+    }
+
+    /** Optional device features (granted ✓ / missing ·) and the swap-chain range. */
+    private renderGpuFeatures(container: HTMLElement): void {
+        const el = container.querySelector<HTMLElement>('#debug-gpu-features');
+        if (!el) return;
+        const caps = getPlatformCapabilities();
+        const rows = GPU_OPTIONAL_FEATURES.map(
+            (name) => `${caps.gpu.has(name) ? '✓' : '·'} ${name}`
+        );
+        el.textContent =
+            `${caps.backend} · ${caps.hdr.extendedRange ? 'HDR extended' : 'SDR'} swap chain\n` +
+            rows.join('\n');
     }
 
     private mountShadowSoftnessControls(panel: HTMLElement): void {

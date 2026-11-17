@@ -1,7 +1,7 @@
 # WebGPU Context — Single-Device Architecture
 
 > Owner module: [`src/rendering/gpu-context.ts`](../src/rendering/gpu-context.ts)
-> Issues: #1448 (single device), #1625 (hard-fail boot probe), #1753 (adapter-clamped limits, canvas color space), #1972 (run mode, platform capabilities, P3 registration)
+> Issues: #1448 (single device), #1625 (hard-fail boot probe), #1753 (adapter-clamped limits, canvas color space), #1972 (run mode, platform capabilities, P3 registration); optional feature tiers and HDR output (extended-range swap chain)
 
 > **WebGPU is preferred; WebGL2 is the fallback.** A failed boot probe boots the world on
 > `WebGPURenderer({ forceWebGL: true })` and says so in the UI. Only when WebGL2 fails too does boot
@@ -119,50 +119,130 @@ const cap = clampStorageBufferSize(desiredBytes);
 `webgpu-limits.ts` sources its `getWebGPULimits()` from the shared context and only caches once a
 real device has been seen, so an early caller cannot pin the defaults for the whole session.
 
+## Optional features
+
+The device is requested with an **allowlist**, never `Array.from(adapter.features)` and never a
+requirement: `GPU_REQUIRED_FEATURES` is empty, and each entry of `GPU_OPTIONAL_FEATURES`
+(`src/core/platform/capabilities.ts`, re-exported by `gpu-context.ts`) is asked for only when the
+adapter advertises it (`selectRequiredFeatures()`). A device that lacks one boots the same world on
+the slower path. SwiftShader as Chromium ships it advertises every tier except `shader-f16`, so CI
+boots with four of them granted and exercises those paths (a headless boot shows 0 uncaptured GPU
+errors with them on); the `shader-f16` fallbacks are what CI covers for that one.
+
+| Feature                    | Used for                                                                                                                                                   | Without it                                           | Switch              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------- |
+| `timestamp-query`          | GPU frame time → dynamic resolution and the performance budget ([below](#gpu-frame-time-timestamp-query))                                                  | no GPU time; the scene pass stays at full resolution | `?dynres=0` / `off` |
+| `shader-f16`               | half precision (`enable f16;`) in foliage wind/sway and particle integrators                                                                               | f32                                                  | `?gpuFeatures=off`  |
+| `float32-filterable`       | linear filtering of `r32float` / `rgba32float` (irradiance probes, atmosphere LUTs). Three r186 switches `FloatType` texture bindings to `float` by itself | `unfilterable-float`, manual bilinear                | `?gpuFeatures=off`  |
+| `subgroups`                | subgroup prefix sum in the cull/compact pass. Three r186 adds `enable subgroups;` and `subgroupSize` to every compute shader                               | workgroup shared-memory scan                         | `?gpuFeatures=off`  |
+| `indirect-first-instance`  | one instance buffer serving many `drawIndexedIndirect` calls (GPU-driven culling)                                                                          | one instance buffer per draw                         | `?gpuFeatures=off`  |
+| `rg11b10ufloat-renderable` | a cheaper HDR scene target than `rgba16float`                                                                                                              | `rgba16float`                                        | `?gpuFeatures=off`  |
+
+Three r186 asks for every adapter feature when it creates a device itself; we hand it ours, so the
+allowlist is what keeps junk (and anything untested) out. `?gpuFeatures=off` (or `0` / `none`)
+requests none of the tiers except `timestamp-query`, which keeps its own `?dynres` switch; use it to
+bisect a rendering difference down to a feature.
+
+Systems ask once, at init, never per frame:
+
+```ts
+import { getPlatformCapabilities } from '../core/platform/capabilities.ts';
+
+const f16 = getPlatformCapabilities().gpu.has('shader-f16'); // false on WebGL2, always
+```
+
+`capabilities.gpu` is `{ features, has(name) }`, frozen: the granted optional features in list order
+(`grantedOptionalFeatures(probe)`), empty on WebGL2. The probe report records, per feature, what the
+adapter advertised, what was requested and what the device granted
+(`window.webgpuProbe.features.optional['shader-f16'] = { adapter, requested, granted }`). The renderer
+badge's tooltip and `data-features` list the granted ones, and the `?debug` panel shows ✓ / · for
+each under **Renderer**.
+
+So far the tiers are requested, reported and exposed; Three's own reactions to `subgroups` and
+`float32-filterable` are the only behaviour they change. The consumers named in the table adopt them
+one at a time, each behind `gpu.has()`.
+
 ## Color space
 
-There are two different surfaces, and they are deliberately different:
+There are two surfaces:
 
-| Surface                         | Format                                                                    | Color space                                |
-| ------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------ |
-| HDR render targets (post chain) | `rgba16float` (`HalfFloatType`)                                           | linear working space                       |
-| Swap chain (`canvas.configure`) | `navigator.gpu.getPreferredCanvasFormat()` — usually `bgra8unorm` (8-bit) | `colorSpace` = `renderer.outputColorSpace` |
+| Surface                         | SDR swap chain (default)                                                     | HDR swap chain (extended range)                    |
+| ------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------- |
+| Post chain render targets       | `rgba16float` (`HalfFloatType`), linear working space                        | same                                               |
+| Swap chain (`canvas.configure`) | `getPreferredCanvasFormat()` (usually `bgra8unorm`), `toneMapping: standard` | `rgba16float`, `toneMapping: { mode: 'extended' }` |
+| Canvas `colorSpace`             | `srgb`                                                                       | `display-p3`                                       |
+| Tone mapping                    | ACES filmic                                                                  | none, highlights rolled off at the HDR peak        |
 
-HDR lives in the half-float targets; tone mapping + Three's output transform write the 8-bit swap
-chain. The swap chain is **not** `rgba16float` / `toneMapping: { mode: 'extended' }`, so the canvas
-is **sRGB with ACES tone mapping on every display, HDR ones included** (#1972).
+The SDR column is what every SDR display, every WebGL2 boot and every browser that cannot report an
+extended configure gets, unchanged from before HDR output existed.
 
-Display P3 is gated on real extended range, not on `(dynamic-range: high)`:
+### HDR output
+
+`probeWebGPU()` tries an extended-range swap chain when `wantsExtendedRange()`:
+`(dynamic-range: high)` matches **and** the player has not turned HDR off
+(`src/core/platform/hdr-preference.ts`). It configures `rgba16float` +
+`toneMapping: { mode: 'extended' }` + `display-p3`, then reads it back with
+`context.getConfiguration()`. Browsers drop dictionary members they do not know, so a configure can
+succeed and still be standard range; only a context that reports `extended` back keeps the HDR
+configure. Otherwise (no `getConfiguration`, standard reported, or the configure threw) the probe
+configures the SDR swap chain, the only configure that can fail the probe. `window.webgpuProbe.hdr`
+records `{ display, preference, attempted, configured, reason }`.
+
+What follows from `probe.canvas.toneMapping === 'extended'` (`extendedRangeConfigured(probe)`):
+
+- `init.ts` builds the renderer with `outputType: HalfFloatType`. Three then configures the canvas
+  as `rgba16float` + extended itself, and every pipeline that draws to the canvas targets
+  `rgba16float`. SDR boots leave `outputType` unset, so their format is untouched.
+- `initPlatformCapabilities({ extendedRange })` takes it from the probe (there is no constant any
+  more), so `capabilities.hdr.extendedRange` is what was configured, not what was hoped for.
+- `init.ts` registers Display P3 (`ensureOutputColorSpace()`), sets `outputColorSpace = 'display-p3'`
+  and `NoToneMapping`. Not `LinearToneMapping`: Three r186's `linearToneMapping` clamps to [0, 1],
+  which would clip exactly what extended range is for. Bloom, emissive lanterns, crystal ribs and blaster beams keep their
+  values above 1.0 instead of being clipped by ACES.
+- The post graph (`post-processing-webgpu.ts`, built with `hdr: { knee }`) rolls highlights off on
+  the brightest channel: identity up to `0.75 × peak`, then an exponential shoulder that meets it
+  with slope 1 and approaches the peak (`hdrRolloff()` is the tested CPU twin). One factor for all
+  channels keeps hue. `uHdrPeak` follows the player's setting live. On SDR the node is not in the
+  graph at all. `?postfx=off` draws straight to the canvas and has no roll-off.
+- The badge reads **WEBGPU · HDR**, with `data-hdr="extended"`.
+
+Player controls: **Accessibility → Visual → HDR Output** (`auto` / `off`, applies on reload: the
+canvas format and every pipeline targeting it are fixed at boot) and **HDR Peak Brightness**
+(1–8 × SDR white, default 4, applies at once). Both are stored in `localStorage candy.hdr`, outside the
+accessibility settings, because the probe reads the mode before the menu's chunk has loaded. URL
+overrides: `?hdr=off` / `?hdr=auto`, `?hdrPeak=<n>`.
+
+### Keeping the two surfaces in agreement
 
 - `resolveHdrSupport(display, extendedRange)` (`src/core/platform/capabilities.ts`) returns
-  `canvas: 'display-p3'` only when both are true. `extendedRange` is the constant
-  `EXTENDED_RANGE_CONFIGURED`, `false` today: Three's `WebGPUBackend` configures
-  `getPreferredCanvasFormat()` with `toneMapping: { mode: 'standard' }` unless the renderer is built
-  with `outputType: HalfFloatType` (r186), which the app does not do yet.
-- Three (0.186 as in 0.171) registers only `srgb` / `srgb-linear`. An unregistered `outputColorSpace` makes the
-  output transform's `ColorManagement.getPrimaries()` throw a TypeError on first render, and the
-  `try` around the assignment never sees it. `ensureOutputColorSpace()`
-  (`src/rendering/color-spaces.ts`) registers Display P3 from `three/addons/math/ColorSpaces.js`
-  via `ColorManagement.define` before P3 is selected, and returns `srgb` for anything Three still
-  doesn't know.
-- `LinearToneMapping` is used only together with an extended-range P3 swap chain. Into an 8-bit
-  swap chain it just clips highlights, so SDR keeps ACES.
-- Turning on extended range means configuring `rgba16float` + `toneMapping: { mode: 'extended' }`
-  in the probe and in `applyCanvasColorSpace()`, then flipping `EXTENDED_RANGE_CONFIGURED`.
+  `canvas: 'display-p3'` only when both are true, and `resolveCanvasColorSpace(extendedRange)` applies
+  it at probe time.
+- Three (0.186 as in 0.171) registers only `srgb` / `srgb-linear`. An unregistered `outputColorSpace`
+  makes the output transform's `ColorManagement.getPrimaries()` throw a TypeError on first render, and
+  the `try` around the assignment never sees it. `ensureOutputColorSpace()`
+  (`src/rendering/color-spaces.ts`) registers Display P3 from `three/addons/math/ColorSpaces.js` via
+  `ColorManagement.define` before P3 is selected, and returns `srgb` for anything Three still doesn't
+  know. If that happens on an extended swap chain the world renders sRGB + ACES into it, which looks
+  like SDR.
+- `NoToneMapping` is used only together with an extended-range P3 swap chain. Into an 8-bit swap
+  chain it just clips highlights, so SDR keeps ACES.
 
-How the two surfaces are kept in agreement:
+The sequence:
 
-1. `probeWebGPU()` picks the color space once (`resolveCanvasColorSpace()`, i.e. the rule above)
-   and passes it as `colorSpace` on `configure`.
+1. `probeWebGPU()` picks format, tone mapping and color space once (above) and passes them on
+   `configure`.
 2. `init.ts` sets `renderer.outputColorSpace` from `probe.canvas.colorSpace` and
    `platformCaps.hdr`, going through `ensureOutputColorSpace()`.
-3. `WebGPUBackend` (three 0.186) calls `configure()` again **without** `colorSpace`, which
-   resets it to `srgb`: lazily on the first frame, and after every resize (`updateSize()` drops
-   its cached context). `init.ts` calls `applyCanvasColorSpace(probe, outputColorSpace)` after
-   arming, which re-tags the swap chain with the color space the renderer actually uses and pins
-   it on the context instance, so each of Three's later configures carries it too.
+3. `WebGPUBackend` (three 0.186) calls `configure()` again **without** `colorSpace`, which resets it
+   to `srgb`: lazily on the first frame, and after every resize (`updateSize()` drops its cached
+   context). `init.ts` calls `applyCanvasColorSpace(probe, outputColorSpace)` after arming, which
+   re-tags the swap chain with the color space the renderer actually uses and pins it, together with
+   the tone-mapping mode, on the context instance, so each of Three's later configures carries both.
+4. Device recovery keeps the backend's parameters (`outputType` included), re-probes the same way and
+   re-applies the pin.
 
-`window.webgpuProbe.canvas` reports `{ format, alphaMode, colorSpace }` as finally applied.
+`window.webgpuProbe.canvas` reports `{ format, alphaMode, colorSpace, toneMapping }` as finally
+applied.
 
 ## Run mode & platform capabilities
 
@@ -172,7 +252,7 @@ questions (#1972):
 | Module            | Answers                                                                                                                                                          |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `run-mode.ts`     | `getRunMode()`: `'automation'` only for `navigator.webdriver`, `window.__IS_FULL_BOOT_TEST` or a `HeadlessChrome/` token, otherwise `'player'`. `isAutomation()` |
-| `capabilities.ts` | `getPlatformCapabilities()`: frozen `{ runMode, backend, tier, computeAvailable, timestampQuery, hdr, maxPixelRatio }`                                           |
+| `capabilities.ts` | `getPlatformCapabilities()`: frozen `{ runMode, backend, tier, computeAvailable, timestampQuery, gpu, hdr, maxPixelRatio }`                                      |
 | `user-agent.ts`   | `readUserAgent()`, the only raw `navigator.userAgent` read, for reporting (analytics, profiler, probe report)                                                    |
 
 - The old `isCIorHeadless()` regex `/headless|playwright|ci|test/i` matched "Ma**ci**ntosh". Every
@@ -245,8 +325,8 @@ also skips `safeMode`, the deferred pass `?boot=instant`.
 
 ## GPU frame time (timestamp-query)
 
-`timestamp-query` is requested only for `?debug`, `?graphics=high` and `?dynres=1`, and the
-renderer is then built with `trackTimestamp`. Three writes every render and compute pass's
+`timestamp-query` is requested on every boot whose adapter advertises it, unless `?dynres=0` /
+`?dynres=off` opts out (#2137), and the renderer is then built with `trackTimestamp`. Three writes every render and compute pass's
 timestamps into a query pool per type; nothing reads it back unless the app asks, because the game
 loop renders synchronously. `createGpuFrameTimer()` (`src/rendering/gpu-frame-timer.ts`) calls the
 public `renderer.resolveTimestampsAsync('render' | 'compute')` every 30 frames and reports the sum
@@ -336,7 +416,7 @@ and names the step that broke:
 | ----------- | ---------------------------------------------------------------------------------------- |
 | `navigator` | `navigator.gpu` exists at all                                                            |
 | `adapter`   | `requestAdapter()` yields an adapter — **this is where Chrome and Edge diverge**         |
-| `device`    | `requestDevice()` grants the device, with every adapter feature and our `requiredLimits` |
+| `device`    | `requestDevice()` grants the device, with the feature allowlist and our `requiredLimits` |
 | `configure` | the real world canvas configures as a swap chain                                         |
 | `pipeline`  | an empty `@compute` kernel compiles — culling, particles and gpu-chores all need this    |
 
@@ -379,7 +459,10 @@ WebGL2 path is chosen explicitly, from the probe verdict, and is always announce
   "limits": null,               // granted device limits (all numeric keys)
   "requiredLimits": { ... },    // what requestDevice was asked for (adapter-clamped)
   "limitRequest": null,         // per key: { floor, desired, adapter, requested, granted }
-  "canvas": null                // { format, alphaMode, colorSpace } once configured
+  "features": { "adapter": [], "requested": [], "granted": null, "timestampQuery": false,
+                "optional": { "shader-f16": { "adapter": false, "requested": false, "granted": false }, ... } },
+  "canvas": null,               // { format, alphaMode, colorSpace, toneMapping } once configured
+  "hdr": null                   // { display, preference, attempted, configured, reason }
 }
 ```
 

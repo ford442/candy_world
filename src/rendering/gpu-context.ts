@@ -46,9 +46,11 @@
 import { setGpuPrefersLightWorldLoad } from '../core/config/runtime.ts';
 import {
     detectDisplayHdr,
-    EXTENDED_RANGE_CONFIGURED,
+    GPU_OPTIONAL_FEATURES,
     resolveHdrSupport,
+    type GpuOptionalFeature,
 } from '../core/platform/capabilities.ts';
+import { readHdrPreference } from '../core/platform/hdr-preference.ts';
 import { readUserAgent } from '../core/platform/user-agent.ts';
 import type { BackendRecipe, RecoverableRenderer, RecoveryHost } from './device-recovery.ts';
 import type { RendererBackend } from './renderer-mode.ts';
@@ -183,15 +185,47 @@ function describeLimitRequest(
 /**
  * Canvas color space for the swap chain, chosen once at probe time.
  *
- * `display-p3` only when the display is HDR **and** the swap chain is really
- * configured for extended range ({@link EXTENDED_RANGE_CONFIGURED}); `srgb`
- * otherwise, including on HDR displays today (#1972). `init.ts` sets
- * `renderer.outputColorSpace` from the probe result and registers Display P3
- * with Three before selecting it, so the swap-chain tag and Three's output
- * transform always agree.
+ * `display-p3` only when the display is HDR **and** the swap chain really is
+ * configured for extended range (`extendedRange`, what the probe verified);
+ * `srgb` otherwise, including on HDR displays with an SDR swap chain (#1972).
+ * `init.ts` sets `renderer.outputColorSpace` from the probe result and
+ * registers Display P3 with Three before selecting it, so the swap-chain tag
+ * and Three's output transform always agree.
  */
-export function resolveCanvasColorSpace(): PredefinedColorSpace {
-    return resolveHdrSupport(detectDisplayHdr(), EXTENDED_RANGE_CONFIGURED).canvas;
+export function resolveCanvasColorSpace(extendedRange = false): PredefinedColorSpace {
+    return resolveHdrSupport(detectDisplayHdr(), extendedRange).canvas;
+}
+
+/** Swap-chain format of the extended-range (HDR) configure. */
+export const HDR_CANVAS_FORMAT: GPUTextureFormat = 'rgba16float';
+
+/**
+ * Whether to try an extended-range swap chain: the display reports
+ * `(dynamic-range: high)` and the player has not turned HDR off
+ * (`candy.hdr` / `?hdr=off`, see `core/platform/hdr-preference.ts`).
+ */
+export function wantsExtendedRange(): boolean {
+    return detectDisplayHdr() && readHdrPreference().mode !== 'off';
+}
+
+/**
+ * True when the context reports the extended-range configure it was given.
+ * Browsers drop dictionary members they do not know, so a configure with
+ * `toneMapping: { mode: 'extended' }` can succeed and still be standard
+ * range; `getConfiguration()` is the only way to tell. Without it we cannot
+ * verify, and stay on SDR.
+ */
+function extendedRangeTook(ctx: GPUCanvasContext): boolean {
+    try {
+        const applied = (
+            ctx as GPUCanvasContext & {
+                getConfiguration?: () => GPUCanvasConfiguration | null;
+            }
+        ).getConfiguration?.();
+        return applied?.toneMapping?.mode === 'extended' && applied.format === HDR_CANVAS_FORMAT;
+    } catch {
+        return false;
+    }
 }
 
 /**
@@ -416,8 +450,29 @@ export class WebGPUUnavailableError extends Error {
 /** Nothing beyond the empty compute probe. Optional features are never required. */
 export const GPU_REQUIRED_FEATURES: GPUFeatureName[] = [];
 
-/** Requested only when the adapter has them. Never required — SwiftShader lacks timestamp-query. */
-export const GPU_OPTIONAL_FEATURES: GPUFeatureName[] = ['timestamp-query'];
+/**
+ * Requested only when the adapter has them, never required: SwiftShader lacks
+ * most of them, and a missing one only selects a slower path. The list lives
+ * in `core/platform/capabilities.ts` (a leaf) so systems can name a feature in
+ * `capabilities.gpu.has()` without importing this module.
+ *
+ * | Feature                    | Used for                                                     | Without it                          |
+ * | -------------------------- | ------------------------------------------------------------ | ----------------------------------- |
+ * | `timestamp-query`          | GPU frame time → dynamic resolution, performance budget       | no GPU time, fixed resolution       |
+ * | `shader-f16`               | half-precision wind/sway and particle integrators (`enable f16;`) | f32                             |
+ * | `float32-filterable`       | linear filtering of `r32float` / `rgba32float` (probe/LUT textures); Three switches those bindings to `float` | unfilterable-float, manual bilinear |
+ * | `subgroups`                | subgroup prefix sum in the cull/compact pass; Three adds `enable subgroups;` to compute | workgroup shared-memory scan |
+ * | `indirect-first-instance`  | one instance buffer shared by many indirect draws             | one buffer per draw                 |
+ * | `rg11b10ufloat-renderable` | cheaper HDR scene target than `rgba16float`                  | `rgba16float`                       |
+ */
+export { GPU_OPTIONAL_FEATURES, type GpuOptionalFeature };
+
+/** Per optional feature: advertised by the adapter, asked for, granted by the device. */
+export interface GpuFeatureTrace {
+    adapter: boolean;
+    requested: boolean;
+    granted: boolean;
+}
 
 export interface GpuFeatureReport {
     /** Adapter-advertised. Logging only — not passed to requestDevice. */
@@ -428,6 +483,8 @@ export interface GpuFeatureReport {
     granted: GPUFeatureName[] | null;
     /** timestamp-query was wanted this boot and the device granted it. */
     timestampQuery: boolean;
+    /** adapter / requested / granted for each of {@link GPU_OPTIONAL_FEATURES}. */
+    optional: Record<GpuOptionalFeature, GpuFeatureTrace>;
 }
 
 /**
@@ -452,12 +509,30 @@ export function wantsTimestampQuery(): boolean {
 }
 
 /**
- * Allowlist for requestDevice. Junk adapter features stay out.
- * timestamp-query is included only when wanted and advertised.
+ * The optional tiers other than timestamp-query are requested on every boot
+ * the adapter offers them. `?gpuFeatures=off` (or `0` / `none`) asks for none
+ * of them, to bisect a rendering difference down to a feature; timestamp-query
+ * keeps its own switch (`?dynres=0`).
+ */
+export function wantsOptionalGpuFeatures(): boolean {
+    if (typeof window === 'undefined' || typeof window.location === 'undefined') return true;
+    try {
+        const value = (new URLSearchParams(window.location.search).get('gpuFeatures') || '')
+            .toLowerCase()
+            .trim();
+        return !(value === 'off' || value === '0' || value === 'none');
+    } catch {
+        return true;
+    }
+}
+
+/**
+ * Allowlist for requestDevice. Junk adapter features stay out; each optional
+ * feature is included only when wanted and advertised, in list order.
  */
 export function selectRequiredFeatures(
     adapter: GPUAdapter,
-    opts: { timestampQuery?: boolean } = {}
+    opts: { timestampQuery?: boolean; optional?: boolean } = {}
 ): GPUFeatureName[] {
     const supported = adapter.features;
     const has = (name: GPUFeatureName) => Boolean(supported?.has?.(name));
@@ -466,8 +541,10 @@ export function selectRequiredFeatures(
         if (has(name)) out.push(name);
     }
     const wantTimestamp = opts.timestampQuery ?? wantsTimestampQuery();
-    if (wantTimestamp && has('timestamp-query') && !out.includes('timestamp-query')) {
-        out.push('timestamp-query');
+    const wantOptional = opts.optional ?? wantsOptionalGpuFeatures();
+    for (const name of GPU_OPTIONAL_FEATURES) {
+        const wanted = name === 'timestamp-query' ? wantTimestamp : wantOptional;
+        if (wanted && has(name) && !out.includes(name)) out.push(name);
     }
     return out;
 }
@@ -487,12 +564,31 @@ function describeFeatures(
     device: GPUDevice | null
 ): GpuFeatureReport {
     const granted = device ? listFeatures(device.features) : null;
+    const advertised = adapter ? listFeatures(adapter.features) : [];
+    const optional = {} as Record<GpuOptionalFeature, GpuFeatureTrace>;
+    for (const name of GPU_OPTIONAL_FEATURES) {
+        optional[name] = {
+            adapter: advertised.includes(name),
+            requested: requested.includes(name),
+            granted: Boolean(granted?.includes(name)),
+        };
+    }
     return {
-        adapter: adapter ? listFeatures(adapter.features) : [],
+        adapter: advertised,
         requested: [...requested].sort(),
         granted,
         timestampQuery: Boolean(granted?.includes('timestamp-query')),
+        optional,
     };
+}
+
+/** The optional features the probed device was granted (for platform capabilities). */
+export function grantedOptionalFeatures(
+    probe: GpuProbeResult | null | undefined
+): GpuOptionalFeature[] {
+    const optional = probe?.features?.optional;
+    if (!optional) return [];
+    return GPU_OPTIONAL_FEATURES.filter((name) => optional[name]?.granted);
 }
 
 export interface GpuProbeResult {
@@ -508,12 +604,42 @@ export interface GpuProbeResult {
     features: GpuFeatureReport;
 }
 
-/** Swap-chain configuration. HDR render targets are separate (`rgba16float`). */
+/**
+ * Swap-chain configuration. SDR: the preferred 8-bit format, `standard`. HDR:
+ * `rgba16float`, `extended`, Display P3. The post chain's own render targets
+ * are `rgba16float` either way.
+ */
 export interface GpuCanvasConfig {
     format: GPUTextureFormat;
     alphaMode: GPUCanvasAlphaMode;
     colorSpace: PredefinedColorSpace;
+    toneMapping: GPUCanvasToneMappingMode;
     usage: number;
+}
+
+/** What the probe decided about extended-range output, and why. */
+export interface GpuHdrReport {
+    /** `(dynamic-range: high)` matched. */
+    display: boolean;
+    /** The player's mode (`auto` / `off`). */
+    preference: 'auto' | 'off';
+    /** An extended-range configure was attempted. */
+    attempted: boolean;
+    /** The swap chain is extended range (what `getConfiguration()` reported). */
+    configured: boolean;
+    /** Why it is not, when it is not. */
+    reason: string | null;
+}
+
+function toConfiguration(device: GPUDevice, config: GpuCanvasConfig): GPUCanvasConfiguration {
+    return {
+        device,
+        format: config.format,
+        usage: config.usage,
+        alphaMode: config.alphaMode,
+        colorSpace: config.colorSpace,
+        toneMapping: { mode: config.toneMapping },
+    };
 }
 
 /**
@@ -549,8 +675,10 @@ export interface GpuProbeReport {
     requiredLimits: Record<string, number>;
     /** Per-key floor / desired / adapter / requested / granted trace. */
     limitRequest: Record<string, GpuLimitRequest> | null;
-    /** Swap-chain format / alphaMode / colorSpace, or null before configure. */
+    /** Swap-chain format / alphaMode / colorSpace / toneMapping, or null before configure. */
     canvas: Omit<GpuCanvasConfig, 'usage'> | null;
+    /** Extended-range decision, or null before configure. */
+    hdr: GpuHdrReport | null;
     timestamp: string;
 }
 
@@ -652,6 +780,7 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
     let requiredLimits: Record<string, number> = GPU_REQUIRED_LIMITS;
     let requiredFeatures: GPUFeatureName[] = [];
     let canvasConfig: GpuCanvasConfig | null = null;
+    let hdr: GpuHdrReport | null = null;
 
     const fail = (stage: GpuProbeStage, message: string, detail?: unknown): never => {
         publishProbeReport({
@@ -676,6 +805,7 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
                 : null,
             features: describeFeatures(adapter, requiredFeatures, device),
             canvas: canvasConfig ? publicCanvasConfig(canvasConfig) : null,
+            hdr,
             timestamp: new Date().toISOString(),
         });
         // A half-built device would otherwise sit pinned until GC.
@@ -745,18 +875,61 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
     }
 
     // 5 — configure the swap chain as Three will, plus the colorSpace Three
-    // omits. The swap chain is 8-bit (`getPreferredCanvasFormat()`, usually
-    // `bgra8unorm`); HDR lives in the `rgba16float` render targets upstream.
-    canvasConfig = {
+    // omits. SDR is the 8-bit `getPreferredCanvasFormat()` (usually
+    // `bgra8unorm`). On an HDR display, unless HDR is off, try `rgba16float`
+    // with extended tone mapping first and keep it only if the context
+    // reports it back; any doubt lands on the SDR configure, which is the
+    // one that can fail the probe.
+    const sdrConfig: GpuCanvasConfig = {
         format: navigator.gpu.getPreferredCanvasFormat(),
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
         alphaMode: GPU_ALPHA ? 'premultiplied' : 'opaque',
-        colorSpace: resolveCanvasColorSpace(),
+        colorSpace: resolveCanvasColorSpace(false),
+        toneMapping: 'standard',
     };
-    try {
-        ctx.configure({ device, ...canvasConfig });
-    } catch (err) {
-        return fail('configure', `context.configure() threw: ${describeError(err)}`, err);
+    const display = detectDisplayHdr();
+    const preference = readHdrPreference().mode;
+    hdr = {
+        display,
+        preference,
+        attempted: false,
+        configured: false,
+        reason: !display
+            ? 'display is not (dynamic-range: high)'
+            : preference === 'off'
+              ? 'HDR turned off (candy.hdr / ?hdr=off)'
+              : null,
+    };
+    if (wantsExtendedRange()) {
+        const hdrConfig: GpuCanvasConfig = {
+            ...sdrConfig,
+            format: HDR_CANVAS_FORMAT,
+            colorSpace: resolveCanvasColorSpace(true),
+            toneMapping: 'extended',
+        };
+        hdr.attempted = true;
+        try {
+            ctx.configure(toConfiguration(device, hdrConfig));
+            if (extendedRangeTook(ctx)) {
+                canvasConfig = hdrConfig;
+                hdr.configured = true;
+            } else {
+                hdr.reason = 'browser did not report an extended-range configuration';
+            }
+        } catch (err) {
+            hdr.reason = `extended-range configure threw: ${describeError(err)}`;
+        }
+        if (!hdr.configured) {
+            console.warn(`[GPUContext] HDR display, SDR swap chain: ${hdr.reason}`);
+        }
+    }
+    if (!canvasConfig) {
+        canvasConfig = sdrConfig;
+        try {
+            ctx.configure(toConfiguration(device, canvasConfig));
+        } catch (err) {
+            return fail('configure', `context.configure() threw: ${describeError(err)}`, err);
+        }
     }
 
     // 6 — empty compute pipeline. Compute is not optional here: culling,
@@ -801,11 +974,12 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
         limitRequest: describeLimitRequest(adapter, requiredLimits, snapshotLimits(device.limits)),
         features,
         canvas: publicCanvasConfig(canvasConfig),
+        hdr,
         timestamp: new Date().toISOString(),
     });
 
     console.log(
-        `[GPUContext] WebGPU probe passed on ${browser.name} ${browser.version} · adapter=${describeAdapter(adapterInfo)} · features=${features.granted?.join(',') || '(none)'}`
+        `[GPUContext] WebGPU probe passed on ${browser.name} ${browser.version} · adapter=${describeAdapter(adapterInfo)} · features=${features.granted?.join(',') || '(none)'} · swap chain=${canvasConfig.format}/${canvasConfig.toneMapping}`
     );
 
     return {
@@ -820,25 +994,52 @@ async function runProbe(canvas: HTMLCanvasElement): Promise<GpuProbeResult> {
 }
 
 function publicCanvasConfig(config: GpuCanvasConfig): Omit<GpuCanvasConfig, 'usage'> {
-    return { format: config.format, alphaMode: config.alphaMode, colorSpace: config.colorSpace };
+    return {
+        format: config.format,
+        alphaMode: config.alphaMode,
+        colorSpace: config.colorSpace,
+        toneMapping: config.toneMapping,
+    };
 }
 
-const pinnedColorSpace = new WeakMap<GPUCanvasContext, PredefinedColorSpace>();
+/** True when the probe configured an extended-range (HDR) swap chain. */
+export function extendedRangeConfigured(probe: GpuProbeResult | null | undefined): boolean {
+    return probe?.canvas?.toneMapping === 'extended';
+}
+
+interface PinnedCanvas {
+    colorSpace: PredefinedColorSpace;
+    toneMapping: GPUCanvasToneMappingMode;
+}
+
+const pinnedCanvas = new WeakMap<GPUCanvasContext, PinnedCanvas>();
 
 /**
  * Three r186 configures the canvas lazily on the first frame, and again after
  * every resize (`updateSize()` drops its cached context), each time with only
  * device/format/usage/alphaMode/toneMapping, which resets `colorSpace` to
  * `srgb`. Keep the tag on the context instance so every later configure,
- * Three's included, carries it.
+ * Three's included, carries it. Tone mapping is pinned too: Three derives it
+ * from `outputType` (`init.ts` passes `HalfFloatType` exactly when the probe
+ * went extended), and the pin keeps the two from drifting apart.
  */
-function pinCanvasColorSpace(context: GPUCanvasContext, colorSpace: PredefinedColorSpace): void {
-    const wrapped = pinnedColorSpace.has(context);
-    pinnedColorSpace.set(context, colorSpace);
+function pinCanvasConfig(context: GPUCanvasContext, pin: PinnedCanvas): void {
+    const wrapped = pinnedCanvas.has(context);
+    pinnedCanvas.set(context, pin);
     if (wrapped) return;
     const configure = context.configure.bind(context);
-    context.configure = (config: GPUCanvasConfiguration) =>
-        configure({ ...config, colorSpace: pinnedColorSpace.get(context) ?? config.colorSpace });
+    context.configure = (config: GPUCanvasConfiguration) => {
+        const current = pinnedCanvas.get(context);
+        configure(
+            current
+                ? {
+                      ...config,
+                      colorSpace: current.colorSpace,
+                      toneMapping: { mode: current.toneMapping },
+                  }
+                : config
+        );
+    };
 }
 
 /**
@@ -854,13 +1055,16 @@ export function applyCanvasColorSpace(
     colorSpace: PredefinedColorSpace
 ): void {
     const next: GpuCanvasConfig = { ...probe.canvas, colorSpace };
-    const previous = probe.canvas.colorSpace;
+    const previous: PinnedCanvas = {
+        colorSpace: probe.canvas.colorSpace,
+        toneMapping: probe.canvas.toneMapping,
+    };
     try {
-        pinCanvasColorSpace(probe.context, colorSpace);
-        probe.context.configure({ device: probe.device, ...next });
+        pinCanvasConfig(probe.context, { colorSpace, toneMapping: next.toneMapping });
+        probe.context.configure(toConfiguration(probe.device, next));
         probe.canvas = next;
     } catch (err) {
-        pinnedColorSpace.set(probe.context, previous);
+        pinnedCanvas.set(probe.context, previous);
         console.warn(
             `[GPUContext] Canvas configure with colorSpace=${colorSpace} failed: ${describeError(err)}`
         );

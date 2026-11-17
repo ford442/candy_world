@@ -1,3 +1,4 @@
+import { getPlatformCapabilities } from '../core/platform/capabilities.ts';
 import type { StartupProfile } from '../core/startup-profile.ts';
 import { profileBadgeLabel } from '../core/startup-profile.ts';
 
@@ -40,12 +41,18 @@ export function showRendererBadge(
     });
 
     const isFallback = requested === 'webgpu' && activeBackend === 'webgl';
+    // Granted optional device features and HDR (both empty / off on WebGL2).
+    const caps = getPlatformCapabilities();
+    const hdr = activeBackend === 'webgpu' && caps.hdr.extendedRange;
+    const features = activeBackend === 'webgpu' ? caps.gpu.features : [];
     const label =
         activeBackend === 'webgl'
             ? requested === 'webgl'
                 ? 'WEBGL2 DEBUG'
                 : 'WEBGL2 FALLBACK'
-            : 'WEBGPU';
+            : hdr
+              ? 'WEBGPU · HDR'
+              : 'WEBGPU';
 
     if (activeBackend === 'webgl') {
         rendererBadge.style.background = 'rgba(255, 209, 220, 0.92)';
@@ -58,6 +65,8 @@ export function showRendererBadge(
     rendererBadge.innerText = label;
     rendererBadge.setAttribute('role', 'status');
     rendererBadge.dataset.backend = activeBackend;
+    rendererBadge.dataset.hdr = hdr ? 'extended' : 'sdr';
+    rendererBadge.dataset.features = features.join(' ');
     if (isFallback) {
         rendererBadge.setAttribute(
             'aria-label',
@@ -68,7 +77,13 @@ export function showRendererBadge(
         rendererBadge.setAttribute('aria-label', 'Renderer: WebGL2');
         rendererBadge.title = 'WebGL2 renderer — G: wireframe, M: material debug';
     } else {
-        rendererBadge.setAttribute('aria-label', 'Renderer: WebGPU');
+        rendererBadge.setAttribute(
+            'aria-label',
+            hdr ? 'Renderer: WebGPU, HDR output' : 'Renderer: WebGPU'
+        );
+        rendererBadge.title =
+            `WebGPU · ${hdr ? 'HDR (extended range, Display P3)' : 'SDR'} · ` +
+            `features: ${features.length ? features.join(', ') : 'none'}`;
     }
 
     document.body.appendChild(rendererBadge);

@@ -4,6 +4,14 @@
  * This module extends the core AccessibilityMenu class with rendering capabilities.
  */
 
+import { getPlatformCapabilities } from '../core/platform/capabilities.ts';
+import {
+    HDR_PEAK_MAX,
+    HDR_PEAK_MIN,
+    readHdrPreference,
+    writeHdrPreference,
+    type HdrMode,
+} from '../core/platform/hdr-preference.ts';
 import type { ColorBlindType } from '../systems/accessibility';
 import { AccessibilityMenuCore, MenuSection } from './accessibility-menu-core';
 import { announce, announceValueChange } from './announcer';
@@ -434,6 +442,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             }
         );
 
+        this.renderHdrControls(container);
+
         // Crosshair color
         this.createColorPicker(
             container,
@@ -442,6 +452,52 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             settings.visual.crosshairColor,
             (val) => {
                 this.a11y.updateVisualSettings({ crosshairColor: val });
+            }
+        );
+    }
+
+    /**
+     * HDR output (auto / off) and the highlight peak. Stored outside the
+     * accessibility settings (`core/platform/hdr-preference.ts`) because the
+     * boot probe reads the mode before this menu has loaded; the mode applies
+     * on reload, the peak at once.
+     */
+    private renderHdrControls(container: HTMLElement): void {
+        const pref = readHdrPreference();
+        const hdr = getPlatformCapabilities().hdr;
+
+        this.createSelect(
+            container,
+            'HDR Output (applies on reload)',
+            'visual.hdrMode',
+            pref.mode,
+            ['auto', 'off'],
+            (val) => {
+                writeHdrPreference({ mode: val as HdrMode });
+                const now = hdr.extendedRange ? 'on' : 'off';
+                announce(`HDR output ${val}. Reload to apply; currently ${now}.`);
+            }
+        );
+
+        const status = document.createElement('div');
+        status.style.cssText = 'margin: -8px 0 16px; font-size: 12px; opacity: 0.75;';
+        status.textContent = hdr.extendedRange
+            ? 'HDR is active on this display.'
+            : hdr.display
+              ? 'This display supports HDR; it is not active this session.'
+              : 'This display does not report HDR.';
+        container.appendChild(status);
+
+        this.createSlider(
+            container,
+            'HDR Peak Brightness (× SDR white)',
+            'visual.hdrPeak',
+            pref.peak,
+            HDR_PEAK_MIN,
+            HDR_PEAK_MAX,
+            0.25,
+            (val) => {
+                writeHdrPreference({ peak: val });
             }
         );
     }
@@ -853,7 +909,6 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       width: 100%;
       cursor: pointer;
     `;
-        select.value = value;
         select.onchange = () => onChange(select.value);
 
         for (const option of options) {
@@ -862,6 +917,9 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
             optEl.textContent = option.charAt(0).toUpperCase() + option.slice(1);
             select.appendChild(optEl);
         }
+        // After the options exist: a value set on an empty <select> is dropped,
+        // which showed every saved choice as the first option.
+        select.value = value;
 
         wrapper.appendChild(labelEl);
         wrapper.appendChild(select);

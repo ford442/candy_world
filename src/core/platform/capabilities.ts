@@ -8,7 +8,7 @@
  * callers still get a sane answer.
  *
  * Inputs are device signals (adapter, granted features, `deviceMemory`,
- * `(dynamic-range: high)`), the run mode, and the `?graphics=` override —
+ * `(dynamic-range: high)`, the swap chain the probe configured), the run mode, and the `?graphics=` override —
  * never the user-agent string. Graphics *decisions* (warmup, post-FX, shadow
  * tables) stay in `core/startup/capabilities.ts`; this module answers the
  * device questions those and the per-frame paths ask.
@@ -31,6 +31,33 @@ export interface HdrSupport {
     readonly canvas: CanvasColorSpace;
 }
 
+/**
+ * Device features requested only when the adapter advertises them; none is
+ * ever required (`gpu-context.ts` `selectRequiredFeatures`). Systems branch on
+ * `getPlatformCapabilities().gpu.has(name)` once, at init, never per frame.
+ * The table of what each one is for is in docs/WEBGPU_CONTEXT.md#optional-features.
+ */
+export const GPU_OPTIONAL_FEATURES = [
+    'timestamp-query',
+    'shader-f16',
+    'float32-filterable',
+    'subgroups',
+    'indirect-first-instance',
+    'rg11b10ufloat-renderable',
+] as const;
+
+export type GpuOptionalFeature = (typeof GPU_OPTIONAL_FEATURES)[number];
+
+export function isGpuOptionalFeature(name: string): name is GpuOptionalFeature {
+    return (GPU_OPTIONAL_FEATURES as readonly string[]).includes(name);
+}
+
+/** The optional features the device was granted. Always empty on WebGL2. */
+export interface GpuFeatureSet {
+    readonly features: readonly GpuOptionalFeature[];
+    has(name: GpuOptionalFeature): boolean;
+}
+
 export interface PlatformCapabilities {
     readonly runMode: RunMode;
     readonly backend: PlatformBackend;
@@ -38,6 +65,7 @@ export interface PlatformCapabilities {
     /** GPU compute dispatch is worth issuing (WebGPU backend, real player). */
     readonly computeAvailable: boolean;
     readonly timestampQuery: boolean;
+    readonly gpu: GpuFeatureSet;
     readonly hdr: Readonly<HdrSupport>;
     readonly maxPixelRatio: number;
 }
@@ -50,20 +78,14 @@ export interface PlatformCapabilityInputs {
     gpuPrefersLite: boolean;
     deviceMemoryGB: number | undefined;
     timestampQuery: boolean;
+    /** `device.features` as granted (any names; only the optional tiers are kept). */
+    gpuFeatures?: readonly string[];
     displayHdr: boolean;
+    /** The probe configured `rgba16float` + `toneMapping: { mode: 'extended' }`. */
     extendedRange: boolean;
     /** `?graphics=` / `?gfx=` value, if any. */
     graphicsOverride: string | null;
 }
-
-/**
- * Whether the swap chain is configured for extended range. Three 0.171's
- * WebGPUBackend configures `getPreferredCanvasFormat()` (8-bit) with no
- * `toneMapping`, so it is not, and the canvas stays sRGB on HDR displays too.
- * Flip only together with a float16 + `toneMapping: { mode: 'extended' }`
- * configure; `init.ts` then registers Display P3 and drops ACES.
- */
-export const EXTENDED_RANGE_CONFIGURED = false;
 
 /**
  * `pixelRatio` cap per tier: `low` renders one pixel per CSS pixel, `medium`
@@ -100,6 +122,22 @@ export function resolveHdrSupport(displayHdr: boolean, extendedRange: boolean): 
         extendedRange: displayHdr && extendedRange,
         canvas: displayHdr && extendedRange ? 'display-p3' : 'srgb',
     };
+}
+
+/** Pure: the granted optional features, frozen, with a `has()` lookup. */
+export function resolveGpuFeatureSet(
+    backend: PlatformBackend,
+    granted: readonly string[] | undefined
+): GpuFeatureSet {
+    const features =
+        backend === 'webgpu'
+            ? GPU_OPTIONAL_FEATURES.filter((name) => granted?.includes(name) ?? false)
+            : [];
+    const set = new Set<GpuOptionalFeature>(features);
+    return Object.freeze({
+        features: Object.freeze(features),
+        has: (name: GpuOptionalFeature) => set.has(name),
+    });
 }
 
 export function detectDisplayHdr(): boolean {
@@ -152,6 +190,7 @@ export function resolvePlatformCapabilities(input: PlatformCapabilityInputs): Pl
         tier,
         computeAvailable: input.backend === 'webgpu' && !automation,
         timestampQuery: input.backend === 'webgpu' && input.timestampQuery,
+        gpu: resolveGpuFeatureSet(input.backend, input.gpuFeatures),
         hdr: Object.freeze(hdr),
         maxPixelRatio: resolveMaxPixelRatio(tier, input.backend),
     });
@@ -188,8 +227,10 @@ export function gatherPlatformCapabilityInputs(
         gpuPrefersLite: false,
         deviceMemoryGB: getDeviceMemoryGB(),
         timestampQuery: false,
+        gpuFeatures: [],
         displayHdr: detectDisplayHdr(),
-        extendedRange: EXTENDED_RANGE_CONFIGURED,
+        // Known only after the probe configured the swap chain; init.ts passes it in.
+        extendedRange: false,
         graphicsOverride: readGraphicsOverride(),
         ...known,
     };

@@ -91,6 +91,15 @@ rays are off as well. The `low` graphics tier, WebGL2 and automation also resolv
 _quality_ to `'off'`, but that only drops the optional passes (DoF, GTAO, god rays); they keep
 the scene pass, bloom and the grade (`isPostStackBypassed()` is the one predicate).
 
+### HDR output
+
+On an extended-range swap chain (`docs/WEBGPU_CONTEXT.md#hdr-output`) the renderer uses no tone
+mapping (Three's `LinearToneMapping` clamps to [0, 1]) into Display P3, so the composite's values above 1.0 reach the display. The graph is then
+built with `hdr: { knee }` and ends in a highlight roll-off on the brightest channel: identity up to
+`knee × uHdrPeak` (knee 0.75), then an exponential shoulder toward `uHdrPeak` (the player's
+**HDR Peak Brightness**, live). It runs before `renderOutput()` in the FXAA/SMAA paths, so the
+edge filters see the clamped image. On SDR the node is not built: the graph is unchanged.
+
 GI is **irradiance probes**, not screen-space, so GTAO is the only extra depth fetch. Do not add SSR on top without a budget pass.
 
 ## Viewport copies (WebGPU)
