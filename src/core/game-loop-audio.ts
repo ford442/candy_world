@@ -1,7 +1,10 @@
 import type * as THREE from 'three';
 import type { VisualState } from '../audio/audio-system-core.ts';
 import { getSeasonState } from '../systems/environment/season-controller.ts';
-import { blendSeasonMusicModifier, createSeasonMusicModifier } from '../systems/environment/season-core.ts';
+import {
+    blendSeasonMusicModifier,
+    createSeasonMusicModifier,
+} from '../systems/environment/season-core.ts';
 import { getBiomeAtPosition } from '../systems/net/biome-at-position.ts';
 import { reportBiome, setBeatPhase } from '../systems/objective-signals.ts';
 import { profiler } from '../utils/profiler.ts';
