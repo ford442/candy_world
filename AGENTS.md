@@ -207,7 +207,7 @@ npm run verify:emcc:manifest
 ### Emscripten export CI (source of truth)
 
 - **Tier 1** (`.github/workflows/emscripten-ci.yml`): path-filtered PRs/pushes run `pnpm run verify:emcc:manifest` — asserts `build.sh` selection ⊆/`==` committed `emscripten/exports.txt`. No emsdk.
-- **Tier 2** (`.github/workflows/emscripten-verify.yml`): release tags, nightly `main`, and `workflow_dispatch` run `CANDY_DEBUG=0 pnpm run build:emcc` + `verify:emcc --strict` + manifest lint. Not a required PR check (emsdk can flake).
+- **Tier 2** (`.github/workflows/emscripten-verify.yml`): pull requests that touch the native ABI or its bridges (path-filtered), release tags, nightly `main`, and `workflow_dispatch` install the pinned emsdk, run `CANDY_DEBUG=0 pnpm run build:emcc`, then `check:native-artifacts` (MT, ST and DSP artifacts exist, validate and expose every `exports.txt` name; fail-closed, because `build.sh` exits 0 without em++), `verify:emcc --strict`, and the C++ parity tests with `CANDY_PARITY_REQUIRE_CPP=1`. Not a required check (emsdk can flake, and a path-filtered check that never starts would block unrelated PRs). The contract is in `docs/CI_CONTRACT.md` ("Native tier on pull requests").
 - After changing `emscripten/build.sh` or `*.cpp` exports, refresh with `pnpm run verify:emcc:manifest -- --write` (or a local `build:emcc`) and commit `exports.txt`. The manifest lint also fails if an `EMSCRIPTEN_KEEPALIVE` function is missing from `ANIMATION_FUNCTIONS` (EXPORT_KEEPALIVE=1 exports it anyway) or a declared name has no definition.
 - **Dead exports / stale lookups** (`pnpm run check:native-exports`, in `test:fast`): every AS export (`assembly/index.ts`, names only, no `export *`) and every C++ export (exports.txt + KEEPALIVE) must have a caller in `src/` or `tests/`, and every `getNativeFunc('x')` / `exports.x` must name a real export. Baseline `scripts/native-exports-baseline.json` is 0/0 and can only shrink. To add an export, call it from TS (or a test) in the same PR; to drop one, remove it from `assembly/index.ts` or from `build.sh` together with its `EMSCRIPTEN_KEEPALIVE`.
 
@@ -666,7 +666,7 @@ These notes are for agents running in the Cursor Cloud VM. The startup update sc
 ### Emscripten is intentionally absent
 
 - `em++` is not installed, so `dev.sh` / `build:emcc` print a warning and skip the optional C++ native module — the app runs in JavaScript fallback mode. This is expected, not an error. `candy_native*` 404s in the browser console are also expected.
-- Keep `emscripten/exports.txt` in sync without em++ via `pnpm run verify:emcc:manifest` (Tier-1 CI). Use `-- --write` after editing `build.sh` / `*.cpp` export lists. Full `build:emcc` verification runs in GitHub Actions (`emscripten-verify.yml`) on tags / nightly, not in this VM.
+- Keep `emscripten/exports.txt` in sync without em++ via `pnpm run verify:emcc:manifest` (Tier-1 CI). Use `-- --write` after editing `build.sh` / `*.cpp` export lists. Full `build:emcc` verification runs in GitHub Actions (`emscripten-verify.yml`) on native-touching PRs, tags and nightly, not in this VM.
 
 ### Headless GPU limitation (important)
 

@@ -136,7 +136,7 @@ the inventory:
 | Tier           | Workflow                | When                                                         | What                                                |
 | -------------- | ----------------------- | ------------------------------------------------------------ | --------------------------------------------------- |
 | 1 — lexical    | `emscripten-ci.yml`     | PRs/pushes touching `emscripten/**` or `src/utils/wasm-*.ts` | `verify:emcc:manifest` (no emsdk)                   |
-| 2 — full build | `emscripten-verify.yml` | Release tags, nightly `main`, `workflow_dispatch`            | `CANDY_DEBUG=0 build:emcc` + `verify:emcc --strict` |
+| 2 — full build | `emscripten-verify.yml` | Native-touching PRs, release tags, nightly `main`, `workflow_dispatch` | `CANDY_DEBUG=0 build:emcc` + `check:native-artifacts` + `verify:emcc --strict` + C++ parity (`CANDY_PARITY_REQUIRE_CPP=1`) |
 
 If Tier 1 fails, regenerate and commit:
 

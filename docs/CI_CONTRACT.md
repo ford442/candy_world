@@ -257,8 +257,9 @@ declares `node24`: `actions/checkout@v7`, `actions/setup-node@v7`,
 `budget-check.yml` installing with both `pnpm install` and `npm ci` is
 intentional: `tools/build-optimizer` is not in `pnpm-workspace.yaml` and has
 its own `package-lock.json`. Not yet bumped: the disabled
-`visual-regression.yml` (`github-script@v7`), `release-stable.yml` and the
-two emscripten workflows. `garden-dsp.yml` uses the PR-gate majors.
+`visual-regression.yml` (`github-script@v7`), `release-stable.yml` and
+`emscripten-ci.yml`. `garden-dsp.yml` and `emscripten-verify.yml` use the
+PR-gate majors.
 
 ## `Visual Regression Tests` — DISABLED 2026-09-23
 
@@ -296,6 +297,63 @@ slice). **If a native character-controller test or a save-entity-snapshot
 round-trip is wanted, write the test file first and add it to `test:fast` —
 do not re-create a script that names a file which is not there.**
 
+## Native tier on pull requests (`emscripten-verify.yml`)
+
+Added 2026-11-17. The PR gate has no emsdk, so before this a change to
+`emscripten/**`, the AssemblyScript sources or a WASM bridge could merge without
+the C++ ever being compiled or run: `test:parity`, `test:native-batch-parity`
+and `test:character-native` skip their C++ tier (exit 0) when
+`public/candy_native*` is absent. `emscripten-ci.yml` on PRs is lexical only
+(`verify:emcc:manifest`, no emsdk).
+
+`Emscripten Verify` now also runs on **pull requests** whose changed paths
+include any of: `emscripten/**`, `assembly/**`, `src/utils/wasm-*.ts`,
+`src/utils/native-*.ts`, `src/systems/ecs/**`,
+`src/systems/fauna/boids-bridge.ts`, `src/audio/worklet/**`, `verification/**`,
+the native check scripts (`check-emcc-manifest`, `check-native-exports`,
+`check-native-artifacts`, `check-dsp-wasm`, `check-memory-layout`,
+`gen-native-types`, `memory-layout`, `native-structs.json`,
+`native-exports-baseline.json`), the native tests, `package.json`,
+`.emsdk-version` and the workflow itself. It uses `pull_request`, never
+`pull_request_target`, with `contents: read` and no secrets, so a fork PR runs
+the same job safely. The emsdk comes from `.emsdk-version` through
+`setup-emsdk` (`actions-cache-folder: emsdk-cache` caches the SDK). The last
+full runs took about 90 seconds, so the full job runs on PRs instead of a
+cut-down copy that could drift from it. Not a required check: a path-filtered
+workflow that does not start would block PRs that touch none of these paths.
+
+| step | what it fails on | PR | nightly / tags / dispatch |
+| --- | --- | --- | --- |
+| `verify:emcc:manifest` | `exports.txt` or the flag contract drifted from `build.sh` / `*.cpp` (runs before the compile) | yes | yes |
+| `build:emcc` | any compile or link error in the threaded or single-threaded build, or the garden DSP module | yes | yes |
+| `check:native-artifacts` | any of `candy_native.{js,wasm}`, `candy_native_st.{js,wasm}`, `candy_dsp.wasm` missing, truncated, not valid WebAssembly, a glue file without `Module._<name>` for every `exports.txt` name, a DSP module breaking its contract, or the ST module not instantiating in Node with every export callable | yes | yes |
+| `verify:emcc --strict` | an `exports.txt` name missing from `candy_native.wasm` | yes | yes |
+| `test:native-exports` | the parsed C++/AS ABI differs from the built glue / `candy_physics.wasm` (skips in the PR gate) | yes | yes |
+| `check:dsp-wasm`, `test:dsp-render` (`CANDY_DSP_REQUIRE=1`) | the DSP module's ABI, golden render, timing | yes | yes |
+| `test:parity`, `test:native-batch-parity`, `test:character-native` (`CANDY_PARITY_REQUIRE_CPP=1`) | a C++ skip, or any TS / AS / C++ disagreement | yes | yes |
+| `exports.txt` drift (`git diff`) | `build:emcc` regenerated a different manifest than the committed one | yes | yes |
+
+Why `check:native-artifacts` exists: `emscripten/build.sh` and
+`emscripten/dsp/build.sh` print a warning, delete the stale artifacts and exit 0
+when `em++` is not on PATH (right for a contributor without emsdk), and
+`build.sh` ignores a failing post-build verify. In CI that would read as a
+green build with nothing built. The script is the fail-closed backstop. It reads
+the glue (`Module["_name"]`) instead of the raw wasm export table because
+`-O2` minifies wasm export names and the glue maps them back.
+`tests/native-artifacts.test.mjs` (`test:native-artifacts`, in `test:fast`)
+proves it can go red on synthetic artifacts: every artifact missing, each one
+missing on its own, truncated, bad magic, valid header with a corrupt body, a
+glue file missing one export, a DSP module that lost a `dsp_*` export, and a DSP
+memory that can grow. The CLI exits 1 for those and 0 for a complete set.
+
+PR and nightly/release runs are the same job, so the table has no PR-only or
+nightly-only steps. Two native tests honour `CANDY_PARITY_REQUIRE_CPP=1` but are
+in no workflow yet: `test:native-omp-regions` (the multi-threaded module in
+headless Chromium; needs `playwright install chromium`) and
+`test:native-boids-parity`. Wire them in once each has been seen to pass on a
+runner. Compiler flags are unchanged; a flag change needs its own measured
+benchmark and parity evidence.
+
 ## `test:parity` reads as a pass but skips its C++ tier
 
 `tests/parity.mjs` compares TS → AssemblyScript → Emscripten/C++. The C++ tier
@@ -315,7 +373,8 @@ naming `npm run build:wasm`. **If you add a new skip site to
 otherwise the summary goes back to blaming the wrong toolchain.
 
 **Fail-closed where the toolchain exists (#1822).** `emscripten-verify.yml`
-runs `test:parity` with `CANDY_PARITY_REQUIRE_CPP=1` right after `build:emcc`.
+(on native-touching PRs, nightly and tags; see above) runs `test:parity` with
+`CANDY_PARITY_REQUIRE_CPP=1` right after `build:emcc`.
 With that flag set, any C++ skip exits 1. A native module that built but
 failed to load, or that lost an export, cannot pass as green there. Without
 the flag (the `test:fast` PR job) behaviour is unchanged: the run exits 0 and
