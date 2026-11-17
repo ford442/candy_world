@@ -85,12 +85,46 @@ export function attachLivingScoreAudioListener(audioSystem: AudioSystem): void {
 }
 
 let sugarCavesShimmerEnvelope = 0;
+/** The bias of the last update, for cues fired from outside the tracker edge (`fireScoreCue`). */
+let lastDayNightBias = 0.5;
+
+/** The loaded cues a player can bind to a grove composer row (`systems/composer/`). */
+export interface ScoreCueInfo {
+    id: string;
+    biome: string;
+    event: string;
+    unlock?: string;
+}
+
+export function listScoreCues(): ScoreCueInfo[] {
+    const out: ScoreCueInfo[] = [];
+    for (let i = 0; i < cueIds.length; i++) {
+        const info: ScoreCueInfo = { id: cueIds[i], biome: cueBiomes[i], event: cueEvents[i] };
+        if (cueUnlocks[i] !== '') info.unlock = cueUnlocks[i];
+        out.push(info);
+    }
+    return out;
+}
+
+/**
+ * Fire one cue's event by id, as a matching tracker row would: the same events, the same
+ * day/night gates, the same `unlock` rule. False for an unknown cue or one still locked.
+ */
+export function fireScoreCue(id: string): boolean {
+    const i = cueIds.indexOf(id);
+    if (i < 0) return false;
+    if (cueUnlocks[i] !== '' && !unlockSystem.isUnlocked(cueUnlocks[i])) return false;
+    fireScoreEvent(i, nightGateFromBias(lastDayNightBias), 1.0 - lastDayNightBias);
+    recordDebugCue(cueIds[i]);
+    return true;
+}
 
 export function updateLivingScore(
     audioSystem: AudioSystem,
     dayNightBias: number,
     dt: number
 ): void {
+    lastDayNightBias = dayNightBias;
     if (!_cuesLoaded) return;
     if (!initialized) attachLivingScoreAudioListener(audioSystem);
 

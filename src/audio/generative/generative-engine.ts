@@ -16,12 +16,17 @@ import {
     NUM_CHANNELS,
     CHANNEL_VOICES,
     STEPS_PER_BAR,
+    authoredNote,
+    AUTHORED_VELOCITY,
+    type AuthoredPattern,
     type NoteEvent,
 } from './sequencer.ts';
 import { SynthVoice } from './synth-voice.ts';
 import { DspVoiceSink, type GenerativeVoiceSink } from './voice-sink.ts';
 
 export type GenerativeNoteCallback = (note: string, velocity: number, channelIndex: number) => void;
+/** A step is heard: its row and the notes it played (the array is reused; copy what you keep). */
+export type GenerativeStepListener = (row: number, events: readonly NoteEvent[]) => void;
 
 export interface GenerativeEngineOptions {
     seed?: number;
@@ -97,6 +102,7 @@ export class GenerativeEngine {
     private biomeBlend = 1.0;
     private activeProfile: BiomeMusicProfile;
     private onNoteCallback: GenerativeNoteCallback | null = null;
+    private readonly stepListeners: GenerativeStepListener[] = [];
     private readonly seed: number;
     private masterVolume = 1.0;
     /** Season shaping applied after every biome blend; identity until the game loop sets it. */
@@ -200,6 +206,47 @@ export class GenerativeEngine {
 
     onNote(cb: GenerativeNoteCallback): void {
         this.onNoteCallback = cb;
+    }
+
+    /** Observe every heard step (after its visuals and note callbacks). Returns an unsubscribe. */
+    addStepListener(listener: GenerativeStepListener): () => void {
+        this.stepListeners.push(listener);
+        return () => {
+            const i = this.stepListeners.indexOf(listener);
+            if (i >= 0) this.stepListeners.splice(i, 1);
+        };
+    }
+
+    /**
+     * Play an authored pattern (a music stone's, `systems/composer/`) instead of the generated
+     * one, or resume generating with null. Same bus, voices, visuals and note callbacks.
+     */
+    setAuthoredPattern(pattern: AuthoredPattern | null): void {
+        this.sequencer.setAuthoredPattern(pattern);
+    }
+
+    get playingAuthored(): boolean {
+        return this.sequencer.playingAuthored;
+    }
+
+    /** The key, scale and tempo notes resolve against right now. */
+    getActiveProfile(): Readonly<BiomeMusicProfile> {
+        return this.activeProfile;
+    }
+
+    /**
+     * Sound one authored cell right away (the composer's audition of a single key). Returns the
+     * note name, or null when there is nothing to play it on.
+     */
+    previewNote(channel: number, degree: number): string | null {
+        if (degree < 0 || channel < 0 || channel >= NUM_CHANNELS) return null;
+        const note = authoredNote(this.activeProfile, channel, degree);
+        const sink = this.ctx && this.masterVolume > 0 ? this.voiceSink() : null;
+        if (!sink || !this.ctx) return note;
+        const stepDuration = 60 / (this.sequencer.getBpm(this.dayNightBias) * 4);
+        const len = Math.max(1, CHANNEL_VOICES[channel].length) * stepDuration;
+        sink.playNote(note, channel, AUTHORED_VELOCITY, this.ctx.currentTime + 0.01, len, 0);
+        return note;
     }
 
     setMasterVolume(vol: number): void {
@@ -384,6 +431,13 @@ export class GenerativeEngine {
 
             if (this.onNoteCallback) {
                 this.onNoteCallback(ev.note, ev.velocity, ch);
+            }
+        }
+        for (let i = 0; i < this.stepListeners.length; i++) {
+            try {
+                this.stepListeners[i](slot.row, slot.events);
+            } catch (err) {
+                console.warn('[GenerativeEngine] Step listener failed:', err);
             }
         }
         slot.events.length = 0;

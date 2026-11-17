@@ -31,6 +31,7 @@ import {
     createVineLadder,
 } from '../foliage/index.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
+import { createMusicStone } from '../foliage/music-stone.ts';
 import { createNightMarketStall } from '../foliage/night-market-stall.ts';
 import { createSkyIsland } from '../foliage/sky-islands.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
@@ -268,6 +269,11 @@ export function registerBuiltinWorldObjectTypes(): void {
                     : 0,
                 scale: typeof params?.scale === 'number' ? params.scale : 1.0,
             }),
+        { defaultIsObstacle: true, defaultRadius: 1.0, supportsMusic: true }
+    );
+    registerType(
+        'music_stone',
+        (params) => createMusicStone({ pattern: params?.pattern }),
         { defaultIsObstacle: true, defaultRadius: 1.0, supportsMusic: true }
     );
     registerType('bubble_willow', () => createBubbleWillow(), {

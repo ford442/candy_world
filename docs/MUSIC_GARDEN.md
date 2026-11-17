@@ -22,6 +22,10 @@ play dozens of planted voices without stutter. That engine is slice A.
 | C     | Bass Roots + Arp Vines, Living Score `gardenStep` cues, seed-packet unlocks, the "First Bloom" Melodies chain                          | planned       |
 | D     | Shared-world jams (schema + migration, sync convergence case), `validate-world` flora limits, `.mid` export, WebMIDI input             | planned       |
 
+The grove composer (music stones: an authored 8 × 16 pattern played through the
+generative engine, `compose` commands, cue bindings) is built and documented
+in [`GROVE_COMPOSER.md`](./GROVE_COMPOSER.md).
+
 Slices B–D follow the original proposal: flora are `world-commands.ts`
 commands, so undo, the command log, `.candyworld` export and shared-world sync
 come for free. Scale and key come from `biome-profiles.ts` and the season.

@@ -17,6 +17,9 @@ export {
     CHANNEL_VOICES,
     NUM_CHANNELS,
     STEPS_PER_BAR,
+    AUTHORED_VELOCITY,
+    authoredNote,
+    type AuthoredPattern,
     type NoteEvent,
 } from './sequencer.ts';
 export { SynthVoice } from './synth-voice.ts';
@@ -33,6 +36,7 @@ export {
     MAX_LATE_SEC,
     type GenerativeEngineOptions,
     type GenerativeAttachOptions,
+    type GenerativeStepListener,
 } from './generative-engine.ts';
 export {
     resolveMusicMode,

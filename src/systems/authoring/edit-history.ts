@@ -117,6 +117,16 @@ export class EditHistory {
         return true;
     }
 
+    /** The command `undo()` would revert next, without reverting it. */
+    peekUndo(): WorldCommand | undefined {
+        return this.undoStack[this.undoStack.length - 1];
+    }
+
+    /** The command `redo()` would re-apply next. */
+    peekRedo(): WorldCommand | undefined {
+        return this.redoStack[this.redoStack.length - 1];
+    }
+
     /** True while `command` can still be undone (it is on the undo stack). */
     isUndoable(command: WorldCommand): boolean {
         return this.undoStack.includes(command);

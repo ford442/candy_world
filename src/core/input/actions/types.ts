@@ -70,6 +70,10 @@ export const ACTION_IDS = [
     'menu.back',
     'menu.next',
     'menu.prev',
+    // Grove composer (a pad's way to the editor's toolbar; the keyboard uses the DOM)
+    'composer.pitch',
+    'composer.audition',
+    'composer.save',
 ] as const;
 
 export type ActionId = (typeof ACTION_IDS)[number];

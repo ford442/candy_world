@@ -119,6 +119,18 @@ const MENU_PAD: Binding[] = [
     pad('pause', 'start'),
 ];
 
+/**
+ * The grove composer's editor is a menu too (`systems/composer/composer-ui.ts`): the d-pad walks
+ * its keys and A toggles one, as in any menu. The bumpers change the focused key's pitch, X
+ * auditions and Y saves; with nothing listening (any other menu) they do nothing.
+ */
+const COMPOSER_PAD: Binding[] = [
+    pad('composer.pitch', 'lb', { scale: -1 }),
+    pad('composer.pitch', 'rb'),
+    pad('composer.audition', 'x'),
+    pad('composer.save', 'y'),
+];
+
 /** Photo mode's panel is DOM too: the pad walks it like a menu, and B or View+Y leaves. */
 const PHOTO_PAD: Binding[] = [
     ...MENU_PAD.filter((b) => b.action !== 'menu.back' && b.action !== 'pause'),
@@ -263,7 +275,7 @@ export const DEFAULT_CONTEXTS: Record<
     // to give a pad, which has no Tab or Enter, a way through them.
     photo: { bindings: PHOTO_PAD, blocksBelow: true },
     // L toggles the discovery log from anywhere, as before: it opens as a menu.
-    menu: { bindings: [key('log', 'KeyL'), ...MENU_PAD], blocksBelow: true },
+    menu: { bindings: [key('log', 'KeyL'), ...MENU_PAD, ...COMPOSER_PAD], blocksBelow: true },
     xr: { bindings: [], blocksBelow: false },
 };
 
@@ -319,6 +331,9 @@ export const ACTION_LABELS: Partial<Record<ActionId, string>> = {
     'menu.back': 'Menu: back',
     'menu.next': 'Menu: next',
     'menu.prev': 'Menu: previous',
+    'composer.pitch': 'Composer: pitch up',
+    'composer.audition': 'Composer: audition',
+    'composer.save': 'Composer: save',
 };
 
 const MOVE_LABELS: Record<string, string> = {

@@ -11,6 +11,7 @@ import {
 } from '../../foliage/post-processing-uniforms.ts';
 import { ensureGameplay } from '../../gameplay/lazy.ts';
 import { isBuildGizmoOpen } from '../../systems/build-mode-state.ts';
+import { isComposerOpen } from '../../systems/composer-lazy.ts';
 import { InteractionSystem } from '../../systems/interaction.ts';
 import { setShrineTravelCamera } from '../../systems/shrine-travel.ts';
 import { registerPhotoModeInit } from '../../systems/photo-mode/lazy.ts';
@@ -47,8 +48,8 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
             camera,
             ctx.audioSystem!,
             () => toggleDayNight(ctx.timeOffset),
-            // Dancing, or the build gizmo holding the cursor for a drag.
-            () => player.isDancing || isBuildGizmoOpen()
+            // Dancing, the build gizmo holding the cursor for a drag, or the grove composer open.
+            () => player.isDancing || isBuildGizmoOpen() || isComposerOpen()
         );
         setInputSystem(ctx.inputSystem);
         ctx.controls = ctx.inputSystem.controls;

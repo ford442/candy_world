@@ -232,10 +232,12 @@ function parseWith<T>(
     return { ok: true, message: result.output };
 }
 
-/** Move and paint keep their entity: `from` and `to` share an id. */
+/** Move, paint and compose keep their entity: `from` and `to` share an id. */
 function idsConsistent(cmd: DocumentCommand): boolean {
     if (cmd.type === 'batch') return cmd.commands.every(idsConsistent);
-    if (cmd.type === 'move' || cmd.type === 'paint') return cmd.from.id === cmd.to.id;
+    if (cmd.type === 'move' || cmd.type === 'paint' || cmd.type === 'compose') {
+        return cmd.from.id === cmd.to.id;
+    }
     return true;
 }
 
@@ -251,8 +253,8 @@ export function clampCommandPalette(cmd: DocumentCommand): DocumentCommand {
     const params: Record<string, unknown> = to.entity.params ?? {};
     const color = params.color;
     if (color === undefined || isCandyPaint(color)) return cmd;
-    // A move that keeps the colour it had is not a recolour (map pieces).
-    if (cmd.type === 'move' && color === (cmd.from.entity.params ?? {}).color) return cmd;
+    // A move (or compose) that keeps the colour it had is not a recolour (map pieces).
+    if ((cmd.type === 'move' || cmd.type === 'compose') && color === (cmd.from.entity.params ?? {}).color) return cmd;
     const clamped =
         typeof color === 'number' && Number.isFinite(color)
             ? nearestCandyPaint(color & 0xffffff)

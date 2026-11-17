@@ -4,7 +4,10 @@ How the player earns abilities, and what each one does, and the objectives
 ("Melodies") layered on top: authored quest chains, a journal and quest
 announcements (#2028 slice B), with `visit` / `play-on-beat` / `build`
 triggers, seasonal Melodies and item rewards. The grove composer (#1976 slice
-C) and fauna-guided Melodies are not built yet; see [Melodies](#melodies).
+C) is built: finished Melodies and unlocks open its voices, see
+[Grove composer voices](#grove-composer-voices) and
+[`GROVE_COMPOSER.md`](./GROVE_COMPOSER.md). Fauna-guided Melodies are not built
+yet; see [Melodies](#melodies).
 
 ## The loop
 
@@ -74,6 +77,24 @@ their names.
 Score cues in `assets/score-cues.json` may carry `"unlock": "<id>"`; they stay
 silent until that unlock is earned. The `lake_island` cues use
 `island_scholar`.
+
+## Grove composer voices
+
+A music stone's pattern editor (`docs/GROVE_COMPOSER.md`) has eight voices.
+Kick, Melody and Arpeggio are open from the start; the others are earned with
+progress the player already has, read fresh each time the editor opens
+(`systems/composer/composer-voices.ts`), so nothing new is stored:
+
+| Voice         | Unlocked by                                          |
+| ------------- | ---------------------------------------------------- |
+| Lead pad      | finishing the Meadow Melody (`meadow`)               |
+| High arpeggio | `arpeggio_shield`                                    |
+| Hue pad       | finishing Garden Rhythm (`garden-rhythm`)            |
+| Shimmer       | `resonance_tuner`                                    |
+| Sparkle       | collecting every Night Market stamp (`night-market`) |
+
+A lock stops writing to a row, not hearing it: visitors hear every row of an
+owner's pattern.
 
 ## Gates
 

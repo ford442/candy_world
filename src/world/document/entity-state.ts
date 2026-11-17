@@ -4,7 +4,7 @@
  *
  * Every command is a set of per-entity transitions `before → after` (a missing
  * side means "not in the world"): place is `∅ → s`, remove is `s → ∅`, move and
- * paint are `a → b`, batch is its children's transitions. Compaction, the
+ * paint (and compose) are `a → b`, batch is its children's transitions. Compaction, the
  * shared-world validator and the co-editing replica all reason in these terms.
  * Renderer-free and import-free at runtime (the edge function loads it).
  */
@@ -32,6 +32,7 @@ export function transitionsOf(
             break;
         case 'move':
         case 'paint':
+        case 'compose':
             out.push({ id: cmd.to.id, before: cmd.from, after: cmd.to });
             break;
         case 'batch':
@@ -72,6 +73,8 @@ export function invertCommand(cmd: DocumentCommand): DocumentCommand {
             return { type: 'move', from: cmd.to, to: cmd.from };
         case 'paint':
             return { type: 'paint', from: cmd.to, to: cmd.from };
+        case 'compose':
+            return { type: 'compose', from: cmd.to, to: cmd.from };
         case 'batch': {
             const out: DocumentCommand = {
                 type: 'batch',
