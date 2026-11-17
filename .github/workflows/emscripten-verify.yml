@@ -16,6 +16,9 @@ on:
         paths:
             - 'emscripten/**'
             - 'src/utils/wasm-*.ts'
+            - 'src/audio/worklet/**'
+            - 'tests/dsp-render.test.mjs'
+            - 'scripts/check-dsp-wasm.mjs'
             - 'verification/**'
             - 'scripts/check-emcc-manifest.mjs'
             - '.github/workflows/emscripten-verify.yml'
@@ -77,6 +80,12 @@ jobs:
             - name: Build AssemblyScript WASM
               run: pnpm run build:wasm
 
+            # build:emcc also built the garden DSP module; a skip here would hide a failed build.
+            - name: Garden DSP module (ABI + offline render, golden, 64-voice budget)
+              run: pnpm run check:dsp-wasm && pnpm run test:dsp-render
+              env:
+                  CANDY_DSP_REQUIRE: '1'
+
             # build:emcc just ran, so a C++ SKIP here means the module failed to
             # load or lost an export. It must fail, not read as green.
             - name: Cross-tier parity (TS ↔ AssemblyScript ↔ C++)
@@ -115,6 +124,7 @@ jobs:
                       public/candy_native.js
                       public/candy_native_st.wasm
                       public/candy_native_st.js
+                      public/candy_dsp.wasm
                       emscripten/exports.txt
                   retention-days: 14
                   if-no-files-found: warn

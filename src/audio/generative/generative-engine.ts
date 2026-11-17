@@ -1,3 +1,4 @@
+import { FEATURE_FLAGS } from '../../core/config.ts';
 import type { SeasonMusicModifier } from '../../systems/environment/season-core.ts';
 import type { ChannelData, VisualState } from '../audio-system-core.ts';
 import { decayTowards, noteToFreq } from '../audio-system-core.ts';
@@ -7,10 +8,18 @@ import {
     _blendScratch,
     type BiomeMusicProfile,
 } from './biome-profiles.ts';
+import { GENERATIVE_PATCHES } from './dsp-patches.ts';
 import { noteNameToChromaticIndex } from './scales.ts';
 import { applySeasonMusicModifier } from './season-music.ts';
-import { GenerativeSequencer, NUM_CHANNELS, CHANNEL_VOICES, STEPS_PER_BAR } from './sequencer.ts';
+import {
+    GenerativeSequencer,
+    NUM_CHANNELS,
+    CHANNEL_VOICES,
+    STEPS_PER_BAR,
+    type NoteEvent,
+} from './sequencer.ts';
 import { SynthVoice } from './synth-voice.ts';
+import { DspVoiceSink, type GenerativeVoiceSink } from './voice-sink.ts';
 
 export type GenerativeNoteCallback = (note: string, velocity: number, channelIndex: number) => void;
 
@@ -20,22 +29,68 @@ export interface GenerativeEngineOptions {
     biome?: string;
 }
 
+export interface GenerativeAttachOptions {
+    /** Play through the garden DSP worklet when it loads (default: FEATURE_FLAGS.gardenDsp). */
+    dsp?: boolean;
+    /** The fallback voices (default: a SynthVoice on the master bus). Tests and offline renders pass their own. */
+    fallback?: GenerativeVoiceSink;
+}
+
+/**
+ * Steps are queued this far ahead of the audio clock, so a main-thread hitch
+ * shorter than this (shader warmup, chunk streaming) moves no note. Visuals
+ * fire when a step is heard, not when it is queued, so the lookahead is
+ * invisible; it only delays a tempo change by this much. At 120 ms, boot-time
+ * stalls still made a few notes late in a production build; 200 ms absorbed them.
+ */
+export const SCHEDULE_AHEAD_SEC = 0.2;
+/** A step this far behind the clock (a long hitch, a background tab) is skipped, not played in a burst. */
+export const MAX_LATE_SEC = 0.4;
+/** First step this long after start(). */
+const START_LEAD_SEC = 0.05;
+/** start() waits at most this long for the DSP worklet before falling back to SynthVoice. */
+const DSP_LOAD_TIMEOUT_MS = 5000;
+/** Steps scheduled but not yet heard (a few at most: SCHEDULE_AHEAD_SEC is about one step). */
+const STEP_QUEUE_CAPACITY = 64;
+
+/** A step whose notes are queued for the audio thread; its visuals fire when it is heard. */
+interface ScheduledStep {
+    time: number;
+    row: number;
+    patternIndex: number;
+    beatPhase: number;
+    events: NoteEvent[];
+}
+
 /**
  * In-browser generative soundtrack engine.
  * Drives visualState directly from the sequencer (no FFT) and synthesizes
- * audio through the shared AudioSystem master bus.
+ * audio through the shared AudioSystem master bus: the garden DSP worklet
+ * when it is available, Web Audio nodes (SynthVoice) otherwise.
+ *
+ * Timing: update() runs at frame rate but schedules every step on the audio
+ * clock up to SCHEDULE_AHEAD_SEC ahead, and fires each step's visuals and note
+ * callbacks only once ctx.currentTime (less the output latency) reaches it.
  */
 export class GenerativeEngine {
     private ctx: AudioContext | null = null;
     private busGain: GainNode | null = null;
-    private synth: SynthVoice | null = null;
+    private synth: GenerativeVoiceSink | null = null;
+    private dsp: DspVoiceSink | null = null;
+    private dspLoading: Promise<void> | null = null;
     private sequencer: GenerativeSequencer;
     private readonly visualState: VisualState;
     private readonly channelScratch: ChannelData[];
     private readonly chromaticBands: number[][];
 
     private isRunning = false;
-    private stepAccumulator = 0;
+    /** Audio-clock time of the next step to schedule. */
+    private nextStepTime = 0;
+    /** Fallback clock (seconds of update() deltas) when there is no AudioContext. */
+    private clock = 0;
+    private readonly stepQueue: ScheduledStep[] = [];
+    private stepHead = 0;
+    private stepCount = 0;
     private dayNightBias = 0.5;
     private targetBiome = 'global';
     private previousBiome = 'global';
@@ -79,6 +134,10 @@ export class GenerativeEngine {
             });
         }
 
+        for (let i = 0; i < STEP_QUEUE_CAPACITY; i++) {
+            this.stepQueue.push({ time: 0, row: 0, patternIndex: 0, beatPhase: 0, events: [] });
+        }
+
         this.visualState = {
             beatPhase: 0,
             kickTrigger: 0,
@@ -91,15 +150,52 @@ export class GenerativeEngine {
         };
     }
 
-    /** Wire into AudioSystem graph (reuse master bus). */
-    attach(audioContext: AudioContext, masterGain: GainNode): void {
+    /** Wire into AudioSystem graph (reuse master bus); starts loading the DSP worklet. */
+    attach(
+        audioContext: AudioContext,
+        masterGain: GainNode,
+        options: GenerativeAttachOptions = {}
+    ): void {
         this.ctx = audioContext;
         this.busGain = masterGain;
-        this.synth = new SynthVoice(
-            audioContext,
-            masterGain,
-            800 + this.activeProfile.brightness * 7200
-        );
+        this.synth =
+            options.fallback ??
+            new SynthVoice(audioContext, masterGain, 800 + this.activeProfile.brightness * 7200);
+        if (options.dsp ?? FEATURE_FLAGS.gardenDsp) {
+            this.dspLoading = this.loadDsp(audioContext, masterGain);
+        }
+    }
+
+    private async loadDsp(ctx: AudioContext, destination: AudioNode): Promise<void> {
+        try {
+            const { GardenAudioEngine } = await import('../worklet/garden-engine.ts');
+            const engine = await GardenAudioEngine.create(ctx, destination, {
+                patches: GENERATIVE_PATCHES,
+            });
+            if (engine) this.useDspSink(new DspVoiceSink(engine));
+        } catch (err) {
+            console.warn('[GenerativeEngine] DSP worklet failed to load; using SynthVoice:', err);
+        }
+    }
+
+    /** The sink notes go to: the DSP worklet while it is healthy, else SynthVoice. */
+    private voiceSink(): GenerativeVoiceSink | null {
+        if (this.dsp && this.dsp.healthy) return this.dsp;
+        return this.synth;
+    }
+
+    /** Which voices play right now (diagnostics, tests). */
+    get voiceBackend(): 'dsp' | 'synth' | 'none' {
+        const sink = this.voiceSink();
+        return sink === null ? 'none' : sink === this.dsp ? 'dsp' : 'synth';
+    }
+
+    /** Use `sink` as the DSP path (it is what loadDsp() installs). Offline renders and tests. */
+    useDspSink(sink: DspVoiceSink): void {
+        this.dspLoading = null;
+        sink.setBrightness(this.activeProfile.brightness);
+        sink.setReverbWet(this.seasonMod.reverbWet);
+        this.dsp = sink;
     }
 
     onNote(cb: GenerativeNoteCallback): void {
@@ -132,6 +228,8 @@ export class GenerativeEngine {
         this.sequencer.setProfile(this.activeProfile);
         this.synth?.setBrightness(this.activeProfile.brightness);
         this.synth?.setReverbWet(this.seasonMod.reverbWet);
+        this.dsp?.setBrightness(this.activeProfile.brightness);
+        this.dsp?.setReverbWet(this.seasonMod.reverbWet);
     }
 
     /** Season shaping (systems/environment/season-core.ts); takes effect at the next biome update. */
@@ -151,11 +249,29 @@ export class GenerativeEngine {
         if (this.ctx.state === 'suspended') {
             await this.ctx.resume();
         }
+        if (this.dspLoading) {
+            const loading = this.dspLoading;
+            this.dspLoading = null;
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            await Promise.race([
+                loading,
+                new Promise<void>((resolve) => {
+                    timer = setTimeout(resolve, DSP_LOAD_TIMEOUT_MS);
+                }),
+            ]);
+            clearTimeout(timer);
+        }
+        if (!this.isRunning) {
+            this.nextStepTime = this.now() + START_LEAD_SEC;
+            this.stepCount = 0;
+        }
         this.isRunning = true;
     }
 
     stop(): void {
+        if (this.isRunning) this.voiceSink()?.allOff?.();
         this.isRunning = false;
+        this.stepCount = 0;
     }
 
     get running(): boolean {
@@ -170,8 +286,21 @@ export class GenerativeEngine {
         return `Generative · ${this.activeProfile.mood}`;
     }
 
-    /** Per-frame update — advances sequencer, schedules audio, updates channel data. */
+    private now(): number {
+        return this.ctx ? this.ctx.currentTime : this.clock;
+    }
+
+    /** Time the listener is hearing now: the audio clock less the output latency. */
+    private heardNow(now: number): number {
+        const ctx = this.ctx;
+        if (!ctx) return now;
+        const latency = ctx.outputLatency || ctx.baseLatency || 0;
+        return now - Math.max(0, Math.min(0.2, latency));
+    }
+
+    /** Per-frame update — schedules steps ahead on the audio clock, fires the ones now heard. */
     update(deltaSec: number): VisualState {
+        this.clock += deltaSec;
         if (!this.isRunning) {
             return this.decayVisuals(deltaSec);
         }
@@ -180,31 +309,63 @@ export class GenerativeEngine {
         this.visualState.bpm = bpm;
         this.visualState.grooveAmount = this.activeProfile.groove;
 
+        const now = this.now();
+        if (now - this.nextStepTime > MAX_LATE_SEC) {
+            // Fell far behind (a long hitch or a background tab): skip the missed
+            // steps rather than play them all at once.
+            this.nextStepTime = now + START_LEAD_SEC;
+        }
         const stepDuration = 60 / (bpm * 4); // 16th note seconds
-        this.stepAccumulator += deltaSec;
-
-        while (this.stepAccumulator >= stepDuration) {
-            this.stepAccumulator -= stepDuration;
-            this.processStep();
+        const horizon = now + (this.ctx ? SCHEDULE_AHEAD_SEC : 0);
+        while (this.nextStepTime <= horizon) {
+            this.scheduleStep(this.nextStepTime, stepDuration);
+            this.nextStepTime += stepDuration;
         }
 
-        this.visualState.beatPhase = this.sequencer.getBeatPhase(this.dayNightBias);
-        this.visualState.row = this.sequencer.getRow();
-        this.visualState.patternIndex = this.sequencer.getPatternIndex();
-
+        this.fireDueSteps(this.heardNow(now));
         return this.decayVisuals(deltaSec);
     }
 
-    private processStep(): void {
+    /** Advance the sequencer one step: its notes go to the audio thread now, its visuals wait. */
+    private scheduleStep(time: number, stepDuration: number): void {
         const events = this.sequencer.tick(this.dayNightBias);
-        const ctx = this.ctx;
-        const synth = this.synth;
-        const when = ctx ? ctx.currentTime + 0.02 : 0;
-        const stepDuration = ctx ? 60 / (this.visualState.bpm * 4) : 0.125;
+        if (this.stepCount === STEP_QUEUE_CAPACITY) this.fireOldestStep();
+        const slot = this.stepQueue[(this.stepHead + this.stepCount) % STEP_QUEUE_CAPACITY];
+        this.stepCount++;
+        slot.time = time;
+        slot.row = this.sequencer.getRow();
+        slot.patternIndex = this.sequencer.getPatternIndex();
+        slot.beatPhase = this.sequencer.getBeatPhase(this.dayNightBias);
+        slot.events.length = 0;
 
+        const sink = this.ctx && this.masterVolume > 0 ? this.voiceSink() : null;
+        for (const ev of events) {
+            slot.events.push(ev);
+            if (!sink) continue;
+            const ch = ev.channel;
+            const noteLen = CHANNEL_VOICES[ch].length * stepDuration;
+            const pan = (ch % 2 === 0 ? -1 : 1) * 0.25 * (ch / NUM_CHANNELS);
+            sink.playNote(ev.note, ch, ev.velocity, time, noteLen, pan);
+        }
+    }
+
+    private fireDueSteps(heardNow: number): void {
+        while (this.stepCount > 0 && this.stepQueue[this.stepHead].time <= heardNow) {
+            this.fireOldestStep();
+        }
+    }
+
+    private fireOldestStep(): void {
+        const slot = this.stepQueue[this.stepHead];
+        this.stepHead = (this.stepHead + 1) % STEP_QUEUE_CAPACITY;
+        this.stepCount--;
+        this.applyStepVisuals(slot);
+    }
+
+    private applyStepVisuals(slot: ScheduledStep): void {
         let anyKick = false;
 
-        for (const ev of events) {
+        for (const ev of slot.events) {
             const ch = ev.channel;
             const dest = this.channelScratch[ch];
             const vol = ev.velocity / 127;
@@ -221,22 +382,18 @@ export class GenerativeEngine {
             for (let i = 0; i < 12; i++) bands[i] *= 0.5;
             bands[bandIdx] = vol;
 
-            const voice = CHANNEL_VOICES[ch];
-            const noteLen = voice.length * stepDuration;
-
-            if (synth && ctx && this.masterVolume > 0) {
-                const pan = (ch % 2 === 0 ? -1 : 1) * 0.25 * (ch / NUM_CHANNELS);
-                synth.playNote(ev.note, ch, ev.velocity, when, noteLen, pan);
-            }
-
             if (this.onNoteCallback) {
                 this.onNoteCallback(ev.note, ev.velocity, ch);
             }
         }
+        slot.events.length = 0;
 
         if (anyKick) {
             this.visualState.kickTrigger = 1.0;
         }
+        this.visualState.beatPhase = slot.beatPhase;
+        this.visualState.row = slot.row;
+        this.visualState.patternIndex = slot.patternIndex;
     }
 
     private decayVisuals(deltaSec: number): VisualState {

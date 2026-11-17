@@ -47,7 +47,8 @@ npm run gen:native-types   # regenerate src/utils/native-exports.generated.ts af
 
 # WASM & build tools
 npm run build:wasm         # Compile AssemblyScript
-npm run build:emcc         # Emscripten build
+npm run build:emcc         # Emscripten build (candy_native, then the garden DSP module)
+npm run build:dsp          # Garden DSP module only -> public/candy_dsp.wasm
 npm run verify:emcc        # Verify Emscripten exports
 ```
 
@@ -125,6 +126,8 @@ Related modules live in folders. A folder's `index.ts` is its public surface, bu
 
 - **`audio-system.ts`**: Web Audio API wrapper, playback control
 - **`beat-sync.ts`**: Beat detection and synchronization
+- **`generative/`**: the default generative soundtrack (lazy `generative-music` chunk). `GenerativeEngine` queues steps 200 ms ahead on the audio clock and fires visuals when a step is heard; notes go to a `GenerativeVoiceSink`: the garden DSP worklet when it loads, `SynthVoice` (Web Audio nodes) otherwise or with `?no_dsp`
+- **`worklet/`**: the garden DSP engine's main-thread side (lazy `garden-audio` chunk): `GardenAudioEngine` loads `public/candy_dsp.wasm` (C++ in `emscripten/dsp/`, `npm run build:dsp`) into the `candy-garden` AudioWorklet and sends note events through a SharedArrayBuffer ring (posted batches without isolation). Music Garden plan and engine reference: `docs/MUSIC_GARDEN.md`
 - Music reactivity integration
 
 #### `/src/world` — World Generation
@@ -282,6 +285,12 @@ npm run budget:check  # Verify chunk size constraints
 - `npm run test:native-batch-parity`: C++ ↔ AS ↔ JS batch ground heights through the production bridges (C++ tier needs `build:emcc`; `CANDY_PARITY_REQUIRE_CPP=1` makes it mandatory)
 - `npm run check:native-exports`: every AS export (`assembly/index.ts`, listed by name) and C++ export (exports.txt + `EMSCRIPTEN_KEEPALIVE`) has a caller in `src/`/`tests/`, and no lookup names a missing export (0/0 ratchet, `scripts/native-exports-baseline.json`); also fails while `src/utils/native-exports.generated.ts` (the exact C++/AS signatures, from `npm run gen:native-types`) is stale. `getNativeFunc('name')` is typed by name from it
 
+### Garden audio tests
+
+- `npm run test:garden-events`: the worklet's SPSC event ring (two real threads) and the posted-batch fallback
+- `npm run test:generative-scheduler`: notes on the audio-clock grid through frame jitter and stalls, visuals when heard, DSP/fallback sink selection
+- `npm run test:dsp-render`: `candy_dsp.wasm` rendered offline (golden RMS/centroid in `tests/fixtures/dsp-golden.json`, harmonics, NaN/denormal safety, sample-accurate timing, duck, 64 voices < 1 ms per quantum, the generative engine end to end). Skips without `build:dsp`; `CANDY_DSP_REQUIRE=1` makes it mandatory. `-- --update` refreshes the golden file
+
 ### Shared worlds tests
 
 - `npm run test:world-sync`: co-editing protocol (convergence under reordering, duplicates and loss)
@@ -333,6 +342,7 @@ npm run budget:check  # Verify chunk size constraints
 
 - **AssemblyScript** (`build:wasm`): linear-memory MVP + `--enable bulk-memory`, `--memoryBase 589824 --initialMemory 16 --maximumMemory 256`. No `--enable simd` (`assembly/` has no `v128` code), no `--textFile`/`--sourceMap` in prod (`build:wasm:debug` adds them; `npm run check:dist-wasm` guards `dist/`). No `--exportRuntime`, no `--enable reference-types`. No `asconfig.json`, so no `--target`; `--enable gc` (Wasm GC) is not used. `--memoryBase` must equal `HEAP_BASE_FLOOR` from the memory layout table (`scripts/memory-layout.mjs`); `npm run check:memory-layout` enforces it.
 - **Emscripten** (`emscripten/build.sh`): `-O2 -flto -fno-exceptions` for compile and link, MT and ST; `-msimd128` (no `-mrelaxed-simd`); `-pthread`, `PTHREAD_POOL_SIZE=4` (MT); `STACK_SIZE=1MB`; no `WASM_BIGINT=0`; no `-lembind`; `EXPORTED_RUNTIME_METHODS` includes `HEAP8,HEAPU8,HEAP32,HEAPF32`. Do not pass `-s MINIFY_WASM_IMPORTS_AND_EXPORTS` (internal setting; emcc rejects it). `npm run verify:emcc:manifest` enforces the `-O` level and `STACK_SIZE` against `AGENTS.md`, the forbidden flags, and the prod AS flags. emsdk is pinned in `.emsdk-version`; a mismatch warns, `CANDY_STRICT_EMSDK=1` makes it fatal.
+- **Garden DSP** (`emscripten/dsp/build.sh`): a standalone reactor for the AudioWorklet: same `-O2 -flto -msimd128`, `--no-entry`, `STANDALONE_WASM=1`, fixed 2MB memory, 64KB stack, no imports; no pthreads, shared memory, OpenMP, `-ffast-math` or memory growth. Every export is `dsp_*`. `verify:emcc:manifest` enforces the flags against `AGENTS.md`; `npm run check:dsp-wasm` checks the binary.
 - **Native memory**: fixed AS regions come only from the generated layout; JS buffers in native memory use `malloc`/`free` through `src/utils/native-memory.ts`, whose views re-derive after `memory.grow`. A struct passed by pointer is declared in `scripts/native-structs.json` and written through `defineNativeStruct`. See `docs/NATIVE_LAYER.md`.
 - **WebGPU** is preferred; a failed boot probe falls back to WebGL2 (badge shows `WEBGL2 FALLBACK`, no GPU compute). Device limits are adapter-clamped, and the canvas `colorSpace` matches `outputColorSpace` — see `docs/WEBGPU_CONTEXT.md` and `docs/webgl-fallback.md`.
 
@@ -450,6 +460,7 @@ npm run optimize        # Apply all optimizations (experimental)
 - **Input**: `docs/INPUT.md` — Actions, contexts, adding a binding, rebinding
 - **Authoring**: `docs/AUTHORING.md` — Build mode, world commands, the WorldDocument command log
 - **Shared worlds**: `docs/SHARED_WORLDS.md` — Publishing, share links, the co-editing protocol and conflict model, RLS
+- **Music Garden**: `docs/MUSIC_GARDEN.md` — The garden DSP engine (AudioWorklet + C++), patches, event transports, timing, and the planned flora slices
 - **Tests**: `tests/README.md` — Detailed test documentation
 - **Copilot Instructions**: `.github/copilot-instructions.md` — Visual style, materials, TSL usage
 - **Map Generation**: `tools/map-generator/` — Custom terrain generation tool

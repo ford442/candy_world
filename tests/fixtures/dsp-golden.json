@@ -1,0 +1,53 @@
+{
+    "about": "tests/dsp-render.test.mjs golden renders (48 kHz). Refresh: npm run test:dsp-render -- --update",
+    "scenes": {
+        "sine-a4": {
+            "rmsDb": -20.394,
+            "centroidHz": 441.2
+        },
+        "triangle-a3": {
+            "rmsDb": -22.142,
+            "centroidHz": 480.2
+        },
+        "saw-a3": {
+            "rmsDb": -23.585,
+            "centroidHz": 2966.8
+        },
+        "square-a3": {
+            "rmsDb": -18.837,
+            "centroidHz": 2583.8
+        },
+        "glass-a4": {
+            "rmsDb": -19.514,
+            "centroidHz": 1395.8
+        },
+        "organ-a3": {
+            "rmsDb": -22.319,
+            "centroidHz": 742.5
+        },
+        "saw-lowpass-600": {
+            "rmsDb": -25.233,
+            "centroidHz": 497.5
+        },
+        "saw-detuned-pad": {
+            "rmsDb": -28.712,
+            "centroidHz": 1017.6
+        },
+        "fm-bell": {
+            "rmsDb": -20.394,
+            "centroidHz": 1627.5
+        },
+        "kick": {
+            "rmsDb": -28.874,
+            "centroidHz": 57.4
+        },
+        "hat-highpass": {
+            "rmsDb": -30.195,
+            "centroidHz": 14780.1
+        },
+        "generative-8s": {
+            "rmsDb": -20.671,
+            "centroidHz": 1013.6
+        }
+    }
+}

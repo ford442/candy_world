@@ -283,6 +283,13 @@ export default defineConfig({
                     if (id.includes('/src/systems/awakened/awakened-persistence.ts')) {
                         return 'awakened';
                     }
+                    // Garden DSP host (#music-garden): the main-thread side of the DSP
+                    // AudioWorklet (engine, event ring, ABI numbers). Only the lazy
+                    // generative engine reaches it, so it must not fall into `app`
+                    // below. The processor itself is a separate `?worker&url` bundle.
+                    if (id.includes('/src/audio/worklet/')) {
+                        return 'garden-audio';
+                    }
                     // Generative soundtrack engine (not music-mode.ts resolver)
                     if (
                         id.includes('/src/audio/generative/') &&

@@ -40,3 +40,11 @@ export function noteNameToChromaticIndex(note: string): number {
     const idx = CHROMATIC.indexOf(match[1] as NoteName);
     return idx >= 0 ? idx : 0;
 }
+
+/** MIDI note number of a name like `C4` or `F#3` (scaleNote's format), or -1. */
+export function noteNameToMidi(note: string): number {
+    const match = note.match(/^([A-G]#?)(-?\d+)$/);
+    if (!match) return -1;
+    const idx = CHROMATIC.indexOf(match[1] as NoteName);
+    return (parseInt(match[2], 10) + 1) * 12 + idx;
+}

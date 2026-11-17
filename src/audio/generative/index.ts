@@ -1,5 +1,11 @@
 export { SeededRng, hashSeed } from './prng.ts';
-export { CHROMATIC, SCALES, scaleNote, noteNameToChromaticIndex } from './scales.ts';
+export {
+    CHROMATIC,
+    SCALES,
+    scaleNote,
+    noteNameToChromaticIndex,
+    noteNameToMidi,
+} from './scales.ts';
 export {
     BIOME_PROFILES,
     getBiomeProfile,
@@ -14,7 +20,20 @@ export {
     type NoteEvent,
 } from './sequencer.ts';
 export { SynthVoice } from './synth-voice.ts';
-export { GenerativeEngine, type GenerativeEngineOptions } from './generative-engine.ts';
+export { DspVoiceSink, type GenerativeVoiceSink } from './voice-sink.ts';
+export {
+    GENERATIVE_PATCHES,
+    GENERATIVE_CHANNEL_PATCHES,
+    generativePatch,
+    brightnessOctaves,
+} from './dsp-patches.ts';
+export {
+    GenerativeEngine,
+    SCHEDULE_AHEAD_SEC,
+    MAX_LATE_SEC,
+    type GenerativeEngineOptions,
+    type GenerativeAttachOptions,
+} from './generative-engine.ts';
 export {
     resolveMusicMode,
     setMusicModePreference,

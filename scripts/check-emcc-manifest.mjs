@@ -17,6 +17,11 @@
  *      env knob build.sh reads under `set -u` has a default, and the prod
  *      AssemblyScript build (package.json build:wasm) writes no .wat, no source
  *      map, and enables SIMD only if assembly/ uses it
+ *   7. Assert the garden DSP module contract (emscripten/dsp/build.sh, loaded
+ *      in AudioWorkletGlobalScope): the same -O level, -msimd128, no threads
+ *      or shared memory, a standalone reactor whose memory cannot grow,
+ *      undefined symbols as link errors, INITIAL_MEMORY / STACK_SIZE matching
+ *      AGENTS.md, and every DSP export (and only those) named dsp_*
  *
  * Exit codes:
  *   0 — manifest matches
@@ -41,6 +46,8 @@ const EMSCRIPTEN_DIR = path.join(REPO_ROOT, 'emscripten');
 const AGENTS_MD = path.join(REPO_ROOT, 'AGENTS.md');
 const PACKAGE_JSON = path.join(REPO_ROOT, 'package.json');
 const ASSEMBLY_DIR = path.join(REPO_ROOT, 'assembly');
+const DSP_DIR = path.join(EMSCRIPTEN_DIR, 'dsp');
+const DSP_BUILD_SH = path.join(DSP_DIR, 'build.sh');
 
 const FLAG_VARS = ['COMPILE_FLAGS', 'LINK_FLAGS', 'COMPILE_FLAGS_ST', 'LINK_FLAGS_ST'];
 
@@ -59,6 +66,29 @@ const FORBIDDEN_FLAGS = [
 // Environment knobs build.sh reads. It runs under `set -u`, so each needs a
 // `NAME="${NAME:-default}"` line or reading it aborts with "unbound variable".
 const ENV_KNOBS = ['CANDY_DEBUG', 'SKIP_VERIFY', 'CANDY_STRICT_EMSDK'];
+
+// Garden DSP module (emscripten/dsp/build.sh). AudioWorkletGlobalScope cannot
+// start threads, fetch, or give the module imports, and the main thread must
+// not need cross-origin isolation to load it.
+const DSP_FLAG_VARS = ['DSP_COMPILE_FLAGS', 'DSP_LINK_FLAGS'];
+const DSP_ENV_KNOBS = ['CANDY_STRICT_EMSDK', 'SKIP_VERIFY'];
+const DSP_FORBIDDEN = [
+  { re: /(?:^|\s)-pthread\b/, why: 'the worklet cannot start threads' },
+  { re: /(?:^|\s)-fopenmp\b/, why: 'the worklet cannot start threads' },
+  { re: /(?:^|\s)-matomics\b/, why: 'atomics imply shared memory' },
+  { re: /SHARED_MEMORY\s*=\s*1/, why: 'shared memory needs cross-origin isolation' },
+  { re: /PTHREAD_POOL_SIZE|WASM_WORKERS|AUDIO_WORKLET\s*=/, why: "Emscripten's thread/worklet runtimes need shared memory" },
+  { re: /-mrelaxed-simd\b/, why: 'no source uses a relaxed-SIMD intrinsic' },
+  { re: /-ffast-math\b/, why: "the engine's NaN guards need IEEE semantics" },
+  { re: /ALLOW_MEMORY_GROWTH\s*=\s*1/, why: "growth detaches the worklet's output views" },
+];
+const DSP_LINK_REQUIRED = [
+  { re: /(?:^|\s)--no-entry(?=\s|$)/, what: '--no-entry (a reactor: no main)' },
+  { re: /-s\s*STANDALONE_WASM=1\b/, what: '-s STANDALONE_WASM=1 (no JS glue)' },
+  { re: /-s\s*ALLOW_MEMORY_GROWTH=0\b/, what: '-s ALLOW_MEMORY_GROWTH=0' },
+  { re: /-s\s*ERROR_ON_UNDEFINED_SYMBOLS=1\b/, what: '-s ERROR_ON_UNDEFINED_SYMBOLS=1 (an import is a link error)' },
+  { re: /-s\s*FILESYSTEM=0\b/, what: '-s FILESYSTEM=0' },
+];
 
 // AssemblyScript SIMD surface: --enable simd is dead weight without these.
 const AS_SIMD_RE = /\b(?:v128|f32x4|f64x2|i8x16|i16x8|i32x4|i64x2)\b/;
@@ -238,8 +268,87 @@ function checkToolchainContract(buildSh) {
   }
 
   problems.push(...checkAssemblyScriptFlags());
+  problems.push(...checkDspContract(distinct.size === 1 ? [...distinct][0] : null, agents));
 
   return { problems, level: distinct.size === 1 ? [...distinct][0] : null };
+}
+
+/**
+ * Garden DSP module flags (emscripten/dsp/build.sh) and its export namespace.
+ * `level` is candy_native's -O level; the DSP module must use the same one.
+ */
+function checkDspContract(level, agents) {
+  if (!fs.existsSync(DSP_BUILD_SH)) return ['Missing emscripten/dsp/build.sh (garden DSP module)'];
+  const problems = [];
+  const code = fs
+    .readFileSync(DSP_BUILD_SH, 'utf8')
+    .split(/\r?\n/)
+    .filter((l) => !l.trimStart().startsWith('#'))
+    .join('\n');
+
+  const flags = {};
+  for (const name of DSP_FLAG_VARS) {
+    const m = code.match(new RegExp(`^${name}="([^"]*)"`, 'm'));
+    if (!m) {
+      problems.push(`Could not find ${name}="..." in emscripten/dsp/build.sh`);
+      continue;
+    }
+    flags[name] = m[1];
+    const opt = [...m[1].matchAll(/(?:^|\s)-O([0-3sz])(?=\s|$)/g)].map((x) => x[1]);
+    if (opt.length !== 1) problems.push(`${name} must carry exactly one -O level (found ${opt.length})`);
+    else if (level && opt[0] !== level) {
+      problems.push(`${name} uses -O${opt[0]} but candy_native uses -O${level}: one level for every C++ artifact`);
+    }
+    if (!/(?:^|\s)-msimd128(?=\s|$)/.test(m[1])) problems.push(`${name} must pass -msimd128`);
+    for (const { re, why } of DSP_FORBIDDEN) {
+      const hit = m[1].match(re);
+      if (hit) problems.push(`${name} passes ${hit[0].trim()} (${why})`);
+    }
+    for (const setting of INTERNAL_MINIFY_SETTINGS) {
+      if (new RegExp(`-s\\s*${setting}\\b`).test(m[1])) {
+        problems.push(`${name} passes -s ${setting}, an internal Emscripten setting`);
+      }
+    }
+  }
+
+  const link = flags.DSP_LINK_FLAGS ?? '';
+  for (const { re, what } of DSP_LINK_REQUIRED) {
+    if (link && !re.test(link)) problems.push(`DSP_LINK_FLAGS must pass ${what}`);
+  }
+  const memory = link.match(/-s\s*INITIAL_MEMORY=(\d+[KM]B)\b/)?.[1];
+  const stack = link.match(/-s\s*STACK_SIZE=(\d+[KM]B)\b/)?.[1];
+  if (link && (!memory || !stack)) problems.push('DSP_LINK_FLAGS must set -s INITIAL_MEMORY=<n>MB and -s STACK_SIZE=<n>KB');
+  const documented = agents.match(/candy_dsp\.wasm[^\n]*?INITIAL_MEMORY=(\d+[KM]B)[^\n]*?STACK_SIZE=(\d+[KM]B)/);
+  if (!documented) {
+    problems.push('AGENTS.md must state "candy_dsp.wasm ... INITIAL_MEMORY=<n> ... STACK_SIZE=<n>" on one line');
+  } else if (memory && stack && (documented[1] !== memory || documented[2] !== stack)) {
+    problems.push(
+      `AGENTS.md documents candy_dsp.wasm INITIAL_MEMORY=${documented[1]} STACK_SIZE=${documented[2]} ` +
+        `but emscripten/dsp/build.sh uses ${memory} / ${stack} — update both together`
+    );
+  }
+
+  for (const knob of DSP_ENV_KNOBS) {
+    if (!new RegExp(`^${knob}="\\$\\{${knob}:-[^}]*\\}"`, 'm').test(code)) {
+      problems.push(`emscripten/dsp/build.sh runs under set -u but ${knob} has no default`);
+    }
+  }
+
+  // dsp_* is the DSP module's namespace (check:native-exports relies on it).
+  const dspNames = fs
+    .readdirSync(DSP_DIR)
+    .filter((f) => f.endsWith('.cpp'))
+    .flatMap((f) => keepaliveNames(fs.readFileSync(path.join(DSP_DIR, f), 'utf8')));
+  if (dspNames.length === 0) problems.push('emscripten/dsp/*.cpp exports nothing (no EMSCRIPTEN_KEEPALIVE)');
+  for (const n of dspNames) {
+    if (!n.startsWith('dsp_')) problems.push(`emscripten/dsp exports ${n}: every DSP export is named dsp_*`);
+  }
+  for (const f of fs.readdirSync(EMSCRIPTEN_DIR).filter((x) => x.endsWith('.cpp'))) {
+    for (const n of keepaliveNames(fs.readFileSync(path.join(EMSCRIPTEN_DIR, f), 'utf8'))) {
+      if (n.startsWith('dsp_')) problems.push(`emscripten/${f} exports ${n}: dsp_* is reserved for emscripten/dsp/`);
+    }
+  }
+  return problems;
 }
 
 /**
@@ -287,7 +396,7 @@ function main() {
     console.error('');
     process.exit(1);
   }
-  console.log(`toolchain contract:         -O${contract.level} (MT+ST compile/link, AGENTS.md), flag set + AS prod flags`);
+  console.log(`toolchain contract:         -O${contract.level} (MT+ST compile/link, AGENTS.md), flag set + AS prod flags + garden DSP`);
 
   const committedText = fs.existsSync(EXPORTS_TXT)
     ? fs.readFileSync(EXPORTS_TXT, 'utf8')

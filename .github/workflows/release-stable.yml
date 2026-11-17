@@ -40,7 +40,13 @@ jobs:
                   CANDY_STRICT_EMSDK: '1'
 
             - name: Require the native build
-              run: test -f dist/candy_native.wasm && test -f dist/candy_native_st.wasm
+              run: test -f dist/candy_native.wasm && test -f dist/candy_native_st.wasm && test -f dist/candy_dsp.wasm
+
+            # The garden DSP module the generative soundtrack plays through (docs/MUSIC_GARDEN.md).
+            - name: Garden DSP render tests
+              run: npm run check:dsp-wasm && npm run test:dsp-render
+              env:
+                  CANDY_DSP_REQUIRE: '1'
 
             - name: WASM tests
               run: npm run check:memory-layout && npm run test:wasm && npm run test:native-memory

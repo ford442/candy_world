@@ -2,8 +2,9 @@
 /**
  * Native export ratchet (#2026 slice 1).
  *
- * Both native modules export functions that TS looks up by name, and nothing
- * checked that the two sides agree. This compares them:
+ * The native modules export functions that TS looks up by name, and nothing
+ * checked that the two sides agree. This compares them (the third module, the
+ * garden DSP in emscripten/dsp/, is described below):
  *
  *   dead export    a function the AssemblyScript ABI (assembly/index.ts) or the
  *                  C++ module (emscripten/exports.txt plus every
@@ -26,6 +27,13 @@
  * reviewed list. The word rule cannot tell an AS export from a JS function of
  * the same name (`lerp`, `clamp`): such names read as used, so keep them off
  * the ABI unless TS calls them through `exports`.
+ *
+ * The garden DSP module (emscripten/dsp/*.cpp -> public/candy_dsp.wasm, loaded
+ * by the AudioWorklet) has no export list: its ABI is every
+ * EMSCRIPTEN_KEEPALIVE function there, and every one is named dsp_*. That
+ * prefix is the module's namespace: a use or lookup is a `.dsp_x` property
+ * access (the worklet calls through a typed exports object) or a 'dsp_x'
+ * string, and `exports.dsp_x` is a DSP lookup, not an AS one.
  *
  * Ratchet: scripts/native-exports-baseline.json lists the dead exports and
  * stale lookups still allowed. A new one fails. One that is gone also fails,
@@ -243,6 +251,18 @@ export function keepaliveNames(cppSrc) {
     ].map((m) => m[1]);
 }
 
+/** EMSCRIPTEN_KEEPALIVE functions of the garden DSP module: its whole ABI (no export list). */
+export function dspAbi(root = ROOT) {
+    const dir = path.join(root, 'emscripten', 'dsp');
+    if (!fs.existsSync(dir)) return { functions: new Set() };
+    const names = fs
+        .readdirSync(dir)
+        .filter((f) => f.endsWith('.cpp'))
+        .sort()
+        .flatMap((f) => keepaliveNames(fs.readFileSync(path.join(dir, f), 'utf8')));
+    return { functions: new Set(names) };
+}
+
 /**
  * Function names the C++ module exports: exports.txt (EXPORTED_FUNCTIONS) plus
  * every EMSCRIPTEN_KEEPALIVE function, which -s EXPORT_KEEPALIVE=1 also exports.
@@ -321,6 +341,19 @@ export function asLookups(code) {
     return names;
 }
 
+/** DSP lookups: a `.dsp_x` property access outside strings. */
+export function dspLookups(code) {
+    return [...blankStrings(code).matchAll(/\.\s*(dsp_\w+)/g)].map((m) => m[1]);
+}
+
+/** DSP uses: the lookups plus a 'dsp_x' string literal (a name table). */
+export function dspReferences(code) {
+    return new Set([
+        ...dspLookups(code),
+        ...[...code.matchAll(/['"`](dsp_\w+)['"`]/g)].map((m) => m[1]),
+    ]);
+}
+
 const wordRe = (name) => new RegExp(`(?<![\\w$])${name}(?![\\w$])`);
 
 /** The full report: dead exports per module, stale lookups, test-only exports. */
@@ -328,6 +361,7 @@ export function analyze(root = ROOT) {
     const corpus = loadCorpus(root);
     const as = asAbi(root);
     const cpp = cppAbi(root);
+    const dsp = dspAbi(root);
 
     const asUse = new Map([...as.functions].map((n) => [n, new Set()]));
     for (const { code, area } of corpus) {
@@ -337,6 +371,7 @@ export function analyze(root = ROOT) {
     // no evidence (native-memory-layout.ts mirrors every layout constant).
     for (const n of as.values) asUse.set(n, new Set());
     const cppUse = new Map([...cpp.functions].map((n) => [n, new Set()]));
+    const dspUse = new Map([...dsp.functions].map((n) => [n, new Set()]));
     const stale = new Set();
     for (const { rel, code, area } of corpus) {
         for (const name of asLookups(code)) if (as.values.has(name)) asUse.get(name).add(area);
@@ -344,7 +379,12 @@ export function analyze(root = ROOT) {
         for (const name of cppStringLookups(code)) {
             if (!cpp.functions.has(name) && !CPP_CORE.has(name)) stale.add(`cpp:${name} (${rel})`);
         }
+        for (const name of dspReferences(code)) dspUse.get(name)?.add(area);
+        for (const name of dspLookups(code)) {
+            if (!dsp.functions.has(name)) stale.add(`dsp:${name} (${rel})`);
+        }
         for (const name of asLookups(code)) {
+            if (name.startsWith('dsp_')) continue; // a DSP lookup, checked above
             if (!as.functions.has(name) && !as.values.has(name) && name !== 'memory') {
                 stale.add(`as:${name} (${rel})`);
             }
@@ -359,14 +399,17 @@ export function analyze(root = ROOT) {
     return {
         as,
         cpp,
+        dsp,
         dead: [
             ...pick(asUse, (a) => a.size === 0).map((n) => `as:${n}`),
             ...pick(cppUse, (a) => a.size === 0).map((n) => `cpp:${n}`),
+            ...pick(dspUse, (a) => a.size === 0).map((n) => `dsp:${n}`),
         ],
         stale: [...stale].sort(),
         testOnly: [
             ...pick(asUse, (a) => a.size === 1 && a.has('test')).map((n) => `as:${n}`),
             ...pick(cppUse, (a) => a.size === 1 && a.has('test')).map((n) => `cpp:${n}`),
+            ...pick(dspUse, (a) => a.size === 1 && a.has('test')).map((n) => `dsp:${n}`),
         ],
     };
 }
@@ -403,7 +446,8 @@ async function main() {
 
     console.log(
         `[${TAG}] AS: ${report.as.functions.size} functions + ${report.as.values.size} globals · C++: ${report.cpp.functions.size} functions` +
-            ` (${report.cpp.listed.size} in exports.txt, ${report.cpp.keepalive.size} EMSCRIPTEN_KEEPALIVE)`
+            ` (${report.cpp.listed.size} in exports.txt, ${report.cpp.keepalive.size} EMSCRIPTEN_KEEPALIVE)` +
+            ` · DSP: ${report.dsp.functions.size} functions`
     );
     console.log(
         `  dead exports   ${report.dead.length} (baseline ${baseline.dead?.length ?? '-'})`
@@ -448,7 +492,8 @@ async function main() {
         console.error(
             '\nA dead export: call it from src/ (or a test), or drop it from the ABI\n' +
                 '(assembly/index.ts; emscripten/build.sh ANIMATION_FUNCTIONS and its\n' +
-                'EMSCRIPTEN_KEEPALIVE, then `npm run verify:emcc:manifest -- --write`).\n' +
+                'EMSCRIPTEN_KEEPALIVE, then `npm run verify:emcc:manifest -- --write`;\n' +
+                'for dsp:, its EMSCRIPTEN_KEEPALIVE in emscripten/dsp/).\n' +
                 'A stale lookup: look the name up on the module that exports it, or delete it.'
         );
         process.exit(1);

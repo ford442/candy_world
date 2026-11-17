@@ -137,6 +137,22 @@ Playwright preview + `?boot=instant&graphics=low`. Records phase durations and a
 
 Pure Node test of `resolveStartupCapabilities()` (graphics × fallback × URL). No browser.
 
+### Garden audio — `test:dsp-render`, `test:garden-events`, `test:generative-scheduler`
+
+- `npm run test:dsp-render` renders the garden DSP module (`public/candy_dsp.wasm`, from
+  `npm run build:dsp`) offline through the worklet's own host: golden RMS and spectral centroid
+  per voice type (`tests/fixtures/dsp-golden.json`), wavetable harmonics against their Fourier
+  series, NaN/clip/denormal safety, sample-accurate timing, the beat duck, voice stealing, the
+  64-voice budget (< 1 ms per quantum, `CANDY_DSP_BUDGET_MS` overrides), and the generative
+  engine end to end. Skips without the binary unless `CANDY_DSP_REQUIRE=1`. After an intended
+  change to the sound: `npm run test:dsp-render -- --update`.
+- `npm run test:garden-events` tests the SharedArrayBuffer event ring (with a producer thread,
+  `tests/support/event-ring-producer.ts`) and the posted-batch fallback.
+- `npm run test:generative-scheduler` tests the generative engine's audio-clock scheduling with
+  a fake `AudioContext`.
+
+See `docs/MUSIC_GARDEN.md`.
+
 ### `npm run test:integration` — Full Test Chain
 
 Runs the complete verification pipeline:

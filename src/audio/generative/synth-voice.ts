@@ -1,11 +1,14 @@
 import { noteToFreq } from '../audio-system-core.ts';
 import { CHANNEL_VOICES } from './sequencer.ts';
+import type { GenerativeVoiceSink } from './voice-sink.ts';
 
 /**
  * Lightweight Web Audio voice: oscillator + optional noise + AD envelope.
- * Scheduled via AudioContext — no per-frame allocations.
+ * Scheduled via AudioContext — no per-frame allocations. It builds a node
+ * graph per note on the main thread, so it is the fallback: the generative
+ * engine prefers the garden DSP worklet (voice-sink.ts, docs/MUSIC_GARDEN.md).
  */
-export class SynthVoice {
+export class SynthVoice implements GenerativeVoiceSink {
     private ctx: AudioContext;
     private masterGain: GainNode;
     private filterCutoffBase: number;
