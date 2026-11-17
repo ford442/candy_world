@@ -1,6 +1,6 @@
 # WebGPU Context — Single-Device Architecture
 
-> Owner module: [`src/rendering/gpu-context.ts`](../src/rendering/gpu-context.ts)
+> Owner module: [`src/rendering/gpu-context.ts`](../src/rendering/gpu-context.ts) · request policy: [`src/rendering/gpu-context-policy.ts`](../src/rendering/gpu-context-policy.ts)
 > Issues: #1448 (single device), #1625 (hard-fail boot probe), #1753 (adapter-clamped limits, canvas color space), #1972 (run mode, platform capabilities, P3 registration); optional feature tiers and HDR output (extended-range swap chain)
 
 > **WebGPU is preferred; WebGL2 is the fallback.** A failed boot probe boots the world on
@@ -14,6 +14,19 @@
 Candy World creates **exactly one `GPUDevice` per page load**. `gpu-context.ts` requests it and
 hands it to the Three.js renderer; nothing else in the app calls `navigator.gpu.requestAdapter()` or
 `requestDevice()`.
+
+## Ownership boundary
+
+| Module                                | Owns                                                                                                                                                                                                                                                                                   |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/rendering/gpu-context.ts`        | The **only** `requestAdapter()` / `requestDevice()` call, device adoption, shared state, probe report (`window.webgpuProbe`), `window.__gpuContext`, device loss and recovery                                                                                                          |
+| `src/rendering/gpu-context-policy.ts` | The pure request policy, no state and no `navigator.gpu`: limit floor/ceiling and `resolveRequiredLimits()`, feature allowlist and `selectRequiredFeatures()`, power preference, canvas alpha / color space / format (`resolveCanvasConfig()`), HDR intent, canvas and scene-pass MSAA |
+
+`gpu-context.ts` re-exports the policy, so `import { GPU_REQUIRED_LIMITS, resolveCanvasAntialias, … }
+from '…/gpu-context.ts'` keeps working. Table-driven tests: `npm run test:gpu-context-policy`
+(`tests/gpu-context-policy.test.mjs`); they assert no request exceeds the adapter's advertised
+limits (software and fallback adapters get the floor) and that an optional feature is requested
+only when wanted **and** advertised.
 
 ## Why
 
