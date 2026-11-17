@@ -8,11 +8,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { EditHistory, type WorldCommand } from '../src/systems/edit-history.ts';
+import { EditHistory, type WorldCommand } from '../src/systems/authoring/edit-history.ts';
 import {
     CURRENT_SNAPSHOT_VERSION,
     type EntitySnapshot,
-} from '../src/systems/entity-snapshot-core.ts';
+} from '../src/systems/entity-snapshot/entity-snapshot-core.ts';
 import { NIGHT_MARKET_STAMP_PREFIX } from '../src/systems/night-market-stamps.ts';
 import {
     decodeCandyWorld,

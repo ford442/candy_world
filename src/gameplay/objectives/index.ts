@@ -10,8 +10,8 @@
  * fires twice, or one that arrives before the state it reports, costs nothing.
  */
 
-import { awakenedPersistence } from '../../systems/awakened-persistence-api.ts';
-import { discoverySystem } from '../../systems/discovery-optimized.ts';
+import { awakenedPersistence } from '../../systems/awakened/awakened-persistence-api.ts';
+import { discoverySystem } from '../../systems/discovery/discovery-optimized.ts';
 import { registerMelodyStore } from '../../systems/melody-progress.ts';
 import { onProgress } from '../../systems/progress-events.ts';
 import { unlockSystem } from '../../systems/unlocks.ts';

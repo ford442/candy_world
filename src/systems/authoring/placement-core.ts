@@ -22,7 +22,7 @@ import {
     plantOnSurface,
     sampleGroundY,
 } from '../../world/placement-utils.ts';
-import { CURRENT_SNAPSHOT_VERSION, type EntitySnapshot } from '../entity-snapshot-core.ts';
+import { CURRENT_SNAPSHOT_VERSION, type EntitySnapshot } from '../entity-snapshot/entity-snapshot-core.ts';
 import {
     getGroundHeight,
     getRawTerrainHeight,

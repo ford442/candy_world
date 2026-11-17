@@ -1,4 +1,4 @@
-import type { SeasonMusicModifier } from '../../systems/season-core.ts';
+import type { SeasonMusicModifier } from '../../systems/environment/season-core.ts';
 import type { ChannelData, VisualState } from '../audio-system-core.ts';
 import { decayTowards, noteToFreq } from '../audio-system-core.ts';
 import {
@@ -134,7 +134,7 @@ export class GenerativeEngine {
         this.synth?.setReverbWet(this.seasonMod.reverbWet);
     }
 
-    /** Season shaping (systems/season-core.ts); takes effect at the next biome update. */
+    /** Season shaping (systems/environment/season-core.ts); takes effect at the next biome update. */
     setSeasonModifier(mod: Readonly<SeasonMusicModifier>): void {
         this.seasonMod.tempoScale = mod.tempoScale;
         this.seasonMod.brightnessShift = mod.brightnessShift;

@@ -1,4 +1,4 @@
-import type { SeasonMusicModifier } from '../../systems/season-core.ts';
+import type { SeasonMusicModifier } from '../../systems/environment/season-core.ts';
 import type { BiomeMusicProfile } from './biome-profiles.ts';
 
 /** Seasons may darken the filter, but never below this unless the biome itself is darker. */

@@ -12,11 +12,11 @@
 
 import assert from 'node:assert/strict';
 import { mushroomBatcher } from '../src/foliage/mushroom-batcher/index.ts';
-import { EditHistory, type WorldCommand } from '../src/systems/edit-history.ts';
+import { EditHistory, type WorldCommand } from '../src/systems/authoring/edit-history.ts';
 import {
     CURRENT_SNAPSHOT_VERSION,
     type EntitySnapshot,
-} from '../src/systems/entity-snapshot-core.ts';
+} from '../src/systems/entity-snapshot/entity-snapshot-core.ts';
 import { serializeEntitySnapshots } from '../src/systems/save-system/entity-snapshot.ts';
 import {
     BatchCommand,
@@ -24,7 +24,7 @@ import {
     PaintCommand,
     PlaceCommand,
     RemoveCommand,
-} from '../src/systems/world-commands.ts';
+} from '../src/systems/authoring/world-commands.ts';
 import type * as THREE from 'three';
 import { isAuthoredEntity } from '../src/world/authored-entities.ts';
 import { ChunkStreamer } from '../src/world/chunk-streamer.ts';

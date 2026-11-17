@@ -9,7 +9,7 @@
  * importing game-loop-core, so it adds no import cycle.
  */
 
-import { circadianController } from '../systems/circadian-controller.ts';
+import { circadianController } from '../systems/environment/circadian-controller.ts';
 import { areDebugHooksEnabled } from './config.ts';
 import { getCyclePos, isNightCyclePos } from './cycle.ts';
 

@@ -2,7 +2,7 @@ import { AudioSystem } from '../../audio/audio-system.ts';
 import { BeatSync } from '../../audio/beat-sync.ts';
 import { runBootStage } from '../../debug/index.ts';
 import { validateNodeGeometries } from '../../foliage/index.ts';
-import { musicReactivitySystem } from '../../systems/music-reactivity.ts';
+import { musicReactivitySystem } from '../../systems/music-reactivity/music-reactivity.ts';
 import type { WeatherSystem } from '../../systems/weather/weather.ts';
 import { initWorldCritical } from '../../world/generation.ts';
 import { CONFIG } from '../config.ts';

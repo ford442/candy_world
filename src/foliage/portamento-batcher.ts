@@ -15,7 +15,7 @@ import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pos
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
-import { getActiveWave } from '../systems/music-wave.ts';
+import { getActiveWave } from '../systems/music-reactivity/music-wave.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';

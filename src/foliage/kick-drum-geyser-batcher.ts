@@ -4,7 +4,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import type { FrameContext } from '../core/scheduler/types.ts';
 import { uCircadianPoseOffset } from '../systems/biome-uniforms.ts';
-import { getActiveWave } from '../systems/music-wave.ts';
+import { getActiveWave } from '../systems/music-reactivity/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';

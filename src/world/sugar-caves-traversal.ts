@@ -7,7 +7,7 @@
  */
 
 import * as THREE from 'three';
-import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
+import { awakenedPersistence } from '../systems/awakened/awakened-persistence-api.ts';
 import { LAKE_DESCENT } from '../systems/ground-height-core.ts';
 import { registerPlatform } from '../systems/ground-system.ts';
 import { announce, announceQuest } from '../ui/announcer.ts';

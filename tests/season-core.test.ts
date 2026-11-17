@@ -1,5 +1,5 @@
 /**
- * Season calendar, blend and tint math (src/systems/season-core.ts).
+ * Season calendar, blend and tint math (src/systems/environment/season-core.ts).
  *
  * The season is a pure function of (seed, wall-clock ms), so presence peers
  * agree without talking; spring must leave every authored colour untouched;
@@ -34,7 +34,7 @@ import {
     virtualSeasonClock,
     type SeasonCalendarConfig,
     type SeasonState,
-} from '../src/systems/season-core.ts';
+} from '../src/systems/environment/season-core.ts';
 
 let passed = 0;
 let failed = 0;

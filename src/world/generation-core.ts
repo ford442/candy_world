@@ -20,7 +20,7 @@ import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts'
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { createIntegratedFireflies } from '../particles/index.ts';
-import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
+import { initDiscoveryForFoliage } from '../systems/discovery/discovery-optimized.ts';
 import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { bootProgress } from '../utils/boot-progress.ts';

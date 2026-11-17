@@ -19,7 +19,7 @@ import {
     hash32,
     type SeasonCalendarConfig,
     type SeasonName,
-} from '../season-core.ts';
+} from '../environment/season-core.ts';
 
 export const FRONT_CLEAR = 0;
 export const FRONT_RAIN = 1;

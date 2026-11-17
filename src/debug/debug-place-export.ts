@@ -8,7 +8,7 @@
  * fails to boot.
  */
 
-import type { EntitySnapshot } from '../systems/entity-snapshot-core.ts';
+import type { EntitySnapshot } from '../systems/entity-snapshot/entity-snapshot-core.ts';
 import { normalizeEntity } from '../world/map-loader-normalize.ts';
 import type { CandyMapData, CandyMapEntity } from '../world/map-loader-types.ts';
 import { validateMapShape } from '../world/map-loader-validate.ts';

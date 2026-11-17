@@ -51,4 +51,4 @@ export {
 export { AssetStreamer as default, AssetStreamer } from './asset-streaming.ts';
 
 // Re-export region-manager types (for convenience)
-export { RegionManager, GridCell, CellState } from '../region-manager.ts';
+export { RegionManager, GridCell, CellState } from '../region-manager/region-manager.ts';

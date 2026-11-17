@@ -28,7 +28,7 @@ import {
     createPlacementState,
     yawOf,
 } from '../src/systems/authoring/placement-core.ts';
-import { markAuthoredTransform } from '../src/systems/entity-snapshot-core.ts';
+import { markAuthoredTransform } from '../src/systems/entity-snapshot/entity-snapshot-core.ts';
 import { getPlatforms } from '../src/systems/ground-system.ts';
 import {
     SYSTEM_BUDGETS,

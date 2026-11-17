@@ -36,7 +36,7 @@ const data = new Map<string, string>();
     removeItem: (k: string) => void data.delete(k),
 };
 
-const { EditHistory } = await import('../src/systems/edit-history.ts');
+const { EditHistory } = await import('../src/systems/authoring/edit-history.ts');
 const { createObjectiveSystem } = await import('../src/gameplay/objectives/objective-system.ts');
 const { parseMelodyFile } = await import('../src/gameplay/objectives/schema.ts');
 const { parseWorldDocument } = await import('../src/world/document/migrations.ts');

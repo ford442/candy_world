@@ -14,7 +14,7 @@ import { createMelodyRibbon } from '../foliage/ribbons.ts';
 import { createSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { createStrobePulse } from '../foliage/strobe.ts';
 import { ensureGameplay, preloadGameplay } from '../gameplay/lazy.ts';
-import { initAwakenedPersistenceIfNeeded } from '../systems/awakened-persistence-api.ts';
+import { initAwakenedPersistenceIfNeeded } from '../systems/awakened/awakened-persistence-api.ts';
 import { log } from '../utils/log.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { FEATURE_FLAGS } from './config.ts';
@@ -193,7 +193,7 @@ export function initDeferredVisuals() {
  */
 export function applyAwakenedPersistenceAfterWorldLoad(): void {
     if (!FEATURE_FLAGS.awakenedPersistence) return;
-    void import('../systems/awakened-persistence.ts').then((m) => {
+    void import('../systems/awakened/awakened-persistence.ts').then((m) => {
         m.getAwakenedStore()?.reconcileAndApplyToBatchers();
     });
 }

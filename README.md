@@ -27,7 +27,7 @@ The world features:
 
 Inspired by low-poly nature scenes with a candy twist!
 
-> **Building visuals?** Start with [grok.md](./grok.md) (5-minute quick-start) and the
+> **Building visuals?** Start with the [Quick-Start](./docs/QUICKSTART.md) (5 minutes) and the
 > [Candy Material Cookbook](./docs/CANDY_MATERIAL_COOKBOOK.md) — reusable glossy-material
 > recipes, copy-paste TSL snippets, and an "adding a reactive plant" tutorial.
 
@@ -37,7 +37,7 @@ See [docs/CAPSTONE_ROADMAP.md](./docs/CAPSTONE_ROADMAP.md) and [docs/SUGAR_CAVES
 
 ## How to Run
 
-> **Note**: For detailed setup instructions including native module compilation with Emscripten, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+> **Note**: For detailed setup instructions including native module compilation with Emscripten, see [docs/SETUP_GUIDE.md](./docs/SETUP_GUIDE.md)
 
 ### Development
 
@@ -124,3 +124,15 @@ npm run preview
 - Vite build system for fast development and optimized production builds
 
 Enjoy wandering through this memorable 3D candy nature world!
+
+## More Documentation
+
+Agents and contributors: [`AGENTS.md`](./AGENTS.md) (conventions and invariants) and [`CLAUDE.md`](./CLAUDE.md) (commands and directory guide) come first.
+
+- [Quick-Start](./docs/QUICKSTART.md): the 5-minute orientation (visual principles, music reactivity, where things live)
+- [Developer Context](./docs/DEVELOPER_CONTEXT.md): architecture, complexity hotspots and gotchas
+- [Setup Guide](./docs/SETUP_GUIDE.md): environment setup, Emscripten and the native module
+- [Physics Collision Safety](./docs/PHYSICS_COLLISION_SAFETY.md): null-pointer hardening of the WASM collision path
+- [GPU Animator Hardening](./docs/GPU_ANIMATOR_HARDENING.md): compute-shader safety for CORE mode (empty registries)
+- [Compute Particles](./docs/COMPUTE_PARTICLES.md): the WebGPU compute particle system
+- [App Chunk Split](./docs/APP_CHUNK_SPLIT.md): how the Vite bundle is divided into chunks

@@ -1,5 +1,5 @@
 import { toggleBuildMode } from '../../../systems/build-mode-lazy.ts';
-import { discoverySystem } from '../../../systems/discovery-optimized.ts';
+import { discoverySystem } from '../../../systems/discovery/discovery-optimized.ts';
 import {
     getPhotoMode,
     isPhotoModeActive,

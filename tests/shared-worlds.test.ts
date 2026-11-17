@@ -14,9 +14,9 @@ import {
     type WorldWriteStore,
     WorldStoreError,
 } from '../supabase/functions/validate-world/handler.ts';
-import type { EntitySnapshot } from '../src/systems/entity-snapshot-types.ts';
+import type { EntitySnapshot } from '../src/systems/entity-snapshot/entity-snapshot-types.ts';
 import { SYSTEM_BUDGETS } from '../src/systems/performance-budget/systems-budget.ts';
-import { computeSeasonState, createSeasonState } from '../src/systems/season-core.ts';
+import { computeSeasonState, createSeasonState } from '../src/systems/environment/season-core.ts';
 import { SEASON_DEFAULTS } from '../src/core/config/season.ts';
 import { authoredEntityStates, documentStateHash } from '../src/world/document/entity-state.ts';
 import { RemoteDocumentStore, SharedWorldError } from '../src/world/document/remote-store.ts';

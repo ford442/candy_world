@@ -8,14 +8,14 @@
 // bookkeeping/spiral ordering instead of forking a parallel grid.
 import * as THREE from 'three';
 import { CONFIG, getJsHeapUsageRatio } from '../core/config.ts';
-import { optimizedDiscovery } from '../systems/discovery-optimized.ts';
+import { optimizedDiscovery } from '../systems/discovery/discovery-optimized.ts';
 import { populatePhysicsGrids } from '../systems/physics/index.ts';
 import {
     CellState,
     RegionManager,
     worldToCell,
     type GridCell,
-} from '../systems/region-manager-core.ts';
+} from '../systems/region-manager/region-manager-core.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { isAuthoredEntity } from './authored-entities.ts';
 import { despawnEntity, isDespawned } from './entity-despawn.ts';

@@ -16,8 +16,8 @@
  * COMPACTION_THRESHOLD it is folded into `base` (`compaction.ts`).
  */
 
-import type { EditHistory, EditHistoryEvent, WorldCommand } from '../../systems/edit-history.ts';
-import { deserializeWorldCommand } from '../../systems/world-commands.ts';
+import type { EditHistory, EditHistoryEvent, WorldCommand } from '../../systems/authoring/edit-history.ts';
+import { deserializeWorldCommand } from '../../systems/authoring/world-commands.ts';
 import { COMPACTION_THRESHOLD, compactCommands } from './compaction.ts';
 import { mergeLiveProgress, readLiveProgress, unionProgress } from './progress-bridge.ts';
 import type { DocumentCommand, DocumentPlayer, WorldDocumentV1 } from './schema.ts';

@@ -21,7 +21,7 @@ import {
 // Visual effects management: rainbow, aurora, lightning, plant growth
 
 import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
-import { WeatherState } from '../weather-types.ts';
+import { WeatherState } from './weather-types.ts';
 
 // Cache palette keys outside the render loop to prevent GC spikes during storms
 // Evaluate keys lazily since this module may load before config is initialized

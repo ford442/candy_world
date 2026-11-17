@@ -16,7 +16,7 @@ import { showToast } from '../../utils/toast.ts';
 import { migrateLegacySave } from '../../world/document/migrations.ts';
 import { WORLD_DOCUMENT_SCHEMA, validateWorldDocument } from '../../world/document/schema.ts';
 import { getMapVersion, getWorldSeed } from '../../world/world-seed.ts';
-import { awakenedPersistence } from '../awakened-persistence-api.ts';
+import { awakenedPersistence } from '../awakened/awakened-persistence-api.ts';
 import { SaveDatabase, MigrationSystem, LZString } from './save-database.ts';
 import {
     SAVE_VERSION,

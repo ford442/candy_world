@@ -1,6 +1,6 @@
 import type { PlantPoseConfig } from '../../foliage/plant-pose-machine.ts';
+import type { SeasonConfig, SeasonMusicConfig, SeasonName } from '../../systems/environment/season-core.ts';
 import type { FaunaSeasonConfig } from '../../systems/fauna/behavior.ts';
-import type { SeasonConfig, SeasonMusicConfig, SeasonName } from '../../systems/season-core.ts';
 import type { WeatherFrontConfig } from '../../systems/weather/weather-fronts-core.ts';
 import type { EntityScaleEntry } from './palette.ts';
 

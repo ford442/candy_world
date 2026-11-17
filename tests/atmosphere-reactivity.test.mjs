@@ -23,7 +23,7 @@ function test(name, fn) {
   }
 }
 
-import { smooth, simulateBloomTarget, simulateFogTarget, accumulateArpeggioChannels, nightGateFromBias } from '../src/systems/atmosphere-reactivity-core.ts';
+import { smooth, simulateBloomTarget, simulateFogTarget, accumulateArpeggioChannels, nightGateFromBias } from '../src/systems/environment/atmosphere-reactivity-core.ts';
 
 console.log('🌫️  Atmosphere Reactivity Tests');
 console.log('================================\n');

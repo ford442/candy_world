@@ -9,12 +9,12 @@
 import {
     computePersistentId,
     persistentIdFromString,
-} from '../../systems/awakened-persistent-id.ts';
+} from '../../systems/awakened/awakened-persistent-id.ts';
 import {
     CURRENT_SNAPSHOT_VERSION,
     migrateSnapshot,
     type EntitySnapshot,
-} from '../../systems/entity-snapshot-core.ts';
+} from '../../systems/entity-snapshot/entity-snapshot-core.ts';
 import type { AwakenedRecord, DocumentCommand } from './schema.ts';
 
 /**

@@ -8,8 +8,8 @@
  * too, so a rollback keeps everything.
  */
 
-import { awakenedPersistence } from '../../systems/awakened-persistence-api.ts';
-import { discoverySystem } from '../../systems/discovery-optimized.ts';
+import { awakenedPersistence } from '../../systems/awakened/awakened-persistence-api.ts';
+import { discoverySystem } from '../../systems/discovery/discovery-optimized.ts';
 import { applyMelodyProgress, readMelodyProgress } from '../../systems/melody-progress.ts';
 import { unlockSystem } from '../../systems/unlocks.ts';
 import { isSugarCavesUnlocked, unlockSugarCaves } from '../part-ii-unlock.ts';

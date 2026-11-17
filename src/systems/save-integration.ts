@@ -6,8 +6,10 @@
 import { CYCLE_DURATION, FEATURE_FLAGS } from '../core/config.ts';
 import { getActiveSession, openWorldDocument } from '../world/document/active.ts';
 import { parseWorldDocument } from '../world/document/migrations.ts';
-import { awakenedPersistence } from './awakened-persistence-api.ts';
-import { discoverySystem } from './discovery-optimized.ts';
+import { awakenedPersistence } from './awakened/awakened-persistence-api.ts';
+import { discoverySystem } from './discovery/discovery-optimized.ts';
+import { getSeasonState } from './environment/season-controller.ts';
+import { SEASON_NAMES } from './environment/season-core.ts';
 import { player } from './physics/index.ts';
 import {
     serializeEntitySnapshots,
@@ -18,8 +20,6 @@ import {
     createProgressSaveData,
     type SaveData,
 } from './save-system/index.ts';
-import { getSeasonState } from './season-controller.ts';
-import { SEASON_NAMES } from './season-core.ts';
 import { unlockSystem } from './unlocks.ts';
 import { getWeatherSystem } from './weather/lazy.ts';
 

@@ -54,7 +54,7 @@ input (build-mode.ts) ─▶ WorldCommand ─▶ editHistory.execute()
                                  DocumentStore (IndexedDB)
 ```
 
-- **Commands** (`src/systems/world-commands.ts`): `PlaceCommand`,
+- **Commands** (`src/systems/authoring/world-commands.ts`): `PlaceCommand`,
   `RemoveCommand`, `MoveCommand`, `PaintCommand` (a move whose `to` has a new
   `params.color`), and `BatchCommand` (several commands as one undo step, all
   or nothing). They target snapshot ids (`mapEntityId`), never array indices,
@@ -66,7 +66,7 @@ input (build-mode.ts) ─▶ WorldCommand ─▶ editHistory.execute()
   so a removed or moved map entity stays removed or moved when its chunk
   streams back in. `despawnEntity` marks what it tore down, so a streamer
   eviction never tears the same object down twice.
-- **History** (`src/systems/edit-history.ts`): 100 steps. `subscribe()`
+- **History** (`src/systems/authoring/edit-history.ts`): 100 steps. `subscribe()`
   reports `execute` / `undo` / `redo`; the document session listens.
 - **Session** (`src/world/document/session.ts`): the document's `commands`
   are a `base` run (replayed at load, pushed past the history cap, or folded)

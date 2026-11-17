@@ -8,7 +8,7 @@
  * the whole map on reload.
  *
  * The record format, migrations and restore path are the ones in
- * `../entity-snapshot.ts`; this module only decides WHAT to save and reconciles
+ * `../entity-snapshot/entity-snapshot.ts`; this module only decides WHAT to save and reconciles
  * a loaded save against the live world.
  */
 
@@ -21,7 +21,7 @@ import {
     restoreEntity,
     snapshotEntity,
     type EntitySnapshot,
-} from '../entity-snapshot.ts';
+} from '../entity-snapshot/entity-snapshot.ts';
 import { populatePhysicsGrids } from '../physics/index.ts';
 
 export interface ApplyEntitySnapshotsResult {

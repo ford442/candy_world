@@ -23,7 +23,7 @@ import { dandelionBatcher } from '../src/foliage/dandelion-batcher.ts';
 import { FaunaSpecies } from '../src/systems/fauna/types.ts';
 import { CandyDebrisBatcher } from '../src/foliage/candy-debris-batcher.ts';
 
-import { optimizedDiscovery } from '../src/systems/discovery-optimized.ts';
+import { optimizedDiscovery } from '../src/systems/discovery/discovery-optimized.ts';
 
 optimizedDiscovery.registerObject = () => {};
 

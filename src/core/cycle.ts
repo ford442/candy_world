@@ -207,7 +207,7 @@ export function getSunArcAngle(cyclePos: number): number {
 }
 
 // Moon cycle = 8 game days. Seasons now run on a wall-clock calendar
-// (systems/season-core.ts); the moon stays on game time because night darkness
+// (systems/environment/season-core.ts); the moon stays on game time because night darkness
 // and fog read it every frame.
 const MOON_CYCLE_LENGTH = CYCLE_DURATION * 8;
 

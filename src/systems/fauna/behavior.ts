@@ -20,7 +20,7 @@
  * allocates nothing per frame — no closures, no temporaries.
  */
 
-import { blendSeasonScalar, type SeasonName, type SeasonState } from '../season-core.ts';
+import { blendSeasonScalar, type SeasonName, type SeasonState } from '../environment/season-core.ts';
 import { FAUNA_BOID_STRIDE, FaunaSpecies, FaunaState, type FaunaSpawnEntry } from './types.ts';
 
 /**

@@ -11,8 +11,8 @@ import {
     setShadowPcssEnabled,
     setShadowSoftness,
 } from '../rendering/shadow-softness.ts';
-import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
+import { getFogTelemetry } from '../systems/environment/atmosphere-fog.ts';
 import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import {
     collectSystemsBudget,

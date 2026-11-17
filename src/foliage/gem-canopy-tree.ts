@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { awakenedPersistence } from '../systems/awakened-persistence-api.ts';
+import { awakenedPersistence } from '../systems/awakened/awakened-persistence-api.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { gemFruitBatcher } from './gem-fruit-batcher.ts';
 import { treeBatcher } from './tree-batcher.ts';

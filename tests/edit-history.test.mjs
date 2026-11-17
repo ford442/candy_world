@@ -6,7 +6,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { EditHistory } from '../src/systems/edit-history.ts';
+import { EditHistory } from '../src/systems/authoring/edit-history.ts';
 
 let failures = 0;
 function test(name, fn) {

@@ -150,7 +150,7 @@ JS (`firstNativeModule`).
 ## Toolchain
 
 - **emsdk** is pinned in `.emsdk-version` (4.0.10), which CI, the release
-  workflow, `.jules/setup.sh` and `SETUP_GUIDE.md` all read. `build.sh` warns
+  workflow, `.jules/setup.sh` and `docs/SETUP_GUIDE.md` all read. `build.sh` warns
   on any other version and keeps going; `CANDY_STRICT_EMSDK=1` makes the
   mismatch fatal. Every env knob `build.sh` reads has a default, because it runs
   under `set -u`.

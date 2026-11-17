@@ -29,8 +29,8 @@ import {
 import type { WorldDocumentV1 } from '../../world/document/schema.ts';
 import { LocalStorageSyncMetaStore, SharedWorldSync } from '../../world/document/shared-sync.ts';
 import { getWorldSeed, readSharedWorldIdFromURL } from '../../world/world-seed.ts';
+import { editHistory } from '../authoring/edit-history.ts';
 import { setBuildModeLock } from '../build-mode-state.ts';
-import { editHistory } from '../edit-history.ts';
 import { buildWorldShareUrl, readWorldInviteFromURL } from './share-links.ts';
 import { SharedWorldSession } from './shared-world-session.ts';
 import {

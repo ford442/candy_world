@@ -143,7 +143,7 @@ function gets `SUPABASE_SERVICE_ROLE_KEY` from its environment; served by hand
 (`deno run`), pass it.
 
 The function imports the validator from `src/` (the same module, not a copy).
-`src/systems/entity-snapshot-types.ts` keeps its type graph free of three.js,
+`src/systems/entity-snapshot/entity-snapshot-types.ts` keeps its type graph free of three.js,
 so `npm run check:validate-world` (`deno check`) passes; the handler itself is
 web-standard Request/Response and `tests/shared-worlds.test.ts` drives it from
 Node.

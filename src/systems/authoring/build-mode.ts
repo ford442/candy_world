@@ -30,18 +30,11 @@ import {
     reportBuildModeState,
     setBuildSelectionSource,
 } from '../build-mode-state.ts';
-import { editHistory, type WorldCommand } from '../edit-history.ts';
-import { nextSnapshotId, snapshotEntity, type EntitySnapshot } from '../entity-snapshot-core.ts';
+import { nextSnapshotId, snapshotEntity, type EntitySnapshot } from '../entity-snapshot/entity-snapshot-core.ts';
 import { SYSTEM_BUDGETS } from '../performance-budget/systems-budget.ts';
-import {
-    BatchCommand,
-    MoveCommand,
-    PaintCommand,
-    PlaceCommand,
-    RemoveCommand,
-} from '../world-commands.ts';
 import { BuildModeUi, TOOLS, type BuildTool } from './build-mode-ui.ts';
 import { checkMoveBudget, checkPlacementBudget, countAuthored } from './chunk-budget.ts';
+import { editHistory, type WorldCommand } from './edit-history.ts';
 import { BuildGizmo, type GizmoMode } from './gizmo.ts';
 import {
     CANDY_PAINT_PALETTE,
@@ -61,6 +54,13 @@ import {
     yawOf,
     type PlacementGhost,
 } from './placement-core.ts';
+import {
+    BatchCommand,
+    MoveCommand,
+    PaintCommand,
+    PlaceCommand,
+    RemoveCommand,
+} from './world-commands.ts';
 
 const KEY_ROTATE_STEP = Math.PI / 4;
 const SCALE_STEP = 0.1;

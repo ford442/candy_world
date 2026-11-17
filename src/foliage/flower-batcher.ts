@@ -8,7 +8,7 @@ import { CONFIG } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { getActiveWave } from '../systems/music-wave.ts';
+import { getActiveWave } from '../systems/music-reactivity/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { foliageMaterials } from './foliage-materials.ts';

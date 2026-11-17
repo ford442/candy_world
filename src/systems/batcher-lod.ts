@@ -19,7 +19,7 @@ import {
     SEASON_ROLE_STRIDE,
     tintRgbInPlace,
     type SeasonRole,
-} from './season-core.ts';
+} from './environment/season-core.ts';
 
 // Impostors are flat billboards, so frost uses one representative up-facing
 // value: roughly how much of a canopy's visible surface faces the sky.

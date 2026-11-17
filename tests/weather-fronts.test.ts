@@ -15,7 +15,7 @@ import {
     SUMMER,
     WINTER,
     type SeasonCalendarConfig,
-} from '../src/systems/season-core.ts';
+} from '../src/systems/environment/season-core.ts';
 import {
     FRONT_ANNOUNCEMENTS,
     FRONT_CLEAR,

@@ -44,7 +44,9 @@ import {
     foliageTrampolines,
 } from '../../world/state.ts';
 import { recordMushroomBounce } from '../bounce-shrooms.ts';
-import { discoverySystem } from '../discovery-optimized.ts';
+import { discoverySystem } from '../discovery/discovery-optimized.ts';
+import { calculateMovementInput } from './physics-math.ts';
+import { getLakeIce } from '../environment/season-controller.ts';
 import {
     reconcileGroundedEyeY,
     isInLakeBasin,
@@ -52,8 +54,6 @@ import {
     sampleGroundFootprint,
     type GroundFootprintResult,
 } from '../ground-system.ts';
-import { calculateMovementInput } from './physics-math.ts';
-import { getLakeIce } from '../season-controller.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { resolveCharacterMovement } from './character-controller.ts';
 import { iceAwareFootprint, updateLakeIcePhysics } from './lake-ice-core.ts';

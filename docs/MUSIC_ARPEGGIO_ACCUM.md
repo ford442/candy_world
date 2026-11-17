@@ -29,8 +29,8 @@ volume accumulation + `nightGate` scale out of the TypeScript hot path into Asse
 |-------|------|
 | AS | `assembly/music_reactivity.ts` |
 | Wrapper | `src/utils/wasm-music-reactivity.ts` |
-| Hot path | `src/systems/music-reactivity-core.ts` → `applyArpeggioGroveChannelAccum` |
-| Caller | `src/systems/music-reactivity.ts` → `updateBiomeChannelBindings` |
+| Hot path | `src/systems/music-reactivity/music-reactivity-core.ts` → `applyArpeggioGroveChannelAccum` |
+| Caller | `src/systems/music-reactivity/music-reactivity.ts` → `updateBiomeChannelBindings` |
 | Parity | `tests/parity.mjs`, `tests/fixtures/parity/arpeggio-accumulate.json` |
 | Unit | `tests/atmosphere-reactivity.test.mjs` (arpeggio section) |
 

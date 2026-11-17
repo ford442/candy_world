@@ -30,7 +30,7 @@ import {
     computeSeasonState,
     createSeasonMusicModifier,
     createSeasonState,
-} from '../src/systems/season-core.ts';
+} from '../src/systems/environment/season-core.ts';
 
 let passed = 0;
 let failed = 0;

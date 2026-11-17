@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { FEATURE_FLAGS } from '../../core/config.ts';
 import { cameraRef } from '../../core/game-loop-core.ts';
-import { editHistory } from '../../systems/edit-history.ts';
+import { editHistory } from '../../systems/authoring/edit-history.ts';
 import { player } from '../../systems/physics/index.ts';
 import { log } from '../../utils/log.ts';
 import { getMapVersion, getWorldSeed } from '../world-seed.ts';

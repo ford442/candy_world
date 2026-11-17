@@ -511,6 +511,80 @@ import { createComputePollen } from './particles';
 const newPollen = createComputePollen({ count: 30000 });
 ```
 
+### Integration layer (`src/particles/compute-integration.ts`)
+
+The `createIntegrated*` factories wrap a compute system in a plain `THREE.Object3D`
+and pick CPU or GPU for you. `createIntegratedFireflies` is what
+`src/world/generation-core.ts` uses.
+
+```typescript
+import { createIntegratedFireflies } from '../particles/index.ts';
+
+// GPU compute when WebGPU is available, CPU fallback otherwise
+scene.add(createIntegratedFireflies({ count: 150, areaSize: 100 }));
+
+// Force the CPU path
+scene.add(createIntegratedFireflies({ count: 150, useCompute: false }));
+```
+
+To drive a system you built yourself, register it once and update every
+registered system with one call per frame:
+
+```typescript
+import {
+    createComputeFireflies,
+    registerIntegratedSystem,
+    updateAllIntegratedSystems,
+} from '../particles/index.ts';
+
+const fireflies = createComputeFireflies({ count: 50000 });
+scene.add(fireflies.mesh);
+registerIntegratedSystem('fireflies', fireflies.mesh, fireflies);
+
+// each frame, with the same ParticleAudioData shape the systems take directly
+updateAllIntegratedSystems(renderer, delta, player.position, audioData);
+```
+
+**Deferred loading.** Queue systems during boot and build them after the scene is
+visible. Lower `priority` loads first:
+
+```typescript
+import { queueDeferredSystem, loadDeferredSystems } from '../particles/index.ts';
+
+queueDeferredSystem({ id: 'fireflies', type: 'fireflies', options: { count: 50000, areaSize: 100 }, priority: 1 });
+queueDeferredSystem({ id: 'pollen', type: 'pollen', options: { count: 30000, areaSize: 50 }, priority: 2 });
+
+await loadDeferredSystems(scene, (loaded, total) => console.log(`particles ${loaded}/${total}`));
+```
+
+**Benchmarking and metrics.** `benchmarkParticleSystem` times a system at several
+counts and returns a `BenchmarkResult` per count (`avgFrameTime`, `actualFps`,
+`recommendation`). Per-system metrics (`particleCount`, `frameTime`, `gpuTime`,
+`cpuFallback`) come from `getAllParticleMetrics`, which is exported from
+`compute-integration.ts` itself, not from `particles/index.ts`:
+
+```typescript
+import { benchmarkParticleSystem, printBenchmarkResults } from '../particles/index.ts';
+import { getAllParticleMetrics } from '../particles/compute-integration.ts';
+
+printBenchmarkResults(await benchmarkParticleSystem(renderer, 'fireflies', [1000, 5000, 10000, 50000]));
+
+for (const [id, m] of getAllParticleMetrics()) {
+    console.log(`${id}: ${m.particleCount} particles, ${m.frameTime.toFixed(2)}ms`);
+}
+```
+
+### Source layout (`src/particles/`)
+
+| File                                                            | Role                                                                                  |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `compute-particles.ts`, `-types.ts`, `-shaders.ts`              | `ComputeParticleSystem`, its types, and the WGSL sources                              |
+| `shaders/*.wgsl`                                                | update / spawn / collide / render passes (see Technical Architecture)                 |
+| `cpu-particle-system.ts`, `cpu-particle-simulate.ts`            | CPU fallback with the same API                                                        |
+| `emitter-api.ts`                                                | Reusable emitter API (see Emitter API)                                                |
+| `compute-integration.ts`                                        | `createIntegrated*`, registration, deferred loading, benchmarking, metrics            |
+| `lazy.ts`, `index.ts`                                           | Lazy-load stub and the public exports                                                 |
+
 ## Shader Customization
 
 For advanced users, you can access the WGSL shader sources:

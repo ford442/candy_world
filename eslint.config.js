@@ -64,7 +64,6 @@ export default tseslint.config(
             'emscripten/**',
             'tools/**',
             'tests/**',
-            'test/**',
             'verification/**',
             'scripts/**',
         ],
