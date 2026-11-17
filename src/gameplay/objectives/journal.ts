@@ -69,6 +69,19 @@ function activeItem(view: MelodyView): HTMLElement {
     });
 }
 
+function dormantItem(view: MelodyView): HTMLElement {
+    return el('li', {
+        classes: ['journal-item', 'journal-item--dormant'],
+        children: [
+            el('strong', { classes: ['journal-item-title'], text: view.title }),
+            el('p', {
+                classes: ['journal-item-step'],
+                text: `Returns in ${view.season ?? 'its season'}.`,
+            }),
+        ],
+    });
+}
+
 function completedItem(view: MelodyView): HTMLElement {
     return el('li', {
         classes: ['journal-item', 'journal-item--done'],
@@ -130,6 +143,11 @@ export function mountJournal(system: ObjectiveSystem): Journal {
                 'In progress',
                 views.filter((v) => v.status === 'active').map(activeItem),
                 'No Melodies in progress.'
+            ),
+            section(
+                'Waiting for their season',
+                views.filter((v) => v.status === 'dormant').map(dormantItem),
+                'None.'
             ),
             section(
                 'Completed',

@@ -10,6 +10,18 @@
  *   - nothing can be counted twice.
  * Consequence: `harvest … count: 3` means "have 3", not "harvest 3 more from now".
  *
+ * Present-tense triggers (`visit`, `play-on-beat`) read state that is only true for a moment: the
+ * biome the player is in, the current on-beat streak. They pass when an evaluate sees them true
+ * while they are the current step, and the step index (which only moves forward and unions by max)
+ * is what remembers it. A save cannot satisfy them retroactively, and a replay cannot either.
+ *
+ * Seasonal Melodies (`season`) are evaluated only in their season. Out of season they keep their
+ * step index (shown as dormant); a completed one stays completed, and still satisfies a `prereq`.
+ *
+ * Rewards are granted once, on the transition to completed made by this system's own advance.
+ * Completion that arrives by merge (`apply` of a document or a peer) grants nothing: that state
+ * came with its own inventory, which merges by max.
+ *
  * The stored step index only moves forward. `UnlockSystem.consume` can lower an item count, but a
  * step already passed stays passed.
  *
@@ -18,7 +30,7 @@
  */
 
 import { unionMelodyProgress, type MelodyProgress } from '../../systems/melody-progress.ts';
-import type { Melody, Trigger } from './schema.ts';
+import type { Melody, MelodyReward, Trigger } from './schema.ts';
 
 /** What the player has right now. Read on every `evaluate`, never cached. */
 export interface ObjectiveSnapshot {
@@ -27,6 +39,14 @@ export interface ObjectiveSnapshot {
     isDiscovered(id: string): boolean;
     /** Awakened flora so far, of `type` when given. */
     awakenedCount(type?: string): number;
+    /** Authored entities placed and still live (`placedEntityCount`), of `type` when given. */
+    builtCount?(type?: string): number;
+    /** Biome the player stands in right now. */
+    currentBiome?(): string;
+    /** Current run of consecutive on-beat presses of `action`. */
+    beatStreak?(action: string): number;
+    /** Current season name (`spring` … `winter`). Without it, seasonal Melodies never activate. */
+    season?(): string;
 }
 
 export type MelodyEvent = 'started' | 'step' | 'completed';
@@ -43,9 +63,12 @@ export interface ObjectiveDeps {
     announce(event: MelodyEvent, title: string, detail?: string): void;
     /** Saved state to start from. Taken as is: nothing in it is announced. */
     initial?: Readonly<MelodyProgress> | null;
+    /** Give the player `count` of `item` (a Melody reward). Called once per local completion. */
+    grant?(item: string, count: number): void;
 }
 
-export type MelodyStatus = 'active' | 'locked' | 'completed';
+/** `dormant`: a seasonal Melody, unlocked, waiting for its season. */
+export type MelodyStatus = 'active' | 'locked' | 'dormant' | 'completed';
 
 /** One Melody as the journal shows it. */
 export interface MelodyView {
@@ -59,6 +82,8 @@ export interface MelodyView {
     current: string | null;
     /** Titles of the prerequisites still open. Only for a locked Melody. */
     needs: string[];
+    /** The season a seasonal Melody runs in. */
+    season: string | null;
 }
 
 export interface ObjectiveSystem {
@@ -86,7 +111,17 @@ export function isSatisfied(trigger: Trigger, snapshot: ObjectiveSnapshot): bool
         case 'stamp':
         case 'discover':
             return snapshot.isDiscovered(trigger.id);
+        case 'visit':
+            return snapshot.currentBiome?.() === trigger.biome;
+        case 'play-on-beat':
+            return (snapshot.beatStreak?.(trigger.action) ?? 0) >= trigger.count;
+        case 'build':
+            return (snapshot.builtCount?.(trigger.type) ?? 0) >= trigger.count;
     }
+}
+
+export function isInSeason(melody: Melody, snapshot: ObjectiveSnapshot): boolean {
+    return !melody.season || snapshot.season?.() === melody.season;
 }
 
 export function createObjectiveSystem(deps: ObjectiveDeps): ObjectiveSystem {
@@ -133,12 +168,14 @@ export function createObjectiveSystem(deps: ObjectiveDeps): ObjectiveSystem {
         // Insertion order is the order transitions happened in: a completion is announced before
         // the Melody it opens, whatever order the Melodies are listed in.
         const events = new Map<string, { title: string; event: MelodyEvent; detail?: string }>();
+        const rewards: MelodyReward[] = [];
         let again = true;
         while (again) {
             again = false;
             for (const m of melodies) {
                 if (completed.has(m.id) || !(m.prereq ?? []).every((p) => completed.has(p)))
                     continue;
+                if (!isInSeason(m, snapshot)) continue;
                 const tracked = step.has(m.id);
                 const from = step.get(m.id) ?? 0;
                 let at = from;
@@ -150,6 +187,7 @@ export function createObjectiveSystem(deps: ObjectiveDeps): ObjectiveSystem {
                     completed.add(m.id);
                     step.delete(m.id);
                     event = 'completed';
+                    if (m.reward) rewards.push(m.reward);
                 } else if (at > from) {
                     step.set(m.id, at);
                     event = 'step';
@@ -168,6 +206,17 @@ export function createObjectiveSystem(deps: ObjectiveDeps): ObjectiveSystem {
         }
 
         if (events.size === 0) return false;
+        // After the state change, so a grant that re-enters `evaluate` (a harvest listener) sees
+        // the Melody completed and cannot grant it again.
+        for (const reward of rewards) {
+            for (const { item, count } of reward.items) {
+                try {
+                    deps.grant?.(item, count);
+                } catch (err) {
+                    console.warn('[Objectives] reward grant failed:', err);
+                }
+            }
+        }
         if (!silent) {
             for (const e of events.values()) {
                 try {
@@ -182,14 +231,34 @@ export function createObjectiveSystem(deps: ObjectiveDeps): ObjectiveSystem {
 
     if (deps.initial) merge(deps.initial);
 
+    // A grant can re-enter (harvest -> onHarvest -> evaluate). The nested call is folded into the
+    // running one: it runs once more after the current pass instead of inside it.
+    let running = false;
+    let rerun = false;
+    function run(silent: boolean, merged: boolean): void {
+        if (running) {
+            rerun = true;
+            return;
+        }
+        running = true;
+        let changed = merged;
+        try {
+            do {
+                rerun = false;
+                if (advance(silent)) changed = true;
+            } while (rerun);
+        } finally {
+            running = false;
+        }
+        if (changed) notify();
+    }
+
     return {
         evaluate() {
-            if (advance(false)) notify();
+            run(false, false);
         },
         apply(progress) {
-            const merged = merge(progress);
-            const advanced = advance(true);
-            if (merged || advanced) notify();
+            run(true, merge(progress));
         },
         getProgress() {
             return { completed: [...completed], step: Object.fromEntries(step) };
@@ -202,7 +271,9 @@ export function createObjectiveSystem(deps: ObjectiveDeps): ObjectiveSystem {
                     ? 'completed'
                     : open.length > 0
                       ? 'locked'
-                      : 'active';
+                      : isInSeason(m, snapshot)
+                        ? 'active'
+                        : 'dormant';
                 const passed = done
                     ? m.steps.length
                     : Math.min(step.get(m.id) ?? 0, m.steps.length);
@@ -214,6 +285,7 @@ export function createObjectiveSystem(deps: ObjectiveDeps): ObjectiveSystem {
                     total: m.steps.length,
                     current: status === 'active' ? (m.steps[passed]?.text ?? null) : null,
                     needs: open.map((p) => melodies.find((x) => x.id === p)?.title ?? p),
+                    season: m.season ?? null,
                 };
             });
         },
