@@ -16,8 +16,7 @@
 import { GROVE_CHANNELS } from '../../world/document/grove-pattern.ts';
 
 export type VoiceRequirement =
-    | { kind: 'unlock'; id: string; label: string }
-    | { kind: 'melody'; id: string; label: string };
+    { kind: 'unlock'; id: string; label: string } | { kind: 'melody'; id: string; label: string };
 
 export interface ComposerVoice {
     channel: number;

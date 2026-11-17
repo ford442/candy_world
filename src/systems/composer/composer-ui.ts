@@ -203,7 +203,9 @@ export function mountComposerEditor(options: ComposerEditorOptions): ComposerEdi
     function buildRow(ch: number): HTMLElement {
         const voice = COMPOSER_VOICES[ch];
         const locked = options.voices[ch] !== true;
-        const rowLabel = locked ? `${voice.name} (locked: ${voice.requires?.label ?? ''})` : voice.name;
+        const rowLabel = locked
+            ? `${voice.name} (locked: ${voice.requires?.label ?? ''})`
+            : voice.name;
         const name = el('span', {
             classes: ['composer-voice', locked && 'composer-voice--locked'],
             text: locked ? `🔒 ${voice.name}` : voice.name,
@@ -277,10 +279,7 @@ export function mountComposerEditor(options: ComposerEditorOptions): ComposerEdi
         key.setAttribute('aria-label', cellLabel(ch, s));
         key.classList.toggle('composer-cell--on', on);
         key.textContent = on ? options.noteName(ch, degree) : '';
-        key.setAttribute(
-            'tabindex',
-            ch === selected.channel && s === selected.step ? '0' : '-1'
-        );
+        key.setAttribute('tabindex', ch === selected.channel && s === selected.step ? '0' : '-1');
     }
 
     function render(): void {
@@ -438,7 +437,12 @@ export function mountComposerEditor(options: ComposerEditorOptions): ComposerEdi
         const target = event.target as HTMLElement | null;
         const chAttr = target?.getAttribute?.('data-channel');
         const stepAttr = target?.getAttribute?.('data-step');
-        if (chAttr === null || chAttr === undefined || stepAttr === null || stepAttr === undefined) {
+        if (
+            chAttr === null ||
+            chAttr === undefined ||
+            stepAttr === null ||
+            stepAttr === undefined
+        ) {
             return;
         }
         const ch = Number(chAttr);

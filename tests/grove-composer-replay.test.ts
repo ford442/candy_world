@@ -35,7 +35,11 @@ import {
     withStonePattern,
     type GrovePattern,
 } from '../src/world/document/grove-pattern.ts';
-import { createEmptyDocument, emptyProgress, validateWorldDocument } from '../src/world/document/schema.ts';
+import {
+    createEmptyDocument,
+    emptyProgress,
+    validateWorldDocument,
+} from '../src/world/document/schema.ts';
 import { WorldDocumentSession } from '../src/world/document/session.ts';
 import { MemoryDocumentStore } from '../src/world/document/store.ts';
 import { animatedFoliage, entities } from '../src/world/state.ts';
@@ -117,7 +121,12 @@ await test('compose, undo, redo, compose again: the live stone follows every ste
     const history = new EditHistory();
     const session = new WorldDocumentSession(
         createEmptyDocument({ seed: 4242, mapVersion: '1.0', id: 'grove-doc', now: 1 }),
-        { history, store, readProgress: emptyProgress, readPlayer: () => ({ position: [0, 2, 0], yaw: 0 }) }
+        {
+            history,
+            store,
+            readProgress: emptyProgress,
+            readPlayer: () => ({ position: [0, 2, 0], yaw: 0 }),
+        }
     );
     assert.equal(history.execute(new PlaceCommand(stoneSnapshot())), true);
     assert.equal(history.execute(composeOnLive(authored)), true, 'first compose');

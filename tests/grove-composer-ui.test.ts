@@ -136,7 +136,8 @@ class FakeEl {
         if (selector.startsWith('#')) return this.all().filter((n) => n.id === selector.slice(1));
         return this.all().filter((n) => {
             if (n.tagName === 'A') return n.hasAttribute('href');
-            if (n.tagName === 'BUTTON' || n.tagName === 'SELECT') return !n.hasAttribute('disabled');
+            if (n.tagName === 'BUTTON' || n.tagName === 'SELECT')
+                return !n.hasAttribute('disabled');
             const tab = n.getAttribute('tabindex');
             return tab !== null && tab !== '-1';
         });
@@ -232,7 +233,9 @@ function mount(
     const root = editor.root as unknown as FakeEl;
     const byClass = (c: string) => root.all().filter((n) => n.classes.has(c));
     const button = (label: RegExp) =>
-        root.all().find((n) => n.tagName === 'BUTTON' && label.test(n.getAttribute('aria-label') ?? ''))!;
+        root
+            .all()
+            .find((n) => n.tagName === 'BUTTON' && label.test(n.getAttribute('aria-label') ?? ''))!;
     const cell = (ch: number, s: number) => editor.cell(ch, s) as unknown as FakeEl;
     const grid = byClass('composer-grid')[0];
     const keydown = (key: string, target: FakeEl = doc.activeElement, on: FakeEl = grid) => {
@@ -260,7 +263,20 @@ function mount(
         input.release(source);
         input.sample();
     };
-    return { editor, root, calls, byClass, button, cell, grid, keydown, status, opener, pad, undoTo };
+    return {
+        editor,
+        root,
+        calls,
+        byClass,
+        button,
+        cell,
+        grid,
+        keydown,
+        status,
+        opener,
+        pad,
+        undoTo,
+    };
 }
 
 const menuOpen = () => input.isContextActive('menu');
@@ -285,7 +301,10 @@ test('mounts hidden as a labelled modal dialog: 8 voice rows of 16 named keys', 
     assert.equal(rows.length, 8);
     assert.equal(rows[0].getAttribute('role'), 'group');
     assert.equal(rows[0].getAttribute('aria-label'), 'Kick');
-    assert.match(rows[1].getAttribute('aria-label')!, /Lead pad \(locked: Finish the Meadow Melody\)/);
+    assert.match(
+        rows[1].getAttribute('aria-label')!,
+        /Lead pad \(locked: Finish the Meadow Melody\)/
+    );
     const cells = byClass('composer-cell');
     assert.equal(cells.length, 128);
     for (const c of cells) assert.equal(c.tagName, 'BUTTON');

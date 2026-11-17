@@ -271,11 +271,11 @@ export function registerBuiltinWorldObjectTypes(): void {
             }),
         { defaultIsObstacle: true, defaultRadius: 1.0, supportsMusic: true }
     );
-    registerType(
-        'music_stone',
-        (params) => createMusicStone({ pattern: params?.pattern }),
-        { defaultIsObstacle: true, defaultRadius: 1.0, supportsMusic: true }
-    );
+    registerType('music_stone', (params) => createMusicStone({ pattern: params?.pattern }), {
+        defaultIsObstacle: true,
+        defaultRadius: 1.0,
+        supportsMusic: true,
+    });
     registerType('bubble_willow', () => createBubbleWillow(), {
         defaultIsObstacle: true,
         defaultRadius: 1.5,

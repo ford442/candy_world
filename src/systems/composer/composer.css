@@ -144,14 +144,38 @@
     box-shadow: var(--ck-gloss);
 }
 
-.composer-row[data-voice='0'] .composer-cell--on { background: #ff8fab; color: #3b1030; }
-.composer-row[data-voice='1'] .composer-cell--on { background: #ffc6ff; color: #3b1030; }
-.composer-row[data-voice='2'] .composer-cell--on { background: #a0c4ff; color: #102040; }
-.composer-row[data-voice='3'] .composer-cell--on { background: #9bf6ff; color: #103038; }
-.composer-row[data-voice='4'] .composer-cell--on { background: #caffbf; color: #143010; }
-.composer-row[data-voice='5'] .composer-cell--on { background: #fdffb6; color: #303010; }
-.composer-row[data-voice='6'] .composer-cell--on { background: #ffd6a5; color: #3a2410; }
-.composer-row[data-voice='7'] .composer-cell--on { background: #bdb2ff; color: #201848; }
+.composer-row[data-voice='0'] .composer-cell--on {
+    background: #ff8fab;
+    color: #3b1030;
+}
+.composer-row[data-voice='1'] .composer-cell--on {
+    background: #ffc6ff;
+    color: #3b1030;
+}
+.composer-row[data-voice='2'] .composer-cell--on {
+    background: #a0c4ff;
+    color: #102040;
+}
+.composer-row[data-voice='3'] .composer-cell--on {
+    background: #9bf6ff;
+    color: #103038;
+}
+.composer-row[data-voice='4'] .composer-cell--on {
+    background: #caffbf;
+    color: #143010;
+}
+.composer-row[data-voice='5'] .composer-cell--on {
+    background: #fdffb6;
+    color: #303010;
+}
+.composer-row[data-voice='6'] .composer-cell--on {
+    background: #ffd6a5;
+    color: #3a2410;
+}
+.composer-row[data-voice='7'] .composer-cell--on {
+    background: #bdb2ff;
+    color: #201848;
+}
 
 .composer-cell[aria-disabled='true'] {
     opacity: 0.45;

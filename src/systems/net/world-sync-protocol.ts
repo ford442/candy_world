@@ -254,7 +254,11 @@ export function clampCommandPalette(cmd: DocumentCommand): DocumentCommand {
     const color = params.color;
     if (color === undefined || isCandyPaint(color)) return cmd;
     // A move (or compose) that keeps the colour it had is not a recolour (map pieces).
-    if ((cmd.type === 'move' || cmd.type === 'compose') && color === (cmd.from.entity.params ?? {}).color) return cmd;
+    if (
+        (cmd.type === 'move' || cmd.type === 'compose') &&
+        color === (cmd.from.entity.params ?? {}).color
+    )
+        return cmd;
     const clamped =
         typeof color === 'number' && Number.isFinite(color)
             ? nearestCandyPaint(color & 0xffffff)

@@ -269,7 +269,9 @@ await test('room messages: a forged compose is malformed, a real one parses', ()
         baseRev: 0,
         command,
     });
-    const good = parseCmdMessage(message({ type: 'compose', from, to: withStonePattern(from, p1) }));
+    const good = parseCmdMessage(
+        message({ type: 'compose', from, to: withStonePattern(from, p1) })
+    );
     assert.equal(good.ok, true);
     const otherId = parseCmdMessage(
         message({ type: 'compose', from, to: withStonePattern(stone('s9'), p1) })
@@ -350,7 +352,11 @@ await test('an authored pattern plays the same notes every time, in the biome ke
         }
     }
     assert.equal(authoredNote(profile, 2, 0), scaleNote('G', profile.scale, 0, 5));
-    assert.equal(authoredNote(profile, 0, 0), scaleNote('G', profile.scale, 0, 1), 'kick an octave down');
+    assert.equal(
+        authoredNote(profile, 0, 0),
+        scaleNote('G', profile.scale, 0, 1),
+        'kick an octave down'
+    );
     const inC = authoredNote(BIOME_PROFILES.global, 2, 0);
     assert.equal(inC, 'C5', 'the same degree follows the key of another biome');
 });
@@ -435,7 +441,11 @@ class FakeEngine implements ComposerEngine {
         };
     }
     step(channels: number[]): void {
-        for (const l of this.listeners) l(0, channels.map((channel) => ({ channel })));
+        for (const l of this.listeners)
+            l(
+                0,
+                channels.map((channel) => ({ channel }))
+            );
     }
 }
 
