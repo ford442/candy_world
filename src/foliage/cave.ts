@@ -240,7 +240,7 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
     const floorPos = new THREE.Vector3(0, -1, -2);
 
     // ⚡ OPTIMIZATION: Use waterfallBatcher instead of creating individual meshes with JS animation loop
-    group.userData.gateLocalPos = gatePos;
+    group.userData.gatePosition = gatePos;
     group.userData.gateHeight = gatePos.y - floorPos.y;
     group.userData.gateWidth = width * 0.7;
     group.userData.waterfallActive = false;
@@ -264,10 +264,16 @@ export function updateCaveWaterLevel(caveGroup: THREE.Group, waterLevel: number)
     const threshold = 0.2;
 
     if (waterLevel > threshold) {
+        const gatePosition = caveGroup.userData.gatePosition as THREE.Vector3 | undefined;
+        if (!gatePosition) {
+            // Not a gated cave: nothing to flood, and nothing may read a gate from it.
+            caveGroup.userData.isBlocked = false;
+            return;
+        }
         if (!caveGroup.userData.waterfallActive) {
             caveGroup.userData.waterfallActive = true;
             // Calculate world position of the gate
-            _scratchWorldPos.copy(caveGroup.userData.gateLocalPos);
+            _scratchWorldPos.copy(gatePosition);
             _scratchWorldPos.applyMatrix4(caveGroup.matrixWorld);
 
             // Add to batcher

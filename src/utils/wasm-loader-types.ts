@@ -147,7 +147,8 @@ export interface Cave extends Positionable {
     matrixWorld: Matrix4Like;
     userData: {
         isBlocked?: boolean;
-        gatePosition: Vector3Like;
+        /** Gate centre in cave-local space; absent on caves without a water gate. */
+        gatePosition?: Vector3Like;
     };
 }
 
