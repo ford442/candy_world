@@ -1,9 +1,8 @@
 {
-  "maxProblems": 15,
-  "updatedAt": "2026-11-09",
+  "maxProblems": 14,
+  "updatedAt": "2026-11-17",
   "files": [
     "src/debug/debug-place.ts",
-    "src/debug/hero-animation-demo.ts",
     "src/debug/panel.ts",
     "src/debug/physics-sandbox.ts",
     "src/debug/soft-body-demo.ts",

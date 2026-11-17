@@ -222,10 +222,14 @@ export function uploadCollisionObjects(
         // 1. Gates (TASK 1: Guard against undefined cave/userData)
         if (caves && caves.length > 0) {
             for (const cave of caves) {
-                if (cave && cave.userData && cave.userData.isBlocked) {
+                const gatePosition =
+                    cave && cave.userData && cave.userData.isBlocked
+                        ? cave.userData.gatePosition
+                        : undefined;
+                if (gatePosition) {
                     // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
                     const gatePos = _scratchGatePos
-                        .copy(cave.userData.gatePosition)
+                        .copy(gatePosition)
                         .applyMatrix4(cave.matrixWorld as THREE.Matrix4);
                     batchData[ptr++] = 3; // type
                     batchData[ptr++] = gatePos.x;
@@ -311,10 +315,14 @@ export function uploadCollisionObjects(
         if (caves && caves.length > 0) {
             for (let i = 0; i < caves.length; i++) {
                 const cave = caves[i];
-                if (cave && cave.userData && cave.userData.isBlocked) {
+                const gatePosition =
+                    cave && cave.userData && cave.userData.isBlocked
+                        ? cave.userData.gatePosition
+                        : undefined;
+                if (gatePosition) {
                     // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
                     const gatePos = _scratchGatePos
-                        .copy(cave.userData.gatePosition)
+                        .copy(gatePosition)
                         .applyMatrix4(cave.matrixWorld as THREE.Matrix4);
                     wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0, 0);
                 }

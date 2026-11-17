@@ -3,11 +3,7 @@
 // Following PERFORMANCE_MIGRATION_STRATEGY.md - Extract only hot functions (~15%)
 
 import * as THREE from 'three';
-import {
-    isInLakeBasin,
-    isOnLakeIsland,
-    getGroundHeight,
-} from '../ground-system.ts';
+import { isInLakeBasin, isOnLakeIsland, getGroundHeight } from '../ground-system.ts';
 
 // Re-export lake helpers so existing call sites keep working without edits.
 // Use live re-exports (not `export const x = imported`) so circular chunk
@@ -88,7 +84,7 @@ const _scratchGatePos = new THREE.Vector3(); // For cave gate calculations
 // ⚡ OPTIMIZATION: Reusable result object to avoid allocation
 const _movementInputResult: MovementInput = {
     moveVec: new THREE.Vector3(),
-    moveSpeed: 0
+    moveSpeed: 0,
 };
 
 // --- Core Physics Functions ---
@@ -102,9 +98,11 @@ export function calculateMovementInput(
     keyStates: KeyStates,
     player: PlayerState
 ): MovementInput {
-    const moveSpeed = keyStates.sprint 
-        ? player.sprintSpeed 
-        : (keyStates.sneak ? player.sneakSpeed : player.speed);
+    const moveSpeed = keyStates.sprint
+        ? player.sprintSpeed
+        : keyStates.sneak
+          ? player.sneakSpeed
+          : player.speed;
 
     // Get Camera Orientation (Projected to XZ plane)
     const camDir = _scratchCamDir;
@@ -137,16 +135,11 @@ export function calculateMovementInput(
     return _movementInputResult;
 }
 
-
 /**
  * Apply damping to velocity
  * Common physics helper used in multiple state updates
  */
-export function applyDamping(
-    velocity: THREE.Vector3,
-    damping: number,
-    delta: number
-): void {
+export function applyDamping(velocity: THREE.Vector3, damping: number, delta: number): void {
     const factor = Math.max(0, 1.0 - damping * delta);
     velocity.multiplyScalar(factor);
 }
@@ -155,21 +148,22 @@ export function applyDamping(
  * Calculate water level at a position
  * Used for swimming state transitions
  */
-export function calculateWaterLevel(
-    playerPos: THREE.Vector3,
-    foliageCaves: any[]
-): number {
+export function calculateWaterLevel(playerPos: THREE.Vector3, foliageCaves: any[]): number {
     let waterLevel = -100;
 
     // Check cave water gates (using scratch vector to avoid GC)
     for (let i = 0; i < foliageCaves.length; i++) {
         const cave = foliageCaves[i];
-        if (cave.userData.isBlocked) {
-            const gatePos = _scratchGatePos
-                .copy(cave.userData.gatePosition)
-                .applyMatrix4(cave.matrixWorld);
+        const gatePosition = cave?.userData?.isBlocked ? cave.userData.gatePosition : undefined;
+        if (gatePosition) {
+            const gatePos = _scratchGatePos.copy(gatePosition).applyMatrix4(cave.matrixWorld);
             // ⚡ OPTIMIZATION: Converted cave water proximity check to use distanceToSquared
-            if ((playerPos.x - gatePos.x) * (playerPos.x - gatePos.x) + (playerPos.y - gatePos.y) * (playerPos.y - gatePos.y) + (playerPos.z - gatePos.z) * (playerPos.z - gatePos.z) < 6.25) {
+            if (
+                (playerPos.x - gatePos.x) * (playerPos.x - gatePos.x) +
+                    (playerPos.y - gatePos.y) * (playerPos.y - gatePos.y) +
+                    (playerPos.z - gatePos.z) * (playerPos.z - gatePos.z) <
+                6.25
+            ) {
                 waterLevel = gatePos.y + 5; // Water exists here
             }
         }

@@ -1,0 +1,17 @@
+# Fixed-step `userData` reads (physics-math, physics-states, wasm-physics)
+
+Swept 2026-11-17. A read is "safe" if it cannot throw when the field is missing.
+
+| field                    | read in                                                           | written by                                   | status                                                                                                                                                                                     |
+| ------------------------ | ----------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `gatePosition`           | physics-math `calculateWaterLevel`, wasm-physics gate upload (x2) | `foliage/cave.ts`                            | **Fixed.** Was written as `gateLocalPos`; readers threw on a blocked cave. Readers now skip a cave without it.                                                                             |
+| `isBlocked`              | same                                                              | `foliage/cave.ts`                            | ok                                                                                                                                                                                         |
+| `isTrampoline`           | wasm-physics                                                      | `mushrooms.ts`, `flowers.ts`                 | ok                                                                                                                                                                                         |
+| `tier`                   | wasm-physics                                                      | `generation-decorators-cloud-archipelago.ts` | ok                                                                                                                                                                                         |
+| `vineLength`             | physics-states                                                    | `trees-vines.ts`                             | ok                                                                                                                                                                                         |
+| `capRadius`, `capHeight` | wasm-physics (mushroom upload, 3 sites)                           | **nothing**                                  | Never written; read with `\|\| 2.0` / `\|\| 3.0`, so no throw, but every mushroom collides with the default size. Not changed: it would alter collision shapes. Needs a separate decision. |
+| `height` (fern)          | wasm-physics (2 sites)                                            | **nothing**                                  | Never written; `\|\| 4.5` default. Same status.                                                                                                                                            |
+
+Also: `weather-ecosystem.ts` reads `capRadius`/`capHeight` with defaults (outside the allowed files, not touched).
+
+The inert waterfall proxy in `generation-entities.ts` (guarded on the same missing field, so it never ran) was removed: the single waterfall path is `updateCaveWaterLevel` -> `waterfallBatcher`, keyed by the cave uuid.
