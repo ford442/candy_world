@@ -6,7 +6,11 @@
 import type * as THREE from 'three';
 import { getGroundAlignedQuaternion } from '../../world/placement-utils.ts';
 import { ANIMATION_TYPES } from '../animation-nodes.ts';
-import { MAX_INSTANCES, _scratchTreeOriginalQuaternion, _scratchTreeFinalQuaternion } from './constants.ts';
+import {
+    MAX_INSTANCES,
+    _scratchTreeOriginalQuaternion,
+    _scratchTreeFinalQuaternion,
+} from './constants.ts';
 import { initializeTreeBatcherMeshes } from './materials-init.ts';
 import {
     registerAccordionPalm,
@@ -57,12 +61,24 @@ export class TreeBatcher implements TreePartSink {
         return TreeBatcher.instance;
     }
 
-    get trunks(): THREE.InstancedMesh { return this.meshState.trunks; }
-    get spheres(): THREE.InstancedMesh { return this.meshState.spheres; }
-    get capsules(): THREE.InstancedMesh { return this.meshState.capsules; }
-    get helices(): THREE.InstancedMesh { return this.meshState.helices; }
-    get roses(): THREE.InstancedMesh { return this.meshState.roses; }
-    get accordionLeaves(): THREE.InstancedMesh { return this.meshState.accordionLeaves; }
+    get trunks(): THREE.InstancedMesh {
+        return this.meshState.trunks;
+    }
+    get spheres(): THREE.InstancedMesh {
+        return this.meshState.spheres;
+    }
+    get capsules(): THREE.InstancedMesh {
+        return this.meshState.capsules;
+    }
+    get helices(): THREE.InstancedMesh {
+        return this.meshState.helices;
+    }
+    get roses(): THREE.InstancedMesh {
+        return this.meshState.roses;
+    }
+    get accordionLeaves(): THREE.InstancedMesh {
+        return this.meshState.accordionLeaves;
+    }
 
     init(): void {
         if (this.initialized) return;
@@ -95,7 +111,9 @@ export class TreeBatcher implements TreePartSink {
         });
         if (handle === null) {
             if (this.dropped++ === 0) {
-                console.warn(`[TreeBatcher] ${part} is full (${this.capacity}); dropping tree parts`);
+                console.warn(
+                    `[TreeBatcher] ${part} is full (${this.capacity}); dropping tree parts`
+                );
             }
             return;
         }
@@ -126,22 +144,43 @@ export class TreeBatcher implements TreePartSink {
         let animTypeEnum = ANIMATION_TYPES.STATIC;
         const typeStr = group.userData.animationType;
         if (typeStr === 'gentleSway') animTypeEnum = ANIMATION_TYPES.GENTLE_SWAY;
-        else if (typeStr === 'bounce' || (Array.isArray(typeStr) && typeStr.indexOf('bounce') !== -1))
+        else if (
+            typeStr === 'bounce' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('bounce') !== -1)
+        )
             animTypeEnum = ANIMATION_TYPES.BOUNCE;
-        else if (typeStr === 'shiver' || (Array.isArray(typeStr) && typeStr.indexOf('shiver') !== -1))
+        else if (
+            typeStr === 'shiver' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('shiver') !== -1)
+        )
             animTypeEnum = ANIMATION_TYPES.SHIVER;
-        else if (typeStr === 'spring' || (Array.isArray(typeStr) && typeStr.indexOf('spring') !== -1))
+        else if (
+            typeStr === 'spring' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('spring') !== -1)
+        )
             animTypeEnum = ANIMATION_TYPES.SPRING;
-        else if (typeStr === 'vineSway' || (Array.isArray(typeStr) && typeStr.indexOf('vineSway') !== -1))
+        else if (
+            typeStr === 'vineSway' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('vineSway') !== -1)
+        )
             animTypeEnum = ANIMATION_TYPES.VINE_SWAY;
         else if (typeStr === 'hop' || (Array.isArray(typeStr) && typeStr.indexOf('hop') !== -1))
             animTypeEnum = ANIMATION_TYPES.HOP;
-        else if (typeStr === 'wobble' || (Array.isArray(typeStr) && typeStr.indexOf('wobble') !== -1))
+        else if (
+            typeStr === 'wobble' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('wobble') !== -1)
+        )
             animTypeEnum = ANIMATION_TYPES.WOBBLE;
-        else if (typeStr === 'accordion' || (Array.isArray(typeStr) && typeStr.indexOf('accordion') !== -1))
+        else if (
+            typeStr === 'accordion' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('accordion') !== -1)
+        )
             animTypeEnum = ANIMATION_TYPES.ACCORDION;
         else if (typeStr === 'accordionStretch') animTypeEnum = ANIMATION_TYPES.ACCORDION_STRETCH;
-        else if (typeStr === 'spiralWave' || (Array.isArray(typeStr) && typeStr.indexOf('spiralWave') !== -1))
+        else if (
+            typeStr === 'spiralWave' ||
+            (Array.isArray(typeStr) && typeStr.indexOf('spiralWave') !== -1)
+        )
             animTypeEnum = ANIMATION_TYPES.SPIRAL_WAVE;
         else if (typeStr === 'fiberWhip') animTypeEnum = ANIMATION_TYPES.FIBER_WHIP;
 

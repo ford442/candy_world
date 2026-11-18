@@ -80,7 +80,9 @@ const rows: Row[] = [
             remove: (obj) => b.removeInstance(obj),
             meshes: () => [b.trunks, b.spheres],
             translation: (obj, _i, m) =>
-                m === 0 ? obj.position : obj.position.clone().setY(obj.position.y + TEST_TREE_LEAF_Y),
+                m === 0
+                    ? obj.position
+                    : obj.position.clone().setY(obj.position.y + TEST_TREE_LEAF_Y),
             check: (_obj, slot, i) => assertColor(b.trunks.instanceColor!, slot, colorOf(i)),
             reset: () => {
                 b.dispose();

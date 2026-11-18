@@ -5,9 +5,9 @@ export const _scratchTreeMatrix = new THREE.Matrix4();
 export const _scratchTreeOriginalQuaternion = new THREE.Quaternion();
 export const _scratchTreeFinalQuaternion = new THREE.Quaternion();
 
-export const _defaultColorWhite = new THREE.Color(0xFFFFFF);
-export const _defaultColorOrange = new THREE.Color(0xFF4500);
-export const _defaultColorGreen = new THREE.Color(0x00FA9A);
+export const _defaultColorWhite = new THREE.Color(0xffffff);
+export const _defaultColorOrange = new THREE.Color(0xff4500);
+export const _defaultColorGreen = new THREE.Color(0x00fa9a);
 
 /**
  * Slots per tree mesh. The meshes used to start at 100 and double up to this

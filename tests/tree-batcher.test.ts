@@ -46,7 +46,11 @@ test('removing a middle tree moves the last tree into its slots, streams aligned
     // Slot 1 now holds tree 4 (the last) in every stream.
     const last = trees[4];
     assert.deepEqual(translationAt(b.trunks, 1), [last.position.x, 0, last.position.z]);
-    assert.deepEqual(translationAt(b.spheres, 1), [last.position.x, TEST_TREE_LEAF_Y, last.position.z]);
+    assert.deepEqual(translationAt(b.spheres, 1), [
+        last.position.x,
+        TEST_TREE_LEAF_Y,
+        last.position.z,
+    ]);
     const c = new THREE.Color(HEX[4]);
     const col = b.trunks.instanceColor!;
     for (const [k, want] of [c.r, c.g, c.b].entries()) {
@@ -61,7 +65,10 @@ test('removing a middle tree moves the last tree into its slots, streams aligned
     updateInstancedBatchers(ctx);
     assert.equal(b.trunks.count, 3);
     const xs = [0, 1, 2].map((s) => translationAt(b.trunks, s)[0]).sort((x, y) => x - y);
-    assert.deepEqual(xs, [trees[0], trees[2], trees[3]].map((t) => t.position.x));
+    assert.deepEqual(
+        xs,
+        [trees[0], trees[2], trees[3]].map((t) => t.position.x)
+    );
     b.dispose();
 });
 
@@ -72,7 +79,17 @@ test('a full part drops the sub-mesh: add returns null and the drop is counted',
     const extra = spawn(b, 2);
     assert.equal(b.trunks.count, 2);
     assert.equal(b.dropped, 2, 'trunk and leaf ball of the third tree');
-    assert.equal(b.parts.trunks.add({ matrix: new Float32Array(16), r: 0, g: 0, b: 0, animType: 0, animOffset: 0 }), null);
+    assert.equal(
+        b.parts.trunks.add({
+            matrix: new Float32Array(16),
+            r: 0,
+            g: 0,
+            b: 0,
+            animType: 0,
+            animOffset: 0,
+        }),
+        null
+    );
     // Removing a tree that got no slots is a no-op.
     b.removeInstance(extra);
     assert.equal(b.trunks.count, 2);

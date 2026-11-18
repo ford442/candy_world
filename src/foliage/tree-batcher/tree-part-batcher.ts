@@ -47,7 +47,8 @@ export class TreePartBatcher extends InstancedBatcher<TreePartRecord> {
     private optionalAttribute(
         attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute | undefined
     ): THREE.InstancedBufferAttribute | null {
-        if (!attr || !(attr as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) return null;
+        if (!attr || !(attr as THREE.InstancedBufferAttribute).isInstancedBufferAttribute)
+            return null;
         return this.registerAttribute(attr as THREE.InstancedBufferAttribute);
     }
 
