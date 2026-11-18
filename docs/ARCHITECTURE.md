@@ -265,7 +265,9 @@ after `foliage` and `particles`), so a port registers nothing. A batcher that
 is written outside the frame (generation) calls `flush()` itself.
 
 Ported: mushroom, kick-drum geyser, lantern, gem fruit, waterfall, sugar cave,
-glass mushroom, tree (incl. vine sway; six `TreePartBatcher`s, one per part
+glass mushroom, dandelion, subwoofer lotus, glowing flower, fauna (three
+`InstancedBatcher`s, one per species, behind the `FaunaBatcher` facade; critters
+are keyed by fauna-system slot), tree (incl. vine sway; six `TreePartBatcher`s, one per part
 mesh, with a tree owning one handle per sub-mesh). Each has a
 row in `tests/batcher-parity.test.ts` (`npm run test:batchers`): draw count ==
 live count on every mesh and every live object in exactly one slot with its own
@@ -277,6 +279,8 @@ capacity and every geometry disposed at the end. Add a row with each port.
 - **Slice 3 (remaining):** one ECS (the registry and kind-agnostic teardown
   are done; see "Entities").
 - **Slice 4 (in progress, #2166):** port the remaining batchers to
-  `InstancedBatcher` (see "Instanced batchers").
+  `InstancedBatcher` (see "Instanced batchers"). Remaining
+  (own bookkeeping): arpeggio, candy debris, cloud, flower, foliage, luminous
+  plant, night market, portamento, simple flower.
 - **Fixed step:** rigid bodies, fauna and particles move into `fixed` once they
   have render interpolation.

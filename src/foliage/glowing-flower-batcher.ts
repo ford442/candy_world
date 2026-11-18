@@ -6,8 +6,8 @@ import {
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     sharedGeometries,
@@ -33,28 +33,40 @@ const _scratchMat3 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratc
 const _scratchScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
 
-export class GlowingFlowerBatcher {
-    initialized: boolean;
-    count: number;
-    private indexMap = new Map<string, number>();
-    private logicObjects: THREE.Object3D[] = [];
+interface FlowerRecord {
+    obj: THREE.Object3D;
+    r: number;
+    g: number;
+    b: number;
+    /** Fixed at register so a swap-remove re-writes the same flower. */
+    stemHeight: number;
+}
+
+/**
+ * Glowing flowers: stem, head and wash share slots (#2166: ported to
+ * InstancedBatcher). The head is the primary mesh; stem and wash are linked.
+ */
+export class GlowingFlowerBatcher extends InstancedBatcher<FlowerRecord> {
+    initialized = false;
 
     // Meshes
-    stemMesh: THREE.InstancedMesh | null;
-    headMesh: THREE.InstancedMesh | null;
-    washMesh: THREE.InstancedMesh | null;
+    stemMesh: THREE.InstancedMesh | null = null;
+    headMesh: THREE.InstancedMesh | null = null;
+    washMesh: THREE.InstancedMesh | null = null;
 
     constructor() {
-        this.initialized = false;
-        this.count = 0;
-        this.stemMesh = null;
-        this.headMesh = null;
-        this.washMesh = null;
+        super('glowing-flower', 'animate', MAX_FLOWERS);
+        this.rangedUploads = true;
     }
 
     init() {
         if (this.initialized) return;
+        this.ensureMesh();
+        this.initialized = true;
+        console.log(`[GlowingFlowerBatcher] Initialized with capacity ${MAX_FLOWERS}`);
+    }
 
+    protected createMesh(): THREE.InstancedMesh {
         // 1. Prepare Geometries
 
         // Stem: Unit Cylinder (0.05, height, 0.05) scaled via matrix
@@ -183,8 +195,9 @@ export class GlowingFlowerBatcher {
         foliageGroup.add(this.headMesh);
         foliageGroup.add(this.washMesh);
 
-        this.initialized = true;
-        console.log(`[GlowingFlowerBatcher] Initialized with capacity ${MAX_FLOWERS}`);
+        this.linkMesh(this.stemMesh);
+        this.linkMesh(this.washMesh);
+        return this.headMesh;
     }
 
     private createInstancedMesh(geo: THREE.BufferGeometry, mat: THREE.Material, count: number, name: string): THREE.InstancedMesh {
@@ -205,152 +218,74 @@ export class GlowingFlowerBatcher {
     }
 
     dispose() {
-        if (!this.initialized) return;
-
-        [this.stemMesh, this.headMesh, this.washMesh].forEach(mesh => {
-            if (!mesh) return;
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
-        });
-
+        super.dispose();
+        this.stemMesh = null;
+        this.headMesh = null;
+        this.washMesh = null;
         this.initialized = false;
-        this.count = 0;
-        this.indexMap.clear();
-        this.logicObjects.length = 0;
     }
+
+    protected writeRecord(rec: FlowerRecord, slot: number): void {
+        const obj = rec.obj;
+        const stemHeight = rec.stemHeight;
+
+        // Base transform of the logic object.
+        _scratchMat2.compose(obj.position, obj.quaternion, obj.scale);
+
+        // Stem: Scale (0.05, height, 0.05).
+        _scratchScale.set(0.05, stemHeight, 0.05);
+        _scratchMat.makeScale(_scratchScale.x, _scratchScale.y, _scratchScale.z);
+        _scratchMat.premultiply(_scratchMat2);
+        _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, slot * 16);
+
+        // Head at the top of the stem, scale 0.2.
+        _scratchMat.makeTranslation(0, stemHeight, 0);
+        _scratchScale.set(0.2, 0.2, 0.2);
+        _scratchMat.scale(_scratchScale);
+        _scratchMat.premultiply(_scratchMat2);
+        _scratchMat.toArray(this.headMesh!.instanceMatrix.array, slot * 16);
+
+        // Wash at the top of the stem, scale 1.5.
+        _scratchMat3.makeTranslation(0, stemHeight, 0);
+        _scratchScale.set(1.5, 1.5, 1.5);
+        _scratchMat3.scale(_scratchScale);
+        _scratchMat3.premultiply(_scratchMat2);
+        _scratchMat3.toArray(this.washMesh!.instanceMatrix.array, slot * 16);
+
+        // Head and wash take the colour; the stem's is set too, though its
+        // material ignores it.
+        const o = slot * 3;
+        for (const mesh of [this.headMesh!, this.washMesh!, this.stemMesh!]) {
+            const colorArray = mesh.instanceColor!.array as Float32Array;
+            colorArray[o] = rec.r;
+            colorArray[o + 1] = rec.g;
+            colorArray[o + 2] = rec.b;
+        }
+    }
+
+    protected step(): void {}
 
     register(logicObject: THREE.Object3D, options: any = {}) {
         if (!this.initialized) this.init();
-        if (this.count >= MAX_FLOWERS) {
-            console.warn('[GlowingFlowerBatcher] Capacity full');
-            return;
-        }
-
-        const i = this.count;
         const { color = 0xFFD700 } = options; // Default Gold
 
-        // 1. Calculate Transforms
-        _scratchMat.compose(logicObject.position, logicObject.quaternion, logicObject.scale);
-        const baseMatrix = _scratchMat;
-
-        // Stem: Scale (0.05, height, 0.05). Height is random.
-        const stemHeight = 0.6 + Math.random() * 0.4;
-        _scratchScale.set(0.05, stemHeight, 0.05);
-        _scratchMat.makeScale(_scratchScale.x, _scratchScale.y, _scratchScale.z);
-        _scratchMat.premultiply(baseMatrix);
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
-
-        // Head Transform (At top of stem)
-        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
-        _scratchMat2.makeTranslation(0, stemHeight, 0);
-        // Head Scale: 0.2 (from original code)
-        _scratchScale.set(0.2, 0.2, 0.2);
-        _scratchMat2.scale(_scratchScale);
-        _scratchMat2.premultiply(baseMatrix);
-        const headWorld = _scratchMat2;
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        headWorld.toArray(this.headMesh!.instanceMatrix.array, (i) * 16);
-
-        // Wash Transform (At top of stem)
-        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
-        _scratchMat3.makeTranslation(0, stemHeight, 0);
-        // Wash Scale: 1.5 (from original code)
-        _scratchScale.set(1.5, 1.5, 1.5);
-        _scratchMat3.scale(_scratchScale);
-        _scratchMat3.premultiply(baseMatrix);
-        const washWorld = _scratchMat3;
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        washWorld.toArray(this.washMesh!.instanceMatrix.array, (i) * 16);
-
-        // Color
         if (typeof color === 'number') _scratchColor.setHex(color);
         else if (color instanceof THREE.Color) _scratchColor.copy(color);
         else _scratchColor.set(color as string);
 
-        // Set Colors
-        // Stem doesn't use instance color (uses standard stem green), but we can set it if we want custom stem colors.
-        // Original code used `foliageMaterials.flowerStem` which is green.
-        // But head and wash need the color.
-        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
-        if (this.headMesh!.instanceColor) {
-            const colorArray = this.headMesh!.instanceColor.array as Float32Array;
-            const colorOffset = i * 3;
-            colorArray[colorOffset] = _scratchColor.r;
-            colorArray[colorOffset + 1] = _scratchColor.g;
-            colorArray[colorOffset + 2] = _scratchColor.b;
-        }
-        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
-        if (this.washMesh!.instanceColor) {
-            const colorArray = this.washMesh!.instanceColor.array as Float32Array;
-            const colorOffset = i * 3;
-            colorArray[colorOffset] = _scratchColor.r;
-            colorArray[colorOffset + 1] = _scratchColor.g;
-            colorArray[colorOffset + 2] = _scratchColor.b;
-        }
-        // We set stem color just to be safe, though material might ignore it if not configured to use instanceColor
-        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
-        if (this.stemMesh!.instanceColor) {
-            const colorArray = this.stemMesh!.instanceColor.array as Float32Array;
-            const colorOffset = i * 3;
-            colorArray[colorOffset] = _scratchColor.r;
-            colorArray[colorOffset + 1] = _scratchColor.g;
-            colorArray[colorOffset + 2] = _scratchColor.b;
-        }
-
-        this.indexMap.set(logicObject.uuid, i);
-        this.logicObjects[i] = logicObject;
-        this.count++;
-
-        // Mark for update
-        this.stemMesh!.instanceMatrix.needsUpdate = true;
-        this.stemMesh!.count = this.count;
-
-        this.headMesh!.instanceMatrix.needsUpdate = true;
-        if (this.headMesh!.instanceColor) this.headMesh!.instanceColor.needsUpdate = true;
-        this.headMesh!.count = this.count;
-
-        this.washMesh!.instanceMatrix.needsUpdate = true;
-        if (this.washMesh!.instanceColor) this.washMesh!.instanceColor.needsUpdate = true;
-        this.washMesh!.count = this.count;
+        const handle = this.addKeyed(logicObject.uuid, {
+            obj: logicObject,
+            r: _scratchColor.r,
+            g: _scratchColor.g,
+            b: _scratchColor.b,
+            stemHeight: 0.6 + Math.random() * 0.4,
+        });
+        if (handle === null) console.warn('[GlowingFlowerBatcher] Capacity full');
     }
 
     removeInstance(logicObject: THREE.Object3D) {
-        if (!this.initialized || !this.stemMesh || !this.headMesh || !this.washMesh) return;
-
-        const indexToRemove = this.indexMap.get(logicObject.uuid);
-        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
-
-        const lastIndex = this.count - 1;
-
-        if (indexToRemove !== lastIndex) {
-            // Swap-with-last for all 3 meshes (matrix and color)
-            for (const mesh of [this.stemMesh, this.headMesh, this.washMesh]) {
-                const matrixArray = mesh.instanceMatrix.array as Float32Array;
-                matrixArray.copyWithin(indexToRemove * 16, lastIndex * 16, lastIndex * 16 + 16);
-
-                if (mesh.instanceColor) {
-                    const colorArray = mesh.instanceColor.array as Float32Array;
-                    colorArray.copyWithin(indexToRemove * 3, lastIndex * 3, lastIndex * 3 + 3);
-                }
-            }
-
-            const swappedObject = this.logicObjects[lastIndex];
-            if (swappedObject) {
-                this.indexMap.set(swappedObject.uuid, indexToRemove);
-                this.logicObjects[indexToRemove] = swappedObject;
-            }
-        }
-
-        this.indexMap.delete(logicObject.uuid);
-        this.logicObjects[lastIndex] = undefined as any;
-        this.logicObjects.length = lastIndex;
-
-        this.count--;
-        for (const mesh of [this.stemMesh, this.headMesh, this.washMesh]) {
-            mesh.count = this.count;
-            mesh.instanceMatrix.needsUpdate = true;
-            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-        }
+        if (!this.initialized) return;
+        this.removeKeyed(logicObject.uuid);
     }
 }
 
