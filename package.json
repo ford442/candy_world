@@ -99,7 +99,7 @@
         "test:batcher-lod": "node tests/batcher-lod.test.mjs",
         "test:entity-snapshot": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/entity-snapshot.test.mjs",
         "test:stream-evict": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/stream-evict.test.mjs",
-        "test:batchers": "tsx --import ./tests/support/register-wasm-hooks.mjs --test tests/instanced-batcher.test.ts tests/batcher-parity.test.ts && npm run test:gem-fruit && npm run test:waterfall",
+        "test:batchers": "tsx --import ./tests/support/register-wasm-hooks.mjs --test tests/instanced-batcher.test.ts tests/batcher-parity.test.ts tests/tree-batcher.test.ts && npm run test:gem-fruit && npm run test:waterfall",
         "test:gem-fruit": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/gem-fruit-batcher.test.mjs",
         "test:waterfall": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/waterfall-batcher.test.mjs",
         "test:edit-history": "tsx tests/edit-history.test.mjs",

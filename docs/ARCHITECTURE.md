@@ -265,7 +265,8 @@ after `foliage` and `particles`), so a port registers nothing. A batcher that
 is written outside the frame (generation) calls `flush()` itself.
 
 Ported: mushroom, kick-drum geyser, lantern, gem fruit, waterfall, sugar cave,
-glass mushroom. Each has a
+glass mushroom, tree (incl. vine sway; six `TreePartBatcher`s, one per part
+mesh, with a tree owning one handle per sub-mesh). Each has a
 row in `tests/batcher-parity.test.ts` (`npm run test:batchers`): draw count ==
 live count on every mesh and every live object in exactly one slot with its own
 data, through seeded spawn/despawn sequences, with no reallocation below
