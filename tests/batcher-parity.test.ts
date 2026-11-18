@@ -24,6 +24,8 @@ import { GlassMushroomBatcher } from '../src/foliage/glass-mushroom-batcher.ts';
 import { lanternBatcher } from '../src/foliage/lantern-batcher.ts';
 import { mushroomBatcher } from '../src/foliage/mushroom-batcher/index.ts';
 import { sugarCaveBatcher } from '../src/foliage/sugar-cave-batcher.ts';
+import { TreeBatcher } from '../src/foliage/tree-batcher/index.ts';
+import { buildTestTree, TEST_TREE_LEAF_Y } from './support/tree-fixture.ts';
 import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
 
 const ctx = { dt: 0.016, rawDt: 0.016, time: 1, audio: {} } as unknown as FrameContext;
@@ -68,6 +70,26 @@ function assertColor(attr: THREE.BufferAttribute, slot: number, hex: number) {
 }
 
 const rows: Row[] = [
+    (() => {
+        // A flowering tree: a trunk at the group origin and a leaf ball above it.
+        const b = new TreeBatcher(64);
+        return {
+            name: 'TreeBatcher',
+            capacity: b.capacity,
+            register: (obj, i) => b.register(buildTestTree(obj, colorOf(i)), 'floweringTree'),
+            remove: (obj) => b.removeInstance(obj),
+            meshes: () => [b.trunks, b.spheres],
+            translation: (obj, _i, m) =>
+                m === 0
+                    ? obj.position
+                    : obj.position.clone().setY(obj.position.y + TEST_TREE_LEAF_Y),
+            check: (_obj, slot, i) => assertColor(b.trunks.instanceColor!, slot, colorOf(i)),
+            reset: () => {
+                b.dispose();
+                b.init();
+            },
+        };
+    })(),
     (() => {
         const b = lanternBatcher;
         return {

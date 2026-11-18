@@ -1,6 +1,6 @@
 {
-    "total": 528,
-    "updatedAt": "2026-11-17",
+    "total": 522,
+    "updatedAt": "2026-11-18",
     "directories": {
         "src/audio": 3,
         "src/core": 39,
@@ -12,7 +12,7 @@
         "src/foliage": 170,
         "src/foliage/material-core": 11,
         "src/foliage/mushroom-batcher": 7,
-        "src/foliage/tree-batcher": 9,
+        "src/foliage/tree-batcher": 3,
         "src/gameplay": 35,
         "src/particles": 42,
         "src/rendering": 10,

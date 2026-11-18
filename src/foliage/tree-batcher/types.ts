@@ -1,15 +1,18 @@
 import type * as THREE from 'three';
-import type { PendingInstance } from './constants.ts';
 
-export type InstanceCountProp =
-    | 'trunkCount'
-    | 'sphereCount'
-    | 'capsuleCount'
-    | 'helixCount'
-    | 'roseCount'
-    | 'accordionLeafCount';
+/** The six instanced meshes a tree is drawn from. */
+export type TreePart = 'trunks' | 'spheres' | 'capsules' | 'helices' | 'roses' | 'accordionLeaves';
 
-/** Mutable batcher state shared across init / growth / registration modules. */
+export const TREE_PARTS: readonly TreePart[] = [
+    'trunks',
+    'spheres',
+    'capsules',
+    'helices',
+    'roses',
+    'accordionLeaves',
+];
+
+/** What initializeTreeBatcherMeshes fills in: one mesh per part, each sized to its capacity. */
 export interface TreeBatcherState {
     initialized: boolean;
     trunks: THREE.InstancedMesh;
@@ -18,19 +21,10 @@ export interface TreeBatcherState {
     helices: THREE.InstancedMesh;
     roses: THREE.InstancedMesh;
     accordionLeaves: THREE.InstancedMesh;
-    trunkCount: number;
-    sphereCount: number;
-    capsuleCount: number;
-    helixCount: number;
-    roseCount: number;
-    accordionLeafCount: number;
     trunkCapacity: number;
     sphereCapacity: number;
     capsuleCapacity: number;
     helixCapacity: number;
     roseCapacity: number;
     accordionLeafCapacity: number;
-    logicIdToInstances: Map<number, { countProp: InstanceCountProp, index: number }[]>;
-    instanceToLogicId: Record<InstanceCountProp, number[]>;
-    _pendingInstances: PendingInstance[];
 }

@@ -18,7 +18,6 @@ import {
 } from '../foliage/index.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
-import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { createIntegratedFireflies } from '../particles/index.ts';
 import { initDiscoveryForFoliage } from '../systems/discovery/discovery-optimized.ts';
 import { setBiomeRegions } from '../systems/net/biome-at-position.ts';
@@ -148,27 +147,6 @@ function wireBiomeRegions(loadedMap: LoadedCandyMap): void {
     setBiomeRegions([...mapRegions, ...procedural]);
 }
 const PLAY_SPAWN_ENTITY_CAP = 96;
-
-function applyMapPreallocationHints(loadedMap: LoadedCandyMap, bootPath: BootPath): void {
-    const expected = loadedMap.getExpectedInstanceCounts();
-    const explicitTreeHint = expected.tree;
-    const derivedTreeHint =
-        (expected.bubble_willow ?? 0) +
-        (expected.helix_plant ?? 0) +
-        (expected.balloon_bush ?? 0) +
-        (expected.accordion_palm ?? 0) +
-        (expected.fiber_optic_willow ?? 0) +
-        (expected.portamento_pine ?? 0) +
-        (expected.prism_rose_bush ?? 0);
-    let treeHint = Math.max(explicitTreeHint ?? 0, derivedTreeHint);
-    // Play only materializes the spawn ring up front — don't GPU-alloc the full map.
-    if (bootPath === 'play') {
-        treeHint = Math.min(treeHint, 96);
-    }
-    if (treeHint > 0) {
-        treeBatcher.setInitialCapacity(treeHint);
-    }
-}
 
 function invalidateLoadedMap(): void {
     loadedMapPromise = null;
@@ -365,7 +343,6 @@ export async function generateMap(
         bootPath === 'play' ? import('./map-loader.ts').then((m) => m.loadMapChunkIndex()) : null;
     const loadedMap = await getLoadedMap();
     wireBiomeRegions(loadedMap);
-    applyMapPreallocationHints(loadedMap, bootPath);
     console.log(
         `[World] Loading map (${loadedMap.source}) with ${loadedMap.entities.length} entities... (bootPath=${bootPath})`
     );

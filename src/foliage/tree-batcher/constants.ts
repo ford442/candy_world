@@ -4,34 +4,14 @@ import { getCIAdjustedCount } from '../../core/config.ts';
 export const _scratchTreeMatrix = new THREE.Matrix4();
 export const _scratchTreeOriginalQuaternion = new THREE.Quaternion();
 export const _scratchTreeFinalQuaternion = new THREE.Quaternion();
-export const _scratchPosition = new THREE.Vector3();
-export const _scratchScale = new THREE.Vector3();
 
-// Zero-allocation static batch queue buffers
-export const BATCH_QUEUE_LIMIT = 500 * 6; // MAX_INSTANCES * (trunks+spheres+capsules+helices+roses+leaves)
-export const _batchPositions = new Float32Array(BATCH_QUEUE_LIMIT * 3);
-export const _batchQuaternions = new Float32Array(BATCH_QUEUE_LIMIT * 4);
-export const _batchScales = new Float32Array(BATCH_QUEUE_LIMIT * 3);
-export const _batchColors = new Float32Array(BATCH_QUEUE_LIMIT * 3);
+export const _defaultColorWhite = new THREE.Color(0xffffff);
+export const _defaultColorOrange = new THREE.Color(0xff4500);
+export const _defaultColorGreen = new THREE.Color(0x00fa9a);
 
-// Contiguous gather buffers for writeInstancePose
-export const _gatherPositions = new Float32Array(BATCH_QUEUE_LIMIT * 3);
-export const _gatherQuaternions = new Float32Array(BATCH_QUEUE_LIMIT * 4);
-export const _gatherScales = new Float32Array(BATCH_QUEUE_LIMIT * 3);
-export const _gatherColors = new Float32Array(BATCH_QUEUE_LIMIT * 3);
-
-export interface PendingInstance {
-    mesh: THREE.InstancedMesh;
-    index: number;
-    color: THREE.Color;
-    animType: number;
-    animOffset: number;
-}
-
-export const _defaultColorWhite = new THREE.Color(0xFFFFFF);
-export const _defaultColorOrange = new THREE.Color(0xFF4500);
-export const _defaultColorGreen = new THREE.Color(0x00FA9A);
-
-// Initial capacity - grows dynamically as needed (doubles each time, capped at MAX)
-export const INITIAL_INSTANCES = getCIAdjustedCount(100, 0.5, 50);
-export const MAX_INSTANCES = getCIAdjustedCount(500, 0.1, 50); // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
+/**
+ * Slots per tree mesh. The meshes used to start at 100 and double up to this
+ * cap; they are now allocated at it once (#2166), so a spawn past it is
+ * dropped by add() returning null, as it was by the old cap.
+ */
+export const MAX_INSTANCES = getCIAdjustedCount(500, 0.1, 50);
