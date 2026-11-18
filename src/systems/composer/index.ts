@@ -25,6 +25,7 @@ import { authoredNote } from '../../audio/generative/sequencer.ts';
 import { audioSystemRef } from '../../core/game-loop-core.ts';
 import { registerSystem } from '../../core/scheduler/frame-scheduler.ts';
 import { announce } from '../../ui/announcer.ts';
+import { isAuthoredEntity } from '../../world/authored-entities.ts';
 import {
     groveNoteCount,
     resolveStonePattern,
@@ -41,6 +42,13 @@ import { readMelodyProgress } from '../melody-progress.ts';
 import { setComposerOpen } from '../music-stone-hooks.ts';
 import { UNLOCK_DEFINITIONS, unlockSystem } from '../unlocks.ts';
 import './composer.css';
+import {
+    applyGroveFlora,
+    countFloraNear,
+    floraKey,
+    floraSpecies,
+    type FloraPoint,
+} from './composer-flora.ts';
 import { ComposerPlayback, viewOfStone, type StoneView } from './composer-playback.ts';
 import { mountComposerEditor, type ComposerCueOption, type ComposerEditor } from './composer-ui.ts';
 import { availableVoices } from './composer-voices.ts';
@@ -64,12 +72,37 @@ function isLive(obj: THREE.Object3D): boolean {
     return obj.userData.isMusicStone === true && obj.parent !== null;
 }
 
+/** Grove flora placed in build mode (`composer-flora.ts`): live, authored, a counted species. */
+function placedFlora(): FloraPoint[] {
+    const out: FloraPoint[] = [];
+    for (let i = 0; i < animatedFoliage.length; i++) {
+        const obj = animatedFoliage[i] as THREE.Object3D;
+        const ud = obj.userData;
+        if (obj.parent === null || !floraSpecies(ud.mapEntityType)) continue;
+        if (typeof ud.mapEntityId !== 'string' || !isAuthoredEntity(ud.mapEntityId)) continue;
+        out.push({ type: ud.mapEntityType as string, x: obj.position.x, z: obj.position.z });
+    }
+    return out;
+}
+
+/** Derived patterns per stone id, so an unchanged grove keeps the same object (no re-send). */
+const _withFlora = new Map<string, { base: GrovePattern; key: string; pattern: GrovePattern }>();
+
 function* liveStones(): Iterable<StoneView> {
+    const flora = placedFlora();
     for (let i = 0; i < animatedFoliage.length; i++) {
         const obj = animatedFoliage[i] as THREE.Object3D;
         if (!isLive(obj)) continue;
         const view = viewOfStone(obj);
-        if (view) yield view;
+        if (!view) continue;
+        const counts = countFloraNear(view.x, view.z, flora);
+        const key = floraKey(counts);
+        let cached = _withFlora.get(view.id);
+        if (!cached || cached.base !== view.pattern || cached.key !== key) {
+            cached = { base: view.pattern, key, pattern: applyGroveFlora(view.pattern, counts) };
+            _withFlora.set(view.id, cached);
+        }
+        yield { ...view, pattern: cached.pattern };
     }
 }
 
