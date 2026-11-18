@@ -41,6 +41,7 @@ const {
     wantsOptionalGpuFeatures,
     grantedOptionalFeatures,
     extendedRangeConfigured,
+    resolveCanvasAntialias,
     GPU_OPTIONAL_FEATURES,
 } = await import('../src/rendering/gpu-context.ts');
 const { HDR_STORAGE_KEY } = await import('../src/core/platform/hdr-preference.ts');
@@ -418,8 +419,8 @@ const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } }
         'timestamp-query requested when wanted and supported'
     );
 
-    // Default-on (fad443b / #2107): ?dynres=0 and ?dynres=off are the only opt-outs.
-    for (const search of ['?dynres=0', '?dynres=off', '?dynres=OFF']) {
+    // Default-on (fad443b / #2107): ?dynres=0, off and false are the only opt-outs.
+    for (const search of ['?dynres=0', '?dynres=off', '?dynres=OFF', '?dynres=false']) {
         globalThis.window.location = { search };
         assert.equal(wantsTimestampQuery(), false, `${search} opts out`);
         assert.deepEqual(
@@ -428,7 +429,7 @@ const adapter3Like = { features: { has: (name) => name === 'timestamp-query' } }
             `${search}: timestamp-query not requested`
         );
     }
-    for (const search of ['', '?dynres=1', '?dynres=false', '?foo=bar']) {
+    for (const search of ['', '?dynres=1', '?foo=bar']) {
         globalThis.window.location = { search };
         assert.equal(wantsTimestampQuery(), true, `"${search}" wants timestamp-query`);
         assert.deepEqual(
@@ -1011,6 +1012,131 @@ for (const setup of [
     assert.equal(resolveRendererBackend(''), 'webgl', 'stored preference applies');
     assert.equal(resolveRendererBackend('?renderer=webgpu'), 'webgpu', 'URL beats storage');
     delete globalThis.window.localStorage;
+}
+
+// --- Creation descriptor contract -------------------------------------------
+// Like scripts/check-emcc-manifest.mjs for compiler flags: every row of the
+// boot's request/configure descriptor is pinned for three boots. A change to
+// any of them must change this table in the same PR.
+{
+    const FLOOR = {
+        maxBufferSize: 268435456,
+        maxStorageBufferBindingSize: 134217728,
+        maxComputeWorkgroupSizeX: 256,
+        maxComputeInvocationsPerWorkgroup: 256,
+        maxComputeWorkgroupStorageSize: 16384,
+    };
+    const hw = {
+        ...FLOOR,
+        maxBufferSize: 4294967296,
+        maxStorageBufferBindingSize: 2147483648,
+    };
+    const hwLimits = {
+        ...FLOOR,
+        maxBufferSize: 536870912,
+        maxStorageBufferBindingSize: 536870912,
+    };
+    const boots = [
+        {
+            name: 'default',
+            search: '',
+            adapter: { limits: hw },
+            timestamp: true,
+            // min(adapter, max(floor, desired)); desired is 512 MiB for both.
+            limits: {
+                ...FLOOR,
+                maxBufferSize: 536870912,
+                maxStorageBufferBindingSize: 536870912,
+            },
+        },
+        {
+            name: '?dynres=false',
+            search: '?dynres=false',
+            adapter: { limits: hw },
+            timestamp: false,
+        },
+        {
+            name: 'fallback adapter',
+            search: '',
+            adapter: { limits: hw, isFallbackAdapter: true },
+            timestamp: true,
+            limits: FLOOR,
+        },
+    ];
+    for (const boot of boots) {
+        reset();
+        globalThis.window.location = { search: boot.search };
+        let adapterOptions = null;
+        let deviceDescriptor = null;
+        const device = makeDevice();
+        installGpu(async (options) => {
+            adapterOptions = options;
+            return makeAdapter(device, {
+                ...boot.adapter,
+                requestDevice: async (descriptor) => {
+                    deviceDescriptor = descriptor;
+                    return device;
+                },
+            });
+        });
+        const result = await probeWebGPU(makeCanvas());
+        const label = `[${boot.name}]`;
+
+        assert.equal(adapterRequests, 1, `${label} one requestAdapter`);
+        assert.deepEqual(
+            adapterOptions,
+            { powerPreference: 'high-performance' },
+            `${label} adapter powerPreference`
+        );
+        assert.deepEqual(
+            [...deviceDescriptor.requiredFeatures],
+            boot.timestamp ? ['timestamp-query'] : [],
+            `${label} requiredFeatures (depth32float-stencil8 is advertised, never required)`
+        );
+        assert.deepEqual(deviceDescriptor.requiredLimits, boot.limits, `${label} requiredLimits`);
+        assert.ok(
+            deviceDescriptor.requiredLimits.maxStorageBufferBindingSize <=
+                deviceDescriptor.requiredLimits.maxBufferSize,
+            `${label} storage binding capped by maxBufferSize`
+        );
+        assert.equal(
+            getWebGPUProbeReport().powerPreference,
+            'high-performance',
+            `${label} report powerPreference`
+        );
+
+        assert.equal(configureCalls, 1, `${label} configured once`);
+        assert.equal(lastConfigure.alphaMode, 'premultiplied', `${label} alphaMode`);
+        assert.equal(
+            lastConfigure.format,
+            'bgra8unorm',
+            `${label} format is getPreferredCanvasFormat()`
+        );
+        assert.equal(lastConfigure.colorSpace, 'srgb', `${label} colorSpace stays srgb`);
+        assert.deepEqual(lastConfigure.toneMapping, { mode: 'standard' }, `${label} toneMapping`);
+        assert.equal(lastConfigure.device, device, `${label} configured on the one device`);
+        assert.equal(extendedRangeConfigured(result), false, `${label} extended range off`);
+    }
+
+    // Display P3 only with a real extended-range swap chain.
+    reset();
+    globalThis.window.location = { search: '' };
+    hdrDisplay();
+    installGpu(async () => makeAdapter(makeDevice()));
+    await probeWebGPU(makeCanvas()); // no getConfiguration(): cannot confirm extended range
+    assert.equal(
+        lastConfigure.colorSpace,
+        'srgb',
+        'HDR display without a verified swap chain stays srgb'
+    );
+    assert.equal(lastConfigure.format, 'bgra8unorm');
+
+    // Antialias: off with the post stack, on only for ?postfx=off.
+    assert.equal(resolveCanvasAntialias(false), false, 'canvas antialias off by default');
+    assert.equal(resolveCanvasAntialias(true), true, 'canvas antialias on for ?postfx=off');
+
+    reset();
+    globalThis.window.location = undefined;
 }
 
 console.log('✓ webgpu-probe: all assertions passed');
