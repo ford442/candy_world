@@ -14,6 +14,7 @@
 
 import * as v from 'valibot';
 import type { EntitySnapshot } from '../../systems/entity-snapshot/entity-snapshot-types.ts';
+import { composeIssue, musicStoneSnapshotOk } from './grove-pattern.ts';
 
 /** Bump with a matching hop in `migrations.ts`. */
 export const WORLD_DOCUMENT_SCHEMA = 1;
@@ -36,16 +37,21 @@ const IdListSchema = v.pipe(v.array(IdSchema), v.maxLength(MAX_PROGRESS_ENTRIES)
 /**
  * An entity snapshot as `entity-snapshot-core.ts` writes it. Only the fields
  * replay depends on are checked; the rest of the map record is carried through
- * (`migrateSnapshot` and `processMapEntity` own their own shapes).
+ * (`migrateSnapshot` and `processMapEntity` own their own shapes). A music
+ * stone's grove pattern is the exception: it is player data that every peer
+ * plays, so it is checked wherever a stone appears (`grove-pattern.ts`).
  */
-export const EntitySnapshotSchema = v.looseObject({
-    schemaVersion: v.pipe(v.number(), v.integer(), v.minValue(1)),
-    id: IdSchema,
-    entity: v.looseObject({
-        type: v.pipe(v.string(), v.minLength(1), v.maxLength(64)),
-        position: Vec3Schema,
+export const EntitySnapshotSchema = v.pipe(
+    v.looseObject({
+        schemaVersion: v.pipe(v.number(), v.integer(), v.minValue(1)),
+        id: IdSchema,
+        entity: v.looseObject({
+            type: v.pipe(v.string(), v.minLength(1), v.maxLength(64)),
+            position: Vec3Schema,
+        }),
     }),
-}) as unknown as v.GenericSchema<unknown, EntitySnapshot>;
+    v.check((s) => musicStoneSnapshotOk(s), 'a music stone carries an invalid grove pattern')
+) as unknown as v.GenericSchema<unknown, EntitySnapshot>;
 
 // ---------------------------------------------------------------------------
 // Commands
@@ -57,6 +63,8 @@ export type DocumentCommand =
     | { type: 'remove'; snapshot: EntitySnapshot }
     | { type: 'move'; from: EntitySnapshot; to: EntitySnapshot }
     | { type: 'paint'; from: EntitySnapshot; to: EntitySnapshot }
+    /** A music stone's grove pattern changed (`grove-pattern.ts`); nothing else did. */
+    | { type: 'compose'; from: EntitySnapshot; to: EntitySnapshot }
     | { type: 'batch'; label?: string; commands: DocumentCommand[] };
 
 export const DocumentCommandSchema: v.GenericSchema<unknown, DocumentCommand> = v.variant('type', [
@@ -64,6 +72,18 @@ export const DocumentCommandSchema: v.GenericSchema<unknown, DocumentCommand> = 
     v.object({ type: v.literal('remove'), snapshot: EntitySnapshotSchema }),
     v.object({ type: v.literal('move'), from: EntitySnapshotSchema, to: EntitySnapshotSchema }),
     v.object({ type: v.literal('paint'), from: EntitySnapshotSchema, to: EntitySnapshotSchema }),
+    v.pipe(
+        v.object({
+            type: v.literal('compose'),
+            from: EntitySnapshotSchema,
+            to: EntitySnapshotSchema,
+        }),
+        v.rawCheck(({ dataset, addIssue }) => {
+            if (!dataset.typed) return;
+            const issue = composeIssue(dataset.value.from, dataset.value.to);
+            if (issue) addIssue({ message: issue });
+        })
+    ),
     v.object({
         type: v.literal('batch'),
         label: v.optional(v.pipe(v.string(), v.maxLength(120))),

@@ -45,6 +45,7 @@ export const SUPPORTED_EXPORT_TYPES = new Set<string>([
     'wisteria_cluster',
     'luminous_plant',
     'melody_mirror',
+    'music_stone',
     'cave',
     'gem_canopy_tree',
     'glass_mushroom',
@@ -96,7 +97,8 @@ export function inferCategory(type: string): string {
         type === 'floating_orb' ||
         type === 'silence_spirit' ||
         type === 'instrument_shrine' ||
-        type === 'melody_mirror'
+        type === 'melody_mirror' ||
+        type === 'music_stone'
     )
         return 'interactive';
     return 'decorative';
@@ -104,7 +106,12 @@ export function inferCategory(type: string): string {
 
 export function inferLayer(type: string): string {
     if (type === 'cloud' || type === 'floating_orb') return 'sky';
-    if (type === 'instrument_shrine' || type === 'melody_mirror' || type === 'silence_spirit')
+    if (
+        type === 'instrument_shrine' ||
+        type === 'melody_mirror' ||
+        type === 'silence_spirit' ||
+        type === 'music_stone'
+    )
         return 'interactive';
     return 'ground';
 }

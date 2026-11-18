@@ -119,7 +119,8 @@ document it fetches): a current-schema document, a UUID id, at most
 `SYSTEM_BUDGETS.authoring` pieces (600 per world, 48 per 32 m chunk; a piece
 moved back to where the base world had it does not count), paint only from
 `CANDY_PAINT_PALETTE` (a paint, a placement, or a move that changes the
-colour), at most 8 MB. Then it checks the write itself, because it writes
+colour), music stone patterns that pass the schema (a `compose` changes one
+stone's pattern and nothing else, `docs/GROVE_COMPOSER.md`), at most 8 MB. Then it checks the write itself, because it writes
 **as `service_role`** (no RLS):
 
 - the caller comes from the request's JWT (`auth.getUser`), and must own the

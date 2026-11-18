@@ -1,0 +1,196 @@
+/* Grove composer (#1976 slice C). Loaded with the lazy `composer` chunk, imported by index.ts.
+   Kit tokens only (styles/kit-tokens.css), so it follows the day/night theme. */
+
+.composer-panel {
+    background: var(--ck-surface-solid);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(96vw, 56rem);
+    max-height: min(92vh, 44rem);
+    overflow: auto;
+    padding: var(--ck-space-4);
+    gap: var(--ck-space-3);
+}
+
+.composer-panel > .composer-close {
+    position: absolute;
+    top: var(--ck-space-2);
+    right: var(--ck-space-3);
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+}
+
+.composer-key,
+.composer-help,
+.composer-status {
+    margin: 0;
+    color: var(--ck-text);
+}
+
+.composer-help {
+    font-size: 0.85em;
+    opacity: 0.85;
+}
+
+.composer-status {
+    min-height: 1.4em;
+    color: var(--ck-text-accent);
+}
+
+.composer-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ck-space-2);
+}
+
+.composer-button {
+    min-height: 2.5rem;
+    padding: 0 var(--ck-space-3);
+    color: var(--ck-text);
+    font: inherit;
+    background: var(--ck-surface-solid);
+    border: var(--ck-border-width) solid var(--ck-border);
+    border-radius: var(--ck-radius-pill);
+    cursor: pointer;
+}
+
+.composer-button[aria-pressed='true'],
+.composer-save:not([aria-disabled='true']) {
+    color: var(--ck-text-on-accent);
+    background: var(--ck-magenta);
+}
+
+.composer-button[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.composer-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ck-space-1);
+}
+
+.composer-row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 11rem) 1fr;
+    gap: var(--ck-space-2);
+    align-items: center;
+}
+
+.composer-row-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.composer-voice {
+    font-weight: 600;
+    color: var(--ck-text);
+}
+
+.composer-voice--locked {
+    opacity: 0.6;
+}
+
+.composer-cue {
+    font: inherit;
+    font-size: 0.8em;
+    color: var(--ck-text);
+    background: var(--ck-surface-solid);
+    border: var(--ck-border-width) solid var(--ck-border);
+    border-radius: var(--ck-radius-sm);
+}
+
+.composer-cue:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.composer-keys {
+    display: grid;
+    grid-template-columns: repeat(16, minmax(1.75rem, 1fr));
+    gap: 3px;
+}
+
+/* Touch targets: at least 44px tall on coarse pointers. */
+.composer-cell {
+    min-height: 2rem;
+    padding: 0;
+    font: inherit;
+    font-size: 0.7em;
+    color: var(--ck-text);
+    background: var(--ck-surface-solid);
+    border: var(--ck-border-width) solid var(--ck-border);
+    border-radius: var(--ck-radius-sm);
+    cursor: pointer;
+}
+
+@media (pointer: coarse) {
+    .composer-cell {
+        min-height: 2.75rem;
+    }
+}
+
+.composer-cell--beat {
+    border-color: var(--ck-pink-400);
+}
+
+.composer-cell--on {
+    font-weight: 700;
+    background: var(--ck-pink-400);
+    box-shadow: var(--ck-gloss);
+}
+
+.composer-row[data-voice='0'] .composer-cell--on {
+    background: #ff8fab;
+    color: #3b1030;
+}
+.composer-row[data-voice='1'] .composer-cell--on {
+    background: #ffc6ff;
+    color: #3b1030;
+}
+.composer-row[data-voice='2'] .composer-cell--on {
+    background: #a0c4ff;
+    color: #102040;
+}
+.composer-row[data-voice='3'] .composer-cell--on {
+    background: #9bf6ff;
+    color: #103038;
+}
+.composer-row[data-voice='4'] .composer-cell--on {
+    background: #caffbf;
+    color: #143010;
+}
+.composer-row[data-voice='5'] .composer-cell--on {
+    background: #fdffb6;
+    color: #303010;
+}
+.composer-row[data-voice='6'] .composer-cell--on {
+    background: #ffd6a5;
+    color: #3a2410;
+}
+.composer-row[data-voice='7'] .composer-cell--on {
+    background: #bdb2ff;
+    color: #201848;
+}
+
+.composer-cell[aria-disabled='true'] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.composer-cell:focus-visible,
+.composer-button:focus-visible,
+.composer-cue:focus-visible {
+    outline: none;
+    box-shadow: var(--ck-focus-ring);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .composer-cell {
+        transition: background var(--ck-dur-fast) var(--ck-ease-candy);
+    }
+}

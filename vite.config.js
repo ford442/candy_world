@@ -92,6 +92,12 @@ export default defineConfig({
                     if (id.includes('/src/gameplay/objectives/')) {
                         return 'objectives';
                     }
+                    // Grove composer (#1976 slice C): the music stone pattern editor and its
+                    // proximity playback, loaded by the systems/composer-lazy.ts stub (in `app`)
+                    // once a music stone exists. Must come before the `/src/systems/` → app rule.
+                    if (id.includes('/src/systems/composer/')) {
+                        return 'composer';
+                    }
                     // Gameplay abilities (blaster, mines, chord, harpoon, glitch grenade)
                     if (
                         (id.includes('/src/gameplay/') &&

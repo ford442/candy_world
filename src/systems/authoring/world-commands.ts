@@ -13,6 +13,7 @@ import {
     markPlacedEntity,
     unmarkPlacedEntity,
 } from '../../world/authored-entities.ts';
+import { composeIssue } from '../../world/document/grove-pattern.ts';
 import { canDespawn, despawnEntity } from '../../world/entity-despawn.ts';
 import { entities } from '../../world/state.ts';
 import type { EntitySnapshot } from '../entity-snapshot/entity-snapshot-core.ts';
@@ -177,6 +178,38 @@ export class PaintCommand implements WorldCommand {
 }
 
 /**
+ * Edit a music stone's grove pattern: `to` is `from` with a new
+ * `entity.params.pattern` (`world/document/grove-pattern.ts`), checked here
+ * as the document schema checks it, so a bad edit never becomes an undo step.
+ * Re-placed like a paint, so the live stone and its snapshot never disagree.
+ */
+export class ComposeCommand implements WorldCommand {
+    private readonly swap: MoveCommand;
+
+    constructor(
+        readonly from: EntitySnapshot,
+        readonly to: EntitySnapshot,
+        hooks: PlaceCommandHooks = {}
+    ) {
+        const issue = composeIssue(from, to);
+        if (issue) throw new Error(`ComposeCommand: ${issue}`);
+        this.swap = new MoveCommand(from, to, hooks);
+    }
+
+    apply(): void {
+        this.swap.apply();
+    }
+
+    revert(): void {
+        this.swap.revert();
+    }
+
+    serialize(): SerializedWorldCommand {
+        return { type: 'compose', from: this.from, to: this.to };
+    }
+}
+
+/**
  * Several commands as one undo step (multi-select edits). All or nothing: if a
  * child fails, the children already done are rolled back before rethrowing.
  */
@@ -251,6 +284,12 @@ export function deserializeWorldCommand(
             return new MoveCommand(asSnapshot(data.from, 'from'), asSnapshot(data.to, 'to'), hooks);
         case 'paint':
             return new PaintCommand(
+                asSnapshot(data.from, 'from'),
+                asSnapshot(data.to, 'to'),
+                hooks
+            );
+        case 'compose':
+            return new ComposeCommand(
                 asSnapshot(data.from, 'from'),
                 asSnapshot(data.to, 'to'),
                 hooks

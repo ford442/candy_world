@@ -105,7 +105,7 @@ export function offPaletteColors(commands: readonly DocumentCommand[]): string[]
         const to = cmd.type === 'place' ? cmd.snapshot : cmd.to;
         const color = colorOf(to);
         if (color === undefined || isCandyPaint(color)) return;
-        if (cmd.type === 'move' && color === colorOf(cmd.from)) return;
+        if ((cmd.type === 'move' || cmd.type === 'compose') && color === colorOf(cmd.from)) return;
         out.push(to.id);
     };
     for (const cmd of commands) visit(cmd);

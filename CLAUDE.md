@@ -99,6 +99,7 @@ Related modules live in folders. A folder's `index.ts` is its public surface, bu
 - **`awakened/`**: Awakened flora persistence. `awakened-persistence.ts` is its own lazy chunk; `awakened-persistence-api.ts` is the stub the rest of the app calls
 - **`entity-snapshot/`**: Typed, versioned per-entity snapshots (renderer-free core, sidecar store, production wiring through `processMapEntity`)
 - **`discovery/`**: Discovery system. `discovery-optimized.ts` holds the one registry (`discoverySystem`); `discovery-log.ts` is the log UI. `unlocks.ts` (in `systems/`) is the item/ability loop (`docs/PROGRESSION.md`)
+- **`composer/`**: The grove composer (lazy `composer` chunk, loaded once a music stone exists): the music stone's pattern editor and proximity playback through the generative engine. Patterns are `params.pattern` on the stone (`world/document/grove-pattern.ts`), edited by `compose` commands. See `docs/GROVE_COMPOSER.md`
 - **`authoring/`**: In-world build mode (lazy `authoring` chunk; `B` toggles via `build-mode-lazy.ts`). Edits are `world-commands.ts` commands through `edit-history.ts`; those two files sit here but ship in `save-ui`, because save slots replay them. See `docs/AUTHORING.md`
 - **`net/`**: Presence and shared worlds (lazy `net` chunk, which also holds supabase-js): publish/open `?world=` links, live co-editing (`world-sync-protocol.ts`, last-writer-wins per entity), the `validate-world` write path. Schema, RLS and the edge function are in `supabase/`. See `docs/SHARED_WORLDS.md`
 - **`performance-budget/`**: Performance monitoring and alerts
@@ -457,6 +458,7 @@ npm run optimize        # Apply all optimizations (experimental)
 - **Chunks and budget**: `docs/APP_CHUNK_SPLIT.md` — the `manualChunks` layout, accepted cycles, size budget
 - **CI**: `docs/CI_CONTRACT.md` — what each gate runs and catches
 - **Progression**: `docs/PROGRESSION.md` — Unlocks, their item sources and effects, adding one
+- **Grove composer**: `docs/GROVE_COMPOSER.md` — Music stones, the pattern model, `compose` commands, voices and cues
 - **Input**: `docs/INPUT.md` — Actions, contexts, adding a binding, rebinding
 - **Authoring**: `docs/AUTHORING.md` — Build mode, world commands, the WorldDocument command log
 - **Shared worlds**: `docs/SHARED_WORLDS.md` — Publishing, share links, the co-editing protocol and conflict model, RLS

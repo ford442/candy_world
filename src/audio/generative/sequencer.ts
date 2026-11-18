@@ -37,8 +37,30 @@ export const CHANNEL_VOICES: readonly ChannelVoiceConfig[] = [
 ];
 
 /**
+ * A player-authored pattern (structurally `GrovePattern`, `world/document/grove-pattern.ts`):
+ * per channel, one scale degree per step, or a negative number for a rest.
+ */
+export interface AuthoredPattern {
+    readonly channels: ReadonlyArray<{ readonly notes: readonly number[] }>;
+}
+
+/** Authored notes play at a fixed velocity: the profile's density shapes only generated ones. */
+export const AUTHORED_VELOCITY = 104;
+
+/**
+ * The note an authored degree plays on `channel` in `profile`'s key and scale. Degrees count
+ * scale steps above the voice's root octave, so the same pattern stays in key in every biome.
+ */
+export function authoredNote(profile: BiomeMusicProfile, channel: number, degree: number): string {
+    const voice = CHANNEL_VOICES[channel] ?? CHANNEL_VOICES[0];
+    const low = voice.pattern === 'kick' || voice.pattern === 'pad';
+    return scaleNote(profile.root, profile.scale, degree, voice.octave - (low ? 1 : 0));
+}
+
+/**
  * Deterministic 16-step sequencer per channel.
- * Produces note events from seeded patterns + biome profile.
+ * Produces note events from seeded patterns + biome profile, or from an
+ * authored pattern while one is set (the grove composer's music stones).
  */
 export class GenerativeSequencer {
     readonly seed: number;
@@ -48,6 +70,7 @@ export class GenerativeSequencer {
     private readonly degrees: number[][] = [];
     private profile: BiomeMusicProfile;
     private readonly pendingEvents: NoteEvent[] = [];
+    private authored: AuthoredPattern | null = null;
 
     constructor(seed: number, profile: BiomeMusicProfile) {
         this.seed = seed;
@@ -62,6 +85,23 @@ export class GenerativeSequencer {
         this.profile = profile;
     }
 
+    getProfile(): Readonly<BiomeMusicProfile> {
+        return this.profile;
+    }
+
+    /**
+     * Play `pattern` instead of the generated one from the next tick, or go back to generating
+     * with null. The step and bar counters carry on, so the switch stays on the grid; the
+     * generated patterns do not evolve meanwhile, so the soundtrack resumes where it left off.
+     */
+    setAuthoredPattern(pattern: AuthoredPattern | null): void {
+        this.authored = pattern;
+    }
+
+    get playingAuthored(): boolean {
+        return this.authored !== null;
+    }
+
     getBpm(dayNightBias: number): number {
         // dayNightBias: 0 = night, 1 = day
         const nightFactor = 1.0 - dayNightBias * (1.0 - this.profile.nightTempoScale);
@@ -72,8 +112,23 @@ export class GenerativeSequencer {
     tick(_dayNightBias: number): readonly NoteEvent[] {
         this.pendingEvents.length = 0;
         const currentStep = this.step;
+        const authored = this.authored;
 
-        for (let ch = 0; ch < NUM_CHANNELS; ch++) {
+        if (authored) {
+            for (let ch = 0; ch < NUM_CHANNELS; ch++) {
+                const degree = authored.channels[ch]?.notes[currentStep] ?? -1;
+                if (!(degree >= 0)) continue;
+                const note = authoredNote(this.profile, ch, degree);
+                this.pendingEvents.push({
+                    channel: ch,
+                    note,
+                    velocity: AUTHORED_VELOCITY,
+                    step: currentStep,
+                });
+            }
+        }
+
+        for (let ch = 0; !authored && ch < NUM_CHANNELS; ch++) {
             if (!this.patterns[ch][currentStep]) continue;
             const density = this.profile.channelDensity[ch] ?? 0.5;
             if (density < 0.15) continue;
@@ -89,7 +144,7 @@ export class GenerativeSequencer {
             this.step = 0;
             this.bar++;
             // Evolve patterns every 4 bars
-            if (this.bar % 4 === 0) {
+            if (this.bar % 4 === 0 && !authored) {
                 this.evolvePatterns();
             }
         }

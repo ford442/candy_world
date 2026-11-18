@@ -56,7 +56,9 @@ input (build-mode.ts) ─▶ WorldCommand ─▶ editHistory.execute()
 
 - **Commands** (`src/systems/authoring/world-commands.ts`): `PlaceCommand`,
   `RemoveCommand`, `MoveCommand`, `PaintCommand` (a move whose `to` has a new
-  `params.color`), and `BatchCommand` (several commands as one undo step, all
+  `params.color`), `ComposeCommand` (a music stone's new `params.pattern`,
+  checked as the schema checks it; [`GROVE_COMPOSER.md`](./GROVE_COMPOSER.md)),
+  and `BatchCommand` (several commands as one undo step, all
   or nothing). They target snapshot ids (`mapEntityId`), never array indices,
   and spawn and tear down through the same paths map loading and chunk
   streaming use. `deserializeWorldCommand` rebuilds any of them from its

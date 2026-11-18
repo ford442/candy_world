@@ -72,6 +72,12 @@ interface WorldDocumentV1 {
   document for every 1.0.0 save from its own fields. `world.entitySnapshots`
   and `progress` are still written while `legacyRead` is on.
 
+- **Grove patterns.** A music stone carries its pattern in
+  `entity.params.pattern`; editing it is a `compose` command. The schema checks
+  every music stone snapshot and every compose (`grove-pattern.ts`), so a bad
+  pattern is refused at load like any other damage. See
+  [`GROVE_COMPOSER.md`](./GROVE_COMPOSER.md).
+
 Build mode, the commands and the command log are in
 [`AUTHORING.md`](./AUTHORING.md).
 

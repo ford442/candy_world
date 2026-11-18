@@ -249,7 +249,7 @@ console.log('buttons → actions per context');
     frame();
     check(
         'menu: no gameplay or build action fires',
-        seen.every((s) => s.startsWith('menu.') || s === 'pause'),
+        seen.every((s) => s.startsWith('menu.') || s.startsWith('composer.') || s === 'pause'),
         seen.join()
     );
     check(

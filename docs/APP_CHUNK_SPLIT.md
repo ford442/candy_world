@@ -136,6 +136,7 @@ chunks like this:
 | `systems/weather/*`                                        | `weather`, **except** `weather-types.ts` → `weather-shared`                                |
 | `systems/environment/season-core.ts`                       | `weather-shared` (a leaf `app` and `weather` both read at module top level)                |
 | `systems/awakened/awakened-persistence.ts`                 | `awakened`                                                                                 |
+| `systems/composer/*`                                       | `composer` (stub `systems/composer-lazy.ts` and leaf `music-stone-hooks.ts` stay in `app`) |
 | `systems/net/*`, `photo-mode/*`, `save-system/*`           | `net`, `photo-mode`, `save-ui` (stubs stay in `app`, see below)                            |
 | the rest of `systems/` (`environment/`, `awakened/`, `entity-snapshot/`, `music-reactivity/`, `region-manager/`, `discovery/`, `physics/`, loose files) | `app`  |
 
@@ -180,6 +181,7 @@ post-FX uniforms and explore-camera APIs via `PhotoModeInitOptions`.
 | `debug`            | `?debugHeights` / `?debugPlace` / `?debugCircadian` / `?debugFauna` / `?debug=1` | `src/debug/tools-stub.ts`, `src/debug/lazy.ts`       |
 | `net`              | `FEATURE_FLAGS.presence`, `?world=`, the Worlds panel (`docs/SHARED_WORLDS.md`)  | `src/systems/net/lazy.ts`, `src/systems/net/shared-worlds-lazy.ts`, `src/ui/presence-lazy.ts`, `src/ui/worlds-panel-lazy.ts` |
 | `photo-mode`       | `FEATURE_FLAGS.photoMode`, **P** or the HUD button                               | `src/systems/photo-mode/lazy.ts`                     |
+| `composer`         | the first music stone built (`docs/GROVE_COMPOSER.md`)                          | `src/systems/composer-lazy.ts`                       |
 | `generative-music` | first click/key (default) / `enableGenerativeMode()`                             | `audio-system-playback.ts`                           |
 | `awakened`         | `FEATURE_FLAGS.awakenedPersistence`                                              | `src/systems/awakened/awakened-persistence-api.ts`            |
 | `gameplay`         | `preloadGameplay()` / abilities                                                  | `src/gameplay/lazy.ts`                               |

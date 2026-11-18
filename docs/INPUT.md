@@ -80,14 +80,14 @@ the look, and the settings don't apply.
 
 The contexts, bottom to top, in a fixed priority:
 
-| Context    | Pushed by                                                                          | Blocks below |
-| ---------- | ---------------------------------------------------------------------------------- | ------------ |
-| `gameplay` | always active                                                                      | –            |
-| `xr`       | reserved for slice 4                                                               | no           |
-| `build`    | `enableBuildMode()` (`systems/authoring/build-mode.ts`)                            | no           |
-| `gizmo`    | the open build gizmo                                                               | yes          |
-| `photo`    | photo mode (`systems/photo-mode/photo-mode.ts`)                                    | yes          |
-| `menu`     | the pause menu or jukebox (polled in `frame.ts`), and the a11y, save and log menus | yes          |
+| Context    | Pushed by                                                                                    | Blocks below |
+| ---------- | -------------------------------------------------------------------------------------------- | ------------ |
+| `gameplay` | always active                                                                                | –            |
+| `xr`       | reserved for slice 4                                                                         | no           |
+| `build`    | `enableBuildMode()` (`systems/authoring/build-mode.ts`)                                      | no           |
+| `gizmo`    | the open build gizmo                                                                         | yes          |
+| `photo`    | photo mode (`systems/photo-mode/photo-mode.ts`)                                              | yes          |
+| `menu`     | the pause menu or jukebox (polled in `frame.ts`), and the a11y, save, log and composer menus | yes          |
 
 `const pop = input.pushContext('build')` activates a context, and `pop()`
 deactivates it (calling it twice is harmless). Pushes are counted, so two
@@ -246,6 +246,11 @@ steps the keyboard uses:
 - **`menu.confirm`** (A): clicks the focused control.
 - **`menu.back`** (B): dispatches an Escape `keydown` on the focused element,
   so each menu's own Escape handling runs unchanged.
+- **`composer.pitch`** (LB `-1` / RB `+1`), **`composer.audition`** (X) and
+  **`composer.save`** (Y) are also bound in `menu`. Only the grove composer's
+  editor listens to them (`systems/composer/composer-ui.ts`, see
+  [`GROVE_COMPOSER.md`](./GROVE_COMPOSER.md)); in any other menu they do
+  nothing.
 
 Entering the game still takes a click or a key: browsers grant pointer lock
 and start audio only after one. Chrome may also refuse to lock again from a
