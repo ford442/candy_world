@@ -82,12 +82,12 @@ function pickAntialiasMode(backend: 'webgpu' | 'webgl'): AntialiasMode {
  * Dynamic resolution on the scene pass (rendering/dynamic-resolution.ts). It
  * needs GPU frame times, which `wantsTimestampQuery` now requests on every
  * WebGPU boot that advertises `timestamp-query` (not only `?graphics=high`).
- * `?dynres=0|off` turns the controller off and skips the feature request;
+ * `?dynres=0|off|false` turns the controller off and skips the feature request;
  * automation never runs the controller.
  */
 export function isDynamicResolutionAllowed(): boolean {
     const flag = _getFlag('dynres');
-    if (flag === '0' || flag === 'off') return false;
+    if (flag === '0' || flag === 'off' || flag === 'false') return false;
     return !isAutomation();
 }
 

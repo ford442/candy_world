@@ -162,7 +162,7 @@ export { GPU_OPTIONAL_FEATURES, type GpuOptionalFeature };
  * Chrome caps `deviceMemory` at 8 GB, so almost every player is the `medium`
  * tier — and that tier used to skip the feature, which left the scene pass
  * at full resolution while the GPU was over budget.
- * `?dynres=0` / `?dynres=off` opts out. SwiftShader still lacks the feature;
+ * `?dynres=0` / `off` / `false` opts out. SwiftShader still lacks the feature;
  * `selectRequiredFeatures` only adds it when advertised.
  */
 export function wantsTimestampQuery(): boolean {
@@ -171,7 +171,7 @@ export function wantsTimestampQuery(): boolean {
     try {
         const params = new URLSearchParams(location.search);
         const dynres = (params.get('dynres') || '').toLowerCase();
-        return !(dynres === '0' || dynres === 'off');
+        return !(dynres === '0' || dynres === 'off' || dynres === 'false');
     } catch {
         return false;
     }
