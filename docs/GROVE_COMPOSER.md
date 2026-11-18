@@ -132,6 +132,34 @@ lock (`isComposerOpen()`). Closing stops any audition, pops the context and give
 unsaved draft is kept per stone until the editor is opened on it again. If a co-editor composes the
 same stone while the editor is open, a clean draft follows their pattern; a pending one is kept.
 
+## Grove flora
+
+`src/systems/composer/composer-flora.ts`. Flora placed in build mode near a music stone changes how
+the stone sounds, through the same pattern and the same playback path (no `progress.grove`):
+
+| Species            | Fills channel     | Harvest       | Batcher             |
+| ------------------ | ----------------- | ------------- | ------------------- |
+| `arpeggio_fern`    | 4 (High arpeggio) | `fern_core`   | `arpeggio-batcher`  |
+| `cymbal_dandelion` | 7 (Sparkle)       | `chime_shard` | `dandelion-batcher` |
+
+- **What a plant changes: the rows it fills.** While the stone's own row on a species' channel is all
+  rests, each plant of that species within 8 m (horizontal) adds two notes to it, up to four plants.
+  The figure is rolled from the stone's seed, so every client hears the same one, and adding a plant
+  keeps the notes already there. A row with any authored note is never touched; a cue bound to an
+  empty row still fires on the notes flora gives it.
+- **Which species:** only those with a harvest id and an `InstancedBatcher`, so no new batcher class.
+  Tremolo tulips and vibrato violets harvest but are not batched, so they do not count.
+- **Derived, not stored.** The `grove-composer` system counts live, authored (`isAuthoredEntity`)
+  plants on each 4 Hz scan and plays `applyGroveFlora(pattern, counts)`. Nothing lands in
+  `params.pattern`, the document or a room message; the editor shows and saves only what the player
+  wrote. Placing, moving or undoing a plant is already a world command, so the effect follows it.
+- **View-only shared worlds:** nothing extra. A viewer cannot place plants (`getBuildModeLock()`
+  keeps build mode shut) and hears the grove the owner planted, derived from the shared entities.
+- **Rows locked for writing still play.** Flora can fill High arpeggio and Sparkle before the player
+  has unlocked them for the editor, the same rule as a visitor hearing a whole pattern.
+
+Tests: `tests/grove-flora.test.ts` (in `test:composer`).
+
 ## Loading
 
 The `composer` chunk (`systems/composer/`, about 14 KB) loads only in a world that has a music
