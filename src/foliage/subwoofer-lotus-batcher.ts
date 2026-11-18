@@ -6,6 +6,7 @@ import {
     mx_noise_float, uv, length, atan, max
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { discoverySystem } from '../systems/discovery/discovery-optimized.ts';
@@ -29,22 +30,34 @@ import { uTwilight } from './sky.ts';
 
 const MAX_LOTUS = getCIAdjustedCount(100, 0.2, 20);
 
-export class SubwooferLotusBatcher {
+interface LotusRecord {
+    proxy: THREE.Object3D;
+    scale: number;
+    /** The interactive stand-in the player gazes at / communes with. */
+    group: THREE.Group | null;
+}
+
+const _padScale = new THREE.Vector3();
+const _ringScale = new THREE.Vector3();
+const _matrix = new THREE.Matrix4();
+
+/**
+ * Subwoofer lotuses: pad (primary), rings and portal (linked, same slots)
+ * (#2166: ported to InstancedBatcher). `proxy.userData.batchIndex` is still
+ * the slot, kept current through onSwap.
+ */
+export class SubwooferLotusBatcher extends InstancedBatcher<LotusRecord> {
     padMesh!: THREE.InstancedMesh;
     ringsMesh!: THREE.InstancedMesh;
     centerMesh!: THREE.InstancedMesh;
 
-    private _count = 0;
-    private _scratchMatrix = new THREE.Matrix4();
-    private _scratchScale = new THREE.Vector3();
-    private _color = new THREE.Color();
-    private logicObjects: THREE.Object3D[] = [];
-
     constructor() {
-        this.init();
+        super('subwoofer-lotus', 'animate', MAX_LOTUS);
+        this.rangedUploads = true;
+        this.ensureMesh();
     }
 
-    private init() {
+    protected createMesh(): THREE.InstancedMesh {
         const hexColor = 0x2E8B57;
 
         // 1. Base Pad
@@ -155,38 +168,42 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         this.centerMesh.count = 0;
         this.centerMesh.frustumCulled = false;
         foliageGroup.add(this.centerMesh);
+
+        this.linkMesh(this.ringsMesh);
+        this.linkMesh(this.centerMesh);
+        return this.padMesh;
     }
 
+    /** Pad is a flattened disc; rings and portal keep the proxy's scale. */
+    private writeMatrices(proxy: THREE.Object3D, scale: number, slot: number): void {
+        _padScale.set(1.5 * scale, 0.2 * scale, 1.5 * scale);
+        _matrix.compose(proxy.position, proxy.quaternion, _padScale);
+        _matrix.toArray(this.padMesh.instanceMatrix.array, slot * 16);
+
+        _ringScale.set(scale, scale, scale);
+        _matrix.compose(proxy.position, proxy.quaternion, _ringScale);
+        _matrix.toArray(this.ringsMesh.instanceMatrix.array, slot * 16);
+        _matrix.toArray(this.centerMesh.instanceMatrix.array, slot * 16);
+    }
+
+    protected writeRecord(rec: LotusRecord, slot: number): void {
+        this.writeMatrices(rec.proxy, rec.scale, slot);
+        rec.proxy.userData.batchIndex = slot;
+    }
+
+    protected onSwap(_from: number, to: number): void {
+        const moved = this.recordAt(to);
+        if (moved) moved.proxy.userData.batchIndex = to;
+    }
+
+    protected step(): void {}
+
     register(proxy: THREE.Object3D, options: { scale?: number, color?: number } = {}) {
-        if (this._count >= MAX_LOTUS) return;
-
         const scale = options.scale ?? 1.0;
-        const i = this._count;
-        this._count++;
+        const rec: LotusRecord = { proxy, scale, group: null };
+        if (this.addKeyed(proxy.uuid, rec) === null) return;
 
-        proxy.userData.batchIndex = i;
         proxy.userData.lotusScale = scale;
-
-        this.padMesh.count = this._count;
-        this.ringsMesh.count = this._count;
-        this.centerMesh.count = this._count;
-
-        // Apply Transform initially to prevent frame 1 blip at origin
-        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix.
-        this._scratchMatrix.compose(proxy.position, proxy.quaternion, proxy.scale);
-
-        const padScale = new THREE.Vector3(1.5 * scale, 0.2 * scale, 1.5 * scale);
-        const padMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, padScale);
-        padMatrix.toArray(this.padMesh.instanceMatrix.array, i * 16);
-
-        const nonPadScale = new THREE.Vector3(scale, scale, scale);
-        const nonPadMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, nonPadScale);
-        nonPadMatrix.toArray(this.ringsMesh.instanceMatrix.array, i * 16);
-        nonPadMatrix.toArray(this.centerMesh.instanceMatrix.array, i * 16);
-
-        this.padMesh.instanceMatrix.needsUpdate = true;
-        this.ringsMesh.instanceMatrix.needsUpdate = true;
-        this.centerMesh.instanceMatrix.needsUpdate = true;
 
         // Interactive Object
         const interactiveGroup = new THREE.Group();
@@ -219,121 +236,44 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
         interactiveGroup.add(hitMesh);
         foliageGroup.add(interactiveGroup);
 
-        // Keep track of the original proxy (which holds the batchIndex) so we can update it on swap.
-        // We will store both the proxy and the interactiveGroup in a custom object or just update logicObjects to hold the proxy.
-        // Wait, updateInstance uses this.logicObjects to update the interactiveGroup position.
-        // Let's store the proxy on the interactiveGroup to reference it back.
         interactiveGroup.userData.proxy = proxy;
         proxy.userData.interactiveGroup = interactiveGroup;
-        this.logicObjects.push(interactiveGroup);
+        rec.group = interactiveGroup;
     }
 
     removeInstance(logicObject: THREE.Object3D) {
-        if (!this.padMesh || !this.ringsMesh || !this.centerMesh) return;
-
-        const indexToRemove = logicObject.userData.batchIndex;
-        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this._count) return;
-
-        const lastIndex = this._count - 1;
-
-        if (indexToRemove !== lastIndex) {
-            // Swap-with-last for all three meshes
-            const padArray = this.padMesh.instanceMatrix.array as Float32Array;
-            const ringsArray = this.ringsMesh.instanceMatrix.array as Float32Array;
-            const centerArray = this.centerMesh.instanceMatrix.array as Float32Array;
-
-            const destOffset = indexToRemove * 16;
-            const srcOffset = lastIndex * 16;
-
-            padArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
-            ringsArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
-            centerArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
-
-            const swappedInteractive = this.logicObjects[lastIndex];
-            if (swappedInteractive) {
-                const proxy = swappedInteractive.userData.proxy as THREE.Object3D;
-                if (proxy) {
-                    proxy.userData.batchIndex = indexToRemove;
-                }
-                this.logicObjects[indexToRemove] = swappedInteractive;
-            }
-        }
-
-        // Dispose interactive dummy (we need the original interactive group from indexToRemove)
-        // Note: the original interactive group is no longer in logicObjects[indexToRemove] if swapped,
-        // but we can just dispose `logicObject.userData.interactiveGroup` if we store it.
-        // Let's store interactiveGroup on logicObject itself when we create it.
-        const interactiveGroup = logicObject.userData.interactiveGroup as THREE.Object3D;
-        if (interactiveGroup) {
-            safeRemoveAndDispose(interactiveGroup.parent as THREE.Scene, interactiveGroup);
-        }
-
-        this.logicObjects[lastIndex] = undefined as any;
-        this.logicObjects.length = lastIndex;
-
-        this._count--;
-        this.padMesh.count = this._count;
-        this.ringsMesh.count = this._count;
-        this.centerMesh.count = this._count;
-
-        this.padMesh.instanceMatrix.needsUpdate = true;
-        this.ringsMesh.instanceMatrix.needsUpdate = true;
-        this.centerMesh.instanceMatrix.needsUpdate = true;
+        const slot = this.slotOfKey(logicObject.uuid);
+        if (slot === undefined) return;
+        const group = this.recordAt(slot)?.group;
+        this.removeKeyed(logicObject.uuid);
+        if (group) safeRemoveAndDispose(group.parent as THREE.Scene, group);
     }
 
-    // Since we need caller to actually place the proxy first, we provide an updateInstance
-    // This allows world generation to register first, then set position, then call updateInstance if needed.
-    // Or we can just read the proxy position directly here.
+    // World generation registers first, then positions the proxy and calls
+    // updateInstance(index, proxy), or the matrices are read at register time.
     updateInstance(index: number, proxy: THREE.Object3D) {
-         if (index >= this._count) return;
-         const scale = proxy.userData.lotusScale ?? 1.0;
+        const rec = this.recordAt(index);
+        if (!rec) return;
+        const scale = proxy.userData.lotusScale ?? 1.0;
+        rec.scale = scale;
+        this.writeMatrices(proxy, scale, index);
+        this.markSlotDirty(index);
 
-         // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy, THREE.Matrix4 instantiation and THREE.Vector3 instantiation by utilizing scratch objects
-         this._scratchScale.set(1.5 * scale, 0.2 * scale, 1.5 * scale);
-         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
-         this._scratchMatrix.toArray(this.padMesh.instanceMatrix.array, index * 16);
-
-         this._scratchScale.set(scale, scale, scale);
-         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
-         this._scratchMatrix.toArray(this.ringsMesh.instanceMatrix.array, index * 16);
-         this._scratchMatrix.toArray(this.centerMesh.instanceMatrix.array, index * 16);
-
-         this.padMesh.instanceMatrix.needsUpdate = true;
-         this.ringsMesh.instanceMatrix.needsUpdate = true;
-         this.centerMesh.instanceMatrix.needsUpdate = true;
-
-         if (this.logicObjects[index]) {
-             this.logicObjects[index].position.copy(proxy.position);
-             this.logicObjects[index].scale.setScalar(scale);
-         }
+        if (rec.group) {
+            rec.group.position.copy(proxy.position);
+            rec.group.scale.setScalar(scale);
+        }
     }
 
     dispose() {
-        if (this.padMesh) {
-            if (this.padMesh.geometry) this.padMesh.geometry.dispose();
-            if (this.padMesh.material) (this.padMesh.material as THREE.Material).dispose();
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.padMesh);
+        for (const rec of this.records) {
+            if (rec?.group) safeRemoveAndDispose(rec.group.parent as THREE.Scene, rec.group);
         }
-        if (this.ringsMesh) {
-            if (this.ringsMesh.geometry) this.ringsMesh.geometry.dispose();
-            if (this.ringsMesh.material) (this.ringsMesh.material as THREE.Material).dispose();
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.ringsMesh);
-        }
-        if (this.centerMesh) {
-            if (this.centerMesh.geometry) this.centerMesh.geometry.dispose();
-            if (this.centerMesh.material) (this.centerMesh.material as THREE.Material).dispose();
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.centerMesh);
-        }
-        for (const obj of this.logicObjects) {
-            safeRemoveAndDispose(obj.parent as THREE.Scene, obj);
-        }
-        this.logicObjects = [];
-        this._count = 0;
+        super.dispose();
     }
 
     flushRegistrations(): void {
-        // No-op: SubwooferLotusBatcher registers immediately in register()
-        // This exists only for API compatibility with other batchers
+        this.flush();
     }
 }
 

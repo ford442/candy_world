@@ -1,5 +1,5 @@
 {
-    "total": 522,
+    "total": 519,
     "updatedAt": "2026-11-18",
     "directories": {
         "src/audio": 3,
@@ -9,7 +9,7 @@
         "src/core/main": 21,
         "src/core/startup": 2,
         "src/debug": 13,
-        "src/foliage": 170,
+        "src/foliage": 167,
         "src/foliage/material-core": 11,
         "src/foliage/mushroom-batcher": 7,
         "src/foliage/tree-batcher": 3,

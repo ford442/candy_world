@@ -108,7 +108,7 @@ async function runTests() {
 
         // Capture lengths before eviction
         const lpInitialCount = luminousPlantBatcher.count;
-        const slInitialCount = subwooferLotusBatcher['_count'];
+        const slInitialCount = subwooferLotusBatcher.instanceCount;
         const danInitialCount = dandelionBatcher.count;
         const cloudInitialCount = CloudBatcher.getInstance().count;
         const fbInitialCount = FaunaBatcher.getInstance().getTotalCount();
@@ -119,7 +119,7 @@ async function runTests() {
         assert.equal(record.evictable.length, 0, 'Evictable array should be cleared after eviction');
 
         assert.equal(luminousPlantBatcher.count, lpInitialCount - 1, 'Luminous plant should be evicted');
-        assert.equal(subwooferLotusBatcher['_count'], slInitialCount - 1, 'Subwoofer lotus should be evicted');
+        assert.equal(subwooferLotusBatcher.instanceCount, slInitialCount - 1, 'Subwoofer lotus should be evicted');
         assert.equal(dandelionBatcher.count, danInitialCount - 1, 'Dandelion should be evicted');
         assert.equal(CloudBatcher.getInstance().count, cloudInitialCount - 12, 'Cloud should be evicted');
         assert.equal(FaunaBatcher.getInstance().getTotalCount(), fbInitialCount - 1, 'Fauna should be evicted');
@@ -150,7 +150,7 @@ async function runTests() {
 
         assert.ok(group1.parent === null, 'Group 1 should be removed from the scene');
         assert.ok(group2.parent !== null, 'Group 2 should still be in the scene (survivor)');
-        assert.strictEqual(subwooferLotusBatcher.logicObjects[0], group2, 'logicObjects[0] must be the old second group');
+        assert.strictEqual(subwooferLotusBatcher.recordAt(0)?.group, group2, 'slot 0 must hold the old second group');
 
         console.log('  ✓ SubwooferLotus swap-with-last works cleanly');
         passed++;
@@ -302,11 +302,11 @@ async function runTests() {
 
         assert.equal(faunaBatcher.getTotalCount(), faunaBefore + 2, 'Fauna should have 2 more counts');
 
-        const removedIndex = faunaBatcher['_species'][0].slotToInstance.get(100);
+        const removedIndex = faunaBatcher['_species'][0].slotOfKey(100);
         faunaBatcher.removeInstance(0, 100);
         assert.equal(faunaBatcher.getTotalCount(), faunaBefore + 1, 'Fauna should have 1 fewer count after swap');
-        assert.equal(faunaBatcher['_species'][0].slotToInstance.get(101), removedIndex, 'Swapped Fauna index updated');
-        assert.equal(faunaBatcher['_species'][0].slotToInstance.has(100), false, 'Removed Fauna slot unmapped');
+        assert.equal(faunaBatcher['_species'][0].slotOfKey(101), removedIndex, 'Swapped Fauna index updated');
+        assert.equal(faunaBatcher['_species'][0].hasKey(100), false, 'Removed Fauna slot unmapped');
         console.log('  ✓ FaunaBatcher swap-with-last successful');
         passed++;
 

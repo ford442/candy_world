@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { color, float, sin, attribute, mix, positionLocal } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
@@ -60,20 +61,89 @@ function createSpeciesGeometry(species: FaunaSpecies): THREE.BufferGeometry {
     }
 }
 
-interface SpeciesSlot {
-    mesh: THREE.InstancedMesh;
-    count: number;
-    phases: Float32Array;
-    glows: Float32Array;
-    slotToInstance: Map<number, number>;
-    phaseDirty?: boolean;
-    glowDirty?: boolean;
+interface FaunaRecord {
+    x: number;
+    y: number;
+    z: number;
+    phase: number;
+    glow: number;
+    /** Set by setInstanceMatrix; otherwise the matrix is a translation to x, y, z. */
+    matrix: THREE.Matrix4 | null;
 }
+
+/**
+ * One species: its own mesh and its own slots. Callers address a critter by
+ * the fauna-system slot (the key), not by instance index.
+ */
+class FaunaSpeciesBatcher extends InstancedBatcher<FaunaRecord> {
+    private phases!: THREE.InstancedBufferAttribute;
+    private glows!: THREE.InstancedBufferAttribute;
+
+    constructor(private readonly species: number) {
+        super(`fauna-${SPECIES_LABELS[species]}`, 'animate', MAX_PER_SPECIES);
+        this.rangedUploads = true;
+    }
+
+    init(): void {
+        this.ensureMesh();
+    }
+
+    protected createMesh(capacity: number): THREE.InstancedMesh {
+        const geo = createSpeciesGeometry(this.species as FaunaSpecies);
+        geo.computeVertexNormals();
+        const mat = createFaunaMaterial(SPECIES_COLORS[this.species]);
+        const mesh = new THREE.InstancedMesh(geo, mat, capacity);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.frustumCulled = true;
+        mesh.castShadow = true;
+        mesh.receiveShadow = false;
+        mesh.count = 0;
+        mesh.name = `Fauna_${SPECIES_LABELS[this.species]}`;
+        mesh.userData.faunaSpecies = this.species;
+
+        this.phases = this.registerAttribute(
+            new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1)
+        );
+        this.glows = this.registerAttribute(
+            new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1)
+        );
+        geo.setAttribute('aPhase', this.phases);
+        geo.setAttribute('aBiomeGlow', this.glows);
+        initInstanceLodAttribute(mesh, capacity);
+
+        foliageGroup.add(mesh);
+        return mesh;
+    }
+
+    protected writeRecord(rec: FaunaRecord, slot: number, array: Float32Array): void {
+        if (rec.matrix) rec.matrix.toArray(array, slot * 16);
+        else _scratchMatrix.makeTranslation(rec.x, rec.y, rec.z).toArray(array, slot * 16);
+        this.phases.array[slot] = rec.phase;
+        this.glows.array[slot] = rec.glow;
+    }
+
+    protected step(): void {}
+
+    /** Set a critter's matrix and phase in place; `slot` is the fauna-system slot. */
+    pose(slot: number, matrix: THREE.Matrix4, phase: number): void {
+        const at = this.slotOfKey(slot);
+        const rec = at === undefined ? null : this.recordAt(at);
+        if (at === undefined || !rec) return;
+        // Copy into the record so a later swap re-writes the current pose.
+        if (!rec.matrix) rec.matrix = new THREE.Matrix4();
+        rec.matrix.copy(matrix);
+        rec.phase = phase;
+        this.writeRecord(rec, at, this.mesh!.instanceMatrix.array as Float32Array);
+        this.markSlotDirty(at);
+    }
+}
+
+const _scratchMatrix = new THREE.Matrix4();
 
 export class FaunaBatcher {
     private static _instance: FaunaBatcher | null = null;
 
-    private readonly _species: SpeciesSlot[] = [];
+    private readonly _species: FaunaSpeciesBatcher[] = [];
     private _initialized = false;
 
     static getInstance(): FaunaBatcher {
@@ -87,32 +157,9 @@ export class FaunaBatcher {
         if (this._initialized) return;
 
         for (let s = 0; s < 3; s++) {
-            const geo = createSpeciesGeometry(s as FaunaSpecies);
-            geo.computeVertexNormals();
-            const mat = createFaunaMaterial(SPECIES_COLORS[s]);
-            const mesh = new THREE.InstancedMesh(geo, mat, MAX_PER_SPECIES);
-            mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            mesh.frustumCulled = true;
-            mesh.castShadow = true;
-            mesh.receiveShadow = false;
-            mesh.count = 0;
-            mesh.name = `Fauna_${SPECIES_LABELS[s]}`;
-            mesh.userData.faunaSpecies = s;
-
-            const phases = new Float32Array(MAX_PER_SPECIES);
-            const glows = new Float32Array(MAX_PER_SPECIES);
-            geo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phases, 1));
-            geo.setAttribute('aBiomeGlow', new THREE.InstancedBufferAttribute(glows, 1));
-            initInstanceLodAttribute(mesh, MAX_PER_SPECIES);
-
-            foliageGroup.add(mesh);
-            this._species.push({
-                mesh,
-                count: 0,
-                phases,
-                glows,
-                slotToInstance: new Map(),
-            });
+            const sp = new FaunaSpeciesBatcher(s);
+            sp.init();
+            this._species.push(sp);
         }
 
         registerFoliageBatcherLod({
@@ -123,6 +170,7 @@ export class FaunaBatcher {
         this._initialized = true;
     }
 
+    /** Returns the instance index (the draw slot at the time of the call), or -1 when full. */
     addInstance(
         species: FaunaSpecies,
         x: number,
@@ -133,20 +181,19 @@ export class FaunaBatcher {
         slot = -1
     ): number {
         const sp = this._species[species];
-        if (!sp || sp.count >= MAX_PER_SPECIES) return -1;
-
-        const idx = sp.count++;
-        sp.mesh.count = sp.count;
-        sp.phases[idx] = phase;
-        sp.glows[idx] = biome === 'luminous_plants' || biome === 'crystalline_nebula' ? 1 : 0.3;
-        if (slot >= 0) sp.slotToInstance.set(slot, idx);
-
-        const m = new THREE.Matrix4().makeTranslation(x, y, z);
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
-        m.toArray(sp.mesh.instanceMatrix.array, idx * 16);
-        sp.phaseDirty = true;
-        sp.glowDirty = true;
-        return idx;
+        if (!sp) return -1;
+        const rec: FaunaRecord = {
+            x,
+            y,
+            z,
+            phase,
+            glow: biome === 'luminous_plants' || biome === 'crystalline_nebula' ? 1 : 0.3,
+            matrix: null,
+        };
+        // Unkeyed critters (slot < 0) are never looked up again, so they only need a handle.
+        const handle = slot >= 0 ? sp.addKeyed(slot, rec) : sp.add(rec);
+        if (handle === null) return -1;
+        return sp.slotOf(handle) ?? -1;
     }
 
     setInstanceMatrix(
@@ -156,80 +203,17 @@ export class FaunaBatcher {
         _biome: string,
         phase: number
     ): void {
-        const sp = this._species[species];
-        const idx = sp.slotToInstance.get(slot);
-        if (idx === undefined) return;
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix.array instead of updateMatrix + setMatrixAt
-        matrix.toArray(sp.mesh.instanceMatrix.array, idx * 16);
-        if (sp.phases[idx] !== phase) {
-            sp.phases[idx] = phase;
-            sp.phaseDirty = true;
-        }
+        this._species[species]?.pose(slot, matrix, phase);
     }
 
+    /** Upload pending changes now; the frame system also does this each frame. */
     syncMatrices(): void {
-        for (const sp of this._species) {
-            if (sp.count > 0) {
-                sp.mesh.instanceMatrix.needsUpdate = true;
-
-                if (sp.phaseDirty) {
-                    const phaseAttr = sp.mesh.geometry.getAttribute(
-                        'aPhase'
-                    ) as THREE.InstancedBufferAttribute;
-                    phaseAttr.needsUpdate = true;
-                    sp.phaseDirty = false;
-                }
-
-                if (sp.glowDirty) {
-                    const glowAttr = sp.mesh.geometry.getAttribute(
-                        'aBiomeGlow'
-                    ) as THREE.InstancedBufferAttribute;
-                    glowAttr.needsUpdate = true;
-                    sp.glowDirty = false;
-                }
-            }
-        }
+        for (const sp of this._species) sp.flush();
     }
-
 
     /** Swap-with-last removal for ChunkStreamer eviction / chunk unloading. */
     removeInstance(species: FaunaSpecies, slot: number): void {
-        const sp = this._species[species];
-        const idx = sp.slotToInstance.get(slot);
-        if (idx === undefined) return;
-
-        const lastIdx = sp.count - 1;
-        if (idx !== lastIdx) {
-            // Find the slot that currently maps to lastIdx
-            let lastSlot = -1;
-            for (const [k, v] of sp.slotToInstance.entries()) {
-                if (v === lastIdx) {
-                    lastSlot = k;
-                    break;
-                }
-            }
-
-            // Move the last element's data to the freed index
-            const matrixArray = sp.mesh.instanceMatrix.array as Float32Array;
-            for (let i = 0; i < 16; i++) {
-                matrixArray[idx * 16 + i] = matrixArray[lastIdx * 16 + i];
-            }
-            sp.phases[idx] = sp.phases[lastIdx];
-            sp.glows[idx] = sp.glows[lastIdx];
-
-            // Update mapping
-            if (lastSlot !== -1) {
-                sp.slotToInstance.set(lastSlot, idx);
-            }
-        }
-
-        sp.slotToInstance.delete(slot);
-        sp.count--;
-        sp.mesh.count = sp.count;
-
-        sp.mesh.instanceMatrix.needsUpdate = true;
-        (sp.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute).needsUpdate = true;
-        (sp.mesh.geometry.getAttribute('aBiomeGlow') as THREE.InstancedBufferAttribute).needsUpdate = true;
+        this._species[species]?.removeKeyed(slot);
     }
 
     getMeshes(): THREE.InstancedMesh[] {
@@ -246,7 +230,7 @@ export class FaunaBatcher {
         // ⚡ OPTIMIZATION: Zero-allocation loop replacing .reduce() to prevent GC spikes
         let total = 0;
         for (let i = 0; i < this._species.length; i++) {
-            total += this._species[i].count;
+            total += this._species[i].instanceCount;
         }
         return total;
     }

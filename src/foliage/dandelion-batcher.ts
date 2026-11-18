@@ -4,9 +4,9 @@ import {
     float, vec3, positionLocal, attribute, mix, sin, color,
     instanceIndex, normalLocal, step, length
 } from 'three/tsl';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, uCircadianPoseOffset, circadianDayGlowMult, uCircadianPhase } from '../systems/biome-uniforms.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
@@ -30,6 +30,8 @@ const _scratchMat = new THREE.Matrix4();
 const _scratchMat2 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
 const _scratchScale = new THREE.Vector3();
 const _scratchVec3 = new THREE.Vector3(); // ⚡ OPTIMIZATION: Additional scratch vector
+const _zero = new THREE.Vector3();
+const _identityQuat = new THREE.Quaternion();
 const _scratchUp = new THREE.Vector3(0, 1, 0); // ⚡ OPTIMIZATION: Additional scratch vector
 const _scratchQuat = new THREE.Quaternion(); // ⚡ OPTIMIZATION: Additional scratch quat
 
@@ -38,24 +40,35 @@ const COLOR_STEM = new THREE.Color(0x556B2F); // Olive Drab
 const COLOR_STALK = new THREE.Color(0xFFFFFF); // White
 const COLOR_TIP = new THREE.Color(0xFFD700);   // Gold
 
-export class DandelionBatcher {
-    initialized: boolean;
-    count: number;
+interface DandelionRecord {
+    obj: THREE.Object3D;
+    scale: number;
+    /** Harvested heads stay in their slot at zero scale; a swap must keep that. */
+    harvested: boolean;
+}
 
-    mesh: THREE.InstancedMesh | null;
-    dummy: THREE.Object3D; // For matrix calculations
-    private logicObjects: THREE.Object3D[] = [];
+/**
+ * Cymbal dandelions: one merged stem + seeds geometry, one draw call
+ * (#2166: ported to InstancedBatcher). `userData.batchIndex` on the logic
+ * object is still the slot, kept current through onSwap, because harvest()
+ * callers hold it.
+ */
+export class DandelionBatcher extends InstancedBatcher<DandelionRecord> {
+    initialized = false;
 
     constructor() {
-        this.initialized = false;
-        this.count = 0;
-        this.mesh = null;
-        this.dummy = new THREE.Object3D();
+        super('dandelion', 'animate', MAX_DANDELIONS);
+        this.rangedUploads = true;
     }
 
     init() {
         if (this.initialized) return;
+        this.ensureMesh();
+        this.initialized = true;
+        console.log(`[DandelionBatcher] Unified Initialized. 1 Draw Call.`);
+    }
 
+    protected createMesh(): THREE.InstancedMesh {
         // --- 1. Geometry Construction (Unified) ---
 
         const geometries: THREE.BufferGeometry[] = [];
@@ -261,90 +274,64 @@ export class DandelionBatcher {
 
         // --- 3. InstancedMesh Setup ---
 
-        this.mesh = new THREE.InstancedMesh(unifiedGeo, mat, MAX_DANDELIONS);
-        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-        this.mesh.count = 0;
+        const mesh = new THREE.InstancedMesh(unifiedGeo, mat, MAX_DANDELIONS);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.count = 0;
+        // The material is the shared cached 'dandelion_batch'; dispose() frees only the geometry.
+        mesh.userData.preventMaterialDispose = true;
 
         if (foliageGroup) {
-            foliageGroup.add(this.mesh);
+            foliageGroup.add(mesh);
         }
-
-        this.initialized = true;
-        console.log(`[DandelionBatcher] Unified Initialized. 1 Draw Call.`);
+        return mesh;
     }
 
     dispose() {
-        if (!this.initialized) return;
-
-        [this.mesh].forEach(mesh => {
-            if (!mesh) return;
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
-        });
-
+        super.dispose();
         this.initialized = false;
-        this.count = 0;
-
-
     }
+
+    protected writeRecord(rec: DandelionRecord, slot: number, array: Float32Array): void {
+        const o = slot * 16;
+        if (rec.harvested) {
+            _scratchScale.set(0, 0, 0);
+            _scratchMat.compose(_zero, _identityQuat, _scratchScale);
+        } else {
+            _scratchMat.compose(rec.obj.position, rec.obj.quaternion, rec.obj.scale);
+            _scratchScale.setScalar(rec.scale);
+            _scratchMat.scale(_scratchScale);
+        }
+        _scratchMat.toArray(array, o);
+        rec.obj.userData.batchIndex = slot;
+    }
+
+    protected onSwap(_from: number, to: number): void {
+        const moved = this.recordAt(to);
+        if (moved) moved.obj.userData.batchIndex = to;
+    }
+
+    protected step(): void {}
 
     register(logicObject: THREE.Object3D, options: any = {}) {
         if (!this.initialized) this.init();
-        if (this.count >= MAX_DANDELIONS) return;
-
-        const i = this.count;
-        this.count++;
-
-        // Scale logic
-        const scale = options.scale || 1.0;
-
-        // Copy transform from logic object
-        _scratchMat.compose(logicObject.position, logicObject.quaternion, logicObject.scale);
-
-        // Apply Scale to the matrix
-        _scratchScale.setScalar(scale);
-        _scratchMat.scale(_scratchScale);
-
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMat.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
-        this.mesh!.instanceMatrix.needsUpdate = true;
-        this.mesh!.count = this.count;
+        const handle = this.addKeyed(logicObject.uuid, {
+            obj: logicObject,
+            scale: options.scale || 1.0,
+            harvested: false,
+        });
+        if (handle === null) return;
 
         // Store batch index on logic object for later updates (like harvesting)
-        logicObject.userData.batchIndex = i;
         logicObject.userData.type = 'cymbal_dandelion';
         logicObject.userData.isBatched = true;
-        this.logicObjects[i] = logicObject;
     }
 
     removeInstance(logicObject: THREE.Object3D) {
         if (!this.initialized || !this.mesh) return;
-
-        const indexToRemove = logicObject.userData.batchIndex;
-        if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
-
-        const lastIndex = this.count - 1;
-
-        if (indexToRemove !== lastIndex) {
-            // Swap-with-last
-            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
-            const destOffset = indexToRemove * 16;
-            const srcOffset = lastIndex * 16;
-            matrixArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
-
-            const swappedObject = this.logicObjects[lastIndex];
-            if (swappedObject) {
-                swappedObject.userData.batchIndex = indexToRemove;
-                this.logicObjects[indexToRemove] = swappedObject;
-            }
-        }
-
-        this.logicObjects[lastIndex] = undefined as any;
+        if (!this.removeKeyed(logicObject.uuid)) return;
         logicObject.userData.batchIndex = -1;
-        this.count--;
-        this.mesh.count = this.count;
-        this.mesh.instanceMatrix.needsUpdate = true;
     }
 
     harvest(batchIndex: number) {
@@ -352,10 +339,11 @@ export class DandelionBatcher {
         if (batchIndex < 0 || batchIndex >= this.count) return;
 
         // Just hide it by scaling to zero
-        this.dummy.scale.set(0, 0, 0);
-        _scratchMat.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
-        _scratchMat.toArray(this.mesh.instanceMatrix.array, (batchIndex) * 16);
-        this.mesh.instanceMatrix.needsUpdate = true;
+        const rec = this.recordAt(batchIndex);
+        if (!rec) return;
+        rec.harvested = true;
+        this.writeRecord(rec, batchIndex, this.mesh.instanceMatrix.array as Float32Array);
+        this.markSlotDirty(batchIndex);
 
         console.log(`[DandelionBatcher] Harvested dandelion #${batchIndex}`);
     }
