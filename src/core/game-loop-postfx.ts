@@ -92,6 +92,28 @@ export function updateSunShadowFollow(
     }
 }
 
+/** Ray fan sits on the sky dome where the sun (or moon) is. */
+const _SHAFT_SKY_DISTANCE = 380;
+let _shaftSpin = 0;
+/**
+ * Keep the shaft fan on the sky: centred on the celestial body as seen from the
+ * camera and facing it, spinning in its own plane. It used to stay at the boot-time
+ * sun position in world space, so as the sun moved and the player walked, the
+ * 200 m planes were seen edge-on as huge white wedges across the scene.
+ */
+function _anchorShaftsToSky(delta: number): void {
+    const group = lightShaftGroupRef;
+    if (!group || !cameraRef) return;
+    _shaftSpin += delta * 0.1;
+    // Night rays come from the moon, opposite the sun.
+    const sign = _shaftIsNightMode && !_shaftIsGoldenHour ? -1 : 1;
+    group.position
+        .copy(cameraRef.position)
+        .addScaledVector(_scratchSunVector, sign * _SHAFT_SKY_DISTANCE);
+    group.lookAt(cameraRef.position);
+    group.rotateZ(_shaftSpin);
+}
+
 export function _celestialInView(direction: THREE.Vector3): boolean {
     if (!cameraRef) return false;
     cameraRef.getWorldDirection(_scratchCameraForward);
@@ -167,12 +189,13 @@ export function applyMusicReactiveLightShafts(delta: number): void {
             AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer
         );
         const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
-        shaftVisible = strongMelody && shaftOpacity > 0.01;
+        // Rays radiate from the sun: never draw them when it is out of view.
+        shaftVisible = strongMelody && _celestialInView(_scratchSunVector) && shaftOpacity > 0.01;
     }
 
     if (lightShaftGroupRef) lightShaftGroupRef.visible = shaftVisible;
     if (shaftVisible) {
-        lightShaftGroupRef.rotation.z += delta * 0.1;
+        _anchorShaftsToSky(delta);
         const capped = Math.min(_SHAFT_OPACITY_CAP, shaftOpacity);
         _setShaftOpacity(capped);
         // Screen-space radial scatter companion (bloom swell, no extra render pass)
