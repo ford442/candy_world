@@ -47,7 +47,7 @@ export async function runInputPipeline(ctx: MainContext): Promise<void> {
         ctx.inputSystem = initInput(
             camera,
             ctx.audioSystem!,
-            () => toggleDayNight(ctx.timeOffset),
+            () => toggleDayNight(ctx.timeOffset, getGameTime()),
             // Dancing, the build gizmo holding the cursor for a drag, or the grove composer open.
             () => player.isDancing || isBuildGizmoOpen() || isComposerOpen()
         );

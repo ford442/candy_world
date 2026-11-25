@@ -32,6 +32,7 @@
         "check:dsp-wasm": "node scripts/check-dsp-wasm.mjs",
         "test:native-memory": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/native-memory.test.mjs",
         "test:native-omp-regions": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/native-omp-regions.test.mjs",
+        "test:smoke:remote": "node tests/smoke-remote.mjs",
         "test:smoke-loop": "SMOKE_LOOP=1 node tests/smoke-runner.mjs",
         "test:native-batch-parity": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/native-batch-parity.test.mjs",
         "test:native-boids-parity": "tsx --import ./tests/support/register-wasm-hooks.mjs tests/native-boids-parity.test.mjs",

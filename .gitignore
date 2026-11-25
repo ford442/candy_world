@@ -115,3 +115,4 @@ supabase/.branches/
 .env.local
 .env.*.local
 supabase/functions/**/deno.lock
+smoke-artifacts/
