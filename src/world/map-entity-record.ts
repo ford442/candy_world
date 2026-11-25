@@ -46,6 +46,8 @@ export const SUPPORTED_EXPORT_TYPES = new Set<string>([
     'luminous_plant',
     'melody_mirror',
     'music_stone',
+    'chime_tulip',
+    'drum_puffball',
     'cave',
     'gem_canopy_tree',
     'glass_mushroom',
@@ -90,7 +92,9 @@ export function inferCategory(type: string): string {
         type === 'kick_drum_geyser' ||
         type === 'subwoofer_lotus' ||
         type === 'portamento_pine' ||
-        type === 'cymbal_dandelion'
+        type === 'cymbal_dandelion' ||
+        type === 'chime_tulip' ||
+        type === 'drum_puffball'
     )
         return 'musical-flora';
     if (
