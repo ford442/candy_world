@@ -24,6 +24,7 @@ import { refreshStartupCapabilities } from '../startup/capabilities.ts';
 import { POST_PROCESSING_PROGRESS } from './constants.ts';
 import type { MainContext } from './context.ts';
 import { assignCoreExports } from './exports.ts';
+import { installSmokeProbe } from './smoke-probe.ts';
 
 export async function runScenePipeline(ctx: MainContext): Promise<void> {
     const { loadingScreen } = ctx;
@@ -97,6 +98,7 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
         interactiveObjects,
     };
     installWorldExportTools();
+    installSmokeProbe();
 
     // Renderer is up — re-resolve capabilities with isFallbackAdapter / WebGL now known
     // so postfx/warmup/deferred gates match the actual backend before the TSL graph builds.

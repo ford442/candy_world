@@ -1,0 +1,93 @@
+name: remote smoke
+
+# Headless production smoke against a DEPLOYED build (tests/smoke-remote.mjs):
+# 0 console errors, 0 failed or >=400 requests, crossOriginIsolated, and the core
+# flows (WASD, mouse-look, jump, day/night, DSP music, build mode, save slots,
+# ?no_dsp, ?preset=minimal, WebGL2 fallback). See docs/CI_CONTRACT.md.
+#
+# Run it by hand (Actions → remote smoke → Run workflow) after
+# `npm run deploy:staging`, or post-deploy with a repository_dispatch:
+#   gh api repos/<owner>/<repo>/dispatches -f event_type=staging-deployed \
+#     -F 'client_payload[url]=https://test.1ink.us/candy-world/staging/<sha>/' \
+#     -F 'client_payload[sha]=<full sha>'
+
+permissions:
+    contents: read
+
+on:
+    workflow_dispatch:
+        inputs:
+            url:
+                description: 'Deployed build URL (e.g. https://test.1ink.us/candy-world/staging/<short-sha>/)'
+                required: true
+            sha:
+                description: 'Commit the deploy should be (checked against BUILD_INFO.json); empty to skip'
+                required: false
+                default: ''
+            only:
+                description: 'Comma-separated scenarios (webgpu,no-dsp,minimal,webgl); empty for all'
+                required: false
+                default: ''
+    repository_dispatch:
+        types: [staging-deployed]
+
+concurrency:
+    group: remote-smoke-${{ github.event.inputs.url || github.event.client_payload.url }}
+    cancel-in-progress: true
+
+jobs:
+    smoke:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        env:
+            SMOKE_URL: ${{ github.event.inputs.url || github.event.client_payload.url }}
+            SMOKE_EXPECT_SHA: ${{ github.event.inputs.sha || github.event.client_payload.sha }}
+            SMOKE_ONLY: ${{ github.event.inputs.only || github.event.client_payload.only }}
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 9
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - name: Install deps
+              run: pnpm install --frozen-lockfile
+
+            # GitHub's hosted runners have no GPU: Chromium renders WebGPU and WebGL2
+            # through SwiftShader. With no adapter at all the webgpu scenario still runs
+            # its flows on the fallback and says so; a GPU runner can pass --webgpu-required.
+            - name: Install Chromium
+              run: pnpm exec playwright install --with-deps chromium
+
+            - name: Remote smoke
+              run: |
+                  args=(--url "$SMOKE_URL" --out smoke-artifacts)
+                  [ -n "$SMOKE_EXPECT_SHA" ] && args+=(--expect-sha "$SMOKE_EXPECT_SHA")
+                  [ -n "$SMOKE_ONLY" ] && args+=(--only "$SMOKE_ONLY")
+                  node tests/smoke-remote.mjs "${args[@]}"
+
+            - name: Summary
+              if: always()
+              run: |
+                  [ -f smoke-artifacts/smoke-summary.json ] || exit 0
+                  node -e '
+                    const s = require("./smoke-artifacts/smoke-summary.json");
+                    const rows = Object.entries(s.scenarios).map(([n, r]) =>
+                      `| ${n} | ${r.ok ? "✅" : "❌"} | ${r.counts.consoleErrors + r.counts.pageErrors + r.counts.unhandledRejections} | ${r.counts.failedRequests + r.counts.badResponses} | ${r.health?.succeeded ?? "-"} | ${r.health?.batcherInstances ?? "-"} | ${r.renderer?.badge ?? "-"} |`);
+                    console.log([`## Remote smoke ${s.ok ? "✅" : "❌"}`, "", `URL: ${s.url}`, `BUILD_INFO commit: ${s.build?.info?.commit ?? "n/a"}`, "",
+                      "| scenario | ok | console/page errors | failed/>=400 requests | succeeded | batcher instances | badge |",
+                      "|---|---|---|---|---|---|---|", ...rows].join("\n"));
+                  ' >> "$GITHUB_STEP_SUMMARY"
+
+            - name: Upload screenshots and logs
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: remote-smoke-${{ github.run_id }}
+                  path: smoke-artifacts/
+                  retention-days: 30

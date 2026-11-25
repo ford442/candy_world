@@ -7,6 +7,7 @@ import { mountAbilityHud, type AbilityHud } from '../ui/ability-hud.ts';
 import { announce } from '../ui/announcer.ts';
 import { setKitTheme } from '../ui/kit/index.ts';
 import { CYCLE_DURATION } from './config.ts';
+import { getCyclePos, isNightCyclePos, NIGHT_START } from './cycle.ts';
 
 // Theme state (managed here, but timeOffset is in main)
 let isNight = false;
@@ -111,8 +112,17 @@ export function updateTheme(isNightMode: boolean) {
     }
 }
 
-export function toggleDayNight(timeOffsetRef: { value: number }) {
-    timeOffsetRef.value += CYCLE_DURATION / 2;
+/**
+ * Jump to the middle of the opposite phase. A fixed half-cycle shift does not
+ * always cross: day (sunrise..sunset) is longer than night, so a press in the
+ * first minute of the cycle used to land at sunset and stay "day".
+ */
+export function toggleDayNight(timeOffsetRef: { value: number }, worldTime = 0) {
+    const pos = getCyclePos(worldTime + timeOffsetRef.value);
+    const target = isNightCyclePos(pos)
+        ? NIGHT_START / 2
+        : NIGHT_START + (CYCLE_DURATION - NIGHT_START) / 2;
+    timeOffsetRef.value += (target - pos + CYCLE_DURATION) % CYCLE_DURATION;
     // Note: We no longer update button state here.
     // The animate loop detects the time shift, updates 'isNight',
     // and triggers 'updateTheme()' automatically.
