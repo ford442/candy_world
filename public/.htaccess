@@ -16,3 +16,8 @@
     Header set Cross-Origin-Opener-Policy "same-origin"
     Header set Cross-Origin-Embedder-Policy "require-corp"
 </IfModule>
+
+# 4. Serve the app at the folder URL (staging/<sha>/, stable/): the host's
+# default is a directory listing.
+DirectoryIndex index.html
+Options -Indexes

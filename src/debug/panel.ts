@@ -2,6 +2,7 @@
 // Debug UI panel for toggling initialization stages
 
 import { CONFIG } from '../core/config.ts';
+import { getAverageGpuFrameTime } from '../core/gpu-frame-stats.ts';
 import { GPU_OPTIONAL_FEATURES, getPlatformCapabilities } from '../core/platform/capabilities.ts';
 import { frameScheduler } from '../core/scheduler/frame-scheduler.ts';
 import { uAoStrength, uBloomRadius, uBloomThreshold } from '../foliage/post-processing-uniforms.ts';
@@ -14,7 +15,6 @@ import {
 } from '../rendering/shadow-softness.ts';
 import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 import { getFogTelemetry } from '../systems/environment/atmosphere-fog.ts';
-import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import {
     collectSystemsBudget,
     getBudgetCapViolations,
@@ -390,7 +390,7 @@ export class DebugPanel {
         }
 
         if (this.frameSystemsSummaryEl) {
-            const gpu = performanceBudget.getAverageGpuFrameTime();
+            const gpu = getAverageGpuFrameTime();
             const cpu = stats.reduce((sum, s) => sum + s.avgMs, 0);
             this.frameSystemsSummaryEl.textContent =
                 `CPU ${cpu.toFixed(2)} ms  GPU ${gpu === null ? 'n/a' : `${gpu.toFixed(2)} ms`}\n` +

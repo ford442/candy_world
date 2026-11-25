@@ -36,6 +36,9 @@ const RENDERER = process.env.RENDERER?.toLowerCase();
 const WEBGL_BOOT_REQUESTED = RENDERER === 'webgl' || RENDERER === 'webgl2';
 // Extra query params appended to the boot URL, e.g. EXTRA_QS=debugPhysics=1
 // to smoke a debug-flagged subsystem through the normal harness.
+// SMOKE_URL=https://host/prefix/ boots a deployed build instead of vite preview.
+const SMOKE_URL = process.env.SMOKE_URL ? process.env.SMOKE_URL.replace(/\/?$/, '/') : null;
+const BASE_URL = SMOKE_URL ?? 'http://localhost:4173/';
 const EXTRA_QS = process.env.EXTRA_QS?.replace(/^[?&]/, '') ?? '';
 
 function bootPathLabel() {
@@ -116,7 +119,8 @@ async function runSmokeTest() {
     try {
         // Check if server is already running
         console.log('Checking for existing Vite preview server on port 4173...');
-        const serverRunning = await checkServerOnPort(4173);
+        const serverRunning = SMOKE_URL ? true : await checkServerOnPort(4173);
+        if (SMOKE_URL) console.log(`✓ SMOKE_URL set: booting ${SMOKE_URL}`);
 
         if (!serverRunning) {
             console.log('Starting new Vite preview server...');
@@ -268,7 +272,7 @@ async function runSmokeTest() {
             ? `boot=explore&graphics=${gfxParam}&freezeLoop=1`
             : `graphics=${gfxParam}&freezeLoop=1`;
         const extraQs = EXTRA_QS ? `&${EXTRA_QS}` : '';
-        const bootUrl = `http://localhost:4173/?${profileQs}${extraQs}`;
+        const bootUrl = `${BASE_URL}?${profileQs}${extraQs}`;
         console.log(`\nNavigating to ${bootUrl}`);
         try {
             await page.goto(bootUrl, {
@@ -635,10 +639,13 @@ async function runSmokeTest() {
         // Results
         console.log('\nChecking physics path stats...');
         // Let the simulation run for a moment so some frames pass
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 500));
         const physicsStats = await page.evaluate(() => window.__physicsPathStats).catch(() => null);
         if (!physicsStats || physicsStats.native === 0) {
-            console.warn("⚠️  WARNING: Native physics path was never hit! Controller might be doing 100% of the work. Stats:", physicsStats);
+            console.warn(
+                '⚠️  WARNING: Native physics path was never hit! Controller might be doing 100% of the work. Stats:',
+                physicsStats
+            );
         } else {
             console.log(`✓ Native physics path verified (${physicsStats.native} frames)`);
         }
@@ -693,7 +700,9 @@ const LOOP_FAIL_PATTERNS = [
 
 // SMOKE_LOOP_IGNORE=<regex>: a known failure being tracked elsewhere. Every
 // ignored line is printed and counted in the summary; never set it in CI.
-const LOOP_IGNORE = process.env.SMOKE_LOOP_IGNORE ? new RegExp(process.env.SMOKE_LOOP_IGNORE) : null;
+const LOOP_IGNORE = process.env.SMOKE_LOOP_IGNORE
+    ? new RegExp(process.env.SMOKE_LOOP_IGNORE)
+    : null;
 
 async function runLoopSmoke() {
     console.log('🎮 Candy World Loop Smoke (SMOKE_LOOP=1)');
@@ -826,7 +835,9 @@ async function runLoopSmoke() {
     }
 
     if (ignored.length) {
-        console.warn(`\n⚠ ${ignored.length} line(s) ignored by SMOKE_LOOP_IGNORE=${process.env.SMOKE_LOOP_IGNORE}`);
+        console.warn(
+            `\n⚠ ${ignored.length} line(s) ignored by SMOKE_LOOP_IGNORE=${process.env.SMOKE_LOOP_IGNORE}`
+        );
     }
     if (failures.length) {
         console.error(`\n❌ Loop smoke FAILED (${failures.length}):`);

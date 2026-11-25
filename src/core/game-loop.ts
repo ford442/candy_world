@@ -6,7 +6,6 @@
 import * as THREE from 'three';
 import { installFrameHitchCounter } from '../rendering/frame-hitches.ts';
 import { createGpuFrameTimer, type GpuFrameTimer } from '../rendering/gpu-frame-timer.ts';
-import { performanceBudget } from '../systems/performance-budget/performance-budget-core.ts';
 import { getPhotoMode } from '../systems/photo-mode/lazy.ts';
 import { player } from '../systems/physics/index.ts';
 import { profiler } from '../utils/profiler.ts';
@@ -27,6 +26,7 @@ import {
     WebGPURendererWithDeviceLimits,
 } from './game-loop-core.ts';
 import { registerFrameSystems } from './game-loop-systems.ts';
+import { recordGpuFrameTime } from './gpu-frame-stats.ts';
 import { getPlatformCapabilities } from './platform/capabilities.ts';
 import { frameScheduler } from './scheduler/frame-scheduler.ts';
 
@@ -71,7 +71,6 @@ export function animate() {
 
     frameHitches.beginFrame(performance.now());
     profiler.startFrame();
-    performanceBudget.beginFrame();
 
     if (!_loggedWebGPULimits) {
         const limits = (rendererRef as WebGPURendererWithDeviceLimits).backend?.device?.limits;
@@ -110,12 +109,11 @@ export function animate() {
     }
 
     profiler.endFrame();
-    performanceBudget.endFrame();
 
     // GPU time from timestamp-query (when granted), sampled every few frames.
     if (rendererRef) {
         gpuFrameTimer ??= createGpuFrameTimer(rendererRef, (ms) => {
-            performanceBudget.setGpuFrameTime(ms);
+            recordGpuFrameTime(ms);
             postProcessingRef?.onGpuFrameTime?.(ms);
         });
         gpuFrameTimer.endFrame();
