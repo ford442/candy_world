@@ -92,7 +92,13 @@ async function launch() {
 async function openPage(browser, scenario, { hideWebGPU = false } = {}) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
     const page = await context.newPage();
-    const issues = { consoleErrors: [], pageErrors: [], rejections: [], failedRequests: [], badResponses: [] };
+    const issues = {
+        consoleErrors: [],
+        pageErrors: [],
+        rejections: [],
+        failedRequests: [],
+        badResponses: [],
+    };
     const counts = { requests: 0, responses: 0, consoleMessages: 0 };
     let closing = false;
 
@@ -142,7 +148,10 @@ async function openPage(browser, scenario, { hideWebGPU = false } = {}) {
         // The way a real browser without WebGPU reaches the fallback: the boot probe fails at
         // its `navigator` stage and createRenderer() falls back to WebGL2.
         await page.addInitScript(() => {
-            Object.defineProperty(Navigator.prototype, 'gpu', { get: () => undefined, configurable: true });
+            Object.defineProperty(Navigator.prototype, 'gpu', {
+                get: () => undefined,
+                configurable: true,
+            });
         });
     }
     return {
@@ -191,7 +200,9 @@ const camQuat = (page) =>
 
 async function shot(page, name) {
     const file = path.join(OUT, `${name}.png`);
-    await page.screenshot({ path: file }).catch((e) => note('-', 'screenshot-failed', `${name}: ${e.message}`));
+    await page
+        .screenshot({ path: file })
+        .catch((e) => note('-', 'screenshot-failed', `${name}: ${e.message}`));
     return path.basename(file);
 }
 
@@ -206,7 +217,9 @@ function flowRunner(flows) {
         try {
             const detail = await fn();
             flows.push({ name, ok: true, ms: Date.now() - t0, detail: detail ?? null });
-            console.log(`   ✅ ${name}${detail ? ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}` : ''}`);
+            console.log(
+                `   ✅ ${name}${detail ? ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}` : ''}`
+            );
         } catch (e) {
             flows.push({ name, ok: false, ms: Date.now() - t0, error: e.message });
             console.log(`   ❌ ${name} — ${e.message}`);
@@ -229,8 +242,16 @@ async function waitFor(page, fn, arg, timeout, what) {
 const SCENARIOS = {
     async webgpu(browser, run, ctx) {
         const { page } = ctx;
-        await run('boot to __sceneReady', async () => `${await boot(page, 'boot=explore&graphics=low')}`);
-        await run('crossOriginIsolated === true', async () => assert(await checkIsolation(page), 'crossOriginIsolated is false (COOP/COEP headers missing?)'));
+        await run(
+            'boot to __sceneReady',
+            async () => `${await boot(page, 'boot=explore&graphics=low')}`
+        );
+        await run('crossOriginIsolated === true', async () =>
+            assert(
+                await checkIsolation(page),
+                'crossOriginIsolated is false (COOP/COEP headers missing?)'
+            )
+        );
         const renderer = await page.evaluate(() => ({
             hasNavigatorGpu: !!navigator.gpu,
             usingWebGPU: window.usingWebGPU === true,
@@ -248,16 +269,26 @@ const SCENARIOS = {
                 ctx.envNote = msg;
             }
         } else {
-            await run('renderer is WebGPU', async () => `badge=${renderer.badge} adapter=${renderer.adapter}`);
+            await run(
+                'renderer is WebGPU',
+                async () => `badge=${renderer.badge} adapter=${renderer.adapter}`
+            );
         }
 
         await run('enter world + world health thresholds', async () => {
             await enterWorld(page);
             const h = await page.evaluate(() => window.__worldHealth);
-            ctx.health = { succeeded: h?.succeeded, batcherInstances: h?.batchers?.totalInstances, healthy: h?.healthy };
+            ctx.health = {
+                succeeded: h?.succeeded,
+                batcherInstances: h?.batchers?.totalInstances,
+                healthy: h?.healthy,
+            };
             assert(h, '__worldHealth missing');
             assert(h.succeeded >= 1000, `succeeded ${h.succeeded} < 1000`);
-            assert(h.batchers?.totalInstances >= 100, `batcher instances ${h.batchers?.totalInstances} < 100`);
+            assert(
+                h.batchers?.totalInstances >= 100,
+                `batcher instances ${h.batchers?.totalInstances} < 100`
+            );
             return ctx.health;
         });
 
@@ -268,7 +299,9 @@ const SCENARIOS = {
             const p = await probe(page);
             // Headless Chromium may refuse pointer lock without a focused window; mouse-look below
             // is the behavioural check either way.
-            return p.pointerLocked ? 'pointer locked' : 'pointer lock refused by headless browser (mouse-look still checked)';
+            return p.pointerLocked
+                ? 'pointer locked'
+                : 'pointer lock refused by headless browser (mouse-look still checked)';
         });
 
         await run('WASD moves the player', async () => {
@@ -290,7 +323,9 @@ const SCENARIOS = {
             // those on page.mouse moves, so send the same DOM events a real mouse produces.
             for (let i = 0; i < 10; i++) {
                 await page.evaluate(() =>
-                    document.dispatchEvent(new MouseEvent('mousemove', { movementX: 25, movementY: -6, bubbles: true }))
+                    document.dispatchEvent(
+                        new MouseEvent('mousemove', { movementX: 25, movementY: -6, bubbles: true })
+                    )
                 );
                 await sleep(30);
             }
@@ -318,33 +353,77 @@ const SCENARIOS = {
         await run('day/night toggle (N)', async () => {
             const before = (await probe(page)).isNight;
             await page.keyboard.press('KeyN');
-            await waitFor(page, (b) => window.__smokeProbe().isNight !== b, before, 10000, 'isNight to flip');
+            await waitFor(
+                page,
+                (b) => window.__smokeProbe().isNight !== b,
+                before,
+                10000,
+                'isNight to flip'
+            );
             await page.keyboard.press('KeyN');
-            await waitFor(page, (b) => window.__smokeProbe().isNight === b, before, 10000, 'isNight to flip back');
+            await waitFor(
+                page,
+                (b) => window.__smokeProbe().isNight === b,
+                before,
+                10000,
+                'isNight to flip back'
+            );
             return `${before ? 'night' : 'day'} → ${before ? 'day' : 'night'} → back`;
         });
 
         await run('generative music on the DSP worklet', async () => {
-            await waitFor(page, () => window.AudioSystem?.generativeEngine?.running === true, null, 30000, 'generative engine running');
-            await waitFor(page, () => window.AudioSystem.generativeEngine.voiceBackend === 'dsp', null, 30000, "voiceBackend === 'dsp'");
+            await waitFor(
+                page,
+                () => window.AudioSystem?.generativeEngine?.running === true,
+                null,
+                30000,
+                'generative engine running'
+            );
+            await waitFor(
+                page,
+                () => window.AudioSystem.generativeEngine.voiceBackend === 'dsp',
+                null,
+                30000,
+                "voiceBackend === 'dsp'"
+            );
             return 'running, voices=dsp';
         });
 
         await run('build mode B opens and closes', async () => {
             await page.keyboard.press('KeyB');
-            await waitFor(page, () => window.__smokeProbe().buildMode === true, null, 30000, 'build mode on');
+            await waitFor(
+                page,
+                () => window.__smokeProbe().buildMode === true,
+                null,
+                30000,
+                'build mode on'
+            );
             ctx.screenshots.push(await shot(page, 'webgpu-build-mode'));
             await page.keyboard.press('KeyB');
-            await waitFor(page, () => window.__smokeProbe().buildMode === false, null, 10000, 'build mode off');
+            await waitFor(
+                page,
+                () => window.__smokeProbe().buildMode === false,
+                null,
+                10000,
+                'build mode off'
+            );
         });
 
         await run('save slot write and read', async () => {
-            await waitFor(page, () => typeof window.saveGame === 'function', null, 30000, 'save system');
+            await waitFor(
+                page,
+                () => typeof window.saveGame === 'function',
+                null,
+                30000,
+                'save system'
+            );
             const ok = await page.evaluate(() => window.saveGame('smoke-remote'));
             assert(ok === true, `saveGame returned ${ok}`);
             const data = await page.evaluate(async () => {
                 const d = await window.loadGame('smoke-remote');
-                return d ? { slotId: d.slotId ?? d.metadata?.slotId ?? null, keys: Object.keys(d) } : null;
+                return d
+                    ? { slotId: d.slotId ?? d.metadata?.slotId ?? null, keys: Object.keys(d) }
+                    : null;
             });
             assert(data, 'loadGame returned nothing');
             return data;
@@ -360,7 +439,13 @@ const SCENARIOS = {
         await run('enter world', () => enterWorld(page));
         await run('soundtrack falls back to SynthVoice', async () => {
             await page.mouse.click(640, 360);
-            await waitFor(page, () => window.AudioSystem?.generativeEngine?.running === true, null, 30000, 'generative engine running');
+            await waitFor(
+                page,
+                () => window.AudioSystem?.generativeEngine?.running === true,
+                null,
+                30000,
+                'generative engine running'
+            );
             const v = await page.evaluate(() => window.AudioSystem.generativeEngine.voiceBackend);
             assert(v === 'synth', `voiceBackend=${v}`);
             return 'voices=synth';
@@ -370,7 +455,9 @@ const SCENARIOS = {
     async minimal(browser, run, ctx) {
         const { page } = ctx;
         await run('boot ?preset=minimal', () => boot(page, 'preset=minimal'));
-        await run('crossOriginIsolated === true', async () => assert(await checkIsolation(page), 'crossOriginIsolated is false'));
+        await run('crossOriginIsolated === true', async () =>
+            assert(await checkIsolation(page), 'crossOriginIsolated is false')
+        );
         ctx.screenshots.push(await shot(page, 'minimal-start-screen'));
     },
 
@@ -388,14 +475,19 @@ const SCENARIOS = {
             assert(r.usingWebGL && r.badge === 'WEBGL2 FALLBACK', JSON.stringify(r));
             return r;
         });
-        await run('crossOriginIsolated === true', async () => assert(await checkIsolation(page), 'crossOriginIsolated is false'));
+        await run('crossOriginIsolated === true', async () =>
+            assert(await checkIsolation(page), 'crossOriginIsolated is false')
+        );
         ctx.screenshots.push(await shot(page, 'webgl-start-screen'));
         await run('enter world (fallback)', async () => {
             await enterWorld(page);
             const h = await page.evaluate(() => window.__worldHealth);
             ctx.health = { succeeded: h?.succeeded, batcherInstances: h?.batchers?.totalInstances };
             assert(h.succeeded >= 1000, `succeeded ${h.succeeded} < 1000`);
-            assert(h.batchers?.totalInstances >= 100, `batcher instances ${h.batchers?.totalInstances} < 100`);
+            assert(
+                h.batchers?.totalInstances >= 100,
+                `batcher instances ${h.batchers?.totalInstances} < 100`
+            );
             return ctx.health;
         });
         await run('WASD moves the player (fallback)', async () => {
@@ -420,7 +512,9 @@ async function buildInfo() {
     const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
     const api = await request.newContext(proxy ? { proxy: { server: proxy } } : {});
     try {
-        const r = await api.get(`${BASE}BUILD_INFO.json`, { headers: { 'cache-control': 'no-cache' } });
+        const r = await api.get(`${BASE}BUILD_INFO.json`, {
+            headers: { 'cache-control': 'no-cache' },
+        });
         const page = await api.get(BASE, { headers: { 'cache-control': 'no-cache' } });
         const ph = page.headers();
         const pageHeaders = {
@@ -458,7 +552,10 @@ if (EXPECT_SHA) {
     await preRun(`BUILD_INFO.json names ${EXPECT_SHA.slice(0, 12)}`, async () => {
         const info = summary.build.info ?? {};
         const sha = info.commit ?? info.sha ?? JSON.stringify(info);
-        assert(String(sha).startsWith(EXPECT_SHA) || EXPECT_SHA.startsWith(String(sha)), `BUILD_INFO has ${sha}`);
+        assert(
+            String(sha).startsWith(EXPECT_SHA) || EXPECT_SHA.startsWith(String(sha)),
+            `BUILD_INFO has ${sha}`
+        );
     });
 }
 summary.preflight = pre;
@@ -482,7 +579,8 @@ try {
         }
         await sleep(500);
         const { issues, counts } = handle;
-        const ok = flows.every((f) => f.ok) && Object.values(issues).every((list) => list.length === 0);
+        const ok =
+            flows.every((f) => f.ok) && Object.values(issues).every((list) => list.length === 0);
         for (const [k, list] of Object.entries(issues)) {
             for (const item of list.slice(0, 20)) console.log(`   ✗ ${k}: ${item}`);
         }
@@ -504,7 +602,9 @@ try {
             flows,
             screenshots: ctx.screenshots,
         };
-        console.log(`${ok ? '✅' : '❌'} ${name}: ${JSON.stringify(summary.scenarios[name].counts)}`);
+        console.log(
+            `${ok ? '✅' : '❌'} ${name}: ${JSON.stringify(summary.scenarios[name].counts)}`
+        );
         if (!ok) failed = true;
         await handle.close();
     }
