@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
+import type { FrameContext } from '../core/scheduler/types.ts';
 import {
     color,
     uniform,
@@ -236,7 +237,6 @@ export function getSharedCloudMaterial() {
 
 import { getCIAdjustedCount } from '../core/config.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
 import { batchDistanceCull_c } from '../utils/wasm-batch-animation.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -263,6 +263,88 @@ const _scratchQuat = new THREE.Quaternion();
 const _scratchScale = new THREE.Vector3();
 const _scratchObject3D = new THREE.Object3D();
 
+interface CloudPuffRecord {
+    cloud: THREE.Object3D;
+    puff: THREE.Matrix4;
+    matrix: Float32Array;
+    walkable: number;
+}
+
+class CloudPuffBatcher extends InstancedBatcher<CloudPuffRecord> {
+    isWalkableAttribute: THREE.InstancedBufferAttribute | null = null;
+    private readonly repackScratch: CloudPuffRecord[] = [];
+
+    constructor(capacity: number) {
+        super('cloud-puffs', 'animate', capacity);
+    }
+
+    protected createMesh(capacity: number): THREE.InstancedMesh {
+        // Instance attributes belong to this mesh, not the shared geometry cache.
+        const geometry = new THREE.IcosahedronGeometry(1, 2);
+        this.isWalkableAttribute = this.registerAttribute(
+            new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1)
+        );
+        geometry.setAttribute('aIsWalkable', this.isWalkableAttribute);
+        const mesh = new THREE.InstancedMesh(geometry, getSharedCloudMaterial(), capacity);
+        mesh.userData.preventMaterialDispose = true;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.frustumCulled = false;
+        foliageGroup.add(mesh);
+        return mesh;
+    }
+
+    protected writeRecord(record: CloudPuffRecord, slot: number, array: Float32Array): void {
+        array.set(record.matrix, slot * 16);
+        this.isWalkableAttribute!.setX(slot, record.walkable);
+    }
+
+    protected step(_ctx: FrameContext): void {}
+
+    init(): void { this.ensureMesh(); }
+
+    createRecord(cloud: THREE.Object3D, puff: THREE.Matrix4): CloudPuffRecord {
+        const record = { cloud, puff, matrix: new Float32Array(16), walkable: cloud.userData.isWalkable ? 1 : 0 };
+        this.updateRecordMatrix(record);
+        return record;
+    }
+
+    private updateRecordMatrix(record: CloudPuffRecord): void {
+        _scratchWorldMat.compose(record.cloud.position, record.cloud.quaternion, record.cloud.scale);
+        _scratchMat.multiplyMatrices(_scratchWorldMat, record.puff).toArray(record.matrix);
+    }
+
+    updateCloud(cloud: THREE.Object3D): void {
+        for (let i = cloud.userData.batchStart; i < cloud.userData.batchStart + cloud.userData.batchCount; i++) {
+            const record = this.recordAt(i);
+            if (!record) continue;
+            this.updateRecordMatrix(record);
+            this.writeRecord(record, i, this.mesh!.instanceMatrix.array as Float32Array);
+            this.markSlotDirty(i);
+        }
+    }
+
+    removeCloudRange(start: number, count: number): void {
+        // A swap-remove can split another cloud's variable-sized puff range.
+        // Repack only the suffix, reusing records and scratch storage.
+        const remaining = this.repackScratch;
+        for (let i = start + count; i < this.count; i++) {
+            remaining.push(this.records[i]!);
+        }
+        for (let i = this.count - 1; i >= start; i--) {
+            this.remove(this.slotToHandle[i]);
+        }
+        for (const record of remaining) this.add(record);
+        remaining.length = 0;
+    }
+
+    dispose(): void {
+        super.dispose();
+        this.isWalkableAttribute = null;
+    }
+}
+
 export class CloudBatcher {
     private static instance: CloudBatcher;
     private static walkableInstance: CloudBatcher;
@@ -282,61 +364,40 @@ export class CloudBatcher {
     }
     initialized: boolean;
     count: number;
-    mesh: THREE.InstancedMesh | null;
+    private readonly puffs: CloudPuffBatcher;
+    get mesh(): THREE.InstancedMesh | null { return this.puffs.mesh; }
     clouds: any[]; // Logic objects
-    isWalkableAttribute: THREE.InstancedBufferAttribute | null;
+    get isWalkableAttribute(): THREE.InstancedBufferAttribute | null { return this.puffs.isWalkableAttribute; }
+    dropped = 0;
     private _cullPositions: Float32Array | null = null;
     private _cullFlags: Float32Array | null = null;
 
-    constructor() {
+    constructor(capacity: number = MAX_PUFFS) {
         this.initialized = false;
         this.count = 0;
-        this.mesh = null;
+        this.puffs = new CloudPuffBatcher(capacity);
         this.clouds = [];
-        this.isWalkableAttribute = null;
     }
 
     init() {
         if (this.initialized) return;
 
-        // PALETTE: Increased detail for smoother TSL displacement (1 -> 2)
-        // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
-        const puffGeometry = getIcosahedronGeometry(1, 2);
-
-        // ⚡ VERTEX BUFFER BUDGET: position(1) + normal(2) + uv(3) + instanceMatrix(4-7) + aIsWalkable(8)
-        // Staying exactly at the 8-buffer WebGPU limit for GTX 1060 compatibility
-        this.isWalkableAttribute = new THREE.InstancedBufferAttribute(
-            new Float32Array(MAX_PUFFS),
-            1
-        );
-        puffGeometry.setAttribute('aIsWalkable', this.isWalkableAttribute);
-
-        this.mesh = new THREE.InstancedMesh(puffGeometry, getSharedCloudMaterial(), MAX_PUFFS);
-        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-        this.mesh.count = 0;
-        this.mesh.frustumCulled = false; // Clouds might be large
-
-        foliageGroup.add(this.mesh);
-
+        this.puffs.init();
         this.initialized = true;
-        console.log(`[CloudBatcher] Initialized with capacity ${MAX_PUFFS}`);
+        console.log(`[CloudBatcher] Initialized with capacity ${this.puffs.maxInstances}`);
     }
 
     register(cloudGroup: any, options: any = {}) {
         if (!this.initialized) this.init();
-        if (!this.mesh) return;
-
         const { scale = 1.0, puffCount = 12 + Math.floor(Math.random() * 8) } = options;
 
-        if (this.count + puffCount > MAX_PUFFS) {
-            console.warn(`[CloudBatcher] Max capacity reached (${this.count} / ${MAX_PUFFS})`);
-            return;
+        if (this.clouds.includes(cloudGroup)) return cloudGroup.userData.batchStart;
+        if (this.count + puffCount > this.puffs.maxInstances) {
+            if (this.dropped++ === 0) console.warn(`[CloudBatcher] Max capacity reached (${this.count} / ${this.puffs.maxInstances})`);
+            return -1;
         }
 
         const startIndex = this.count;
-        this.count += puffCount;
 
         // Generate Puffs (Local Transforms)
         const puffs: THREE.Matrix4[] = [];
@@ -375,6 +436,7 @@ export class CloudBatcher {
 
         cloudGroup.userData.puffs = puffs;
         cloudGroup.userData.batchStart = startIndex;
+        cloudGroup.userData.batchIndex = startIndex;
         cloudGroup.userData.batchCount = puffCount;
 
         // ⚡ OPTIMIZATION: Copy to pre-allocated state (from createCloud) for dirty checking
@@ -383,84 +445,40 @@ export class CloudBatcher {
         cloudGroup.userData.lastPos.copy(cloudGroup.position);
         cloudGroup.userData.lastRot.copy(cloudGroup.rotation);
 
-        // Set walkable attribute for all puffs in this cloud
-        const isWalkable = cloudGroup.userData.isWalkable ? 1.0 : 0.0;
-        if (this.isWalkableAttribute) {
-            for (let i = 0; i < puffCount; i++) {
-                this.isWalkableAttribute.setX(startIndex + i, isWalkable);
-            }
-            this.isWalkableAttribute.needsUpdate = true;
-        }
-
         this.clouds.push(cloudGroup);
-
-        // Initial Update
-        this.updateCloudInstance(cloudGroup);
+        for (const puff of puffs) this.puffs.add(this.puffs.createRecord(cloudGroup, puff));
+        this.count = this.puffs.instanceCount;
+        this.puffs.flush();
+        return startIndex;
     }
 
 
     removeInstance(cloudGroup: any) {
         if (!this.initialized || !this.mesh) return;
 
-        const start = cloudGroup.userData.batchStart;
-        const count = cloudGroup.userData.batchCount;
-
-        if (typeof start !== 'number' || typeof count !== 'number' || count <= 0) return;
-
         const indexToRemove = this.clouds.indexOf(cloudGroup);
         if (indexToRemove === -1) return;
-
-        const isLastCloud = indexToRemove === this.clouds.length - 1;
-
-        if (!isLastCloud) {
-            // Shift array data left
-            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
-            matrixArray.copyWithin(start * 16, (start + count) * 16, this.count * 16);
-
-            if (this.isWalkableAttribute) {
-                const walkableArray = this.isWalkableAttribute.array as Float32Array;
-                walkableArray.copyWithin(start, start + count, this.count);
-            }
-
-            // Remove from tracking array
-            this.clouds.splice(indexToRemove, 1);
-
-            // Shift subsequent clouds' batchStart
-            for (let i = indexToRemove; i < this.clouds.length; i++) {
-                this.clouds[i].userData.batchStart -= count;
-            }
-        } else {
-            this.clouds.pop();
-        }
-
+        const start = cloudGroup.userData.batchStart;
+        const count = cloudGroup.userData.batchCount;
+        if (!Number.isInteger(start) || !Number.isInteger(count) || start < 0 || count < 0 || start + count > this.count) return;
+        this.clouds.splice(indexToRemove, 1);
         cloudGroup.userData.batchStart = undefined;
         cloudGroup.userData.batchCount = undefined;
-
-        this.count -= count;
-        this.mesh.count = this.count;
-        this.mesh.instanceMatrix.needsUpdate = true;
-        if (this.isWalkableAttribute) {
-            this.isWalkableAttribute.needsUpdate = true;
+        cloudGroup.userData.batchIndex = undefined;
+        this.puffs.removeCloudRange(start, count);
+        for (let i = indexToRemove; i < this.clouds.length; i++) {
+            const cloud = this.clouds[i];
+            cloud.userData.batchStart -= count;
+            cloud.userData.batchIndex = cloud.userData.batchStart;
         }
+        this.count = this.puffs.instanceCount;
+        this.puffs.flush();
     }
 
     updateCloudInstance(cloud: any) {
         if (!this.mesh) return;
 
-        const start = cloud.userData.batchStart;
-        const count = cloud.userData.batchCount;
-        const puffs = cloud.userData.puffs;
-
-        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D overhead in high-frequency batchers!
-        // Replaced cloud.updateMatrixWorld() with manual composition.
-        _scratchWorldMat.compose(cloud.position, cloud.quaternion, cloud.scale);
-
-        for (let i = 0; i < count; i++) {
-            // Global = CloudWorld * PuffLocal
-            _scratchMat.multiplyMatrices(_scratchWorldMat, puffs[i]);
-            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-            _scratchMat.toArray(this.mesh.instanceMatrix.array, (start + i) * 16);
-        }
+        if (this.clouds.includes(cloud)) this.puffs.updateCloud(cloud);
     }
 
     update(delta: number, cameraPos?: THREE.Vector3) {
@@ -537,14 +555,22 @@ export class CloudBatcher {
         }
 
         if (needsUpdate) {
-            this.mesh.count = this.count;
-            this.mesh.instanceMatrix.needsUpdate = true;
+            this.puffs.flush();
         }
     }
 
     dispose(): void {
-        if (this.mesh && this.mesh.parent) {
-            safeRemoveAndDispose(this.mesh.parent, this.mesh, true);
+        for (const cloud of this.clouds) {
+            cloud.userData.batchStart = undefined;
+            cloud.userData.batchCount = undefined;
+            cloud.userData.batchIndex = undefined;
         }
+        this.puffs.dispose();
+        this.clouds.length = 0;
+        this.count = 0;
+        this.initialized = false;
+        this.dropped = 0;
+        this._cullPositions = null;
+        this._cullFlags = null;
     }
 }

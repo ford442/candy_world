@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { addMergedRange } from '../core/batcher/instanced-batcher.ts';
+import { addMergedRange, InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
+import type { FrameContext } from '../core/scheduler/types.ts';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
@@ -8,7 +9,7 @@ import {
     persistentIdFromString,
     LUMINOUS_PLANT_TYPE_ID,
 } from '../systems/awakened/awakened-persistent-id.ts';
-import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
+import { registerFoliageBatcherLod, unregisterFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPoseOffset, circadianNightGlowMult, type BiomeId } from '../systems/biome-uniforms.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
@@ -29,8 +30,14 @@ const luminousUniforms = getBiomeUniforms(LUMINOUS_BIOME);
 const _scratchPos = new THREE.Vector3();
 const _scratchOriginalQuaternion = new THREE.Quaternion();
 const _scratchFinalQuaternion = new THREE.Quaternion();
+let nextLodTargetId = 0;
 
-export class LuminousPlantBatcher {
+interface LuminousRecord {
+    group: THREE.Group;
+    matrix: Float32Array;
+}
+
+export class LuminousPlantBatcher extends InstancedBatcher<LuminousRecord> {
     private static instance: LuminousPlantBatcher;
 
     public static getInstance(): LuminousPlantBatcher {
@@ -40,10 +47,9 @@ export class LuminousPlantBatcher {
         return LuminousPlantBatcher.instance;
     }
 
-    public mesh: THREE.InstancedMesh;
+    declare mesh: THREE.InstancedMesh;
     public readonly isReady = true;
-    private maxInstances: number;
-    private count: number = 0;
+    dropped = 0;
 
     private readonly persistentIdToIndex = new Map<number, number>();
     private readonly indexToPersistentId = new Uint32Array(0);
@@ -52,13 +58,33 @@ export class LuminousPlantBatcher {
     private uploadMin = Infinity;
     private uploadMax = -1;
     private flushScheduled = false;
-    private uuidToIndex = new Map<string, number>();
-    private logicObjects: THREE.Object3D[] = [];
+    private readonly lodTargetId: string;
+    private previousParent: THREE.Object3D | null = null;
 
     constructor(maxInstances: number = 1200) {
-        this.maxInstances = maxInstances;
+        super('luminous-plants', 'animate', maxInstances);
+        const lodId = nextLodTargetId++;
+        this.lodTargetId = lodId === 0 ? 'luminous' : `luminous:${lodId}`;
         this.indexToPersistentId = new Uint32Array(maxInstances);
+        this.ensureMesh();
+        this.registerLod();
+    }
 
+    private registerLod(): void {
+        registerFoliageBatcherLod({ id: this.lodTargetId, getMeshes: () => this.mesh ? [this.mesh] : [] });
+    }
+
+    flush(): void {
+        if (this.matricesDirty && this.mesh && AWAKENED_ATTR_ENABLED) {
+            // A slot swap/add uploads the whole streams, including any earlier
+            // pending narrow awakened ranges.
+            (this.mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute).clearUpdateRanges();
+            (this.mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute).clearUpdateRanges();
+        }
+        super.flush();
+    }
+
+    protected createMesh(maxInstances: number): THREE.InstancedMesh {
         const stemGeo = new THREE.CylinderGeometry(0.2, 0.4, 4, 8, 4);
         stemGeo.translate(0, 2, 0);
 
@@ -142,27 +168,40 @@ export class LuminousPlantBatcher {
 
         applyFoliageLodMaterialFade(mat);
 
-        this.mesh = new THREE.InstancedMesh(stemGeo, mat, this.maxInstances);
-        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
+        const mesh = new THREE.InstancedMesh(stemGeo, mat, maxInstances);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
 
         const phaseArray = new Float32Array(maxInstances);
-        this.mesh.geometry.setAttribute('aPhaseOffset', new THREE.InstancedBufferAttribute(phaseArray, 1));
+        mesh.geometry.setAttribute('aPhaseOffset', this.registerAttribute(new THREE.InstancedBufferAttribute(phaseArray, 1)));
 
         if (AWAKENED_ATTR_ENABLED) {
             const awakenedArray = new Float32Array(maxInstances);
             const emissiveScaleArray = new Float32Array(maxInstances);
-            this.mesh.geometry.setAttribute('aAwakened', new THREE.InstancedBufferAttribute(awakenedArray, 1));
-            this.mesh.geometry.setAttribute('aEmissiveScale', new THREE.InstancedBufferAttribute(emissiveScaleArray, 1));
+            mesh.geometry.setAttribute('aAwakened', this.registerAttribute(new THREE.InstancedBufferAttribute(awakenedArray, 1)));
+            mesh.geometry.setAttribute('aEmissiveScale', this.registerAttribute(new THREE.InstancedBufferAttribute(emissiveScaleArray, 1)));
         }
 
-        initInstanceLodAttribute(this.mesh, maxInstances);
+        this.registerAttribute(initInstanceLodAttribute(mesh, maxInstances));
 
-        this.mesh.userData.type = LUMINOUS_TYPE_ID;
-        this.mesh.count = 0;
+        mesh.userData.type = LUMINOUS_TYPE_ID;
+        return mesh;
+    }
 
-        registerFoliageBatcherLod({ id: 'luminous', getMeshes: () => [this.mesh] });
+    protected step(_ctx: FrameContext): void {}
+
+    protected writeRecord(record: LuminousRecord, slot: number, array: Float32Array): void {
+        array.set(record.matrix, slot * 16);
+        record.group.userData.batchIndex = slot;
+    }
+
+    protected onSwap(from: number, to: number): void {
+        if (AWAKENED_ATTR_ENABLED) {
+            const persistentId = this.indexToPersistentId[from];
+            this.indexToPersistentId[to] = persistentId;
+            this.persistentIdToIndex.set(persistentId, to);
+        }
     }
 
     getLODMeshes(): THREE.InstancedMesh[] {
@@ -190,8 +229,18 @@ export class LuminousPlantBatcher {
     }
 
     register(group: THREE.Group): number {
-        if (this.count >= this.maxInstances) {
-            console.warn('[LuminousPlantBatcher] Max capacity reached');
+        if (!this.mesh) {
+            this.ensureMesh();
+            this.registerLod();
+            if (this.previousParent) {
+                this.previousParent.add(this.mesh);
+                this.previousParent = null;
+            }
+        }
+        const existing = this.slotOfKey(group.uuid);
+        if (existing !== undefined) return existing;
+        if (this.count >= this.capacity) {
+            if (this.dropped++ === 0) console.warn('[LuminousPlantBatcher] Max capacity reached');
             return -1;
         }
 
@@ -212,10 +261,15 @@ export class LuminousPlantBatcher {
                 group.matrixWorld.multiplyMatrices(group.parent.matrixWorld, group.matrixWorld);
             }
         }
-        group.matrixWorld.toArray(this.mesh.instanceMatrix.array, id * 16);
+        const handle = this.addKeyed(group.uuid, {
+            group,
+            matrix: Float32Array.from(group.matrixWorld.elements),
+        });
+        if (handle === null) return -1;
 
         const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
         phaseAttr.setX(id, Math.random() * Math.PI * 2);
+        (this.mesh.geometry.getAttribute('instanceLodFactor') as THREE.InstancedBufferAttribute).setX(id, 0);
 
         if (AWAKENED_ATTR_ENABLED) {
             const awakenedAttr = this.mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
@@ -236,15 +290,8 @@ export class LuminousPlantBatcher {
             }
         }
 
-        this.uuidToIndex.set(group.uuid, id);
-        this.logicObjects[id] = group;
-        this.count++;
-        this.mesh.count = this.count;
-
-        this.mesh.instanceMatrix.needsUpdate = true;
-        phaseAttr.needsUpdate = true;
-
         this.drainPendingBulk();
+        this.flush();
 
         return id;
     }
@@ -252,62 +299,18 @@ export class LuminousPlantBatcher {
     removeInstance(logicObject: THREE.Object3D) {
         if (!this.mesh) return;
 
-        const indexToRemove = this.uuidToIndex.get(logicObject.uuid);
+        const indexToRemove = this.slotOfKey(logicObject.uuid);
         if (typeof indexToRemove !== 'number' || indexToRemove < 0 || indexToRemove >= this.count) return;
 
         const lastIndex = this.count - 1;
         const removedPersistentId = this.indexToPersistentId[indexToRemove];
-
-        if (indexToRemove !== lastIndex) {
-            // Swap-with-last for matrix
-            const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
-            matrixArray.copyWithin(indexToRemove * 16, lastIndex * 16, lastIndex * 16 + 16);
-
-            // Swap-with-last for attributes
-            const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
-            const phaseArray = phaseAttr.array as Float32Array;
-            phaseArray[indexToRemove] = phaseArray[lastIndex];
-
-            if (AWAKENED_ATTR_ENABLED) {
-                const awakenedAttr = this.mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
-                const emissiveAttr = this.mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
-                if (awakenedAttr && emissiveAttr) {
-                    const awakenedArray = awakenedAttr.array as Float32Array;
-                    const emissiveArray = emissiveAttr.array as Float32Array;
-                    awakenedArray[indexToRemove] = awakenedArray[lastIndex];
-                    emissiveArray[indexToRemove] = emissiveArray[lastIndex];
-                    awakenedAttr.needsUpdate = true;
-                    emissiveAttr.needsUpdate = true;
-                }
-            }
-
-            const swappedObject = this.logicObjects[lastIndex];
-            if (swappedObject) {
-                this.uuidToIndex.set(swappedObject.uuid, indexToRemove);
-                this.logicObjects[indexToRemove] = swappedObject;
-
-                // Also update persistentIdToIndex mapping if applicable
-                const persistentId = this.indexToPersistentId[lastIndex];
-                if (persistentId) {
-                    this.persistentIdToIndex.set(persistentId, indexToRemove);
-                    this.indexToPersistentId[indexToRemove] = persistentId;
-                }
-            }
-        }
-
-        // Clean up mapping
-        this.uuidToIndex.delete(logicObject.uuid);
-        if (removedPersistentId) {
+        if (AWAKENED_ATTR_ENABLED && this.persistentIdToIndex.get(removedPersistentId) === indexToRemove) {
             this.persistentIdToIndex.delete(removedPersistentId);
         }
-
-        this.logicObjects.length = lastIndex;
-        this.indexToPersistentId[lastIndex] = 0; // Clear it
-
-        this.count--;
-        this.mesh.count = this.count;
-        this.mesh.instanceMatrix.needsUpdate = true;
-        (this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute).needsUpdate = true;
+        this.removeKeyed(logicObject.uuid);
+        logicObject.userData.batchIndex = undefined;
+        this.indexToPersistentId[lastIndex] = 0;
+        this.flush();
     }
 
     /** Apply awakened glow by stable persistentId */
@@ -411,14 +414,16 @@ export class LuminousPlantBatcher {
     }
 
     dispose(): void {
-        if (this.mesh) {
-            // The geometry's dispose frees its instanced attributes on the
-            // renderer; InstancedMesh.dispose frees instanceMatrix/instanceColor.
-            this.mesh.geometry?.dispose();
-            const materials = Array.isArray(this.mesh.material) ? this.mesh.material : [this.mesh.material];
-            for (const m of materials) m?.dispose();
-            this.mesh.dispose();
-        }
+        for (const record of this.records) if (record) record.group.userData.batchIndex = undefined;
+        if (this.mesh) this.previousParent = this.mesh.parent;
+        unregisterFoliageBatcherLod(this.lodTargetId);
+        super.dispose();
+        this.persistentIdToIndex.clear();
+        this.indexToPersistentId.fill(0);
+        this.pendingBulk = [];
+        this.uploadMin = Infinity;
+        this.uploadMax = -1;
+        this.dropped = 0;
     }
 }
 

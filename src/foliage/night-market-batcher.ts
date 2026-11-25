@@ -35,10 +35,11 @@ import {
     vec3,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import type { FrameContext } from '../core/scheduler/types.ts';
 import { registerDecorativeFill, releaseLocalLight } from '../rendering/lights.ts';
 import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     CandyPresets,
@@ -83,46 +84,56 @@ function nightOpenNode() {
     return float(1.0).sub(smoothstep(float(0.25), float(0.75), uCircadianPhase));
 }
 
-export class NightMarketBatcher {
-    private initialized = false;
-    private count = 0;
+interface StallRecord {
+    proxy: THREE.Object3D;
+    matrix: THREE.Matrix4;
+    r: number;
+    g: number;
+    b: number;
+    phase: number;
+}
 
-    frameMesh: THREE.InstancedMesh | null = null;
+export class NightMarketBatcher extends InstancedBatcher<StallRecord> {
+    private initialized = false;
+    declare public readonly capacity: number;
+    dropped = 0;
+
+    get frameMesh(): THREE.InstancedMesh | null { return this.mesh; }
     awningMesh: THREE.InstancedMesh | null = null;
     lanternMesh: THREE.InstancedMesh | null = null;
 
     /** Per-instance [r, g, b, phase] shared by all three geometries. */
     private tint: THREE.InstancedBufferAttribute | null = null;
-    private logic: THREE.Object3D[] = [];
-
-    get instanceCount(): number {
-        return this.count;
-    }
-
-    get capacity(): number {
-        return MAX_NIGHT_MARKET_STALLS;
+    constructor() {
+        super('night-market', 'animate', MAX_NIGHT_MARKET_STALLS);
+        this.rangedUploads = true;
     }
 
     init(): void {
         if (this.initialized) return;
-        this.tint = new THREE.InstancedBufferAttribute(
-            new Float32Array(MAX_NIGHT_MARKET_STALLS * 4),
+        this.ensureMesh();
+        this.initialized = true;
+    }
+
+    protected createMesh(capacity: number): THREE.InstancedMesh {
+        this.tint = this.registerAttribute(new THREE.InstancedBufferAttribute(
+            new Float32Array(capacity * 4),
             4
-        );
+        ));
         this.tint.setUsage(THREE.DynamicDrawUsage);
 
-        this.frameMesh = this.buildFrame();
-        this.awningMesh = this.buildAwning();
-        this.lanternMesh = this.buildLanterns();
+        const frameMesh = this.buildFrame();
+        this.awningMesh = this.linkMesh(this.buildAwning());
+        this.lanternMesh = this.linkMesh(this.buildLanterns());
 
-        for (const mesh of [this.frameMesh, this.awningMesh, this.lanternMesh]) {
+        for (const mesh of [frameMesh, this.awningMesh, this.lanternMesh]) {
             mesh.count = 0;
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             // Instances span the whole map; the bounding sphere is never recomputed per stall.
             mesh.frustumCulled = false;
             foliageGroup?.add(mesh);
         }
-        this.initialized = true;
+        return frameMesh;
     }
 
     private buildFrame(): THREE.InstancedMesh {
@@ -281,38 +292,26 @@ export class NightMarketBatcher {
      */
     register(proxy: THREE.Object3D, options: NightMarketStallOptions = {}): number {
         if (!this.initialized) this.init();
-        if (proxy.userData.nightMarketSlot !== undefined) return proxy.userData.nightMarketSlot;
-        if (this.count >= MAX_NIGHT_MARKET_STALLS) {
-            console.warn(
-                `[NightMarketBatcher] capacity ${MAX_NIGHT_MARKET_STALLS} reached; stall skipped`
-            );
-            return -1;
-        }
+        const existing = this.slotOfKey(proxy.uuid);
+        if (existing !== undefined) return existing;
 
-        const i = this.count++;
-        this.logic[i] = proxy;
-        proxy.userData.nightMarketSlot = i;
-        proxy.userData.isBatched = true;
-
-        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy updateMatrix() overhead for zero-allocation batch writing
         _scratchMatrix.compose(proxy.position, proxy.quaternion, proxy.scale);
         if (proxy.parent) {
             _scratchMatrix.premultiply(proxy.parent.matrixWorld);
         }
-        this.writeMatrix(i, _scratchMatrix);
-
-        const variant = Math.abs(Math.floor(options.variant ?? i)) % NIGHT_MARKET_TINTS.length;
+        const variant = Math.abs(Math.floor(options.variant ?? this.count)) % NIGHT_MARKET_TINTS.length;
         _scratchColor.setHex(options.color ?? NIGHT_MARKET_TINTS[variant]);
-        this.tint!.setXYZW(
-            i,
-            _scratchColor.r,
-            _scratchColor.g,
-            _scratchColor.b,
-            Math.random() * Math.PI * 2
-        );
-        this.tint!.needsUpdate = true;
-
-        this.setCount(this.count);
+        const handle = this.addKeyed(proxy.uuid, {
+            proxy, matrix: _scratchMatrix.clone(),
+            r: _scratchColor.r, g: _scratchColor.g, b: _scratchColor.b,
+            phase: Math.random() * Math.PI * 2,
+        });
+        if (handle === null) {
+            if (this.dropped++ === 0) console.warn(`[NightMarketBatcher] capacity ${this.capacity} reached; stall skipped`);
+            return -1;
+        }
+        const i = this.slotOf(handle)!;
+        proxy.userData.isBatched = true;
 
         const lightId = `night-market-${proxy.uuid}`;
         // Decorative descriptor only — the clustered pass sees it, no GPU light allocated.
@@ -334,79 +333,57 @@ export class NightMarketBatcher {
     /** ChunkStreamer eviction contract (#1755): frees the slot, keeps count dense. */
     removeInstance(proxy: THREE.Object3D): void {
         if (!this.initialized || !proxy) return;
-        const i = proxy.userData?.nightMarketSlot;
-        if (typeof i !== 'number' || i < 0 || i >= this.count || this.logic[i] !== proxy) return;
-
-        const last = this.count - 1;
-        if (i !== last) {
-            const moved = this.logic[last];
-            this.logic[i] = moved;
-            moved.userData.nightMarketSlot = i;
-            for (const mesh of this.meshes()) {
-                const arr = mesh.instanceMatrix.array;
-                arr.copyWithin(i * 16, last * 16, last * 16 + 16);
-            }
-            const t = this.tint!.array as Float32Array;
-            t.copyWithin(i * 4, last * 4, last * 4 + 4);
-            this.tint!.needsUpdate = true;
-        }
-        this.logic.length = last;
-        proxy.userData.nightMarketSlot = undefined;
-
-        const lightId = proxy.userData.nightMarketLightId;
-        if (typeof lightId === 'string') {
-            releaseLocalLight(lightId);
-            proxy.userData.nightMarketLightId = undefined;
-        }
-        this.setCount(last);
+        if (!this.removeKeyed(proxy.uuid)) return;
+        this.releaseProxy(proxy);
     }
 
     /**
      * Per-frame: hide the lantern mesh once the day is fully up. O(1), no allocation.
      */
-    update(circadianPhase: number = uCircadianPhase.value as number): void {
+    update(circadianPhase?: number | FrameContext): void {
+        // The visual loop supplies the phase; the shared scheduler only flushes.
+        if (typeof circadianPhase === 'object') {
+            super.update(circadianPhase);
+            return;
+        }
         if (!this.lanternMesh) return;
-        this.lanternMesh.visible = this.count > 0 && circadianPhase < NIGHT_MARKET_DAY_HIDE_PHASE;
+        this.lanternMesh.visible = this.count > 0 && (circadianPhase ?? uCircadianPhase.value) < NIGHT_MARKET_DAY_HIDE_PHASE;
+        this.flush();
     }
 
     /** Logic proxy at a slot — used by the stamp system for proximity checks. */
     getStall(i: number): THREE.Object3D | undefined {
-        return i < this.count ? this.logic[i] : undefined;
+        return this.recordAt(i)?.proxy;
     }
 
-    private *meshes(): Generator<THREE.InstancedMesh> {
-        if (this.frameMesh) yield this.frameMesh;
-        if (this.awningMesh) yield this.awningMesh;
-        if (this.lanternMesh) yield this.lanternMesh;
+    protected writeRecord(record: StallRecord, slot: number, array: Float32Array): void {
+        record.matrix.toArray(array, slot * 16);
+        record.matrix.toArray(this.awningMesh!.instanceMatrix.array, slot * 16);
+        record.matrix.toArray(this.lanternMesh!.instanceMatrix.array, slot * 16);
+        this.tint!.setXYZW(slot, record.r, record.g, record.b, record.phase);
+        record.proxy.userData.nightMarketSlot = slot;
+        record.proxy.userData.batchIndex = slot;
     }
 
-    private writeMatrix(i: number, m: THREE.Matrix4): void {
-        for (const mesh of this.meshes()) {
-            m.toArray(mesh.instanceMatrix.array, i * 16);
-            mesh.instanceMatrix.needsUpdate = true;
-        }
+    protected step(): void {}
+
+    private releaseProxy(proxy: THREE.Object3D): void {
+        proxy.userData.nightMarketSlot = undefined;
+        proxy.userData.batchIndex = -1;
+        const lightId = proxy.userData.nightMarketLightId;
+        if (typeof lightId === 'string') releaseLocalLight(lightId);
+        proxy.userData.nightMarketLightId = undefined;
     }
 
-    private setCount(n: number): void {
-        this.count = n;
-        for (const mesh of this.meshes()) {
-            mesh.count = n;
-            mesh.instanceMatrix.needsUpdate = true;
-        }
+    clear(): void {
+        for (let i = 0; i < this.count; i++) this.releaseProxy(this.recordAt(i)!.proxy);
+        super.clear();
     }
 
     dispose(): void {
-        for (const proxy of this.logic) {
-            const lightId = proxy?.userData?.nightMarketLightId;
-            if (typeof lightId === 'string') releaseLocalLight(lightId);
-        }
-        for (const mesh of [...this.meshes()]) {
-            if (mesh.parent) safeRemoveAndDispose(mesh.parent, mesh);
-        }
-        this.frameMesh = this.awningMesh = this.lanternMesh = null;
+        super.dispose();
+        this.awningMesh = this.lanternMesh = null;
         this.tint = null;
-        this.logic = [];
-        this.count = 0;
         this.initialized = false;
     }
 }

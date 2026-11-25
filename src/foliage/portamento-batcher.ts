@@ -13,11 +13,11 @@ import {
 } from 'three/tsl';
 import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 import { camera } from '../core/camera-ref.ts';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
+import type { FrameContext } from '../core/scheduler/types.ts';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, circadianDayGlowMult, circadianNightGlowMult } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-reactivity/music-wave.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
-import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
@@ -41,9 +41,10 @@ const DEFAULT_MELODY_CHANNEL_INDEX = 2;
 const _scratchMatrix = new THREE.Matrix4();
 const _scratchQuaternion = new THREE.Quaternion();
 
-export class PortamentoPineBatcher {
+export class PortamentoPineBatcher extends InstancedBatcher<THREE.Object3D> {
   initialized = false;
-  count = 0;
+  declare public count: number;
+  dropped = 0;
   logicPines: Array<THREE.Object3D> = [];
 
   // Instanced meshes
@@ -54,55 +55,24 @@ export class PortamentoPineBatcher {
   // scratch
   _color = new THREE.Color();
 
-  /**
-   * Per-instance ADSR pose machine — drives the spring rest position for each pine.
-   * Allocated once with MAX_PINES capacity; no per-frame allocations.
-   */
-  private _poseMachine!: PlantPoseMachine;
+  /** One ADSR envelope per pine, moved with its dense slot. */
+  private _poseMachines: PlantPoseMachine[] = [];
+  private _cpuPoses = new Float32Array(MAX_PINES);
   private _lastGpuPoses: Float32Array | null = null;
   private _gpuPoseInFlight = false;
+  private _poseGeneration = 0;
+  private _swapping = false;
 
-  // scratch / batch pose buffers
-  private _batchPositions = new Float32Array(MAX_PINES * 3);
-  private _batchQuaternions = new Float32Array(MAX_PINES * 4);
-  private _batchScales = new Float32Array(MAX_PINES * 3);
-  private _matricesDirty = false;
-
-  private flushMatrices() {
-    if (!this._matricesDirty || this.count === 0 || !this.trunkMesh || !this.needleMesh) return;
-
-    const trunkArray = this.trunkMesh.instanceMatrix.array as Float32Array;
-    const needleArray = this.needleMesh.instanceMatrix.array as Float32Array;
-
-    writeInstancePose(
-      this._batchPositions,
-      this._batchQuaternions,
-      this._batchScales,
-      null,
-      trunkArray,
-      null,
-      1.0,
-      this.count
-    );
-    writeInstancePose(
-      this._batchPositions,
-      this._batchQuaternions,
-      this._batchScales,
-      null,
-      needleArray,
-      null,
-      1.0,
-      this.count
-    );
-
-    this.trunkMesh.instanceMatrix.needsUpdate = true;
-    this.needleMesh.instanceMatrix.needsUpdate = true;
-    this._matricesDirty = false;
+  constructor() {
+    super('portamento-pines', 'animate', MAX_PINES);
   }
 
   init() {
     if (this.initialized) return;
-    this._poseMachine = new PlantPoseMachine(MAX_PINES);
+    this.ensureMesh();
+  }
+
+  protected createMesh(capacity: number): THREE.InstancedMesh {
 
     // Geometry: merged trunk + needles (pr-281 approach)
     const height = 4.0;
@@ -139,8 +109,7 @@ export class PortamentoPineBatcher {
     const trunkGeo = mergeGeometries(trunkGeometries) as THREE.BufferGeometry;
     const needleGeo = mergeGeometries(needleGeometries) as THREE.BufferGeometry;
     if (!trunkGeo || !needleGeo) {
-      console.error('[PortamentoPineBatcher] Geometry merge failed');
-      return;
+      throw new Error('[PortamentoPineBatcher] Geometry merge failed');
     }
 
     // --- TSL ANIMATION LOGIC ---
@@ -207,7 +176,7 @@ export class PortamentoPineBatcher {
         .add(twilightGlowTint.mul(circadianNightGlowMult()));
     registerReactiveMaterial(needleMat);
 
-    this.bendAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1);
+    this.bendAttribute = this.registerAttribute(new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1));
     trunkGeo.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
     trunkGeo.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
     needleGeo.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
@@ -215,8 +184,8 @@ export class PortamentoPineBatcher {
     trunkGeo.setAttribute('instanceBend', this.bendAttribute);
     needleGeo.setAttribute('instanceBend', this.bendAttribute);
 
-    this.trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, MAX_PINES);
-    this.needleMesh = new THREE.InstancedMesh(needleGeo, needleMat, MAX_PINES);
+    this.trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, capacity);
+    this.needleMesh = this.linkMesh(new THREE.InstancedMesh(needleGeo, needleMat, capacity));
     this.trunkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.needleMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.trunkMesh.castShadow = this.needleMesh.castShadow = true;
@@ -227,124 +196,69 @@ export class PortamentoPineBatcher {
 
     this.initialized = true;
     console.log('[PortamentoPineBatcher] Initialized (Magic Copper Edition)');
+    return this.trunkMesh;
   }
 
-  register(dummy: THREE.Object3D, options = {}) {
-    if (!this.initialized) this.init();
-    if (this.count >= MAX_PINES) {
-      console.warn('[PortamentoBatcher] Max limit reached');
+  protected writeRecord(dummy: THREE.Object3D, slot: number, array: Float32Array): void {
+    if (!this._swapping) {
+      getGroundAlignedQuaternion(dummy, _scratchQuaternion);
+      _scratchMatrix.compose(dummy.position, _scratchQuaternion, dummy.scale).toArray(array, slot * 16);
+      _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array as Float32Array, slot * 16);
+    }
+    this._swapping = false;
+    dummy.userData.batchIndex = slot;
+  }
+
+  protected onSwap(from: number, to: number): void {
+    this.logicPines[to] = this.logicPines[from];
+    this._poseMachines[to] = this._poseMachines[from];
+    this._swapping = true;
+  }
+
+  protected step(): void {}
+
+  register(dummy: THREE.Object3D, options = {}): number | undefined {
+    const existing = this.slotOfKey(dummy.id);
+    if (existing !== undefined) return existing;
+    if (this.count >= this.capacity) {
+      if (this.dropped++ === 0) console.warn('[PortamentoBatcher] Max limit reached');
       return;
     }
-
-    // Safety: Ensure physics state exists if not initialized by logic object factory
     if (!dummy.userData.reactivityState) {
-        dummy.userData.reactivityState = { currentBend: 0, velocity: 0 };
+      dummy.userData.reactivityState = { currentBend: 0, velocity: 0 };
     }
-
-    const i = this.count++;
-    dummy.userData.batchIndex = i;
+    const handle = this.addKeyed(dummy.id, dummy);
+    if (handle === null) return;
+    const i = this.slotOf(handle)!;
     dummy.userData.bendFactor = 0;
+    dummy.userData._lastUploadedBend = 0;
     this.logicPines[i] = dummy;
-
-    getGroundAlignedQuaternion(dummy, _scratchQuaternion);
-    this._batchPositions[i * 3 + 0] = dummy.position.x;
-    this._batchPositions[i * 3 + 1] = dummy.position.y;
-    this._batchPositions[i * 3 + 2] = dummy.position.z;
-
-    this._batchQuaternions[i * 4 + 0] = _scratchQuaternion.x;
-    this._batchQuaternions[i * 4 + 1] = _scratchQuaternion.y;
-    this._batchQuaternions[i * 4 + 2] = _scratchQuaternion.z;
-    this._batchQuaternions[i * 4 + 3] = _scratchQuaternion.w;
-
-    this._batchScales[i * 3 + 0] = dummy.scale.x;
-    this._batchScales[i * 3 + 1] = dummy.scale.y;
-    this._batchScales[i * 3 + 2] = dummy.scale.z;
-
-    this._matricesDirty = true;
-    this.flushMatrices();
-
+    this._poseMachines[i] = new PlantPoseMachine(1);
+    this._poseGeneration++;
+    this._lastGpuPoses = null;
     this.bendAttribute!.setX(i, 0);
-
-
-
-    this.trunkMesh!.count = this.count;
-    this.needleMesh!.count = this.count;
-
+    this.flush();
     return i;
   }
 
-  /** Swap-with-last removal — keeps logicPines/SoA buffers dense for update()'s 0..count-1 loop. */
-  removeInstance(logicObject: THREE.Object3D): void {
-    if (!this.initialized || !logicObject) return;
-    const index = logicObject.userData?.batchIndex;
-    if (
-      typeof index !== 'number' ||
-      index < 0 ||
-      index >= this.count ||
-      this.logicPines[index] !== logicObject
-    ) {
-      return;
-    }
-
-    const last = this.count - 1;
-    if (index !== last) {
-      this._batchPositions[index * 3 + 0] = this._batchPositions[last * 3 + 0];
-      this._batchPositions[index * 3 + 1] = this._batchPositions[last * 3 + 1];
-      this._batchPositions[index * 3 + 2] = this._batchPositions[last * 3 + 2];
-
-      this._batchQuaternions[index * 4 + 0] = this._batchQuaternions[last * 4 + 0];
-      this._batchQuaternions[index * 4 + 1] = this._batchQuaternions[last * 4 + 1];
-      this._batchQuaternions[index * 4 + 2] = this._batchQuaternions[last * 4 + 2];
-      this._batchQuaternions[index * 4 + 3] = this._batchQuaternions[last * 4 + 3];
-
-      this._batchScales[index * 3 + 0] = this._batchScales[last * 3 + 0];
-      this._batchScales[index * 3 + 1] = this._batchScales[last * 3 + 1];
-      this._batchScales[index * 3 + 2] = this._batchScales[last * 3 + 2];
-
-      if (this.bendAttribute) {
-        this.bendAttribute.array[index] = this.bendAttribute.array[last];
-      }
-
-      const movedPine = this.logicPines[last];
-      this.logicPines[index] = movedPine;
-      if (movedPine) {
-        movedPine.userData.batchIndex = index;
-        if (this.bendAttribute) {
-          movedPine.userData._lastUploadedBend = this.bendAttribute.array[index];
-        }
-      }
-    }
-
-    this.logicPines.length = last;
-    this.count = last;
-    logicObject.userData.batchIndex = undefined;
-
-    this._matricesDirty = true;
-    this.flushMatrices();
-    if (this.trunkMesh) this.trunkMesh.count = this.count;
-    if (this.needleMesh) this.needleMesh.count = this.count;
-    if (this.bendAttribute) this.bendAttribute.needsUpdate = true;
+  removeInstance(dummy: THREE.Object3D): void {
+    if (!dummy || this.slotOfKey(dummy.id) === undefined) return;
+    this.removeKeyed(dummy.id);
+    this.logicPines.length = this.count;
+    this._poseMachines.length = this.count;
+    dummy.userData.batchIndex = undefined;
+    this._poseGeneration++;
+    this._lastGpuPoses = null;
+    this.flush();
   }
 
   updateInstance(idx: number, dummy: THREE.Object3D) {
-    if (!this.initialized) return;
-
-    getGroundAlignedQuaternion(dummy, _scratchQuaternion);
-    this._batchPositions[idx * 3 + 0] = dummy.position.x;
-    this._batchPositions[idx * 3 + 1] = dummy.position.y;
-    this._batchPositions[idx * 3 + 2] = dummy.position.z;
-
-    this._batchQuaternions[idx * 4 + 0] = _scratchQuaternion.x;
-    this._batchQuaternions[idx * 4 + 1] = _scratchQuaternion.y;
-    this._batchQuaternions[idx * 4 + 2] = _scratchQuaternion.z;
-    this._batchQuaternions[idx * 4 + 3] = _scratchQuaternion.w;
-
-    this._batchScales[idx * 3 + 0] = dummy.scale.x;
-    this._batchScales[idx * 3 + 1] = dummy.scale.y;
-    this._batchScales[idx * 3 + 2] = dummy.scale.z;
-
-    this._matricesDirty = true;
-    this.flushMatrices();
+    if (!this.mesh || this.logicPines[idx] !== dummy) return;
+    this.writeRecord(dummy, idx, this.mesh.instanceMatrix.array as Float32Array);
+    this.markSlotDirty(idx);
+    this.trunkMesh!.boundingSphere = null;
+    this.needleMesh!.boundingSphere = null;
+    this.flush();
   }
 
   setBendForIndex(idx: number, value: number) {
@@ -356,7 +270,13 @@ export class PortamentoPineBatcher {
     // including the spring physics integration.
   }
 
-  update(time: number, audioState: any, dayNightBias: number = 1.0) {
+  update(ctx: FrameContext): void;
+  update(time: number, audioState: any, dayNightBias?: number): void;
+  update(time: number | FrameContext, audioState?: any, dayNightBias: number = 1.0): void {
+    if (typeof time !== 'number') {
+      super.update(time);
+      return;
+    }
     if (!this.initialized || this.count === 0) return;
 
     let needsUpdate = false;
@@ -373,10 +293,11 @@ export class PortamentoPineBatcher {
     const activeWave = getActiveWave();
     const cameraPos = camera ? camera.position : undefined;
 
-    const getPlantPos = (index: number, out: THREE.Vector3) => {
+    let poseSlot = 0;
+    const getPlantPos = (_index: number, out: THREE.Vector3) => {
         if (!this.trunkMesh) return;
         const array = this.trunkMesh.instanceMatrix.array as Float32Array;
-        const offset = index * 16;
+        const offset = poseSlot * 16;
         out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
     };
 
@@ -385,8 +306,12 @@ export class PortamentoPineBatcher {
     if (useGpuPose && this._lastGpuPoses && this._lastGpuPoses.length >= this.count) {
         this._applyPoseState(this._lastGpuPoses, dt);
     } else {
-        this._poseMachine.update(this.count, dt, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
-        this._applyPoseState(this._poseMachine.currentPoses, dt);
+        for (poseSlot = 0; poseSlot < this.count; poseSlot++) {
+            const machine = this._poseMachines[poseSlot];
+            machine.update(1, dt, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
+            this._cpuPoses[poseSlot] = machine.getPose(0);
+        }
+        this._applyPoseState(this._cpuPoses, dt);
     }
 
     if (useGpuPose && !this._gpuPoseInFlight) {
@@ -401,6 +326,7 @@ export class PortamentoPineBatcher {
         }
 
         this._gpuPoseInFlight = true;
+        const generation = this._poseGeneration;
         void runGpuPlantPose({
             count: this.count,
             delta: dt,
@@ -409,7 +335,7 @@ export class PortamentoPineBatcher {
             config: poseConfig,
             wave,
         }).then((poses) => {
-            if (poses) this._lastGpuPoses = poses;
+            if (poses && generation === this._poseGeneration) this._lastGpuPoses = poses;
         }).finally(() => {
             this._gpuPoseInFlight = false;
         });
@@ -423,12 +349,13 @@ export class PortamentoPineBatcher {
         if (Math.abs(state.currentBend - last) > 0.001) {
              this.bendAttribute!.array[i] = state.currentBend;
              pine.userData._lastUploadedBend = state.currentBend;
+             this.markSlotDirty(i);
              needsUpdate = true;
         }
     }
 
     if (needsUpdate) {
-        this.bendAttribute!.needsUpdate = true;
+        this.flush();
     }
   }
 
@@ -457,12 +384,16 @@ export class PortamentoPineBatcher {
   }
 
   dispose(): void {
-    if (this.trunkMesh && this.trunkMesh.parent) {
-      safeRemoveAndDispose(this.trunkMesh.parent, this.trunkMesh);
-    }
-    if (this.needleMesh && this.needleMesh.parent) {
-      safeRemoveAndDispose(this.needleMesh.parent, this.needleMesh);
-    }
+    for (const pine of this.logicPines) pine.userData.batchIndex = undefined;
+    super.dispose();
+    this.logicPines.length = 0;
+    this._poseMachines.length = 0;
+    this.trunkMesh = this.needleMesh = null;
+    this.bendAttribute = null;
+    this.initialized = false;
+    this.dropped = 0;
+    this._lastGpuPoses = null;
+    this._poseGeneration++;
   }
 }
 

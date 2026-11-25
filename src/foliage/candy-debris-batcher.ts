@@ -14,9 +14,10 @@
 
 import * as THREE from 'three';
 import { varyingProperty, float } from 'three/tsl';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import type { FrameContext } from '../core/scheduler/types.ts';
 import { getUnifiedGroundHeightTyped } from '../systems/physics/physics-math.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 import { CandyPresets, createJuicyRimLight } from './material-core.ts';
 
@@ -78,14 +79,10 @@ function createShardGeometry(): THREE.BufferGeometry {
     return geo;
 }
 
-export class CandyDebrisBatcher {
+export class CandyDebrisBatcher extends InstancedBatcher<null> {
     private static _instance: CandyDebrisBatcher | null = null;
 
-    mesh: THREE.InstancedMesh | null = null;
-
-    /** Active shards occupy [0, count) in every array below. */
-    private count = 0;
-    private readonly capacity = MAX_DEBRIS;
+    dropped = 0;
 
     private readonly pos = new Float32Array(MAX_DEBRIS * 3);
     private readonly vel = new Float32Array(MAX_DEBRIS * 3);
@@ -103,6 +100,7 @@ export class CandyDebrisBatcher {
 
     static getInstance(): CandyDebrisBatcher {
         if (!CandyDebrisBatcher._instance) CandyDebrisBatcher._instance = new CandyDebrisBatcher();
+        CandyDebrisBatcher._instance.ensureMesh();
         return CandyDebrisBatcher._instance;
     }
 
@@ -112,6 +110,11 @@ export class CandyDebrisBatcher {
     }
 
     private constructor() {
+        super('candy-debris', 'animate', MAX_DEBRIS);
+        this.rangedUploads = true;
+    }
+
+    protected createMesh(): THREE.InstancedMesh {
         // 🎨 PALETTE: Sugar gives the glazed crust; per-instance color carries the
         // ability tint so one draw call covers every candy hue.
         const instanceColor = varyingProperty('vec3', 'vInstanceColor');
@@ -140,8 +143,8 @@ export class CandyDebrisBatcher {
         mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
         mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
         mesh.geometry.setAttribute('instanceColor', mesh.instanceColor);
-        this.mesh = mesh;
         foliageGroup.add(mesh);
+        return mesh;
     }
 
     /** Enable shard shadows (LOD0 only — see SHADOW_INSTANCE_LIMIT). */
@@ -155,6 +158,11 @@ export class CandyDebrisBatcher {
 
         const requested = Math.max(0, Math.floor(options.count ?? 16));
         const spawned = Math.min(requested, this.capacity - this.count);
+        const dropped = requested - spawned;
+        if (dropped > 0) {
+            if (this.dropped === 0) console.warn(`[CandyDebrisBatcher] capacity ${this.capacity} reached; shards skipped`);
+            this.dropped += dropped;
+        }
         if (spawned <= 0) return 0;
 
         const origin = options.origin;
@@ -162,12 +170,12 @@ export class CandyDebrisBatcher {
         const size = options.size ?? 0.16;
         const life = options.life ?? 2.2;
         const upBias = options.upBias ?? 0.45;
-        _scratchColor.set((options.color ?? 0xffb7e5) as THREE.ColorRepresentation);
+        _scratchColor.set(options.color ?? 0xffb7e5);
 
         const colorArray = mesh.instanceColor!.array as Float32Array;
 
         for (let n = 0; n < spawned; n++) {
-            const i = this.count++;
+            const i = this.count;
             const i3 = i * 3;
 
             this.pos[i3] = origin.x + (Math.random() - 0.5) * 0.2;
@@ -204,31 +212,35 @@ export class CandyDebrisBatcher {
             colorArray[i3] = Math.min(1, _scratchColor.r * tint);
             colorArray[i3 + 1] = Math.min(1, _scratchColor.g * tint);
             colorArray[i3 + 2] = Math.min(1, _scratchColor.b * tint);
+            this.add(null);
         }
 
-        mesh.instanceColor!.needsUpdate = true;
+        this.flush();
         return spawned;
     }
 
 
     /** Ephemeral burst systems satisfy the ChunkStreamer eviction interface by doing nothing */
-    removeInstance(logicObject: any): void {
+    removeInstance(_logicObject: unknown): void {
         // No-op: shards despawn themselves via lifetime constraints
     }
 
-    update(delta: number): void {
+    update(delta: number | FrameContext): void {
+        // The game loop supplies the delta; the shared scheduler only flushes.
+        if (typeof delta !== 'number') {
+            super.update(delta);
+            return;
+        }
         const mesh = this.mesh;
         if (!mesh || this.count === 0) return;
 
         const dt = Math.min(delta, 0.05);
         const drag = Math.pow(AIR_DRAG, dt);
-        const colorArray = mesh.instanceColor!.array as Float32Array;
-
         let i = 0;
         while (i < this.count) {
             this.life[i] -= dt;
             if (this.life[i] <= 0) {
-                this.swapRemove(i, colorArray);
+                this.remove(this.slotToHandle[i]);
                 continue;
             }
 
@@ -272,27 +284,28 @@ export class CandyDebrisBatcher {
                 }
             }
 
-            const fade = Math.min(1, this.life[i] / FADE_TIME);
-            const scale = this.size[i] * fade;
-            _scratchPos.set(this.pos[i3], this.pos[i3 + 1], this.pos[i3 + 2]);
-            _scratchEuler.set(this.rot[i3], this.rot[i3 + 1], this.rot[i3 + 2]);
-            _scratchQuat.setFromEuler(_scratchEuler);
-            _scratchScale.set(scale, scale, scale);
-            _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
-            // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix.array
-            _scratchMatrix.toArray(mesh.instanceMatrix.array, i * 16);
+            this.writeRecord(null, i, mesh.instanceMatrix.array as Float32Array);
             i++;
         }
 
-        mesh.count = this.count;
-        mesh.instanceMatrix.needsUpdate = true;
+        this.markAllDirty();
+        this.flush();
         mesh.castShadow = this.shadowsEnabled && this.count <= SHADOW_INSTANCE_LIMIT;
     }
 
-    /** Move the last active shard into slot `i` so the active range stays dense. */
-    private swapRemove(i: number, colorArray: Float32Array): void {
-        const last = --this.count;
-        if (i === last) return;
+    protected writeRecord(_record: null, i: number, array: Float32Array): void {
+        const i3 = i * 3;
+        const scale = this.size[i] * Math.min(1, this.life[i] / FADE_TIME);
+        _scratchPos.set(this.pos[i3], this.pos[i3 + 1], this.pos[i3 + 2]);
+        _scratchEuler.set(this.rot[i3], this.rot[i3 + 1], this.rot[i3 + 2]);
+        _scratchQuat.setFromEuler(_scratchEuler);
+        _scratchScale.set(scale, scale, scale);
+        _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale).toArray(array, i * 16);
+    }
+
+    protected step(): void {}
+
+    protected onSwap(last: number, i: number): void {
         const i3 = i * 3;
         const l3 = last * 3;
         for (let c = 0; c < 3; c++) {
@@ -300,7 +313,6 @@ export class CandyDebrisBatcher {
             this.vel[i3 + c] = this.vel[l3 + c];
             this.rot[i3 + c] = this.rot[l3 + c];
             this.spin[i3 + c] = this.spin[l3 + c];
-            colorArray[i3 + c] = colorArray[l3 + c];
         }
         this.life[i] = this.life[last];
         this.maxLife[i] = this.maxLife[last];
@@ -309,12 +321,6 @@ export class CandyDebrisBatcher {
         this.groundSampleXZ[i * 2] = this.groundSampleXZ[last * 2];
         this.groundSampleXZ[i * 2 + 1] = this.groundSampleXZ[last * 2 + 1];
         this.resting[i] = this.resting[last];
-        (this.mesh!.instanceColor as THREE.InstancedBufferAttribute).needsUpdate = true;
-    }
-
-    clear(): void {
-        this.count = 0;
-        if (this.mesh) this.mesh.count = 0;
     }
 
     getStats(): DebrisStats {
@@ -327,10 +333,8 @@ export class CandyDebrisBatcher {
     }
 
     dispose(): void {
-        if (this.mesh) safeRemoveAndDispose(foliageGroup, this.mesh);
-        this.mesh = null;
-        this.count = 0;
-        CandyDebrisBatcher._instance = null;
+        super.dispose();
+        this.shadowsEnabled = false;
     }
 }
 

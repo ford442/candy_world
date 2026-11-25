@@ -110,6 +110,7 @@ export abstract class InstancedBatcher<TRecord> implements System {
     /** Create the primary mesh now instead of on the first add(). */
     protected ensureMesh(): THREE.InstancedMesh {
         if (!this.mesh) {
+            LIVE.add(this as InstancedBatcher<unknown>);
             this.mesh = this.createMesh(this.capacity);
             this.mesh.count = this.count;
         }
@@ -351,6 +352,7 @@ export abstract class InstancedBatcher<TRecord> implements System {
      * recreate, in createMesh).
      */
     dispose(): void {
+        LIVE.delete(this as InstancedBatcher<unknown>);
         const geometries = new Set<THREE.BufferGeometry>();
         const materials = new Set<THREE.Material>();
         for (const m of this.meshes) {

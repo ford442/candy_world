@@ -32,6 +32,10 @@ import { sugarCaveBatcher } from '../src/foliage/sugar-cave-batcher.ts';
 import { TreeBatcher } from '../src/foliage/tree-batcher/index.ts';
 import { buildTestTree, TEST_TREE_LEAF_Y } from './support/tree-fixture.ts';
 import { waterfallBatcher } from '../src/foliage/waterfall-batcher.ts';
+import './batcher-parity-debris-market.test.ts';
+import './batcher-parity-luminous-cloud.test.ts';
+import './batcher-parity-flowers.test.ts';
+import './batcher-parity-arpeggio-portamento.test.ts';
 
 const ctx = { dt: 0.016, rawDt: 0.016, time: 1, audio: {} } as unknown as FrameContext;
 

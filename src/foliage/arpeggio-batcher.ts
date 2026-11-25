@@ -4,12 +4,12 @@ import {
     smoothstep, attribute, positionWorld, If, vec4, varyingProperty
 } from 'three/tsl';
 import { camera } from '../core/camera-ref.ts';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
+import type { FrameContext } from '../core/scheduler/types.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-reactivity/music-wave.ts';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
-import { writeInstancePose } from '../utils/wasm-batcher-instance.ts';
 import { dynamicRadiiView } from '../utils/wasm-physics.ts';
 import { foliageGroup } from '../world/state.ts';
 
@@ -43,15 +43,14 @@ const FRONDS_PER_FERN = 5;
 const _scratchMatrix = new THREE.Matrix4();
 const _scratchQuaternion = new THREE.Quaternion();
 
-export class ArpeggioFernBatcher {
+export class ArpeggioFernBatcher extends InstancedBatcher<THREE.Object3D> {
     initialized: boolean;
-    count: number;
+    declare public count: number;
     logicFerns: any[];
 
     private static _debugLogged = false;
 
     // GPU Buffers
-    mesh: THREE.InstancedMesh | null; // Merged mesh
 
     // Scratch
     _color: THREE.Color;
@@ -66,11 +65,7 @@ export class ArpeggioFernBatcher {
     private lastTrigger: boolean = false;
 
     // Matrix/color batching state (SoA → native or TS writeInstancePose)
-    private _matricesDirty: boolean = false;
-    private _batchPositions: Float32Array;
-    private _batchQuaternions: Float32Array;
-    private _batchScales: Float32Array;
-    private _batchColors: Float32Array;
+    dropped = 0;
 
     /**
      * Day/night pose state machine — single slot (global unfurl for all ferns).
@@ -79,28 +74,27 @@ export class ArpeggioFernBatcher {
     private _poseMachine!: PlantPoseMachine;
     private _lastGpuPoses: Float32Array | null = null;
     private _gpuPoseInFlight = false;
+    private _poseGeneration = 0;
+    private _swapping = false;
 
     constructor() {
+        super('arpeggio-ferns', 'animate', MAX_FERNS);
         this.initialized = false;
-        this.count = 0;
         this.logicFerns = [];
-
-        this.mesh = null;
 
         this._color = new THREE.Color();
 
         // Initialize global uniform
         this.uFernUnfurl = uniform(float(0.0));
 
-        // C++ / TS batching SoA buffers (#1358 writeInstancePose)
-        this._batchPositions = new Float32Array(MAX_FERNS * 3);
-        this._batchQuaternions = new Float32Array(MAX_FERNS * 4);
-        this._batchScales = new Float32Array(MAX_FERNS * 3);
-        this._batchColors = new Float32Array(MAX_FERNS * 3);
     }
 
     init() {
         if (this.initialized) return;
+        this.ensureMesh();
+    }
+
+    protected createMesh(capacity: number): THREE.InstancedMesh {
 
         // Single-slot pose machine for global fern unfurl (capacity=1, no per-frame alloc)
         this._poseMachine = new PlantPoseMachine(1);
@@ -341,200 +335,90 @@ export class ArpeggioFernBatcher {
         material.emissiveNode = rim.add(baseInstanceColor.mul(audioEmissive)).add(shimmerGlow);
 
         // --- INSTANCED MESH ---
-        this.mesh = new THREE.InstancedMesh(mergedGeo, material, MAX_FERNS);
-        this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FERNS * 3), 3);
-        this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
-        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-        this.mesh.frustumCulled = false;
-        this.mesh.count = 0;
-
-        foliageGroup.add(this.mesh);
+        const mesh = new THREE.InstancedMesh(mergedGeo, material, capacity);
+        mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+        mesh.geometry.setAttribute('instanceColor', mesh.instanceColor);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.frustumCulled = false;
+        foliageGroup.add(mesh);
 
         this.initialized = true;
         console.log(`[ArpeggioBatcher] Initialized unified mesh system (Cap: ${MAX_FERNS})`);
+        return mesh;
     }
 
-    dispose() {
-        if (!this.initialized) return;
-
-        if (this.mesh) {
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.mesh);
+    protected writeRecord(dummy: THREE.Object3D, slot: number, array: Float32Array): void {
+        if (!this._swapping) {
+            getGroundAlignedQuaternion(dummy, _scratchQuaternion);
+            _scratchMatrix.compose(dummy.position, _scratchQuaternion, dummy.scale).toArray(array, slot * 16);
         }
+        this._swapping = false;
+        dummy.userData.batchIndex = slot;
+    }
 
+    protected onSwap(from: number, to: number): void {
+        this.logicFerns[to] = this.logicFerns[from];
+        this._swapping = true;
+    }
+
+    protected step(): void {}
+
+    dispose(): void {
+        for (const fern of this.logicFerns) fern.userData.batchIndex = undefined;
+        super.dispose();
+        this.logicFerns.length = 0;
         this.initialized = false;
-        this.count = 0;
-
-        this._batchPositions.fill(0);
-        this._batchScales.fill(0);
+        this.dropped = 0;
+        this._lastGpuPoses = null;
+        this._poseGeneration++;
+        this.currentTargetStep = this.currentUnfurlValue = this.globalUnfurl = 0;
+        this.lastTrigger = false;
+        this.uFernUnfurl.value = 0;
     }
 
-    register(dummy: any, options: any = {}) {
-        if (!this.initialized) this.init();
-        if (this.count >= MAX_FERNS) {
-            console.warn('[ArpeggioBatcher] Max limit reached');
+    register(dummy: THREE.Object3D, options: { color?: number; scale?: number } = {}): void {
+        if (this.hasKey(dummy.id)) return;
+        if (this.count >= this.capacity) {
+            if (this.dropped++ === 0) console.warn('[ArpeggioBatcher] Max limit reached');
             return;
         }
-
-        const { color = 0x00FF88, scale = 1.0 } = options;
-        const i = this.count;
-        this.count++;
-
-        // Store reference
-        dummy.userData.batchIndex = i;
+        dummy.scale.setScalar(options.scale ?? 1);
+        const handle = this.addKeyed(dummy.id, dummy);
+        if (handle === null) return;
+        const i = this.slotOf(handle)!;
         dummy.userData.unfurlFactor = 0;
-        this.logicFerns.push(dummy);
-
-        // Setup Instance (Only ONE matrix per fern now!)
-        // No extra Y offset needed, baked into geometry logic relative to pivot
-        // Base was offset 0.25, Frond 0.4.
-        // But original register() added 0.25 * scale to base, and 0.4 * scale to frond.
-        // Wait, scale applies to the whole object.
-        // If we scale the object, offsets scale too.
-        // We should just set the matrix.
-        // But the geometry assumes a specific pivot?
-        // Base geometry was translated (0, 0.25, 0). So pivot is at 0.
-        // Frond geometry was translated (0, 0.4, 0) relative to base?
-        // In original register():
-        // Base: pos.y += 0.25 * scale
-        // Frond: pos.y += 0.4 * scale
-        // This implies the pivot of the *Instance* is at y=0, but the parts are lifted.
-        // If I bake the lift (0.25 and 0.4) into the geometry, I don't need to add it to the matrix position.
-        // BUT, I merged Base (y+0.25) and Frond (y+0.4).
-        // So the merged geometry has its bottom at y=0 (actually base starts at 0, cone height 0.5 centered at 0.25).
-        // So yes, pivot is at bottom.
-
-        // ⚡ OPTIMIZATION: Queue properties for batch C++ matrix composition rather than doing it immediately
-        dummy.scale.setScalar(scale);
-        getGroundAlignedQuaternion(dummy, _scratchQuaternion);
-
-        // Write to SoA buffers for WASM payload
-        this._batchPositions[i * 3 + 0] = dummy.position.x;
-        this._batchPositions[i * 3 + 1] = dummy.position.y;
-        this._batchPositions[i * 3 + 2] = dummy.position.z;
-
-        this._batchQuaternions[i * 4 + 0] = _scratchQuaternion.x;
-        this._batchQuaternions[i * 4 + 1] = _scratchQuaternion.y;
-        this._batchQuaternions[i * 4 + 2] = _scratchQuaternion.z;
-        this._batchQuaternions[i * 4 + 3] = _scratchQuaternion.w;
-
-        this._batchScales[i * 3 + 0] = dummy.scale.x;
-        this._batchScales[i * 3 + 1] = dummy.scale.y;
-        this._batchScales[i * 3 + 2] = dummy.scale.z;
-
-        // Color → SoA (flushed with matrices via writeInstancePose)
-        this._color.setHex(color);
-        this._batchColors[i * 3 + 0] = this._color.r;
-        this._batchColors[i * 3 + 1] = this._color.g;
-        this._batchColors[i * 3 + 2] = this._color.b;
-
-        this._matricesDirty = true;
-        this.flushMatrices(); // immediate matrix+color write (native or TS)
-
-        this.mesh!.count = this.count;
+        this.logicFerns[i] = dummy;
+        this._color.setHex(options.color ?? 0x00FF88);
+        this.mesh!.instanceColor!.setXYZ(i, this._color.r, this._color.g, this._color.b);
+        this.flush();
     }
-    /** Swap-with-last removal — keeps logicFerns/SoA buffers dense so update()'s 0..count-1 loop stays valid. */
-    removeInstance(logicObject: any): void {
-        if (!this.initialized || !logicObject) return;
-        const index = logicObject.userData?.batchIndex;
-        if (
-            typeof index !== 'number' ||
-            index < 0 ||
-            index >= this.count ||
-            this.logicFerns[index] !== logicObject
-        ) {
+
+    removeInstance(dummy: THREE.Object3D): void {
+        if (!dummy || this.slotOfKey(dummy.id) === undefined) return;
+        this.removeKeyed(dummy.id);
+        this.logicFerns.length = this.count;
+        dummy.userData.batchIndex = undefined;
+        this.flush();
+    }
+
+    updateInstance(index: number, dummy: THREE.Object3D): void {
+        if (!this.mesh || this.logicFerns[index] !== dummy) return;
+        this.writeRecord(dummy, index, this.mesh.instanceMatrix.array as Float32Array);
+        this.markSlotDirty(index);
+    }
+
+    update(ctx: FrameContext): void;
+    update(audioState?: any, dayNightBias?: number): void;
+    update(audioState: any = null, dayNightBias: number = 1.0): void {
+        if (audioState && typeof audioState.dt === 'number' && typeof audioState.rawDt === 'number') {
+            super.update(audioState as FrameContext);
             return;
         }
-
-        const last = this.count - 1;
-        if (index !== last) {
-            this._batchPositions[index * 3 + 0] = this._batchPositions[last * 3 + 0];
-            this._batchPositions[index * 3 + 1] = this._batchPositions[last * 3 + 1];
-            this._batchPositions[index * 3 + 2] = this._batchPositions[last * 3 + 2];
-
-            this._batchQuaternions[index * 4 + 0] = this._batchQuaternions[last * 4 + 0];
-            this._batchQuaternions[index * 4 + 1] = this._batchQuaternions[last * 4 + 1];
-            this._batchQuaternions[index * 4 + 2] = this._batchQuaternions[last * 4 + 2];
-            this._batchQuaternions[index * 4 + 3] = this._batchQuaternions[last * 4 + 3];
-
-            this._batchScales[index * 3 + 0] = this._batchScales[last * 3 + 0];
-            this._batchScales[index * 3 + 1] = this._batchScales[last * 3 + 1];
-            this._batchScales[index * 3 + 2] = this._batchScales[last * 3 + 2];
-
-            this._batchColors[index * 3 + 0] = this._batchColors[last * 3 + 0];
-            this._batchColors[index * 3 + 1] = this._batchColors[last * 3 + 1];
-            this._batchColors[index * 3 + 2] = this._batchColors[last * 3 + 2];
-
-            const movedFern = this.logicFerns[last];
-            this.logicFerns[index] = movedFern;
-            if (movedFern) movedFern.userData.batchIndex = index;
-        }
-
-        this.logicFerns.length = last;
-        this.count = last;
-        logicObject.userData.batchIndex = undefined;
-
-        this._matricesDirty = true;
-        this.flushMatrices();
-        this.mesh!.count = this.count;
-    }
-
-    updateInstance(index: number, dummy: any) {
-        if (!this.initialized || index < 0 || index >= this.count) return;
-
-        getGroundAlignedQuaternion(dummy, _scratchQuaternion);
-
-        // Write to SoA buffers for WASM payload
-        this._batchPositions[index * 3 + 0] = dummy.position.x;
-        this._batchPositions[index * 3 + 1] = dummy.position.y;
-        this._batchPositions[index * 3 + 2] = dummy.position.z;
-
-        this._batchQuaternions[index * 4 + 0] = _scratchQuaternion.x;
-        this._batchQuaternions[index * 4 + 1] = _scratchQuaternion.y;
-        this._batchQuaternions[index * 4 + 2] = _scratchQuaternion.z;
-        this._batchQuaternions[index * 4 + 3] = _scratchQuaternion.w;
-
-        this._batchScales[index * 3 + 0] = dummy.scale.x;
-        this._batchScales[index * 3 + 1] = dummy.scale.y;
-        this._batchScales[index * 3 + 2] = dummy.scale.z;
-
-        this._matricesDirty = true;
-    }
-
-    /**
-     * Flush packed pose SoA into InstancedMesh matrix + color buffers.
-     * Native path: batchWriteInstancePose_c when candy_native is ready;
-     * otherwise allocation-free TS fallback (PlantPoseMachine stays in TS).
-     */
-    private flushMatrices() {
-        if (!this._matricesDirty || !this.mesh || this.count === 0) return;
-
-        const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
-        const colorArray = this.mesh.instanceColor
-            ? (this.mesh.instanceColor.array as Float32Array)
-            : null;
-
-        writeInstancePose(
-            this._batchPositions,
-            this._batchQuaternions,
-            this._batchScales,
-            this._batchColors,
-            matrixArray,
-            colorArray,
-            1.0,
-            this.count
-        );
-
-        this.mesh.instanceMatrix.needsUpdate = true;
-        if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
-        this._matricesDirty = false;
-    }
-
-    update(audioState: any = null, dayNightBias: number = 1.0) {
         if (!this.initialized || this.count === 0) return;
 
-        this.flushMatrices();
+        this.flush();
 
         // --- Arpeggio detection (unchanged) ---
         let arpeggioActive = false;
@@ -606,6 +490,7 @@ export class ArpeggioFernBatcher {
             }
 
             this._gpuPoseInFlight = true;
+            const generation = this._poseGeneration;
             void runGpuPlantPose({
                 count: 1,
                 delta: 0.016,
@@ -614,7 +499,7 @@ export class ArpeggioFernBatcher {
                 config: poseConfig,
                 wave,
             }).then((poses) => {
-                if (poses) this._lastGpuPoses = poses;
+                if (poses && generation === this._poseGeneration) this._lastGpuPoses = poses;
             }).finally(() => {
                 this._gpuPoseInFlight = false;
             });

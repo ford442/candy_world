@@ -146,6 +146,13 @@ export class PlantPoseMachine {
         return this._currentPose[index];
     }
 
+    /** Move a live instance's envelope when its batch slot is compacted. */
+    copySlot(from: number, to: number): void {
+        this._currentPose[to] = this._currentPose[from];
+        this._targetPose[to] = this._targetPose[from];
+        this._envelopeLevel[to] = this._envelopeLevel[from];
+    }
+
     /** Hard-reset an instance slot (e.g. on unregister / re-register). */
     reset(index: number, value: number = 0): void {
         this._currentPose[index] = value;
