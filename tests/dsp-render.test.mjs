@@ -243,8 +243,28 @@ test('dsp_init rejects an unusable rate; the host refuses it', () => {
 
 console.log('garden DSP: golden renders');
 
+const { GARDEN_PATCHES: GARDEN_PATCHES_SCENES, GARDEN_PATCH: GARDEN_SLOTS } =
+    await import('../src/audio/generative/dsp-patches.ts');
+const gardenSpec = (slot) => GARDEN_PATCHES_SCENES.find(([s]) => s === slot)[1];
+
 const sustain = { attack: 0.005, decay: 0.2, sustain: 1, release: 0.2, reverbSend: 0 };
 const SCENES = {
+    // Music Garden slice B: each planted instrument alone, with its real patch (reverb off).
+    'garden-chime': { patch: { ...gardenSpec(GARDEN_SLOTS.chime), reverbSend: 0 }, note: 72 },
+    'garden-kick': { patch: { ...gardenSpec(GARDEN_SLOTS.kick), reverbSend: 0 }, note: 36, window: 0 },
+    'garden-snare': {
+        patch: { ...gardenSpec(GARDEN_SLOTS.snare), reverbSend: 0 },
+        note: 60,
+        window: 0,
+        size: 4096,
+    },
+    // Short transients: measure the burst, not the silence after it.
+    'garden-hat': {
+        patch: { ...gardenSpec(GARDEN_SLOTS.hat), reverbSend: 0 },
+        note: 60,
+        window: 0,
+        size: 1024,
+    },
     'sine-a4': { patch: { ...sustain, wave: DspWave.Sine }, note: 69 },
     'triangle-a3': { patch: { ...sustain, wave: DspWave.Triangle }, note: 57 },
     'saw-a3': { patch: { ...sustain, wave: DspWave.Saw }, note: 57 },
@@ -314,7 +334,7 @@ function renderScene(scene) {
     host.dsp.dsp_note_on(0, 1, scene.note, 0.8, 0, 0, 1);
     const { left, right } = renderFor(host, 0.4);
     const start = Math.round((scene.window ?? 0.05) * SR);
-    const size = 8192;
+    const size = scene.size ?? 8192;
     return {
         left,
         right,
@@ -871,6 +891,104 @@ test('note callbacks (the visuals) fire when their step is heard, never before',
         const due = onsets.filter((o) => o <= t + 1e-9).at(-1);
         assert.ok(due !== undefined, `callback at ${t} before any note`);
         assert.ok(t - due < 0.1, `callback ${((t - due) * 1000).toFixed(1)} ms after its note`);
+    }
+});
+
+// -----------------------------------------------------------------------------
+// The garden sequencer on the module (Music Garden slice B)
+// -----------------------------------------------------------------------------
+
+console.log('garden DSP: garden flora');
+
+const { GardenSequencer } = await import('../src/audio/garden/sequencer.ts');
+const { GardenPlayer } = await import('../src/audio/garden/player.ts');
+const { stepSeconds } = await import('../src/audio/garden/clock.ts');
+const { getBiomeProfile } = await import('../src/audio/generative/biome-profiles.ts');
+const { GARDEN_PATCHES: GARDEN_PATCHES_REF } =
+    await import('../src/audio/generative/dsp-patches.ts');
+
+/**
+ * Chimes, a kick, a snare and a hat planted around the listener, played by the garden player on
+ * its own clock into the real module: GardenSequencer -> GardenPlayer -> EventRing ->
+ * GardenDspHost, with a 60 Hz main thread and a 90 ms hitch while the "audio thread" renders.
+ */
+function renderGarden(seconds, bpm) {
+    const host = newHost({});
+    const ring = EventRing.create(1024, true);
+    for (const [slot, spec] of GARDEN_PATCHES_REF) host.setPatch(slot, spec);
+    const noteOns = [];
+    const target = {
+        healthy: true,
+        noteOn(time, patch, note, velocity, duration, pan = 0, tag = 0) {
+            noteOns.push({ time, patch });
+            return ring.push(EventKind.NoteOn, time, patch, note, velocity, duration, pan, tag);
+        },
+        setGlobal() {},
+        allOff() {},
+    };
+    const ctx = { currentTime: 0, state: 'running', outputLatency: 0, baseLatency: 0 };
+    const seq = new GardenSequencer();
+    seq.setKey(getBiomeProfile('global'));
+    const plant = (id, type, x, params) => ({ id, type, x, z: 3, params });
+    seq.setPlants(
+        [
+            plant('c1', 'chime_tulip', -4, { degree: 4, step: 0 }),
+            plant('c2', 'chime_tulip', 4, { degree: 7, step: 6 }),
+            plant('k', 'drum_puffball', -2, { drum: 'kick', shift: 0 }),
+            plant('s', 'drum_puffball', 2, { drum: 'snare', shift: 0 }),
+            plant('h', 'drum_puffball', 0, { drum: 'hat', shift: 0 }),
+        ],
+        { x: 0, z: 0, rightX: 1, rightZ: 0 }
+    );
+    const heard = [];
+    const player = new GardenPlayer(
+        seq,
+        () => ({ ctx, dsp: target, synth: null, destination: null }),
+        (h) => heard.push({ time: ctx.currentTime, step: h.step })
+    );
+    const quanta = Math.ceil((seconds * SR) / DSP_QUANTUM);
+    const left = new Float32Array(quanta * DSP_QUANTUM);
+    const right = new Float32Array(quanta * DSP_QUANTUM);
+    let nextUpdate = 0;
+    for (let q = 0; q < quanta; q++) {
+        const frame = q * DSP_QUANTUM;
+        ctx.currentTime = frame / SR;
+        if (frame >= nextUpdate) {
+            player.run(ctx.currentTime, bpm);
+            player.fireDue(ctx.currentTime);
+            nextUpdate += Math.abs(ctx.currentTime - 2) < 0.01 ? 0.09 * SR : SR / 60;
+        }
+        host.drain(ring, frame);
+        host.render(frame, left, right, frame);
+    }
+    return { left, right, noteOns, heard, host };
+}
+
+const garden = renderGarden(6, 120);
+
+test('the garden renders through the module: clean, audible, every note on the 16th grid', () => {
+    assertClean(garden.left, 'garden L');
+    assertClean(garden.right, 'garden R');
+    const level = db(rms(garden.left, SR, 6 * SR));
+    assert.ok(level > -45 && level < -3, `level ${level.toFixed(1)} dBFS`);
+    const patches = new Set(garden.noteOns.map((n) => n.patch));
+    for (const slot of Object.values(GARDEN_SLOTS)) assert.ok(patches.has(slot), `patch ${slot} played`);
+    const step = stepSeconds(120);
+    const t0 = garden.noteOns[0].time;
+    for (const { time } of garden.noteOns) {
+        const k = (time - t0) / step;
+        assert.ok(Math.abs(k - Math.round(k)) < 1e-6, `note at ${time.toFixed(5)} s is off the grid`);
+    }
+    assert.equal(garden.host.lateEvents, 0, 'no garden note reached the module late, hitch or not');
+    assert.equal(garden.host.droppedEvents, 0, 'no garden event was dropped');
+});
+
+test('heard steps fire at or after their time, never before', () => {
+    assert.ok(garden.heard.length > 8);
+    const onsets = garden.noteOns.map((n) => n.time).sort((a, b) => a - b);
+    for (const { time } of garden.heard) {
+        const due = onsets.filter((o) => o <= time + 1e-9).at(-1);
+        assert.ok(due !== undefined, `heard at ${time} before any note`);
     }
 });
 

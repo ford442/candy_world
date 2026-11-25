@@ -15,12 +15,12 @@ play dozens of planted voices without stutter. That engine is slice A.
 
 ## Slices
 
-| Slice | Scope                                                                                                                                  | Status        |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| **A** | DSP engine in an AudioWorklet (`emscripten/dsp/`), offline render tests, generative engine ported. No gameplay change                  | **this file** |
-| B     | Chime Tulips + Drum Puffballs as entity kinds, the garden sequencer (`src/audio/garden/sequencer.ts`), build-mode placement, save/load | planned       |
-| C     | Bass Roots + Arp Vines, Living Score `gardenStep` cues, seed-packet unlocks, the "First Bloom" Melodies chain                          | planned       |
-| D     | Shared-world jams (schema + migration, sync convergence case), `validate-world` flora limits, `.mid` export, WebMIDI input             | planned       |
+| Slice | Scope                                                                                                                                  | Status                                                      |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **A** | DSP engine in an AudioWorklet (`emscripten/dsp/`), offline render tests, generative engine ported. No gameplay change                  | built (below)                                               |
+| **B** | Chime Tulips + Drum Puffballs as entity kinds, the garden sequencer (`src/audio/garden/sequencer.ts`), build-mode placement, save/load | built ([Slice B](#slice-b-chime-tulips-and-drum-puffballs)) |
+| C     | Bass Roots + Arp Vines, Living Score `gardenStep` cues, seed-packet unlocks, the "First Bloom" Melodies chain                          | planned                                                     |
+| D     | Shared-world jams (schema + migration, sync convergence case), `validate-world` flora limits, `.mid` export, WebMIDI input             | planned                                                     |
 
 The grove composer (music stones: an authored 8 × 16 pattern played through the
 generative engine, `compose` commands, cue bindings) is built and documented
@@ -28,7 +28,7 @@ in [`GROVE_COMPOSER.md`](./GROVE_COMPOSER.md).
 
 Slices B–D follow the original proposal: flora are `world-commands.ts`
 commands, so undo, the command log, `.candyworld` export and shared-world sync
-come for free. Scale and key come from `biome-profiles.ts` and the season.
+come for free (slice B proved it: it added no command). Scale and key come from `biome-profiles.ts` and the season.
 Their patches go in `PATCH_RANGE.free` (below).
 
 ## Slice A: the garden DSP engine
@@ -134,7 +134,7 @@ patch applies to notes started after the change.
 | Range (`PATCH_RANGE`) | Slots | Owner                                                             |
 | --------------------- | ----- | ----------------------------------------------------------------- |
 | `generative`          | 0–7   | One per sequencer channel (`src/audio/generative/dsp-patches.ts`) |
-| `free`                | 8–31  | Garden flora (slice B on), effects                                |
+| `free`                | 8–31  | Garden flora (8–11: slice B's chime, kick, snare, hat), effects   |
 
 The generative patches keep each channel's waveform and register from
 `CHANNEL_VOICES`. They add real envelopes, a detuned saw pad that pumps under
@@ -235,5 +235,137 @@ the worklet's ring stats showing notes flowing and none dropped.
   measured offline (`test:dsp-render`), not live.
 - The reverb buffers are sized for 96 kHz. Above that, the comb lengths clamp
   and the room gets smaller.
-- Tempo lock to the tracker (`beat-sync.ts`) arrives with the garden sequencer
-  (slice B). The generative engine does not run while a tracker module plays.
+- The generative engine does not run while a tracker module plays. The garden
+  sequencer (slice B) keeps its own clock then and locks it to the tracker's
+  tempo and beat, below.
+
+## Slice B: chime tulips and drum puffballs
+
+The first slice a player can touch. Plant them in build mode and the garden plays
+what you planted, in time, through the DSP engine.
+
+### Playing
+
+1. Open build mode (**B**) and pick a **Chime tulip** (🔔) or a **Drum puffball** (🥁) from
+   _Music objects_. Place as many as you like.
+2. Listen. Plants within 36 m sound, the 24 nearest at most, louder the closer they are, panned by
+   which side of you they stand on. Walking away fades them out; walking up swells them.
+3. Each plant swells (tulip) or squashes (puffball) on the note you hear.
+4. Move, undo, redo, remove, save a slot, export `.candyworld`: all as for any other plant.
+
+Nothing here edits a plant's notes yet: what a plant plays comes from its id (below). Editing
+(and the other two instruments) is slice C's seed packets.
+
+### What they play
+
+A figure is a 16-step bar of sixteenths, the grove pattern's grid.
+
+| Kind          | Params (all optional)                         | Plays                                                                                                                                    |
+| ------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Chime tulip   | `degree` 0..13, `step` 0..15                  | Its scale degree, in the key of the biome where you are, an octave above the lead; on `step` and again 8 steps later (the second softer) |
+| Drum puffball | `drum` `kick` / `snare` / `hat`, `shift` 0..3 | Kick on 0 and 8 (on the key's root), snare on 4 and 12, hat on 2, 6, 10, 14; all rotated by `shift` sixteenths                           |
+
+A plant with no params plays the figure rolled from its entity id (`defaultChimeTulip`,
+`defaultDrumPuffball`), the same on every client, as an uncomposed music stone plays its seeded
+default. Chimes roll consonant degrees (root, third, fifth, sixth and their octaves) on mostly
+even steps; puffballs roll 40% kick, 30% snare, 30% hat.
+
+The model is `src/world/document/garden-flora.ts`, renderer-free, beside `grove-pattern.ts`. The
+document schema checks the params of every chime tulip and drum puffball snapshot wherever one
+appears (a place, a move, inside a batch), so the shared-world validator, the `validate-world` path
+and the co-editing room parser refuse a forged one. Other params (`provenance`, ...) pass
+through. `WORLD_DOCUMENT_SCHEMA` stays 1. Both kinds are `place` / `move` / `remove` commands
+like any plant; there is no garden-specific command.
+
+### Timing
+
+`src/audio/garden/conductor.ts` picks how the garden keeps time from what the audio system is
+doing. Notes are queued on the audio clock up to 200 ms ahead (the same lookahead as the
+generative engine); a hitch under that moves no note and one over 400 ms skips steps, keeping the
+bar, rather than bursting them.
+
+| Mode         | When                      | Clock                                                                                         | Key and tempo                                     |
+| ------------ | ------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `generative` | the soundtrack is running | The engine's own grid: `GenerativeEngine.addScheduleListener` gives each step's exact time    | The engine's active profile (biome blend, season) |
+| `tracker`    | a module is playing       | Its own `GardenClock` at the tracker's `bpm`; each `BeatSync.onBeat` trims it toward the beat | The biome at your feet                            |
+| `idle`       | no music                  | Its own clock at the biome's tempo times the season's tempo scale                             | The biome at your feet                            |
+
+The tracker lock is to the **tempo and the beat the visuals follow**. `BeatSync` reports the
+wrap of the main thread's beat phase, not the tracker's rows (those are not exposed with audio
+times), so the lock is approximate: the first beat puts a downbeat on a beat, later beats close a
+quarter of any error beyond 8% of a step (at most 10% of a step at once), so a jittery frame
+cannot yank the grid. Nothing is sample-exact against the module.
+
+If a tracker file was loaded before the generative engine ever existed, the conductor asks the audio
+system to build and attach it (without starting the soundtrack), so the worklet loads. With
+nothing planted the garden never touches the audio system. Before the first user gesture the
+context is not running and the garden stays silent.
+
+Visuals use the heard-step path the grove composer uses: in `generative` mode the engine's
+heard-step listener releases each planted step's visuals; in the other modes the audio clock less
+the output latency does. Either way the plant moves on the sound, not on the moment the note was
+queued.
+
+### Voices
+
+Slice B's patches are the first four of `PATCH_RANGE.free`, in `generative/dsp-patches.ts`
+(`GARDEN_PATCH`, `GARDEN_PATCHES`; written by the same `GardenAudioEngine.create({ patches })`
+call as the generative ones, `ENGINE_PATCHES`):
+
+| Slot | Instrument | Patch                                                                                         |
+| ---- | ---------- | --------------------------------------------------------------------------------------------- |
+| 8    | `chime`    | Glass wavetable, a detuned second oscillator, 1.4 s tail, lowpass 6 kHz, reverb send 0.5      |
+| 9    | `kick`     | The generative kick's shape (swept sine); a duck **Source**, so a planted kick pumps the pads |
+| 10   | `snare`    | Noise, bandpass 1.9 kHz, 160 ms                                                               |
+| 11   | `hat`      | Noise, highpass 7.5 kHz, 45 ms                                                                |
+
+The `brightness` and reverb globals the biome and season set apply to them as to the soundtrack.
+Without the worklet (`?no_dsp`, no `candy_dsp.wasm`, a failed load, or before it has loaded)
+`voices.ts` plays the same notes through `SynthVoice`: chimes and the kick through its channels 4
+and 0, the snare and hat through a short seeded noise burst (SynthVoice has no noise voice).
+
+### Files
+
+| File                                                                                    | Role                                                                                                  |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `src/world/document/garden-flora.ts`                                                    | The params model, the id-rolled defaults, the figures (`chimeHitsOn`, `drumHitsOn`), the schema check |
+| `src/foliage/chime-tulip.ts`, `drum-puffball.ts`                                        | The plants: plain meshes over shared geometry and materials (no batcher)                              |
+| `src/world/foliage-registry.ts`, `map-entity-record.ts`, `systems/authoring/palette.ts` | Registration, export type and category, the palette entry                                             |
+| `src/audio/garden/sequencer.ts`                                                         | Pure: plants + key + step → notes (distance, pan, the 24-plant cap)                                   |
+| `src/audio/garden/clock.ts`                                                             | The sixteenth-note clock on the audio clock, with the tracker beat lock                               |
+| `src/audio/garden/player.ts`                                                            | Schedules a step's notes, queues its visuals until heard                                              |
+| `src/audio/garden/voices.ts`                                                            | DSP patch or `SynthVoice` fallback                                                                    |
+| `src/audio/garden/conductor.ts`                                                         | Picks the mode each frame; injected world and audio, so it is testable                                |
+| `src/audio/garden/index.ts`, `pulses.ts`                                                | The real wiring (live flora, camera, biome, season) and the swell/squash                              |
+| `src/audio/garden-lazy.ts`, `garden-hooks.ts`                                           | The `app`-side stub and import-free hook leaf; the `garden` chunk loads on the first plant            |
+| `GenerativeEngine.addScheduleListener`, `.gardenOutput`                                 | What the garden rides: step times and the engine's context, bus and voices                            |
+
+The `garden-sequencer` frame system (`audio` phase, after `living-score`) is free until a plant
+loads the chunk (`docs/APP_CHUNK_SPLIT.md`).
+
+### Tests
+
+| Script                  | Needs               | Proves                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `test:garden-flora`     | —                   | Both kinds register, classify and reach the palette; the params model; place, move, remove, undo, redo, save, `.candyworld` export, reload and replay (twice, idempotently) through the real spawn and despawn paths; the schema, the shared-world validator and the room parser refuse bad params                                                                       |
+| `test:garden-sequencer` | —                   | Garden patches sit in `PATCH_RANGE.free`; the clock stays on the exact grid under jitter, a hitch and a stall, and its beat lock converges; the sequencer's key, falloff, pan, cap and id-rolled defaults; DSP path and `SynthVoice` fallback; the real `GenerativeEngine` grid ridden step for step; tracker and idle modes; `?no_dsp`; nothing planted touches nothing |
+| `test:dsp-render`       | `build:dsp` (emsdk) | The four garden patches alone (golden RMS and centroid), and a planted garden rendered through the real module: clean, audible, on the grid, no late or dropped events                                                                                                                                                                                                   |
+| `test:garden-placement` | — | The build-mode path in Node: palette entry, `buildPlacementSnapshot`, `PlaceCommand` through the history, the real plant, the garden's world scan, the sequencer's notes in the biome key, the pulse on the real object, undo |
+| `test:garden-live` | `npm run build`, Chromium | The built app with plants beside the spawn: the `garden` chunk loads, `garden-sequencer` never throws, notes reach the worklet (default) or `SynthVoice` (`?no_dsp`), no console errors. Not in `test:fast` |
+
+### Not done, and not verified
+
+- A plant's notes cannot be edited yet: they come from its id (or from params in a hand-edited
+  document). The editor, the other two instruments, `gardenStep` cues and seed packets are slice C.
+- Garden notes do not feed music reactivity (`onNote`): the plant swells, the world does not.
+- `GenerativeEngine.stop()` ends with `allOff`, which also cuts garden voices sounding at that
+  moment, once (switching to a tracker file).
+- The tracker lock is to the beat phase, not the module's rows (above).
+- The garden has been heard only as numbers: offline renders through `candy_dsp.wasm`, with levels
+  checked against the kick (the snare and hat gains were raised after the first render put them
+  15 dB under it), and a live headless page (`test:garden-live`) that counts the notes sent. Nobody
+  has listened to it, so the patches' character and the mix balance are unjudged.
+- `test:garden-live` boots with the soundtrack running, so the live `generative` mode and both voice
+  paths are covered. Tracker and idle modes, and the swell animation on screen, are covered by node
+  tests with fakes only. Planting through the real build-mode pointer (ghost, strip buttons) is
+  `tests/build-mode.test.ts`'s ground plus `test:garden-placement`; no browser drives the click.

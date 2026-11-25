@@ -3,6 +3,7 @@
 // scheduler runs them, and tests/scheduler-order.test.ts pins the result.
 // See docs/ARCHITECTURE.md before moving a system between phases.
 
+import { disposeGardenLazy, updateGardenLazy } from '../audio/garden-lazy.ts';
 import { tickComputeOrchestrator } from '../compute/compute-orchestrator.ts';
 import { updateInstancedBatchers } from './batcher/instanced-batcher.ts';
 import { ensureHeroAnimationDemo, isHeroAnimationDemoEnabled } from '../debug/tools-stub.ts';
@@ -255,6 +256,16 @@ export const FRAME_SYSTEMS: readonly System[] = [
             }
             updateLivingScore(audioSystemRef!, _visuals!.dayNightBias, ctx.dt);
         },
+    },
+    {
+        // Music Garden slice B: plays the planted chime tulips and drum puffballs in time with
+        // the soundtrack (or the tracker, or on its own). Free until a plant loads the lazy
+        // `garden` chunk (audio/garden-lazy.ts).
+        id: 'garden-sequencer',
+        phase: 'audio',
+        enabled: () => audioSystemRef !== null,
+        update: (ctx) => updateGardenLazy(ctx.dt, ctx.player.position.x, ctx.player.position.z),
+        dispose: disposeGardenLazy,
     },
 
     // --- render-prep -------------------------------------------------------

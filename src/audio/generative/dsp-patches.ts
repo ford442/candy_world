@@ -135,6 +135,101 @@ export const GENERATIVE_CHANNEL_PATCHES: readonly PatchSpec[] = [
 export const GENERATIVE_PATCHES: ReadonlyArray<readonly [number, PatchSpec]> =
     GENERATIVE_CHANNEL_PATCHES.map((spec, ch) => [generativePatch(ch), spec] as const);
 
+// ---------------------------------------------------------------------------
+// Garden flora (Music Garden slice B): PATCH_RANGE.free
+// ---------------------------------------------------------------------------
+
+/**
+ * The planted instruments' slots, the first four of PATCH_RANGE.free (the rest stay free for
+ * slice C's bass roots and arp vines). They live here, with the generative patches, because both
+ * are written by the same `GardenAudioEngine.create({ patches })` call; the garden sequencer
+ * (`audio/garden/`) only plays them.
+ */
+export const GARDEN_PATCH = {
+    chime: PATCH_RANGE.free.first,
+    kick: PATCH_RANGE.free.first + 1,
+    snare: PATCH_RANGE.free.first + 2,
+    hat: PATCH_RANGE.free.first + 3,
+} as const;
+
+export type GardenInstrument = keyof typeof GARDEN_PATCH;
+
+/** [slot, spec] pairs for the garden's instruments. */
+export const GARDEN_PATCHES: ReadonlyArray<readonly [number, PatchSpec]> = [
+    // chime tulip: a glass bell with a long, quiet tail
+    [
+        GARDEN_PATCH.chime,
+        {
+            wave: DspWave.Glass,
+            gain: 0.2,
+            attack: 0.002,
+            decay: 1.4,
+            sustain: 0,
+            release: 0.5,
+            detune: 6,
+            osc2Mix: 0.35,
+            filterMode: DspFilter.Lowpass,
+            cutoff: 6000,
+            resonance: 0.15,
+            reverbSend: 0.5,
+        },
+    ],
+    // drum puffball, kick: the generative kick's shape, and it ducks the pads like it does
+    [
+        GARDEN_PATCH.kick,
+        {
+            engine: DspEngine.Kick,
+            gain: 0.5,
+            attack: 0.002,
+            decay: 0.3,
+            sustain: 0,
+            release: 0.05,
+            pitchStart: 3.5,
+            pitchDecay: 0.13,
+            reverbSend: 0.03,
+            duck: DspDuck.Source,
+        },
+    ],
+    // drum puffball, snare: band-passed noise with a short tail
+    [
+        GARDEN_PATCH.snare,
+        {
+            engine: DspEngine.Noise,
+            gain: 0.5,
+            attack: 0.001,
+            decay: 0.16,
+            sustain: 0,
+            release: 0.05,
+            filterMode: DspFilter.Bandpass,
+            cutoff: 1900,
+            resonance: 0.35,
+            reverbSend: 0.25,
+        },
+    ],
+    // drum puffball, hat: high-passed noise, very short
+    [
+        GARDEN_PATCH.hat,
+        {
+            engine: DspEngine.Noise,
+            gain: 0.26,
+            attack: 0.001,
+            decay: 0.045,
+            sustain: 0,
+            release: 0.02,
+            filterMode: DspFilter.Highpass,
+            cutoff: 7500,
+            resonance: 0.1,
+            reverbSend: 0.12,
+        },
+    ],
+];
+
+/** Every patch the engine is created with: the generative channels and the garden's instruments. */
+export const ENGINE_PATCHES: ReadonlyArray<readonly [number, PatchSpec]> = [
+    ...GENERATIVE_PATCHES,
+    ...GARDEN_PATCHES,
+];
+
 /** Engine-wide settings while the generative soundtrack plays. */
 export const GENERATIVE_GLOBALS: Readonly<Partial<Record<GlobalParamName, number>>> = {
     masterGain: 0.8,

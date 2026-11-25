@@ -22,6 +22,7 @@
     "animate:hero-animation",
     "audio:generative-audio-context",
     "audio:living-score",
+    "audio:garden-sequencer",
     "render-prep:postfx-uniforms",
     "render-prep:explore-camera",
     "render-prep:gpu-compute",

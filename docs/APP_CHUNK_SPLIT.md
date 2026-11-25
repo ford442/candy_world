@@ -72,6 +72,7 @@ Confirm flags-off: `pnpm run analyze:bundle` or grep `dist/chunks/app-*.js` for
 | `photo-mode`       | ~13 KB        | ~4 KB   | `FEATURE_FLAGS.photoMode`, **P** or the HUD button   |
 | `generative-music` | ~17 KB        | ~6 KB   | first click/key (default) / `enableGenerativeMode()`  |
 | `garden-audio`     | ~6 KB         | ~2 KB   | with `generative-music`, unless `?no_dsp` (the garden DSP host; `docs/MUSIC_GARDEN.md`) |
+| `garden`           | ~11 KB        | ~5 KB   | The first chime tulip / drum puffball built (Music Garden slice B; `docs/MUSIC_GARDEN.md`) |
 | `playlist-ui`      | ~10 KB        | ~3 KB   | Boot (circular with `app`)                            |
 | `awakened`         | ~9 KB         | ~3 KB   | After world load (on by default; `?no_awakened` off)  |
 | `authoring`        | see build     | —       | First **B** (build mode + `TransformControls`)        |
@@ -167,6 +168,7 @@ systems-folder move (35 files) changed no chunk except `weather`, by 6 bytes.
 | weather / particles / compute                              | `weather` (do not fold into `app`) |
 | `src/systems/net/*` except the stubs (`lazy.ts`, `shared-worlds-lazy.ts`, `supabase-config.ts`, `biome-at-position`), `@supabase/*` | `net` |
 | `src/systems/photo-mode/*` except `lazy.ts`                | `photo-mode`                       |
+| `src/audio/garden/*` (garden sequencer)                    | `garden` (stub `audio/garden-lazy.ts` and leaf `audio/garden-hooks.ts` stay in `app`; it imports `generative-music`, `save-ui`'s `world/document/garden-flora.ts` and the app state, and nothing imports it statically) |
 | `src/audio/worklet/*` (garden DSP host)                    | `garden-audio`; its only static import is `log`. The processor is a separate `?worker&url` asset (`garden-processor-[hash].js`, no imports) |
 | `src/world/map-loader.ts`                                  | `map-loader`                       |
 
@@ -183,6 +185,7 @@ post-FX uniforms and explore-camera APIs via `PhotoModeInitOptions`.
 | `photo-mode`       | `FEATURE_FLAGS.photoMode`, **P** or the HUD button                               | `src/systems/photo-mode/lazy.ts`                     |
 | `composer`         | the first music stone built (`docs/GROVE_COMPOSER.md`)                          | `src/systems/composer-lazy.ts`                       |
 | `generative-music` | first click/key (default) / `enableGenerativeMode()`                             | `audio-system-playback.ts`                           |
+| `garden`           | the first chime tulip or drum puffball built (`docs/MUSIC_GARDEN.md`)            | `src/audio/garden-lazy.ts` (called by the `garden-sequencer` frame system) |
 | `awakened`         | `FEATURE_FLAGS.awakenedPersistence`                                              | `src/systems/awakened/awakened-persistence-api.ts`            |
 | `gameplay`         | `preloadGameplay()` / abilities                                                  | `src/gameplay/lazy.ts`                               |
 | `save-ui`          | `openSaveMenu`                                                                   | `src/ui/save-menu/lazy.ts`                           |

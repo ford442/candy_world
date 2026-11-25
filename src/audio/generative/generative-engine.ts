@@ -8,7 +8,7 @@ import {
     _blendScratch,
     type BiomeMusicProfile,
 } from './biome-profiles.ts';
-import { GENERATIVE_PATCHES } from './dsp-patches.ts';
+import { ENGINE_PATCHES } from './dsp-patches.ts';
 import { noteNameToChromaticIndex } from './scales.ts';
 import { applySeasonMusicModifier } from './season-music.ts';
 import {
@@ -22,11 +22,30 @@ import {
     type NoteEvent,
 } from './sequencer.ts';
 import { SynthVoice } from './synth-voice.ts';
-import { DspVoiceSink, type GenerativeVoiceSink } from './voice-sink.ts';
+import { DspVoiceSink, type GardenNoteTarget, type GenerativeVoiceSink } from './voice-sink.ts';
 
 export type GenerativeNoteCallback = (note: string, velocity: number, channelIndex: number) => void;
 /** A step is heard: its row and the notes it played (the array is reused; copy what you keep). */
 export type GenerativeStepListener = (row: number, events: readonly NoteEvent[]) => void;
+/**
+ * A step is being queued for the audio thread: `time` is its AudioContext time, `step` the
+ * sixteenth of the bar it plays (0..15, the `step` of its NoteEvents; a step listener's `row` is
+ * the one after it) and `stepSec` the length of a sixteenth. Fired for every step, notes or
+ * not, up to SCHEDULE_AHEAD_SEC before it is heard. The garden sequencer schedules its notes on
+ * the same grid through this (`audio/garden/`).
+ */
+export type GenerativeScheduleListener = (time: number, step: number, stepSec: number) => void;
+
+/** What the garden sequencer plays through: the engine's context, bus and voices. */
+export interface GardenOutput {
+    readonly ctx: AudioContext;
+    /** The DSP engine while it is loaded and healthy, else null. */
+    readonly dsp: GardenNoteTarget | null;
+    /** The Web Audio fallback voices (what plays when `dsp` is null). */
+    readonly synth: GenerativeVoiceSink;
+    /** The shared master bus. */
+    readonly destination: AudioNode;
+}
 
 export interface GenerativeEngineOptions {
     seed?: number;
@@ -103,6 +122,7 @@ export class GenerativeEngine {
     private activeProfile: BiomeMusicProfile;
     private onNoteCallback: GenerativeNoteCallback | null = null;
     private readonly stepListeners: GenerativeStepListener[] = [];
+    private readonly scheduleListeners: GenerativeScheduleListener[] = [];
     private readonly seed: number;
     private masterVolume = 1.0;
     /** Season shaping applied after every biome blend; identity until the game loop sets it. */
@@ -176,7 +196,7 @@ export class GenerativeEngine {
         try {
             const { GardenAudioEngine } = await import('../worklet/garden-engine.ts');
             const engine = await GardenAudioEngine.create(ctx, destination, {
-                patches: GENERATIVE_PATCHES,
+                patches: ENGINE_PATCHES,
             });
             if (engine) this.useDspSink(new DspVoiceSink(engine));
         } catch (err) {
@@ -215,6 +235,26 @@ export class GenerativeEngine {
             const i = this.stepListeners.indexOf(listener);
             if (i >= 0) this.stepListeners.splice(i, 1);
         };
+    }
+
+    /** Observe every step as it is queued (see `GenerativeScheduleListener`). Returns an unsubscribe. */
+    addScheduleListener(listener: GenerativeScheduleListener): () => void {
+        this.scheduleListeners.push(listener);
+        return () => {
+            const i = this.scheduleListeners.indexOf(listener);
+            if (i >= 0) this.scheduleListeners.splice(i, 1);
+        };
+    }
+
+    /**
+     * What the garden's planted flora play through, or null before `attach()`. In a build without
+     * the worklet (`?no_dsp`, no wasm, a failed load) `dsp` is null and the garden plays through
+     * `synth`, as the soundtrack does.
+     */
+    get gardenOutput(): GardenOutput | null {
+        if (!this.ctx || !this.busGain || !this.synth) return null;
+        const dsp = this.dsp && this.dsp.healthy ? this.dsp.engine : null;
+        return { ctx: this.ctx, dsp, synth: this.synth, destination: this.busGain };
     }
 
     /**
@@ -384,6 +424,17 @@ export class GenerativeEngine {
         slot.patternIndex = this.sequencer.getPatternIndex();
         slot.beatPhase = this.sequencer.getBeatPhase(this.dayNightBias);
         slot.events.length = 0;
+
+        // slot.row is the sequencer's position after this tick (the next sixteenth); the step
+        // that plays at `time` is the one before it, the `step` of its NoteEvents.
+        const playedStep = (slot.row + STEPS_PER_BAR - 1) % STEPS_PER_BAR;
+        for (let i = 0; i < this.scheduleListeners.length; i++) {
+            try {
+                this.scheduleListeners[i](time, playedStep, stepDuration);
+            } catch (err) {
+                console.warn('[GenerativeEngine] Schedule listener failed:', err);
+            }
+        }
 
         const sink = this.ctx && this.masterVolume > 0 ? this.voiceSink() : null;
         for (const ev of events) {
