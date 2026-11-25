@@ -1054,6 +1054,12 @@ for (const setup of [
             search: '?dynres=false',
             adapter: { limits: hw },
             timestamp: false,
+            // ?dynres=false only drops timestamp-query; the limits match the default boot.
+            limits: {
+                ...FLOOR,
+                maxBufferSize: 536870912,
+                maxStorageBufferBindingSize: 536870912,
+            },
         },
         {
             name: 'fallback adapter',
