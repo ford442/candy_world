@@ -3,7 +3,8 @@
 //
 //   npm run deploy:staging -- [--build] [--dry-run] [--allow-dirty]
 //
-// Uploads to storage.noahcohn.com/candy-world/staging/<short-sha>/ through
+// Uploads to test.1ink.us/candy-world/staging/<short-sha>/ (via the
+// storage.noahcohn.com deploy API) through
 // deploy.py (one zip, *.map skipped) after writing dist/BUILD_INFO.json, so the
 // page at the URL names the commit and toolchain it was built from. It checks
 // that dist/ is a full build (candy_native*.wasm + candy_dsp.wasm), not
@@ -60,7 +61,8 @@ const buildInfo = {
         CANDY_STRICT_EMSDK: process.env.CANDY_STRICT_EMSDK === '1',
         nativeWasm: FULL_BUILD.filter((f) => existsSync(`dist/${f}`)),
     },
-    url: `https://storage.noahcohn.com/candy-world/${prefix}/`,
+    // storage.noahcohn.com is only the deploy API; its SFTP target serves test.1ink.us.
+    url: `https://test.1ink.us/candy-world/${prefix}/`,
 };
 
 writeFileSync('dist/BUILD_INFO.json', `${JSON.stringify(buildInfo, null, 2)}\n`);

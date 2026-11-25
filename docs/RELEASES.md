@@ -38,6 +38,21 @@ Flags:
 
 If a `stable-*` tag is pushed without the script, `.github/workflows/release-stable.yml` rebuilds it and attaches the zip. That CI path runs no smoke test.
 
+## Staging builds (one per commit)
+
+```bash
+npm run build                 # full build: deploy:staging refuses a build:ci dist
+npm run deploy:staging        # → https://test.1ink.us/candy-world/staging/<short-sha>/
+npm run deploy:staging -- --dry-run
+```
+
+`scripts/deploy-staging.mjs` writes `dist/BUILD_INFO.json` (commit, date, Node, emsdk, `CANDY_STRICT_EMSDK`, which native wasm is present) and runs `deploy.py --prefix staging/<short-sha>`. It refuses a dirty tree unless you pass `--allow-dirty`.
+
+- `storage.noahcohn.com` is only the deploy API (`/api/deploy/...`). It uploads over SFTP to `test.1ink.us` (the default `target_site=test`), and that host serves the files. `storage.noahcohn.com/candy-world/...` returns 404.
+- The upload needs `DEPLOY_TOKEN` (header `X-Deploy-Token`).
+- Headers come from `public/.htaccess` (Apache): COOP `same-origin`, COEP `require-corp`, `application/wasm`, `DirectoryIndex index.html`. The host sets `Cache-Control: max-age=600` on HTML and `max-age=172800` on assets. Per-sha prefixes keep that safe.
+- To smoke a deployed build, run `SMOKE_URL=<url> FULL_BOOT=1 node tests/smoke-runner.mjs`.
+
 ## Rolling back
 
 - To give someone a working build: send them the `stable/` URL.
