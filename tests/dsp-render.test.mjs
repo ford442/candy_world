@@ -251,7 +251,11 @@ const sustain = { attack: 0.005, decay: 0.2, sustain: 1, release: 0.2, reverbSen
 const SCENES = {
     // Music Garden slice B: each planted instrument alone, with its real patch (reverb off).
     'garden-chime': { patch: { ...gardenSpec(GARDEN_SLOTS.chime), reverbSend: 0 }, note: 72 },
-    'garden-kick': { patch: { ...gardenSpec(GARDEN_SLOTS.kick), reverbSend: 0 }, note: 36, window: 0 },
+    'garden-kick': {
+        patch: { ...gardenSpec(GARDEN_SLOTS.kick), reverbSend: 0 },
+        note: 36,
+        window: 0,
+    },
     'garden-snare': {
         patch: { ...gardenSpec(GARDEN_SLOTS.snare), reverbSend: 0 },
         note: 60,
@@ -972,12 +976,16 @@ test('the garden renders through the module: clean, audible, every note on the 1
     const level = db(rms(garden.left, SR, 6 * SR));
     assert.ok(level > -45 && level < -3, `level ${level.toFixed(1)} dBFS`);
     const patches = new Set(garden.noteOns.map((n) => n.patch));
-    for (const slot of Object.values(GARDEN_SLOTS)) assert.ok(patches.has(slot), `patch ${slot} played`);
+    for (const slot of Object.values(GARDEN_SLOTS))
+        assert.ok(patches.has(slot), `patch ${slot} played`);
     const step = stepSeconds(120);
     const t0 = garden.noteOns[0].time;
     for (const { time } of garden.noteOns) {
         const k = (time - t0) / step;
-        assert.ok(Math.abs(k - Math.round(k)) < 1e-6, `note at ${time.toFixed(5)} s is off the grid`);
+        assert.ok(
+            Math.abs(k - Math.round(k)) < 1e-6,
+            `note at ${time.toFixed(5)} s is off the grid`
+        );
     }
     assert.equal(garden.host.lateEvents, 0, 'no garden note reached the module late, hitch or not');
     assert.equal(garden.host.droppedEvents, 0, 'no garden event was dropped');
