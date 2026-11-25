@@ -14,8 +14,8 @@ import { onViewportResize } from '../../rendering/viewport.ts';
 import { player } from '../../systems/physics/physics-types.ts';
 import { markBootFatal } from '../../ui/boot-fatal.ts';
 import { showRendererBadge } from '../../ui/mode-badge-lazy.ts';
-import { showWebGPUFatalScreen } from '../../ui/webgpu-fatal.ts';
-import { installWorldExportTools } from '../../world/map-exporter.ts';
+import { showWebGPUFatalScreenLazy } from '../../ui/webgpu-fatal-lazy.ts';
+import { installWorldExportTools } from '../../world/map-exporter-lazy.ts';
 import { animatedFoliage, interactiveObjects } from '../../world/state.ts';
 import { setCameraRef } from '../camera-ref.ts';
 import { resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from '../config.ts';
@@ -44,14 +44,14 @@ export async function runScenePipeline(ctx: MainContext): Promise<void> {
         // the probe passed and the WebGPU renderer still failed (stage
         // `renderer`). Show the blocking diagnostics screen and stop boot.
         const cause = err instanceof BootHaltError ? err.cause : err;
-        if (cause instanceof WebGPUUnavailableError) showWebGPUFatalScreen(cause);
+        if (cause instanceof WebGPUUnavailableError) showWebGPUFatalScreenLazy(cause);
         throw err;
     }
 
     // Neither WebGPU nor the WebGL2 fallback started. Stage failures are
     // returned rather than thrown, so the error rides on `cause`.
     if (core.cause instanceof WebGPUUnavailableError) {
-        showWebGPUFatalScreen(core.cause);
+        showWebGPUFatalScreenLazy(core.cause);
         throw core.cause;
     }
 

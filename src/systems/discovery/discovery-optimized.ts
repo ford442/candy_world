@@ -1,18 +1,18 @@
 /**
  * @file discovery-optimized.ts
  * @brief Spatial grid-optimized flora discovery system
- * 
+ *
  * Replaces O(N) distance checks with O(1) spatial grid lookups.
  * Uses WASM batch processing for maximum efficiency.
  * Integrates with DiscoveryPersistence for timestamped tracking.
- * 
+ *
  * @example
  * ```ts
  * import { OptimizedDiscoverySystem } from './discovery-optimized';
  * import { DISCOVERY_MAP } from './discovery-map';
- * 
+ *
  * const discovery = new OptimizedDiscoverySystem();
- * 
+ *
  * // Register all discoverable objects during world generation
  * for (const obj of animatedFoliage) {
  *     const type = obj.userData.type;
@@ -20,7 +20,7 @@
  *         discovery.registerObject(obj.position, type);
  *     }
  * }
- * 
+ *
  * // In animation loop - O(1) lookup
  * const discovered = discovery.checkDiscovery(player.position);
  * if (discovered) {
@@ -31,11 +31,14 @@
 
 import * as THREE from 'three';
 import { showToast } from '../../utils/toast.ts';
-import { isEmscriptenReady, getEmscriptenInstance, getNativeFunc } from '../../utils/wasm-loader-core.ts';
+import {
+    isEmscriptenReady,
+    getEmscriptenInstance,
+    getNativeFunc,
+} from '../../utils/wasm-loader-core.ts';
 import type { CppExports } from '../../utils/native-exports.generated.ts';
 import { getWasmInstance } from '../../utils/wasm-loader.ts';
 import { emitProgress, progressKindOfDiscovery } from '../progress-events.ts';
-import { showDiscoveryLog } from './discovery-log.ts';
 import { DISCOVERY_MAP } from './discovery-map.ts';
 import { discoveryPersistence, type PersistedDiscovery } from './discovery-persistence.ts';
 
@@ -82,8 +85,10 @@ export class OptimizedDiscoverySystem {
 
     // AssemblyScript WASM function bindings
     private wasmInitDiscovery: (() => void) | null = null;
-    private wasmRegisterObject: ((x: number, y: number, z: number, typeId: number) => number) | null = null;
-    private wasmCheckDiscovery: ((x: number, y: number, z: number, typeFilter: number) => number) | null = null;
+    private wasmRegisterObject:
+        ((x: number, y: number, z: number, typeId: number) => number) | null = null;
+    private wasmCheckDiscovery:
+        ((x: number, y: number, z: number, typeFilter: number) => number) | null = null;
     private wasmMarkDiscovered: ((id: number) => void) | null = null;
     private wasmIsDiscovered: ((id: number) => number) | null = null;
     private wasmGetTypeId: ((id: number) => number) | null = null;
@@ -112,7 +117,8 @@ export class OptimizedDiscoverySystem {
 
     constructor() {
         try {
-            for (const d of discoveryPersistence.getAllDiscoveries()) this.discoveredItems.add(d.id);
+            for (const d of discoveryPersistence.getAllDiscoveries())
+                this.discoveredItems.add(d.id);
         } catch (e) {
             console.warn('DiscoverySystem: Failed to load from persistence', e);
         }
@@ -153,7 +159,10 @@ export class OptimizedDiscoverySystem {
 
     /** Toggle the Discovery Log overlay. */
     showLog(): void {
-        showDiscoveryLog((id) => this.discoveredItems.has(id));
+        // The overlay is its own `discovery-log` chunk; it loads on first open.
+        void import('./discovery-log.ts').then((m) =>
+            m.showDiscoveryLog((id) => this.discoveredItems.has(id))
+        );
     }
 
     getDiscoveredIds(): string[] {
@@ -179,13 +188,13 @@ export class OptimizedDiscoverySystem {
         if (isEmscriptenReady()) {
             try {
                 const emInst = getEmscriptenInstance();
-                const initGrid  = getNativeFunc('initDiscoveryGrid');
-                const register  = getNativeFunc('registerDiscoverable');
-                const query     = getNativeFunc('queryDiscoveries');
-                const clear     = getNativeFunc('clearDiscoveryGrid');
-                const malloc    = emInst?._malloc as ((n: number) => number) | undefined;
-                const free      = emInst?._free  as ((p: number) => void)   | undefined;
-                const heap32    = emInst?.HEAP32  as Int32Array | undefined;
+                const initGrid = getNativeFunc('initDiscoveryGrid');
+                const register = getNativeFunc('registerDiscoverable');
+                const query = getNativeFunc('queryDiscoveries');
+                const clear = getNativeFunc('clearDiscoveryGrid');
+                const malloc = emInst?._malloc as ((n: number) => number) | undefined;
+                const free = emInst?._free as ((p: number) => void) | undefined;
+                const heap32 = emInst?.HEAP32 as Int32Array | undefined;
 
                 if (initGrid && register && query && clear && malloc && heap32) {
                     // Allocate output buffer once (CPP_MAX_QUERY_RESULTS × 4 bytes)
@@ -193,13 +202,13 @@ export class OptimizedDiscoverySystem {
                     if (outPtr) {
                         // initDiscoveryGrid(cols=16, rows=16, originX=-128, originZ=-128, cellSize=16)
                         initGrid(16, 16, -128, -128, 16);
-                        this.cppRegister    = register;
-                        this.cppQuery       = query;
-                        this.cppClear       = clear;
-                        this.cppMalloc      = malloc;
-                        this.cppFree        = free ?? null;
-                        this.cppHeap32      = heap32;
-                        this.cppOutPtr      = outPtr;
+                        this.cppRegister = register;
+                        this.cppQuery = query;
+                        this.cppClear = clear;
+                        this.cppMalloc = malloc;
+                        this.cppFree = free ?? null;
+                        this.cppHeap32 = heap32;
+                        this.cppOutPtr = outPtr;
                         this.cppInitialized = true;
                         console.log('[OptimizedDiscovery] C++ spatial grid initialized');
                         return; // skip ASC init
@@ -218,13 +227,13 @@ export class OptimizedDiscoverySystem {
         }
 
         const exports = instance.exports as DiscoveryExports;
-        this.wasmInitDiscovery        = exports.initDiscoverySystem ?? null;
-        this.wasmRegisterObject       = exports.registerDiscoveryObject ?? null;
-        this.wasmCheckDiscovery       = exports.checkDiscoverySpatial ?? null;
-        this.wasmMarkDiscovered       = exports.markDiscovered ?? null;
-        this.wasmIsDiscovered         = exports.isObjectDiscovered ?? null;
-        this.wasmGetTypeId            = exports.getDiscoveryTypeId ?? null;
-        this.wasmResetAll             = exports.resetAllDiscoveries ?? null;
+        this.wasmInitDiscovery = exports.initDiscoverySystem ?? null;
+        this.wasmRegisterObject = exports.registerDiscoveryObject ?? null;
+        this.wasmCheckDiscovery = exports.checkDiscoverySpatial ?? null;
+        this.wasmMarkDiscovered = exports.markDiscovered ?? null;
+        this.wasmIsDiscovered = exports.isObjectDiscovered ?? null;
+        this.wasmGetTypeId = exports.getDiscoveryTypeId ?? null;
+        this.wasmResetAll = exports.resetAllDiscoveries ?? null;
         this.wasmGetUndiscoveredCount = exports.getUndiscoveredCount ?? null;
 
         if (this.wasmInitDiscovery) {
@@ -234,7 +243,9 @@ export class OptimizedDiscoverySystem {
             const mem = exports.memory;
             const DISCOVERY_REQUIRED_BYTES = 280000;
             if (mem && mem.buffer.byteLength < DISCOVERY_REQUIRED_BYTES) {
-                console.warn('[OptimizedDiscovery] WASM memory too small for discovery system, using JS fallback');
+                console.warn(
+                    '[OptimizedDiscovery] WASM memory too small for discovery system, using JS fallback'
+                );
                 this.wasmInitDiscovery = null;
                 return;
             }
@@ -243,7 +254,10 @@ export class OptimizedDiscoverySystem {
                 this.wasmInitialized = true;
                 console.log('[OptimizedDiscovery] ASC spatial grid initialized');
             } catch (e) {
-                console.warn('[OptimizedDiscovery] WASM initDiscoverySystem failed, using JS fallback:', e);
+                console.warn(
+                    '[OptimizedDiscovery] WASM initDiscoverySystem failed, using JS fallback:',
+                    e
+                );
                 this.wasmInitDiscovery = null;
             }
         }
@@ -378,7 +392,8 @@ export class OptimizedDiscoverySystem {
         if (!this.cppQuery || !this.cppHeap32 || !this.cppOutPtr) return null;
 
         const count = this.cppQuery(
-            playerPos.x, playerPos.z,
+            playerPos.x,
+            playerPos.z,
             CPP_DISCOVERY_RADIUS_SQ,
             this.cppOutPtr,
             CPP_MAX_QUERY_RESULTS
@@ -491,22 +506,26 @@ export class OptimizedDiscoverySystem {
         for (let i = 0; i < serverDiscoveries.length; i++) {
             const d = serverDiscoveries[i];
             formatted.push({
-            id: d.id,
-            timestamp: d.timestamp,
-            metadata: DISCOVERY_MAP[d.id] ? {
-                displayName: DISCOVERY_MAP[d.id].name,
-                icon: DISCOVERY_MAP[d.id].icon
-            } : undefined
-        });
+                id: d.id,
+                timestamp: d.timestamp,
+                metadata: DISCOVERY_MAP[d.id]
+                    ? {
+                          displayName: DISCOVERY_MAP[d.id].name,
+                          icon: DISCOVERY_MAP[d.id].icon,
+                      }
+                    : undefined,
+            });
         }
 
         discoveryPersistence.mergeWithServer(formatted);
-        
+
         for (const d of serverDiscoveries) {
             if (DISCOVERY_MAP[d.id]) this.discoveredItems.add(d.id);
         }
 
-        console.log(`[OptimizedDiscovery] Synced ${serverDiscoveries.length} discoveries with server`);
+        console.log(
+            `[OptimizedDiscovery] Synced ${serverDiscoveries.length} discoveries with server`
+        );
     }
 
     /**
@@ -518,7 +537,7 @@ export class OptimizedDiscoverySystem {
         for (let i = 0; i < pending.length; i++) {
             result.push({
                 id: pending[i].id,
-                timestamp: pending[i].timestamp
+                timestamp: pending[i].timestamp,
             });
         }
         return result;
@@ -537,14 +556,14 @@ export class OptimizedDiscoverySystem {
     } {
         this.ensureInitialized();
         const persistenceStats = discoveryPersistence.getStats();
-        
+
         return {
             registeredObjects: this.objectRegistry.size,
             uniqueTypes: this.typeToObjects.size,
             undiscoveredCount: this.getUndiscoveredCount(),
             usingWasm: this.cppInitialized || this.wasmInitialized,
             persistedCount: persistenceStats.total,
-            pendingSync: persistenceStats.pendingSync
+            pendingSync: persistenceStats.pendingSync,
         };
     }
 
@@ -624,9 +643,12 @@ export function checkPlayerDiscovery(playerPos: THREE.Vector3): void {
 
     // Trigger visual effect
     if (discovery) {
-        const effectWindow = typeof window !== 'undefined'
-            ? (window as Window & { triggerDiscoveryEffect?: (position: THREE.Vector3) => void })
-            : undefined;
+        const effectWindow =
+            typeof window !== 'undefined'
+                ? (window as Window & {
+                      triggerDiscoveryEffect?: (position: THREE.Vector3) => void;
+                  })
+                : undefined;
         if (effectWindow?.triggerDiscoveryEffect) {
             effectWindow.triggerDiscoveryEffect(playerPos);
         }
@@ -634,12 +656,12 @@ export function checkPlayerDiscovery(playerPos: THREE.Vector3): void {
 }
 
 // Re-export persistence utilities for convenience
-export { 
-    discoveryPersistence, 
-    exportDiscoveries, 
-    importDiscoveries, 
+export {
+    discoveryPersistence,
+    exportDiscoveries,
+    importDiscoveries,
     clearLocalDiscoveries,
     type PersistedDiscovery,
     type DiscoveryExport,
-    type DiscoveryStats
+    type DiscoveryStats,
 } from './discovery-persistence.ts';

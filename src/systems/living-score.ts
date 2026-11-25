@@ -43,7 +43,8 @@ export async function initLivingScore(): Promise<void> {
     if (_cuesLoaded || _cuesLoading) return;
     _cuesLoading = true;
     try {
-        const res = await fetch('/assets/score-cues.json');
+        // import.meta.url so Vite emits the file and the URL holds under a sub-prefix.
+        const res = await fetch(new URL('../../assets/score-cues.json', import.meta.url).href);
         if (!res.ok) return;
         const data = (await res.json()) as { cues?: ScoreCue[] };
         if (data && Array.isArray(data.cues)) {
@@ -191,7 +192,10 @@ function fireScoreEvent(cueIndex: number, nightGate: number, marketGate: number)
         }
 
         case 'geyserBurst':
-            if (kickDrumGeyserBatcher && typeof (kickDrumGeyserBatcher as any).triggerErupt === 'function') {
+            if (
+                kickDrumGeyserBatcher &&
+                typeof (kickDrumGeyserBatcher as any).triggerErupt === 'function'
+            ) {
                 (kickDrumGeyserBatcher as any).triggerErupt();
             }
             break;

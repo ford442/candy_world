@@ -122,15 +122,17 @@ export default defineConfig({
                     if (
                         (id.includes('/src/ui/save-menu/') && !id.endsWith('/save-menu/lazy.ts')) ||
                         id.includes('/src/systems/save-system/') ||
-                        (id.includes('/src/world/document/') &&
-                            !id.endsWith('/document/lazy.ts'))
+                        (id.includes('/src/world/document/') && !id.endsWith('/document/lazy.ts'))
                     ) {
                         return 'save-ui';
                     }
                     // Accessibility settings DOM (lazy-loaded menu)
+                    // input-controls-section.ts is the menu's "Controls" section; only
+                    // accessibility-menu-rendering.ts imports it.
                     if (
-                        id.includes('/src/ui/accessibility-menu') &&
-                        !id.endsWith('/accessibility-menu-lazy.ts')
+                        (id.includes('/src/ui/accessibility-menu') &&
+                            !id.endsWith('/accessibility-menu-lazy.ts')) ||
+                        id.endsWith('/src/ui/input-controls-section.ts')
                     ) {
                         return 'accessibility-ui';
                     }
@@ -244,6 +246,19 @@ export default defineConfig({
                     }
                     if (id.includes('/src/ui/mode-badge.ts')) {
                         return 'mode-badge';
+                    }
+                    // Failure-only "no WebGPU / WebGL2" screen (webgpu-fatal-lazy.ts stays in app)
+                    if (id.endsWith('/src/ui/webgpu-fatal.ts')) {
+                        return 'webgpu-fatal';
+                    }
+                    // window.exportCurrentWorldToMap body (map-exporter-lazy.ts stays in app)
+                    if (id.endsWith('/src/world/map-exporter.ts')) {
+                        return 'map-export';
+                    }
+                    // Discovery Log overlay (opened from the HUD / key; discovery-optimized.ts
+                    // imports it with import())
+                    if (id.endsWith('/src/systems/discovery/discovery-log.ts')) {
+                        return 'discovery-log';
                     }
                     if (id.includes('/src/foliage/batcher-telemetry.ts')) {
                         return 'telemetry';
