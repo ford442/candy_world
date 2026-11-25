@@ -1,21 +1,16 @@
 import * as THREE from 'three';
 import {
-    color, float, vec3, attribute, positionLocal, positionWorld,
-    sin, smoothstep, uniform, mix,
+    float, vec3, positionLocal,
+    smoothstep,
     varyingProperty
 } from 'three/tsl';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
-import type { Node } from 'three/webgpu';
 import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts';
 import {
     sharedGeometries,
-    uTime,
     uAudioLow,
     uAudioHigh,
-    uWindSpeed,
-    uWindDirection,
     createJuicyRimLight,
     applyStandardDeformation,
     createStandardNodeMaterial,

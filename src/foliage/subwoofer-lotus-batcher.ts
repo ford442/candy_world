@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
     color, float, vec3, positionLocal, normalLocal,
-    mix, sin, abs, smoothstep,
+    mix, sin, smoothstep,
     mx_noise_float, uv, length, atan, max
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
