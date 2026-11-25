@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
-import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { runGpuPlantPose, shouldUseGpuPlantPose } from '../compute/gpu-plant-pose.ts';
 import { camera } from '../core/camera-ref.ts';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { CONFIG } from '../core/config.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
-import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
+import { registerFoliageBatcherLod, unregisterFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-reactivity/music-wave.ts';
 import { foliageGroup } from '../world/state.ts';
-import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
+import { initInstanceLodAttribute, INSTANCE_LOD_ATTR } from './batcher-lod-utils.ts';
 import { foliageMaterials } from './foliage-materials.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { foliageMotionPosition, scaleEmissiveByLod, applyFoliageLodMaterialFade } from './lod-nodes.ts';
@@ -33,6 +33,31 @@ const _scratchEuler = new THREE.Euler();
 const _scratchColor = new THREE.Color();
 const _scratchHsl = { h: 0, s: 0, l: 0 };
 
+interface FlowerPartRecord {
+    matrix: Float32Array;
+    color: THREE.Color | null;
+    owner: THREE.Object3D;
+}
+
+class FlowerPartSlots extends InstancedBatcher<FlowerPartRecord> {
+    constructor(id: string, capacity: number, private readonly getMesh: () => THREE.InstancedMesh, private readonly stem = false) {
+        super(id, 'animate', capacity);
+    }
+    attach(): void {
+        const mesh = this.ensureMesh();
+        mesh.userData.preventMaterialDispose = true;
+        this.registerAttribute(mesh.geometry.getAttribute('aPoseState') as THREE.InstancedBufferAttribute);
+        this.registerAttribute(mesh.geometry.getAttribute(INSTANCE_LOD_ATTR) as THREE.InstancedBufferAttribute);
+    }
+    protected createMesh(): THREE.InstancedMesh { return this.getMesh(); }
+    protected writeRecord(record: FlowerPartRecord, slot: number, array: Float32Array): void {
+        array.set(record.matrix, slot * 16);
+        if (record.color && this.mesh!.instanceColor) record.color.toArray(this.mesh!.instanceColor.array, slot * 3);
+        if (this.stem) record.owner.userData.batchIndex = slot;
+    }
+    protected step(): void {}
+}
+
 export class FlowerBatcher {
     private static instance: FlowerBatcher;
     private initialized = false;
@@ -48,16 +73,18 @@ export class FlowerBatcher {
     private petalsSpiral!: THREE.InstancedMesh; // Cone
 
     // Counts
-    private stemCount = 0;
-    private centerCount = 0;
-    private stamenCount = 0;
-    private simpleCount = 0;
-    private multiCount = 0;
-    private spiralCount = 0;
-
-    private logicIdToParts: Map<string, Array<{ mesh: THREE.InstancedMesh, countProp: string, index: number }>> = new Map();
-    // Maps mesh.uuid -> Map<index, ownerId> for O(1) reverse lookups
-    private meshIndexToLogicId: Map<string, Map<number, string>> = new Map();
+    private readonly parts = {
+        stemCount: new FlowerPartSlots('flower-stem', MAX_FLOWERS, () => this.stems, true),
+        centerCount: new FlowerPartSlots('flower-center', MAX_FLOWERS, () => this.centers),
+        stamenCount: new FlowerPartSlots('flower-stamen', MAX_FLOWERS * 3, () => this.stamens),
+        simpleCount: new FlowerPartSlots('flower-simple', MAX_PETALS, () => this.petalsSimple),
+        multiCount: new FlowerPartSlots('flower-multi', MAX_PETALS, () => this.petalsMulti),
+        spiralCount: new FlowerPartSlots('flower-spiral', MAX_PETALS, () => this.petalsSpiral),
+    };
+    private get stemCount(): number { return this.parts.stemCount.instanceCount; }
+    private logicIdToParts = new Map<string, Array<{ mesh: THREE.InstancedMesh, countProp: string, index: number }>>();
+    private registeringOwner!: THREE.Object3D;
+    dropped = 0;
 
     private _poseMachine!: PlantPoseMachine;
     private _lastGpuPoses: Float32Array | null = null;
@@ -257,6 +284,7 @@ export class FlowerBatcher {
         for (const mesh of [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral]) {
             initInstanceLodAttribute(mesh, mesh.instanceMatrix.count);
         }
+        for (const part of Object.values(this.parts)) part.attach();
 
         this.initialized = true;
         registerFoliageBatcherLod({ id: 'flower', getMeshes: () => this.getLODMeshes() });
@@ -270,9 +298,12 @@ export class FlowerBatcher {
 
     register(group: THREE.Group, type: string, options: any = {}) {
         if (!this.initialized) this.init();
+        if (this.logicIdToParts.has(group.uuid)) return;
+        this.registeringOwner = group;
 
         // ⚡ OPTIMIZATION: Mark as batched
         group.userData.isBatched = true;
+        group.userData.batchIndex = -1;
 
         // Ensure world matrix is up to date
         // ⚡ OPTIMIZATION: Bypassed deep THREE.Object3D proxy traversals
@@ -415,154 +446,51 @@ export class FlowerBatcher {
 
         if (parts.length > 0) {
             this.logicIdToParts.set(group.uuid, parts);
-
-            for (const part of parts) {
-                let indexMap = this.meshIndexToLogicId.get(part.mesh.uuid);
-                if (!indexMap) {
-                    indexMap = new Map();
-                    this.meshIndexToLogicId.set(part.mesh.uuid, indexMap);
-                }
-                indexMap.set(part.index, group.uuid);
-            }
         }
+        for (const part of Object.values(this.parts)) part.flush();
     }
 
     private addInstance(mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color | null, countProp: string): number {
-        let index = 0;
-        let max = 0;
-
-        switch (countProp) {
-            case 'stemCount': index = this.stemCount; max = MAX_FLOWERS; break;
-            case 'centerCount': index = this.centerCount; max = MAX_FLOWERS; break;
-            case 'stamenCount': index = this.stamenCount; max = MAX_FLOWERS * 3; break;
-            case 'simpleCount': index = this.simpleCount; max = MAX_PETALS; break;
-            case 'multiCount': index = this.multiCount; max = MAX_PETALS; break;
-            case 'spiralCount': index = this.spiralCount; max = MAX_PETALS; break;
+        const part = this.parts[countProp as keyof typeof this.parts];
+        const handle = part.add({
+            matrix: Float32Array.from(matrix.elements),
+            color: color?.clone() ?? null,
+            owner: this.registeringOwner,
+        });
+        if (handle === null) {
+            if (this.dropped++ === 0) console.warn(`[FlowerBatcher] ${countProp} is full; dropping flower parts`);
+            return -1;
         }
-
-        if (index >= max) return -1;
-
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        matrix.toArray(mesh.instanceMatrix.array, (index) * 16);
-        if (color && mesh.instanceColor) {
-            // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
-            const colorArray = mesh.instanceColor.array as Float32Array;
-            const colorOffset = index * 3;
-            colorArray[colorOffset] = color.r;
-            colorArray[colorOffset + 1] = color.g;
-            colorArray[colorOffset + 2] = color.b;
-        }
-
-        // Update count
-        switch (countProp) {
-            case 'stemCount': this.stemCount++; mesh.count = this.stemCount; break;
-            case 'centerCount': this.centerCount++; mesh.count = this.centerCount; break;
-            case 'stamenCount': this.stamenCount++; mesh.count = this.stamenCount; break;
-            case 'simpleCount': this.simpleCount++; mesh.count = this.simpleCount; break;
-            case 'multiCount': this.multiCount++; mesh.count = this.multiCount; break;
-            case 'spiralCount': this.spiralCount++; mesh.count = this.spiralCount; break;
-        }
-
-        if (!shouldUseFoliageGpuBatch(mesh.count)) {
-            mesh.instanceMatrix.needsUpdate = true;
-            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-        }
-
-        return index;
+        return handle;
     }
 
     removeInstance(logicObject: THREE.Object3D) {
         if (!this.initialized || !logicObject) return;
-
-        const id = logicObject.uuid;
-        const parts = this.logicIdToParts.get(id);
+        const parts = this.logicIdToParts.get(logicObject.uuid);
         if (!parts) return;
-
-        // Sort parts by index descending to avoid the multi-slot swap bug.
-        // Parts might be jumbled from previous evictions.
-        parts.sort((a, b) => b.index - a.index);
-
         for (const part of parts) {
-            const mesh = part.mesh;
-            const index = part.index;
-            const countProp = part.countProp;
+            this.parts[part.countProp as keyof typeof this.parts].remove(part.index);
+        }
+        this.logicIdToParts.delete(logicObject.uuid);
+        logicObject.userData.batchIndex = -1;
+        for (const part of Object.values(this.parts)) part.flush();
+    }
 
-            let lastIndex = -1;
-            switch (countProp) {
-                case 'stemCount': lastIndex = this.stemCount - 1; break;
-                case 'centerCount': lastIndex = this.centerCount - 1; break;
-                case 'stamenCount': lastIndex = this.stamenCount - 1; break;
-                case 'simpleCount': lastIndex = this.simpleCount - 1; break;
-                case 'multiCount': lastIndex = this.multiCount - 1; break;
-                case 'spiralCount': lastIndex = this.spiralCount - 1; break;
-            }
-
-            if (lastIndex < 0) continue;
-
-            if (index !== lastIndex) {
-                // Copy matrix
-                const matrixArray = mesh.instanceMatrix.array as Float32Array;
-                for (let j = 0; j < 16; j++) {
-                    matrixArray[index * 16 + j] = matrixArray[lastIndex * 16 + j];
-                }
-                mesh.instanceMatrix.needsUpdate = true;
-
-                // Copy color
-                if (mesh.instanceColor) {
-                    const colorArray = mesh.instanceColor.array as Float32Array;
-                    for (let j = 0; j < 3; j++) {
-                        colorArray[index * 3 + j] = colorArray[lastIndex * 3 + j];
-                    }
-                    mesh.instanceColor.needsUpdate = true;
-                }
-
-                // Copy aPoseState
-                const poseAttr = mesh.geometry.getAttribute('aPoseState');
-                if (poseAttr) {
-                    const poseArray = poseAttr.array as Float32Array;
-                    poseArray[index] = poseArray[lastIndex];
-                    poseAttr.needsUpdate = true;
-                }
-
-                // O(1) reverse lookup
-                const indexMap = this.meshIndexToLogicId.get(mesh.uuid);
-                if (indexMap) {
-                    const ownerId = indexMap.get(lastIndex);
-                    if (ownerId && ownerId !== id) {
-                        const ownerParts = this.logicIdToParts.get(ownerId);
-                        if (ownerParts) {
-                            for (const otherPart of ownerParts) {
-                                if (otherPart.mesh === mesh && otherPart.index === lastIndex) {
-                                    otherPart.index = index;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if (ownerId) {
-                        indexMap.set(index, ownerId);
-                    }
-                    indexMap.delete(lastIndex);
-                }
-            } else {
-                const indexMap = this.meshIndexToLogicId.get(mesh.uuid);
-                if (indexMap) {
-                    indexMap.delete(index);
-                }
-            }
-
-            // Decrement
-            switch (countProp) {
-                case 'stemCount': this.stemCount--; mesh.count = this.stemCount; break;
-                case 'centerCount': this.centerCount--; mesh.count = this.centerCount; break;
-                case 'stamenCount': this.stamenCount--; mesh.count = this.stamenCount; break;
-                case 'simpleCount': this.simpleCount--; mesh.count = this.simpleCount; break;
-                case 'multiCount': this.multiCount--; mesh.count = this.multiCount; break;
-                case 'spiralCount': this.spiralCount--; mesh.count = this.spiralCount; break;
+    dispose(): void {
+        if (this.initialized) unregisterFoliageBatcherLod('flower');
+        for (const record of this.logicIdToParts.keys()) {
+            const parts = this.logicIdToParts.get(record)!;
+            const stem = parts.find(part => part.countProp === 'stemCount');
+            if (stem) {
+                const slot = this.parts.stemCount.slotOf(stem.index);
+                if (slot !== undefined) this.parts.stemCount.recordAt(slot)!.owner.userData.batchIndex = -1;
             }
         }
-
-        this.logicIdToParts.delete(id);
+        for (const part of Object.values(this.parts)) part.dispose();
+        this.logicIdToParts.clear();
+        this._lastGpuPoses = null;
+        this.dropped = 0;
+        this.initialized = false;
     }
 
     update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {

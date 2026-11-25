@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld, uv, distance, vec2, varyingProperty, add } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { shouldUseFoliageGpuBatch } from '../compute/foliage-gpu-batch.ts';
 import { isGpuFoliageDefaultPath } from '../compute/gpu-foliage-flag.ts';
 import {
     runGpuPlantPose,
@@ -11,6 +10,7 @@ import {
     type GpuPlantPoseWave,
 } from '../compute/gpu-plant-pose.ts';
 import { camera } from '../core/camera-ref.ts';
+import { InstancedBatcher } from '../core/batcher/instanced-batcher.ts';
 import { CONFIG } from '../core/config.ts';
 import { BiomeUniforms, circadianDayGlowMult } from '../systems/biome-uniforms.ts';
 import { getActiveWave } from '../systems/music-reactivity/music-wave.ts';
@@ -49,17 +49,35 @@ const _scratchEuler = new THREE.Euler();
 const _scratchScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
 
+class SimpleFlowerSlots extends InstancedBatcher<THREE.Object3D> {
+    constructor(private readonly owner: SimpleFlowerBatcher) {
+        super('simple-flower', 'animate', MAX_FLOWERS);
+    }
+
+    attach(meshes: THREE.InstancedMesh[]): void {
+        this.ensureMesh();
+        for (const mesh of meshes.slice(1)) this.linkMesh(mesh);
+        for (const mesh of meshes) {
+            this.registerAttribute(mesh.geometry.getAttribute('aPoseState') as THREE.InstancedBufferAttribute);
+        }
+    }
+
+    protected createMesh(): THREE.InstancedMesh { return this.owner.stemMesh!; }
+    protected writeRecord(obj: THREE.Object3D, slot: number): void { obj.userData.batchIndex = slot; }
+    protected onSwap(from: number, to: number): void { this.owner.swapSlots(from, to); }
+    protected step(): void {}
+}
+
 export class SimpleFlowerBatcher {
     private _poseMachine!: PlantPoseMachine;
     private _gpuPositions: Float32Array | null = null;
     private _lastGpuPoses: Float32Array | null = null;
     private _gpuPoseInFlight = false;
+    private _poseRevision = 0;
     initialized: boolean;
-    count: number;
-
-    // Fast O(1) removal tracking
-    private logicIdToInstance: Map<number, number> = new Map();
-    private instanceToLogicId: number[] = [];
+    private readonly slots = new SimpleFlowerSlots(this);
+    dropped = 0;
+    get count(): number { return this.slots.instanceCount; }
 
     // Meshes
     stemMesh: THREE.InstancedMesh | null;
@@ -76,7 +94,6 @@ export class SimpleFlowerBatcher {
 
     constructor() {
         this.initialized = false;
-        this.count = 0;
         this.stemMesh = null;
         this.petalMesh = null;
         this.centerMesh = null;
@@ -217,15 +234,17 @@ export class SimpleFlowerBatcher {
         this.beamMesh = this.createInstancedMesh(beamGeo, beamMat, MAX_FLOWERS, 'SimpleFlower_Beam');
         this.petalMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
         this.beamMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.petalMesh.geometry.setAttribute('instanceColor', this.petalMesh.instanceColor);
+        this.beamMesh.geometry.setAttribute('instanceColor', this.beamMesh.instanceColor);
         // Provide aPoseState so TSL attribute('aPoseState') resolves
         const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
         for (let i = 0; i < meshes.length; i++) {
             meshes[i].geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
         }
 
-        // Add to Scene
-        this.petalMesh.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS).fill(0), 1));
+        this.slots.attach(meshes);
 
+        // Add to Scene
         foliageGroup.add(this.stemMesh);
         foliageGroup.add(this.petalMesh);
         foliageGroup.add(this.centerMesh);
@@ -313,6 +332,7 @@ export class SimpleFlowerBatcher {
         this.pollenPoints = new THREE.Points(pollenGeo, pollenMat);
         this.pollenPoints.frustumCulled = false; // Always update
         this.pollenPoints.name = 'SimpleFlower_Pollen';
+        this.pollenPoints.geometry.setDrawRange(0, 0);
 
         foliageGroup.add(this.pollenPoints);
     }
@@ -396,6 +416,7 @@ export class SimpleFlowerBatcher {
         cameraPos: THREE.Vector3 | undefined
     ): void {
         if (!this._gpuPositions) return;
+        uploadGpuPlantPositions(this._gpuPositions, this.count);
 
         let wave: GpuPlantPoseWave | null = null;
         if (activeWave) {
@@ -414,6 +435,7 @@ export class SimpleFlowerBatcher {
         }
 
         this._gpuPoseInFlight = true;
+        const revision = this._poseRevision;
         void runGpuPlantPose({
             count: this.count,
             delta: deltaTime,
@@ -423,7 +445,7 @@ export class SimpleFlowerBatcher {
             wave,
         })
             .then((poses) => {
-                if (poses) this._lastGpuPoses = poses;
+                if (poses && revision === this._poseRevision) this._lastGpuPoses = poses.slice();
             })
             .finally(() => {
                 this._gpuPoseInFlight = false;
@@ -432,28 +454,31 @@ export class SimpleFlowerBatcher {
 
     register(logicObject: THREE.Object3D, options: any = {}) {
         if (!this.initialized) this.init();
-        if (this.count >= MAX_FLOWERS) {
-            console.warn('[SimpleFlowerBatcher] Capacity full');
+        if (this.slots.hasKey(logicObject.id)) return;
+        const handle = this.slots.addKeyed(logicObject.id, logicObject);
+        if (handle === null) {
+            if (this.dropped++ === 0) console.warn('[SimpleFlowerBatcher] Capacity full');
+            logicObject.userData.batchIndex = -1;
             return;
         }
 
-        const i = this.count;
-        this.logicIdToInstance.set(logicObject.id, i);
-        this.instanceToLogicId[i] = logicObject.id;
+        const i = this.slots.slotOf(handle)!;
+        this._poseRevision++;
+        if (this._lastGpuPoses) this._lastGpuPoses[i] = 0;
 
         const { color = 0xFFFFFF } = options;
 
-        if (this._gpuPositions && isGpuFoliageDefaultPath()) {
+        if (this._gpuPositions) {
             const base = i * 3;
             this._gpuPositions[base] = logicObject.position.x;
             this._gpuPositions[base + 1] = logicObject.position.y;
             this._gpuPositions[base + 2] = logicObject.position.z;
-            uploadGpuPlantPositions(this._gpuPositions, this.count + 1);
+            if (isGpuFoliageDefaultPath()) uploadGpuPlantPositions(this._gpuPositions, this.count);
         }
 
         // 1. Calculate Transforms
         _scratchMat.compose(logicObject.position, logicObject.quaternion, logicObject.scale);
-        const baseMatrix = _scratchMat;
+        const baseMatrix = _scratchMat.clone();
 
         // Stem: Scale (0.05, height, 0.05). Height is random.
         const stemHeight = 0.6 + Math.random() * 0.4;
@@ -551,32 +576,14 @@ export class SimpleFlowerBatcher {
             }
         }
 
-        this.count++;
-
         if (this._poseMachine) {
             this._poseMachine.reset(i, 0);
         }
-
-        // Mark for update
-        this.stemMesh!.count = this.count;
-        this.petalMesh!.count = this.count;
-        this.centerMesh!.count = this.count;
-        this.stamenMesh!.count = this.count;
-        this.beamMesh!.count = this.count;
-
-        if (!shouldUseFoliageGpuBatch(this.count)) {
-            this.stemMesh!.instanceMatrix.needsUpdate = true;
-
-            this.petalMesh!.instanceMatrix.needsUpdate = true;
-            if (this.petalMesh!.instanceColor) this.petalMesh!.instanceColor.needsUpdate = true;
-
-            this.centerMesh!.instanceMatrix.needsUpdate = true;
-
-            this.stamenMesh!.instanceMatrix.needsUpdate = true;
-
-            this.beamMesh!.instanceMatrix.needsUpdate = true;
-            if (this.beamMesh!.instanceColor) this.beamMesh!.instanceColor.needsUpdate = true;
+        for (const mesh of [this.stemMesh!, this.petalMesh!, this.centerMesh!, this.stamenMesh!, this.beamMesh!]) {
+            (mesh.geometry.getAttribute('aPoseState').array as Float32Array)[i] = 0;
         }
+
+        this.slots.flush();
 
         // Update Pollen
         if (this.pollenPoints) {
@@ -591,106 +598,46 @@ export class SimpleFlowerBatcher {
 
     removeInstance(logicObject: THREE.Object3D) {
         if (!this.initialized || !logicObject) return;
-
-        const id = logicObject.id;
-        const index = this.logicIdToInstance.get(id);
+        const index = this.slots.slotOfKey(logicObject.id);
         if (index === undefined) return;
+        this.slots.removeKeyed(logicObject.id);
+        this._poseRevision++;
+        logicObject.userData.batchIndex = -1;
+        this.slots.flush();
+        if (this.pollenPoints) this.pollenPoints.geometry.setDrawRange(0, this.count * GRAINS_PER_FLOWER);
+        if (this._gpuPositions && isGpuFoliageDefaultPath()) uploadGpuPlantPositions(this._gpuPositions, this.count);
+    }
 
-        const last = this.count - 1;
-        if (index !== last) {
-            const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
-            for (const mesh of meshes) {
-                if (!mesh) continue;
-
-                // Swap instance matrix
-                const matrixArray = mesh.instanceMatrix.array as Float32Array;
-                for (let i = 0; i < 16; i++) {
-                    matrixArray[index * 16 + i] = matrixArray[last * 16 + i];
-                }
-                mesh.instanceMatrix.needsUpdate = true;
-
-                // Swap instanceColor if exists
-                if (mesh.instanceColor) {
-                    const colorArray = mesh.instanceColor.array as Float32Array;
-                    for (let i = 0; i < 3; i++) {
-                        colorArray[index * 3 + i] = colorArray[last * 3 + i];
-                    }
-                    mesh.instanceColor.needsUpdate = true;
-                }
-
-                // Swap aPoseState
-                const poseAttr = mesh.geometry.getAttribute('aPoseState');
-                if (poseAttr) {
-                    const poseArray = poseAttr.array as Float32Array;
-                    poseArray[index] = poseArray[last];
-                    poseAttr.needsUpdate = true;
-                }
-            }
-
-            // Zero out pollen instances
-            if (this.pollenPositions) {
-                for (let j = 0; j < GRAINS_PER_FLOWER; j++) {
-                    const pIndex = index * GRAINS_PER_FLOWER + j;
-                    this.pollenPositions[pIndex * 3] = 0;
-                    this.pollenPositions[pIndex * 3 + 1] = 0;
-                    this.pollenPositions[pIndex * 3 + 2] = 0;
-                }
-                if (this.pollenPoints) {
-                    this.pollenPoints.geometry.attributes.position.needsUpdate = true;
-                }
-            }
-
-            // Update ID mappings
-            const lastLogicId = this.instanceToLogicId[last];
-            this.logicIdToInstance.set(lastLogicId, index);
-            this.instanceToLogicId[index] = lastLogicId;
-
-            // Swap GPU positions
-            if (this._gpuPositions) {
-                this._gpuPositions[index * 3] = this._gpuPositions[last * 3];
-                this._gpuPositions[index * 3 + 1] = this._gpuPositions[last * 3 + 1];
-                this._gpuPositions[index * 3 + 2] = this._gpuPositions[last * 3 + 2];
-            }
-        } else {
-            // It's the last element, zero out pollen
-            if (this.pollenPositions) {
-                for (let j = 0; j < GRAINS_PER_FLOWER; j++) {
-                    const pIndex = index * GRAINS_PER_FLOWER + j;
-                    this.pollenPositions[pIndex * 3] = 0;
-                    this.pollenPositions[pIndex * 3 + 1] = 0;
-                    this.pollenPositions[pIndex * 3 + 2] = 0;
-                }
-                if (this.pollenPoints) {
-                    this.pollenPoints.geometry.attributes.position.needsUpdate = true;
-                }
-            }
+    /** Keep non-mesh streams and pose history aligned with the base's swap. */
+    swapSlots(from: number, to: number): void {
+        for (const values of [this.pollenPositions, this.pollenOffsets, this.pollenColors]) {
+            if (values) values.copyWithin(to * GRAINS_PER_FLOWER * 3, from * GRAINS_PER_FLOWER * 3, (from + 1) * GRAINS_PER_FLOWER * 3);
         }
-
-        this.logicIdToInstance.delete(id);
-        this.count--;
-
-        // Update counts
-        if (this.stemMesh) this.stemMesh.count = this.count;
-        if (this.petalMesh) this.petalMesh.count = this.count;
-        if (this.centerMesh) this.centerMesh.count = this.count;
-        if (this.stamenMesh) this.stamenMesh.count = this.count;
-        if (this.beamMesh) this.beamMesh.count = this.count;
+        if (this.pollenPoints) {
+            for (const name of ['position', 'offset', 'color']) this.pollenPoints.geometry.attributes[name].needsUpdate = true;
+        }
+        if (this._gpuPositions) this._gpuPositions.copyWithin(to * 3, from * 3, from * 3 + 3);
+        if (this._lastGpuPoses) this._lastGpuPoses[to] = this._lastGpuPoses[from];
+        this._poseMachine.copySlot(from, to);
     }
 
     dispose(): void {
-        const meshes = [
-            this.stemMesh,
-            this.petalMesh,
-            this.centerMesh,
-            this.stamenMesh,
-            this.beamMesh,
-            this.pollenPoints
-        ];
-        meshes.forEach(mesh => {
-            if (mesh && mesh.parent) {
-                safeRemoveAndDispose(mesh.parent, mesh);
+        for (let i = 0; i < this.count; i++) this.slots.recordAt(i)!.userData.batchIndex = -1;
+        this.slots.dispose();
+        this._poseRevision++;
+        if (this.pollenPoints) {
+            if (this.pollenPoints.parent) safeRemoveAndDispose(this.pollenPoints.parent, this.pollenPoints);
+            else {
+                this.pollenPoints.geometry.dispose();
+                (this.pollenPoints.material as THREE.Material).dispose();
             }
-        });
+        }
+        this.stemMesh = this.petalMesh = this.centerMesh = this.stamenMesh = this.beamMesh = null;
+        this.pollenPoints = null;
+        this.pollenPositions = this.pollenOffsets = this.pollenColors = this._gpuPositions = null;
+        this._lastGpuPoses = null;
+        this.dropped = 0;
+        this.initialized = false;
     }
 }
 

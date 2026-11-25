@@ -195,6 +195,19 @@ export function registerFoliageBatcherLod(target: BatcherLodTarget): void {
     }
 }
 
+/** Stop tracking a batcher's meshes before they are disposed. */
+export function unregisterFoliageBatcherLod(id: string): void {
+    const index = _targets.findIndex((target) => target.id === id);
+    if (index < 0) return;
+    const [target] = _targets.splice(index, 1);
+    for (const mesh of target.getMeshes()) {
+        if (_targets.some((other) => other.getMeshes().includes(mesh))) continue;
+        _meshTracks.delete(mesh);
+        _meshMaxScales.delete(mesh);
+        delete mesh.userData.foliageLodTracked;
+    }
+}
+
 function trackLodMesh(mesh: THREE.InstancedMesh): void {
     if (_meshTracks.has(mesh)) return;
     ensureInstanceLodAttribute(mesh);

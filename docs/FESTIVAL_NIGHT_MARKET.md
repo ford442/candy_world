@@ -26,6 +26,12 @@ There are three `InstancedMesh`es (3 draw calls for the whole market) with a sha
 - **Day path is cheap:** two opaque draws, and the lantern mesh is hidden by `nightMarketBatcher.update(phase)` (called from `game-loop-visuals.ts`, O(1)).
 - **Lights:** one `registerDecorativeFill` descriptor per stall through `src/rendering/lights.ts`, released on eviction. There are no GPU `PointLight`s and no extra shadow maps, so `CONFIG.lighting.local.maxLocalShadowLights` is untouched.
 
+For a full 64-stall market, the before/after mesh layout is unchanged: three
+night draws (two after the lanterns are hidden by day). Source inspection also
+shows no allocations in the steady-state phase/flush path before or after the
+port; adding or evicting stalls does dirty and upload the shared streams. These
+are structural observations, not GPU draw-call or heap-profiler measurements.
+
 ## Streaming (#1755)
 
 `NightMarketBatcher.removeInstance(proxy)` swap-removes the slot, which keeps `mesh.count` dense and releases the stall's decorative light. `ChunkStreamer.classifyForEviction` maps `night_market_stall → 'nightMarketStall'`. Walking out of range and back never grows instance count or VRAM. `test:night-market` runs 25 spawn/evict cycles through the real streamer.

@@ -11,6 +11,11 @@ see **[`CANDY_MATERIAL_COOKBOOK.md`](./CANDY_MATERIAL_COOKBOOK.md)** and
 
 Defaults always remain valid fallback.
 
+The `InstancedBatcher` ports of `arpeggio-batcher.ts`, `portamento-batcher.ts`,
+`flower-batcher.ts`, `simple-flower-batcher.ts`, and `luminous-plant-batcher.ts`
+leave `assets/music-bindings.json` unchanged. Their pose and reactive material
+bindings still use the same channels and uniforms.
+
 ## Map-Level Overrides
 
 ```json
@@ -182,4 +187,3 @@ Stacked floating landmasses (#1363) — low mist / mid canopy / high nebula — 
 | Sky wave | `sky_wave.target_biomes` includes `sky_islands` | noteColor | Moon hue cascades onto island decks |
 
 Mesh: `src/foliage/sky-islands.ts` (`createSkyIsland` + lightweight `SkyIslandBatcher` registry). Walkability via `registerWalkableIslandPlatform` on the unified ground query. Connectivity graph + `?debugIslands=1` viz in `src/world/sky-island-graph.ts`. Viewpoint: `sky_island_horizon` in visual-regression.
-

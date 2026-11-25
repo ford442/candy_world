@@ -84,6 +84,22 @@ class FakeBatcher extends InstancedBatcher<Rec> {
 
 const rec = (tag: number): Rec => ({ p: new THREE.Vector3(tag, tag + 0.5, -tag), tag });
 
+test('dispose unregisters frame updates and adding again registers them', () => {
+    const b = new FakeBatcher();
+    b.add(rec(1));
+    assert.ok(liveInstancedBatchers().includes(b));
+    b.dispose();
+    assert.ok(!liveInstancedBatchers().includes(b));
+    const steps = b.steps;
+    updateInstancedBatchers(ctx);
+    assert.equal(b.steps, steps);
+    b.add(rec(2));
+    assert.ok(liveInstancedBatchers().includes(b));
+    updateInstancedBatchers(ctx);
+    assert.equal(b.steps, steps + 1);
+    b.dispose();
+});
+
 test('add and remove keep mesh.count equal to the live count on every mesh', () => {
     const b = new FakeBatcher();
     const h1 = b.add(rec(1))!;

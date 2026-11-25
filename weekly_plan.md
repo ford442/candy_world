@@ -2,6 +2,11 @@
 
 ## Today's focus
 
+**Batcher follow-up (#2184):** the remaining foliage batchers use the shared
+slot bookkeeping. Music bindings are unchanged; see `docs/MUSIC_MAP_BINDING.md`
+for the affected reactive batchers and `docs/FESTIVAL_NIGHT_MARKET.md` for the
+market's draw and allocation comparison.
+
 **2026-11-10 — FIX FIRST mode. Primary: the PR gate has been red for six days and a bot PR quietly undid one of Noah's play fixes behind it. `Node protocol tests` failed on 20 of the 22 `main` pushes since #2107 `fad443b` (2026-11-04 21:26 UTC; 1 green at #2117 `90c0337`, 1 cancelled), `Lint` is red (+4 over a baseline a bot raised), and the native crash last week's whole-stack pass found is still unfixed. Make the gate green, restore what was reverted, fix the crash, and make the smoke test able to see it.**
 
 Last week's dispatch landed — verified on disk this run: #1973 slice 3 (#2095 `565df84` + #2117 `90c0337`: `world/state.ts` exports only `ReadonlyArray` views over `entities.view(...)`, `tests/entity-registry.test.ts` in `test:fast`), #2027 slice 2 (#2098 `f01eaa5`: `gamepad.ts`, `gamepad-haptics.ts`, `tests/input-gamepad.test.ts`), the whole-stack pass (#2099; numbers in Done). #1973 slice 4 is half in (#2108 `58dd9f2`: `InstancedBatcher` base, mushroom + kick-drum geyser ported; vine and the other 20 batchers are not).
