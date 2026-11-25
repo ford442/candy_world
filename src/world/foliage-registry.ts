@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { createChimeTulip } from '../foliage/chime-tulip.ts';
+import { createDrumPuffball } from '../foliage/drum-puffball.ts';
 import { createGemCanopyTree } from '../foliage/gem-canopy-tree.ts';
 import {
     createMushroom,
@@ -276,6 +278,17 @@ export function registerBuiltinWorldObjectTypes(): void {
         defaultRadius: 1.0,
         supportsMusic: true,
     });
+    // Music Garden slice B: planted instruments the garden sequencer plays (`audio/garden/`).
+    registerType(
+        'chime_tulip',
+        (params) => createChimeTulip({ degree: params?.degree, step: params?.step }),
+        { supportsMusic: true }
+    );
+    registerType(
+        'drum_puffball',
+        (params) => createDrumPuffball({ drum: params?.drum, shift: params?.shift }),
+        { supportsMusic: true }
+    );
     registerType('bubble_willow', () => createBubbleWillow(), {
         defaultIsObstacle: true,
         defaultRadius: 1.5,

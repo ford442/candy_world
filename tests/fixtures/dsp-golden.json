@@ -1,6 +1,22 @@
 {
     "about": "tests/dsp-render.test.mjs golden renders (48 kHz). Refresh: npm run test:dsp-render -- --update",
     "scenes": {
+        "garden-chime": {
+            "rmsDb": -31.275,
+            "centroidHz": 1423.1
+        },
+        "garden-kick": {
+            "rmsDb": -24.814,
+            "centroidHz": 89.6
+        },
+        "garden-snare": {
+            "rmsDb": -36.885,
+            "centroidHz": 5971.1
+        },
+        "garden-hat": {
+            "rmsDb": -33.524,
+            "centroidHz": 15127.1
+        },
         "sine-a4": {
             "rmsDb": -20.394,
             "centroidHz": 441.2

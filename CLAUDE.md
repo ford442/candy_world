@@ -129,6 +129,7 @@ Related modules live in folders. A folder's `index.ts` is its public surface, bu
 - **`beat-sync.ts`**: Beat detection and synchronization
 - **`generative/`**: the default generative soundtrack (lazy `generative-music` chunk). `GenerativeEngine` queues steps 200 ms ahead on the audio clock and fires visuals when a step is heard; notes go to a `GenerativeVoiceSink`: the garden DSP worklet when it loads, `SynthVoice` (Web Audio nodes) otherwise or with `?no_dsp`
 - **`worklet/`**: the garden DSP engine's main-thread side (lazy `garden-audio` chunk): `GardenAudioEngine` loads `public/candy_dsp.wasm` (C++ in `emscripten/dsp/`, `npm run build:dsp`) into the `candy-garden` AudioWorklet and sends note events through a SharedArrayBuffer ring (posted batches without isolation). Music Garden plan and engine reference: `docs/MUSIC_GARDEN.md`
+- **`garden/`**: the garden sequencer (lazy `garden` chunk, loaded once a chime tulip or drum puffball exists): plays planted flora in time with the soundtrack, the tracker (`beat-sync.ts`) or on its own clock, through the garden patches in `PATCH_RANGE.free` or `SynthVoice`. Pure core (`sequencer.ts`, `clock.ts`), wiring in `conductor.ts` / `index.ts`. See `docs/MUSIC_GARDEN.md` (slice B)
 - Music reactivity integration
 
 #### `/src/world` — World Generation
@@ -291,6 +292,8 @@ npm run budget:check  # Verify chunk size constraints
 - `npm run test:garden-events`: the worklet's SPSC event ring (two real threads) and the posted-batch fallback
 - `npm run test:generative-scheduler`: notes on the audio-clock grid through frame jitter and stalls, visuals when heard, DSP/fallback sink selection
 - `npm run test:dsp-render`: `candy_dsp.wasm` rendered offline (golden RMS/centroid in `tests/fixtures/dsp-golden.json`, harmonics, NaN/denormal safety, sample-accurate timing, duck, 64 voices < 1 ms per quantum, the generative engine end to end). Skips without `build:dsp`; `CANDY_DSP_REQUIRE=1` makes it mandatory. `-- --update` refreshes the golden file
+
+- `npm run test:garden-flora`, `test:garden-sequencer`, `test:garden-placement` (Music Garden slice B, all in `test:fast`): chime tulip / drum puffball entities through the command log; the garden sequencer's clock, key, falloff, modes and `SynthVoice` fallback; build-mode placement end to end. `npm run test:garden-live` (after `npm run build`, needs Chromium) boots the built app with plants beside the spawn
 
 ### Shared worlds tests
 

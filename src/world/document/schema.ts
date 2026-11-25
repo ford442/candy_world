@@ -14,6 +14,7 @@
 
 import * as v from 'valibot';
 import type { EntitySnapshot } from '../../systems/entity-snapshot/entity-snapshot-types.ts';
+import { gardenFloraIssue } from './garden-flora.ts';
 import { composeIssue, musicStoneSnapshotOk } from './grove-pattern.ts';
 
 /** Bump with a matching hop in `migrations.ts`. */
@@ -39,7 +40,7 @@ const IdListSchema = v.pipe(v.array(IdSchema), v.maxLength(MAX_PROGRESS_ENTRIES)
  * replay depends on are checked; the rest of the map record is carried through
  * (`migrateSnapshot` and `processMapEntity` own their own shapes). A music
  * stone's grove pattern is the exception: it is player data that every peer
- * plays, so it is checked wherever a stone appears (`grove-pattern.ts`).
+ * plays, so it is checked wherever a stone appears (`grove-pattern.ts`); so are the garden instruments' params (`garden-flora.ts`).
  */
 export const EntitySnapshotSchema = v.pipe(
     v.looseObject({
@@ -50,7 +51,12 @@ export const EntitySnapshotSchema = v.pipe(
             position: Vec3Schema,
         }),
     }),
-    v.check((s) => musicStoneSnapshotOk(s), 'a music stone carries an invalid grove pattern')
+    v.check((s) => musicStoneSnapshotOk(s), 'a music stone carries an invalid grove pattern'),
+    v.rawCheck(({ dataset, addIssue }) => {
+        if (!dataset.typed) return;
+        const issue = gardenFloraIssue(dataset.value);
+        if (issue) addIssue({ message: issue });
+    })
 ) as unknown as v.GenericSchema<unknown, EntitySnapshot>;
 
 // ---------------------------------------------------------------------------

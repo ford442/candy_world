@@ -98,6 +98,13 @@ export default defineConfig({
                     if (id.includes('/src/systems/composer/')) {
                         return 'composer';
                     }
+                    // Garden sequencer (Music Garden slice B): plays planted chime tulips and
+                    // drum puffballs; loaded by the audio/garden-lazy.ts stub (in `app`) once
+                    // one exists. The trailing slash keeps the stub and garden-hooks.ts in
+                    // `app`. Must come before the generic `/src/audio/` → app rule.
+                    if (id.includes('/src/audio/garden/')) {
+                        return 'garden';
+                    }
                     // Gameplay abilities (blaster, mines, chord, harpoon, glitch grenade)
                     if (
                         (id.includes('/src/gameplay/') &&
